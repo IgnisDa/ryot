@@ -12,11 +12,11 @@ import { findWorkoutSetEventSchema } from "./workouts";
 export const seedExerciseWorkout = (
 	client: Client,
 	input: {
-		exerciseId: EntityId;
 		name: string;
-		startedAt: string;
 		endedAt?: string;
+		startedAt: string;
 		timeoutMs?: number;
+		exerciseId: EntityId;
 		exerciseNotes?: JsonValue;
 		properties?: Record<string, JsonValue>;
 		sets: ReadonlyArray<{ occurredAt: string; properties: Record<string, JsonValue> }>;

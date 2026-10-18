@@ -27,8 +27,8 @@ export const insertRelationshipRow = (
 	input: {
 		sourceEntityId: string;
 		targetEntityId: string;
-		relationshipSchema: CreateRelationshipBody["relationshipSchema"];
 		properties?: Record<string, unknown>;
+		relationshipSchema: CreateRelationshipBody["relationshipSchema"];
 	},
 ) =>
 	createRelationship(client, {

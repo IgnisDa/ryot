@@ -125,19 +125,19 @@ export const authoredEntityBrowserSettings = {
 
 type CreatePayload = ContractPayload<"savedViews", "create">;
 type UpdatePayload = Omit<ContractPayload<"savedViews", "update">, "reference">;
+type CommonOverrides = { icon?: string; name?: string; workspaceInstallationId?: string };
+type ResultsTableCreatePayload = Extract<CreatePayload, { renderer: { name: "results-table" } }>;
+type ConfigOverrides = { dataSources?: RyotQLDocument; settings?: EntityBrowserSavedViewSettings };
+
+type EntityBrowserUpdatePayload = UpdatePayload &
+	Pick<EntityBrowserCreatePayload, "renderer" | "settings" | "dataSources">;
 type EntityBrowserCreatePayload = Extract<
 	CreatePayload,
-	{ renderer: { name: "collection-browser" | "entity-browser" } }
+	{ renderer: { name: "entity-browser" | "collection-browser" } }
 >;
-type ResultsTableCreatePayload = Extract<CreatePayload, { renderer: { name: "results-table" } }>;
-type EntityBrowserUpdatePayload = UpdatePayload &
-	Pick<EntityBrowserCreatePayload, "dataSources" | "renderer" | "settings">;
-
-type CommonOverrides = { icon?: string; name?: string; workspaceInstallationId?: string };
-type ConfigOverrides = { dataSources?: RyotQLDocument; settings?: EntityBrowserSavedViewSettings };
-type UpdateOverrides = Partial<{ isHidden: boolean; workspaceInstallationId: string | null }> &
+type UpdateOverrides = ConfigOverrides &
 	Omit<CommonOverrides, "workspaceInstallationId"> &
-	ConfigOverrides;
+	Partial<{ isHidden: boolean; workspaceInstallationId: null | string }>;
 
 const entityBrowserRenderer = { kind: "kernel", name: "entity-browser" } as const;
 
@@ -200,7 +200,7 @@ export const createSavedView = (
 
 export const createTableSavedView = (
 	client: Client,
-	input: Omit<ResultsTableCreatePayload, "renderer" | "icon"> & { readonly icon?: string },
+	input: { readonly icon?: string } & Omit<ResultsTableCreatePayload, "icon" | "renderer">,
 ) =>
 	client
 		.call((c) =>
@@ -271,7 +271,7 @@ export const findSavedViewById = (
 
 export const savedViewRecordPath = (view: {
 	readonly reference: SavedViewReference;
-	readonly packageId: PluginPackageId | null;
+	readonly packageId: null | PluginPackageId;
 }) =>
 	view.reference.kind === "plugin"
 		? savedViewPath({

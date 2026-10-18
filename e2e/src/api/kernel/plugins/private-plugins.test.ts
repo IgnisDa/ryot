@@ -99,7 +99,7 @@ describe("private plugins", () => {
 					}),
 				);
 				return requireRows(result.data.installations, "installations").items.filter((item) =>
-					["ryot/fitness", "ryot/media"].includes(requireRyotQLText(item, "packageId")),
+					["ryot/media", "ryot/fitness"].includes(requireRyotQLText(item, "packageId")),
 				);
 			});
 			const items = yield* pollUntil(

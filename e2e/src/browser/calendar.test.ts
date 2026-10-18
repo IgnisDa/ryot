@@ -18,7 +18,7 @@ const calendarPath = savedViewPath({ kind: "kernel", slug: "calendar" });
 const monthParam = (page: Playwright.Page) =>
 	page.evaluate(() => new URLSearchParams(window.location.search).get("month"));
 
-const waitForMonthParam = (page: Playwright.Page, previous: string | null) =>
+const waitForMonthParam = (page: Playwright.Page, previous: null | string) =>
 	page.locator("body").waitForFunction((body, before) => {
 		const month = new URLSearchParams(body.ownerDocument.location.search).get("month");
 		return month !== null && month !== before;

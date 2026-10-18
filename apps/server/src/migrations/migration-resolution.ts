@@ -17,27 +17,27 @@ import { Effect } from "effect";
 
 import { quoteSqlString, withReservedConnection } from "./shared";
 
-export type QualifiedSchema = { pluginId: string | null; slug: string };
+export type QualifiedSchema = { slug: string; pluginId: null | string };
+
+export type LegacyPackageResolution = {
+	mediaPluginId: string;
+	fitnessPluginId: string;
+	providers: Map<string, string>;
+	installations: Map<string, string>;
+	mediaUserSettingsSchema: AppSchema;
+	fitnessUserSettingsSchema: AppSchema;
+	scripts: Map<string, { slug: string }>;
+	savedViews: Map<string, QualifiedSchema>;
+	eventSchemas: Map<string, QualifiedSchema>;
+	entitySchemas: Map<string, QualifiedSchema>;
+	relationshipSchemas: Map<string, QualifiedSchema>;
+	integrationProviders: Map<string, ResolvedIntegrationProvider>;
+};
 
 type ResolvedIntegrationProvider = PluginIntegrationProvider;
 
-export type LegacyPackageResolution = {
-	entitySchemas: Map<string, QualifiedSchema>;
-	eventSchemas: Map<string, QualifiedSchema>;
-	fitnessPluginId: string;
-	fitnessUserSettingsSchema: AppSchema;
-	installations: Map<string, string>;
-	integrationProviders: Map<string, ResolvedIntegrationProvider>;
-	mediaPluginId: string;
-	mediaUserSettingsSchema: AppSchema;
-	providers: Map<string, string>;
-	relationshipSchemas: Map<string, QualifiedSchema>;
-	savedViews: Map<string, QualifiedSchema>;
-	scripts: Map<string, { slug: string }>;
-};
-
-const qualifiedKey = (pluginId: string | null, slug: string) => identityTupleKey(pluginId, slug);
-const eventKey = (pluginId: string | null, entitySchemaSlug: string, slug: string) =>
+const qualifiedKey = (pluginId: null | string, slug: string) => identityTupleKey(pluginId, slug);
+const eventKey = (pluginId: null | string, entitySchemaSlug: string, slug: string) =>
 	identityTupleKey(pluginId, entitySchemaSlug, slug);
 const installationKey = (userId: string, pluginId: string) => identityTupleKey(userId, pluginId);
 
@@ -46,11 +46,11 @@ type ActivePackage = {
 	packageId: string;
 	revisionId: string;
 	manifest: PluginManifest;
-	configRevisionId: string | null;
+	configRevisionId: null | string;
 };
 
 const requireSystemPlugin = Effect.fn(function* (
-	name: "Fitness" | "Media",
+	name: "Media" | "Fitness",
 	packageId: PluginPackageId,
 ) {
 	const plugin = yield* (yield* PluginRepository).findActiveSystemPluginByPackageId(packageId);
@@ -391,7 +391,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 });
 
 export const resolveEntityMigrationTargets = <
-	T extends { source: string; entitySchemaSlug: string; providerSlug: string | null },
+	T extends { source: string; entitySchemaSlug: string; providerSlug: null | string },
 >(
 	targets: readonly T[],
 	resolution: LegacyPackageResolution,
@@ -417,9 +417,9 @@ export const resolveEntityMigrationTargets = <
 	});
 
 export const resolveRelationshipMigrationTargets = (input: {
-	lotToEntitySchemaSlug: Map<string, string>;
 	pluginId: string;
 	resolution: LegacyPackageResolution;
+	lotToEntitySchemaSlug: Map<string, string>;
 	sourceEntitySchemaSlug: "person" | "company";
 }) => {
 	const targets = [];
@@ -457,7 +457,7 @@ export const requireMapped = <T>(
 
 export const requireSchema = (
 	map: Map<string, QualifiedSchema>,
-	pluginId: string | null,
+	pluginId: null | string,
 	slug: string,
 	kind: string,
 ) => {
@@ -472,7 +472,7 @@ export const requireSchema = (
 
 export const requireEventSchema = (
 	resolution: LegacyPackageResolution,
-	pluginId: string | null,
+	pluginId: null | string,
 	entitySchemaSlug: string,
 	slug: string,
 ) => {

@@ -16,30 +16,30 @@ import { buildReportSql, type ReportEntry } from "./shared";
 
 type JsonRecord = Record<string, unknown>;
 
+type LegacyS3AssetReference = { key: string; userId: null | string };
+
 type LegacyS3Row = {
 	id: string;
+	userId: null | string;
 	properties: JsonRecord;
-	source: "entity" | "event";
-	userId: string | null;
+	source: "event" | "entity";
 };
-
-type LegacyS3AssetReference = { key: string; userId: string | null };
 
 type LegacyS3AssetMigrationResult = {
 	deleted: number;
-	deletionFailures: number;
 	discovered: number;
+	unresolved: number;
+	updatedRows: number;
 	elapsedSeconds: number;
+	deletionFailures: number;
 	managedAssetRows: number;
 	referencesMigrated: number;
-	updatedRows: number;
-	unresolved: number;
 };
 
 const isJsonRecord = (value: unknown): value is JsonRecord =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const referenceKey = (userId: string | null, key: string) => `${userId ?? ""}\u0000${key}`;
+const referenceKey = (userId: null | string, key: string) => `${userId ?? ""}\u0000${key}`;
 
 const collectS3Keys = (value: unknown, keys: Set<string>) => {
 	if (Array.isArray(value)) {

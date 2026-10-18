@@ -16,8 +16,8 @@ const operationTransport =
 	(client: Client, idempotencyKey?: string) =>
 	(
 		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> & {
-			readonly packageId: PluginPackageId;
 			readonly operationSlug: string;
+			readonly packageId: PluginPackageId;
 		},
 	) =>
 		client

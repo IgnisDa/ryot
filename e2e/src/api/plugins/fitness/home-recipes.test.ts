@@ -125,12 +125,12 @@ describe("Home muscle activity recipe", () => {
 				});
 				const activity = yield* executeRyotQLRecipe(client, recipe);
 				const ids = new Set<string>([
-					shared.id,
-					personal.id,
-					stabilizerOnly.id,
 					idle.id,
-					unlinked.id,
+					shared.id,
 					foreign.id,
+					personal.id,
+					unlinked.id,
+					stabilizerOnly.id,
 				]);
 				expect(activity.filter(({ id }) => ids.has(id))).toEqual([
 					{ id: idle.id, weeklySets: 0, name: idle.name, lastTrainedAt: null },

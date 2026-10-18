@@ -30,7 +30,7 @@ InputOTPGroup.displayName = "InputOTPGroup";
 
 const InputOTPSlot = forwardRef<
 	ComponentRef<"div">,
-	ComponentPropsWithoutRef<"div"> & { index: number }
+	{ index: number } & ComponentPropsWithoutRef<"div">
 >((props, ref) => {
 	const { index, className, ...rest } = props;
 	const inputOTPContext = useContext(OTPInputContext);
@@ -66,4 +66,4 @@ const InputOTPSeparator = forwardRef<ComponentRef<"div">, ComponentPropsWithoutR
 );
 InputOTPSeparator.displayName = "InputOTPSeparator";
 
-export { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot };
+export { InputOTP, InputOTPSlot, InputOTPGroup, InputOTPSeparator };

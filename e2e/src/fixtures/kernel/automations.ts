@@ -43,10 +43,10 @@ import {
 export type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 export type {
 	AutomationRun,
-	AutomationRunAttempt,
-	AutomationRunAttemptFilter,
 	AutomationRunFilter,
+	AutomationRunAttempt,
 	AutomationTriggerFilter,
+	AutomationRunAttemptFilter,
 	AutomationTriggerRecipientFilter,
 } from "./admin-automations";
 
@@ -81,7 +81,7 @@ export const deleteNotificationRule = (client: Client, ruleId: string) =>
 		c.automations.deleteRule({ params: { ruleId: NotificationSubscriptionId.make(ruleId) } }),
 	);
 
-const automationFilterLabel = (filter: AutomationTriggerFilter | AutomationRunFilter): string =>
+const automationFilterLabel = (filter: AutomationRunFilter | AutomationTriggerFilter): string =>
 	filter.triggerId ??
 	filter.rootExecutionId ??
 	("hookSlug" in filter ? filter.hookSlug : undefined) ??
@@ -117,17 +117,15 @@ export const pollAutomationTrigger = (payload: AutomationTriggerFilter, target?:
 		}),
 	);
 
+export type SignalTriggerFilter = Pick<SignalPayload, "actorUserId"> & {
+	signalSchema: SignalSchemaReference;
+} & Partial<Pick<SignalPayload, "subjectEntityId">>;
+type SignalTrigger = AutomationTrigger & { readonly payload: SignalPayload };
+
 type SignalPayload = Extract<
 	NonNullable<AutomationTrigger["payload"]>,
 	{ readonly category: "signal" }
 >;
-type SignalTrigger = AutomationTrigger & { readonly payload: SignalPayload };
-
-export type SignalTriggerFilter = { signalSchema: SignalSchemaReference } & Pick<
-	SignalPayload,
-	"actorUserId"
-> &
-	Partial<Pick<SignalPayload, "subjectEntityId">>;
 
 const isSignalTrigger = (trigger: AutomationTrigger): trigger is SignalTrigger =>
 	trigger.payload?.category === "signal";
@@ -224,7 +222,7 @@ export const pollAutomationRuns = (
 		),
 	);
 
-const terminalRunStatuses = new Set(["succeeded", "failed", "rejected", "skipped"]);
+const terminalRunStatuses = new Set(["failed", "skipped", "rejected", "succeeded"]);
 
 export const pollTerminalAutomationRuns = (payload: AutomationRunFilter, target?: HarnessTarget) =>
 	pollUntil(

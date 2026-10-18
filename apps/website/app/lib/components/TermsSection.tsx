@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 interface TermsSectionProps {
-	number: number;
 	title: string;
+	number: number;
 	children: ReactNode;
 }
 

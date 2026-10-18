@@ -8,14 +8,6 @@ import type { ContractSession } from "./contract-client";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-type CatalogEvent = typeof PLUGIN_CATALOG_CONNECTED_EVENT | typeof PLUGIN_CATALOG_INVALIDATED_EVENT;
-type EventWaiter = {
-	event: CatalogEvent;
-	reject: (error: Error) => void;
-	resolve: (event: CatalogEvent) => void;
-};
-type WaitOptions = { readonly timeoutMs?: number };
-
 export type PluginCatalogEventStream = {
 	close: () => Effect.Effect<void>;
 	drainQueuedEvents: () => Effect.Effect<readonly CatalogEvent[]>;
@@ -23,8 +15,16 @@ export type PluginCatalogEventStream = {
 	waitForCatalogInvalidated: (options?: WaitOptions) => Effect.Effect<void>;
 	assertNoInvalidation: (options?: { readonly windowMs?: number }) => Effect.Effect<void>;
 };
+type WaitOptions = { readonly timeoutMs?: number };
+type CatalogEvent = typeof PLUGIN_CATALOG_CONNECTED_EVENT | typeof PLUGIN_CATALOG_INVALIDATED_EVENT;
 
-const parseEventBlock = (block: string): CatalogEvent | null => {
+type EventWaiter = {
+	event: CatalogEvent;
+	reject: (error: Error) => void;
+	resolve: (event: CatalogEvent) => void;
+};
+
+const parseEventBlock = (block: string): null | CatalogEvent => {
 	let event: string | undefined;
 	for (const line of block.split(/\r?\n/)) {
 		if (line.startsWith(":")) {
@@ -66,7 +66,7 @@ export const openPluginCatalogEventsScoped = (
 
 			let buffer = "";
 			let closed = false;
-			let failure: Error | null = null;
+			let failure: null | Error = null;
 			const decoder = new TextDecoder();
 			const queued: CatalogEvent[] = [];
 			const waiters = new Set<EventWaiter>();

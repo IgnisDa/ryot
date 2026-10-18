@@ -38,8 +38,8 @@ export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSet
 });
 
 export const buildIntegrationMigrationSql = (input: {
-	installations: ReadonlyArray<{ installationId: string; userId: string }>;
 	providerSlugs: ReadonlyArray<string>;
+	installations: ReadonlyArray<{ userId: string; installationId: string }>;
 }) => {
 	const installationValuesSql =
 		input.installations

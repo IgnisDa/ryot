@@ -21,7 +21,7 @@ type MediaReference = Parameters<typeof animeAiringSoonRecipe>[0]["reference"];
 
 const animeProperties = (
 	airingSchedule: readonly ScheduleEntry[],
-	publishDate: string | null = null,
+	publishDate: null | string = null,
 ) => ({
 	images: [],
 	publishDate,
@@ -48,7 +48,7 @@ describe("Anime airing schedule", () => {
 			const seedAnime = (
 				name: string,
 				airingSchedule: readonly ScheduleEntry[],
-				publishDate: string | null = null,
+				publishDate: null | string = null,
 			) =>
 				seedMediaEntity({
 					name,

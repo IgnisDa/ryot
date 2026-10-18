@@ -7,16 +7,23 @@ export function requirePresent<T>(value: T, message: string): NonNullable<T> {
 	return value;
 }
 
+export function assertCondition(condition: boolean, message: string): asserts condition {
+	if (!condition) {
+		throw new Error(message);
+	}
+}
+
 export function assertPresent<T>(value: T, message: string): asserts value is NonNullable<T> {
 	if (!value) {
 		throw new Error(message);
 	}
 }
 
-export function assertCondition(condition: boolean, message: string): asserts condition {
-	if (!condition) {
+export function requireArray(value: unknown, message: string): unknown[] {
+	if (!Array.isArray(value)) {
 		throw new Error(message);
 	}
+	return value;
 }
 
 export function requireString(value: unknown, message: string): string {
@@ -33,6 +40,16 @@ export function requireNumber(value: unknown, message: string): number {
 	return value;
 }
 
+export function requireNonEmptyArray<T>(
+	value: undefined | readonly T[],
+	message: string,
+): [T, ...T[]] {
+	if (!value || !isNonEmptyArray(value)) {
+		throw new Error(message);
+	}
+	return value;
+}
+
 export function requireObjectRecord(value: unknown, message: string): Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new Error(message);
@@ -40,25 +57,13 @@ export function requireObjectRecord(value: unknown, message: string): Record<str
 	return Object.fromEntries(Object.entries(value));
 }
 
-export function requireArray(value: unknown, message: string): unknown[] {
-	if (!Array.isArray(value)) {
-		throw new Error(message);
+export function assertTaggedError<E extends { readonly _tag: string }, T extends E["_tag"]>(
+	error: E,
+	tag: T,
+): asserts error is Extract<E, { readonly _tag: T }> {
+	if (error._tag !== tag) {
+		throw new Error(`Expected error tag '${tag}' but received '${error._tag}'`);
 	}
-	return value;
-}
-
-function isNonEmptyArray<T>(arr: readonly T[]): arr is [T, ...T[]] {
-	return arr.length > 0;
-}
-
-export function requireNonEmptyArray<T>(
-	value: readonly T[] | undefined,
-	message: string,
-): [T, ...T[]] {
-	if (!value || !isNonEmptyArray(value)) {
-		throw new Error(message);
-	}
-	return value;
 }
 
 export function assertCompleted<T extends { status: string }>(
@@ -71,13 +76,8 @@ export function assertCompleted<T extends { status: string }>(
 	}
 }
 
-export function assertTaggedError<E extends { readonly _tag: string }, T extends E["_tag"]>(
-	error: E,
-	tag: T,
-): asserts error is Extract<E, { readonly _tag: T }> {
-	if (error._tag !== tag) {
-		throw new Error(`Expected error tag '${tag}' but received '${error._tag}'`);
-	}
+function isNonEmptyArray<T>(arr: readonly T[]): arr is [T, ...T[]] {
+	return arr.length > 0;
 }
 
 export const resultToEffect = <A, E>(result: Result.Result<A, E>) =>

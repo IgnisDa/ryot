@@ -11,7 +11,7 @@ type SectionHeaderProps = {
 	maxWidth?: string;
 	title: string | ReactNode;
 	description?: string | ReactNode;
-	badgeVariant?: "default" | "secondary" | "outline" | "destructive";
+	badgeVariant?: "default" | "outline" | "secondary" | "destructive";
 };
 
 export const SectionHeader = (props: SectionHeaderProps) => {

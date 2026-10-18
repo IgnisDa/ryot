@@ -24,8 +24,8 @@ type GlobalRelationshipFilter =
 	| { readonly type: "self"; readonly relationshipSchemaSlug: RelationshipSchemaSlug }
 	| {
 			readonly type: "anchored";
-			readonly direction: "incoming" | "outgoing";
 			readonly anchorEntityId: EntityId;
+			readonly direction: "incoming" | "outgoing";
 			readonly relationshipSchemaSlug: RelationshipSchemaSlug;
 	  };
 

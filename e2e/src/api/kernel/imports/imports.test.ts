@@ -31,8 +31,8 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
-let fixtureImportPlugin: InstalledTestPlugin | undefined;
-let fixtureImportSourceReference: DeclarationReference | undefined;
+let fixtureImportPlugin: undefined | InstalledTestPlugin;
+let fixtureImportSourceReference: undefined | DeclarationReference;
 
 const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 	pollUntil(

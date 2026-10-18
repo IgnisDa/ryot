@@ -19,23 +19,209 @@ import {
 	sendEmail,
 } from "./utilities.server";
 
-type Customer = InferSelectModel<typeof schema.customer>;
-
 export type PaymentProviderIdentity = {
 	providerPriceId?: string;
 	providerProductId?: string;
 	paymentProvider: TPaymentProviders;
 };
 
+type Customer = InferSelectModel<typeof schema.customer>;
+
 type CloudAuthDetails = Extract<
 	NonNullable<PurchaseCompleteEmailProps["details"]>,
 	{ kind: "cloud" }
 >["auth"];
 
+export function getActivePurchase(customerId: string) {
+	return fromPromise(() =>
+		getDb().query.customerPurchase.findFirst({
+			where: and(
+				eq(schema.customerPurchase.customerId, customerId),
+				isNull(schema.customerPurchase.cancelledOn),
+			),
+		}),
+	);
+}
+
+export function revokePurchase(customer: Customer) {
+	return Effect.gen(function* () {
+		yield* fromPromise(() =>
+			getDb()
+				.update(schema.customerPurchase)
+				.set({ updatedOn: new Date(), cancelledOn: new Date() })
+				.where(
+					and(
+						eq(schema.customerPurchase.customerId, customer.id),
+						isNull(schema.customerPurchase.cancelledOn),
+					),
+				),
+		);
+
+		if (customer.ryotUserId) {
+			yield* setUserDisabled(UserId.make(customer.ryotUserId), true);
+		}
+
+		if (customer.unkeyKeyId) {
+			const unkey = getUnkeyClient();
+			const keyId = customer.unkeyKeyId;
+			yield* fromPromise(() => unkey.keys.updateKey({ keyId, enabled: false }));
+		}
+	});
+}
+
+export function handlePurchaseOrRenewal(
+	customer: Customer,
+	planType: TPlanTypes,
+	productType: TProductTypes,
+	paymentProviderCustomerId: string,
+	providerIdentity: PaymentProviderIdentity,
+) {
+	return Effect.gen(function* () {
+		const activePurchase = yield* getActivePurchase(customer.id);
+
+		if (!activePurchase) {
+			yield* Effect.log("Customer purchased plan:", {
+				planType,
+				productType,
+				providerIdentity,
+				paymentProviderCustomerId,
+			});
+			yield* provisionNewPurchase(
+				customer,
+				planType,
+				productType,
+				paymentProviderCustomerId,
+				providerIdentity,
+			);
+		} else {
+			yield* Effect.log("Customer renewed plan:", {
+				planType,
+				productType,
+				paymentProviderCustomerId,
+			});
+			yield* provisionRenewal(customer, planType, productType, activePurchase, providerIdentity);
+		}
+	});
+}
+
+export function provisionRenewal(
+	customer: Customer,
+	planType: TPlanTypes,
+	productType: TProductTypes,
+	activePurchase: InferSelectModel<typeof schema.customerPurchase>,
+	providerIdentity: PaymentProviderIdentity,
+) {
+	return Effect.gen(function* () {
+		const renewalDate = calculateRenewalDate(planType);
+		yield* fromPromise(() =>
+			getDb()
+				.update(schema.customerPurchase)
+				.set({
+					planType,
+					productType,
+					...providerIdentity,
+					updatedOn: new Date(),
+					renewOn: renewalDate?.toDate(),
+				})
+				.where(eq(schema.customerPurchase.id, activePurchase.id)),
+		);
+
+		if (customer.ryotUserId) {
+			yield* setUserDisabled(UserId.make(customer.ryotUserId), false);
+		}
+
+		if (customer.unkeyKeyId) {
+			const unkey = getUnkeyClient();
+			const keyId = customer.unkeyKeyId;
+
+			yield* fromPromise(() =>
+				unkey.keys.updateKey({
+					keyId,
+					enabled: true,
+					meta: renewalDate
+						? { expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")) }
+						: undefined,
+				}),
+			);
+		}
+	});
+}
+
+export function provisionNewPurchase(
+	customer: Customer,
+	planType: TPlanTypes,
+	productType: TProductTypes,
+	paymentProviderCustomerId: string,
+	providerIdentity: PaymentProviderIdentity,
+) {
+	return Effect.gen(function* () {
+		const { details, ryotUserId, unkeyKeyId } =
+			productType === "cloud"
+				? yield* handleCloudPurchase(customer)
+				: yield* handleSelfHostedPurchase(customer, planType);
+
+		const renewalDate = calculateRenewalDate(planType);
+		const renewOn = renewalDate ? formatDateToNaiveDate(renewalDate) : undefined;
+
+		const emailElement = PurchaseCompleteEmail({ renewOn, details, planType });
+		if (!emailElement) {
+			throw new Error("Failed to create email element");
+		}
+
+		yield* sendEmail({
+			element: emailElement,
+			recipient: customer.email,
+			subject: PurchaseCompleteEmail.subject,
+		});
+
+		yield* fromPromise(() =>
+			getDb()
+				.insert(schema.customerPurchase)
+				.values({
+					planType,
+					productType,
+					customerId: customer.id,
+					...providerIdentity,
+					renewOn: renewalDate?.toDate(),
+				}),
+		);
+
+		const updateData: {
+			ryotUserId?: null | string;
+			unkeyKeyId?: null | string;
+			polarCustomerId?: null | string;
+			paddleCustomerId?: null | string;
+		} = {};
+
+		if (ryotUserId && ryotUserId !== customer.ryotUserId) {
+			updateData.ryotUserId = ryotUserId;
+		}
+		if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) {
+			updateData.unkeyKeyId = unkeyKeyId;
+		}
+
+		if (customer.paymentProvider === "paddle" && paymentProviderCustomerId) {
+			if (paymentProviderCustomerId !== customer.paddleCustomerId) {
+				updateData.paddleCustomerId = paymentProviderCustomerId;
+			}
+		} else if (customer.paymentProvider === "polar" && paymentProviderCustomerId) {
+			if (paymentProviderCustomerId !== customer.polarCustomerId) {
+				updateData.polarCustomerId = paymentProviderCustomerId;
+			}
+		}
+
+		if (Object.keys(updateData).length > 0) {
+			yield* fromPromise(() =>
+				getDb().update(schema.customer).set(updateData).where(eq(schema.customer.id, customer.id)),
+			);
+		}
+	});
+}
+
 function getCloudAuthDetails(
 	userId: string,
 	email: string,
-	oidcIssuerId: string | null,
+	oidcIssuerId: null | string,
 ): Effect.Effect<CloudAuthDetails, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (oidcIssuerId) {
@@ -51,7 +237,7 @@ function getCloudAuthDetails(
 function handleCloudPurchase(
 	customer: Customer,
 ): Effect.Effect<
-	{ ryotUserId: string; unkeyKeyId: null; details: PurchaseCompleteEmailProps["details"] },
+	{ unkeyKeyId: null; ryotUserId: string; details: PurchaseCompleteEmailProps["details"] },
 	WebsiteFailure,
 	HttpClient.HttpClient
 > {
@@ -118,191 +304,5 @@ function handleSelfHostedPurchase(
 			unkeyKeyId: created.keyId,
 			details: { key: created.key, kind: "self_hosted" },
 		};
-	});
-}
-
-export function provisionNewPurchase(
-	customer: Customer,
-	planType: TPlanTypes,
-	productType: TProductTypes,
-	paymentProviderCustomerId: string,
-	providerIdentity: PaymentProviderIdentity,
-) {
-	return Effect.gen(function* () {
-		const { details, ryotUserId, unkeyKeyId } =
-			productType === "cloud"
-				? yield* handleCloudPurchase(customer)
-				: yield* handleSelfHostedPurchase(customer, planType);
-
-		const renewalDate = calculateRenewalDate(planType);
-		const renewOn = renewalDate ? formatDateToNaiveDate(renewalDate) : undefined;
-
-		const emailElement = PurchaseCompleteEmail({ renewOn, details, planType });
-		if (!emailElement) {
-			throw new Error("Failed to create email element");
-		}
-
-		yield* sendEmail({
-			element: emailElement,
-			recipient: customer.email,
-			subject: PurchaseCompleteEmail.subject,
-		});
-
-		yield* fromPromise(() =>
-			getDb()
-				.insert(schema.customerPurchase)
-				.values({
-					planType,
-					productType,
-					customerId: customer.id,
-					...providerIdentity,
-					renewOn: renewalDate?.toDate(),
-				}),
-		);
-
-		const updateData: {
-			ryotUserId?: string | null;
-			unkeyKeyId?: string | null;
-			polarCustomerId?: string | null;
-			paddleCustomerId?: string | null;
-		} = {};
-
-		if (ryotUserId && ryotUserId !== customer.ryotUserId) {
-			updateData.ryotUserId = ryotUserId;
-		}
-		if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) {
-			updateData.unkeyKeyId = unkeyKeyId;
-		}
-
-		if (customer.paymentProvider === "paddle" && paymentProviderCustomerId) {
-			if (paymentProviderCustomerId !== customer.paddleCustomerId) {
-				updateData.paddleCustomerId = paymentProviderCustomerId;
-			}
-		} else if (customer.paymentProvider === "polar" && paymentProviderCustomerId) {
-			if (paymentProviderCustomerId !== customer.polarCustomerId) {
-				updateData.polarCustomerId = paymentProviderCustomerId;
-			}
-		}
-
-		if (Object.keys(updateData).length > 0) {
-			yield* fromPromise(() =>
-				getDb().update(schema.customer).set(updateData).where(eq(schema.customer.id, customer.id)),
-			);
-		}
-	});
-}
-
-export function provisionRenewal(
-	customer: Customer,
-	planType: TPlanTypes,
-	productType: TProductTypes,
-	activePurchase: InferSelectModel<typeof schema.customerPurchase>,
-	providerIdentity: PaymentProviderIdentity,
-) {
-	return Effect.gen(function* () {
-		const renewalDate = calculateRenewalDate(planType);
-		yield* fromPromise(() =>
-			getDb()
-				.update(schema.customerPurchase)
-				.set({
-					planType,
-					productType,
-					...providerIdentity,
-					updatedOn: new Date(),
-					renewOn: renewalDate?.toDate(),
-				})
-				.where(eq(schema.customerPurchase.id, activePurchase.id)),
-		);
-
-		if (customer.ryotUserId) {
-			yield* setUserDisabled(UserId.make(customer.ryotUserId), false);
-		}
-
-		if (customer.unkeyKeyId) {
-			const unkey = getUnkeyClient();
-			const keyId = customer.unkeyKeyId;
-
-			yield* fromPromise(() =>
-				unkey.keys.updateKey({
-					keyId,
-					enabled: true,
-					meta: renewalDate
-						? { expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")) }
-						: undefined,
-				}),
-			);
-		}
-	});
-}
-
-export function revokePurchase(customer: Customer) {
-	return Effect.gen(function* () {
-		yield* fromPromise(() =>
-			getDb()
-				.update(schema.customerPurchase)
-				.set({ updatedOn: new Date(), cancelledOn: new Date() })
-				.where(
-					and(
-						eq(schema.customerPurchase.customerId, customer.id),
-						isNull(schema.customerPurchase.cancelledOn),
-					),
-				),
-		);
-
-		if (customer.ryotUserId) {
-			yield* setUserDisabled(UserId.make(customer.ryotUserId), true);
-		}
-
-		if (customer.unkeyKeyId) {
-			const unkey = getUnkeyClient();
-			const keyId = customer.unkeyKeyId;
-			yield* fromPromise(() => unkey.keys.updateKey({ keyId, enabled: false }));
-		}
-	});
-}
-
-export function getActivePurchase(customerId: string) {
-	return fromPromise(() =>
-		getDb().query.customerPurchase.findFirst({
-			where: and(
-				eq(schema.customerPurchase.customerId, customerId),
-				isNull(schema.customerPurchase.cancelledOn),
-			),
-		}),
-	);
-}
-
-export function handlePurchaseOrRenewal(
-	customer: Customer,
-	planType: TPlanTypes,
-	productType: TProductTypes,
-	paymentProviderCustomerId: string,
-	providerIdentity: PaymentProviderIdentity,
-) {
-	return Effect.gen(function* () {
-		const activePurchase = yield* getActivePurchase(customer.id);
-
-		if (!activePurchase) {
-			yield* Effect.log("Customer purchased plan:", {
-				planType,
-				productType,
-				providerIdentity,
-				paymentProviderCustomerId,
-			});
-			yield* provisionNewPurchase(
-				customer,
-				planType,
-				productType,
-				paymentProviderCustomerId,
-				providerIdentity,
-			);
-		} else {
-			yield* Effect.log("Customer renewed plan:", {
-				planType,
-				productType,
-				paymentProviderCustomerId,
-			});
-			yield* provisionRenewal(customer, planType, productType, activePurchase, providerIdentity);
-		}
 	});
 }

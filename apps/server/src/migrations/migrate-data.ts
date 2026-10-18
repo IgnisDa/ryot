@@ -152,9 +152,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const resolution = yield* buildLegacyPackageResolution(userIds);
 	const mediaPluginId = resolution.mediaPluginId;
 	const fitnessPluginId = resolution.fitnessPluginId;
-	const entitySchema = (pluginId: string | null, slug: string) =>
+	const entitySchema = (pluginId: null | string, slug: string) =>
 		requireSchema(resolution.entitySchemas, pluginId, slug, "entity schema");
-	const relationshipSchema = (pluginId: string | null, slug: string) =>
+	const relationshipSchema = (pluginId: null | string, slug: string) =>
 		requireSchema(resolution.relationshipSchemas, pluginId, slug, "relationship schema");
 	const metadataEntitySchemaSlugByLot = buildUniqueLotEntitySchemaSlugMap(
 		metadataMigrationTargets.map(({ lot, entitySchemaSlug }) => ({ lot, entitySchemaSlug })),

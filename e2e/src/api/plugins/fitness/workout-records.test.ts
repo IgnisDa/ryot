@@ -50,7 +50,7 @@ const waitForReadyWorkoutSets = (
 		timeoutMs,
 	);
 
-const isoString = (value: string | Date) => new Date(value).toISOString();
+const isoString = (value: Date | string) => new Date(value).toISOString();
 
 const workoutSourceRecipe = defineRecipe((input: { readonly eventId: string }) => {
 	const source = table("event", "source");

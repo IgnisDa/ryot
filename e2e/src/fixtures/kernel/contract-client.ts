@@ -11,13 +11,13 @@ import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-ta
 import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
-	readonly target: HarnessTarget;
 	readonly userId?: UserId;
+	readonly target: HarnessTarget;
+	adminCall: <A, E>(program: ContractProgram<A, E>) => Effect.Effect<A, E, HttpClient.HttpClient>;
 	call: <A, E>(
 		program: ContractProgram<A, E>,
 		headers?: RequestHeaders,
 	) => Effect.Effect<A, E, HttpClient.HttpClient>;
-	adminCall: <A, E>(program: ContractProgram<A, E>) => Effect.Effect<A, E, HttpClient.HttpClient>;
 };
 
 export const makeSession = (

@@ -11,7 +11,7 @@ import { makeTestResourceScope } from "~/support/resource-scope";
 const S3_BUCKET_NAME = "ryot-pro-key-test";
 const VALID_KEY_ENV_VALUE = "e2e-pro-key";
 
-const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<string, unknown> }) =>
+const unkeyEnvelope = (data: { code: string; valid: boolean; meta?: Record<string, unknown> }) =>
 	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 const validKeyRespond = () =>
@@ -19,13 +19,13 @@ const validKeyRespond = () =>
 
 type ScenarioName =
 	| "noKey"
+	| "cache"
 	| "validTrue"
 	| "validFalse"
 	| "expiredMeta"
-	| "malformedMeta"
 	| "serverError"
 	| "unreachable"
-	| "cache";
+	| "malformedMeta";
 
 type ScenarioConfig = {
 	unreachable?: boolean;
@@ -71,8 +71,8 @@ const scenarioNames: ScenarioName[] = [
 ];
 
 type ScenarioInstance = {
-	target: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 	fake?: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
+	target: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 };
 
 const scenarios = new Map<ScenarioName, ScenarioInstance>();

@@ -28,7 +28,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-	extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+	extends VariantProps<typeof buttonVariants>, ButtonHTMLAttributes<HTMLButtonElement> {
 	asChild?: boolean;
 }
 

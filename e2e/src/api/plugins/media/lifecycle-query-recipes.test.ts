@@ -143,7 +143,7 @@ const loadLifecycleSchemas = (client: Client) =>
 const AIRED = "2020-01-01";
 const UNAIRED = "2999-01-01";
 
-type PublishDates = ReadonlyArray<string | null>;
+type PublishDates = ReadonlyArray<null | string>;
 
 const episodesOf = (count: number, publishDates?: PublishDates) =>
 	Array.from({ length: count }, (_, index) => ({
@@ -282,7 +282,7 @@ const readCreatedOrder = (client: Client, entityId: string, occurredAt: string) 
 			}));
 	});
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 

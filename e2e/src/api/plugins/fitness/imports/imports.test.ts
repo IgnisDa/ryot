@@ -150,7 +150,7 @@ describe("OpenScale Import E2E", () => {
 				Object.fromEntries(result.items.map(({ unit, metricKey }) => [metricKey, unit])),
 			).toEqual({ fat: "%", water: "%", muscle: "%", bmi: "kg/m²", weight: "kg" });
 			expect(new Set(result.items.map(({ metricName }) => metricName))).toEqual(
-				new Set(["weight", "bmi", "fat", "water", "muscle"]),
+				new Set(["bmi", "fat", "water", "weight", "muscle"]),
 			);
 		}),
 	);

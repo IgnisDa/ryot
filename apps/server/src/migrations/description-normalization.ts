@@ -85,10 +85,10 @@ const normalizeDescription = Effect.fn("normalizeLegacyDescription")(function* (
 		return yield* normalizeAnilistDescription(input.description, input.baseUrl ?? undefined);
 	}
 	switch (input.format) {
-		case "plain":
-			return normalizePlainDescription(input.description);
 		case "vndb":
 			return yield* normalizeVndbDescription(input.description, input.baseUrl ?? undefined);
+		case "plain":
+			return normalizePlainDescription(input.description);
 		case "legacy-mixed":
 			return yield* normalizeRichDescription(input.description, input.baseUrl ?? undefined);
 		default:
@@ -122,7 +122,7 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 		[],
 	);
 	const counts = new Map<string, number>();
-	let cursor: string | null = null;
+	let cursor: null | string = null;
 	for (;;) {
 		const inputs: ReadonlyArray<typeof DescriptionInput.Type> = yield* connection
 			.execute(

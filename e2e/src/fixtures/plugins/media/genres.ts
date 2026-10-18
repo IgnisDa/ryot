@@ -11,8 +11,8 @@ import { requirePresent } from "~/support/assertions";
 import type { HarnessTarget } from "~/support/harness-target";
 
 export const seedGlobalMediaGenres = (input: {
-	target?: HarnessTarget;
 	entityId: string;
+	target?: HarnessTarget;
 	entitySchemaSlug: string;
 	names: readonly string[];
 }) =>

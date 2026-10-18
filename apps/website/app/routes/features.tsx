@@ -132,7 +132,7 @@ export default function Page() {
 	);
 }
 
-const FeatureItem = (props: { children: ReactNode; isPro?: boolean }) => (
+const FeatureItem = (props: { isPro?: boolean; children: ReactNode }) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
 		<CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
 		<div className="flex items-start flex-wrap gap-1">

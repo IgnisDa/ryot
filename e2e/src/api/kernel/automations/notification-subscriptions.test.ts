@@ -45,7 +45,7 @@ describe("notification subscription catalog and rules", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId: fitnessPluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const { pluginId: mediaPluginId } = yield* findMediaEntitySchema(client, "movie");
-			const shippedOwners = new Set<string | null>([null, fitnessPluginId, mediaPluginId]);
+			const shippedOwners = new Set<null | string>([null, mediaPluginId, fitnessPluginId]);
 			const catalog = (yield* listAutomationCatalog(client)).filter(({ pluginId }) =>
 				shippedOwners.has(pluginId),
 			);

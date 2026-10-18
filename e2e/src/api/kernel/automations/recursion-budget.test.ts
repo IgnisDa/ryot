@@ -29,10 +29,10 @@ type CompiledAutomationScript = Extract<
 	PluginScript,
 	{ kind: "automation"; automationType: "automation" }
 >;
-type AutomationScript = Extract<
+type AutomationScript = { readonly entry: string } & Extract<
 	TestPluginScript,
 	{ kind: "automation"; automationType: "automation" }
-> & { readonly entry: string };
+>;
 
 const automationScript = (
 	slug: string,
@@ -75,9 +75,9 @@ export default defineAutomation({
 `;
 
 const recursionRootSource = (input: {
+	readonly script: AutomationScript;
 	readonly childEventSchemaSlug: string;
 	readonly relationshipSchemaSlug: string;
-	readonly script: AutomationScript;
 }) => `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
@@ -150,8 +150,8 @@ export default defineAutomation({
 `;
 
 const fanoutRootSource = (input: {
-	readonly childEventSchemaSlug: string;
 	readonly script: AutomationScript;
+	readonly childEventSchemaSlug: string;
 }) => `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";

@@ -24,7 +24,7 @@ import { describe, expect, it } from "~/support/effect-test";
 
 type MediaReference = Parameters<typeof latestCompletionSuggestionsRecipe>[0]["reference"];
 
-const seedTitle = (schemaId: string, name: string, isNsfw: boolean | null = false) => {
+const seedTitle = (schemaId: string, name: string, isNsfw: null | boolean = false) => {
 	const suffix = crypto.randomUUID();
 	return seedMediaEntity({
 		userId: null,

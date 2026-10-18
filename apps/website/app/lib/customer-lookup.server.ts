@@ -7,11 +7,8 @@ import { fromPromise, type WebsiteFailure } from "~/lib/effect.server";
 
 type Customer = InferSelectModel<typeof customer>;
 
-export function findCustomerByField(
-	field: keyof typeof customer.$inferSelect,
-	value: string,
-): Effect.Effect<Customer | undefined, WebsiteFailure> {
-	return fromPromise(() => getDb().query.customer.findFirst({ where: eq(customer[field], value) }));
+export function findCustomerById(customerId: string) {
+	return findCustomerByField("id", customerId);
 }
 
 export function findCustomerByPolarId(polarCustomerId: string) {
@@ -22,8 +19,11 @@ export function findCustomerByPaddleId(paddleCustomerId: string) {
 	return findCustomerByField("paddleCustomerId", paddleCustomerId);
 }
 
-export function findCustomerById(customerId: string) {
-	return findCustomerByField("id", customerId);
+export function findCustomerByField(
+	field: keyof typeof customer.$inferSelect,
+	value: string,
+): Effect.Effect<Customer | undefined, WebsiteFailure> {
+	return fromPromise(() => getDb().query.customer.findFirst({ where: eq(customer[field], value) }));
 }
 
 export function findCustomerByPaddleCustomData(customData: unknown) {

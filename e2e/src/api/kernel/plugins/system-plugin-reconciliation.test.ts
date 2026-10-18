@@ -37,7 +37,7 @@ const privateConfig = {
 	[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
 };
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 const adminSession = () => makeSession(target);
@@ -92,7 +92,7 @@ const installShippedPlugin = (
 	);
 };
 
-const installationRows = (client: Client, packageId: PluginPackageId, scope: "system" | "user") =>
+const installationRows = (client: Client, packageId: PluginPackageId, scope: "user" | "system") =>
 	Effect.gen(function* () {
 		const plugin = table("plugin", "plugin");
 		const installation = table("pluginInstallation", "installation");
@@ -120,7 +120,7 @@ const installationRows = (client: Client, packageId: PluginPackageId, scope: "sy
 const settledInstallation = (
 	client: Client,
 	packageId: PluginPackageId,
-	scope: "system" | "user",
+	scope: "user" | "system",
 ) =>
 	pollUntil(
 		`${scope} installation of '${packageId}'`,

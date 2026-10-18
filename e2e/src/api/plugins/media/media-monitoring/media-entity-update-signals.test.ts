@@ -21,7 +21,7 @@ import type { FakeHttpServer } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let fakeApprise: FakeHttpServer;
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 

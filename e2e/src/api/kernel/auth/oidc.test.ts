@@ -57,19 +57,15 @@ const listPluginCount = (target: HarnessTarget, token: string) =>
 let apiPortA: number;
 let apiPortB: number;
 let apiPortC: number;
-let apiProcessA: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
-let apiProcessB: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
-let apiProcessC: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+let apiProcessA: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
+let apiProcessB: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
+let apiProcessC: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
 const targetA = () => requirePresent(apiProcessA, "OIDC API A is not initialised").target;
 const targetB = () => requirePresent(apiProcessB, "OIDC API B is not initialised").target;
 const targetC = () => requirePresent(apiProcessC, "OIDC API C is not initialised").target;
-let mockOidcServer: MockOidcServer | undefined;
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let mockOidcServer: undefined | MockOidcServer;
+let coreInfrastructure: undefined | Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>;
 const resources = makeTestResourceScope();
-
-function requireMockOidcServer() {
-	return requirePresent(mockOidcServer, "Mock OIDC server is not initialised");
-}
 
 function getApiUrlA() {
 	return `http://127.0.0.1:${apiPortA}/api`;
@@ -81,6 +77,10 @@ function getApiUrlB() {
 
 function getApiUrlC() {
 	return `http://127.0.0.1:${apiPortC}/api`;
+}
+
+function requireMockOidcServer() {
+	return requirePresent(mockOidcServer, "Mock OIDC server is not initialised");
 }
 
 function requireCoreInfrastructure() {

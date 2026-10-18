@@ -6,7 +6,7 @@ import { defineConfig } from "vitepress";
 const getSourceFiles = (dir: string) =>
 	fs
 		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
-		.filter((file) => !["community.md", "data-json.md", "overview.md"].includes(file) && file.endsWith(".md"))
+		.filter((file) => !["overview.md", "community.md", "data-json.md"].includes(file) && file.endsWith(".md"))
 		.sort()
 		.map((file) => {
 			const name = file.replace(".md", "");
@@ -42,10 +42,10 @@ export default defineConfig({
 		outline: "deep",
 		siteTitle: "Ryot",
 		search: { provider: "local" },
-		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png",
 		socialLinks: [{ icon: "github", link: "https://github.com/ignisda/ryot" }],
+		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png",
 		sidebar: [
-			{ text: "Installation", link: "/" },
+			{ link: "/", text: "Installation" },
 			{ text: "Configuration", link: "/configuration" },
 			{ text: "Deployment", link: "/deployment" },
 			{

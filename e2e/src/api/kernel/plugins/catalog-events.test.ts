@@ -20,7 +20,7 @@ import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 const adminSession = () => makeSession(target);

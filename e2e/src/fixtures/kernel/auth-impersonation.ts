@@ -30,14 +30,14 @@ const ImpersonationRedeemRequest = Schema.Struct({ ticket: Schema.String });
 const ImpersonationRedeemResponse = Schema.Struct({ authorizationUrl: Schema.String });
 
 type ImpersonationSession = {
-	readonly authorization: ImpersonationAuthorization;
 	readonly callback: URL;
 	readonly client: Client;
 	readonly cookie: string;
-	readonly handoffExpiresAt: number;
-	readonly pending: PendingOAuth;
 	readonly redeemedAt: number;
+	readonly pending: PendingOAuth;
+	readonly handoffExpiresAt: number;
 	readonly tokens: OAuthTokenResponse;
+	readonly authorization: ImpersonationAuthorization;
 };
 
 export const prepareImpersonationAuthorization = (
@@ -214,7 +214,7 @@ export const refreshImpersonationOAuthTokens = (
 	});
 
 export const endImpersonationSession = (
-	session: Pick<ImpersonationSession, "authorization" | "cookie" | "pending" | "tokens">,
+	session: Pick<ImpersonationSession, "cookie" | "tokens" | "pending" | "authorization">,
 ) =>
 	Effect.gen(function* () {
 		const idToken = requirePresent(

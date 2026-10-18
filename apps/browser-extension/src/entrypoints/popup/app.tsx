@@ -37,8 +37,8 @@ const App = () => {
 	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
 	const [url, setUrl] = useState("");
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
-	const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
-	const [currentVideoTitle, setCurrentVideoTitle] = useState<string | null>(null);
+	const [extensionStatus, setExtensionStatus] = useState<null | ExtensionStatus>(null);
+	const [currentVideoTitle, setCurrentVideoTitle] = useState<null | string>(null);
 	const [debugMode, setDebugMode] = useState(false);
 
 	const validateUrl = (urlString: string) => {

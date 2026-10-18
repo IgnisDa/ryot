@@ -7,8 +7,8 @@ import { seedMediaEntity } from "./media";
 export const seedPopulatedProviderEntity = (input: {
 	name: string;
 	externalId: string;
-	entitySchemaSlug: string;
 	providerId: string;
+	entitySchemaSlug: string;
 	properties: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {

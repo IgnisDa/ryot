@@ -52,7 +52,7 @@ const readEvents = (
 		eventSchemaSlug === undefined ? {} : { eventSchemaSlug },
 	);
 
-const codes = (items: readonly { seasonNumber: number | null; episodeNumber: number }[]) =>
+const codes = (items: readonly { episodeNumber: number; seasonNumber: null | number }[]) =>
 	items.map((item) => `S${item.seasonNumber}E${item.episodeNumber}`);
 
 describe("Media activity log operation", () => {

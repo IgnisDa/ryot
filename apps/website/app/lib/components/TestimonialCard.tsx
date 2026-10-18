@@ -3,8 +3,8 @@ import { Card, CardContent } from "~/lib/components/ui/card";
 import { StarRating } from "./StarRating";
 
 export interface Testimonial {
-	quote: string;
 	name: string;
+	quote: string;
 	title: string;
 	rating: number;
 	initials: string;

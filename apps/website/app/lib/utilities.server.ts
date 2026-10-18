@@ -88,7 +88,7 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 	throw new Error("Price ID not found");
 };
 
-export const getProductAndPlanTypeByPolarIds = (productId: string, priceId?: string | null) => {
+export const getProductAndPlanTypeByPolarIds = (productId: string, priceId?: null | string) => {
 	const { POLAR_SANDBOX } = getServerVariables();
 	const environment = getPaymentEnvironment(POLAR_SANDBOX);
 	const catalogs = [

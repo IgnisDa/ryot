@@ -20,8 +20,8 @@ export const createPluginEntitySchema = (
 	options: {
 		schemaName: string;
 		schemaSlug?: string;
-		propertiesSchema?: Parameters<typeof createEntitySchema>[1]["propertiesSchema"];
 		pluginSlug?: string;
+		propertiesSchema?: Parameters<typeof createEntitySchema>[1]["propertiesSchema"];
 	},
 ) =>
 	Effect.gen(function* () {
@@ -37,9 +37,10 @@ export const createPluginEntitySchema = (
 
 export const createEntityFixture = (
 	client: Client,
-	input: Pick<ContractPayload<"entities", "create">, "name" | "entitySchema"> & {
-		properties?: Record<string, unknown>;
-	},
+	input: { properties?: Record<string, unknown> } & Pick<
+		ContractPayload<"entities", "create">,
+		"name" | "entitySchema"
+	>,
 ) =>
 	createEntity(client, {
 		name: input.name,
@@ -99,8 +100,8 @@ export const insertGlobalRelationship = (input: {
 	target?: HarnessTarget;
 	sourceEntityId: string;
 	targetEntityId: string;
-	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 	properties?: Record<string, unknown>;
+	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 }) =>
 	getApiClient(input.target).adminCall((c) =>
 		c.testSupport.upsertGlobalRelationship({
@@ -168,7 +169,7 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 
 	const createCourse = (
 		name: string,
-		lessons: readonly { durationMinutes: number; complete: boolean }[],
+		lessons: readonly { complete: boolean; durationMinutes: number }[],
 	) =>
 		Effect.gen(function* () {
 			const course = yield* createEntityFixture(client, { name, entitySchema: courseReference });

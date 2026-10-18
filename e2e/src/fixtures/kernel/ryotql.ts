@@ -32,12 +32,12 @@ export const executeAdminRyotQLRecipe = <Success>(
 		return yield* resultToEffect(recipe.decode(response)).pipe(Effect.orDie);
 	});
 
+type PagedRecipe<Item> = (after: string | undefined) => PreparedRecipe<RecipePage<Item>>;
+
 type RecipePage<Item> = {
 	readonly items: ReadonlyArray<Item>;
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
-
-type PagedRecipe<Item> = (after: string | undefined) => PreparedRecipe<RecipePage<Item>>;
 
 const collectRecipeItems = <Item, Error, Requirements>(
 	recipe: PagedRecipe<Item>,
@@ -71,7 +71,7 @@ export const collectAdminRyotQLRecipeItems = <Item>(
 	target?: HarnessTarget,
 ) => collectRecipeItems(recipe, (prepared) => executeAdminRyotQLRecipe(prepared, target));
 
-export const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
+export const requireRows = (result: undefined | RyotQLResult, key: string): RowsResult => {
 	if (result?.type !== "rows") {
 		throw new Error(`Expected '${key}' rows`);
 	}

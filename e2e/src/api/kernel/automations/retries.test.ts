@@ -32,10 +32,10 @@ import { assertPresent, assertTaggedError, requirePresent } from "~/support/asse
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
-type AutomationScript = Extract<
+type AutomationScript = { readonly entry: string } & Extract<
 	TestPluginScript,
 	{ kind: "automation"; automationType: "automation" }
-> & { readonly entry: string };
+>;
 const RETRY_TARGET_SLUG = "retry-target";
 
 type RetryPolicy = Extract<PluginManifest["hooks"][number], { stage: "after" }>["retry"];

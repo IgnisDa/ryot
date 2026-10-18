@@ -17,24 +17,24 @@ import { testPluginManifest } from "./test-plugin";
 
 export { uploadPrivatePluginPackage };
 
-type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type UpdatePluginPayload = ContractPayload<"plugins", "update">;
+type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type PrivatePluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
 const encoder = new TextEncoder();
 
 export type PrivatePluginPackage = PluginPackageInput & {
-	readonly operationSlug: string;
 	readonly pluginSlug: string;
+	readonly operationSlug: string;
 };
 
 type PrivatePluginPackageInput = {
 	readonly transform?: string;
 	readonly configKey?: string;
 	readonly pluginSlug?: string;
-	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
 	readonly operationSlug?: string;
 	readonly savedViews?: PrivatePluginManifest["savedViews"];
 	readonly configSchema?: PrivatePluginManifest["configSchema"];
+	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
 };
 
 export const PRIVATE_PLUGIN_CONFIG_KEY = "greeting";
@@ -120,8 +120,8 @@ export const settledPrivateInstallation = (
 
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
-	readonly pluginPackage: PluginPackageInput | PluginArchivePackage;
 	readonly config: InstallPluginPayload["config"];
+	readonly pluginPackage: PluginPackageInput | PluginArchivePackage;
 }) =>
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadPrivatePluginPackage(input.client, input.pluginPackage);
@@ -153,11 +153,11 @@ export const installPrivatePlugin = (
 		};
 	});
 
-export type PrivateBootstrapPluginPackage = {
+export type PrivateBootstrapPluginPackage = PluginPackageInput & {
+	readonly pluginSlug: string;
 	readonly bootstrapSlug: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: string;
-} & PluginPackageInput;
+};
 
 export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
 	const suffix = crypto.randomUUID();
@@ -232,10 +232,10 @@ export const invokePrivatePluginOperation = (input: {
 
 export const updatePrivatePlugin = (input: {
 	readonly client: Client;
-	readonly installationId: ContractPathParams<"plugins", "update">["installationId"];
 	readonly expectedContentHash: string;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken" | "contentHash"> &
-		(PluginPackageInput | PluginArchivePackage);
+	readonly installationId: ContractPathParams<"plugins", "update">["installationId"];
+	readonly payload: (PluginPackageInput | PluginArchivePackage) &
+		Omit<UpdatePluginPayload, "uploadToken" | "contentHash">;
 }) =>
 	Effect.gen(function* () {
 		const { config, unsetConfigKeys } = input.payload;
@@ -302,12 +302,6 @@ export default defineOperation({
 });
 `;
 
-type PrivateSurfaceInput = {
-	readonly name?: string;
-	readonly pluginSlug?: string;
-	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
-};
-
 export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
 	readonly pluginSlug: string;
@@ -316,11 +310,17 @@ export type PrivateImportPluginPackage = {
 };
 
 export type PrivateIntegrationPluginPackage = {
+	readonly pluginSlug: string;
 	readonly providerSlug: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: string;
 	readonly manifest: PrivatePluginManifest;
 	readonly files: PluginPackageInput["files"];
+};
+
+type PrivateSurfaceInput = {
+	readonly name?: string;
+	readonly pluginSlug?: string;
+	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
 };
 
 export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =

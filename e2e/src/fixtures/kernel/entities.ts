@@ -30,7 +30,7 @@ type CreateEntityResult = ContractSuccess<"entities", "create">;
 
 function withRecordProperties(
 	entity: CreateEntityResult["entity"],
-): Omit<CreateEntityResult["entity"], "properties"> & { properties: Record<string, unknown> } {
+): { properties: Record<string, unknown> } & Omit<CreateEntityResult["entity"], "properties"> {
 	return {
 		...entity,
 		properties: requireObjectRecord(entity.properties, "Entity properties must be an object"),
@@ -118,7 +118,7 @@ export const getEntity = (client: Client, entityId: string) =>
 
 export const findEntityIdByName = (
 	client: Client,
-	input: { readonly entitySchema: EntitySchemaReference; readonly name: string },
+	input: { readonly name: string; readonly entitySchema: EntitySchemaReference },
 ) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "entity");
@@ -156,7 +156,7 @@ type PopulationSeedLevel = ContractPayload<"testSupport", "setEntityPopulatedAt"
 
 export const setEntityPopulatedAt = (
 	entityId: string,
-	populatedAt: string | null,
+	populatedAt: null | string,
 	level: PopulationSeedLevel = "full",
 	target?: HarnessTarget,
 ) =>
@@ -187,18 +187,18 @@ export const createPluginSchemaAndEntity = (client: Client) =>
 		return { slug, entityId: entity.id };
 	});
 
-type SeedEntityBase = {
-	name: string;
-	externalId?: string;
-	providerId: string | null;
-	entitySchema: EntitySchemaReference;
-	properties: Record<string, unknown>;
-};
-
 type GlobalSeedEntityInput = SeedEntityBase & {
 	userId?: null;
 	client?: undefined;
 	target?: HarnessTarget;
+};
+
+type SeedEntityBase = {
+	name: string;
+	externalId?: string;
+	providerId: null | string;
+	entitySchema: EntitySchemaReference;
+	properties: Record<string, unknown>;
 };
 
 export const seedEntity = (

@@ -19,9 +19,9 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
-type MergeEntityUserDataBody = ContractPayload<"entityUserData", "mergeEntityUserData">;
-
 type RelationshipRoot = { schema: string; sourceSchema: string; targetSchema: string };
+
+type MergeEntityUserDataBody = ContractPayload<"entityUserData", "mergeEntityUserData">;
 
 const aggregateCount = (result: { data: Record<string, unknown> }, key: string) => {
 	const value = result.data[key];
@@ -42,11 +42,11 @@ export const clearEntityUserData = (client: Client, entityId: string) =>
 	);
 
 export const queryUserEntityStateCounts = (input: {
-	owner: Parameters<typeof eventHistoryRecipe>[0]["owner"];
 	client: Client;
 	entityId: string;
 	eventSchemaSlugs: readonly [string, ...string[]];
 	entitySchemaSlugs: readonly [string, ...string[]];
+	owner: Parameters<typeof eventHistoryRecipe>[0]["owner"];
 	relationships: readonly [RelationshipRoot, ...RelationshipRoot[]];
 }) =>
 	Effect.gen(function* () {

@@ -63,8 +63,8 @@ const expectedKeyCount = trusts.length * smokeTiers.length;
 const sidecarId = 1002;
 const sidecarOomScore = 1000;
 
-type SmokeTier = (typeof smokeTiers)[number];
 type SmokeTrust = (typeof trusts)[number];
+type SmokeTier = (typeof smokeTiers)[number];
 
 const SmokeOutput = Schema.Struct({
 	ambient: Schema.Tuple([]),

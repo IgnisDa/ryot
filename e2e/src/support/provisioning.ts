@@ -205,7 +205,7 @@ export const waitForFrontend = (
 	frontendUrl: string,
 ) => waitForHealthCheck(frontendUrl, "E2E SPA", apiProcess);
 
-export const stopApiProcess = (proc?: Pick<Bun.Subprocess, "exitCode" | "exited" | "kill">) =>
+export const stopApiProcess = (proc?: Pick<Bun.Subprocess, "kill" | "exited" | "exitCode">) =>
 	Effect.gen(function* () {
 		if (proc?.exitCode !== null) {
 			return;

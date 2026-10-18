@@ -673,7 +673,7 @@ describe("Media RyotQL query recipe results", () => {
 				personSchema.reference.owner,
 			);
 			const suffix = crypto.randomUUID();
-			const seedMovie = (name: string, publishYear: number | null) =>
+			const seedMovie = (name: string, publishYear: null | number) =>
 				seedMediaEntity({
 					name,
 					userId: null,

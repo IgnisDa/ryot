@@ -106,7 +106,7 @@ export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;
 export const findPolarProductId = (
 	productType: schema.TProductTypes,
 	planType: schema.TPlanTypes,
-): string | null => {
+): null | string => {
 	const products = getPolarProducts();
 
 	const product = products.find((p) => p.type === productType);

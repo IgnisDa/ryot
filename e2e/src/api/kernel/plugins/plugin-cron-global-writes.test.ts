@@ -48,7 +48,7 @@ const TRENDING_SOURCE = trendingSandboxSource({
 let providerId: string;
 let queryClient: Client;
 let trendingPluginId: InstalledTestPlugin["pluginId"];
-let trendingPlugin: InstalledTestPlugin | undefined;
+let trendingPlugin: undefined | InstalledTestPlugin;
 
 describe("plugin cron global writes", () => {
 	beforeAll(() =>

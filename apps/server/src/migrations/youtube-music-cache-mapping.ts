@@ -40,9 +40,9 @@ ORDER BY "user_id", "id";
 `;
 
 export const migrateYoutubeMusicCache = (input: {
-	installationIds: ReadonlyArray<string>;
 	pluginId: string;
 	scriptSlug: string;
+	installationIds: ReadonlyArray<string>;
 }) =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;

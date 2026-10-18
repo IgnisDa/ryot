@@ -26,8 +26,8 @@ import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
 
-type Submission = ContractPayload<"entities", "saveEditor">["submission"];
 type SchemaReference = Submission["entitySchema"];
+type Submission = ContractPayload<"entities", "saveEditor">["submission"];
 
 const submit = (client: Client, submission: Submission) =>
 	client.call((c) =>
@@ -45,8 +45,8 @@ const createChild = Effect.fnUntraced(function* (
 	input: {
 		name: string;
 		parentId: string;
-		relationshipSchemaSlug: string;
 		entitySchema: SchemaReference;
+		relationshipSchemaSlug: string;
 		properties: Record<string, unknown>;
 	},
 ) {

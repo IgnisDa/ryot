@@ -53,7 +53,7 @@ const openPanel = (page: Playwright.Page) =>
 
 const waitForSidebarSavedViews = (page: Playwright.Page, names: ReadonlyArray<string>) =>
 	savedViewSection(page).waitForFunction(
-		(section, expected: { readonly names: ReadonlyArray<string>; readonly suiteId: string }) => {
+		(section, expected: { readonly suiteId: string; readonly names: ReadonlyArray<string> }) => {
 			const actual = Array.from(section.querySelectorAll("a"))
 				.map((link) => (link as HTMLElement).innerText)
 				.filter((name) => name.includes(expected.suiteId));

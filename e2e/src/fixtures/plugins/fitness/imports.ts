@@ -9,9 +9,10 @@ import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema } from "./exercises";
 
-type ImportRunFixtureBody = Omit<ContractPayload<"imports", "createRun">, "source"> & {
-	source: string;
-};
+type ImportRunFixtureBody = { source: string } & Omit<
+	ContractPayload<"imports", "createRun">,
+	"source"
+>;
 
 export const createFitnessImportRun = (
 	client: Client,
@@ -33,7 +34,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 export const startOpenScaleImport = (
 	client: Client,
 	pluginId: PluginId,
-	body: { uploadToken: string; timezone: string },
+	body: { timezone: string; uploadToken: string },
 ) =>
 	Effect.gen(function* () {
 		const result = yield* createFitnessImportRun(client, pluginId, {

@@ -22,7 +22,7 @@ import { getPaddleServerClient, getProductAndPlanTypeByPriceId } from "~/lib/uti
 
 import type { Route } from "./+types/paddle-webhook";
 
-type Customer = InferSelectModel<typeof customer> | undefined;
+type Customer = undefined | InferSelectModel<typeof customer>;
 
 interface WebhookResponse {
 	error?: string;
@@ -32,7 +32,7 @@ interface WebhookResponse {
 function findOrCreateCustomer(
 	paddleCustomerId: string,
 	customData?: unknown,
-): Effect.Effect<Customer | null, WebsiteFailure> {
+): Effect.Effect<null | Customer, WebsiteFailure> {
 	return Effect.gen(function* () {
 		let customer = yield* findCustomerByPaddleId(paddleCustomerId);
 
@@ -41,43 +41,6 @@ function findOrCreateCustomer(
 		}
 
 		return customer ?? null;
-	});
-}
-
-function handleTransactionCompleted(
-	paddleData: TransactionNotification,
-): Effect.Effect<WebhookResponse, WebsiteFailure, HttpClient.HttpClient> {
-	return Effect.gen(function* () {
-		const paddleCustomerId = paddleData.customerId;
-		if (!paddleCustomerId) {
-			return { error: "No customer ID found in transaction completed event" };
-		}
-
-		yield* Effect.log("Received transaction completed event", { paddleCustomerId });
-
-		const customer = yield* findOrCreateCustomer(paddleCustomerId, paddleData.customData);
-		if (!customer) {
-			return { error: `No customer found for customer ID: ${paddleCustomerId}` };
-		}
-
-		if (!paddleData.details) {
-			return { error: "No transaction details found" };
-		}
-
-		const priceId = paddleData.details.lineItems.at(0)?.priceId;
-		if (!priceId) {
-			return { error: "Price ID not found" };
-		}
-
-		const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
-
-		yield* handlePurchaseOrRenewal(customer, planType, productType, paddleCustomerId, {
-			providerPriceId: priceId,
-			paymentProvider: "paddle",
-		});
-		revokePurchaseInProgress(customer.id);
-
-		return { message: "Transaction completed successfully" };
 	});
 }
 
@@ -133,6 +96,43 @@ function handleSubscriptionResumed(
 		}
 
 		return { message: "Subscription resumed successfully" };
+	});
+}
+
+function handleTransactionCompleted(
+	paddleData: TransactionNotification,
+): Effect.Effect<WebhookResponse, WebsiteFailure, HttpClient.HttpClient> {
+	return Effect.gen(function* () {
+		const paddleCustomerId = paddleData.customerId;
+		if (!paddleCustomerId) {
+			return { error: "No customer ID found in transaction completed event" };
+		}
+
+		yield* Effect.log("Received transaction completed event", { paddleCustomerId });
+
+		const customer = yield* findOrCreateCustomer(paddleCustomerId, paddleData.customData);
+		if (!customer) {
+			return { error: `No customer found for customer ID: ${paddleCustomerId}` };
+		}
+
+		if (!paddleData.details) {
+			return { error: "No transaction details found" };
+		}
+
+		const priceId = paddleData.details.lineItems.at(0)?.priceId;
+		if (!priceId) {
+			return { error: "Price ID not found" };
+		}
+
+		const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
+
+		yield* handlePurchaseOrRenewal(customer, planType, productType, paddleCustomerId, {
+			providerPriceId: priceId,
+			paymentProvider: "paddle",
+		});
+		revokePurchaseInProgress(customer.id);
+
+		return { message: "Transaction completed successfully" };
 	});
 }
 

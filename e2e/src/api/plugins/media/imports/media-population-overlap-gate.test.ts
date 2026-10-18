@@ -21,7 +21,7 @@ const RUN_OPERATIONAL_GATES =
 	process.env.RUN_OPERATIONAL_GATES === "1" || process.env.RUN_OPERATIONAL_GATES === "true";
 
 describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
-	let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+	let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 	let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 	let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 

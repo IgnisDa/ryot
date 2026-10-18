@@ -28,7 +28,7 @@ export const apiProcessTarget = (env: NodeJS.ProcessEnv): HarnessTarget => {
 	};
 };
 
-let sharedTarget: HarnessTarget | undefined;
+let sharedTarget: undefined | HarnessTarget;
 
 export const getSharedHarnessTarget = () => {
 	sharedTarget ??= {

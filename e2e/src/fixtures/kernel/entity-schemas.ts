@@ -26,15 +26,15 @@ import { pollUntil } from "./polling";
 import { collectRyotQLRecipeItems } from "./ryotql";
 import { installTestDefinitions } from "./test-plugin";
 
-type SearchProviderEntitiesBody = ContractPayload<"entityProviders", "search">;
-type ImportProviderEntityBody = ContractPayload<"entityProviders", "import">;
-type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchema"]["slug"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
+type ImportProviderEntityBody = ContractPayload<"entityProviders", "import">;
+type SearchProviderEntitiesBody = ContractPayload<"entityProviders", "search">;
+type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchema"]["slug"];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
-type CreateEntitySchemaOptions = Partial<
+type CreateEntitySchemaOptions = { pluginSlug: string } & Partial<
 	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "propertiesSchema">
-> & { pluginSlug: string };
+>;
 
 export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
@@ -76,10 +76,10 @@ export const listEntitySchemas = (
 			string,
 			{
 				name: string;
-				providerId: SandboxProviderId;
 				providerSlug: string;
-				detailsScriptId?: SandboxScriptId;
+				providerId: SandboxProviderId;
 				searchScriptId?: SandboxScriptId;
+				detailsScriptId?: SandboxScriptId;
 				resolveScriptId?: SandboxScriptId;
 				translateScriptId?: SandboxScriptId;
 			}

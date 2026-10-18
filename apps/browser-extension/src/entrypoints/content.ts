@@ -23,9 +23,18 @@ const setHasFoundVideo = (value: boolean) =>
 const updateExtensionStatus = (status: ExtensionStatus) =>
 	fromPlatform(() => storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status));
 
-function findBestVideo(): HTMLVideoElement | null {
+function extractProgressData(video: HTMLVideoElement): null | RawMediaData {
+	const title = extractMetadataTitle();
+	if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) {
+		return null;
+	}
+
+	return { title, progress: (video.currentTime / video.duration) * 100 };
+}
+
+function findBestVideo(): null | HTMLVideoElement {
 	const videos = document.querySelectorAll("video");
-	let bestVideo: HTMLVideoElement | null = null;
+	let bestVideo: null | HTMLVideoElement = null;
 	let highestScore = -1;
 
 	for (const video of videos) {
@@ -53,15 +62,6 @@ function findBestVideo(): HTMLVideoElement | null {
 	return bestVideo;
 }
 
-function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
-	const title = extractMetadataTitle();
-	if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) {
-		return null;
-	}
-
-	return { title, progress: (video.currentTime / video.duration) * 100 };
-}
-
 const sendProgressUpdate = (progressData: RawMediaData, metadata: MetadataLookupResult) =>
 	fromPlatform(() =>
 		browser.runtime.sendMessage({
@@ -81,7 +81,7 @@ export default defineContentScript({
 	matches: ["*://*/*"],
 	runAt: "document_start",
 	main() {
-		let metadataCache: MetadataCache | null = null;
+		let metadataCache: null | MetadataCache = null;
 		let isRunning = false;
 		let currentUrl = window.location.href;
 		let navigationListenersAttached = false;
@@ -89,7 +89,7 @@ export default defineContentScript({
 		let retryAttempts = 0;
 		const MAX_RETRY_ATTEMPTS = 10;
 		const RETRY_INTERVALS = [2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000];
-		let retryFiber: Fiber.Fiber<void> | null = null;
+		let retryFiber: null | Fiber.Fiber<void> = null;
 
 		const cleanup = {
 			abortController: new AbortController(),

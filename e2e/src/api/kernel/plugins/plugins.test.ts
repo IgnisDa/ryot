@@ -200,7 +200,7 @@ export default defineAutomation({
   }),
 });
 `;
-			let entityId: string | null = null;
+			let entityId: null | string = null;
 			const provider = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,

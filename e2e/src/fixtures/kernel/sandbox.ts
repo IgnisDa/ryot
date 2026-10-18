@@ -12,21 +12,21 @@ import { httpCallFailureSandboxSource } from "./sandbox-source";
 import { installTestPlugin, type TestPluginScript, uninstallTestPlugin } from "./test-plugin";
 
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
+type GenericTestPluginScript = Extract<TestPluginScript, { kind: "script" }>;
 type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
 type EnqueueSandboxBody = Omit<ContractPayload<"testSupport", "enqueueSandbox">, "executingUserId">;
 type SandboxResult = Exclude<
 	ContractSuccess<"testSupport", "getSandboxResult">,
 	{ status: "pending" }
 >;
-type GenericTestPluginScript = Extract<TestPluginScript, { kind: "script" }>;
 type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> &
 	Partial<Pick<GenericTestPluginScript, "capabilities" | "requiredPluginConfigKeys">> & {
 		client: Client;
 		source: string;
-		scope?: "system" | "user";
+		pluginSlug?: string;
+		scope?: "user" | "system";
 		configSchema?: PluginManifest["configSchema"];
 		entitySchemas?: PluginManifest["entitySchemas"];
-		pluginSlug?: string;
 		config?: ContractPayload<"plugins", "install">["config"];
 	};
 
@@ -87,17 +87,17 @@ export const deleteSandboxReplayProjection = (executionId: string) =>
 		client.testSupport.deleteSandboxReplayProjection({ payload: { executionId } }),
 	);
 
-function formatSandboxExecutionError(error: SandboxExecutionError) {
-	const location = error.line ? ` at ${error.line}${error.column ? `:${error.column}` : ""}` : "";
-	return `[${error.phase}] ${error.message}${location}${error.stack ? `\n${error.stack}` : ""}`;
-}
-
 export function requireCompletedSandboxValue(result: SandboxResult, label = "sandbox job") {
 	assertCompleted(result, label);
 	if (result.error) {
 		throw new Error(`${label} execution failed: ${formatSandboxExecutionError(result.error)}`);
 	}
 	return result.value;
+}
+
+function formatSandboxExecutionError(error: SandboxExecutionError) {
+	const location = error.line ? ` at ${error.line}${error.column ? `:${error.column}` : ""}` : "";
+	return `[${error.phase}] ${error.message}${location}${error.stack ? `\n${error.stack}` : ""}`;
 }
 
 export const runSandboxHttpCall = (label: string, url: string) =>

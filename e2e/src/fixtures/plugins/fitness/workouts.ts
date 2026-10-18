@@ -20,7 +20,7 @@ export const LARGE_WORKOUT_BUDGET = { testMs: 930_000, eventsMs: 600_000 };
 
 export const createWorkoutEntityFixture = (
 	client: Client,
-	options: { name?: string; startedAt?: string; endedAt?: string } = {},
+	options: { name?: string; endedAt?: string; startedAt?: string } = {},
 ) =>
 	Effect.gen(function* () {
 		const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");

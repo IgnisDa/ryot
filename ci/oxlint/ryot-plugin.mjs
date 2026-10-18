@@ -2,19 +2,19 @@ import { relative, resolve, sep } from "node:path";
 
 const promiseMethods = new Set(["then", "catch", "finally"]);
 const promiseFactories = new Set([
-	"resolve",
-	"reject",
 	"all",
-	"allSettled",
-	"race",
 	"any",
+	"race",
+	"reject",
+	"resolve",
+	"allSettled",
 	"withResolvers",
 ]);
 
 const effectFacadeSources = new Set([
 	"effect",
-	"@ryot-app/plugin-backend-sdk/effect",
 	"@ryot-app/plugin-client-sdk/effect",
+	"@ryot-app/plugin-backend-sdk/effect",
 ]);
 
 const propertyName = (node) => {
@@ -157,9 +157,9 @@ const isWorkflow = (context, node, seen = new Set()) => {
 
 const manifestTable = "pluginRevisionManifest";
 const manifestTableName = "plugin_revision_manifest";
-const revisionNames = new Set(["pluginRevision", manifestTable]);
+const revisionNames = new Set([manifestTable, "pluginRevision"]);
 const typePositionTypes = new Set(["TSTypeQuery", "TSTypeReference", "TSIndexedAccessType"]);
-const functionTypes = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
+const functionTypes = new Set(["FunctionExpression", "ArrowFunctionExpression"]);
 const backendSourcePrefix = "kernel/backend/src/";
 const unguardedPatterns = [
 	/\.test\.ts$/,

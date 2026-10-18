@@ -583,8 +583,8 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const createGlobalEntity = (input: {
 				readonly name: string;
 				readonly externalId: string;
-				readonly entitySchema: ContractPayload<"testSupport", "createGlobalEntity">["entitySchema"];
 				readonly properties?: Record<string, unknown>;
+				readonly entitySchema: ContractPayload<"testSupport", "createGlobalEntity">["entitySchema"];
 			}) =>
 				api.adminCall((c) =>
 					c.testSupport.createGlobalEntity({

@@ -10,25 +10,8 @@ type TwoFactorSetupResult = {
 	token: string;
 	backupCodes: string[];
 	sessionCookie: string;
-	totpCodes: { past: string; current: string; future: string };
+	totpCodes: { past: string; future: string; current: string };
 };
-
-function parseTotpSecret(totpURI: string) {
-	let url: URL;
-	try {
-		url = new URL(totpURI);
-	} catch {
-		throw new Error(`Invalid TOTP URI returned by the server: ${totpURI}`);
-	}
-
-	const secret = url.searchParams.get("secret");
-	return requirePresent(secret, `TOTP URI did not include a secret: ${totpURI}`);
-}
-
-function decodeBase32(value: string) {
-	const normalized = value.toUpperCase().replace(/=+$/u, "").replace(/\s+/gu, "");
-	return Buffer.from(base32.parse(normalized, { loose: true }));
-}
 
 export function generateTotpCode(secret: string, timeOffset = 0) {
 	const counter = Math.floor(Date.now() / 1000 / 30) + timeOffset;
@@ -56,6 +39,23 @@ function generateTotpWindowCodes(secret: string) {
 		past: generateTotpCode(secret, -1),
 		future: generateTotpCode(secret, 1),
 	};
+}
+
+function decodeBase32(value: string) {
+	const normalized = value.toUpperCase().replace(/=+$/u, "").replace(/\s+/gu, "");
+	return Buffer.from(base32.parse(normalized, { loose: true }));
+}
+
+function parseTotpSecret(totpURI: string) {
+	let url: URL;
+	try {
+		url = new URL(totpURI);
+	} catch {
+		throw new Error(`Invalid TOTP URI returned by the server: ${totpURI}`);
+	}
+
+	const secret = url.searchParams.get("secret");
+	return requirePresent(secret, `TOTP URI did not include a secret: ${totpURI}`);
 }
 
 export const enableTwoFactorForSessionEffect = (input: {

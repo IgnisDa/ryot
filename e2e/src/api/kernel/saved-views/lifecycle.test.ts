@@ -366,7 +366,7 @@ describe("Saved views lifecycle E2E", () => {
 				});
 
 				expect(new Set(listedViews.map((v) => v.id))).toEqual(
-					new Set([disabledTracked.id, enabledTracked.id]),
+					new Set([enabledTracked.id, disabledTracked.id]),
 				);
 				expect(listedViews.map((v) => v.packageId)).toEqual([
 					workspace.installation.packageId,

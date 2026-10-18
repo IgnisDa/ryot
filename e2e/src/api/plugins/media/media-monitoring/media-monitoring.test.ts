@@ -69,7 +69,7 @@ let movieSchemaId: string;
 let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 const extraGlobalEntityIds: string[] = [];
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 let provider: AttachedTestProvider;

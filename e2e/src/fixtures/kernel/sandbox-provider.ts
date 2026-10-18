@@ -39,30 +39,6 @@ import {
 	updateTestSupportSystemPlugin,
 } from "./test-plugin";
 
-type PluginProviderInformation = PluginManifest["providers"][number]["information"];
-type ProviderOperation = Extract<
-	PluginManifest["scripts"][number],
-	{ kind: "provider" }
->["providerOperation"];
-type ProviderOperationResult =
-	| ProviderDetailsResult
-	| ProviderSearchOptionsResult
-	| ProviderSearchResult
-	| ProviderResolveResult
-	| Readonly<Record<string, ProviderRelatedResult>>
-	| Readonly<Record<string, ProviderTranslateResult>>;
-
-export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug"> & {
-	providerSlug: string;
-	providerId: SandboxProviderId;
-	detailsScriptId: SandboxScriptId;
-	searchScriptId?: SandboxScriptId;
-	resolveScriptId?: SandboxScriptId;
-	relatedScriptId?: SandboxScriptId;
-	translateScriptId?: SandboxScriptId;
-	searchOptionsScriptId?: SandboxScriptId;
-};
-
 export type AttachedTestProvider = Pick<
 	InstalledTestProvider,
 	| "pluginId"
@@ -74,28 +50,40 @@ export type AttachedTestProvider = Pick<
 	| "translateScriptId"
 	| "searchOptionsScriptId"
 >;
-
+export type InstalledTestProvider = Omit<InstalledTestPlugin, "slug" | "scriptId"> & {
+	providerSlug: string;
+	providerId: SandboxProviderId;
+	detailsScriptId: SandboxScriptId;
+	searchScriptId?: SandboxScriptId;
+	resolveScriptId?: SandboxScriptId;
+	relatedScriptId?: SandboxScriptId;
+	translateScriptId?: SandboxScriptId;
+	searchOptionsScriptId?: SandboxScriptId;
+};
 type HttpCalls = { readonly url: string; readonly count: number };
 
-type TestProviderSpec = {
-	slug?: string;
-	name?: string;
-	detailsDelayMs?: number;
-	rootEntitySchemaSlug: string;
-	search?: ProviderSearchResult;
-	searchOptionsFailure?: string;
-	details: ProviderDetailsResult;
-	resolve?: ProviderResolveResult;
-	searchOptionsSchema?: AppSchema;
-	detailsFailure?: string | undefined;
-	detailsHttpCalls?: HttpCalls;
-	information?: PluginProviderInformation;
-	searchOptions?: ProviderSearchOptionsResult;
-	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
-	relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
-	translations?: Readonly<Record<string, ProviderTranslateResult>>;
-	translationInputs?: Readonly<Record<string, readonly string[]>>;
+type TestPluginManifestInput = Parameters<typeof testPluginManifest>[0];
+
+type PluginProviderInformation = PluginManifest["providers"][number]["information"];
+
+type ProviderOperation = Extract<
+	PluginManifest["scripts"][number],
+	{ kind: "provider" }
+>["providerOperation"];
+
+type TestProviderDeclaration = {
+	readonly files: Readonly<Record<string, string>>;
+	readonly scripts: NonNullable<TestPluginManifestInput["scripts"]>;
+	readonly provider: NonNullable<TestPluginManifestInput["providers"]>[number];
 };
+
+type ProviderOperationResult =
+	| ProviderSearchResult
+	| ProviderDetailsResult
+	| ProviderResolveResult
+	| ProviderSearchOptionsResult
+	| Readonly<Record<string, ProviderRelatedResult>>
+	| Readonly<Record<string, ProviderTranslateResult>>;
 
 type TestProviderPlugin = {
 	client: Client;
@@ -106,12 +94,24 @@ type TestProviderPlugin = {
 	relationshipSchemas?: PluginManifest["relationshipSchemas"];
 };
 
-type TestPluginManifestInput = Parameters<typeof testPluginManifest>[0];
-
-type TestProviderDeclaration = {
-	readonly files: Readonly<Record<string, string>>;
-	readonly scripts: NonNullable<TestPluginManifestInput["scripts"]>;
-	readonly provider: NonNullable<TestPluginManifestInput["providers"]>[number];
+type TestProviderSpec = {
+	slug?: string;
+	name?: string;
+	detailsDelayMs?: number;
+	rootEntitySchemaSlug: string;
+	detailsHttpCalls?: HttpCalls;
+	search?: ProviderSearchResult;
+	searchOptionsFailure?: string;
+	details: ProviderDetailsResult;
+	resolve?: ProviderResolveResult;
+	searchOptionsSchema?: AppSchema;
+	detailsFailure?: string | undefined;
+	information?: PluginProviderInformation;
+	searchOptions?: ProviderSearchOptionsResult;
+	relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
+	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
+	translationInputs?: Readonly<Record<string, readonly string[]>>;
+	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 };
 
 const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclaration => {
@@ -400,7 +400,7 @@ export const shippedPluginTestProviders = (
 		};
 	});
 
-export const installTestProvider = (input: TestProviderPlugin & TestProviderSpec) =>
+export const installTestProvider = (input: TestProviderSpec & TestProviderPlugin) =>
 	installTestProviders({ ...input, providers: { provider: input } }).pipe(
 		Effect.map(({ provider }) => provider),
 	);
@@ -434,7 +434,7 @@ export const replaceSandboxScriptCompiledRepresentation = (
 
 type FakeSearchItem = Pick<
 	ProviderSearchResult["items"][number],
-	"externalId" | "metadata" | "title"
+	"title" | "metadata" | "externalId"
 >;
 
 export function fakeProviderSearchResult(
@@ -445,7 +445,7 @@ export function fakeProviderSearchResult(
 
 export function fakeProviderDetailsResult(
 	result: Pick<ProviderDetailsResult, "name"> &
-		Partial<Pick<ProviderDetailsResult, "childEntities" | "properties" | "relatedEntityGroups">>,
+		Partial<Pick<ProviderDetailsResult, "properties" | "childEntities" | "relatedEntityGroups">>,
 ): ProviderDetailsResult {
 	return {
 		name: result.name,
@@ -469,12 +469,12 @@ export function providerSandboxSource(input: {
 	readonly name: string;
 	readonly slug: string;
 	readonly delayMs?: number;
-	readonly executionFailure?: string;
 	readonly httpCalls?: HttpCalls;
-	readonly relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
+	readonly executionFailure?: string;
 	readonly operation: ProviderOperation;
 	readonly result: ProviderOperationResult;
 	readonly searchOptionsSchema?: AppSchema;
+	readonly relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
 	readonly translationInputs?: Readonly<Record<string, readonly string[]>>;
 }) {
 	const resultSchemaByOperation = {

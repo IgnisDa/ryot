@@ -15,8 +15,8 @@ import { getIntegration } from "./integrations";
 import { createPluginScope } from "./plugins";
 import { createRelationshipSchema } from "./relationship-schemas";
 
-type AuthenticatedClient = Effect.Success<ReturnType<typeof createAuthenticatedClient>>;
 type Integration = ContractSuccess<"integrations", "create">;
+type AuthenticatedClient = Effect.Success<ReturnType<typeof createAuthenticatedClient>>;
 
 const encodeDataDocument = Schema.encodeSync(Schema.fromJsonString(DataJsonDocument));
 

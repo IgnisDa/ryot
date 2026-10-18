@@ -1,5 +1,13 @@
 import type { ComponentType } from "react";
 
+export type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
+
+export type BlogPost = {
+	content: ComponentType;
+	frontmatter: BlogFrontmatter;
+	tableOfContents?: readonly BlogTableOfContentsItem[];
+};
+
 type BlogFrontmatter = {
 	title: string;
 	description: string;
@@ -7,16 +15,8 @@ type BlogFrontmatter = {
 	properties: { labels: string[] };
 };
 
-export type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
-
 type BlogPostModule = {
 	default: ComponentType;
-	frontmatter: BlogFrontmatter;
-	tableOfContents?: readonly BlogTableOfContentsItem[];
-};
-
-export type BlogPost = {
-	content: ComponentType;
 	frontmatter: BlogFrontmatter;
 	tableOfContents?: readonly BlogTableOfContentsItem[];
 };

@@ -35,37 +35,7 @@ const run = table("automationRun", "run");
 const attempt = table("automationRunAttempt", "attempt");
 const recipient = table("automationTriggerRecipient", "recipient");
 
-type AutomationTriggerFields = {
-	readonly triggerId: AutomationTrigger["id"];
-	readonly payload: NonNullable<AutomationTrigger["payload"]>;
-	readonly actorUserId: AutomationSignalPayload["actorUserId"];
-	readonly rootExecutionId: AutomationTrigger["causation"]["rootExecutionId"];
-	readonly sourceRecord:
-		| { readonly id: AutomationEntitySnapshot["id"]; readonly resource: "entity" }
-		| { readonly id: AutomationEventSnapshot["id"]; readonly resource: "event" }
-		| { readonly id: AutomationRelationshipSnapshot["id"]; readonly resource: "relationship" }
-		| {
-				readonly id: Extract<
-					AutomationTriggerPayload,
-					{ readonly resource: "provider-entity-import" }
-				>["entityId"];
-				readonly resource: "provider-entity-import";
-		  };
-};
-
-type AtLeastOneOf<Fields, Keys extends keyof Fields = keyof Fields> = Partial<Fields> &
-	{ [Key in Keys]: Pick<Fields, Key> }[Keys];
-
 export type AutomationTriggerFilter = AtLeastOneOf<AutomationTriggerFields>;
-
-type AutomationRunFields = AutomationTriggerFields & {
-	readonly executionUserId: typeof AutomationRunSchema.Type.executionUserId;
-};
-
-export type AutomationRunFilter = AtLeastOneOf<AutomationRunFields> & {
-	readonly status?: typeof AutomationRunSchema.Type.status;
-	readonly hookSlug?: typeof AutomationRunSchema.Type.hookSlug;
-};
 
 export type AutomationRunAttemptFilter = {
 	readonly runId: typeof AutomationRunAttemptSchema.Type.runId;
@@ -73,8 +43,38 @@ export type AutomationRunAttemptFilter = {
 };
 
 export type AutomationTriggerRecipientFilter = {
-	readonly triggerId: typeof AutomationTriggerRecipient.Type.triggerId;
 	readonly userId?: typeof AutomationTriggerRecipient.Type.userId;
+	readonly triggerId: typeof AutomationTriggerRecipient.Type.triggerId;
+};
+
+export type AutomationRunFilter = AtLeastOneOf<AutomationRunFields> & {
+	readonly status?: typeof AutomationRunSchema.Type.status;
+	readonly hookSlug?: typeof AutomationRunSchema.Type.hookSlug;
+};
+
+type AtLeastOneOf<Fields, Keys extends keyof Fields = keyof Fields> = Partial<Fields> &
+	{ [Key in Keys]: Pick<Fields, Key> }[Keys];
+
+type AutomationRunFields = AutomationTriggerFields & {
+	readonly executionUserId: typeof AutomationRunSchema.Type.executionUserId;
+};
+
+type AutomationTriggerFields = {
+	readonly triggerId: AutomationTrigger["id"];
+	readonly payload: NonNullable<AutomationTrigger["payload"]>;
+	readonly actorUserId: AutomationSignalPayload["actorUserId"];
+	readonly rootExecutionId: AutomationTrigger["causation"]["rootExecutionId"];
+	readonly sourceRecord:
+		| { readonly resource: "event"; readonly id: AutomationEventSnapshot["id"] }
+		| { readonly resource: "entity"; readonly id: AutomationEntitySnapshot["id"] }
+		| { readonly resource: "relationship"; readonly id: AutomationRelationshipSnapshot["id"] }
+		| {
+				readonly resource: "provider-entity-import";
+				readonly id: Extract<
+					AutomationTriggerPayload,
+					{ readonly resource: "provider-entity-import" }
+				>["entityId"];
+		  };
 };
 
 const triggerFilters = (input: Partial<AutomationTriggerFields>) => {
@@ -189,7 +189,7 @@ export const adminAutomationTriggersRecipe = defineRecipe(
 );
 
 export const adminAutomationRecipientsRecipe = defineRecipe(
-	(input: AutomationTriggerRecipientFilter & { readonly after?: string }) => ({
+	(input: { readonly after?: string } & AutomationTriggerRecipientFilter) => ({
 		map: ({ recipients }) => Result.succeed(recipients),
 		queries: {
 			recipients: selectedRows(recipient, {

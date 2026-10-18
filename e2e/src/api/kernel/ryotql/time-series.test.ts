@@ -28,7 +28,7 @@ import {
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
-const requireTimeSeries = (result: RyotQLResult | undefined, key: string): TimeSeriesResult => {
+const requireTimeSeries = (result: undefined | RyotQLResult, key: string): TimeSeriesResult => {
 	if (result?.type !== "timeSeries") {
 		throw new Error(`Expected '${key}' time series`);
 	}

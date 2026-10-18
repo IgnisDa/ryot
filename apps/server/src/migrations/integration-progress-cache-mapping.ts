@@ -9,13 +9,13 @@ import { buildReportSql, insertAnomalyReport, withReservedConnection } from "./s
 const reportPhase = "application_cache -> integration progress persistent cache";
 
 const targetByLegacyProvider = new Map([
-	["Audiobookshelf", { provider: "audiobookshelf", consumedOn: "Audiobookshelf" }],
 	["Emby", { provider: "emby", consumedOn: "Emby" }],
-	["Jellyfin", { consumedOn: "Jellyfin", provider: "jellyfin_sink" }],
 	["Kodi", { provider: "kodi", consumedOn: "Kodi" }],
 	["Komga", { provider: "komga", consumedOn: "Komga" }],
 	["Plex", { consumedOn: "Plex", provider: "plex_sink" }],
+	["Jellyfin", { consumedOn: "Jellyfin", provider: "jellyfin_sink" }],
 	["Youtube Music", { provider: "youtube_music", consumedOn: "YouTube Music" }],
+	["Audiobookshelf", { provider: "audiobookshelf", consumedOn: "Audiobookshelf" }],
 ]);
 
 const LegacyProgressCacheRow = Schema.Struct({
@@ -106,7 +106,7 @@ export const readLegacyIntegrationProgressCache = Effect.fn("readLegacyIntegrati
 	},
 );
 
-const integerFingerprintPart = (key: string, value: string | null) => {
+const integerFingerprintPart = (key: string, value: null | string) => {
 	if (value === null) {
 		return null;
 	}
@@ -119,7 +119,7 @@ const integerFingerprintPart = (key: string, value: string | null) => {
 	return `${key}=${String(parsed)}`;
 };
 
-const numberFingerprintPart = (key: string, value: string | null) => {
+const numberFingerprintPart = (key: string, value: null | string) => {
 	if (value === null) {
 		return null;
 	}
@@ -131,11 +131,11 @@ const numberFingerprintPart = (key: string, value: string | null) => {
 };
 
 export const migrateIntegrationProgressCache = (input: {
-	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
-	integrations: ReadonlyArray<{ id: string; provider: string; userId: string }>;
-	installationIdsByUserId: ReadonlyMap<string, string>;
 	pluginId: string;
 	scriptSlug: string;
+	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
+	installationIdsByUserId: ReadonlyMap<string, string>;
+	integrations: ReadonlyArray<{ id: string; userId: string; provider: string }>;
 }) =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
@@ -233,7 +233,7 @@ export const migrateIntegrationProgressCache = (input: {
 
 const unmappedProviderDetail = (
 	row: LegacyProgressCacheRow,
-	legacyProvider: string | null,
+	legacyProvider: null | string,
 	providersConsumedOn: ReadonlyArray<string>,
 ): MigrationReportDetail => ({
 	key: row.cacheId,
@@ -251,12 +251,12 @@ const unmappedProviderDetail = (
 
 export const resolveIntegrationProgressClaims = (input: {
 	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
-	integrations: ReadonlyArray<{ id: string; provider: string; userId: string }>;
 	installationIdsByUserId: ReadonlyMap<string, string>;
+	integrations: ReadonlyArray<{ id: string; userId: string; provider: string }>;
 }) => {
 	const claimsByIdentity = new Map<
 		string,
-		{ claimKey: string; expiresAtMs: number; userId: string }
+		{ userId: string; claimKey: string; expiresAtMs: number }
 	>();
 	const unresolvedDetails: MigrationReportDetail[] = [];
 	const unsupportedProviderDetails: MigrationReportDetail[] = [];

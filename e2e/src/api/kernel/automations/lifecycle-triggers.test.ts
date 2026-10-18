@@ -41,23 +41,24 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
-type CreateEventsPayload = ContractPayload<"events", "create">;
-type CreateEventsResult = CreateEventsResponse;
 type EventInput = CreateEventsPayload[number];
+type CreateEventsResult = CreateEventsResponse;
+type PluginScript = PluginManifest["scripts"][number];
+type CreateEventsPayload = ContractPayload<"events", "create">;
+type TriggerPayload = NonNullable<AutomationTrigger["payload"]>;
+type FixtureScript = TestPluginScript & { readonly entry: string };
+type AutomationScript = Extract<PluginScript, { kind: "automation" }>;
+type FixtureAutomationScript = { readonly entry: string } & Extract<
+	FixtureScript,
+	{ kind: "automation" }
+>;
 type SourceRecord = Extract<
 	NonNullable<AutomationTriggerFilter["sourceRecord"]>,
-	{ readonly resource: "entity" | "event" | "relationship" }
+	{ readonly resource: "event" | "entity" | "relationship" }
 >;
-type PluginScript = PluginManifest["scripts"][number];
-type AutomationScript = Extract<PluginScript, { kind: "automation" }>;
-type FixtureScript = TestPluginScript & { readonly entry: string };
-type FixtureAutomationScript = Extract<FixtureScript, { kind: "automation" }> & {
-	readonly entry: string;
-};
-type TriggerPayload = NonNullable<AutomationTrigger["payload"]>;
 type EventCreateRequestPayload = Extract<
 	TriggerPayload,
-	{ readonly category: "request"; readonly operation: "create"; readonly resource: "event" }
+	{ readonly resource: "event"; readonly category: "request"; readonly operation: "create" }
 >;
 
 const suffix = crypto.randomUUID();
@@ -98,11 +99,11 @@ const entries = {
 
 type AutomationDeclaration =
 	| Pick<
-			Extract<AutomationScript, { automationType: "automation" }>,
+			Extract<AutomationScript, { automationType: "policy" }>,
 			"automationType" | "inputProjection"
 	  >
 	| Pick<
-			Extract<AutomationScript, { automationType: "policy" }>,
+			Extract<AutomationScript, { automationType: "automation" }>,
 			"automationType" | "inputProjection"
 	  >;
 
@@ -588,20 +589,20 @@ const requireWrittenEventId = (result: CreateEventsResult, index = 0) => {
 };
 
 function requireCreatePayload<
-	Category extends "request" | "change",
-	Resource extends "entity" | "event" | "relationship",
+	Category extends "change" | "request",
+	Resource extends "event" | "entity" | "relationship",
 >(
 	trigger: AutomationTrigger,
 	category: Category,
 	resource: Resource,
 ): Extract<
 	TriggerPayload,
-	{ readonly category: Category; readonly operation: "create"; readonly resource: Resource }
+	{ readonly category: Category; readonly resource: Resource; readonly operation: "create" }
 >;
 function requireCreatePayload(
 	trigger: AutomationTrigger,
-	category: "request" | "change",
-	resource: "entity" | "event" | "relationship",
+	category: "change" | "request",
+	resource: "event" | "entity" | "relationship",
 ): TriggerPayload {
 	const payload = trigger.payload;
 	if (
@@ -692,7 +693,7 @@ const requireBatchRequestForEvent = (
 	);
 };
 
-let installed: InstalledTestPlugin | undefined;
+let installed: undefined | InstalledTestPlugin;
 
 beforeAll(() =>
 	runPromise(

@@ -59,7 +59,7 @@ const studioDetails = (
 	});
 
 const pages = (
-	...entries: ReadonlyArray<readonly [{ page: number }, string, { page: number } | null]>
+	...entries: ReadonlyArray<readonly [{ page: number }, string, null | { page: number }]>
 ) =>
 	Object.fromEntries(
 		entries.map(([continuation, externalId, next]) => [

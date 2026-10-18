@@ -27,7 +27,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 it.live("joins creation and reset bootstrap for each recreated account generation", () =>
 	Effect.gen(function* () {
 		const requests = yield* Queue.unbounded<string>();
-		let held: Deferred.Deferred<void> | undefined;
+		let held: undefined | Deferred.Deferred<void>;
 		let targetUserId = "";
 		const { target } = yield* Effect.acquireRelease(
 			startIsolatedHarness("Bootstrap Identity"),

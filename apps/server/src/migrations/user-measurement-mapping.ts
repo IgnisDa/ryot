@@ -69,9 +69,9 @@ const fitnessLibraryJoinSql = (libraryEntitySchema: QualifiedSchema, userIdSql: 
 `;
 
 export const buildMeasurementMigrationSql = (input: {
+	entryEntitySchema: QualifiedSchema;
 	readingEventSchema: QualifiedSchema;
 	metricEntitySchema: QualifiedSchema;
-	entryEntitySchema: QualifiedSchema;
 	libraryEntitySchema: QualifiedSchema;
 	pinRelationshipSchema: QualifiedSchema;
 }) => `

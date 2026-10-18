@@ -48,7 +48,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const countSavedView = Effect.fn(function* (
 	client: Parameters<typeof executeRyotQLRecipe>[0],
 	view: {
-		readonly dataSources: RyotQLDocument | null;
+		readonly dataSources: null | RyotQLDocument;
 		readonly settings: Readonly<Record<string, unknown>>;
 	},
 ) {

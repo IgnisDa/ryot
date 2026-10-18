@@ -14,7 +14,7 @@ export const logoUrl =
 export const initializePaddleForApplication = (
 	clientToken: string,
 	isSandbox: boolean,
-	paddleCustomerId?: string | null,
+	paddleCustomerId?: null | string,
 ) =>
 	initializePaddle({
 		token: clientToken,

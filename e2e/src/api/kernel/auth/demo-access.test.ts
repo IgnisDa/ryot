@@ -69,7 +69,7 @@ const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
 let apiUrl: string;
 let harnessTarget: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 let apiOrigin: string;
-let apiProcess: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+let apiProcess: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
 let demoApiKey: string;
 let demoUserId: string;
 let demoEmail: string;
@@ -77,7 +77,7 @@ let demoPassword: string;
 let integrationId: string;
 let integrationWebhookUrl: string;
 let ownerSessionCookie: string;
-let infrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let infrastructure: undefined | Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>;
 const resources = makeTestResourceScope();
 
 const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>

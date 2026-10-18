@@ -10,11 +10,12 @@ const { overrides } = JSON.parse(readFileSync(join(root, ".oxlintrc.json"), "utf
 const workspace = mkdtempSync(join(tmpdir(), "ryot-import-boundaries-"));
 
 const fixtures = {
+	"plugins/media/shared/allowed.test.ts": ["@ryot-app/plugin-backend-sdk/core"],
+	"kernel/sandbox/src/host/allowed.ts": ["@ryot-app/plugin-backend-sdk/core", "../protocol/wire"],
+	"plugins/media/shared/restricted.ts": ["@ryot-app/plugin-backend-sdk/core", "../manifest/plugin"],
 	"plugins/media/manifest/allowed.test.ts": [
 		"@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support",
 	],
-	"plugins/media/shared/allowed.test.ts": ["@ryot-app/plugin-backend-sdk/core"],
-	"kernel/sandbox/src/host/allowed.ts": ["@ryot-app/plugin-backend-sdk/core", "../protocol/wire"],
 	"kernel/backend/src/platform/workflow/allowed.ts": [
 		"@ryot-app/contract/modules/scripts/wire",
 		"../database/session",
@@ -23,16 +24,15 @@ const fixtures = {
 		"@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support",
 		"../backend/scripts/search",
 	],
-	"plugins/media/shared/restricted.ts": ["@ryot-app/plugin-backend-sdk/core", "../manifest/plugin"],
-	"kernel/sandbox/src/host/restricted.ts": [
-		"@ryot-app/kernel-backend/modules/scripts/executions/service",
-		"../../../backend/src/modules/scripts/executions/service",
-	],
 	"kernel/backend/src/platform/workflow/restricted.ts": [
 		"#modules/entities/service",
 		"#boot/layers",
 		"../../modules/entities/service",
 		"../../boot/layers",
+	],
+	"kernel/sandbox/src/host/restricted.ts": [
+		"@ryot-app/kernel-backend/modules/scripts/executions/service",
+		"../../../backend/src/modules/scripts/executions/service",
 	],
 };
 

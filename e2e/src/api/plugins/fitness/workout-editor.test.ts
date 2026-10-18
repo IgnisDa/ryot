@@ -46,7 +46,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const { endedAt, startedAt, setOccurredAt } = workoutEditorTimes;
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 beforeAll(() =>
@@ -102,13 +102,13 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 	});
 
 const updateImportedWorkoutData = (input: {
-	readonly baseline: WorkoutEditorBaseline;
-	readonly conflictToken: string;
-	readonly exerciseId: EntityId;
-	readonly note?: string | undefined;
 	readonly reps: number;
+	readonly exerciseId: EntityId;
+	readonly conflictToken: string;
+	readonly note?: string | undefined;
 	readonly images: WorkoutData["images"];
 	readonly videos: WorkoutData["videos"];
+	readonly baseline: WorkoutEditorBaseline;
 	readonly occurrenceImages: WorkoutOccurrenceInput["images"];
 	readonly occurrenceVideos: WorkoutOccurrenceInput["videos"];
 }): WorkoutData => {

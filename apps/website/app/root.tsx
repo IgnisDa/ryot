@@ -77,6 +77,34 @@ export const links: LinksFunction = () => {
 	];
 };
 
+export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
+	if (isRouteErrorResponse(props.error) && props.error.status === 404) {
+		return (
+			<div className="flex min-h-dvh items-center justify-center px-4">
+				<div className="max-w-lg text-center">
+					<p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">404</p>
+					<h1 className="mb-4 text-4xl font-bold text-foreground sm:text-5xl">Page not found</h1>
+					<p className="mb-8 text-muted-foreground">
+						The page you are looking for does not exist or has moved.
+					</p>
+					<Link to={$path("/")}>
+						<Button>Return to Ryot</Button>
+					</Link>
+				</div>
+			</div>
+		);
+	}
+
+	const message =
+		props.error instanceof Error ? props.error.message : "An unexpected error occurred.";
+
+	return (
+		<div className="flex min-h-dvh items-center justify-center px-4">
+			<p className="text-center text-muted-foreground">We encountered an error: {message}</p>
+		</div>
+	);
+}
+
 export default function App() {
 	const location = useLocation();
 
@@ -243,33 +271,5 @@ export default function App() {
 				</body>
 			</QueryClientProvider>
 		</html>
-	);
-}
-
-export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
-	if (isRouteErrorResponse(props.error) && props.error.status === 404) {
-		return (
-			<div className="flex min-h-dvh items-center justify-center px-4">
-				<div className="max-w-lg text-center">
-					<p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">404</p>
-					<h1 className="mb-4 text-4xl font-bold text-foreground sm:text-5xl">Page not found</h1>
-					<p className="mb-8 text-muted-foreground">
-						The page you are looking for does not exist or has moved.
-					</p>
-					<Link to={$path("/")}>
-						<Button>Return to Ryot</Button>
-					</Link>
-				</div>
-			</div>
-		);
-	}
-
-	const message =
-		props.error instanceof Error ? props.error.message : "An unexpected error occurred.";
-
-	return (
-		<div className="flex min-h-dvh items-center justify-center px-4">
-			<p className="text-center text-muted-foreground">We encountered an error: {message}</p>
-		</div>
 	);
 }

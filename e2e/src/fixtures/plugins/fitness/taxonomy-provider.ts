@@ -2,7 +2,7 @@ import { Effect, FileSystem, Path } from "effect";
 
 import type { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 
-const detailsSource = (input: { exerciseName: string; slug: string }) => `
+const detailsSource = (input: { slug: string; exerciseName: string }) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";

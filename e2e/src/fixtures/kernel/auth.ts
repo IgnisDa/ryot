@@ -23,12 +23,6 @@ import { type ContractSession, makeSession } from "./contract-client";
 
 export type Client = ContractSession;
 
-type TestAuthClientOptions = {
-	origin?: string;
-	sessionCookie?: string;
-	onSessionCookie?: (cookie: string) => void;
-};
-
 export type PendingOAuth = {
 	state: string;
 	redirectUri: string;
@@ -36,6 +30,12 @@ export type PendingOAuth = {
 	serverOrigin: string;
 	frontendOrigin: string;
 	authorizationUrl: string;
+};
+
+type TestAuthClientOptions = {
+	origin?: string;
+	sessionCookie?: string;
+	onSessionCookie?: (cookie: string) => void;
 };
 
 const frontendOrigins = new Map<string, string>();
@@ -336,7 +336,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 export const completeTwoFactorSignIn = (
 	baseUrl: string,
 	twoFactorCookie: string,
-	path: "/two-factor/verify-backup-code" | "/two-factor/verify-totp",
+	path: "/two-factor/verify-totp" | "/two-factor/verify-backup-code",
 	body: Record<string, unknown>,
 ) =>
 	Effect.gen(function* () {

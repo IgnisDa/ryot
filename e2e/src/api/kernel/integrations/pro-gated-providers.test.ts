@@ -35,7 +35,7 @@ const providerSpecifics = { endpoint: "https://pro-gated.example.com" };
 const listProviders = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
 
-const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<string, unknown> }) =>
+const unkeyEnvelope = (data: { code: string; valid: boolean; meta?: Record<string, unknown> }) =>
 	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 let keyedClient: Client;

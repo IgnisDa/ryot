@@ -35,7 +35,7 @@ export const findFitnessEntitySchema = (client: Client, slug: string) =>
 
 export const createExerciseEntityFixture = (
 	client: Client,
-	options: { name?: string; kind?: ExerciseKind; level?: string } = {},
+	options: { name?: string; level?: string; kind?: ExerciseKind } = {},
 ) =>
 	Effect.gen(function* () {
 		const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");

@@ -7,7 +7,7 @@ import { installTestPluginBundle } from "./test-plugin";
 
 export const installTestIntegrationProvider = (
 	settingsSchema: PluginManifest["integrationProviders"][number]["settingsSchema"],
-	options: { target?: HarnessTarget; delayMs?: number; requiresProKey?: boolean } = {},
+	options: { delayMs?: number; target?: HarnessTarget; requiresProKey?: boolean } = {},
 ) => {
 	const suffix = crypto.randomUUID();
 	const pluginSlug = `e2e-integration-plugin-${suffix}`;

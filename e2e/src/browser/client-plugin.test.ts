@@ -22,7 +22,7 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
+type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: null | string };
 
 const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const privateAccessKey = /\/api\/page-bundles\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
@@ -81,7 +81,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 			MessagePort.prototype.postMessage = function (
 				this: MessagePort,
 				message: unknown,
-				transferOrOptions?: StructuredSerializeOptions | Transferable[],
+				transferOrOptions?: Transferable[] | StructuredSerializeOptions,
 			) {
 				report(message, false);
 				return Reflect.apply(

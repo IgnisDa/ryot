@@ -28,8 +28,8 @@ type EntityUpdatedWaiter = {
 type InterestWebSocket = {
 	close: () => Effect.Effect<void>;
 	readonly ready: EntityWatchReadyMessage;
-	getEntityUpdatedMessages: () => readonly EntityWatchEntityUpdatedMessage[];
 	waitForClose: (options?: WaitOptions) => Effect.Effect<SocketClose>;
+	getEntityUpdatedMessages: () => readonly EntityWatchEntityUpdatedMessage[];
 	replaceInterest: (
 		entityIds: readonly string[],
 		foregroundIds?: readonly string[],
@@ -64,13 +64,13 @@ export const openInterestWebSocket = (
 		const timeoutMs = options.timeoutMs ?? 10_000;
 
 		let expectedClose = false;
-		let failure: Error | null = null;
-		let closed: SocketClose | undefined;
+		let failure: null | Error = null;
+		let closed: undefined | SocketClose;
 		let revision = 0;
 		const commands = yield* Semaphore.make(1);
-		let receivedReady: EntityWatchReadyMessage | undefined;
-		let completeReady: ((result: Effect.Effect<EntityWatchReadyMessage>) => void) | undefined;
-		let completeClose: ((result: Effect.Effect<void>) => void) | undefined;
+		let receivedReady: undefined | EntityWatchReadyMessage;
+		let completeReady: undefined | ((result: Effect.Effect<EntityWatchReadyMessage>) => void);
+		let completeClose: undefined | ((result: Effect.Effect<void>) => void);
 		const messages: EntityWatchEntityUpdatedMessage[] = [];
 		const listeners = new Set<EntityUpdatedWaiter>();
 		const closeListeners = new Set<(event: SocketClose) => void>();

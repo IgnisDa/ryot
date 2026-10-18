@@ -4,14 +4,14 @@ import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
 
-type ScopedFakeHttpServer = {
-	url: string;
-	requests: Array<{ body: unknown; path: string; headers: Record<string, string> }>;
-};
-
 export type FakeHttpServer = ScopedFakeHttpServer & { stop: () => Promise<void> };
 
 type Respond = (url: URL, request: Request) => Response | Effect.Effect<Response>;
+
+type ScopedFakeHttpServer = {
+	url: string;
+	requests: Array<{ path: string; body: unknown; headers: Record<string, string> }>;
+};
 
 export const startFakeHttpServerScoped = (
 	respond: Respond = () => Response.json({ ok: true }),

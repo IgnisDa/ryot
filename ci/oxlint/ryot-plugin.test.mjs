@@ -86,9 +86,9 @@ ruleTester.run("no-workflow-to-layer", plugin.rules["no-workflow-to-layer"], {
 const manifestFile = "kernel/backend/src/modules/entities/service.ts";
 const repositoryFile = "kernel/backend/src/modules/plugins/packages/repository.ts";
 const allow = [
-	{ file: repositoryFile, owners: ["persist"] },
-	{ file: "kernel/backend/src/schema/tables/core.ts", owners: ["pluginRevisionManifest"] },
-	{ file: "kernel/backend/src/platform/db/immutable-revisions.ts", owners: "*" },
+	{ owners: ["persist"], file: repositoryFile },
+	{ owners: ["pluginRevisionManifest"], file: "kernel/backend/src/schema/tables/core.ts" },
+	{ owners: "*", file: "kernel/backend/src/platform/db/immutable-revisions.ts" },
 ];
 const manifestOptions = [{ allow }];
 const manifestRead = { message: /Do not reference pluginRevisionManifest/ };
@@ -98,46 +98,6 @@ const persistRead =
 	'const persist = Effect.fn("persist")(function* () { return db.select({ manifest: schema.pluginRevisionManifest.manifest }); });';
 
 ruleTester.run("no-hot-manifest-read", plugin.rules["no-hot-manifest-read"], {
-	valid: [
-		{ filename: manifestFile, code: "const rows = db.select().from(schema.pluginRevision);" },
-		{ filename: repositoryFile, options: manifestOptions, code: persistRead },
-		{
-			options: manifestOptions,
-			filename: "kernel/backend/src/platform/db/immutable-revisions.ts",
-			code: 'const sql = "update plugin_revision_manifest"; db.update(pluginRevision);',
-		},
-		{
-			options: manifestOptions,
-			filename: "kernel/backend/src/schema/tables/core.ts",
-			code: 'export const pluginRevisionManifest = snakeCase.table("plugin_revision_manifest", { manifest: jsonb() });',
-		},
-		{
-			filename: "kernel/backend/src/modules/plugins/test-support.ts",
-			code: "db.select().from(schema.pluginRevisionManifest);",
-		},
-		{
-			filename: "kernel/backend/src/modules/entities/service.test.ts",
-			code: 'db.execute("select 1 from plugin_revision_manifest");',
-		},
-		{
-			filename: "kernel/backend/src/testing/database.ts",
-			code: "db.update(schema.pluginRevision);",
-		},
-		{
-			filename: "kernel/backend/src/drizzle/migration.ts",
-			code: 'const sql = "plugin_revision_manifest";',
-		},
-		{ filename: "apps/server/src/migration.ts", code: 'const sql = "plugin_revision_manifest";' },
-		{
-			filename: manifestFile,
-			code: 'type Manifest = (typeof pluginRevisionManifest.$inferSelect)["manifest"];',
-		},
-		{
-			filename: manifestFile,
-			code: 'import type { pluginRevisionManifest } from "#schema"; type Row = pluginRevisionManifest;',
-		},
-		{ filename: manifestFile, code: "db.update(schema.plugin).set({ status });" },
-	],
 	invalid: [
 		{
 			errors: [manifestRead],
@@ -182,14 +142,54 @@ ruleTester.run("no-hot-manifest-read", plugin.rules["no-hot-manifest-read"], {
 			code: "const fragment = sql`select manifest from plugin_revision_manifest`;",
 		},
 		{
-			errors: [revisionUpdate],
 			filename: manifestFile,
+			errors: [revisionUpdate],
 			code: "const touch = () => db.update(pluginRevision).set({ hash });",
 		},
 		{
-			errors: [revisionUpdate, manifestRead],
 			filename: manifestFile,
+			errors: [revisionUpdate, manifestRead],
 			code: "const touch = () => tx.update(tables.pluginRevisionManifest);",
 		},
+	],
+	valid: [
+		{ filename: manifestFile, code: "const rows = db.select().from(schema.pluginRevision);" },
+		{ code: persistRead, filename: repositoryFile, options: manifestOptions },
+		{
+			options: manifestOptions,
+			filename: "kernel/backend/src/platform/db/immutable-revisions.ts",
+			code: 'const sql = "update plugin_revision_manifest"; db.update(pluginRevision);',
+		},
+		{
+			options: manifestOptions,
+			filename: "kernel/backend/src/schema/tables/core.ts",
+			code: 'export const pluginRevisionManifest = snakeCase.table("plugin_revision_manifest", { manifest: jsonb() });',
+		},
+		{
+			code: "db.select().from(schema.pluginRevisionManifest);",
+			filename: "kernel/backend/src/modules/plugins/test-support.ts",
+		},
+		{
+			code: 'db.execute("select 1 from plugin_revision_manifest");',
+			filename: "kernel/backend/src/modules/entities/service.test.ts",
+		},
+		{
+			code: "db.update(schema.pluginRevision);",
+			filename: "kernel/backend/src/testing/database.ts",
+		},
+		{
+			code: 'const sql = "plugin_revision_manifest";',
+			filename: "kernel/backend/src/drizzle/migration.ts",
+		},
+		{ filename: "apps/server/src/migration.ts", code: 'const sql = "plugin_revision_manifest";' },
+		{
+			filename: manifestFile,
+			code: 'type Manifest = (typeof pluginRevisionManifest.$inferSelect)["manifest"];',
+		},
+		{
+			filename: manifestFile,
+			code: 'import type { pluginRevisionManifest } from "#schema"; type Row = pluginRevisionManifest;',
+		},
+		{ filename: manifestFile, code: "db.update(schema.plugin).set({ status });" },
 	],
 });

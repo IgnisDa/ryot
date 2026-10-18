@@ -15,9 +15,11 @@ import { installTestDefinitions } from "./test-plugin";
 
 type PluginRelationshipSchema = PluginManifest["relationshipSchemas"][number];
 
-type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> & {
-	readonly pluginSlug: string;
-} & Partial<
+type CreateRelationshipSchemaOptions = { readonly pluginSlug: string } & Pick<
+	PluginRelationshipSchema,
+	"name" | "slug"
+> &
+	Partial<
 		Pick<
 			PluginRelationshipSchema,
 			"propertiesSchema" | "sourceEntitySchemaSlug" | "targetEntitySchemaSlug"
@@ -25,7 +27,7 @@ type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "
 	>;
 
 export function requireRelationshipSchemaBySlug<
-	T extends { slug: string; pluginId: string | null },
+	T extends { slug: string; pluginId: null | string },
 >(schemas: readonly T[], slug: string, owner: DefinitionOwner): T {
 	const pluginId = owner.kind === "kernel" ? null : owner.pluginId;
 	const schema = schemas.find((s) => s.slug === slug && s.pluginId === pluginId);
@@ -68,10 +70,10 @@ export const createRelationshipSchema = (client: Client, body: CreateRelationshi
 export const listRelationshipSchemas = (
 	client: Client,
 	options: {
-		owner?: DefinitionOwner;
 		slugs?: string[];
-		sourceEntitySchemaSlug?: string | null;
-		targetEntitySchemaSlug?: string | null;
+		owner?: DefinitionOwner;
+		sourceEntitySchemaSlug?: null | string;
+		targetEntitySchemaSlug?: null | string;
 	} = {},
 ) =>
 	collectRyotQLRecipeItems(client, (after) =>

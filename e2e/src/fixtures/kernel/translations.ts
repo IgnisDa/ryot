@@ -59,8 +59,8 @@ const entityTranslationCountRecipe = defineRecipe((entityId: string) => ({
 export const seedEntityTranslation = (input: {
 	entityId: string;
 	language: string;
-	name?: string | null;
-	properties?: Record<string, unknown> | null;
+	name?: null | string;
+	properties?: null | Record<string, unknown>;
 }) =>
 	getApiClient().adminCall((c) =>
 		c.testSupport.upsertEntityTranslation({

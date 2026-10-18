@@ -319,10 +319,10 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 
 describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 	let apiEnvA: NodeJS.ProcessEnv;
-	let httpServer: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>> | undefined;
+	let httpServer: undefined | Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
 	const requestTimestamps: Array<number> = [];
-	let apiProcessA: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
-	let apiProcessB: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+	let apiProcessA: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
+	let apiProcessB: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
 	const resources = makeTestResourceScope();
 
 	beforeAll(() =>

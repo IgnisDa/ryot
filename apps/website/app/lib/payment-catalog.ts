@@ -1,18 +1,18 @@
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 
-export type PricingMetadata = { trial?: number; amount?: number; linkToGithub?: boolean };
+export type PaymentProvider = "polar" | "paddle";
 
+export type PaymentCatalogStatus = "active" | "legacy";
+
+export type PaymentEnvironment = "sandbox" | "production";
+
+export type PaymentProduct = { type: TProductTypes; prices: PaymentPrice[] };
+export type PricingMetadata = { trial?: number; amount?: number; linkToGithub?: boolean };
 export type PaymentPrice = PricingMetadata & {
 	name: TPlanTypes;
 	priceId?: string;
 	productId?: string;
 };
-
-export type PaymentProduct = { type: TProductTypes; prices: PaymentPrice[] };
-
-export type PaymentProvider = "paddle" | "polar";
-export type PaymentCatalogStatus = "active" | "legacy";
-export type PaymentEnvironment = "sandbox" | "production";
 
 type PaymentCatalog = Record<
 	PaymentProvider,

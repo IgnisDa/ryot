@@ -119,11 +119,11 @@ export const queryInMediaLibraryRelationship = (
 type SeedEntityInput = Parameters<typeof seedEntity>[0];
 
 export const seedMediaEntity = (
-	input: (SeedEntityInput extends infer Variant
+	input: { entitySchemaSlug: string } & (SeedEntityInput extends infer Variant
 		? Variant extends unknown
 			? Omit<Variant, "entitySchema">
 			: never
-		: never) & { entitySchemaSlug: string },
+		: never),
 ) =>
 	Effect.gen(function* () {
 		const { entitySchemaSlug, ...rest } = input;
@@ -148,9 +148,9 @@ const AIRED = "2020-01-01";
 const UNAIRED = "2999-01-01";
 
 type SeedEpisodeSpec = {
-	readonly episodeNumber: number;
 	readonly aired?: boolean;
 	readonly publishDate?: string;
+	readonly episodeNumber: number;
 	readonly properties?: Record<string, unknown>;
 	readonly images?: readonly Record<string, unknown>[];
 };
@@ -490,9 +490,9 @@ export const seedGlobalMovieWithCollection = (
 	client: Client,
 	options: {
 		readonly movieName: string;
-		readonly collectionName: string;
 		readonly siblingName: string;
 		readonly withCredits?: boolean;
+		readonly collectionName: string;
 		readonly movieProperties?: Record<string, unknown>;
 		readonly siblingProperties?: Record<string, unknown>;
 	},

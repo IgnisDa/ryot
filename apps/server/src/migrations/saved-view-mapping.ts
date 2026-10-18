@@ -46,8 +46,8 @@ export const legacySavedViewTargets = {
 } as const;
 
 const hiddenExpressionBySlug = new Map<string, string>([
-	["collections", `NOT ${featurePreference("others,collections")}`],
 	["calendar", `NOT ${featurePreference("others,calendar")}`],
+	["collections", `NOT ${featurePreference("others,collections")}`],
 	["all-persons", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
 	["all-companies", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
 	...mediaGroupSavedViewSlugs.map(
@@ -62,22 +62,22 @@ const hiddenExpressionBySlug = new Map<string, string>([
 		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})`,
 	],
 	[
-		"all-workout-templates",
-		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})`,
-	],
-	[
 		"all-measurements",
 		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})`,
+	],
+	[
+		"all-workout-templates",
+		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})`,
 	],
 ]);
 
 export const buildLegacySavedViewStateMigrationSql = (
 	installations: ReadonlyArray<{
-		fitnessInstallationId: string;
-		mediaInstallationId: string;
 		userId: string;
+		mediaInstallationId: string;
+		fitnessInstallationId: string;
 	}>,
-	plugins: { fitnessPluginId: string; mediaPluginId: string },
+	plugins: { mediaPluginId: string; fitnessPluginId: string },
 ) => {
 	const slugPluginPairs = [
 		...legacySavedViewTargets.kernel.map((slug) => `(${quoteSqlString(slug)}, NULL::text)`),

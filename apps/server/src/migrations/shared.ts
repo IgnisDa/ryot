@@ -9,26 +9,26 @@ import { sql } from "drizzle-orm";
 import { Data, Effect, Match, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
+export type LotEntityMigrationTarget = { lot: string } & EntityMigrationTarget;
+
+export type ResolvedLotEntityMigrationTarget = { lot: string } & ResolvedEntityMigrationTarget;
+
 export type EntityMigrationTarget = {
 	source: string;
 	entitySchemaSlug: string;
-	providerSlug: string | null;
+	providerSlug: null | string;
+};
+export type ResolvedRelationshipTarget = {
+	lot: string;
+	relationshipSchemaSlug: string;
+	relationshipSchemaPluginId: null | string;
 };
 
 export type ResolvedEntityMigrationTarget = {
 	source: string;
-	entitySchemaPluginId: string | null;
 	entitySchemaSlug: string;
-	providerId: string | null;
-};
-
-export type LotEntityMigrationTarget = EntityMigrationTarget & { lot: string };
-export type ResolvedLotEntityMigrationTarget = ResolvedEntityMigrationTarget & { lot: string };
-
-export type ResolvedRelationshipTarget = {
-	lot: string;
-	relationshipSchemaPluginId: string | null;
-	relationshipSchemaSlug: string;
+	providerId: null | string;
+	entitySchemaPluginId: null | string;
 };
 
 export const legacyBootstrapGate = Effect.gen(function* () {
@@ -50,7 +50,7 @@ export const legacyBootstrapGate = Effect.gen(function* () {
 
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-export const quoteNullableSqlString = (value: string | null) =>
+export const quoteNullableSqlString = (value: null | string) =>
 	value === null ? "NULL" : quoteSqlString(value);
 
 export const withReservedConnection = Effect.fn("withReservedConnection")(function* <A, E, R>(
@@ -99,7 +99,7 @@ const ReportRow = Schema.Struct({
 });
 
 export type ReportEntry =
-	| { count?: string; message: string; level?: "info" }
+	| { count?: string; level?: "info"; message: string }
 	| { count?: string; message: string; level: "warning"; code: AnomalyCode };
 
 const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
@@ -114,7 +114,7 @@ const isAllowedWarningCode = Schema.is(AnomalyCode);
 
 class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(
 	"UnexpectedLegacyBootstrapWarning",
-)<{ phase: string; message: string; count: number | null; code: string | null }> {}
+)<{ phase: string; message: string; code: null | string; count: null | number }> {}
 
 const reportSequenceSql = `SELECT COALESCE(MAX("seq"), 0) AS "seq" FROM "${reportTable}";`;
 
@@ -152,9 +152,9 @@ export const buildAnomalyReportSql = (input: {
 	source: string;
 	detail: string;
 	message: string;
+	code: AnomalyCode;
 	seqVariable: string;
 	countVariable: string;
-	code: AnomalyCode;
 }) => `
 	SELECT count(*) INTO ${input.countVariable} FROM ${input.source};
 	IF ${input.countVariable} > 0 THEN
@@ -205,8 +205,8 @@ export const insertAnomalyReport = (
 		phase: string;
 		count: number;
 		message: string;
-		elapsedSeconds: number | null;
 		code: AnomalyCode;
+		elapsedSeconds: null | number;
 		details: ReadonlyArray<MigrationReportDetail>;
 	},
 ) =>
@@ -235,9 +235,12 @@ FROM jsonb_to_recordset($1::jsonb) AS entry(
 export const insertReportRows = (
 	connection: SqlConnection.Connection,
 	rows: ReadonlyArray<
-		{ phase: string; message: string; count: number | null; elapsedSeconds: number | null } & (
-			{ level?: "info" } | { level: "warning"; code: AnomalyCode }
-		)
+		({ level?: "info" } | { level: "warning"; code: AnomalyCode }) & {
+			phase: string;
+			message: string;
+			count: null | number;
+			elapsedSeconds: null | number;
+		}
 	>,
 ) =>
 	rows.length === 0

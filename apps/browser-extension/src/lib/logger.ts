@@ -5,7 +5,7 @@ import { storage } from "#imports";
 import { STORAGE_KEYS } from "./constants";
 import { fromPlatform, run } from "./platform";
 
-type LogLevel = "debug" | "info" | "warn" | "error";
+type LogLevel = "info" | "warn" | "debug" | "error";
 
 class Logger {
 	private debugMode = false;
@@ -16,10 +16,24 @@ class Logger {
 		this.loadDebugMode();
 	}
 
-	private setupStorageListener() {
-		this.unwatchStorage = storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
-			this.loadDebugMode();
-		});
+	invalidateCache(): void {
+		this.loadDebugMode();
+	}
+
+	info(message: string, data?: object): void {
+		this.log("info", message, data);
+	}
+
+	warn(message: string, data?: object): void {
+		this.log("warn", message, data);
+	}
+
+	debug(message: string, data?: object): void {
+		this.log("debug", message, data);
+	}
+
+	error(message: string, data?: object): void {
+		this.log("error", message, data);
 	}
 
 	public cleanup(): void {
@@ -27,6 +41,23 @@ class Logger {
 			this.unwatchStorage();
 			this.unwatchStorage = undefined;
 		}
+	}
+
+	private formatMessage(level: LogLevel, message: string): string {
+		return `[RYOT] [${level.toUpperCase()}] ${message}`;
+	}
+
+	private setupStorageListener() {
+		this.unwatchStorage = storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
+			this.loadDebugMode();
+		});
+	}
+
+	private shouldLog(level: LogLevel): boolean {
+		if (level === "error" || level === "warn" || level === "info") {
+			return true;
+		}
+		return this.debugMode;
 	}
 
 	private loadDebugMode() {
@@ -44,17 +75,6 @@ class Logger {
 		);
 	}
 
-	private shouldLog(level: LogLevel): boolean {
-		if (level === "error" || level === "warn" || level === "info") {
-			return true;
-		}
-		return this.debugMode;
-	}
-
-	private formatMessage(level: LogLevel, message: string): string {
-		return `[RYOT] [${level.toUpperCase()}] ${message}`;
-	}
-
 	private log(level: LogLevel, message: string, data?: object): void {
 		if (!this.shouldLog(level)) {
 			return;
@@ -63,8 +83,8 @@ class Logger {
 		const formattedMessage = this.formatMessage(level, message);
 
 		switch (level) {
-			case "debug":
 			case "info":
+			case "debug":
 				if (data) {
 					console.log(formattedMessage, data);
 				} else {
@@ -86,26 +106,6 @@ class Logger {
 				}
 				break;
 		}
-	}
-
-	debug(message: string, data?: object): void {
-		this.log("debug", message, data);
-	}
-
-	info(message: string, data?: object): void {
-		this.log("info", message, data);
-	}
-
-	warn(message: string, data?: object): void {
-		this.log("warn", message, data);
-	}
-
-	error(message: string, data?: object): void {
-		this.log("error", message, data);
-	}
-
-	invalidateCache(): void {
-		this.loadDebugMode();
 	}
 }
 

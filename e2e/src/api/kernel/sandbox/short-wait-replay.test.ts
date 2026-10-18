@@ -43,9 +43,9 @@ export default defineWorkflow({
 };
 
 const httpScriptSource = (input: {
+	url: string;
 	name: string;
 	slug: string;
-	url: string;
 	requestCount: number;
 }) => `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
@@ -72,7 +72,7 @@ export default defineScript({
 
 type SystemPluginBundleInput = Omit<
 	Parameters<typeof installTestPluginBundle>[0],
-	"client" | "scope"
+	"scope" | "client"
 >;
 
 const installSystemPluginScoped = (input: SystemPluginBundleInput) =>

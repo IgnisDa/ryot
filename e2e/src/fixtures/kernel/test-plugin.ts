@@ -37,88 +37,88 @@ import { executeAdminRyotQLRecipe } from "./ryotql";
 import { authoredEntityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
-type TestPluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
+export type TestPluginScript = PluginScript extends infer Script
+	? Script extends PluginScript
+		? Partial<Pick<Script, GeneratedDependencyFields>> &
+				Omit<Script, "entry" | GeneratedDependencyFields>
+		: never
+	: never;
 type PluginScript = TestPluginManifest["scripts"][number];
+type PluginProvider = TestPluginManifest["providers"][number];
+type InstallPluginPayload = ContractPayload<"plugins", "install">;
+type PluginOperationResult = ContractSuccess<"testSupport", "installSystemPlugin">;
+type TestPluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
+type TestPluginOwner =
+	| { client: Client; scope?: "user" }
+	| { scope: "system"; client?: undefined; target?: HarnessTarget };
+
 type GeneratedDependencyFields =
 	| "runtimeImports"
-	| "optionalPluginConfigKeys"
+	| "oauthConnectionFields"
 	| "executableDependencies"
-	| "oauthConnectionFields";
+	| "optionalPluginConfigKeys";
+
 type FixtureScript = PluginScript extends infer Script
 	? Script extends PluginScript
 		? Omit<Script, GeneratedDependencyFields> & Partial<Pick<Script, GeneratedDependencyFields>>
 		: never
 	: never;
-type PluginProvider = TestPluginManifest["providers"][number];
-type InstallPluginPayload = ContractPayload<"plugins", "install">;
-type PluginOperationResult = ContractSuccess<"testSupport", "installSystemPlugin">;
 
-export type TestPluginScript = PluginScript extends infer Script
-	? Script extends PluginScript
-		? Omit<Script, "entry" | GeneratedDependencyFields> &
-				Partial<Pick<Script, GeneratedDependencyFields>>
-		: never
-	: never;
-
-type TestPluginManifestInput = Partial<
+type TestPluginManifestInput = {
+	pluginSlug: string;
+	scripts?: ReadonlyArray<FixtureScript>;
+	providers?: ReadonlyArray<PluginProvider>;
+	clientDefinition?: TestPluginManifest["client"];
+	packageId?: TestPluginManifest["metadata"]["packageId"];
+} & Partial<
 	Pick<
 		TestPluginManifest,
 		| "crons"
 		| "hooks"
-		| "savedViews"
 		| "workflows"
+		| "savedViews"
 		| "operations"
 		| "configSchema"
 		| "importSources"
 		| "entitySchemas"
 		| "userBootstrap"
+		| "signalSchemas"
 		| "httpRateLimits"
 		| "relationshipSchemas"
 		| "integrationProviders"
-		| "signalSchemas"
 	>
-> & {
-	scripts?: ReadonlyArray<FixtureScript>;
-	providers?: ReadonlyArray<PluginProvider>;
-	clientDefinition?: TestPluginManifest["client"];
-	pluginSlug: string;
-	packageId?: TestPluginManifest["metadata"]["packageId"];
-};
-
-type TestPluginOwner =
-	| { client?: undefined; scope: "system"; target?: HarnessTarget }
-	| { client: Client; scope?: "user" };
+>;
 
 const testPluginOwnerTarget = (owner: TestPluginOwner) =>
 	owner.scope === "system" ? (owner.target ?? getSharedHarnessTarget()) : owner.client.target;
 
 export type InstalledTestPlugin = {
-	target: HarnessTarget;
 	slug: string;
 	client?: Client;
 	active: boolean;
 	pluginId: PluginId;
-	activationId: string;
 	pluginSlug: string;
-	scope: "system" | "user";
 	contentHash: string;
+	activationId: string;
+	target: HarnessTarget;
+	scope: "user" | "system";
 	scriptId: SandboxScriptId;
-	installationId: string | null;
-	configRevisionId: PluginConfigRevisionId | null;
-	activePluginRevisionId: PluginRevisionId;
 	manifest: TestPluginManifest;
+	installationId: null | string;
 	files: PluginPackageInput["files"];
+	activePluginRevisionId: PluginRevisionId;
 	scriptIds: Record<string, SandboxScriptId>;
+	configRevisionId: null | PluginConfigRevisionId;
 };
 
 type InstalledScriptRegistration = { targetSlug: string; installed: InstalledTestPlugin };
 type TestDefinitionRegistration = {
 	client: Client;
-	installationId: string;
-	manifest: TestPluginManifest;
 	pluginId: PluginId;
 	pluginSlug: string;
 	contentHash: string;
+	installationId: string;
+	manifest: TestPluginManifest;
 };
 
 const encoder = new TextEncoder();
@@ -133,7 +133,7 @@ export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>)
 	);
 
 export const installTestSupportSystemPlugin = (
-	input: (PluginPackageInput | PluginArchivePackage) & { target?: HarnessTarget },
+	input: { target?: HarnessTarget } & (PluginPackageInput | PluginArchivePackage),
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
@@ -269,9 +269,9 @@ const operationScriptIds = (result: PluginOperationResult) =>
 	Object.fromEntries(result.scripts.map(({ id, slug }) => [slug, id]));
 
 const installedSourceHash = (
-	scope: "system" | "user",
+	scope: "user" | "system",
 	pluginId: PluginId,
-	installationId: string | null,
+	installationId: null | string,
 	client?: Client,
 	target?: HarnessTarget,
 ) =>
@@ -340,10 +340,9 @@ const privatePluginOperationResult = (installationId: string, target: HarnessTar
 	});
 
 export const installTestPlugin = (
-	input: {
+	input: TestPluginOwner & {
 		source: string;
 		pluginSlug?: string;
-		packageId?: TestPluginManifest["metadata"]["packageId"];
 		script: TestPluginScript;
 		crons?: TestPluginManifest["crons"];
 		config?: InstallPluginPayload["config"];
@@ -353,8 +352,9 @@ export const installTestPlugin = (
 		configSchema?: TestPluginManifest["configSchema"];
 		entitySchemas?: TestPluginManifest["entitySchemas"];
 		httpRateLimits?: TestPluginManifest["httpRateLimits"];
+		packageId?: TestPluginManifest["metadata"]["packageId"];
 		integrationProviders?: TestPluginManifest["integrationProviders"];
-	} & TestPluginOwner,
+	},
 ) =>
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
@@ -435,9 +435,8 @@ export const installTestPlugin = (
 	});
 
 export const installTestPluginBundle = (
-	input: {
+	input: TestPluginOwner & {
 		pluginSlug?: string;
-		packageId?: TestPluginManifest["metadata"]["packageId"];
 		crons?: TestPluginManifest["crons"];
 		hooks?: TestPluginManifest["hooks"];
 		scripts: ReadonlyArray<FixtureScript>;
@@ -451,11 +450,12 @@ export const installTestPluginBundle = (
 		configSchema?: TestPluginManifest["configSchema"];
 		importSources?: TestPluginManifest["importSources"];
 		entitySchemas?: TestPluginManifest["entitySchemas"];
-		httpRateLimits?: TestPluginManifest["httpRateLimits"];
-		relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 		signalSchemas?: TestPluginManifest["signalSchemas"];
+		httpRateLimits?: TestPluginManifest["httpRateLimits"];
+		packageId?: TestPluginManifest["metadata"]["packageId"];
+		relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 		integrationProviders?: TestPluginManifest["integrationProviders"];
-	} & TestPluginOwner,
+	},
 ) =>
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);

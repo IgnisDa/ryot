@@ -25,7 +25,7 @@ const providerCacheSource = (input: {
 	slug: string;
 	name: string;
 	value: string;
-	operation: "details" | "search";
+	operation: "search" | "details";
 }) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";

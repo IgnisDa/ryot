@@ -38,7 +38,7 @@ export const pinMeasurementMetric = (
 	input: RecipeInput<typeof measurementMetricPinRecipe>,
 ) => invokeOperation(client, measurementMetricPinRecipe, input);
 
-type SubmissionKeys = "submissionId" | "submittedAt";
+type SubmissionKeys = "submittedAt" | "submissionId";
 type ReadingLogInput = RecipeEncodedInput<typeof measurementReadingLogRecipe>;
 
 export const logMeasurementReadings = (

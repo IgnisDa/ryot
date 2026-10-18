@@ -58,7 +58,7 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 	) ON COMMIT DROP;`,
 		[],
 	);
-	let cursor: string | null = null;
+	let cursor: null | string = null;
 	let omitted = 0;
 	for (;;) {
 		const rows: ReadonlyArray<typeof GenreInput.Type> = yield* connection
@@ -98,13 +98,13 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 				);
 			}
 			const broadSource = [
-				"anilist",
-				"giant_bomb",
-				"manga_updates",
-				"openlibrary",
 				"vndb",
-				"google_books",
+				"anilist",
 				"audible",
+				"giant_bomb",
+				"openlibrary",
+				"google_books",
+				"manga_updates",
 			].includes(row.source);
 			const values = broadSource ? recognizedMediaGenres(row.genres) : row.genres;
 			omitted += row.genres.length - values.length;

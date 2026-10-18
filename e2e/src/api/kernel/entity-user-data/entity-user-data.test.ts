@@ -34,11 +34,11 @@ import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const insertUserRelationship = (input: {
+	client: Client;
 	sourceEntityId: string;
 	targetEntityId: string;
-	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 	properties?: Record<string, unknown>;
-	client: Client;
+	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 }) =>
 	createRelationship(input.client, {
 		properties: input.properties,

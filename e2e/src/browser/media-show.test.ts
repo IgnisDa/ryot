@@ -9,7 +9,7 @@ import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 import { nowIso } from "~/support/time";
 
-const openShow = (input: { email: string; password: string; showId: string }) =>
+const openShow = (input: { email: string; showId: string; password: string }) =>
 	Effect.gen(function* () {
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });

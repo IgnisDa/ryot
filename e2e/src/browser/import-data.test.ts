@@ -29,8 +29,8 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 
 let email: string;
 let password: string;
-let slowImport: { plugin: InstalledTestPlugin; source: string } | undefined;
-let harvestImport: InstalledTestPlugin | undefined;
+let slowImport: undefined | { source: string; plugin: InstalledTestPlugin };
+let harvestImport: undefined | InstalledTestPlugin;
 
 const settingsSidebar = (page: Playwright.Page) => page.getByTestId("settings-sidebar");
 

@@ -13,16 +13,35 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const WORKFLOW_NAME = "NotificationDeliveryWorkflow";
 
-let otlpServer: FakeHttpServer | undefined;
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let otlpServer: undefined | FakeHttpServer;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
+
+function requireOtlpServer() {
+	return requirePresent(otlpServer, "OTLP test server is not initialized");
+}
 
 function requireLogFile() {
 	return requirePresent(target.serverLogFile, "Observability api log file is not initialized");
 }
 
-function requireOtlpServer() {
-	return requirePresent(otlpServer, "OTLP test server is not initialized");
+function findRequestSpan() {
+	return findSpan(
+		(span) =>
+			getStringAttribute(span["attributes"], "url.path") === "/api/notifications/channels/test",
+	);
+}
+
+function findWorkflowSpan(userId: string) {
+	return findSpan(
+		(span) =>
+			span["name"] === WORKFLOW_NAME && getStringAttribute(span["attributes"], "userId") === userId,
+	);
+}
+
+function getLogMessage(log: Record<string, unknown>) {
+	const body = requireObjectRecord(log["body"], "OTLP log body is not an object");
+	return typeof body["stringValue"] === "string" ? body["stringValue"] : null;
 }
 
 function getStringAttribute(attributesValue: unknown, key: string) {
@@ -72,6 +91,44 @@ function findSpan(predicate: (span: Record<string, unknown>) => boolean) {
 	return null;
 }
 
+function findLog(predicate: (log: Record<string, unknown>) => boolean) {
+	for (const request of requireOtlpServer().requests) {
+		if (request.path !== "/v1/logs") {
+			continue;
+		}
+		const body = requireObjectRecord(request.body, "OTLP request body is not an object");
+		for (const resourceLogValue of requireArray(
+			body["resourceLogs"],
+			"OTLP resource logs are not an array",
+		)) {
+			const resourceLog = requireObjectRecord(
+				resourceLogValue,
+				"OTLP resource log is not an object",
+			);
+			const resource = requireObjectRecord(
+				resourceLog["resource"],
+				"OTLP resource is not an object",
+			);
+			for (const scopeLogValue of requireArray(
+				resourceLog["scopeLogs"],
+				"OTLP scope logs are not an array",
+			)) {
+				const scopeLog = requireObjectRecord(scopeLogValue, "OTLP scope log is not an object");
+				for (const logValue of requireArray(
+					scopeLog["logRecords"],
+					"OTLP log records are not an array",
+				)) {
+					const log = requireObjectRecord(logValue, "OTLP log record is not an object");
+					if (predicate(log)) {
+						return { log, resource };
+					}
+				}
+			}
+		}
+	}
+	return null;
+}
+
 function findMetric(name: string) {
 	for (const request of requireOtlpServer().requests) {
 		if (request.path !== "/v1/metrics") {
@@ -111,63 +168,6 @@ function findMetric(name: string) {
 		}
 	}
 	return null;
-}
-
-function findLog(predicate: (log: Record<string, unknown>) => boolean) {
-	for (const request of requireOtlpServer().requests) {
-		if (request.path !== "/v1/logs") {
-			continue;
-		}
-		const body = requireObjectRecord(request.body, "OTLP request body is not an object");
-		for (const resourceLogValue of requireArray(
-			body["resourceLogs"],
-			"OTLP resource logs are not an array",
-		)) {
-			const resourceLog = requireObjectRecord(
-				resourceLogValue,
-				"OTLP resource log is not an object",
-			);
-			const resource = requireObjectRecord(
-				resourceLog["resource"],
-				"OTLP resource is not an object",
-			);
-			for (const scopeLogValue of requireArray(
-				resourceLog["scopeLogs"],
-				"OTLP scope logs are not an array",
-			)) {
-				const scopeLog = requireObjectRecord(scopeLogValue, "OTLP scope log is not an object");
-				for (const logValue of requireArray(
-					scopeLog["logRecords"],
-					"OTLP log records are not an array",
-				)) {
-					const log = requireObjectRecord(logValue, "OTLP log record is not an object");
-					if (predicate(log)) {
-						return { log, resource };
-					}
-				}
-			}
-		}
-	}
-	return null;
-}
-
-function getLogMessage(log: Record<string, unknown>) {
-	const body = requireObjectRecord(log["body"], "OTLP log body is not an object");
-	return typeof body["stringValue"] === "string" ? body["stringValue"] : null;
-}
-
-function findRequestSpan() {
-	return findSpan(
-		(span) =>
-			getStringAttribute(span["attributes"], "url.path") === "/api/notifications/channels/test",
-	);
-}
-
-function findWorkflowSpan(userId: string) {
-	return findSpan(
-		(span) =>
-			span["name"] === WORKFLOW_NAME && getStringAttribute(span["attributes"], "userId") === userId,
-	);
 }
 
 beforeAll(() =>

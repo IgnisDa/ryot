@@ -8,8 +8,8 @@ import {
 } from "./shared";
 
 export const buildUserToEntityInLibraryMigrationSql = (input: {
-	inLibraryRelationshipSchema: QualifiedSchema;
 	libraryEntitySchema: QualifiedSchema;
+	inLibraryRelationshipSchema: QualifiedSchema;
 	libraryEligibleEntitySchemaSlugs: ReadonlyArray<string>;
 }) => {
 	const phase = `user_to_entity -> ${input.inLibraryRelationshipSchema.slug} relationship`;

@@ -9,14 +9,6 @@ import { extractMetadataTitle } from "./metadata-extractor";
 import { fromPlatform } from "./platform";
 
 export class MetadataCache {
-	private getCacheKey(title: string): `local:${string}` {
-		const cleanTitle = title
-			.trim()
-			.toLowerCase()
-			.replace(/[^a-z0-9]/g, "_");
-		return `local:cached-metadata:${cleanTitle}`;
-	}
-
 	getMetadataForCurrentPage() {
 		const title = extractMetadataTitle();
 		const cacheKey = title ? this.getCacheKey(title) : null;
@@ -68,5 +60,13 @@ export class MetadataCache {
 				}),
 			);
 		});
+	}
+
+	private getCacheKey(title: string): `local:${string}` {
+		const cleanTitle = title
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]/g, "_");
+		return `local:cached-metadata:${cleanTitle}`;
 	}
 }

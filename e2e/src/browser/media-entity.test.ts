@@ -28,7 +28,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let mediaProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 

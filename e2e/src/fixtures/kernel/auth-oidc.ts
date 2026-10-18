@@ -38,7 +38,7 @@ export const startMockOidcServer = Effect.gen(function* () {
 	yield* attempt(() => server.start(0, "127.0.0.1")).pipe(Effect.uninterruptible);
 
 	const claimsByCode = new Map<string, Record<string, unknown>>();
-	let nextClaims: Record<string, unknown> | undefined;
+	let nextClaims: undefined | Record<string, unknown>;
 
 	server.service.on(Events.BeforeAuthorizeRedirect, (redirect) => {
 		const code = redirect.url.searchParams.get("code");
@@ -71,7 +71,7 @@ export const performOidcSignIn = (
 	apiUrl: string,
 	claims?: Record<string, unknown>,
 ): Effect.Effect<
-	{ pending: PendingOAuth; response: Response },
+	{ response: Response; pending: PendingOAuth },
 	OidcFixtureError,
 	HttpClient.HttpClient
 > =>

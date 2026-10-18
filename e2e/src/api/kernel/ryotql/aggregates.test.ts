@@ -37,7 +37,7 @@ import {
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const requireAggregate = (result: RyotQLResult | undefined, key: string): AggregateResult => {
+const requireAggregate = (result: undefined | RyotQLResult, key: string): AggregateResult => {
 	if (result?.type !== "aggregate") {
 		throw new Error(`Expected '${key}' aggregate`);
 	}

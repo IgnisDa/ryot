@@ -29,6 +29,35 @@ function findCustomer(polarCustomerId: string | undefined, externalCustomerId: s
 	);
 }
 
+function handleSubscriptionRevoked(
+	event: PolarWebhookEvent,
+): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
+	return Effect.gen(function* () {
+		if (event.type !== "subscription.revoked") {
+			return { error: "Invalid event type" };
+		}
+
+		const { data: subscription } = event;
+		const polarCustomerId = subscription.customer.id;
+		const externalCustomerId = subscription.customer.external_id ?? undefined;
+
+		yield* Effect.log("Received subscription.revoked event", {
+			polarCustomerId,
+			externalCustomerId,
+		});
+
+		const customer = yield* findCustomer(polarCustomerId, externalCustomerId);
+		if (!customer) {
+			return { error: "No customer found" };
+		}
+
+		yield* revokePurchase(customer);
+		revokeCancellation(customer.id);
+
+		return { message: "Subscription revoked successfully" };
+	});
+}
+
 function handleOrderPaid(
 	event: PolarWebhookEvent,
 ): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
@@ -69,35 +98,6 @@ function handleOrderPaid(
 		revokePurchaseInProgress(customer.id);
 
 		return { message: "Order processed successfully" };
-	});
-}
-
-function handleSubscriptionRevoked(
-	event: PolarWebhookEvent,
-): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
-	return Effect.gen(function* () {
-		if (event.type !== "subscription.revoked") {
-			return { error: "Invalid event type" };
-		}
-
-		const { data: subscription } = event;
-		const polarCustomerId = subscription.customer.id;
-		const externalCustomerId = subscription.customer.external_id ?? undefined;
-
-		yield* Effect.log("Received subscription.revoked event", {
-			polarCustomerId,
-			externalCustomerId,
-		});
-
-		const customer = yield* findCustomer(polarCustomerId, externalCustomerId);
-		if (!customer) {
-			return { error: "No customer found" };
-		}
-
-		yield* revokePurchase(customer);
-		revokeCancellation(customer.id);
-
-		return { message: "Subscription revoked successfully" };
 	});
 }
 

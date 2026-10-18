@@ -51,9 +51,9 @@ export const updateExerciseOverrides = (
 ) => invokeOperation(client, exerciseOverrideUpdateRecipe, input);
 
 export type SaveInput = RecipeInput<typeof workoutEditorSaveRecipe>;
-export type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
-export type WorkoutOccurrenceInput = WorkoutData["occurrences"][number];
 export type WorkoutSetInput = WorkoutOccurrenceInput["sets"][number];
+export type WorkoutOccurrenceInput = WorkoutData["occurrences"][number];
+export type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
 export type TemplateData = Extract<SaveInput["data"], { kind: "template" }>;
 
 export const workoutReference = (client: Client) =>
@@ -80,8 +80,8 @@ export const loadWorkoutBaseline = (
 	});
 
 export const editTarget = (loaded: {
-	readonly baseline: WorkoutEditorBaseline;
 	readonly conflictToken: string;
+	readonly baseline: WorkoutEditorBaseline;
 }) => ({
 	kind: "update" as const,
 	conflictToken: loaded.conflictToken,

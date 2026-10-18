@@ -47,8 +47,8 @@ export const discardDraft = (frame: Playwright.FrameLocator) =>
 export const submitDraft = (
 	frame: Playwright.FrameLocator,
 	input: {
-		readonly confirm: "Save template" | "Save workout";
-		readonly review?: "Finish" | "Save";
+		readonly review?: "Save" | "Finish";
+		readonly confirm: "Save workout" | "Save template";
 	},
 ) =>
 	Effect.gen(function* () {
@@ -61,8 +61,8 @@ export const saveDraft = (
 	frame: Playwright.FrameLocator,
 	input: {
 		readonly name: string;
-		readonly review?: "Finish" | "Save";
-		readonly confirm: "Save template" | "Save workout";
+		readonly review?: "Save" | "Finish";
+		readonly confirm: "Save workout" | "Save template";
 	},
 ) =>
 	Effect.gen(function* () {

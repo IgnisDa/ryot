@@ -10,8 +10,8 @@ import {
 } from "./private-plugin";
 import { collectRyotQLRecipeItems } from "./ryotql";
 
-type PluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
 export type PreferencePluginUserSettingsSchema = NonNullable<PluginManifest["userSettingsSchema"]>;
+type PluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
 
 type PrivatePluginFactoryInput = NonNullable<Parameters<typeof privatePluginPackage>[0]>;
 

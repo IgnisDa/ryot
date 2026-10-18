@@ -16,7 +16,7 @@ import { getSharedHarnessTarget } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
-let fallbackHarness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let fallbackHarness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let fallbackTarget: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 const expectValidExpiry = (expiresAt: string | undefined) => {

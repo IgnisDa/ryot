@@ -13,7 +13,7 @@ import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const startWorkoutWith = (names: readonly string[], reducedMotion: "no-preference" | "reduce") =>
+const startWorkoutWith = (names: readonly string[], reducedMotion: "reduce" | "no-preference") =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
 		for (const name of names) {

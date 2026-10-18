@@ -29,7 +29,7 @@ export const signInThroughHostedOAuth = (
 		return { homeUrl: page.url(), historyLengthBeforeSubmit };
 	});
 
-export const waitForSearchParam = (page: Playwright.Page, value: string | null) =>
+export const waitForSearchParam = (page: Playwright.Page, value: null | string) =>
 	page
 		.locator("body")
 		.waitForFunction(

@@ -54,7 +54,7 @@ const LABEL_EXTERNAL_ID = `source-owner-label-${crypto.randomUUID()}`;
 const PLUGIN_SLUG = `relationship-source-ownership-${crypto.randomUUID()}`;
 
 const itemLabelTargetsRecipe = defineRecipe(
-	(input: { readonly owner: PluginIdentityReference; readonly sourceEntityId: EntityId }) => {
+	(input: { readonly sourceEntityId: EntityId; readonly owner: PluginIdentityReference }) => {
 		const relationship = table("relationship", "itemLabelRelationship");
 		const label = table("entity", "label");
 

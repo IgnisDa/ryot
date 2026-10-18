@@ -31,18 +31,18 @@ import type { Client } from "./auth";
 import { getEntity } from "./entities";
 import { findPluginInstallationByPackage } from "./plugins";
 
-type CreateSavedViewPayload = ContractPayload<"savedViews", "create">;
 type PrepareClientPageRequest = ContractRequest<"pages", "prepare">;
+type CreateSavedViewPayload = ContractPayload<"savedViews", "create">;
+type SubjectSchemas = KernelSavedViewPayload["settings"]["subject"]["schemas"];
 type CheckClientPageFreshnessRequest = ContractRequest<"pages", "checkFreshness">;
 type PluginSavedViewPayload = Extract<CreateSavedViewPayload, { renderer: { kind: "plugin" } }>;
-type KernelSavedViewPayload = Extract<
-	CreateSavedViewPayload,
-	{ renderer: { name: "collection-browser" | "entity-browser" } }
->;
-type SubjectSchemas = KernelSavedViewPayload["settings"]["subject"]["schemas"];
 type SavedViewClientPageTarget = Extract<
 	PrepareClientPageRequest["payload"]["target"],
 	{ kind: "saved-view" }
+>;
+type KernelSavedViewPayload = Extract<
+	CreateSavedViewPayload,
+	{ renderer: { name: "entity-browser" | "collection-browser" } }
 >;
 
 export const findPluginIdByPackage = (
@@ -240,7 +240,7 @@ export const createResultsTableSavedView = (
 
 export const buildNamedDataSources = (
 	entityIds: readonly string[],
-	range: { readonly startAt: string; readonly endAt: string },
+	range: { readonly endAt: string; readonly startAt: string },
 ) => {
 	const entity = table("entity", "structuredEntity");
 	const selected = inArray(

@@ -35,8 +35,8 @@ import { providerSandboxSource } from "./sandbox-provider";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 import { encodePluginSourceFiles, testPluginManifest, testPluginPackageId } from "./test-plugin";
 
-type NamespaceInstallResult = ContractSuccess<"plugins", "install">;
 type NamespaceInvocation = ContractPayload<"plugins", "invoke">;
+type NamespaceInstallResult = ContractSuccess<"plugins", "install">;
 
 const entity = table("entity", "namespaceEntity");
 const definition = table("entitySchema", "namespaceDefinition");
@@ -157,7 +157,7 @@ export const namespaceSubscriptionsRecipe = defineRecipe((reference: PluginIdent
 }));
 
 export const namespaceBottlesRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly joinDefinitions?: boolean }) => ({
+	(input: { readonly joinDefinitions?: boolean; readonly reference: PluginIdentityReference }) => ({
 		map: ({ bottles }) => Result.succeed(bottles.items),
 		queries: {
 			bottles: selectedRows(entity, {
@@ -468,13 +468,13 @@ export default Catalog;
 
 const namespacePackage = (input: {
 	readonly label: string;
-	readonly packageId: PluginPackageId;
-	readonly strength: string | number;
-	readonly uniqueSchema: string;
+	readonly opaque: string;
 	readonly revision?: 1 | 2;
 	readonly bootstrap?: boolean;
+	readonly uniqueSchema: string;
+	readonly strength: string | number;
+	readonly packageId: PluginPackageId;
 	readonly dependency?: PluginPackageId;
-	readonly opaque: string;
 }): PluginPackageInput => {
 	const entry = "backend/scripts/inspect.sandbox.ts";
 	const bootstrapEntry = "backend/scripts/bootstrap.sandbox.ts";

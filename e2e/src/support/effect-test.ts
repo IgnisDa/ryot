@@ -4,7 +4,7 @@ import type { TestContext } from "vitest";
 
 import { type E2eServices, provideE2eServices } from "./e2e-runtime";
 
-export { afterAll, assert, beforeAll, describe, expect };
+export { assert, expect, afterAll, describe, beforeAll };
 export { runPromise } from "./e2e-runtime";
 
 export const it = Object.assign(

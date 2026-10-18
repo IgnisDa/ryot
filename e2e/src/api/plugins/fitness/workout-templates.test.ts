@@ -45,14 +45,14 @@ type WorkoutTemplateProperties = {
 		videos?: AssetLocator[];
 		sets: Array<{
 			note?: string;
-			restTime?: number;
 			setOrder: number;
-			rpe?: number | null;
-			reps?: number | null;
-			weight?: number | null;
-			distance?: number | null;
-			duration?: number | null;
-			setLot: "normal" | "warm_up" | "drop" | "failure";
+			restTime?: number;
+			rpe?: null | number;
+			reps?: null | number;
+			weight?: null | number;
+			distance?: null | number;
+			duration?: null | number;
+			setLot: "drop" | "normal" | "warm_up" | "failure";
 		}>;
 	}>;
 };
