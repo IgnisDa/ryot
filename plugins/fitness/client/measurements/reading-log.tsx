@@ -12,7 +12,7 @@ import {
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Fragment, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 
 import { sectionHeadingClass } from "../exercise/styles";
 import { formatNumber } from "../workout/format";
@@ -22,9 +22,9 @@ import {
 	formatValue,
 	groupByMonth,
 	groupReadings,
-	rangePhrase,
 	type MonthSection,
 	type RangeKey,
+	rangePhrase,
 	type ReadingGroup,
 	type ReadingValue,
 } from "./model";

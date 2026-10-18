@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type RefObject } from "react";
+import { type RefObject, useId, useRef, useState } from "react";
 
 import { Button } from "./button";
 import { Dialog } from "./dialog";

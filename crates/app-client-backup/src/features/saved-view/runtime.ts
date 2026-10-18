@@ -44,9 +44,7 @@ type RuntimeField = NonNullable<QueryEngineEntitiesRequestBody["fields"]>[number
 type ViewExpression = SavedView["displayConfiguration"]["entityIdProperty"];
 
 type SavedViewFormattedValue =
-	| { kind: "empty" }
-	| { kind: "text"; value: string }
-	| { kind: "image"; image: EntityImage };
+	{ kind: "empty" } | { kind: "text"; value: string } | { kind: "image"; image: EntityImage };
 
 const createRuntimeField = (key: string, expression: ViewExpression): RuntimeField => ({
 	key,

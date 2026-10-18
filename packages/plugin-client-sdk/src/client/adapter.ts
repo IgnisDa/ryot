@@ -8,6 +8,7 @@ import type {
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
+	PickEntityRequest,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
@@ -18,7 +19,6 @@ import type {
 	PluginStorageRequest,
 	PluginThemeSnapshot,
 	PluginUploadRequest,
-	PickEntityRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { Effect, Schema } from "effect";

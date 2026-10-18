@@ -5,17 +5,17 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { chunk } from "../../shared/collections";
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,
-	measurementSeriesRecipe,
-	measurementSummaryRecipe,
 	type MeasurementSeries,
+	measurementSeriesRecipe,
 	type MeasurementSummary,
+	measurementSummaryRecipe,
 } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	measurementReadingListRecipe,
 	type MeasurementReadingListResult,
 } from "../../shared/query-recipes";
-import { rangeStartAt, seriesWindow, type RangeKey } from "./model";
+import { type RangeKey, rangeStartAt, seriesWindow } from "./model";
 
 const READING_PAGE_SIZE = 100;
 

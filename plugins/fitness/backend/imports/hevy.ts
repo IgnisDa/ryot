@@ -1,4 +1,4 @@
-import { DateTime, Result, Option } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Option, Result } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { poundsToKilograms } from "../../shared/workout-units";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";

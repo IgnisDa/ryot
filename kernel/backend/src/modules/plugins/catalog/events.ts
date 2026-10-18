@@ -1,8 +1,8 @@
 import {
-	PLUGIN_CATALOG_CONNECTED_EVENT,
-	PLUGIN_CATALOG_INVALIDATED_EVENT,
 	decodePluginCatalogInvalidatedMessage,
 	encodePluginCatalogInvalidatedMessage,
+	PLUGIN_CATALOG_CONNECTED_EVENT,
+	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, inArray, isNull } from "drizzle-orm";

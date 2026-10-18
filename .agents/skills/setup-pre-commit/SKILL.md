@@ -49,9 +49,7 @@ npm run test
 ### 5. Create `.lintstagedrc`
 
 ```json
-{
-  "*": "prettier --ignore-unknown --write"
-}
+{ "*": "prettier --ignore-unknown --write" }
 ```
 
 ### 6. Create `.prettierrc` (if missing)

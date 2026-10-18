@@ -1,6 +1,6 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import * as Effect from "effect/Effect";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
 import { FieldMessage } from "../../text-field";
 import type { SchemaFileIcons } from "../file/field";

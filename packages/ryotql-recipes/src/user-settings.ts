@@ -4,10 +4,10 @@ import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
 	column,
 	defineRecipe,
+	type Recipe,
 	selectedField,
 	selectedRow,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

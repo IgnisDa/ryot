@@ -26,9 +26,7 @@ const inputIconStyle = tva({
 	base: "justify-center items-center text-muted-foreground fill-none h-4 w-4",
 });
 
-const inputSlotStyle = tva({
-	base: "justify-center items-center web:disabled:cursor-not-allowed",
-});
+const inputSlotStyle = tva({ base: "justify-center items-center web:disabled:cursor-not-allowed" });
 
 const inputFieldStyle = tva({
 	base: "flex-1 text-foreground text-sm md:text-sm py-1 h-full placeholder:text-muted-foreground  web:outline-none ios:leading-[0px] web:cursor-text web:data-[disabled=true]:cursor-not-allowed",
@@ -46,11 +44,7 @@ const Input = React.forwardRef<React.ComponentRef<typeof UIInput>, IInputProps>(
 );
 
 type IInputIconProps = React.ComponentProps<typeof UIInput.Icon> &
-	VariantProps<typeof inputIconStyle> & {
-		width?: number;
-		height?: number;
-		className?: string;
-	};
+	VariantProps<typeof inputIconStyle> & { width?: number; height?: number; className?: string };
 
 const InputIcon = React.forwardRef<React.ComponentRef<typeof UIInput.Icon>, IInputIconProps>(
 	function InputIcon(props, ref) {

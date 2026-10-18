@@ -9,7 +9,7 @@
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
 		"build": "expo export --platform web --output-dir dist",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && bun fmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",

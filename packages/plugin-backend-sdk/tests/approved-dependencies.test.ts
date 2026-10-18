@@ -1,7 +1,7 @@
 import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { XMLParser } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
-import { strFromU8, gunzipSync, gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";
+import { gunzipSync, gzipSync, strFromU8 } from "@ryot-app/plugin-backend-sdk/fflate";
 import { parse } from "@ryot-app/plugin-backend-sdk/papaparse";
 import { expect, test } from "vitest";
 

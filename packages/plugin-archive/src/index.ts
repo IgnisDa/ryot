@@ -1,13 +1,13 @@
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
-	PluginClientArtifact,
-	PluginClientArtifactMetadata,
 	clientArtifactMetadata,
 	clientDeclarationHash,
 	isPluginClientArtifactContentType,
 	isPluginSourceFile,
+	PluginClientArtifact,
 	type PluginClientArtifact as PluginClientArtifactType,
+	PluginClientArtifactMetadata,
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";

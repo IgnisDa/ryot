@@ -1,8 +1,8 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationEntityDraft,
-	AutomationPolicyOutput,
 	AutomationPolicyBatchOutput,
+	AutomationPolicyOutput,
 	AutomationPolicyPatch,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";

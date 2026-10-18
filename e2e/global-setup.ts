@@ -7,12 +7,12 @@ import { runPromise } from "./src/support/e2e-runtime";
 import { verifyNativeSandboxProvisioning } from "./src/support/native-sandbox-provisioning";
 import {
 	buildApiEnv,
+	harnessApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
-	harnessApiEnv,
 } from "./src/support/provisioning";
 
 const S3_BUCKET_NAME = "ryot-test";

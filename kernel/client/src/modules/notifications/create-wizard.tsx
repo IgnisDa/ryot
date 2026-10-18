@@ -5,20 +5,20 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
-	SchemaForm,
-	useSchemaForm,
 	type SchemaAssetUpload,
+	SchemaForm,
 	type SchemaFormApi,
 	type SchemaFormValues,
+	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Cause, Effect, Match, Result } from "effect";
 import { useReducer, useState } from "react";
 
 import {
 	notificationChannelChooseLabel,
+	type NotificationChannelDefinition,
 	notificationChannelEntry,
 	notificationChannelList,
-	type NotificationChannelDefinition,
 } from "#/modules/notifications/channel-catalog";
 import {
 	createNotificationChannelBody,
@@ -26,8 +26,8 @@ import {
 } from "#/modules/notifications/payload";
 import {
 	INVALID_CHANNEL_DETAILS_MESSAGE,
-	notificationChannelSaveFailure,
 	type NotificationChannelSaveFailure,
+	notificationChannelSaveFailure,
 } from "#/modules/notifications/save-failure";
 import { createNotificationChannelMutation } from "#/modules/notifications/service";
 import { CatalogPicker } from "#/modules/ui/catalog/picker";
@@ -40,10 +40,10 @@ import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
-	wizardReducer,
 	WIZARD_STEPS,
-	wizardStepLabel,
+	wizardReducer,
 	type WizardStepHeadings,
+	wizardStepLabel,
 } from "#/modules/ui/wizard/wizard-state";
 
 export const NOTIFICATION_CHANNEL_WIZARD_TITLE = "Add a channel";

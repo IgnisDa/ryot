@@ -4,33 +4,33 @@ import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entitie
 import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
-	PluginBridgeInit,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	type PluginAssetBridgeErrorReason,
-	type PluginBridgeNavigate,
-	type PluginBridgeReady,
 	type KernelShortcut,
 	type PageShortcutKey,
-	type PluginLogicalLocation,
-	type PluginRouteLocation,
-	type PluginThemeSnapshot,
+	type PluginAssetBridgeErrorReason,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
+	PluginBridgeInit,
+	type PluginBridgeNavigate,
+	type PluginBridgeReady,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
 	type PluginIosLiveActivityOutcome,
 	type PluginIosLiveActivityRequest,
+	type PluginLogicalLocation,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
+	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -977,8 +977,7 @@ describe("bridge entity interest", () => {
 				const declarations: unknown[] = [];
 				let disposed = 0;
 				let notify:
-					| Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1]
-					| undefined;
+					Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1] | undefined;
 				const client = createRyotClient(
 					createTestRyotAdapter({
 						query: () => Effect.succeed({}),

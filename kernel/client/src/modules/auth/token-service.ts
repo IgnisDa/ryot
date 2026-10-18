@@ -1,17 +1,17 @@
 import {
-	OAuthTokenResponse,
-	OAuthUserInfoResponse,
-	OAUTH_DEMO_WEB_CLIENT_ID,
+	type AccessClass,
 	getOAuthEndpoint,
 	getOAuthResource,
+	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_END_SESSION_PATH,
 	OAUTH_IMPERSONATION_CLIENT_IDS,
 	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_USERINFO_PATH,
-	type OAuthUserInfoResponse as OAuthUserInfo,
 	type OAuthClientId,
-	type AccessClass,
+	OAuthTokenResponse,
+	type OAuthUserInfoResponse as OAuthUserInfo,
+	OAuthUserInfoResponse,
 	type PendingAuthorization,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
@@ -19,9 +19,9 @@ import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import {
+	type OAuthFetch,
 	postOAuthForm,
 	postOAuthFormRequest,
-	type OAuthFetch,
 } from "#/modules/auth/oauth-endpoint";
 import { OAuthStorage, type OAuthStorageError } from "#/modules/auth/oauth-storage";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";

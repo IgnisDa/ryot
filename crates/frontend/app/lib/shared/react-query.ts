@@ -55,48 +55,22 @@ const calendarQueryKeys = createQueryKeys("calendar", {
 });
 
 const mediaQueryKeys = createQueryKeys("media", {
-	trendingMetadata: () => ({
-		queryKey: ["trendingMetadata"],
-	}),
-	genreImages: (genreId: string) => ({
-		queryKey: ["genreDetails", "images", genreId],
-	}),
-	userMetadataRecommendations: () => ({
-		queryKey: ["userMetadataRecommendations"],
-	}),
-	personDetails: (personId?: string) => ({
-		queryKey: ["personDetails", personId],
-	}),
-	userGenresList: (input: SearchInput) => ({
-		queryKey: ["userGenresList", input],
-	}),
-	metadataDetails: (metadataId?: string) => ({
-		queryKey: ["metadataDetails", metadataId],
-	}),
-	userPersonDetails: (personId?: string) => ({
-		queryKey: ["userPersonDetails", personId],
-	}),
-	peopleSearch: (input: PeopleSearchInput) => ({
-		queryKey: ["peopleSearch", input],
-	}),
-	genreDetails: (input: GenreDetailsInput) => ({
-		queryKey: ["genreDetails", input],
-	}),
-	userMetadataDetails: (metadataId?: string) => ({
-		queryKey: ["userMetadataDetails", metadataId],
-	}),
-	metadataSearch: (input: MetadataSearchInput) => ({
-		queryKey: ["metadataSearch", input],
-	}),
-	userPeopleList: (input: UserPeopleListInput) => ({
-		queryKey: ["userPeopleList", input],
-	}),
+	trendingMetadata: () => ({ queryKey: ["trendingMetadata"] }),
+	genreImages: (genreId: string) => ({ queryKey: ["genreDetails", "images", genreId] }),
+	userMetadataRecommendations: () => ({ queryKey: ["userMetadataRecommendations"] }),
+	personDetails: (personId?: string) => ({ queryKey: ["personDetails", personId] }),
+	userGenresList: (input: SearchInput) => ({ queryKey: ["userGenresList", input] }),
+	metadataDetails: (metadataId?: string) => ({ queryKey: ["metadataDetails", metadataId] }),
+	userPersonDetails: (personId?: string) => ({ queryKey: ["userPersonDetails", personId] }),
+	peopleSearch: (input: PeopleSearchInput) => ({ queryKey: ["peopleSearch", input] }),
+	genreDetails: (input: GenreDetailsInput) => ({ queryKey: ["genreDetails", input] }),
+	userMetadataDetails: (metadataId?: string) => ({ queryKey: ["userMetadataDetails", metadataId] }),
+	metadataSearch: (input: MetadataSearchInput) => ({ queryKey: ["metadataSearch", input] }),
+	userPeopleList: (input: UserPeopleListInput) => ({ queryKey: ["userPeopleList", input] }),
 	metadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
-	userMetadataList: (input: UserMetadataListInput) => ({
-		queryKey: ["userMetadataList", input],
-	}),
+	userMetadataList: (input: UserMetadataListInput) => ({ queryKey: ["userMetadataList", input] }),
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
 	}),
@@ -128,9 +102,7 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	userCollectionsList: () => ({
-		queryKey: ["userCollectionsList"],
-	}),
+	userCollectionsList: () => ({ queryKey: ["userCollectionsList"] }),
 	collectionDetailsImages: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
@@ -143,15 +115,9 @@ const collectionQueryKeys = createQueryKeys("collections", {
 });
 
 const fitnessQueryKeys = createQueryKeys("fitness", {
-	workoutDetails: (workoutId: string) => ({
-		queryKey: ["workoutDetails", workoutId],
-	}),
-	exerciseDetails: (exerciseId: string) => ({
-		queryKey: ["exerciseDetails", exerciseId],
-	}),
-	userExerciseDetails: (exerciseId: string) => ({
-		queryKey: ["userExerciseDetails", exerciseId],
-	}),
+	workoutDetails: (workoutId: string) => ({ queryKey: ["workoutDetails", workoutId] }),
+	exerciseDetails: (exerciseId: string) => ({ queryKey: ["exerciseDetails", exerciseId] }),
+	userExerciseDetails: (exerciseId: string) => ({ queryKey: ["userExerciseDetails", exerciseId] }),
 	userExercisesList: (input: UserExercisesListInput) => ({
 		queryKey: ["userExercisesList", input],
 	}),
@@ -167,18 +133,10 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
-	usersList: (query?: string) => ({
-		queryKey: ["usersList", query],
-	}),
-	userDetails: (userId?: string) => ({
-		queryKey: ["userDetails", userId],
-	}),
-	userAnalytics: (input: UserAnalyticsInput) => ({
-		queryKey: ["userAnalytics", input],
-	}),
-	presignedS3Urls: (key: string[] | undefined) => ({
-		queryKey: ["presignedS3Urls", key],
-	}),
+	usersList: (query?: string) => ({ queryKey: ["usersList", query] }),
+	userDetails: (userId?: string) => ({ queryKey: ["userDetails", userId] }),
+	userAnalytics: (input: UserAnalyticsInput) => ({ queryKey: ["userAnalytics", input] }),
+	presignedS3Urls: (key: string[] | undefined) => ({ queryKey: ["presignedS3Urls", key] }),
 });
 
 export const queryFactory = mergeQueryKeys(
@@ -257,9 +215,7 @@ export const getUserEntityRecentlyConsumedQuery = (entityId?: string, entityLot?
 			entityId && entityLot
 				? () =>
 						clientGqlService
-							.request(UserEntityRecentlyConsumedDocument, {
-								input: { entityId, entityLot },
-							})
+							.request(UserEntityRecentlyConsumedDocument, { input: { entityId, entityLot } })
 							.then((data) => data.userEntityRecentlyConsumed)
 				: skipToken,
 	});

@@ -9,7 +9,7 @@ import {
 // chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Exercise reviews keep
 // only rating and text because their event schema rejects unknown keys. Dropped: visibility,
 // comments (no V2 equivalent).
-import { buildRequireLegacyTableSql, buildAnomalyReportSql, buildReportSql } from "./shared";
+import { buildAnomalyReportSql, buildReportSql, buildRequireLegacyTableSql } from "./shared";
 
 const reviewReportPhase = "review -> event";
 

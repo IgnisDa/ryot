@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
@@ -17,27 +17,27 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
-	theme,
 	catalog,
-	ServerStub,
-	makeAuthStub,
-	unauthenticated,
-	makeOAuthRouteStubs,
-	makeStorageStubLayer,
+	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
 	IntegrationRouteStubs,
-	NotificationChannelRouteStubs,
+	makeAuthStub,
+	makeOAuthRouteStubs,
+	makePublicApiStub,
+	makeStorageStubLayer,
 	makeUserSettingsStub,
+	NavigationRouteStubs,
+	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
-	ClientPageSessionsRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
+	theme,
+	unauthenticated,
 } from "#/routes/-route-fixtures";
 
 const RETURN_PATH = "/settings/oauth-return";

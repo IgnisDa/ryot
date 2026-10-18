@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useId, type ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 export function Tooltip(props: {
 	readonly content: string;

@@ -9,8 +9,8 @@ import { RedisService } from "../redis";
 import {
 	FairQueueFlow,
 	fairQueueKeys,
-	makeFairQueueStore,
 	type FairQueueOptions,
+	makeFairQueueStore,
 } from "./fair-queue-store";
 
 type Client = RedisService["Service"]["client"];

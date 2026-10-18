@@ -5,14 +5,14 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	PluginId,
-	SandboxProviderId,
 	type SandboxProviderId as ProviderId,
+	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
-import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
 import { DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { isThemePreference, type ThemePreference } from "#/modules/theme/preference";
 

@@ -5,6 +5,7 @@ import {
 	column,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	first,
@@ -12,25 +13,24 @@ import {
 	join,
 	literal,
 	lt,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedInclude,
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
+	projectionNumber,
+	projectionProperty,
 	property,
 	propertyDate,
 	propertyJson,
 	propertyNumber,
-	projectionNumber,
-	projectionProperty,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutSelection, workoutTemplateInclude } from "./query-recipes";

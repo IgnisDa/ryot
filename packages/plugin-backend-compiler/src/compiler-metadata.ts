@@ -7,9 +7,9 @@ import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "effect";
 
 import {
-	sandboxCompilationFailure,
-	pluginBackendCompilerDiagnostic,
 	type PluginBackendCompilerDiagnostic,
+	pluginBackendCompilerDiagnostic,
+	sandboxCompilationFailure,
 } from "./compiler-diagnostics";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";

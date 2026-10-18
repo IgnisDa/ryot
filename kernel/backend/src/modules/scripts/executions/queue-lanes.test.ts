@@ -25,8 +25,8 @@ import {
 } from "./fixtures.test-support";
 import {
 	processSandboxExecutionQueue,
-	sandboxLaneCapacity,
 	SandboxExecutionQueueWorkerLive,
+	sandboxLaneCapacity,
 } from "./queues";
 import { sandboxSchedulingKey } from "./scheduling-key";
 

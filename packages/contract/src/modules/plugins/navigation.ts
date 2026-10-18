@@ -1,4 +1,4 @@
-import { pluginPackageSegments, type PluginPackageId } from "../../schema/brands";
+import { type PluginPackageId, pluginPackageSegments } from "../../schema/brands";
 import type { SavedViewReference } from "./references";
 
 type SavedViewPathReference =

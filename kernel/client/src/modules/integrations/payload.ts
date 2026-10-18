@@ -6,8 +6,8 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	initialSchemaFormValues,
-	toSchemaFormPayload,
 	type SchemaFormValues,
+	toSchemaFormPayload,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import type {

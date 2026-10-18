@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { makeAppConfigLayer, makeWorkflowEngine, databaseLayer } from "#testing/effect";
+import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { UserLifecycleRepository } from "./repository";
 import { UserLifecycleService } from "./service";

@@ -6,8 +6,8 @@ import { expect, it } from "vitest";
 import {
 	automationContext,
 	entityRecord,
-	ryotqlRows,
 	hostSuccess,
+	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-association.sandbox";
 

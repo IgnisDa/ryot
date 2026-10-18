@@ -39,11 +39,7 @@ interface HeaderProps {
 	setIsSaveBtnLoading: (value: boolean) => void;
 	openReorderDrawer: (exerciseIdentifier: string | null) => void;
 	setAssetsModalOpened: (value: string | null | undefined) => void;
-	loaderData: {
-		action: FitnessAction;
-		isUpdatingWorkout: boolean;
-		isCreatingTemplate: boolean;
-	};
+	loaderData: { action: FitnessAction; isUpdatingWorkout: boolean; isCreatingTemplate: boolean };
 }
 
 export function WorkoutHeader(props: HeaderProps) {
@@ -199,10 +195,7 @@ export function WorkoutHeader(props: HeaderProps) {
 										}
 										setCurrentWorkout(RESET);
 										navigate(
-											$path("/fitness/:entity/:id", {
-												id: entityId,
-												entity: fitnessEntity,
-											}),
+											$path("/fitness/:entity/:id", { id: entityId, entity: fitnessEntity }),
 										);
 									} catch (e) {
 										notifications.show({

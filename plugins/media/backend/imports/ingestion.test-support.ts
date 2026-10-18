@@ -2,7 +2,7 @@ import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecyc
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { installSandboxTestFilesystem } from "@ryot-app/plugin-backend-sdk/testing";
 
-import { MediaSourceRecord, type MediaSourceInput } from "./collection-schemas";
+import { type MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
 
 export const resetMediaFilesystem = () => installSandboxTestFilesystem(undefined);
 export const mediaImportTestCommand = (integrationId?: string) =>

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQL,
@@ -12,7 +13,6 @@ import {
 	requireRelationshipSchemaBySlug,
 	requireRows,
 	requireRyotQLValue,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

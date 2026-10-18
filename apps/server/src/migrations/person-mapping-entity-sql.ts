@@ -1,8 +1,8 @@
 import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import {
-	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
 	buildReportSql,
+	type ResolvedEntityMigrationTarget,
 } from "./shared";
 
 type EntityMigrationInput = {

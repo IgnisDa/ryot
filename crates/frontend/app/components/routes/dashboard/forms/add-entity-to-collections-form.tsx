@@ -69,10 +69,7 @@ export const AddEntityToCollectionsForm = (props: {
 			if (!newCollections.some((c) => c.id === id)) {
 				const col = collections.find((c) => c.id === id);
 				if (col) {
-					newCollections.push({
-						...col,
-						userExtraInformationData: {},
-					});
+					newCollections.push({ ...col, userExtraInformationData: {} });
 				}
 			}
 		}

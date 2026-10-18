@@ -5,14 +5,14 @@ import { Effect } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
-	pluginStorageKey,
+	clientStorageLayer,
 	PluginStorageAccessError,
+	pluginStorageKey,
 	PluginStorageQuotaError,
 	rememberedProviderKey,
-	SERVER_SELECTION_KEY,
 	savedViewLayoutKey,
+	SERVER_SELECTION_KEY,
 	THEME_PREFERENCE_KEY,
-	clientStorageLayer,
 } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 

@@ -6,7 +6,7 @@ import {
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { compileOptionalFilter, collectionsFilterField } from "@ryot-app/ryotql-recipes/filters";
+import { collectionsFilterField, compileOptionalFilter } from "@ryot-app/ryotql-recipes/filters";
 
 import { workoutFilterScope } from "../../shared/workout-list-recipes";
 

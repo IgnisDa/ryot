@@ -4,7 +4,7 @@ import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { PolicyBatchWorkflowLive } from "#modules/automations/lifecycle/policy-batch";

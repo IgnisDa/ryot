@@ -5,10 +5,10 @@ import { Effect } from "effect";
 import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
-	type ResolvedLotEntityMigrationTarget,
-	buildLotEntityTargetValuesSql,
 	buildAbortOnRowsSql,
+	buildLotEntityTargetValuesSql,
 	buildReportSql,
+	type ResolvedLotEntityMigrationTarget,
 } from "./shared";
 
 const metadataMigrationTargetValuesSql = sql.join(

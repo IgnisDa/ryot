@@ -17,7 +17,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService, redisKeys } from "#platform/redis";
+import { redisKeys, RedisService } from "#platform/redis";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 

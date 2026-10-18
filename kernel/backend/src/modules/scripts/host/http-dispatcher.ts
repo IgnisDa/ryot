@@ -14,8 +14,8 @@ import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
-	PluginHttpRateLimitAuthority,
 	type HttpRateLimitAuthorityResolution,
+	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxSchedulingKey } from "#modules/scripts/executions/scheduling-key";

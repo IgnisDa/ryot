@@ -5,26 +5,26 @@ import type {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
-	entitySchemaPredicate,
-	schemaOwnerPredicate,
 	and,
 	ascending,
 	column,
 	countDistinct,
 	descending,
 	document,
+	entitySchemaPredicate,
 	eq,
 	field,
 	jsonPath,
 	literal,
 	rows,
+	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
 import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
 import { Array as Arr, Result } from "effect";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
-import { fitnessLibraryMembership, fitnessLibraryLinkExists } from "../shared/library-recipes";
+import { fitnessLibraryLinkExists, fitnessLibraryMembership } from "../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { exercisePropertiesSchema } from "./schemas/property";

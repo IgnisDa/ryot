@@ -1,19 +1,19 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationRelationshipSnapshot,
-	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipChangePayload,
+	type AutomationRelationshipRequestPayload,
+	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	definitionOwner,
-	type RelationshipSchemaReference,
 	definitionOwnerPluginId,
+	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
+	CreateRelationshipBody,
 	RelationshipBadRequest,
 	RelationshipNotFound,
 	RelationshipScope,
-	CreateRelationshipBody,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -39,9 +39,9 @@ import {
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
 import {
+	MutationReceiptIdentity,
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
-	MutationReceiptIdentity,
 	type MutationReceipts,
 } from "#modules/mutations/receipts";
 import {
@@ -53,8 +53,8 @@ import { runRootTransaction } from "#platform/db/transaction";
 
 import {
 	RelationshipIdentityInput,
-	type RelationshipsRepository,
 	relationshipMutationLockKey,
+	type RelationshipsRepository,
 } from "./repository";
 
 export const CreateRelationshipInput = Schema.Union([
@@ -96,8 +96,7 @@ export type ReconcileGlobalRelationshipGroup = {
 	}>;
 };
 export type RelationshipReconciliationScope =
-	| { readonly scope: "global" }
-	| { readonly scope: "user"; readonly userId: UserId };
+	{ readonly scope: "global" } | { readonly scope: "user"; readonly userId: UserId };
 export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
 export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly created: number;

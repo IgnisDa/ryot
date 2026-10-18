@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { entityMonogram, type FieldSyncState, type SyncReason } from "./sync-state";
 

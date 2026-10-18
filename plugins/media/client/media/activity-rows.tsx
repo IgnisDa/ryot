@@ -1,10 +1,10 @@
 import clsx from "clsx";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import {
+	type MediaActivityCompletedWatch,
 	mediaActivityDateLabel,
 	mediaActivityRatingLabel,
-	type MediaActivityCompletedWatch,
 	type MediaActivityReviewRow,
 	type MediaActivityRowBase,
 	type MediaActivityTimeline,

@@ -3,12 +3,12 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { mediaNormalizedRecordReader, writeMediaCapture } from "./collection";
 import { MediaSourceRecord } from "./collection-schemas";
-import { importEntityRefKey, importEntityRefIdentifier } from "./groups";
+import { importEntityRefIdentifier, importEntityRefKey } from "./groups";
 import { MediaReadBatchInput, MediaReadBatchOutput } from "./process";
 import {
-	type MediaImportFailure,
 	MediaImportAdapterBatch,
 	type MediaImportBatchEntityGroup,
+	type MediaImportFailure,
 } from "./schemas";
 
 export const manifest = defineManifest({

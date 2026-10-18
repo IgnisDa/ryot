@@ -1,19 +1,19 @@
 import type { EntitySettleReason, ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import {
+	type EntityRendererProps,
 	usePluginLocation,
 	useRyotViewport,
-	type EntityRendererProps,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
-	useEntitySettle,
-	useRyotQuery,
 	type RyotQuery,
 	type RyotQueryResult,
+	useEntitySettle,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Tabs, tabId, type TabOption } from "@ryot-app/plugin-ui-sdk";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { tabId, type TabOption, Tabs } from "@ryot-app/plugin-ui-sdk";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import type { MediaImagePurposes } from "./image";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
@@ -21,8 +21,8 @@ import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaSummaryHeader } from "./summary-header";
 import {
-	mediaManagedAssets,
 	type MediaEntitySummaryValue,
+	mediaManagedAssets,
 	type MediaSummaryArtwork,
 	type MediaSummaryFailure,
 	type MediaSummaryHeaderDetail,
@@ -79,8 +79,7 @@ export function MediaDetailBody<
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
 	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
 	readonly overviewTrailing?:
-		| ((input: { readonly summary: Summary; readonly compact: boolean }) => ReactNode)
-		| undefined;
+		((input: { readonly summary: Summary; readonly compact: boolean }) => ReactNode) | undefined;
 }) {
 	const { state, overviewTrailing } = props;
 	const [activeTab, setActiveTab] = useState<TabKey>(props.defaultTab);

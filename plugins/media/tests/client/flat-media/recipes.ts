@@ -1,5 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { selectedField, type Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { type Recipe, selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyNumber } from "../../../shared/entity-selections";
 import {

@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
-import { buildRequireLegacyTableSql, buildReportSql, quoteSqlString } from "./shared";
+import { buildReportSql, buildRequireLegacyTableSql, quoteSqlString } from "./shared";
 
 const legacyProviderSpecificsSql = (alias: string) => `CASE ${alias}.provider
 	WHEN 'audiobookshelf' THEN jsonb_build_object('kind', 'audiobookshelf', 'baseUrl', ${alias}.provider_specifics->>'audiobookshelf_base_url', 'token', ${alias}.provider_specifics->>'audiobookshelf_token')

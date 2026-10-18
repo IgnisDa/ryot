@@ -3,10 +3,10 @@ import { Effect } from "effect";
 
 import {
 	createDeepLinkBridge,
-	makeDeepLinkClaims,
-	resolveDeepLinkHref,
 	type DeepLinkNavigator,
+	makeDeepLinkClaims,
 	type NativeAppSource,
+	resolveDeepLinkHref,
 } from "#/modules/navigation/deep-link";
 
 const RETURN_PATH = "/settings/oauth-return";

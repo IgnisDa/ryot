@@ -20,17 +20,17 @@ import {
 	buildStatTiles,
 	daysSince,
 	describeAgo,
+	type ExerciseRecord,
 	isLapsed,
 	latestPersonalBests,
-	metricsForKind,
-	peakPoint,
-	personalBestTitles,
-	seriesRanges,
-	type ExerciseRecord,
 	type Metric,
+	metricsForKind,
 	type MonthPoint,
+	peakPoint,
 	type PersonalBestRow,
+	personalBestTitles,
 	type SeriesRange,
+	seriesRanges,
 } from "./details-model";
 import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 

@@ -11,9 +11,7 @@ interface UseSavedFormConfig<TValues> extends UseFormInput<TValues> {
 
 export const useSavedForm = <TValues extends Record<string, unknown>>(
 	config: UseSavedFormConfig<TValues>,
-): UseFormReturnType<TValues> & {
-	clearSavedState: () => void;
-} => {
+): UseFormReturnType<TValues> & { clearSavedState: () => void } => {
 	const userDetails = useUserDetails();
 	const [savedValues, setSavedValues] = useLocalStorage<TValues | null>(
 		`${config.storageKeyPrefix}-${userDetails.id}`,

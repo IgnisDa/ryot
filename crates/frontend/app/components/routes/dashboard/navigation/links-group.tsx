@@ -34,12 +34,7 @@ export const LinksGroup = (props: LinksGroupProps) => {
 		<Box>
 			<UnstyledButton
 				className={clsx(classes.control, props.tourControlTarget)}
-				{...(!hasLinks
-					? {
-							component: Link,
-							to: props.href || "",
-						}
-					: { to: "" })}
+				{...(!hasLinks ? { component: Link, to: props.href || "" } : { to: "" })}
 				onClick={() => {
 					advanceOnboardingTourStep();
 					if (hasLinks) {
@@ -63,9 +58,7 @@ export const LinksGroup = (props: LinksGroupProps) => {
 									size={16}
 									stroke={1.5}
 									className={classes.chevron}
-									style={{
-										transform: props.opened ? "rotate(90deg)" : "none",
-									}}
+									style={{ transform: props.opened ? "rotate(90deg)" : "none" }}
 								/>
 							)}
 						</ClientOnly>

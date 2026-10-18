@@ -1,15 +1,15 @@
 import {
-	MAX_INTEREST_ENTITY_IDS,
 	decodeEntityWatchServerMessage,
 	encodeEntityWatchClientMessage,
 	type EntityWatchClientMessage,
+	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { EntityWatch, RyotClient } from "@ryot-app/plugin-client-sdk";
 import type { Fiber } from "effect";
 import { Context, Effect, FiberHandle, Layer, Match, Result } from "effect";
 
 import { EntityWatchApi, entityWatchSocketUrl } from "#/api/entity-watches";
-import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
 
 import { EntityWatchTransport, type InterestSocket } from "./transport";
 

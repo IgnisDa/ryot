@@ -3,14 +3,14 @@ import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation"
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	entityReadRecipe,
-	executeRyotqlRecipe,
 	type EntityReadResult,
+	executeRyotqlRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import type { LogEntry, PolicyHost, ScriptHost, SpanEntry } from "../src/core.js";
 import { defineManifest, defineScript } from "../src/driver.js";
-import { type SandboxHostError, jsonValueSchema } from "../src/wire.js";
+import { jsonValueSchema, type SandboxHostError } from "../src/wire.js";
 import type { Equal, Expect } from "./type-assertions.js";
 
 const scriptManifest = defineManifest({ kind: "script", name: "Script host", slug: "script-host" });

@@ -78,10 +78,9 @@ export const CollectionsFilter = (props: {
 }) => {
 	const [parent] = useAutoAnimate();
 	const coreDetails = useCoreDetails();
-	const [filters, filtersHandlers] = useListState<{
-		id: string;
-		data: MediaCollectionFilter;
-	}>(props.applied.map((a) => ({ data: a, id: randomId() })));
+	const [filters, filtersHandlers] = useListState<{ id: string; data: MediaCollectionFilter }>(
+		props.applied.map((a) => ({ data: a, id: randomId() })),
+	);
 	const collections = useNonHiddenUserCollections();
 
 	useDidUpdate(() => {
@@ -163,10 +162,7 @@ export const CollectionsFilter = (props: {
 								allowDeselect={false}
 								value={f.data.collectionId}
 								placeholder="Select a collection"
-								data={collections.map((c) => ({
-									label: c.name,
-									value: c.id.toString(),
-								}))}
+								data={collections.map((c) => ({ label: c.name, value: c.id.toString() }))}
 								onChange={(v) =>
 									filtersHandlers.setItem(
 										idx,
@@ -194,10 +190,7 @@ export const DebouncedSearchInput = (props: {
 	value: string;
 	placeholder: string;
 	onChange: (query: string) => void;
-	tourControl?: {
-		target: OnboardingTourStepTarget;
-		onQueryChange: (query: string) => void;
-	};
+	tourControl?: { target: OnboardingTourStepTarget; onQueryChange: (query: string) => void };
 }) => {
 	const [query, setQuery] = useState(props.value);
 	const [debounced] = useDebouncedValue(query, 1000);

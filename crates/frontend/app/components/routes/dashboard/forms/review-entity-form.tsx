@@ -104,10 +104,7 @@ export const ReviewEntityForm = (props: { closeReviewEntityModal: () => void }) 
 			props.closeReviewEntityModal();
 		},
 		onError: () => {
-			notifications.show({
-				color: "red",
-				message: "Failed to submit review",
-			});
+			notifications.show({ color: "red", message: "Failed to submit review" });
 		},
 	});
 
@@ -323,10 +320,7 @@ export const ReviewEntityForm = (props: { closeReviewEntityModal: () => void }) 
 					<SegmentedControl
 						fullWidth
 						value={form.values.visibility || Visibility.Public}
-						data={Object.entries(Visibility).map(([k, v]) => ({
-							label: changeCase(k),
-							value: v,
-						}))}
+						data={Object.entries(Visibility).map(([k, v]) => ({ label: changeCase(k), value: v }))}
 						onChange={(v) => form.setFieldValue("visibility", v as Visibility)}
 					/>
 				</Box>

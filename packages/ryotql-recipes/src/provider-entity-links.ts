@@ -9,16 +9,16 @@ import {
 	ascending,
 	column,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	inArray,
 	join,
 	literal,
+	relationshipSchemaPredicate,
 	selectedField,
 	selectedRows,
 	table,
-	entitySchemaPredicate,
-	relationshipSchemaPredicate,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

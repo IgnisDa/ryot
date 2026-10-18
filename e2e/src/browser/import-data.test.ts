@@ -4,9 +4,9 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	createTestUser,
 	importIssuesExportSchema,
+	type InstalledTestPlugin,
 	installTestHarvestHandleImportPlugin,
 	installTestImportPinningPlugin,
-	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";

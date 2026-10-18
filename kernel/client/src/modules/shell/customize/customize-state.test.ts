@@ -8,13 +8,13 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+	type CustomizeDraft,
 	customizeSearchSection,
 	customizeSectionCounts,
 	initCustomizeDraft,
 	isCustomizeDraftDirty,
 	moveCustomizeItem,
 	toggleCustomizeItem,
-	type CustomizeDraft,
 } from "#/modules/shell/customize/customize-state";
 
 const viewReference = (slug: string) => ({

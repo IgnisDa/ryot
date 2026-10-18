@@ -1,6 +1,6 @@
 import type {
-	LifecycleCommand,
 	ingestionArtifactsSchema,
+	LifecycleCommand,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineScriptReference,
@@ -19,10 +19,10 @@ import {
 } from "../contracts/workflows";
 import { importEntityRefIdentifier } from "./groups";
 import type {
-	MediaImportFailure,
-	UnresolvedEpisodeRef,
 	MediaImportAdapterBatch,
+	MediaImportFailure,
 	MediaImportWriteChunkInput,
+	UnresolvedEpisodeRef,
 } from "./schemas";
 import {
 	MediaImportWriteChunkActivityInput,
@@ -94,8 +94,7 @@ const netflixResolution = defineScriptReference({
 });
 
 type BatchStep =
-	| ReturnType<WorkflowReplay["child"]>
-	| ReturnType<typeof Effect.fail<MediaWorkflowError>>;
+	ReturnType<WorkflowReplay["child"]> | ReturnType<typeof Effect.fail<MediaWorkflowError>>;
 
 export function* runMediaImportBatch(
 	replay: WorkflowReplay,

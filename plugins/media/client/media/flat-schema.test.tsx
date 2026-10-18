@@ -13,8 +13,8 @@ import {
 } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
-	FLAT_OVERVIEW_INPUT,
 	fixtureOverviewRecipe,
+	FLAT_OVERVIEW_INPUT,
 	flatCompanyRow,
 	flatGroupMemberRow,
 	flatGroupRow,

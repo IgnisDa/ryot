@@ -52,14 +52,9 @@ export enum ApplicationTimeRange {
 
 export type AppServiceWorkerNotificationTag = "timer-completed";
 
-export type AppServiceWorkerNotificationData = {
-	event: "open-link";
-	link?: string;
-};
+export type AppServiceWorkerNotificationData = { event: "open-link"; link?: string };
 
-export type AppServiceWorkerMessageData = {
-	event: "remove-timer-completed-notification";
-};
+export type AppServiceWorkerMessageData = { event: "remove-timer-completed-notification" };
 
 export interface SendNotificationProps {
 	body: string;

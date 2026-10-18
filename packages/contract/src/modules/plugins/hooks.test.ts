@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "../automations/lifecycle";
-import { SANDBOX_HOST_CAPABILITIES, POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES, SANDBOX_HOST_CAPABILITIES } from "../scripts/wire";
 import { AuthoredPluginManifest, PluginManifest } from "./manifest";
 
 const target = {

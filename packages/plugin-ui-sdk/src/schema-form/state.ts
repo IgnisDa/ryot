@@ -1,13 +1,13 @@
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import {
+	type AppArrayPropertyValidation,
 	type AppChoice,
 	type AppPropertyDefinition,
 	type AppSchema,
-	type AppArrayPropertyValidation,
-	type PropertyValidationIssue,
 	getOrderedAppSchemaFieldEntries,
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
+	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
 import { hasPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import {

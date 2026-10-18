@@ -6,14 +6,14 @@ import type {
 import { podcastRecipes } from "../../shared/podcast-recipes";
 import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
-	mediaEpisodicCoveragePercent,
 	type MediaEpisodicCoverage,
+	mediaEpisodicCoveragePercent,
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
-import { PodcastEpisodesTab, podcastEpisodeOriginLabel } from "./episodes";
+import { podcastEpisodeOriginLabel, PodcastEpisodesTab } from "./episodes";
 
 type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
 

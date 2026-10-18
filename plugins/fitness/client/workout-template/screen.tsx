@@ -24,9 +24,9 @@ import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import {
+	type EditorExercise,
 	editorExercisesQuery,
 	loadEditorSource,
-	type EditorExercise,
 } from "../workout-editor/queries";
 import { supersetNames } from "../workout-editor/superset-group";
 import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";

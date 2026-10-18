@@ -1,5 +1,5 @@
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { useRef, useState, type RefObject } from "react";
+import { type RefObject, useRef, useState } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";

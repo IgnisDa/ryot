@@ -29,10 +29,10 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
-import { DataGraphRecordSchema, type DataGraphRecord } from "./data-graph";
+import { type DataGraphRecord, DataGraphRecordSchema } from "./data-graph";
 import {
-	ProcessDataImportWorkflow,
 	ProcessDataImportSegmentWorkflow,
+	ProcessDataImportWorkflow,
 	runDataImportSegmentWorkflow,
 	runDataImportWorkflow,
 } from "./data-workflow";

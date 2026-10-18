@@ -1,11 +1,11 @@
-import { RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
+import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	type RyotSubmission,
 	useRyotQuery,
 	useRyotSubmission,
-	type RyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -20,13 +20,13 @@ import { useEffect, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutTimeCorrectionOperationSlug } from "../../shared/workout-editor-context-operations";
 import {
-	WorkoutPropertiesSchema,
 	type WorkoutProperties,
+	WorkoutPropertiesSchema,
 } from "../../shared/workout-editor-properties";
 import {
 	encodeWorkoutEditorBaseline,
-	workoutEditorEntityRecipe,
 	type WorkoutEditorBaseline,
+	workoutEditorEntityRecipe,
 } from "../../shared/workout-editor-recipes";
 import {
 	WorkoutTimeCorrectionInputSchema,

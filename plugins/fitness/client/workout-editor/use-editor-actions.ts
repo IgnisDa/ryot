@@ -12,8 +12,8 @@ import type {
 } from "../../shared/workout-editor-draft";
 import {
 	WorkoutEditorSaveInputSchema,
-	WorkoutEditorSaveOutputSchema,
 	type WorkoutEditorSaveOutput,
+	WorkoutEditorSaveOutputSchema,
 } from "../../shared/workout-editor-operations";
 import {
 	resolveWorkoutLocalPreferences,
@@ -45,10 +45,10 @@ import { resolveSetRestTime, updateOccurrence, updateSet } from "./draft-ops";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { previousSetsInput } from "./previous-sets";
 import {
+	type EditorExercise,
 	loadEditorSource,
 	readHistorySets,
 	readPreviousSets,
-	type EditorExercise,
 } from "./queries";
 import type { InvalidSet } from "./set-grid";
 import { missingMeasurements, startExecution, unconfirmSet } from "./timers";

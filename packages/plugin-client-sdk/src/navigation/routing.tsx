@@ -3,18 +3,24 @@ import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/na
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
-	kernelPagePaths,
 	type ClientPageContext,
-	type PluginLeadingIntent,
+	kernelPagePaths,
 	type PluginEntityLocation,
+	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
-import { MotionScrollRoot, useShortcut, type Hotkey } from "@ryot-app/plugin-ui-sdk";
-import { Schema, Effect, Fiber, Match } from "effect";
+import { type Hotkey, MotionScrollRoot, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { Effect, Fiber, Match, Schema } from "effect";
 import {
-	Fragment,
+	type AnchorHTMLAttributes,
+	type ComponentType,
 	createContext,
 	createElement,
+	type CSSProperties,
+	Fragment,
+	type MouseEvent,
+	type PointerEvent,
+	type RefObject,
 	useContext,
 	useEffect,
 	useEffectEvent,
@@ -23,23 +29,17 @@ import {
 	useRef,
 	useState,
 	useSyncExternalStore,
-	type AnchorHTMLAttributes,
-	type ComponentType,
-	type CSSProperties,
-	type MouseEvent,
-	type PointerEvent,
-	type RefObject,
 } from "react";
 
 import { ActiveScreenContext } from "../active-screen";
 import type { RyotNavigationTarget } from "../client/navigation-target";
 import { usePluginNavigation, useRyot } from "../queries/provider";
 import { applyProgress, prefersReducedMotion, settleProgress } from "./animator";
-import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./gesture";
+import { dragProgress, EDGE_SWIPE_WIDTH, shouldCommit, shouldEngage } from "./gesture";
 import {
-	presentScreens,
-	type Presentation,
 	type PluginScreen,
+	type Presentation,
+	presentScreens,
 	type ResolvePluginScreen,
 	type ScreenRole,
 } from "./stack";

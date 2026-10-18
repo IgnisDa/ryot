@@ -13,10 +13,10 @@ import { PluginPackageSegment, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import {
 	InstallPluginBody,
-	PluginInstallResult,
 	PluginConflictError,
 	PluginHomeViewSelection,
 	PluginInstallationWriteResult,
+	PluginInstallResult,
 	PluginInvocationError,
 	PluginInvokeBody,
 	PluginInvokeResult,

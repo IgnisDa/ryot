@@ -3,9 +3,9 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
+	pluginContributor,
 	routeLocation,
 	savedViewPageContext,
-	pluginContributor,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 

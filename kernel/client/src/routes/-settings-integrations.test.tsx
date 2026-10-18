@@ -12,7 +12,7 @@ import {
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, type Option } from "effect";
 
@@ -30,27 +30,27 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
-	theme,
-	catalog,
 	authenticated,
-	ServerStub,
-	makeAuthStub,
-	OAuthRouteStubs,
-	makeStorageStubLayer,
-	InstanceAdminRouteStubs,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	NotificationChannelRouteStubs,
-	makeUserSettingsStub,
-	userSettings,
-	PagesApiRouteStubs,
+	catalog,
 	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	makeAuthStub,
+	makePublicApiStub,
+	makeStorageStubLayer,
+	makeUserSettingsStub,
+	NavigationRouteStubs,
+	NotificationChannelRouteStubs,
+	OAuthRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
+	theme,
+	userSettings,
 } from "#/routes/-route-fixtures";
 
 const LIMIT = 20;

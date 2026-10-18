@@ -3,9 +3,9 @@ import {
 	Badge,
 	Button,
 	MenuButton,
+	type MenuItem,
 	RowGroup,
 	ScreenBarButton,
-	type MenuItem,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ComponentProps, ReactNode, RefObject } from "react";

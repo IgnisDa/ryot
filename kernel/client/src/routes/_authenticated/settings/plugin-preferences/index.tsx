@@ -1,7 +1,7 @@
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { pluginUserSettingsQuery } from "#/modules/settings/plugin-preferences-service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";

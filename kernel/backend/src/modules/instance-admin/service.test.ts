@@ -17,7 +17,7 @@ import { NotificationSubscriptionsService } from "#modules/automations/notificat
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { RedisService } from "#platform/redis";
-import { makeAppConfigLayer, makeRedisService, fakeDatabaseSession } from "#testing/effect";
+import { fakeDatabaseSession, makeAppConfigLayer, makeRedisService } from "#testing/effect";
 
 import { InstanceAdminRepository } from "./repository";
 import { checkResetEligibility, InstanceAdminService } from "./service";

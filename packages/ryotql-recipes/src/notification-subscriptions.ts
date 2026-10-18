@@ -9,11 +9,11 @@ import {
 	defineRecipe,
 	eq,
 	literal,
-	table,
+	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
-	type Recipe,
+	table,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

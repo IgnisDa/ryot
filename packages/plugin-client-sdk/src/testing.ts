@@ -5,17 +5,17 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
-	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	ClientPageContext,
-	PluginBridgeClientMessage,
-	PluginEntityLocation,
 	type PluginAssetOutcome,
-	type PluginCalendarSourceVisibilityOutcome,
+	PluginBridgeClientMessage,
 	type PluginBridgeHostMessage,
 	type PluginBridgeLocation,
+	type PluginCalendarSourceVisibilityOutcome,
+	PluginEntityLocation,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
@@ -28,7 +28,7 @@ import * as ManagedRuntime from "effect/ManagedRuntime";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
-import { Fragment, act, createElement, type ComponentType } from "react";
+import { act, type ComponentType, createElement, Fragment } from "react";
 
 import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
 import type { RyotClientAdapter } from "./client/adapter";

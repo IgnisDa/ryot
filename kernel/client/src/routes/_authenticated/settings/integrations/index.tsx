@@ -15,14 +15,14 @@ import {
 	type IntegrationProviderPickerState,
 } from "#/modules/integrations/create-wizard";
 import {
-	IntegrationsView,
 	type IntegrationListState,
 	type IntegrationPauseState,
+	IntegrationsView,
 } from "#/modules/integrations/integrations-view";
 import { integrationProviderNames } from "#/modules/integrations/provider-selection";
 import {
-	INTEGRATIONS_PAGE_SIZE,
 	integrationProvidersQuery,
+	INTEGRATIONS_PAGE_SIZE,
 	integrationsQuery,
 	syncIntegrationsMutation,
 } from "#/modules/integrations/service";

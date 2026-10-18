@@ -12,7 +12,7 @@ import {
 import type { MediaSourceRecord } from "./collection-schemas";
 import { mediaEventOperationId } from "./identity";
 import imdb from "./imdb.sandbox";
-import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
 import reader from "./read-batch.sandbox";
 import { MediaImportAdapterBatch } from "./schemas";
 

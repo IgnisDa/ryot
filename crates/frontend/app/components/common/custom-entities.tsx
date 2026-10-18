@@ -3,10 +3,7 @@ import { IconX } from "@tabler/icons-react";
 
 import { useS3PresignedUrls } from "~/lib/shared/hooks";
 
-type ExistingImageListProps = {
-	keys: string[];
-	onRemove: (key: string) => void;
-};
+type ExistingImageListProps = { keys: string[]; onRemove: (key: string) => void };
 
 export function ExistingImageList(props: ExistingImageListProps) {
 	const presignedUrls = useS3PresignedUrls(props.keys);

@@ -33,12 +33,12 @@ import {
 	mergeUserEntityDataArgsSchema,
 	mergeUserEntityDataDataSchema,
 	mergeUserEntityDataResultSchema,
-	upsertGlobalEntitiesArgsSchema,
-	upsertGlobalEntitiesDataSchema,
-	upsertGlobalEntitiesResultSchema,
 	updateUserEntityArgsSchema,
 	updateUserEntityDataSchema,
 	updateUserEntityResultSchema,
+	upsertGlobalEntitiesArgsSchema,
+	upsertGlobalEntitiesDataSchema,
+	upsertGlobalEntitiesResultSchema,
 } from "./entities";
 import {
 	createEventsArgsSchema,

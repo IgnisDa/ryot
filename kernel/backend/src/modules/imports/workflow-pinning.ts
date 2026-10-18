@@ -1,8 +1,8 @@
 import type { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import type {
 	IngestionPins,
-	IngestionScope,
 	IngestionPlan,
+	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";

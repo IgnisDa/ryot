@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
-import { groupColorVariable, type GroupColor } from "./group-colors";
+import { type GroupColor, groupColorVariable } from "./group-colors";
 
 const cardPadding = { none: "", md: "p-4", lg: "p-5" } as const;
 

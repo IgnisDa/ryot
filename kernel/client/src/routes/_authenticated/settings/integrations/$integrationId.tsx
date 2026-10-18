@@ -2,10 +2,10 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useSchemaForm, type SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
+import { type SchemaFormValues, useSchemaForm } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Cause, Effect, Option } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";

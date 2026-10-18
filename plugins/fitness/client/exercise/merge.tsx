@@ -7,8 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ExerciseKind } from "../../shared/exercise-kinds";
 import {
 	ExerciseMergeInputSchema,
-	ExerciseMergeOutputSchema,
 	exerciseMergeOperationSlug,
+	ExerciseMergeOutputSchema,
 } from "../../shared/exercise-merge-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ExercisePicker } from "../workout-editor/exercise-picker";

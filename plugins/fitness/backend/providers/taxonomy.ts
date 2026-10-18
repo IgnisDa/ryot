@@ -8,8 +8,7 @@ import type {
 import type { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../shared/taxonomy";
 
 type TaxonomyEntry =
-	| (typeof exerciseEquipmentCatalog)[number]
-	| (typeof exerciseTargetCatalog)[number];
+	(typeof exerciseEquipmentCatalog)[number] | (typeof exerciseTargetCatalog)[number];
 
 class FitnessTaxonomyError extends Error {
 	readonly _tag = "FitnessTaxonomyError";

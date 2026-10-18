@@ -2,7 +2,7 @@ import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automation
 import { AutomationRunAttempt } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
-import { desc, eq, and } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";

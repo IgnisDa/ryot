@@ -208,10 +208,7 @@ const TwoFactorAuthSection = () => {
 			return disableTwoFactor;
 		},
 		onSuccess: () => {
-			notifications.show({
-				color: "yellow",
-				message: "Two-Factor Authentication Disabled",
-			});
+			notifications.show({ color: "yellow", message: "Two-Factor Authentication Disabled" });
 			navigate($path("/api/logout"));
 		},
 	});
@@ -225,10 +222,7 @@ const TwoFactorAuthSection = () => {
 			return regenerateTwoFactorBackupCodes;
 		},
 		onSuccess: (data) => {
-			notifications.show({
-				color: "green",
-				message: "Backup codes regenerated successfully",
-			});
+			notifications.show({ color: "green", message: "Backup codes regenerated successfully" });
 			setRegeneratedBackupCodes(data.backupCodes);
 		},
 	});
@@ -338,10 +332,7 @@ interface TwoFactorSetupModalProps {
 const TwoFactorSetupModal = (props: TwoFactorSetupModalProps) => {
 	const [step, setStep] = useState(TwoFactorSetupStep.Auth);
 	const [backupCodes, setBackupCodes] = useState<string[]>([]);
-	const [setupData, setSetupData] = useState<{
-		secret: string;
-		qrCodeUrl: string;
-	} | null>(null);
+	const [setupData, setSetupData] = useState<{ secret: string; qrCodeUrl: string } | null>(null);
 
 	const initiateMutation = useMutation({
 		mutationFn: async () => {
@@ -483,9 +474,7 @@ interface VerifyCodeStepProps {
 const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 	const form = useForm({
 		initialValues: { code: "" },
-		validate: {
-			code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null),
-		},
+		validate: { code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null) },
 	});
 
 	const completeMutation = useMutation({

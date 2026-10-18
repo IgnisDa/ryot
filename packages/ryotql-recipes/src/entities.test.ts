@@ -1,7 +1,7 @@
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { entityWatchRecipe, entityRouteProvenanceRecipe } from "./entities";
+import { entityRouteProvenanceRecipe, entityWatchRecipe } from "./entities";
 import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };

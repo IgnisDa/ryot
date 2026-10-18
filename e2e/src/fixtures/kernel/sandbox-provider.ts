@@ -12,8 +12,8 @@ import { readPluginArchive } from "@ryot-app/plugin-archive";
 import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
-	ProviderSearchResult,
 	ProviderSearchOptionsResult,
+	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect, Record } from "effect";
@@ -26,11 +26,11 @@ import type { Client } from "./auth";
 import { compilePluginPackage } from "./compiled-package";
 import {
 	encodePluginSourceFiles,
+	type InstalledTestPlugin,
 	installTestPluginBundle,
 	reinstallTestPluginScript,
 	testPluginEntitySchema,
 	testPluginManifest,
-	type InstalledTestPlugin,
 	type TestPluginScript,
 	uninstallTestPlugin,
 	updateTestSupportSystemPlugin,

@@ -2,9 +2,9 @@ import { describe, expect, it, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	IntegrationRequestError,
-	integrationCommonSchema,
 	integrationCommonPropertyNames,
+	integrationCommonSchema,
+	IntegrationRequestError,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	IntegrationWebhookToken,
@@ -46,7 +46,7 @@ import {
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IntegrationIngestion } from "./ingestion";
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { type IntegrationRecord, IntegrationsRepository } from "./repository";
 import { IntegrationsService, validateProgressThresholds } from "./service";
 import { makeIntegration, makeRun, testWebhookToken } from "./test-support";
 

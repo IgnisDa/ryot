@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -13,24 +13,24 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
-	theme,
 	catalog,
-	ServerStub,
-	makeAuthStub,
-	makeStorageStubLayer,
-	InstanceAdminRouteStubs,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	makeOAuthRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	PagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
+	makeOAuthRouteStubs,
+	makeStorageStubLayer,
+	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
+	theme,
 } from "#/routes/-route-fixtures";
 
 const systemConfig = (frontendOrigin: string, localAuthDisabled = false) => ({

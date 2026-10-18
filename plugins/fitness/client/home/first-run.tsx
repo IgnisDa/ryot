@@ -11,11 +11,11 @@ import { LogMeasurementButton } from "./measurements-card";
 import { setupSteps } from "./model";
 import { homeTemplatesQuery } from "./queries";
 import {
-	HomeCard,
-	SavedViewLink,
 	compactLinkClass,
 	goalPreferencesTarget,
+	HomeCard,
 	primaryLinkClass,
+	SavedViewLink,
 	secondaryLinkClass,
 } from "./section";
 

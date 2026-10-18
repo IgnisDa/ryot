@@ -1,10 +1,10 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyot, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { type RyotQueryResult, useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useState, type ReactNode, type Ref } from "react";
+import { type ReactNode, type Ref, useState } from "react";
 
 import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";

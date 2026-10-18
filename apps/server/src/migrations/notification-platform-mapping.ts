@@ -1,4 +1,4 @@
-import { buildRequireLegacyTableSql, buildReportSql } from "./shared";
+import { buildReportSql, buildRequireLegacyTableSql } from "./shared";
 
 export const buildNotificationPlatformMigrationSql = () => `
 DO $$

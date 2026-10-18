@@ -5,9 +5,9 @@ import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	type PluginClientArtifact,
 	clientArtifactMetadata,
 	clientDeclarationHash,
+	type PluginClientArtifact,
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";

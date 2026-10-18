@@ -6,11 +6,11 @@ import { httpCallResponseSchema } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import {
+	SANDBOX_LIMITS,
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
 	sandboxCacheValueError,
 	sandboxHttpRequestBodyError,
-	SANDBOX_LIMITS,
 } from "@ryot-app/sandbox/protocol/limits";
 import { Cause, Duration, Effect, Match, Option, Schema } from "effect";
 import {
@@ -18,8 +18,8 @@ import {
 	HttpClient,
 	HttpClientError,
 	HttpClientRequest,
-	HttpMethod,
 	type HttpClientResponse,
+	HttpMethod,
 } from "effect/http";
 
 import type {

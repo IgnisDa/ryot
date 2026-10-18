@@ -3,7 +3,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
 import type { ImportSourceItem } from "#/modules/imports/service";
-import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
+import { type CatalogEntry, pluginCatalogGroup } from "#/modules/ui/catalog/selection";
 
 import { ingestionReadinessRequirement } from "./readiness-presentation";
 import { importRunSourceKey } from "./run-presentation";

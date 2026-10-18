@@ -15,8 +15,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
+import { isNumber, isString } from "@ryot-app/ts-utils/lodash";
 import { IconCamera, IconLibraryPhoto, IconTrash, IconVideo } from "@tabler/icons-react";
 import { produce } from "immer";
 import { useState } from "react";
@@ -205,10 +204,7 @@ export const UploadAssetsModal = (props: {
 
 	const afterFileSelected = async (file: File | null, type: "image" | "video") => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
-			notifications.show({
-				color: "red",
-				message: PRO_REQUIRED_MESSAGE,
-			});
+			notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 			return;
 		}
 		if (!file) {
@@ -238,10 +234,7 @@ export const UploadAssetsModal = (props: {
 				}),
 			);
 		} catch {
-			notifications.show({
-				color: "red",
-				message: `Error while uploading ${type}`,
-			});
+			notifications.show({ color: "red", message: `Error while uploading ${type}` });
 		} finally {
 			setIsFileUploading(false);
 		}

@@ -1,15 +1,15 @@
 import { ReorderableList } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Effect } from "effect";
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 
 import { impactHaptic, selectionHaptic } from "#/modules/device/haptics";
 import { CustomizeHomeRow, CustomizeRow } from "#/modules/shell/customize/customize-row";
 import {
-	customizeSectionCounts,
 	type CustomizeDraft,
 	type CustomizeDraftItem,
 	type CustomizeSection,
+	customizeSectionCounts,
 } from "#/modules/shell/customize/customize-state";
 
 const ROW_HEIGHT = 44;

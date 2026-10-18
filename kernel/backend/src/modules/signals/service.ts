@@ -5,8 +5,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 
 import {
-	SignalSchemasRepository,
 	type BuiltinSignalSchemaInput,
+	SignalSchemasRepository,
 } from "./signal-schemas-repository";
 
 export class SignalSchemaContractDrift extends Schema.TaggedError<

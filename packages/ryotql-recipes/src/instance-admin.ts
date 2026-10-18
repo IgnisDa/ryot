@@ -13,6 +13,7 @@ import {
 	descending,
 	eq,
 	literal,
+	type Recipe,
 	selectedAggregate,
 	selectedField,
 	selectedInclude,
@@ -20,7 +21,6 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Option, Result, Schema } from "effect";
 

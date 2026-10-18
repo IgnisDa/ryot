@@ -4,9 +4,9 @@ import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
+	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	UserId,
-	EntitySchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 

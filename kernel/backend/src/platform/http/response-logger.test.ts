@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { Context, Effect, Layer, Logger, type LogLevel, MutableRef, References, Ref } from "effect";
+import { Context, Effect, Layer, Logger, type LogLevel, MutableRef, Ref, References } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { logHttpResponse, logHttpResponseAtRoot } from "./response-logger";

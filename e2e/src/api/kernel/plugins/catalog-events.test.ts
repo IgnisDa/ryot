@@ -4,8 +4,8 @@ import getPort from "get-port";
 
 import {
 	adminHeaders,
-	createAuthenticatedClient,
 	createApiKey,
+	createAuthenticatedClient,
 	encodePluginSourceFiles,
 	executeRyotQLRecipe,
 	fixtureClientPluginPackage,

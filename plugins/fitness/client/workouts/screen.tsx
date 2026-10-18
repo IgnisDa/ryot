@@ -3,16 +3,16 @@ import {
 	FilterChips,
 	FilterRules,
 	useViewFilter,
-	ViewFiltersSheet,
 	type ViewFilter,
+	ViewFiltersSheet,
 } from "@ryot-app/plugin-client-sdk/filters";
 import {
+	type EntityBrowserLayout,
 	usePageContext,
 	usePageRefresh,
 	usePageShortcut,
 	usePluginLocation,
 	useRyotViewport,
-	type EntityBrowserLayout,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	nextPageCursor,
@@ -50,15 +50,15 @@ import { workoutFilterFields } from "./filters";
 import {
 	buildWorkoutCards,
 	groupByWeek,
-	weeksWindow,
 	type PeriodKey,
+	weeksWindow,
 	type WorkoutCard,
 } from "./model";
 import {
 	workoutCountQuery,
 	workoutsQuery,
-	workoutWeeksQuery,
 	workoutSummaryQuery,
+	workoutWeeksQuery,
 } from "./queries";
 import { WorkoutTable, WorkoutWeeks } from "./results";
 import { WorkoutSummarySection } from "./summary";

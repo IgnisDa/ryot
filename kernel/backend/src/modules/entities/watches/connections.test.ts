@@ -4,7 +4,7 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
 
-import { LocalInterestSessions, type LocalInterestSessionEnqueue } from "./connections";
+import { type LocalInterestSessionEnqueue, LocalInterestSessions } from "./connections";
 
 const message = {
 	reason: "populated",

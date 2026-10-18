@@ -1,8 +1,8 @@
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	DEFAULT_AUTOMATION_RETRY_POLICY,
 	type AutomationEventSnapshot,
+	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EventBadRequest,
@@ -57,7 +57,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainWriteChecks } from "#modules/entities/write-context";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
+import { MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";

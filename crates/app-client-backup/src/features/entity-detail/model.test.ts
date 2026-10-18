@@ -2,8 +2,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { EntityId, EntitySchemaId } from "@ryot-app/contract/schema/brands";
-import type { BookProperties } from "./media-types";
 
+import type { BookProperties } from "./media-types";
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 
 type EntityInput = Parameters<typeof toEntityDetail>[0];

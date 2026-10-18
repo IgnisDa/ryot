@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type ReactElement } from "react";
+import { type DragEvent, type ReactElement, useState } from "react";
 
 import { browserFileCandidate } from "./browser-file";
 import type { SchemaFileCandidate } from "./upload";

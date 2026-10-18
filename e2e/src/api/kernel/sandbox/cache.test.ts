@@ -3,9 +3,9 @@ import { Effect } from "effect";
 
 import {
 	cacheSandboxSource,
+	type Client,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
-	type Client,
 	installSandboxScriptScoped,
 	installTestPluginBundle,
 	pollSandboxResult,

@@ -6,13 +6,13 @@ import { mangaRecipes } from "@ryot-app/media-plugin/shared/manga-recipes";
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
 	listEventSchemas,
 	listEventsForEntity,
 	requireEventSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

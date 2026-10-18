@@ -8,9 +8,9 @@ import {
 	isCustomExercise,
 	latestPersonalBests,
 	metricsForKind,
+	type PersonalBestRow,
 	ratingToStars,
 	starsToRating,
-	type PersonalBestRow,
 } from "./details-model";
 
 const month = (iso: string, maxWeight: number | null) => ({

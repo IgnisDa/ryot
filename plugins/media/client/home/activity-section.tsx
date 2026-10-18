@@ -1,26 +1,26 @@
 import {
 	createRyotQuery,
-	useRyotQuery,
 	type RyotQueryResult,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import clsx from "clsx";
 
-import { mediaActivityRecipe, type MediaActivity } from "../../shared/activity-recipes";
+import { type MediaActivity, mediaActivityRecipe } from "../../shared/activity-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { MediaActivitySummaryFigures } from "../media/activity-rows";
 import { formatDateOnlyLabel } from "../media/date";
-import { MediaSectionFrame, type MediaRailStatus } from "../media/entity-rail";
+import { type MediaRailStatus, MediaSectionFrame } from "../media/entity-rail";
 import { classifyRyotQueryResult } from "../media/query-state";
 import { mediaCountLabel } from "../media/summary-state";
 import {
 	activityDays,
 	activityShares,
 	activityStreak,
+	type ActivityWindow,
 	activityWindow,
 	localDateOf,
 	resolveTimeZone,
-	type ActivityWindow,
 } from "./activity-model";
 
 const TITLE = "Your activity";

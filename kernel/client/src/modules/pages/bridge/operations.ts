@@ -32,8 +32,7 @@ const isStaleRevision = (cause: unknown) =>
 	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
 
 export type PluginOperationDispatchOutcome =
-	| PluginOperationOutcome
-	| { readonly outcome: "stale-session" };
+	PluginOperationOutcome | { readonly outcome: "stale-session" };
 
 export class PluginOperationsService extends Context.Service<PluginOperationsService>()(
 	"PluginOperationsService",

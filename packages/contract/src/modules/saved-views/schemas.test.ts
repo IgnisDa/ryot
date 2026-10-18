@@ -2,9 +2,9 @@ import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
+	CreateSavedViewBody,
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
-	CreateSavedViewBody,
 	SavedViewDisplayValue,
 	SavedViewRendererConfig,
 	UpdateSavedViewBody,

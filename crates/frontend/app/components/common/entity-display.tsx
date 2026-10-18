@@ -83,19 +83,11 @@ const ratingBadgeStyle = {
 	border: "1px solid rgba(255, 255, 255, 0.2)",
 } satisfies MantineStyleProp;
 
-const fullSizeStyle = {
-	width: "100%",
-	height: "100%",
-} as const;
+const fullSizeStyle = { width: "100%", height: "100%" } as const;
 
-const centerElementPaperStyle = {
-	zIndex: 1000,
-	transform: "translate(-50%, -50%)",
-} as const;
+const centerElementPaperStyle = { zIndex: 1000, transform: "translate(-50%, -50%)" } as const;
 
-const entityInfoTextShadowStyle = {
-	textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)",
-} as const;
+const entityInfoTextShadowStyle = { textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" } as const;
 
 const titleTextShadowStyle = {
 	transition: "color 200ms ease",
@@ -357,10 +349,7 @@ const BaseEntityDisplayItemComponent = forwardRef<HTMLDivElement, BaseEntityDisp
 			removeEntitiesFromCollection,
 		]);
 		const handleOpenCollections = useCallback(() => {
-			setAddEntityToCollectionsData({
-				entityId: props.entityId,
-				entityLot: props.entityLot,
-			});
+			setAddEntityToCollectionsData({ entityId: props.entityId, entityLot: props.entityLot });
 		}, [props.entityId, props.entityLot, setAddEntityToCollectionsData]);
 		const handleReview = useCallback(() => {
 			setEntityToReview({

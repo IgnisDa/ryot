@@ -1,5 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { usePluginIdentity, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { type RyotQueryResult, usePluginIdentity } from "@ryot-app/plugin-client-sdk/react";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import type { ReactNode } from "react";

@@ -1,5 +1,5 @@
 import { sanitizeEnvironment } from "@ryot-app/vite-compiler";
-import { Duration, Effect, Fiber, FileSystem, Ref, Result, Stream, type Semaphore } from "effect";
+import { Duration, Effect, Fiber, FileSystem, Ref, Result, type Semaphore, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { preferAsOomVictim } from "./oom-victim";

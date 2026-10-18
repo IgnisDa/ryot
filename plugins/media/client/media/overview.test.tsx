@@ -13,13 +13,13 @@ import {
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import {
-	mediaWatchProvidersTrailing,
 	MediaOverview,
 	MediaOverviewRelations,
-	MediaWatchProvidersSection,
 	type MediaOverviewRelationsRender,
+	MediaWatchProvidersSection,
+	mediaWatchProvidersTrailing,
 } from "./overview";
-import { mediaRelationsAreEmpty, type MediaOverviewState } from "./overview-state";
+import { type MediaOverviewState, mediaRelationsAreEmpty } from "./overview-state";
 import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 
 const noopAdapter = { query: () => Effect.succeed({}) };

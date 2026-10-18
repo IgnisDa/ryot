@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
 import {
-	createAuthenticatedClient,
 	checkClientPageFreshness,
+	createAuthenticatedClient,
 	createCollection,
 } from "~/fixtures/kernel";
 import { assertCondition } from "~/support/assertions";

@@ -9,8 +9,8 @@ import {
 	getImagesSortedBySize,
 	getSpotifyErrorStatus,
 	SPOTIFY_SEARCH_PAGE_SIZE,
-	type SpotifyHost,
 	spotifyGet,
+	type SpotifyHost,
 } from "../../../lib/vendors/spotify";
 
 export const manifest = defineManifest({

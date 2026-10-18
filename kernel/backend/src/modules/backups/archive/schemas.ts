@@ -5,9 +5,9 @@ import {
 	ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
+	dataJsonSource,
 	DataRecordProperties,
 	DataRecordTimestamp,
-	dataJsonSource,
 	entityDataFields,
 	eventDataFields,
 	relationshipDataFields,

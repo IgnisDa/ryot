@@ -1,9 +1,9 @@
 import {
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
-	userCommandInputSchema,
-	type UserCommandInput,
 	type ScriptHost,
 	type UpdateEventItem,
+	type UserCommandInput,
+	userCommandInputSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -17,37 +17,37 @@ import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { jsonValueEquals } from "../../shared/json-value-equals";
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 import {
-	WorkoutEditorSaveOutputSchema,
 	type WorkoutEditorSaveInput,
 	type WorkoutEditorSaveOutput,
+	WorkoutEditorSaveOutputSchema,
 } from "../../shared/workout-editor-operations";
 import {
 	applyWorkoutTimes,
-	TemplatePropertiesSchema,
-	WorkoutPropertiesSchema,
-	WorkoutSetPropertiesSchema,
 	type TemplateOccurrenceProperties,
+	TemplatePropertiesSchema,
 	type TemplateSetProperties,
+	WorkoutPropertiesSchema,
 	type WorkoutSetProperties,
+	WorkoutSetPropertiesSchema,
 } from "../../shared/workout-editor-properties";
 import {
 	decodeWorkoutEditorBaseline,
 	WORKOUT_EDITOR_PAGE_SIZE,
 	workoutEditableSetProperties,
-	workoutEditorEntityRecipe,
-	workoutEditorEventIdentitiesRecipe,
-	workoutEditorExercisesRecipe,
 	type WorkoutEditorBaseline,
+	workoutEditorEntityRecipe,
 	type WorkoutEditorEvent,
+	workoutEditorEventIdentitiesRecipe,
 	type WorkoutEditorExercise,
+	workoutEditorExercisesRecipe,
 } from "../../shared/workout-editor-recipes";
 import {
 	buildWorkoutSetEventProperties,
 	hasTemplateSetContent,
 	requiredWorkoutMeasurementsByKind,
 	selectWorkoutSetMeasurements,
-	workoutSetEditableFields,
 	type WorkoutSetAssetLocator,
+	workoutSetEditableFields,
 } from "../../shared/workout-set";
 
 type Data = WorkoutEditorSaveInput["data"];
@@ -779,9 +779,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 });
 
 export type WorkoutEditorSaveError =
-	| RyotqlRecipeDecodeError
-	| WorkoutCommandInputError
-	| SandboxHostError;
+	RyotqlRecipeDecodeError | WorkoutCommandInputError | SandboxHostError;
 
 export const saveWorkoutEditor = (
 	input: WorkoutEditorSaveInput,

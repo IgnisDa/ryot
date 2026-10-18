@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useId, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useId } from "react";
 
 import { IconButton } from "./button";
 import { AppIcon } from "./icon";

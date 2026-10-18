@@ -15,56 +15,56 @@ import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../sha
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
 import {
 	defineMediaActivityTab,
-	MediaActivityRecord,
 	type MediaActivityCopy,
+	MediaActivityRecord,
 } from "./activity-tab";
 import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "./activity-timeline";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
-	MediaDetailScreen,
-	mediaDetailPage,
 	type MediaDetailBodyInput,
+	mediaDetailPage,
+	MediaDetailScreen,
 } from "./detail-screen";
 import {
 	defineMediaPresentationPair,
-	MediaCardContent,
-	MediaRowContent,
 	type MediaArtworkAspect,
+	MediaCardContent,
 	type MediaPresentationViewData,
+	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import {
-	mediaEpisodicActivityView,
-	mediaEpisodicEpisodesLabel,
-	mediaEpisodicRowLabel,
 	type MediaEpisodicActivityCopy,
 	type MediaEpisodicActivityValue,
+	mediaEpisodicActivityView,
 	type MediaEpisodicCoverage,
+	mediaEpisodicEpisodesLabel,
 	type MediaEpisodicRow,
+	mediaEpisodicRowLabel,
 	type MediaEpisodicSummary,
 	type MediaEpisodicView,
 } from "./episodic-activity-state";
 import { MediaEpisodicCoverageStrip } from "./episodic-coverage";
 import {
-	MediaOverviewRelations,
 	type MediaCreditCopy,
+	MediaOverviewRelations,
 	type MediaOverviewRelationsRender,
 } from "./overview";
 import {
 	mediaOverviewManagedAssets,
+	type MediaOverviewState,
 	mediaRelationsAreEmpty,
 	mediaUnlinkedCreators,
-	type MediaOverviewState,
 } from "./overview-state";
 import {
 	mediaEpisodicAiredFact,
 	mediaEpisodicLifecycleLabel,
 	mediaReleaseLabel,
-	mediaSummaryHeaderDetail,
-	mediaSummaryStateMapper,
 	type MediaSummaryFact,
+	mediaSummaryHeaderDetail,
 	type MediaSummaryState,
+	mediaSummaryStateMapper,
 	type MediaSummaryValue,
 } from "./summary-state";
 

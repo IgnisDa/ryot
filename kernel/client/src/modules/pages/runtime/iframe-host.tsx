@@ -10,41 +10,41 @@ import type {
 	ExternalLinkRequest,
 	KernelShortcut,
 	PageShortcutKey,
+	PickEntityOutcome,
 	PluginAssetOutcome,
 	PluginAssetRequest,
+	PluginBridgePageSearch,
+	PluginBridgePickEntityScreen,
 	PluginCalendarSourceVisibilityOutcome,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionOutcome,
 	PluginCollectionRequest,
+	PluginDeviceOutcome,
+	PluginDeviceRequest,
 	PluginEntitySaveOutcome,
-	PluginUploadOutcome,
-	PluginUploadRequest,
+	PluginIosLiveActivityOutcome,
+	PluginIosLiveActivityRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
-	PluginBridgePageSearch,
-	PluginBridgePickEntityScreen,
-	PickEntityOutcome,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
 	PluginStorageRequest,
-	PluginDeviceRequest,
-	PluginDeviceOutcome,
-	PluginIosLiveActivityRequest,
-	PluginIosLiveActivityOutcome,
+	PluginUploadOutcome,
+	PluginUploadRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { Effect } from "effect";
 import {
+	type ReactNode,
+	type RefObject,
 	useEffect,
 	useEffectEvent,
 	useLayoutEffect,
 	useRef,
 	useState,
-	type ReactNode,
-	type RefObject,
 } from "react";
 
 import type { WatchEntities } from "#/modules/entity-watches/service";
@@ -59,8 +59,8 @@ import {
 } from "#/modules/pages/bridge/session";
 import { ClientPageLoading } from "#/modules/pages/loading";
 import {
-	toNavigationRequest,
 	type PluginNavigationRequest,
+	toNavigationRequest,
 } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";

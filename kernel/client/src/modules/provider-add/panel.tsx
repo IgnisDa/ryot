@@ -22,11 +22,11 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	initialSchemaFormValues,
-	SchemaForm,
-	type SchemaFileUpload,
-	type SchemaFormIcons,
-	type SchemaAssetUpload,
 	type SchemaAssetRenderer,
+	type SchemaAssetUpload,
+	type SchemaFileUpload,
+	SchemaForm,
+	type SchemaFormIcons,
 	toSchemaFormPayload,
 	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";

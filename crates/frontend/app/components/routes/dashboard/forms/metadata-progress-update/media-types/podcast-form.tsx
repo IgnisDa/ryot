@@ -28,10 +28,7 @@ export const PodcastForm = (props: MediaFormProps) => {
 					value: se.number.toString(),
 				}))}
 				onChange={(v) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						podcastEpisodeNumber: Number(v),
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, podcastEpisodeNumber: Number(v) });
 				}}
 			/>
 			<Checkbox

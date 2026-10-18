@@ -6,8 +6,8 @@ import {
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
-	pluginInstallationsRecipe,
 	type PluginInstallationsPage,
+	pluginInstallationsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 

@@ -14,9 +14,9 @@ import { SavedViewPluginReferencesProvidedLive } from "#modules/saved-views/laye
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import {
+	PluginCatalogHub,
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorLive,
-	PluginCatalogHub,
 	PluginInvalidationSubscriber,
 } from "./catalog/events";
 import { PluginInstallationRepository } from "./installations/repository";

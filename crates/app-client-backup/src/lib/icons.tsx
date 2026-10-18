@@ -48,11 +48,7 @@ import {
 import type { ComponentType } from "react";
 import { View } from "react-native";
 
-type IconComponent = ComponentType<{
-	size?: number;
-	color?: string;
-	strokeWidth?: number;
-}>;
+type IconComponent = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
 const iconRegistry: Partial<Record<string, IconComponent>> = {
 	tv: Tv,
@@ -102,22 +98,13 @@ const iconRegistry: Partial<Record<string, IconComponent>> = {
 	"monitor-play": MonitorPlay,
 };
 
-type TrackerIconProps = {
-	icon: string;
-	size?: number;
-	strokeWidth?: number;
-};
+type TrackerIconProps = { icon: string; size?: number; strokeWidth?: number };
 
 function FallbackIcon(props: { size?: number }) {
 	const size = props.size ?? 16;
 	return (
 		<View
-			style={{
-				width: size,
-				height: size,
-				borderRadius: size / 2,
-				backgroundColor: "#a8a29e",
-			}}
+			style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#a8a29e" }}
 		/>
 	);
 }

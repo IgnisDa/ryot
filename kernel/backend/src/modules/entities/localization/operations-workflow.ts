@@ -8,8 +8,8 @@ import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { makeActivity } from "#platform/workflow/scope";
 
 import {
-	TranslationExecution,
 	type TranslateEntityWorkflowPayload,
+	TranslationExecution,
 } from "./entity-translation-workflow";
 import { TranslationsService } from "./service";
 

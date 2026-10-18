@@ -5,8 +5,8 @@ import {
 	enqueueSandboxScript,
 	installSandboxScriptScoped,
 	observabilitySandboxSource,
-	processFailureSandboxSource,
 	pollSandboxResult,
+	processFailureSandboxSource,
 } from "~/fixtures/kernel";
 import { assertCompleted, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

@@ -11,9 +11,7 @@ import type {
 declare let clients: Clients;
 declare let self: ServiceWorkerGlobalScope;
 
-const logger = {
-	debug: (...args: unknown[]) => console.debug("[SW]", ...args),
-};
+const logger = { debug: (...args: unknown[]) => console.debug("[SW]", ...args) };
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(self.skipWaiting());

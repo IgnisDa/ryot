@@ -3,8 +3,8 @@ import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
 import {
-	requireSandboxCapabilityInput,
 	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
 } from "#modules/scripts/authorization/capabilities";
 import {
 	sandboxLifecycleCommand,

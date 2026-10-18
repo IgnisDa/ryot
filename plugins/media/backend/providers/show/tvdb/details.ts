@@ -9,11 +9,11 @@ import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import {
-	type UnknownRecord,
 	asRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
+	type UnknownRecord,
 } from "../../../lib/records";
 import {
 	bcp47ToTvdb,

@@ -1,8 +1,8 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	type CreateNotificationChannelBody,
 	NotificationNotFoundError,
 	NotificationRequestError,
-	type CreateNotificationChannelBody,
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";

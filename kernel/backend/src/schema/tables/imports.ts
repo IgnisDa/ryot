@@ -5,9 +5,9 @@ import type {
 	IngestionCapture,
 	IngestionIssue,
 	IngestionOutcome,
+	IngestionPayload,
 	IngestionPins,
 	IngestionPlan,
-	IngestionPayload,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type {
 	ImportRunFailureReason,

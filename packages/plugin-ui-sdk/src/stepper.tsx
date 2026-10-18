@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useState } from "react";
 
 import { IconButton } from "./button";
 

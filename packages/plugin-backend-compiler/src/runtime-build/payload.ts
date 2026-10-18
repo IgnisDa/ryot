@@ -4,9 +4,9 @@ import { Effect, Schema } from "effect";
 
 import {
 	type ResolvedSandboxRuntimeDependency,
-	SandboxRuntimeBuildError,
 	resolveSandboxRuntimeRegistry,
 	resolveViteVersion,
+	SandboxRuntimeBuildError,
 } from "./registry";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));

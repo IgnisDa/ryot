@@ -40,7 +40,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",

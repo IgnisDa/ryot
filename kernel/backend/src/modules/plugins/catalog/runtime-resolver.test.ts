@@ -16,8 +16,8 @@ import {
 import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
-	pluginExportSpecifier,
 	type PluginClientImport,
+	pluginExportSpecifier,
 } from "@ryot-app/plugin-client-contract";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
@@ -32,8 +32,8 @@ import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "../packages/revision.test-support";
 import type { NormalizedPlugin } from "../packages/types";
 import { testPluginPackageId } from "../test-support";

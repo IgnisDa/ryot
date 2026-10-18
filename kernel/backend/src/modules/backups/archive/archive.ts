@@ -1,17 +1,17 @@
 import { identityTupleKey, pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { Schema, Effect, Stream, FileSystem, Cause, type PlatformError } from "effect";
-import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
+import { Cause, Effect, FileSystem, type PlatformError, Schema, Stream } from "effect";
+import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { archiveError, BackupArchiveError } from "./error";
 import { collectReferencedPluginKeys } from "./references";
 import {
 	ARCHIVE_CODECS,
-	ArchiveManifest,
-	ArchiveProfile,
-	type ArchiveEvent,
-	type ArchiveEntityDependency,
 	ARCHIVE_SECTION_PATHS,
 	type ArchiveAssetManifest,
+	type ArchiveEntityDependency,
+	type ArchiveEvent,
+	ArchiveManifest,
+	ArchiveProfile,
 	type ArchiveRecords,
 	type ArchiveRequiredPlugin,
 	type ArchiveSectionManifest,
@@ -35,9 +35,7 @@ export const ARCHIVE_LIMITS = {
 	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
 } as const;
 
-type ArchiveLimits = {
-	readonly [K in keyof typeof ARCHIVE_LIMITS]: number;
-};
+type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
 
 type ArchiveAssetInput = {
 	readonly metadata: ArchiveAssetManifest;

@@ -4,22 +4,22 @@ import type {
 	MediaFlatActivityMediaEvent,
 } from "../../shared/media-recipes";
 import {
+	type ActivityAnchor,
 	anchorOf,
+	type MediaActivityBeatRow,
+	type MediaActivityCollectionRow,
+	type MediaActivityCompletionRow,
+	type MediaActivityLibraryRow,
+	type MediaActivityReviewRow,
 	mediaActivityRowsView,
+	type MediaActivitySpan,
+	type MediaActivityTimeline,
 	mediaBeatRow,
 	mediaCollectionRow,
 	mediaCompletionRow,
 	mediaLibraryRow,
 	mediaReviewRow,
 	optionalText,
-	type ActivityAnchor,
-	type MediaActivityBeatRow,
-	type MediaActivityCollectionRow,
-	type MediaActivityCompletionRow,
-	type MediaActivityLibraryRow,
-	type MediaActivityReviewRow,
-	type MediaActivitySpan,
-	type MediaActivityTimeline,
 } from "./activity-timeline";
 
 export type MediaFlatActivityBeat = Exclude<

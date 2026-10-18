@@ -79,10 +79,7 @@ export const MetadataNewProgressUpdateForm = (props: MetadataNewProgressFormProp
 
 	const handleProviderChange = (providers: string[]) => {
 		form.setFieldValue("providersConsumedOn", providers);
-		updateMetadataToUpdate({
-			...metadataToUpdate,
-			providersConsumedOn: [...providers],
-		});
+		updateMetadataToUpdate({ ...metadataToUpdate, providersConsumedOn: [...providers] });
 	};
 
 	return (
@@ -115,16 +112,12 @@ export const MetadataNewProgressUpdateForm = (props: MetadataNewProgressFormProp
 				});
 
 				const change: MetadataProgressUpdateChange = match(values.watchTime)
-					.with(WatchTimes.IDontRemember, () => ({
-						createNewCompleted: { withoutDates: common },
-					}))
+					.with(WatchTimes.IDontRemember, () => ({ createNewCompleted: { withoutDates: common } }))
 					.with(WatchTimes.JustStartedIt, () => ({
 						createNewInProgress: { ...common, startedOn: currentDateFormatted },
 					}))
 					.with(WatchTimes.JustCompletedNow, () => ({
-						createNewCompleted: {
-							finishedOnDate: { ...common, timestamp: currentDateFormatted },
-						},
+						createNewCompleted: { finishedOnDate: { ...common, timestamp: currentDateFormatted } },
 					}))
 					.with(WatchTimes.CustomDates, () =>
 						createCustomDatesCompletedChange({

@@ -1,14 +1,14 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import {
-	SavedViewReference,
 	type PluginIdentityReference,
+	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import {
+	EntityId,
+	PluginId,
 	PluginPackageId,
 	pluginPackageSegments,
-	PluginId,
-	EntityId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 import {

@@ -2,15 +2,15 @@ import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
-	useRyotQuery,
 	type RyotQueryResult,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useMemo, useState } from "react";
 
-import { exerciseDetailsRecipe, type ExerciseDetails } from "../../shared/exercise-details-recipes";
+import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
 import { WorkoutProcessing } from "../workout-processing";

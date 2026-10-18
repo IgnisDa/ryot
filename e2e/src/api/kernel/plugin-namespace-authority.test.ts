@@ -20,25 +20,25 @@ import { Deferred, Effect, Result, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createNotificationChannel,
 	enqueueProviderEntityImport,
 	executeRyotQLRecipe,
+	getImportRun,
 	installNamespacePackage,
+	installNotificationRule,
 	invokeNamespaceOperation,
+	listAutomationRuns,
+	listEventsForEntity,
 	namespaceBottlesRecipe,
+	namespaceEntityGraphRecipe,
 	namespaceProvidersRecipe,
 	namespaceRelationshipsRecipe,
-	namespaceEntityGraphRecipe,
 	pluginNamespacePackages,
+	pollImportRunUntilTerminal,
 	pollProviderEntityImportResult,
-	listEventsForEntity,
 	pollSignalTrigger,
-	listAutomationRuns,
-	createNotificationChannel,
-	installNotificationRule,
 	pollUntil,
 	startFakeAppriseServerScoped,
-	pollImportRunUntilTerminal,
-	getImportRun,
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

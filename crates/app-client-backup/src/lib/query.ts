@@ -1,4 +1,4 @@
-import { QueryClient, focusManager, useQueryClient } from "@tanstack/react-query";
+import { focusManager, QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";

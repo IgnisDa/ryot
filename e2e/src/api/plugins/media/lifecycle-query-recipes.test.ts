@@ -1,9 +1,9 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
+	type EpisodicKindConfig,
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
-	type EpisodicKindConfig,
 } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
 import {
 	episodicByLifecycleStateRecipe,
@@ -19,14 +19,15 @@ import { column, descending, document, eq, field, literal, rows, table } from "@
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQL,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
 	getEntity,
+	getGlobalEntityByProvenance,
 	insertGlobalRelationship,
-	shippedPluginTestProviders,
 	listAdminGlobalRelationships,
 	listEventSchemas,
 	listEventsForEntity,
@@ -37,8 +38,7 @@ import {
 	requireRows,
 	requireRyotQLDate,
 	requireRyotQLText,
-	type Client,
-	getGlobalEntityByProvenance,
+	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,
@@ -48,7 +48,7 @@ import {
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
-import { runPromise, beforeAll, afterAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const lifecycleStates = [

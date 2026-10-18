@@ -4,10 +4,10 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
+	type WorkoutDetails,
 	workoutDetailsExercisesRecipe,
 	workoutDetailsRecipe,
 	workoutDetailsSetsRecipe,
-	type WorkoutDetails,
 } from "../../shared/workout-details-recipes";
 
 const readItems = <A>(read: Parameters<typeof readCursorPages<A>>[0]) =>

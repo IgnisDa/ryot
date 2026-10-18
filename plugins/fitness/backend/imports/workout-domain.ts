@@ -1,6 +1,6 @@
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { exerciseKinds, type ExerciseKind } from "../../shared/exercise-kinds";
+import { type ExerciseKind, exerciseKinds } from "../../shared/exercise-kinds";
 import { WorkoutSetLotSchema } from "../../shared/workout-set";
 
 const WorkoutImportSetSchema = Schema.Struct({

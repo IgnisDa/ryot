@@ -20,8 +20,8 @@ import { S3Service } from "#platform/storage/s3";
 
 import { ManagedAssetReferencesRepository } from "./managed-asset-references-repository";
 import {
-	type RegisterManagedAssetInput,
 	ManagedAssetsRepository,
+	type RegisterManagedAssetInput,
 } from "./managed-assets-repository";
 import { ObjectStorageService } from "./object-storage";
 

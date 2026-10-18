@@ -13,7 +13,7 @@ import type {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import type { ReactNode } from "react";
 
-import { CellThumbnail, CellValue, cellText, isAssetCell } from "./display-value";
+import { cellText, CellThumbnail, CellValue, isAssetCell } from "./display-value";
 
 type BrowserItem = EntityBrowserResult["items"][number];
 type DeclaredBrowserColumns = NonNullable<

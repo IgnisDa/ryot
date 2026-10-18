@@ -23,8 +23,8 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	collectEmbeddedEntityIds,
-	rewriteManagedAssetLocators,
 	type DataReferenceError,
+	rewriteManagedAssetLocators,
 } from "#modules/backups/data-references";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -50,16 +50,16 @@ import {
 	rewriteAssetLocatorForArchive,
 } from "../archive/references";
 import type {
-	ArchiveRecords,
 	ArchiveCalendarSourceOverride,
 	ArchiveEntityDependency,
 	ArchiveEvent,
 	ArchiveInstallation,
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
+	ArchiveRecords,
 	ArchiveRelationship,
-	ArchiveUserEntity,
 	ArchiveSavedView,
+	ArchiveUserEntity,
 } from "../archive/schemas";
 import {
 	ARCHIVE_CODECS,

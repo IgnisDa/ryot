@@ -1,5 +1,5 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type EntityWatch } from "@ryot-app/plugin-client-sdk";
+import { type EntityWatch, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";

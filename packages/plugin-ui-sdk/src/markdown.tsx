@@ -4,7 +4,7 @@ import type { Nodes, Root } from "mdast";
 import { directiveFromMarkdown } from "mdast-util-directive";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { directive } from "micromark-extension-directive";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkDirective from "remark-directive";
 

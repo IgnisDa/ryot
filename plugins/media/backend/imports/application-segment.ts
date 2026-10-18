@@ -3,8 +3,8 @@ import {
 	genericImportCaptureReference,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import {
-	type Effect,
 	defineScriptReference,
+	type Effect,
 	type WorkflowReplay,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 

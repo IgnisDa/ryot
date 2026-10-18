@@ -3,8 +3,8 @@ import { DbError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
-	AutomationHookSlug,
 	AutomationExecutionId,
+	AutomationHookSlug,
 	AutomationRunId,
 	AutomationTriggerId,
 	EntityId,
@@ -40,16 +40,16 @@ import * as tables from "#schema/tables/combined";
 import {
 	baseInput,
 	command,
+	installPolicyFixture,
+	ownedEndpoints,
 	propertiesSchema,
+	relationshipDatabaseLayer,
+	RelationshipFixture,
 	relationshipSchemaSlug,
+	relationshipsServiceWith,
 	sourceEntityId,
 	targetEntityId,
 	userId,
-	installPolicyFixture,
-	ownedEndpoints,
-	relationshipDatabaseLayer,
-	RelationshipFixture,
-	relationshipsServiceWith,
 } from "./lifecycle.test-support";
 import type { ChangeUserRelationshipBatch } from "./mutation-support";
 import { RelationshipsRepository } from "./repository";

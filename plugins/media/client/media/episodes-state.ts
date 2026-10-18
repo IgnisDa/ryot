@@ -4,7 +4,7 @@ import type { EpisodeLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaImage } from "../../shared/media-image";
 import { optionalText } from "./activity-timeline";
 import { formatDateOnlyLabel } from "./date";
-import { collectManagedAssetLocators, preferredMediaImageAsset, type MediaImages } from "./image";
+import { collectManagedAssetLocators, type MediaImages, preferredMediaImageAsset } from "./image";
 
 export type MediaEpisodeImagePurpose = MediaImage["purpose"];
 

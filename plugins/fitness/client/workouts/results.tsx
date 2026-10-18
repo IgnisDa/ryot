@@ -2,7 +2,7 @@ import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { Badge, Card } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { tableHeaderClass } from "../measurements/styles";
 import { ComputedResults } from "../workout-processing";

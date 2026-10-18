@@ -10,7 +10,7 @@ import {
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Clock, Context, Duration, Effect, Layer, Ref } from "effect";
 
-import { TranslationsService, type RequestFillInput } from "#modules/entities/localization/service";
+import { type RequestFillInput, TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RedisService } from "#platform/redis";

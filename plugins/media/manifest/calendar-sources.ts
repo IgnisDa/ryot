@@ -2,10 +2,11 @@ import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/ma
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
+	and,
 	castDate,
 	castNumber,
-	column,
 	coalesce,
+	column,
 	concat,
 	conditional,
 	entitySchemaPredicate,
@@ -22,7 +23,6 @@ import {
 	or,
 	schemaOwnerPredicate,
 	table,
-	and,
 } from "@ryot-app/ryotql";
 
 import { preferredMediaImageExpression } from "../shared/entity-presentations";

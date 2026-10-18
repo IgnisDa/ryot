@@ -16,17 +16,17 @@ import {
 	createPluginSavedView,
 	createResultsTableSavedView,
 	findSavedViewById,
-	savedViewRecordPath,
 	installFixtureClientPlugin,
 	listEntitySchemas,
 	listEventSchemas,
 	prepareClientPage,
 	requireEventSchemaBySlug,
+	savedViewRecordPath,
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
-	createWorkoutEntityFixture,
 	createExerciseEntityFixture,
+	createWorkoutEntityFixture,
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";

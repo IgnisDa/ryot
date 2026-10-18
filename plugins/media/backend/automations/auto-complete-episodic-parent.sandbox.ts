@@ -6,14 +6,14 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
+	type EpisodicKindConfig,
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
-	type EpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
 import {
-	readEpisodicLifecycleSnapshot,
 	type EpisodicLifecycleSnapshot,
 	type EventOrderTuple,
+	readEpisodicLifecycleSnapshot,
 } from "../contracts/lifecycle-recipes";
 
 export const manifest = defineManifest({

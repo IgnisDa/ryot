@@ -1,7 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
+import { isNumber, isString } from "@ryot-app/ts-utils/lodash";
 import { parseParameters } from "@ryot-app/ts-utils/request";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
@@ -183,9 +182,7 @@ export default function Page() {
 			navigator.serviceWorker.controller &&
 			document.visibilityState === "visible"
 		) {
-			postMessageToServiceWorker({
-				event: "remove-timer-completed-notification",
-			});
+			postMessageToServiceWorker({ event: "remove-timer-completed-notification" });
 		}
 	}, 5000);
 	useInterval(() => {

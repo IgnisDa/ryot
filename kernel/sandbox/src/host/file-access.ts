@@ -7,17 +7,17 @@ import { Base64 } from "effect/encoding";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import {
-	base64DecodedLength,
 	type artifactReadRangeArgsSchema,
 	type artifactReadRangeResultSchema,
+	base64DecodedLength,
 	type scratchWriteArgsSchema,
 } from "../protocol/messages";
 import { SandboxHostConfig } from "./config";
 import { ExecutionFileStaging } from "./execution-file-staging";
 import { ExecutionFileStore } from "./execution-files";
 import {
-	decodeSandboxScratchManifest,
 	declaresSandboxFilesystemGrant,
+	decodeSandboxScratchManifest,
 	measureSandboxScratchBytes,
 	SANDBOX_HARVEST_DIRECTORY_PREFIX,
 	SANDBOX_SCRATCH_DIRECTORY_PREFIX,
@@ -25,7 +25,7 @@ import {
 	sandboxGrantPathError,
 	sanitizeSandboxExecutionSegment,
 } from "./filesystem-grants";
-import { toSandboxHostError, type SandboxRunInput } from "./invocation";
+import { type SandboxRunInput, toSandboxHostError } from "./invocation";
 
 const missingArtifactGrant = (operation: string): SandboxHostError => ({
 	message: "Sandbox artifact grant is unavailable",

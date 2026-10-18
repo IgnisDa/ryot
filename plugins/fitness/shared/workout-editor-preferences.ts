@@ -4,13 +4,13 @@ import { NonNegativeInt } from "./fitness-primitives";
 import type { WorkoutEditorDisplay, WorkoutEditorLocalPreferences } from "./workout-editor-draft";
 import type { WorkoutSetLot } from "./workout-set";
 import {
-	DurationUnitSchema,
 	durationDisplayUnit,
-	EnergyUnitSchema,
-	UnitSystemSchema,
 	type DurationUnit,
+	DurationUnitSchema,
 	type EnergyUnit,
+	EnergyUnitSchema,
 	type UnitSystem,
+	UnitSystemSchema,
 } from "./workout-units";
 
 export const workoutRestFields = [

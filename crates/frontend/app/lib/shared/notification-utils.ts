@@ -4,11 +4,7 @@ export const showEntitySuccess = (
 	entityName: string,
 	action: "created" | "updated" | "deleted",
 ) => {
-	notifications.show({
-		color: "green",
-		title: "Success",
-		message: `${entityName} ${action}`,
-	});
+	notifications.show({ color: "green", title: "Success", message: `${entityName} ${action}` });
 };
 
 export const showEntityError = (

@@ -2,8 +2,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 import {
-	runStatusPill,
 	type PresentedRunStatus,
+	runStatusPill,
 	type RunStatusTone,
 } from "#/modules/ui/run/run-status";
 

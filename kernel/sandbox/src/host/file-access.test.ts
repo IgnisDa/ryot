@@ -24,7 +24,7 @@ import { assert, describe, expect } from "vitest";
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { ExecutionFileStore } from "./execution-files";
 import { ExecutionFiles } from "./file-access";
-import { SANDBOX_HARVEST_DIRECTORY_PREFIX, measureSandboxScratchBytes } from "./filesystem-grants";
+import { measureSandboxScratchBytes, SANDBOX_HARVEST_DIRECTORY_PREFIX } from "./filesystem-grants";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 

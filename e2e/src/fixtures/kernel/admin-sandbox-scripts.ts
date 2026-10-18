@@ -6,10 +6,10 @@ import {
 	defineRecipe,
 	eq,
 	literal,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

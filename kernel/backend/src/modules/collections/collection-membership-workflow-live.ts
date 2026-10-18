@@ -4,8 +4,8 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { runLifecycleWriteStep } from "#modules/automations/lifecycle/write-step";
 import {
-	kernelCollectionLifecycleCommand,
 	type DomainLifecycleCommand,
+	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -22,10 +22,10 @@ import {
 	type CollectionMembershipWorkflowPayload,
 } from "./collection-membership-workflow";
 import {
+	childCollectionLifecycleCommand,
 	CollectionMembershipResult,
 	CollectionsService,
 	PendingCollectionMembership,
-	childCollectionLifecycleCommand,
 } from "./service";
 
 type CollectionMembershipWorkflowOperationsValue = Pick<

@@ -10,9 +10,9 @@ import { readArtifactRange, writeScratchChunks } from "@ryot-app/plugin-backend-
 import {
 	MediaNormalizedSourceRecord,
 	MediaRawSourceRecord,
-	MediaSourceRecord,
 	type MediaSourceInput,
 	type MediaSourceOutput,
+	MediaSourceRecord,
 } from "./collection-schemas";
 import { importEntityRefIdentifier } from "./groups";
 import {

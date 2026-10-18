@@ -10,8 +10,8 @@ import {
 	type LogLevel,
 	MutableRef,
 	Path,
-	References,
 	Ref,
+	References,
 } from "effect";
 import { TestClock } from "effect/testing";
 

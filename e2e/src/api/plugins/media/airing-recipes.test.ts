@@ -2,6 +2,7 @@ import { showsAiringSoonRecipe } from "@ryot-app/media-plugin/shared/airing-reci
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
@@ -10,7 +11,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

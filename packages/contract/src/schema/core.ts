@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 
 import { DbError } from "../errors";
-import { AppSchema, type AppPropertyDefinition } from "./property-schema";
+import { type AppPropertyDefinition, AppSchema } from "./property-schema";
 
 export const decodeStoredSchema = <S extends Schema.Constraint>(
 	value: unknown,

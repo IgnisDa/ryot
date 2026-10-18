@@ -45,9 +45,7 @@ const theme = createTheme({
 	fontFamily: "Poppins",
 	components: {
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
-		ActionIcon: ActionIcon.extend({
-			defaultProps: { variant: "subtle", color: "gray" },
-		}),
+		ActionIcon: ActionIcon.extend({ defaultProps: { variant: "subtle", color: "gray" } }),
 		Container: Container.extend({
 			defaultProps: { size: "responsive" },
 			classNames: (_, { size }) => ({
@@ -70,14 +68,8 @@ const theme = createTheme({
 export const meta: MetaFunction = () => {
 	return [
 		{ title: "Ryot" },
-		{
-			name: "description",
-			content: "The only self hosted tracker you will ever need.",
-		},
-		{
-			property: "og:image",
-			content: LOGO_IMAGE_URL,
-		},
+		{ name: "description", content: "The only self hosted tracker you will ever need." },
+		{ property: "og:image", content: LOGO_IMAGE_URL },
 	];
 };
 
@@ -111,11 +103,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		extendResponseHeaders(headers, toastHeaders);
 	}
 	return data(
-		{
-			toast,
-			defaultColorScheme,
-			isDevelopmentMode: process.env.NODE_ENV === "development",
-		},
+		{ toast, defaultColorScheme, isDevelopmentMode: process.env.NODE_ENV === "development" },
 		{ headers },
 	);
 };
@@ -123,9 +111,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
-	useRegisterSW({
-		onNeedRefresh: () => location.reload(),
-	});
+	useRegisterSW({ onNeedRefresh: () => location.reload() });
 
 	return (
 		<html lang="en">

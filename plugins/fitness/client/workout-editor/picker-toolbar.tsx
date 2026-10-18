@@ -5,20 +5,20 @@ import type { RefObject } from "react";
 
 import {
 	exerciseForces,
+	type ExerciseKind,
 	exerciseKinds,
 	exerciseLevels,
 	exerciseMechanics,
-	type ExerciseKind,
 } from "../../shared/exercise-kinds";
 import {
 	capitalize,
 	labelForKind,
 	maxPickerPresets,
-	sortLabels,
-	sortOrder,
 	type PickerFilters,
 	type PickerPreset,
 	type PickerSort,
+	sortLabels,
+	sortOrder,
 } from "./picker-model";
 
 const chip =

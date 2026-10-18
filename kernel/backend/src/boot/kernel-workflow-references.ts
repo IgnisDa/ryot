@@ -4,9 +4,9 @@ import {
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_EVENT_STREAM_WORKFLOW,
-	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
@@ -16,8 +16,8 @@ import {
 	AutomationExecutionId,
 	EntitySchemaSlug,
 	ImportRunId,
-	SandboxProviderId,
 	type IntegrationId,
+	SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -30,17 +30,17 @@ import { DateTime, Effect, Exit, Layer, Option, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
-	rootLifecycleCommand,
-	lifecycleActor,
 	automationLifecycleCausation,
+	lifecycleActor,
+	rootLifecycleCommand,
 } from "#modules/automations/lifecycle/command";
 import {
-	EntityImportWorkflow,
 	type EntityImportError,
+	EntityImportWorkflow,
 } from "#modules/entities/providers/entity-import-workflow";
 import {
-	ProviderEntityPopulationWorkflow,
 	type ProviderEntityPopulationPayload,
+	ProviderEntityPopulationWorkflow,
 } from "#modules/entities/providers/provider-entity-population-workflow";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";

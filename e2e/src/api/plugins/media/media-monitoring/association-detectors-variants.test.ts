@@ -8,9 +8,9 @@ import {
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	pollProviderEntityImportResult,
+	pollUntil,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
-	pollUntil,
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import * as Effect from "effect/Effect";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
 import { FieldMessage } from "../../text-field";
 import { FileDropZone } from "./drop-zone";

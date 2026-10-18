@@ -11,9 +11,9 @@ import { useState } from "react";
 
 import {
 	PokemonCard,
+	type PokemonPresentationViewData,
 	PokemonRow,
 	preparePokemonPresentations,
-	type PokemonPresentationViewData,
 } from "./pokemon-presentation";
 
 const bulbasaur: PokemonPresentationViewData = {

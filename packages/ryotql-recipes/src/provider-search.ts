@@ -13,9 +13,9 @@ import {
 	eq,
 	join,
 	literal,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
-	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";

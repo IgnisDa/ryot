@@ -4,7 +4,7 @@ import {
 	CompilerWorkerRequest,
 	CompilerWorkerResponse,
 } from "@ryot-app/plugin-backend-compiler/protocol";
-import { Effect, Schema, Stream, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { makeSandboxCompiler } from "./compiler";

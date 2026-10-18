@@ -51,8 +51,8 @@ import { SandboxWorkflowReferenceRepository } from "../registry/workflow-referen
 import {
 	runScriptExecutionWorkflow,
 	runScriptExecutionWorkflowBody,
-	ScriptExecutionWorkflow,
 	SandboxWorkflowPinning,
+	ScriptExecutionWorkflow,
 } from "./workflow";
 import type { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 

@@ -1,6 +1,6 @@
 import type { Hotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
-import { useRef, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useRef } from "react";
 
 import { Badge } from "./badge";
 import { useFieldEscape } from "./field-escape";

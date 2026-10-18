@@ -20,10 +20,10 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	type UseListStateHandlers,
 	useDisclosure,
 	useInViewport,
 	useListState,
+	type UseListStateHandlers,
 } from "@mantine/hooks";
 import {
 	EntityLot,
@@ -39,10 +39,7 @@ import {
 	UserExercisesListDocument,
 	type UserExercisesListInput,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, isNumber, snakeCase, startCase } from "@ryot-app/ts-utils/lodash";
 import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { IconAlertCircle, IconCheck, IconFilter, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -136,10 +133,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const mergeExerciseSchema = z.object({
-	mergeFrom: z.string(),
-	mergeInto: z.string(),
-});
+const mergeExerciseSchema = z.object({ mergeFrom: z.string(), mergeInto: z.string() });
 
 type SelectExercise = { id: string; lot: ExerciseLot };
 
@@ -244,9 +238,7 @@ export default function Page() {
 							color="green"
 							component={Link}
 							variant="outline"
-							to={$path("/fitness/exercises/update/:action", {
-								action: "create",
-							})}
+							to={$path("/fitness/exercises/update/:action", { action: "create" })}
 						>
 							<IconPlus size={16} />
 						</ActionIcon>
@@ -401,10 +393,7 @@ const FiltersModalForm = (props: {
 							// oxlint-disable-next-line typescript/no-explicit-any
 							data={(coreDetails.exerciseParameters.filters as any)[singularKey].map(
 								// oxlint-disable-next-line typescript/no-explicit-any
-								(v: any) => ({
-									value: v,
-									label: startCase(snakeCase(v)),
-								}),
+								(v: any) => ({ value: v, label: startCase(snakeCase(v)) }),
 							)}
 						/>
 					);
@@ -457,10 +446,7 @@ const ExerciseItemDisplay = (props: {
 						<Checkbox
 							onChange={(e) => {
 								if (e.currentTarget.checked) {
-									props.setSelectedExercises.append({
-										lot: exercise.lot,
-										id: props.exerciseId,
-									});
+									props.setSelectedExercises.append({ lot: exercise.lot, id: props.exerciseId });
 									if (isTourTargetExercise) {
 										advanceOnboardingTourStep();
 									}
@@ -500,9 +486,7 @@ const ExerciseItemDisplay = (props: {
 										props.setMergingExercise(null);
 										submit(formData, {
 											method: "POST",
-											action: withQuery(".", {
-												intent: "mergeExercise",
-											}),
+											action: withQuery(".", { intent: "mergeExercise" }),
 										});
 									},
 								);

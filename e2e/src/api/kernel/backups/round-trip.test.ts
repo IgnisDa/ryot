@@ -9,8 +9,8 @@ import {
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import {
-	pluginUserSettingsRecipe,
 	type PluginUserSettingsPage,
+	pluginUserSettingsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { Effect } from "effect";
 
@@ -30,10 +30,13 @@ import {
 	exportAndDownloadBackup,
 	fakeProviderDetailsResult,
 	findBuiltinSavedView,
+	findEntityIdByName,
 	findPluginInstallationByPackage,
+	findRelationshipBySchema,
 	findSavedViewById,
 	getEntity,
 	getEntitySchema,
+	getGlobalEntityByProvenance,
 	getNotificationSubscription,
 	getSavedView,
 	installFixtureClientPlugin,
@@ -54,17 +57,14 @@ import {
 	requireRyotQLText,
 	restoreBackup,
 	sendDataWebhook,
-	setPluginHomeView,
 	setNotificationRuleActive,
+	setPluginHomeView,
 	settledPrivateInstallation,
+	testPluginEntitySchema,
 	testPluginManifest,
 	uninstallTestPlugin,
 	updatePluginState,
 	waitForCreateEvents,
-	getGlobalEntityByProvenance,
-	findEntityIdByName,
-	findRelationshipBySchema,
-	testPluginEntitySchema,
 } from "~/fixtures/kernel";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import {

@@ -2,16 +2,16 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
-	PluginEntityLocation,
 	type EntityWatch,
 	type PluginBridgeNavigate,
+	PluginEntityLocation,
 	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Match, Schema } from "effect";
-import { useEffect, useState, act } from "react";
+import { act, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { EntityUpdate, RyotClientAdapter } from "../client/adapter";
@@ -22,13 +22,13 @@ import { useEntityRefresh } from "../refresh/entity-hooks";
 import { createTestRyotClock, waitForMessagePortMacrotask } from "../testing";
 import {
 	createPluginRouteResolver,
+	type EntityRendererProps,
 	PluginLink,
 	PluginRouter,
+	type PluginRouterDefinition,
+	usePluginLocation,
 	usePluginParams,
 	usePluginSearch,
-	usePluginLocation,
-	type EntityRendererProps,
-	type PluginRouterDefinition,
 } from "./routing";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./store";
 

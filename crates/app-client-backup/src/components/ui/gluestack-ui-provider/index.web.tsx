@@ -40,9 +40,7 @@ export function GluestackUIProvider(props: { mode?: ModeType; children?: React.R
 			<script
 				suppressHydrationWarning
 				// oxlint-disable-next-line react/no-danger
-				dangerouslySetInnerHTML={{
-					__html: `(${script.toString()})('${mode}')`,
-				}}
+				dangerouslySetInnerHTML={{ __html: `(${script.toString()})('${mode}')` }}
 			/>
 			<OverlayProvider>
 				<ToastProvider>{rest.children}</ToastProvider>

@@ -9,9 +9,9 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	RelationshipSchemaSlug,
 	UserId,
-	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -21,8 +21,8 @@ import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
-	toLifecycleDispatchPlan,
 	type LifecyclePlan,
+	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -51,9 +51,9 @@ import {
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
+	type ProviderEntityPopulationPayload,
 	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
-	type ProviderEntityPopulationPayload,
 } from "./provider-entity-population-workflow";
 
 const now = IsoUtcString.make("2026-09-17T00:00:00.000Z");

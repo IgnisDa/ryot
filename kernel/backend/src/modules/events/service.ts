@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationEventDraft,
 	type AutomationEventChangePayload,
+	AutomationEventDraft,
 	type AutomationEventSnapshot,
 	type AutomationPolicyPatch,
 	type AutomationRequestPayload,
@@ -9,14 +9,14 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type CreateEventItem,
-	type EventCreateItemError,
 	EventBadRequest,
+	type EventCreateItemError,
+	type EventCreateOperation,
 	EventNotFound,
 	EventOperationNotFound,
-	type EventUpdatePatch,
 	EventStale,
+	type EventUpdatePatch,
 	type UpdateEventItem,
-	type EventCreateOperation,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
@@ -59,18 +59,18 @@ import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
-	DomainLifecycleCommand,
-	DomainWriteConflict,
 	assertStableUnder,
+	DomainLifecycleCommand,
 	DomainWriteChecks,
+	DomainWriteConflict,
 	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
 import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
-	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
+	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { AppConfig } from "#platform/config/service";
@@ -95,16 +95,16 @@ import {
 } from "./event-creation";
 import type { CapturedEventReferences } from "./event-creation";
 import {
-	EventMutationBatchReceiptResult,
-	EventMutationReceiptResult,
-	eventMutationBatchReceiptIdentity,
-	eventMutationReceiptIdentity,
 	eventCreateBatchInput,
+	eventMutationBatchReceiptIdentity,
+	EventMutationBatchReceiptResult,
+	eventMutationReceiptIdentity,
+	EventMutationReceiptResult,
 	eventReceiptError,
 } from "./mutation-receipts";
 import {
-	EventsRepository,
 	type EventIdentityInput,
+	EventsRepository,
 	type UpdateEventEntityReferencesInput,
 } from "./repository";
 import { eventRootTransaction } from "./transaction";

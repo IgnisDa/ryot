@@ -9,14 +9,14 @@ import { SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxInvocationResponseSchema, SandboxInvocationSchema } from "../protocol/messages";
 import { SandboxSidecarClient } from "./client";
 import { compileTestScript } from "./compile.test-support";
-import { encodeJson, decodedHostCallArgs } from "./host-call-args.test-support";
+import { decodedHostCallArgs, encodeJson } from "./host-call-args.test-support";
 import type { SandboxInlineDurableHost } from "./invocation";
 import {
 	defineNativeScript,
 	runNative,
 	runNativeOutcome,
-	runnerNativeLayer,
 	type RunnerCompiled,
+	runnerNativeLayer,
 } from "./runner-native.test-support";
 
 const durableSource = defineNativeScript(

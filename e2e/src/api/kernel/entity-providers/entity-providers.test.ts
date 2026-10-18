@@ -3,17 +3,17 @@ import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	getApiClient,
+	installTestProvider,
+	pollProviderEntityImportResult,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
-	pollProviderEntityImportResult,
 	searchProviderEntities,
-	installTestProvider,
+	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";

@@ -52,10 +52,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	invariant(set);
 
-	const setIdentifier = {
-		setIdentifier: set.identifier,
-		exerciseIdentifier: exercise.identifier,
-	};
+	const setIdentifier = { setIdentifier: set.identifier, exerciseIdentifier: exercise.identifier };
 
 	const timerStartedSound = usePlayFitnessSound("timer-started");
 
@@ -112,10 +109,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							variant="outline"
 							onClick={() => {
 								invariant(set.restTimer);
-								props.startTimer({
-									triggeredBy: setIdentifier,
-									duration: set.restTimer.duration,
-								});
+								props.startTimer({ triggeredBy: setIdentifier, duration: set.restTimer.duration });
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
 										const currentExercise = draft.exercises[props.exerciseIdx];

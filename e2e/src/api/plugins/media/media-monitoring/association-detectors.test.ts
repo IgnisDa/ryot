@@ -10,9 +10,9 @@ import {
 	fakeProviderDetailsResult,
 	getApiClient,
 	pollProviderEntityImportResult,
+	pollUntil,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
-	pollUntil,
 } from "~/fixtures/kernel";
 import type { AttachedTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {

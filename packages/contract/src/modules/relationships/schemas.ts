@@ -3,9 +3,9 @@ import { Schema } from "effect";
 import {
 	AutomationRunId,
 	EntityId,
+	PluginId,
 	RelationshipId,
 	RelationshipSchemaSlug,
-	PluginId,
 } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
 import { DefinitionOwner, RelationshipSchemaReference } from "../plugins/references";

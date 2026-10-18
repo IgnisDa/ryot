@@ -6,7 +6,7 @@
 		"build": "vitepress build",
 		"dev": "vitepress dev --port 3002",
 		"generate": "bun run tooling/generate-configuration.ts",
-		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"devDependencies": {
 		"@ryot-app/config": "workspace:*",

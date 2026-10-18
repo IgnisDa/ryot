@@ -7,7 +7,7 @@
 		}
 	},
 	"scripts": {
-		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"effect": "4.0.5",

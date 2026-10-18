@@ -26,10 +26,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	const removeEntitiesFromCollection = useRemoveEntitiesFromCollectionMutation();
 
 	const handleToggleMonitoring = () => {
-		const entityData = {
-			entityId: props.formValue,
-			entityLot: props.entityLot,
-		};
+		const entityData = { entityId: props.formValue, entityLot: props.entityLot };
 
 		if (isMonitored) {
 			openConfirmationModal("Are you sure you want to stop monitoring?", () => {
@@ -90,10 +87,7 @@ export const MarkEntityAsPartialMenuItem = (props: { entityId: string; entityLot
 		<Menu.Item
 			disabled={mutation.isPending}
 			onClick={() => {
-				mutation.mutate({
-					entityId: props.entityId,
-					entityLot: props.entityLot,
-				});
+				mutation.mutate({ entityId: props.entityId, entityLot: props.entityLot });
 			}}
 		>
 			Update details

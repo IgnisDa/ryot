@@ -11,7 +11,7 @@ import { Text } from "@/components/ui/text";
 
 import { formatMinutes } from "./duration";
 import { getPrimaryCreator } from "./people";
-import type { EntityDetail, AppUnlinkedCreator } from "./types";
+import type { AppUnlinkedCreator, EntityDetail } from "./types";
 
 export function HeroSection(props: { creators: AppUnlinkedCreator[]; entity: EntityDetail }) {
 	const entity = props.entity;

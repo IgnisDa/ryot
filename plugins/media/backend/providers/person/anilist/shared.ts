@@ -3,14 +3,14 @@ import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
-import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
+import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
 	anilistGraphql,
+	type AnilistHost,
 	mediaScriptSlug,
 	parseAnilistId,
 	pickPreferredMediaName,
-	type AnilistHost,
 } from "../../../lib/vendors/anilist";
 
 export const manifest = defineManifest({

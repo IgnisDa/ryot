@@ -2,9 +2,7 @@ import { ActionIcon, Anchor, Flex, SimpleGrid, Stack, Text } from "@mantine/core
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { humanizeDuration } from "@ryot-app/ts-utils/format";
-import { isInteger } from "@ryot-app/ts-utils/lodash";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
+import { isInteger, isNumber, isString } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconBubble, IconEdit, IconX } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
@@ -71,10 +69,7 @@ export const HistoryItem = (props: {
 			return;
 		}
 		if (!coreDetails.isServerKeyValidated) {
-			notifications.show({
-				color: "red",
-				message: PRO_REQUIRED_MESSAGE,
-			});
+			notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 			return;
 		}
 		props.setTab(tab);
@@ -224,10 +219,7 @@ export const HistoryItem = (props: {
 							<Flex gap="xs">
 								<Text size="sm">Time:</Text>
 								<Text size="sm" fw="bold">
-									{humanizeDuration(timeSpentInMilliseconds, {
-										round: true,
-										units,
-									})}
+									{humanizeDuration(timeSpentInMilliseconds, { round: true, units })}
 								</Text>
 							</Flex>
 						) : null}

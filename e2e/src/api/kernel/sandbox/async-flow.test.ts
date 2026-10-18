@@ -14,9 +14,9 @@ import {
 	literalSandboxSource,
 	pluginConfigSandboxSource,
 	pollSandboxResult,
-	ryotqlSandboxSource,
 	reinstallTestPluginScript,
 	requireCompletedSandboxValue,
+	ryotqlSandboxSource,
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures/kernel";

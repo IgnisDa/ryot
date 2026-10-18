@@ -16,9 +16,7 @@ import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-const defaultFiltersState = {
-	date: parseAsString.withDefault(new Date().toISOString()),
-};
+const defaultFiltersState = { date: parseAsString.withDefault(new Date().toISOString()) };
 
 export const meta = () => {
 	return [{ title: "Calendar | Ryot" }];

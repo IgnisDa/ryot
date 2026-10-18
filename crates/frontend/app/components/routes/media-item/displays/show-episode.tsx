@@ -19,10 +19,7 @@ export const DisplayShowEpisode = (props: {
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 	const showExtraInformation = useMemo(
-		() => ({
-			season: props.seasonNumber,
-			episode: props.episode.episodeNumber,
-		}),
+		() => ({ season: props.seasonNumber, episode: props.episode.episodeNumber }),
 		[props.seasonNumber, props.episode.episodeNumber],
 	);
 	const episodeTitleTranslation = useMetadataTranslationValue({

@@ -7,7 +7,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { makeMemoizingWorkflowEngine } from "#testing/effect";
 
-import { runLifecycleWriteStep, type LifecyclePreparedStep } from "./write-step";
+import { type LifecyclePreparedStep, runLifecycleWriteStep } from "./write-step";
 
 class StepFailure extends Schema.TaggedError<StepFailure, { readonly brand: unique symbol }>()(
 	"StepFailure",

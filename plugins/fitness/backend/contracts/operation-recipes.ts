@@ -3,41 +3,41 @@ import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import {
 	ExerciseNoteCreateInput,
 	ExerciseNoteDeleteInput,
+	exerciseNoteOperationSlugs,
 	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
-	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
 import {
 	MeasurementMetricCreateInput,
+	measurementMetricCreateOperationSlug,
 	MeasurementMetricCreateOutput,
 	MeasurementMetricPinInput,
-	MeasurementMetricPinOutput,
-	measurementMetricCreateOperationSlug,
 	measurementMetricPinOperationSlug,
+	MeasurementMetricPinOutput,
 } from "../../shared/measurement-metric-operations";
 import {
 	MeasurementReadingDeleteInput,
+	measurementReadingDeleteOperationSlug,
 	MeasurementReadingLogInput,
+	measurementReadingLogOperationSlug,
 	MeasurementReadingLogOutput,
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
-	measurementReadingDeleteOperationSlug,
-	measurementReadingLogOperationSlug,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	WorkoutDeleteInputSchema,
-	WorkoutDeleteOutputSchema,
 	workoutDeleteOperationSlug,
+	WorkoutDeleteOutputSchema,
 } from "../../shared/workout-delete-operations";
 import {
 	ExerciseOverrideUpdateInputSchema,
+	exerciseOverrideUpdateOperationSlug,
 	ExerciseOverrideUpdateOutputSchema,
 	WorkoutEditorContextInputSchema,
-	WorkoutEditorContextOutputSchema,
-	exerciseOverrideUpdateOperationSlug,
 	workoutEditorContextOperationSlug,
+	WorkoutEditorContextOutputSchema,
 	workoutEditorSaveOperationSlug,
 	workoutTimeCorrectionOperationSlug,
 } from "../../shared/workout-editor-context-operations";

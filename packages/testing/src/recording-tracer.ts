@@ -1,4 +1,4 @@
-import { Option, Tracer, type Exit } from "effect";
+import { type Exit, Option, Tracer } from "effect";
 
 export const makeRecordingTracer = (spans: Tracer.Span[]) =>
 	Tracer.make({

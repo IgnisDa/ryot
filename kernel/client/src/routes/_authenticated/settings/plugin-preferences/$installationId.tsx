@@ -8,14 +8,14 @@ import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin
 import {
 	initialSchemaFormValues,
 	SchemaForm,
+	type SchemaFormValues,
 	toSchemaFormPayload,
 	useSchemaForm,
-	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import type { PluginUserSettingsPage } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { DemoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";

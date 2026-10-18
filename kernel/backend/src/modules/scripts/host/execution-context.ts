@@ -1,7 +1,7 @@
 import {
-	LifecycleCommand,
 	type AutomationSource,
 	type AutomationWarning,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	SandboxExecutionSubject,
@@ -15,8 +15,8 @@ import { sandboxHostFailure, toSandboxHostError } from "@ryot-app/sandbox/host/i
 import { Clock, DateTime, Effect, Schema } from "effect";
 
 import {
-	lifecycleActor,
 	automationLifecycleCausation,
+	lifecycleActor,
 	rootLifecycleCausation,
 } from "#modules/automations/lifecycle/command";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";

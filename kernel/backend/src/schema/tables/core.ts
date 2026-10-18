@@ -10,8 +10,8 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
-	boolean,
 	type AnyPgColumn,
+	boolean,
 	bytea,
 	check,
 	foreignKey,

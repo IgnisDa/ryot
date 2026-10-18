@@ -1,7 +1,9 @@
 import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
-import { MediaLot, UpdateUserPreferenceDocument } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
+import {
+	MediaLot,
+	UpdateUserPreferenceDocument,
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cloneDeep, isNumber } from "@ryot-app/ts-utils/lodash";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
@@ -58,12 +60,7 @@ export enum OnboardingTourStepTarget {
 }
 
 const onboardingTourAtom = atomWithStorage<
-	| undefined
-	| {
-			isLoading?: true;
-			isCompleted?: true;
-			currentStepIndex: number;
-	  }
+	undefined | { isLoading?: true; isCompleted?: true; currentStepIndex: number }
 >("OnboardingTour", undefined);
 
 export const useOnboardingTour = () => {
@@ -94,9 +91,7 @@ export const useOnboardingTour = () => {
 			draft.featuresEnabled.others.calendar = true;
 			draft.featuresEnabled.others.collections = true;
 		});
-		await clientGqlService.request(UpdateUserPreferenceDocument, {
-			input: newPreferences,
-		});
+		await clientGqlService.request(UpdateUserPreferenceDocument, { input: newPreferences });
 		await markUserOnboardingStatus.mutateAsync(false);
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		applicationEvents.startOnboardingTour();

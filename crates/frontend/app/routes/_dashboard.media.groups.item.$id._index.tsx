@@ -24,9 +24,7 @@ import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
 
-const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("media"),
-});
+const searchParamsSchema = z.object({ defaultTab: z.string().optional().default("media") });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 

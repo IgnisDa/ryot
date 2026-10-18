@@ -10,12 +10,12 @@ import {
 	isNotNull,
 	isNull,
 	literal,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedInclude,
 	selectedRows,
 	table,
-	type Recipe,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

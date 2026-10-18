@@ -135,9 +135,7 @@ const makeLayer = (input?: {
 	readonly searchError?: "inactive_provider" | "unsupported_operation";
 	readonly execute?: Execute;
 	readonly searchOptionsError?:
-		| "inactive_provider"
-		| "unsupported_operation"
-		| "script_unavailable";
+		"inactive_provider" | "unsupported_operation" | "script_unavailable";
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {

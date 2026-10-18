@@ -1,8 +1,7 @@
 import { Alert, Avatar } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import { EntityLot } from "@ryot-app/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
+import { isNumber, snakeCase } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconBellRinging } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -74,10 +73,7 @@ export const WorkoutDisplayItem = (props: { workoutId: string; centerElement?: R
 			isDetailsLoading={isWorkoutDetailsLoading}
 			additionalInformation={[workoutDateText, changeCase(snakeCase(EntityLot.Workout))]}
 			onImageClickBehavior={[
-				$path("/fitness/:entity/:id", {
-					entity: "workouts",
-					id: props.workoutId,
-				}),
+				$path("/fitness/:entity/:id", { entity: "workouts", id: props.workoutId }),
 			]}
 		/>
 	);

@@ -4,8 +4,8 @@ import { Deferred, Effect, Exit, Fiber } from "effect";
 
 import {
 	FileDownloadError,
-	makeNativeFileDownload,
 	type FileDownloadRequest,
+	makeNativeFileDownload,
 } from "#/modules/downloads/file";
 
 type NativeCalls = {

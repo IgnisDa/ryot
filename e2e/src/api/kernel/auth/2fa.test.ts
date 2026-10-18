@@ -2,8 +2,8 @@ import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-insta
 import { Effect } from "effect";
 
 import {
-	completeTwoFactorSignIn,
 	collectRyotQLRecipeItems,
+	completeTwoFactorSignIn,
 	createTestUser,
 	enableTwoFactorForSessionEffect,
 	makeSession,

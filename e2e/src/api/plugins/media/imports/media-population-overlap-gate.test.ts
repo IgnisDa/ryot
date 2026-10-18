@@ -6,8 +6,8 @@ import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	getMediaPopulationGateResult,
-	shippedPluginTestProviders,
 	sampleOperationalPressure,
+	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, startMediaPopulationGate } from "~/fixtures/plugins/media";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";

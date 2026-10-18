@@ -5,8 +5,8 @@ import type { ImportSourceItem } from "#/modules/imports/service";
 import { importSourceEntry, importSourceKey } from "#/modules/imports/source-selection";
 import { createIntegrationBody } from "#/modules/integrations/payload";
 import {
-	integrationProviderEntry,
 	findOwnedIntegrationProvider,
+	integrationProviderEntry,
 } from "#/modules/integrations/provider-selection";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 

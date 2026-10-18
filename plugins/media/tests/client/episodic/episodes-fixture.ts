@@ -5,7 +5,7 @@ import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
 import type { MediaEpisodePageInput, MediaEpisodeRender } from "../../../client/media/episodes";
 import { mediaEpisodeNumberLabel } from "../../../client/media/episodes-state";
 import { rowsResult } from "../query-result-fixture";
-import { episodicFixtureEpisodesRecipe, type EpisodicFixtureEpisode } from "./recipes";
+import { type EpisodicFixtureEpisode, episodicFixtureEpisodesRecipe } from "./recipes";
 
 export const EPISODIC_PAGE_LIMIT = 2;
 

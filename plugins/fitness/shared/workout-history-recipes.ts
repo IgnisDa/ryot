@@ -6,24 +6,24 @@ import {
 	column,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	exists,
+	IsoDateString,
 	join,
 	literal,
 	lt,
 	neq,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
-	schemaOwnerPredicate,
-	IsoDateString,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber, projectionNumber } from "./entity-selections";
-import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
+import { projectionNumber, property, propertyDate, propertyNumber } from "./entity-selections";
+import { type ExerciseKind, exerciseKindSchema } from "./exercise-kinds";
 import { WorkoutSetLotSchema } from "./workout-set";
 
 type Table = ReturnType<typeof table>;

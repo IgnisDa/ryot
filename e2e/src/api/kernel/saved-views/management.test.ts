@@ -10,8 +10,8 @@ import {
 	entityBrowserSettings,
 	findSavedViewById,
 	getSavedView,
-	listSavedViews,
 	listInstalledPlugins,
+	listSavedViews,
 	reorderSavedViews,
 	updateSavedView,
 } from "~/fixtures/kernel";

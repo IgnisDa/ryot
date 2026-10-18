@@ -1,7 +1,7 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";
+import { asRecord, stringValue, type UnknownRecord } from "../../../lib/records";
 import {
 	type ArtistClient,
 	coerceTrimmed,

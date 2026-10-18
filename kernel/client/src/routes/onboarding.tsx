@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useReducer, useRef, useState } from "react";
 
-import { type ServerMode, resolveServerOrigin, suggestedServerOrigin } from "#/api/origin";
+import { resolveServerOrigin, type ServerMode, suggestedServerOrigin } from "#/api/origin";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";

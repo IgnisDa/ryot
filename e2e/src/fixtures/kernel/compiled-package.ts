@@ -1,4 +1,4 @@
-import { PluginScript, type PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { type PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
 	compilePluginManifestScripts,

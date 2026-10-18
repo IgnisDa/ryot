@@ -11,16 +11,16 @@ import type {
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import {
 	TemplatePropertiesSchema,
+	type TemplateSetProperties,
 	WorkoutPropertiesSchema,
 	WorkoutSetPropertiesSchema,
 	WorkoutSupersetPropertySchema,
-	type TemplateSetProperties,
 } from "./workout-editor-properties";
 import {
 	encodeWorkoutEditorBaseline,
 	type WorkoutEditorBaseline,
-	type WorkoutEditorExercise,
 	type WorkoutEditorEvent,
+	type WorkoutEditorExercise,
 } from "./workout-editor-recipes";
 import { storageWorkoutDisplay } from "./workout-units";
 

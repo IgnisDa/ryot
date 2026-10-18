@@ -28,8 +28,7 @@ import {
 	ExerciseSource,
 	WorkoutSetPersonalBest,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { sortBy, startCase } from "@ryot-app/ts-utils/lodash";
 import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import {
@@ -90,9 +89,7 @@ import { FitnessEntity, TimeSpan } from "~/lib/types";
 
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
-const searchParamsSchema = z.object({
-	defaultTab: z.string().optional(),
-});
+const searchParamsSchema = z.object({ defaultTab: z.string().optional() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 

@@ -53,11 +53,7 @@ import {
 
 type PluginScope = "system" | "user";
 type InstallationHealth =
-	| "installing"
-	| "ready"
-	| "needs-configuration"
-	| "incompatible"
-	| "failed";
+	"installing" | "ready" | "needs-configuration" | "incompatible" | "failed";
 type SavedViewSettings = Readonly<Record<string, JsonValue>>;
 
 const definitionColumns = () => ({

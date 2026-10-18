@@ -139,11 +139,7 @@ const DisplayCollection = (props: { index: number; collection: Collection }) => 
 			return deleteCollection;
 		},
 		onSuccess: () => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Collection deleted",
-			});
+			notifications.show({ color: "green", title: "Success", message: "Collection deleted" });
 			queryClient.invalidateQueries({
 				queryKey: queryFactory.collections.userCollectionsList().queryKey,
 			});
@@ -164,10 +160,7 @@ const DisplayCollection = (props: { index: number; collection: Collection }) => 
 				input: {
 					search: { take: 10 },
 					collectionId: props.collection.id,
-					sort: {
-						order: GraphqlSortOrder.Desc,
-						by: CollectionContentsSortBy.LastUpdatedOn,
-					},
+					sort: { order: GraphqlSortOrder.Desc, by: CollectionContentsSortBy.LastUpdatedOn },
 				},
 			});
 			const images = [];
@@ -271,9 +264,7 @@ const DisplayCollection = (props: { index: number; collection: Collection }) => 
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										openCollectionModal({
-											collectionId: props.collection.id,
-										});
+										openCollectionModal({ collectionId: props.collection.id });
 									}}
 								>
 									<IconEdit size={18} />
@@ -336,9 +327,7 @@ const CollectionImageDisplay = (props: {
 			ref={ref}
 			top={{ md: 0 }}
 			pos={{ md: "absolute" }}
-			left={{
-				md: props.index * offset - (props.shouldCollapse ? offset * 2 : 0),
-			}}
+			left={{ md: props.index * offset - (props.shouldCollapse ? offset * 2 : 0) }}
 			style={{
 				zIndex: props.totalImages - props.index,
 				transitionProperty: "left",

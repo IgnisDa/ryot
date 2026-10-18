@@ -3,7 +3,7 @@ import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 
 import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
-import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
+import { type CatalogEntry, pluginCatalogGroup } from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 

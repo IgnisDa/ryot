@@ -1,8 +1,8 @@
 import {
-	watchProviderOffers,
 	type WatchProvider,
 	type WatchProviderList,
 	type WatchProviderOffer,
+	watchProviderOffers,
 } from "../../shared/watch-provider";
 import type { MediaImageAsset } from "./image";
 

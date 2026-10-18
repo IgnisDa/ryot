@@ -7,13 +7,13 @@ import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import {
 	buildAbortOnRowsSql,
 	buildAnomalyReportSql,
-	type EntityMigrationTarget,
-	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
-	buildRequireLegacyTableSql,
 	buildReportDetailSql,
 	buildReportSql,
+	buildRequireLegacyTableSql,
+	type EntityMigrationTarget,
 	quoteSqlString,
+	type ResolvedEntityMigrationTarget,
 } from "./shared";
 
 export const exerciseEntityTargets = [

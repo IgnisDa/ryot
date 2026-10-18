@@ -3,8 +3,8 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	insertGlobalRelationship,
-	listEventsForEntity,
 	listEventSchemas,
+	listEventsForEntity,
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,

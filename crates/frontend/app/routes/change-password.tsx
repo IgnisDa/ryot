@@ -50,10 +50,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	}
 
 	await serverGqlService.request(SetPasswordViaSessionDocument, {
-		input: {
-			password: submission.value.password,
-			sessionId: submission.value.sessionId,
-		},
+		input: { password: submission.value.password, sessionId: submission.value.sessionId },
 	});
 
 	return redirectWithToast($path("/auth"), {
@@ -62,9 +59,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	});
 };
 
-const setPasswordSchema = passwordConfirmationSchema.safeExtend({
-	sessionId: z.string(),
-});
+const setPasswordSchema = passwordConfirmationSchema.safeExtend({ sessionId: z.string() });
 
 export default function Page() {
 	const actionData = useActionData<typeof action>();

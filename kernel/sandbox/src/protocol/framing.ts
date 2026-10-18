@@ -10,9 +10,9 @@ import {
 	encodeSidecarInboundLogicalMessage,
 	parseSidecarOutboundJson,
 	SIDECAR_PROTOCOL_LIMITS,
-	SidecarProtocolError,
 	type SidecarInboundFrame,
 	type SidecarOutboundFrame,
+	SidecarProtocolError,
 } from "./messages";
 
 const frameHeaderBytes = 4;

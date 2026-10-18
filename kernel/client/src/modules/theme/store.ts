@@ -3,8 +3,8 @@ import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import {
 	applyThemePreference,
 	resolveTheme,
-	type ThemeRoot,
 	type ThemePreference,
+	type ThemeRoot,
 } from "#/modules/theme/preference";
 
 type ThemeMedia = {

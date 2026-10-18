@@ -14,9 +14,7 @@ export const CreateFilterPresetModal = (props: {
 	const form = useForm({
 		mode: "uncontrolled",
 		initialValues: { name: "" },
-		validate: {
-			name: hasLength({ min: 3 }, "Must be at least 3 characters"),
-		},
+		validate: { name: hasLength({ min: 3 }, "Must be at least 3 characters") },
 	});
 
 	return (

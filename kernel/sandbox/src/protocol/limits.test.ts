@@ -8,12 +8,12 @@ import { describe, expect, it } from "vitest";
 import {
 	chargeSandboxHostCall,
 	consumeSandboxHostCall,
+	SANDBOX_LIMITS,
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
 	sandboxCacheValueError,
 	sandboxContextError,
 	sandboxHttpRequestBodyError,
-	SANDBOX_LIMITS,
 	sandboxWorkflowJournalByteError,
 } from "./limits";
 

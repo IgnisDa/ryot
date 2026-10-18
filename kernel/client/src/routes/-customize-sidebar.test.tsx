@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
@@ -14,29 +14,29 @@ import type { CustomizeSidebarService } from "#/modules/shell/customize/service"
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	theme,
-	catalog,
 	authenticated,
-	ServerStub,
-	makeAuthStub,
-	OAuthRouteStubs,
-	makeStorageStub,
+	catalog,
+	ClientPageSessionsRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
 	makeCustomizeStub,
 	makePublicApiStub,
+	makeStorageStub,
 	makeWorkspaceRecorder,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	DeviceRouteStubs,
 	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	PagesApiRouteStubs,
-	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
-	stubDesktopMatchMedia,
+	OAuthRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
 	stubCompactMatchMedia,
+	stubDesktopMatchMedia,
+	theme,
 } from "#/routes/-route-fixtures";
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];

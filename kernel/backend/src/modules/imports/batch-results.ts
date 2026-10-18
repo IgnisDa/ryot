@@ -4,8 +4,8 @@ import {
 	type IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type {
-	GenericImportFailure,
 	genericImportApplyResultSchema,
+	GenericImportFailure,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	genericImportChunkSchema,

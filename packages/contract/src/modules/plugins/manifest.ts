@@ -3,7 +3,7 @@ import { Result, Schema, SchemaGetter } from "effect";
 
 import { PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
-import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
+import { type AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
 import { isSupportedUploadFileExtension } from "../assets/upload-policy";
 import {

@@ -9,19 +9,19 @@ import {
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	sameDeclaration,
-	definitionOwner,
 	type DeclarationReference,
+	definitionOwner,
+	sameDeclaration,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
 	defineRecipe,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

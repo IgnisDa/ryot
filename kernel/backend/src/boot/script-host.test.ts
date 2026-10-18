@@ -47,8 +47,8 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import {
-	DomainWriteChecksLive,
 	type DomainLifecycleCommand,
+	DomainWriteChecksLive,
 } from "#modules/entities/write-context";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
@@ -60,7 +60,7 @@ import {
 import type { ImportSourceExecutionSettings } from "#modules/imports/runtime/source-state";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
-import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
+import { type IntegrationRecord, IntegrationsRepository } from "#modules/integrations/repository";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";

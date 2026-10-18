@@ -1,4 +1,4 @@
-import { EventId, SignalSchemaSlug, UserId, type EntityId } from "@ryot-app/contract/schema/brands";
+import { type EntityId, EventId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	type WorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
@@ -33,10 +33,10 @@ import {
 	templateData,
 	updateExerciseOverrides,
 	type WorkoutData,
-	type WorkoutOccurrenceInput,
 	workoutData,
 	workoutEditorTimes,
 	workoutOccurrence,
+	type WorkoutOccurrenceInput,
 	workoutReference,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";

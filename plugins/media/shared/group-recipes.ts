@@ -1,24 +1,24 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	castJson,
-	column,
 	coalesce,
+	column,
 	count,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	first,
 	join,
 	jsonPath,
 	literal,
+	relationshipSchemaPredicate,
 	selectedField,
 	selectedRows,
-	relationshipSchemaPredicate,
-	table,
 	type SelectedSelection,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

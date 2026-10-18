@@ -1,8 +1,8 @@
 import {
-	defineAutomationPolicy,
-	automationPolicyResultSchema,
 	type AutomationPolicyBatchInput,
 	type AutomationPolicyInput,
+	automationPolicyResultSchema,
+	defineAutomationPolicy,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
@@ -14,8 +14,8 @@ import {
 	showEpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
 import {
-	resolveEpisodeParentRecipe,
 	type EpisodeParentResolution,
+	resolveEpisodeParentRecipe,
 } from "../contracts/lifecycle-recipes";
 
 export const manifest = defineManifest({

@@ -9,8 +9,6 @@ export type Season = NonNullable<MetadataDetails["showSpecifics"]>["seasons"][nu
 export type SeasonProgress = NonNullable<UserMetadataDetails["showProgress"]>[number];
 export type History = UserMetadataDetails["history"][number];
 
-export type DurationInput = {
-	[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
-};
+export type DurationInput = { [K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number };
 
 export const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;

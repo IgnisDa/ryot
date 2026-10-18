@@ -6,9 +6,9 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import {
 	initialSchemaFormValues,
-	toSchemaFormPayload,
 	type SchemaFormMode,
 	type SchemaFormValues,
+	toSchemaFormPayload,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Schema } from "effect";
 

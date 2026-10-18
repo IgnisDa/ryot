@@ -14,7 +14,11 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { EntityAssets, MediaLot, MediaSource } from "@ryot-app/generated/graphql/backend/graphql";
+import type {
+	EntityAssets,
+	MediaLot,
+	MediaSource,
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
@@ -46,11 +50,7 @@ export const MediaDetailsLayout = (props: {
 	assets: EntityAssets;
 	extraImage?: string | null;
 	isPartialStatusActive: boolean;
-	externalLink: {
-		lot?: MediaLot;
-		source: MediaSource;
-		href?: string | null;
-	};
+	externalLink: { lot?: MediaLot; source: MediaSource; href?: string | null };
 }) => {
 	const fallbackImageUrl = useFallbackImageUrl();
 	const [activeImageId, setActiveImageId] = useState(0);

@@ -27,10 +27,7 @@ export const ShowForm = (props: MediaFormProps) => {
 					value: s.seasonNumber.toString(),
 				}))}
 				onChange={(v) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						showSeasonNumber: Number(v),
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, showSeasonNumber: Number(v) });
 				}}
 			/>
 			<Select
@@ -41,10 +38,7 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Episode"
 				value={metadataToUpdate.showEpisodeNumber?.toString()}
 				onChange={(v) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						showEpisodeNumber: Number(v),
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, showEpisodeNumber: Number(v) });
 				}}
 				data={
 					metadataDetails.showSpecifics?.seasons
@@ -60,10 +54,7 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes before this"
 				checked={metadataToUpdate.showAllEpisodesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						showAllEpisodesBefore: e.target.checked,
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, showAllEpisodesBefore: e.target.checked });
 				}}
 			/>
 			<Checkbox

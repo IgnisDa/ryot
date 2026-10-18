@@ -17,10 +17,10 @@ import type { SandboxRunInput } from "./invocation";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import {
 	awaitSent,
-	killNativeConnection,
 	compileTightenedNative,
-	NativeRecoveryEvidence,
+	killNativeConnection,
 	nativeInput,
+	NativeRecoveryEvidence,
 	nativeRecoveryLayer,
 	runSupervisedNative,
 	trackNativeKeys,

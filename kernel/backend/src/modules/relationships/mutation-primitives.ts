@@ -16,8 +16,8 @@ import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
-	toLifecycleDispatchPlan,
 	type LifecyclePlannedPolicy,
+	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
@@ -39,15 +39,15 @@ import {
 	badProperties,
 	equal,
 	mergeProperties,
+	type Mutation,
 	parseProperties,
 	relationshipChange,
-	snapshot,
-	relationshipSchemaReference,
-	validateUserRelationshipEntities,
-	type Mutation,
 	type RelationshipMutationDependencies,
+	relationshipSchemaReference,
 	relationshipWriteFailure,
+	snapshot,
 	type UserEntityScopes,
+	validateUserRelationshipEntities,
 } from "./mutation-support";
 import { relationshipMutationLockKey } from "./repository";
 

@@ -1,8 +1,8 @@
 import {
+	type WorkoutDetails,
 	workoutDetailsExercisesRecipe,
 	workoutDetailsRecipe,
 	workoutDetailsSetsRecipe,
-	type WorkoutDetails,
 } from "@ryot-app/fitness-plugin/workout-details-recipes";
 import { Effect } from "effect";
 

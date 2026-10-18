@@ -5,16 +5,16 @@ import {
 	ascending,
 	column,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	isNotNull,
 	isNull,
 	join,
 	literal,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
 } from "@ryot-app/plugin-client-sdk/ryotql";
 
 const plugin = table("plugin", "plugin");

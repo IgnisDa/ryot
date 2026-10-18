@@ -26,10 +26,7 @@ export const AnimeForm = (props: MediaFormProps) => {
 				value={metadataToUpdate.animeEpisodeNumber?.toString()}
 				rightSection={totalEpisodes ? <Text size="xs">Total: {totalEpisodes}</Text> : undefined}
 				onChange={(e) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						animeEpisodeNumber: Number(e),
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, animeEpisodeNumber: Number(e) });
 				}}
 			/>
 			<Checkbox
@@ -37,10 +34,7 @@ export const AnimeForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes before this as watched"
 				checked={metadataToUpdate.animeAllEpisodesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate({
-						...metadataToUpdate,
-						animeAllEpisodesBefore: e.target.checked,
-					});
+					updateMetadataToUpdate({ ...metadataToUpdate, animeAllEpisodesBefore: e.target.checked });
 				}}
 			/>
 		</>

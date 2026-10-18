@@ -4,8 +4,8 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	WorkoutEditorContextInputSchema,
-	WorkoutEditorContextOutputSchema,
 	workoutEditorContextOperationSlug,
+	WorkoutEditorContextOutputSchema,
 } from "../../shared/workout-editor-context-operations";
 
 export const invokeWorkoutEditorContext = (client: RyotClient) =>

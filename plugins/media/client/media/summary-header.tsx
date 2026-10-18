@@ -23,9 +23,9 @@ import {
 } from "./primitives";
 import {
 	mediaCollectionsLabel,
+	type MediaEntitySummaryValue,
 	mediaOwnershipLabel,
 	mediaPosterAsset,
-	type MediaEntitySummaryValue,
 	type MediaStatusRailConfig,
 	type MediaSummaryArtwork,
 	type MediaSummaryFact,

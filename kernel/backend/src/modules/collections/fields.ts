@@ -1,11 +1,11 @@
 import {
 	appSchemaToCollectionFields,
+	type CollectionField,
 	collectionFieldLimits,
 	collectionFieldsToAppSchema,
 	hasCollectionFieldChoices,
-	reservedCollectionFieldKeys,
-	type CollectionField,
 	type KeyedCollectionField,
+	reservedCollectionFieldKeys,
 } from "@ryot-app/contract/modules/collections/fields";
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";

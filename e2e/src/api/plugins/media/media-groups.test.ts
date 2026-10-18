@@ -1,11 +1,11 @@
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	listEntitySchemas,
 	listEventSchemas,
 	listSavedViews,
-	type Client,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";

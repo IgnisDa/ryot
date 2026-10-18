@@ -7,15 +7,7 @@ export const useFilterModals = () => {
 		useDisclosure(false);
 
 	return {
-		filtersModal: {
-			open: openFiltersModal,
-			close: closeFiltersModal,
-			opened: filtersModalOpened,
-		},
-		presetModal: {
-			open: openPresetModal,
-			close: closePresetModal,
-			opened: presetModalOpened,
-		},
+		filtersModal: { open: openFiltersModal, close: closeFiltersModal, opened: filtersModalOpened },
+		presetModal: { open: openPresetModal, close: closePresetModal, opened: presetModalOpened },
 	};
 };

@@ -464,11 +464,7 @@ const DisplayNotification = (props: {
 							<Form
 								method="POST"
 								action={withQuery(".", { intent: "delete" })}
-								style={{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "center",
-								}}
+								style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
 							>
 								<input hidden name="notificationId" defaultValue={props.notification.id} />
 								<ActionIcon

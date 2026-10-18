@@ -32,14 +32,7 @@ export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 export class ProviderAddLoadError extends Data.TaggedError("ProviderAddLoadError")<{
 	readonly cause: unknown;
 	readonly stage:
-		| "providers"
-		| "links"
-		| "options"
-		| "search"
-		| "import"
-		| "schema"
-		| "entities"
-		| "create";
+		"providers" | "links" | "options" | "search" | "import" | "schema" | "entities" | "create";
 }> {}
 
 const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect<A, E>) =>

@@ -20,48 +20,48 @@ import { decimalLabel, mediaActivitySpanLabel, mediaCollectionRowLabel } from ".
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
-	MediaDetailScreen,
-	mediaDetailPage,
 	type MediaDetailBodyInput,
+	mediaDetailPage,
+	MediaDetailScreen,
 } from "./detail-screen";
 import {
 	defineMediaPresentationPair,
-	MediaCardContent,
-	MediaRowContent,
 	type MediaArtworkAspect,
+	MediaCardContent,
 	type MediaPresentationSubject,
 	type MediaPresentationViewData,
+	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import {
-	mediaFlatActivityView,
 	type MediaFlatActivityBeat,
 	type MediaFlatActivityRow,
 	type MediaFlatActivitySummary,
 	type MediaFlatActivityView,
+	mediaFlatActivityView,
 } from "./flat-activity-state";
 import {
+	type MediaGroupOverview,
 	mediaGroupOverviewIsEmpty,
 	mediaGroupOverviewManagedAssets,
 	MediaPartOfSection,
-	type MediaGroupOverview,
 } from "./group-section";
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import {
-	MediaOverviewRelations,
 	type MediaCreditCopy,
+	MediaOverviewRelations,
 	type MediaOverviewRelationsRender,
 } from "./overview";
-import { mediaUnlinkedCreators, type MediaOverviewState } from "./overview-state";
+import { type MediaOverviewState, mediaUnlinkedCreators } from "./overview-state";
 import {
 	mediaFlatLifecycleLabel,
 	mediaPosterAsset,
 	mediaReleaseLabel,
-	mediaSummaryHeaderDetail,
-	mediaSummaryStateMapper,
 	type MediaSummaryFact,
+	mediaSummaryHeaderDetail,
 	type MediaSummaryState,
+	mediaSummaryStateMapper,
 	type MediaSummaryValue,
 } from "./summary-state";
 

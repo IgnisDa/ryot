@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
 export type RadioGroupOption = { readonly value: string; readonly label: string };
 

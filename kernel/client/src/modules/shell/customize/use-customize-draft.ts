@@ -6,12 +6,12 @@ import { useState } from "react";
 
 import { buildCustomizePlan } from "#/modules/shell/customize/customize-plan";
 import {
+	type CustomizeDraft,
+	type CustomizeSection,
 	initCustomizeDraft,
 	isCustomizeDraftDirty,
 	moveCustomizeItem,
 	toggleCustomizeItem,
-	type CustomizeDraft,
-	type CustomizeSection,
 } from "#/modules/shell/customize/customize-state";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 

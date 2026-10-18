@@ -3,10 +3,10 @@ import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 
 import {
+	importRunCountsLabel,
 	ingestionActivityProgress,
 	ingestionActivityProgressValue,
 	ingestionBlockReasonLabel,
-	importRunCountsLabel,
 } from "./run-presentation";
 
 export function IngestionRunReport(props: { readonly run: ImportRunSummary }) {

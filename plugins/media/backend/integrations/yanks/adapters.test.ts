@@ -17,7 +17,7 @@ import { createMediaImportChunk } from "../../imports/chunks";
 import { mediaFilesystem } from "../../imports/ingestion.test-support";
 import type { MediaImportFailure, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import type { HistoryClient } from "../../lib/vendors/youtube-music";
-import { runIntegrationTestScript, integrationTestResult } from "../artifacts.test-support";
+import { integrationTestResult, runIntegrationTestScript } from "../artifacts.test-support";
 import { confirmIntegrationSource } from "../source-state";
 import komgaDefinition, {
 	mangaRef as extractMangaRef,

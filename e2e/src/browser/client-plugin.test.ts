@@ -6,13 +6,13 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	createAuthenticatedClient,
 	createEntity,
+	encodePluginSourceFiles,
 	FIXTURE_CLIENT_REVISION_MARKERS,
 	installFixtureClientPlugin,
 	installPrivatePluginPackage,
-	encodePluginSourceFiles,
-	testPluginManifest,
-	settledPrivateInstallation,
 	listEntitySchemas,
+	settledPrivateInstallation,
+	testPluginManifest,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";

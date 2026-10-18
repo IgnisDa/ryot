@@ -6,8 +6,8 @@ import type {
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionOwner,
 	type DefinitionOwner,
+	definitionOwner,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";

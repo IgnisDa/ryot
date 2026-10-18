@@ -7,8 +7,8 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
-	startCoreTestInfrastructure,
 	spawnApiProcess,
+	startCoreTestInfrastructure,
 	stopApiProcess,
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,

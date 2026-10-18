@@ -1,4 +1,4 @@
-import { fieldSyncState, type EntitySyncState } from "@ryot-app/plugin-ui-sdk/sync";
+import { type EntitySyncState, fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { MediaImageAsset } from "./image";
 

@@ -8,7 +8,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
-	schemaOwnerPredicate,
 	and,
 	column,
 	defineRecipe,
@@ -16,6 +15,7 @@ import {
 	inArray,
 	join,
 	literal,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,

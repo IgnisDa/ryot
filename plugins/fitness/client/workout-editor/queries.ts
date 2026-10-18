@@ -1,4 +1,4 @@
-import { readCursorPages, RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
+import { readCursorPages, type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
@@ -6,12 +6,12 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import {
+	WORKOUT_EDITOR_PAGE_SIZE,
 	workoutEditorEntityRecipe,
+	type WorkoutEditorExercise,
 	workoutEditorExercisesRecipe,
 	workoutEditorMembershipRecipe,
 	workoutEditorSetsRecipe,
-	WORKOUT_EDITOR_PAGE_SIZE,
-	type WorkoutEditorExercise,
 } from "../../shared/workout-editor-recipes";
 import { hydrateWorkoutEditorSource } from "../../shared/workout-editor-source";
 import {

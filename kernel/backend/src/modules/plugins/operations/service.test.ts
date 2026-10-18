@@ -10,10 +10,10 @@ import {
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import {
 	IntegrationId,
+	PluginConfigRevisionId,
 	PluginId,
 	PluginPackageId,
 	PluginRevisionId,
-	PluginConfigRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";

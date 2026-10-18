@@ -3,13 +3,13 @@ import { assert, expect, it, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import {
+	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
-	AutomationExecutionId,
 	ImportRunId,
+	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	PluginConfigRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -24,7 +24,7 @@ import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-su
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Deferred, Effect, Layer, Metric, Ref, Schema, Stream, type Exit } from "effect";
+import { Context, Deferred, Effect, type Exit, Layer, Metric, Ref, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -69,9 +69,9 @@ import {
 	performSandboxWorkflowChild,
 	performSandboxWorkflowRequest,
 	runScriptExecutionWorkflowBody,
-	ScriptExecutionWorkflow,
-	SandboxWorkflowPinning,
 	sandboxWorkflowChildExecutionId,
+	SandboxWorkflowPinning,
+	ScriptExecutionWorkflow,
 	validateWorkflowReplayEnvelope,
 } from "./workflow";
 import { ScriptExecutionWorkflowPayload } from "./workflow-payload";

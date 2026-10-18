@@ -1,10 +1,10 @@
 import {
-	mediaEpisodicCoveragePercent,
 	type MediaEpisodicCoverage,
+	mediaEpisodicCoveragePercent,
 } from "../../../client/media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../../../client/media/episodic-schema";
 import { MEDIA_ART_HEIGHT } from "../../../client/media/hero";
-import { episodicFixtureRecipes, type EpisodicFixtureActivityResult } from "./recipes";
+import { type EpisodicFixtureActivityResult, episodicFixtureRecipes } from "./recipes";
 
 export const episodicFixtureCoverage = (
 	result: EpisodicFixtureActivityResult,

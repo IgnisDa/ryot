@@ -36,11 +36,7 @@ import {
 	UserUnitSystem,
 } from "@ryot-app/generated/graphql/backend/graphql";
 import { cn } from "@ryot-app/ts-utils/cn";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { isBoolean } from "@ryot-app/ts-utils/lodash";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, isBoolean, isNumber, snakeCase, startCase } from "@ryot-app/ts-utils/lodash";
 import { parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import {
@@ -132,9 +128,7 @@ const reorder = <T,>(array: Array<T>, details: { from: number; to: number }) => 
 	return cloned;
 };
 
-const searchSchema = z.object({
-	defaultTab: z.string().default("dashboard").optional(),
-});
+const searchSchema = z.object({ defaultTab: z.string().default("dashboard").optional() });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	// oxlint-disable-next-line typescript/no-explicit-any
@@ -148,10 +142,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		group: "Media",
 		items: Object.values(MediaLot).map((lot) => ({
 			label: changeCase(lot),
-			value: $path("/media/:action/:lot", {
-				action: "list",
-				lot: lot.toLowerCase(),
-			}),
+			value: $path("/media/:action/:lot", { action: "list", lot: lot.toLowerCase() }),
 		})),
 	});
 	userPreferenceLandingPaths.push({
@@ -193,9 +184,7 @@ export default function Page() {
 
 	const updateUserPreferencesMutation = useMutation({
 		mutationFn: async (values: UserPreferences) => {
-			await clientGqlService.request(UpdateUserPreferenceDocument, {
-				input: values,
-			});
+			await clientGqlService.request(UpdateUserPreferenceDocument, { input: values });
 			await Promise.all([invalidateUserDetails(), queryClient.invalidateQueries()]);
 		},
 		onSuccess: () => {
@@ -382,10 +371,7 @@ export default function Page() {
 											description="The page you want to see when you first open the app"
 											onChange={(value) => {
 												if (!coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message: PRO_REQUIRED_MESSAGE,
-													});
+													notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 													return;
 												}
 												if (value) form.setFieldValue("general.landingPath", value);
@@ -567,10 +553,7 @@ export default function Page() {
 											checked={form.values.fitness.logging[option]}
 											onChange={(ev) => {
 												if (isGatedBehindServerKeyValidation && !coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message: PRO_REQUIRED_MESSAGE,
-													});
+													notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 													return;
 												}
 												form.setFieldValue(`fitness.logging.${option}`, ev.currentTarget.checked);
@@ -658,9 +641,7 @@ const MeasurementsSection = (props: {
 										withBorder
 										ref={provided.innerRef}
 										{...provided.draggableProps}
-										className={cn({
-											[classes.itemDragging]: snapshot.isDragging,
-										})}
+										className={cn({ [classes.itemDragging]: snapshot.isDragging })}
 									>
 										<Group wrap="nowrap">
 											<div
@@ -674,10 +655,7 @@ const MeasurementsSection = (props: {
 											>
 												<IconGripVertical
 													stroke={1.5}
-													style={{
-														width: rem(18),
-														height: rem(18),
-													}}
+													style={{ width: rem(18), height: rem(18) }}
 												/>
 											</div>
 											<TextInput

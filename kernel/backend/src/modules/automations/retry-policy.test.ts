@@ -1,6 +1,6 @@
 import {
-	DEFAULT_AUTOMATION_RETRY_POLICY,
 	type AutomationFailureKind,
+	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { describe, expect, it } from "vitest";
 

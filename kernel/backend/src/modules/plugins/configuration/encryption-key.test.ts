@@ -16,8 +16,8 @@ import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "../packages/revision.test-support";
 import { PluginConfigEncryptionKey } from "./encryption-key";
 import { PluginConfigRevisions } from "./revisions";

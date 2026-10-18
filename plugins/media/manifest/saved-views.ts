@@ -18,9 +18,9 @@ import {
 	literal,
 	maximum,
 	or,
-	table,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
+	table,
 } from "@ryot-app/ryotql";
 import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
 import { Result } from "effect";
@@ -33,8 +33,8 @@ import { bookRecipes } from "../shared/book-recipes";
 import { comicBookGroupRecipes } from "../shared/comic-book-group-recipes";
 import { comicBookRecipes } from "../shared/comic-book-recipes";
 import {
-	mediaPresentationSource,
 	type MediaPresentationSource,
+	mediaPresentationSource,
 } from "../shared/entity-presentations";
 import { mangaRecipes } from "../shared/manga-recipes";
 import {

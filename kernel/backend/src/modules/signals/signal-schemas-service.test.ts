@@ -12,9 +12,9 @@ import { databaseLayer } from "#testing/effect";
 
 import { SignalSchemaContractDrift, SignalSchemasService } from "./service";
 import {
-	SignalSchemasRepository,
 	type BuiltinSignalSchemaInput,
 	type SignalSchemaScope,
+	SignalSchemasRepository,
 } from "./signal-schemas-repository";
 
 const definition = {

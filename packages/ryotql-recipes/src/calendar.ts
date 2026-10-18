@@ -20,11 +20,11 @@ import {
 	join,
 	literal,
 	lt,
+	type PreparedRecipe,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type PreparedRecipe,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

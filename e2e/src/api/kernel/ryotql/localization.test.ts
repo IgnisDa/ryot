@@ -21,14 +21,14 @@ import {
 	executeRyotQL,
 	fakeProviderDetailsResult,
 	installTestProviders,
+	requireRows,
+	requireRyotQLValue,
 	seedEntity,
+	seedEntityTranslation,
 	seedPopulatedEntity,
+	setUserLanguage,
 	testProviderEntitySchema,
 	uninstallTestProvider,
-	requireRyotQLValue,
-	requireRows,
-	seedEntityTranslation,
-	setUserLanguage,
 } from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

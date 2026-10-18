@@ -9,8 +9,8 @@ import type { KernelHostServices } from "#/host-services";
 import { BackupRestoreConfirmStep } from "#/modules/backups/restore-confirm-step";
 import {
 	BACKUP_RESTORE_STEPS,
-	backupRestoreFailure,
 	type BackupRestoreFailure,
+	backupRestoreFailure,
 	type BackupRestoreStep,
 } from "#/modules/backups/restore-failure";
 import { BackupRestoreFileStep } from "#/modules/backups/restore-file-step";

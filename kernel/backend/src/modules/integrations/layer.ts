@@ -4,9 +4,9 @@ import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
 	DataImportAdmissionLive,
 	ImportsServiceLive,
+	ImportWorkflowPinningLive,
 	IngestionExecutionLive,
 	IngestionRetirementLive,
-	ImportWorkflowPinningLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
@@ -15,8 +15,8 @@ import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
-	ScriptExecutionServiceLive,
 	SandboxPluginScriptResolverLive,
+	ScriptExecutionServiceLive,
 } from "#modules/scripts/layer";
 
 import { IntegrationIngestion } from "./ingestion";

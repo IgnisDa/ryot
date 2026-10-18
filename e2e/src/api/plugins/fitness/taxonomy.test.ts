@@ -22,9 +22,9 @@ import {
 } from "~/fixtures/kernel";
 import { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 import {
+	attachFitnessTaxonomyProvider,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
-	attachFitnessTaxonomyProvider,
 } from "~/fixtures/plugins/fitness";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";

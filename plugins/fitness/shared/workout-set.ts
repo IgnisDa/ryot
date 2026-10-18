@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 
-import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
+import { type ExerciseKind, exerciseKindSchema } from "./exercise-kinds";
 import { IsoTimestamp, NonNegativeInt, Rpe } from "./fitness-primitives";
 import { WorkoutSetMeasurementsSchema } from "./workout-records";
 
@@ -61,8 +61,7 @@ export const workoutSetEditableFields = [
 ] as const satisfies ReadonlyArray<keyof WorkoutSetPropertiesInput>;
 export const workoutSetDerivedFields = ["oneRm", "pace", "personalBests", "volume"] as const;
 export type WorkoutSetField =
-	| (typeof workoutSetEditableFields)[number]
-	| (typeof workoutSetDerivedFields)[number];
+	(typeof workoutSetEditableFields)[number] | (typeof workoutSetDerivedFields)[number];
 
 export const selectWorkoutSetMeasurements = (
 	kind: ExerciseKind,

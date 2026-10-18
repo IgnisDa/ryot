@@ -5,8 +5,8 @@ import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endp
 import {
 	CreateRelationshipBody,
 	RelationshipBadRequest,
-	RelationshipNotFound,
 	RelationshipMutationResult,
+	RelationshipNotFound,
 } from "./schemas";
 
 export const RelationshipsGroup = HttpApiGroup.make("relationships")

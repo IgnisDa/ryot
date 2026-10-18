@@ -3,7 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
 
 export const manifest = defineManifest({ name: "TMDB", kind: "provider", slug: "company.tmdb" });

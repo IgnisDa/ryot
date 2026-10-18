@@ -29,48 +29,48 @@ This example shows each kind of record and how keys connect them:
 
 ```json
 {
-	"entities": [
-		{
-			"kind": "custom",
-			"key": "film",
-			"entitySchemaSlug": "example.film",
-			"name": "Example film",
-			"properties": { "note": "An illustrative property" }
-		},
-		{
-			"kind": "existing",
-			"key": "person",
-			"entitySchemaSlug": "example.person",
-			"entityId": "existing-entity-id"
-		},
-		{
-			"kind": "provider",
-			"key": "session",
-			"entitySchemaSlug": "example.session",
-			"providerSlug": "example-provider",
-			"identifierType": "session",
-			"value": "provider-value"
-		}
-	],
-	"relationships": [
-		{
-			"key": "credit",
-			"relationshipSchemaSlug": "example.credit",
-			"sourceEntityKey": "film",
-			"targetEntityKey": "person",
-			"properties": { "role": "writer" }
-		}
-	],
-	"events": [
-		{
-			"key": "activity",
-			"eventSchemaSlug": "example.activity",
-			"entityKey": "film",
-			"sessionEntityKey": "session",
-			"occurredAt": "2026-01-15T12:00:00Z",
-			"properties": { "details": { "relatedEntity": "person", "creditRelationship": "credit" } }
-		}
-	]
+  "entities": [
+    {
+      "kind": "custom",
+      "key": "film",
+      "entitySchemaSlug": "example.film",
+      "name": "Example film",
+      "properties": { "note": "An illustrative property" }
+    },
+    {
+      "kind": "existing",
+      "key": "person",
+      "entitySchemaSlug": "example.person",
+      "entityId": "existing-entity-id"
+    },
+    {
+      "kind": "provider",
+      "key": "session",
+      "entitySchemaSlug": "example.session",
+      "providerSlug": "example-provider",
+      "identifierType": "session",
+      "value": "provider-value"
+    }
+  ],
+  "relationships": [
+    {
+      "key": "credit",
+      "relationshipSchemaSlug": "example.credit",
+      "sourceEntityKey": "film",
+      "targetEntityKey": "person",
+      "properties": { "role": "writer" }
+    }
+  ],
+  "events": [
+    {
+      "key": "activity",
+      "eventSchemaSlug": "example.activity",
+      "entityKey": "film",
+      "sessionEntityKey": "session",
+      "occurredAt": "2026-01-15T12:00:00Z",
+      "properties": { "details": { "relatedEntity": "person", "creditRelationship": "credit" } }
+    }
+  ]
 }
 ```
 

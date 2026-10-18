@@ -7,9 +7,9 @@ import { useState } from "react";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import {
+	type EnergyUnit,
 	kilocaloriesToEnergy,
 	kilogramsToPounds,
-	type EnergyUnit,
 } from "../../shared/workout-units";
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
@@ -95,8 +95,7 @@ function LinkedWorkout(props: {
 	readonly label: string;
 	readonly workoutStartedAt: string | null;
 	readonly linked:
-		| { readonly id: string; readonly name: string; readonly startedAt?: string | null }
-		| undefined;
+		{ readonly id: string; readonly name: string; readonly startedAt?: string | null } | undefined;
 }) {
 	if (props.linked === undefined) {
 		return null;

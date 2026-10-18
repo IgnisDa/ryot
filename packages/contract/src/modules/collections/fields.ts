@@ -1,8 +1,8 @@
 import { Result, Schema } from "effect";
 
 import {
-	AppSchema,
 	type AppPropertyDefinition,
+	AppSchema,
 	type AppSchema as AppSchemaType,
 } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";

@@ -6,18 +6,18 @@ import {
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
-	ascending,
 	and,
+	ascending,
 	column,
 	defineRecipe,
 	eq,
-	join,
 	isNotNull,
+	join,
 	literal,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

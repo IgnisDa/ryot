@@ -5,8 +5,8 @@ import { assert, expect, it } from "vitest";
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import {
 	WorkoutEditorBaselineSchema,
-	WorkoutEditorPropertiesSchema,
 	type WorkoutEditorExercise,
+	WorkoutEditorPropertiesSchema,
 } from "./workout-editor-recipes";
 import { hydrateWorkoutEditorSource } from "./workout-editor-source";
 import { cloneWorkoutEditorSource } from "./workout-editor-transformations";

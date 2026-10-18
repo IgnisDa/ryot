@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { ClientArtifact } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { eq, and, asc } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";

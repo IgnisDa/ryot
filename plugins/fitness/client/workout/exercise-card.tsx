@@ -10,9 +10,9 @@ import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
 import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
 import {
-	personalBestLabels,
 	type CardGroup,
 	type ExerciseCard,
+	personalBestLabels,
 	type WorkoutSet,
 } from "./details-model";
 import {

@@ -9,9 +9,9 @@ import {
 } from "../../shared/exercise-kinds";
 import { personalBestTypes, workoutSetScales } from "../../shared/workout-records";
 import {
-	workoutSetLots,
 	workoutSetDerivedFields,
 	type WorkoutSetField,
+	workoutSetLots,
 } from "../../shared/workout-set";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {

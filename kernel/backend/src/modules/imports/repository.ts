@@ -3,13 +3,13 @@ import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	IngestionActivity,
 	IngestionBatch,
+	IngestionBlockReason,
 	IngestionCapture,
 	IngestionIssue,
 	IngestionOutcome,
-	IngestionRun,
-	IngestionBlockReason,
 	IngestionPins,
 	IngestionPlan,
+	IngestionRun,
 	type IngestionScope,
 	type IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
@@ -26,7 +26,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, desc, eq, gt, lte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";

@@ -56,7 +56,7 @@
 		"test": "bun --bun run vitest run",
 		"build": "bun run tooling/kernel-scripts.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.7.2",

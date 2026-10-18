@@ -1,7 +1,7 @@
 import {
-	hasCollectionFieldChoices,
 	type CollectionField,
 	type CollectionFieldType,
+	hasCollectionFieldChoices,
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 

@@ -4,7 +4,7 @@ import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/e
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { ListStatePropertiesSchema, type ListStateProperties } from "../../../shared/list-state";
+import { type ListStateProperties, ListStatePropertiesSchema } from "../../../shared/list-state";
 import { listStateSnapshotsRecipe } from "../../../shared/list-state-recipes";
 import { readMediaCapture } from "../../imports/collection";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -18,11 +18,11 @@ import type { AniListMediaType } from "./anilist";
 import {
 	AniListCarry,
 	AniListCollectionData,
+	anilistEntryIdentity,
+	anilistEntryLabel,
+	anilistEntryMediaId,
 	AniListGraphQLResponse,
 	AniListViewerData,
-	anilistEntryIdentity,
-	anilistEntryMediaId,
-	anilistEntryLabel,
 	parseAniListEntry,
 	sameAniListState,
 } from "./anilist";

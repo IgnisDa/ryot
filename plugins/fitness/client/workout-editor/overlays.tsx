@@ -1,8 +1,8 @@
 import {
 	createRyotQuery,
 	nextPageCursor,
-	paginationItems,
 	PaginationError,
+	paginationItems,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -24,9 +24,9 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 
-import { supersetColor, supersetColors, type SupersetColor } from "../../shared/superset-colors";
+import { type SupersetColor, supersetColor, supersetColors } from "../../shared/superset-colors";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type {
 	WorkoutHistoryResult,
@@ -35,7 +35,7 @@ import type {
 import { supersetColorVariable } from "../group-colors";
 import { formatMeasure } from "../workout/format";
 import { removeWorkoutItems } from "./actions";
-import { pruneSupersets, supersetOf, type DraftChange } from "./draft-ops";
+import { type DraftChange, pruneSupersets, supersetOf } from "./draft-ops";
 import { EditorSheet } from "./editor-sheet";
 import { editorHistoryQuery, readHistorySets } from "./queries";
 import { supersetNames } from "./superset-group";

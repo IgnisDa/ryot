@@ -2,8 +2,8 @@ import { createOAuthAccountIssuer } from "@better-auth/core/db";
 
 import type { QualifiedSchema } from "./migration-resolution";
 import {
-	buildRequireLegacyTableSql,
 	buildReportSql,
+	buildRequireLegacyTableSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";

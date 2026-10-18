@@ -4,8 +4,7 @@ import {
 	ExerciseDurationUnit,
 	type WorkoutSetStatistic,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
+import { isNumber, isString } from "@ryot-app/ts-utils/lodash";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
@@ -136,9 +135,7 @@ export const StatInput = (props: {
 				onChange={(v) => setValue(v)}
 				inputMode={props.stat === "reps" ? "numeric" : "decimal"}
 				className={clsx(weightStepTourClassName, repsStepTourClassName)}
-				styles={{
-					input: { fontSize: 15, width: rem(72), textAlign: "center" },
-				}}
+				styles={{ input: { fontSize: 15, width: rem(72), textAlign: "center" } }}
 				decimalScale={
 					props.stat === "duration" && props.durationUnit === ExerciseDurationUnit.Seconds
 						? 0

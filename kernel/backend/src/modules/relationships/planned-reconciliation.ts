@@ -11,14 +11,14 @@ import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
-	LifecyclePersistenceError,
 	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
+	LifecyclePersistenceError,
 } from "#modules/automations/lifecycle/planning";
 import {
 	makeReceiptBatches,
-	mutationReceiptRecord,
 	type MutationReceiptRecord,
+	mutationReceiptRecord,
 } from "#modules/entities/mutation-persistence";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
@@ -34,19 +34,19 @@ import {
 	activeTransactionGuard,
 	itemCommand,
 	parseProperties,
-	relationshipReceiptIdentity,
-	RelationshipRecordedResult,
-	relationshipKey,
-	snapshot,
-	validateUserRelationshipEntities,
 	type PlannedRelationshipReconciliationResult,
 	type ReconcileGlobalRelationshipGroup,
+	relationshipKey,
 	type RelationshipMutationDependencies,
+	relationshipReceiptIdentity,
 	type RelationshipReconciliationScope,
+	RelationshipRecordedResult,
+	snapshot,
+	validateUserRelationshipEntities,
 } from "./mutation-support";
 import {
-	relationshipMutationLockKey,
 	type RelationshipIdentityInput,
+	relationshipMutationLockKey,
 	type RelationshipReconciliationListInput,
 } from "./repository";
 

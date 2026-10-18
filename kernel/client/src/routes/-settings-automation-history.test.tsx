@@ -9,7 +9,7 @@ import {
 	PluginRevisionId,
 } from "@ryot-app/contract/schema/brands";
 import type { AutomationHistoryRunsPage } from "@ryot-app/ryotql-recipes/automation-history";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
@@ -28,27 +28,27 @@ import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer"
 import { RUN_LIST_POLL_MS, RUN_POLL_MS } from "#/modules/ui/run/use-run-polling";
 import { getRouter } from "#/router";
 import {
-	theme,
-	catalog,
 	authenticated,
-	ServerStub,
-	makeAuthStub,
-	OAuthRouteStubs,
+	catalog,
+	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
-	makeStorageStubLayer,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
 	IntegrationRouteStubs,
+	makeAuthStub,
+	makePublicApiStub,
+	makeStorageStubLayer,
 	makeUserSettingsStub,
+	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
+	OAuthRouteStubs,
 	PagesApiRouteStubs,
-	ClientPageSessionsRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
+	theme,
 } from "#/routes/-route-fixtures";
 
 type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];

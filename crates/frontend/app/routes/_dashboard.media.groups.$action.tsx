@@ -21,8 +21,7 @@ import {
 	UserMetadataGroupsListDocument,
 	type UserMetadataGroupsListInput,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, startCase } from "@ryot-app/ts-utils/lodash";
 import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { type inferParserType, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";

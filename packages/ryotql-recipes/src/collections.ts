@@ -13,9 +13,9 @@ import {
 import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
-	getOrderedAppSchemaFieldEntries,
 	type AppPropertyDefinition,
 	type AppSchema as AppSchemaValue,
+	getOrderedAppSchemaFieldEntries,
 } from "@ryot-app/contract/schema/property-schema";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
@@ -28,18 +28,18 @@ import {
 	concat,
 	contains,
 	defineRecipe,
-	entitySchemaPredicate,
-	relationshipSchemaPredicate,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	groupAscending,
 	inArray,
-	isNull,
 	isNotNull,
+	isNull,
 	join,
 	jsonPath,
 	literal,
+	relationshipSchemaPredicate,
 	rows,
 	selectedAggregate,
 	selectedField,

@@ -7,11 +7,11 @@ import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/cont
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
 import {
+	type SchemaAssetUpload,
 	SchemaForm,
+	type SchemaFormValues,
 	useSchemaForm,
 	validateSchemaFormValues,
-	type SchemaAssetUpload,
-	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Effect } from "effect";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -27,14 +27,14 @@ import { useRyotQuery } from "../queries/hooks";
 import { usePluginNavigation, useRyot, useRyotSchedule } from "../queries/provider";
 import {
 	buildSubmission,
-	entityFormValues,
-	entityPropertiesPayload,
-	managedAssetsOf,
-	unreferencedUploads,
 	type EditorProperties,
 	type EditorRelationshipDefinition,
 	type EditorRelationshipTarget,
 	type EditorRelationshipTargets,
+	entityFormValues,
+	entityPropertiesPayload,
+	managedAssetsOf,
+	unreferencedUploads,
 } from "./model";
 import {
 	entityEditorEntityDefinitionRecipe,

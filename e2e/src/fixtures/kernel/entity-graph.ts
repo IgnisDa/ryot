@@ -3,7 +3,7 @@ import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
-import { createAuthenticatedClient, type Client } from "./auth";
+import { type Client, createAuthenticatedClient } from "./auth";
 import { getApiClient } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";

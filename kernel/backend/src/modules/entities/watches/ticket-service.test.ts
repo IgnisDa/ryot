@@ -6,7 +6,7 @@ import Redis from "ioredis";
 import { describe } from "vitest";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
-import { RedisService, redisKeys } from "#platform/redis";
+import { redisKeys, RedisService } from "#platform/redis";
 import { makeRedisService } from "#testing/effect";
 
 import {

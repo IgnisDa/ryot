@@ -1,8 +1,8 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
-	type AppChoice,
 	type AppBooleanProperty,
+	type AppChoice,
 	type AppEnumProperty,
 	type AppIntegerProperty,
 	type AppObjectProperty,

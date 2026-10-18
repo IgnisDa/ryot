@@ -1,25 +1,25 @@
 import { Effect } from "effect";
 
 import {
-	uninstallTestProvider,
+	type Client,
 	countEntityTranslations,
 	createAuthenticatedClient,
+	enqueueSandboxScript,
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
 	getEntity,
 	getEntityTranslationRow,
-	enqueueSandboxScript,
-	openInterestWebSocketScoped,
-	pollSandboxResult,
-	pollEntityUntilTranslationStatus,
-	requireCompletedSandboxValue,
 	installTestProvider,
+	openInterestWebSocketScoped,
+	pollEntityUntilTranslationStatus,
+	pollSandboxResult,
+	requireCompletedSandboxValue,
 	seedEntity,
 	seedEntityTranslation,
 	seedPopulatedEntity,
-	testProviderEntitySchema,
 	setUserLanguage,
-	type Client,
+	testProviderEntitySchema,
+	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";

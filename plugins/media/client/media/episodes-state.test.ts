@@ -9,9 +9,9 @@ import {
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeNumberLabel,
 	mediaEpisodeRuntimeLabel,
+	mediaEpisodesManagedAssets,
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
-	mediaEpisodesManagedAssets,
 } from "./episodes-state";
 
 const STATE_LABELS = { complete: "Played", untracked: undefined, in_progress: "In progress" };

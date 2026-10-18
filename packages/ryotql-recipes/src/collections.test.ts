@@ -8,13 +8,13 @@ import {
 	allCollectionsRecipe,
 	collectionHeaderRecipe,
 	collectionMemberFilterFields,
-	collectionMemberTableColumns,
 	collectionMembersAggregateRecipe,
 	collectionMembersCountRecipe,
 	collectionMembersCountsRecipe,
-	collectionMembersRecipe,
 	collectionMembershipRecipe,
 	type CollectionMemberSort,
+	collectionMembersRecipe,
+	collectionMemberTableColumns,
 } from "./collections";
 import type { FilterInput } from "./filters";
 

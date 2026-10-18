@@ -53,8 +53,8 @@ import {
 } from "./metadata-mapping";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
-	buildUniqueLotEntitySchemaSlugMap,
 	buildLegacyPackageResolution,
+	buildUniqueLotEntitySchemaSlugMap,
 	requireEventSchema,
 	requireInstallation,
 	requireMapped,

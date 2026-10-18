@@ -4,11 +4,11 @@ import type { ExecutionMetadata, SandboxManifest } from "./core/script-manifest"
 import { Effect, Schema } from "./effect";
 import { configureSandboxFilesystem, type SandboxFilesystemBinding } from "./filesystem";
 import {
-	workflowReplayJournalEntrySchema,
 	type WorkflowReplayEnvelope,
 	type WorkflowReplayHost,
 	type WorkflowReplayJournal,
 	type WorkflowReplayJournalEntry,
+	workflowReplayJournalEntrySchema,
 } from "./workflow/protocol";
 
 type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {

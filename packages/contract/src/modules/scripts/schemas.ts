@@ -5,9 +5,9 @@ import { AccountGeneration } from "../../schema/account-generation";
 import {
 	ImportRunId,
 	IntegrationId,
+	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	PluginConfigRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";

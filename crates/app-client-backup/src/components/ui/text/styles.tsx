@@ -10,18 +10,10 @@ export const textStyle = tva({
 	base: clsx("text-foreground font-body", baseStyle),
 
 	variants: {
-		isTruncated: {
-			true: "web:truncate",
-		},
-		bold: {
-			true: "font-bold",
-		},
-		underline: {
-			true: "underline",
-		},
-		strikeThrough: {
-			true: "line-through",
-		},
+		isTruncated: { true: "web:truncate" },
+		bold: { true: "font-bold" },
+		underline: { true: "underline" },
+		strikeThrough: { true: "line-through" },
 		size: {
 			"2xs": "text-2xs",
 			xs: "text-xs",
@@ -35,14 +27,8 @@ export const textStyle = tva({
 			"5xl": "text-5xl",
 			"6xl": "text-6xl",
 		},
-		sub: {
-			true: "text-xs",
-		},
-		italic: {
-			true: "italic",
-		},
-		highlight: {
-			true: "bg-yellow-500",
-		},
+		sub: { true: "text-xs" },
+		italic: { true: "italic" },
+		highlight: { true: "bg-yellow-500" },
 	},
 });

@@ -4,7 +4,7 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
+import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../../../lib/vendors/music-brainz";
 
 export const manifest = defineManifest({

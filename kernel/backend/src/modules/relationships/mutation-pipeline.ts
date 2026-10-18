@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationRelationshipSnapshot,
 	AutomationRelationshipRequestPayload,
+	AutomationRelationshipSnapshot,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
@@ -20,24 +20,24 @@ import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
-	mapCommittedResult,
-	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
+	mapCommittedResult,
+	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import {
 	makeReceiptBatches,
-	mutationReceiptRecord,
 	type MutationReceiptRecord,
+	mutationReceiptRecord,
 } from "#modules/entities/mutation-persistence";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
+import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import {
+	MutationReceiptIdentity,
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
-	MutationReceiptIdentity,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
 import {
@@ -55,28 +55,28 @@ import {
 	type ValidatedMutation,
 } from "./mutation-primitives";
 import {
+	type ChangeUserRelationshipBatch,
 	equal,
 	itemCommand,
-	relationshipReceiptIdentity,
+	type Mutation,
+	type ReconcileGlobalRelationshipGroup,
 	relationshipKey,
 	RelationshipMutation,
+	relationshipReceiptIdentity,
 	RelationshipRecordedResult,
+	relationshipSchemaReference,
+	relationshipWriteFailure,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
 	validateUserRelationshipEntities,
-	relationshipSchemaReference,
-	type ChangeUserRelationshipBatch,
-	type Mutation,
-	type ReconcileGlobalRelationshipGroup,
-	relationshipWriteFailure,
 } from "./mutation-support";
 import { makePlannedRelationshipReconciliation } from "./planned-reconciliation";
 import { makePreparedRelationshipMutations } from "./prepared-mutations";
 import {
 	GlobalRelationshipListInput,
-	RelationshipsRepository,
 	relationshipMutationLockKey,
+	RelationshipsRepository,
 } from "./repository";
 
 const PlannedRelationshipMutation = Schema.Struct({

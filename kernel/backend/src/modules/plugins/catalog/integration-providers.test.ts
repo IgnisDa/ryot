@@ -6,8 +6,8 @@ import { assert, describe } from "vitest";
 
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "../packages/revision.test-support";
 import { testPluginPackageId } from "../test-support";
 import { IntegrationProviderCatalog } from "./integration-providers";

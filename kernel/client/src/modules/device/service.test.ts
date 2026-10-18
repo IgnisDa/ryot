@@ -11,7 +11,7 @@ import { Deferred, Effect, Fiber, Layer } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
-import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
+import { type DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { DeviceStateAccessError } from "#/persistence/storage";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 

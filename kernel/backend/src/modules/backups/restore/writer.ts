@@ -28,15 +28,15 @@ import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
+	type DataReferenceError,
 	rewriteManagedAssetLocators,
 	rewritePropertyReferences,
-	type DataReferenceError,
 } from "#modules/backups/data-references";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import {
 	buildDefinitionSnapshot,
-	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
+	definitionSourceFromSnapshot,
 } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
@@ -62,13 +62,13 @@ import {
 	rewriteRelationshipReferences,
 } from "../archive/references";
 import {
-	decodeArchiveJsonObject,
-	archivePluginDefinitionContract,
-	isArchiveJsonObject,
-	type ArchiveRecords,
 	type ArchiveEntityDependency,
 	type ArchiveInstallation,
+	archivePluginDefinitionContract,
+	type ArchiveRecords,
 	type ArchiveRequiredPlugin,
+	decodeArchiveJsonObject,
+	isArchiveJsonObject,
 } from "../archive/schemas";
 import { BackupRestorePersistence } from "./persistence";
 
@@ -1021,8 +1021,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						);
 					}
 					let target:
-						| typeof exact
-						| Effect.Success<ReturnType<typeof entities.findGlobalEntityForRestore>> = exact;
+						typeof exact | Effect.Success<ReturnType<typeof entities.findGlobalEntityForRestore>> =
+						exact;
 					if (dependency.identity.kind !== "unmanaged") {
 						if (dependency.externalId === null) {
 							target = null;

@@ -9,7 +9,7 @@ import { makeWorkflowEngine } from "#testing/effect";
 import { CancelImportRunWorkflow, runCancelImportRunWorkflow } from "./cancel-workflow";
 import { ImportRunExecutionController } from "./execution-controller";
 import { ingestionTestRun } from "./ingestion.test-support";
-import { ImportsRepository, type ImportRunExecutionKind } from "./repository";
+import { type ImportRunExecutionKind, ImportsRepository } from "./repository";
 
 const runId = ImportRunId.make("run-1");
 const userId = UserId.make("user-1");

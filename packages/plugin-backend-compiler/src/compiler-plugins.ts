@@ -5,7 +5,7 @@ import {
 	compileSandboxPackageEntries,
 	type SandboxEntryDeclaration,
 } from "./compiler-builtins";
-import { sandboxCompilationFailure, pluginBackendCompilerDiagnostic } from "./compiler-diagnostics";
+import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;

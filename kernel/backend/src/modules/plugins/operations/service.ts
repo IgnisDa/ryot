@@ -8,9 +8,9 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
-	PluginId,
 	AutomationExecutionId,
 	type IntegrationId,
+	PluginId,
 	type PluginPackageId,
 	SandboxScriptId,
 	type UserId,
@@ -23,7 +23,7 @@ import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { MutationReceipts, type MutationReceiptIdentity } from "#modules/mutations/receipts";
+import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";

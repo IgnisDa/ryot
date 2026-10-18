@@ -1,8 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationHookIdentity } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	EventCreateItemError,
 	type CreateEventItem,
+	EventCreateItemError,
 	type UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
 import { EventId, type UserId } from "@ryot-app/contract/schema/brands";

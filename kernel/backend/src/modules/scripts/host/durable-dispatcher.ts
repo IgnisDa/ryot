@@ -12,9 +12,9 @@ import {
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
-	type WorkflowInlineRequest,
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
+	type WorkflowInlineRequest,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import {

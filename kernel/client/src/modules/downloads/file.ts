@@ -1,5 +1,5 @@
 import { Capacitor } from "@capacitor/core";
-import { FileTransfer, type DownloadFileOptions } from "@capacitor/file-transfer";
+import { type DownloadFileOptions, FileTransfer } from "@capacitor/file-transfer";
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Context, Data, Effect, Layer, Option, Schema } from "effect";

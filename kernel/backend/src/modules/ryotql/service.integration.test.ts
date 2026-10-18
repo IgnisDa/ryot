@@ -35,13 +35,13 @@ import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-insta
 import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
-import { Effect, Layer, Result, Option } from "effect";
+import { Effect, Layer, Option, Result } from "effect";
 import { assert } from "vitest";
 
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import {
-	insertPluginRevision,
 	fixtureManifest,
+	insertPluginRevision,
 	testPluginPackageId,
 } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";

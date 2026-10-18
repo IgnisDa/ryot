@@ -54,34 +54,23 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		});
 	}
 
-	const submission = parseWithZod(formData, {
-		schema: verifyTwoFactorSchema,
-	});
+	const submission = parseWithZod(formData, { schema: verifyTwoFactorSchema });
 
 	if (submission.status !== "success") {
 		return data({} as const, {
-			headers: await createToastHeaders({
-				type: "error",
-				message: "Invalid form data",
-			}),
+			headers: await createToastHeaders({ type: "error", message: "Invalid form data" }),
 		});
 	}
 
 	const { verifyTwoFactor } = await serverGqlService.request(VerifyTwoFactorDocument, {
-		input: {
-			userId,
-			code: submission.value.code,
-			method: submission.value.method,
-		},
+		input: { userId, code: submission.value.code, method: submission.value.method },
 	});
 
 	if (verifyTwoFactor.__typename === "ApiKeyResponse") {
 		const destroySessionCookie = await twoFactorSessionStorage.destroySession(session);
 		const authHeaders = await getCookiesForApplication(verifyTwoFactor.apiKey);
 		return redirect($path("/"), {
-			headers: combineHeaders(authHeaders, {
-				"set-cookie": destroySessionCookie,
-			}),
+			headers: combineHeaders(authHeaders, { "set-cookie": destroySessionCookie }),
 		});
 	}
 
@@ -100,9 +89,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		)
 		.otherwise(() => "Verification failed. Please try again.");
 
-	return data({} as const, {
-		headers: await createToastHeaders({ message, type: "error" }),
-	});
+	return data({} as const, { headers: await createToastHeaders({ message, type: "error" }) });
 };
 
 const verifyTwoFactorSchema = z.object({

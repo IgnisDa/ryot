@@ -1,14 +1,14 @@
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { FieldSelection, Include, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
 import {
-	entitySchemaPredicate,
-	relationshipSchemaPredicate,
 	and,
 	column,
 	document,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	join,
+	relationshipSchemaPredicate,
 	rows,
 	table,
 } from "@ryot-app/ryotql";

@@ -1,7 +1,6 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	coalesce,
 	column,
@@ -9,6 +8,7 @@ import {
 	dateBucket,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	eventOrderDescending,
 	exists,
@@ -19,19 +19,19 @@ import {
 	IsoDateString,
 	join,
 	literal,
+	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedInclude,
 	selectedMeasure,
 	selectedOptionalRow,
-	selectedRows,
-	sum,
-	table,
 	type SelectedQuery,
 	type SelectedRow,
+	selectedRows,
 	type SelectedSelection,
-	schemaOwnerPredicate,
-	relationshipSchemaPredicate,
+	sum,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
@@ -54,13 +54,13 @@ import {
 	episodeHasAired,
 	episodeIsUpcoming,
 	EpisodeLifecycleStateSchema,
-	EpisodicLifecycleStateSchema,
 	episodicEpisodeQuery,
+	type EpisodicKindConfig,
 	episodicLifecycleExpressions,
+	EpisodicLifecycleStateSchema,
 	episodicNextUpInclude,
 	relationshipConnects,
 	sameSchemaOwner,
-	type EpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import {
@@ -72,12 +72,12 @@ import {
 	mediaCollectionActivityEvents,
 	mediaCollectionEventsQuery,
 	mediaEntityEventsQuery,
+	type MediaExtraQueries,
 	mediaGenresInclude,
 	mediaOverviewQueries,
 	mediaSummaryQueries,
 	mediaSummaryResult,
 	mediaSummarySelection,
-	type MediaExtraQueries,
 } from "./media-recipes";
 
 const episodicEpisodeSlugs = ["review"] as const;

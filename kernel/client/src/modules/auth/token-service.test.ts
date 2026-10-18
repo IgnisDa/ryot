@@ -9,11 +9,11 @@ import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
-	OAuthStorage,
-	OAuthStorageError,
 	oauthPendingKey,
-	oauthTokenKey,
+	OAuthStorage,
 	type OAuthStorageAdapter,
+	OAuthStorageError,
+	oauthTokenKey,
 } from "#/modules/auth/oauth-storage";
 import { FakeOAuthStorage, fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";

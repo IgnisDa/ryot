@@ -1,9 +1,9 @@
 import {
-	definitionKey,
 	type DeclarationReference,
+	definitionKey,
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { Match } from "effect";
 
 export type CatalogEntryGroup = { readonly key: string; readonly heading: string };

@@ -4,8 +4,8 @@ import {
 	type PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
-	EntitySchemaReference,
 	DeclarationReference,
+	EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
@@ -19,7 +19,7 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { referencesWhere, referenceWhere } from "#platform/db/definition-owner";
@@ -28,8 +28,8 @@ import * as schema from "#schema/tables/combined";
 
 import { PluginConfigRevisions } from "../configuration/revisions";
 import {
-	PluginInstallationRepository,
 	type PluginInstallationHealth,
+	PluginInstallationRepository,
 } from "../installations/repository";
 import { storedScriptFields } from "../packages/persisted-projections";
 import { PluginRepository } from "../packages/repository";

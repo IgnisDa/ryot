@@ -23,14 +23,14 @@ import { AssetArtWell } from "../asset-urls";
 import { editSet, newWorkoutSet } from "./actions";
 import { formatEditorSeconds } from "./clock";
 import {
+	type DraftChange,
 	isTemplateDraft,
 	resolveSetRestTime,
 	updateOccurrence,
-	type DraftChange,
 } from "./draft-ops";
 import { usePreviousSets } from "./previous-sets";
 import type { EditorExercise } from "./queries";
-import { SetGrid, type InvalidSet } from "./set-grid";
+import { type InvalidSet, SetGrid } from "./set-grid";
 import { SetSheet } from "./set-sheet";
 
 export type ExerciseSheet = "attachments" | "defaults" | "history" | "notes" | "replace";

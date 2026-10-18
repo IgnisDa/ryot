@@ -1,18 +1,18 @@
 import { Chip, Modal, useShortcut } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import type { MediaGalleryImage } from "./image";
 import {
 	galleryCountLabel,
+	type GalleryFilter,
 	galleryFilterImages,
 	galleryFilters,
 	galleryStep,
 	galleryTileAspect,
 	galleryTileColumns,
 	galleryTileFit,
-	type GalleryFilter,
 } from "./image-gallery-state";
 import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 

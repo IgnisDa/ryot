@@ -16,12 +16,12 @@ import {
 	literal,
 	lt,
 	measureDescending,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	table,
-	type Recipe,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
@@ -30,8 +30,8 @@ import {
 	eventSlugIsOneOf,
 	lifecycleEventSlugs,
 	podcastEpisodicKindConfig,
-	showEpisodicKindConfig,
 	type ScalarExpression,
+	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 

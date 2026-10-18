@@ -10,9 +10,7 @@ import { MetadataDisplayItem } from "~/components/media/display-items";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-const defaultPaginationState = {
-	page: parseAsInteger.withDefault(1),
-};
+const defaultPaginationState = { page: parseAsInteger.withDefault(1) };
 
 export const meta = () => {
 	return [{ title: "Genre | Ryot" }];
@@ -25,15 +23,11 @@ export default function Page(props: { params: { id: string } }) {
 	const { filters: pagination, updateFilters } = useFiltersState(defaultPaginationState);
 
 	const { data: genreDetails } = useQuery({
-		queryKey: queryFactory.media.genreDetails({
-			genreId,
-			search: { page: pagination.page },
-		}).queryKey,
+		queryKey: queryFactory.media.genreDetails({ genreId, search: { page: pagination.page } })
+			.queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(GenreDetailsDocument, {
-					input: { genreId, search: { page: pagination.page } },
-				})
+				.request(GenreDetailsDocument, { input: { genreId, search: { page: pagination.page } } })
 				.then((data) => data.genreDetails),
 	});
 

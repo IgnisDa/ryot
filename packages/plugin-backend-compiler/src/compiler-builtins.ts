@@ -8,9 +8,9 @@ import { DiagnosticCategory } from "typescript/unstable/async";
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
-	sandboxCompilationFailure,
-	PluginBackendCompilerFailure,
 	pluginBackendCompilerDiagnostic,
+	PluginBackendCompilerFailure,
+	sandboxCompilationFailure,
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";

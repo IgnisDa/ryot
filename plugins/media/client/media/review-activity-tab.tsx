@@ -8,9 +8,9 @@ import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
 import { createMediaEntityQuery } from "./detail-queries";
 import {
-	mediaReviewActivityView,
 	type MediaReviewActivityRow,
 	type MediaReviewActivityView,
+	mediaReviewActivityView,
 } from "./review-activity-state";
 
 const ACTIVITY_EVENT_LIMIT = 60;

@@ -6,7 +6,7 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language"
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
-import { sql, type SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import {
 	boolean,
 	foreignKey,

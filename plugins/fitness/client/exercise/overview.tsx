@@ -3,7 +3,7 @@ import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { useState, type ComponentProps } from "react";
+import { type ComponentProps, useState } from "react";
 
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
@@ -11,18 +11,18 @@ import { AssetArtWell } from "../asset-urls";
 import { useAddToCollection } from "../collections";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
-import { addToDraftLabel, type ActiveEditorDraft } from "./active-draft";
+import { type ActiveEditorDraft, addToDraftLabel } from "./active-draft";
 import {
 	exerciseFacts,
+	type ExerciseRecord,
 	forceLabels,
 	groupTargets,
 	isCustomExercise,
 	kindLabels,
 	levelLabels,
 	mechanicLabels,
-	type ExerciseRecord,
 } from "./details-model";
-import { ExerciseMergeFlow, MergeFailureMessage, mergeBlockedReason } from "./merge";
+import { ExerciseMergeFlow, mergeBlockedReason, MergeFailureMessage } from "./merge";
 import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 
 const assetKey = (asset: AssetLocator) => (asset.type === "remote" ? asset.url : asset.key);

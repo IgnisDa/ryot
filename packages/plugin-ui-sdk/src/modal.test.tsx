@@ -6,7 +6,7 @@ import { axe } from "vitest-axe";
 
 import { Menu } from "./menu";
 import { Modal, shouldDismissSheet } from "./modal";
-import { OverlayBackProvider, type OverlayBackAdapter } from "./shortcut";
+import { type OverlayBackAdapter, OverlayBackProvider } from "./shortcut";
 
 function TriggeredModal(props: {
 	readonly open?: boolean;

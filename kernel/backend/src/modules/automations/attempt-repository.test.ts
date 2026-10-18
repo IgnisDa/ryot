@@ -8,22 +8,22 @@ import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
-import { insertPluginRevision, fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt, automationTrigger } from "#schema/tables/automations";
 import {
-	sandboxScript,
 	plugin,
-	pluginConfigRevision,
 	pluginConfigEncryptionKey,
+	pluginConfigRevision,
+	sandboxScript,
 } from "#schema/tables/core";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
 	AUTOMATION_ATTEMPT_ARTIFACT_BYTES,
-	AutomationAttemptRepository,
 	automationAttemptIdentity,
+	AutomationAttemptRepository,
 	boundAutomationAttemptArtifacts,
 	type FinalizeAutomationAttempt,
 	projectAutomationAttemptHistory,

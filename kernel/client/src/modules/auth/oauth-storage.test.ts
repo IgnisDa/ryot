@@ -5,9 +5,9 @@ import { TestClock } from "effect/testing";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
+	oauthPendingKey,
 	OAuthStorage,
 	OAuthStorageError,
-	oauthPendingKey,
 	oauthTokenKey,
 } from "#/modules/auth/oauth-storage";
 import { FakeOAuthStorage, fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";

@@ -8,8 +8,7 @@ export type RyotQueryState<Value> =
 	| { readonly status: "ready"; readonly value: Value };
 
 export type MappedRyotQueryState<State extends { readonly status: string }> =
-	| Exclude<RyotQueryState<never>, { readonly status: "ready" }>
-	| State;
+	Exclude<RyotQueryState<never>, { readonly status: "ready" }> | State;
 
 export const classifyRyotQueryResult = <Value>(
 	result: RyotQueryResult<Value>,

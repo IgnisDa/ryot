@@ -1,5 +1,5 @@
 import { Button, Group, Modal, rem, Select, Stack, Text } from "@mantine/core";
-import { type UseListStateHandlers, useListState } from "@mantine/hooks";
+import { useListState, type UseListStateHandlers } from "@mantine/hooks";
 import { isString } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import { produce } from "immer";
@@ -75,10 +75,7 @@ const CreateSupersetModal = (props: { onClose: () => void; supersetWith: string 
 					value={selectedColor}
 					leftSectionWidth={rem(40)}
 					onChange={(v) => setSelectedColor(v ?? "")}
-					data={allowedColors.map((c) => ({
-						value: c,
-						label: changeCase(c),
-					}))}
+					data={allowedColors.map((c) => ({ value: c, label: changeCase(c) }))}
 				/>
 			</Group>
 			<Stack gap="xs">
@@ -97,11 +94,7 @@ const CreateSupersetModal = (props: { onClose: () => void; supersetWith: string 
 				onClick={() => {
 					setCurrentWorkout(
 						produce(cw, (draft) => {
-							draft.supersets.push({
-								exercises,
-								color: selectedColor,
-								identifier: randomUUID(),
-							});
+							draft.supersets.push({ exercises, color: selectedColor, identifier: randomUUID() });
 						}),
 					);
 					props.onClose();

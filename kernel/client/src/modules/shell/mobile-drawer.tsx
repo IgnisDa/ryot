@@ -6,9 +6,9 @@ import type {
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
 import {
-	type MotionValue,
 	animate,
 	motion,
+	type MotionValue,
 	useMotionValueEvent,
 	useReducedMotion,
 	useTransform,

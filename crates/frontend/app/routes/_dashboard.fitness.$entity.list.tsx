@@ -112,11 +112,7 @@ const buildQueryInput = (
 	};
 
 	if (overrides) {
-		return {
-			...baseInput,
-			...overrides,
-			search: { ...baseInput.search, ...overrides.search },
-		};
+		return { ...baseInput, ...overrides, search: { ...baseInput.search, ...overrides.search } };
 	}
 
 	return baseInput;
@@ -221,10 +217,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							className={OnboardingTourStepTarget.AddNewWorkout}
 							onClick={async () => {
 								if (!coreDetails.isServerKeyValidated && entity === FitnessEntity.Templates) {
-									notifications.show({
-										color: "red",
-										message: PRO_REQUIRED_MESSAGE,
-									});
+									notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 									return;
 								}
 								const action = match(entity)
@@ -337,9 +330,7 @@ const DisplayFitnessEntity = (props: {
 				)
 				.with(FitnessEntity.Templates, () =>
 					clientGqlService
-						.request(UserWorkoutTemplateDetailsDocument, {
-							workoutTemplateId: props.entityId,
-						})
+						.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId: props.entityId })
 						.then(({ userWorkoutTemplateDetails: { response } }) => ({
 							name: response.details.name,
 							summary: response.details.summary,
@@ -379,10 +370,7 @@ const DisplayFitnessEntity = (props: {
 								lineClamp={1}
 								component={Link}
 								fz={{ base: "sm", md: "md" }}
-								to={$path("/fitness/:entity/:id", {
-									id: props.entityId,
-									entity: props.entity,
-								})}
+								to={$path("/fitness/:entity/:id", { id: props.entityId, entity: props.entity })}
 							>
 								{entityInformation.name}
 							</Anchor>

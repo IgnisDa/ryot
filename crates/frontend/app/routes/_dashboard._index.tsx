@@ -47,9 +47,7 @@ import { getUserPreferences } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/_dashboard._index";
 
-const searchParamsSchema = z.object({
-	ignoreLandingPath: zodBoolAsString.optional(),
-});
+const searchParamsSchema = z.object({ ignoreLandingPath: zodBoolAsString.optional() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
@@ -95,18 +93,13 @@ export default function Page() {
 	const collectionContentsInput: CollectionContentsInput = {
 		search: { take: takeInProgress },
 		collectionId: inProgressCollection?.id || "",
-		sort: {
-			order: GraphqlSortOrder.Desc,
-			by: CollectionContentsSortBy.LastUpdatedOn,
-		},
+		sort: { order: GraphqlSortOrder.Desc, by: CollectionContentsSortBy.LastUpdatedOn },
 	};
 	const inProgressCollectionContentsQuery = useQuery({
 		queryKey: queryFactory.collections.collectionContents(collectionContentsInput).queryKey,
 		queryFn: inProgressCollection?.id
 			? () =>
-					clientGqlService.request(CollectionContentsDocument, {
-						input: collectionContentsInput,
-					})
+					clientGqlService.request(CollectionContentsDocument, { input: collectionContentsInput })
 			: skipToken,
 	});
 
@@ -118,9 +111,7 @@ export default function Page() {
 	const userUpcomingCalendarEventsQuery = useQuery({
 		queryKey: queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
 		queryFn: () =>
-			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
-				input: upcomingInput,
-			}),
+			clientGqlService.request(UserUpcomingCalendarEventsDocument, { input: upcomingInput }),
 	});
 
 	const userAnalyticsQuery = useQuery({
@@ -130,10 +121,7 @@ export default function Page() {
 		}).queryKey,
 		queryFn: () =>
 			clientGqlService.request(MinimalUserAnalyticsDocument, {
-				input: {
-					dateRange: {},
-					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
-				},
+				input: { dateRange: {}, groupBy: DailyUserActivitiesResponseGroupedBy.AllTime },
 			}),
 	});
 

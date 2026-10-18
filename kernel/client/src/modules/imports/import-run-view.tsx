@@ -12,8 +12,7 @@ import { IngestionIssues } from "./ingestion-issues";
 import { IngestionRunReport } from "./ingestion-run-report";
 
 export type ImportRunDetailState =
-	| { readonly status: "failed" }
-	| { readonly status: "ready"; readonly run: ImportRunSummary };
+	{ readonly status: "failed" } | { readonly status: "ready"; readonly run: ImportRunSummary };
 
 type ImportRunViewProps = {
 	readonly onRetry: () => void;

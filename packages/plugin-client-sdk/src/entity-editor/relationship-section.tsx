@@ -2,21 +2,21 @@ import { EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schem
 import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	describeSchemaFormFields,
+	type SchemaAssetRenderer,
+	type SchemaAssetUpload,
 	SchemaForm,
 	useSchemaForm,
-	type SchemaAssetUpload,
-	type SchemaAssetRenderer,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Effect } from "effect";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useRyot, useRyotSchedule } from "../queries/provider";
 import {
-	entityFormValues,
-	entityPropertiesPayload,
 	type EditorProperties,
 	type EditorRelationshipDefinition,
 	type EditorRelationshipTarget,
+	entityFormValues,
+	entityPropertiesPayload,
 } from "./model";
 import { entityEditorTargetsRecipe } from "./recipes";
 import { schemaFormIcons, unsupportedFileUpload } from "./schema-form-icons";

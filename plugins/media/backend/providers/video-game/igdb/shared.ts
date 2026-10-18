@@ -10,13 +10,13 @@ import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
-import { type RoleRelatedEntity, createRoleAccumulator } from "../../../lib/role-accumulator";
+import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
 	buildIgdbImageUrl,
 	buildPagination,
+	type IgdbHost,
 	makeIgdbRequest,
 	readTotalItems,
-	type IgdbHost,
 	toSlug,
 } from "../../../lib/vendors/igdb";
 

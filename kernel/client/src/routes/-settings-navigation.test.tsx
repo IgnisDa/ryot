@@ -3,9 +3,9 @@ import type {
 	TwoFactorStatus,
 	UpdateUserPreferencesBody,
 } from "@ryot-app/contract/modules/account/schemas";
-import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Clock, DateTime, Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
@@ -22,33 +22,33 @@ import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer"
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	theme,
-	server,
-	catalog,
-	ServerStub,
-	makeAuthStub,
 	authenticated,
-	userSettings,
-	OAuthRouteStubs,
-	makeStorageStub,
-	unauthenticated,
-	InstanceAdminRouteStubs,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	NotificationChannelRouteStubs,
-	makeOAuthRouteStubs,
-	makeWorkspaceRecorder,
-	makeUserSettingsStub,
-	stubDesktopMatchMedia,
-	PagesApiRouteStubs,
+	catalog,
 	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
+	makeOAuthRouteStubs,
+	makePublicApiStub,
+	makeStorageStub,
+	makeUserSettingsStub,
+	makeWorkspaceRecorder,
+	NavigationRouteStubs,
+	NotificationChannelRouteStubs,
+	OAuthRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	server,
+	ServerStub,
+	stubDesktopMatchMedia,
+	theme,
+	unauthenticated,
+	userSettings,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();

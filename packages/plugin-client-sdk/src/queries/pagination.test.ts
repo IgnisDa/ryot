@@ -2,7 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { Effect, Fiber } from "effect";
 
 import { RyotClientError } from "../client/errors";
-import { createPagination, nextPageCursor, paginationItems, PaginationError } from "./pagination";
+import { createPagination, nextPageCursor, PaginationError, paginationItems } from "./pagination";
 
 type Item = { readonly id: string; readonly value: string };
 type Page = { readonly items: readonly Item[]; readonly next: string | null };

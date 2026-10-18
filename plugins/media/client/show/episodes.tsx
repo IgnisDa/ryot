@@ -2,10 +2,10 @@ import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
-	usePluginStorage,
-	usePluginIdentity,
-	useRyotQuery,
 	type PluginStorageState,
+	usePluginIdentity,
+	usePluginStorage,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Chip } from "@ryot-app/plugin-ui-sdk";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -21,10 +21,10 @@ import {
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "../../shared/show-recipes";
-import { mediaCursorPageError, type MediaCursorPage } from "../media/cursor-page-state";
+import { type MediaCursorPage, mediaCursorPageError } from "../media/cursor-page-state";
 import {
-	MediaEpisodePages,
 	type MediaEpisodePageInput,
+	MediaEpisodePages,
 	type MediaEpisodePagesCopy,
 	type MediaEpisodeRender,
 } from "../media/episodes";
@@ -42,18 +42,18 @@ import {
 	selectedShowSeason,
 	showCoverageAiredLabel,
 	showCoverageCompletionPercent,
-	showEpisodeOriginLabel,
-	showSeasonAsset,
-	showSeasonDescription,
-	showSeasonLabel,
-	showSeasonReleaseLabel,
-	showSeasonsError,
-	showSeasonsManagedAssets,
 	type ShowEpisode,
+	showEpisodeOriginLabel,
 	type ShowOrderEpisode,
 	type ShowOrderGroupCoverage,
 	type ShowSeason,
+	showSeasonAsset,
+	showSeasonDescription,
+	showSeasonLabel,
 	type ShowSeasonList,
+	showSeasonReleaseLabel,
+	showSeasonsError,
+	showSeasonsManagedAssets,
 	type ShowSeasonsResult,
 	type ShowSeasonsState,
 } from "./episodes-state";

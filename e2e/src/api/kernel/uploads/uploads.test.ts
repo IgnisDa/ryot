@@ -29,8 +29,7 @@ const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
 let fallbackApiPort: number;
 let fallbackApiProcess: ReturnType<typeof spawnApiProcess> | undefined;
 let fallbackInfrastructure:
-	| Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>
-	| undefined;
+	Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
 

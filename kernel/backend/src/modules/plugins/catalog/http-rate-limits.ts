@@ -1,8 +1,8 @@
 import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
-	identityTupleKey,
 	type DefinitionOwner,
+	identityTupleKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";

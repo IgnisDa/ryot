@@ -16,13 +16,13 @@ import {
 
 import { fitnessParsers } from "./references";
 import {
-	type FitnessStageInput,
-	type FitnessStageResult,
 	FitnessApplicationInput,
 	FitnessApplicationOutput,
 	FitnessMergeInput,
 	FitnessMergeOutput,
 	type FitnessSortedRun,
+	type FitnessStageInput,
+	type FitnessStageResult,
 } from "./schemas";
 import { FitnessSettingsInput, FitnessSettingsOutput } from "./settings";
 

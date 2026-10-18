@@ -5,7 +5,7 @@ import type {
 	NotificationDeliveryResult,
 	NotificationDeliveryWorkflowPayload,
 } from "./notification-delivery-workflow";
-import { NotificationsRepository, type NotificationChannelRecord } from "./repository";
+import { type NotificationChannelRecord, NotificationsRepository } from "./repository";
 
 const toDeliveryResult = (
 	channel: NotificationChannelRecord,

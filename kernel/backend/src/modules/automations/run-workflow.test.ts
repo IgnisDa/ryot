@@ -1,9 +1,9 @@
 import { expect, it, layer } from "@effect/vitest";
-import { DbError, SandboxRunError, type SandboxFailureKind } from "@ryot-app/contract/errors";
+import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
 import {
+	AutomationRequestPayload,
 	AutomationRun,
 	AutomationRunAttempt,
-	AutomationRequestPayload,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";

@@ -1,7 +1,7 @@
 import { DateTime, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
-import { ListStatePropertiesSchema, type ListStateProperties } from "../../../shared/list-state";
+import { type ListStateProperties, ListStatePropertiesSchema } from "../../../shared/list-state";
 import { anilistListState } from "../../lib/anilist-list";
 
 const nonNegativeInteger = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));

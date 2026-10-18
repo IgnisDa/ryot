@@ -1,8 +1,8 @@
 import type { AutomationHistoryAttempt } from "@ryot-app/contract/modules/automations/history-schemas";
 import type {
-	AutomationTrigger,
 	AutomationRun,
 	AutomationRunAttempt,
+	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRuleMetadata } from "@ryot-app/contract/modules/automations/schemas";
 import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
@@ -24,7 +24,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { plugin, pluginRevision, pluginConfigRevision, sandboxScript } from "./core";
+import { plugin, pluginConfigRevision, pluginRevision, sandboxScript } from "./core";
 import { timestamptz } from "./timestamps";
 
 export const automationTrigger = snakeCase.table(

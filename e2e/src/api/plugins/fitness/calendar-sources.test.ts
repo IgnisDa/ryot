@@ -5,10 +5,10 @@ import {
 import { Effect, Result } from "effect";
 
 import {
+	type Client,
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,

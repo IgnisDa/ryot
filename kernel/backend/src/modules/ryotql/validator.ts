@@ -6,8 +6,8 @@ import type {
 	NamedQuery,
 	OrderBy,
 	Predicate,
-	RyotQLDocument,
 	RowSelection,
+	RyotQLDocument,
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
@@ -17,14 +17,14 @@ import { DateTime, Duration, Option } from "effect";
 
 import {
 	canAccessCatalogTable,
+	type CatalogTable,
 	expandCatalogSelections,
 	getCatalogTable,
 	jsonElementsTable,
 	resolveCatalogField,
-	type CatalogTable,
 	type RyotQLAccess,
 } from "./catalog";
-import { scalarExpressionKind, type KindResolver, type ScalarKind } from "./expression-kind";
+import { type KindResolver, scalarExpressionKind, type ScalarKind } from "./expression-kind";
 
 export const MAX_QUERY_JOINS = 8;
 export const MAX_INCLUDE_DEPTH = 3;

@@ -11,8 +11,8 @@ import * as ts from "typescript/unstable/ast";
 import { SymbolFlags, type Type, TypeFlags } from "typescript/unstable/async";
 
 import {
-	type PluginBackendCompilerFailure,
 	type PluginBackendCompilerDiagnostic,
+	type PluginBackendCompilerFailure,
 	sandboxCompilationFailure,
 	sandboxDiagnosticAt,
 } from "./compiler-diagnostics";

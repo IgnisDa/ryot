@@ -1,8 +1,8 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	type PluginNavigationTarget,
 	usePluginScreenSurface,
 	useRyotViewport,
-	type PluginNavigationTarget,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
@@ -26,7 +26,7 @@ import { toIso } from "./clock";
 import { focusOccurrence, isTemplateDraft } from "./draft-ops";
 import { CompactBarActions, CompactDock, CompactEditor, WideEditor } from "./editor-layouts";
 import { EditorNotices } from "./editor-notices";
-import { EditorOverlays, type EditorOverlay } from "./editor-overlays";
+import { type EditorOverlay, EditorOverlays } from "./editor-overlays";
 import { EditorStates } from "./editor-states";
 import { ExerciseCard } from "./exercise-card";
 import type { WorkoutMediaTarget } from "./media-state";
@@ -35,8 +35,8 @@ import { useEditorScroll } from "./scroll";
 import { useEditorNow } from "./session-timers";
 import { occurrenceSegments, SupersetGroup } from "./superset-group";
 import { resetStopwatch, stopwatchSeconds, toggleStopwatch, toggleWorkoutPause } from "./timers";
-import { useEditorActions, type SavedEntityId } from "./use-editor-actions";
-import { useInitialDraft, type PrepareDraft } from "./use-initial-draft";
+import { type SavedEntityId, useEditorActions } from "./use-editor-actions";
+import { type PrepareDraft, useInitialDraft } from "./use-initial-draft";
 import { useWorkoutEditor } from "./use-workout-editor";
 import { workoutMenuItems } from "./workout-menu";
 

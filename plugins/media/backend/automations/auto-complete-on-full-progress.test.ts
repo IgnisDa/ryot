@@ -9,8 +9,8 @@ import { PluginId } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import {
-	eventAutomationContext,
 	entityRecord,
+	eventAutomationContext,
 	eventRecord,
 	hostSuccess,
 	ryotqlRows,

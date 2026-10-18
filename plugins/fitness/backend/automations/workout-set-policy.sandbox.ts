@@ -1,7 +1,7 @@
 import {
-	defineAutomationPolicy,
 	type AutomationPolicyInput,
 	type AutomationPolicyResult,
+	defineAutomationPolicy,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";

@@ -5,9 +5,9 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import {
-	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
+	eventAutomationContext,
 	hostFailure,
 	hostSuccess,
 	httpFailure,

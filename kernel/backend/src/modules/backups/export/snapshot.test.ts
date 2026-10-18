@@ -9,9 +9,9 @@ import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/s
 import {
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
+	PluginPackageId,
 	SignalSchemaSlug,
 	UserId,
-	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
@@ -49,8 +49,8 @@ import { BackupExportRepository } from "./repository";
 import {
 	BackupExportSnapshot,
 	definitionForPlugin,
-	requirePluginKey,
 	requireNotificationMetadataSchema,
+	requirePluginKey,
 } from "./snapshot";
 
 it("does not archive managed assets stored in schema-declared secret fields", () => {

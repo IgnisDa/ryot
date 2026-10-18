@@ -1,4 +1,4 @@
-import { makeContractClient, type ContractProgram } from "@ryot-app/contract/client";
+import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
 import { IntegrationWebhookToken, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { metadataLookupRecipe } from "@ryot-app/media-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";

@@ -7,6 +7,7 @@ import {
 	dateBucket,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	first,
@@ -18,6 +19,8 @@ import {
 	jsonArrayExists,
 	literal,
 	measureDescending,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedInclude,
@@ -25,19 +28,16 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
+	projectionNumber,
+	projectionProperty,
 	property,
 	propertyDate,
 	propertyJson,
 	propertyNumber,
-	projectionNumber,
-	projectionProperty,
 	workoutDatesSelection,
 } from "./entity-selections";
 import {

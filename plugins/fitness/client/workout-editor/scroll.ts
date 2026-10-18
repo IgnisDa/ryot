@@ -1,5 +1,5 @@
 import { editableSelector, revealOffset, usePrefersReducedMotion } from "@ryot-app/plugin-ui-sdk";
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 
 export function useEditorScroll(input: {
 	readonly active: boolean;
