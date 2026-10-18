@@ -85,7 +85,8 @@ curve.
   feedback; danger notices are alerts. `EmptyState` and `Skeleton` cover empty and loading content.
 - `Dialog` is the standard modal panel, centred, as a side sheet, or as a bottom sheet, built on
   `Modal`. Callers choose `sheet` when `compact` and pass `safeAreaBottom`, which pads the footer;
-  a sheet's footer buttons share its width. `Tooltip` names icon-only controls for fine pointers and is
+  a sheet's footer buttons share its width. The header shows a close button by default; pass
+  `closeIcon={null}` for dialogs that must be answered through their footer. `Tooltip` names icon-only controls for fine pointers and is
   hidden on touch.
 - `ActionDock` is the floating bottom bar for a screen's next action. Mount it through the screen's
   floating root, pass `safeAreaBottom`, and pad the scrolled content so the dock never covers the end.
