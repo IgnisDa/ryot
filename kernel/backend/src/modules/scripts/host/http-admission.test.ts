@@ -2,7 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Clock, Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
 
 import { redisKeys, RedisService } from "#platform/redis";
@@ -231,8 +231,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 
 						expect(yield* service.poll(declaration, b1)).toMatchObject({ status: "wait" });
 						expect(yield* service.poll(declaration, a2)).toMatchObject({ status: "wait" });
-						const expiredAt = (yield* Clock.currentTimeMillis) - 1;
-						yield* call(() => client.hset(state.state, "x", String(expiredAt)));
+						yield* call(() => client.hset(state.state, "x", "0"));
 
 						expect(yield* service.poll(declaration, b1)).toMatchObject({ status: "wait" });
 						const reassigned = yield* service.poll(declaration, a2);
@@ -408,8 +407,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						status: "registered",
 					});
 					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "wait" });
-					const unblockedAt = (yield* Clock.currentTimeMillis) - 1;
-					yield* call(() => client.hset(state.state, "b", String(unblockedAt)));
+					yield* call(() => client.hset(state.state, "b", "0"));
 					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "granted" });
 				}),
 			),
@@ -541,7 +539,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						expect(yield* before.poll(declaration, waiter)).toMatchObject({ status: "wait" });
 						const anchor = yield* stateField(client, state.state, "a");
 						yield* ageTicket(client, state, "waiter", 130_000);
-						const blockedUntil = (yield* Clock.currentTimeMillis) - 130_000;
+						const blockedUntil = anchor - 130_000;
 						yield* call(() => client.hset(state.state, "b", String(blockedUntil)));
 
 						const after = yield* makeProviderHttpAdmission();
