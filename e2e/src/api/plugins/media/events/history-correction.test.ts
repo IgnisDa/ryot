@@ -1,23 +1,11 @@
-import { AutomationHookSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { mediaActivityLogContextRecipe } from "@ryot-app/media-plugin/shared/activity-log-recipes";
-import {
-	ascending,
-	column,
-	defineRecipe,
-	selectedField,
-	selectedRows,
-	table,
-} from "@ryot-app/ryotql";
-import { Effect, Result, Schema } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
-	listEventsForEntity,
-	pollTerminalAutomationRuns,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
-import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	createBuiltinMediaLifecycleFixture,
 	logMediaActivity,
@@ -25,52 +13,13 @@ import {
 	seedShow,
 	seedShowEpisode,
 } from "~/fixtures/plugins/media";
+import {
+	historyEventsFor,
+	settledHistoryCorrection,
+} from "~/fixtures/plugins/media/history-correction";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
-
-const eventsFor = (client: Parameters<typeof listEventsForEntity>[0], entityId: string) =>
-	listEventsForEntity(client, entityId, undefined, 100);
-
-const workRecipe = defineRecipe(() => {
-	const work = table("backgroundWork", "work");
-	return {
-		map: ({ work: rows }) => Result.succeed(rows),
-		queries: {
-			work: selectedRows(work, {
-				limit: 100,
-				orderBy: [ascending(column(work, "id"))],
-				selection: {
-					status: selectedField(column(work, "status"), Schema.String),
-					error: selectedField(column(work, "error"), Schema.NullOr(Schema.String)),
-				},
-			}),
-		},
-	};
-});
-
-const settled = (client: Parameters<typeof eventsFor>[0], userId: string) =>
-	pollTerminalAutomationRuns({
-		executionUserId: UserId.make(userId),
-		hookSlug: AutomationHookSlug.make("media.reconcile-history"),
-	}).pipe(
-		Effect.tap((runs) =>
-			Effect.sync(() => expect(runs.map((run) => run.status)).toEqual(runs.map(() => "succeeded"))),
-		),
-		Effect.andThen(
-			pollUntil(
-				"history correction work",
-				executeRyotQLRecipe(client, workRecipe()).pipe(
-					Effect.map((page) => {
-						expect(page.items.filter((row) => row.status === "failed")).toEqual([]);
-						return page.items.some((row) => row.status === "queued" || row.status === "running")
-							? null
-							: page;
-					}),
-				),
-			),
-		),
-	);
 
 describe("Media history correction", () => {
 	it.live("captures independent parent completions concurrently in one library", () =>
@@ -102,10 +51,10 @@ describe("Media history correction", () => {
 					}),
 				{ concurrency: 2 },
 			);
-			yield* settled(client, userId);
+			yield* settledHistoryCorrection(client, userId);
 			for (const show of shows) {
 				expect(
-					(yield* eventsFor(client, show.show.id)).filter(
+					(yield* historyEventsFor(client, show.show.id)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toHaveLength(1);
@@ -138,8 +87,8 @@ describe("Media history correction", () => {
 				}),
 			);
 			yield* waitForCreateEvents(client, response);
-			yield* settled(client, userId);
-			const events = yield* eventsFor(client, movie.entityId);
+			yield* settledHistoryCorrection(client, userId);
+			const events = yield* historyEventsFor(client, movie.entityId);
 			const progress = requirePresent(
 				events.find((row) => row.eventSchemaSlug === "progress"),
 				"Progress missing",
@@ -151,9 +100,9 @@ describe("Media history correction", () => {
 				"Explicit completion missing",
 			);
 			yield* client.call((c) => c.events.delete({ params: { eventId: progress.id } }));
-			yield* settled(client, userId);
+			yield* settledHistoryCorrection(client, userId);
 			expect(
-				(yield* eventsFor(client, movie.entityId)).filter(
+				(yield* historyEventsFor(client, movie.entityId)).filter(
 					(row) => row.eventSchemaSlug === "complete",
 				),
 			).toEqual([explicit]);
@@ -179,9 +128,9 @@ describe("Media history correction", () => {
 					}),
 				);
 				yield* waitForCreateEvents(client, response);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				expect(
-					(yield* eventsFor(client, movie.entityId)).filter(
+					(yield* historyEventsFor(client, movie.entityId)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toHaveLength(1);
@@ -215,9 +164,9 @@ describe("Media history correction", () => {
 					}),
 				);
 				yield* waitForCreateEvents(client, created);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				const progress = requirePresent(
-					(yield* eventsFor(client, movie.entityId)).find(
+					(yield* historyEventsFor(client, movie.entityId)).find(
 						(row) => row.eventSchemaSlug === "progress",
 					),
 					"Progress missing",
@@ -228,9 +177,9 @@ describe("Media history correction", () => {
 						payload: { properties: { remove: [], set: { progressPercent: 100 } } },
 					}),
 				);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				const completed = requirePresent(
-					(yield* eventsFor(client, movie.entityId)).find(
+					(yield* historyEventsFor(client, movie.entityId)).find(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 					"Completion missing",
@@ -242,8 +191,8 @@ describe("Media history correction", () => {
 						payload: { occurredAt: "2026-01-02T12:00:00.000Z" },
 					}),
 				);
-				yield* settled(client, userId);
-				const repaired = (yield* eventsFor(client, movie.entityId)).filter(
+				yield* settledHistoryCorrection(client, userId);
+				const repaired = (yield* historyEventsFor(client, movie.entityId)).filter(
 					(row) => row.eventSchemaSlug === "complete",
 				);
 				expect(repaired).toMatchObject([
@@ -255,15 +204,15 @@ describe("Media history correction", () => {
 						payload: { properties: { remove: [], set: { timeSpent: 123 } } },
 					}),
 				);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				yield* client.call((c) =>
 					c.events.update({
 						params: { eventId: progress.id },
 						payload: { properties: { remove: [], set: { progressPercent: 50 } } },
 					}),
 				);
-				yield* settled(client, userId);
-				const explicit = (yield* eventsFor(client, movie.entityId)).filter(
+				yield* settledHistoryCorrection(client, userId);
+				const explicit = (yield* historyEventsFor(client, movie.entityId)).filter(
 					(row) => row.eventSchemaSlug === "complete",
 				);
 				expect(explicit).toMatchObject([{ id: completed.id, properties: { timeSpent: 123 } }]);
@@ -298,9 +247,9 @@ describe("Media history correction", () => {
 						when: { kind: "date", finishedOn: "2026-01-01T12:00:00.000Z" },
 					},
 				});
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				const parent = requirePresent(
-					(yield* eventsFor(client, show.show.id)).find(
+					(yield* historyEventsFor(client, show.show.id)).find(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 					"Parent completion missing",
@@ -312,7 +261,7 @@ describe("Media history correction", () => {
 					seasonId: requirePresent(show.seasons[0], "Season missing").id,
 				});
 				const child = requirePresent(
-					(yield* eventsFor(client, show.episodeId(1, 2))).find(
+					(yield* historyEventsFor(client, show.episodeId(1, 2))).find(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 					"Child completion missing",
@@ -323,16 +272,16 @@ describe("Media history correction", () => {
 						payload: { occurredAt: "2026-01-03T12:00:00.000Z" },
 					}),
 				);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				expect(
-					(yield* eventsFor(client, show.show.id)).filter(
+					(yield* historyEventsFor(client, show.show.id)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toMatchObject([{ id: parent.id, occurredAt: "2026-01-03T12:00:00.000Z" }]);
 				yield* client.call((c) => c.events.delete({ params: { eventId: child.id } }));
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				expect(
-					(yield* eventsFor(client, show.show.id)).filter(
+					(yield* historyEventsFor(client, show.show.id)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toEqual([]);
@@ -360,8 +309,8 @@ describe("Media history correction", () => {
 					}),
 				);
 				yield* waitForCreateEvents(client, created);
-				yield* settled(client, userId);
-				const events = yield* eventsFor(client, movie.entityId);
+				yield* settledHistoryCorrection(client, userId);
+				const events = yield* historyEventsFor(client, movie.entityId);
 				const progress = requirePresent(
 					events.find((row) => row.eventSchemaSlug === "progress"),
 					"Progress missing",
@@ -371,16 +320,16 @@ describe("Media history correction", () => {
 					"Completion missing",
 				);
 				yield* client.call((c) => c.events.delete({ params: { eventId: completion.id } }));
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				yield* client.call((c) =>
 					c.events.update({
 						params: { eventId: progress.id },
 						payload: { occurredAt: "2026-01-02T12:00:00.000Z" },
 					}),
 				);
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				expect(
-					(yield* eventsFor(client, movie.entityId)).filter(
+					(yield* historyEventsFor(client, movie.entityId)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toEqual([]);
@@ -404,9 +353,9 @@ describe("Media history correction", () => {
 				for (const response of responses) {
 					yield* waitForCreateEvents(client, response);
 				}
-				yield* settled(client, userId);
+				yield* settledHistoryCorrection(client, userId);
 				expect(
-					(yield* eventsFor(client, movie.entityId)).filter(
+					(yield* historyEventsFor(client, movie.entityId)).filter(
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toHaveLength(2);

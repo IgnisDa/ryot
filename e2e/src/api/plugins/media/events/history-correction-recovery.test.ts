@@ -1,11 +1,5 @@
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import {
-	MediaHistoryCorrectionRetryInput,
-	MediaHistoryCorrectionRetryOutput,
-	mediaHistoryCorrectionStatusRecipe,
-} from "@ryot-app/media-plugin/shared/history-correction-status";
-import { PLUGIN_PACKAGE_ID } from "@ryot-app/media-plugin/shared/plugin-identity";
-import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { mediaHistoryCorrectionStatusRecipe } from "@ryot-app/media-plugin/shared/history-correction-status";
 import {
 	and,
 	ascending,
@@ -35,6 +29,7 @@ import {
 	createBuiltinMediaLifecycleFixture,
 	mediaReferenceForEntity,
 } from "~/fixtures/plugins/media";
+import { historyCorrectionRetryRecipe } from "~/fixtures/plugins/media/history-correction";
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -42,13 +37,6 @@ import {
 	startCoreTestInfrastructure,
 	stopApiProcess,
 } from "~/support/provisioning";
-
-const retryRecipe = defineOperationRecipe({
-	packageId: PLUGIN_PACKAGE_ID,
-	input: MediaHistoryCorrectionRetryInput,
-	output: MediaHistoryCorrectionRetryOutput,
-	operationSlug: "media-history-correction-retry",
-});
 
 const checkpointRecipe = defineRecipe(
 	(input: { entityId: string; reference: PluginIdentityReference }) => {
@@ -137,11 +125,13 @@ describe("Media history correction recovery", () => {
 			expect(original).toHaveLength(1);
 			const submissionId = crypto.randomUUID();
 			const input = { submissionId, entityId: movie.entityId };
-			const retry = yield* invokeOperation(client, retryRecipe, input, {
+			const retry = yield* invokeOperation(client, historyCorrectionRetryRecipe, input, {
 				idempotencyKey: submissionId,
 			});
 			expect(
-				yield* invokeOperation(client, retryRecipe, input, { idempotencyKey: submissionId }),
+				yield* invokeOperation(client, historyCorrectionRetryRecipe, input, {
+					idempotencyKey: submissionId,
+				}),
 			).toEqual(retry);
 			yield* pollUntil(
 				"explicit history retry",
