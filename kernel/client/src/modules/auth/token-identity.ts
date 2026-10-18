@@ -16,6 +16,17 @@ export const decodeOAuthTokenIdentity = (token: string): typeof OAuthTokenIdenti
 	}
 };
 
+/** Who the tokens sign in as: rotating tokens for the same user and session keeps the key. */
+export const oauthTokenSessionKey = (tokens: StoredTokenSet | null) => {
+	if (tokens === null) {
+		return null;
+	}
+	const identity = decodeOAuthTokenIdentity(tokens.accessToken);
+	return identity === null
+		? tokens.accessToken
+		: JSON.stringify([identity.sub, identity.sid ?? null]);
+};
+
 const accessTokenFromStorage = (value: string) => {
 	try {
 		return Schema.decodeSync(Schema.fromJsonString(StoredTokenSet))(value).accessToken;

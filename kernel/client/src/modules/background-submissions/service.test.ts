@@ -57,6 +57,9 @@ const catalogEntry = (target: BackgroundSubmissionTarget) =>
 
 const catalog: PluginClientCatalog = [catalogEntry(media)];
 
+const sessionToken = (jti: string) =>
+	`header.${btoa(JSON.stringify({ jti, sub: "user-1", sid: "session-1" })).replace(/=/g, "")}.signature`;
+
 const request = (key: string, label = `Logged ${key}`): PluginBackgroundOperationRequest => ({
 	label,
 	idempotencyKey: key,
@@ -498,6 +501,33 @@ describe("background submission tray", () => {
 			yield* drain;
 			expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k3"]);
 		}),
+	);
+
+	it.effect(
+		"keeps entries and pending work when another tab rotates the same session's tokens",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const server = test.authorization.forServer(scope.serverUrl);
+				server.replace(makeStoredTokenSet({ accessToken: sessionToken("access-1") }));
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				yield* drain;
+
+				server.observe(makeStoredTokenSet({ accessToken: sessionToken("access-2") }));
+				yield* drain;
+				expect(test.interrupted).toEqual([]);
+				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k1"]);
+
+				yield* reply(test, 0)({ value: null, outcome: "success" });
+				expect(settled).toEqual([{ status: "succeeded" }]);
+				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
+				yield* drain;
+				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(
+					expect.arrayContaining(["Logged k1", "Logged k2"]),
+				);
+			}),
 	);
 
 	it.effect("drops entries and interrupts work on disposal", () =>

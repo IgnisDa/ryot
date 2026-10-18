@@ -13,6 +13,7 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { Cause, Clock, Context, Effect, Exit, type Fiber, Layer } from "effect";
 
 import type { ApiScope } from "#/api/scope";
+import { oauthTokenSessionKey } from "#/modules/auth/token-identity";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import {
 	type PluginOperationDispatchOutcome,
@@ -183,6 +184,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 				const now = () => Effect.runSyncWith(context)(Clock.currentTimeMillis);
 				const authorization = tokens.authorization.forServer(options.scope.serverUrl);
 				let login = authorization.current;
+				let loginSession = oauthTokenSessionKey(login.tokens);
 				let disposed = false;
 				const records = new Map<string, SubmissionRecord>();
 				const timers = new Set<Fiber.Fiber<unknown, unknown>>();
@@ -319,12 +321,18 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 					announcedAt = undefined;
 					publish();
 				};
-				const releaseLogin = authorization.store.subscribe(() => {
-					if (!authorization.isCurrent(login)) {
-						login = authorization.current;
+				const syncLogin = () => {
+					if (authorization.isCurrent(login)) {
+						return;
+					}
+					login = authorization.current;
+					const next = oauthTokenSessionKey(login.tokens);
+					if (next !== loginSession) {
+						loginSession = next;
 						clear();
 					}
-				});
+				};
+				const releaseLogin = authorization.store.subscribe(syncLogin);
 				const admit = () => {
 					if (records.size < BACKGROUND_SUBMISSION_LIMITS.entries) {
 						return true;
@@ -383,9 +391,9 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 						return true;
 					},
 					reserve: ({ target, binding, request }) => {
+						syncLogin();
 						if (
 							disposed ||
-							!authorization.isCurrent(login) ||
 							inFlight() >= BACKGROUND_SUBMISSION_LIMITS.inFlightPerService ||
 							inFlight(binding.session) >= BACKGROUND_SUBMISSION_LIMITS.inFlightPerSession ||
 							!admit()
