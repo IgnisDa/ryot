@@ -205,7 +205,6 @@ layer(
 					{ level: "full" },
 				);
 				expect(yield* requestedIds).toEqual([upgrade, upgrade, upgrade]);
-				expect(upgrade).toBe("enrich-populate-base-populated-full-test-account-generation");
 			}),
 	);
 });

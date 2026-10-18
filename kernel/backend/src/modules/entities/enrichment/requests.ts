@@ -69,7 +69,10 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 						row.requesterGeneration !== (input.requester?.token ?? null) ||
 						row.operation !== input.operation ||
 						row.language !== input.language ||
-						row.scopeUserId !== input.scopeUserId
+						row.scopeUserId !== input.scopeUserId ||
+						(row.id === input.id &&
+							input.inputHash !== undefined &&
+							row.inputHash !== input.inputHash)
 					) {
 						return yield* new SandboxRunError({
 							kind: "invalid-input",
@@ -84,6 +87,9 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 				function* (id: string, patch: EnrichmentRequestPatch) {
 					const row = yield* repository.update(id, patch);
 					yield* publish(row);
+					for (const follower of yield* repository.followers(id)) {
+						yield* publish(follower);
+					}
 				},
 				Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 			);
@@ -105,7 +111,41 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 				observed: repository.observed,
 				released: repository.released,
 				lockTarget: repository.lockTarget,
+				recordBaseCheck: repository.recordBaseCheck,
+				latestTranslation: repository.latestTranslation,
 				expiredExecutionStatus: repository.expiredExecutionStatus,
+				guardPopulation: Effect.fnUntraced(
+					function* (id: string, attempt?: number) {
+						if (!(yield* repository.guardPopulation(id, attempt))) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Provider population no longer owns its writes",
+							});
+						}
+						return yield* Effect.void;
+					},
+					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+				),
+				claimPopulation: (id: string) =>
+					session
+						.transaction(
+							Effect.gen(function* () {
+								const row = yield* repository.get(id);
+								if (
+									!row ||
+									row.state === "succeeded" ||
+									row.state === "failed" ||
+									row.state === "cancelled"
+								) {
+									return yield* new SandboxRunError({
+										kind: "invalid-input",
+										message: "Provider population request is no longer active",
+									});
+								}
+								return yield* repository.claimPopulation(id);
+							}),
+						)
+						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 			};
 		}),
 	},

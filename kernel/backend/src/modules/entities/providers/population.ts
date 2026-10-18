@@ -67,6 +67,7 @@ const relationshipBatch = (
 
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
 		command: DomainLifecycleCommand;
 		pluginId: PluginId;
 		definitions: EntityRelationshipDefinitions;
@@ -136,6 +137,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
+				yield* input.beforeWrite ?? Effect.void;
 				if (input.childEntities.length > 0 && !childEntitySchemaSlug) {
 					return yield* Effect.die("Validated child schema is missing");
 				}

@@ -66,12 +66,14 @@ after its child sets succeed. Child sets keep their initial
 
 `EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. Entity interest requests
 `base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
-provider-population reference and the retry route request `full`; the monitoring sweep refreshes.
+provider-population reference and explicit enrichment commands request `full`; the monitoring sweep refreshes.
 Relationship lifecycle hooks of an imported entity (such as plugin monitoring association
 notifications) therefore run when the entity is first opened in the foreground or refreshed by a
 monitoring sweep, not at import time.
-Entity-interest request IDs come from `entityPopulationExecutionId`; explicit retries use a
-separate request identity. Automatic attempt IDs are described below.
+Entity-interest and explicit request IDs come from `entityPopulationExecutionId`, which hashes the
+target, requester generation, level and submission identity into a bounded handle. Nested workflow
+keys stay within the workflow store's limit. All callers share population admission; see
+[entity enrichment](../enrichment/README.md). Automatic attempt IDs are described below.
 
 ### Paged related groups
 

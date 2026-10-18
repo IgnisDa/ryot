@@ -188,6 +188,7 @@ it("exposes only approved entity fields", () => {
 			"externalId",
 			"providerId",
 			"populatedAt",
+			"providerCheckedAt",
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",

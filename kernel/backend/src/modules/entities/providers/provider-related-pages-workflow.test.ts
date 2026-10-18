@@ -258,6 +258,7 @@ const harness = Effect.fnUntraced(function* (
 					mode,
 					executionId,
 					level: "full",
+					requestAttempt: 1,
 					externalId: "root",
 					requestId: executionId,
 					providerId: provider.id,
@@ -368,7 +369,11 @@ const seedRoot = (h: Effect.Success<ReturnType<typeof harness>>) =>
 layer(
 	Layer.merge(
 		relationshipDatabaseLayer(),
-		Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
+		Layer.mock(EnrichmentRequests)({
+			attachEntity: () => Effect.void,
+			guardPopulation: () => Effect.void,
+			recordBaseCheck: () => Effect.void,
+		}),
 	),
 )((test) => {
 	for (const paged of [true, false]) {

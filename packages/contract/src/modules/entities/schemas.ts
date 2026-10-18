@@ -72,23 +72,36 @@ export class EntityStale extends Schema.TaggedError<
 	reason: strictStruct({ entityId: EntityId, code: Schema.Literal("entity-stale") }),
 }) {}
 
-export class EntityPopulationRetryRefused extends Schema.TaggedError<
-	EntityPopulationRetryRefused,
+export class EntityEnrichmentRefused extends Schema.TaggedError<
+	EntityEnrichmentRefused,
 	{ readonly brand: unique symbol }
->()("EntityPopulationRetryRefused", {
+>()("EntityEnrichmentRefused", {
 	reason: strictStruct({
-		code: Schema.Literals(["not-provider-backed", "plugin-mismatch", "provider-unavailable"]),
+		code: Schema.Literals([
+			"not-provider-backed",
+			"plugin-mismatch",
+			"provider-unavailable",
+			"request-mismatch",
+			"backlog-full",
+		]),
 	}),
 }) {}
 
-export const RetryEntityPopulationBody = strictStruct({
+export const RequestEntityEnrichmentBody = strictStruct({
 	pluginId: PluginId,
+	action: Schema.Literals(["refresh", "retry"]),
 	operation: Schema.Literals(["population", "translation"]),
+	idempotencyKey: Schema.String.pipe(
+		Schema.check(Schema.isMinLength(1)),
+		Schema.check(Schema.isMaxLength(128)),
+	),
 });
 
-export const RetryEntityPopulationResult = Schema.Struct({ retried: Schema.Boolean });
+export const RequestEntityEnrichmentResult = Schema.Struct({
+	enrichmentRequestId: Schema.NullOr(Schema.String),
+});
 
-export type RetryEntityPopulationResult = typeof RetryEntityPopulationResult.Type;
+export type RequestEntityEnrichmentResult = typeof RequestEntityEnrichmentResult.Type;
 
 export const ListedEntity = Schema.Struct({
 	id: EntityId,

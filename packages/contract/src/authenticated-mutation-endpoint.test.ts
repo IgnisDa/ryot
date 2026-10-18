@@ -44,9 +44,9 @@ describe("authenticated mutation endpoints", () => {
 		expect(Context.get(EntitiesGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);
-		expect(Context.get(EntitiesGroup.endpoints.retryPopulation.annotations, DemoAccessPolicy)).toBe(
-			"allowed",
-		);
+		expect(
+			Context.get(EntitiesGroup.endpoints.requestEnrichment.annotations, DemoAccessPolicy),
+		).toBe("allowed");
 		expect(Context.get(RelationshipsGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);

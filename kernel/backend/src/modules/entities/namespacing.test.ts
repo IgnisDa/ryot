@@ -1804,6 +1804,7 @@ layer(
 						},
 					],
 				};
+				const populationRequests = yield* EnrichmentRequests;
 				const populate = (
 					installed: typeof first,
 					admission: typeof firstAdmission,
@@ -1821,6 +1822,7 @@ layer(
 							mode,
 							executionId,
 							level: "full",
+							requestAttempt: 1,
 							requestId: executionId,
 							entitySchemaSlug: bottle,
 							externalId: "shared-root",
@@ -1831,6 +1833,11 @@ layer(
 						},
 						executionId,
 					).pipe(
+						Effect.provideService(EnrichmentRequests, {
+							...populationRequests,
+							guardPopulation: () => Effect.void,
+							recordBaseCheck: () => Effect.void,
+						}),
 						Effect.provideService(WorkflowInstance, instance),
 						Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 						Effect.provideService(

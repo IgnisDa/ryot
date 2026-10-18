@@ -111,6 +111,217 @@ const requestLayer = Layer.unwrap(
 
 layer(requestLayer)((test) => {
 	test.effect(
+		"bounds requester admission and active owners without blocking replay or unrelated targets",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("capacity-0", {
+					populationMode: "refresh",
+					populationPin: "capacity-pin",
+					externalId: "capacity-record",
+				});
+				const admitted = yield* Effect.forEach(
+					Array.from({ length: 50 }, (_, index) => index),
+					(index) => requests.ensure({ ...input, id: `capacity-${index}` }),
+					{ concurrency: 10 },
+				);
+				expect(admitted.filter((row) => row.joinedTo === null)).toHaveLength(1);
+				expect((yield* requests.ensure(input)).id).toBe(input.id);
+				assertExitFails(
+					yield* Effect.exit(requests.ensure({ ...input, id: "capacity-overflow" })),
+					new SandboxRunError({
+						kind: "resource-unavailable",
+						data: { code: "execution-limit" },
+						message: "Provider population backlog is full",
+					}),
+				);
+				expect(yield* requests.get("capacity-overflow")).toBeNull();
+				for (const row of admitted) {
+					yield* requests.update(row.id, { state: "cancelled" });
+				}
+				const owners = yield* Effect.forEach(
+					Array.from({ length: 9 }, (_, index) => index),
+					(index) =>
+						requests.ensure({
+							...input,
+							id: `owner-capacity-${index}`,
+							externalId: `owner-capacity-${index}`,
+						}),
+				);
+				for (const [index, row] of owners.entries()) {
+					expect(yield* requests.claimPopulation(row.id)).toBe(index < 8);
+				}
+				const head = owners[0];
+				const waiting = owners[8];
+				assert(head && waiting);
+				yield* requests.update(head.id, { state: "succeeded" });
+				expect(yield* requests.claimPopulation(waiting.id)).toBe(true);
+				for (const row of owners) {
+					yield* requests.update(row.id, { state: "cancelled" });
+				}
+			}),
+	);
+	test.effect("fences timed-out attempts during backoff and after the next attempt starts", () =>
+		Effect.gen(function* () {
+			const requests = yield* EnrichmentRequests;
+			const session = yield* DatabaseSession;
+			const fixture = yield* RequestFixture;
+			const row = yield* requests.ensure(
+				fixture.input("attempt-fence", {
+					populationMode: "refresh",
+					populationPin: "attempt-pin",
+					externalId: "attempt-record",
+				}),
+			);
+			yield* requests.claimPopulation(row.id);
+			yield* requests.update(row.id, { attempt: 1, state: "running" });
+			yield* session.transaction(requests.guardPopulation(row.id, 1));
+			yield* requests.update(row.id, { state: "retrying" });
+			expect(
+				(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
+			).toBe("Failure");
+			yield* requests.update(row.id, { attempt: 2, state: "running" });
+			expect(
+				(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
+			).toBe("Failure");
+			yield* session.transaction(requests.guardPopulation(row.id, 2));
+			yield* requests.update(row.id, { state: "succeeded" });
+		}),
+	);
+	test.effect(
+		"only the latest translation request can commit within one canonical generation and language",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("translation-old", {
+					level: null,
+					language: "es",
+					operation: "translation",
+				});
+				yield* requests.ensure(input);
+				expect(yield* requests.latestTranslation(input.id)).toBe(true);
+				yield* requests.ensure({ ...input, requester: recipient, id: "translation-new" });
+				expect(yield* requests.latestTranslation(input.id)).toBe(false);
+				expect(yield* requests.latestTranslation("translation-new")).toBe(true);
+				yield* requests.ensure({ ...input, language: "fr", id: "translation-other-language" });
+				expect(yield* requests.latestTranslation("translation-new")).toBe(true);
+			}),
+	);
+	test.effect(
+		"shares compatible full refreshes across requesters but keeps their request identities",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("shared-refresh-owner", {
+					populationMode: "refresh",
+					populationPin: "shared-pin",
+					externalId: "shared-refresh",
+				});
+				const first = yield* requests.ensure(input);
+				const second = yield* requests.ensure({
+					...input,
+					requester: recipient,
+					id: "shared-refresh-recipient",
+				});
+				expect(first.joinedTo).toBeNull();
+				expect(second).toMatchObject({
+					joinedTo: first.id,
+					id: "shared-refresh-recipient",
+					requesterUserId: recipient.userId,
+				});
+				expect(yield* requests.claimPopulation(first.id)).toBe(true);
+				expect(yield* requests.claimPopulation(second.id)).toBe(false);
+				yield* requests.update(first.id, { state: "succeeded" });
+				expect(
+					yield* requests.latest({
+						requester: recipient,
+						operation: "population",
+						entityId: fixture.entityId,
+					}),
+				).toMatchObject({ id: second.id, state: "succeeded" });
+			}),
+	);
+
+	test.effect("queues full refresh behind base work, and fences writes after settlement", () =>
+		Effect.gen(function* () {
+			const requests = yield* EnrichmentRequests;
+			const fixture = yield* RequestFixture;
+			const session = yield* DatabaseSession;
+			const input = fixture.input("serial-base", {
+				level: "base",
+				populationMode: "ensure",
+				populationPin: "serial-pin",
+				externalId: "serial-record",
+			});
+			const base = yield* requests.ensure(input);
+			const full = yield* requests.ensure({
+				...input,
+				level: "full",
+				id: "serial-refresh",
+				populationMode: "refresh",
+			});
+			expect(full.joinedTo).toBeNull();
+			expect(yield* requests.claimPopulation(full.id)).toBe(false);
+			expect(yield* requests.claimPopulation(base.id)).toBe(true);
+			yield* session.transaction(requests.guardPopulation(base.id));
+			yield* requests.update(base.id, { state: "succeeded" });
+			expect(yield* requests.claimPopulation(full.id)).toBe(true);
+			assertExitFails(
+				yield* Effect.exit(session.transaction(requests.guardPopulation(base.id))),
+				new SandboxRunError({
+					kind: "invalid-input",
+					message: "Provider population no longer owns its writes",
+				}),
+			);
+			yield* requests.update(full.id, { state: "succeeded" });
+		}),
+	);
+
+	test.effect("reuses a recent completed refresh only during the manual cooldown", () =>
+		Effect.gen(function* () {
+			const requests = yield* EnrichmentRequests;
+			const fixture = yield* RequestFixture;
+			const input = fixture.input("cooldown-first", {
+				populationMode: "refresh",
+				populationPin: "cooldown-pin",
+				externalId: "cooldown-record",
+			});
+			const first = yield* requests.ensure(input);
+			yield* requests.update(first.id, { state: "succeeded" });
+			const recent = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-second" });
+			expect(recent.joinedTo).toBe(first.id);
+			yield* TestClock.adjust("61 seconds");
+			const fresh = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-third" });
+			expect(fresh.joinedTo).toBeNull();
+			yield* requests.update(fresh.id, { state: "cancelled" });
+		}),
+	);
+
+	test.effect("does not share work across pinned revisions or private scopes", () =>
+		Effect.gen(function* () {
+			const requests = yield* EnrichmentRequests;
+			const fixture = yield* RequestFixture;
+			const input = fixture.input("pin-first", {
+				populationPin: "pin-one",
+				externalId: "pin-record",
+				populationMode: "refresh",
+			});
+			for (const request of [
+				input,
+				{ ...input, id: "pin-second", populationPin: "pin-two" },
+				{ ...input, id: "pin-private", scopeUserId: owner.userId },
+			]) {
+				const row = yield* requests.ensure(request);
+				expect(row.joinedTo).toBeNull();
+				yield* requests.update(row.id, { state: "cancelled" });
+			}
+		}),
+	);
+
+	test.effect(
 		"reads authoritative account generations and excludes missing or disabled accounts",
 		() =>
 			Effect.gen(function* () {

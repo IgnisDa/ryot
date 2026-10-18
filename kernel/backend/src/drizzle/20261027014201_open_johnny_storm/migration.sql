@@ -360,11 +360,15 @@ CREATE TABLE "entity" (
 CREATE TABLE "entity_enrichment_request" (
 	"retry_of" text,
 	"language" text,
+	"joined_to" text,
+	"input_hash" text,
+	"population_pin" text,
 	"id" text PRIMARY KEY,
 	"plugin_id" text NOT NULL,
 	"completed_at" timestamp(3) with time zone,
 	"requester_generation" text,
 	"sequence" serial,
+	"base_checked_at" timestamp(3) with time zone,
 	"external_id" text NOT NULL,
 	"next_attempt_at" timestamp(3) with time zone,
 	"workflow_name" text NOT NULL,
@@ -378,6 +382,7 @@ CREATE TABLE "entity_enrichment_request" (
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"observed_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"dispatch_root" boolean DEFAULT false NOT NULL,
+	"population_mode" text,
 	"operation" text NOT NULL,
 	"entity_id" text,
 	"scope_user_id" text,
@@ -1216,7 +1221,9 @@ CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> st
 CREATE UNIQUE INDEX "entity_collection_name_unique" ON "entity" ("user_id","name") WHERE "entity_schema_slug" = 'collection' and "entity_schema_plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_external_identity_unique" ON "entity" ("external_id","entity_schema_slug",(case when "user_id" is null then '0' else '1' || "user_id" end),(case when "provider_id" is null then '0' else '1' || "provider_id" end),(case when "entity_schema_plugin_id" is null then '0' else '1' || "entity_schema_plugin_id" end)) WHERE "external_id" is not null and ("user_id" is null or "provider_id" is not null);--> statement-breakpoint
 CREATE INDEX "entity_enrichment_request_entity_idx" ON "entity_enrichment_request" ("entity_id","created_at");--> statement-breakpoint
+CREATE INDEX "entity_enrichment_request_joined_idx" ON "entity_enrichment_request" ("joined_to");--> statement-breakpoint
 CREATE INDEX "entity_enrichment_request_pending_idx" ON "entity_enrichment_request" ("state","created_at");--> statement-breakpoint
+CREATE INDEX "entity_enrichment_request_target_idx" ON "entity_enrichment_request" ("provider_id","external_id","scope_user_id","sequence");--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_enrichment_request_retry_unique" ON "entity_enrichment_request" ("retry_of");--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_user_id_idx" ON "event" ("user_id");--> statement-breakpoint

@@ -183,7 +183,8 @@ const enrichmentWorkState = (
 	const schemaSlug = sql.raw(`${context.sqlAlias}.entity_schema_slug`);
 	const pluginId = sql.raw(`${context.sqlAlias}.entity_schema_plugin_id`);
 	const scopeUserId = sql.raw(`${context.sqlAlias}.user_id`);
-	return sql`coalesce((select request.state from entity_enrichment_request request
+	return sql`coalesce((select coalesce(shared.state, request.state) from entity_enrichment_request request
+		left join entity_enrichment_request shared on shared.id = request.joined_to
 		where (request.entity_id = ${id} or (request.entity_id is null and request.provider_id = ${providerId} and request.external_id = ${externalId} and request.entity_schema_slug = ${schemaSlug} and request.plugin_id = ${pluginId} and request.scope_user_id is not distinct from ${scopeUserId}))
 		and request.operation = ${operation}
 		and (${related} = false or request.level = 'full')
@@ -291,6 +292,12 @@ const entity: CatalogTable = {
 		relatedPopulationStatus: entityRelatedPopulationStatus,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
 		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
+		providerCheckedAt: {
+			kind: "date",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql`(select max(request.base_checked_at) from entity_enrichment_request request where request.entity_id = ${sql.raw(`${sqlAlias}.id`)})`,
+		},
 	},
 };
 

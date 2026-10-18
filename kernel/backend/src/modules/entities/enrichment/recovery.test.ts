@@ -92,15 +92,20 @@ const request = (id: string, patch: Partial<RequestRow> = {}): RequestRow => ({
 	retryOf: null,
 	language: null,
 	createdAt: now,
+	joinedTo: null,
 	state: "queued",
 	observedAt: now,
+	inputHash: null,
 	scopeUserId: null,
 	failureKind: null,
 	completedAt: null,
 	entityId: "entity",
 	pluginId: "plugin",
 	dispatchRoot: true,
+	populationPin: null,
 	nextAttemptAt: null,
+	baseCheckedAt: null,
+	populationMode: null,
 	externalId: "record",
 	requesterUserId: null,
 	providerId: "provider",
@@ -138,11 +143,15 @@ const harness = Effect.fnUntraced(function* (input: {
 		latest: () => Effect.die("Unexpected latest lookup"),
 		lockTarget: () => Effect.die("Unexpected target lock"),
 		ensure: () => Effect.die("Unexpected request admission"),
+		recordBaseCheck: () => Effect.die("Unexpected base check"),
 		attachEntity: () => Effect.die("Unexpected entity attachment"),
+		guardPopulation: () => Effect.die("Unexpected population guard"),
+		claimPopulation: () => Effect.die("Unexpected population claim"),
 		prune: () =>
 			Effect.sync(() => {
 				events.push("prune");
 			}),
+		latestTranslation: () => Effect.die("Unexpected translation lookup"),
 		observed: (id) =>
 			Effect.sync(() => {
 				observed.push(id);

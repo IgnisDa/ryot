@@ -11,8 +11,8 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { ProviderImportAdmission } from "./admission";
+import { EntityEnrichmentService } from "./enrichment";
 import { EntityImportWorkflowOperationsLive } from "./operations-workflow";
-import { EntityPopulationRetryService } from "./population-retry";
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
 import {
 	ProviderEntityPopulationAttemptWorkflowDefinitionsLive,
@@ -41,7 +41,7 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 	),
 );
 
-export const EntityPopulationRetryServiceLive = EntityPopulationRetryService.layer.pipe(
+export const EntityEnrichmentServiceLive = EntityEnrichmentService.layer.pipe(
 	Layer.provide(
 		EntityPopulationTriggerLive.pipe(
 			Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
@@ -68,6 +68,7 @@ export const ProviderEntityPopulationWorkflowDefinitionsProvidedLive = Layer.mer
 		Layer.mergeAll(
 			DefinitionRepository.layer,
 			EntitiesRepositoryLive,
+			TranslationsServiceLive,
 			DomainWriteChecksLive,
 			PluginRuntimeResolverLive,
 			RelationshipsRepository.layer,
@@ -85,6 +86,7 @@ export const ProviderRelatedPagesWorkflowDefinitionsProvidedLive =
 				DomainWriteChecksLive,
 				PluginRuntimeResolverLive,
 				RelationshipsRepository.layer,
+				EnrichmentRequests.layer,
 			),
 		),
 	);

@@ -162,6 +162,7 @@ const setup = Effect.gen(function* () {
 		);
 		return runProviderEntityPopulationAttemptWorkflow(
 			{
+				requestAttempt: 1,
 				level: input.level,
 				externalId: "root",
 				providerId: provider.id,
@@ -246,7 +247,11 @@ const given = (value: unknown) => Effect.succeed(value);
 const populationDatabaseLayer = () =>
 	Layer.merge(
 		relationshipDatabaseLayer(),
-		Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
+		Layer.mock(EnrichmentRequests)({
+			attachEntity: () => Effect.void,
+			guardPopulation: () => Effect.void,
+			recordBaseCheck: () => Effect.void,
+		}),
 	);
 
 layer(populationDatabaseLayer())((test) => {

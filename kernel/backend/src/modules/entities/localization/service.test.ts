@@ -26,6 +26,7 @@ import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
 
 import {
+	explicitTranslationExecutionId,
 	translateEntityExecutionId,
 	TranslateEntityWorkflowPayload,
 } from "./entity-translation-workflow";
@@ -95,6 +96,7 @@ const makeServiceLayer = (
 		requestState?: "queued" | "succeeded";
 		reusedRetry?: boolean;
 		requestFailure?: boolean;
+		registrationFailure?: boolean;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -394,6 +396,13 @@ const makeServiceLayer = (
 								session
 									.transaction(
 										Effect.gen(function* () {
+											if (options.registrationFailure) {
+												return yield* new SandboxRunError({
+													kind: "invalid-input",
+													data: { code: "missing-required-config" },
+													message: "Translation configuration is unavailable",
+												});
+											}
 											const current = yield* Ref.get(activePrincipal);
 											if (input.retain) {
 												yield* input.retain(current);
@@ -424,9 +433,14 @@ const makeServiceLayer = (
 						repository,
 						Layer.mock(EnrichmentRequests)({
 							lockTarget: () => Effect.void,
+							latestTranslation: () => Effect.succeed(true),
 							get: (id) =>
 								Ref.get(requests).pipe(
 									Effect.map((rows) => rows.find((row) => row.id === id) ?? null),
+								),
+							update: (id, patch) =>
+								Ref.update(requests, (rows) =>
+									rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
 								),
 							ensure: (input) =>
 								Effect.gen(function* () {
@@ -643,6 +657,36 @@ layer(makeServiceLayer({ globalEntity: true }))((test) => {
 				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
 			).toSatisfy(Exit.isFailure);
 		}),
+	);
+});
+
+layer(makeServiceLayer({ registrationFailure: true }))((test) => {
+	test.effect(
+		"records a failed explicit translation admission without hiding successful canonical data",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const requests = yield* EnrichmentRequests;
+				const input = { ...payload, refreshKey: "failed-admission" };
+				expect(yield* service.requestFill(input)).toBe(false);
+				const id = explicitTranslationExecutionId(
+					payload.entityId,
+					payload.language,
+					input.refreshKey,
+				);
+				expect(yield* requests.get(id)).toMatchObject({
+					payload: {},
+					state: "failed",
+					dispatchRoot: false,
+					sourceContentGeneration: 1,
+					failureKind: "invalid-input",
+				});
+				expect(yield* service.requestFill(input)).toBe(false);
+				const effects = yield* TranslationEffects;
+				expect(yield* effects.admissions).toHaveLength(1);
+				expect(yield* effects.executions).toEqual([]);
+				expect(yield* effects.upserts).toEqual([]);
+			}),
 	);
 });
 

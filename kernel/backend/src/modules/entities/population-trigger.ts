@@ -1,3 +1,4 @@
+import type { SandboxRunError } from "@ryot-app/contract/errors";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
@@ -7,6 +8,8 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -15,21 +18,27 @@ import type { PopulationLevel } from "./providers/schemas";
 import type { DomainLifecycleCommand } from "./write-context";
 
 export type PopulationExecution = {
+	readonly inputHash?: string;
+	readonly manualRefresh?: boolean;
+	readonly mode?: "ensure" | "refresh";
+	readonly translationLanguage?: string;
 	readonly attempt?: string;
 	readonly level: PopulationLevel;
 	readonly retryOf?: string;
 };
+
+export const populationRequestPin = (command: DomainLifecycleCommand) =>
+	stableStringify([
+		command.writeContext?.pluginRevision?.revisionId ?? null,
+		command.writeContext?.pluginRevision?.configRevisionId ?? null,
+	]);
 
 export const entityPopulationExecutionId = (
 	entityId: EntityId,
 	accountGeneration: AccountGeneration | null,
 	execution: PopulationExecution,
 ) =>
-	[
-		`enrich-populate-${entityId}-${execution.level}`,
-		...(accountGeneration === null ? [] : [accountGeneration.token]),
-		...(execution.attempt === undefined ? [] : [execution.attempt]),
-	].join("-");
+	`enrich-populate-${sha256Base64Url(stableStringify([entityId, accountGeneration, execution.level, execution.attempt ?? null]))}`;
 
 export type PopulationRequest = {
 	entityId: EntityId;
@@ -73,5 +82,5 @@ export const userPopulationRequest = Effect.fnUntraced(function* (
 
 export class EntityPopulationTrigger extends Context.Service<
 	EntityPopulationTrigger,
-	{ request: (input: PopulationRequest) => Effect.Effect<boolean> }
+	{ request: (input: PopulationRequest) => Effect.Effect<boolean, SandboxRunError> }
 >()("EntityPopulationTrigger") {}

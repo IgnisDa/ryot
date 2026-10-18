@@ -227,7 +227,7 @@ layer(triggerLayer("system", { enqueueFails: true, systemSubject: true }))((test
 			const fixture = yield* PopulationFixture;
 			const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
 			expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
-				"enrich-populate-entity-1-full",
+				entityPopulationExecutionId(fixture.request.entityId, null, fixture.request.execution),
 			]);
 			expect(Exit.isFailure(exit)).toBe(true);
 		}),
@@ -617,11 +617,6 @@ layer(triggerLayer("system"))((test) => {
 						command: { itemIdentity: expectedId, causation: { executionId: expectedId } },
 					});
 				}
-				expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
-					"enrich-populate-entity-0-base-test-account-generation",
-					"enrich-populate-entity-1-full-test-account-generation",
-					"enrich-populate-entity-2-full-test-account-generation-manual-retry",
-				]);
 			}),
 	);
 });

@@ -1,8 +1,8 @@
 import { assert, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	EntityEnrichmentRefused,
 	EntityNotFound,
-	EntityPopulationRetryRefused,
 } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -17,6 +17,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { explicitTranslationExecutionId } from "#modules/entities/localization/entity-translation-workflow";
 import { type RequestFillInput, TranslationsService } from "#modules/entities/localization/service";
 import {
 	EntityPopulationTrigger,
@@ -36,7 +37,7 @@ import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
 
-import { EntityPopulationRetryService } from "./population-retry";
+import { EntityEnrichmentService } from "./enrichment";
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
 
 const rootSchemaSlug = EntitySchemaSlug.make("record");
@@ -138,7 +139,7 @@ const retryLayer = (pluginOwner: UserId | null = null) =>
 							entitySchemaSlug: rootSchemaSlug,
 							entitySchemaPluginId: installed.pluginId,
 							accountGeneration: owner.accountGeneration,
-						}).pipe(Effect.flatMap(trigger.request), Effect.asVoid),
+						}).pipe(Effect.flatMap(trigger.request), Effect.asVoid, Effect.orDie),
 					seed: (input) =>
 						Effect.gen(function* () {
 							const [row] = yield* session.run((db) =>
@@ -189,7 +190,11 @@ const retryLayer = (pluginOwner: UserId | null = null) =>
 				requestFill: (input) =>
 					Effect.gen(function* () {
 						yield* Ref.update(translations, (all) => [...all, input]);
-						const id = `translation-retry-${input.entityId}`;
+						const id = explicitTranslationExecutionId(
+							input.entityId,
+							input.language,
+							input.refreshKey ?? "",
+						);
 						const admitted = yield* requests.ensure({
 							id,
 							providerId,
@@ -199,6 +204,7 @@ const retryLayer = (pluginOwner: UserId | null = null) =>
 							entityId: input.entityId,
 							operation: "translation",
 							language: input.language,
+							inputHash: input.inputHash,
 							sourceContentGeneration: 1,
 							externalId: input.externalId,
 							pluginId: installed.pluginId,
@@ -211,7 +217,7 @@ const retryLayer = (pluginOwner: UserId | null = null) =>
 					}),
 			});
 			return Layer.merge(
-				EntityPopulationRetryService.layer,
+				EntityEnrichmentService.layer,
 				Layer.effect(RetryFixture, Effect.map(EntityPopulationTrigger, fixture)),
 			).pipe(
 				Layer.provideMerge(
@@ -249,15 +255,57 @@ const retry = (
 	pluginId: PluginId,
 	operation: "population" | "translation" = "population",
 ) =>
-	Effect.flatMap(EntityPopulationRetryService, (service) =>
-		service.retry({ user, entityId, pluginId, operation }),
+	Effect.flatMap(EntityEnrichmentService, (service) =>
+		service.request({
+			user,
+			entityId,
+			pluginId,
+			operation,
+			action: "retry",
+			idempotencyKey: crypto.randomUUID(),
+		}),
 	);
-const refused = (code: EntityPopulationRetryRefused["reason"]["code"]) =>
-	new EntityPopulationRetryRefused({ reason: { code } });
+const refused = (code: EntityEnrichmentRefused["reason"]["code"]) =>
+	new EntityEnrichmentRefused({ reason: { code } });
 const notFound = (entityId: EntityId) =>
 	new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 
 layer(retryLayer())((test) => {
+	test.effect("refreshes successful data and replays the same submission after completion", () =>
+		Effect.gen(function* () {
+			const fixture = yield* RetryFixture;
+			const service = yield* EntityEnrichmentService;
+			const entityId = yield* fixture.seed({
+				failed: false,
+				relatedPopulated: true,
+				externalId: "successful-refresh",
+			});
+			const input = {
+				entityId,
+				user: owner,
+				pluginId: fixture.pluginId,
+				action: "refresh" as const,
+				operation: "population" as const,
+				idempotencyKey: "successful-refresh",
+			};
+			const before = yield* (yield* EntitiesRepository).getById(entityId);
+			const accepted = yield* service.request(input);
+			assert(accepted.enrichmentRequestId);
+			expect(yield* service.request(input)).toEqual(accepted);
+			yield* (yield* EnrichmentRequests).update(accepted.enrichmentRequestId, {
+				state: "succeeded",
+			});
+			expect(yield* service.request(input)).toEqual(accepted);
+			expect(yield* (yield* EntitiesRepository).getById(entityId)).toEqual(before);
+			expect(
+				(yield* fixture.runs).filter((id) => id === accepted.enrichmentRequestId),
+			).toHaveLength(1);
+			assertExitFails(
+				yield* Effect.exit(service.request({ ...input, action: "retry" })),
+				refused("request-mismatch"),
+			);
+		}),
+	);
 	test.effect(
 		"creates one full retry under the caller's generation and preserves the failed request",
 		() =>
@@ -269,11 +317,13 @@ layer(retryLayer())((test) => {
 				const failed = yield* fixture.latest(entityId);
 				assert(failed);
 				yield* fixture.reconcilerRequest(entityId, "rerun");
-				expect((yield* fixture.runs).filter((id) => id.includes(entityId))).toEqual([
-					`enrich-populate-${entityId}-full-test-account-generation`,
-				]);
-				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
-				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
+				expect((yield* fixture.runs).filter((id) => id === failed.id)).toEqual([failed.id]);
+				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
+					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				);
+				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
+					enrichmentRequestId: null,
+				});
 				const admitted = yield* fixture.latest(entityId);
 				expect(admitted).toMatchObject({
 					level: "full",
@@ -281,9 +331,7 @@ layer(retryLayer())((test) => {
 					retryOf: failed.id,
 					requesterGeneration: owner.accountGeneration.token,
 				});
-				expect(admitted?.id).toMatch(
-					new RegExp(`^enrich-populate-${entityId}-full-test-account-generation-.+$`),
-				);
+				expect(admitted?.id).not.toBe(failed.id);
 				expect(yield* (yield* EnrichmentRequests).get(failed.id)).toEqual(failed);
 			}),
 	);
@@ -297,7 +345,9 @@ layer(retryLayer())((test) => {
 				{ relatedPopulated: true, externalId: "cached-failed" },
 			]) {
 				const entityId = yield* fixture.seed(input);
-				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
+				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
+					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				);
 				expect(yield* fixture.latest(entityId)).toMatchObject({
 					level: "full",
 					state: "queued",
@@ -341,8 +391,12 @@ layer(retryLayer())((test) => {
 				state: "succeeded",
 			});
 
-			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
-			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
+				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+			);
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
+				enrichmentRequestId: null,
+			});
 			expect(yield* fixture.latest(entityId, owner, "population", "full")).toMatchObject({
 				level: "full",
 				state: "queued",
@@ -355,14 +409,18 @@ layer(retryLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* RetryFixture;
 			const cancelled = yield* fixture.seed({ state: "cancelled", externalId: "cancelled" });
-			expect(yield* retry(owner, cancelled, fixture.pluginId)).toEqual({ retried: true });
+			expect(yield* retry(owner, cancelled, fixture.pluginId)).toEqual(
+				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+			);
 			for (const input of [
 				{ failed: false, externalId: "not-failed" },
 				{ externalId: "succeeded", state: "succeeded" as const },
 			]) {
 				const entityId = yield* fixture.seed(input);
 				const before = yield* fixture.runs;
-				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
+				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
+					enrichmentRequestId: null,
+				});
 				expect(yield* fixture.runs).toEqual(before);
 			}
 		}),
@@ -376,7 +434,9 @@ layer(retryLayer())((test) => {
 				...owner,
 				accountGeneration: { userId: owner.id, token: "reset-generation" },
 			};
-			expect(yield* retry(reset, entityId, fixture.pluginId)).toEqual({ retried: false });
+			expect(yield* retry(reset, entityId, fixture.pluginId)).toEqual({
+				enrichmentRequestId: null,
+			});
 			expect(yield* fixture.latest(entityId)).toMatchObject({ state: "failed" });
 		}),
 	);
@@ -391,12 +451,14 @@ layer(retryLayer())((test) => {
 					operation: "translation",
 					externalId: "translation",
 				});
-				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
-				expect(yield* retry(owner, entityId, fixture.pluginId, "translation")).toEqual({
-					retried: true,
+				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
+					enrichmentRequestId: null,
 				});
+				expect(yield* retry(owner, entityId, fixture.pluginId, "translation")).toEqual(
+					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				);
 				expect(yield* retry(owner, entityId, fixture.pluginId, "translation")).toEqual({
-					retried: false,
+					enrichmentRequestId: null,
 				});
 				expect(yield* fixture.translations).toMatchObject([
 					{
@@ -477,7 +539,9 @@ layer(retryLayer(owner.id))((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* RetryFixture;
 			const entityId = yield* fixture.seed({ userId: owner.id, externalId: "private" });
-			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
+				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+			);
 			expect(yield* fixture.latest(entityId)).toMatchObject({ scopeUserId: owner.id });
 		}),
 	);

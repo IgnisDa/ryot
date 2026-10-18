@@ -61,6 +61,9 @@ export const TranslateEntityAttemptWorkflowPayload = Schema.Struct({
 	requestId: Schema.String,
 	execution: TranslationExecution,
 });
+
+export const explicitTranslationExecutionId = (entityId: EntityId, language: string, key: string) =>
+	`translate-${sha256Hex(stableStringify(["refresh", entityId, language, key]))}`;
 export type TranslateEntityAttemptWorkflowPayload =
 	typeof TranslateEntityAttemptWorkflowPayload.Type;
 

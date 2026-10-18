@@ -28,6 +28,7 @@ import {
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequestsRepository } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -254,6 +255,7 @@ const populationLayer = (options: {
 			assert(pin?.pluginRevision);
 			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 			const payload: ProviderEntityPopulationAttemptPayload = {
+				requestAttempt: 1,
 				...payloadFields,
 				providerId: provider.id,
 				requestId: payloadFields.executionId,
@@ -279,7 +281,12 @@ const populationLayer = (options: {
 				);
 			};
 			return Layer.mergeAll(
-				Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
+				Layer.mock(EnrichmentRequests)({
+					attachEntity: () => Effect.void,
+					guardPopulation: () => Effect.void,
+					recordBaseCheck: () => Effect.void,
+				}),
+				Layer.mock(TranslationsService)({ requestFill: () => Effect.succeed(false) }),
 				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				Layer.succeed(PluginRuntimeResolver, runtime),
 				DomainWriteChecksLive,

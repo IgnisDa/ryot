@@ -38,7 +38,9 @@ import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
+import { populationRequestPin } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
@@ -75,6 +77,7 @@ type SynchronizeOptions = {
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
+	checkedAt: Schema.String,
 	properties: jsonValueSchema,
 	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 	childEntities: Schema.Array(providerDetailsChildEntitySchema),
@@ -82,6 +85,16 @@ const ValidatedEntityDetails = Schema.Struct({
 });
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
+
+type PopulationWritePayload = EntityImportPayload & {
+	readonly requestId: string;
+	readonly requestAttempt: number;
+};
+
+const populationWriteGuard = (payload: PopulationWritePayload) =>
+	Effect.flatMap(EnrichmentRequests, (requests) =>
+		requests.guardPopulation(payload.requestId, payload.requestAttempt),
+	);
 
 const PopulationTarget = Schema.Struct({ entity: ListedEntity, relatedPopulated: Schema.Boolean });
 
@@ -229,6 +242,7 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 			return {
 				name: details.name,
 				properties: details.properties,
+				checkedAt: (yield* DateTime.nowAsDate).toISOString(),
 				...(details.expectedChildEntitySchemaSlug
 					? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
 					: {}),
@@ -283,7 +297,7 @@ const logEntityWarnings = (
 	);
 
 const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	details: ValidatedEntityDetails,
 	options: SynchronizeOptions,
 	population: AutomationPopulationContext,
@@ -299,24 +313,27 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 		execute: Effect.gen(function* () {
 			const work = yield* retryOnDeadlock(
 				session.transaction(
-					entities.persistPlannedProviderUpsert({
-						...scope,
-						populatedAt: null,
-						name: details.name,
-						preservePopulatedAt: true,
-						externalId: payload.externalId,
-						properties: details.properties,
-						providerId: payload.providerId,
-						updateExisting: options.mode !== "refresh",
-						entitySchema: {
-							slug: payload.entitySchemaSlug,
-							owner: definitionOwner(payload.pluginId),
-						},
-						lifecycle: {
-							...payload.command,
-							...populationLifecycleCommand(payload.command, ["root", "upsert"], population),
-						},
-					}),
+					Effect.andThen(
+						populationWriteGuard(payload),
+						entities.persistPlannedProviderUpsert({
+							...scope,
+							populatedAt: null,
+							name: details.name,
+							preservePopulatedAt: true,
+							externalId: payload.externalId,
+							properties: details.properties,
+							providerId: payload.providerId,
+							updateExisting: options.mode !== "refresh",
+							entitySchema: {
+								slug: payload.entitySchemaSlug,
+								owner: definitionOwner(payload.pluginId),
+							},
+							lifecycle: {
+								...payload.command,
+								...populationLifecycleCommand(payload.command, ["root", "upsert"], population),
+							},
+						}),
+					),
 				),
 			).pipe(mapDbErrorToSandbox);
 			return { dispatch: work.dispatch, result: { entity: work.result.entity } };
@@ -325,7 +342,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 });
 
 const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupScope")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	entityId: EntityId,
 	group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">,
@@ -339,6 +356,10 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}:page:${paging.pageIndex}`,
 		execute: syncRelatedEntityGroup({
+			beforeWrite: (yield* EnrichmentRequests).guardPopulation(
+				payload.requestId,
+				payload.requestAttempt,
+			),
 			...entityScope,
 			group,
 			population,
@@ -366,7 +387,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 });
 
 const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	options: SynchronizeOptions,
 	scope: ChildEntitySetScope,
@@ -378,6 +399,10 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
 		execute: writeChildEntitySet({
+			beforeWrite: (yield* EnrichmentRequests).guardPopulation(
+				payload.requestId,
+				payload.requestAttempt,
+			),
 			...entityScope,
 			definitions,
 			command: payload.command,
@@ -409,7 +434,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 });
 
 const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	details: ValidatedEntityDetails,
 	population: AutomationPopulationContext,
 	options: SynchronizeOptions,
@@ -429,6 +454,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 			const work = yield* retryOnDeadlock(
 				session.transaction(
 					Effect.gen(function* () {
+						yield* populationWriteGuard(payload);
 						const stamped = yield* entities.persistPlannedProviderUpsert({
 							...scope,
 							populatedAt,
@@ -454,6 +480,10 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 								generation,
 							);
 						}
+						yield* (yield* EnrichmentRequests).recordBaseCheck(
+							payload.requestId,
+							DateTime.toDateUtc(DateTime.makeUnsafe(details.checkedAt)),
+						);
 						return stamped;
 					}),
 				),
@@ -495,7 +525,7 @@ const toSandboxJsonObject = (value: unknown) =>
 	Schema.is(SandboxJsonObjectSchema)(value) ? value : {};
 
 const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	options: SynchronizeOptions,
 	rootPreviouslyPopulated: boolean,
@@ -537,6 +567,8 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 });
 
 export const ProviderRelatedPagesPayload = Schema.Struct({
+	requestId: Schema.String,
+	requestAttempt: Schema.Int,
 	...entityImportPayloadFields,
 	entityId: EntityId,
 	generation: Schema.String,
@@ -561,7 +593,7 @@ export const ProviderRelatedPagesWorkflow = Workflow.make("ProviderRelatedPagesW
 });
 
 const claimRelatedGroupGenerationScope = Effect.fn("claimRelatedGroupGenerationScope")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	entityId: EntityId,
 	group: ProviderDetailsRelatedEntityGroup,
@@ -578,6 +610,10 @@ const claimRelatedGroupGenerationScope = Effect.fn("claimRelatedGroupGenerationS
 			primaryEntityId: entityId,
 			pluginId: payload.pluginId,
 			startedAt: DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt)),
+			beforeWrite: (yield* EnrichmentRequests).guardPopulation(
+				payload.requestId,
+				payload.requestAttempt,
+			),
 		}).pipe(mapDbErrorToSandbox),
 	});
 });
@@ -599,7 +635,7 @@ const logSupersededRelatedGroup = (
 	);
 
 const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	entity: ListedEntity,
 	group: ProviderDetailsRelatedEntityGroup,
 	groupIndex: number,
@@ -627,10 +663,12 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 				entityId: entity.id,
 				command: payload.command,
 				pluginId: payload.pluginId,
+				requestId: payload.requestId,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
 				entityScope: payload.entityScope,
 				continuation: group.continuation,
+				requestAttempt: payload.requestAttempt,
 				entitySchemaSlug: payload.entitySchemaSlug,
 				group: {
 					direction: group.direction,
@@ -654,7 +692,7 @@ const supersededPopulation = () =>
 	new SandboxRunError({ kind: "invalid-input", message: "Provider population was superseded" });
 
 const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	entityId: EntityId,
 	groups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>,
@@ -671,6 +709,7 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 		execute: retryOnDeadlock(
 			session.transaction(
 				Effect.gen(function* () {
+					yield* populationWriteGuard(payload);
 					yield* checks.check(
 						payload.command,
 						definitionOwner(payload.pluginId),
@@ -719,7 +758,7 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 });
 
 const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
-	payload: EntityImportPayload,
+	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	executionId: string,
 	options: SynchronizeOptions,
@@ -840,6 +879,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 });
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
+	manualRefresh: Schema.optional(Schema.Boolean),
+	translationLanguage: Schema.optional(Schema.String),
 	...entityImportPayloadFields,
 	level: PopulationLevel,
 	entityScope: EntityImportScope,
@@ -864,6 +905,7 @@ export const ProviderEntityPopulationAttemptWorkflow = Workflow.make(
 		payload: Schema.Struct({
 			...ProviderEntityPopulationPayload.fields,
 			requestId: Schema.String,
+			requestAttempt: Schema.Int,
 		}) satisfies DurableSchema,
 	},
 );
@@ -983,10 +1025,13 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 				(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
 			),
 		);
-		const payload = yield* makeActivity({
+		const retainedRequest = yield* makeActivity({
 			name: "ensure-population-request",
 			error: SandboxRunError satisfies DurableSchema,
-			success: ProviderEntityPopulationPayload satisfies DurableSchema,
+			success: Schema.Struct({
+				joinedTo: Schema.NullOr(Schema.String),
+				payload: ProviderEntityPopulationPayload,
+			}) satisfies DurableSchema,
 			execute: requests
 				.ensure({
 					payload: input,
@@ -996,16 +1041,20 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 					level: input.level,
 					operation: "population",
 					pluginId: input.pluginId,
+					populationMode: input.mode,
 					providerId: input.providerId,
 					externalId: input.externalId,
+					cooldown: input.manualRefresh,
 					entitySchemaSlug: input.entitySchemaSlug,
 					requester: input.command.accountGeneration,
+					populationPin: populationRequestPin(input.command),
 					workflowName: ProviderEntityPopulationWorkflow._tag,
 					scopeUserId: input.entityScope.type === "user" ? input.entityScope.userId : null,
 				})
 				.pipe(
 					Effect.flatMap((row) =>
 						Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(row.payload).pipe(
+							Effect.map((payload) => ({ payload, joinedTo: row.joinedTo })),
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
@@ -1017,7 +1066,99 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 					),
 				),
 		});
+		const { payload, joinedTo } = retainedRequest;
+		const refreshTranslation = Effect.fnUntraced(function* (entity: ListedEntity) {
+			const accountGeneration = payload.command.accountGeneration;
+			if (payload.translationLanguage && accountGeneration !== null) {
+				const translations = yield* TranslationsService;
+				yield* makeActivity({
+					name: "refresh-current-translation",
+					error: SandboxRunError satisfies DurableSchema,
+					execute: translations
+						.requestFill({
+							accountGeneration,
+							entityId: entity.id,
+							providerId: payload.providerId,
+							externalId: payload.externalId,
+							userId: accountGeneration.userId,
+							lane: payload.command.causation.lane,
+							language: payload.translationLanguage,
+							entitySchemaPluginId: payload.pluginId,
+							entitySchemaSlug: payload.entitySchemaSlug,
+							refreshKey: stableStringify([joinedTo ?? executionId, accountGeneration]),
+						})
+						.pipe(Effect.asVoid),
+				});
+			}
+		});
+		if (joinedTo !== null) {
+			for (let observation = 0; ; observation += 1) {
+				const result = yield* makeActivity({
+					name: `joined-population:${observation}`,
+					error: SandboxRunError satisfies DurableSchema,
+					success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
+					execute: Effect.gen(function* () {
+						const owner = yield* requests.get(joinedTo).pipe(mapDbErrorToSandbox);
+						if (!owner || owner.state === "failed" || owner.state === "cancelled") {
+							yield* requests.update(executionId, {
+								state: "failed",
+								failureKind: owner?.failureKind ?? "infrastructure",
+							});
+							return yield* new SandboxRunError({
+								kind: owner?.failureKind ?? "infrastructure",
+								message: "Shared provider population failed",
+							});
+						}
+						if (owner.state !== "succeeded" || owner.entityId === null) {
+							return null;
+						}
+						const entity = yield* (yield* EntitiesRepository)
+							.getById(EntityId.make(owner.entityId))
+							.pipe(mapDbErrorToSandbox);
+						if (!entity) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Refreshed provider entity is unavailable",
+							});
+						}
+						yield* requests.attachEntity(executionId, entity.id);
+						yield* requests.update(executionId, { failureKind: null, state: "succeeded" });
+						return entity;
+					}),
+				});
+				if (result !== null) {
+					yield* refreshTranslation(result);
+					return result;
+				}
+				yield* DurableClock.sleep({
+					duration: 1000,
+					inMemoryThreshold: 0,
+					name: `joined-population-wait:${observation}`,
+				});
+			}
+		}
+		for (let observation = 0; ; observation += 1) {
+			const claimed = yield* makeActivity({
+				error: SandboxRunError,
+				success: Schema.Boolean,
+				name: `claim-population:${observation}`,
+				execute: requests.claimPopulation(executionId),
+			});
+			if (claimed) {
+				break;
+			}
+			yield* DurableClock.sleep({
+				duration: 1000,
+				inMemoryThreshold: 0,
+				name: `population-queue-wait:${observation}`,
+			});
+		}
 		for (let attempt = 1; attempt <= 3; attempt += 1) {
+			const startedAt = yield* makeActivity({
+				success: Schema.String,
+				name: `population-started:${attempt}`,
+				execute: Effect.map(DateTime.nowAsDate, (now) => now.toISOString()),
+			});
 			yield* makeActivity({
 				name: `population-running:${attempt}`,
 				error: SandboxRunError satisfies DurableSchema,
@@ -1042,8 +1183,10 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 						...payload,
 						executionId: attemptId,
 						requestId: executionId,
+						requestAttempt: attempt,
 						command: {
 							...payload.command,
+							occurredAt: startedAt,
 							causation: {
 								...payload.command.causation,
 								executionId: AutomationExecutionId.make(attemptId),
@@ -1077,6 +1220,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 							Effect.asVoid,
 						),
 				});
+				yield* refreshTranslation(result.success);
 				return result.success;
 			}
 			const failure = result.failure;
@@ -1085,6 +1229,12 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 				failure.data !== undefined ||
 				(failure.kind !== "infrastructure" && failure.kind !== "timeout")
 			) {
+				yield* Effect.logWarning("Provider population failed", {
+					attempt,
+					kind: failure.kind,
+					requestId: executionId,
+					message: failure.message,
+				});
 				yield* makeActivity({
 					name: "population-failed",
 					error: SandboxRunError satisfies DurableSchema,
@@ -1153,6 +1303,10 @@ const sweepRelatedGroupScope = Effect.fn("sweepRelatedGroupScope")(function* (
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sweep-related-entity-group:${payload.groupIndex}:${payload.group.relationshipSchemaSlug}`,
 		execute: sweepRelatedEntityGroup({
+			beforeWrite: (yield* EnrichmentRequests).guardPopulation(
+				payload.requestId,
+				payload.requestAttempt,
+			),
 			...getEntityWriteScope(payload),
 			definitions,
 			group: payload.group,

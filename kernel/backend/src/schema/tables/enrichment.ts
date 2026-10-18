@@ -31,11 +31,15 @@ export const entityEnrichmentRequest = snakeCase.table(
 	{
 		retryOf: text(),
 		language: text(),
+		joinedTo: text(),
+		inputHash: text(),
+		populationPin: text(),
 		id: text().primaryKey(),
 		pluginId: text().notNull(),
 		completedAt: timestamptz(),
 		requesterGeneration: text(),
 		sequence: serial().notNull(),
+		baseCheckedAt: timestamptz(),
 		externalId: text().notNull(),
 		nextAttemptAt: timestamptz(),
 		workflowName: text().notNull(),
@@ -49,6 +53,7 @@ export const entityEnrichmentRequest = snakeCase.table(
 		createdAt: timestamptz().notNull().defaultNow(),
 		observedAt: timestamptz().notNull().defaultNow(),
 		dispatchRoot: boolean().notNull().default(false),
+		populationMode: text().$type<"ensure" | "refresh">(),
 		operation: text().$type<"population" | "translation">().notNull(),
 		entityId: text().references(() => entity.id, { onDelete: "cascade" }),
 		scopeUserId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -60,7 +65,14 @@ export const entityEnrichmentRequest = snakeCase.table(
 	},
 	(table) => [
 		index("entity_enrichment_request_entity_idx").on(table.entityId, table.createdAt),
+		index("entity_enrichment_request_joined_idx").on(table.joinedTo),
 		index("entity_enrichment_request_pending_idx").on(table.state, table.createdAt),
+		index("entity_enrichment_request_target_idx").on(
+			table.providerId,
+			table.externalId,
+			table.scopeUserId,
+			table.sequence,
+		),
 		uniqueIndex("entity_enrichment_request_retry_unique").on(table.retryOf),
 		check("entity_enrichment_request_attempt_check", sql`${table.attempt} between 0 and 3`),
 		check(

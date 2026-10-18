@@ -18,6 +18,9 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { TranslationsService } from "#modules/entities/localization/service";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EventStreamRepository } from "#modules/events/stream-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -98,6 +101,12 @@ const requestLayer = Layer.unwrap(
 			entitySchemaPluginId: PluginId.make(installed.pluginId),
 		};
 		const session = yield* DatabaseSession;
+		const sessionLayer = Layer.succeed(DatabaseSession, session);
+		const entitiesRepositoryLayer = EntitiesRepository.layer.pipe(
+			Layer.provide(
+				Layer.merge(sessionLayer, EventStreamRepository.layer.pipe(Layer.provide(sessionLayer))),
+			),
+		);
 		yield* session.run((db) =>
 			db
 				.insert(tables.entity)
@@ -111,7 +120,7 @@ const requestLayer = Layer.unwrap(
 					populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 				}),
 		);
-		return Layer.merge(
+		return Layer.mergeAll(
 			Layer.succeed(PopulationTarget, {
 				entity: populated,
 				payload: (executionId) => ({
@@ -125,6 +134,8 @@ const requestLayer = Layer.unwrap(
 					Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				),
 			),
+			Layer.mock(TranslationsService)({ requestFill: () => Effect.succeed(false) }),
+			entitiesRepositoryLayer,
 		);
 	}),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
@@ -198,6 +209,7 @@ layer(requestLayer)((test) => {
 			expect(Exit.isFailure(exit)).toBe(true);
 			expect(yield* h.read).toMatchObject({ attempt: 1, state: "running" });
 			expect(h.clocks).toEqual([]);
+			yield* (yield* EnrichmentRequests).update("suspended-child", { state: "cancelled" });
 		}),
 	);
 	test.effect(

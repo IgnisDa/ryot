@@ -57,9 +57,9 @@ import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entities/localization/operations-workflow";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/providers/entity-import-workflow";
 import {
+	EntityEnrichmentServiceLive,
 	EntityImportServiceLive,
 	EntityImportWorkflowOperationsProvidedLive,
-	EntityPopulationRetryServiceLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderEntitySearchServiceLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
@@ -212,7 +212,7 @@ const ServicesLive = Layer.mergeAll(
 	EntitiesServiceRuntimeLive,
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
-	EntityPopulationRetryServiceLive,
+	EntityEnrichmentServiceLive,
 	EventsServiceLive,
 	EventStreamWorkServiceLive.pipe(Layer.provide(EventProjectionBindingsLive)),
 	InstanceAdminServiceLive,

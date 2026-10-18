@@ -494,6 +494,7 @@ const rootPopulationLayer = Layer.unwrap(
 		const payload: ProviderEntityPopulationAttemptPayload = {
 			level: "full",
 			mode: "refresh",
+			requestAttempt: 1,
 			externalId: "record-1",
 			providerId: provider.id,
 			requestId: "population-root",
@@ -510,7 +511,11 @@ const rootPopulationLayer = Layer.unwrap(
 			"population-root",
 		);
 		return Layer.mergeAll(
-			Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
+			Layer.mock(EnrichmentRequests)({
+				attachEntity: () => Effect.void,
+				guardPopulation: () => Effect.void,
+				recordBaseCheck: () => Effect.void,
+			}),
 			transaction.database,
 			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
 			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),

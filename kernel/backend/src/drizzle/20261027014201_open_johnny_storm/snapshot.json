@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "b38b0143-6e46-43c9-949c-24042d2ebcb4",
+	"id": "b43e9d56-8645-49d2-bb3d-b5e2acb1eae7",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -3721,6 +3721,45 @@
 		{
 			"type": "text",
 			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "joined_to",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "input_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "population_pin",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -3779,6 +3818,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "sequence",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "base_checked_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity_enrichment_request"
@@ -3948,6 +4000,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "dispatch_root",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "population_mode",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity_enrichment_request"
@@ -12147,6 +12212,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "joined_to",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_enrichment_request_joined_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "state",
 					"isExpression": false,
 					"asc": true,
@@ -12167,6 +12253,48 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "entity_enrichment_request_pending_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity_enrichment_request"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "scope_user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "sequence",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_enrichment_request_target_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "entity_enrichment_request"

@@ -86,6 +86,7 @@ const populationBatch = (population: AutomationPopulationContext, id: string) =>
 
 export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneration")(
 	function* (input: {
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
 		generation: string;
 		startedAt: Date;
 		pluginId: PluginId;
@@ -101,15 +102,18 @@ export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneratio
 			input.group.relationshipSchemaSlug,
 		);
 		yield* session.transaction(
-			repository.claimRelationshipSyncGeneration(
-				{
-					direction: input.group.direction,
-					anchorEntityId: input.primaryEntityId,
-					relationshipSchemaSlug: relationshipSchema.id,
-					relationshipSchemaPluginId: relationshipSchema.pluginId,
-				},
-				input.generation,
-				input.startedAt,
+			Effect.andThen(
+				input.beforeWrite ?? Effect.void,
+				repository.claimRelationshipSyncGeneration(
+					{
+						direction: input.group.direction,
+						anchorEntityId: input.primaryEntityId,
+						relationshipSchemaSlug: relationshipSchema.id,
+						relationshipSchemaPluginId: relationshipSchema.pluginId,
+					},
+					input.generation,
+					input.startedAt,
+				),
 			),
 		);
 	},
@@ -117,6 +121,7 @@ export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneratio
 
 export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (
 	input: {
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
 		generation: string;
 		groupIndex: number;
 		pluginId: PluginId;
@@ -142,6 +147,7 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 	return yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
+				yield* input.beforeWrite ?? Effect.void;
 				const holds = yield* repository.holdsRelationshipSyncGeneration(
 					{
 						direction: input.group.direction,
@@ -184,6 +190,7 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
 		command: DomainLifecycleCommand;
 		pluginId: PluginId;
 		definitions: EntityRelationshipDefinitions;
@@ -315,6 +322,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
+				yield* input.beforeWrite ?? Effect.void;
 				if (!(yield* relationships.holdsRelationshipSyncGeneration(groupKey, paging.generation))) {
 					return { result: [], superseded: true, entityDispatch: [], relationshipDispatch: [] };
 				}

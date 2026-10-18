@@ -209,9 +209,16 @@ layer(dependencies)((test) => {
 				Effect.gen(function* () {
 					const h = yield* harness({ interleave: true });
 					const input = { ...h.input, ...(retryOf === undefined ? {} : { retryOf }) };
-					const first = yield* Effect.forkChild(h.translations.requestFill(input));
+					const first = yield* Effect.forkChild(
+						h.translations.requestFill({ ...input, ...(retryOf ? { refreshKey: "first" } : {}) }),
+					);
 					yield* Deferred.await(h.entered);
-					expect(yield* h.translations.requestFill(input)).toBe(true);
+					expect(
+						yield* h.translations.requestFill({
+							...input,
+							...(retryOf ? { refreshKey: "second" } : {}),
+						}),
+					).toBe(true);
 					const winner = h.dispatches[0];
 					assert(winner);
 					expect(yield* h.requests.get(winner)).toMatchObject({ state: "running" });

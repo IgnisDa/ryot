@@ -1,27 +1,31 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
+	EntityEnrichmentRefused,
 	EntityNotFound,
-	EntityPopulationRetryRefused,
-	type RetryEntityPopulationResult,
+	type RequestEntityEnrichmentBody,
+	type RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
-import type { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
-import { generateId } from "better-auth";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { explicitTranslationExecutionId } from "#modules/entities/localization/entity-translation-workflow";
 import { TranslationsService } from "#modules/entities/localization/service";
 import {
+	entityPopulationExecutionId,
 	EntityPopulationTrigger,
 	userPopulationRequest,
 } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 
-const refused = (code: EntityPopulationRetryRefused["reason"]["code"]) =>
-	new EntityPopulationRetryRefused({ reason: { code } });
+const refused = (code: EntityEnrichmentRefused["reason"]["code"]) =>
+	new EntityEnrichmentRefused({ reason: { code } });
 
-export class EntityPopulationRetryService extends Context.Service<EntityPopulationRetryService>()(
-	"EntityPopulationRetryService",
+export class EntityEnrichmentService extends Context.Service<EntityEnrichmentService>()(
+	"EntityEnrichmentService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* EntitiesRepository;
@@ -30,13 +34,13 @@ export class EntityPopulationRetryService extends Context.Service<EntityPopulati
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const trigger = yield* EntityPopulationTrigger;
 
-			const retry = Effect.fn("EntityPopulationRetryService.retry")(
-				function* (input: {
-					readonly entityId: EntityId;
-					readonly pluginId: PluginId;
-					readonly operation: "population" | "translation";
-					readonly user: CurrentUserValue;
-				}) {
+			const request = Effect.fn("EntityEnrichmentService.request")(
+				function* (
+					input: typeof RequestEntityEnrichmentBody.Type & {
+						readonly entityId: EntityId;
+						readonly user: CurrentUserValue;
+					},
+				) {
 					const { user } = input;
 					const entity = yield* repository.getByIdForUser({
 						userId: user.id,
@@ -70,6 +74,30 @@ export class EntityPopulationRetryService extends Context.Service<EntityPopulati
 							? { language: user.preferences.language }
 							: {}),
 					};
+					const inputHash = sha256Hex(stableStringify({ ...input, user: user.accountGeneration }));
+					const attempt = sha256Hex(
+						stableStringify([user.accountGeneration, input.idempotencyKey]),
+					);
+					const execution = {
+						attempt,
+						level: "full" as const,
+						mode: "refresh" as const,
+						manualRefresh: input.action === "refresh",
+						...(user.preferences.language
+							? { translationLanguage: user.preferences.language }
+							: {}),
+					};
+					const executionId =
+						input.operation === "population"
+							? entityPopulationExecutionId(entity.id, user.accountGeneration, execution)
+							: explicitTranslationExecutionId(entity.id, user.preferences.language ?? "", attempt);
+					const previous = yield* requests.get(executionId);
+					if (previous) {
+						if (previous.inputHash !== inputHash) {
+							return yield* refused("request-mismatch");
+						}
+						return { enrichmentRequestId: previous.id } satisfies RequestEntityEnrichmentResult;
+					}
 					const latestForOperation = yield* requests.latest(selection);
 					const latestFull =
 						input.operation === "population"
@@ -81,29 +109,37 @@ export class EntityPopulationRetryService extends Context.Service<EntityPopulati
 						(latestFull?.state === "failed" || latestFull?.state === "cancelled")
 							? latestFull
 							: latestForOperation;
-					if (!latest || (latest.state !== "failed" && latest.state !== "cancelled")) {
-						return { retried: false } satisfies RetryEntityPopulationResult;
+					if (
+						input.action === "retry" &&
+						(!latest || (latest.state !== "failed" && latest.state !== "cancelled"))
+					) {
+						return { enrichmentRequestId: null } satisfies RequestEntityEnrichmentResult;
 					}
 					if (input.operation === "translation") {
 						const language = user.preferences.language;
 						if (language === null) {
-							return { retried: false } satisfies RetryEntityPopulationResult;
+							return { enrichmentRequestId: null } satisfies RequestEntityEnrichmentResult;
 						}
-						const retried = yield* translations.requestFill({
+						yield* translations.requestFill({
 							language,
+							inputHash,
 							externalId,
 							providerId,
 							userId: user.id,
-							retryOf: latest.id,
+							refreshKey: attempt,
+							...(input.action === "retry" && latest ? { retryOf: latest.id } : {}),
 							entityId: entity.id,
 							lane: "interactive",
 							entitySchemaSlug: entity.entitySchemaSlug,
 							accountGeneration: user.accountGeneration,
 							entitySchemaPluginId: entity.entitySchemaPluginId,
 						});
-						return { retried } satisfies RetryEntityPopulationResult;
+						const admitted = yield* requests.get(executionId);
+						return {
+							enrichmentRequestId: admitted?.id ?? null,
+						} satisfies RequestEntityEnrichmentResult;
 					}
-					const retried = yield* trigger.request(
+					yield* trigger.request(
 						yield* userPopulationRequest({
 							providerId,
 							externalId,
@@ -112,16 +148,27 @@ export class EntityPopulationRetryService extends Context.Service<EntityPopulati
 							accountGeneration: user.accountGeneration,
 							entitySchemaSlug: entity.entitySchemaSlug,
 							entitySchemaPluginId: entity.entitySchemaPluginId,
-							userId: latest.scopeUserId === null ? null : user.id,
-							execution: { level: "full", retryOf: latest.id, attempt: generateId() },
+							userId: provider.pluginScope === "system" ? null : user.id,
+							execution: {
+								...execution,
+								inputHash,
+								...(input.action === "retry" && latest ? { retryOf: latest.id } : {}),
+							},
 						}),
 					);
-					return { retried } satisfies RetryEntityPopulationResult;
+					const admitted = yield* requests.get(executionId);
+					return {
+						enrichmentRequestId: admitted?.id ?? null,
+					} satisfies RequestEntityEnrichmentResult;
 				},
-				Effect.catchTag("SandboxRunError", Effect.die),
+				Effect.catchTag("SandboxRunError", (error) =>
+					error.kind === "resource-unavailable" && error.data?.code === "execution-limit"
+						? Effect.fail(refused("backlog-full"))
+						: Effect.die(error),
+				),
 			);
 
-			return { retry };
+			return { request };
 		}),
 	},
 ) {

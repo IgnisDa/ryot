@@ -8,12 +8,12 @@ import { EntityEditorRefused, EntityEditorSaveRequest, EntityEditorSaveResult } 
 import {
 	CreateEntityBody,
 	EntityBadRequest,
+	EntityEnrichmentRefused,
 	EntityMutationResult,
 	EntityNotFound,
-	EntityPopulationRetryRefused,
 	EntityStale,
-	RetryEntityPopulationBody,
-	RetryEntityPopulationResult,
+	RequestEntityEnrichmentBody,
+	RequestEntityEnrichmentResult,
 } from "./schemas";
 
 export const EntitiesGroup = HttpApiGroup.make("entities")
@@ -47,20 +47,20 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("allowed")(
-			"retryPopulation",
-			"/entities/:entityId/population/retry",
+			"requestEnrichment",
+			"/entities/:entityId/enrichment",
 			{
 				params: { entityId: EntityId },
-				payload: RetryEntityPopulationBody,
-				success: RetryEntityPopulationResult,
+				payload: RequestEntityEnrichmentBody,
+				success: RequestEntityEnrichmentResult,
 				error: [
 					EntityNotFound.pipe(HttpApiSchema.status(404)),
-					EntityPopulationRetryRefused.pipe(HttpApiSchema.status(409)),
+					EntityEnrichmentRefused.pipe(HttpApiSchema.status(409)),
 				],
 			},
 		).annotate(
 			OpenApi.Description,
-			"Retry population or translation for a visible provider entity.",
+			"Refresh provider data or retry enrichment for a visible entity.",
 		),
 	)
 	.middleware(AuthMiddleware);

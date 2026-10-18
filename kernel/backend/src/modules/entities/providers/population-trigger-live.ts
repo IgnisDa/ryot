@@ -8,6 +8,7 @@ import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import {
 	entityPopulationExecutionId,
 	EntityPopulationTrigger,
+	populationRequestPin,
 } from "#modules/entities/population-trigger";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -76,7 +77,11 @@ export const EntityPopulationTriggerLive = Layer.effect(
 									providerId: input.providerId,
 									entitySchemaSlug: input.entitySchemaSlug,
 									pluginId: PluginId.make(provider.pluginId),
-									mode: input.execution.retryOf ? "refresh" : "ensure",
+									mode: input.execution.mode ?? (input.execution.retryOf ? "refresh" : "ensure"),
+									...(input.execution.translationLanguage
+										? { translationLanguage: input.execution.translationLanguage }
+										: {}),
+									...(input.execution.manualRefresh ? { manualRefresh: true } : {}),
 									entityScope:
 										command.writeContext?.pluginRevision?.scope === "user" && input.userId
 											? { type: "user", userId: input.userId }
@@ -90,11 +95,15 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								operation: "population",
 								entityId: input.entityId,
 								pluginId: provider.pluginId,
+								populationMode: payload.mode,
 								providerId: input.providerId,
 								externalId: input.externalId,
 								level: input.execution.level,
+								cooldown: payload.manualRefresh,
+								inputHash: input.execution.inputHash,
 								entitySchemaSlug: input.entitySchemaSlug,
 								requester: input.command.accountGeneration,
+								populationPin: populationRequestPin(command),
 								workflowName: ProviderEntityPopulationWorkflow._tag,
 								scopeUserId:
 									payload.entityScope.type === "user" ? payload.entityScope.userId : null,
@@ -187,7 +196,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 							),
 					);
 					return admitted.request.id === executionId;
-				}).pipe(Effect.orDie),
+				}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 		};
 	}),
 );
