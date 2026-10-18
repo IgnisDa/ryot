@@ -19,37 +19,24 @@ import type {
 } from "../../shared/workout-editor-draft";
 import type { resolveWorkoutLocalPreferences } from "../../shared/workout-editor-preferences";
 import { changeWorkoutEnergyUnit } from "./actions";
-import { activeDurationSeconds, formatEditorSeconds } from "./session-timers";
+import { formatEditorSeconds } from "./clock";
+import { isTemplateDraft, type DraftChange } from "./draft-ops";
+import { EditorSheet } from "./editor-sheet";
+import { activeDurationSeconds } from "./timers";
 
-type DraftChange = (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
-
-type SheetProps = {
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
+export function WorkoutDetailsSheet(props: {
+	readonly disabled: boolean;
+	readonly draft: WorkoutEditorDraft;
+	readonly onChange: DraftChange;
 	readonly onClose: () => void;
-};
-
-const closeIcon = <AppIcon name="x" size={18} />;
-
-const isTemplateDraft = (draft: WorkoutEditorDraft) =>
-	draft.mode.kind === "template-create" || draft.mode.kind === "template-edit";
-
-export function WorkoutDetailsSheet(
-	props: SheetProps & {
-		readonly disabled: boolean;
-		readonly draft: WorkoutEditorDraft;
-		readonly onChange: DraftChange;
-	},
-) {
+}) {
 	const { draft, onChange } = props;
 	const template = isTemplateDraft(draft);
 	return (
-		<Dialog
-			closeIcon={closeIcon}
+		<EditorSheet
+			wide="side"
 			onClose={props.onClose}
 			closeLabel="Close details"
-			safeAreaBottom={props.safeAreaBottom}
-			placement={props.compact ? "sheet" : "side"}
 			footer={<Button onClick={props.onClose}>Done</Button>}
 			title={template ? "Template details" : "Workout details"}
 		>
@@ -105,18 +92,17 @@ export function WorkoutDetailsSheet(
 					</Field>
 				)}
 			</fieldset>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
-export function WorkoutPreferencesSheet(
-	props: SheetProps & {
-		readonly pro: boolean;
-		readonly disabled: boolean;
-		readonly onChange: DraftChange;
-		readonly preferences: ReturnType<typeof resolveWorkoutLocalPreferences>;
-	},
-) {
+export function WorkoutPreferencesSheet(props: {
+	readonly pro: boolean;
+	readonly disabled: boolean;
+	readonly onClose: () => void;
+	readonly onChange: DraftChange;
+	readonly preferences: ReturnType<typeof resolveWorkoutLocalPreferences>;
+}) {
 	const set = (key: keyof WorkoutEditorLocalPreferences, value: boolean) =>
 		props.onChange((draft) => ({
 			...draft,
@@ -143,14 +129,11 @@ export function WorkoutPreferencesSheet(
 		/>
 	);
 	return (
-		<Dialog
-			closeIcon={closeIcon}
+		<EditorSheet
 			onClose={props.onClose}
 			title="Workout preferences"
 			closeLabel="Close preferences"
-			safeAreaBottom={props.safeAreaBottom}
 			description="Apply to this workout only."
-			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button
@@ -189,19 +172,18 @@ export function WorkoutPreferencesSheet(
 					"Count down the target time before completing",
 				)}
 			</RowGroup>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
-export function FinishReview(
-	props: SheetProps & {
-		readonly now: number;
-		readonly saving: boolean;
-		readonly draft: WorkoutEditorDraft;
-		readonly names: ReadonlyMap<string, string>;
-		readonly onSave: () => void;
-	},
-) {
+export function FinishReview(props: {
+	readonly now: number;
+	readonly saving: boolean;
+	readonly onSave: () => void;
+	readonly onClose: () => void;
+	readonly draft: WorkoutEditorDraft;
+	readonly names: ReadonlyMap<string, string>;
+}) {
 	const { draft } = props;
 	const template = isTemplateDraft(draft);
 	const historical = draft.mode.kind === "historical";
@@ -221,14 +203,11 @@ export function FinishReview(
 	}
 	const active = activeDurationSeconds(draft, props.now);
 	return (
-		<Dialog
+		<EditorSheet
 			title={title}
-			closeIcon={closeIcon}
 			onClose={props.onClose}
 			closeLabel="Close review"
 			dismissible={!props.saving}
-			safeAreaBottom={props.safeAreaBottom}
-			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button variant="secondary" disabled={props.saving} onClick={props.onClose}>
@@ -315,7 +294,7 @@ export function FinishReview(
 					</RowGroup>
 				)}
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
@@ -331,6 +310,7 @@ export function ConfirmDialog(props: {
 	return (
 		<Dialog
 			size="sm"
+			closeIcon={null}
 			title={props.title}
 			onClose={props.onClose}
 			closeLabel={props.cancelLabel}

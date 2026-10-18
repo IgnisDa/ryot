@@ -8,7 +8,9 @@ import {
 	milesToKilometers,
 	poundsToKilograms,
 } from "../../shared/workout-units";
-import { activeDurationSeconds, formatEditorSeconds } from "./session-timers";
+import { formatEditorSeconds } from "./clock";
+import { isTemplateDraft } from "./draft-ops";
+import { activeDurationSeconds } from "./timers";
 
 const quantity = (text: string | undefined) =>
 	text !== undefined && text.trim() !== "" && Number.isFinite(Number(text)) && Number(text) >= 0
@@ -48,7 +50,7 @@ export function EditorStats(props: {
 		0,
 	);
 	const active = activeDurationSeconds(draft, props.now);
-	const template = draft.mode.kind === "template-create" || draft.mode.kind === "template-edit";
+	const template = isTemplateDraft(draft);
 	const total = draft.occurrences.reduce((count, { sets }) => count + sets.length, 0);
 	const done = included.reduce((count, { sets }) => count + sets.length, 0);
 	const stats: { readonly label: string; readonly value: string; readonly unit?: string }[] =

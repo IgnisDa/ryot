@@ -5,7 +5,6 @@ import {
 	buildExerciseGroups,
 	buildTimeline,
 	countMuscleSets,
-	setLabels,
 	summarizeWorkout,
 } from "./details-model";
 
@@ -76,18 +75,6 @@ describe("workout details model", () => {
 			["repeated", undefined],
 		]);
 		expect(summarizeWorkout(workout, groups).volumeDelta).toBe(425);
-	});
-
-	it("letters warm-up, drop and failure sets and numbers only the others", () => {
-		expect(
-			setLabels([
-				workoutSet({ setLot: "warm_up" }),
-				workoutSet({ setLot: "normal" }),
-				workoutSet({ setLot: "drop" }),
-				workoutSet({ setLot: "normal" }),
-				workoutSet({ setLot: "failure" }),
-			]),
-		).toEqual(["W", "1", "D", "2", "F"]);
 	});
 
 	it("summarises totals, records and rest across all sets", () => {

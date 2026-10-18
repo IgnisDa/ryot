@@ -1,5 +1,4 @@
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
-import { DateTime } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useState } from "react";
 
@@ -8,45 +7,44 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
+import { toIso } from "./clock";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { readPreviousSets } from "./queries";
 
-type PreviousSetsInput = Parameters<typeof readPreviousSets>[1] & { readonly count: number };
+type PreviousSetsQuery = ReturnType<typeof previousSetsInput> & { readonly count: number };
 
 const previousSetsQuery = createRyotQuery(
-	({ input, client }: { readonly client: RyotClient; readonly input: PreviousSetsInput }) =>
+	({ input, client }: { readonly client: RyotClient; readonly input: PreviousSetsQuery }) =>
 		readPreviousSets(client, input, input.count),
 );
 
-const previousSetsInput = (
+export const previousSetsInput = (
 	draft: WorkoutEditorDraft,
 	occurrence: WorkoutEditorOccurrence,
 	fallbackStartedAt: string,
-) => {
-	const last = occurrence.sets.at(-1);
-	return {
-		exerciseId: occurrence.exerciseId,
-		recordedKind: occurrence.exerciseKind,
-		beforeStartedAt: draft.startedAt ?? fallbackStartedAt,
-		excludeWorkoutId: draft.mode.kind === "historical" ? draft.mode.entityId : "",
-		count:
-			last === undefined
-				? 0
-				: previousSetIndex(draft.occurrences, occurrence.clientId, last.clientId) + 1,
-	};
-};
+) => ({
+	exerciseId: occurrence.exerciseId,
+	recordedKind: occurrence.exerciseKind,
+	beforeStartedAt: draft.startedAt ?? fallbackStartedAt,
+	excludeWorkoutId: draft.mode.kind === "historical" ? draft.mode.entityId : "",
+});
 
 export const usePreviousSets = (
 	draft: WorkoutEditorDraft,
 	occurrence: WorkoutEditorOccurrence,
 ): ReadonlyMap<string, WorkoutEditorSet> => {
 	const schedule = useRyotSchedule();
-	const [fallbackStartedAt] = useState(() =>
-		DateTime.formatIso(DateTime.makeUnsafe(schedule.now())),
-	);
+	const [fallbackStartedAt] = useState(() => toIso(schedule.now()));
+	const last = occurrence.sets.at(-1);
 	const result = useRyotQuery(
 		previousSetsQuery,
-		previousSetsInput(draft, occurrence, fallbackStartedAt),
+		{
+			...previousSetsInput(draft, occurrence, fallbackStartedAt),
+			count:
+				last === undefined
+					? 0
+					: previousSetIndex(draft.occurrences, occurrence.clientId, last.clientId) + 1,
+		},
 		{ refreshOnMutation: false },
 	);
 	const [lastRows, setLastRows] = useState(result.data);

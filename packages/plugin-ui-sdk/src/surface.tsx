@@ -12,7 +12,7 @@ export function Card({
 	padding = "md",
 	...props
 }: ComponentProps<"div"> & {
-	readonly groupColor?: GroupColor;
+	readonly groupColor?: GroupColor | undefined;
 	readonly padding?: keyof typeof cardPadding;
 }) {
 	return (

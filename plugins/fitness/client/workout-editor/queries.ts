@@ -1,4 +1,4 @@
-import { RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
+import { readCursorPages, RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
@@ -10,43 +10,16 @@ import {
 	workoutEditorExercisesRecipe,
 	workoutEditorMembershipRecipe,
 	workoutEditorSetsRecipe,
+	WORKOUT_EDITOR_PAGE_SIZE,
 	type WorkoutEditorExercise,
 } from "../../shared/workout-editor-recipes";
 import { hydrateWorkoutEditorSource } from "../../shared/workout-editor-source";
-import type { WorkoutExercisePickerResult } from "../../shared/workout-exercise-recipes";
 import {
 	workoutExercisePreviousValuesRecipe,
 	workoutHistoryRecipe,
 	workoutHistorySetsRecipe,
-	type WorkoutExercisePreviousValuesResult,
 } from "../../shared/workout-history-recipes";
-
-export const readEditorPages = <A>(
-	read: (
-		after?: string,
-	) => Effect.Effect<
-		{ readonly items: readonly A[]; readonly pageInfo: WorkoutExercisePickerResult["pageInfo"] },
-		RyotClientError
-	>,
-) =>
-	Effect.gen(function* () {
-		const items: A[] = [];
-		const cursors = new Set<string>();
-		let after: string | undefined;
-		for (;;) {
-			const page = yield* read(after);
-			items.push(...page.items);
-			if (!page.pageInfo.hasMore) {
-				return items;
-			}
-			const next = page.pageInfo.nextCursor;
-			if (next === null || cursors.has(next)) {
-				return yield* new RyotClientError("malformed-result");
-			}
-			cursors.add(next);
-			after = next;
-		}
-	});
+import type { PagedInput } from "./use-cursor-pages";
 
 export const readEditorExercises = Effect.fnUntraced(function* (
 	client: RyotClient,
@@ -58,17 +31,16 @@ export const readEditorExercises = Effect.fnUntraced(function* (
 	const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	const exercises: WorkoutEditorExercise[] = [];
 	for (let offset = 0; offset < exerciseIds.length; offset += 100) {
-		exercises.push(
-			...(yield* readEditorPages((after) =>
-				client.data.query(
-					workoutEditorExercisesRecipe({
-						after,
-						reference,
-						exerciseIds: exerciseIds.slice(offset, offset + 100),
-					}),
-				),
-			)),
+		const page = yield* readCursorPages((after) =>
+			client.data.query(
+				workoutEditorExercisesRecipe({
+					after,
+					reference,
+					exerciseIds: exerciseIds.slice(offset, offset + 100),
+				}),
+			),
 		);
+		exercises.push(...page.items);
 	}
 	return yield* Effect.forEach(
 		exercises,
@@ -80,17 +52,17 @@ export const readEditorExercises = Effect.fnUntraced(function* (
 				const overrides = yield* Schema.decodeEffect(WorkoutExerciseOverridesSchema)(
 					membership?.properties ?? {},
 				).pipe(Effect.mapError(() => new RyotClientError("malformed-result")));
-				const targets = yield* readEditorPages((after) =>
+				const targets = yield* readCursorPages((after) =>
 					client.data.query(
 						exerciseTargetsRecipe({ after, reference, limit: 100, exerciseId: exercise.id }),
 					),
 				);
-				const equipment = yield* readEditorPages((after) =>
+				const equipment = yield* readCursorPages((after) =>
 					client.data.query(
 						exerciseEquipmentRecipe({ after, reference, limit: 100, exerciseId: exercise.id }),
 					),
 				);
-				return { ...exercise, targets, overrides, equipment };
+				return { ...exercise, overrides, targets: targets.items, equipment: equipment.items };
 			}),
 		{ concurrency: 4 },
 	);
@@ -129,11 +101,11 @@ export const loadEditorSource = Effect.fnUntraced(function* (
 	}
 	const sets =
 		input.kind === "workout"
-			? yield* readEditorPages((after) =>
+			? (yield* readCursorPages((after) =>
 					client.data.query(
 						workoutEditorSetsRecipe({ after, reference, workoutId: input.entityId }),
 					),
-				)
+				)).items
 			: [];
 	const templateExerciseProperties: unknown = entity.properties["exercises"];
 	const sourceIds =
@@ -155,7 +127,9 @@ export const editorHistoryQuery = createRyotQuery(
 		client,
 	}: {
 		readonly client: RyotClient;
-		readonly input: Omit<Parameters<typeof workoutHistoryRecipe>[0], "reference">;
+		readonly input: PagedInput<
+			Omit<Parameters<typeof workoutHistoryRecipe>[0], "reference" | "after">
+		>;
 	}) =>
 		client.data.query(
 			workoutHistoryRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
@@ -167,7 +141,7 @@ export const readHistorySets = Effect.fnUntraced(function* (
 	workoutId: string,
 	exerciseId: string,
 ) {
-	return yield* readEditorPages((after) =>
+	const { items } = yield* readCursorPages((after) =>
 		client.data.query(
 			workoutHistorySetsRecipe({
 				after,
@@ -177,6 +151,7 @@ export const readHistorySets = Effect.fnUntraced(function* (
 			}),
 		),
 	);
+	return items;
 });
 
 export const readPreviousSets = Effect.fnUntraced(function* (
@@ -184,27 +159,16 @@ export const readPreviousSets = Effect.fnUntraced(function* (
 	input: Omit<Parameters<typeof workoutExercisePreviousValuesRecipe>[0], "reference" | "after">,
 	count: number,
 ) {
-	const sets: WorkoutExercisePreviousValuesResult["items"][number][] = [];
-	const cursors = new Set<string>();
-	let after: string | undefined;
-	while (sets.length < count) {
-		const page = yield* client.data.query(
-			workoutExercisePreviousValuesRecipe({
-				...input,
-				after,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		);
-		sets.push(...page.items);
-		if (!page.pageInfo.hasMore) {
-			break;
-		}
-		const next = page.pageInfo.nextCursor;
-		if (next === null || cursors.has(next)) {
-			return yield* new RyotClientError("malformed-result");
-		}
-		cursors.add(next);
-		after = next;
-	}
-	return sets.slice(0, count);
+	const { items } = yield* readCursorPages(
+		(after) =>
+			client.data.query(
+				workoutExercisePreviousValuesRecipe({
+					...input,
+					after,
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+				}),
+			),
+		{ maxPages: Math.ceil(count / WORKOUT_EDITOR_PAGE_SIZE) },
+	);
+	return items.slice(0, count);
 });

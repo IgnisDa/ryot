@@ -1,102 +1,33 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { Deferred, Fiber } from "effect";
 
 import {
-	WorkoutEditorDraftSchema,
 	decodeWorkoutEditorDraft,
 	encodeWorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
-import { WorkoutPreferenceSettingsSchema } from "../../shared/workout-editor-preferences";
-import { createWorkoutEditorController } from "./controller";
+import { controllerHarness } from "../../tests/client/controller-harness";
+import { exerciseOccurrence, liveDraft } from "../../tests/client/draft-fixtures";
 import { removeDraftMedia } from "./media-state";
 
 const asset: ManagedAssetLocator = { type: "local", key: "permanent/new-image.jpg" };
 const existing: ManagedAssetLocator = { type: "s3", key: "permanent/saved.jpg" };
 const now = "2026-10-16T10:00:00.000Z";
 const initial = () =>
-	Schema.decodeSync(WorkoutEditorDraftSchema)({
-		videos: [],
-		supersets: [],
+	liveDraft({
 		startedAt: now,
 		name: "Workout",
-		draftId: "draft-1",
 		images: [existing],
-		mode: { kind: "live" },
-		displayEnergyUnit: "kcal",
-		activeDurationIntent: "set",
-		kind: "fitness-workout-editor",
-		occurrences: [
-			{
-				sets: [],
-				notes: [],
-				images: [],
-				videos: [],
-				isCollapsed: false,
-				exerciseKind: "reps",
-				clientId: "occurrence-1",
-				exerciseId: "exercise-1",
-			},
-		],
+		occurrences: [{ ...exerciseOccurrence("reps"), sets: [] }],
 	});
-const fixture = (
-	options: {
-		readonly upload?: () => Effect.Effect<ManagedAssetLocator, RyotClientError>;
-		readonly cleanupFails?: boolean;
-		readonly writeFails?: () => boolean;
-		readonly stored?: unknown;
-		readonly pro?: boolean;
-	} = {},
-) => {
-	let stored: unknown = options.stored ?? null;
-	const cleaned: ManagedAssetLocator[] = [];
-	const controller = createWorkoutEditorController({
-		foreground: () => true,
+const fixture = (options: Parameters<typeof controllerHarness>[0] = {}) =>
+	controllerHarness({
+		upload: () => Effect.succeed(asset),
 		now: Effect.succeed(Date.parse(now)),
-		upload: options.upload ?? (() => Effect.succeed(asset)),
-		cleanup: (locator) =>
-			Effect.sync(() => {
-				cleaned.push(locator);
-			}).pipe(
-				Effect.flatMap(() =>
-					options.cleanupFails
-						? Effect.fail(new RyotClientError("transport"))
-						: Effect.succeed({ status: "deleted" as const }),
-				),
-			),
-		storage: {
-			read: Effect.sync(() => stored),
-			remove: Effect.sync(() => {
-				stored = null;
-			}),
-			write: (value) =>
-				Effect.gen(function* () {
-					if (options.writeFails?.()) {
-						return yield* Effect.fail("quota");
-					}
-					stored = value;
-					return undefined;
-				}),
-		},
-		refreshContext: Effect.succeed({
-			proAvailable: options.pro ?? true,
-			settings: Schema.decodeSync(WorkoutPreferenceSettingsSchema)({
-				dropRestTime: 0,
-				muteSounds: true,
-				warmUpRestTime: 0,
-				failureRestTime: 0,
-				normalRestTime: 60,
-				energyUnit: "kcal",
-				unitSystem: "metric",
-				promptForRestTimer: false,
-				startTimerForDurationExercises: true,
-			}),
-		}),
+		...options,
 	});
-	return { cleaned, controller, read: () => stored };
-};
 
 describe("workout media lifecycle", () => {
 	it.effect("persists completed uploads and recovers them without signed URLs or bytes", () =>
@@ -155,7 +86,7 @@ describe("workout media lifecycle", () => {
 	it.effect("does not clean a removed upload until the removal is persisted", () =>
 		Effect.gen(function* () {
 			let fail = false;
-			const state = fixture({ writeFails: () => fail });
+			const state = fixture({ onWrite: () => (fail ? Effect.fail("quota") : Effect.void) });
 			yield* state.controller.load();
 			yield* state.controller.start(initial());
 			yield* state.controller.uploadMedia(
@@ -185,7 +116,7 @@ describe("workout media lifecycle", () => {
 	it.effect("keeps work in memory when upload persistence fails", () =>
 		Effect.gen(function* () {
 			let fail = false;
-			const state = fixture({ writeFails: () => fail });
+			const state = fixture({ onWrite: () => (fail ? Effect.fail("quota") : Effect.void) });
 			yield* state.controller.load();
 			yield* state.controller.start(initial());
 			fail = true;

@@ -8,24 +8,24 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
+import { supersetColor } from "../../shared/superset-colors";
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
-import { managedAssetBatch, useAssetUrl } from "../asset-urls";
+import { durationDisplayUnit } from "../../shared/workout-units";
+import { AssetArtWell, managedAssetBatch } from "../asset-urls";
 import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
+import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
-import { exerciseArtwork } from "../workout-editor/exercise-card";
 import {
 	editorExercisesQuery,
 	loadEditorSource,
 	type EditorExercise,
 } from "../workout-editor/queries";
-import { setLotTags } from "../workout-editor/set-grid";
 import { supersetNames } from "../workout-editor/superset-group";
-import { formatClock, formatSetMain } from "../workout/format";
+import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";
 
 const templateQuery = createRyotQuery(
 	({ input, client }: { readonly client: RyotClient; readonly input: string }) =>
@@ -94,7 +94,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	return (
 		<PluginScreenFrame hideTitle title={draft.name}>
 			<ManagedAssetProvider
-				assets={managedAssetBatch(exercises.data.map((exercise) => exerciseArtwork(exercise)))}
+				assets={managedAssetBatch(exercises.data.map((exercise) => exercise.images?.[0]))}
 			>
 				<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 font-ui">
 					<header
@@ -196,42 +196,32 @@ function PlannedExercise(props: {
 	readonly group: { readonly name: string; readonly color: string } | undefined;
 }) {
 	const { exercise, occurrence } = props;
-	const artwork = exerciseArtwork(exercise);
-	const url = useAssetUrl(artwork);
 	const name = exercise?.name ?? "Exercise unavailable";
 	const notes = occurrence.notes.join("\n").trim();
-	const meta = [
-		exercise?.targets.map(({ name: target }) => target).join(", "),
-		exercise?.equipment.map(({ name: equipment }) => equipment).join(", "),
-	].filter((part) => part !== undefined && part !== "");
+	const meta = exercise === undefined ? "" : formatExerciseMeta(exercise);
+	const labels = setLabels(occurrence.sets.map(({ setLot }) => setLot));
 	return (
 		<Card
 			padding="none"
 			className="min-w-0 overflow-hidden"
-			style={
-				props.group === undefined
-					? undefined
-					: { boxShadow: `inset 3px 0 0 ${supersetColorVariable(props.group.color)}` }
-			}
+			groupColor={props.group === undefined ? undefined : supersetColor(props.group.color)}
 		>
 			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
-				<EntityArtWell
-					url={url}
-					monogram={name}
-					shape="rounded"
-					state={artwork === undefined ? "absent" : "ready"}
+				<AssetArtWell
+					name={name}
+					asset={exercise?.images?.[0]}
 					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
 				/>
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<h3 className="text-[16px] font-semibold text-text [overflow-wrap:anywhere]">{name}</h3>
 					<p className="text-[13px] text-text-muted">
-						{[...meta].join(" · ")}
+						{meta}
 						{props.group === undefined ? null : (
 							<span
 								className="font-semibold"
 								style={{ color: supersetColorVariable(props.group.color) }}
 							>
-								{meta.length === 0 ? "" : " · "}
+								{meta === "" ? "" : " · "}
 								{props.group.name}
 							</span>
 						)}
@@ -250,17 +240,14 @@ function PlannedExercise(props: {
 			) : (
 				<ol aria-label={`Planned sets for ${name}`}>
 					{occurrence.sets.map((set, index) => {
-						const tag = setLotTags[set.setLot];
-						const ordinal = occurrence.sets
-							.slice(0, index + 1)
-							.filter(({ setLot }) => setLot !== "warm_up").length;
+						const lot = setLots[set.setLot];
 						return (
 							<li
 								key={set.clientId}
 								className="grid grid-cols-[2rem_minmax(0,1fr)] items-baseline gap-x-2 border-t border-border px-4 py-2.5 text-[15px]"
 							>
-								<span className={clsx("text-[13px] font-semibold", tag?.tone ?? "text-text-muted")}>
-									{tag?.tag ?? ordinal}
+								<span className={clsx("text-[13px] font-semibold", lot.tone ?? "text-text-muted")}>
+									{labels[index]}
 								</span>
 								<span className="text-text">
 									{formatSetMain(
@@ -272,7 +259,7 @@ function PlannedExercise(props: {
 											duration: number(set.duration),
 										},
 										props.imperial,
-										exercise?.overrides.defaultDurationUnit ?? "minutes",
+										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
 									) || "Measurements not specified"}
 									<span className="text-[13px] text-text-muted">
 										{set.restChoice.kind === "explicit"

@@ -1,7 +1,6 @@
 import {
 	Button,
 	clockFormat,
-	Dialog,
 	Field,
 	MotionPresence,
 	RadioGroup,
@@ -19,8 +18,10 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { workoutSetLots } from "../../shared/workout-set";
-import { formatEditorSeconds } from "./session-timers";
-import { previousSummary, setLotLabels } from "./set-grid";
+import { setLots } from "../set-lots";
+import { formatEditorSeconds } from "./clock";
+import { EditorSheet } from "./editor-sheet";
+import { previousSummary } from "./set-grid";
 import { ConfirmDialog } from "./workout-sheets";
 
 const rpeOptions = Array.from({ length: 11 }, (_, value) => ({
@@ -30,10 +31,8 @@ const rpeOptions = Array.from({ length: 11 }, (_, value) => ({
 
 export function SetSheet(props: {
 	readonly pro: boolean;
-	readonly compact: boolean;
 	readonly disabled: boolean;
 	readonly exerciseName: string;
-	readonly safeAreaBottom: number;
 	readonly set: WorkoutEditorSet;
 	readonly draft: WorkoutEditorDraft;
 	readonly occurrence: WorkoutEditorOccurrence;
@@ -55,14 +54,11 @@ export function SetSheet(props: {
 	const confirmDeleteDisabled =
 		props.disabled || !set.included || set.clientId !== deleteConfirmationSetId;
 	return (
-		<Dialog
+		<EditorSheet
 			onClose={props.onClose}
 			title={`Set ${index + 1}`}
 			closeLabel="Close set options"
 			description={props.exerciseName}
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button
@@ -97,8 +93,8 @@ export function SetSheet(props: {
 						onChange={(setLot) => onChange((item) => ({ ...item, setLot }))}
 						options={workoutSetLots.map((lot) => ({
 							value: lot,
-							label: setLotLabels[lot],
-							content: setLotLabels[lot],
+							label: setLots[lot].label,
+							content: setLots[lot].label,
 						}))}
 					/>
 				</div>
@@ -108,7 +104,7 @@ export function SetSheet(props: {
 						hint={
 							<>
 								{explicit === undefined
-									? `Using the ${setLotLabels[set.setLot].toLowerCase()} default for this exercise (${formatEditorSeconds(props.inheritedRestSeconds)}). `
+									? `Using the ${setLots[set.setLot].label.toLowerCase()} default for this exercise (${formatEditorSeconds(props.inheritedRestSeconds)}). `
 									: "Custom for this set. "}
 								0:00 turns rest off.
 								{explicit === undefined ? null : (
@@ -245,6 +241,6 @@ export function SetSheet(props: {
 					/>
 				)}
 			</MotionPresence>
-		</Dialog>
+		</EditorSheet>
 	);
 }

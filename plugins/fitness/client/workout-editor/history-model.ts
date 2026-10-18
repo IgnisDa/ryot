@@ -1,6 +1,8 @@
 import type { WorkoutEditorOccurrence, WorkoutEditorSet } from "../../shared/workout-editor-draft";
 import type { WorkoutHistorySetResult } from "../../shared/workout-history-recipes";
+import { storageWorkoutDisplay } from "../../shared/workout-units";
 import { changeOccurrenceDisplay, newWorkoutSet } from "./actions";
+import { occurrenceDisplay } from "./draft-ops";
 
 export const historySetForOccurrence = (
 	row: WorkoutHistorySetResult["items"][number],
@@ -25,12 +27,8 @@ export const historySetForOccurrence = (
 				: { kind: "explicit" as const, seconds: String(row.restTime) },
 	};
 	return changeOccurrenceDisplay(
-		{
-			...occurrence,
-			sets: [set],
-			display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
-		},
-		occurrence.display ?? { weightUnit: "kg", distanceUnit: "km", durationUnit: "minutes" },
+		{ ...occurrence, sets: [set], display: storageWorkoutDisplay },
+		occurrenceDisplay(occurrence),
 	).sets[0];
 };
 

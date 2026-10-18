@@ -6,7 +6,8 @@ import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
 } from "../../shared/workout-editor-draft";
-import { supersetColorVariable } from "../group-colors";
+import { supersetColorVariable, supersetLetter } from "../group-colors";
+import { supersetOf } from "./draft-ops";
 
 type Superset = WorkoutEditorDraft["supersets"][number];
 
@@ -18,11 +19,9 @@ type OccurrenceSegment = {
 export const supersetNames = (draft: WorkoutEditorDraft) => {
 	const names = new Map<string, string>();
 	for (const occurrence of draft.occurrences) {
-		const group = draft.supersets.find(({ occurrenceIds }) =>
-			occurrenceIds.includes(occurrence.clientId),
-		);
+		const group = supersetOf(draft, occurrence.clientId);
 		if (group !== undefined && !names.has(group.clientId)) {
-			names.set(group.clientId, `Superset ${String.fromCodePoint(65 + names.size)}`);
+			names.set(group.clientId, `Superset ${supersetLetter(names.size)}`);
 		}
 	}
 	return names;
@@ -32,9 +31,7 @@ export const occurrenceSegments = (draft: WorkoutEditorDraft) => {
 	const names = supersetNames(draft);
 	const segments: OccurrenceSegment[] = [];
 	for (const occurrence of draft.occurrences) {
-		const group = draft.supersets.find(({ occurrenceIds }) =>
-			occurrenceIds.includes(occurrence.clientId),
-		);
+		const group = supersetOf(draft, occurrence.clientId);
 		const last = segments.at(-1);
 		if (group !== undefined && last?.group?.clientId === group.clientId) {
 			last.occurrences.push(occurrence);

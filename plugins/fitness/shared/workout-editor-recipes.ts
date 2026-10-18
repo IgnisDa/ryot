@@ -20,8 +20,9 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { propertyJson } from "./entity-selections";
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
-import { workoutSetEditableFields } from "./workout-set";
+import { WorkoutEditorMediaSchema, workoutSetEditableFields } from "./workout-set";
 
 export const WORKOUT_EDITOR_PAGE_SIZE = 100;
 
@@ -130,6 +131,14 @@ export const workoutEditorExercisesRecipe = defineRecipe(
 						properties: selectedField(
 							column(exercise, "properties"),
 							WorkoutEditorPropertiesSchema,
+						),
+						images: selectedField(
+							propertyJson(exercise, "images"),
+							Schema.NullOr(WorkoutEditorMediaSchema),
+						),
+						instructions: selectedField(
+							propertyJson(exercise, "instructions"),
+							Schema.NullOr(Schema.Array(Schema.String)),
 						),
 					},
 				}),

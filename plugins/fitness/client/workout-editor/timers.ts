@@ -4,27 +4,21 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { isoAt, maxDateMillis, toIso } from "./clock";
+import { updateSet } from "./draft-ops";
 
 type Countdown = typeof WorkoutEditorCountdownSchema.Type;
+type CountdownKey = "executionCountdown" | "restCountdown";
 
-type TimerTransition = {
-	readonly changed: boolean;
-	readonly draft: WorkoutEditorDraft;
-	readonly kind: "changed" | "unchanged" | "invalid" | "not-found";
-};
+type TimerTransition = { readonly changed: boolean; readonly draft: WorkoutEditorDraft };
 
 type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
-const unchanged = (draft: WorkoutEditorDraft, kind: TimerTransition["kind"] = "unchanged") =>
-	({ kind, draft, changed: false }) satisfies TimerTransition;
+const unchanged = (draft: WorkoutEditorDraft): TimerTransition => ({ draft, changed: false });
 
-const changed = (draft: WorkoutEditorDraft) =>
-	({ draft, changed: true, kind: "changed" }) satisfies TimerTransition;
+const changed = (draft: WorkoutEditorDraft): TimerTransition => ({ draft, changed: true });
 
-const isoAt = (millis: number) =>
-	Number.isFinite(millis) && Math.abs(millis) <= 8.64e15
-		? new Date(millis).toISOString()
-		: undefined;
+const exceedsDateRange = (seconds: number, now: number) => seconds > (maxDateMillis - now) / 1000;
 
 const getTarget = (draft: WorkoutEditorDraft, occurrenceId: string, setId: string) => {
 	const occurrence = draft.occurrences.find(({ clientId }) => clientId === occurrenceId);
@@ -60,14 +54,57 @@ const parseMeasurement = (set: WorkoutEditorSet, field: keyof WorkoutEditorSet) 
 		return undefined;
 	}
 	const parsed = Number(value.trim());
-	return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+	return Number.isFinite(parsed) &&
+		parsed >= 0 &&
+		(field !== "reps" || Number.isSafeInteger(parsed))
+		? parsed
+		: undefined;
 };
 
-const validMeasurements = (set: WorkoutEditorSet) =>
-	requiredWorkoutMeasurementsByKind[set.exerciseKind].every((field) => {
-		const value = parseMeasurement(set, field);
-		return value !== undefined && (field !== "reps" || Number.isSafeInteger(value));
-	});
+export const missingMeasurements = (set: WorkoutEditorSet) =>
+	requiredWorkoutMeasurementsByKind[set.exerciseKind].filter(
+		(field) => parseMeasurement(set, field) === undefined,
+	);
+
+export const activeDurationSeconds = (draft: WorkoutEditorDraft, now: number) =>
+	draft.activeDuration === undefined
+		? undefined
+		: draft.activeDuration +
+			(draft.activeDurationStartedAt === undefined
+				? 0
+				: Math.max(0, (now - Date.parse(draft.activeDurationStartedAt)) / 1000));
+
+export const stopwatchSeconds = (draft: WorkoutEditorDraft, now: number) =>
+	(draft.pausedStopwatchSeconds ?? 0) +
+	(draft.stopwatchStartedAt === undefined
+		? 0
+		: Math.max(0, (now - Date.parse(draft.stopwatchStartedAt)) / 1000));
+
+export const remainingSeconds = (countdown: Countdown, now: number) =>
+	Math.max(0, countdown.pausedRemainingSeconds ?? (Date.parse(countdown.deadline) - now) / 1000);
+
+export const shiftCountdown = (
+	draft: WorkoutEditorDraft,
+	key: CountdownKey,
+	clientId: string,
+	seconds: number,
+	now: number,
+): WorkoutEditorDraft => {
+	const current = draft[key];
+	if (current === undefined || current.clientId !== clientId) {
+		return draft;
+	}
+	return {
+		...draft,
+		[key]: {
+			...current,
+			deadline: toIso(Math.max(now, Date.parse(current.deadline) + seconds * 1000)),
+			...(current.pausedRemainingSeconds === undefined
+				? {}
+				: { pausedRemainingSeconds: Math.max(0, current.pausedRemainingSeconds + seconds) }),
+		},
+	};
+};
 
 export const invalidateWorkoutCountdowns = (draft: WorkoutEditorDraft): TimerTransition => {
 	const pending = draft.pendingRest;
@@ -115,11 +152,11 @@ export const startExecution = (
 	const target = getTarget(draft, occurrenceId, setId);
 	const startedAt = isoAt(now);
 	if (draft.mode.kind !== "live" || !target || startedAt === undefined || id.length === 0) {
-		return unchanged(draft, target ? "invalid" : "not-found");
+		return unchanged(draft);
 	}
 	const { set, occurrence } = target;
-	if (set.included || !validMeasurements(set)) {
-		return unchanged(draft, "invalid");
+	if (set.included || missingMeasurements(set).length > 0) {
+		return unchanged(draft);
 	}
 	const displayedDuration = parseMeasurement(set, "duration");
 	const durationSeconds =
@@ -130,13 +167,13 @@ export const startExecution = (
 		durationSeconds === undefined ||
 		!Number.isFinite(durationSeconds) ||
 		durationSeconds <= 0 ||
-		durationSeconds > (8.64e15 - now) / 1000
+		exceedsDateRange(durationSeconds, now)
 	) {
-		return unchanged(draft, "invalid");
+		return unchanged(draft);
 	}
 	const deadline = isoAt(now + durationSeconds * 1000);
 	if (deadline === undefined) {
-		return unchanged(draft, "invalid");
+		return unchanged(draft);
 	}
 	const executionCountdown: Countdown = {
 		setId,
@@ -175,23 +212,11 @@ export const startRest = (
 		!Number.isFinite(seconds) ||
 		seconds < 0 ||
 		id.length === 0 ||
-		seconds > (8.64e15 - now) / 1000
+		exceedsDateRange(seconds, now)
 	) {
-		return unchanged(draft, target ? "invalid" : "not-found");
+		return unchanged(draft);
 	}
 	const { occurrence } = target;
-	const occurrences = draft.occurrences.map((candidate) =>
-		candidate.clientId !== occurrenceId
-			? candidate
-			: {
-					...candidate,
-					sets: candidate.sets.map((candidateSet) =>
-						candidateSet.clientId === setId
-							? { ...candidateSet, restTimerStartedAt: startedAt }
-							: candidateSet,
-					),
-				},
-	);
 	const restCountdown =
 		seconds === 0
 			? undefined
@@ -203,7 +228,10 @@ export const startRest = (
 					exerciseId: occurrence.exerciseId,
 					deadline: isoAt(now + seconds * 1000) ?? startedAt,
 				};
-	return changed({ ...draft, occurrences, restCountdown });
+	return changed({
+		...updateSet(draft, occurrenceId, setId, (set) => ({ ...set, restTimerStartedAt: startedAt })),
+		restCountdown,
+	});
 };
 
 export const confirmSet = (
@@ -218,22 +246,21 @@ export const confirmSet = (
 		!target ||
 		confirmedAt === undefined ||
 		draft.mode.kind !== "live" ||
-		!validMeasurements(target.set)
+		missingMeasurements(target.set).length > 0
 	) {
-		return unchanged(draft, target ? "invalid" : "not-found");
+		return unchanged(draft);
 	}
 	const occurredAt = target.set.occurredAt ?? confirmedAt;
-	const occurrences = draft.occurrences.map((occurrence) =>
-		occurrence.clientId !== occurrenceId
-			? occurrence
-			: {
-					...occurrence,
-					sets: occurrence.sets.map((set) =>
-						set.clientId === setId ? { ...set, occurredAt, confirmedAt, included: true } : set,
-					),
-				},
+	const cleaned = clearTargetCountdowns(
+		updateSet(draft, occurrenceId, setId, (set) => ({
+			...set,
+			occurredAt,
+			confirmedAt,
+			included: true,
+		})),
+		occurrenceId,
+		setId,
 	);
-	const cleaned = clearTargetCountdowns({ ...draft, occurrences }, occurrenceId, setId);
 	const activeDurationStartedAt =
 		draft.activeDurationStartedAt === undefined &&
 		draft.startedAt !== undefined &&
@@ -250,50 +277,25 @@ export const unconfirmSet = (
 ): TimerTransition => {
 	const target = getTarget(draft, occurrenceId, setId);
 	if (!target) {
-		return unchanged(draft, "not-found");
+		return unchanged(draft);
 	}
-	const occurrences = draft.occurrences.map((occurrence) =>
-		occurrence.clientId !== occurrenceId
-			? occurrence
-			: {
-					...occurrence,
-					sets: occurrence.sets.map((set) =>
-						set.clientId === setId
-							? { ...set, included: false, confirmedAt: undefined, restTimerStartedAt: undefined }
-							: set,
-					),
-				},
+	return changed(
+		clearTargetCountdowns(
+			updateSet(draft, occurrenceId, setId, (set) => ({
+				...set,
+				included: false,
+				confirmedAt: undefined,
+				restTimerStartedAt: undefined,
+			})),
+			occurrenceId,
+			setId,
+		),
 	);
-	return changed(clearTargetCountdowns({ ...draft, occurrences }, occurrenceId, setId));
 };
 
-export const pauseExecution = (
+export const pauseCountdown = (
 	draft: WorkoutEditorDraft,
-	now: number,
-	expectedClientId?: string,
-): TimerTransition => pauseCountdown(draft, "executionCountdown", now, expectedClientId);
-
-export const resumeExecution = (
-	draft: WorkoutEditorDraft,
-	now: number,
-	expectedClientId?: string,
-): TimerTransition => resumeCountdown(draft, "executionCountdown", now, expectedClientId);
-
-export const pauseRest = (
-	draft: WorkoutEditorDraft,
-	now: number,
-	expectedClientId?: string,
-): TimerTransition => pauseCountdown(draft, "restCountdown", now, expectedClientId);
-
-export const resumeRest = (
-	draft: WorkoutEditorDraft,
-	now: number,
-	expectedClientId?: string,
-): TimerTransition => resumeCountdown(draft, "restCountdown", now, expectedClientId);
-
-const pauseCountdown = (
-	draft: WorkoutEditorDraft,
-	key: "executionCountdown" | "restCountdown",
+	key: CountdownKey,
 	now: number,
 	expectedClientId?: string,
 ): TimerTransition => {
@@ -313,9 +315,9 @@ const pauseCountdown = (
 	return changed({ ...draft, [key]: { ...countdown, pausedRemainingSeconds: remaining } });
 };
 
-const resumeCountdown = (
+export const resumeCountdown = (
 	draft: WorkoutEditorDraft,
-	key: "executionCountdown" | "restCountdown",
+	key: CountdownKey,
 	now: number,
 	expectedClientId?: string,
 ): TimerTransition => {
@@ -324,13 +326,13 @@ const resumeCountdown = (
 		countdown?.pausedRemainingSeconds === undefined ||
 		(expectedClientId !== undefined && countdown.clientId !== expectedClientId) ||
 		!Number.isFinite(now) ||
-		countdown.pausedRemainingSeconds > (8.64e15 - now) / 1000
+		exceedsDateRange(countdown.pausedRemainingSeconds, now)
 	) {
 		return unchanged(draft);
 	}
 	const deadline = isoAt(now + countdown.pausedRemainingSeconds * 1000);
 	if (deadline === undefined) {
-		return unchanged(draft, "invalid");
+		return unchanged(draft);
 	}
 	const { pausedRemainingSeconds: _, ...resumed } = countdown;
 	return changed({ ...draft, [key]: { ...resumed, deadline } });
@@ -399,6 +401,12 @@ export const resetStopwatch = (draft: WorkoutEditorDraft): TimerTransition =>
 		? unchanged(draft)
 		: changed({ ...draft, pausedStopwatchSeconds: 0, stopwatchStartedAt: undefined });
 
+export const toggleStopwatch = (draft: WorkoutEditorDraft, now: number) =>
+	(draft.stopwatchStartedAt === undefined ? resumeStopwatch : pauseStopwatch)(draft, now);
+
+export const toggleWorkoutPause = (draft: WorkoutEditorDraft, now: number) =>
+	(draft.activeDurationStartedAt === undefined ? resumeWorkout : pauseWorkout)(draft, now);
+
 export const reconcileWorkoutTimers = (
 	draft: WorkoutEditorDraft,
 	now: number,
@@ -423,7 +431,7 @@ export const reconcileWorkoutTimers = (
 			execution.setId,
 			Date.parse(execution.deadline),
 		);
-		if (confirmed.kind === "changed") {
+		if (confirmed.changed) {
 			next = confirmed.draft;
 			wasChanged = true;
 		} else {

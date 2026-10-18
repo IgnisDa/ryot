@@ -1,11 +1,10 @@
 import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useState } from "react";
 
-import { useAssetUrl } from "../asset-urls";
+import { AssetArtWell } from "../asset-urls";
 import {
 	exerciseFacts,
 	forceLabels,
@@ -106,31 +105,14 @@ export function ExerciseHeader(props: {
 	);
 }
 
-function ExerciseImage(props: {
-	readonly name: string;
-	readonly className: string;
-	readonly asset: AssetLocator | undefined;
-}) {
-	const url = useAssetUrl(props.asset);
-	return (
-		<EntityArtWell
-			url={url}
-			fit="contain"
-			shape="rounded"
-			monogram={props.name}
-			className={props.className}
-			state={props.asset === undefined ? "absent" : "ready"}
-		/>
-	);
-}
-
 function ExerciseImages(props: { readonly compact: boolean; readonly exercise: ExerciseRecord }) {
 	const { compact, exercise } = props;
 	const images = exercise.images ?? [];
 	const [selected, setSelected] = useState(0);
 	return (
 		<div className="flex min-w-0 flex-col gap-3">
-			<ExerciseImage
+			<AssetArtWell
+				fit="contain"
 				name={exercise.name}
 				asset={images[selected]}
 				className={clsx("w-full", compact ? "aspect-4/3" : "aspect-16/10")}
@@ -149,7 +131,7 @@ function ExerciseImages(props: { readonly compact: boolean; readonly exercise: E
 								index === selected ? "border-accent" : "border-border",
 							)}
 						>
-							<ExerciseImage asset={asset} className="size-16" name={exercise.name} />
+							<AssetArtWell fit="contain" asset={asset} className="size-16" name={exercise.name} />
 						</button>
 					))}
 				</div>

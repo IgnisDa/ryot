@@ -48,6 +48,7 @@ import {
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { PersonalBestSchema } from "./workout-records";
+import { WorkoutSetLotSchema } from "./workout-set";
 
 type Table = ReturnType<typeof table>;
 
@@ -252,12 +253,12 @@ const sessionsQuery = (reference: PluginIdentityReference, exerciseId: string) =
 				],
 				selection: {
 					id: selectedField(column(set, "id"), Schema.String),
-					setLot: selectedField(property(set, "setLot"), nullableString),
 					reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
 					weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
 					duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
 					distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
 					setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
+					setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 				},
 			}),
 		},
