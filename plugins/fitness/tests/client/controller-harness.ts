@@ -10,12 +10,15 @@ import {
 import type { RyotSchedule } from "@ryot-app/plugin-client-sdk/schedule";
 
 import { createWorkoutEditorController } from "../../client/workout-editor/controller";
+import type { WorkoutEditorControllerPorts } from "../../client/workout-editor/controller-types";
 import { preferenceSettings, startTime } from "./draft-fixtures";
 
 const noopSchedule: Pick<RyotSchedule, "after" | "run"> = {
 	run: () => () => undefined,
 	after: () => () => undefined,
 };
+
+const unsupportedIosActivity = () => Effect.succeed({ status: "unsupported" } as const);
 
 const defaultTarget: PluginNavigationTarget = {
 	search: "",
@@ -30,6 +33,7 @@ export const controllerHarness = (
 		readonly pro?: boolean;
 		readonly events?: string[];
 		readonly cleanupFails?: boolean;
+		readonly iosLiveActivities?: WorkoutEditorControllerPorts["iosLiveActivities"];
 		readonly foreground?: () => boolean;
 		readonly onRead?: () => unknown;
 		readonly onRemove?: () => void;
@@ -60,6 +64,13 @@ export const controllerHarness = (
 			settings: preferenceSettings,
 			proAvailable: options.pro ?? true,
 		}),
+		iosLiveActivities: options.iosLiveActivities ?? {
+			end: unsupportedIosActivity,
+			list: unsupportedIosActivity,
+			start: unsupportedIosActivity,
+			update: unsupportedIosActivity,
+			availability: unsupportedIosActivity,
+		},
 		cleanup: (locator) =>
 			Effect.sync(() => {
 				cleaned.push(locator);

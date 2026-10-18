@@ -258,6 +258,20 @@ device-local presets. Provider search returns generic added entity IDs; Fitness 
 checks eligibility before selecting them. Neither picker cancellation nor workout cancellation
 removes an exercise already added to the library.
 
+### iOS Live Workout Activity
+
+The live workout editor starts an activity for a new session and resumes its existing activity using
+the draft ID as its key. An ordered background queue publishes persisted editor projections and
+coalesces pending updates, without holding draft persistence or saving behind native I/O. Exercise names
+come from the editor query; timer and pause state remain owned by the editor. It does not create an activity
+for a draft at least eight hours old, an ended or submitted draft, or a key already ended or dismissed.
+The card shows workout progress and timers. Its detail may include next-set targets such as exercise,
+weight, reps, duration, or distance; it does not show notes, media, or separately logged measurement
+readings.
+
+Saving ends the activity with final frozen active duration, set count, and any weight volume, displayed for 30 seconds.
+Discarding ends it immediately without final content.
+
 ## Automations
 
 `fitness.ensure-fitness-library-membership` is a required, user-scoped after hook on exercise

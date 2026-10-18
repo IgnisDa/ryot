@@ -70,6 +70,11 @@ export function WorkoutEditorScreen(props: {
 		{ refreshOnMutation: false },
 	);
 	const context = snapshot.context;
+	useEffect(() => {
+		if (exercises.data !== undefined) {
+			controller.setExerciseNames(exercises.data);
+		}
+	}, [controller, exercises.data]);
 	const close = () => setOverlay(undefined);
 	const scrollToEditorTarget = useEditorScroll({
 		editorRoot,
