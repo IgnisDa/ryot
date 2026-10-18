@@ -1,8 +1,9 @@
 import { ReorderableList } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { Effect } from "effect";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
-import { impactLight, selectionChanged } from "#/modules/navigation/haptics";
+import { impactHaptic, selectionHaptic } from "#/modules/device/haptics";
 import { CustomizeHomeRow, CustomizeRow } from "#/modules/shell/customize/customize-row";
 import {
 	customizeSectionCounts,
@@ -54,12 +55,12 @@ function CustomizeSection({ anchorRef, scrollRef, ...props }: SectionProps) {
 						label={props.title}
 						items={props.items}
 						scrollRef={scrollRef}
-						onPickUp={impactLight}
 						itemHeight={ROW_HEIGHT}
 						onReorder={props.onMove}
-						onDrop={selectionChanged}
 						itemKey={(item) => item.id}
 						itemLabel={(item) => item.name}
+						onPickUp={() => Effect.runFork(impactHaptic)}
+						onDrop={() => Effect.runFork(selectionHaptic)}
 						handleIcon={<AppIcon size={18} name="grip-vertical" />}
 						renderItem={({ item, index, handle }) => (
 							<CustomizeRow

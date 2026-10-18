@@ -4,13 +4,13 @@ import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Clock, Effect, Fiber, Layer } from "effect";
 
+import { impactHaptic, selectionHaptic } from "#/modules/device/haptics";
 import {
 	cancelNativeAlert,
 	removeDeliveredNativeAlerts,
 	scheduleNativeAlert,
 } from "#/modules/device/native-alerts";
 import { DevicePlatform, DevicePlatformError } from "#/modules/device/service";
-import { lightImpact, selectionChange } from "#/modules/navigation/haptics";
 
 const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 
@@ -37,7 +37,7 @@ export const DevicePlatformLive = Layer.effect(
 			delivered.delete(id);
 		};
 		return {
-			haptic: (kind) => (kind === "selection" ? selectionChange : lightImpact),
+			haptic: (kind) => (kind === "selection" ? selectionHaptic : impactHaptic),
 			cancel: (id) =>
 				native
 					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))

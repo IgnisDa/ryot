@@ -1,9 +1,10 @@
+import { Effect } from "effect";
 import { type MotionValue, animate, motion, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 
+import { impactHaptic } from "#/modules/device/haptics";
 import { EDGE_SWIPE_WIDTH, drawerWidth, gestureSpring } from "#/modules/navigation/drawer-metrics";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
-import { impactLight } from "#/modules/navigation/haptics";
 
 const OPEN_VELOCITY_PX_PER_SECOND = 500;
 const ACTIVATION_DISTANCE = 6;
@@ -55,7 +56,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 				engaged.current = false;
 				const completed = completesEdgeGesture(info.offset.x, width.current, info.velocity.x);
 				if (completed) {
-					impactLight();
+					Effect.runFork(impactHaptic);
 				}
 				if (intent === "back") {
 					if (completed) {

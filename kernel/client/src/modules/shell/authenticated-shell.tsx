@@ -21,6 +21,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { useIsDemoSession } from "#/modules/demo-protection";
+import { impactHaptic } from "#/modules/device/haptics";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
@@ -30,7 +31,6 @@ import {
 	isSettingsPath,
 	resolveEdge,
 } from "#/modules/navigation/edge-intent";
-import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import {
 	isWorkspaceRoot,
@@ -193,7 +193,7 @@ export function AuthenticatedShell(props: {
 		useAuthenticatedSession(runtime, server);
 	const isDemo = useIsDemoSession(session);
 	const selectWorkspace = ({ pluginId, packageId }: WorkspaceTarget) => {
-		impactLight();
+		Effect.runFork(impactHaptic);
 		return runtime.runPromise(
 			Effect.gen(function* () {
 				yield* Effect.flatMap(ClientStorage, (storage) =>
