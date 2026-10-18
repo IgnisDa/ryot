@@ -315,7 +315,9 @@ export const InstanceAdminRouteStubs = Layer.mergeAll(
 		Layer.provide(InstanceAdminSessionStub),
 		Layer.provide(InstanceAdminApiStub),
 	),
-	Layer.succeed(InstanceAdminImpersonationService, { start: () => Effect.void }),
+	Layer.succeed(InstanceAdminImpersonationService, {
+		start: () => Effect.succeed("https://ryot.example/oauth/impersonate#ticket=test"),
+	}),
 );
 
 export const makeEntityRouteStub = (

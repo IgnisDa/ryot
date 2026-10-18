@@ -39,7 +39,7 @@ export class InstanceAdminImpersonationService extends Context.Service<InstanceA
 				);
 				const handoffUrl = new URL(IMPERSONATION_HANDOFF_PATH, serverOrigin);
 				handoffUrl.hash = new URLSearchParams({ ticket }).toString();
-				yield* launcher.launch(plan, handoffUrl.toString());
+				return handoffUrl.toString();
 			});
 
 			return { start };

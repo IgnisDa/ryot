@@ -22,7 +22,7 @@ import {
 } from "react";
 
 import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
-import type { ResetLinkTransfer } from "#/modules/instance-admin/reset-link-transfer";
+import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
 import type {
 	InstanceAdminPasswordResetResult,
 	InstanceAdminSetDisabledResult,
@@ -73,14 +73,14 @@ export type InstanceAdminUserOperations = {
 		after: string | undefined,
 		limit: number,
 	) => OperationResult<InstanceAdminUsers>;
-	readonly impersonateUser: (userId: string) => OperationResult<void>;
+	readonly impersonateUser: (userId: string) => OperationResult<string>;
 };
 
 type UsersAdministrationProps = {
 	readonly onUnauthorized: () => void;
 	readonly operations: InstanceAdminUserOperations;
 	readonly backInterceptors: BackInterceptors;
-	readonly transferResetLink: ResetLinkTransfer;
+	readonly transferAdminLink: AdminLinkTransfer;
 };
 
 const formatDate = (value: string) =>
@@ -201,7 +201,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 							operations={props.operations}
 							onUnauthorized={props.onUnauthorized}
 							backInterceptors={props.backInterceptors}
-							transferResetLink={props.transferResetLink}
+							transferAdminLink={props.transferAdminLink}
 						/>
 					)}
 				/>
@@ -243,7 +243,7 @@ function UserRow(props: {
 	readonly onUnauthorized: () => void;
 	readonly operations: InstanceAdminUserOperations;
 	readonly backInterceptors: BackInterceptors;
-	readonly transferResetLink: ResetLinkTransfer;
+	readonly transferAdminLink: AdminLinkTransfer;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -260,6 +260,9 @@ function UserRow(props: {
 	const [result, setResult] = useState<
 		InstanceAdminPasswordResetResult | InstanceAdminUserResetResult | null
 	>(null);
+	const [impersonationUrl, setImpersonationUrl] = useState<string | null>(null);
+	const linkUrl = impersonationUrl ?? result?.resetUrl;
+	const linkLabel = impersonationUrl === null ? "Password reset link" : "Impersonation link";
 	const isDisabled = props.user.disabledAt !== null;
 	const canResetPassword = props.user.authState === "credential" || props.user.authState === "none";
 	let resetNote: string | undefined;
@@ -308,6 +311,7 @@ function UserRow(props: {
 	const resetPassword = () => {
 		setCopied(false);
 		setResult(null);
+		setImpersonationUrl(null);
 		return run("password", () => props.operations.resetUserPassword(props.user.id)).pipe(
 			Effect.map((value) => {
 				if (value !== null) {
@@ -328,16 +332,23 @@ function UserRow(props: {
 				}
 			}),
 		);
-	const impersonate = () =>
-		run("impersonation", () => props.operations.impersonateUser(props.user.id)).pipe(
+	const impersonate = () => {
+		setCopied(false);
+		setResult(null);
+		setImpersonationUrl(null);
+		return run("impersonation", () => props.operations.impersonateUser(props.user.id)).pipe(
 			Effect.map((value) => {
-				if (value === null && pendingRef.current === null) {
+				if (value !== null) {
+					setImpersonationUrl(value);
+				} else if (pendingRef.current === null) {
 					setError("Could not start impersonation. Try again.");
 				}
 			}),
 		);
+	};
 	const confirm = () => {
 		setResult(null);
+		setImpersonationUrl(null);
 		const kind = confirmation;
 		if (kind === null) {
 			return Effect.void;
@@ -370,15 +381,15 @@ function UserRow(props: {
 		);
 	};
 	const transfer = () => {
-		if (result?.resetUrl == null) {
+		if (linkUrl == null) {
 			return Effect.void;
 		}
-		return props.transferResetLink(result.resetUrl).pipe(
+		return props.transferAdminLink(linkUrl).pipe(
 			Effect.tapError((failure) =>
-				Effect.logWarning("instance-admin reset link transfer failed", failure.cause),
+				Effect.logWarning("instance-admin link transfer failed", failure.cause),
 			),
 			Effect.match({
-				onFailure: () => setError("Could not copy or share the reset link. Try again."),
+				onFailure: () => setError("Could not copy or share the link. Try again."),
 				onSuccess: () => {
 					setCopied(true);
 					copyTimer.current = setTimeout(() => setCopied(false), 2000);
@@ -507,7 +518,7 @@ function UserRow(props: {
 					/>
 				</td>
 			</tr>
-			{(error !== undefined || result !== null) && (
+			{(error !== undefined || result !== null || impersonationUrl !== null) && (
 				<tr className="border-b border-border">
 					<td colSpan={6} className="px-2 py-3">
 						{error && (
@@ -521,14 +532,17 @@ function UserRow(props: {
 								was created.
 							</p>
 						)}
-						{result?.resetUrl && (
+						{linkUrl && (
 							<div className="grid gap-2 rounded-lg border border-border bg-raised p-3">
-								<p className="text-xs text-text-muted">Reset link for {result.email}</p>
+								<p className="text-xs text-text-muted">
+									{impersonationUrl === null ? "Reset link" : "Impersonation link"} for{" "}
+									{result?.email ?? props.user.email}
+								</p>
 								<div className="flex min-w-0 flex-wrap items-center gap-2">
 									<input
 										readOnly
-										value={result.resetUrl}
-										aria-label="Password reset link"
+										value={linkUrl}
+										aria-label={linkLabel}
 										className="min-w-0 flex-1 basis-40 rounded-lg border border-border-strong bg-surface px-3 py-2 text-base font-normal text-text md:text-[13px]"
 									/>
 									<button
@@ -539,6 +553,14 @@ function UserRow(props: {
 									>
 										{copied ? "Copied!" : "Copy or share"}
 									</button>
+									<a
+										href={linkUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="min-h-9 shrink-0 rounded-lg border border-border-strong px-3 py-2 text-[13px] font-semibold text-text"
+									>
+										Open in new tab
+									</a>
 								</div>
 							</div>
 						)}

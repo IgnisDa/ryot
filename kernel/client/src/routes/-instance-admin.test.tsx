@@ -73,7 +73,9 @@ const makeView = (
 			events.layer,
 			instanceAdmin,
 			session,
-			Layer.succeed(InstanceAdminImpersonationService, { start: () => Effect.void }),
+			Layer.succeed(InstanceAdminImpersonationService, {
+				start: () => Effect.succeed("https://ryot.example/oauth/impersonate#ticket=test"),
+			}),
 			InstanceAdminService.layer.pipe(Layer.provide(instanceAdmin), Layer.provide(session)),
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,

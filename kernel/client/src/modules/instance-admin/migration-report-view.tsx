@@ -7,13 +7,13 @@ import { Effect } from "effect";
 import { useState } from "react";
 
 import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
+import { transferMigrationReportDetails } from "#/modules/instance-admin/link-transfer";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
 	migrationReportDetailProvenance,
 	migrationReportLevelPresentation,
 } from "#/modules/instance-admin/migration-report";
-import { transferMigrationReportDetails } from "#/modules/instance-admin/reset-link-transfer";
 import type { InstanceAdminMigrationReport } from "#/modules/instance-admin/service";
 
 type MigrationReportEntry = InstanceAdminMigrationReport["items"][number];

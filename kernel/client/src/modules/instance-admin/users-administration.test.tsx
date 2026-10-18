@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { Effect, Exit } from "effect";
 
 import { AdminApiError } from "#/api/admin";
-import type { ResetLinkTransfer } from "#/modules/instance-admin/reset-link-transfer";
+import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
 import type { InstanceAdminUser } from "#/modules/instance-admin/service";
 import {
 	type InstanceAdminUserOperations,
@@ -28,14 +28,14 @@ const makeUser = (index: number, authState: InstanceAdminUser["authState"] = "cr
 const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<unknown>) => {
 	let currentUsers = [...users];
 	return {
-		impersonateUser: (userId) => {
-			calls.push({ userId, kind: "impersonate" });
-			return Effect.succeed(Exit.succeed(undefined));
-		},
 		resetUserPassword: () =>
 			Effect.succeed(
 				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
 			),
+		impersonateUser: (userId) => {
+			calls.push({ userId, kind: "impersonate" });
+			return Effect.succeed(Exit.succeed("https://example.com/oauth/impersonate#ticket=one-use"));
+		},
 		resetUser: () =>
 			Effect.succeed(
 				Exit.succeed({
@@ -89,14 +89,14 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 
 const renderUsers = (
 	users: ReadonlyArray<InstanceAdminUser>,
-	transfer: ResetLinkTransfer = () => Effect.succeed("copied"),
+	transfer: AdminLinkTransfer = () => Effect.succeed("copied"),
 	overrides: Partial<InstanceAdminUserOperations> = {},
 ) => {
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
 	render(
 		<UsersAdministration
-			transferResetLink={transfer}
+			transferAdminLink={transfer}
 			backInterceptors={backInterceptors}
 			onUnauthorized={() => calls.push("unauthorized")}
 			operations={{ ...makeOperations(users, calls), ...overrides }}
@@ -200,6 +200,10 @@ describe("Instance Admin users administration", () => {
 				screen.findByLabelText<HTMLInputElement>("Password reset link"),
 			);
 			expect(resetLink.value).toBe("https://example.com/reset");
+			const open = screen.getByRole("link", { name: "Open in new tab" });
+			expect(open.getAttribute("href")).toBe(resetLink.value);
+			expect(open.getAttribute("target")).toBe("_blank");
+			expect(open.getAttribute("rel")).toBe("noopener noreferrer");
 			yield* Effect.promise(() =>
 				user.click(screen.getByRole("button", { name: "Copy or share" })),
 			);
@@ -251,10 +255,14 @@ describe("Instance Admin users administration", () => {
 		}),
 	);
 
-	it.live("starts impersonation for the selected account from its action menu", () =>
+	it.live("shows and transfers an impersonation link for the selected account", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
-			const view = renderUsers([makeUser(0)]);
+			const transferred: string[] = [];
+			const view = renderUsers([makeUser(0)], (url) => {
+				transferred.push(url);
+				return Effect.succeed("copied");
+			});
 			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
 			yield* Effect.promise(() =>
@@ -266,6 +274,16 @@ describe("Instance Admin users administration", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.calls).toContainEqual({ userId: "user-0", kind: "impersonate" })),
 			);
+			const link = screen.getByLabelText<HTMLInputElement>("Impersonation link");
+			expect(link.value).toBe("https://example.com/oauth/impersonate#ticket=one-use");
+			const open = screen.getByRole("link", { name: "Open in new tab" });
+			expect(open.getAttribute("href")).toBe(link.value);
+			expect(open.getAttribute("target")).toBe("_blank");
+			expect(open.getAttribute("rel")).toBe("noopener noreferrer");
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Copy or share" })),
+			);
+			expect(transferred).toEqual([link.value]);
 			expect(screen.queryByRole("alert")).toBeNull();
 		}),
 	);

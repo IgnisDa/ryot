@@ -52,7 +52,6 @@ const originalTokens: StoredTokenSet = {
 };
 
 type ImpersonationEvent = { readonly kind: string; readonly [key: string]: unknown };
-type FailureStage = "admin" | "launch";
 
 class ImpersonationProbe extends Context.Service<
 	ImpersonationProbe,
@@ -62,7 +61,7 @@ class ImpersonationProbe extends Context.Service<
 	}
 >()("test/ImpersonationProbe") {}
 
-const impersonationLayer = (failure?: FailureStage) =>
+const impersonationLayer = (failure?: "admin") =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const events = yield* Ref.make<ReadonlyArray<ImpersonationEvent>>([]);
@@ -110,14 +109,7 @@ const impersonationLayer = (failure?: FailureStage) =>
 			};
 			const launcher: OAuthLauncher["Service"] = {
 				prepare: () => Effect.die("not used"),
-				launch: (_plan, authorizationUrl) => {
-					const launched = record({ kind: "launch", authorizationUrl });
-					return failure === "launch"
-						? launched.pipe(
-								Effect.andThen(Effect.fail(new OAuthLauncherError({ reason: "launch-failed" }))),
-							)
-						: launched;
-				},
+				launch: () => Effect.die("must not launch while generating a link"),
 				prepareImpersonation: (server) =>
 					record({ server, kind: "prepare" }).pipe(
 						Effect.andThen(storage.setPending(pending)),
@@ -142,34 +134,35 @@ const impersonationLayer = (failure?: FailureStage) =>
 
 describe("Instance Admin impersonation", () => {
 	layer(impersonationLayer())((test) => {
-		test.effect("keeps PKCE on the initiating device and launches the one-use handoff", () =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminImpersonationService;
-				const probe = yield* ImpersonationProbe;
-				const storage = yield* OAuthStorage;
-				yield* service.start("god-session", UserId.make("user-1"), origin);
+		test.effect(
+			"keeps PKCE on the initiating device and returns the handoff without launching",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminImpersonationService;
+					const probe = yield* ImpersonationProbe;
+					const storage = yield* OAuthStorage;
+					const url = yield* service.start("god-session", UserId.make("user-1"), origin);
+					expect(url).toBe(`${origin}/oauth/impersonate#ticket=one-use-ticket`);
 
-				expect(yield* probe.events).toEqual([
-					{ server: origin, kind: "prepare" },
-					{ value: pending, kind: "pending" },
-					{
-						kind: "admin",
-						sessionId: "god-session",
-						userId: UserId.make("user-1"),
-						authorization: probe.authorization,
-					},
-					{ kind: "launch", authorizationUrl: `${origin}/oauth/impersonate#ticket=one-use-ticket` },
-				]);
-				expect((yield* probe.events).filter(({ kind }) => kind === "pending")).toHaveLength(1);
-				expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
-				expect(probe.authorization).toEqual({
-					nonce: pending.nonce,
-					state: pending.state,
-					clientId: pending.clientId,
-					redirectUri: pending.redirectUri,
-					codeChallenge: plan.codeChallenge,
-				});
-			}),
+					expect(yield* probe.events).toEqual([
+						{ server: origin, kind: "prepare" },
+						{ value: pending, kind: "pending" },
+						{
+							kind: "admin",
+							sessionId: "god-session",
+							userId: UserId.make("user-1"),
+							authorization: probe.authorization,
+						},
+					]);
+					expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
+					expect(probe.authorization).toEqual({
+						nonce: pending.nonce,
+						state: pending.state,
+						clientId: pending.clientId,
+						redirectUri: pending.redirectUri,
+						codeChallenge: plan.codeChallenge,
+					});
+				}),
 		);
 	});
 
@@ -188,28 +181,6 @@ describe("Instance Admin impersonation", () => {
 					"prepare",
 					"pending",
 					"admin",
-				]);
-				expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
-			}),
-		);
-	});
-
-	layer(impersonationLayer("launch"))((test) => {
-		test.effect("keeps the existing token set when launch fails", () =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminImpersonationService;
-				const probe = yield* ImpersonationProbe;
-				const storage = yield* OAuthStorage;
-				const exit = yield* Effect.exit(
-					service.start("god-session", UserId.make("user-1"), origin),
-				);
-
-				expect(Exit.isFailure(exit)).toBe(true);
-				expect((yield* probe.events).map(({ kind }) => kind)).toEqual([
-					"prepare",
-					"pending",
-					"admin",
-					"launch",
 				]);
 				expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
 			}),

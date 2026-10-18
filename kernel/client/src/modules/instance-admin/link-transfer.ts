@@ -2,11 +2,11 @@ import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { type Cause, Effect } from "effect";
 
-export type ResetLinkTransfer = (
+export type AdminLinkTransfer = (
 	url: string,
 ) => Effect.Effect<"copied" | "shared", Cause.UnknownError>;
 
-export const transferResetLink: ResetLinkTransfer = (url) =>
+export const transferAdminLink: AdminLinkTransfer = (url) =>
 	Capacitor.isNativePlatform()
 		? Effect.tryPromise(() => Share.share({ url })).pipe(Effect.as("shared" as const))
 		: Effect.tryPromise(() => navigator.clipboard.writeText(url)).pipe(
