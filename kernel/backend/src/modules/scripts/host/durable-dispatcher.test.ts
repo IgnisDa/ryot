@@ -6,6 +6,7 @@ import {
 	sandboxDurableHostDispatchStrategy,
 } from "@ryot-app/sandbox/host/host-execution-policy";
 import { Effect, Layer } from "effect";
+import { TestClock } from "effect/testing";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -166,6 +167,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const userId = UserId.make("submission-user");
+			yield* TestClock.setTime(Date.parse("2026-08-06T12:00:00Z"));
 			const request = {
 				index: 2,
 				name: "createEvents",

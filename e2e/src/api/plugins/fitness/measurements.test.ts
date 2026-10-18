@@ -25,6 +25,7 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 const fitnessReference = (client: Client) =>
 	findFitnessEntitySchema(client, "measurement-metric").pipe(
@@ -86,9 +87,9 @@ describe("Measurements E2E", () => {
 				const waist = yield* createMeasurementMetric(client, { name: "Waist" });
 				const input = {
 					comment: "Fasted",
+					submittedAt: nowIso(),
 					submissionId: crypto.randomUUID(),
 					occurredAt: "2026-10-01T07:30:00.000Z",
-					submittedAt: "2026-10-15T08:00:00.000Z",
 					values: [
 						{ value: 0, metricId: weight.entityId },
 						{ value: 80.5, metricId: waist.entityId },

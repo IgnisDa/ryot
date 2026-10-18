@@ -8,6 +8,7 @@ import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { EntityEditorService } from "./editor/service";
 import { EntityEnrichmentService } from "./providers/enrichment";
@@ -50,6 +51,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const editor = yield* EntityEditorService;
+				yield* requireOpenSubmission(payload.submittedAt);
 				return yield* editor
 					.submit({ userId: user.id, request: payload, accountGeneration: user.accountGeneration })
 					.pipe(dieOnDbError);

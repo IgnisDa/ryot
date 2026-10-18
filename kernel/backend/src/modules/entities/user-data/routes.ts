@@ -9,6 +9,7 @@ import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { EntityUserDataService } from "./service";
 
@@ -38,6 +39,7 @@ export const EntityUserDataRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntityUserDataService;
+					yield* requireOpenSubmission(payload.submittedAt);
 					const command = userDataCommand(user, "clear", payload);
 					return yield* service
 						.clearEntityUserData(user, params.entityId, command)
@@ -48,6 +50,7 @@ export const EntityUserDataRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntityUserDataService;
+					yield* requireOpenSubmission(payload.submittedAt);
 					const command = userDataCommand(user, "merge", payload);
 					return yield* service
 						.mergeEntityUserData(

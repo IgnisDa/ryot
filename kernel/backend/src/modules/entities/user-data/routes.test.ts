@@ -14,6 +14,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
+import { TestClock } from "effect/testing";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
 
@@ -125,6 +126,7 @@ layer(routesLayer)((test) => {
 			const api = yield* client;
 			const caller = yield* RouteCaller;
 			const submittedAt = "2026-10-27T12:00:00.000Z";
+			yield* TestClock.setTime(Date.parse(submittedAt));
 			const clearRequest = {
 				params: { entityId: EntityId.make("entity") },
 				payload: { submittedAt, idempotencyKey: "clear-key" },

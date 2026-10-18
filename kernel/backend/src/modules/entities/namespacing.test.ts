@@ -304,7 +304,7 @@ layer(
 				};
 				const options = {
 					idempotencyKey: "fixed-submission",
-					submittedAt: "2026-10-15T00:00:00.000Z",
+					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				};
 				const request = {
 					index: 0,

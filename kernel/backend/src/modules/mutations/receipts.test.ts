@@ -12,7 +12,7 @@ import {
 	maxBindParameter,
 	recordedStatements,
 } from "@ryot-app/testing/recording-tracer";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, type SQL, sql } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema, type Tracer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -137,6 +137,26 @@ const receiptRowIds = Effect.fn(function* (ids: ReadonlyArray<string>) {
 			.from(tables.mutationReceipt)
 			.where(inArray(tables.mutationReceipt.id, [...ids])),
 	)).map(({ id }) => id);
+});
+
+const old = sql`now() - interval '15 days'`;
+const pruneReceipt = (
+	id: string,
+	overrides: { recordedAt?: SQL } & Partial<
+		Omit<typeof tables.mutationReceipt.$inferInsert, "recordedAt">
+	> = {},
+) => ({
+	id,
+	dispatch: [],
+	recordedAt: old,
+	executionId: id,
+	itemIdentity: id,
+	rootExecutionId: id,
+	inputFingerprint: id,
+	commandKind: "entity:create",
+	receiptType: "item" as const,
+	mutationScope: "global" as const,
+	...overrides,
 });
 
 layer(
@@ -1210,6 +1230,68 @@ layer(
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.join(writer);
 			expect(yield* Fiber.join(reader)).toEqual(hit);
+		}),
+	);
+
+	test.effect("prunes old receipts that no live workflow or pending batch can replay", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* session.run((db) =>
+				db.insert(tables.workflowExecution).values([
+					{
+						status: "active",
+						workflowName: "Live",
+						rootWorkflowName: "Live",
+						executionId: "prune-live-root",
+						rootExecutionId: "prune-live-root",
+					},
+					{
+						expiredAt: old,
+						completedAt: old,
+						status: "succeeded",
+						workflowName: "Expired",
+						rootWorkflowName: "Expired",
+						executionId: "prune-expired-root",
+						rootExecutionId: "prune-expired-root",
+					},
+				]),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.mutationReceipt)
+					.values([
+						pruneReceipt("prune-old"),
+						pruneReceipt("prune-recent", { recordedAt: sql`now() - interval '13 days'` }),
+						pruneReceipt("prune-live-item", { rootExecutionId: "prune-live-root" }),
+						pruneReceipt("prune-expired-item", { rootExecutionId: "prune-expired-root" }),
+						pruneReceipt("prune-pending-batch", { receiptType: "batch-decision" }),
+						pruneReceipt("prune-pending-batch-item", { batchId: "prune-pending-batch" }),
+						pruneReceipt("prune-pending-batch-candidate", {
+							batchId: "prune-pending-batch",
+							receiptType: "batch-candidate",
+						}),
+						pruneReceipt("prune-sealed-batch", { receiptType: "batch-decision" }),
+					]),
+			);
+
+			expect(yield* receipts.pruneRetired(100)).toBe(3);
+
+			const remaining = yield* session.run((db) =>
+				db
+					.select({ id: tables.mutationReceipt.id })
+					.from(tables.mutationReceipt)
+					.where(sql`${tables.mutationReceipt.id} like 'prune-%'`),
+			);
+			expect(new Set(remaining.map(({ id }) => id))).toEqual(
+				new Set([
+					"prune-recent",
+					"prune-live-item",
+					"prune-pending-batch",
+					"prune-pending-batch-item",
+					"prune-pending-batch-candidate",
+				]),
+			);
 		}),
 	);
 });

@@ -23,6 +23,7 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 it.live(
 	"deletes all 101 session sets, preserves related entities, and recomputes surviving records",
@@ -97,9 +98,9 @@ it.live(
 			const entity = yield* getEntity(client, older.workoutId);
 			const pluginId = requirePresent(entity.entitySchemaPluginId, "Expected workout plugin");
 			const submission = {
+				submittedAt: nowIso(),
 				entityId: older.workoutId,
 				submissionId: crypto.randomUUID(),
-				submittedAt: "2026-10-18T10:00:00.000Z",
 			};
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: older.workoutId });
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: older.workoutId });
@@ -153,10 +154,7 @@ it.live("rejects deletion of another user's workout and of an exercise", () =>
 		const { client: other } = yield* createAuthenticatedClient();
 		const { exerciseId } = yield* createExerciseEntityFixture(client);
 		const { workoutId } = yield* createWorkoutEntityFixture(client, { name: "Private workout" });
-		const submission = {
-			submissionId: crypto.randomUUID(),
-			submittedAt: "2026-10-18T10:00:00.000Z",
-		};
+		const submission = { submittedAt: nowIso(), submissionId: crypto.randomUUID() };
 		const foreign = yield* deleteWorkout(other, { ...submission, entityId: workoutId }).pipe(
 			Effect.flip,
 		);

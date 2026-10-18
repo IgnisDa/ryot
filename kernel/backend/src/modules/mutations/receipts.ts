@@ -10,7 +10,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { Array as Arr, Context, Effect, Layer, Result, Schema } from "effect";
+import { Array as Arr, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { insertChunkSize } from "#platform/db/bind-parameters";
@@ -18,6 +18,9 @@ import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
 import { userLifecycleOperation } from "#schema/tables/user-lifecycle";
+import { workflowExecution } from "#schema/tables/workflow-executions";
+
+import { RECEIPT_RETENTION } from "./submission-window";
 
 export const mutationReceiptIdentity = (input: {
 	input: unknown;
@@ -736,6 +739,32 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 				);
 			}
 		});
+		const pruneRetired = Effect.fn("MutationReceipts.pruneRetired")(function* (limit: number) {
+			const rows = yield* session.run((db) =>
+				db.execute<{ id: string }>(
+					sql`delete from ${mutationReceipt} where id in (
+						select receipt.id from ${mutationReceipt} receipt
+						where receipt.receipt_type <> 'batch-candidate'
+							and receipt.recorded_at < now() - make_interval(secs => ${Duration.toSeconds(RECEIPT_RETENTION)})
+							and not exists (
+								select 1 from ${workflowExecution} execution
+								where execution.execution_id in (receipt.execution_id, receipt.root_execution_id)
+									and execution.expired_at is null
+							)
+							and not exists (
+								select 1 from ${mutationReceipt} candidate
+								where candidate.batch_id = coalesce(receipt.batch_id, receipt.id)
+									and candidate.receipt_type = 'batch-candidate'
+							)
+						order by receipt.recorded_at
+						limit ${limit}
+						for update skip locked
+					) returning id`,
+					"objects",
+				),
+			);
+			return rows.length;
+		});
 		const countWrittenEvents = Effect.fn("MutationReceipts.countWrittenEvents")(function* (
 			ownerUserId: UserId,
 			executionId: string,
@@ -798,6 +827,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			beginBatch,
 			lookupBatch,
 			admitAccount,
+			pruneRetired,
 			batchIdentity,
 			batchContents,
 			currentAccount,

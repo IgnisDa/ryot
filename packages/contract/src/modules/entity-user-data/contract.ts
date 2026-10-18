@@ -2,6 +2,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { SubmissionExpired } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import {
 	ClearEntityUserDataRequest,
@@ -25,6 +26,7 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
+					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 				],
 			},
 		).annotate(OpenApi.Description, "Clear the user's state for an entity."),
@@ -39,6 +41,7 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
+					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 				],
 			},
 		).annotate(OpenApi.Description, "Merge changes into the user's entity state."),

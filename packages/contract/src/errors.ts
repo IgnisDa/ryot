@@ -76,6 +76,11 @@ export class InternalError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("InternalError", { message: Schema.String }) {}
 
+export class SubmissionExpired extends Schema.TaggedError<
+	SubmissionExpired,
+	{ readonly brand: unique symbol }
+>()("SubmissionExpired", { message: Schema.String }) {}
+
 export class SandboxRunError extends Schema.TaggedError<
 	SandboxRunError,
 	{ readonly brand: unique symbol }

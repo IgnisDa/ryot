@@ -2,6 +2,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { SubmissionExpired } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import { RelationshipBadRequest, RelationshipNotFound } from "../relationships/schemas";
 import { EntityEditorRefused, EntityEditorSaveRequest, EntityEditorSaveResult } from "./editor";
@@ -39,6 +40,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 				EntityNotFound.pipe(HttpApiSchema.status(404)),
 				RelationshipNotFound.pipe(HttpApiSchema.status(404)),
 				EntityEditorRefused.pipe(HttpApiSchema.status(409)),
+				SubmissionExpired.pipe(HttpApiSchema.status(410)),
 			],
 		}).annotate(
 			OpenApi.Description,

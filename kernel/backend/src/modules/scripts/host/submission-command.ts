@@ -5,6 +5,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Option } from "effect";
 
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 
@@ -32,6 +33,9 @@ export class SandboxSubmissionCommands extends Context.Service<SandboxSubmission
 						message: "Stable writes require a user plugin and valid submission timestamp",
 					});
 				}
+				yield* requireOpenSubmission(options.submittedAt).pipe(
+					Effect.mapError(({ message }) => ({ message })),
+				);
 				const plugin = yield* runtime
 					.findPluginAvailableToUser(principal.subject.userId, principal.pluginRevision.id)
 					.pipe(Effect.mapError((error) => ({ message: error.message })));

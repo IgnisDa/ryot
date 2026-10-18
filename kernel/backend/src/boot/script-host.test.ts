@@ -33,7 +33,7 @@ import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/c
 import { testAccountGeneration } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
-import { Context, Effect, Layer, Option, Ref, Result } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
@@ -2326,7 +2326,7 @@ describe("clearUserEntityData", () => {
 						},
 					},
 				);
-				const submittedAt = "2026-01-02T00:00:00.000Z";
+				const submittedAt = DateTime.formatIso(yield* DateTime.now);
 				expect(
 					yield* functions.clearUserEntityData(
 						input,

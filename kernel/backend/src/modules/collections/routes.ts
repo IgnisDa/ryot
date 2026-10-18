@@ -11,6 +11,7 @@ import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { CollectionOrderingService } from "./ordering-service";
 import { CollectionsService } from "./service";
@@ -39,6 +40,7 @@ export const CollectionsRoutesLive = HttpApiBuilder.group(AppContract, "collecti
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* CollectionOrderingService;
+				yield* requireOpenSubmission(payload.submittedAt);
 				const command = {
 					...rootLifecycleCommand({
 						source: "api",

@@ -1,7 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import {
 	clearEntityUserData,
@@ -195,6 +195,21 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 			expect(
 				userBMembership.data.entity?.type === "rows" ? userBMembership.data.entity.items : [],
 			).toHaveLength(1);
+		}),
+	);
+
+	it.live("rejects a submission outside the replay window", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const libraryEntityId = yield* getMediaLibraryEntityId(client);
+			const error = yield* Effect.flip(
+				clearEntityUserData(client, libraryEntityId, {
+					idempotencyKey: crypto.randomUUID(),
+					submittedAt: DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { days: 8 })),
+				}),
+			);
+
+			assertTaggedError(error, "SubmissionExpired");
 		}),
 	);
 
