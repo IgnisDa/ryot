@@ -14,7 +14,7 @@ import { useRef, useState, type RefObject } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
 import { DateTimeField } from "../datetime-field";
-import { resolveDateTimeInput, toDateTimeInput } from "../datetime-input";
+import { useDateTimeInput } from "../use-datetime-input";
 import { unitSuffix } from "./model";
 
 type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
@@ -101,9 +101,7 @@ export function MeasurementDialog(props: {
 		pendingLabel,
 	} = props;
 	const occurredAtRef = useRef<HTMLInputElement>(null);
-	const [occurredAt, setOccurredAt] = useState(() => toDateTimeInput(initial.occurredAt));
-	const [occurrence, setOccurrence] = useState<string>();
-	const timestamp = resolveDateTimeInput(occurredAt, initial.occurredAt, occurrence);
+	const timestamp = useDateTimeInput(initial.occurredAt);
 	const [comment, setComment] = useState(initial.comment ?? "");
 	const [entries, setEntries] = useState(() =>
 		initial.values.map(({ value, metricId }) => ({
@@ -132,13 +130,13 @@ export function MeasurementDialog(props: {
 		}
 		setSubmitted(true);
 		if (
-			timestamp.iso === null ||
+			timestamp.resolution.iso === null ||
 			values.length === 0 ||
 			parsed.some(({ value }) => value === undefined)
 		) {
 			return;
 		}
-		onSubmit({ values, comment: comment.trim(), occurredAt: timestamp.iso });
+		onSubmit({ values, comment: comment.trim(), occurredAt: timestamp.resolution.iso });
 	};
 	let actionLabel = submitLabel;
 	if (pending) {
@@ -168,18 +166,12 @@ export function MeasurementDialog(props: {
 			<ActionForm label={label} onSubmit={save} className="flex flex-col gap-4">
 				<fieldset className="flex flex-col gap-4" disabled={pending || props.retained}>
 					<DateTimeField
-						value={occurredAt}
+						{...timestamp}
 						label="Date and time"
 						showError={submitted}
-						resolution={timestamp}
 						inputRef={occurredAtRef}
-						onOccurrenceChange={(value) => change(() => setOccurrence(value))}
-						onChange={(value) =>
-							change(() => {
-								setOccurredAt(value);
-								setOccurrence(undefined);
-							})
-						}
+						onChange={(value) => change(() => timestamp.onChange(value))}
+						onOccurrenceChange={(value) => change(() => timestamp.onOccurrenceChange(value))}
 					/>
 					<ul aria-label="Values" className="flex flex-col gap-3">
 						{entries.flatMap((entry, index) => {

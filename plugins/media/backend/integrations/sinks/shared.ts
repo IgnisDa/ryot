@@ -4,6 +4,7 @@ import { resolvedMediaRef } from "../../imports/source-helpers";
 import {
 	emptyResult,
 	failureResult,
+	firstPathText,
 	nestedNumber,
 	nestedString,
 	progressPercent,
@@ -40,9 +41,6 @@ const jellyfinCompletion = (payload: unknown) => {
 	);
 };
 
-const jellyfinString = (payload: unknown, paths: string[][]) =>
-	paths.map((path) => textValue(pathValue(payload, path))).find(Boolean);
-
 export const parseMediaServer = (
 	provider: "Emby" | "Jellyfin",
 	rawBody: string,
@@ -61,10 +59,10 @@ export const parseMediaServer = (
 					return emptyResult();
 				}
 				const itemType = (
-					provider === "Jellyfin"
-						? jellyfinString(payload, [["ItemType"], ["Item", "Type"]])
-						: (jellyfinString(payload, [["ItemType"], ["Item", "Type"]]) ??
-							nestedString(payload, ["ItemType", "Type", "MediaType"]))
+					firstPathText(payload, [["ItemType"], ["Item", "Type"]]) ??
+					(provider === "Emby"
+						? nestedString(payload, ["ItemType", "Type", "MediaType"])
+						: undefined)
 				)?.toLowerCase();
 				let entitySchemaSlug: "movie" | "show" | null = null;
 				if (itemType === "movie") {
@@ -82,7 +80,7 @@ export const parseMediaServer = (
 				const configuredUsername =
 					typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
 				if (provider === "Jellyfin" && configuredUsername) {
-					const username = jellyfinString(payload, [
+					const username = firstPathText(payload, [
 						["NotificationUsername"],
 						["Username"],
 						["User", "Name"],

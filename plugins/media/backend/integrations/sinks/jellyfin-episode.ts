@@ -5,7 +5,7 @@ import { asRecord } from "../../lib/records";
 import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { tvdbGet } from "../../lib/vendors/tvdb";
 import { nestedNumber, pathValue, textValue } from "../shared";
-import { isNotFound, searchTmdbShow } from "./tmdb-episode";
+import { isNotFound, searchTmdbShow, tmdbEpisodeExternalIds } from "./tmdb-episode";
 
 type LookupHost = Pick<
 	ScriptHost,
@@ -51,16 +51,10 @@ export const findJellyfinShow = Effect.fnUntraced(function* (
 		showId = textValue(asRecord(response?.["data"])?.["seriesId"]);
 	} else {
 		const token = yield* getTmdbAccessToken(host);
-		const externalIds = (
-			[
-				[imdbId, "imdb_id"],
-				[tvdbId, "tvdb_id"],
-			] as const
-		).flatMap(([id, source]) => (id ? [[id, source] as const] : []));
 		showId =
 			(yield* searchTmdbShow(host, token, {
 				episodeId,
-				externalIds,
+				externalIds: tmdbEpisodeExternalIds(imdbId, tvdbId),
 				seriesName:
 					textValue(pathValue(payload, ["SeriesName"])) ??
 					textValue(pathValue(payload, ["Item", "SeriesName"])),

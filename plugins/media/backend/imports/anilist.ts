@@ -38,6 +38,9 @@ const AnilistReview = Schema.Struct({
 	updated_at: Schema.String,
 });
 const AnilistFavorite = Schema.Struct({ favourite_id: Schema.Int, favourite_type: Schema.Int });
+export const anilistCoverageCount = (item: typeof AnilistList.Type) =>
+	item.progress + (item.series_type === 1 ? item.progress_volume : 0);
+
 const AnilistRoot = Schema.Struct({
 	lists: Schema.optional(Schema.Array(Schema.Unknown)),
 	reviews: Schema.optional(Schema.Array(Schema.Unknown)),
@@ -143,7 +146,7 @@ export const adaptAnilistExport = (
 		}
 		const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
 		const volumeProgress = target.entitySchemaSlug === "manga" ? item.progress_volume : 0;
-		const coverageCount = item.progress + volumeProgress;
+		const coverageCount = anilistCoverageCount(item);
 		if (
 			!Number.isSafeInteger(volumeProgress) ||
 			volumeProgress < 0 ||

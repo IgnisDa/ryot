@@ -145,6 +145,9 @@ export const pathValue = (input: unknown, path: string[]) =>
 		input,
 	);
 
+export const firstPathText = (payload: unknown, paths: string[][]) =>
+	paths.map((path) => textValue(pathValue(payload, path))).find(Boolean);
+
 export const truthy = (value: unknown) =>
 	value === true ||
 	(typeof value === "number" && value !== 0) ||

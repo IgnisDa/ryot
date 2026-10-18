@@ -33,7 +33,7 @@ import {
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
 import { DateTimeField } from "../datetime-field";
-import { resolveDateTimeInput, toDateTimeInput } from "../datetime-input";
+import { useDateTimeInput } from "../use-datetime-input";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -77,13 +77,9 @@ function TimeForm(props: {
 	readonly entity: WorkoutEditorBaseline["entity"];
 }) {
 	const { entity, onClose, properties } = props;
-	const [start, setStart] = useState(toDateTimeInput(properties.startedAt));
-	const [end, setEnd] = useState(properties.endedAt ? toDateTimeInput(properties.endedAt) : "");
-	const [startOccurrence, setStartOccurrence] = useState<string>();
-	const [endOccurrence, setEndOccurrence] = useState<string>();
+	const start = useDateTimeInput(properties.startedAt);
+	const end = useDateTimeInput(properties.endedAt);
 	const [submitted, setSubmitted] = useState(false);
-	const startResolution = resolveDateTimeInput(start, properties.startedAt, startOccurrence);
-	const endResolution = resolveDateTimeInput(end, properties.endedAt, endOccurrence);
 	const [intent, setIntent] = useState("preserve");
 	const [seconds, setSeconds] = useState(String(properties.activeDuration ?? ""));
 	const [message, setMessage] = useState<string>();
@@ -95,11 +91,11 @@ function TimeForm(props: {
 	}, [save.data, onClose]);
 	const submit = () => {
 		setSubmitted(true);
-		if (startResolution.iso === null || (end !== "" && endResolution.iso === null)) {
+		if (start.resolution.iso === null || (end.value !== "" && end.resolution.iso === null)) {
 			return;
 		}
-		const startedAt = startResolution.iso;
-		const endedAt = end === "" ? undefined : (endResolution.iso ?? undefined);
+		const startedAt = start.resolution.iso;
+		const endedAt = end.value === "" ? undefined : (end.resolution.iso ?? undefined);
 		if (
 			(endedAt !== undefined && Date.parse(endedAt) < Date.parse(startedAt)) ||
 			(intent === "set" &&
@@ -153,28 +149,8 @@ function TimeForm(props: {
 					className="grid min-w-0 gap-4 border-0 p-0"
 					disabled={save.isPending || save.status === "retained"}
 				>
-					<DateTimeField
-						value={start}
-						label="Start time"
-						showError={submitted}
-						resolution={startResolution}
-						onOccurrenceChange={setStartOccurrence}
-						onChange={(value) => {
-							setStart(value);
-							setStartOccurrence(undefined);
-						}}
-					/>
-					<DateTimeField
-						value={end}
-						label="End time"
-						resolution={endResolution}
-						showError={submitted && end !== ""}
-						onOccurrenceChange={setEndOccurrence}
-						onChange={(value) => {
-							setEnd(value);
-							setEndOccurrence(undefined);
-						}}
-					/>
+					<DateTimeField {...start} label="Start time" showError={submitted} />
+					<DateTimeField {...end} label="End time" showError={submitted && end.value !== ""} />
 					<div className="grid gap-1.5">
 						<span className="text-[13px] font-medium">Active duration</span>
 						<SegmentedControl
