@@ -8,19 +8,15 @@ import { useEffect, useMemo, useState } from "react";
 import type { ApiScope } from "#/api/scope";
 import { CommandCenterDialog } from "#/modules/command-center/command-center-dialog";
 import {
-	ACTIONS_GROUP,
-	type CommandGroup,
+	ALL_FILTER,
 	type CommandOption,
+	type CommandResults,
+	commandResults,
 	destinationOptions,
-	filterOptions,
-	GO_TO_GROUP,
-	LIBRARY_VIEWS_KEY,
-	type LibraryGroupResult,
-	libraryGroups,
+	idleGroups,
+	type LibraryCommit,
 	type LibraryView,
 	libraryViews,
-	type LibraryViewsState,
-	providerAddOptions,
 	runLibrarySearch,
 } from "#/modules/command-center/model";
 import { recordRecent } from "#/modules/command-center/recents";
@@ -28,7 +24,6 @@ import { ClientStorage } from "#/persistence/storage";
 import type { ClientRuntime } from "#/runtime";
 
 const SAVED_VIEW_LIMIT = 100;
-const NO_VIEWS: readonly LibraryView[] = [];
 
 type CommandCenterProps = {
 	readonly scope: ApiScope;
@@ -39,6 +34,10 @@ type CommandCenterProps = {
 	readonly onInterceptBack: () => boolean;
 	readonly onNavigate: (href: string) => void;
 };
+
+type LibraryViewsState =
+	| { readonly status: "pending" | "failed" }
+	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
 
 const recentOptions = (
 	recents: readonly {
@@ -56,14 +55,10 @@ export function CommandCenter(props: CommandCenterProps) {
 	const schedule = useRyotSchedule();
 	const [query, setQuery] = useState("");
 	const [attempt, setAttempt] = useState(0);
+	const [filter, setFilter] = useState(ALL_FILTER);
 	const [viewsState, setViewsState] = useState<LibraryViewsState>({ status: "pending" });
-	const views = viewsState.status === "ready" ? viewsState.views : NO_VIEWS;
-	const viewsPending = viewsState.status === "pending";
 	const [recents, setRecents] = useState<readonly CommandOption[]>([]);
-	const [results, setResults] = useState<{
-		readonly query: string;
-		readonly byView: ReadonlyMap<string, LibraryGroupResult>;
-	}>({ query: "", byView: new Map() });
+	const [commit, setCommit] = useState<LibraryCommit | undefined>(undefined);
 	const trimmed = query.trim();
 	const request = useMemo(() => ({ attempt, query: trimmed }), [trimmed, attempt]);
 	const destinations = useMemo(
@@ -72,7 +67,7 @@ export function CommandCenter(props: CommandCenterProps) {
 	);
 
 	useEffect(() => {
-		if (!viewsPending) {
+		if (viewsState.status !== "pending") {
 			return undefined;
 		}
 		return schedule.run(
@@ -87,7 +82,7 @@ export function CommandCenter(props: CommandCenterProps) {
 				),
 			() => undefined,
 		);
-	}, [ryot, schedule, viewsPending]);
+	}, [ryot, schedule, viewsState.status]);
 	useEffect(() => {
 		const fiber = runtime.runFork(
 			Effect.flatMap(ClientStorage, (storage) => storage.getRecentDestinations(scope)).pipe(
@@ -99,49 +94,40 @@ export function CommandCenter(props: CommandCenterProps) {
 		};
 	}, [runtime, scope]);
 	useEffect(() => {
-		if (request.query === "" || views.length === 0) {
+		if (request.query === "" || viewsState.status !== "ready") {
 			return undefined;
 		}
 		return schedule.run(
 			runLibrarySearch({
-				views,
+				onCommit: setCommit,
 				query: request.query,
+				views: viewsState.views,
 				execute: (recipe) => ryot.data.query(recipe),
-				onGroup: (viewId, result) =>
-					setResults((current) => ({
-						query: request.query,
-						byView: new Map(current.query === request.query ? current.byView : []).set(
-							viewId,
-							result,
-						),
-					})),
 			}),
 			() => undefined,
 		);
-	}, [ryot, request, schedule, views]);
+	}, [ryot, schedule, request, viewsState]);
 
-	const groups = useMemo((): readonly CommandGroup[] => {
-		if (trimmed === "") {
-			const idle: readonly CommandGroup[] = [
-				{ key: "recents", status: "ready", options: recents, heading: "Recent" },
-				{ key: "go-to", status: "ready", heading: GO_TO_GROUP, options: destinations },
-			];
-			return idle.filter(({ options }) => options.length > 0);
-		}
-		const matches = filterOptions(destinations, trimmed);
-		const library = libraryGroups(viewsState, (view) =>
-			results.query === trimmed ? results.byView.get(view.id) : undefined,
-		);
-		const matched = new Set(
-			library.filter(({ options }) => options.length > 0).map(({ key }) => key),
-		);
-		const actions = providerAddOptions(views, trimmed, matched);
-		return [
-			{ key: "go-to", options: matches, heading: GO_TO_GROUP, status: "ready" as const },
-			...library,
-			{ key: "actions", options: actions, heading: ACTIONS_GROUP, status: "ready" as const },
-		].filter(({ status, options }) => options.length > 0 || status !== "ready");
-	}, [destinations, recents, results, trimmed, views, viewsState]);
+	const libraryFailed = viewsState.status === "failed";
+	const shown = useMemo(
+		() => (libraryFailed ? { outcomes: [], query: trimmed, complete: true } : commit),
+		[libraryFailed, trimmed, commit],
+	);
+	const idle = useMemo(
+		(): CommandResults => ({
+			failed: [],
+			filters: [],
+			empty: false,
+			filter: ALL_FILTER,
+			groups: idleGroups({ recents, destinations }),
+		}),
+		[recents, destinations],
+	);
+	const results = useMemo(
+		() => (shown === undefined ? idle : commandResults({ filter, destinations, commit: shown })),
+		[filter, destinations, shown, idle],
+	);
+	const searching = trimmed !== "";
 
 	const select = (option: CommandOption) => {
 		const next = recordRecent(
@@ -158,17 +144,28 @@ export function CommandCenter(props: CommandCenterProps) {
 	return (
 		<CommandCenterDialog
 			query={query}
-			groups={groups}
 			onSelect={select}
 			onClose={props.onClose}
-			onQueryChange={setQuery}
+			onFilterChange={setFilter}
+			results={searching ? results : idle}
 			onInterceptBack={props.onInterceptBack}
-			onRetry={(key) => {
-				if (key === LIBRARY_VIEWS_KEY) {
+			stale={searching && shown?.query !== trimmed}
+			pending={searching && (shown?.query !== trimmed || !shown.complete)}
+			onQueryChange={(next) => {
+				setQuery(next);
+				if (next.trim() === "") {
+					setCommit(undefined);
+				}
+			}}
+			failed={[
+				...(libraryFailed ? ["your library"] : []),
+				...(searching ? results.failed.map(({ name }) => name) : []),
+			]}
+			onRetry={() => {
+				if (libraryFailed) {
 					setViewsState({ status: "pending" });
 					return;
 				}
-				setResults({ query: "", byView: new Map() });
 				setAttempt((value) => value + 1);
 			}}
 		/>

@@ -1,27 +1,33 @@
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import {
-	entityBrowserRecipe,
-	type EntityBrowserResult,
+	type LibrarySearchHit,
+	librarySearchRecipe,
+	type LibrarySearchResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { Effect, Result, Schema } from "effect";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { Effect, Fiber, Result, Schema } from "effect";
 
 import { savedViewHref } from "#/modules/plugins/catalog/location";
 import { settingsGroups } from "#/modules/settings/sections";
 import { navigationViewHref } from "#/modules/shell/sidebar-sections";
 
-export const SEARCH_DEBOUNCE_MS = 250;
-const LIBRARY_ROWS_PER_VIEW = 3;
-const LIBRARY_FETCH_LIMIT = 5;
+export const SEARCH_DEBOUNCE_MS = 120;
+export const COMMIT_BUDGET_MS = 450;
+const LIBRARY_HITS_PER_VIEW = 8;
+const TOP_RESULT_LIMIT = 5;
+const PAGE_PREVIEW_LIMIT = 3;
 
 export const GO_TO_GROUP = "Go to";
-export const ACTIONS_GROUP = "Actions";
-const PROVIDER_ACTION_LIMIT = 3;
+export const ALL_FILTER = "all";
+export const PAGES_FILTER = "pages";
 
 export type CommandOption = {
 	readonly id: string;
@@ -29,17 +35,22 @@ export type CommandOption = {
 	readonly icon: string;
 	readonly label: string;
 	readonly group: string;
+	readonly tag?: string | undefined;
 	readonly description?: string | undefined;
+	readonly art?: { readonly image: AssetLocator | null } | undefined;
 };
-
-type GroupStatus = "ready" | "pending" | "failed";
 
 export type CommandGroup = {
 	readonly key: string;
 	readonly heading: string;
-	readonly status: GroupStatus;
+	readonly count?: number | undefined;
 	readonly options: readonly CommandOption[];
-	readonly retryKey?: string | undefined;
+};
+
+export type CommandFilter = {
+	readonly key: string;
+	readonly label: string;
+	readonly count?: number | undefined;
 };
 
 export type LibraryView = {
@@ -50,6 +61,22 @@ export type LibraryView = {
 	readonly providerAdd: boolean;
 	readonly dataSources: RyotQLDocument;
 	readonly settings: EntityBrowserSavedViewSettings;
+};
+
+export type ViewOutcome = Result.Result<LibrarySearchResult, "failed">;
+
+export type LibraryCommit = {
+	readonly query: string;
+	readonly complete: boolean;
+	readonly outcomes: readonly { readonly view: LibraryView; readonly outcome: ViewOutcome }[];
+};
+
+export type CommandResults = {
+	readonly empty: boolean;
+	readonly filter: string;
+	readonly groups: readonly CommandGroup[];
+	readonly filters: readonly CommandFilter[];
+	readonly failed: readonly LibraryView[];
 };
 
 const matchesText = (text: string, query: string) =>
@@ -147,106 +174,191 @@ export const libraryViews = (records: readonly SavedViewRecord[]): readonly Libr
 		];
 	});
 
-export const providerAddOptions = (
-	views: readonly LibraryView[],
-	query: string,
-	matchedViewIds: ReadonlySet<string>,
-): readonly CommandOption[] =>
-	views
-		.filter((view) => view.providerAdd)
-		.sort(
-			(left, right) => Number(matchedViewIds.has(right.id)) - Number(matchedViewIds.has(left.id)),
-		)
-		.slice(0, PROVIDER_ACTION_LIMIT)
-		.map((view) => ({
-			icon: "plus",
-			group: ACTIONS_GROUP,
-			id: `add:${view.id}`,
-			description: view.name,
-			label: `Search providers for "${query}"`,
-			href: `${view.href}?${new URLSearchParams({ q: query, add: "true" }).toString()}`,
-		}));
-
 type LibraryExecute<Failure> = (
-	recipe: PreparedRecipe<EntityBrowserResult>,
-) => Effect.Effect<EntityBrowserResult, Failure>;
+	recipe: PreparedRecipe<LibrarySearchResult>,
+) => Effect.Effect<LibrarySearchResult, Failure>;
 
 const searchLibraryView = <Failure>(
 	view: LibraryView,
 	query: string,
 	execute: LibraryExecute<Failure>,
-): Effect.Effect<readonly CommandOption[], Failure | Error> => {
-	const prepared = entityBrowserRecipe({
+): Effect.Effect<LibrarySearchResult, Failure | Error> => {
+	const prepared = librarySearchRecipe({
 		searchText: query,
 		settings: view.settings,
-		pageSize: LIBRARY_FETCH_LIMIT,
+		limit: LIBRARY_HITS_PER_VIEW,
 		queryDocument: view.dataSources,
 	});
-	if (Result.isFailure(prepared)) {
-		return Effect.fail(prepared.failure);
-	}
-	return execute(prepared.success).pipe(
-		Effect.map(({ items }) =>
-			items
-				.slice(0, LIBRARY_ROWS_PER_VIEW)
-				.map((item) => ({
-					icon: view.icon,
-					label: item.name,
-					group: view.name,
-					id: `entity:${view.id}:${item.entityId}`,
-					href: `/e/${encodeURIComponent(item.entityId)}`,
-				})),
-		),
-	);
-};
-
-export type LibraryGroupResult = Result.Result<readonly CommandOption[], "failed">;
-
-export type LibraryViewsState =
-	| { readonly status: "pending" | "failed" }
-	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
-
-export const LIBRARY_VIEWS_KEY = "library-views";
-
-export const libraryGroups = (
-	state: LibraryViewsState,
-	resultFor: (view: LibraryView) => LibraryGroupResult | undefined,
-): readonly CommandGroup[] => {
-	if (state.status !== "ready") {
-		return [{ options: [], heading: "Library", status: state.status, key: LIBRARY_VIEWS_KEY }];
-	}
-	return state.views.map((view): CommandGroup => {
-		const result = resultFor(view);
-		if (result === undefined) {
-			return { options: [], key: view.id, status: "pending", heading: view.name };
-		}
-		return Result.isFailure(result)
-			? { options: [], key: view.id, status: "failed", heading: view.name }
-			: { key: view.id, status: "ready", heading: view.name, options: result.success };
-	});
+	return Result.isFailure(prepared) ? Effect.fail(prepared.failure) : execute(prepared.success);
 };
 
 export const runLibrarySearch = <Failure>(input: {
 	readonly query: string;
 	readonly views: readonly LibraryView[];
 	readonly execute: LibraryExecute<Failure>;
-	readonly onGroup: (viewId: string, result: LibraryGroupResult) => void;
+	readonly onCommit: (commit: LibraryCommit) => void;
 }) =>
-	Effect.sleep(SEARCH_DEBOUNCE_MS).pipe(
-		Effect.andThen(
+	Effect.gen(function* () {
+		yield* Effect.sleep(SEARCH_DEBOUNCE_MS);
+		const settled = new Map<string, ViewOutcome>();
+		const shown: LibraryView[] = [];
+		let committed = false;
+		const commit = () =>
+			input.onCommit({
+				query: input.query,
+				complete: settled.size === input.views.length,
+				outcomes: shown.flatMap((view) => {
+					const outcome = settled.get(view.id);
+					return outcome === undefined ? [] : [{ view, outcome }];
+				}),
+			});
+		const searches = yield* Effect.forkChild(
 			Effect.forEach(
 				input.views,
 				(view) =>
 					searchLibraryView(view, input.query, input.execute).pipe(
 						Effect.match({
-							onFailure: () => input.onGroup(view.id, Result.fail("failed")),
-							onSuccess: (options) => input.onGroup(view.id, Result.succeed(options)),
+							onFailure: (): ViewOutcome => Result.fail("failed"),
+							onSuccess: (result): ViewOutcome => Result.succeed(result),
 						}),
+						Effect.flatMap((outcome) =>
+							Effect.sync(() => {
+								settled.set(view.id, outcome);
+								if (committed) {
+									shown.push(view);
+									commit();
+								}
+							}),
+						),
 					),
 				{ discard: true, concurrency: "unbounded" },
 			),
-		),
+		);
+		yield* Effect.race(Fiber.join(searches), Effect.sleep(COMMIT_BUDGET_MS));
+		committed = true;
+		shown.push(...input.views.filter(({ id }) => settled.has(id)));
+		commit();
+		yield* Fiber.join(searches);
+	});
+
+const providerOption = (view: LibraryView, query: string): CommandOption => ({
+	icon: "plus",
+	group: "Actions",
+	id: `add:${view.id}`,
+	description: view.name,
+	label: `Search providers for "${query}"`,
+	href: `${view.href}?${new URLSearchParams({ q: query, add: "true" }).toString()}`,
+});
+
+const hitOption = (view: LibraryView, hit: LibrarySearchHit): CommandOption => {
+	const subtitle = hit.subtitle === null ? "" : displayValueText(hit.subtitle);
+	return {
+		tag: view.name,
+		icon: view.icon,
+		label: hit.name,
+		group: view.name,
+		id: `entity:${view.id}:${hit.entityId}`,
+		href: `/e/${encodeURIComponent(hit.entityId)}`,
+		description: subtitle === "" ? undefined : subtitle,
+		art: view.settings.summary.image === null ? undefined : { image: hit.image },
+	};
+};
+
+type FoundView = { readonly view: LibraryView; readonly result: LibrarySearchResult };
+
+const rankedHits = (found: readonly FoundView[], query: string) => {
+	const exact = query.toLocaleLowerCase();
+	return sortBy(
+		found.flatMap(({ view, result }) => result.hits.map((hit) => ({ hit, view }))),
+		[({ hit }) => hit.rank, ({ hit }) => hit.name.toLocaleLowerCase() !== exact],
 	);
+};
+
+export const idleGroups = (input: {
+	readonly recents: readonly CommandOption[];
+	readonly destinations: readonly CommandOption[];
+}): readonly CommandGroup[] =>
+	[
+		{ key: "recents", heading: "Recent", options: input.recents },
+		{ key: "go-to", heading: GO_TO_GROUP, options: input.destinations },
+	].filter(({ options }) => options.length > 0);
+
+export const commandResults = (input: {
+	readonly filter: string;
+	readonly commit: LibraryCommit;
+	readonly destinations: readonly CommandOption[];
+}): CommandResults => {
+	const { query, outcomes } = input.commit;
+	const found = outcomes.flatMap(({ view, outcome }): readonly FoundView[] =>
+		Result.isSuccess(outcome) && outcome.success.total > 0
+			? [{ view, result: outcome.success }]
+			: [],
+	);
+	const failed = outcomes.flatMap(({ view, outcome }) => (Result.isFailure(outcome) ? [view] : []));
+	const pages = filterOptions(input.destinations, query);
+	const filters: readonly CommandFilter[] = [
+		{ label: "All", key: ALL_FILTER },
+		...found.map(({ view, result }) => ({ key: view.id, label: view.name, count: result.total })),
+		...(pages.length > 0 ? [{ label: "Pages", key: PAGES_FILTER, count: pages.length }] : []),
+	];
+	const filter = filters.some(({ key }) => key === input.filter) ? input.filter : ALL_FILTER;
+	if (filter === PAGES_FILTER) {
+		return {
+			filter,
+			failed,
+			filters,
+			empty: false,
+			groups: [{ key: "pages", options: pages, heading: "Pages" }],
+		};
+	}
+	const scoped = found.find(({ view }) => view.id === filter);
+	if (scoped !== undefined) {
+		return {
+			filter,
+			failed,
+			filters,
+			empty: false,
+			groups: [
+				{
+					key: scoped.view.id,
+					heading: scoped.view.name,
+					count: scoped.result.total,
+					options: scoped.result.hits.map((hit) => hitOption(scoped.view, hit)),
+				},
+				...(scoped.view.providerAdd
+					? [{ key: "actions", heading: "Actions", options: [providerOption(scoped.view, query)] }]
+					: []),
+			],
+		};
+	}
+	const top = rankedHits(found, query).slice(0, TOP_RESULT_LIMIT);
+	const providerView = [
+		...top.map(({ view }) => view),
+		...found.map(({ view }) => view),
+		...outcomes.map(({ view }) => view),
+	].find(({ providerAdd }) => providerAdd);
+	const groups: readonly CommandGroup[] = [
+		{
+			key: "top",
+			heading: "Top results",
+			options: top.map(({ hit, view }) => hitOption(view, hit)),
+			count: found.reduce((total, { result }) => total + result.total, 0),
+		},
+		{ key: "pages", heading: "Pages", options: pages.slice(0, PAGE_PREVIEW_LIMIT) },
+		{
+			key: "actions",
+			heading: "Actions",
+			options: providerView === undefined ? [] : [providerOption(providerView, query)],
+		},
+	];
+	return {
+		filter,
+		failed,
+		filters,
+		empty: top.length === 0 && pages.length === 0,
+		groups: groups.filter(({ options }) => options.length > 0),
+	};
+};
 
 export const selectableOptions = (groups: readonly CommandGroup[]) =>
 	groups.flatMap(({ options }) => options);
