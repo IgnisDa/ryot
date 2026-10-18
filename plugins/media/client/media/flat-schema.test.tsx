@@ -185,14 +185,15 @@ describe("flat media detail screen", () => {
 						},
 					},
 				);
-				expect(container.textContent).toContain("Last checked:");
-				clickRyotElement(getByRole(container, "button", { name: "Refresh provider data" }));
+				const refresh = getByRole(container, "button", { name: "Refresh provider data" });
+				expect(refresh.getAttribute("title")).toContain("Last checked:");
+				clickRyotElement(refresh);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(getByRole(container, "alert").textContent).toContain("Could not request"),
 					),
 				);
-				clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+				clickRyotElement(getByRole(container, "button", { name: "Refresh provider data" }));
 				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
 				expect(requests[0]).toEqual({
 					action: "refresh",
