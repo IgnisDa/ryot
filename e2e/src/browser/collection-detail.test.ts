@@ -9,7 +9,7 @@ import { getFrontendUrl } from "~/support/harness-target";
 
 const encodeFilter = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-it.live("reorders a kernel collection with keyboard and absolute-end controls", () =>
+it.live("reorders a kernel collection and opens memberships without member fields", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const suffix = crypto.randomUUID();
@@ -69,11 +69,22 @@ it.live("reorders a kernel collection with keyboard and absolute-end controls", 
 		yield* order
 			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
 			.waitFor({ state: "visible" });
-		expect((yield* order.locator("li").allInnerTexts()).map((text) => text.trim())).toEqual([
-			`Alpha ${suffix}`,
-			`Gamma ${suffix}`,
-			`Beta ${suffix}`,
+		expect(yield* order.locator("li").allInnerTexts()).toEqual([
+			expect.stringContaining(`Alpha ${suffix}`),
+			expect.stringContaining(`Gamma ${suffix}`),
+			expect.stringContaining(`Beta ${suffix}`),
 		]);
+		yield* detail.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* detail.getByRole("button", { name: `Collection details for Alpha ${suffix}` }).click();
+		const membership = page.getByRole("dialog", { exact: true, name: collection.name });
+		yield* membership
+			.getByText("This item is in this collection.", { exact: true })
+			.waitFor({ state: "visible" });
+		expect(yield* membership.getByRole("button", { name: "Save details" }).count).toBe(0);
+		yield* membership.getByRole("button", { exact: true, name: "Back to collections" }).click();
+		yield* page
+			.getByRole("dialog", { exact: true, name: `Collections for Alpha ${suffix}` })
+			.waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
