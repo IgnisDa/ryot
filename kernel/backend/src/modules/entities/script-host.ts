@@ -19,6 +19,7 @@ import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
 	type ScriptRunInput,
+	type UserSandboxRunInput,
 } from "#modules/scripts/authorization/capabilities";
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import {
@@ -126,6 +127,22 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	const lifecycleExecution = yield* LifecycleExecution;
 	const runtime = yield* PluginRuntimeResolver;
 	const lifecycle = entityLifecycleHostSteps(entities);
+	const findForeignEntitySchemaSlug = Effect.fn(function* (
+		input: UserSandboxRunInput,
+		slugs: ReadonlyArray<string>,
+	) {
+		const revision = input.principal.pluginRevision;
+		const schemas = yield* readScriptEntitySchemas(definitions, input, slugs);
+		return slugs.find((slug) => {
+			const definition =
+				schemas[definitionKey("entity", definitionOwner(revision?.id ?? null), slug)];
+			return (
+				!revision?.schemaScope.entitySchemaSlugs.includes(slug) ||
+				!definition ||
+				definition.pluginId !== revision.id
+			);
+		});
+	});
 	const findInstallation = (
 		userId: UserId,
 		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
@@ -181,6 +198,40 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { entityId: item.entityId };
 				}),
 			),
+		ensureUserEntities: (rawInput, items) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const foreignSlug = yield* findForeignEntitySchemaSlug(
+						input,
+						items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+					);
+					if (foreignSlug !== undefined) {
+						return yield* Effect.fail(
+							`ensureUserEntities cannot write foreign entity schema: ${foreignSlug}`,
+						);
+					}
+					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
+					const results = yield* entities.ensureUserEntities(
+						userId,
+						items.map(({ entitySchemaSlug, ...item }) => ({
+							...item,
+							entitySchema: {
+								owner: definitionOwner(revision?.id ?? null),
+								slug: EntitySchemaSlug.make(entitySchemaSlug),
+							},
+						})),
+						command,
+					);
+					yield* reportSandboxLifecycleWarnings(
+						"ensureUserEntities",
+						results.flatMap((result) => result.warnings),
+					);
+					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
+				}),
+			),
 		updateUserEntity: (
 			rawInput,
 			rawItem,
@@ -218,55 +269,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { entityId: entity.id };
 				}),
 			),
-		ensureUserEntities: (rawInput, items) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
-					const revision = input.principal.pluginRevision;
-					const userId = UserId.make(userSandboxRunUserId(input));
-					const entitySchemas = yield* readScriptEntitySchemas(
-						definitions,
-						input,
-						items.map(({ entitySchemaSlug }) => entitySchemaSlug),
-					);
-					for (const item of items) {
-						const definition =
-							entitySchemas[
-								definitionKey(
-									"entity",
-									definitionOwner(revision?.id ?? null),
-									item.entitySchemaSlug,
-								)
-							];
-						if (
-							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-							!definition ||
-							definition.pluginId !== revision.id
-						) {
-							return yield* Effect.fail(
-								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
-							);
-						}
-					}
-					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
-					const results = yield* entities.ensureUserEntities(
-						userId,
-						items.map(({ entitySchemaSlug, ...item }) => ({
-							...item,
-							entitySchema: {
-								owner: definitionOwner(revision?.id ?? null),
-								slug: EntitySchemaSlug.make(entitySchemaSlug),
-							},
-						})),
-						command,
-					);
-					yield* reportSandboxLifecycleWarnings(
-						"ensureUserEntities",
-						results.flatMap((result) => result.warnings),
-					);
-					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
-				}),
-			),
 		createUserEntity: (
 			rawInput,
 			rawItem,
@@ -282,15 +284,7 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					const revision = input.principal.pluginRevision;
 					const userId = UserId.make(userSandboxRunUserId(input));
 					const owner = definitionOwner(revision?.id ?? null);
-					const schemas = yield* readScriptEntitySchemas(definitions, input, [
-						item.entitySchemaSlug,
-					]);
-					const definition = schemas[definitionKey("entity", owner, item.entitySchemaSlug)];
-					if (
-						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-						!definition ||
-						definition.pluginId !== revision.id
-					) {
+					if ((yield* findForeignEntitySchemaSlug(input, [item.entitySchemaSlug])) !== undefined) {
 						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
 							code: "unavailable-operation",
 							operation: "createUserEntity",

@@ -1,7 +1,6 @@
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
-import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	definitionKey,
 	definitionOwner,
@@ -42,6 +41,7 @@ import {
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
+import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { validateRestoredProperties } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -452,21 +452,19 @@ export const preflightProvenance = Effect.fn(function* (
 		if (integration.packageKey !== null) {
 			yield* mappedPluginId(pluginIdByKey, integration.packageKey);
 		}
-		const provider =
+		const settingsSchema = resolveIntegrationSettingsSchema(
+			integration,
 			integration.packageKey === null
-				? { settingsSchema: dataJsonIntegrationSettingsSchema }
-				: contracts
-						.get(integration.packageKey)
-						?.integrationProviders.find(
-							({ lot, slug }) => slug === integration.provider && lot === integration.lot,
-						);
-		if (!provider) {
+				? undefined
+				: contracts.get(integration.packageKey)?.integrationProviders,
+		);
+		if (!settingsSchema) {
 			return yield* badRequest("Backup integration provider is not declared by its owner");
 		}
 		yield* parseAppSchemaProperties({
 			kind: "Integration settings",
+			propertiesSchema: settingsSchema,
 			properties: integration.providerSpecifics,
-			propertiesSchema: provider.settingsSchema,
 			allowedMissingRequiredPaths: integration.configuredSecretPaths.map((path) =>
 				path.slice(1).split("/").map(decodePointerSegment),
 			),
@@ -902,13 +900,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const pluginId =
 						integration.packageKey === null ? undefined : pluginIdByKey.get(integration.packageKey);
 					const plugin = pluginId ? installedPlugins.get(pluginId) : undefined;
-					const provider =
-						integration.packageKey === null
-							? { settingsSchema: dataJsonIntegrationSettingsSchema }
-							: plugin?.integrationProviders.find(
-									(definition) =>
-										definition.slug === integration.provider && definition.lot === integration.lot,
-								);
+					const settingsSchema = resolveIntegrationSettingsSchema(
+						integration,
+						plugin?.integrationProviders,
+					);
 					let pluginInstallationId: string | null | undefined;
 					if (integration.packageKey === null) {
 						pluginInstallationId = null;
@@ -918,7 +913,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						pluginInstallationId = installationIdById.get(integration.installationId);
 					}
 					if (
-						!provider ||
+						!settingsSchema ||
 						pluginInstallationId === undefined ||
 						(integration.packageKey !== null && !plugin)
 					) {
@@ -926,14 +921,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 					const providerSpecifics = yield* rewriteManagedAssetLocators(
 						decodeArchiveJsonObject(integration.providerSpecifics),
-						provider.settingsSchema,
+						settingsSchema,
 						assetLocators,
 					).pipe(Effect.mapError(archiveReferenceError));
-					yield* validateProperties(
-						providerSpecifics,
-						provider.settingsSchema,
-						"Integration settings",
-					);
+					yield* validateProperties(providerSpecifics, settingsSchema, "Integration settings");
 					yield* persistence.restoreForUser({
 						userId,
 						providerSpecifics,
@@ -948,7 +939,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						updatedAt: parseDate(integration.updatedAt),
 						minimumProgress: integration.minimumProgress,
 						maximumProgress: integration.maximumProgress,
-						isDisabled: resolveRestoredIntegrationDisabled(integration, provider.settingsSchema),
+						isDisabled: resolveRestoredIntegrationDisabled(integration, settingsSchema),
 						lastFinishedAt: integration.lastFinishedAt
 							? parseDate(integration.lastFinishedAt)
 							: null,
