@@ -1,8 +1,10 @@
 import {
 	Archive,
 	ArrowBigUp,
+	ArrowDownToLine,
 	ArrowRight,
 	ArrowUpDown,
+	ArrowUpToLine,
 	Book,
 	BookCopy,
 	BookHeart,
@@ -201,6 +203,8 @@ const icons = {
 	"grip-vertical": GripVertical,
 	"clipboard-list": ClipboardList,
 	"more-horizontal": MoreHorizontal,
+	"arrow-up-to-line": ArrowUpToLine,
+	"arrow-down-to-line": ArrowDownToLine,
 	"sliders-horizontal": SlidersHorizontal,
 };
 

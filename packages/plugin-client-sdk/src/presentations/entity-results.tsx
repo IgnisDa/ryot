@@ -718,11 +718,23 @@ export const EntityResults = ({
 							{renderItemActions === undefined ? (
 								<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
 							) : (
-								<div className="flex min-w-0 items-start gap-2">
+								<div
+									className={
+										layout === "grid" ? "relative min-w-0" : "flex min-w-0 items-center gap-2"
+									}
+								>
 									<div className="min-w-0 flex-1">
 										<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
 									</div>
-									{renderItemActions(item.reference)}
+									<div
+										className={
+											layout === "grid"
+												? "absolute top-2 right-2 rounded-sm bg-raised/90 shadow-sm backdrop-blur-sm"
+												: undefined
+										}
+									>
+										{renderItemActions(item.reference)}
+									</div>
 								</div>
 							)}
 						</ObservedEntity>
