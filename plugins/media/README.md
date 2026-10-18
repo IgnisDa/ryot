@@ -257,14 +257,17 @@ monitoring switch disables during a write, reports failures inline, and refreshe
 Invalid targets return aligned misses. Demo sessions can read status and resolve episodes, but
 monitoring changes, ownership changes, and custom saves are protected.
 
+The monitoring cron pages the live target query in stable entity-ID order and retains each target-page
+result as durable workflow activity evidence before refreshing bounded provider batches with
+deterministic child IDs. It does not build a global in-memory snapshot or deduplicate across the sweep;
+user-owned fields are not exposed by the global query.
+
 `media-ownership-set` accepts at most 50 visible built-in media entities and merges `owned` and an
 optional `ownedOn` date into each `in-media-library` relationship, adding library membership when
 absent and preserving integration-reported ownership sources. Removing ownership clears `ownedOn`.
 Integrations only report ownership, so a later sync can mark manually unowned media as owned again.
 Its schemas live in `shared/media-ownership-operations.ts`. Switching ownership on asks for the date,
 defaulting to today and rejecting future days; switching it off writes immediately. Integration metadata lookup uses integration auth.
-The cron pages its pinned query, deduplicates global IDs, and refreshes bounded provider batches with
-deterministic child IDs; user-owned fields are not exposed by that global query.
 
 Imports populate media at the `base` level, without credits or other relationship groups. Monitoring
 association notifications for imported media therefore arrive when the media is first opened in the

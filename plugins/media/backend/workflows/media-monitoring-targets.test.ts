@@ -60,7 +60,13 @@ describe("media monitoring targets", () => {
 						targets: {
 							where: { type: "and" },
 							from: { table: "entity", alias: "entity" },
-							output: { type: "rows", pagination: { limit: 100, after: "targets-cursor" } },
+							output: {
+								type: "rows",
+								pagination: { limit: 100, after: "targets-cursor" },
+								orderBy: [
+									{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "entity" } },
+								],
+							},
 						},
 					},
 				});

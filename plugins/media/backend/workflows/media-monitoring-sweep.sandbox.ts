@@ -49,38 +49,34 @@ export default defineWorkflow({
 	output: MediaMonitoringSweepWorkflowOutput,
 	run: (_input, replay) =>
 		Effect.gen(function* () {
-			const targets = new Map<
-				string,
-				(typeof MediaMonitoringTargetsActivityOutput.Type)["items"][number]
-			>();
 			let after: string | undefined;
+			let pageIndex = 0;
 			let batchIndex = 0;
-			do {
-				const result = yield* replay.activity(`targets-${batchIndex}`, listTargets, {
+			let targetCount = 0;
+			for (;;) {
+				const result = yield* replay.activity(`targets-${pageIndex}`, listTargets, {
 					limit: BATCH_SIZE,
-					...(after ? { after } : {}),
+					...(after === undefined ? {} : { after }),
 				});
-				for (const target of result.items) {
-					targets.set(target.entityId, target);
+				targetCount += result.items.length;
+				for (let start = 0; start < result.items.length; start += BATCH_SIZE) {
+					const batch = result.items.slice(start, start + BATCH_SIZE);
+					yield* replay.child(`refresh-${batchIndex}`, providerEntityPopulation, {
+						mode: "refresh",
+						items: batch.map(({ externalId, providerId, entitySchemaSlug }) => ({
+							externalId,
+							providerId,
+							entitySchemaSlug,
+						})),
+					});
+					batchIndex += 1;
 				}
-				after = result.nextCursor ?? undefined;
-				batchIndex += 1;
-			} while (after !== undefined);
-
-			const items = [...targets.values()];
-			let batchCount = 0;
-			for (let start = 0; start < items.length; start += BATCH_SIZE) {
-				const batch = items.slice(start, start + BATCH_SIZE);
-				yield* replay.child(`refresh-${batchCount}`, providerEntityPopulation, {
-					mode: "refresh",
-					items: batch.map(({ externalId, providerId, entitySchemaSlug }) => ({
-						externalId,
-						providerId,
-						entitySchemaSlug,
-					})),
-				});
-				batchCount += 1;
+				pageIndex += 1;
+				if (result.nextCursor === null || result.nextCursor === "") {
+					break;
+				}
+				after = result.nextCursor;
 			}
-			return { batchCount, targetCount: items.length };
+			return { targetCount, batchCount: batchIndex };
 		}),
 });
