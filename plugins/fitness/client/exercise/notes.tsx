@@ -1,6 +1,7 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import type { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotBackgroundSubmission,
+	useBackgroundSubmission,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	DestructiveConfirmation,
@@ -16,7 +17,6 @@ import {
 	ExerciseNoteCreateInput,
 	ExerciseNoteDeleteInput,
 	exerciseNoteOperationSlugs,
-	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
 } from "../../shared/exercise-note-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -28,34 +28,32 @@ type Note = ExerciseDetails["notes"][number];
 
 const maxNoteLength = 2000;
 
-const noteMutation = <Input extends Schema.Codec<unknown, unknown>>(
-	slug: string,
-	inputSchema: Input,
-) =>
-	createRyotMutation<Input["Type"], ExerciseNoteOutput>(({ input, client }) =>
-		client.operations.invoke({
-			slug,
-			input,
-			inputSchema,
-			output: ExerciseNoteOutput,
-			packageId: PLUGIN_PACKAGE_ID,
-		}),
-	);
+const createNote = createRyotBackgroundSubmission({
+	label: () => "Saved note",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: ExerciseNoteCreateInput,
+	slug: exerciseNoteOperationSlugs.create,
+	input: ({ input }: { readonly input: ExerciseNoteCreateInput }) => input,
+});
 
-const createNoteMutation = noteMutation(exerciseNoteOperationSlugs.create, ExerciseNoteCreateInput);
+const updateNote = createRyotBackgroundSubmission({
+	label: () => "Updated note",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: ExerciseNoteUpdateInput,
+	slug: exerciseNoteOperationSlugs.update,
+	input: ({ input }: { readonly input: ExerciseNoteUpdateInput }) => input,
+});
 
-const updateNoteMutation = noteMutation(exerciseNoteOperationSlugs.update, ExerciseNoteUpdateInput);
+const deleteNote = createRyotBackgroundSubmission({
+	label: () => "Deleted note",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: ExerciseNoteDeleteInput,
+	slug: exerciseNoteOperationSlugs.delete,
+	input: ({ input }: { readonly input: ExerciseNoteDeleteInput }) => input,
+});
 
-const deleteNoteMutation = noteMutation(exerciseNoteOperationSlugs.delete, ExerciseNoteDeleteInput);
-
-const failureMessage = (error: Error | null) => {
-	if (error === null) {
-		return undefined;
-	}
-	return error instanceof RyotClientError && error.reason === "operation-failed"
-		? "The server declined this change. Demo accounts can't edit notes."
-		: "This change couldn't be saved. Try again.";
-};
+const failureMessage = (error: Error | null) =>
+	error === null ? undefined : "This change couldn't be started. Try again.";
 
 function StarRating(props: {
 	readonly label: string;
@@ -111,7 +109,7 @@ function NoteComposer(props: {
 	const handledFocusRequest = useRef(props.focusRequest);
 	const [text, setText] = useState("");
 	const [stars, setStars] = useState<number | undefined>();
-	const create = useRyotMutation(createNoteMutation);
+	const create = useBackgroundSubmission(createNote);
 	const { focusRequest } = props;
 	useEffect(() => {
 		if (focusRequest !== handledFocusRequest.current) {
@@ -119,18 +117,16 @@ function NoteComposer(props: {
 			textArea.current?.focus();
 		}
 	}, [focusRequest]);
-	useEffect(() => {
-		if (create.data !== undefined) {
-			onSaved();
-		}
-	}, [create.data, onSaved]);
 	const trimmed = text.trim();
 	const save = () =>
-		create.mutate({
-			text: trimmed,
-			exerciseId: props.exerciseId,
-			...(stars === undefined ? {} : { rating: starsToRating(stars) }),
-		});
+		create.submit(
+			{
+				text: trimmed,
+				exerciseId: props.exerciseId,
+				...(stars === undefined ? {} : { rating: starsToRating(stars) }),
+			},
+			{ onAccepted: onSaved },
+		);
 	const message = failureMessage(create.error);
 	return (
 		<div className="flex flex-col gap-3">
@@ -148,8 +144,8 @@ function NoteComposer(props: {
 			/>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<StarRating stars={stars} label="Rating" onChange={setStars} />
-				<Button onClick={save} disabled={trimmed === "" || create.isPending}>
-					{create.isPending ? "Saving…" : "Save note"}
+				<Button onClick={save} disabled={trimmed === "" || create.isSending}>
+					{create.isSending ? "Saving…" : "Save note"}
 				</Button>
 			</div>
 			{message === undefined ? null : <StatusMessage tone="error">{message}</StatusMessage>}
@@ -165,20 +161,18 @@ function NoteEditor(props: {
 	const inputId = useId();
 	const [text, setText] = useState(props.note.text ?? "");
 	const [stars, setStars] = useState(ratingToStars(props.note.rating) ?? undefined);
-	const update = useRyotMutation(updateNoteMutation);
+	const update = useBackgroundSubmission(updateNote);
 	const { onChanged } = props;
-	useEffect(() => {
-		if (update.data !== undefined) {
-			onChanged();
-		}
-	}, [update.data, onChanged]);
 	const trimmed = text.trim();
 	const save = () =>
-		update.mutate({
-			text: trimmed,
-			noteId: props.note.id,
-			rating: stars === undefined ? null : starsToRating(stars),
-		});
+		update.submit(
+			{
+				text: trimmed,
+				noteId: props.note.id,
+				rating: stars === undefined ? null : starsToRating(stars),
+			},
+			{ onAccepted: onChanged },
+		);
 	const message = failureMessage(update.error);
 	return (
 		<div className="flex flex-col gap-3">
@@ -194,10 +188,10 @@ function NoteEditor(props: {
 			/>
 			<StarRating stars={stars} label="Rating" onChange={setStars} />
 			<div className="flex gap-2">
-				<Button onClick={save} disabled={trimmed === "" || update.isPending}>
-					{update.isPending ? "Saving…" : "Save"}
+				<Button onClick={save} disabled={trimmed === "" || update.isSending}>
+					{update.isSending ? "Saving…" : "Save"}
 				</Button>
-				<Button variant="secondary" onClick={props.onCancel} disabled={update.isPending}>
+				<Button variant="secondary" onClick={props.onCancel} disabled={update.isSending}>
 					Cancel
 				</Button>
 			</div>
@@ -213,29 +207,24 @@ function DeleteNoteConfirmation(props: {
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const { onDeleted } = props;
-	const remove = useRyotMutation(deleteNoteMutation);
-	useEffect(() => {
-		if (remove.data !== undefined) {
-			onDeleted();
-		}
-	}, [remove.data, onDeleted]);
+	const remove = useBackgroundSubmission(deleteNote);
 	return (
 		<DestructiveConfirmation
 			title="Delete note?"
 			onClose={props.onClose}
 			pendingLabel="Deleting…"
 			actionLabel="Delete note"
-			pending={remove.isPending}
+			pending={remove.isSending}
 			triggerRef={props.triggerRef}
 			errorMessage={failureMessage(remove.error)}
 			detail="This private note will be removed permanently."
-			onConfirm={() => remove.mutate({ noteId: props.noteId })}
+			onConfirm={() => remove.submit({ noteId: props.noteId }, { onAccepted: onDeleted })}
 		/>
 	);
 }
 
-function NoteRow(props: { readonly note: Note; readonly onChanged: () => void }) {
-	const { note, onChanged } = props;
+function NoteRow(props: { readonly note: Note }) {
+	const { note } = props;
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [editing, setEditing] = useState(false);
 	const [confirming, setConfirming] = useState(false);
@@ -246,10 +235,7 @@ function NoteRow(props: { readonly note: Note; readonly onChanged: () => void })
 				<NoteEditor
 					note={note}
 					onCancel={() => setEditing(false)}
-					onChanged={() => {
-						setEditing(false);
-						onChanged();
-					}}
+					onChanged={() => setEditing(false)}
 				/>
 			</li>
 		);
@@ -286,10 +272,7 @@ function NoteRow(props: { readonly note: Note; readonly onChanged: () => void })
 					noteId={note.id}
 					triggerRef={deleteTrigger}
 					onClose={() => setConfirming(false)}
-					onDeleted={() => {
-						setConfirming(false);
-						onChanged();
-					}}
+					onDeleted={() => setConfirming(false)}
 				/>
 			) : null}
 		</li>
@@ -330,7 +313,6 @@ export function WorkoutNotes(props: { readonly notes: readonly WorkoutNote[] }) 
 
 export function NotesSection(props: {
 	readonly exerciseId: string;
-	readonly onChanged: () => void;
 	readonly notes: ExerciseDetails["notes"];
 	readonly focusRequest: number;
 	readonly workoutNotes: readonly WorkoutNote[];
@@ -349,15 +331,12 @@ export function NotesSection(props: {
 				key={composerKey}
 				exerciseId={props.exerciseId}
 				focusRequest={props.focusRequest}
-				onSaved={() => {
-					setComposerKey((key) => key + 1);
-					props.onChanged();
-				}}
+				onSaved={() => setComposerKey((key) => key + 1)}
 			/>
 			{props.notes.length === 0 ? null : (
 				<ul className="flex flex-col gap-3">
 					{props.notes.map((note) => (
-						<NoteRow note={note} key={note.id} onChanged={props.onChanged} />
+						<NoteRow note={note} key={note.id} />
 					))}
 				</ul>
 			)}

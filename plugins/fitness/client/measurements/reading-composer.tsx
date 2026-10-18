@@ -75,12 +75,9 @@ function MetricValueField(props: {
 export function MeasurementDialog(props: {
 	readonly label: string;
 	readonly pending: boolean;
-	readonly retained?: boolean;
-	readonly onRetry?: () => void;
 	readonly submitLabel: string;
 	readonly pendingLabel: string;
 	readonly onClose: () => void;
-	readonly onChange: () => void;
 	readonly initial: MeasurementDraft;
 	readonly errorMessage: string | undefined;
 	readonly metrics: readonly ComposerMetric[];
@@ -93,7 +90,6 @@ export function MeasurementDialog(props: {
 		metrics,
 		pending,
 		onClose,
-		onChange,
 		onSubmit,
 		triggerRef,
 		submitLabel,
@@ -119,15 +115,7 @@ export function MeasurementDialog(props: {
 	if (submitted && values.length === 0 && parsed.every(({ value }) => value !== undefined)) {
 		message = "Enter at least one value.";
 	}
-	const change = (update: () => void) => {
-		update();
-		onChange();
-	};
 	const save = () => {
-		if (props.retained) {
-			props.onRetry?.();
-			return;
-		}
 		setSubmitted(true);
 		if (
 			timestamp.resolution.iso === null ||
@@ -138,12 +126,7 @@ export function MeasurementDialog(props: {
 		}
 		onSubmit({ values, comment: comment.trim(), occurredAt: timestamp.resolution.iso });
 	};
-	let actionLabel = submitLabel;
-	if (pending) {
-		actionLabel = pendingLabel;
-	} else if (props.retained) {
-		actionLabel = "Retry save";
-	}
+	const actionLabel = pending ? pendingLabel : submitLabel;
 	return (
 		<Dialog
 			title={label}
@@ -164,14 +147,14 @@ export function MeasurementDialog(props: {
 			}
 		>
 			<ActionForm label={label} onSubmit={save} className="flex flex-col gap-4">
-				<fieldset className="flex flex-col gap-4" disabled={pending || props.retained}>
+				<fieldset disabled={pending} className="flex flex-col gap-4">
 					<DateTimeField
 						{...timestamp}
 						label="Date and time"
 						showError={submitted}
 						inputRef={occurredAtRef}
-						onChange={(value) => change(() => timestamp.onChange(value))}
-						onOccurrenceChange={(value) => change(() => timestamp.onOccurrenceChange(value))}
+						onChange={(value) => timestamp.onChange(value)}
+						onOccurrenceChange={(value) => timestamp.onOccurrenceChange(value)}
 					/>
 					<ul aria-label="Values" className="flex flex-col gap-3">
 						{entries.flatMap((entry, index) => {
@@ -185,20 +168,16 @@ export function MeasurementDialog(props: {
 											key={entry.metricId}
 											invalid={submitted && parsed[index]?.value === undefined}
 											onRemove={() =>
-												change(() =>
-													setEntries((current) =>
-														current.filter(({ metricId }) => metricId !== entry.metricId),
-													),
+												setEntries((current) =>
+													current.filter(({ metricId }) => metricId !== entry.metricId),
 												)
 											}
 											onChange={(text) =>
-												change(() =>
-													setEntries((current) =>
-														current.map((candidate) =>
-															candidate.metricId === entry.metricId
-																? { ...candidate, text }
-																: candidate,
-														),
+												setEntries((current) =>
+													current.map((candidate) =>
+														candidate.metricId === entry.metricId
+															? { ...candidate, text }
+															: candidate,
 													),
 												)
 											}
@@ -214,9 +193,7 @@ export function MeasurementDialog(props: {
 							checkIcon={<AppIcon size={14} name="check" />}
 							searchIcon={<AppIcon size={14} name="search" />}
 							chevronIcon={<AppIcon size={14} name="chevron-down" />}
-							onChange={(metricId) =>
-								change(() => setEntries((current) => [...current, { metricId, text: "" }]))
-							}
+							onChange={(metricId) => setEntries((current) => [...current, { metricId, text: "" }])}
 							choices={metrics
 								.filter(({ id }) => !shownIds.has(id))
 								.map(({ id, name }) => ({ value: id, label: name }))}
@@ -228,7 +205,7 @@ export function MeasurementDialog(props: {
 								{...control}
 								rows={2}
 								value={comment}
-								onChange={(event) => change(() => setComment(event.target.value))}
+								onChange={(event) => setComment(event.target.value)}
 							/>
 						)}
 					</Field>

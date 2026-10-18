@@ -1,5 +1,7 @@
-import type { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotMutation, type RyotSubmission } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotBackgroundSubmission,
+	createRyotMutation,
+} from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	MeasurementMetricPinInput,
@@ -12,49 +14,34 @@ import {
 	measurementReadingDeleteOperationSlug,
 	MeasurementReadingLogInput,
 	measurementReadingLogOperationSlug,
-	MeasurementReadingLogOutput,
-	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-const readingMutation = <Input extends Schema.Codec<unknown, unknown>>(
-	slug: string,
-	inputSchema: Input,
-) =>
-	createRyotMutation<Input["Type"], typeof MeasurementReadingOutput.Type>(({ input, client }) =>
-		client.operations.invoke({
-			slug,
-			input,
-			inputSchema,
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MeasurementReadingOutput,
-		}),
-	);
+export const logReadingsSubmission = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: MeasurementReadingLogInput,
+	slug: measurementReadingLogOperationSlug,
+	label: (input: { readonly label: string; readonly entry: MeasurementEntry }) => input.label,
+	input: ({ input, submittedAt, submissionId }) => ({ ...input.entry, submittedAt, submissionId }),
+});
 
-export const logReadingsMutation = createRyotMutation<
-	RyotSubmission<MeasurementEntry>,
-	typeof MeasurementReadingLogOutput.Type
->(({ client, input: { input, submittedAt, submissionId } }) =>
-	client.operations.invoke({
-		packageId: PLUGIN_PACKAGE_ID,
-		output: MeasurementReadingLogOutput,
-		inputSchema: MeasurementReadingLogInput,
-		slug: measurementReadingLogOperationSlug,
-		input: { ...input, submittedAt, submissionId },
-	}),
-);
+export const updateReadingsSubmission = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	label: () => "Updated measurement",
+	inputSchema: MeasurementReadingUpdateInput,
+	slug: measurementReadingUpdateOperationSlug,
+	input: ({ input }: { readonly input: typeof MeasurementReadingUpdateInput.Type }) => input,
+});
 
-export const updateReadingsMutation = readingMutation(
-	measurementReadingUpdateOperationSlug,
-	MeasurementReadingUpdateInput,
-);
-
-export const deleteReadingsMutation = readingMutation(
-	measurementReadingDeleteOperationSlug,
-	MeasurementReadingDeleteInput,
-);
+export const deleteReadingsSubmission = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	label: () => "Deleted measurement",
+	inputSchema: MeasurementReadingDeleteInput,
+	slug: measurementReadingDeleteOperationSlug,
+	input: ({ input }: { readonly input: typeof MeasurementReadingDeleteInput.Type }) => input,
+});
 
 export const pinMetricMutation = createRyotMutation<
 	MeasurementMetricPinInput,
@@ -69,9 +56,7 @@ export const pinMetricMutation = createRyotMutation<
 	}),
 );
 
-export const readingFailureMessage = (error: Error | null, action: "delete" | "edit" | "log") => {
-	if (error === null) {
-		return undefined;
-	}
-	return `The measurement couldn't be ${action === "delete" ? "deleted" : "saved"}. Try again.`;
-};
+export const readingFailureMessage = (error: Error | null, action: "delete" | "edit" | "log") =>
+	error === null
+		? undefined
+		: `The measurement couldn't be ${action === "delete" ? "deleted" : "saved"}. Try again.`;

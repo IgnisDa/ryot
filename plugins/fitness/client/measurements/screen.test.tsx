@@ -259,8 +259,8 @@ describe("measurements page", () => {
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
-							type: "operation-request",
 							input: { entryId: "second-entry" },
+							type: "background-operation-request",
 						}),
 					),
 				),
@@ -321,8 +321,8 @@ describe("measurements page", () => {
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual(
 							expect.objectContaining({
-								type: "operation-request",
 								input: { entryId: "large-entry" },
+								type: "background-operation-request",
 							}),
 						),
 					),
@@ -654,21 +654,22 @@ describe("measurements page", () => {
 			const dialog = within(body.getByRole("dialog"));
 			expect(text(body.getByRole("dialog"))).toContain("The 2 readings taken on");
 			const requests = () =>
-				page.clientMessages().filter(({ type }) => type === "operation-request");
+				page.clientMessages().filter(({ type }) => type === "background-operation-request");
 			fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
 			const [failed] = requests();
-			assert(failed?.type === "operation-request");
+			assert(failed?.type === "background-operation-request");
 			expect(failed).toMatchObject({
 				input: { entryId: "r1" },
 				packageId: PLUGIN_PACKAGE_ID,
+				label: "Deleted measurement",
 				operationSlug: "measurement-reading-delete",
 			});
 			page.send({
 				outcome: "failure",
-				type: "operation-result",
 				reason: "operation-failed",
 				requestId: failed.requestId,
+				type: "background-operation-accepted",
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -678,14 +679,17 @@ describe("measurements page", () => {
 			fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
 			const retried = requests()[1];
-			assert(retried?.type === "operation-request");
-			storedReadings = rows([reading("r3", "weight", "Weight", 73.1, daysAgo(5))]);
+			assert(retried?.type === "background-operation-request");
+			expect(retried.idempotencyKey).not.toBe(failed.idempotencyKey);
 			page.send({
 				outcome: "success",
-				value: { count: 2 },
-				type: "operation-result",
+				submissionId: "submission-1",
 				requestId: retried.requestId,
+				type: "background-operation-accepted",
 			});
+			yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
+			storedReadings = rows([reading("r3", "weight", "Weight", 73.1, daysAgo(5))]);
+			page.send({ type: "page-refresh" });
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();
@@ -887,7 +891,7 @@ describe("measurements page", () => {
 			expect(dialog.getByLabelText("Waist (cm)").getAttribute("value")).toBe("");
 			expect(dialog.queryByLabelText("Sugar level (mg/dL)")).toBeNull();
 			const requests = () =>
-				page.clientMessages().filter(({ type }) => type === "operation-request");
+				page.clientMessages().filter(({ type }) => type === "background-operation-request");
 			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -921,9 +925,10 @@ describe("measurements page", () => {
 			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
 			const [failed] = requests();
-			assert(failed?.type === "operation-request");
+			assert(failed?.type === "background-operation-request");
 			expect(failed).toMatchObject({
 				packageId: PLUGIN_PACKAGE_ID,
+				label: "Logged Weight, Sugar level",
 				operationSlug: "measurement-reading-log",
 				input: {
 					comment: "Fasted",
@@ -937,27 +942,36 @@ describe("measurements page", () => {
 			page.send({
 				outcome: "failure",
 				reason: "transport",
-				type: "operation-result",
 				requestId: failed.requestId,
+				type: "background-operation-accepted",
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(text(dialog.getByRole("form"))).toContain("Some readings may already be saved"),
+					expect(text(dialog.getByRole("form"))).toContain(
+						"The measurement couldn't be saved. Try again.",
+					),
 				),
 			);
 			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe(" 0 ");
 			const metricQueries = page.queryRequests("metrics").length;
-			fireEvent.click(dialog.getByRole("button", { name: "Retry save" }));
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
 			const retried = requests()[1];
-			assert(retried?.type === "operation-request");
-			expect(retried.input).toEqual(failed.input);
+			assert(retried?.type === "background-operation-request");
+			expect(retried.idempotencyKey).not.toBe(failed.idempotencyKey);
+			expect(retried.input).toMatchObject({
+				comment: "Fasted",
+				occurredAt: loggedAt,
+				submissionId: retried.idempotencyKey,
+			});
 			page.send({
 				outcome: "success",
-				type: "operation-result",
+				submissionId: "submission-1",
 				requestId: retried.requestId,
-				value: { count: 2, status: "saved" },
+				type: "background-operation-accepted",
 			});
+			yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
+			page.send({ type: "page-refresh" });
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();
@@ -969,7 +983,7 @@ describe("measurements page", () => {
 		}),
 	);
 
-	it.live("cancels unsent input and retains partial submissions until retry completes", () =>
+	it.live("cancels unsent input and closes once the shell accepts the save", () =>
 		Effect.gen(function* () {
 			const { page, answerPending } = openPage(metrics, { loggerOnly: true });
 			const body = within(document.body);
@@ -983,7 +997,7 @@ describe("measurements page", () => {
 			);
 			const trigger = body.getByRole("button", { name: "Log measurement" });
 			const requests = () =>
-				page.clientMessages().filter(({ type }) => type === "operation-request");
+				page.clientMessages().filter(({ type }) => type === "background-operation-request");
 			fireEvent.click(trigger);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy()),
@@ -1004,36 +1018,14 @@ describe("measurements page", () => {
 			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
 			const first = requests()[0];
-			assert(first?.type === "operation-request");
+			assert(first?.type === "background-operation-request");
+			expect(first.label).toBe("Logged Weight, Waist");
 			expect(dialog.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true);
-			const metricQueries = page.queryRequests("metrics").length;
 			page.send({
 				outcome: "success",
-				type: "operation-result",
 				requestId: first.requestId,
-				value: { count: 1, status: "incomplete" },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(dialog.getByRole("button", { name: "Retry save" })).toBeTruthy()),
-			);
-			expect(dialog.getByLabelText("Weight (kg)").closest("fieldset")?.disabled).toBe(true);
-			expect(dialog.getByRole("alert").textContent).toContain("does not undo saved readings");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("metrics").length).toBeGreaterThan(metricQueries)),
-			);
-			expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy();
-			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe("0");
-			answerPending();
-			fireEvent.click(dialog.getByRole("button", { name: "Retry save" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
-			const retry = requests()[1];
-			assert(retry?.type === "operation-request");
-			expect(retry.input).toEqual(first.input);
-			page.send({
-				outcome: "success",
-				type: "operation-result",
-				requestId: retry.requestId,
-				value: { count: 2, status: "saved" },
+				submissionId: "submission-1",
+				type: "background-operation-accepted",
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
@@ -1077,10 +1069,10 @@ describe("measurements page", () => {
 			fireEvent.change(dialog.getByLabelText("Waist (cm)"), { target: { value: "80" } });
 			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
 			const requests = () =>
-				page.clientMessages().filter(({ type }) => type === "operation-request");
+				page.clientMessages().filter(({ type }) => type === "background-operation-request");
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
 			const [request] = requests();
-			assert(request?.type === "operation-request");
+			assert(request?.type === "background-operation-request");
 			expect(request).toMatchObject({
 				packageId: PLUGIN_PACKAGE_ID,
 				operationSlug: "measurement-reading-update",
@@ -1096,9 +1088,9 @@ describe("measurements page", () => {
 			});
 			page.send({
 				outcome: "success",
-				value: { count: 3 },
-				type: "operation-result",
+				submissionId: "submission-1",
 				requestId: request.requestId,
+				type: "background-operation-accepted",
 			});
 			yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
 		}),

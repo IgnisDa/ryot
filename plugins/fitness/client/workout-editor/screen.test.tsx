@@ -236,12 +236,19 @@ const openEditor = (
 					value: { status: "unsupported" },
 					type: "ios-live-activity-result",
 				});
+			} else if (request.type === "background-operation-request") {
+				if (request.operationSlug === measurementReadingLogOperationSlug) {
+					readingInputs.push(request.input);
+				}
+				page.send({
+					outcome: "success",
+					requestId: request.requestId,
+					type: "background-operation-accepted",
+					submissionId: `submission-${request.idempotencyKey}`,
+				});
 			} else if (request.type === "operation-request") {
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveInputs.push(request.input);
-				}
-				if (request.operationSlug === measurementReadingLogOperationSlug) {
-					readingInputs.push(request.input);
 				}
 				let value: JsonValue = { sets: [], kind: "saved", entityId: "saved-workout" };
 				if (request.operationSlug === workoutEditorContextOperationSlug) {
@@ -657,7 +664,11 @@ describe("WorkoutEditorScreen", () => {
 				expect(
 					page
 						.clientMessages()
-						.filter((message) => message.type === "operation-request")
+						.filter(
+							(message) =>
+								message.type === "operation-request" ||
+								message.type === "background-operation-request",
+						)
 						.map((message) => message.operationSlug),
 				).not.toContain("measurement-reading-delete");
 				page.dispose();

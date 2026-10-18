@@ -88,8 +88,8 @@ requests. Metric creation pins while the caller has fewer than two metrics; impo
 
 `MeasurementComposer` is shared by the page and live workout editor. It accepts one timestamp,
 per-metric finite values (zero included), and an optional comment. Empty values are skipped; at least
-one is required. An unchanged timestamp retains seconds. Forms retain input on validation/save
-failure and close only on success. Live readings save independently and survive workout discard;
+one is required. An unchanged timestamp retains seconds. Forms retain input on validation failure
+or a refused submission and close once the kernel accepts the write. Live readings save independently and survive workout discard;
 historical/template editors do not offer logging.
 
 Measurement and workout-time forms use the device's named timezone. Nonexistent local times are
@@ -98,9 +98,14 @@ offset when valid, while other ambiguous times require an occurrence choice. An 
 overrides the original offset.
 
 `measurement-reading-log` validates every metric's schema/visibility, creates an entry, and sends one
-`createEvents` batch (at most 100 values). The retained submission and mutation receipts replay both
-the entry and committed readings without duplication;
-partial/skipped writes retain input for retry. Cancelling never rolls back committed readings.
+`createEvents` batch (at most 100 values). The log, edit, and delete forms hand their write to the
+kernel's background submissions and close once it is accepted; the shell tray reports the outcome and
+offers Retry, which replays the same input and idempotency key so mutation receipts replay the entry
+and committed readings without duplication. A partial write reports `incomplete`. Cancelling never
+rolls back committed readings. Exercise note create, edit, and delete use background submissions too.
+Workout deletion stays a foreground write because the page navigates away only after it succeeds, and
+workout time correction stays foreground because its conflict and invalid results must reach the
+form.
 
 Update/delete resolve the caller-owned entry by ID. Update loads all
 children, validates event and metric schemas/visibility, patches kept readings, creates added values,

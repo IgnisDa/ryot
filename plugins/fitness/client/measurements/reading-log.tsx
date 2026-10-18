@@ -1,8 +1,8 @@
 import {
 	nextPageCursor,
 	paginationItems,
+	useBackgroundSubmission,
 	useRyotInfiniteQuery,
-	useRyotMutation,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -12,7 +12,7 @@ import {
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { Fragment, type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type RefObject, useMemo, useRef, useState } from "react";
 
 import { sectionHeadingClass } from "../exercise/styles";
 import { formatNumber } from "../workout/format";
@@ -28,7 +28,11 @@ import {
 	type ReadingGroup,
 	type ReadingValue,
 } from "./model";
-import { deleteReadingsMutation, readingFailureMessage, updateReadingsMutation } from "./mutations";
+import {
+	deleteReadingsSubmission,
+	readingFailureMessage,
+	updateReadingsSubmission,
+} from "./mutations";
 import { readingsQuery } from "./queries";
 import { MeasurementDialog } from "./reading-composer";
 import { tableHeaderClass } from "./styles";
@@ -64,12 +68,7 @@ function EditMeasurementDialog(props: {
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const { group, metrics, onClose } = props;
-	const update = useRyotMutation(updateReadingsMutation);
-	useEffect(() => {
-		if (update.data !== undefined) {
-			onClose();
-		}
-	}, [update.data, onClose]);
+	const update = useBackgroundSubmission(updateReadingsSubmission);
 	const [initial] = useState(() => ({
 		comment: group.comment,
 		occurredAt: group.occurredAt,
@@ -85,12 +84,13 @@ function EditMeasurementDialog(props: {
 			onClose={onClose}
 			submitLabel="Save"
 			pendingLabel="Saving…"
-			onChange={update.reset}
 			label="Edit measurement"
-			pending={update.isPending}
+			pending={update.isSending}
 			triggerRef={props.triggerRef}
 			errorMessage={readingFailureMessage(update.error, "edit")}
-			onSubmit={(readings) => update.mutate({ ...readings, entryId: group.id })}
+			onSubmit={(readings) =>
+				update.submit({ ...readings, entryId: group.id }, { onAccepted: onClose })
+			}
 		/>
 	);
 }
@@ -102,23 +102,18 @@ function DeleteMeasurementConfirmation(props: {
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const { group, onClose, takenAt } = props;
-	const remove = useRyotMutation(deleteReadingsMutation);
-	useEffect(() => {
-		if (remove.data !== undefined) {
-			onClose();
-		}
-	}, [remove.data, onClose]);
+	const remove = useBackgroundSubmission(deleteReadingsSubmission);
 	const count = group.values.size;
 	return (
 		<DestructiveConfirmation
 			onClose={onClose}
 			pendingLabel="Deleting…"
-			pending={remove.isPending}
+			pending={remove.isSending}
 			title="Delete measurement?"
 			triggerRef={props.triggerRef}
 			actionLabel="Delete measurement"
-			onConfirm={() => remove.mutate({ entryId: group.id })}
 			errorMessage={readingFailureMessage(remove.error, "delete")}
+			onConfirm={() => remove.submit({ entryId: group.id }, { onAccepted: onClose })}
 			detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
 		/>
 	);

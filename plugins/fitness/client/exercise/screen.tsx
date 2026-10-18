@@ -55,7 +55,6 @@ export function ExerciseDetailsView(props: {
 	const notes = (
 		<NotesSection
 			notes={details.notes}
-			onChanged={onChanged}
 			exerciseId={exercise.id}
 			workoutNotes={workoutNotes}
 			focusRequest={reviewRequest}

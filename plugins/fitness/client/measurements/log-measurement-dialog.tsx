@@ -1,9 +1,9 @@
-import { useRyotSubmission } from "@ryot-app/plugin-client-sdk/react";
-import { type RefObject, useEffect, useState } from "react";
+import { useBackgroundSubmission } from "@ryot-app/plugin-client-sdk/react";
+import { type RefObject, useState } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { selectPinnedMetrics } from "./model";
-import { logReadingsMutation, readingFailureMessage } from "./mutations";
+import { logReadingsSubmission, readingFailureMessage } from "./mutations";
 import { MeasurementDialog } from "./reading-composer";
 
 export function LogMeasurementDialog(props: {
@@ -12,14 +12,7 @@ export function LogMeasurementDialog(props: {
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const { metrics, onClose } = props;
-	const log = useRyotSubmission(logReadingsMutation, {
-		isComplete: (result) => result.status === "saved",
-	});
-	useEffect(() => {
-		if (log.data?.status === "saved") {
-			onClose();
-		}
-	}, [log.data, onClose]);
+	const log = useBackgroundSubmission(logReadingsSubmission);
 	const [initial] = useState(() => {
 		const pinned = selectPinnedMetrics(metrics);
 		return {
@@ -37,18 +30,23 @@ export function LogMeasurementDialog(props: {
 			metrics={metrics}
 			onClose={onClose}
 			submitLabel="Save"
-			onRetry={log.retry}
-			onChange={log.reset}
-			onSubmit={log.submit}
 			pendingLabel="Saving…"
 			label="Log measurement"
-			pending={log.isPending}
+			pending={log.isSending}
 			triggerRef={props.triggerRef}
-			retained={log.status === "retained"}
-			errorMessage={
-				log.status === "retained"
-					? "Some readings may already be saved. Retry the same submission to finish without duplicates. Cancel closes this form but does not undo saved readings."
-					: readingFailureMessage(log.error, "log")
+			errorMessage={readingFailureMessage(log.error, "log")}
+			onSubmit={(entry) =>
+				log.submit(
+					{
+						entry,
+						label: `Logged ${entry.values
+							.map(
+								({ metricId }) => metrics.find(({ id }) => id === metricId)?.name ?? "measurement",
+							)
+							.join(", ")}`,
+					},
+					{ onAccepted: onClose },
+				)
 			}
 		/>
 	);

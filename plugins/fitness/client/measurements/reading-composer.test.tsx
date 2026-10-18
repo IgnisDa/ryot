@@ -36,7 +36,6 @@ const open = (occurredAt: string) => {
 				errorMessage={undefined}
 				onClose={() => undefined}
 				submitLabel="Save reading"
-				onChange={() => undefined}
 				pendingLabel="Saving reading"
 				triggerRef={{ current: null }}
 				onSubmit={(entry) => submitted.push(entry)}
