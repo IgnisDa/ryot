@@ -22,6 +22,7 @@ import { ManagedAssetImage } from "./managed-assets";
 import { MediaMonitoringControl } from "./monitoring";
 import { MediaOwnershipControl } from "./ownership";
 import { MediaExternalLink, MediaFactRow, MediaMarkdown } from "./primitives";
+import { MediaProviderRefreshControl } from "./provider-refresh";
 import { MediaReviewButton } from "./review";
 import {
 	type MediaEntitySummaryValue,
@@ -203,6 +204,7 @@ function MediaLibraryStrip(props: {
 					key={`monitoring:${media.id}`}
 				/>
 			)}
+			<MediaProviderRefreshControl media={media} />
 		</div>
 	);
 }
