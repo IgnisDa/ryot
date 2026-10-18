@@ -206,6 +206,7 @@ const collectorLayer = Layer.unwrap(
 		const database = yield* IsolatedDatabase;
 		return WorkflowGarbageCollector.layer.pipe(
 			Layer.provideMerge(WorkflowGarbageCollectionStorageLive),
+			Layer.provideMerge(WorkflowGarbageCollectionRepository.layer),
 			Layer.provideMerge(WorkflowExecutionNotifications.layer),
 			Layer.provideMerge(DatabaseSession.layer),
 			Layer.provideMerge(PgClientLive),
@@ -292,6 +293,61 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			yield* TestClock.adjust("1 day");
 			expect(yield* collector.runBatch()).toEqual({ expiredTrees: 1, clearedExecutions: 2 });
 			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
+		}),
+	);
+
+	test.effect("expires failed trees after 168 elapsed hours across DST transitions", () =>
+		Effect.gen(function* () {
+			const cases = [
+				{ timeZone: "Europe/Berlin", completedAt: "2026-03-25T06:00:00Z" },
+				{ timeZone: "Europe/Berlin", completedAt: "2026-10-22T06:00:00Z" },
+				{ timeZone: "Australia/Lord_Howe", completedAt: "2026-10-01T06:00:00Z" },
+			];
+			const session = yield* DatabaseSession;
+			const repository = yield* WorkflowGarbageCollectionRepository;
+			for (const fixture of cases) {
+				const completedAt = DateTime.makeUnsafe(fixture.completedAt);
+				yield* TestClock.setTime(DateTime.toEpochMillis(completedAt));
+				const identity = { executionId: crypto.randomUUID(), workflowName: "DstRetentionWorkflow" };
+				const message = yield* saveRun(identity);
+				yield* completeRun(message, Exit.fail("provider failed"));
+				const expiresAt = DateTime.add(completedAt, { hours: 168 });
+				const beforeExpiry = DateTime.subtract(expiresAt, { seconds: 1 });
+				expect(
+					yield* session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`select set_config('TimeZone', ${fixture.timeZone}, true)`),
+							);
+							return yield* repository.expireTrees(DateTime.toDateUtc(beforeExpiry), 100);
+						}),
+					),
+				).toBe(0);
+				expect(
+					yield* session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`select set_config('TimeZone', ${fixture.timeZone}, true)`),
+							);
+							return yield* repository.expireTrees(DateTime.toDateUtc(expiresAt), 100);
+						}),
+					),
+				).toBe(1);
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ expiredAt: workflowExecution.expiredAt })
+						.from(workflowExecution)
+						.where(
+							and(
+								eq(workflowExecution.workflowName, identity.workflowName),
+								eq(workflowExecution.executionId, identity.executionId),
+							),
+						),
+				);
+				expect(row?.expiredAt?.toISOString()).toBe(DateTime.formatIso(expiresAt));
+				yield* TestClock.setTime(DateTime.toEpochMillis(expiresAt));
+				yield* (yield* WorkflowGarbageCollector).runBatch();
+			}
 		}),
 	);
 

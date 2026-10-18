@@ -88,6 +88,11 @@ one is required. An unchanged timestamp retains seconds. Forms retain input on v
 failure and close only on success. Live readings save independently and survive workout discard;
 historical/template editors do not offer logging.
 
+Measurement and workout-time forms use the device's named timezone. Nonexistent local times are
+rejected. Repeated times show both UTC offsets; edits within the original local date preserve its
+offset when valid, while other ambiguous times require an occurrence choice. An explicit choice
+overrides the original offset.
+
 `measurement-reading-log` validates every metric's schema/visibility and sends one `createEvents`
 batch. The retained submission and mutation receipts replay committed readings without duplication;
 partial/skipped writes retain input for retry. Cancelling never rolls back committed readings.

@@ -28,7 +28,7 @@ const treeFilter = (root: WorkflowIdentity) =>
 const rootExecution = alias(table, "root");
 
 const retentionInterval = sql`case when bool_or(member.status = 'failed')
-	then interval '7 days' else interval '24 hours' end`;
+	then interval '168 hours' else interval '24 hours' end`;
 
 const RequestIdentity = Schema.Struct({
 	entityType: Schema.String,

@@ -13,7 +13,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useRef, useState, type RefObject } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
-import { fromDateTimeInput, toDateTimeInput } from "../datetime-input";
+import { DateTimeField } from "../datetime-field";
+import { resolveDateTimeInput, toDateTimeInput } from "../datetime-input";
 import { unitSuffix } from "./model";
 
 type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
@@ -101,6 +102,8 @@ export function MeasurementDialog(props: {
 	} = props;
 	const occurredAtRef = useRef<HTMLInputElement>(null);
 	const [occurredAt, setOccurredAt] = useState(() => toDateTimeInput(initial.occurredAt));
+	const [occurrence, setOccurrence] = useState<string>();
+	const timestamp = resolveDateTimeInput(occurredAt, initial.occurredAt, occurrence);
 	const [comment, setComment] = useState(initial.comment ?? "");
 	const [entries, setEntries] = useState(() =>
 		initial.values.map(({ value, metricId }) => ({
@@ -114,7 +117,6 @@ export function MeasurementDialog(props: {
 	const values = parsed.flatMap(({ value, metricId }) =>
 		value === null || value === undefined ? [] : [{ value, metricId }],
 	);
-	const invalidTimestamp = Number.isNaN(Date.parse(occurredAt));
 	let message: string | undefined;
 	if (submitted && values.length === 0 && parsed.every(({ value }) => value !== undefined)) {
 		message = "Enter at least one value.";
@@ -130,17 +132,13 @@ export function MeasurementDialog(props: {
 		}
 		setSubmitted(true);
 		if (
-			invalidTimestamp ||
+			timestamp.iso === null ||
 			values.length === 0 ||
 			parsed.some(({ value }) => value === undefined)
 		) {
 			return;
 		}
-		onSubmit({
-			values,
-			comment: comment.trim(),
-			occurredAt: fromDateTimeInput(occurredAt, initial.occurredAt),
-		});
+		onSubmit({ values, comment: comment.trim(), occurredAt: timestamp.iso });
 	};
 	let actionLabel = submitLabel;
 	if (pending) {
@@ -169,20 +167,20 @@ export function MeasurementDialog(props: {
 		>
 			<ActionForm label={label} onSubmit={save} className="flex flex-col gap-4">
 				<fieldset className="flex flex-col gap-4" disabled={pending || props.retained}>
-					<Field
+					<DateTimeField
+						value={occurredAt}
 						label="Date and time"
-						error={submitted && invalidTimestamp ? "Enter a date and time." : undefined}
-					>
-						{(control) => (
-							<TextField
-								{...control}
-								value={occurredAt}
-								ref={occurredAtRef}
-								type="datetime-local"
-								onChange={(event) => change(() => setOccurredAt(event.target.value))}
-							/>
-						)}
-					</Field>
+						showError={submitted}
+						resolution={timestamp}
+						inputRef={occurredAtRef}
+						onOccurrenceChange={(value) => change(() => setOccurrence(value))}
+						onChange={(value) =>
+							change(() => {
+								setOccurredAt(value);
+								setOccurrence(undefined);
+							})
+						}
+					/>
 					<ul aria-label="Values" className="flex flex-col gap-3">
 						{entries.flatMap((entry, index) => {
 							const metric = metrics.find(({ id }) => id === entry.metricId);
