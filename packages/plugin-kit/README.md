@@ -154,6 +154,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
 | `relationshipSchemas`  | Typed relationship endpoints and optional user-write ownership rules    |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
+| `calendarSources`      | Optional dated occurrences listed by the kernel calendar                |
 
 Set `userWritePolicy: "source-owner"` on structural relationship schemas when user-scoped writes
 must require ownership of the source entity. The target may be global and visible. The rule covers
@@ -194,6 +195,22 @@ own plugin's current settings with defaults applied. Decode the JSON record with
 schemas. Retained execution reads use the pinned manifest schema; durable activity replay retains the
 recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
 the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
+
+### Calendar Sources
+
+`calendarSources` is optional; omitting it declares none. Each source has a local `slug`, `name`,
+`icon`, `precision`, `subject`, and one RyotQL `query` body: `from`, optional `where` and `joins`, and
+a `rows` output with `fields` and optional `include`. The kernel owns ordering, paging, and the
+calendar window, so a query cannot declare `orderBy` or `pagination`.
+
+`startAt` names a projected date field. Optional `caption`, `art`, and `done` name projected text,
+JSON, and boolean fields. `precision` is `date` for date-only values stored at UTC midnight or
+`instant` for timestamps. `subject` names the query alias of the occurrence's entity and its schemas,
+as for entity-browser views. Installation validates the query with plugin-audience access, the field
+kinds, and that the subject alias is an entity table; `self` references bind to the installed plugin.
+
+Users can hide individual sources. Hidden state is per user, keyed by the exact plugin and source
+slug, and included in account backups.
 
 ## Execution Authority
 

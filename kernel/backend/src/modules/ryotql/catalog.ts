@@ -522,6 +522,26 @@ const signalSchema: CatalogTable = {
 	},
 };
 
+const calendarSource: CatalogTable = {
+	primaryKey: ["pluginId", "slug"],
+	name: "user_calendar_source_effective",
+	visibility: effectiveDefinitionVisibility,
+	fields: {
+		art: physicalField("art", "text"),
+		done: physicalField("done", "text"),
+		caption: physicalField("caption", "text"),
+		icon: physicalField("icon", "text", false),
+		name: physicalField("name", "text", false),
+		slug: physicalField("slug", "text", false),
+		query: physicalField("query", "json", false),
+		subject: physicalField("subject", "json", false),
+		startAt: physicalField("start_at", "text", false),
+		pluginId: physicalField("plugin_id", "text", false),
+		precision: physicalField("precision", "text", false),
+		isHidden: physicalField("is_hidden", "boolean", false),
+	},
+};
+
 const executableDefinitionVisibility: CatalogVisibility = {
 	user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
 };
@@ -1134,6 +1154,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	signalSchema,
 	sandboxScript,
 	automationRun,
+	calendarSource,
 	eventStreamWork,
 	migrationReport,
 	sandboxProvider,

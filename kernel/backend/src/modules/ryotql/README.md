@@ -50,7 +50,7 @@ System-plugin ownership checks use the exact local plugin ID and pinned declarat
 | `pluginInstallation`                                                                                                                     | Owned, not uninstalled                     |  yes   |  yes  | kernel: `config`, `configuredSecrets`                                 |
 | `integration`                                                                                                                            | Owned                                      |  yes   |  no   | kernel: `providerSpecifics`, `webhookToken`                           |
 | `notificationSubscription`                                                                                                               | Owned                                      |  yes   |  yes  | admin: `userId`                                                       |
-| `entitySchema`, `eventSchema`, `relationshipSchema`, `signalSchema`                                                                      | Effective definitions of the user          |  yes   |  no   | —                                                                     |
+| `entitySchema`, `eventSchema`, `relationshipSchema`, `signalSchema`, `calendarSource`                                                    | Effective definitions of the user          |  yes   |  no   | —                                                                     |
 | `sandboxProvider`, `sandboxProviderOperation`                                                                                            | Providers of the user's executable plugins |  yes   |  no   | —                                                                     |
 | `user`                                                                                                                                   | Self                                       |   no   |  yes  | admin: `disabledAt`, `twoFactorEnabled`, `authState`                  |
 | `backupRun`                                                                                                                              | Owned                                      |   no   |  no   | —                                                                     |
@@ -100,6 +100,8 @@ For users with a non-canonical language, entity `name` falls back to canonical t
 `plugin` revision fields (`name`, `icon`, `description`, `version`, `contentHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.packageId` and `integration.packageId` derive from the exact installation.
 
 `savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
+
+`calendarSource` reads from `user_calendar_source_effective`: the active revision's calendar sources of the user's effective installations, keyed by `pluginId` and `slug`, with `isHidden` from the user's per-source override. It has no `id`, so queries order by explicit fields.
 
 `pluginInstallation.homeSavedView` is the effective tagged custom, kernel, or plugin view reference: the selected view when usable, otherwise the exact installation owner's built-in view named by the active manifest's `client.homeView` when usable, otherwise null. A usable view is enabled and uses a kernel renderer or a `page` export of a ready and enabled plugin of the same user.
 

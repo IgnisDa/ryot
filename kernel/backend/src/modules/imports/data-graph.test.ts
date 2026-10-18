@@ -16,6 +16,7 @@ import { orderDataGraph } from "./data-graph";
 const definitions = buildDefinitionSnapshot({
 	savedViews: [],
 	signalSchemas: [],
+	calendarSources: [],
 	relationshipSchemas: [
 		{
 			name: "Link",

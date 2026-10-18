@@ -9,6 +9,7 @@ const emptySource = {
 	savedViews: [],
 	entitySchemas: [],
 	signalSchemas: [],
+	calendarSources: [],
 	relationshipSchemas: [],
 };
 const systemPlugin = (id: string) => {

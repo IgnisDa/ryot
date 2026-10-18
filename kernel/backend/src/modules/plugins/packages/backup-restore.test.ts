@@ -36,11 +36,18 @@ const privateManifest = () => ({
 	entitySchemas: [],
 	signalSchemas: [],
 	userBootstrap: [],
+	calendarSources: [],
 	relationshipSchemas: [],
 });
 
 const snapshot = {
-	definitions: { savedViews: {}, entitySchemas: {}, signalSchemas: {}, relationshipSchemas: {} },
+	definitions: {
+		savedViews: {},
+		entitySchemas: {},
+		signalSchemas: {},
+		calendarSources: {},
+		relationshipSchemas: {},
+	},
 };
 
 class FakeBackupRepository extends Context.Service<

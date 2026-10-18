@@ -37,6 +37,7 @@ const entityDefinition = (pluginSlug: string, pluginId: PluginId) => ({
 const snapshot = buildDefinitionSnapshot({
 	savedViews: [],
 	signalSchemas: [],
+	calendarSources: [],
 	relationshipSchemas: [],
 	entitySchemas: [
 		entityDefinition("private", privateOwner),

@@ -13,6 +13,7 @@ import {
 
 const source = (pluginId: string | null): DefinitionSource => ({
 	savedViews: [],
+	calendarSources: [],
 	relationshipSchemas: [
 		{
 			pluginId,
@@ -58,6 +59,7 @@ it("indexes matching local names independently for kernel and plugin owners", ()
 	const kernel = source(null);
 	const snapshot = buildDefinitionSnapshot({
 		savedViews: [],
+		calendarSources: [],
 		entitySchemas: [...a.entitySchemas, ...b.entitySchemas, ...kernel.entitySchemas],
 		signalSchemas: [...a.signalSchemas, ...b.signalSchemas, ...kernel.signalSchemas],
 		relationshipSchemas: [

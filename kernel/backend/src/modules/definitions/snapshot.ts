@@ -1,4 +1,8 @@
 import {
+	CalendarSourcePrecision,
+	CalendarSourceQuery,
+} from "@ryot-app/contract/modules/calendar-sources/schemas";
+import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
 	PluginRelationshipUserWritePolicy,
@@ -16,11 +20,13 @@ import {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
 	SavedViewRenderer,
+	SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { Data, Effect, Result, Schema } from "effect";
 
+import { calendarSourceIssue } from "#modules/definitions/calendar-source-validation";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -95,8 +101,25 @@ export const SavedViewDefinition = Schema.Struct({
 
 export type SavedViewDefinition = typeof SavedViewDefinition.Type;
 
+export const CalendarSourceDefinition = Schema.Struct({
+	icon: Schema.String,
+	name: Schema.String,
+	slug: Schema.String,
+	startAt: Schema.String,
+	pluginId: Schema.String,
+	subject: SavedViewSubject,
+	query: CalendarSourceQuery,
+	art: Schema.NullOr(Schema.String),
+	done: Schema.NullOr(Schema.String),
+	precision: CalendarSourcePrecision,
+	caption: Schema.NullOr(Schema.String),
+});
+
+export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
+
 export type DefinitionSource = {
 	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
+	readonly calendarSources: ReadonlyArray<CalendarSourceDefinition>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
 	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
 	readonly entitySchemas: ReadonlyArray<
@@ -117,6 +140,7 @@ export const DefinitionSnapshot = Schema.Struct({
 	savedViews: Schema.Record(Schema.String, SavedViewDefinition),
 	entitySchemas: Schema.Record(Schema.String, EntitySchemaSnapshot),
 	signalSchemas: Schema.Record(Schema.String, SignalSchemaDefinition),
+	calendarSources: Schema.Record(Schema.String, CalendarSourceDefinition),
 	relationshipSchemas: Schema.Record(Schema.String, RelationshipSchemaDefinition),
 });
 
@@ -156,6 +180,7 @@ const definitionLabels = {
 	signal: "signal schema",
 	"saved-view": "saved view",
 	relationship: "relationship schema",
+	"calendar-source": "calendar source",
 } as const;
 
 export type DefinitionKind = keyof typeof definitionLabels;
@@ -255,6 +280,12 @@ const validateDefinitionSource = (
 	for (const savedView of source.savedViews) {
 		validateSavedViewDefinition(savedView);
 	}
+	for (const calendarSource of source.calendarSources) {
+		const issue = calendarSourceIssue(calendarSource);
+		if (issue) {
+			throw new Error(`Invalid calendar source ${calendarSource.slug}: ${issue}`);
+		}
+	}
 
 	for (const entitySchema of source.entitySchemas) {
 		assertSchemaDefinition("entity", entitySchema.slug, entitySchema.propertiesSchema);
@@ -346,6 +377,7 @@ const validateDefinitionSource = (
 export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSnapshot => {
 	const cloned = structuredClone(source);
 	const savedViews = definitionRecord("saved-view", cloned.savedViews);
+	const calendarSources = definitionRecord("calendar-source", cloned.calendarSources);
 	const signalSchemas = definitionRecord("signal", cloned.signalSchemas);
 	const entitySchemas = definitionRecord("entity", cloned.entitySchemas);
 	const relationshipSchemas = definitionRecord("relationship", cloned.relationshipSchemas);
@@ -353,6 +385,7 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 	return deepFreeze({
 		savedViews,
 		signalSchemas,
+		calendarSources,
 		relationshipSchemas,
 		entitySchemas: Object.fromEntries(
 			Object.entries(entitySchemas).map(([key, { eventSchemas, ...entitySchema }]) => [
@@ -372,6 +405,7 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): DefinitionSource => ({
 	savedViews: Object.values(snapshot.savedViews),
 	signalSchemas: Object.values(snapshot.signalSchemas),
+	calendarSources: Object.values(snapshot.calendarSources),
 	relationshipSchemas: Object.values(snapshot.relationshipSchemas),
 	entitySchemas: Object.values(snapshot.entitySchemas).map(({ eventSchemas, ...entitySchema }) =>
 		Object.assign({}, entitySchema, { eventSchemas: Object.values(eventSchemas) }),

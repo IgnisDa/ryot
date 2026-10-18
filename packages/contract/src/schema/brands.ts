@@ -74,6 +74,10 @@ export const SignalSchemaSlug = Schema.String.pipe(Schema.brand("SignalSchemaSlu
 
 export type SignalSchemaSlug = typeof SignalSchemaSlug.Type;
 
+export const CalendarSourceSlug = Schema.String.pipe(Schema.brand("CalendarSourceSlug"));
+
+export type CalendarSourceSlug = typeof CalendarSourceSlug.Type;
+
 export const NotificationSubscriptionId = Schema.String.pipe(
 	Schema.brand("NotificationSubscriptionId"),
 );
