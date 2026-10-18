@@ -47,6 +47,10 @@ on, rather than leaving the job pending. Suspension is
 not failure. Terminal settlement only transitions queued/running rows, so late or repeated settlement
 cannot change a terminal result; settling also releases retained execution references.
 
+The frequent cron deletes succeeded and failed rows 168 hours after settlement in bounded batches.
+It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
+`event_stream_work` record still names as its current job.
+
 Projection-specific freshness and discovery remain event-owned: reconciliation finds missing or stale
 bindings and dirty streams, and projection values are visible only while their source revision,
 plugin revision/configuration/installation, and processor binding remain current. See [events and

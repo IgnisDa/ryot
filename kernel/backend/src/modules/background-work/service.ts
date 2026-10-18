@@ -222,6 +222,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				recover,
 				dispatch,
 				lockAccount: receipts.admitAccount,
+				pruneSettled: repository.pruneSettled,
 			};
 		}),
 	},

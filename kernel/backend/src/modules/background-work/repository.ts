@@ -6,6 +6,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import { backgroundWork } from "#schema/tables/background-work";
+import { eventStreamWork } from "#schema/tables/event-streams";
 import { workflowExecution } from "#schema/tables/workflow-executions";
 
 export type BackgroundWorkScopeKey = Pick<
@@ -206,7 +207,47 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 						),
 				);
 			});
-			return { get, start, claim, settle, request, running, pending, lockScope, dispatched };
+			// Plugins read a scope's latest status, and stream work retries its current job.
+			const pruneSettled = Effect.fn("BackgroundWorkRepository.pruneSettled")(function* (
+				limit: number,
+			) {
+				const cutoff = DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { hours: 168 }));
+				const rows = yield* session.run((db) =>
+					db.execute<{ id: string }>(
+						sql`delete from ${backgroundWork} where id in (
+							select work.id from ${backgroundWork} work
+							where work.status in ('succeeded', 'failed')
+								and work.updated_at < ${cutoff}::timestamptz
+								and exists (
+									select 1 from ${backgroundWork} newer
+									where newer.user_id = work.user_id and newer.plugin_id = work.plugin_id
+										and newer.purpose = work.purpose and newer.scope = work.scope
+										and (newer.created_at, newer.id) > (work.created_at, work.id)
+								)
+								and not exists (
+									select 1 from ${eventStreamWork} stream where stream.current_job_id = work.id
+								)
+							order by work.updated_at
+							limit ${limit}
+							for update skip locked
+						) returning id`,
+						"objects",
+					),
+				);
+				return rows.length;
+			});
+			return {
+				get,
+				start,
+				claim,
+				settle,
+				request,
+				running,
+				pending,
+				lockScope,
+				dispatched,
+				pruneSettled,
+			};
 		}),
 	},
 ) {
