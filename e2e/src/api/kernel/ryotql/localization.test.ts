@@ -1,18 +1,22 @@
+import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	and,
 	ascending,
 	castText,
 	column,
 	contains,
+	defineRecipe,
 	document,
 	eq,
 	field,
 	jsonPath,
 	literal,
 	rows,
+	selectedField,
+	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -30,6 +34,7 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -57,24 +62,29 @@ const localizedDocument = (schemaSlug: string) => {
 	});
 };
 
-const statusDocument = (entityId: string) => {
+const statusRecipe = defineRecipe((entityId: string) => {
 	const entity = table("entity", "entity");
-	return document({
-		entity: rows(entity, {
-			limit: 1,
-			where: eq(column(entity, "id"), literal(entityId)),
-			fields: [field("translationStatus", column(entity, "translationStatus"))],
-		}),
-	});
-};
+	return {
+		map: ({ entity: row }) => Result.succeed(row?.translationStatus),
+		queries: {
+			entity: selectedOptionalRow(entity, {
+				where: eq(column(entity, "id"), literal(entityId)),
+				selection: {
+					translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
+				},
+			}),
+		},
+	};
+});
 
-const readStatus = (client: Parameters<typeof executeRyotQL>[0], entityId: string) =>
-	Effect.gen(function* () {
-		const response = yield* executeRyotQL(client, statusDocument(entityId));
-		const item = requireRows(response.data["entity"], "entity").items[0];
-		assertPresent(item, `Expected entity '${entityId}'`);
-		return requireRyotQLValue(item, "translationStatus");
-	});
+const readStatus = Effect.fnUntraced(function* (
+	client: Parameters<typeof executeRyotQLRecipe>[0],
+	entityId: string,
+) {
+	const status = yield* executeRyotQLRecipe(client, statusRecipe(entityId));
+	assertPresent(status, `Expected entity '${entityId}'`);
+	return status;
+});
 
 describe("RyotQL entity localization", () => {
 	it.live("localizes selection, JSON paths, predicates, and ordering with canonical fallback", () =>
@@ -156,6 +166,7 @@ describe("RyotQL entity localization", () => {
 							details: fakeProviderDetailsResult({ name: "Provider without canonical language" }),
 						},
 						canonical: {
+							translations: {},
 							rootEntitySchemaSlug: "movie",
 							information: { source: "e2e", canonicalLanguage: "en" },
 							details: fakeProviderDetailsResult({ name: "Provider with canonical language" }),
@@ -165,7 +176,7 @@ describe("RyotQL entity localization", () => {
 				({ canonical }) => uninstallTestProvider(canonical),
 			);
 			const entitySchema = testProviderEntitySchema(providers.canonical);
-			const seed = (providerId: string | null, populated: boolean) =>
+			const seed = (providerId: null | string, populated: boolean) =>
 				(populated ? seedPopulatedEntity : seedEntity)({
 					providerId,
 					entitySchema,
@@ -195,18 +206,42 @@ describe("RyotQL entity localization", () => {
 
 			const { client: spanish } = yield* createAuthenticatedClient();
 			yield* setUserLanguage(spanish, "es");
-			expect(yield* readStatus(spanish, ready.id)).toBe("ready");
-			expect(yield* readStatus(spanish, pending.id)).toBe("pending");
-			expect(yield* readStatus(spanish, negative.id)).toBe("none");
-			expect(yield* readStatus(spanish, unpopulated.id)).toBe("none");
-			expect(yield* readStatus(spanish, providerless.id)).toBe("none");
-			expect(yield* readStatus(spanish, missingCanonicalLanguage.id)).toBe("none");
+			expect(yield* readStatus(spanish, ready.id)).toEqual({
+				state: "idle",
+				availability: "complete",
+			});
+			expect(yield* readStatus(spanish, pending.id)).toEqual({
+				state: "idle",
+				availability: "missing",
+			});
+			expect(yield* readStatus(spanish, negative.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
+			expect(yield* readStatus(spanish, unpopulated.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
+			expect(yield* readStatus(spanish, providerless.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
+			expect(yield* readStatus(spanish, missingCanonicalLanguage.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
 
 			const { client: canonical } = yield* createAuthenticatedClient();
 			yield* setUserLanguage(canonical, "en");
-			expect(yield* readStatus(canonical, pending.id)).toBe("none");
+			expect(yield* readStatus(canonical, pending.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
 			const { client: noPreference } = yield* createAuthenticatedClient();
-			expect(yield* readStatus(noPreference, pending.id)).toBe("none");
+			expect(yield* readStatus(noPreference, pending.id)).toEqual({
+				state: "idle",
+				availability: "none",
+			});
 		}),
 	);
 });
