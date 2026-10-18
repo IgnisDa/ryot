@@ -87,7 +87,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
 | 1 | Pending | **Settle and implement history-correction behavior** | Agreement on manual versus automatic completion semantics | Define which consequences of an edit/delete must be repaired. Preserve explicit user records; repair affected derived state without duplicate completions, notifications or pushes. Cover date/percent edits, child deletion, rewatch boundaries, retries and concurrent writes. Keep documented creation-only behavior only where explicitly accepted; do not classify every V1 difference as a bug. Check import tie-order differences here if they change lifecycle results. |
-| 2 | Pending | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
+| 2 | Done | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
 | 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
 | 4 | Pending | **Add explicit provider refresh** | Existing population/enrichment workflows | Users can refresh successfully populated provider data, not only retry failures. Expose progress/failure/retry in the client; preserve user-owned history/annotations and prevent stale translation overlays from replacing newer data. Bound and deduplicate refresh work. Define freshness requirements for later release alerts without reinstating a blanket daily partial reset. |
 | 5 | Pending | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
@@ -161,6 +161,43 @@ before affected tests; use focused browser/API coverage for the actual user flow
 repository's final validation requirements for code changes. Update this inventory and close
 the numbered item only when those results and the accepted behavior are recorded.
 
+### Phase 1, Order 2 — Custom entity editing acceptance
+
+Accepted behavior: owned custom media, people, companies, and groups expose **Edit** and use the
+shared editor's update mode. Provider-owned entities remain read-only. Saves retain declared
+fields, nested values, assets, incoming links, and untouched outgoing links. Updates compare the
+loaded entity and outgoing relationship baselines, including empty groups, so stale edits cannot
+silently replace newer links. Identical retries retain their command identity and replay receipts.
+
+API-source custom-media creates and updates derive a missing publish year from a valid full
+publish date. Explicit years remain unchanged when dates change; year-only metadata is allowed.
+Duplicate actions are deferred. Custom season/episode authoring and new incoming association
+controls remain in row 7; removed-asset collection remains in row 9. No compatibility path is added.
+
+Owners: `packages/contract/src/modules/entities/editor.ts`,
+`kernel/backend/src/modules/entities/editor/service.ts`, the shared SDK entity editor,
+`plugins/media/shared/{media-entity-editors,media-recipes}.ts`,
+`plugins/media/client/entity-editor`, and
+`plugins/media/backend/automations/custom-publish-year-policy.sandbox.ts`.
+User documentation: `apps/docs/src/guides/custom-media.md`.
+
+Validation on **2026-10-26**, after affected checks passed:
+
+- Contract tests: **283 passed**; shared SDK editor tests: **14 passed**; backend editor tests:
+  **20 passed**, including stale link additions/changes/deletions, concurrent drift, retries,
+  ownership, atomic saves, immutable fields, and preserved incoming/unlisted links.
+- Isolated Media client/recipe/manifest/policy tests: **578 passed** across 65 files.
+- `e2e/src/api/plugins/media/custom-entity-editor.test.ts`: **2 passed**, covering year derivation,
+  explicit-year preservation, stale snapshots/links, foreign ownership, and replayed updates.
+- `e2e/src/browser/media-custom-entity.test.ts`: **6 passed**, covering create/edit entry points,
+  retained/removed genres, nested show fields, managed images, and person/company/group editing.
+- Repository `bun run check`: passed in an isolated worktree based on `1e2fff0fbc` plus this item's
+  changes. Media/Fitness bundles built successfully; docs configuration generation passed with no
+  generated reference changes. Review and the scoped cleanup pass found no remaining blockers.
+
+Isolation excluded concurrent history work without changing it. Repository-wide test suites were
+omitted at the owner's request; only the affected e2e files ran. The accepted edit-only scope is **Done**.
+
 ### Phase 1, Order 3 — Rating-only review acceptance
 
 Accepted behavior: one private `review` event can contain a finite 0–100 rating, trimmed
@@ -231,7 +268,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters. Rank reads exist; user reordering does not. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
 | Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job. |
-| Custom metadata/person/group | Partial | Manifest editors, shared SDK editor, `POST /entities/editor`, owner-only updates and atomic outgoing-link saves. Media routes currently wire creation only, not edit/duplicate actions for existing entities. Incoming credits and custom season/episode authoring are not covered by the Media editor. |
+| Custom metadata/person/group | Partial | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, and groups. Atomic saves compare loaded entity/outgoing-link baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Duplicate actions are deferred. Incoming credits and custom season/episode authoring remain outside this editor. |
 | Genres | Covered; reshaped | `genre` entities, local `genre.media-catalog` identities and typed `<schema>-to-genre` links; provider population, migration, any/all/none filters, pickers and private custom genres. No standalone V1 genre-list/detail page is shipped. |
 | Creator and group associations | Covered with editing limits | Typed ordered relationships, creator credit rails and paged credit modals, group member screens; character names retained on person credits. Custom media edits expose only declared outgoing links. |
 | Recommendations | Partial | `media-suggestion` graph, detail rails, `latestCompletionSuggestionsRecipe` and Media home. Collection-specific recommendations have no shipped recipe/UI. V1 randomized multi-source selection, fallback, enabled-lot filtering and candidate sampling are not reproduced. |
@@ -528,12 +565,11 @@ Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/colle
 
 ### Custom media and history controls
 
-- Owner-only entity update and the shared editor are built, but Media's shipped route always
-  selects create mode: **existing custom-media/person/group edit and duplicate actions are
-  not wired**. Fitness exercises do wire edit/duplicate modes. Further differences are custom
-  season/episode inventory editing, media-side selection of incoming creator/group links, and
-  automatic publish-year derivation from publish-date. Ordered links exist; not every V1 link
-  editor exists.
+- Owner-only custom-media/person/company/group editing uses the shared editor, declared outgoing
+  links, and loaded entity/relationship baselines. Missing publish years derive from valid full
+  publish dates on API creates/updates; explicit years survive date changes. Duplicate actions
+  were deferred by product decision. Custom season/episode inventory and media-side selection of
+  incoming creator/group links remain for row 7. Ordered links exist; not every V1 link editor exists.
 - V1 custom `is_partial` inference is not a field to restore blindly: provider availability and
   related completeness now have separate stamps/statuses, and custom entities have no provider
   population. This does not solve the missing custom episode editor.
