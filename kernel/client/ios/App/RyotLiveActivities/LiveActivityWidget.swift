@@ -24,6 +24,8 @@ struct RyotLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     ActivityValue(value: context.state.primary, end: activityEnd(context))
                         .font(.title2).monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 120, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ActivityDetails(context: context)
@@ -32,7 +34,9 @@ struct RyotLiveActivityWidget: Widget {
                 Image(systemName: symbol(context.state.icon)).foregroundStyle(toneColor(context.state.tone))
             } compactTrailing: {
                 ActivityValue(value: context.state.primary, end: activityEnd(context))
-                    .font(.caption).monospacedDigit().frame(width: 58)
+                    .font(.caption).monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 58, alignment: .trailing)
             } minimal: {
                 Image(systemName: symbol(context.state.icon)).foregroundStyle(toneColor(context.state.tone))
             }
@@ -106,7 +110,9 @@ private struct ActivityCard: View {
                     .font(.subheadline.weight(.semibold)).lineLimit(1).privacySensitive()
                 Spacer(minLength: 8)
                 ActivityValue(value: context.state.primary, end: activityEnd(context))
-                    .font(.title2.weight(.semibold)).monospacedDigit().frame(maxWidth: 120)
+                    .font(.title2.weight(.semibold)).monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 120, alignment: .trailing)
             }
             ActivityDetails(context: context)
         }
