@@ -113,7 +113,7 @@ export const runYoutubeMusicYank = (
 		if (songs.length === 0) {
 			yield* host.log([
 				{
-					level: "warning",
+					level: "debug",
 					attributes: { timezone, localDate },
 					message: "YouTube Music history returned no songs for the local day",
 				},
