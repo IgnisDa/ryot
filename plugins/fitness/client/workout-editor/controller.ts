@@ -82,6 +82,7 @@ export const createWorkoutEditorController = (
 	let flushRunning = false;
 	let discarding = false;
 	let disposed = false;
+	const isDisposed = () => disposed;
 	let firstSubmissionAttempt = false;
 	let canReleaseRejection = false;
 
@@ -118,9 +119,9 @@ export const createWorkoutEditorController = (
 
 	const alerts = createAlertSynchronizer({
 		ports,
+		isDisposed,
 		getSnapshot,
 		updateReady,
-		isDisposed: () => disposed,
 		foreground: ports.foreground,
 		reconcile: (expected) => reconcile(expected),
 	});
@@ -320,7 +321,7 @@ export const createWorkoutEditorController = (
 			if (expected === undefined) {
 				yield* refreshContext();
 			}
-			if (disposed || !ports.foreground() || !isReady(snapshot)) {
+			if (isDisposed() || !ports.foreground() || !isReady(snapshot)) {
 				return;
 			}
 			if (snapshot.draft.submission !== undefined) {

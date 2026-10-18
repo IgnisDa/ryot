@@ -1,3 +1,4 @@
+import type { RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +14,67 @@ import type { useWorkoutEditor } from "./use-workout-editor";
 type Context = typeof WorkoutEditorContextOutputSchema.Type;
 
 export type PrepareDraft = (context: Context) => Effect.Effect<WorkoutEditorDraft, unknown>;
+
+const startInitialDraft = (input: {
+	readonly context: Context;
+	readonly prepare: PrepareDraft;
+	readonly client: RyotClient;
+	readonly schedule: RyotSchedule;
+	readonly starting: { current: boolean };
+	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
+	readonly setMessage: (message: string) => void;
+	readonly isActive: () => boolean;
+	readonly onPrepared: () => void;
+	readonly onStarted: () => void;
+}) => {
+	input.starting.current = true;
+	input.schedule.run(
+		Effect.gen(function* () {
+			const source = yield* input.prepare(input.context);
+			const loaded = yield* readEditorExercises(input.client, [
+				...new Set(source.occurrences.map(({ exerciseId }) => exerciseId)),
+			]);
+			const initial = changeWorkoutEnergyUnit(
+				{
+					...source,
+					occurrences: source.occurrences.map((occurrence) =>
+						changeOccurrenceDisplay(
+							occurrence,
+							resolveWorkoutDisplay({
+								unitSystem: input.context.settings.unitSystem,
+								exerciseDurationUnit: loaded.find(({ id }) => id === occurrence.exerciseId)
+									?.overrides.defaultDurationUnit,
+							}),
+						),
+					),
+				},
+				input.context.settings.energyUnit,
+			);
+			if (!input.isActive()) {
+				return;
+			}
+			input.onPrepared();
+			yield* Effect.gen(function* () {
+				if ((yield* input.controller.start(initial)) && input.isActive()) {
+					input.onStarted();
+				}
+			}).pipe(Effect.uninterruptible);
+		}).pipe(
+			Effect.match({
+				onSuccess: () => undefined,
+				onFailure: (error) =>
+					input.setMessage(
+						error instanceof WorkoutEditorPrepareError
+							? error.message
+							: "The draft could not be loaded or stored. Retry before leaving this page.",
+					),
+			}),
+		),
+		() => {
+			input.starting.current = false;
+		},
+	);
+};
 
 export function useInitialDraft(input: {
 	readonly isActive: boolean;
@@ -63,53 +125,18 @@ export function useInitialDraft(input: {
 		) {
 			return;
 		}
-		starting.current = true;
-		schedule.run(
-			Effect.gen(function* () {
-				const source = yield* prepareDraft(context);
-				const loaded = yield* readEditorExercises(client, [
-					...new Set(source.occurrences.map(({ exerciseId }) => exerciseId)),
-				]);
-				const initial = changeWorkoutEnergyUnit(
-					{
-						...source,
-						occurrences: source.occurrences.map((occurrence) =>
-							changeOccurrenceDisplay(
-								occurrence,
-								resolveWorkoutDisplay({
-									unitSystem: context.settings.unitSystem,
-									exerciseDurationUnit: loaded.find(({ id }) => id === occurrence.exerciseId)
-										?.overrides.defaultDurationUnit,
-								}),
-							),
-						),
-					},
-					context.settings.energyUnit,
-				);
-				if (!active.current) {
-					return;
-				}
-				setUseExisting(true);
-				yield* Effect.gen(function* () {
-					if ((yield* controller.start(initial)) && active.current) {
-						finishRequest();
-					}
-				}).pipe(Effect.uninterruptible);
-			}).pipe(
-				Effect.match({
-					onSuccess: () => undefined,
-					onFailure: (error) =>
-						setMessage(
-							error instanceof WorkoutEditorPrepareError
-								? error.message
-								: "The draft could not be loaded or stored. Retry before leaving this page.",
-						),
-				}),
-			),
-			() => {
-				starting.current = false;
-			},
-		);
+		startInitialDraft({
+			client,
+			context,
+			schedule,
+			starting,
+			controller,
+			setMessage,
+			prepare: prepareDraft,
+			onStarted: finishRequest,
+			isActive: () => active.current,
+			onPrepared: () => setUseExisting(true),
+		});
 	}, [
 		client,
 		context,

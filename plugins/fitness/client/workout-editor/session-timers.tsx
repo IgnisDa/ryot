@@ -373,7 +373,9 @@ export function RailTimers(props: TimerProps & { readonly startedAt: string | un
 					size="sm"
 					variant="secondary"
 					disabled={props.disabled}
-					onClick={() => props.onChange((draft) => toggleWorkoutPause(draft, schedule.now()).draft)}
+					onClick={() =>
+						props.onChange((current) => toggleWorkoutPause(current, schedule.now()).draft)
+					}
 				>
 					<AppIcon size={14} name={paused ? "play" : "pause"} />
 					{paused ? "Resume workout" : "Pause workout"}

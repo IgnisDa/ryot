@@ -79,7 +79,7 @@ const click = (element: Element) =>
 type SheetProps = Parameters<typeof SetSheet>[0];
 
 const mountSheet = (initial: SheetProps) => {
-	let update: (props: SheetProps) => void = () => undefined;
+	let update: ((props: SheetProps) => void) | undefined;
 	function Probe() {
 		const [props, setProps] = useState(initial);
 		useEffect(() => {
@@ -89,7 +89,7 @@ const mountSheet = (initial: SheetProps) => {
 	}
 	return Effect.map(
 		mountDialogInPluginPage(() => <Probe />),
-		() => (props: SheetProps) => act(() => update(props)),
+		() => (props: SheetProps) => act(() => update?.(props)),
 	);
 };
 

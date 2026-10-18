@@ -1,5 +1,6 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import type { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -7,6 +8,17 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { maxPickerPresets, PickerPresetsSchema, type PickerPreset } from "./picker-model";
 
 const PRESETS_STORAGE_KEY = "fitness-workout-exercise-picker-presets";
+
+const readPresets = (client: RyotClient, pluginId: PluginId) =>
+	Effect.gen(function* () {
+		const stored = yield* client.storage.get(pluginId, PRESETS_STORAGE_KEY);
+		if (stored === null) {
+			return [];
+		}
+		return yield* Schema.decodeUnknownEffect(PickerPresetsSchema)(stored).pipe(
+			Effect.mapError(() => new RyotClientError("malformed-result")),
+		);
+	});
 
 export function usePickerPresets() {
 	const client = useRyot();
@@ -21,16 +33,8 @@ export function usePickerPresets() {
 	const reload = useCallback(
 		() =>
 			schedule.run(
-				Effect.gen(function* () {
-					setStatus("loading");
-					const stored = yield* client.storage.get(pluginId, PRESETS_STORAGE_KEY);
-					if (stored === null) {
-						return [];
-					}
-					return yield* Schema.decodeUnknownEffect(PickerPresetsSchema)(stored).pipe(
-						Effect.mapError(() => new RyotClientError("malformed-result")),
-					);
-				}).pipe(
+				Effect.sync(() => setStatus("loading")).pipe(
+					Effect.andThen(readPresets(client, pluginId)),
 					Effect.match({
 						onFailure: () => setStatus("error"),
 						onSuccess: (value) => {

@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
 import {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
 	useLayoutEffect,
@@ -91,13 +92,13 @@ export function Modal({
 		initial?.focus();
 	}, [initialFocusRef]);
 
-	const requestClose = () => {
+	const requestClose = useCallback(() => {
 		if (!dismissible || onInterceptBack?.() === true) {
 			return false;
 		}
 		onClose();
 		return true;
-	};
+	}, [dismissible, onClose, onInterceptBack]);
 
 	useFocusTrap(panelRef, { enabled: present });
 
