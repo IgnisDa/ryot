@@ -58,6 +58,8 @@ const SUMMARY_ROW = {
 	schemaSlug: "fixture",
 	progressPercent: null,
 	isInMediaLibrary: true,
+	providerCheckedAt: null,
+	canRefreshProvider: true,
 	productionStatus: "Released",
 	translationStatus: { state: "idle", availability: "none" },
 	genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
@@ -79,6 +81,8 @@ describe("media flat recipes", () => {
 		expect(Object.keys(SUMMARY_RECIPE.document.queries)).toEqual(["requested", "summary"]);
 		expect(summary.from).toMatchObject({ table: "entity", alias: "entity" });
 		expect(fieldKeys(summary.output.fields)).toEqual([
+			"providerCheckedAt",
+			"canRefreshProvider",
 			"id",
 			"name",
 			"schemaSlug",

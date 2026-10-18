@@ -262,6 +262,13 @@ result as durable workflow activity evidence before refreshing bounded provider 
 deterministic child IDs. It does not build a global in-memory snapshot or deduplicate across the sweep;
 user-owned fields are not exposed by the global query.
 
+Provider-backed root detail screens expose **Refresh provider data**, request activity, retry, and
+the last successful details check. Shared population admission coalesces matching monitoring and
+manual work; a completed manual refresh has a one-minute cooldown. Full refresh includes the root,
+child inventory and declared related groups, not recursive graph refresh. Current-language translation
+is checked even when canonical content is unchanged. Custom entities stay on the editor path, and
+provider children refresh through their parent. Existing monitoring-change detectors still run.
+
 `media-ownership-set` accepts at most 50 visible built-in media entities and merges `owned` and an
 optional `ownedOn` date into each `in-media-library` relationship, adding library membership when
 absent and preserving integration-reported ownership sources. Removing ownership clears `ownedOn`.

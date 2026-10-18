@@ -227,6 +227,8 @@ describe("episodic media recipes", () => {
 		}
 
 		expect(summary.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"providerCheckedAt",
+			"canRefreshProvider",
 			"id",
 			"name",
 			"schemaSlug",

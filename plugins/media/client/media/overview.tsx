@@ -1,13 +1,12 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRetryEntityPopulation } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isEnrichmentActive } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { MediaStatusCopy } from "./detail-screen";
+import { useMediaEnrichment } from "./enrichment";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import type { MediaGalleryImage, MediaImageAsset } from "./image";
@@ -446,22 +445,13 @@ function MediaRelatedPopulationFailure(props: {
 	readonly entityId: string;
 	readonly noticeTitle: string;
 }) {
-	const retry = useRetryEntityPopulation();
+	const retry = useMediaEnrichment(props.entityId, "population", "retry");
 	return (
 		<MediaOverviewNotice
 			status="Couldn't load"
 			title={props.noticeTitle}
 			detail={`${props.noticeTitle} could not be loaded from the provider.`}
-			{...(retry.isPending
-				? {}
-				: {
-						onRetry: () =>
-							retry.mutate({
-								operation: "population",
-								entityId: props.entityId,
-								packageId: PLUGIN_PACKAGE_ID,
-							}),
-					})}
+			{...(retry.isPending ? {} : { onRetry: retry.submit })}
 		/>
 	);
 }

@@ -49,6 +49,8 @@ export const podcastSummaryRow = {
 	inProgressEpisodes: 1,
 	schemaSlug: "podcast",
 	isInMediaLibrary: true,
+	providerCheckedAt: null,
+	canRefreshProvider: true,
 	productionStatus: "Ended",
 	publishDate: "2014-11-18",
 	providerName: "Listen Notes",

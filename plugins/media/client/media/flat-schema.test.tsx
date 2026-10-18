@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
@@ -164,6 +164,68 @@ afterEach(() => {
 });
 
 describe("flat media detail screen", () => {
+	it.live(
+		"refreshes successful provider data and retains the submission identity after a transport failure",
+		() =>
+			Effect.gen(function* () {
+				const requests: unknown[] = [];
+				const { unmount, container } = renderBody(
+					readyState({ providerCheckedAt: "2026-10-26T00:00:00.000Z" }),
+					{
+						adapter: {
+							...noopAdapter,
+							requestEnrichment: (request) =>
+								Effect.gen(function* () {
+									requests.push(request);
+									if (requests.length === 1) {
+										return yield* new RyotClientError("transport");
+									}
+									return { enrichmentRequestId: "refresh-job" };
+								}),
+						},
+					},
+				);
+				expect(container.textContent).toContain("Last checked:");
+				clickRyotElement(getByRole(container, "button", { name: "Refresh provider data" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(getByRole(container, "alert").textContent).toContain("Could not request"),
+					),
+				);
+				clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				expect(requests[0]).toEqual({
+					action: "refresh",
+					entityId: "media-1",
+					pluginId: "media-owner",
+					operation: "population",
+					idempotencyKey: expect.any(String),
+				});
+				expect(requests[1]).toEqual(requests[0]);
+				unmount();
+			}),
+	);
+
+	it("shows queued, running and retrying work without hiding saved data", () => {
+		for (const [state, name] of [
+			["queued", "Refresh queued"],
+			["running", "Refreshing provider data"],
+			["retrying", "Retrying provider refresh"],
+		]) {
+			const { unmount, container } = renderBody(
+				readyState({ relatedPopulationStatus: { state, availability: "complete" } }),
+			);
+			expect(getByRole(container, "button", { name }).hasAttribute("disabled")).toBe(true);
+			expect(container.textContent).toContain("Fight Club");
+			unmount();
+		}
+	});
+
+	it("does not offer provider refresh for custom entries or provider children", () => {
+		const { unmount, container } = renderBody(readyState({ canRefreshProvider: false }));
+		expect(container.textContent).not.toContain("Refresh provider data");
+		unmount();
+	});
 	it("offers exactly the overview and activity tabs", () => {
 		const { unmount, container } = renderBody(readyState());
 
@@ -254,10 +316,10 @@ describe("flat media detail screen", () => {
 				{
 					adapter: {
 						...noopAdapter,
-						retryPopulation: (request) =>
+						requestEnrichment: (request) =>
 							Effect.sync(() => {
 								retries.push(request);
-								return { retried: true };
+								return { enrichmentRequestId: "enrichment-job" };
 							}),
 					},
 				},
@@ -269,7 +331,13 @@ describe("flat media detail screen", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(retries).toEqual([
-						{ entityId: "media-1", pluginId: "media-owner", operation: "population" },
+						{
+							action: "retry",
+							entityId: "media-1",
+							pluginId: "media-owner",
+							operation: "population",
+							idempotencyKey: expect.any(String),
+						},
 					]),
 				),
 			);
@@ -285,10 +353,10 @@ describe("flat media detail screen", () => {
 				{
 					adapter: {
 						...noopAdapter,
-						retryPopulation: (request) =>
+						requestEnrichment: (request) =>
 							Effect.sync(() => {
 								retries.push(request);
-								return { retried: true };
+								return { enrichmentRequestId: "enrichment-job" };
 							}),
 					},
 				},
@@ -300,7 +368,13 @@ describe("flat media detail screen", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(retries).toEqual([
-						{ entityId: "media-1", pluginId: "media-owner", operation: "translation" },
+						{
+							action: "retry",
+							entityId: "media-1",
+							pluginId: "media-owner",
+							operation: "translation",
+							idempotencyKey: expect.any(String),
+						},
 					]),
 				),
 			);
@@ -427,10 +501,10 @@ describe("flat media overview", () => {
 				{
 					adapter: {
 						...noopAdapter,
-						retryPopulation: (request) =>
+						requestEnrichment: (request) =>
 							Effect.sync(() => {
 								retries.push(request);
-								return { retried: true };
+								return { enrichmentRequestId: "enrichment-job" };
 							}),
 					},
 				},
@@ -444,7 +518,13 @@ describe("flat media overview", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(retries).toEqual([
-						{ entityId: "media-1", pluginId: "media-owner", operation: "population" },
+						{
+							action: "retry",
+							entityId: "media-1",
+							pluginId: "media-owner",
+							operation: "population",
+							idempotencyKey: expect.any(String),
+						},
 					]),
 				),
 			);

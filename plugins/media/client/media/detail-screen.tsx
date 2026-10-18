@@ -19,6 +19,7 @@ import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaPopulationFailure, MediaTranslationFailure } from "./population-failure";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
+import { MediaProviderRefreshControl } from "./provider-refresh";
 import { MediaSummaryHeader, MediaSummarySkeleton } from "./summary-header";
 import {
 	type MediaEntitySummaryValue,
@@ -107,6 +108,7 @@ export function MediaDetailBody<
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)] gap-7">
 			{props.summaryRefreshStatus}
+			<MediaProviderRefreshControl media={summary} />
 			{summary.populationStatus.state === "failed" ? (
 				<MediaPopulationFailure entityId={summary.id} providerName={summary.providerName} />
 			) : null}

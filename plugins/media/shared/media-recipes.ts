@@ -163,6 +163,18 @@ export const requestedSchemaQuery = (id: string) => {
 };
 
 export const mediaEntitySummarySelection = (entity: Table, provider: Table) => ({
+	providerCheckedAt: selectedField(
+		column(entity, "providerCheckedAt"),
+		Schema.NullOr(Schema.String),
+	),
+	canRefreshProvider: selectedField(
+		conditional(
+			eq(column(provider, "rootEntitySchemaSlug"), column(entity, "entitySchemaSlug")),
+			literal(true),
+			literal(false),
+		),
+		Schema.Boolean,
+	),
 	...entityIdentitySelection(entity),
 	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),

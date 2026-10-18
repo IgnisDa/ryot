@@ -43,6 +43,8 @@ describe("media creator recipes", () => {
 
 		expect(Object.keys(recipe.document.queries)).toEqual(["requested", "summary"]);
 		expect(keys(recipe, "summary")).toEqual([
+			"providerCheckedAt",
+			"canRefreshProvider",
 			"id",
 			"name",
 			"schemaSlug",

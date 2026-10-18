@@ -19,6 +19,8 @@ export const creatorSummaryRow = {
 	name: "Edward Norton",
 	schemaSlug: "creator",
 	isInMediaLibrary: true,
+	providerCheckedAt: null,
+	canRefreshProvider: true,
 	description: "An American actor.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },

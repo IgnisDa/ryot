@@ -28,6 +28,8 @@ export const showSummaryRow = {
 	inProgressEpisodes: 0,
 	providerRating: 78.25,
 	isInMediaLibrary: true,
+	providerCheckedAt: null,
+	canRefreshProvider: true,
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
 	description: "A four-part limited series.",
