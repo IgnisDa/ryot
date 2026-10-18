@@ -23,6 +23,19 @@ export const mediaEntityEditors: Readonly<Record<string, readonly string[]>> = {
 
 export const mediaEntityCreateRoute = (entitySchemaSlug: string) => `/${entitySchemaSlug}/new`;
 
-export const mediaEntityEditorRoutes = Object.fromEntries(
-	Object.keys(mediaEntityEditors).map((slug) => [mediaEntityCreateRoute(slug), slug]),
-);
+export const mediaEntityEditRoutePattern = (entitySchemaSlug: string) =>
+	`/${entitySchemaSlug}/$entityId/edit`;
+
+export const mediaEntityEditRoute = (entitySchemaSlug: string, entityId: string) =>
+	`/${entitySchemaSlug}/${encodeURIComponent(entityId)}/edit`;
+
+const editorRoutes: Record<
+	string,
+	{ readonly entitySchemaSlug: string; readonly kind: "create" | "edit" }
+> = {};
+for (const entitySchemaSlug of Object.keys(mediaEntityEditors)) {
+	editorRoutes[mediaEntityCreateRoute(entitySchemaSlug)] = { kind: "create", entitySchemaSlug };
+	editorRoutes[mediaEntityEditRoutePattern(entitySchemaSlug)] = { kind: "edit", entitySchemaSlug };
+}
+
+export const mediaEntityEditorRoutes: Readonly<typeof editorRoutes> = editorRoutes;

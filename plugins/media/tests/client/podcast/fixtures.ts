@@ -36,6 +36,7 @@ export const podcastSummaryRow = {
 	owned: null,
 	ownedOn: null,
 	id: "podcast-1",
+	isCustom: false,
 	publishYear: 2014,
 	name: "Reply All",
 	totalEpisodes: 412,

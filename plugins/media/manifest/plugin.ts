@@ -812,6 +812,20 @@ export const mediaPlugin = definePlugin({
 	],
 	hooks: [
 		{
+			stage: "before",
+			causationSources: ["api"],
+			slug: "media.custom-publish-year",
+			name: "Derive custom media publish year",
+			scriptSlug: "policy.media-custom-publish-year",
+			targets: builtinMediaEntitySchemaSlugs.flatMap((entitySchemaSlug) =>
+				(["create", "update"] as const).map((operation) => ({
+					operation,
+					entitySchemaSlug,
+					resource: "entity" as const,
+				})),
+			),
+		},
+		{
 			stage: "after",
 			delivery: "required",
 			executionScope: "user",

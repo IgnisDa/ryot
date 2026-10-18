@@ -14,6 +14,7 @@ export const showSummaryRow = {
 	id: "show-1",
 	ownedOn: null,
 	totalSeasons: 1,
+	isCustom: false,
 	totalEpisodes: 4,
 	airedEpisodes: 4,
 	state: "complete",

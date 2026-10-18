@@ -13,6 +13,7 @@ import { ImageTintOverlay, useImageTint } from "@ryot-app/plugin-ui-sdk/tint";
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 
+import { MediaEntityEditAction } from "../entity-editor/edit-action";
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
 import { MediaCollectionsControl } from "./collections";
@@ -79,7 +80,7 @@ function MediaDescription(props: { readonly text: string }) {
 
 function MediaActions(props: {
 	readonly compact: boolean;
-	readonly entityId: string;
+	readonly media: MediaEntitySummaryValue;
 	readonly logActivity: MediaActivityLogger | undefined;
 }) {
 	return (
@@ -87,11 +88,16 @@ function MediaActions(props: {
 			{props.logActivity === undefined ? null : (
 				<MediaLogActivityButton
 					compact={props.compact}
-					entityId={props.entityId}
+					entityId={props.media.id}
 					logger={props.logActivity}
 				/>
 			)}
-			<MediaReviewButton entityId={props.entityId} />
+			<MediaReviewButton entityId={props.media.id} />
+			<MediaEntityEditAction
+				entityId={props.media.id}
+				isCustom={props.media.isCustom}
+				entitySchemaSlug={props.media.schemaSlug}
+			/>
 		</div>
 	);
 }
@@ -234,7 +240,7 @@ export function MediaSummaryHeader(props: {
 					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
 			)}
-			<MediaActions compact={compact} entityId={media.id} logActivity={detail.rail.logActivity} />
+			<MediaActions media={media} compact={compact} logActivity={detail.rail.logActivity} />
 			<MediaLibraryStrip media={media} config={detail.rail} />
 		</>
 	);

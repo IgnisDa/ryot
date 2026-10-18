@@ -3,7 +3,8 @@ import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
+import { createAuthenticatedClient, createEntity, getEntity } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { requireString } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
@@ -93,10 +94,37 @@ it.live("creates a private genre inline and shows it on a custom movie", () =>
 			.locator("body")
 			.getByText(genreName, { exact: true })
 			.waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { exact: true, name: "Edit" }).click();
+		const editForm = mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("form", { exact: true, name: "Edit Movie" });
+		yield* editForm.getByText(genreName, { exact: true }).waitFor({ state: "visible" });
+		yield* editForm.getByLabel("Name", { exact: true }).fill(`${movieName} edited`);
+		yield* editForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
+		const editedDetail = mediaPluginFrame(page, { visible: true }).contentFrame();
+		yield* editedDetail
+			.getByRole("heading", { level: 1, exact: true, name: `${movieName} edited` })
+			.waitFor({ state: "visible" });
+		yield* editedDetail.getByText(genreName, { exact: true }).waitFor({ state: "visible" });
+		yield* editedDetail.getByRole("button", { exact: true, name: "Edit" }).click();
+		const clearForm = mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("form", { exact: true, name: "Edit Movie" });
+		yield* clearForm
+			.getByRole("button", { exact: true, name: `Remove ${genreName} from Genres` })
+			.click();
+		yield* clearForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
+		const clearedDetail = mediaPluginFrame(page, { visible: true }).contentFrame();
+		yield* clearedDetail
+			.getByRole("heading", { level: 1, exact: true, name: `${movieName} edited` })
+			.waitFor({ state: "visible" });
+		yield* clearedDetail.getByText(genreName, { exact: true }).waitFor({ state: "hidden" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
-it.live("creates a custom show with nested providers, episode orders, and image metadata", () =>
+it.live("creates and edits a custom show without losing nested fields or image metadata", () =>
 	Effect.gen(function* () {
 		const showName = `Custom show ${crypto.randomUUID()}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
@@ -188,5 +216,76 @@ it.live("creates a custom show with nested providers, episode orders, and image 
 				},
 			],
 		});
+		const original = yield* getEntity(client, entityId);
+		const detail = mediaPluginFrame(page, { visible: true }).contentFrame();
+		yield* detail.getByRole("button", { exact: true, name: "Edit" }).click();
+		const editForm = mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("form", { exact: true, name: "Edit Show" });
+		const editName = editForm.getByLabel("Name", { exact: true }).first();
+		expect(yield* editName.inputValue()).toBe(showName);
+		yield* editName.fill(`${showName} edited`);
+		yield* editForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname === `/e/${entityId}`);
+		yield* mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("heading", { level: 1, exact: true, name: `${showName} edited` })
+			.waitFor({ state: "visible" });
+		expect((yield* getEntity(client, entityId)).properties).toEqual(original.properties);
+
+		yield* mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("button", { exact: true, name: "Edit" })
+			.click();
+		const datedForm = mediaPluginFrame(page, { visible: true })
+			.contentFrame()
+			.getByRole("form", { exact: true, name: "Edit Show" });
+		yield* datedForm.getByLabel("Publish date", { exact: true }).fill("2026-10-26");
+		yield* datedForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname === `/e/${entityId}`);
+		expect((yield* getEntity(client, entityId)).properties).toEqual({
+			...original.properties,
+			publishYear: 2026,
+			publishDate: "2026-10-26",
+		});
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
+
+for (const [slug, label] of [
+	["person", "Person"],
+	["company", "Company"],
+	["movie-group", "Movie Collection"],
+] as const) {
+	it.live(`edits an owned custom ${slug} and preserves its properties`, () =>
+		Effect.gen(function* () {
+			const { email, client, password } = yield* createAuthenticatedClient();
+			const { schema } = yield* findMediaEntitySchema(client, slug);
+			const name = `Custom ${slug} ${crypto.randomUUID()}`;
+			const entity = yield* createEntity(client, {
+				name,
+				entitySchema: schema.reference,
+				properties: { description: "Keep this description" },
+			});
+			const page = yield* (yield* Playwright.Browser).newPage({
+				viewport: { width: 1280, height: 900 },
+			});
+			yield* signInThroughHostedOAuth(page, email, password);
+			yield* page.goto(`${getFrontendUrl()}/e/${entity.id}`);
+			yield* mediaPluginFrame(page, { visible: true })
+				.contentFrame()
+				.getByRole("button", { exact: true, name: "Edit" })
+				.click();
+			const form = mediaPluginFrame(page, { visible: true })
+				.contentFrame()
+				.getByRole("form", { exact: true, name: `Edit ${label}` });
+			yield* form.getByLabel("Name", { exact: true }).fill(`${name} edited`);
+			yield* form.getByRole("button", { exact: true, name: "Save" }).click();
+			yield* page.waitForURL((url) => url.pathname === `/e/${entity.id}`);
+			yield* mediaPluginFrame(page, { visible: true })
+				.contentFrame()
+				.getByRole("heading", { level: 1, exact: true, name: `${name} edited` })
+				.waitFor({ state: "visible" });
+			expect((yield* getEntity(client, entity.id)).properties).toEqual(entity.properties);
+		}).pipe(PlaywrightSpawner.withBrowser),
+	);
+}

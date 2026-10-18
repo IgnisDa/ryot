@@ -15,6 +15,7 @@ export const groupSummaryRow = {
 	images: [],
 	id: "group-1",
 	memberCount: 5,
+	isCustom: false,
 	isMonitored: false,
 	providerName: "TMDB",
 	isInMediaLibrary: true,

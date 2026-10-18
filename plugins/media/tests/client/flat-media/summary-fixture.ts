@@ -15,6 +15,7 @@ export const flatSummaryRow = {
 	owned: null,
 	ownedOn: null,
 	id: "media-1",
+	isCustom: false,
 	publishYear: 1999,
 	state: "complete",
 	isMonitored: false,

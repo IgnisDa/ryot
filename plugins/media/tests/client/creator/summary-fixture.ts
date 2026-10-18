@@ -13,6 +13,7 @@ export const creatorSummaryRecipe = creatorFixtureRecipes.summaryRecipe(CREATOR_
 
 export const creatorSummaryRow = {
 	id: "creator-1",
+	isCustom: false,
 	isMonitored: false,
 	providerName: "TMDB",
 	name: "Edward Norton",

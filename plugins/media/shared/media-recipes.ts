@@ -178,6 +178,14 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),
 		Schema.Boolean,
 	),
+	isCustom: selectedField(
+		conditional(
+			and(isNotNull(column(entity, "userId")), isNull(column(entity, "providerId"))),
+			literal(true),
+			literal(false),
+		),
+		Schema.Boolean,
+	),
 });
 
 export type MediaEntitySummarySelection = ReturnType<typeof mediaEntitySummarySelection>;

@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 
 import { manifest as autoCompleteParent } from "./auto-complete-episodic-parent.sandbox";
 import { manifest as autoCompleteProgress } from "./auto-complete-on-full-progress.sandbox";
+import { manifest as customPublishYear } from "./custom-publish-year-policy.sandbox";
 import { manifest as ensureMediaLibrary } from "./ensure-media-library-membership.sandbox";
 import { manifest as episodicPolicy } from "./episodic-session-policy.sandbox";
 import { manifest as jellyfin } from "./jellyfin-push.sandbox";
@@ -25,6 +26,7 @@ it("declares the media automation input projections", () => {
 		[entityUpdated.slug]: entityUpdated.inputProjection,
 		[episodicPolicy.slug]: episodicPolicy.inputProjection,
 		[relationshipSync.slug]: relationshipSync.inputProjection,
+		[customPublishYear.slug]: customPublishYear.inputProjection,
 		[ensureMediaLibrary.slug]: ensureMediaLibrary.inputProjection,
 		[autoCompleteParent.slug]: autoCompleteParent.inputProjection,
 		[autoCompleteProgress.slug]: autoCompleteProgress.inputProjection,
@@ -33,6 +35,7 @@ it("declares the media automation input projections", () => {
 		"policy.media-episodic-session": { event: { properties: [] } },
 		"trigger.jellyfin-push": { event: { properties: [], compareProperties: [] } },
 		"automation.review-created": { event: { properties: [], compareProperties: [] } },
+		"policy.media-custom-publish-year": { entity: { properties: ["publishDate", "publishYear"] } },
 		"trigger.sonarr-push": {
 			event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 		},

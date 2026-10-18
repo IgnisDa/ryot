@@ -46,6 +46,7 @@ const SUMMARY_ROW = {
 	images: null,
 	ownedOn: null,
 	id: "media-1",
+	isCustom: false,
 	publishYear: 1999,
 	state: "complete",
 	description: null,
@@ -89,6 +90,7 @@ describe("media flat recipes", () => {
 			"images",
 			"isMonitored",
 			"isInMediaLibrary",
+			"isCustom",
 			"publishDate",
 			"publishYear",
 			"providerRating",
@@ -98,6 +100,14 @@ describe("media flat recipes", () => {
 			"state",
 			"progressPercent",
 		]);
+		const isCustom = JSON.stringify(
+			summary.output.fields.find((field) => "key" in field && field.key === "isCustom"),
+		);
+		expect(isCustom).toContain('"type":"and"');
+		expect(isCustom).toContain('"type":"isNotNull"');
+		expect(isCustom).toContain('"field":"userId"');
+		expect(isCustom).toContain('"type":"isNull"');
+		expect(isCustom).toContain('"field":"providerId"');
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
 		expect(summary.where).toMatchObject({
 			type: "and",

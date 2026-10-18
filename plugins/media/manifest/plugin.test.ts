@@ -13,7 +13,7 @@ import { manifest as igdbSearchOptionsManifest } from "../backend/providers/vide
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
 import { consumedOnSettingKeys } from "../shared/consumed-on-settings";
-import { mediaEntityEditors } from "../shared/media-entity-editors";
+import { mediaEntityEditors, mediaEntityEditRoutePattern } from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaLibraryEligibleEntitySchemaSlugs,
@@ -98,6 +98,12 @@ it("declares the complete media-owned source", () => {
 			"/audiobook-group/new": "media-entity-editor",
 			"/comic-book-group/new": "media-entity-editor",
 			"/video-game-group/new": "media-entity-editor",
+			...Object.fromEntries(
+				Object.keys(mediaEntityEditors).map((slug) => [
+					mediaEntityEditRoutePattern(slug),
+					"media-entity-editor",
+				]),
+			),
 		},
 		exports: {
 			"show-progress": {
@@ -830,6 +836,20 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug).sort()).toEqual(
 		[...mediaLibraryEligibleEntitySchemaSlugs, "genre"].sort(),
 	);
+});
+
+it("derives missing publish years only for API media creates and updates", () => {
+	expect(mediaPlugin.hooks.find(({ slug }) => slug === "media.custom-publish-year")).toEqual({
+		stage: "before",
+		causationSources: ["api"],
+		slug: "media.custom-publish-year",
+		name: "Derive custom media publish year",
+		scriptSlug: "policy.media-custom-publish-year",
+		targets: builtinMediaEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
+			{ entitySchemaSlug, resource: "entity", operation: "create" },
+			{ entitySchemaSlug, resource: "entity", operation: "update" },
+		]),
+	});
 });
 
 it("declares genres as provider-backed entities with outgoing media relationships", () => {
