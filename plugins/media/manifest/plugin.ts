@@ -463,7 +463,7 @@ const integrationProviders = [
 		name: "Audiobookshelf",
 		supportsOwnershipSync: true,
 		scriptSlug: "integration.audiobookshelf",
-		description: "Import finished media and ownership from Audiobookshelf",
+		description: "Sync in-progress media and ownership from Audiobookshelf",
 		settingsSchema: providerSettings("audiobookshelf", {
 			baseUrl: stringSetting("Base URL", "Audiobookshelf instance URL"),
 			token: stringSetting("Token", "Audiobookshelf access token", true, true),

@@ -182,7 +182,8 @@ Operation inputs/outputs live outside sandbox entries. Expected media failures u
 `SandboxHostError`. List operations return aligned per-item misses rather than failing the whole
 operation. `resolve-episodes` instead echoes unique caller indexes; missing, duplicate, or unexpected
 indexes fail the workflow. Episode lookup uses one database query per reference and resolves only an
-unambiguous visible candidate.
+unambiguous visible candidate. Podcast references can match an episode number or an exact title
+within the resolved podcast; local source episode indexes are not provider episode numbers.
 
 Every editable media/group/creator schema declares `/<schema>/new` and a manifest `editor` generated
 from `shared/media-entity-editors.ts`, listing only its owned outgoing relationships; seasons,
@@ -243,6 +244,13 @@ rejected at ingress, not retained as recoverable source work.
   resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
   series-name search verified against the season's episode IDs. Lookups are cached for one day;
   external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
+- **Audiobookshelf:** yank reads the account's in-progress items and fetches each item's current
+  progress. The account's progress count supplies an explicit snapshot limit, avoiding the upstream
+  default of 25 items. The higher audio/ebook fraction becomes a progress event; finished items at
+  100% are skipped. Audible ASINs identify audiobooks, ISBNs identify books, and iTunes IDs identify
+  podcasts whose current episodes resolve by title after population. Continuations retain the source
+  snapshot and acceptance time. Optional ownership sync pages all libraries separately without
+  emitting progress. Finished history belongs to the manual import, not this integration.
 - **YouTube Music:** first confirmed local-day observation records 35% progress, the next records
   100%, and the day's final ten minutes record 100% directly. Only created outcomes advance `:seen`
   and `:completed` claims; both expire at local midnight. Confirmation replay makes no source request
