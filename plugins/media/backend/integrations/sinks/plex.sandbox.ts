@@ -3,8 +3,8 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
-import { asRecord, numberValue, recordsValue } from "../../lib/records";
-import { getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../lib/vendors/tmdb";
+import { asRecord } from "../../lib/records";
+import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
 import {
@@ -19,6 +19,7 @@ import {
 	textValue,
 	executionStartedAt,
 } from "../shared";
+import { searchTmdbShow, type TmdbEpisode } from "./tmdb-episode";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -46,70 +47,14 @@ const multipartPayload = (rawBody: string, contentType: string) => {
 	}
 	throw new Error("missing payload");
 };
-type PlexEpisode = {
-	episodeId: string;
-	seriesName: string | undefined;
-	seasonNumber: number;
-	externalIds: ReadonlyArray<readonly [string, "imdb_id" | "tvdb_id"]>;
-};
-
 const showLookupCacheTtlSeconds = 24 * 60 * 60;
-
-const isNotFound = (error: unknown) => asRecord(asRecord(error)?.["data"])?.["status"] === 404;
-
-const tmdbId = (value: unknown) => {
-	const id = numberValue(value);
-	return id === null ? null : String(Math.trunc(id));
-};
-
-const searchTmdbShow = Effect.fnUntraced(function* (
-	host: TmdbHost,
-	token: string,
-	episode: PlexEpisode,
-) {
-	for (const [externalId, source] of episode.externalIds) {
-		const found = yield* tmdbGet(
-			host,
-			`/find/${encodeURIComponent(externalId)}`,
-			{ external_source: source },
-			token,
-		);
-		const showId = tmdbId(recordsValue(found["tv_episode_results"])[0]?.["show_id"]);
-		if (showId) {
-			return showId;
-		}
-	}
-	if (!episode.seriesName) {
-		return null;
-	}
-	const search = yield* tmdbGet(host, "/search/tv", { query: episode.seriesName }, token);
-	for (const show of recordsValue(search["results"]).slice(0, 5)) {
-		const showId = tmdbId(show["id"]);
-		if (!showId) {
-			continue;
-		}
-		const season = yield* Effect.catchIf(
-			tmdbGet(host, `/tv/${showId}/season/${episode.seasonNumber}`, {}, token),
-			isNotFound,
-			() => Effect.succeed(null),
-		);
-		if (
-			recordsValue(season?.["episodes"]).some(
-				(candidate) => tmdbId(candidate["id"]) === episode.episodeId,
-			)
-		) {
-			return showId;
-		}
-	}
-	return null;
-});
 
 const findTmdbShow = Effect.fnUntraced(function* (
 	host: Pick<
 		ScriptHost,
 		"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
 	>,
-	episode: PlexEpisode,
+	episode: TmdbEpisode,
 ) {
 	const cacheKey = `tmdb-episode-show:${episode.episodeId}`;
 	const cached = asRecord(

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::{Result, anyhow};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
@@ -5,6 +7,7 @@ use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use supporting_service::SupportingService;
 
 use super::jellyfin_official;
 
@@ -167,26 +170,45 @@ fn non_empty_id(id: Option<&str>) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Handle a Jellyfin webhook payload.
+///
+/// Official-plugin flat payloads carrying `NotificationType` are delegated to
+/// `jellyfin_official` without any config change, and all other payloads are
+/// handled by `sink_progress_unofficial`.
+pub async fn sink_progress(
+    payload: String,
+    jellyfin_sink_username: Option<String>,
+    jellyfin_sink_metadata_provider: Option<String>,
+    ss: &Arc<SupportingService>,
+) -> Result<Option<ImportResult>> {
+    if serde_json::from_str::<Value>(&payload).is_ok_and(|value| has_notification_type(&value)) {
+        return jellyfin_official::sink_progress_official(
+            payload,
+            jellyfin_sink_username,
+            jellyfin_sink_metadata_provider,
+            ss,
+        )
+        .await;
+    }
+    sink_progress_unofficial(
+        payload,
+        jellyfin_sink_username,
+        jellyfin_sink_metadata_provider,
+    )
+    .await
+}
+
 /// Handle a Jellyfin webhook payload from the unofficial webhooks plugin.
 ///
-/// The unofficial integration is preserved byte-for-byte. Official-plugin flat
-/// payloads carrying `NotificationType` are delegated to `jellyfin_official`
-/// without any config change. `MarkPlayed`, `MarkUnplayed` and
-/// `UserData.Played` completions record 100% progress without requiring ticks.
-pub async fn sink_progress(
+/// The unofficial integration is preserved byte-for-byte. `MarkPlayed`,
+/// `MarkUnplayed` and `UserData.Played` completions record 100% progress
+/// without requiring ticks.
+async fn sink_progress_unofficial(
     payload: String,
     jellyfin_sink_username: Option<String>,
     jellyfin_sink_metadata_provider: Option<String>,
 ) -> Result<Option<ImportResult>> {
     if let Ok(value) = serde_json::from_str::<Value>(&payload) {
-        if has_notification_type(&value) {
-            return jellyfin_official::sink_progress_official(
-                payload,
-                jellyfin_sink_username,
-                jellyfin_sink_metadata_provider,
-            )
-            .await;
-        }
         let event = event_name(&value);
         let played = played_flag(&value);
         let is_mark_played = event.as_deref().is_some_and(|e| e.eq_ignore_ascii_case("MarkPlayed"));
@@ -352,7 +374,7 @@ mod tests {
 
     /// Run the unofficial sink, blocking on its async entrypoint for tests.
     fn run_sink(payload: serde_json::Value, user: Option<&str>, provider: Option<&str>) -> Result<Option<ImportResult>> {
-        futures::executor::block_on(sink_progress(
+        futures::executor::block_on(sink_progress_unofficial(
             payload.to_string(),
             user.map(str::to_owned),
             provider.map(str::to_owned),

@@ -70,6 +70,12 @@ pub struct TvdbShowEpisode {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbEpisodeSeries {
+    pub series_id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct TvdbSeasonType {
     #[serde(rename = "type")]
     pub season_type: String,

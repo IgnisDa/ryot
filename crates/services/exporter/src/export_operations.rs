@@ -1,6 +1,10 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
@@ -25,6 +29,9 @@ use crate::{
     media_exports::{export_media, export_media_group, export_people},
 };
 
+const ENDED_AT_KEY: &str = "ended-at";
+const STARTED_AT_KEY: &str = "started-at";
+
 pub async fn deploy_export_job(ss: &Arc<SupportingService>, user_id: String) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::PerformExport(user_id)))
         .await?;
@@ -41,10 +48,8 @@ pub async fn user_exports(ss: &Arc<SupportingService>, user_id: String) -> Resul
     for (size, key) in objects {
         let url = file_storage_service::get_presigned_url(ss, key.clone()).await?;
         let metadata = file_storage_service::get_object_metadata(ss, key.clone()).await?;
-        let started_at =
-            DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())?.with_timezone(&Utc);
-        let ended_at =
-            DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())?.with_timezone(&Utc);
+        let started_at = export_timestamp(&metadata, STARTED_AT_KEY)?;
+        let ended_at = export_timestamp(&metadata, ENDED_AT_KEY)?;
         resp.push(ExportJob {
             key,
             url,
@@ -95,14 +100,31 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
         format!("exports/{user_id}"),
         false,
         Some(HashMap::from([
-            ("started_at".to_string(), started_at.to_rfc2822()),
-            ("ended_at".to_string(), ended_at.to_rfc2822()),
+            (ENDED_AT_KEY.to_string(), ended_at.to_rfc2822()),
+            (STARTED_AT_KEY.to_string(), started_at.to_rfc2822()),
         ])),
     )
     .await?;
-    let file = File::open(&export_path).await?;
+    upload_export(url, &export_path, started_at, ended_at).await
+}
+
+fn export_timestamp(metadata: &HashMap<String, String>, key: &str) -> Result<DateTime<Utc>> {
+    let value = metadata
+        .get(key)
+        .or_else(|| metadata.get(&key.replace('-', "_")))
+        .with_context(|| format!("Export metadata is missing \"{key}\""))?;
+    Ok(DateTime::parse_from_rfc2822(value)?.with_timezone(&Utc))
+}
+
+async fn upload_export(
+    url: String,
+    export_path: &Path,
+    started_at: DateTime<Utc>,
+    ended_at: DateTime<Utc>,
+) -> Result<()> {
+    let file = File::open(export_path).await?;
     let content_length = file.metadata().await?.len();
-    let content_type = mime_guess::from_path(&export_path).first_or_octet_stream();
+    let content_type = mime_guess::from_path(export_path).first_or_octet_stream();
     let stream = FramedRead::new(file, BytesCodec::new());
     let body = Body::wrap_stream(stream);
     let client = Client::new();
@@ -110,10 +132,135 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
         .put(url)
         .header(CONTENT_TYPE, content_type.to_string())
         .header(CONTENT_LENGTH, content_length)
-        .header("x-amz-meta-started_at", started_at.to_rfc2822())
-        .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
+        .header(format!("x-amz-meta-{ENDED_AT_KEY}"), ended_at.to_rfc2822())
+        .header(
+            format!("x-amz-meta-{STARTED_AT_KEY}"),
+            started_at.to_rfc2822(),
+        )
         .body(body)
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+        task::JoinHandle,
+    };
+
+    use super::*;
+
+    async fn storage_server(status: &'static str) -> (String, JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!(
+            "http://{}/exports/user/export",
+            listener.local_addr().unwrap()
+        );
+        let handle = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0; 1024];
+            let head_end = loop {
+                let read = socket.read(&mut buffer).await.unwrap();
+                request.extend_from_slice(&buffer[..read]);
+                if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                    break end + 4;
+                }
+            };
+            let head = String::from_utf8_lossy(&request[..head_end]).to_lowercase();
+            let content_length = head
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length:"))
+                .map(|value| value.trim().parse::<usize>().unwrap())
+                .unwrap_or_default();
+            while request.len() < head_end + content_length {
+                let read = socket.read(&mut buffer).await.unwrap();
+                request.extend_from_slice(&buffer[..read]);
+            }
+            let response =
+                format!("HTTP/1.1 {status}\r\ncontent-length: 0\r\nconnection: close\r\n\r\n");
+            socket.write_all(response.as_bytes()).await.unwrap();
+            head
+        });
+        (url, handle)
+    }
+
+    fn export_file() -> PathBuf {
+        let path = PathBuf::from(get_temporary_directory())
+            .join(format!("ryot-export-test-{}.json", nanoid!()));
+        std::fs::write(&path, "{}").unwrap();
+        path
+    }
+
+    fn timestamps() -> (DateTime<Utc>, DateTime<Utc>) {
+        let started_at = DateTime::parse_from_rfc3339("2026-10-01T10:00:00Z").unwrap();
+        let ended_at = DateTime::parse_from_rfc3339("2026-10-01T10:05:00Z").unwrap();
+        (started_at.with_timezone(&Utc), ended_at.with_timezone(&Utc))
+    }
+
+    #[tokio::test]
+    async fn upload_sends_metadata_headers_without_underscores() {
+        let path = export_file();
+        let (started_at, ended_at) = timestamps();
+        let (url, server) = storage_server("200 OK").await;
+        upload_export(url, &path, started_at, ended_at)
+            .await
+            .unwrap();
+        let head = server.await.unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert!(head.contains(&format!(
+            "x-amz-meta-started-at: {}",
+            started_at.to_rfc2822().to_lowercase()
+        )));
+        assert!(head.contains(&format!(
+            "x-amz-meta-ended-at: {}",
+            ended_at.to_rfc2822().to_lowercase()
+        )));
+        let header_names = head.lines().skip(1).filter_map(|line| line.split_once(':'));
+        assert!(
+            header_names
+                .map(|(name, _)| name)
+                .all(|name| !name.contains('_'))
+        );
+    }
+
+    #[tokio::test]
+    async fn upload_fails_when_storage_rejects_the_export() {
+        let path = export_file();
+        let (started_at, ended_at) = timestamps();
+        let (url, server) = storage_server("403 Forbidden").await;
+        let result = upload_export(url, &path, started_at, ended_at).await;
+        server.await.unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn export_timestamps_are_read_from_current_and_legacy_metadata_keys() {
+        let (started_at, ended_at) = timestamps();
+        let current = HashMap::from([
+            ("started-at".to_owned(), started_at.to_rfc2822()),
+            ("ended-at".to_owned(), ended_at.to_rfc2822()),
+        ]);
+        let legacy = HashMap::from([
+            ("started_at".to_owned(), started_at.to_rfc2822()),
+            ("ended_at".to_owned(), ended_at.to_rfc2822()),
+        ]);
+        for metadata in [current, legacy] {
+            assert_eq!(
+                export_timestamp(&metadata, "started-at").unwrap(),
+                started_at
+            );
+            assert_eq!(export_timestamp(&metadata, "ended-at").unwrap(), ended_at);
+        }
+    }
+
+    #[test]
+    fn missing_export_timestamp_is_an_error() {
+        assert!(export_timestamp(&HashMap::new(), "started-at").is_err());
+    }
 }
