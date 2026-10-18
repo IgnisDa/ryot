@@ -86,7 +86,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 1 | Pending | **Settle and implement history-correction behavior** | Agreement on manual versus automatic completion semantics | Define which consequences of an edit/delete must be repaired. Preserve explicit user records; repair affected derived state without duplicate completions, notifications or pushes. Cover date/percent edits, child deletion, rewatch boundaries, retries and concurrent writes. Keep documented creation-only behavior only where explicitly accepted; do not classify every V1 difference as a bug. Check import tie-order differences here if they change lifecycle results. |
+| 1 | Done | **Settle and implement history-correction behavior** | Agreed: repair automatic consequences; preserve explicit records and overrides; suppress explicitly deleted automatic occurrences; keep corrections silent and retain provider-time completion evidence | The bounded, resumable implementation replaces the unbounded ledger. Runtime acceptance, status/retry controls, and final validation pass. See the Order 1 acceptance record below. |
 | 2 | Done | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
 | 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
 | 4 | Pending | **Add explicit provider refresh** | Existing population/enrichment workflows | Users can refresh successfully populated provider data, not only retry failures. Expose progress/failure/retry in the client; preserve user-owned history/annotations and prevent stale translation overlays from replacing newer data. Bound and deduplicate refresh work. Define freshness requirements for later release alerts without reinstating a blanket daily partial reset. |
@@ -160,6 +160,60 @@ stale writes, replay/restart and failure outcomes where applicable. Make affecte
 before affected tests; use focused browser/API coverage for the actual user flow. Follow the
 repository's final validation requirements for code changes. Update this inventory and close
 the numbered item only when those results and the accepted behavior are recorded.
+
+### Phase 1, Order 1 — History-correction acceptance
+
+Accepted behavior: corrections repair automatic completions without removing independent explicit
+records. Editing an automatic completion makes it explicit; deleting it suppresses that occurrence
+without deleting supporting activity. Later independent repeats can complete again. Corrections
+remain silent, library membership and monitoring remain unchanged, and later provider changes do
+not rewrite the episode inventory or positional total retained for a past completion. Automatic
+records retain source-order keys so same-time creation and repair cannot change lifecycle ordering.
+No compatibility path is added.
+
+Owners: `packages/contract/src/modules/mutations/user-command.ts`, kernel event revision reads and
+atomic user-command baseline checks, `plugins/media/shared/{history-correction,lifecycle-expressions}.ts`,
+`plugins/media/backend/{contracts/history-correction-recipes,automations/history-correction,automations/media-history-correction.sandbox,automations/reconcile-media-history.sandbox}.ts`,
+Media manifest declarations, and the existing activity editor/delete menus. Jellyfin skips
+correction-created completions. User documentation: `apps/docs/src/concepts/history-correction.md`.
+
+Validation on **2026-10-26**:
+
+- Repository-wide `bun run check` passed after fresh migration-baseline generation.
+- Focused kernel durable-work, user-command, revision-guard, event, RyotQL, backup, and boot suites:
+  **176 tests passed** across ten files. Coverage includes atomic rejection, independent source/evidence
+  drift, unchanged root saves, cascades, retirement, replay, retained pins, and lock-order regression.
+- Contract tests: **283 passed**; backend SDK tests: **104 passed**; compiler execution tests:
+  **21 passed**; focused sandbox bridge/runner tests: **47 passed**.
+- Full Media run: **1,685 tests passed** across 231 files. Subsequent focused worker, continuation,
+  recipe, and status/history UI tests: **27 passed**, including 3,000-source and 3,000-episode cases.
+- API correction and recovery suites: **7 passed**, including concurrent parent captures, independent
+  explicit records, overrides, suppression, repeats, tied timestamps, retained provider inventories,
+  committed continuation recovery after a server restart, and idempotent explicit retry.
+- Existing API automation, episodic-lifecycle, and activity-log suites: **34 passed** across their latest
+  runs. Repeated-completion assertions now wait for derived work, not unrelated library-admission rows.
+- Both shipped bundles build under unchanged limits; documentation generation passed with no generated
+  configuration-reference changes. The baseline is `20261026082705_parched_stardust`.
+- Main-session review and cleanup are complete. Post-baseline API/browser acceptance passed **45 of
+  47 tests**, including all **6 browser tests**. Concurrent parent capture and restart recovery reached
+  the 180-second test limit while repository tests also ran; server logs contain no error entries.
+  The isolated correction/recovery rerun passed all **7 tests**, including both timed-out cases,
+  without timeout changes. The repository test run found two stale field/trigger inventory expectations;
+  both are corrected, with **46 focused tests passed**. Final repository-wide `bun run check` passed
+  across **30 projects / 7,406 files**, followed by `bun turbo --filter='!@ryot-app/e2e' test`:
+  **51 successful tasks**, with no failures. All selected API/browser cases passed across these runs.
+
+The owner approved generic logical event ordering, normalized event-backed evidence, scalar scope
+revisions, and durable atomic correction steps with visible pending/failed state. The approved
+entity/relationship revision guards prevent mixed inventories across provider changes. The worker
+uses event-backed evidence and persists progress after bounded steps. Repeated stale-write conflicts
+yield to a fresh durable continuation. Status reads handle multiple historical and active work rows.
+No truncation, limit increase, compatibility path, or serialization bypass is added. Final validation
+is complete; this item is **Done**.
+
+The owner also approved atomic guards for source and evidence scopes together. Checkpoint steps no
+longer mutate the library entity: its unchanged save uses the existing no-op persistence behavior.
+This prevents independent large captures from repeatedly invalidating each other's owned-data guards.
 
 ### Phase 1, Order 2 — Custom entity editing acceptance
 
@@ -263,7 +317,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Media-library admission | Reshaped | Required Media entity/import/event/collection hooks add `in-media-library`; new memberships record `add-to-media-library`. Library membership is persistent intent, not a materialized set of V1 reasons. No reason recomputation/removal sweep. |
 | Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
 | Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
-| Correct/delete existing history or reviews | Covered with limits | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Creation-only completion hooks do not undo or replay their derived parent completion after an edit/delete. |
+| Correct/delete existing history or reviews | Covered | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Media-owned completion evidence and atomic reconciliation repair derived records, preserve explicit overrides and deletion suppressions, and keep corrections silent. |
 | Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
 | Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters. Rank reads exist; user reordering does not. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
@@ -582,10 +636,12 @@ Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/colle
   array. Current Media operations do not link a review to a consumption record or retarget an
   event to another episode; `consumedOn` is one string per event. Progress logging is separate
   from dated completion logging, and does not accept V1's started-date/manual-time input.
-- Activity/review edit/delete is implemented. Full derived-history repair after such edits is
-  not: deleting a child completion leaves an auto-created parent completion; editing progress
-  to 100% does not create completion; moving episode dates does not move parent completion time.
-  Decide the desired correction behavior rather than listing the whole editor as absent.
+- Activity/review edit/delete and automatic completion repair are implemented. Source corrections
+  can create, update, or invalidate derived completions across affected consumption cycles. Explicit
+  completions survive inference; editing an automatic completion makes it explicit, and deletion
+  suppresses that occurrence without deleting supporting history. Source-order keys settle same-time
+  lifecycle interpretation without reinstating V1 episode-position import sorting. Corrections are
+  silent; later provider changes do not rewrite retained past completion evidence. See row 1 for validation.
 - Show/podcast next-up and paged episode/season progress are implemented. Their cycle-aware
   rules intentionally differ from V1's “next after latest history position” and lifetime
   times-seen tree. Anime/manga expose the latest position; V1's separate manga volume-only
