@@ -412,6 +412,7 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
     slug: "greet",
     input: { name: "Media collection page" },
+    inputSchema: Schema.Struct({ name: Schema.String }),
     output: Greeting,
     packageId: PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}),
   }));

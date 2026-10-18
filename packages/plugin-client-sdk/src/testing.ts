@@ -45,12 +45,18 @@ export const createTestRyotAdapter = (
 	query: () => Effect.succeed({}),
 	upload: (request) => {
 		if (request.action === "temporary") {
-			return Effect.succeed({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" });
+			return Effect.succeed({
+				action: "temporary",
+				token: { token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" },
+			});
 		}
 		if (request.action === "permanent") {
-			return Effect.succeed({ type: "local", key: "permanent/test-upload" });
+			return Effect.succeed({
+				action: "permanent",
+				asset: { type: "local", key: "permanent/test-upload" },
+			});
 		}
-		return Effect.succeed({ status: "missing" });
+		return Effect.succeed({ action: "cleanup", status: "missing" });
 	},
 	...overrides,
 });

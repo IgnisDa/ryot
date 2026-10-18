@@ -269,6 +269,7 @@ describe("Effect-native React definitions", () => {
 				slug: "save",
 				output: Schema.String,
 				packageId: "test/fixture",
+				inputSchema: Schema.Struct({}),
 			});
 			yield* Effect.promise(() => clock.advance(249));
 			expect(calls).toBe(1);
@@ -291,12 +292,14 @@ describe("Effect-native React definitions", () => {
 						slug: "first",
 						output: Schema.String,
 						packageId: "test/fixture",
+						inputSchema: Schema.String,
 					});
 					return yield* client.operations.invoke({
 						input: first,
 						slug: "second",
 						output: Schema.String,
 						packageId: "test/fixture",
+						inputSchema: Schema.String,
 					});
 				}),
 			);

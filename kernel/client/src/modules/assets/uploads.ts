@@ -4,12 +4,12 @@ import {
 	TemporaryUploadToken,
 	UploadBadRequest,
 	UploadInternalError,
-	type CleanupManagedAssetOutput,
 } from "@ryot-app/contract/modules/assets/schemas";
 import type {
 	PluginUploadBridgeErrorReason,
 	PluginUploadOutcome,
 	PluginUploadRequest,
+	PluginUploadResult,
 } from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
@@ -42,10 +42,6 @@ const failWith = (reason: PluginUploadBridgeErrorReason) => new UploadsError({ r
 type TemporaryUploadRequest = Extract<PluginUploadRequest, { readonly action: "temporary" }>;
 type PermanentUploadRequest = Extract<PluginUploadRequest, { readonly action: "permanent" }>;
 type CleanupUploadRequest = Extract<PluginUploadRequest, { readonly action: "cleanup" }>;
-type UploadResult =
-	| { readonly action: "temporary"; readonly token: TemporaryUploadToken }
-	| { readonly action: "permanent"; readonly asset: Schema.Schema.Type<typeof ManagedAssetLocator> }
-	| { readonly action: "cleanup"; readonly status: CleanupManagedAssetOutput["status"] };
 
 export class Uploads extends Context.Service<Uploads>()("Uploads", {
 	make: Effect.gen(function* () {
@@ -119,7 +115,7 @@ export class Uploads extends Context.Service<Uploads>()("Uploads", {
 		const upload = (
 			scope: ApiScope,
 			request: PluginUploadRequest,
-		): Effect.Effect<UploadResult, UploadsError> => {
+		): Effect.Effect<PluginUploadResult, UploadsError> => {
 			if (request.action === "temporary") {
 				return uploadTemporary(scope, request);
 			}
@@ -141,7 +137,7 @@ export class Uploads extends Context.Service<Uploads>()("Uploads", {
 			);
 		};
 
-		return { upload, outcome };
+		return { upload, outcome, uploadTemporary };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

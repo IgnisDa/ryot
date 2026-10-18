@@ -1,8 +1,7 @@
+import type { CleanupManagedAssetOutput } from "@ryot-app/contract/modules/assets/schemas";
 import {
-	CleanupManagedAssetOutput,
 	ManagedAssetLocator,
 	ManagedAssetResolutionBatch,
-	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	CollectionResponse,
@@ -24,6 +23,8 @@ import {
 	PluginManagedAssetResolution,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
+	type PluginUploadRequest,
+	PluginUploadResult,
 	ProviderSearchScreenOutcome,
 	ProviderSearchScreenRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -33,12 +34,11 @@ import { Effect, Result, Schema } from "effect";
 import type {
 	EntityUpdate,
 	EntityWatchSubscription,
+	FileUploadRequest,
 	OperationInvocation,
-	PermanentUploadRequest,
 	RyotClientAdapter,
 	RyotPageSearchUpdate,
 	RyotProviderSearchScreenRequest,
-	TemporaryUploadRequest,
 } from "./adapter";
 import { asTransportError, RyotClientError } from "./errors";
 import type { RyotNavigationTarget } from "./navigation-target";
@@ -190,40 +190,47 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			Effect.flatMap((outcome) => decodeCapability(ProviderSearchScreenOutcome, outcome)),
 		);
 	};
-	const uploadFile = <A>(
-		action: "temporary" | "permanent",
-		request: TemporaryUploadRequest | PermanentUploadRequest,
-		output: Schema.Codec<A, unknown>,
-	): Effect.Effect<A, RyotClientError> =>
-		Effect.gen(function* () {
-			if (!(request.source instanceof Blob)) {
-				return yield* new RyotClientError("invalid-input");
-			}
-			const uploadRequest =
-				action === "temporary"
-					? { ...request, action: "temporary" as const }
-					: { ...request, action: "permanent" as const };
-			const value = yield* adapterEffect(() => adapter.upload(uploadRequest));
-			return yield* decodeCapability(output, value);
-		});
+	const requestUpload = (request: PluginUploadRequest) =>
+		adapterEffect(() => adapter.upload(request)).pipe(
+			Effect.flatMap((value) => decodeCapability(PluginUploadResult, value)),
+		);
+	const uploadFile = (action: "temporary" | "permanent", request: FileUploadRequest) =>
+		request.source instanceof Blob
+			? requestUpload({ ...request, action })
+			: Effect.fail(new RyotClientError("invalid-input"));
+	const uploadTemporary = (request: FileUploadRequest) =>
+		Effect.flatMap(uploadFile("temporary", request), (result) =>
+			result.action === "temporary"
+				? Effect.succeed(result.token)
+				: Effect.fail(new RyotClientError("malformed-result")),
+		);
+	const uploadPermanent = (request: FileUploadRequest) =>
+		Effect.flatMap(uploadFile("permanent", request), (result) =>
+			result.action === "permanent"
+				? Effect.succeed(result.asset)
+				: Effect.fail(new RyotClientError("malformed-result")),
+		);
 	const cleanupUpload = (
 		asset: ManagedAssetLocator,
-	): Effect.Effect<CleanupManagedAssetOutput, RyotClientError> =>
-		Effect.gen(function* () {
-			const decodedAsset = Schema.decodeResult(ManagedAssetLocator)(asset);
-			if (Result.isFailure(decodedAsset)) {
-				return yield* new RyotClientError("invalid-input");
-			}
-			const value = yield* adapterEffect(() =>
-				adapter.upload({ action: "cleanup", asset: decodedAsset.success }),
-			);
-			return yield* decodeCapability(CleanupManagedAssetOutput, value);
-		});
+	): Effect.Effect<CleanupManagedAssetOutput, RyotClientError> => {
+		const decodedAsset = Schema.decodeResult(ManagedAssetLocator)(asset);
+		if (Result.isFailure(decodedAsset)) {
+			return Effect.fail(new RyotClientError("invalid-input"));
+		}
+		return Effect.flatMap(
+			requestUpload({ action: "cleanup", asset: decodedAsset.success }),
+			(result) =>
+				result.action === "cleanup"
+					? Effect.succeed({ status: result.status })
+					: Effect.fail(new RyotClientError("malformed-result")),
+		);
+	};
 
 	return {
 		overlayBack,
 		mutationCompleted,
 		screens: { openProviderSearch },
+		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
 				throw new RyotClientError("invalid-request");
@@ -237,13 +244,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 				return adapter.registerFlush(flush);
 			},
-		},
-		uploads: {
-			cleanup: cleanupUpload,
-			uploadPermanent: (request: PermanentUploadRequest) =>
-				uploadFile("permanent", request, ManagedAssetLocator),
-			uploadTemporary: (request: TemporaryUploadRequest) =>
-				uploadFile("temporary", request, TemporaryUploadToken),
 		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
@@ -329,19 +329,22 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 		},
 		operations: {
-			invoke: <Output extends Schema.Codec<unknown, unknown>>(
-				request: OperationInvocation<Output>,
+			invoke: <
+				Input extends Schema.Codec<unknown, unknown>,
+				Output extends Schema.Codec<unknown, unknown>,
+			>(
+				request: OperationInvocation<Input, Output>,
 			): Effect.Effect<Output["Type"], RyotClientError> =>
 				Effect.gen(function* () {
-					if (!isJsonValue(request.input)) {
-						return yield* new RyotClientError("invalid-input");
-					}
+					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
+						request.input,
+					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
 					const invoke = adapter.invokeOperation;
 					if (!invoke) {
 						return yield* new RyotClientError("unsupported-capability");
 					}
 					const value = yield* adapterEffect(() =>
-						invoke({ slug: request.slug, input: request.input, packageId: request.packageId }),
+						invoke({ input, slug: request.slug, packageId: request.packageId }),
 					);
 					if (!isJsonValue(value)) {
 						return yield* new RyotClientError("malformed-result");

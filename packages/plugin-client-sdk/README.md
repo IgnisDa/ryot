@@ -50,8 +50,17 @@ still removes their local pending completion. React query and mutation definitio
 which Atom runs directly; `mutateAsync` and storage hook methods return Promises at the React
 integration boundary.
 
-Read-only context operations set `refreshOnSuccess: false` on `operations.invoke` so a page-refresh
-handler does not trigger itself again. Writes retain the default mutation-refresh notification.
+`operations.invoke` encodes `input` through the required `inputSchema` and decodes the result through
+`output`; an input that does not encode fails with `invalid-input`. A successful operation notifies
+mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
+context operations, so a page-refresh handler does not trigger itself again, and for writes whose
+caller calls `mutationCompleted.hint()` itself once later steps such as navigation finish.
+
+`readCursorPages(read, { maxPages? })` pages a cursor-paginated read to exhaustion and returns
+`{ items, hasMore }`. It fails with `malformed-result` on a missing or repeated cursor. With
+`maxPages`, it stops after that many pages and reports `hasMore: true` when rows remain.
+`useAssetUrl(asset)` resolves a managed asset through the nearest `ManagedAssetProvider` and returns a
+remote asset's URL directly.
 
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, completion,
 and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;

@@ -1,18 +1,10 @@
-import {
-	managedAssetKey,
-	useManagedAssetUrl as useManagedLocatorUrl,
-} from "@ryot-app/plugin-client-sdk/react";
+import { managedAssetKey, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { MediaImageAsset } from "./image";
 
 export const imageAssetKey = (asset: MediaImageAsset) =>
 	asset.type === "remote" ? `remote:${asset.url}` : managedAssetKey(asset);
-
-export function useManagedAssetUrl(asset: MediaImageAsset | undefined) {
-	const managedUrl = useManagedLocatorUrl(asset?.type === "remote" ? undefined : asset);
-	return asset?.type === "remote" ? asset.url : managedUrl;
-}
 
 type AssetShape = "rounded" | "circle";
 
@@ -26,7 +18,7 @@ export function ManagedAssetImage(props: {
 	readonly shape?: AssetShape | undefined;
 	readonly asset: MediaImageAsset | undefined;
 }) {
-	const url = useManagedAssetUrl(props.asset);
+	const url = useAssetUrl(props.asset);
 	return (
 		<EntityArtWell
 			url={url}

@@ -90,6 +90,7 @@ const Home = () => {
 					slug: "greet",
 					output: Schema.String,
 					packageId: "test/fixture",
+					inputSchema: Schema.Struct({}),
 				}),
 				(greeting) => Effect.sync(() => setResult(greeting)),
 			),

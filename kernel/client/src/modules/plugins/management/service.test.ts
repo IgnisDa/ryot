@@ -39,8 +39,9 @@ const dependencies = Layer.effectContext(
 					),
 			}),
 			Context.add(Uploads, {
+				upload: () => Effect.die("unused"),
 				outcome: () => Effect.succeed({ outcome: "failure", reason: "transport" }),
-				upload: (_scope, request) =>
+				uploadTemporary: (_scope, request) =>
 					Ref.update(calls, (all) => [...all, { request, method: "upload" }]).pipe(
 						Effect.as({
 							action: "temporary" as const,
