@@ -35,6 +35,7 @@ import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-w
 import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/workflow";
 import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
 import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
+import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import {
 	CollectionMembershipWorkflowDefinitionsLive,
 	CollectionMembershipWorkflowOperationsLive,
@@ -222,6 +223,7 @@ const ServicesLive = Layer.mergeAll(
 	StagedRuntimeSandboxExecutorLive,
 	ScriptExecutionServiceLive,
 	SavedViewsServiceLive,
+	CalendarSourcesServiceLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,

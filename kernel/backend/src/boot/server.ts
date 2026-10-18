@@ -23,6 +23,7 @@ import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/assets/route
 import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupDownloadsRoutesLive, BackupsRoutesLive } from "#modules/backups/routes";
+import { CalendarSourcesRoutesLive } from "#modules/calendar-sources/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntityProvidersRoutesLive } from "#modules/entities/providers/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
@@ -110,6 +111,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(LocalUploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
+	Layer.provide(CalendarSourcesRoutesLive),
 	Layer.provide(PluginsRoutesLive),
 	Layer.provide(Layer.mergeAll(CollectionsRoutesLive, PagesRoutesLive, PageBundlesRoutesLive)),
 	Layer.provide(

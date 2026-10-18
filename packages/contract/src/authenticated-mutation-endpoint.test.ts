@@ -5,6 +5,7 @@ import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";
 import { DemoAccessPolicy } from "./http-annotations";
 import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
+import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
@@ -46,6 +47,9 @@ describe("authenticated mutation endpoints", () => {
 		expect(Context.get(RelationshipsGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);
+		expect(
+			Context.get(CalendarSourcesGroup.endpoints.setVisibility.annotations, DemoAccessPolicy),
+		).toBe("protected");
 	});
 
 	it("keeps admin and signed-token mutations outside the demo policy", () => {

@@ -4,6 +4,7 @@ import { AccountGroup } from "./modules/account/contract";
 import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
 import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
 import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";
+import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { EntityProvidersGroup } from "./modules/entity-providers/contract";
@@ -39,6 +40,7 @@ export type AppGroups =
 	| typeof UploadsGroup
 	| typeof LocalUploadsGroup
 	| typeof SavedViewsGroup
+	| typeof CalendarSourcesGroup
 	| typeof CollectionsGroup
 	| typeof PagesGroup
 	| typeof PageBundlesGroup
@@ -71,6 +73,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(UploadsGroup)
 	.add(LocalUploadsGroup)
 	.add(SavedViewsGroup)
+	.add(CalendarSourcesGroup)
 	.add(CollectionsGroup)
 	.add(PagesGroup)
 	.add(PageBundlesGroup)
