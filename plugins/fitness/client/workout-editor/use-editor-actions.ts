@@ -94,7 +94,6 @@ export function useEditorActions(input: {
 	const { saved, scrollTo } = input;
 	const client = useRyot();
 	const schedule = useRyotSchedule();
-	const { pluginId } = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	const addedExerciseId = useRef<string | undefined>(undefined);
 	const [message, setMessage] = useState<string>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
@@ -123,7 +122,7 @@ export function useEditorActions(input: {
 	const feedback = (sound: Parameters<Editor["sounds"]["play"]>[0]) =>
 		run(input.sounds.play(sound, muted));
 	const hapticFeedback = (kind: "impact" | "selection") =>
-		run(client.device({ kind, pluginId, action: "haptic" }).pipe(Effect.ignore));
+		run(client.device({ kind, action: "haptic" }).pipe(Effect.ignore));
 	const exerciseOf = (occurrence: WorkoutEditorOccurrence) =>
 		exercises?.find(({ id }) => id === occurrence.exerciseId);
 

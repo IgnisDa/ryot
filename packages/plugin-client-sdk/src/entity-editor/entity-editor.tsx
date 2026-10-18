@@ -321,11 +321,8 @@ function EntityEditorForm(
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const reorderFeedback = () => {
-		const identity = client.pluginIdentity(props.packageId);
 		schedule.run(
-			client
-				.device({ action: "haptic", kind: "selection", pluginId: identity.pluginId })
-				.pipe(Effect.ignore),
+			client.device({ action: "haptic", kind: "selection" }).pipe(Effect.ignore),
 			() => undefined,
 		);
 	};

@@ -11,6 +11,8 @@ import {
 	CreateMembershipBody,
 	DeleteMembershipBody,
 	MembershipResponse,
+	ReorderMembershipBody,
+	ReorderMembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import {
 	EntityEditorSaveOutput,
@@ -70,6 +72,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"transport",
 	"asset-failed",
 	"collection-failed",
+	"collection-stale",
 	"entity-save-failed",
 	"query-failed",
 	"invalid-input",
@@ -123,6 +126,7 @@ export const PluginBridgeExternalLinkResult = Schema.Union(
 export const PluginCollectionBridgeErrorReason = Schema.Literals([
 	"transport",
 	"collection-failed",
+	"collection-stale",
 	"malformed-result",
 ]);
 
@@ -134,6 +138,7 @@ const collectionRequestVariants = [
 	strictStruct({ input: CreateCollectionBody, action: Schema.Literal("create") }),
 	strictStruct({ input: CreateMembershipBody, action: Schema.Literal("upsert-membership") }),
 	strictStruct({ input: DeleteMembershipBody, action: Schema.Literal("remove-membership") }),
+	strictStruct({ input: ReorderMembershipBody, action: Schema.Literal("reorder-membership") }),
 ] as const;
 
 export const PluginCollectionRequest = Schema.Union(collectionRequestVariants);
@@ -156,7 +161,7 @@ export type PluginBridgeCollectionRequest = Schema.Schema.Type<
 
 const pluginCollectionSuccessFields = {
 	outcome: Schema.Literal("success"),
-	response: Schema.Union([CollectionResponse, MembershipResponse]),
+	response: Schema.Union([CollectionResponse, MembershipResponse, ReorderMembershipResponse]),
 };
 
 const pluginCollectionFailureFields = {

@@ -24,7 +24,7 @@ const variants = [
 	}),
 	strictStruct({ ...owner, key, action: Schema.Literal("cancel") }),
 	strictStruct({ ...owner, enabled: Schema.Boolean, action: Schema.Literal("awake") }),
-	strictStruct({ ...owner, kind: PluginHapticKind, action: Schema.Literal("haptic") }),
+	strictStruct({ kind: PluginHapticKind, action: Schema.Literal("haptic") }),
 	strictStruct({
 		...owner,
 		action: Schema.Literal("return-shortcut"),

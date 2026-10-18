@@ -51,6 +51,7 @@ export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]>
 		delete: unused,
 		createMembership: unused,
 		deleteMembership: unused,
+		reorderMembership: unused,
 		...overrides,
 	});
 

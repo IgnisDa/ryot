@@ -9,6 +9,8 @@ import {
 	type CreateMembershipBody,
 	type DeleteMembershipBody,
 	MembershipResponse,
+	type ReorderMembershipBody,
+	ReorderMembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import {
 	EntityEditorSaveOutput,
@@ -454,14 +456,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			set: (pluginId: PluginId, key: string, value: JsonValue) =>
 				Effect.asVoid(accessStorage({ key, value, pluginId, action: "set" })),
 		},
-		collections: {
-			create: (input: typeof CreateCollectionBody.Encoded) =>
-				mutateCollection({ input, action: "create" }, CollectionResponse),
-			upsertMembership: (input: typeof CreateMembershipBody.Encoded) =>
-				mutateCollection({ input, action: "upsert-membership" }, MembershipResponse),
-			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
-				mutateCollection({ input, action: "remove-membership" }, MembershipResponse),
-		},
 		data: {
 			query: <Success>(recipe: PreparedRecipe<Success>): Effect.Effect<Success, RyotClientError> =>
 				Effect.gen(function* () {
@@ -505,6 +499,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					const value = yield* adapterEffect(() => open(decoded.success));
 					return yield* decodeCapability(ExternalLinkSuccess, value);
 				}),
+		},
+		collections: {
+			create: (input: typeof CreateCollectionBody.Encoded) =>
+				mutateCollection({ input, action: "create" }, CollectionResponse),
+			upsertMembership: (input: typeof CreateMembershipBody.Encoded) =>
+				mutateCollection({ input, action: "upsert-membership" }, MembershipResponse),
+			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
+				mutateCollection({ input, action: "remove-membership" }, MembershipResponse),
+			reorderMembership: (input: typeof ReorderMembershipBody.Encoded) =>
+				mutateCollection({ input, action: "reorder-membership" }, ReorderMembershipResponse),
 		},
 		iosLiveActivities: {
 			end: (

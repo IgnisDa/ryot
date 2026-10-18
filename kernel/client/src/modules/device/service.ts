@@ -193,12 +193,21 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 				.withPermit(
 					Effect.gen(function* () {
 						yield* load;
+						const key = apiScopeKey(scope);
+						if (activeScope !== key) {
+							return { outcome: "failure", reason: "invalid-request" } as const;
+						}
+						if (request.action === "haptic") {
+							if (active && foreground) {
+								yield* platform.haptic(request.kind);
+							}
+							return { outcome: "success", value: { status: "done" } } as const;
+						}
 						const owner = contributors.find(
 							(contributor) =>
 								contributor.kind === "plugin" && contributor.pluginId === request.pluginId,
 						);
-						const key = apiScopeKey(scope);
-						if (owner?.kind !== "plugin" || activeScope !== key) {
+						if (owner?.kind !== "plugin") {
 							return { outcome: "failure", reason: "invalid-request" } as const;
 						}
 						let target: undefined | PluginNavigationTarget;
@@ -218,11 +227,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 						const owned = (entry: { scope: string; installationId: string }) =>
 							entry.scope === key && entry.installationId === owner.installationId;
 						let value: PluginDeviceResult = { status: "done" };
-						if (request.action === "haptic") {
-							if (active && foreground) {
-								yield* platform.haptic(request.kind);
-							}
-						} else if (request.action === "awake") {
+						if (request.action === "awake") {
 							demands.set(frame, { active, enabled: request.enabled });
 							yield* updateAwake();
 						} else if (request.action === "return-shortcut") {

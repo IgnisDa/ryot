@@ -359,6 +359,26 @@ describe("bridge page screens", () => {
 				),
 			);
 			expect(calls).toEqual([{ key: "rest", action: "cancel", pluginId: "other" }]);
+			pluginPort.postMessage({
+				kind: "impact",
+				action: "haptic",
+				requestId: "device-2",
+				type: "device-request",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						type: "device-result",
+						requestId: "device-2",
+						value: { status: "inexact" },
+					}),
+				),
+			);
+			expect(calls).toEqual([
+				{ key: "rest", action: "cancel", pluginId: "other" },
+				{ kind: "impact", action: "haptic" },
+			]);
 		}),
 	);
 
@@ -1873,6 +1893,75 @@ describe("plugin bridge", () => {
 				type: "collection-result",
 			});
 			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("forwards collection reorder requests and preserves stale outcomes", () =>
+		Effect.gen(function* () {
+			const calls: PluginCollectionRequest[] = [];
+			const outcomes: PluginCollectionOutcome[] = [
+				{
+					outcome: "success",
+					response: { orderRevision: 5, collectionId: EntityId.make("collection-1") },
+				},
+				{ outcome: "failure", reason: "collection-stale" },
+			];
+			const { init, received, pluginPort } = connect({
+				onCollection: (request) => {
+					calls.push(request);
+					const outcome = outcomes.shift();
+					return outcome === undefined
+						? Effect.die("unexpected collection reorder")
+						: Effect.succeed(outcome);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+
+			const input = {
+				expectedRevision: 4,
+				entityId: "entity-1",
+				idempotencyKey: "reorder-1",
+				collectionId: "collection-1",
+				submittedAt: "2026-10-19T00:00:00.000Z",
+				destination: { entityId: "entity-2", kind: "before" as const },
+			};
+			pluginPort.postMessage({
+				input,
+				requestId: "reorder-1",
+				type: "collection-request",
+				action: "reorder-membership",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						requestId: "reorder-1",
+						type: "collection-result",
+						response: { orderRevision: 5, collectionId: "collection-1" },
+					}),
+				),
+			);
+			pluginPort.postMessage({
+				input,
+				requestId: "reorder-2",
+				type: "collection-request",
+				action: "reorder-membership",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "failure",
+						requestId: "reorder-2",
+						type: "collection-result",
+						reason: "collection-stale",
+					}),
+				),
+			);
+			expect(calls).toEqual([
+				{ input, action: "reorder-membership" },
+				{ input, action: "reorder-membership" },
+			]);
 		}),
 	);
 

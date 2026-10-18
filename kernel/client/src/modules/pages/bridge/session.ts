@@ -680,15 +680,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function handleCollection(request: PluginBridgeCollectionRequest) {
-		let capabilityRequest: PluginCollectionRequest;
-		if (request.action === "create") {
-			capabilityRequest = { action: "create", input: request.input };
-		} else if (request.action === "upsert-membership") {
-			capabilityRequest = { input: request.input, action: "upsert-membership" };
-		} else {
-			capabilityRequest = { input: request.input, action: "remove-membership" };
-		}
-		runRequest(request.requestId, "collection", () => options.onCollection(capabilityRequest));
+		const { requestId, type: _type, ...capabilityRequest } = request;
+		runRequest(requestId, "collection", () => options.onCollection(capabilityRequest));
 	}
 
 	function handleCalendarSourceVisibility(request: PluginBridgeCalendarSourceVisibilityRequest) {
@@ -780,9 +773,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							complete?.(flushed);
 						}),
 						Match.when({ type: "device-request" }, ({ requestId, type: _type, ...request }) =>
-							runRequest(requestId, "device", (): Effect.Effect<PluginDeviceOutcome> =>
-								options.onDevice(request),
-							),
+							runRequest(requestId, "device", () => options.onDevice(request)),
 						),
 						Match.when(
 							{ type: "ios-live-activity-request" },

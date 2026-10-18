@@ -49,7 +49,7 @@ const createEditorSession = (
 					current.context?.settings.muteSounds ??
 					false);
 			yield* players.play("timer-completed", muted);
-			yield* client.device({ pluginId, kind: "impact", action: "haptic" }).pipe(Effect.ignore);
+			yield* client.device({ kind: "impact", action: "haptic" }).pipe(Effect.ignore);
 		});
 	const controller = createWorkoutEditorController({
 		target,

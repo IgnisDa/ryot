@@ -41,6 +41,7 @@ import {
 	PluginBridgeUploadResult,
 	PluginClientArtifact,
 	PluginClientArtifactFromBase64,
+	PluginCollectionBridgeErrorReason,
 	PluginCollectionRequest,
 	PluginLeadingIntent,
 	PluginManagedAssetResolution,
@@ -815,13 +816,24 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
-	it("keeps the collection capability to create and membership actions", () => {
+	it("keeps the collection capability to create, membership, and reorder actions", () => {
 		const decode = Schema.decodeUnknownResult(PluginCollectionRequest);
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const allowed = [
 			{ action: "create", input: { name: "Favorites" } },
 			{ action: "upsert-membership", input: { collectionId: "c-1", entityId: "entity-1" } },
 			{ action: "remove-membership", input: { collectionId: "c-1", entityId: "entity-1" } },
+			{
+				action: "reorder-membership",
+				input: {
+					collectionId: "c-1",
+					expectedRevision: 3,
+					entityId: "entity-1",
+					idempotencyKey: "reorder-1",
+					destination: { kind: "end" },
+					submittedAt: "2026-10-19T00:00:00.000Z",
+				},
+			},
 		];
 		const rejected = [
 			{ action: "update", input: { fields: [], name: "Renamed", collectionId: "c-1" } },
@@ -862,6 +874,26 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeClient({ ...request, userId: "user-controlled" }))).toBe(true);
 		expect(
 			Result.isFailure(decodeClient({ ...request, input: { collectionId: "collection-1" } })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "success",
+					type: "collection-result",
+					requestId: "collection-2",
+					response: { orderRevision: 5, collectionId: "collection-1" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "failure",
+					type: "collection-result",
+					requestId: "collection-3",
+					reason: "collection-stale",
+				}),
+			),
 		).toBe(true);
 		expect(
 			Result.isSuccess(
@@ -1192,6 +1224,7 @@ describe("plugin client bridge contract", () => {
 		const decodeOperationBridge = Schema.decodeUnknownResult(PluginOperationBridgeErrorReason);
 		const decodeQueryBridge = Schema.decodeUnknownResult(PluginRyotQLFailureReason);
 		const decodeAssetBridge = Schema.decodeUnknownResult(PluginAssetBridgeErrorReason);
+		const decodeCollectionBridge = Schema.decodeUnknownResult(PluginCollectionBridgeErrorReason);
 		const decodePublic = Schema.decodeUnknownResult(RyotClientErrorReason);
 		const operationBridgeReasons = [
 			"transport",
@@ -1201,6 +1234,12 @@ describe("plugin client bridge contract", () => {
 		];
 		const queryBridgeReasons = ["transport", "query-failed"];
 		const assetBridgeReasons = ["transport", "asset-failed", "malformed-result"];
+		const collectionBridgeReasons = [
+			"transport",
+			"collection-failed",
+			"collection-stale",
+			"malformed-result",
+		];
 		const publicReasons = [
 			"disposed",
 			"protocol",
@@ -1208,6 +1247,7 @@ describe("plugin client bridge contract", () => {
 			"invalid-input",
 			"asset-failed",
 			"collection-failed",
+			"collection-stale",
 			"entity-save-failed",
 			"query-failed",
 			"operation-failed",
@@ -1229,6 +1269,9 @@ describe("plugin client bridge contract", () => {
 		}
 		for (const reason of assetBridgeReasons) {
 			expect(Result.isSuccess(decodeAssetBridge(reason))).toBe(true);
+		}
+		for (const reason of collectionBridgeReasons) {
+			expect(Result.isSuccess(decodeCollectionBridge(reason))).toBe(true);
 		}
 		expect(Result.isFailure(decodeOperationBridge("query-failed"))).toBe(true);
 		expect(Result.isFailure(decodeQueryBridge("operation-failed"))).toBe(true);

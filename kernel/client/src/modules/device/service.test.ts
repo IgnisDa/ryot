@@ -34,6 +34,9 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 		packageId: PluginPackageId.make("ryot/other"),
 	},
 ];
+const kernelContributors: PreparedClientPage["identity"]["contributors"] = [
+	{ name: "table", kind: "kernel-renderer", sourceHash: "source-hash" },
+];
 const schedule: PluginDeviceRequest = {
 	target,
 	pluginId,
@@ -119,22 +122,43 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 describe("device authority", () => {
 	const hapticRouting = harness();
 	layer(hapticRouting.layer)((test) => {
-		test.effect("routes impact and selection haptics", () =>
+		test.effect("accepts ownerless haptics only for active foreground frames", () =>
 			Effect.gen(function* () {
 				const service = yield* DeviceService;
 				yield* service.start;
 				yield* service.setScope(scope);
-				yield* service.outcome(scope, contributors, "frame", true, {
-					pluginId,
-					kind: "impact",
-					action: "haptic",
+				expect(
+					yield* service.outcome(scope, kernelContributors, "frame", true, {
+						kind: "impact",
+						action: "haptic",
+					}),
+				).toEqual({ outcome: "success", value: { status: "done" } });
+				hapticRouting.foreground(false);
+				expect(
+					yield* service.outcome(scope, kernelContributors, "frame", true, {
+						action: "haptic",
+						kind: "selection",
+					}),
+				).toEqual({ outcome: "success", value: { status: "done" } });
+				hapticRouting.foreground(true);
+				expect(
+					yield* service.outcome(scope, kernelContributors, "frame", false, {
+						action: "haptic",
+						kind: "selection",
+					}),
+				).toEqual({ outcome: "success", value: { status: "done" } });
+				expect(hapticRouting.haptics).toEqual(["impact"]);
+				expect(
+					yield* service.outcome(otherScope, kernelContributors, "frame", true, {
+						action: "haptic",
+						kind: "selection",
+					}),
+				).toEqual({ outcome: "failure", reason: "invalid-request" });
+				expect(yield* service.outcome(scope, kernelContributors, "frame", true, schedule)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
 				});
-				yield* service.outcome(scope, contributors, "frame", true, {
-					pluginId,
-					action: "haptic",
-					kind: "selection",
-				});
-				expect(hapticRouting.haptics).toEqual(["impact", "selection"]);
+				expect(hapticRouting.scheduled).toEqual([]);
 			}),
 		);
 	});

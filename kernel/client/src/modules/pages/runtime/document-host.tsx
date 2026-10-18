@@ -668,9 +668,15 @@ function ClientPageFrame(props: {
 							response: yield* ryot.collections.upsertMembership(request.input),
 						} as const;
 					}
+					if (request.action === "remove-membership") {
+						return {
+							outcome: "success",
+							response: yield* ryot.collections.removeMembership(request.input),
+						} as const;
+					}
 					return {
 						outcome: "success",
-						response: yield* ryot.collections.removeMembership(request.input),
+						response: yield* ryot.collections.reorderMembership(request.input),
 					} as const;
 				});
 				return operation.pipe(
@@ -680,8 +686,9 @@ function ClientPageFrame(props: {
 							({
 								outcome: "failure",
 								reason:
-									error instanceof RyotClientError && error.reason === "collection-failed"
-										? "collection-failed"
+									error instanceof RyotClientError &&
+									(error.reason === "collection-failed" || error.reason === "collection-stale")
+										? error.reason
 										: "transport",
 							}) as const,
 					}),

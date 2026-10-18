@@ -8,8 +8,10 @@ import {
 } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	CollectionBadRequest,
+	CollectionConflict,
 	CollectionResponse,
 	MembershipResponse,
+	ReorderMembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
@@ -101,6 +103,18 @@ const membership = Schema.decodeSync(MembershipResponse)({
 		createdAt: "2026-09-07T00:00:00.000Z",
 	},
 });
+const reorderResponse = Schema.decodeSync(ReorderMembershipResponse)({
+	orderRevision: 4,
+	collectionId: "collection-1",
+});
+const reorderInput = {
+	expectedRevision: 3,
+	entityId: "entity-1",
+	idempotencyKey: "reorder-1",
+	collectionId: "collection-1",
+	destination: { kind: "end" as const },
+	submittedAt: "2026-10-19T00:00:00.000Z",
+};
 
 const makeUploadsRuntime = (
 	events: string[],
@@ -172,6 +186,10 @@ describe("kernel Ryot client", () => {
 						calls.push({ request, scope: receivedScope, method: "deleteMembership" });
 						return Effect.succeed(membership);
 					},
+					reorderMembership: (receivedScope, request) => {
+						calls.push({ request, scope: receivedScope, method: "reorderMembership" });
+						return Effect.succeed(reorderResponse);
+					},
 				}),
 			),
 		);
@@ -190,6 +208,7 @@ describe("kernel Ryot client", () => {
 					collectionId: "collection-1",
 				}),
 			).toEqual(membership);
+			expect(yield* client.collections.reorderMembership(reorderInput)).toEqual(reorderResponse);
 			expect(calls).toEqual([
 				{ scope, method: "create", request: { payload: { name: "Favorites" } } },
 				{
@@ -202,9 +221,34 @@ describe("kernel Ryot client", () => {
 					method: "deleteMembership",
 					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
 				},
+				{ scope, method: "reorderMembership", request: { payload: reorderInput } },
 			]);
 		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
+
+	it.live("classifies collection reorder conflicts", () =>
+		Effect.gen(function* () {
+			for (const [code, reason] of [
+				["order-stale", "collection-stale"],
+				["command-identity-conflict", "collection-failed"],
+			] as const) {
+				const runtime = ManagedRuntime.make(
+					Layer.mergeAll(
+						makeEntityWatchService(),
+						makeRyotQLApi(),
+						makeUploadsApi(),
+						makeCollectionsApi({
+							reorderMembership: () => fails(new CollectionConflict({ reason: { code } })),
+						}),
+					),
+				);
+				const result = yield* Effect.result(
+					createKernelRyotClient(runtime, scope, theme).collections.reorderMembership(reorderInput),
+				).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+				expect(result).toMatchObject({ failure: { reason } });
+			}
+		}),
+	);
 
 	it.live("sanitizes declared and unexpected collection failures", () =>
 		Effect.gen(function* () {

@@ -70,7 +70,10 @@ export const createKernelRyotClient = (
 				if (request.action === "upsert-membership") {
 					return yield* api.createMembership(scope, { payload: request.input });
 				}
-				return yield* api.deleteMembership(scope, { payload: request.input });
+				if (request.action === "remove-membership") {
+					return yield* api.deleteMembership(scope, { payload: request.input });
+				}
+				return yield* api.reorderMembership(scope, { payload: request.input });
 			}).pipe(
 				Effect.map((value): unknown => value),
 				Effect.mapError((error) => new RyotClientError(classifyCollectionFailure(error))),

@@ -97,7 +97,8 @@ Recoverable drafts use the storage capability directly, not `usePluginStorage`: 
 Register an Effect with `persistence.registerFlush` to make navigation and document replacement wait
 for durable input. A failed flush keeps the document open; remove the registration on disposal.
 
-`device` accepts plugin-scoped `schedule`, `cancel`, `awake`, `haptic`, and `return-shortcut` actions.
+`device` accepts plugin-scoped `schedule`, `cancel`, `awake`, and `return-shortcut` actions.
+The `haptic` action has no plugin owner, so kernel renderers and plugins use the same capability.
 Scheduling takes one key, UTC deadline, bounded title/body, semantic navigation target, and audible
 flag. It reports `scheduled`, `inexact`, `denied`, or `unsupported`; cancellation removes pending and
 delivered alerts. Native IDs and authenticated scope never cross the bridge. Awake demand and haptics
@@ -105,6 +106,11 @@ apply only to active foreground pages. Return shortcuts persist only a label and
 Haptics use `kind: "impact"` for pickup and `kind: "selection"` for reorder drops.
 Scheduled alerts own their completion sound; callers must not duplicate it with application audio
 when scheduling reports `scheduled` or `inexact`. Muting uses a silent alert instead.
+
+`collections.reorderMembership` moves a member before/after an anchor or to the collection's start/end.
+Submit its loaded order revision and one immutable idempotency key/time. Transport retries retain that
+submission; `collection-stale` requires reloading the collection before a new move. Use the shared
+collection-members recipe's continuation cursor so stale pages cannot be appended to a different order.
 
 `client.iosLiveActivities` provides `availability`, `start`, `update`, `end`, and `list` Effects. Every
 request includes `pluginId`; `start` and `update` also require a key and complete content, while

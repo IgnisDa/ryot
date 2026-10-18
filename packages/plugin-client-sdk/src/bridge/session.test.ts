@@ -154,22 +154,12 @@ describe("plugin Effect request engine", () => {
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const call = yield* Effect.forkChild(
-				runtime.client.device({
-					kind: "impact",
-					action: "haptic",
-					pluginId: PluginId.make("fixture"),
-				}),
+				runtime.client.device({ kind: "impact", action: "haptic" }),
 				{ startImmediately: true },
 			);
 			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "device-request")).toEqual([
-				{
-					kind: "impact",
-					action: "haptic",
-					pluginId: "fixture",
-					requestId: "device-1",
-					type: "device-request",
-				},
+				{ kind: "impact", action: "haptic", requestId: "device-1", type: "device-request" },
 			]);
 			channel.port1.postMessage({
 				outcome: "success",
@@ -179,13 +169,7 @@ describe("plugin Effect request engine", () => {
 			});
 			expect(yield* Fiber.join(call)).toEqual({ status: "unsupported" });
 			const disposed = yield* Effect.forkChild(
-				Effect.result(
-					runtime.client.device({
-						kind: "impact",
-						action: "haptic",
-						pluginId: PluginId.make("fixture"),
-					}),
-				),
+				Effect.result(runtime.client.device({ kind: "impact", action: "haptic" })),
 				{ startImmediately: true },
 			);
 			runtime.dispose();
@@ -1200,6 +1184,55 @@ describe("plugin Effect request engine", () => {
 				failure: { reason: "collection-failed" },
 			});
 			expect(hints).toBe(1);
+		}),
+	);
+
+	it.live("sends collection reorder commands and preserves stale failures", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const input = {
+				expectedRevision: 4,
+				entityId: "entity-1",
+				idempotencyKey: "reorder-1",
+				collectionId: "collection-1",
+				submittedAt: "2026-10-19T00:00:00.000Z",
+				destination: { entityId: "entity-2", kind: "before" as const },
+			};
+			const reordered = yield* Effect.forkChild(
+				Effect.result(runtime.client.collections.reorderMembership(input)),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "collection-request")).toEqual([
+				{
+					input,
+					requestId: "collection-1",
+					type: "collection-request",
+					action: "reorder-membership",
+				},
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				requestId: "collection-1",
+				type: "collection-result",
+				response: { orderRevision: 5, collectionId: "collection-1" },
+			});
+			expect(yield* Fiber.join(reordered)).toEqual({
+				success: { orderRevision: 5, collectionId: "collection-1" },
+			});
+
+			const stale = yield* Effect.forkChild(
+				Effect.result(runtime.client.collections.reorderMembership(input)),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				requestId: "collection-2",
+				type: "collection-result",
+				reason: "collection-stale",
+			});
+			expect(yield* Fiber.join(stale)).toMatchObject({ failure: { reason: "collection-stale" } });
 		}),
 	);
 
