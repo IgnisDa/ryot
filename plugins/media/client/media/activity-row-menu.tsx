@@ -18,7 +18,7 @@ import type {
 } from "./activity-timeline";
 import { deleteReviewSubmission, MediaReviewEditForm } from "./review";
 
-export type MediaActivityActions = {
+type MediaActivityActions = {
 	readonly entityId: string;
 	readonly compact: boolean;
 	readonly logger: MediaActivityLogger | undefined;

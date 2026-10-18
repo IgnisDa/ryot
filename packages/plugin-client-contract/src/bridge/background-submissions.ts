@@ -21,7 +21,7 @@ const isControlCodePoint = (codePoint: number) =>
 export const isBackgroundSubmissionLabelCharacterAllowed = (character: string) =>
 	!isControlCodePoint(character.codePointAt(0) ?? 0);
 
-export const BackgroundSubmissionLabel = Schema.NonEmptyString.pipe(
+const BackgroundSubmissionLabel = Schema.NonEmptyString.pipe(
 	Schema.check(
 		Schema.isMaxLength(BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH),
 		Schema.makeFilter(
@@ -32,7 +32,7 @@ export const BackgroundSubmissionLabel = Schema.NonEmptyString.pipe(
 	),
 );
 
-export const BackgroundSubmissionIdempotencyKey = Schema.NonEmptyString.pipe(
+const BackgroundSubmissionIdempotencyKey = Schema.NonEmptyString.pipe(
 	Schema.check(Schema.isMaxLength(BACKGROUND_SUBMISSION_KEY_MAX_LENGTH)),
 );
 
@@ -58,7 +58,7 @@ export type PluginBridgeBackgroundOperationRequest = Schema.Schema.Type<
 	typeof PluginBridgeBackgroundOperationRequest
 >;
 
-export const PluginBackgroundOperationBridgeErrorReason = Schema.Literals([
+const PluginBackgroundOperationBridgeErrorReason = Schema.Literals([
 	"transport",
 	"operation-failed",
 	"malformed-result",

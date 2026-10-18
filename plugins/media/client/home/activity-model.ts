@@ -99,7 +99,7 @@ type ActivityShare = {
 	readonly share: string;
 };
 
-export const ACTIVITY_SHARE_LIMIT = 5;
+const ACTIVITY_SHARE_LIMIT = 5;
 
 export const activityShares = (
 	rows: readonly { readonly slug: string; readonly label: string; readonly events: number }[],

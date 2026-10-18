@@ -66,7 +66,7 @@ export type MediaEpisodicHistoryEvent<Episode> =
 			readonly eventSchemaSlug: "review" | "progress" | "complete";
 	  });
 
-export type MediaEpisodicEpisodeVocabulary<Episode> = {
+type MediaEpisodicEpisodeVocabulary<Episode> = {
 	readonly origin: (episode: Episode) => string;
 	readonly order: (episode: Episode) => readonly number[];
 };

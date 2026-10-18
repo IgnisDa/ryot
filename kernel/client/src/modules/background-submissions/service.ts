@@ -23,7 +23,7 @@ import {
 export const SUCCESS_DISMISS_MS = 6_000;
 export const ANNOUNCEMENT_INTERVAL_MS = 2_000;
 
-export type BackgroundSubmissionState =
+type BackgroundSubmissionState =
 	| { readonly status: "pending" }
 	| { readonly status: "succeeded" }
 	| { readonly status: "incomplete"; readonly count: number | undefined }
@@ -42,7 +42,7 @@ export type BackgroundSubmissionEntry = {
 	readonly state: BackgroundSubmissionState;
 };
 
-export type BackgroundSubmissionSnapshot = {
+type BackgroundSubmissionSnapshot = {
 	readonly announcement: string;
 	readonly entries: readonly BackgroundSubmissionEntry[];
 };

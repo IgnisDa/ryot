@@ -5,7 +5,7 @@ export const mediaActivityStatuses = ["backlog", "on_hold", "dropped"] as const;
 
 export const MAX_ACTIVITY_EPISODES = 500;
 
-export const MAX_ACTIVITY_DELETE_EVENTS = 500;
+const MAX_ACTIVITY_DELETE_EVENTS = 500;
 
 const IsoTimestamp = Schema.String.pipe(
 	Schema.check(
@@ -130,7 +130,7 @@ export const MediaActivityLogOutput = Schema.Struct({
 
 export type MediaActivityLogOutput = typeof MediaActivityLogOutput.Type;
 
-export const MediaActivityEditWhen = Schema.Union([
+const MediaActivityEditWhen = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("unknown") }),
 	Schema.Struct({
 		finishedOn: IsoTimestamp,
@@ -139,7 +139,7 @@ export const MediaActivityEditWhen = Schema.Union([
 	}),
 ]);
 
-export type MediaActivityEditWhen = typeof MediaActivityEditWhen.Type;
+type MediaActivityEditWhen = typeof MediaActivityEditWhen.Type;
 
 export const mediaSubmissionFields = { submittedAt: IsoTimestamp, submissionId: SubmissionId };
 

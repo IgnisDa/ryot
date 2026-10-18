@@ -27,7 +27,7 @@ export const savedViewLayoutKey = (scope: ApiScope, slug: string) =>
 	`${RYOT_STORAGE_PREFIX}saved-view-layout:${apiScopeKey(scope)}:${slug}`;
 export const recentDestinationsKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}recent-destinations:${apiScopeKey(scope)}`;
-export const sidebarSectionExpandedKey = (scope: ApiScope, workspace: string, section: string) =>
+const sidebarSectionExpandedKey = (scope: ApiScope, workspace: string, section: string) =>
 	`${RYOT_STORAGE_PREFIX}sidebar-expanded:${apiScopeKey(scope)}:${workspace}:${section}`;
 export const rememberedProviderKey = (scope: ApiScope, schemaKey: string) =>
 	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${schemaKey}`;

@@ -33,7 +33,7 @@ export const MEDIA_EDIT_CHUNK_SIZE = EVENT_MUTATION_SANDBOX_LIMITS.items;
 
 export const STALE_RECORD_MESSAGE = "This record changed elsewhere. Reload and try again.";
 
-export const UNEDITABLE_RECORD_MESSAGE = "This record can't be edited.";
+const UNEDITABLE_RECORD_MESSAGE = "This record can't be edited.";
 
 export const activityCombinations: readonly EditableCombination[] =
 	mediaActivityEntitySchemaSlugs.flatMap((entity) =>

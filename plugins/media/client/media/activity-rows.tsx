@@ -31,7 +31,7 @@ export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 	readonly monthSummary?: (rows: readonly Row[]) => string | undefined;
 };
 
-export type MediaActivityRowExpand = {
+type MediaActivityRowExpand = {
 	readonly content: ReactNode;
 	readonly label: (expanded: boolean) => string;
 };

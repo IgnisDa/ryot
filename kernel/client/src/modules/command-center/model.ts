@@ -1,9 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	EntityBrowserSavedViewSettings,
-	type EntityBrowserSavedViewSettings as EntityBrowserSettings,
-} from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
@@ -19,7 +16,7 @@ import { settingsGroups } from "#/modules/settings/sections";
 import { navigationViewHref } from "#/modules/shell/sidebar-sections";
 
 export const SEARCH_DEBOUNCE_MS = 250;
-export const LIBRARY_ROWS_PER_VIEW = 3;
+const LIBRARY_ROWS_PER_VIEW = 3;
 const LIBRARY_FETCH_LIMIT = 5;
 
 export const GO_TO_GROUP = "Go to";
@@ -35,7 +32,7 @@ export type CommandOption = {
 	readonly description?: string | undefined;
 };
 
-export type GroupStatus = "ready" | "pending" | "failed";
+type GroupStatus = "ready" | "pending" | "failed";
 
 export type CommandGroup = {
 	readonly key: string;
@@ -52,10 +49,10 @@ export type LibraryView = {
 	readonly name: string;
 	readonly providerAdd: boolean;
 	readonly dataSources: RyotQLDocument;
-	readonly settings: EntityBrowserSettings;
+	readonly settings: EntityBrowserSavedViewSettings;
 };
 
-export const matchesText = (text: string, query: string) =>
+const matchesText = (text: string, query: string) =>
 	text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
 
 export const destinationOptions = (input: {
@@ -170,11 +167,11 @@ export const providerAddOptions = (
 			href: `${view.href}?${new URLSearchParams({ q: query, add: "true" }).toString()}`,
 		}));
 
-export type LibraryExecute<Failure> = (
+type LibraryExecute<Failure> = (
 	recipe: PreparedRecipe<EntityBrowserResult>,
 ) => Effect.Effect<EntityBrowserResult, Failure>;
 
-export const searchLibraryView = <Failure>(
+const searchLibraryView = <Failure>(
 	view: LibraryView,
 	query: string,
 	execute: LibraryExecute<Failure>,
