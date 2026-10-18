@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		2DB85FE32ECB400000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2DB85FE32ECB400000000002 /* PrivacyInfo.xcprivacy */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		2AB7CC007B613FA3F8FCB5A2 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915562AAFF747DA88C6F26EE /* LiveActivityWidget.swift */; };
+		4FEBDFE1AC5BC736402E5FCD /* RyotBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE84836C72541FCF1C61AD80 /* RyotBridgeViewController.swift */; };
+		09DE2EB8803D1B8580B8D824 /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 987E91B137F30F64E858B0A3 /* Registry.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -16,12 +19,18 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		5328392C1E5B6541DBF94165 /* RyotLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */; };
+		940C762916AD5FA160B57C78 /* RyotLiveActivities.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 14018D7AB80B2D4EE8991BAE /* RyotLiveActivities.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9834B062679DE167F06AC95C /* RyotLiveActivitiesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40E758A354B9E89853C47B /* RyotLiveActivitiesPlugin.swift */; };
+		AE7214972E6E4931825B2B02 /* RyotLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */; };
+		DE9EF423966A3DE837EF7962 /* RyotLiveActivitiesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBC30BD5893633FDC351269 /* RyotLiveActivitiesManager.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2DB85FE32ECB400000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		14018D7AB80B2D4EE8991BAE /* RyotLiveActivities.appex */ = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = RyotLiveActivities.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -30,8 +39,15 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		7342B529FA569B6458B8FB47 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		915562AAFF747DA88C6F26EE /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		AA40E758A354B9E89853C47B /* RyotLiveActivitiesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotLiveActivitiesPlugin.swift; sourceTree = "<group>"; };
+		CE84836C72541FCF1C61AD80 /* RyotBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotBridgeViewController.swift; sourceTree = "<group>"; };
+		DEBC30BD5893633FDC351269 /* RyotLiveActivitiesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotLiveActivitiesManager.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		987E91B137F30F64E858B0A3 /* Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../LiveActivityPolicy/Sources/IosLiveActivityPolicy/Registry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,14 +59,38 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA1B8DFAE25B4FA65EF187D6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		35FCFDE4812B26368A80F5C8 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				940C762916AD5FA160B57C78 /* RyotLiveActivities.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
+				987E91B137F30F64E858B0A3 /* Registry.swift */,
 				504EC3061FED79650016851F /* App */,
+				1726302D37BB6D19949A36B1 /* Shared */,
+				FF65A2FBDA3FAB49A1930961 /* RyotLiveActivities */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -59,6 +99,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				14018D7AB80B2D4EE8991BAE /* RyotLiveActivities.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,8 +117,36 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				CE84836C72541FCF1C61AD80 /* RyotBridgeViewController.swift */,
+				525CDC7123A7608A22C9B337 /* LiveActivities */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		1726302D37BB6D19949A36B1 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		525CDC7123A7608A22C9B337 /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				AA40E758A354B9E89853C47B /* RyotLiveActivitiesPlugin.swift */,
+				DEBC30BD5893633FDC351269 /* RyotLiveActivitiesManager.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		FF65A2FBDA3FAB49A1930961 /* RyotLiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				915562AAFF747DA88C6F26EE /* LiveActivityWidget.swift */,
+				7342B529FA569B6458B8FB47 /* Info.plist */,
+			);
+			path = RyotLiveActivities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -90,10 +159,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				35FCFDE4812B26368A80F5C8 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A3C6C13B56FB78BAD236DD9D /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -102,6 +173,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		AFDED48EF5B342D8C87CD783 /* RyotLiveActivities */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D8DCD1F5315FAB03232BB354 /* Build configuration list for PBXNativeTarget "RyotLiveActivities" */;
+			buildPhases = (
+				5617752204E1E10019E1FCE6 /* Sources */,
+				FA1B8DFAE25B4FA65EF187D6 /* Frameworks */,
+				40FF9538A7D7D9DEFCECB4C4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RyotLiveActivities;
+			productName = RyotLiveActivities;
+			productReference = 14018D7AB80B2D4EE8991BAE /* RyotLiveActivities.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -115,6 +203,11 @@
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
+					};
+					AFDED48EF5B342D8C87CD783 = {
+						CreatedOnToolsVersion = 16.2;
+						DevelopmentTeam = 75FVKG8NRK;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -135,9 +228,20 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				AFDED48EF5B342D8C87CD783 /* RyotLiveActivities */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXContainerItemProxy section */
+		7DC2C5972A1F0E5EED53B26B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AFDED48EF5B342D8C87CD783;
+			remoteInfo = RyotLiveActivities;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		504EC3021FED79650016851F /* Resources */ = {
@@ -154,6 +258,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		40FF9538A7D7D9DEFCECB4C4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -163,10 +274,32 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				4FEBDFE1AC5BC736402E5FCD /* RyotBridgeViewController.swift in Sources */,
+				9834B062679DE167F06AC95C /* RyotLiveActivitiesPlugin.swift in Sources */,
+				DE9EF423966A3DE837EF7962 /* RyotLiveActivitiesManager.swift in Sources */,
+				AE7214972E6E4931825B2B02 /* RyotLiveActivityAttributes.swift in Sources */,
+				09DE2EB8803D1B8580B8D824 /* Registry.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5617752204E1E10019E1FCE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5328392C1E5B6541DBF94165 /* RyotLiveActivityAttributes.swift in Sources */,
+				2AB7CC007B613FA3F8FCB5A2 /* LiveActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A3C6C13B56FB78BAD236DD9D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AFDED48EF5B342D8C87CD783 /* RyotLiveActivities */;
+			targetProxy = 7DC2C5972A1F0E5EED53B26B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -347,6 +480,53 @@
 			};
 			name = Release;
 		};
+		430BF9C117DDCEE24922C5B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75FVKG8NRK;
+				INFOPLIST_FILE = RyotLiveActivities/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.ryot.app.dev.liveactivities;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		89FC17F86CA707662A7BB4D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75FVKG8NRK;
+				INFOPLIST_FILE = RyotLiveActivities/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.ryot.app.liveactivities;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -364,6 +544,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D8DCD1F5315FAB03232BB354 /* Build configuration list for PBXNativeTarget "RyotLiveActivities" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				430BF9C117DDCEE24922C5B2 /* Debug */,
+				89FC17F86CA707662A7BB4D2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
