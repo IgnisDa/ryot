@@ -161,7 +161,10 @@ and cancellation contracts belong to [imports](../../kernel/backend/src/modules/
 - OpenScale turns each dated row into one measurement write item. Numeric columns reuse/create
   metrics by normalized label/key and create readings at the row time with its comment. Known keys
   use canonical units; shared property builders also serve interactive writes. A valid date with no
-  numeric value is unsuccessful. Row counts are measurements, not individual reading counts.
+  numeric value is unsuccessful. Row counts are measurements, not individual reading counts. The
+  admitted export timezone interprets local timestamps; explicit UTC offsets preserve their instant.
+  Nonexistent daylight-saving times fail per row; repeated local times use the earlier occurrence,
+  matching the workout importers.
 
 ## Workout Editor Contracts
 
