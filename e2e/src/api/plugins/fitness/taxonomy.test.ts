@@ -19,6 +19,7 @@ import {
 	openInterestWebSocketScoped,
 	pollProviderEntityImportResult,
 } from "~/fixtures/kernel";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 import {
 	attachFitnessTaxonomyProvider,
@@ -29,7 +30,7 @@ import { assertCompleted, assertTaggedError, requirePresent } from "~/support/as
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
-let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let fitnessProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
@@ -392,14 +393,24 @@ describe("Fitness taxonomy E2E", () => {
 				yield* socket.waitForEntityUpdated(root.id, "populated", { timeoutMs: 90_000 }),
 			).toMatchObject({ entityId: root.id, reason: "populated" });
 
-			const populated = yield* getEntity(client, root.id);
+			const populated = yield* pollUntil(
+				"fitness taxonomy population completed",
+				getEntity(client, root.id).pipe(
+					Effect.map((entity) =>
+						entity.relatedPopulationStatus.state === "succeeded" &&
+						entity.relatedPopulationStatus.availability === "complete"
+							? entity
+							: null,
+					),
+				),
+			);
 			expect(populated.id).toBe(root.id);
 			expect(populated.populatedAt).not.toBeNull();
 			expect(populated.properties).toMatchObject({
-				kind: "reps",
 				force: "push",
 				level: "beginner",
 				mechanic: "compound",
+				kind: "reps_and_weight",
 				instructions: ["Press the bar with control."],
 			});
 			expect(populated.properties.images).toEqual([
@@ -496,7 +507,7 @@ describe("Fitness taxonomy E2E", () => {
 			const reimported = yield* pollProviderEntityImportResult(client, reimport.jobId);
 			assertCompleted(reimported, "Free Exercise DB repeat import");
 			expect(reimported.data.id).toBe(root.id);
-			expect((yield* getEntity(client, root.id)).properties.kind).toBe("reps");
+			expect((yield* getEntity(client, root.id)).properties.kind).toBe("reps_and_weight");
 
 			const reimportedTargets = yield* executeRyotQLRecipe(
 				client,
