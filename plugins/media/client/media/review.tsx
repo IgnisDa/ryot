@@ -93,15 +93,20 @@ function MediaReviewForm(props: {
 				/>
 				<label htmlFor={`${id}-rating`}>Rating (0–100, optional)</label>
 				<TextField
-					min={0}
-					max={100}
-					step="any"
-					type="number"
+					type="text"
 					value={rating}
+					inputMode="decimal"
 					id={`${id}-rating`}
+					invalid={!validRating}
 					disabled={mutation.isPending}
 					onChange={(event) => setRating(event.currentTarget.value)}
+					aria-describedby={validRating ? undefined : `${id}-rating-error`}
 				/>
+				{validRating ? null : (
+					<StatusMessage tone="error" id={`${id}-rating-error`}>
+						Enter a number from 0 to 100.
+					</StatusMessage>
+				)}
 				<Row
 					title="Contains spoilers"
 					trailing={
