@@ -23,9 +23,11 @@ import {
 	relationshipSchemaPredicate,
 	descending,
 	eq,
+	exists,
 	groupAscending,
 	inArray,
 	isNull,
+	isNotNull,
 	join,
 	jsonPath,
 	literal,
@@ -243,6 +245,46 @@ export const allCollectionsRecipe = defineRecipe(
 );
 
 export type AllCollectionsResult = Recipe.Success<typeof allCollectionsRecipe>;
+
+export const collectionPickerRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly search: string; readonly after?: string }) => {
+		const collection = table("entity", "collectionOption");
+		const membership = table("relationship", "optionMembership");
+		return {
+			map: ({ collections }) => Result.succeed(collections),
+			queries: {
+				collections: selectedRows(collection, {
+					limit: 30,
+					after: input.after,
+					orderBy: [ascending(column(collection, "name")), ascending(column(collection, "id"))],
+					where: and(
+						entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+						isNotNull(column(collection, "userId")),
+						...(input.search.trim() === ""
+							? []
+							: [contains(column(collection, "name"), literal(input.search.trim()))]),
+					),
+					selection: {
+						id: selectedField(column(collection, "id"), EntityId),
+						name: selectedField(column(collection, "name"), Schema.String),
+						added: selectedField(
+							exists(membership, {
+								where: and(
+									relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
+									eq(column(membership, "sourceEntityId"), literal(input.entityId)),
+									eq(column(membership, "targetEntityId"), column(collection, "id")),
+								),
+							}),
+							Schema.Boolean,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionPickerResult = Recipe.Success<typeof collectionPickerRecipe>;
 
 export const collectionHeaderRecipe = defineRecipe((input: { readonly collectionId: string }) => {
 	const collection = table("entity", "collectionHeader");
