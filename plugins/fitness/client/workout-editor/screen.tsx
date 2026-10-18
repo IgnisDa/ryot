@@ -496,7 +496,6 @@ export function WorkoutEditorScreen(props: {
 						saveError = "This change requires Pro. Your data has been retained.";
 						break;
 					case "conflict":
-						saveError = undefined;
 						break;
 					case "invalid":
 						saveError = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
