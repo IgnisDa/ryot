@@ -10,6 +10,7 @@ import {
 	type PopulationExecution,
 	userPopulationRequest,
 } from "#modules/entities/population-trigger";
+import { EntityRetentionRepository } from "#modules/entities/retention/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import type { InterestPriority } from "./store";
@@ -34,6 +35,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 			const ryotql = yield* RyotQLService;
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
+			const retention = yield* EntityRetentionRepository;
 
 			const requestPopulation = (
 				principal: InterestPrincipal,
@@ -151,6 +153,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 					recipe.document,
 				);
 				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));
+				yield* retention.retain(rows.map(({ id }) => id));
 				const terminal: TerminalUpdate[] = [];
 				for (const row of rows) {
 					const result = yield* handleRow(principal, row, priorities.get(row.id) ?? "visible");

@@ -11,6 +11,7 @@ import {
 	EntityPopulationTrigger,
 	type PopulationRequest,
 } from "#modules/entities/population-trigger";
+import { EntityRetentionRepository } from "#modules/entities/retention/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { InterestReconciler } from "./reconciler";
@@ -74,6 +75,7 @@ const unpopulated = { populatedAt: null, populationStatus: missing };
 class FakeInterestFollowUps extends Context.Service<
 	FakeInterestFollowUps,
 	{
+		readonly retainedIds: Effect.Effect<ReadonlyArray<string>>;
 		readonly populationRequests: Effect.Effect<ReadonlyArray<PopulationRequest>>;
 		readonly translationRequests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
 	}
@@ -84,6 +86,7 @@ const reconcilerLayer = (items: readonly InterestItem[], dispatched = true) =>
 		Effect.gen(function* () {
 			const populationRequests = yield* Ref.make<ReadonlyArray<PopulationRequest>>([]);
 			const translationRequests = yield* Ref.make<ReadonlyArray<RequestFillInput>>([]);
+			const retainedIds = yield* Ref.make<ReadonlyArray<string>>([]);
 			return InterestReconciler.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
@@ -100,10 +103,14 @@ const reconcilerLayer = (items: readonly InterestItem[], dispatched = true) =>
 							requestFill: (input) =>
 								Ref.update(translationRequests, (all) => [...all, input]).pipe(Effect.as(true)),
 						}),
+						Layer.mock(EntityRetentionRepository)({
+							retain: (ids) => Ref.update(retainedIds, (all) => [...all, ...ids]),
+						}),
 					),
 				),
 				Layer.merge(
 					Layer.succeed(FakeInterestFollowUps, {
+						retainedIds: Ref.get(retainedIds),
 						populationRequests: Ref.get(populationRequests),
 						translationRequests: Ref.get(translationRequests),
 					}),
@@ -130,6 +137,7 @@ layer(reconcilerLayer([row("entity-1", { ...unpopulated, translationStatus: none
 			);
 
 			expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
+			expect(yield* (yield* FakeInterestFollowUps).retainedIds).toEqual(["entity-1"]);
 			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toMatchObject([
 				{
 					userId: "user-1",

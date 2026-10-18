@@ -43,6 +43,7 @@ import {
 	entityVisibleToUserClause,
 	toListedEntity,
 } from "./repository-support";
+import { retainedCheckAfter } from "./retention/repository";
 
 export type InsertEntityInput = InsertEntityInputBase & { properties: Record<string, unknown> };
 
@@ -942,6 +943,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							...(contentChanged
 								? { contentGeneration: sql`${schema.entity.contentGeneration} + 1` }
 								: {}),
+							checkAfter: sql`greatest(${schema.entity.checkAfter}, ${retainedCheckAfter})`,
 							populatedAt: input.preservePopulatedAt
 								? sql`coalesce(${schema.entity.populatedAt}, ${input.populatedAt?.toISOString() ?? null}::timestamptz)`
 								: sql`case when ${schema.entity.providerId} is not null and ${input.populatedAt?.toISOString() ?? null}::timestamptz is not null then greatest(${schema.entity.populatedAt}, ${input.populatedAt?.toISOString() ?? null}::timestamptz) else ${input.populatedAt?.toISOString() ?? null}::timestamptz end`,

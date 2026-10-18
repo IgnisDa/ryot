@@ -6,6 +6,7 @@ import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { EntityPopulationTriggerLive } from "#modules/entities/providers/population-trigger-live";
+import { EntityRetentionRepository } from "#modules/entities/retention/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { RyotQLService } from "#modules/ryotql/service";
@@ -33,6 +34,7 @@ export const InterestReconcilerLive = InterestReconciler.layer.pipe(
 				Layer.provide(EnrichmentRequests.layer),
 			),
 			TranslationsServiceLive,
+			EntityRetentionRepository.layer,
 		),
 	),
 	Layer.provide(PluginRuntimeResolverLive),

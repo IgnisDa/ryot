@@ -33,6 +33,9 @@ export const entity = snakeCase.table(
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		checkAfter: timestamptz()
+			.notNull()
+			.default(sql`now() + interval '7 days'`),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -45,6 +48,9 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
+		index("entity_check_after_idx")
+			.on(table.checkAfter)
+			.where(sql`${table.providerId} is not null`),
 		uniqueIndex("entity_collection_name_unique")
 			.on(table.userId, table.name)
 			.where(

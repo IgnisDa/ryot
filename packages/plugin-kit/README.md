@@ -186,7 +186,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `integrationProviders` | Push, sink, or yank integrations                                        |
 | `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
 | `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
-| `relationshipSchemas`  | Typed relationship endpoints and optional user-write ownership rules    |
+| `relationshipSchemas`  | Typed relationship endpoints, user-write ownership and graph retention  |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
 | `calendarSources`      | Optional dated occurrences listed by the kernel calendar                |
 
@@ -196,6 +196,18 @@ creates, updates, and deletes through HTTP, editors, and sandbox writers; author
 writes retain their existing authority. Leave it omitted for personal annotations that may reference
 global sources. Enforcement uses both the pinned and active schema, so an older execution cannot
 bypass an active ownership restriction.
+
+The kernel deletes unused provider entities. Set `retention` on a relationship schema to describe
+how its global links affect that:
+
+- `composition`: links an entity to its parts, such as seasons and episodes. All entities joined by
+  these links are kept or deleted together.
+- `root`: a link of this schema keeps both endpoints, such as a provider's trending marker.
+- Omitted: a reference. A kept entity keeps the directly linked entity, but not that entity's
+  other references or parts. When an unused neighbor is deleted, the kept entity's related data
+  is marked incomplete so the next foreground interest refetches it.
+
+User-scoped links, events, and `entity-id` properties in user-owned data always keep an entity.
 | `client` | Version 1 public exports, routes, entities, dependencies, and home view |
 | `savedViews` | Renderer, settings, and optional named RyotQL data sources |
 | `hooks` | Stable before/after lifecycle hooks |

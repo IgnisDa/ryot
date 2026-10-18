@@ -7,6 +7,8 @@ import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 
 import { EntitiesRepositoryLive } from "./repository";
+import { EntityGraphCollector } from "./retention/collector";
+import { EntityRetentionRepository } from "./retention/repository";
 import { EntitiesService } from "./service";
 import { DomainWriteChecksLive } from "./write-context";
 
@@ -44,4 +46,8 @@ export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
 			MigrationLifecycleServicesLive,
 		),
 	),
+);
+
+export const EntityGraphCollectorLive = EntityGraphCollector.layer.pipe(
+	Layer.provide(EntityRetentionRepository.layer),
 );

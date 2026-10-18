@@ -70,3 +70,29 @@ A delete carries the loaded `updatedAt`; a newer entity returns `stale`. It retu
 entity has any history or any user relationship other than its declared editor links, so children
 must be removed first. Entity deletion re-checks history in its commit transaction and never cascades
 events. Identical retries replay through the entity delete receipts.
+
+# Graph retention
+
+Provider entities carry `check_after`, initially seven days after creation. Provider updates and
+entity interest push it to at least seven days from now. The frequent cron collects due provider
+entities in bounded batches; user-owned entities without a provider are never collected.
+
+Composition links (relationship schemas declaring `retention: composition` in the active plugin
+revision) join entities into units that are kept or deleted together. A unit is live when any member:
+
+- has no provider or is not yet due;
+- is an event's entity or session entity;
+- has a user-scoped relationship or a link whose schema declares `retention: root`;
+- has a queued, running or retrying enrichment request, or a pending provider-import admission;
+- is named by an `entity-id` property of an event, a relationship, or an entity without a provider;
+- appears in the payload of queued or running background work or automation runs, or in a saved view.
+
+Other global links are references. A dead unit stays when a reference links it to a live unit, but
+units kept this way do not keep their own references. Kept units are deferred seven days. The rest are
+deleted, and foreign keys remove their relationships, translations and enrichment requests. Surviving
+neighbors that lost a reference get a null `relatedPopulatedAt`, so foreground interest fetches their
+related data again. Managed assets they used become unreferenced and follow the asset collector.
+
+A batch locks unit members `FOR UPDATE SKIP LOCKED` and skips any unit with a member a writer holds,
+so a writer either commits its reference before the check or fails on the deleted row. Collection
+waits while any backup export or restore is pending or running.

@@ -333,12 +333,17 @@ export type PluginRelationshipUserWritePolicy = Schema.Schema.Type<
 	typeof PluginRelationshipUserWritePolicy
 >;
 
+export const PluginRelationshipRetention = Schema.Literals(["root", "composition"]);
+
+export type PluginRelationshipRetention = Schema.Schema.Type<typeof PluginRelationshipRetention>;
+
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
+	retention: Schema.optional(PluginRelationshipRetention),
 	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 

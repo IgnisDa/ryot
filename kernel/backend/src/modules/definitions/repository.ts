@@ -347,6 +347,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										pluginRevisionId,
 										name: definition.name,
 										slug: definition.slug,
+										retention: definition.retention ?? null,
 										propertiesSchema: definition.propertiesSchema,
 										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
@@ -603,6 +604,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										name: definition.name,
 										slug: definition.slug,
 										pluginRevisionId: null,
+										retention: definition.retention ?? null,
 										propertiesSchema: definition.propertiesSchema,
 										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
@@ -617,6 +619,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									set: {
 										name: sql`excluded.name`,
 										position: sql`excluded.position`,
+										retention: sql`excluded.retention`,
 										userWritePolicy: sql`excluded.user_write_policy`,
 										propertiesSchema: sql`excluded.properties_schema`,
 										sourceEntitySchemaSlug: sql`excluded.source_entity_schema_slug`,

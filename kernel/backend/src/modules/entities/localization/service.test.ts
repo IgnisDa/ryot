@@ -295,6 +295,7 @@ const makeServiceLayer = (
 				updatedAt: storedAt,
 				id: payload.entityId,
 				contentGeneration: 1,
+				checkAfter: storedAt,
 				populatedAt: storedAt,
 				relatedPopulatedAt: null,
 				collectionOrderRevision: 0,

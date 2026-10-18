@@ -46,6 +46,7 @@ export const mutationReceipt = snakeCase.table(
 		index("mutation_receipt_revision_idx").on(table.pluginRevisionId),
 		index("mutation_receipt_config_idx").on(table.pluginConfigRevisionId),
 		index("mutation_receipt_script_idx").on(table.sandboxScriptId),
+		index("mutation_receipt_recorded_at_idx").on(table.recordedAt),
 		check(
 			"mutation_receipt_scope_check",
 			sql`(${table.mutationScope} = 'global' and ${table.scopeUserId} is null) or (${table.mutationScope} = 'user' and ${table.scopeUserId} is not null and ${table.ownerUserId} is not null)`,

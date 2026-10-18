@@ -16,6 +16,7 @@ type BuiltinRelationshipSchema = {
 	propertiesSchema: AppSchema;
 	sourceEntitySchemaSlug: null | string;
 	targetEntitySchemaSlug: null | string;
+	retention?: PluginRelationshipSchema["retention"];
 	userWritePolicy?: PluginRelationshipSchema["userWritePolicy"];
 };
 
@@ -125,6 +126,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		propertiesSchema: { fields: {} },
 	},
 	{
+		retention: "root",
 		slug: "media-trending",
 		name: "Media Trending",
 		sourceEntitySchemaSlug: null,
@@ -145,31 +147,31 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		},
 	},
 	{
+		retention: "composition",
 		slug: "show-to-show-season",
 		name: "Show to Show Season",
 		sourceEntitySchemaSlug: "show",
+		userWritePolicy: "source-owner",
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "show-season",
-
-		userWritePolicy: "source-owner",
 	},
 	{
+		retention: "composition",
+		userWritePolicy: "source-owner",
 		propertiesSchema: { fields: {} },
 		slug: "show-season-to-show-episode",
 		name: "Show Season to Show Episode",
 		sourceEntitySchemaSlug: "show-season",
 		targetEntitySchemaSlug: "show-episode",
-
-		userWritePolicy: "source-owner",
 	},
 	{
+		retention: "composition",
+		userWritePolicy: "source-owner",
 		propertiesSchema: { fields: {} },
 		sourceEntitySchemaSlug: "podcast",
 		slug: "podcast-to-podcast-episode",
 		name: "Podcast to Podcast Episode",
 		targetEntitySchemaSlug: "podcast-episode",
-
-		userWritePolicy: "source-owner",
 	},
 	...builtinMediaEntitySchemaSlugs.map((sourceEntitySchemaSlug) => ({
 		name: "Genres",

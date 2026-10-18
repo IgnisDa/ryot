@@ -245,7 +245,9 @@ and relationship baselines reject stale edits without overwriting newer work. Du
 not provided.
 
 Container links declare `userWritePolicy: source-owner`, so only owned custom shows, seasons, and
-podcasts receive user children; provider inventories stay read-only. Episodes tabs of owned custom
+podcasts receive user children; provider inventories stay read-only. They also declare
+`retention: composition`, so the kernel keeps or deletes a provider show or podcast together with its
+seasons and episodes. `media-trending` declares `retention: root` while an item trends. Episodes tabs of owned custom
 parents offer **Add season**, **Add episode**, **Edit season**, and **Edit episode**; create routes
 carry `parent` plus starting `seasonNumber`/`episodeNumber` search values. Season numbers are
 immutable after creation, so episode season numbers match their season. Deletion is refused while

@@ -18,6 +18,7 @@ export const workflowExecution = snakeCase.table(
 	},
 	(table) => [
 		primaryKey({ columns: [table.workflowName, table.executionId] }),
+		index("workflow_execution_execution_id_idx").on(table.executionId),
 		index("workflow_execution_root_idx").on(table.rootWorkflowName, table.rootExecutionId),
 		index("workflow_execution_cleanup_idx")
 			.on(table.expiredAt)
