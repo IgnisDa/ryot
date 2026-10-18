@@ -6,6 +6,7 @@ import { expect, it } from "vitest";
 
 import {
 	automationContext,
+	containmentRyotql,
 	entityRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-entity-updated.sandbox";
@@ -55,20 +56,33 @@ const input = (
 	});
 };
 
-const run = (value: ReturnType<typeof input>) => {
+const execute = (
+	value: ReturnType<typeof input>,
+	containers: Readonly<Record<string, string>> = {},
+) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
+	const summaryRequests: Array<readonly string[]> = [];
 	return definition
 		.run(
 			value,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: containmentRyotql(containers),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, triggerId: `signal-${calls.length}` });
 				},
+				requestRelationshipProjectionsForAllUsers: (request) => {
+					expect(request.relationshipSchemaSlug).toBe("in-media-library");
+					summaryRequests.push(request.sourceEntityIds);
+					return Effect.succeed({ users: 1 });
+				},
 			}),
 		)
-		.pipe(Effect.as(calls));
+		.pipe(Effect.as({ calls, summaryRequests }));
 };
+
+const run = (value: ReturnType<typeof input>) =>
+	execute(value).pipe(Effect.map(({ calls }) => calls));
 
 it("emits independent status, publish-year, and anime-count signals for a populated root", () =>
 	run(
@@ -241,6 +255,41 @@ it("stays silent for initial population and special seasons", () =>
 				expect(zero).toEqual([]);
 				expect(namedSpecial).toEqual([]);
 				return undefined;
+			}),
+		),
+	));
+
+it("refreshes library summaries of the population root, including on first population", () =>
+	Effect.runPromise(
+		Effect.all([
+			execute(input({ after: { entitySchemaSlug: "show-episode" } })),
+			execute(input({ rootPreviouslyPopulated: false })),
+		]).pipe(
+			Effect.map((results) => {
+				expect(results.map(({ summaryRequests }) => summaryRequests)).toEqual([
+					[["show-1"]],
+					[["show-1"]],
+				]);
+			}),
+		),
+	));
+
+it("refreshes the show of an episode updated without population context", () =>
+	Effect.runPromise(
+		execute(
+			automationContext({
+				category: "change",
+				resource: "entity",
+				operation: "update",
+				changedProperties: [],
+				after: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
+				before: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
+			}),
+			{ "season-1": "show-1", "episode-1": "season-1" },
+		).pipe(
+			Effect.map(({ calls, summaryRequests }) => {
+				expect(summaryRequests).toEqual([["show-1"]]);
+				expect(calls).toEqual([]);
 			}),
 		),
 	));

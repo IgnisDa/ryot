@@ -4,7 +4,10 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { expect, it } from "vitest";
 
-import { automationContext } from "../../tests/backend/automations/automation-test-utils";
+import {
+	automationContext,
+	containmentRyotql,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-relationship-sync.sandbox";
 
 type Population = typeof AutomationPopulationContext.Encoded;
@@ -65,20 +68,33 @@ const input = (overrides: {
 	});
 };
 
-const run = (value: ReturnType<typeof input>) => {
+const execute = (
+	value: ReturnType<typeof input>,
+	containers: Readonly<Record<string, string>> = {},
+) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
+	const summaryRequests: Array<readonly string[]> = [];
 	return definition
 		.run(
 			value,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: containmentRyotql(containers),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
+				requestRelationshipProjectionsForAllUsers: (request) => {
+					expect(request.relationshipSchemaSlug).toBe("in-media-library");
+					summaryRequests.push(request.sourceEntityIds);
+					return Effect.succeed({ users: 1 });
+				},
 			}),
 		)
-		.pipe(Effect.as(calls));
+		.pipe(Effect.as({ calls, summaryRequests }));
 };
+
+const run = (value: ReturnType<typeof input>) =>
+	execute(value).pipe(Effect.map(({ calls }) => calls));
 
 it("emits one season-count signal from the batch leader on a net count change", () =>
 	Effect.runPromise(
@@ -194,4 +210,53 @@ it("stays silent without the leader, on first population, without net changes, a
 			],
 			{ concurrency: "unbounded" },
 		).pipe(Effect.map((calls) => expect(calls).toEqual([[], [], [], [], []]))),
+	));
+
+it("refreshes library summaries of the population root, including on first population", () =>
+	Effect.runPromise(
+		Effect.all([
+			execute(input({ followers: 1 })),
+			execute(input({ rootPreviouslyPopulated: false })),
+		]).pipe(
+			Effect.map((results) => {
+				expect(results.map(({ summaryRequests }) => summaryRequests)).toEqual([
+					[["show-1"]],
+					[["show-1"]],
+				]);
+			}),
+		),
+	));
+
+it("refreshes the show of an episode linked without population context", () =>
+	Effect.runPromise(
+		execute(
+			automationContext({
+				category: "change",
+				operation: "batch",
+				resource: "relationship",
+				items: [
+					{
+						category: "change",
+						operation: "create",
+						resource: "relationship",
+						after: {
+							properties: {},
+							id: "relationship-1",
+							sourceEntityId: "season-1",
+							targetEntityId: "episode-1",
+							createdAt: "2026-07-20T10:00:00.000Z",
+							updatedAt: "2026-07-20T10:00:00.000Z",
+							relationshipSchemaPluginId: "media-owner",
+							relationshipSchemaSlug: "show-season-to-show-episode",
+						},
+					},
+				],
+			}),
+			{ "season-1": "show-1", "episode-1": "season-1" },
+		).pipe(
+			Effect.map(({ calls, summaryRequests }) => {
+				expect(summaryRequests).toEqual([["show-1"]]);
+				expect(calls).toEqual([]);
+			}),
+		),
 	));

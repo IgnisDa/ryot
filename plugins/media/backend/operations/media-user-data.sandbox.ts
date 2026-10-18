@@ -4,6 +4,7 @@ import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaUserDataInput, MediaUserDataOutput } from "../../shared/media-user-data-operations";
+import { LIBRARY_RELATIONSHIP_SCHEMA_SLUG } from "../lib/library-summary-requests";
 
 const HostRefusal = Schema.Struct({ code: Schema.String, message: Schema.optional(Schema.String) });
 
@@ -85,6 +86,12 @@ export default defineOperation({
 						options,
 					)
 					.pipe(
+						Effect.tap(() =>
+							host.requestRelationshipProjections({
+								sourceEntityIds: [input.mergeInto],
+								relationshipSchemaSlug: LIBRARY_RELATIONSHIP_SCHEMA_SLUG,
+							}),
+						),
 						Effect.map(({ movedEventsCount, movedRelationshipsCount }) => ({
 							status: "saved" as const,
 							count: movedEventsCount + movedRelationshipsCount,

@@ -902,6 +902,37 @@ export const mediaPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "async",
+			frequency: "batch",
+			executionScope: "user",
+			slug: "media.library-summary-refresh",
+			name: "Refresh media library summaries",
+			scriptSlug: "automation.library-summary-refresh",
+			targets: [
+				...[
+					"progress",
+					"complete",
+					"backlog",
+					"on_hold",
+					"dropped",
+					"list-state",
+					"review",
+				].flatMap((slug) =>
+					eventSlugs(slug).flatMap((qualified) =>
+						(["create", "update", "delete"] as const).map((operation) =>
+							Object.assign({}, eventHookTarget(qualified), { operation }),
+						),
+					),
+				),
+				{
+					operation: "create",
+					resource: "relationship",
+					relationshipSchemaSlug: "in-media-library",
+				},
+			],
+		},
+		{
+			stage: "after",
+			delivery: "async",
 			slug: "media.entity-updated",
 			name: "Media entity updated",
 			scriptSlug: "automation.media-entity-updated",

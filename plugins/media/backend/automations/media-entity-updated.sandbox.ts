@@ -4,6 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import { librarySummaryRequests, libraryTitleIds } from "../lib/library-summary-requests";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -50,12 +51,20 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		return Effect.suspend(() => {
 			const source = automation.payload;
-			if (
-				source.resource !== "entity" ||
-				source.operation !== "update" ||
-				!source.population?.rootPreviouslyPopulated
-			) {
+			if (source.resource !== "entity" || source.operation !== "update") {
 				return Effect.succeed(null);
+			}
+			const refreshSummaries = Effect.gen(function* () {
+				const titleIds = yield* libraryTitleIds(
+					host,
+					new Set([source.population?.scopeEntity.id ?? source.after.id]),
+				);
+				for (const request of librarySummaryRequests(titleIds)) {
+					yield* host.requestRelationshipProjectionsForAllUsers(request);
+				}
+			});
+			if (!source.population?.rootPreviouslyPopulated) {
+				return Effect.as(refreshSummaries, null);
 			}
 			const population = source.population;
 
@@ -158,9 +167,10 @@ export default defineAutomation({
 				}
 			}
 
-			return emissions.length === 0
-				? Effect.succeed(null)
-				: Effect.all(emissions, { concurrency: "unbounded" });
+			return Effect.as(
+				Effect.all([refreshSummaries, ...emissions], { concurrency: "unbounded" }),
+				null,
+			);
 		});
 	},
 });
