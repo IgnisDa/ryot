@@ -22,13 +22,13 @@ import type {
 	PluginCollectionRequest,
 	PluginDeviceOutcome,
 	PluginDeviceRequest,
+	PluginEnrichmentOutcome,
+	PluginEnrichmentRequest,
 	PluginEntitySaveOutcome,
 	PluginIosLiveActivityOutcome,
 	PluginIosLiveActivityRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
-	PluginRetryPopulationOutcome,
-	PluginRetryPopulationRequest,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
@@ -150,9 +150,9 @@ export function PageIframeHost(props: {
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
-	readonly onRetryPopulation: (
-		request: PluginRetryPopulationRequest,
-	) => Effect.Effect<PluginRetryPopulationOutcome>;
+	readonly onEnrichment: (
+		request: PluginEnrichmentRequest,
+	) => Effect.Effect<PluginEnrichmentOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
 	readonly onIosLiveActivity: (
 		request: PluginIosLiveActivityRequest,
@@ -417,10 +417,10 @@ export function PageIframeHost(props: {
 			onCollection: (request) => latest.current.onCollection(request),
 			onEntitySave: (request) => latest.current.onEntitySave(request),
 			onPickEntity: (request) => latest.current.onPickEntity(request),
+			onEnrichment: (request) => latest.current.onEnrichment(request),
 			onUserSettings: (request) => latest.current.onUserSettings(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
 			onEditCollection: (request) => latest.current.onEditCollection(request),
-			onRetryPopulation: (request) => latest.current.onRetryPopulation(request),
 			onAddToCollection: (request) => latest.current.onAddToCollection(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),

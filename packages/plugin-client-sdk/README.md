@@ -255,16 +255,17 @@ the same registry/query atom share one watch. Updates and document-foreground hi
 ms; an in-flight request finishes before one queued refresh. Hidden retained screens withdraw demand,
 and reactivation requests catch-up without discarding cached data.
 
-## Population Retry
+## Entity Enrichment
 
-`ryot.entities.retryPopulation({ packageId, entityId, operation })` asks the kernel to retry
-`population` or `translation`. Translation uses the trusted user's preferred language, never a
-language supplied by the frame. The runtime supplies the plugin ID through `pluginIdentity`,
-refuses a package that does not contribute to the frame with `invalid-request`, and returns
-`{ retried }`: `false` when the entity no longer has a failure to retry. Refusals by the kernel
-(missing or invisible entity, foreign owner, no provider or an unavailable one) also fail with
-`invalid-request`. A successful call notifies mutation listeners, so the page reads the entity as
-queued again. `useRetryEntityPopulation()` is the matching mutation hook.
+`ryot.entities.requestEnrichment({ packageId, entityId, operation, action, idempotencyKey })` asks the
+kernel to refresh or retry `population` or `translation`. Translation uses the trusted user's
+preferred language, never a language supplied by the frame. The runtime supplies the plugin ID
+through `pluginIdentity`, refuses a package that does not contribute to the frame with
+`invalid-request`, and returns `{ enrichmentRequestId }`: a durable request ID or `null`. Refusals by
+the kernel (missing or invisible entity, foreign owner, no provider or an unavailable one) also fail
+with `invalid-request`. A successful call notifies mutation listeners,
+so the page reads the entity's updated enrichment state. `useRequestEntityEnrichment()` is the matching
+mutation hook.
 
 ## Entity Editor
 

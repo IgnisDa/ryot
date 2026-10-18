@@ -19,13 +19,13 @@ import {
 	type PluginBridgeReady,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
+	type PluginEnrichmentOutcome,
 	type PluginIosLiveActivityOutcome,
 	type PluginIosLiveActivityRequest,
 	type PluginLogicalLocation,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
-	type PluginRetryPopulationOutcome,
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
@@ -164,7 +164,7 @@ const connect = (
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
 		readonly onUserSettings?: Parameters<typeof openPluginBridge>[0]["onUserSettings"];
-		readonly onRetryPopulation?: Parameters<typeof openPluginBridge>[0]["onRetryPopulation"];
+		readonly onEnrichment?: Parameters<typeof openPluginBridge>[0]["onEnrichment"];
 		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
 		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
 		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
@@ -219,10 +219,10 @@ const connect = (
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
 		onEntitySave: options.onEntitySave ?? (() => Effect.never),
+		onEnrichment: options.onEnrichment ?? (() => Effect.never),
 		onUserSettings: options.onUserSettings ?? (() => Effect.never),
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
-		onRetryPopulation: options.onRetryPopulation ?? (() => Effect.never),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
@@ -1214,11 +1214,11 @@ describe("plugin bridge", () => {
 				onCollection: () => Effect.never,
 				onEntitySave: () => Effect.never,
 				onPageShortcuts: () => undefined,
+				onEnrichment: () => Effect.never,
 				onKernelShortcut: () => undefined,
 				onUserSettings: () => Effect.never,
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
-				onRetryPopulation: () => Effect.never,
 				onBackgroundOperation: () => Effect.never,
 				onCalendarSourceVisibility: () => Effect.never,
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
@@ -1954,15 +1954,15 @@ describe("plugin bridge", () => {
 		}),
 	);
 
-	it.live("forwards population retry requests by plugin and entity", () =>
+	it.live("forwards enrichment requests by plugin and entity", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];
-			const outcomes: PluginRetryPopulationOutcome[] = [
-				{ retried: true, outcome: "success" },
+			const outcomes: PluginEnrichmentOutcome[] = [
+				{ outcome: "success", enrichmentRequestId: "enrichment-job" },
 				{ outcome: "failure", reason: "invalid-request" },
 			];
 			const { init, received, pluginPort } = connect({
-				onRetryPopulation: (request) => {
+				onEnrichment: (request) => {
 					calls.push(request);
 					const outcome = outcomes.shift();
 					return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
@@ -1974,16 +1974,18 @@ describe("plugin bridge", () => {
 			const request = {
 				pluginId: "fixture",
 				entityId: "entity-1",
+				action: "retry" as const,
 				operation: "translation" as const,
-				type: "retry-population-request" as const,
+				type: "enrichment-request" as const,
+				idempotencyKey: "test-enrichment-key",
 			};
 			pluginPort.postMessage({ ...request, requestId: "retry-1" });
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 			expect(received[1]).toEqual({
-				retried: true,
 				outcome: "success",
 				requestId: "retry-1",
-				type: "retry-population-result",
+				type: "enrichment-result",
+				enrichmentRequestId: "enrichment-job",
 			});
 			pluginPort.postMessage({ ...request, requestId: "retry-2" });
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
@@ -1991,12 +1993,24 @@ describe("plugin bridge", () => {
 				outcome: "failure",
 				requestId: "retry-2",
 				reason: "invalid-request",
-				type: "retry-population-result",
+				type: "enrichment-result",
 			});
 			pluginPort.postMessage({ ...request, userId: "other", requestId: "retry-3" });
 			expect(calls).toEqual([
-				{ pluginId: "fixture", entityId: "entity-1", operation: "translation" },
-				{ pluginId: "fixture", entityId: "entity-1", operation: "translation" },
+				{
+					action: "retry",
+					pluginId: "fixture",
+					entityId: "entity-1",
+					operation: "translation",
+					idempotencyKey: "test-enrichment-key",
+				},
+				{
+					action: "retry",
+					pluginId: "fixture",
+					entityId: "entity-1",
+					operation: "translation",
+					idempotencyKey: "test-enrichment-key",
+				},
 			]);
 		}),
 	);

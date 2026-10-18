@@ -156,12 +156,12 @@ function mount(
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onEntitySave: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onEnrichment: () =>
+			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onUserSettings: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onDevice: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
-		onRetryPopulation: () =>
-			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
 		onCalendarSourceVisibility: () =>

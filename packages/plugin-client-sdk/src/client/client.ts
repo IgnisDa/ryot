@@ -14,6 +14,10 @@ import {
 	EntityEditorSaveOutput,
 	EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
+import {
+	type RequestEntityEnrichmentBody,
+	RequestEntityEnrichmentResult,
+} from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, type PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
@@ -246,15 +250,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				yield* adapterEffect(() => read(pluginId)),
 			);
 		});
-	const retryPopulation = (request: {
-		readonly entityId: string;
-		readonly packageId: PluginPackageId;
-		readonly operation: "population" | "translation";
-	}): Effect.Effect<{ readonly retried: boolean }, RyotClientError> =>
+	const requestEnrichment = (
+		request: Omit<typeof RequestEntityEnrichmentBody.Type, "pluginId"> & {
+			readonly entityId: string;
+			readonly packageId: PluginPackageId;
+		},
+	): Effect.Effect<Schema.Schema.Type<typeof RequestEntityEnrichmentResult>, RyotClientError> =>
 		Effect.gen(function* () {
-			const retry = adapter.retryPopulation;
+			const enrich = adapter.requestEnrichment;
 			const pluginIdentity = adapter.pluginIdentity;
-			if (!retry || !pluginIdentity) {
+			if (!enrich || !pluginIdentity) {
 				return yield* new RyotClientError("unsupported-capability");
 			}
 			const entityId = Schema.decodeResult(EntityId)(request.entityId);
@@ -266,9 +271,15 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				try: () => pluginIdentity(request.packageId),
 			});
 			const result = yield* decodeCapability(
-				Schema.Struct({ retried: Schema.Boolean }),
+				RequestEntityEnrichmentResult,
 				yield* adapterEffect(() =>
-					retry({ pluginId, entityId: entityId.success, operation: request.operation }),
+					enrich({
+						pluginId,
+						action: request.action,
+						entityId: entityId.success,
+						operation: request.operation,
+						idempotencyKey: request.idempotencyKey,
+					}),
 				),
 			);
 			mutationCompleted.hint();
@@ -555,8 +566,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 		},
 		entities: {
-			retryPopulation,
 			save: saveEntity,
+			requestEnrichment,
 			watch: (
 				interest: EntityWatch,
 				onUpdate: (update: EntityUpdate) => void,

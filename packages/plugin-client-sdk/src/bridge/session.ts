@@ -26,6 +26,7 @@ import {
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeEditCollectionScreen,
 	type PluginBridgeEditCollectionScreenCancel,
+	type PluginBridgeEnrichmentRequest,
 	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeHeader,
 	PluginBridgeHostMessage,
@@ -42,7 +43,6 @@ import {
 	type PluginBridgePickEntityScreen,
 	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeReady,
-	type PluginBridgeRetryPopulationRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
@@ -51,8 +51,8 @@ import {
 	type PluginBridgeUserSettingsRequest,
 	type PluginCalendarSourceVisibilityRequest,
 	type PluginDeviceRequest,
+	type PluginEnrichmentRequest,
 	type PluginIosLiveActivityRequest,
-	type PluginRetryPopulationRequest,
 	type PluginThemeSnapshot,
 	type PluginUploadRequest,
 	type RyotClientErrorReason,
@@ -89,7 +89,7 @@ type RequestType =
 	| "external-link"
 	| "operation"
 	| "pick-entity-screen"
-	| "retry-population"
+	| "enrichment"
 	| "ryotql"
 	| "storage"
 	| "upload"
@@ -438,16 +438,16 @@ export const createPluginRuntime = (
 			),
 		);
 
-	const retryPopulation = (request: PluginRetryPopulationRequest) =>
+	const requestEnrichment = (request: PluginEnrichmentRequest) =>
 		whenPluginContributor(request.pluginId, () =>
 			sendRequest(
-				"retry-population",
+				"enrichment",
 				(requestId) =>
 					({
 						...request,
 						requestId,
-						type: "retry-population-request",
-					}) satisfies PluginBridgeRetryPopulationRequest,
+						type: "enrichment-request",
+					}) satisfies PluginBridgeEnrichmentRequest,
 			),
 		);
 
@@ -576,10 +576,10 @@ export const createPluginRuntime = (
 		editCollection,
 		addToCollection,
 		invokeOperation,
-		retryPopulation,
 		submitBackground,
 		readUserSettings,
 		mutateCollection,
+		requestEnrichment,
 		navigatePageSearch,
 		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
@@ -872,13 +872,13 @@ export const createPluginRuntime = (
 							: { outcome: "success", value: message.settings },
 					);
 					return;
-				case "retry-population-result":
+				case "enrichment-result":
 					settle(
-						"retry-population",
+						"enrichment",
 						message.requestId,
 						message.outcome === "failure"
 							? message
-							: { outcome: "success", value: { retried: message.retried } },
+							: { outcome: "success", value: { enrichmentRequestId: message.enrichmentRequestId } },
 					);
 					return;
 				case "entity-editor-save-result":

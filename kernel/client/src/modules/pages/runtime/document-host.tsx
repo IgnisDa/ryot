@@ -40,9 +40,9 @@ import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
+import { PluginEnrichment } from "#/modules/pages/bridge/enrichment";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
-import { PluginPopulationRetries } from "#/modules/pages/bridge/population-retry";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
@@ -557,6 +557,9 @@ function ClientPageFrame(props: {
 			onPickEntity={(request) =>
 				props.document.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
 			}
+			onEnrichment={(request) =>
+				props.runtime.runSync(PluginEnrichment).outcome(props.scope, identity.contributors, request)
+			}
 			onEditCollection={(request) =>
 				props.document.onEditCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
 			}
@@ -567,11 +570,6 @@ function ClientPageFrame(props: {
 			onEntitySave={(request) =>
 				props.runtime
 					.runSync(PluginEntitySaves)
-					.outcome(props.scope, identity.contributors, request)
-			}
-			onRetryPopulation={(request) =>
-				props.runtime
-					.runSync(PluginPopulationRetries)
 					.outcome(props.scope, identity.contributors, request)
 			}
 			onDevice={(request) =>

@@ -860,7 +860,7 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
-	it.live("retries population for the package's own plugin and refreshes after the result", () =>
+	it.live("requests enrichment for the package's own plugin and refreshes after the result", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			let refreshes = 0;
@@ -869,47 +869,55 @@ describe("plugin Effect request engine", () => {
 			});
 			expect(
 				(yield* Effect.flip(
-					runtime.client.entities.retryPopulation({
+					runtime.client.entities.requestEnrichment({
+						action: "retry",
 						entityId: "entity-1",
 						operation: "population",
+						idempotencyKey: "test-enrichment-key",
 						packageId: PluginPackageId.make("test/foreign"),
 					}),
 				)).reason,
 			).toBe("invalid-request");
-			expect(sent(messages, "retry-population-request")).toEqual([]);
+			expect(sent(messages, "enrichment-request")).toEqual([]);
 
-			const retried = yield* Effect.forkChild(
-				runtime.client.entities.retryPopulation({
+			const request = yield* Effect.forkChild(
+				runtime.client.entities.requestEnrichment({
+					action: "retry",
 					entityId: "entity-1",
 					operation: "translation",
+					idempotencyKey: "test-enrichment-key",
 					packageId: PluginPackageId.make("test/fixture"),
 				}),
 				{ startImmediately: true },
 			);
 			yield* waitForMessagePortMacrotask;
-			expect(sent(messages, "retry-population-request")).toEqual([
+			expect(sent(messages, "enrichment-request")).toEqual([
 				{
+					action: "retry",
 					pluginId: "fixture",
 					entityId: "entity-1",
 					operation: "translation",
-					requestId: "retry-population-1",
-					type: "retry-population-request",
+					requestId: "enrichment-1",
+					type: "enrichment-request",
+					idempotencyKey: "test-enrichment-key",
 				},
 			]);
 			channel.port1.postMessage({
-				retried: true,
 				outcome: "success",
-				type: "retry-population-result",
-				requestId: "retry-population-1",
+				type: "enrichment-result",
+				requestId: "enrichment-1",
+				enrichmentRequestId: "enrichment-job",
 			});
-			expect(yield* Fiber.join(retried)).toEqual({ retried: true });
+			expect(yield* Fiber.join(request)).toEqual({ enrichmentRequestId: "enrichment-job" });
 			expect(refreshes).toBe(1);
 
 			const refused = yield* Effect.forkChild(
 				Effect.flip(
-					runtime.client.entities.retryPopulation({
+					runtime.client.entities.requestEnrichment({
+						action: "retry",
 						entityId: "entity-1",
 						operation: "population",
+						idempotencyKey: "test-enrichment-key",
 						packageId: PluginPackageId.make("test/fixture"),
 					}),
 				),
@@ -919,8 +927,8 @@ describe("plugin Effect request engine", () => {
 			channel.port1.postMessage({
 				outcome: "failure",
 				reason: "invalid-request",
-				type: "retry-population-result",
-				requestId: "retry-population-2",
+				type: "enrichment-result",
+				requestId: "enrichment-2",
 			});
 			expect((yield* Fiber.join(refused)).reason).toBe("invalid-request");
 			expect(refreshes).toBe(1);

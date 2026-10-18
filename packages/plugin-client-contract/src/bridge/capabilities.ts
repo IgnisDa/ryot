@@ -17,6 +17,10 @@ import {
 	EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
 import {
+	RequestEntityEnrichmentBody,
+	RequestEntityEnrichmentResult,
+} from "@ryot-app/contract/modules/entities/schemas";
+import {
 	EntityUpdatedMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
@@ -402,69 +406,57 @@ export const PluginBridgeEntitySaveResult = Schema.Union([
 
 export type PluginBridgeEntitySaveResult = Schema.Schema.Type<typeof PluginBridgeEntitySaveResult>;
 
-export const PluginRetryPopulationBridgeErrorReason = Schema.Literals([
-	"invalid-request",
-	"transport",
-]);
+export const PluginEnrichmentBridgeErrorReason = Schema.Literals(["invalid-request", "transport"]);
 
-export type PluginRetryPopulationBridgeErrorReason = Schema.Schema.Type<
-	typeof PluginRetryPopulationBridgeErrorReason
+export type PluginEnrichmentBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginEnrichmentBridgeErrorReason
 >;
 
-export const PluginRetryPopulationRequest = strictStruct({
+export const PluginEnrichmentRequest = strictStruct({
+	...RequestEntityEnrichmentBody.fields,
 	entityId: EntityId,
-	pluginId: PluginId,
-	operation: Schema.Literals(["population", "translation"]),
 });
 
-export type PluginRetryPopulationRequest = Schema.Schema.Type<typeof PluginRetryPopulationRequest>;
+export type PluginEnrichmentRequest = Schema.Schema.Type<typeof PluginEnrichmentRequest>;
 
-export const PluginBridgeRetryPopulationRequest = strictStruct({
-	...PluginRetryPopulationRequest.fields,
+export const PluginBridgeEnrichmentRequest = strictStruct({
+	...PluginEnrichmentRequest.fields,
 	requestId: Schema.String,
-	type: Schema.Literal("retry-population-request"),
+	type: Schema.Literal("enrichment-request"),
 });
 
-export type PluginBridgeRetryPopulationRequest = Schema.Schema.Type<
-	typeof PluginBridgeRetryPopulationRequest
+export type PluginBridgeEnrichmentRequest = Schema.Schema.Type<
+	typeof PluginBridgeEnrichmentRequest
 >;
 
-const pluginRetryPopulationSuccessFields = {
-	retried: Schema.Boolean,
+const pluginEnrichmentSuccessFields = {
+	...RequestEntityEnrichmentResult.fields,
 	outcome: Schema.Literal("success"),
 };
 
-const pluginRetryPopulationFailureFields = {
+const pluginEnrichmentFailureFields = {
 	outcome: Schema.Literal("failure"),
-	reason: PluginRetryPopulationBridgeErrorReason,
+	reason: PluginEnrichmentBridgeErrorReason,
 };
 
-const pluginBridgeRetryPopulationResultFields = {
+const pluginBridgeEnrichmentResultFields = {
 	requestId: Schema.String,
-	type: Schema.Literal("retry-population-result"),
+	type: Schema.Literal("enrichment-result"),
 };
 
-export const PluginRetryPopulationOutcome = Schema.Union([
-	strictStruct(pluginRetryPopulationSuccessFields),
-	strictStruct(pluginRetryPopulationFailureFields),
+export const PluginEnrichmentOutcome = Schema.Union([
+	strictStruct(pluginEnrichmentSuccessFields),
+	strictStruct(pluginEnrichmentFailureFields),
 ]);
 
-export type PluginRetryPopulationOutcome = Schema.Schema.Type<typeof PluginRetryPopulationOutcome>;
+export type PluginEnrichmentOutcome = Schema.Schema.Type<typeof PluginEnrichmentOutcome>;
 
-export const PluginBridgeRetryPopulationResult = Schema.Union([
-	strictStruct({
-		...pluginRetryPopulationSuccessFields,
-		...pluginBridgeRetryPopulationResultFields,
-	}),
-	strictStruct({
-		...pluginRetryPopulationFailureFields,
-		...pluginBridgeRetryPopulationResultFields,
-	}),
+export const PluginBridgeEnrichmentResult = Schema.Union([
+	strictStruct({ ...pluginEnrichmentSuccessFields, ...pluginBridgeEnrichmentResultFields }),
+	strictStruct({ ...pluginEnrichmentFailureFields, ...pluginBridgeEnrichmentResultFields }),
 ]);
 
-export type PluginBridgeRetryPopulationResult = Schema.Schema.Type<
-	typeof PluginBridgeRetryPopulationResult
->;
+export type PluginBridgeEnrichmentResult = Schema.Schema.Type<typeof PluginBridgeEnrichmentResult>;
 
 export const PluginStorageBridgeErrorReason = Schema.Literals([
 	"invalid-request",

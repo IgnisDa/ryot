@@ -32,6 +32,7 @@ import {
 	type PluginBridgeDismissOverlay,
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeDocument,
+	type PluginBridgeEnrichmentRequest,
 	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeHeader,
 	PluginBridgeHostMessage,
@@ -46,7 +47,6 @@ import {
 	type PluginBridgePageShortcutPress,
 	type PluginBridgePickEntityScreen,
 	PluginBridgeReady,
-	type PluginBridgeRetryPopulationRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeStorageRequest,
@@ -60,13 +60,13 @@ import {
 	type PluginCollectionRequest,
 	type PluginDeviceOutcome,
 	type PluginDeviceRequest,
+	type PluginEnrichmentOutcome,
+	type PluginEnrichmentRequest,
 	type PluginEntitySaveOutcome,
 	type PluginIosLiveActivityOutcome,
 	type PluginIosLiveActivityRequest,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
-	type PluginRetryPopulationOutcome,
-	type PluginRetryPopulationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginStorageOutcome,
@@ -133,7 +133,7 @@ type PendingRequest = {
 		| "ryotql"
 		| "storage"
 		| "upload"
-		| "retry-population"
+		| "enrichment"
 		| "user-settings";
 };
 
@@ -204,9 +204,9 @@ type PluginBridgeOptions = {
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
-	readonly onRetryPopulation: (
-		request: PluginRetryPopulationRequest,
-	) => Effect.Effect<PluginRetryPopulationOutcome>;
+	readonly onEnrichment: (
+		request: PluginEnrichmentRequest,
+	) => Effect.Effect<PluginEnrichmentOutcome>;
 	readonly onDiagnostic?: (diagnostic: {
 		readonly type: PendingRequest["type"];
 		readonly requestId: string;
@@ -499,7 +499,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				type === "storage" ||
 				type === "ryotql" ||
 				type === "user-settings" ||
-				type === "retry-population"
+				type === "enrichment"
 			) {
 				reason = "transport";
 			} else {
@@ -667,12 +667,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		);
 	}
 
-	function handleRetryPopulation(request: PluginBridgeRetryPopulationRequest) {
-		runRequest(request.requestId, "retry-population", () =>
-			options.onRetryPopulation({
+	function handleEnrichment(request: PluginBridgeEnrichmentRequest) {
+		runRequest(request.requestId, "enrichment", () =>
+			options.onEnrichment({
+				action: request.action,
 				pluginId: request.pluginId,
 				entityId: request.entityId,
 				operation: request.operation,
+				idempotencyKey: request.idempotencyKey,
 			}),
 		);
 	}
@@ -887,9 +889,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.when({ type: "user-settings-request" }, (request) => handleUserSettings(request)),
-						Match.when({ type: "retry-population-request" }, (request) =>
-							handleRetryPopulation(request),
-						),
+						Match.when({ type: "enrichment-request" }, (request) => handleEnrichment(request)),
 						Match.exhaustive,
 					);
 				return;

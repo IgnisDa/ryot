@@ -14,11 +14,11 @@ import type {
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
+	PluginEnrichmentRequest,
 	PluginIosLiveActivityRequest,
 	PluginManagedAssetResolution,
 	PluginOperationRequest,
 	PluginPageSearchUpdate,
-	PluginRetryPopulationRequest,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
 	PluginUploadRequest,
@@ -124,8 +124,8 @@ export type RyotClientAdapter = {
 		request: StorageAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly readUserSettings?: (pluginId: PluginId) => Effect.Effect<unknown, RyotClientError>;
-	readonly retryPopulation?: (
-		request: PluginRetryPopulationRequest,
+	readonly requestEnrichment?: (
+		request: PluginEnrichmentRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;

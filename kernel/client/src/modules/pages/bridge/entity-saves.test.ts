@@ -49,7 +49,7 @@ const calls: EntityEditorSaveRequest[] = [];
 const failures: unknown[] = [];
 
 const entitiesApi = Layer.succeed(EntitiesApi, {
-	retryPopulation: () => Effect.die("unused"),
+	requestEnrichment: () => Effect.die("unused"),
 	saveEditor: (_scope, { payload }) => {
 		calls.push(payload);
 		const failure = failures.shift();

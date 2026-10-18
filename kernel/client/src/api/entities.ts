@@ -3,8 +3,8 @@ import type { ContractRequest } from "@ryot-app/contract/client";
 import { EntityEditorRefused } from "@ryot-app/contract/modules/entities/editor";
 import {
 	EntityBadRequest,
+	EntityEnrichmentRefused,
 	EntityNotFound,
-	EntityPopulationRetryRefused,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	RelationshipBadRequest,
@@ -31,10 +31,10 @@ export const isDeclaredEntitySaveFailure = (error: unknown) =>
 	error instanceof AuthenticatedApiError && isDeclaredFailure(error.cause);
 
 const isDeclaredRetryFailure = Schema.is(
-	Schema.Union([AuthRateLimited, AuthUnauthorized, EntityNotFound, EntityPopulationRetryRefused]),
+	Schema.Union([AuthRateLimited, AuthUnauthorized, EntityNotFound, EntityEnrichmentRefused]),
 );
 
-export const isDeclaredPopulationRetryFailure = (error: unknown) =>
+export const isDeclaredEnrichmentFailure = (error: unknown) =>
 	error instanceof AuthenticatedApiError && isDeclaredRetryFailure(error.cause);
 
 export class EntitiesApi extends Context.Service<EntitiesApi>()("EntitiesApi", {
@@ -43,8 +43,10 @@ export class EntitiesApi extends Context.Service<EntitiesApi>()("EntitiesApi", {
 		return {
 			saveEditor: (scope: ApiScope, request: ContractRequest<"entities", "saveEditor">) =>
 				api.run(scope, (client) => client.entities.saveEditor(request)),
-			retryPopulation: (scope: ApiScope, request: ContractRequest<"entities", "retryPopulation">) =>
-				api.run(scope, (client) => client.entities.retryPopulation(request)),
+			requestEnrichment: (
+				scope: ApiScope,
+				request: ContractRequest<"entities", "requestEnrichment">,
+			) => api.run(scope, (client) => client.entities.requestEnrichment(request)),
 		};
 	}),
 }) {

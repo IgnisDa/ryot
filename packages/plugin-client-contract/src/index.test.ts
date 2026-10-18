@@ -979,25 +979,32 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
-	it("names a plugin and entity in population retry requests and returns a retried flag", () => {
+	it("names a plugin and entity in enrichment requests and returns the durable request ID", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const request = {
 			pluginId: "fixture",
 			entityId: "entity-1",
 			requestId: "retry-1",
+			action: "retry" as const,
 			operation: "population" as const,
-			type: "retry-population-request" as const,
+			type: "enrichment-request" as const,
+			idempotencyKey: "test-enrichment-key",
 		};
 		expect(Result.isSuccess(decodeClient(request))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, userId: "other" }))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, pluginId: undefined }))).toBe(true);
 		expect(Result.isFailure(decodeHost(request))).toBe(true);
 
-		const result = { requestId: "retry-1", type: "retry-population-result" as const };
-		expect(Result.isSuccess(decodeHost({ ...result, retried: true, outcome: "success" }))).toBe(
-			true,
-		);
+		const result = { requestId: "retry-1", type: "enrichment-result" as const };
+		expect(
+			Result.isSuccess(
+				decodeHost({ ...result, outcome: "success", enrichmentRequestId: "enrichment-job" }),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "success", enrichmentRequestId: null })),
+		).toBe(true);
 		expect(
 			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "invalid-request" })),
 		).toBe(true);
