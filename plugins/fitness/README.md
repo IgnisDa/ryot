@@ -53,6 +53,10 @@ collection schemas and the operation's RyotQL sees every event of the user. Upda
 `text` and `rating`. Note text is trimmed and limited to 2000 characters at the operation input;
 the stored schema stays unbounded for migrated notes.
 
+Every mutating operation input carries `submittedAt` and a nonblank `submissionId` of at most 96
+characters (`SubmissionEnvelope` in `shared/fitness-primitives.ts`). Writers send only editable set
+properties; the `workout-set` policy owns `oneRm`, `volume`, `pace`, and `personalBests`.
+
 ## Storage Units
 
 Workout and template set measurements use kg, km, and seconds. Workout `caloriesBurnt` uses kcal;

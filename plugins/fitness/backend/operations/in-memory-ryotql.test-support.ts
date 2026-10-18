@@ -2,11 +2,11 @@ import { assert } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 
-type StoredRow = Readonly<Record<string, string>>;
+type StoredRow = Readonly<Record<string, string | null>>;
 type Rows = Readonly<Record<string, StoredRow>>;
-export type MeasurementTables = Readonly<Record<string, readonly StoredRow[]>>;
+export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
 
-export const measurementTables: MeasurementTables = {
+export const measurementTables: StoredTables = {
 	entity: [
 		{ id: "weight", entitySchemaPluginId: "fitness-owner", entitySchemaSlug: "measurement-metric" },
 		{ id: "waist", entitySchemaPluginId: "fitness-owner", entitySchemaSlug: "measurement-metric" },
@@ -82,7 +82,7 @@ const evaluate = (expression: unknown, rows: Rows): unknown => {
 	throw new Error("Unsupported RyotQL expression");
 };
 
-export const measurementRyotql = (tables: MeasurementTables) => (document: RyotQLDocument) =>
+export const inMemoryRyotql = (tables: StoredTables) => (document: RyotQLDocument) =>
 	Effect.sync(() => {
 		const [[key, query] = []] = Object.entries(document.queries);
 		assert(key !== undefined && query?.output.type === "rows");
@@ -114,4 +114,4 @@ export const measurementRyotql = (tables: MeasurementTables) => (document: RyotQ
 		};
 	});
 
-export const executeMeasurementRyotql = measurementRyotql(measurementTables);
+export const executeMeasurementRyotql = inMemoryRyotql(measurementTables);

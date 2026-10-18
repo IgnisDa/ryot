@@ -1,5 +1,6 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+import { NonEmptyString } from "./fitness-primitives";
 import { measurementMetricKey, measurementMetricUnit } from "./measurement-metrics";
 
 export const measurementMetricCreateOperationSlug = "measurement-metric-create";
@@ -32,7 +33,7 @@ export const MeasurementMetricCreateOutput = Schema.Struct({ entityId: Schema.St
 
 export const MeasurementMetricPinInput = Schema.Struct({
 	pinned: Schema.Boolean,
-	metricId: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+	metricId: NonEmptyString,
 });
 
 export type MeasurementMetricPinInput = typeof MeasurementMetricPinInput.Type;

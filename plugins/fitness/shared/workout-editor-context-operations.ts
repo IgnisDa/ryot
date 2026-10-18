@@ -4,6 +4,7 @@ import { EntityId } from "@ryot-app/plugin-kit/schema";
 import {
 	WorkoutExerciseOverridesSchema,
 	WorkoutPreferenceSettingsSchema,
+	workoutRestFields,
 } from "./workout-editor-preferences";
 
 export const workoutEditorContextOperationSlug = "workout-editor-context";
@@ -12,10 +13,7 @@ export const workoutEditorSaveOperationSlug = "workout-editor-save";
 export const workoutTimeCorrectionOperationSlug = "workout-time-correction";
 
 export const WorkoutExerciseOverrideFieldSchema = Schema.Literals([
-	"dropRestTime",
-	"normalRestTime",
-	"warmUpRestTime",
-	"failureRestTime",
+	...workoutRestFields,
 	"defaultDurationUnit",
 ]);
 

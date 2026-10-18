@@ -1,15 +1,13 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import type { RyotqlRecipeDecodeError } from "@ryot-app/plugin-backend-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	WorkoutEditorSaveInputSchema,
 	WorkoutEditorSaveOutputSchema,
 	type WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
-import { saveWorkoutEditor } from "./workout-editor-save";
+import { saveWorkoutEditor, type WorkoutEditorSaveError } from "./workout-editor-save";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -25,8 +23,8 @@ export default defineOperation({
 		saveWorkoutEditor(input, host).pipe(
 			Effect.catch(
 				(
-					error: SandboxHostError | RyotqlRecipeDecodeError,
-				): Effect.Effect<WorkoutEditorSaveOutput, SandboxHostError | RyotqlRecipeDecodeError> => {
+					error: WorkoutEditorSaveError,
+				): Effect.Effect<WorkoutEditorSaveOutput, WorkoutEditorSaveError> => {
 					const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
 						"data" in error ? error.data : undefined,
 					);

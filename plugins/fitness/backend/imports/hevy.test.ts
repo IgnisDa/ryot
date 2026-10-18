@@ -153,21 +153,7 @@ describe("adaptHevyCsv", () => {
 		]);
 	});
 
-	it("omits a negative one-rep max from workout set events", () => {
-		const properties = buildWorkoutSetEventProperties({
-			reps: 5,
-			setOrder: 0,
-			weight: -100,
-			setLot: "normal",
-			exerciseOrder: 0,
-			exerciseKind: "reps_and_weight",
-		});
-
-		expect(properties.weight).toBe(-100);
-		expect(properties).not.toHaveProperty("oneRm");
-	});
-
-	it("calculates event statistics only from normalized measurements for the exercise kind", () => {
+	it("selects event measurements for the exercise kind and writes no derived statistics", () => {
 		const properties = buildWorkoutSetEventProperties({
 			reps: 5,
 			weight: 100,
@@ -180,12 +166,9 @@ describe("adaptHevyCsv", () => {
 		});
 
 		expect(properties).toMatchObject({ reps: 5, setOrder: 0, exerciseOrder: 0 });
-		expect(properties).not.toHaveProperty("weight");
-		expect(properties).not.toHaveProperty("duration");
-		expect(properties).not.toHaveProperty("distance");
-		expect(properties).not.toHaveProperty("volume");
-		expect(properties).not.toHaveProperty("pace");
-		expect(properties).not.toHaveProperty("oneRm");
+		for (const omitted of ["weight", "duration", "distance", "volume", "pace", "oneRm"]) {
+			expect(properties).not.toHaveProperty(omitted);
+		}
 	});
 
 	it("records item failures for exercises without meaningful set statistics", () => {

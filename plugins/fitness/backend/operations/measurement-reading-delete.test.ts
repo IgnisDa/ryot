@@ -2,9 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
+import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import deleteDefinition, { manifest } from "./measurement-reading-delete.sandbox";
 import { MeasurementReadingNotFoundError } from "./measurement-readings";
-import { executeMeasurementRyotql } from "./measurement-readings.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 

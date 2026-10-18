@@ -3,12 +3,12 @@ import type { ChangeUserRelationshipBatch, ScriptHost } from "@ryot-app/plugin-b
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
-import createDefinition, { manifest } from "./measurement-metric-create.sandbox";
 import {
-	measurementRyotql,
+	inMemoryRyotql,
 	measurementTables,
-	type MeasurementTables,
-} from "./measurement-readings.test-support";
+	type StoredTables,
+} from "./in-memory-ryotql.test-support";
+import createDefinition, { manifest } from "./measurement-metric-create.sandbox";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -17,10 +17,10 @@ type CreateUserEntityItem = Parameters<ScriptHost["createUserEntity"]>[0];
 const recordingHost = (
 	writes: CreateUserEntityItem[],
 	pins: ChangeUserRelationshipBatch[] = [],
-	tables: MeasurementTables = measurementTables,
+	tables: StoredTables = measurementTables,
 ) =>
 	defineSandboxTestHost(manifest, {
-		executeRyotql: measurementRyotql(tables),
+		executeRyotql: inMemoryRyotql(tables),
 		createUserEntity: (item) =>
 			Effect.sync(() => {
 				writes.push(item);

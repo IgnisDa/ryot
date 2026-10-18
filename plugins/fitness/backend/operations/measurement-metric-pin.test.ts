@@ -3,10 +3,10 @@ import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/c
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
+import { inMemoryRyotql, measurementTables } from "./in-memory-ryotql.test-support";
 import pinDefinition, { manifest } from "./measurement-metric-pin.sandbox";
 import { MeasurementMetricPinLimitError } from "./measurement-pins";
 import { MeasurementMetricNotFoundError } from "./measurement-readings";
-import { measurementRyotql, measurementTables } from "./measurement-readings.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
@@ -23,7 +23,7 @@ const recordingHost = (changes: ChangeUserRelationshipBatch[], pinnedIds: readon
 				changes.push(...batches);
 				return batches.map(() => ({ created: 0, deleted: 0 }));
 			}),
-		executeRyotql: measurementRyotql({
+		executeRyotql: inMemoryRyotql({
 			...measurementTables,
 			relationship: pinnedIds.map((metricId) => ({
 				id: `pin-${metricId}`,

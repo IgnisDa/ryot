@@ -32,11 +32,9 @@ export default defineOperation({
 				return { pinned: input.pinned };
 			}
 			if (input.pinned && pinnedIds.length >= MEASUREMENT_PIN_LIMIT) {
-				return yield* Effect.fail(
-					new MeasurementMetricPinLimitError(
-						`Only ${MEASUREMENT_PIN_LIMIT} measurement metrics can be pinned`,
-					),
-				);
+				return yield* new MeasurementMetricPinLimitError({
+					message: `Only ${MEASUREMENT_PIN_LIMIT} measurement metrics can be pinned`,
+				});
 			}
 			yield* changeMeasurementMetricPin(input, host);
 			return { pinned: input.pinned };

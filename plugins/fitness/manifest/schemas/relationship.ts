@@ -1,4 +1,5 @@
 import { exerciseTargetRoles } from "../../shared/taxonomy";
+import { durationUnits } from "../../shared/workout-units";
 
 export const fitnessRelationshipSchemas = () =>
 	[
@@ -36,7 +37,7 @@ export const fitnessRelationshipSchemas = () =>
 					defaultDurationUnit: {
 						type: "enum",
 						label: "Duration unit",
-						choices: { kind: "static", values: [{ value: "seconds" }, { value: "minutes" }] },
+						choices: { kind: "static", values: durationUnits.map((value) => ({ value })) },
 						description: "Preferred set duration display unit; recorded durations stay in seconds",
 					},
 				},

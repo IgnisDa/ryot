@@ -20,8 +20,13 @@ import {
 	type WorkoutRestSettings,
 } from "./workout-editor-preferences";
 import { normalizeWorkoutMeasurements } from "./workout-records";
-import { requiredWorkoutMeasurementsByKind } from "./workout-set";
-import { milesToKilometers, poundsToKilograms } from "./workout-units";
+import { hasTemplateSetContent, requiredWorkoutMeasurementsByKind } from "./workout-set";
+import {
+	energyToKilocalories,
+	milesToKilometers,
+	poundsToKilograms,
+	type UnitSystem,
+} from "./workout-units";
 
 export type WorkoutEditorValidationIssue = {
 	readonly code:
@@ -66,17 +71,16 @@ const addIssue = (
 const isTemplateMode = (mode: WorkoutEditorMode) =>
 	mode.kind === "template-create" || mode.kind === "template-edit";
 
-export const isMeaningfulTemplateSet = (set: WorkoutEditorSet) => {
-	const hasMeasurement = inputFields.some((field) => {
-		const value = set[field];
-		return value !== undefined && value.trim() !== "";
+const isMeaningfulTemplateSet = (set: WorkoutEditorSet) =>
+	hasTemplateSetContent({
+		note: set.note,
+		hasRpe: set.rpe !== undefined && set.rpe.trim().length > 0,
+		hasRest: set.restChoice.kind === "explicit" && set.restChoice.seconds.trim().length > 0,
+		hasMeasurement: inputFields.some((field) => {
+			const value = set[field];
+			return value !== undefined && value.trim() !== "";
+		}),
 	});
-	const hasNote = set.note !== undefined && set.note.trim().length > 0;
-	const hasRpe = set.rpe !== undefined && set.rpe.trim().length > 0;
-	const hasExplicitRest =
-		set.restChoice.kind === "explicit" && set.restChoice.seconds.trim().length > 0;
-	return hasMeasurement || hasNote || hasRpe || hasExplicitRest;
-};
 
 export const shouldIncludeWorkoutSet = (mode: WorkoutEditorMode, set: WorkoutEditorSet) => {
 	if (isTemplateMode(mode)) {
@@ -90,11 +94,6 @@ export const includedWorkoutOccurrences = (draft: WorkoutEditorDraft) =>
 		const sets = occurrence.sets.filter((set) => shouldIncludeWorkoutSet(draft.mode, set));
 		return isTemplateMode(draft.mode) || sets.length > 0 ? [{ sets, occurrence }] : [];
 	});
-
-export const indexWorkoutOccurrences = (
-	occurrences: ReadonlyArray<WorkoutEditorOccurrence>,
-): ReadonlyArray<{ readonly clientId: string; readonly order: number }> =>
-	occurrences.map(({ clientId }, order) => ({ order, clientId }));
 
 export const validateWorkoutDraft = (
 	draft: WorkoutEditorDraft,
@@ -338,13 +337,22 @@ const activeDurationChange = (
 	return { kind: "set", seconds: activeDurationAt(draft, submittedAt) };
 };
 
+const occurrenceFields = (occurrence: WorkoutEditorOccurrence) => ({
+	notes: occurrence.notes,
+	videos: occurrence.videos,
+	images: occurrence.images,
+	clientId: occurrence.clientId,
+	exerciseId: occurrence.exerciseId,
+	sourceExerciseOrder: occurrence.sourceExerciseOrder,
+});
+
 export const buildWorkoutEditorSaveInput = (
 	draft: WorkoutEditorDraft,
 	input: { readonly submissionId: string; readonly submittedAt: string },
 	context: {
 		readonly exerciseOverridesById: Readonly<Record<string, WorkoutExerciseOverrides>>;
 		readonly restSettings: WorkoutRestSettings;
-		readonly unitSystem: "metric" | "imperial";
+		readonly unitSystem: UnitSystem;
 	},
 ): {
 	readonly issues: ReadonlyArray<WorkoutEditorValidationIssue>;
@@ -386,27 +394,25 @@ export const buildWorkoutEditorSaveInput = (
 								conflictToken: draft.mode.conflictToken,
 							}
 						: { kind: "create" as const },
-				occurrences: occurrences.map(({ sets, occurrence }) => ({
-					notes: occurrence.notes,
-					videos: occurrence.videos,
-					images: occurrence.images,
-					clientId: occurrence.clientId,
-					exerciseId: occurrence.exerciseId,
-					sourceExerciseOrder: occurrence.sourceExerciseOrder,
-					sets: sets.map((set) => {
-						const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
-						const restTime =
-							set.restChoice.kind === "explicit"
-								? Number(set.restChoice.seconds.trim())
-								: undefined;
-						return Object.assign(
-							{ measurements, setLot: set.setLot, clientId: set.clientId },
-							set.note === undefined ? {} : { note: set.note },
-							restTime === undefined ? {} : { restTime },
-							set.rpe === undefined || set.rpe.trim() === "" ? {} : { rpe: Number(set.rpe.trim()) },
-						);
+				occurrences: occurrences.map(({ sets, occurrence }) =>
+					Object.assign(occurrenceFields(occurrence), {
+						sets: sets.map((set) => {
+							const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
+							const restTime =
+								set.restChoice.kind === "explicit"
+									? Number(set.restChoice.seconds.trim())
+									: undefined;
+							return Object.assign(
+								{ measurements, setLot: set.setLot, clientId: set.clientId },
+								set.note === undefined ? {} : { note: set.note },
+								restTime === undefined ? {} : { restTime },
+								set.rpe === undefined || set.rpe.trim() === ""
+									? {}
+									: { rpe: Number(set.rpe.trim()) },
+							);
+						}),
 					}),
-				})),
+				),
 			}
 		: {
 				supersets,
@@ -421,7 +427,7 @@ export const buildWorkoutEditorSaveInput = (
 				caloriesBurnt:
 					draft.caloriesBurnt === undefined || draft.caloriesBurnt.trim() === ""
 						? undefined
-						: Number(draft.caloriesBurnt.trim()) / (draft.displayEnergyUnit === "kJ" ? 4.184 : 1),
+						: energyToKilocalories(Number(draft.caloriesBurnt.trim()), draft.displayEnergyUnit),
 				target:
 					draft.mode.kind === "historical"
 						? {
@@ -438,48 +444,42 @@ export const buildWorkoutEditorSaveInput = (
 									? { templateId: draft.mode.source.entityId }
 									: {}),
 							},
-				occurrences: occurrences.map(({ sets, occurrence }) => ({
-					notes: occurrence.notes,
-					images: occurrence.images,
-					videos: occurrence.videos,
-					clientId: occurrence.clientId,
-					exerciseId: occurrence.exerciseId,
-					sourceExerciseOrder: occurrence.sourceExerciseOrder,
-					sets: sets.map((set) => {
-						const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
-						const rest = resolveWorkoutRestTime({
-							lot: set.setLot,
-							settings: context.restSettings,
-							overrides: context.exerciseOverridesById[occurrence.exerciseId] ?? {},
-							explicitSeconds:
-								set.restChoice.kind === "explicit" ? set.restChoice.seconds : undefined,
-						});
-						const rpe = parseInput(set.rpe, true);
-						return {
-							measurements,
-							setLot: set.setLot,
-							clientId: set.clientId,
-							exerciseKind: set.exerciseKind,
-							...(set.note === undefined ? {} : { note: set.note }),
-							restTime: rest.kind === "resolved" ? rest.seconds : undefined,
-							...(set.eventId === undefined ? {} : { eventId: set.eventId }),
-							occurredAt: set.occurredAt ?? set.confirmedAt ?? draft.startedAt,
-							...(set.confirmedAt === undefined ? {} : { confirmedAt: set.confirmedAt }),
-							...(set.restTimerStartedAt === undefined
-								? {}
-								: { restTimerStartedAt: set.restTimerStartedAt }),
-							...(rpe.kind === "value" ? { rpe: rpe.value } : {}),
-						};
+				occurrences: occurrences.map(({ sets, occurrence }) =>
+					Object.assign(occurrenceFields(occurrence), {
+						sets: sets.map((set) => {
+							const measurements = canonicalMeasurements(set, displayForOccurrence(occurrence));
+							const rest = resolveWorkoutRestTime({
+								lot: set.setLot,
+								settings: context.restSettings,
+								overrides: context.exerciseOverridesById[occurrence.exerciseId] ?? {},
+								explicitSeconds:
+									set.restChoice.kind === "explicit" ? set.restChoice.seconds : undefined,
+							});
+							const rpe = parseInput(set.rpe, true);
+							return {
+								measurements,
+								setLot: set.setLot,
+								clientId: set.clientId,
+								exerciseKind: set.exerciseKind,
+								...(set.note === undefined ? {} : { note: set.note }),
+								restTime: rest.kind === "resolved" ? rest.seconds : undefined,
+								...(set.eventId === undefined ? {} : { eventId: set.eventId }),
+								occurredAt: set.occurredAt ?? set.confirmedAt ?? draft.startedAt,
+								...(set.confirmedAt === undefined ? {} : { confirmedAt: set.confirmedAt }),
+								...(set.restTimerStartedAt === undefined
+									? {}
+									: { restTimerStartedAt: set.restTimerStartedAt }),
+								...(rpe.kind === "value" ? { rpe: rpe.value } : {}),
+							};
+						}),
 					}),
-				})),
+				),
 			};
-	const decoded = Schema.decodeResult(Schema.fromJsonString(WorkoutEditorSaveInputSchema))(
-		JSON.stringify({
-			data: { ...data },
-			submittedAt: input.submittedAt,
-			submissionId: input.submissionId,
-		}),
-	);
+	const decoded = Schema.decodeUnknownResult(WorkoutEditorSaveInputSchema)({
+		data,
+		submittedAt: input.submittedAt,
+		submissionId: input.submissionId,
+	});
 	if (decoded._tag === "Success") {
 		return { issues: [], input: decoded.success };
 	}
