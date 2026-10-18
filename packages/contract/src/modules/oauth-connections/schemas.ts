@@ -39,8 +39,6 @@ export const CreateOAuthConnectionResponse = Schema.Struct({
 
 export const CompleteOAuthConnectionBody = Schema.Struct({ secret: Schema.String });
 
-export const OAuthConnectionState = Schema.Struct({ status: OAuthConnectionStatus });
-
 export const OAuthConnectionReturnFragment = Schema.Struct({
 	secret: Schema.optional(Schema.String),
 	connection: Schema.optional(OAuthConnectionId),

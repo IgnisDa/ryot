@@ -21,12 +21,5 @@ export const UserSettingsRoutesLive = HttpApiBuilder.group(AppContract, "account
 				const service = yield* UserSettingsService;
 				return yield* service.refreshAvatar(user).pipe(dieOnDbError);
 			}),
-		)
-		.handle("getTwoFactorStatus", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* UserSettingsService;
-				return yield* service.getTwoFactorStatus(user).pipe(dieOnDbError);
-			}),
 		),
 );

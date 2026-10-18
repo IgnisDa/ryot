@@ -1,16 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
-import {
-	type CreateOAuthConnectionBody,
-	OAuthConnectionNotFoundError,
-	type OAuthConnectionStatus,
+import type {
+	CreateOAuthConnectionBody,
+	OAuthConnectionStatus,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
-import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeOAuthConnectionsApi } from "#/api/ports.test-layer";
+import { makeOAuthConnectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import {
 	OAuthConnectPlatform,
@@ -27,10 +25,6 @@ const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.ex
 type TestPopup = OAuthPopup & { closed: boolean; closeCount: number };
 
 type StatusReply = OAuthConnectionStatus | "not-found";
-
-const notFound = new AuthenticatedApiError({
-	cause: new OAuthConnectionNotFoundError({ reason: { code: "oauth-connection-not-found" } }),
-});
 
 const makeHarness = (
 	options: {
@@ -89,13 +83,6 @@ const makeHarness = (
 				creates.push(request.payload);
 				return { connectionId, authorizeUrl: options.authorizeUrl ?? AUTHORIZE_URL };
 			}),
-		status: () =>
-			Effect.suspend(() => {
-				state.reads += 1;
-				return state.status === "not-found"
-					? Effect.fail(notFound)
-					: Effect.succeed({ status: state.status });
-			}),
 		complete: (_scope, request) =>
 			Effect.sync(() => {
 				completes.push({
@@ -103,6 +90,24 @@ const makeHarness = (
 					connectionId: request.params.connectionId,
 				});
 				return { id: request.params.connectionId };
+			}),
+	});
+	const queries = makeRyotQLApi({
+		execute: (_scope, request) =>
+			Effect.suspend(() => {
+				if (!("connection" in request.payload.queries)) {
+					return Effect.die("Unexpected RyotQL document");
+				}
+				state.reads += 1;
+				return Effect.succeed({
+					data: {
+						connection: {
+							type: "rows" as const,
+							pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+							items: state.status === "not-found" ? [] : [{ status: state.status }],
+						},
+					},
+				});
 			}),
 	});
 
@@ -117,7 +122,13 @@ const makeHarness = (
 	const service = Layer.build(
 		OAuthConnectService.layer.pipe(
 			Layer.provide(
-				Layer.mergeAll(platform, api, runtimeClient, Layer.succeed(DeepLinkClaims, claims)),
+				Layer.mergeAll(
+					platform,
+					api,
+					queries,
+					runtimeClient,
+					Layer.succeed(DeepLinkClaims, claims),
+				),
 			),
 		),
 	).pipe(

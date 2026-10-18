@@ -30,7 +30,9 @@ import {
 	instanceAdminUsersRecipe,
 	migrationReportRecipe,
 } from "@ryot-app/ryotql-recipes/instance-admin";
+import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Result, Option } from "effect";
@@ -72,6 +74,7 @@ import { eventProjection } from "#schema/tables/event-projections";
 import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
 import { event } from "#schema/tables/events";
 import { migrationReport } from "#schema/tables/migration-reports";
+import { oauthConnection } from "#schema/tables/oauth-connections";
 import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -800,6 +803,110 @@ layer(catalogDatabaseLayer)((test) => {
 });
 const other = { userId: "other", audience: "kernel" } as const;
 
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"projects password availability and nullable two-factor state for the current user",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const recipe = twoFactorStatusRecipe();
+				for (const [userId, available] of [
+					["owner", true],
+					["mixed", true],
+					["other", false],
+					["plain", false],
+				] as const) {
+					const response = yield* service.executeForUser(userId, null, "kernel", recipe.document);
+					expect(Result.getOrThrow(recipe.decode(response))).toEqual({ available, enabled: false });
+				}
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, "owner")),
+				);
+				expect(
+					Result.getOrThrow(
+						recipe.decode(yield* service.executeForUser("owner", null, "kernel", recipe.document)),
+					),
+				).toEqual({ enabled: true, available: true });
+			}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("reads owned OAuth status with query-time expiry and no credential fields", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(oauthConnection).values(
+					(
+						[
+							{ id: "pending", status: "pending", expiresAt: futureExpiry },
+							{ id: "authorized", status: "authorized", expiresAt: futureExpiry },
+							{ id: "connected", expiresAt: null, status: "connected" },
+							{ id: "lapsed", status: "pending", expiresAt: occurredAt },
+							{ status: "authorized", expiresAt: occurredAt, id: "lapsed-authorized" },
+							{ status: "connected", expiresAt: occurredAt, id: "lapsed-connected" },
+							{ id: "failed", status: "failed", expiresAt: occurredAt },
+							{ id: "expired", status: "expired", expiresAt: futureExpiry },
+						] satisfies ReadonlyArray<
+							Pick<typeof oauthConnection.$inferInsert, "id" | "status" | "expiresAt">
+						>
+					).map((row) => ({
+						id: row.id,
+						userId: "owner",
+						field: "account",
+						stateHash: row.id,
+						status: row.status,
+						expiresAt: row.expiresAt,
+						oauthProviderSlug: "test-oauth",
+						client: { kind: "web" as const },
+						pluginInstallationId: "owner-private",
+						tokenUrlOrigin: "https://example.test",
+						integrationProviderSlug: "test-integration",
+					})),
+				),
+			);
+			const service = yield* RyotQLService;
+			for (const [id, status] of [
+				["pending", "pending"],
+				["authorized", "authorized"],
+				["connected", "connected"],
+				["lapsed", "expired"],
+				["lapsed-authorized", "expired"],
+				["lapsed-connected", "expired"],
+				["failed", "failed"],
+				["expired", "expired"],
+			] as const) {
+				const recipe = oauthConnectionStatusRecipe({ id });
+				expect(
+					Result.getOrThrow(
+						recipe.decode(yield* service.executeForUser("owner", null, "kernel", recipe.document)),
+					),
+				).toEqual(Option.some(status));
+				expect(
+					Result.getOrThrow(
+						recipe.decode(yield* service.executeForUser("other", null, "kernel", recipe.document)),
+					),
+				).toEqual(Option.none());
+			}
+			const missing = oauthConnectionStatusRecipe({ id: "missing" });
+			expect(
+				Result.getOrThrow(
+					missing.decode(yield* service.executeForUser("owner", null, "kernel", missing.document)),
+				),
+			).toEqual(Option.none());
+			const connection = table("oauthConnection", "connection");
+			const response = yield* service.executeForUser("owner", null, "kernel", {
+				queries: { rows: rows(connection, { fields: [star(connection)] }) },
+			});
+			expect(rowsOf(response).items.find(({ id }) => id === "failed")).toEqual({
+				id: "failed",
+				status: "failed",
+			});
+		}),
+	);
+});
+
 const readRows = Effect.fn(function* (
 	reader: Reader,
 	tableName: string,
@@ -1118,6 +1225,7 @@ layer(catalogDatabaseLayer)((test) => {
 					name: "Owner",
 					email: "owner@example.test",
 					createdAt: expect.any(String),
+					twoFactorStatus: { enabled: false, available: true },
 					preferences: { language: null, disableIntegrations: false },
 				},
 			]);

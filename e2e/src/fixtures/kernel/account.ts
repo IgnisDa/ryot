@@ -1,5 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
+import { twoFactorStatusRecipe, userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 
 import type { Client } from "./auth";
 import { executeRyotQLRecipe } from "./ryotql";
@@ -12,7 +12,7 @@ export const getUserSettings = (client: Client) =>
 export const refreshUserAvatar = (client: Client) => client.call((c) => c.account.refreshAvatar());
 
 export const getTwoFactorStatus = (client: Client) =>
-	client.call((c) => c.account.getTwoFactorStatus());
+	executeRyotQLRecipe(client, twoFactorStatusRecipe());
 
 export const updateUserSettingsPreferences = (
 	client: Client,

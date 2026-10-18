@@ -1,10 +1,9 @@
 import { Schema } from "effect";
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
+import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { DemoAccessPolicy } from "../../http-annotations";
-import { TwoFactorStatus, UpdateUserPreferencesBody } from "./schemas";
+import { UpdateUserPreferencesBody } from "./schemas";
 
 export const AccountGroup = HttpApiGroup.make("account")
 	.annotate(OpenApi.Description, "Manage the current user's settings.")
@@ -18,13 +17,5 @@ export const AccountGroup = HttpApiGroup.make("account")
 		AuthenticatedMutationEndpoint.post("allowed")("refreshAvatar", "/account/avatar", {
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Generate a new profile avatar for the current user."),
-	)
-	.add(
-		HttpApiEndpoint.get("getTwoFactorStatus", "/account/two-factor", { success: TwoFactorStatus })
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(
-				OpenApi.Description,
-				"Report whether the current user can manage two-factor authentication and whether it is enabled.",
-			),
 	)
 	.middleware(AuthMiddleware);

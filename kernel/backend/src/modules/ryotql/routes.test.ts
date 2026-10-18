@@ -120,12 +120,26 @@ layer(routesLayer)((test) => {
 	test.effect("returns a typed 403 for protected demo RyotQL reads over OAuth and API key", () => {
 		const backup = table("backupRun", "backup");
 		const integration = table("integration", "integration");
+		const accountTable = table("user", "user");
+		const connection = table("oauthConnection", "connection");
 		return Effect.gen(function* () {
 			const credentials = yield* RouteCredentials;
 			for (const kind of ["oauth", "api-key"] as const) {
 				yield* credentials.sendAs(kind, "demo");
 				const api = yield* client;
 				for (const document of [
+					{
+						queries: {
+							status: rows(accountTable, {
+								fields: [field("status", column(accountTable, "twoFactorStatus"))],
+							}),
+						},
+					},
+					{
+						queries: {
+							status: rows(connection, { fields: [field("status", column(connection, "status"))] }),
+						},
+					},
 					{ queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) } },
 					{
 						queries: {

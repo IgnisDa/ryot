@@ -461,22 +461,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				return { id };
 			});
 
-			const status = Effect.fn("OAuthConnectionsService.status")(function* (
-				user: CurrentUserValue,
-				id: OAuthConnectionId,
-			) {
-				const connection = yield* repository.findForUser(id, user.id);
-				if (!connection) {
-					return yield* notFound;
-				}
-				const readAt = yield* now;
-				const lapsed =
-					connection.status !== "failed" &&
-					connection.expiresAt !== null &&
-					connection.expiresAt <= readAt;
-				return { status: lapsed ? ("expired" as const) : connection.status };
-			});
-
 			const bindIntegrationSettings = Effect.fn("OAuthConnectionsService.bindIntegrationSettings")(
 				function* (input: {
 					readonly userId: UserId;
@@ -731,7 +715,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 
 			return {
 				create,
-				status,
 				callback,
 				complete,
 				deleteExpired,

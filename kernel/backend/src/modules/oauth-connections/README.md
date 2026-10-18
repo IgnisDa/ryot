@@ -46,8 +46,7 @@ The field value is an opaque connection id; tokens never enter integration setti
 A connection without a refresh token is not refreshed. It expires when the access token enters the
 60-second refresh window, and the user must reconnect it.
 
-`GET /oauth-connections/:id` reports `pending`, `authorized`, `connected`, `failed`, or `expired` to
-the owner and returns 404 to anyone else. The frequent cron deletes expired unbound connections.
+The frequent cron deletes expired unbound connections.
 
 ## Secrets
 

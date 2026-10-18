@@ -558,6 +558,7 @@ it("denies kernel-only tables to the plugin audience", () => {
 		"automationRun",
 		"automationTrigger",
 		"integrationProvider",
+		"oauthConnection",
 		"automationRunAttempt",
 	] as const) {
 		const source = table(tableName, "source");
@@ -576,6 +577,45 @@ it("denies kernel-only tables to the plugin audience", () => {
 				accessClass: "standard",
 			}),
 		).toBeNull();
+	}
+});
+
+it("restricts account security and OAuth status reads to standard kernel users", () => {
+	const user = table("user", "user");
+	const connection = table("oauthConnection", "connection");
+	for (const query of [
+		document({
+			status: rows(user, { fields: [field("status", column(user, "twoFactorStatus"))] }),
+		}),
+		document({ status: rows(connection, { fields: [star(connection)] }) }),
+	]) {
+		expect(validateRyotQLDocument(query, userAccess)).toBeNull();
+		expect(validateRyotQLDocument(query, { ...userAccess, accessClass: "demo" })).not.toBeNull();
+		expect(validateRyotQLDocument(query, { ...userAccess, audience: "plugin" })).not.toBeNull();
+	}
+	expect(
+		validateRyotQLDocument(document({ status: rows(connection, { fields: [] }) }), {
+			type: "admin",
+		}),
+	).not.toBeNull();
+	for (const name of [
+		"accessToken",
+		"refreshToken",
+		"code",
+		"codeVerifier",
+		"stateHash",
+		"completionSecretHash",
+		"refreshLeaseUntil",
+		"tokenVersion",
+	]) {
+		expect(
+			validateRyotQLDocument(
+				document({
+					status: rows(connection, { fields: [field("secret", column(connection, name))] }),
+				}),
+				userAccess,
+			),
+		).toBe(`Query 'status': Unknown field '${name}' on table 'oauthConnection'`);
 	}
 });
 
