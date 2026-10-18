@@ -90,6 +90,7 @@ function mount(
 		) => Effect.Effect<AddToCollectionOutcome>;
 	} = {};
 	const operations: PluginOperationRequest[] = [];
+	const backgroundRequests: string[] = [];
 	const onPickEntity =
 		options.onPickEntity ??
 		((request: PluginBridgePickEntityScreen) => {
@@ -203,6 +204,17 @@ function mount(
 				packageId: PluginPackageId.make("test/fixture"),
 			},
 		},
+		onBackgroundOperation: (request: { readonly idempotencyKey: string }) => {
+			backgroundRequests.push(request.idempotencyKey);
+			return Effect.succeed({
+				outcome: "success" as const,
+				reservation: {
+					start: () => undefined,
+					cancel: () => undefined,
+					submissionId: `submission-${request.idempotencyKey}`,
+				},
+			});
+		},
 	});
 	const view = render(withCatalog(<PageIframeHost {...props(home, 0)} />));
 	return {
@@ -213,6 +225,7 @@ function mount(
 		navigations,
 		entityPicks,
 		backInterceptors,
+		backgroundRequests,
 		refresh: mutationCompleted.hint,
 		documentLoads: () => documentLoads,
 		setActive: (active: boolean) =>
@@ -233,6 +246,13 @@ function mount(
 			),
 	};
 }
+
+const refusedBackground = (key: string) => ({
+	outcome: "failure",
+	reason: "operation-failed",
+	requestId: `request-${key}`,
+	type: "background-operation-accepted",
+});
 
 function flush() {
 	return act(() =>
@@ -759,6 +779,66 @@ describe("PageIframeHost", () => {
 			expect(reloads).toBe(0);
 			fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
 			expect(reloads).toBe(1);
+		}),
+	);
+
+	it.live("accepts background submissions only from an active, interactive, current frame", () =>
+		Effect.gen(function* () {
+			const host = mount({ onCheckFreshness: () => Effect.succeed(false) });
+			yield* Effect.promise(() => flush());
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const submit = (key: string) =>
+				bridge.port.postMessage({
+					input: null,
+					label: "Logged",
+					idempotencyKey: key,
+					operationSlug: "log",
+					packageId: "test/fixture",
+					requestId: `request-${key}`,
+					type: "background-operation-request",
+				});
+			const reply = (key: string) =>
+				bridge.messages.find(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"requestId" in message &&
+						message.requestId === `request-${key}`,
+				);
+
+			submit("active");
+			yield* Effect.promise(() => waitFor(() => expect(reply("active")).toBeDefined()));
+			expect(reply("active")).toEqual({
+				outcome: "success",
+				requestId: "request-active",
+				submissionId: "submission-active",
+				type: "background-operation-accepted",
+			});
+
+			host.setActive(false);
+			submit("inactive");
+			yield* Effect.promise(() => waitFor(() => expect(reply("inactive")).toBeDefined()));
+			expect(reply("inactive")).toEqual(refusedBackground("inactive"));
+
+			host.setScreens({ inert: true });
+			submit("inert");
+			yield* Effect.promise(() => waitFor(() => expect(reply("inert")).toBeDefined()));
+			expect(reply("inert")).toEqual(refusedBackground("inert"));
+
+			host.setScreens({});
+			host.move(home, 0, 1);
+			yield* Effect.promise(() =>
+				screen.findByText("An update is available. Reloading will discard unsaved local state."),
+			);
+			submit("update-pending");
+			yield* Effect.promise(() => waitFor(() => expect(reply("update-pending")).toBeDefined()));
+			expect(reply("update-pending")).toEqual(refusedBackground("update-pending"));
+			expect(host.backgroundRequests).toEqual(["active"]);
 		}),
 	);
 

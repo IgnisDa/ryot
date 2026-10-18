@@ -103,6 +103,39 @@ the active server/user session and releases it on logout, scope change, or unmou
 have one subscription outside the request table, released by the common iframe finish path. See the
 [entity-watches protocol](src/modules/entity-watches/README.md).
 
+## Background Submissions
+
+`modules/background-submissions` owns shell-run plugin writes. `BackgroundSubmissionService.open`
+creates the authenticated layout's tray for one server/user scope; the layout disposes it on unmount,
+and the tray empties itself, interrupting in-flight attempts, whenever the server's login handle is
+cleared or replaced, including a same-user login. Inputs and labels live only in memory. The
+server-side outcome of an interrupted attempt stands, but the tray does not claim it.
+
+A `background-operation-request` is accepted only from the active, non-inert frame with no pending
+update, and only for a package that is both a `plugin` contributor of that frame's identity and one
+of its operation targets with the same installation. The tray also requires the installation in
+the catalog, whose name attributes the entry. Acceptance goes through the bridge request table, so
+interrupted or stale replies are suppressed; the reply is posted before the attempt starts, and a
+suppressed reply cancels the reservation. `BACKGROUND_SUBMISSION_LIMITS` caps in-flight attempts
+per tray and per bridge session and the tray's entries; when full nothing starts. Pending entries are
+never evicted: the oldest success goes first, and with only failures left the request is refused.
+
+Each attempt runs `PluginOperationsService.invoke` outside the bridge session with the target's
+content hash captured at acceptance. A successful result whose top-level object has
+`status: "incomplete"` (optionally with a numeric `count`) is shown as incomplete. A stale revision
+becomes `app-updated`, which is final and offers Reload; its copy says the write may have been saved
+if an earlier attempt ended in `transport`. Retry is offered for `transport`, `malformed-result`, and
+incomplete entries while the captured installation is still in the catalog, and resends the identical
+input, idempotency key, and content hash. `operation-failed` and `operation-rejected` (with its
+message) are final. Successful results hint `mutationCompleted`, refreshing pages, and auto-dismiss
+after six seconds; failures stay until dismissed. `background-operation-settled` reaches the
+accepting document only while its bridge session is active and the document has not been replaced.
+
+The shell renders the tray through the UI SDK `ActivityTray`: a bottom-right stack on desktop and a
+bottom sheet above the safe area on compact screens. Labels are text nodes; status words, Retry,
+Reload, Dismiss, and plugin attribution are kernel-owned. One polite live region announces changes,
+throttled to one announcement per two seconds with bursts coalesced.
+
 ## Navigation And Screens
 
 `resolveEdge` separates visible leading intent (`back`, `drawer`, or `none`) from interactive edge

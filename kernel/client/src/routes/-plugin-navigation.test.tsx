@@ -40,6 +40,7 @@ import type { CollectionsApi } from "#/api/collections";
 import { PagesApi } from "#/api/pages";
 import { KernelApiTestLayer, makeCollectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
+import { BackgroundSubmissionService } from "#/modules/background-submissions/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
@@ -200,6 +201,7 @@ function mount(options: {
 	readonly check?: ClientPageFreshness["Service"]["check"];
 	readonly collections?: Partial<CollectionsApi["Service"]>;
 	readonly ryotql?: RyotQLApi["Service"]["execute"];
+	readonly invoke?: PluginOperationsService["Service"]["invoke"];
 }) {
 	const targets: ClientPageTarget[] = [];
 	let navigationLoads = 0;
@@ -237,6 +239,12 @@ function mount(options: {
 			return Effect.succeed(preparedFor(target, pluginId));
 		});
 	const events = makePluginCatalogEventsTestLayer();
+	const operationsLayer = Layer.succeed(PluginOperationsService, {
+		invoke: (input) => {
+			operations.push(input);
+			return options.invoke?.(input) ?? Effect.succeed({ value: null, outcome: "success" });
+		},
+	});
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			options.loadProviders !== undefined || options.providerAdd !== undefined
@@ -279,12 +287,8 @@ function mount(options: {
 				checkFreshness: () => Effect.succeed({ current: true }),
 			}),
 			Layer.succeed(ClientPageFreshness, { check: options.check ?? (() => Effect.succeed(true)) }),
-			Layer.succeed(PluginOperationsService, {
-				invoke: (input) => {
-					operations.push(input);
-					return Effect.succeed({ value: null, outcome: "success" });
-				},
-			}),
+			operationsLayer,
+			BackgroundSubmissionService.layer.pipe(Layer.provide(operationsLayer)),
 			makePluginQueries(),
 			makePluginStorage(),
 			makePluginCalendarSources(),
@@ -1371,6 +1375,104 @@ describe("client page routes", () => {
 				contentHash: "operations-only-source",
 				request: { input: null, operationSlug: "mutate", packageId: "test/operations-only" },
 			});
+		}),
+	);
+
+	it.live("runs a contributing plugin's background submission in the shell tray", () =>
+		Effect.gen(function* () {
+			const reply =
+				yield* Deferred.make<
+					Effect.Success<ReturnType<PluginOperationsService["Service"]["invoke"]>>
+				>();
+			const entries = catalog.map((entry) => ({
+				...entry,
+				installationId: "installation-plugin-1",
+			}));
+			const view = mount({
+				entries,
+				invoke: () => Deferred.await(reply),
+				entry: "/p/test/plugin-1/details/one",
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const submit = (requestId: string, packageId: string) =>
+				bridge.port.postMessage({
+					requestId,
+					packageId,
+					operationSlug: "log",
+					input: { episode: 1 },
+					label: "Logged episode 1",
+					idempotencyKey: `key-${requestId}`,
+					type: "background-operation-request",
+				});
+			const replyTo = (requestId: string) =>
+				bridge.messages.find(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"requestId" in message &&
+						message.requestId === requestId,
+				);
+
+			submit("own", "test/plugin-1");
+			submit("other", "test/operations-only");
+			yield* Effect.promise(() =>
+				waitFor(() => expect([replyTo("own"), replyTo("other")]).not.toContain(undefined)),
+			);
+			expect(replyTo("own")).toMatchObject({
+				requestId: "own",
+				outcome: "success",
+				type: "background-operation-accepted",
+			});
+			expect(replyTo("other")).toEqual({
+				outcome: "failure",
+				requestId: "other",
+				reason: "operation-failed",
+				type: "background-operation-accepted",
+			});
+			const tray = screen.getByRole("region", { name: "Background activity" });
+			const entry = yield* Effect.promise(() =>
+				within(tray).findByRole("article", { name: "Fixture: Logged episode 1" }),
+			);
+			expect(entry.textContent).toContain("Saving…");
+
+			yield* Effect.promise(() => view.router.navigate({ href: "/settings/preferences" }));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
+			yield* Deferred.succeed(reply, { value: null, outcome: "success" });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						within(screen.getByRole("region", { name: "Background activity" })).getByRole(
+							"article",
+							{ name: "Fixture: Logged episode 1" },
+						).textContent,
+					).toContain("Saved"),
+				),
+			);
+			const accepted = replyTo("own");
+			expect(bridge.messages).toContainEqual({
+				outcome: { status: "succeeded" },
+				type: "background-operation-settled",
+				submissionId:
+					typeof accepted === "object" && accepted !== null && "submissionId" in accepted
+						? accepted.submissionId
+						: undefined,
+			});
+			expect(view.operations).toEqual([
+				{
+					scope: expect.anything(),
+					contentHash: "source-plugin-1",
+					request: {
+						operationSlug: "log",
+						input: { episode: 1 },
+						idempotencyKey: "key-own",
+						packageId: "test/plugin-1",
+					},
+				},
+			]);
 		}),
 	);
 

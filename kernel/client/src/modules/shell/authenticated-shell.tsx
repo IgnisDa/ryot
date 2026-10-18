@@ -20,6 +20,7 @@ import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
+import { BackgroundSubmissionTrayView } from "#/modules/background-submissions/tray";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
 import { CommandCenter } from "#/modules/command-center/command-center";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -498,6 +499,12 @@ export function AuthenticatedShell(props: {
 					</ClientPagePresentationContext>
 				</CustomizeContext>
 			</RememberedWorkspaceContext>
+			<BackgroundSubmissionTrayView
+				catalog={catalog}
+				compact={!isDesktop}
+				onReload={() => window.location.reload()}
+				safeAreaBottom={safeAreaInsets.safeAreaBottom}
+			/>
 			{discarding && (
 				<Modal
 					label="Discard sidebar changes?"

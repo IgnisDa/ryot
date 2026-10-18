@@ -158,6 +158,9 @@ const connect = (
 		>[0]["onCalendarSourceVisibility"];
 		readonly onEntitySave?: Parameters<typeof openPluginBridge>[0]["onEntitySave"];
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
+		readonly onBackgroundOperation?: Parameters<
+			typeof openPluginBridge
+		>[0]["onBackgroundOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
 		readonly onUserSettings?: Parameters<typeof openPluginBridge>[0]["onUserSettings"];
@@ -222,6 +225,7 @@ const connect = (
 		onRetryPopulation: options.onRetryPopulation ?? (() => Effect.never),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
+		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
 		onCalendarSourceVisibility: options.onCalendarSourceVisibility ?? (() => Effect.never),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onPickEntity: (request) => {
@@ -1215,6 +1219,7 @@ describe("plugin bridge", () => {
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				onRetryPopulation: () => Effect.never,
+				onBackgroundOperation: () => Effect.never,
 				onCalendarSourceVisibility: () => Effect.never,
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				onDevice: () => Effect.succeed(invalidDeviceRequest),
@@ -3037,5 +3042,200 @@ describe("plugin bridge", () => {
 					},
 				]);
 			}),
+	);
+});
+
+describe("bridge background submissions", () => {
+	const backgroundRequest = {
+		input: { n: 1 },
+		label: "Logged 1",
+		operationSlug: "log",
+		idempotencyKey: "key-1",
+		requestId: "background-1",
+		packageId: "test/fixture",
+		type: "background-operation-request",
+	};
+	const backgroundPage = {
+		view: null,
+		settings: {},
+		contributors: [],
+		dataSources: null,
+		route: { params: {} },
+		renderer: { name: "fixture", kind: "kernel" as const },
+		target: {
+			search: "",
+			path: "/other",
+			kind: "plugin-route" as const,
+			packageId: PluginPackageId.make("test/fixture"),
+		},
+	};
+	type BackgroundHandler = Parameters<typeof openPluginBridge>[0]["onBackgroundOperation"];
+	const recordingReservation = (events: string[]) => {
+		const bindings: Array<Parameters<BackgroundHandler>[1]> = [];
+		const handler: BackgroundHandler = (request, binding) => {
+			events.push(`request:${request.idempotencyKey}:${request.label}`);
+			bindings.push(binding);
+			const index = bindings.length;
+			return Effect.succeed({
+				outcome: "success" as const,
+				reservation: {
+					submissionId: `submission-${index}`,
+					start: () => events.push(`start:${index}`),
+					cancel: () => events.push(`cancel:${index}`),
+				},
+			});
+		};
+		return { handler, bindings };
+	};
+
+	it.live("posts acceptance before starting and settles only the accepting document", () =>
+		Effect.gen(function* () {
+			const events: string[] = [];
+			const recorder = recordingReservation(events);
+			const { init, session, received, pluginPort } = connect({
+				onBackgroundOperation: recorder.handler,
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage(backgroundRequest);
+			yield* Effect.promise(() => waitFor(() => expect(events).toContain("start:1")));
+			expect(events).toEqual(["request:key-1:Logged 1", "start:1"]);
+			expect(received[1]).toEqual({
+				outcome: "success",
+				requestId: "background-1",
+				submissionId: "submission-1",
+				type: "background-operation-accepted",
+			});
+
+			recorder.bindings[0]?.settle("submission-1", { status: "succeeded" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+			expect(received[2]).toEqual({
+				submissionId: "submission-1",
+				outcome: { status: "succeeded" },
+				type: "background-operation-settled",
+			});
+
+			session.sendDocument("page-1", backgroundPage, nav());
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
+			recorder.bindings[0]?.settle("submission-1", {
+				status: "failed",
+				reason: "operation-rejected",
+				message: "Not part of this show",
+			});
+			pluginPort.postMessage({ ...backgroundRequest, requestId: "background-2" });
+			yield* Effect.promise(() => waitFor(() => expect(events).toContain("start:2")));
+			expect(recorder.bindings[1]?.session).toBe(recorder.bindings[0]?.session);
+			recorder.bindings[1]?.settle("submission-2", {
+				status: "failed",
+				reason: "operation-rejected",
+				message: "Not part of this show",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(6)));
+			expect(received.slice(4)).toEqual([
+				{
+					outcome: "success",
+					requestId: "background-2",
+					submissionId: "submission-2",
+					type: "background-operation-accepted",
+				},
+				{
+					submissionId: "submission-2",
+					type: "background-operation-settled",
+					outcome: {
+						status: "failed",
+						reason: "operation-rejected",
+						message: "Not part of this show",
+					},
+				},
+			]);
+
+			session.close();
+			recorder.bindings[1]?.settle("submission-2", { status: "succeeded" });
+			yield* Effect.promise(() => delay(20));
+			expect(received).toHaveLength(7);
+			expect(received.at(-1)).toEqual({ reason: "disposed", type: "lifecycle-close" });
+		}),
+	);
+
+	it.live("cancels a reservation whose acceptance reply was suppressed by a document swap", () =>
+		Effect.gen(function* () {
+			const events: string[] = [];
+			const release = yield* Deferred.make<void>();
+			const { init, session, received, pluginPort } = connect({
+				onBackgroundOperation: (request) =>
+					Deferred.await(release).pipe(
+						Effect.as({
+							outcome: "success" as const,
+							reservation: {
+								submissionId: "submission-1",
+								start: () => events.push(`start:${request.idempotencyKey}`),
+								cancel: () => events.push(`cancel:${request.idempotencyKey}`),
+							},
+						}),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage(backgroundRequest);
+			yield* Effect.promise(() => delay(10));
+			session.sendDocument("page-2", backgroundPage, nav());
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			yield* Deferred.succeed(release, undefined);
+			yield* Effect.promise(() => delay(20));
+
+			expect(events).toEqual([]);
+			expect(received).toHaveLength(2);
+		}),
+	);
+
+	it.live("returns a refused acceptance as a bridge failure", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort } = connect({
+				onBackgroundOperation: () =>
+					Effect.succeed({ outcome: "failure" as const, reason: "operation-failed" as const }),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage(backgroundRequest);
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "failure",
+				requestId: "background-1",
+				reason: "operation-failed",
+				type: "background-operation-accepted",
+			});
+		}),
+	);
+
+	it.live("keeps the message of a foreground operation rejection", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort } = connect({
+				onOperation: () =>
+					Effect.succeed({
+						outcome: "failure" as const,
+						message: "Not part of this show",
+						reason: "operation-rejected" as const,
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({
+				input: null,
+				operationSlug: "greet",
+				requestId: "operation-1",
+				type: "operation-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "failure",
+				requestId: "operation-1",
+				type: "operation-result",
+				reason: "operation-rejected",
+				message: "Not part of this show",
+			});
+		}),
 	);
 });

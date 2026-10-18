@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { PublicApi } from "#/api/public";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { BackgroundSubmissionsProvider } from "#/modules/background-submissions/tray";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
@@ -80,11 +81,17 @@ function AuthenticatedLayout() {
 	return (
 		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-				<AuthenticatedShell
-					isPro={isPro}
-					navigation={navigation}
-					initialRememberedPluginId={rememberedPluginId}
-				/>
+				<BackgroundSubmissionsProvider
+					scope={scope}
+					runtime={runtime}
+					onSucceeded={ryot.mutationCompleted.hint}
+				>
+					<AuthenticatedShell
+						isPro={isPro}
+						navigation={navigation}
+						initialRememberedPluginId={rememberedPluginId}
+					/>
+				</BackgroundSubmissionsProvider>
 			</PluginCatalogProvider>
 		</KernelRyotProvider>
 	);

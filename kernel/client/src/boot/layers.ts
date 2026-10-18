@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { ApiLive, TransportLive } from "#/api/layer";
 import { AssetsLive } from "#/modules/assets/layer";
 import { AuthLive } from "#/modules/auth/layer";
+import { BackgroundSubmissionsLive } from "#/modules/background-submissions/layer";
 import { DeviceLive } from "#/modules/device/layer";
 import { EntityWatchLive } from "#/modules/entity-watches/layer";
 import { ExternalLinksLive } from "#/modules/external-links/layer";
@@ -33,6 +34,7 @@ export const ClientLive = Layer.mergeAll(
 	NotificationChannelsService.layer,
 	PagesLive,
 	PluginsLive.pipe(Layer.provideMerge(AuthLive)),
+	BackgroundSubmissionsLive,
 	ProviderAddLive,
 	ServerLive,
 ).pipe(Layer.provideMerge(ApiLive), Layer.provide(TransportLive));

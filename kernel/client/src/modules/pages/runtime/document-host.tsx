@@ -28,6 +28,8 @@ import { RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { Uploads } from "#/modules/assets/uploads";
+import { resolveBackgroundSubmissionTarget } from "#/modules/background-submissions/service";
+import { useBackgroundSubmissionTray } from "#/modules/background-submissions/tray";
 import { DeviceService } from "#/modules/device/service";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
@@ -449,6 +451,7 @@ function ClientPageFrame(props: {
 				: false,
 	});
 	const { catalog } = usePluginCatalog();
+	const backgroundSubmissions = useBackgroundSubmissionTray();
 	const { context, identity } = props.document.prepared;
 	const renderer = context.renderer;
 	const rendererPlugin =
@@ -642,6 +645,18 @@ function ClientPageFrame(props: {
 					.runSync(PluginOperationsService)
 					.invoke({ request, scope: props.scope, contentHash: target.contentHash });
 			}}
+			onBackgroundOperation={(request, binding) =>
+				Effect.sync(() => {
+					const target = resolveBackgroundSubmissionTarget(identity, catalog, request.packageId);
+					const reservation =
+						target === undefined
+							? undefined
+							: backgroundSubmissions?.reserve({ target, binding, request });
+					return reservation === undefined
+						? ({ outcome: "failure", reason: "operation-failed" } as const)
+						: ({ reservation, outcome: "success" } as const);
+				})
+			}
 			onCollection={(request) => {
 				const operation = Effect.gen(function* () {
 					if (request.action === "create") {

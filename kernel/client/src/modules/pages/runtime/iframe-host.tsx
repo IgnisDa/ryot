@@ -13,6 +13,7 @@ import type {
 	PickEntityOutcome,
 	PluginAssetOutcome,
 	PluginAssetRequest,
+	PluginBackgroundOperationRequest,
 	PluginBridgePageSearch,
 	PluginBridgePickEntityScreen,
 	PluginCalendarSourceVisibilityOutcome,
@@ -51,11 +52,13 @@ import {
 	useState,
 } from "react";
 
+import type { BackgroundSubmissionBinding } from "#/modules/background-submissions/service";
 import type { WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
 import {
+	type BackgroundOperationAcceptance,
 	openPluginBridge,
 	type PluginBridgeNavigationState,
 	type PluginBridgeSession,
@@ -139,6 +142,10 @@ export function PageIframeHost(props: {
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
+	readonly onBackgroundOperation: (
+		request: PluginBackgroundOperationRequest,
+		binding: BackgroundSubmissionBinding,
+	) => Effect.Effect<BackgroundOperationAcceptance>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
@@ -174,6 +181,7 @@ export function PageIframeHost(props: {
 	const [overlayCount, setOverlayCount] = useState(0);
 	const [pageShortcuts, setPageShortcuts] = useState<readonly PageShortcutKey[]>([]);
 	const [updateAvailable, setUpdateAvailable] = useState(false);
+	const updatePending = useRef(false);
 	const [persistenceFailed, setPersistenceFailed] = useState(false);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
@@ -181,6 +189,7 @@ export function PageIframeHost(props: {
 	useLayoutEffect(() => {
 		latest.current = props;
 		latestCatalog.current = catalog;
+		updatePending.current = updateAvailable;
 	});
 	const closeBridge = () => {
 		latest.current.onReleaseResources();
@@ -452,6 +461,10 @@ export function PageIframeHost(props: {
 					PLUGIN_BACK_SETTLE_MS,
 				);
 			},
+			onBackgroundOperation: (request, binding) =>
+				!latest.current.active || latest.current.inert === true || updatePending.current
+					? Effect.succeed({ outcome: "failure", reason: "operation-failed" })
+					: latest.current.onBackgroundOperation(request, binding),
 			onHeader: (request) => {
 				const current = latest.current.navigation;
 				if (request.index === current.index && request.key === current.key) {

@@ -3,6 +3,7 @@ import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
 	type AddToCollectionOutcome,
 	type AddToCollectionRequest,
+	type BackgroundSubmissionOutcome,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
@@ -19,8 +20,12 @@ import {
 	type PickEntityOutcome,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
+	type PluginBackgroundOperationAcceptance,
+	type PluginBackgroundOperationRequest,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
+	type PluginBridgeBackgroundOperationRequest,
+	type PluginBridgeBackgroundOperationSettled,
 	type PluginBridgeCalendarSourceVisibilityRequest,
 	PluginBridgeClientMessage,
 	type PluginBridgeCollectionRequest,
@@ -75,6 +80,10 @@ import {
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
 
+import type {
+	BackgroundSubmissionBinding,
+	BackgroundSubmissionReservation,
+} from "#/modules/background-submissions/service";
 import type { WatchEntities } from "#/modules/entity-watches/service";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 
@@ -114,6 +123,7 @@ type PendingRequest = {
 		| HostScreenType
 		| "device"
 		| "asset"
+		| "background-operation"
 		| "calendar-source-visibility"
 		| "collection"
 		| "entity-editor-save"
@@ -132,6 +142,10 @@ const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenT
 	"edit-collection-screen",
 	"add-to-collection-screen",
 ]);
+
+export type BackgroundOperationAcceptance =
+	| Extract<PluginBackgroundOperationAcceptance, { readonly outcome: "failure" }>
+	| { readonly outcome: "success"; readonly reservation: BackgroundSubmissionReservation };
 
 type PluginBridgeOptions = {
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
@@ -171,6 +185,10 @@ type PluginBridgeOptions = {
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
+	readonly onBackgroundOperation: (
+		request: PluginBackgroundOperationRequest,
+		binding: BackgroundSubmissionBinding,
+	) => Effect.Effect<BackgroundOperationAcceptance>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
@@ -229,6 +247,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	let viewport = options.viewport;
 	let navigation = options.navigation;
+	let documentGeneration = 0;
+	const backgroundSession = {};
 	let pendingDocument: { readonly key: string; readonly page: ClientPageContext } | undefined;
 	let mode = options.theme.resolvedMode;
 	let interestIds = new Set<string>();
@@ -336,12 +356,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function sendDocument(
-		documentKey: string,
+		nextDocumentKey: string,
 		page: ClientPageContext,
 		next: PluginBridgeNavigationState,
 	) {
 		navigation = next;
-		pendingDocument = { page, key: documentKey };
+		pendingDocument = { page, key: nextDocumentKey };
 		if (state !== "active") {
 			return;
 		}
@@ -357,10 +377,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		overlayCount = 0;
 		options.onOverlayState(0);
 		options.onPageShortcuts([]);
+		documentGeneration += 1;
 		post({
 			page,
-			documentKey,
 			type: "document",
+			documentKey: nextDocumentKey,
 			navigation: { ...next, type: "location" },
 		} satisfies PluginBridgeDocument);
 		pendingDocument = undefined;
@@ -454,14 +475,19 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function outgoingResult(type: PendingRequest["type"], requestId: string, outcome: object) {
 		const failure = "outcome" in outcome && outcome.outcome === "failure";
+		const resultType =
+			type === "background-operation" ? "background-operation-accepted" : `${type}-result`;
 		const message = failure
 			? {
 					requestId,
+					type: resultType,
 					outcome: "failure",
-					type: `${type}-result`,
 					reason: "reason" in outcome ? outcome.reason : undefined,
+					...("message" in outcome && "reason" in outcome && outcome.reason === "operation-rejected"
+						? { message: outcome.message }
+						: {}),
 				}
-			: { ...outcome, requestId, type: `${type}-result` };
+			: { ...outcome, requestId, type: resultType };
 		let decoded = decodeHostMessage(message);
 		if (Result.isFailure(decoded)) {
 			reportDiagnostic(type, requestId, decoded.failure);
@@ -479,12 +505,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			} else {
 				reason = "malformed-result";
 			}
-			decoded = decodeHostMessage({
-				reason,
-				requestId,
-				outcome: "failure",
-				type: `${type}-result`,
-			});
+			decoded = decodeHostMessage({ reason, requestId, type: resultType, outcome: "failure" });
 		}
 		if (Result.isFailure(decoded)) {
 			throw new Error("Invalid bridge failure outcome");
@@ -500,6 +521,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		requestId: string,
 		type: PendingRequest["type"],
 		operation: () => Effect.Effect<Outcome>,
+		delivered?: (posted: boolean) => void,
 	) {
 		const failure = {
 			outcome: "failure",
@@ -527,6 +549,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				Effect.tap((outcome) =>
 					Effect.sync(() => {
 						if (state !== "active" || pending.get(requestId)?.fiber !== fiber) {
+							delivered?.(false);
 							return;
 						}
 						try {
@@ -540,10 +563,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							channel.port1.postMessage(message);
 							pending.delete(requestId);
 						} catch {
+							delivered?.(false);
 							fail();
+							return;
 						}
+						delivered?.(true);
 					}),
 				),
+				Effect.onInterrupt(() => Effect.sync(() => delivered?.(false))),
 			),
 		);
 		pending.set(requestId, { type, fiber });
@@ -557,6 +584,67 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				operationSlug: request.operationSlug,
 				...(request.idempotencyKey === undefined ? {} : { idempotencyKey: request.idempotencyKey }),
 			}),
+		);
+	}
+
+	function sendBackgroundSettled(
+		acceptedGeneration: number,
+		submissionId: string,
+		outcome: BackgroundSubmissionOutcome,
+	) {
+		if (state !== "active" || documentGeneration !== acceptedGeneration) {
+			return;
+		}
+		const decoded = decodeHostMessage({
+			outcome,
+			submissionId,
+			type: "background-operation-settled",
+		} satisfies PluginBridgeBackgroundOperationSettled);
+		if (Result.isFailure(decoded)) {
+			reportDiagnostic("background-operation", submissionId, decoded.failure);
+			return;
+		}
+		const encoded = encodeHostMessage(decoded.success);
+		if (Result.isSuccess(encoded)) {
+			post(encoded.success);
+		}
+	}
+
+	function handleBackgroundOperation(request: PluginBridgeBackgroundOperationRequest) {
+		const { requestId, type: _type, ...capabilityRequest } = request;
+		const acceptedGeneration = documentGeneration;
+		let reservation: BackgroundSubmissionReservation | undefined;
+		runRequest(
+			requestId,
+			"background-operation",
+			() =>
+				options
+					.onBackgroundOperation(capabilityRequest, {
+						session: backgroundSession,
+						settle: (submissionId, outcome) =>
+							sendBackgroundSettled(acceptedGeneration, submissionId, outcome),
+					})
+					.pipe(
+						Effect.map((acceptance) => {
+							if (acceptance.outcome === "failure") {
+								return acceptance;
+							}
+							reservation = acceptance.reservation;
+							return {
+								outcome: "success",
+								submissionId: acceptance.reservation.submissionId,
+							} as const;
+						}),
+					),
+			(posted) => {
+				const accepted = reservation;
+				reservation = undefined;
+				if (posted) {
+					accepted?.start();
+				} else {
+					accepted?.cancel();
+				}
+			},
 		);
 	}
 
@@ -777,6 +865,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 						Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
+						Match.when({ type: "background-operation-request" }, (request) =>
+							handleBackgroundOperation(request),
+						),
 						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
 						Match.when({ type: "calendar-source-visibility-request" }, (request) =>
 							handleCalendarSourceVisibility(request),
@@ -814,6 +905,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (pendingDocument) {
 				const { key, page } = pendingDocument;
 				pendingDocument = undefined;
+				documentGeneration += 1;
 				post({
 					page,
 					documentKey: key,
