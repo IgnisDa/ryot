@@ -127,6 +127,9 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
+		yield* media
+			.getByRole("button", { exact: true, name: "Refresh provider data" })
+			.waitFor({ state: "visible" });
 		yield* body.getByText("1999·2h 49m·TMDB", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Drama", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("2h 49m", { exact: true }).waitFor({ state: "visible" });
