@@ -1,5 +1,6 @@
 import ActivityKit
 import Foundation
+import os
 import UIKit
 
 @available(iOS 16.2, *)
@@ -10,6 +11,7 @@ final class RyotLiveActivitiesManager {
     private let maximumRegistryEntries = 128
     private var registry: [IosLiveActivityRecord]
     private var observations: [String: Task<Void, Never>] = [:]
+    private let logger = Logger(subsystem: "Ryot", category: "LiveActivities")
 
     private enum RequestError: Error { case invalidContent }
 
@@ -54,6 +56,7 @@ final class RyotLiveActivitiesManager {
                 observations[activity.id] = Task { [weak self] in
                     for await next in activity.activityStateUpdates {
                         guard let self else { return }
+                        self.logger.notice("Activity state: \(String(describing: next), privacy: .public)")
                         self.synchronize()
                         if next == .dismissed || next == .ended {
                             self.observations.removeValue(forKey: activity.id)
@@ -69,6 +72,7 @@ final class RyotLiveActivitiesManager {
     func retainOwners(_ owners: Set<String>) async {
         synchronize()
         for activity in Activity<RyotLiveActivityAttributes>.activities where !owners.contains(activity.attributes.owner) {
+            logger.notice("Ending activity after its authenticated owner was removed")
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         synchronize()
