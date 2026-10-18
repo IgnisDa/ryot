@@ -2,7 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
-import { EventProjectionBindings, EventStreamProcessor } from "#modules/events/stream-work";
+import { EventProjectionBindings } from "#modules/events/stream-work";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	findRevisionScriptForSession,
@@ -13,32 +13,8 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { ScriptExecutionPrincipal } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
-import { ScriptExecutionService } from "./service";
 
-const processorLayer = Layer.effect(
-	EventStreamProcessor,
-	Effect.gen(function* () {
-		const sandbox = yield* ScriptExecutionService;
-		const execute: EventStreamProcessor["Service"]["execute"] = (claim, executionId) =>
-			sandbox
-				.executeWorkflow({
-					executionId,
-					lane: "background",
-					input: claim.input,
-					pluginRevision: claim.pluginPin,
-					scriptId: claim.processorScriptId,
-					subject: {
-						type: "event-projection",
-						userId: claim.accountGeneration.userId,
-						accountGeneration: claim.accountGeneration,
-					},
-				})
-				.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-		return { execute };
-	}),
-);
-
-const bindingsLayer = Layer.effect(
+export const EventProjectionBindingsLive = Layer.effect(
 	EventProjectionBindings,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
@@ -77,5 +53,3 @@ const bindingsLayer = Layer.effect(
 		});
 	}),
 ).pipe(Layer.provide(SandboxRepository.layer), Layer.provide(PluginRuntimeResolverLive));
-
-export const EventStreamProcessorLive = Layer.merge(processorLayer, bindingsLayer);

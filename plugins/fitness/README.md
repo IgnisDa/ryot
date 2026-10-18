@@ -247,8 +247,11 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
-- `fitness.workout-records` batches changed sets by exercise and dispatches bounded record steps.
+- `fitness.workout-records` batches changed sets by exercise and requests event-projection work for
+  each affected exercise. The common background-work owner dispatches bounded steps; the event stream
+  retains its checkpoint, dirty boundary, and freshness state separately from the canonical job status.
   Workers compute statistics/badges per recorded kind into separate projection rows without changing
   source events or replaying historical hooks. Workout start changes trigger
-  `fitness.workout-context-records` repairs. Calculated displays remain hidden while results are pending
-  or failed, and pending queries refresh until processing finishes.
+  `fitness.workout-context-records` repairs. Calculated displays remain hidden unless the projection
+  matches the current source revision and plugin revision/configuration/installation binding; pending or
+  failed status is shown and pending queries refresh until processing finishes.

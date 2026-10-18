@@ -53,6 +53,7 @@ import {
 	automationTriggerRecipient,
 	notificationSubscription,
 } from "#schema/tables/automations";
+import { backgroundWork } from "#schema/tables/background-work";
 import { backupRun } from "#schema/tables/backups";
 import {
 	plugin,
@@ -372,8 +373,7 @@ const seedCatalog = Effect.gen(function* () {
 			yield* db.insert(eventStreamWork).values([
 				{
 					id: "stream-owner",
-					claimedRevision: 4,
-					status: "completed",
+					completedRevision: 4,
 					pluginPin: { private: "owner-plugin-pin" },
 					accountToken: "owner-private-account-token",
 					pluginRevisionId: "owner-private-plugin-revision",
@@ -381,9 +381,8 @@ const seedCatalog = Effect.gen(function* () {
 					processorScriptId: "owner-private-processor-script",
 				},
 				{
-					status: "running",
 					id: "stream-other",
-					claimedRevision: 2,
+					completedRevision: null,
 					pluginPin: { private: "other-plugin-pin" },
 					accountToken: "other-private-account-token",
 					pluginRevisionId: "other-private-plugin-revision",
@@ -755,8 +754,7 @@ layer(catalogDatabaseLayer)((test) => {
 					db
 						.insert(eventStreamWork)
 						.values({
-							claimedRevision: 1,
-							status: "completed",
+							completedRevision: 1,
 							accountToken: "generation",
 							id: "projection-gate-stream",
 							outputSchema: { fields: {} },
@@ -1523,6 +1521,64 @@ layer(catalogDatabaseLayer)((test) => {
 });
 
 layer(catalogDatabaseLayer)((test) => {
+	test.effect("exposes one user-scoped background job catalog without execution authority", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(backgroundWork).values(
+					[
+						{ userId: "owner", id: "background-owner", purpose: "user-script" as const },
+						{ userId: "other", id: "background-other", purpose: "event-projection" as const },
+					].map((job) => ({
+						id: job.id,
+						key: job.id,
+						scope: "subject",
+						inputHash: job.id,
+						userId: job.userId,
+						purpose: job.purpose,
+						pluginId: "system-plugin",
+						status: "queued" as const,
+						accountToken: "private-generation",
+						payload: { authority: "private-authority" },
+					})),
+				),
+			);
+			for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
+				expect(
+					yield* readRows({ audience, userId: "owner" }, "backgroundWork", [
+						"id",
+						"status",
+						"scope",
+					]),
+				).toEqual([{ status: "queued", scope: "subject", id: "background-owner" }]);
+				expect(yield* readRows({ audience, userId: "other" }, "backgroundWork", ["id"])).toEqual([
+					{ id: "background-other" },
+				]);
+				for (const name of [
+					"payload",
+					"accountToken",
+					"inputHash",
+					"execution",
+					"pluginPin",
+					"checkpoint",
+				]) {
+					expect(
+						Result.isFailure(
+							yield* Effect.result(
+								readRows({ audience, userId: "owner" }, "backgroundWork", [name]),
+							),
+						),
+					).toBe(true);
+				}
+				expect(
+					Result.isFailure(
+						yield* Effect.result(readRows({ audience, userId: "owner" }, "userWork", ["id"])),
+					),
+				).toBe(true);
+			}
+		}),
+	);
+
 	test.effect("scopes event streams and work to their owner in kernel and plugin audiences", () =>
 		Effect.gen(function* () {
 			for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
@@ -1546,10 +1602,9 @@ layer(catalogDatabaseLayer)((test) => {
 				expect(
 					yield* readRows({ audience, userId: "owner" }, "eventStreamWork", [
 						"id",
-						"status",
-						"claimedRevision",
+						"completedRevision",
 					]),
-				).toEqual([{ id: "stream-owner", claimedRevision: 4, status: "completed" }]);
+				).toEqual([{ id: "stream-owner", completedRevision: 4 }]);
 
 				expect(yield* readRows({ audience, userId: "other" }, "eventStream", ["id"])).toEqual([
 					{ id: "stream-other" },
@@ -1557,10 +1612,9 @@ layer(catalogDatabaseLayer)((test) => {
 				expect(
 					yield* readRows({ audience, userId: "other" }, "eventStreamWork", [
 						"id",
-						"status",
-						"claimedRevision",
+						"completedRevision",
 					]),
-				).toEqual([{ status: "running", id: "stream-other", claimedRevision: 2 }]);
+				).toEqual([{ id: "stream-other", completedRevision: null }]);
 			}
 		}),
 	);

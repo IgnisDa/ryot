@@ -233,7 +233,7 @@ it("exposes only user-owned event streams and safe work fields", () => {
 	expect(eventStreamWork?.name).toBe("event_stream_work");
 	expect(eventStreamWork?.primaryKey).toEqual(["id"]);
 	expect(new Set(Object.keys(eventStreamWork?.fields ?? {}))).toEqual(
-		new Set(["id", "status", "claimedRevision"]),
+		new Set(["id", "completedRevision"]),
 	);
 	expect(eventStreamWork?.visibility).toEqual({
 		user: {

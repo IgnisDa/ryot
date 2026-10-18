@@ -1,13 +1,24 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import {
+	BackgroundWorkExecutor,
+	BackgroundWorkProjectionFinalizer,
+} from "#modules/background-work/model";
+import { BackgroundWorkRepository } from "#modules/background-work/repository";
+import { BackgroundWorkService, BackgroundWorkWorkflow } from "#modules/background-work/service";
+import {
+	BackgroundWorkWorkflowLive,
+	runBackgroundWorkWorkflow,
+} from "#modules/background-work/workflow";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
@@ -19,19 +30,19 @@ import {
 	ScriptExecutionPrincipal,
 	type ScriptExecutionPrincipal as ScriptExecutionPrincipalType,
 } from "#modules/scripts/authorization/principal";
+import { BackgroundWorkExecutorLive } from "#modules/scripts/executions/background-work";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
+import { backgroundWork } from "#schema/tables/background-work";
 import * as tables from "#schema/tables/combined";
-import { scriptWork } from "#schema/tables/script-work";
-import { makeWorkflowEngine, workflowEngineTestLayer } from "#testing/effect";
-
 import {
-	makeUserWorkScriptHost,
-	UserWorkRepository,
-	UserWorkWorkflow,
-	UserWorkWorkflowLive,
-} from "./user-work";
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+	workflowEngineTestLayer,
+} from "#testing/effect";
+
+import { makeUserWorkScriptHost } from "./user-work";
 import { ScriptExecutionWorkflow } from "./workflow";
 
 const userId = UserId.make("owner");
@@ -147,16 +158,18 @@ const workRow = (
 		readonly key: string;
 		readonly scope: string;
 		readonly payload: JsonValue;
-		readonly status?: typeof scriptWork.$inferSelect.status;
+		readonly status?: typeof backgroundWork.$inferSelect.status;
 	},
-): typeof scriptWork.$inferInsert => ({
+): typeof backgroundWork.$inferInsert => ({
 	id: input.id,
 	key: input.key,
 	scope: input.scope,
 	userId: fixture.userId,
 	payload: input.payload,
+	purpose: "user-script",
 	pluginId: fixture.pluginId,
 	status: input.status ?? "queued",
+	accountToken: fixture.accountGeneration.token,
 	inputHash: inputHash(input.scope, input.payload),
 });
 
@@ -171,6 +184,31 @@ const scriptExecution = (fixture: UserWorkFixtureValue, id: string, input: JsonV
 		lane: "background" as const,
 		scriptId: fixture.targetScriptId,
 		resolutionMode: "exact" as const,
+	};
+};
+
+const backgroundWorkInput = (
+	fixture: UserWorkFixtureValue,
+	input: {
+		readonly id: string;
+		readonly key: string;
+		readonly scope: string;
+		readonly input: JsonValue;
+	},
+) => {
+	const pluginRevision = fixture.principal.pluginRevision;
+	assert(pluginRevision);
+	const contentHash = pluginRevision.compiledHashes[targetSlug];
+	assert(contentHash);
+	return {
+		contentHash,
+		id: input.id,
+		key: input.key,
+		scope: input.scope,
+		featureInput: null,
+		purpose: "user-script" as const,
+		accountGeneration: fixture.accountGeneration,
+		execution: scriptExecution(fixture, input.id, input.input),
 	};
 };
 
@@ -208,39 +246,71 @@ class UserWorkHostCalls extends Context.Service<
 	{ readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>> }
 >()("test/UserWorkHostCalls") {}
 
+class UserWorkChildCalls extends Context.Service<
+	UserWorkChildCalls,
+	{ readonly executions: Effect.Effect<ReadonlyArray<string>> }
+>()("test/UserWorkChildCalls") {}
+
 const userWorkHostLayer = () =>
-	Layer.mergeAll(
-		DomainWriteChecksLive,
-		Layer.unwrap(
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const dispatches = yield* Ref.make<ReadonlyArray<DispatchRecord>>([]);
-				const engine = makeWorkflowEngine({
-					execute: (workflow, options) =>
-						Effect.gen(function* () {
-							const inTransaction = yield* session.isTransactionActive;
-							yield* Ref.update(dispatches, (all) => [
-								...all,
-								{ inTransaction, workflow: workflow._tag, executionId: options.executionId },
-							]);
-							return options.executionId;
-						}),
-				});
-				return Layer.merge(
-					Layer.succeed(WorkflowEngine, engine),
-					Layer.succeed(UserWorkHostCalls, { dispatches: Ref.get(dispatches) }),
-				);
-			}),
+	Layer.mergeAll(DomainWriteChecksLive, BackgroundWorkService.layer).pipe(
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const dispatches = yield* Ref.make<ReadonlyArray<DispatchRecord>>([]);
+					const engine = makeWorkflowEngine({
+						execute: (workflow, options) =>
+							Effect.gen(function* () {
+								const inTransaction = yield* session.isTransactionActive;
+								yield* Ref.update(dispatches, (all) => [
+									...all,
+									{ inTransaction, workflow: workflow._tag, executionId: options.executionId },
+								]);
+								return options.executionId;
+							}),
+					});
+					return Layer.merge(
+						Layer.succeed(WorkflowEngine, engine),
+						Layer.succeed(UserWorkHostCalls, { dispatches: Ref.get(dispatches) }),
+					);
+				}),
+			),
 		),
-	).pipe(Layer.provideMerge(userWorkDatabaseLayer()));
+		Layer.provideMerge(userWorkDatabaseLayer()),
+	);
 
 const userWorkWorkflowLayer = () =>
-	Layer.merge(
-		UserWorkWorkflowLive,
-		ScriptExecutionWorkflow.toLayer((payload) =>
-			payload.input === "failure"
-				? Effect.fail(new SandboxRunError({ kind: "script-failure", message: "x".repeat(9000) }))
-				: Effect.succeed(null),
+	Layer.mergeAll(
+		BackgroundWorkService.layer,
+		BackgroundWorkWorkflowLive.pipe(
+			Layer.provide(
+				Layer.merge(
+					BackgroundWorkExecutorLive,
+					Layer.succeed(BackgroundWorkProjectionFinalizer, {
+						publish: () => Effect.die("User-script work must not publish projections"),
+						failed: () => Effect.die("User-script work must not finalize projections"),
+					}),
+				),
+			),
+		),
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+				return Layer.merge(
+					Layer.succeed(UserWorkChildCalls, { executions: Ref.get(calls) }),
+					ScriptExecutionWorkflow.toLayer((payload) =>
+						Ref.update(calls, (all) => [...all, payload.executionId]).pipe(
+							Effect.andThen(
+								payload.input === "failure"
+									? Effect.fail(
+											new SandboxRunError({ kind: "script-failure", message: "x".repeat(9000) }),
+										)
+									: Effect.succeed(null),
+							),
+						),
+					),
+				);
+			}),
 		),
 	).pipe(Layer.provideMerge(workflowEngineTestLayer), Layer.provideMerge(userWorkDatabaseLayer()));
 
@@ -248,20 +318,25 @@ layer(userWorkDatabaseLayer())((test) => {
 	test.effect("replays an identical user-work request as one durable row", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
-			const repository = yield* UserWorkRepository.make;
+			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
 			const id = `user-work-replay-${crypto.randomUUID()}`;
-			const row = workRow(fixture, {
-				id,
-				key: "same-key",
-				scope: "same-scope",
-				payload: { value: 1 },
-			});
+			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					scope: "same-scope",
+					input: { value: 1 },
+				}),
+			);
+			const row = workRow(fixture, { id, payload, key: "same-key", scope: "same-scope" });
 
 			expect(yield* repository.request(row)).toBe("queued");
 			expect(yield* repository.request(row)).toBe("queued");
 			expect(
-				yield* session.run((db) => db.select().from(scriptWork).where(eq(scriptWork.id, id))),
+				yield* session.run((db) =>
+					db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
+				),
 			).toHaveLength(1);
 		}),
 	);
@@ -269,58 +344,124 @@ layer(userWorkDatabaseLayer())((test) => {
 	test.effect("rejects changed input for one work ID without replacing its payload", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
-			const repository = yield* UserWorkRepository.make;
+			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
 			const id = `user-work-changed-${crypto.randomUUID()}`;
-			const original = workRow(fixture, {
-				id,
-				key: "same-key",
-				scope: "same-scope",
-				payload: { value: 1 },
-			});
+			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					scope: "same-scope",
+					input: { value: 1 },
+				}),
+			);
+			const changedPayload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					scope: "same-scope",
+					input: { value: 2 },
+				}),
+			);
+			const original = workRow(fixture, { id, payload, key: "same-key", scope: "same-scope" });
 			yield* repository.request(original);
 
 			const failure = yield* Effect.flip(
 				repository.request({
 					...original,
-					payload: { value: 2 },
-					inputHash: inputHash("same-scope", { value: 2 }),
+					payload: changedPayload,
+					inputHash: inputHash("same-scope", changedPayload),
 				}),
 			);
 			expect(failure.message).toBe("Work key reused with different input");
 			const [stored] = yield* session.run((db) =>
-				db.select().from(scriptWork).where(eq(scriptWork.id, id)),
+				db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
 			);
-			expect(stored?.payload).toEqual({ value: 1 });
+			expect(stored?.payload).toEqual(payload);
 		}),
 	);
 
 	test.effect("conflicts when one work key is reused across scopes", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
-			const repository = yield* UserWorkRepository.make;
+			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
 			const id = `user-work-scope-${crypto.randomUUID()}`;
-			const original = workRow(fixture, {
-				id,
-				key: "same-key",
-				scope: "first-scope",
-				payload: { value: 1 },
-			});
+			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					input: { value: 1 },
+					scope: "first-scope",
+				}),
+			);
+			const changedScopePayload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					input: { value: 1 },
+					scope: "second-scope",
+				}),
+			);
+			const original = workRow(fixture, { id, payload, key: "same-key", scope: "first-scope" });
 			yield* repository.request(original);
 
 			const failure = yield* Effect.flip(
-				repository.request({
-					...original,
-					scope: "second-scope",
-					inputHash: inputHash("second-scope", { value: 1 }),
-				}),
+				repository.request({ ...original, scope: "second-scope", payload: changedScopePayload }),
 			);
 			expect(failure.message).toBe("Work key reused with different input");
 			const [stored] = yield* session.run((db) =>
-				db.select().from(scriptWork).where(eq(scriptWork.id, id)),
+				db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
 			);
 			expect(stored?.scope).toBe("first-scope");
+		}),
+	);
+
+	test.effect("rejects work ID reuse across users, plugins, and account generations", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const repository = yield* BackgroundWorkRepository.make;
+			const id = `user-work-owner-conflict-${crypto.randomUUID()}`;
+			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: "same-key",
+					scope: "same-scope",
+					input: { value: 1 },
+				}),
+			);
+			const original = workRow(fixture, { id, payload, key: "same-key", scope: "same-scope" });
+			yield* repository.request(original);
+
+			for (const conflict of [
+				{ ...original, userId: UserId.make("recipient") },
+				{ ...original, pluginId: PluginId.make("different-plugin") },
+				{ ...original, accountToken: "different-account-generation" },
+			]) {
+				const failure = yield* Effect.flip(repository.request(conflict));
+				expect(failure.message).toBe("Work key reused with different input");
+			}
+		}),
+	);
+
+	test.effect("does not start work after settlement", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const repository = yield* BackgroundWorkRepository.make;
+			const id = `user-work-settled-${crypto.randomUUID()}`;
+			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
+				backgroundWorkInput(fixture, {
+					id,
+					key: id,
+					input: { value: 1 },
+					scope: "terminal-transition",
+				}),
+			);
+			yield* repository.request(
+				workRow(fixture, { id, key: id, payload, scope: "terminal-transition" }),
+			);
+			expect(yield* repository.settle(id, "succeeded")).toBe(true);
+			expect(yield* repository.start(id)).toBeNull();
 		}),
 	);
 });
@@ -332,6 +473,7 @@ layer(userWorkHostLayer())((test) => {
 			Effect.gen(function* () {
 				const fixture = yield* UserWorkFixture;
 				const session = yield* DatabaseSession;
+				const work = yield* BackgroundWorkService;
 				const host = yield* makeUserWorkScriptHost;
 				const references = yield* SandboxWorkflowReferenceRepository.make;
 				const calls = yield* UserWorkHostCalls;
@@ -342,9 +484,19 @@ layer(userWorkHostLayer())((test) => {
 				expect(replay).toEqual(first);
 
 				const [queued] = yield* session.run((db) =>
-					db.select().from(scriptWork).where(eq(scriptWork.id, first.workId)),
+					db.select().from(backgroundWork).where(eq(backgroundWork.id, first.workId)),
 				);
 				expect(queued?.status).toBe("queued");
+				expect(queued?.payload).toMatchObject({
+					id: first.workId,
+					key: request.key,
+					featureInput: null,
+					scope: request.scope,
+					purpose: "user-script",
+					accountGeneration: fixture.accountGeneration,
+					execution: { executionId: `${first.workId}-script` },
+					contentHash: fixture.principal.pluginRevision?.compiledHashes[targetSlug],
+				});
 				expect(yield* references.listReferences(fixture.pluginId)).toMatchObject([
 					{
 						pluginId: fixture.pluginId,
@@ -353,14 +505,11 @@ layer(userWorkHostLayer())((test) => {
 					},
 				]);
 				expect(yield* calls.dispatches).toEqual([
-					{ inTransaction: false, executionId: first.workId, workflow: "UserWorkWorkflow" },
-					{ inTransaction: false, executionId: first.workId, workflow: "UserWorkWorkflow" },
+					{ inTransaction: false, executionId: first.workId, workflow: "BackgroundWorkWorkflow" },
+					{ inTransaction: false, executionId: first.workId, workflow: "BackgroundWorkWorkflow" },
 				]);
 
-				yield* session.run((db) =>
-					db.update(scriptWork).set({ status: "succeeded" }).where(eq(scriptWork.id, first.workId)),
-				);
-				yield* references.release(first.workId);
+				yield* work.finish(first.workId, "succeeded");
 				expect(yield* host.requestUserWork(runInput(fixture), request, workReference)).toEqual(
 					first,
 				);
@@ -394,7 +543,7 @@ layer(userWorkHostLayer())((test) => {
 					expect(failure.message).toContain(entry.message);
 					expect(
 						yield* session.run((db) =>
-							db.select().from(scriptWork).where(eq(scriptWork.key, entry.key)),
+							db.select().from(backgroundWork).where(eq(backgroundWork.key, entry.key)),
 						),
 					).toEqual([]);
 				}
@@ -413,20 +562,236 @@ layer(userWorkHostLayer())((test) => {
 					expect(failure.message).toContain("Mutation command belongs to a retired account");
 					expect(
 						yield* session.run((db) =>
-							db.select().from(scriptWork).where(eq(scriptWork.key, retiredKey)),
+							db.select().from(backgroundWork).where(eq(backgroundWork.key, retiredKey)),
 						),
 					).toEqual([]);
 				}
 				expect(yield* calls.dispatches).toEqual(beforeDenials);
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: fixture.accountGeneration.token })
+						.where(eq(tables.user.id, fixture.userId)),
+				);
+			}),
+	);
+
+	test.effect("recovers admitted user work by dispatching the common workflow", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const calls = yield* UserWorkHostCalls;
+			const id = `user-work-recover-${crypto.randomUUID()}`;
+			const before = yield* calls.dispatches;
+			const input = backgroundWorkInput(fixture, {
+				id,
+				key: id,
+				input: { value: 1 },
+				scope: "recover-test",
+			});
+
+			yield* session.transaction(work.admit(input));
+			yield* work.recover();
+
+			expect((yield* calls.dispatches).slice(before.length)).toContainEqual({
+				executionId: id,
+				inTransaction: false,
+				workflow: "BackgroundWorkWorkflow",
+			});
+			yield* work.finish(id, "failed");
+		}),
+	);
+
+	test.effect("rolls back work admission and its retained reference", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const references = yield* SandboxWorkflowReferenceRepository.make;
+			const id = `user-work-rollback-${crypto.randomUUID()}`;
+			const input = backgroundWorkInput(fixture, {
+				id,
+				key: id,
+				input: { value: 1 },
+				scope: "rollback-test",
+			});
+			const failure = new DbError({ message: "rollback admission" });
+
+			assertExitFails(
+				yield* Effect.exit(
+					session.transaction(work.admit(input).pipe(Effect.andThen(Effect.fail(failure)))),
+				),
+				failure,
+			);
+			expect(
+				yield* session.run((db) =>
+					db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
+				),
+			).toEqual([]);
+			expect(
+				(yield* references.listReferences(fixture.pluginId)).filter(
+					({ executionId }) => executionId === id,
+				),
+			).toEqual([]);
+		}),
+	);
+
+	test.effect("retains suspended work and resumes it without recording a failure", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const repository = yield* BackgroundWorkRepository.make;
+			const references = yield* SandboxWorkflowReferenceRepository.make;
+			const id = `user-work-suspended-${crypto.randomUUID()}`;
+			yield* session.transaction(
+				work.admit(backgroundWorkInput(fixture, { id, key: id, input: null, scope: "suspension" })),
+			);
+			const suspended = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
+			const failure = yield* Effect.exit(
+				runBackgroundWorkWorkflow({ id }).pipe(
+					Effect.provideService(BackgroundWorkExecutor, {
+						execute: () =>
+							Effect.gen(function* () {
+								suspended.suspended = true;
+								return yield* Effect.interrupt;
+							}),
+					}),
+					Effect.provideService(BackgroundWorkProjectionFinalizer, {
+						publish: () => Effect.die("Unexpected projection output"),
+						failed: () => Effect.die("Unexpected projection failure"),
+					}),
+					Effect.provideService(WorkflowInstance, suspended),
+					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(suspended)),
+				),
+			);
+			expect(failure._tag).toBe("Failure");
+			expect(yield* repository.get(id)).toMatchObject({ error: null, status: "running" });
+			expect(
+				(yield* references.listReferences(fixture.pluginId)).some(
+					({ executionId }) => executionId === id,
+				),
+			).toBe(true);
+			const resumed = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
+			yield* runBackgroundWorkWorkflow({ id }).pipe(
+				Effect.provideService(BackgroundWorkExecutor, { execute: () => Effect.succeed(null) }),
+				Effect.provideService(BackgroundWorkProjectionFinalizer, {
+					publish: () => Effect.die("Unexpected projection output"),
+					failed: () => Effect.die("Unexpected projection failure"),
+				}),
+				Effect.provideService(WorkflowInstance, resumed),
+				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(resumed)),
+			);
+			expect(yield* repository.get(id)).toMatchObject({ error: null, status: "succeeded" });
+			expect(
+				(yield* references.listReferences(fixture.pluginId)).some(
+					({ executionId }) => executionId === id,
+				),
+			).toBe(false);
+		}),
+	);
+
+	test.effect(
+		"settles expired workflow jobs and rejects purpose changes without retaining resources",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* UserWorkFixture;
+				const session = yield* DatabaseSession;
+				const work = yield* BackgroundWorkService;
+				const repository = yield* BackgroundWorkRepository.make;
+				const references = yield* SandboxWorkflowReferenceRepository.make;
+				const calls = yield* UserWorkHostCalls;
+				const id = `user-work-expired-${crypto.randomUUID()}`;
+				const job = backgroundWorkInput(fixture, { id, key: id, input: null, scope: "expiry" });
+				const denied = { ...job, id: `${id}-invalid`, purpose: "event-projection" as const };
+				assertExitFails(
+					yield* Effect.exit(session.transaction(work.admit(denied))),
+					new DbError({ message: "Background work requires exact purpose-bound user authority" }),
+				);
+				expect(yield* repository.get(denied.id)).toBeNull();
+				yield* session.transaction(work.admit(job));
+				const now = yield* DateTime.nowAsDate;
+				yield* session.run((db) =>
+					db
+						.insert(tables.workflowExecution)
+						.values({
+							expiredAt: now,
+							executionId: id,
+							status: "failed",
+							completedAt: now,
+							rootExecutionId: id,
+							workflowName: BackgroundWorkWorkflow._tag,
+							rootWorkflowName: BackgroundWorkWorkflow._tag,
+						}),
+				);
+				const before = yield* calls.dispatches;
+				yield* work.recover();
+				expect((yield* calls.dispatches).filter(({ executionId }) => executionId === id)).toEqual(
+					before.filter(({ executionId }) => executionId === id),
+				);
+				expect(yield* repository.get(id)).toMatchObject({ status: "failed" });
+				expect(yield* repository.start(id)).toBeNull();
+				expect(yield* work.finish(id, "succeeded")).toBe(false);
+				expect(
+					(yield* references.listReferences(fixture.pluginId)).some(
+						({ executionId }) => executionId === id,
+					),
+				).toBe(false);
 			}),
 	);
 });
 
 layer(userWorkWorkflowLayer())((test) => {
+	test.effect("coalesces concurrent dispatch and uses a fresh child for an intentional retry", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const engine = yield* WorkflowEngine;
+			const calls = yield* UserWorkChildCalls;
+			const id = `user-work-concurrent-${crypto.randomUUID()}`;
+			yield* session.transaction(
+				work.admit(
+					backgroundWorkInput(fixture, { id, key: id, input: "failure", scope: "concurrency" }),
+				),
+			);
+			yield* Effect.forEach(
+				[0, 1],
+				() => engine.execute(BackgroundWorkWorkflow, { executionId: id, payload: { id } }),
+				{ concurrency: "unbounded" },
+			);
+			expect(
+				(yield* calls.executions).filter((executionId) => executionId === `${id}-script`),
+			).toEqual([`${id}-script`]);
+			const retryId = `${id}-retry`;
+			yield* session.transaction(
+				work.admit(
+					backgroundWorkInput(fixture, {
+						id: retryId,
+						key: retryId,
+						input: "success",
+						scope: "concurrency",
+					}),
+				),
+			);
+			yield* engine.execute(BackgroundWorkWorkflow, {
+				executionId: retryId,
+				payload: { id: retryId },
+			});
+			expect((yield* calls.executions).filter((executionId) => executionId.startsWith(id))).toEqual(
+				[`${id}-script`, `${retryId}-script`],
+			);
+			expect((yield* (yield* BackgroundWorkRepository.make).get(retryId))?.status).toBe(
+				"succeeded",
+			);
+		}),
+	);
+
 	test.effect("marks successful and failed child executions as terminal work", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
-			const repository = yield* UserWorkRepository.make;
+			const work = yield* BackgroundWorkService;
 			const session = yield* DatabaseSession;
 
 			for (const [name, input, status] of [
@@ -434,15 +799,12 @@ layer(userWorkWorkflowLayer())((test) => {
 				["failure", "failure", "failed"],
 			] as const) {
 				const id = `user-work-${name}-${crypto.randomUUID()}`;
-				const execution = scriptExecution(fixture, id, input);
-				const payload = yield* Schema.encodeUnknownEffect(JsonValue)(execution);
-				yield* repository.request(
-					workRow(fixture, { id, key: id, payload, scope: "workflow-test" }),
-				);
-				yield* UserWorkWorkflow.execute({ id, execution });
+				const job = backgroundWorkInput(fixture, { id, input, key: id, scope: "workflow-test" });
+				yield* session.transaction(work.admit(job));
+				yield* BackgroundWorkWorkflow.execute({ id });
 
 				const [stored] = yield* session.run((db) =>
-					db.select().from(scriptWork).where(eq(scriptWork.id, id)),
+					db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
 				);
 				expect(stored?.status).toBe(status);
 				if (status === "failed") {
@@ -458,15 +820,17 @@ layer(userWorkWorkflowLayer())((test) => {
 	test.effect("does not revive work after its account generation is retired", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
-			const repository = yield* UserWorkRepository.make;
+			const work = yield* BackgroundWorkService;
 			const session = yield* DatabaseSession;
 			const references = yield* SandboxWorkflowReferenceRepository.make;
 			const id = `user-work-retired-${crypto.randomUUID()}`;
-			const execution = scriptExecution(fixture, id, "success");
-			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(execution);
-			yield* repository.request(
-				workRow(fixture, { id, key: id, payload, scope: "retirement-test" }),
-			);
+			const job = backgroundWorkInput(fixture, {
+				id,
+				key: id,
+				input: "success",
+				scope: "retirement-test",
+			});
+			yield* session.transaction(work.admit(job));
 			yield* session.run((db) =>
 				db
 					.update(tables.user)
@@ -474,9 +838,9 @@ layer(userWorkWorkflowLayer())((test) => {
 					.where(eq(tables.user.id, fixture.userId)),
 			);
 
-			yield* UserWorkWorkflow.execute({ id, execution });
+			yield* BackgroundWorkWorkflow.execute({ id });
 			const [stored] = yield* session.run((db) =>
-				db.select().from(scriptWork).where(eq(scriptWork.id, id)),
+				db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
 			);
 			expect(stored?.status).toBe("failed");
 			expect(stored?.error).toContain("Mutation command belongs to a retired account");

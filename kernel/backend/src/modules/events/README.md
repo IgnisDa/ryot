@@ -47,15 +47,19 @@ an edit or deletion that changed after preparation fails as stale.
 ## Stream work and freshness
 
 A stream is keyed by user, entity, event-schema owner, and event-schema slug. Source event writes
-advance its revision and queue or dirty the stream. Work retains its processor pin, checkpoint,
-claimed source revision, and status. A processor step receives the current checkpoint and returns a
-new checkpoint, a `done` flag, and at most 100 event updates; serialized checkpoint length is capped
-at 16,384.
+advance its revision and dirty the stream. `requestEventStreamWork` admits one step through the common
+background-work owner. The stream-specific `event_stream_work` row retains its processor binding,
+checkpoint, dirty boundary, completed revision, current job, and step; the canonical queued/running/
+succeeded/failed status belongs to that job's `background_work` row. A processor step receives the
+current checkpoint and returns a new checkpoint, a `done` flag, and at most 100 event updates;
+serialized checkpoint length is capped at 16,384.
 
 Each step validates its declared output and publishes the page together with the new checkpoint and
-work state in one transaction. The commit requires the same running claim and source revision, and
-rechecks the effective declaration and current processor binding. A changed binding is re-requested;
-a stale claim cannot publish. `done: false` queues the next step.
+stream state in one transaction. Publication requires the canonical job to be running and still be the
+stream's current job at the claimed source revision, and rechecks the effective declaration and current
+processor binding. A changed binding is re-requested; a stale claim cannot publish. The transaction
+settles the canonical job and admits the next step when `done: false`; workflow dispatch starts only
+after the transaction/activity completes.
 
 RyotQL exposes `event.projection` only for completed work whose claimed revision matches the stream,
 whose plugin revision and configuration pin are current, and whose plugin and installation are
@@ -65,7 +69,12 @@ is pending, ready, failed, or none when the event schema has no projection.
 Publishing changes only projection rows and stream-work state. It does not write source-event
 properties, source revisions or timestamps, or lifecycle events. Backup restore seeds streams from
 restored events; declaration-driven reconciliation finds streams with missing or stale processor
-bindings and requests work for the current declaration.
+bindings and requests work for the current declaration. See [background work](../background-work/README.md)
+for common admission, dispatch, and recovery ownership.
+
+Admission locks the account before stream state, matching account reset. Dirty-stream admission
+failures are isolated per stream and move that candidate to the end of the bounded selection, so an
+unavailable processor cannot block healthy streams.
 
 After completed processing or a failure, the service emits a user-scoped `projection-updated` entity
 hint. The hint carries no projection data. Readers refresh from RyotQL and can poll while

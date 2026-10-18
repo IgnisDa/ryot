@@ -416,9 +416,12 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			yield* session.transaction(events.createEvent(event));
 			expect((yield* streams.get(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
 
-			const claim = yield* session.transaction(streams.claim(streamId, 0));
-			assert(claim);
-			yield* session.transaction(streams.finish(streamId, claim.attempt, { cursor: "done" }, true));
+			yield* session.run((db) =>
+				db
+					.update(tables.eventStreamWork)
+					.set({ checkpoint: { cursor: "done" }, completedRevision: beforeUpdate.streamRevision })
+					.where(eq(tables.eventStreamWork.id, streamId)),
+			);
 			yield* session.transaction(
 				Effect.gen(function* () {
 					expect(yield* session.isTransactionActive).toBe(true);
@@ -433,7 +436,8 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			const invalidated = yield* streams.get(streamId);
 			assert(invalidated);
 			expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
-			expect(invalidated.status).toBe("queued");
+			expect(invalidated.currentJobId).toBeNull();
+			expect(invalidated.completedRevision).not.toBe(invalidated.streamRevision);
 
 			yield* session.transaction(
 				repository.updateEntity({

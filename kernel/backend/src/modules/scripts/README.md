@@ -115,11 +115,16 @@ key, a plugin-defined scope, and bounded JSON input. Identity includes account g
 script, and key; replay with different input or scope is refused. Continuations use fresh deterministic
 keys and stay independent of the invocation that admitted them.
 
-`UserWorkWorkflow` owns the child script and the `script_work` row. Queued, running, succeeded, and
-failed status is readable through user-scoped RyotQL without exposing execution input or pins.
-Suspension is not failure; terminal script failures and defects are recorded. Plugins own progress
-checkpoints, scope vocabulary, bounded application steps, and retry controls. A new retry request does
-not replay the failed child's cached result. Retired account generations cannot admit new work.
+`BackgroundWorkWorkflow` and `background_work` own admission and status for the independent script
+execution. Admission records workflow-owner receipts and retains the existing script/config references
+in the caller's transaction; dispatch starts after commit. Bounded recovery resumes admitted jobs and
+fails jobs whose workflow ended before settlement. Queued, running, succeeded, and failed status is
+readable through the user-scoped `backgroundWork` RyotQL table without exposing execution input or
+pins. Suspension is not failure; terminal script failures and defects are recorded. Plugins own
+progress checkpoints, scope vocabulary, bounded application steps, and retry controls. A new retry
+request uses a fresh key and does not replay the failed child's cached result. Retired account
+generations cannot admit new work. See [background work](../background-work/README.md) for ownership
+and recovery details.
 
 ## Capabilities
 

@@ -7,6 +7,7 @@ import { ManagedAssetsServiceLive } from "#modules/assets/layer";
 import { makeAssetsScriptHost } from "#modules/assets/script-host";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
+import { BackgroundWorkService } from "#modules/background-work/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
@@ -42,11 +43,8 @@ import { makeRyotQLScriptHost } from "#modules/ryotql/script-host";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
-import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stream-processor";
-import {
-	makeUserWorkScriptHost,
-	UserWorkWorkflowLive,
-} from "#modules/scripts/executions/user-work";
+import { EventProjectionBindingsLive } from "#modules/scripts/executions/event-projection-bindings";
+import { makeUserWorkScriptHost } from "#modules/scripts/executions/user-work";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import {
 	SandboxDurableHostDispatcherLive,
@@ -61,7 +59,6 @@ import {
 	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
-import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { makeUserCommandScriptHost } from "#modules/user-commands/script-host";
@@ -100,10 +97,6 @@ export const makeAutomationScriptHostFunctions = Effect.gen(function* () {
 	return { ...(yield* makeSignalScriptHost), ...(yield* makeNotificationScriptHost) };
 });
 
-const EventStreamWorkServiceProvidedLive = EventStreamWorkServiceLive.pipe(
-	Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(ScriptExecutionServiceLive))),
-);
-
 export const ScriptHostImplementationsLive = Layer.effect(
 	ScriptHostImplementations,
 	Effect.all({
@@ -118,9 +111,10 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(
 		Layer.mergeAll(
 			DomainWriteChecksLive,
+			BackgroundWorkService.layer,
 			EventsServiceLive,
 			ManagedAssetsServiceLive,
-			EventStreamWorkServiceProvidedLive,
+			EventStreamWorkServiceLive.pipe(Layer.provide(EventProjectionBindingsLive)),
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,
 			EntityUserDataServiceLive,
@@ -155,7 +149,6 @@ export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 );
 
 export const SandboxDurableHostServicesLive = Layer.mergeAll(
-	UserWorkWorkflowLive,
 	SandboxDurableHostDispatcherLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(

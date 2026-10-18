@@ -47,18 +47,19 @@ const toStreamKey = (row: {
 
 const currentSelection = {
 	id: schema.eventStreamWork.id,
-	error: schema.eventStreamWork.error,
-	status: schema.eventStreamWork.status,
-	attempt: schema.eventStreamWork.attempt,
+	step: schema.eventStreamWork.step,
+	error: schema.backgroundWork.error,
+	status: schema.backgroundWork.status,
 	pluginPin: schema.eventStreamWork.pluginPin,
 	streamRevision: schema.eventStream.revision,
 	dirtyFrom: schema.eventStreamWork.dirtyFrom,
 	updatedAt: schema.eventStreamWork.updatedAt,
 	checkpoint: schema.eventStreamWork.checkpoint,
+	currentJobId: schema.eventStreamWork.currentJobId,
 	accountToken: schema.eventStreamWork.accountToken,
 	outputSchema: schema.eventStreamWork.outputSchema,
-	claimedRevision: schema.eventStreamWork.claimedRevision,
 	pluginRevisionId: schema.eventStreamWork.pluginRevisionId,
+	completedRevision: schema.eventStreamWork.completedRevision,
 	processorScriptId: schema.eventStreamWork.processorScriptId,
 	key: {
 		userId: schema.eventStream.userId,
@@ -180,6 +181,10 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							.select(currentSelection)
 							.from(schema.eventStreamWork)
 							.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
+							.leftJoin(
+								schema.backgroundWork,
+								eq(schema.backgroundWork.id, schema.eventStreamWork.currentJobId),
+							)
 							.where(eq(schema.eventStreamWork.id, id))
 							.limit(1),
 					)
@@ -258,17 +263,17 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						continue;
 					}
 					let dirtyFrom = work.dirtyFrom;
-					if (dirtyFrom === null && work.status === "completed") {
+					if (dirtyFrom === null && work.completedRevision === stream.revision) {
 						dirtyFrom = occurredAt;
 					} else if (dirtyFrom !== null && occurredAt < dirtyFrom) {
 						dirtyFrom = occurredAt;
 					}
-					const checkpoint = work.status === "completed" ? work.checkpoint : null;
+					const checkpoint = work.completedRevision === stream.revision ? work.checkpoint : null;
 
 					yield* session.run((db) =>
 						db
 							.update(schema.eventStreamWork)
-							.set({ dirtyFrom, checkpoint, error: null, updatedAt: now, status: "queued" })
+							.set({ dirtyFrom, checkpoint, updatedAt: now, currentJobId: null })
 							.where(eq(schema.eventStreamWork.id, stream.id)),
 					);
 				}
@@ -291,13 +296,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					yield* session.run((db) =>
 						db
 							.update(schema.eventStreamWork)
-							.set({
-								error: null,
-								updatedAt: now,
-								dirtyFrom: null,
-								status: "queued",
-								checkpoint: null,
-							})
+							.set({ updatedAt: now, dirtyFrom: null, checkpoint: null, currentJobId: null })
 							.where(eq(schema.eventStreamWork.id, work.id)),
 					);
 				}
@@ -326,7 +325,6 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							id,
 							dirtyFrom: null,
 							checkpoint: null,
-							status: "queued",
 							pluginPin: input.pluginPin,
 							accountToken: input.accountToken,
 							outputSchema: input.outputSchema,
@@ -342,58 +340,26 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				}
 
 				const changedBinding =
+					work.accountToken !== input.accountToken ||
 					work.processorScriptId !== input.processorScriptId ||
 					work.pluginRevisionId !== input.pluginRevisionId ||
 					stableStringify(work.pluginPin) !== stableStringify(input.pluginPin) ||
 					stableStringify(work.outputSchema) !== stableStringify(input.outputSchema);
-				const staleCompletion =
-					work.status === "completed" &&
-					work.claimedRevision !== null &&
-					stream.revision > work.claimedRevision;
 				if (changedBinding) {
 					yield* session.run((db) =>
 						db
 							.update(schema.eventStreamWork)
 							.set({
-								error: null,
 								updatedAt: now,
 								dirtyFrom: null,
 								checkpoint: null,
-								status: "queued",
-								claimedRevision: null,
+								currentJobId: null,
+								completedRevision: null,
 								pluginPin: input.pluginPin,
 								accountToken: input.accountToken,
 								outputSchema: input.outputSchema,
 								pluginRevisionId: input.pluginRevisionId,
 								processorScriptId: input.processorScriptId,
-							})
-							.where(eq(schema.eventStreamWork.id, id)),
-					);
-				} else if (work.status === "failed") {
-					yield* session.run((db) =>
-						db
-							.update(schema.eventStreamWork)
-							.set({
-								error: null,
-								updatedAt: now,
-								status: "queued",
-								accountToken: input.accountToken,
-								outputSchema: input.outputSchema,
-							})
-							.where(eq(schema.eventStreamWork.id, id)),
-					);
-				} else if (staleCompletion) {
-					yield* session.run((db) =>
-						db
-							.update(schema.eventStreamWork)
-							.set({
-								error: null,
-								updatedAt: now,
-								dirtyFrom: null,
-								checkpoint: null,
-								status: "queued",
-								accountToken: input.accountToken,
-								outputSchema: input.outputSchema,
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
 					);
@@ -425,9 +391,32 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						.select(currentSelection)
 						.from(schema.eventStreamWork)
 						.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
-						.where(inArray(schema.eventStreamWork.status, ["queued", "running"]))
+						.leftJoin(
+							schema.backgroundWork,
+							eq(schema.backgroundWork.id, schema.eventStreamWork.currentJobId),
+						)
+						.where(
+							and(
+								isNull(schema.eventStreamWork.currentJobId),
+								sql`${schema.eventStreamWork.completedRevision} is distinct from ${schema.eventStream.revision}`,
+							),
+						)
 						.orderBy(asc(schema.eventStreamWork.updatedAt), asc(schema.eventStreamWork.id))
 						.limit(limit),
+				);
+			});
+
+			const postponeCandidate = Effect.fn("EventStreamRepository.postponeCandidate")(function* (
+				id: string,
+			) {
+				const updatedAt = yield* DateTime.nowAsDate;
+				yield* session.run((db) =>
+					db
+						.update(schema.eventStreamWork)
+						.set({ updatedAt })
+						.where(
+							and(eq(schema.eventStreamWork.id, id), isNull(schema.eventStreamWork.currentJobId)),
+						),
 				);
 			});
 
@@ -489,49 +478,31 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				},
 			);
 
-			const claim = Effect.fn("EventStreamRepository.claim")(function* (
-				id: string,
-				expectedAttempt?: number,
-			) {
+			const prepare = Effect.fn("EventStreamRepository.prepare")(function* (id: string) {
 				yield* requireTransaction;
 				const stream = yield* lockStream(id);
 				if (!stream) {
 					return null;
 				}
-				const work = yield* lockWork(id);
-				if (
-					!work ||
-					(expectedAttempt !== undefined &&
-						work.attempt !== expectedAttempt &&
-						!(work.status === "running" && work.attempt === expectedAttempt + 1))
-				) {
-					return null;
-				}
-				if (work.status === "running") {
-					return yield* readState(id);
-				}
-				if (work.status !== "queued") {
-					return null;
-				}
-
-				const now = yield* DateTime.nowAsDate;
+				yield* lockWork(id);
+				return yield* readState(id);
+			});
+			const reserve = Effect.fn("EventStreamRepository.reserve")(function* (
+				id: string,
+				jobId: string,
+			) {
+				yield* requireTransaction;
 				yield* session.run((db) =>
 					db
 						.update(schema.eventStreamWork)
-						.set({
-							updatedAt: now,
-							status: "running",
-							attempt: work.attempt + 1,
-							claimedRevision: stream.revision,
-						})
+						.set({ currentJobId: jobId, step: sql`${schema.eventStreamWork.step} + 1` })
 						.where(eq(schema.eventStreamWork.id, id)),
 				);
-				return yield* readState(id);
 			});
 
 			const currentClaim = Effect.fn("EventStreamRepository.currentClaim")(function* (
 				id: string,
-				attempt: number,
+				jobId: string,
 				revision: number,
 			) {
 				yield* requireTransaction;
@@ -540,24 +511,29 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					return false;
 				}
 				const work = yield* lockWork(id);
+				const job = yield* session.run((db) =>
+					db
+						.select({ status: schema.backgroundWork.status })
+						.from(schema.backgroundWork)
+						.where(eq(schema.backgroundWork.id, jobId))
+						.for("update"),
+				);
 				return (
-					work?.status === "running" && work.attempt === attempt && stream.revision === revision
+					work?.currentJobId === jobId &&
+					stream.revision === revision &&
+					job[0]?.status === "running"
 				);
 			});
 
 			const finish = Effect.fn("EventStreamRepository.finish")(function* (
 				id: string,
-				attempt: number,
+				jobId: string,
+				revision: number,
 				checkpoint: JsonValue,
 				done: boolean,
 			) {
 				yield* requireTransaction;
-				const stream = yield* lockStream(id);
-				if (!stream) {
-					return false;
-				}
-				const work = yield* lockWork(id);
-				if (work?.status !== "running" || work.attempt !== attempt) {
+				if (!(yield* currentClaim(id, jobId, revision))) {
 					return false;
 				}
 
@@ -567,37 +543,10 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						.update(schema.eventStreamWork)
 						.set({
 							checkpoint,
-							error: null,
 							updatedAt: now,
-							claimedRevision: stream.revision,
-							status: done ? "completed" : "queued",
-							dirtyFrom: done ? null : work.dirtyFrom,
+							completedRevision: done ? revision : null,
+							...(done ? { dirtyFrom: null } : { currentJobId: null }),
 						})
-						.where(eq(schema.eventStreamWork.id, id)),
-				);
-				return true;
-			});
-
-			const fail = Effect.fn("EventStreamRepository.fail")(function* (
-				id: string,
-				attempt: number,
-				message: string,
-			) {
-				yield* requireTransaction;
-				const stream = yield* lockStream(id);
-				if (!stream) {
-					return false;
-				}
-				const work = yield* lockWork(id);
-				if (work?.status !== "running" || work.attempt !== attempt) {
-					return false;
-				}
-
-				const now = yield* DateTime.nowAsDate;
-				yield* session.run((db) =>
-					db
-						.update(schema.eventStreamWork)
-						.set({ error: message, updatedAt: now, status: "failed" })
 						.where(eq(schema.eventStreamWork.id, id)),
 				);
 				return true;
@@ -605,17 +554,18 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 
 			return {
 				get,
-				fail,
 				lock,
 				touch,
-				claim,
 				finish,
+				prepare,
+				reserve,
 				request,
 				currentClaim,
 				lockForEvents,
 				listCandidates,
 				invalidateEntity,
 				bindingCandidates,
+				postponeCandidate,
 			};
 		}),
 	},

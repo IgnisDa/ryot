@@ -58,10 +58,12 @@ it("classifies every bridge host capability exactly once", () => {
 		emitSignal: { dispatch: "service-workflow" },
 		deleteEvents: { dispatch: "lifecycle-workflow" },
 		updateEvents: { dispatch: "lifecycle-workflow" },
+		requestUserWork: { dispatch: "service-workflow" },
 		createUserEntity: { dispatch: "service-workflow" },
 		invalidateOAuthAccessToken: { dispatch: "activity" },
 		ensureUserEntities: { dispatch: "service-workflow" },
 		sendNotification: { dispatch: "notification-workflow" },
+		requestEventStreamWork: { dispatch: "service-workflow" },
 		updateUserSettings: { dispatch: "activity", resultBytes: expect.any(Number) },
 	});
 	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toMatchObject({

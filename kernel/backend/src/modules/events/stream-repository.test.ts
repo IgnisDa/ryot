@@ -1,7 +1,8 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { EntityId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventSchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect, Layer } from "effect";
 
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -35,10 +36,16 @@ const seed = (suffix: string) =>
 		const userId = UserId.make(`stream-user-${suffix}`);
 		const entityId = EntityId.make(`stream-entity-${suffix}`);
 		const sessionEntityId = EntityId.make(`stream-session-${suffix}`);
+		const pluginId = PluginId.make(`stream-plugin-${suffix}`);
 		yield* session.run((db) =>
 			db
 				.insert(tables.user)
 				.values({ id: userId, name: "Stream owner", email: `stream-${suffix}@example.test` }),
+		);
+		yield* session.run((db) =>
+			db
+				.insert(tables.plugin)
+				.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
 		);
 		yield* session.run((db) =>
 			db.insert(tables.entity).values([
@@ -46,7 +53,37 @@ const seed = (suffix: string) =>
 				{ id: sessionEntityId, name: "Session entity", entitySchemaSlug: "stream-test" },
 			]),
 		);
-		return { userId, entityId, sessionEntityId, key: streamKey(userId, entityId) };
+		return { userId, pluginId, entityId, sessionEntityId, key: streamKey(userId, entityId) };
+	});
+
+const reserveJob = (id: string, userId: UserId, pluginId: PluginId, jobId: string) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const repository = yield* EventStreamRepository;
+		return yield* session.transaction(
+			Effect.gen(function* () {
+				yield* session.run((db) =>
+					db
+						.insert(tables.backgroundWork)
+						.values({
+							userId,
+							pluginId,
+							id: jobId,
+							scope: id,
+							key: jobId,
+							payload: {},
+							status: "running",
+							purpose: "event-projection",
+							inputHash: "test-input-hash",
+							accountToken: "stream-account-token",
+						}),
+				);
+				const state = yield* repository.prepare(id);
+				assert(state);
+				yield* repository.reserve(id, jobId);
+				return state;
+			}),
+		);
 	});
 
 const databaseLayer = EventStreamRepository.layer.pipe(
@@ -84,7 +121,7 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* EventStreamRepository;
-			const { key } = yield* seed("configuration-binding");
+			const { key, userId, pluginId } = yield* seed("configuration-binding");
 			const request = requestInput(key);
 			const id = yield* session.transaction(
 				repository.request({
@@ -92,11 +129,14 @@ layer(databaseLayer)((test) => {
 					pluginPin: { ...request.pluginPin, configRevisionId: "first" },
 				}),
 			);
-			const claim = yield* session.transaction(repository.claim(id, 0));
-			assert(claim);
-			yield* session.transaction(
-				repository.finish(id, claim.attempt, { cursor: "complete" }, true),
-			);
+			const jobId = `${id}-configuration-job`;
+			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
+			expect(prepared.step).toBe(0);
+			expect(
+				yield* session.transaction(
+					repository.finish(id, jobId, prepared.streamRevision, { cursor: "complete" }, true),
+				),
+			).toBe(true);
 			yield* session.transaction(
 				repository.request({
 					...request,
@@ -105,10 +145,10 @@ layer(databaseLayer)((test) => {
 			);
 			const pending = yield* repository.get(id);
 			assert(pending);
-			expect(pending.status).toBe("queued");
 			expect(pending.checkpoint).toBeNull();
-			expect(pending.claimedRevision).toBeNull();
-			expect(pending.streamRevision).toBe(claim.streamRevision);
+			expect(pending.completedRevision).toBeNull();
+			expect(pending.currentJobId).toBeNull();
+			expect(pending.streamRevision).toBe(prepared.streamRevision);
 			expect(pending.pluginPin).toEqual({ ...request.pluginPin, configRevisionId: "second" });
 		}),
 	);
@@ -119,13 +159,13 @@ layer(databaseLayer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const repository = yield* EventStreamRepository;
-				const { key } = yield* seed("dirty-min");
+				const { key, userId, pluginId } = yield* seed("dirty-min");
 				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const claim = yield* session.transaction(repository.claim(id, 0));
-				assert(claim);
+				const jobId = `${id}-dirty-job`;
+				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
 				expect(
 					yield* session.transaction(
-						repository.finish(id, claim.attempt, { cursor: "done" }, true),
+						repository.finish(id, jobId, prepared.streamRevision, { cursor: "done" }, true),
 					),
 				).toBe(true);
 
@@ -134,7 +174,7 @@ layer(databaseLayer)((test) => {
 				yield* session.transaction(repository.touch([{ ...key, occurredAt: later }]));
 				const afterLater = yield* repository.get(id);
 				assert(afterLater);
-				expect(afterLater.status).toBe("queued");
+				expect(afterLater.currentJobId).toBeNull();
 				expect(afterLater.dirtyFrom).toEqual(later);
 				expect(afterLater.checkpoint).toEqual({ cursor: "done" });
 
@@ -150,18 +190,16 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* EventStreamRepository;
-			const { key } = yield* seed("stale-claim");
+			const { key, userId, pluginId } = yield* seed("stale-claim");
 			const id = yield* session.transaction(repository.request(requestInput(key)));
-			const claimed = yield* session.transaction(repository.claim(id, 0));
-			assert(claimed);
-			expect(claimed.status).toBe("running");
-			const resumedClaim = yield* session.transaction(repository.claim(id, claimed.attempt));
-			assert(resumedClaim);
-			expect(resumedClaim.attempt).toBe(claimed.attempt);
+			const jobId = `${id}-stale-job`;
+			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
+			const running = yield* repository.get(id);
+			assert(running);
+			expect(running.status).toBe("running");
+			expect(running.currentJobId).toBe(jobId);
 			expect(
-				yield* session.transaction(
-					repository.currentClaim(id, claimed.attempt, claimed.streamRevision),
-				),
+				yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
 			).toBe(true);
 
 			yield* session.transaction(
@@ -169,26 +207,16 @@ layer(databaseLayer)((test) => {
 			);
 			const staleWork = yield* repository.get(id);
 			assert(staleWork);
+			expect(staleWork.currentJobId).toBeNull();
 			expect(staleWork.dirtyFrom).toBeNull();
 			expect(
-				yield* session.transaction(
-					repository.currentClaim(id, claimed.attempt, claimed.streamRevision),
-				),
+				yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
 			).toBe(false);
 			expect(
 				yield* session.transaction(
-					repository.finish(id, claimed.attempt, { cursor: "stale" }, true),
+					repository.finish(id, jobId, prepared.streamRevision, { cursor: "stale" }, true),
 				),
 			).toBe(false);
-			expect(yield* session.transaction(repository.claim(id, 0))).toBeNull();
-			const resumed = yield* session.transaction(repository.claim(id, claimed.attempt));
-			assert(resumed);
-			expect(resumed.attempt).toBe(claimed.attempt + 1);
-			expect(
-				yield* session.transaction(
-					repository.currentClaim(id, resumed.attempt, resumed.streamRevision),
-				),
-			).toBe(true);
 		}),
 	);
 
@@ -196,25 +224,24 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* EventStreamRepository;
-			const { key } = yield* seed("completed-request-replay");
+			const { key, userId, pluginId } = yield* seed("completed-request-replay");
 			const id = yield* session.transaction(repository.request(requestInput(key)));
-			const claim = yield* session.transaction(repository.claim(id, 0));
-			assert(claim);
+			const jobId = `${id}-completed-job`;
+			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
 
 			yield* session.transaction(
-				repository.finish(id, claim.attempt, { cursor: "completed" }, true),
+				repository.finish(id, jobId, prepared.streamRevision, { cursor: "completed" }, true),
 			);
 
 			const completed = yield* repository.get(id);
 			assert(completed);
-			expect(completed.status).toBe("completed");
-			expect(completed.streamRevision).toBe(claim.streamRevision);
+			expect(completed.completedRevision).toBe(prepared.streamRevision);
+			expect(completed.streamRevision).toBe(prepared.streamRevision);
 			expect(yield* session.transaction(repository.request(requestInput(key)))).toBe(id);
 			const unchanged = yield* repository.get(id);
 			assert(unchanged);
-			expect(unchanged.status).toBe("completed");
+			expect(unchanged.completedRevision).toBe(prepared.streamRevision);
 			expect(unchanged.checkpoint).toEqual({ cursor: "completed" });
-			expect(unchanged.claimedRevision).toBe(claim.streamRevision);
 
 			yield* session.transaction(
 				repository.touch([{ ...key, occurredAt: date("2026-10-04T00:00:00.000Z") }]),
@@ -222,10 +249,11 @@ layer(databaseLayer)((test) => {
 			yield* session.transaction(repository.request(requestInput(key)));
 			const replayed = yield* repository.get(id);
 			assert(replayed);
-			expect(replayed.status).toBe("queued");
-			expect(replayed.streamRevision).toBe(claim.streamRevision + 1);
+			expect(replayed.completedRevision).toBe(prepared.streamRevision);
+			expect(replayed.streamRevision).toBe(prepared.streamRevision + 1);
 			expect(replayed.dirtyFrom).toEqual(date("2026-10-04T00:00:00.000Z"));
 			expect(replayed.checkpoint).toEqual({ cursor: "completed" });
+			expect(replayed.currentJobId).toBeNull();
 		}),
 	);
 
@@ -235,7 +263,8 @@ layer(databaseLayer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const repository = yield* EventStreamRepository;
-				const { key, userId, entityId, sessionEntityId } = yield* seed("entity-invalidation");
+				const { key, userId, pluginId, entityId, sessionEntityId } =
+					yield* seed("entity-invalidation");
 				yield* session.run((db) =>
 					db
 						.insert(tables.event)
@@ -250,74 +279,62 @@ layer(databaseLayer)((test) => {
 						}),
 				);
 				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const claim = yield* session.transaction(repository.claim(id, 0));
-				assert(claim);
-				yield* session.transaction(repository.finish(id, claim.attempt, { cursor: "done" }, true));
+				const jobId = `${id}-invalidation-job`;
+				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
+				yield* session.transaction(
+					repository.finish(id, jobId, prepared.streamRevision, { cursor: "done" }, true),
+				);
 
 				yield* session.transaction(repository.invalidateEntity(sessionEntityId));
 				const invalidated = yield* repository.get(id);
 				assert(invalidated);
-				expect(invalidated.status).toBe("queued");
-				expect(invalidated.streamRevision).toBe(claim.streamRevision + 1);
+				expect(invalidated.completedRevision).toBe(prepared.streamRevision);
+				expect(invalidated.streamRevision).toBe(prepared.streamRevision + 1);
 				expect(invalidated.dirtyFrom).toBeNull();
 				expect(invalidated.checkpoint).toBeNull();
+				expect(invalidated.currentJobId).toBeNull();
 			}),
 	);
 
-	test.effect("requeues failed work when the same processor is requested again", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key } = yield* seed("failed-request");
-			const id = yield* session.transaction(repository.request(requestInput(key)));
-			const claim = yield* session.transaction(repository.claim(id, 0));
-			assert(claim);
-			expect(
-				yield* session.transaction(repository.fail(id, claim.attempt, "processor failed")),
-			).toBe(true);
-			expect((yield* repository.get(id))?.status).toBe("failed");
-			yield* session.transaction(repository.request(requestInput(key)));
-			const retried = yield* repository.get(id);
-			assert(retried);
-			expect(retried.status).toBe("queued");
-			expect(retried.error).toBeNull();
-		}),
-	);
-
 	test.effect(
-		"discards a failed partial checkpoint when an external source touches the stream",
+		"preserves partial checkpoints for the next page and clears them on a source touch",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const repository = yield* EventStreamRepository;
-				const { key } = yield* seed("failed-partial-checkpoint");
+				const { key, userId, pluginId } = yield* seed("partial-checkpoint");
 				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const firstClaim = yield* session.transaction(repository.claim(id, 0));
-				assert(firstClaim);
+				const firstJobId = `${id}-partial-job-1`;
+				const prepared = yield* reserveJob(id, userId, pluginId, firstJobId);
 				const checkpoint = { cursor: "partial" };
 				expect(
-					yield* session.transaction(repository.finish(id, firstClaim.attempt, checkpoint, false)),
+					yield* session.transaction(
+						repository.finish(id, firstJobId, prepared.streamRevision, checkpoint, false),
+					),
 				).toBe(true);
 
-				const nextClaim = yield* session.transaction(repository.claim(id, firstClaim.attempt));
-				assert(nextClaim);
-				expect(nextClaim.checkpoint).toEqual(checkpoint);
-				expect(
-					yield* session.transaction(repository.fail(id, nextClaim.attempt, "processor failed")),
-				).toBe(true);
+				const partial = yield* repository.get(id);
+				assert(partial);
+				expect(partial.currentJobId).toBeNull();
+				expect(partial.checkpoint).toEqual(checkpoint);
+				expect(partial.completedRevision).toBeNull();
+
+				const nextJobId = `${id}-partial-job-2`;
+				yield* reserveJob(id, userId, pluginId, nextJobId);
+				const next = yield* repository.get(id);
+				assert(next);
+				expect(next.currentJobId).toBe(nextJobId);
+				expect(next.status).toBe("running");
+				expect(next.checkpoint).toEqual(checkpoint);
 
 				yield* session.transaction(
 					repository.touch([{ ...key, occurredAt: date("2026-10-01T00:00:00.000Z") }]),
 				);
-				const queued = yield* repository.get(id);
-				assert(queued);
-				expect(queued.status).toBe("queued");
-				expect(queued.checkpoint).toBeNull();
-				expect(queued.dirtyFrom).toBeNull();
-
-				const retried = yield* session.transaction(repository.claim(id, nextClaim.attempt));
-				assert(retried);
-				expect(retried.checkpoint).toBeNull();
+				const invalidated = yield* repository.get(id);
+				assert(invalidated);
+				expect(invalidated.currentJobId).toBeNull();
+				expect(invalidated.checkpoint).toBeNull();
+				expect(invalidated.dirtyFrom).toBeNull();
 			}),
 	);
 });

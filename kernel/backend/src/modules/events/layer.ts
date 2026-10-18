@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
+import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -54,6 +55,7 @@ export const EventStreamWorkServiceLive = EventStreamWorkService.layer.pipe(
 		Layer.mergeAll(
 			EventStreamRepository.layer,
 			EventProjectionRepository.layer,
+			BackgroundWorkService.layer,
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
 			EventSchemaReaderLive,

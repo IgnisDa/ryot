@@ -131,6 +131,22 @@ CREATE TABLE "automation_trigger_recipient" (
 	CONSTRAINT "automation_trigger_recipient_pkey" PRIMARY KEY("trigger_id","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "background_work" (
+	"error" text,
+	"key" text NOT NULL,
+	"scope" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"input_hash" text NOT NULL,
+	"account_token" text NOT NULL,
+	"purpose" text NOT NULL,
+	"payload" jsonb NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"status" text NOT NULL,
+	"user_id" text NOT NULL,
+	"plugin_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "backup_run" (
 	"artifact_key" text,
 	"expires_at" timestamp(3) with time zone,
@@ -435,21 +451,18 @@ CREATE TABLE "event_stream" (
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream_work" (
-	"error" text,
 	"dirty_from" timestamp(3) with time zone,
-	"claimed_revision" integer,
+	"completed_revision" integer,
+	"current_job_id" text,
 	"account_token" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
-	"attempt" integer DEFAULT 0 NOT NULL,
+	"step" integer DEFAULT 0 NOT NULL,
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
 	"checkpoint" jsonb DEFAULT 'null',
-	"id" text PRIMARY KEY,
-	"status" text DEFAULT 'queued' NOT NULL,
-	CONSTRAINT "event_stream_work_status_check" CHECK ("status" in ('queued', 'running', 'completed', 'failed')),
-	CONSTRAINT "event_stream_work_attempt_check" CHECK ("attempt" >= 0)
+	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
 CREATE TABLE "import_activity" (
@@ -1048,20 +1061,6 @@ CREATE TABLE "saved_view_override" (
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "script_work" (
-	"error" text,
-	"key" text NOT NULL,
-	"scope" text NOT NULL,
-	"id" text PRIMARY KEY,
-	"input_hash" text NOT NULL,
-	"payload" jsonb NOT NULL,
-	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"status" text NOT NULL,
-	"user_id" text NOT NULL,
-	"plugin_id" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "session" (
 	"ip_address" text,
 	"user_agent" text,
@@ -1201,6 +1200,8 @@ CREATE INDEX "automation_trigger_parent_trigger_idx" ON "automation_trigger" ("p
 CREATE INDEX "automation_trigger_scope_idx" ON "automation_trigger" ("scope_user_id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_retention_idx" ON "automation_trigger" ("created_at","id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_recipient_user_idx" ON "automation_trigger_recipient" ("user_id","trigger_id");--> statement-breakpoint
+CREATE INDEX "background_work_scope_idx" ON "background_work" ("user_id","plugin_id","scope","created_at","id");--> statement-breakpoint
+CREATE INDEX "background_work_pending_idx" ON "background_work" ("status","updated_at","id");--> statement-breakpoint
 CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-breakpoint
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
@@ -1303,7 +1304,6 @@ CREATE INDEX "saved_view_slug_idx" ON "saved_view" ("slug");--> statement-breakp
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_override_kernel_unique" ON "saved_view_override" ("user_id","slug") WHERE "plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_override_plugin_unique" ON "saved_view_override" ("user_id","plugin_id","slug") WHERE "plugin_id" is not null;--> statement-breakpoint
-CREATE INDEX "script_work_scope_idx" ON "script_work" ("user_id","plugin_id","scope","created_at","id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
@@ -1329,6 +1329,8 @@ ALTER TABLE "automation_run_attempt" ADD CONSTRAINT "automation_run_attempt_run_
 ALTER TABLE "automation_trigger" ADD CONSTRAINT "automation_trigger_scope_user_id_user_id_fkey" FOREIGN KEY ("scope_user_id") REFERENCES "user"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_79FlgkqvTsH0_fkey" FOREIGN KEY ("trigger_id") REFERENCES "automation_trigger"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "background_work" ADD CONSTRAINT "background_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "background_work" ADD CONSTRAINT "background_work_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "calendar_source_override" ADD CONSTRAINT "calendar_source_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
@@ -1439,8 +1441,6 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "script_work" ADD CONSTRAINT "script_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "script_work" ADD CONSTRAINT "script_work_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

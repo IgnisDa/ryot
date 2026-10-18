@@ -33,8 +33,8 @@ export type MediaHistoryCorrectionRetryOutput = typeof MediaHistoryCorrectionRet
 
 export const mediaHistoryCorrectionStatusRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly reference: PluginIdentityReference }) => {
-		const work = table("userWork", "historyCorrectionWork");
-		const active = table("userWork", "activeHistoryCorrectionWork");
+		const work = table("backgroundWork", "historyCorrectionWork");
+		const active = table("backgroundWork", "activeHistoryCorrectionWork");
 		const checkpoint = table("event", "historyCorrectionCheckpoint");
 		return {
 			map: ({ active: pending, work: latestWork, checkpoint: latestCheckpoint }) => {

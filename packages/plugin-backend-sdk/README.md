@@ -103,10 +103,19 @@ an update with `orderAfter: null` restores physical creation order.
 
 `requestUserWork({ key, scope, input }, scriptReference)` admits a declared script dependency as
 independent, pinned user background work and returns `{ workId }`. Keys and scopes are nonempty and
-at most 512 characters; input must fit the sandbox context bound. The same key and input replay one
-admission; changing input or scope conflicts. Plugins page their own work, persist checkpoints with
-atomic commands, and schedule continuations with new deterministic keys. The user-scoped `userWork`
-RyotQL table exposes status and scope, not execution input. Retry a failed job with a new key.
+at most 512 characters; input must fit the sandbox context bound. Identity includes account generation,
+plugin, script, and key; replay with different input or scope conflicts. The common
+`BackgroundWorkWorkflow` owns the durable job and its `background_work` row. Admission retains the
+script/config references and workflow-owner receipts in the transaction, then dispatches after commit.
+The user-scoped `backgroundWork` RyotQL table exposes status and scope, not execution input or pins.
+Plugins page their own work, persist checkpoints with atomic commands, and schedule continuations with
+new deterministic keys. Retry a failed job with a fresh key.
+
+`requestEventStreamWork({ entityId, eventSchemaSlug }, scriptReference)` admits one event-projection
+step and returns `{ workId }`; the common kernel background-work owner dispatches it. The stream's
+`event_stream_work` record retains projection-specific checkpoint and freshness state. Plugins do not
+dispatch a separate event-stream workflow. Processor output and publication rules are described in
+[events and projections](../../kernel/backend/src/modules/events/README.md#stream-work-and-freshness).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return

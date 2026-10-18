@@ -482,6 +482,8 @@ inventory is not recaptured. Each invocation runs at most eight steps, then admi
 continuation. Source and evidence reads are paged; inventory writes contain at most 50 episodes.
 Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Large repairs can become visible in stages. The Activity
 tab shows pending or failed work and offers Try again without rolling back the recorded source facts.
+The shared background-work record exposes job status without exposing its execution input or pins;
+Try again admits a new keyed job rather than replaying a failed child's cached result.
 
 100% progress completes other flat media. Anime/Manga complete when a progress event's
 position reaches the episode or chapter total, or its percent is 100; no completion is written when

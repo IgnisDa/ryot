@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
+import { BackgroundWorkWorkflow } from "#modules/background-work/service";
 import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
 import {
 	TranslateEntityAttemptWorkflow,
@@ -25,7 +26,6 @@ import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import { UserWorkWorkflow } from "#modules/scripts/executions/user-work";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -54,7 +54,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessIntegrationRunWorkflow,
 		IntegrationSyncWorkflow,
 		ScriptExecutionWorkflow,
-		UserWorkWorkflow,
+		BackgroundWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,
 		CollectionMembershipWorkflow,
 		UserBootstrapWorkflow,

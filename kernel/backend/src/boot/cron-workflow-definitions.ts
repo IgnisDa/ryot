@@ -10,6 +10,7 @@ import type { UploadIntentsService } from "#modules/assets/uploads/intents";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
+import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackupsService } from "#modules/backups/service";
 import { EventStreamWorkService } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
@@ -37,6 +38,7 @@ const frequentCronTasks: ReadonlyArray<
 		| AutomationReconciliation
 		| AutomationRetention
 		| BackupsService
+		| BackgroundWorkService
 		| DatabaseSession
 		| EventStreamWorkService
 		| OAuthConnectionsService
@@ -73,6 +75,13 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	automationsFrequentTask,
+	{
+		name: "background-work-recovery",
+		run: () =>
+			Effect.flatMap(BackgroundWorkService, (service) => service.recover()).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("Background work recovery failed", cause)),
+			),
+	},
 	{
 		name: "event-stream-work-reconcile",
 		run: () =>

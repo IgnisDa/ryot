@@ -333,8 +333,8 @@ const event: CatalogTable = {
 				inner join event_stream s on s.id = w.id
 				inner join plugin g on g.id = s.event_schema_plugin_id
 				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = s.user_id
-				where p.event_id = ${sql.raw(sqlAlias)}.id and w.status = 'completed'
-				and w.claimed_revision = s.revision and w.plugin_revision_id = g.active_revision_id
+				where p.event_id = ${sql.raw(sqlAlias)}.id
+				and w.completed_revision = s.revision and w.plugin_revision_id = g.active_revision_id
 				and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
 					then g.environment_config_revision_id else i.active_config_revision_id end
 				and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null)`,
@@ -343,12 +343,13 @@ const event: CatalogTable = {
 			kind: "text",
 			nullable: false,
 			resolve: ({ sqlAlias }) => sql`coalesce((select case
-				when w.status = 'failed' then 'failed'
-				when w.status = 'completed' and w.claimed_revision = s.revision then 'ready'
+				when w.completed_revision = s.revision then 'ready'
+				when j.status = 'failed' then 'failed'
 				else 'pending' end
 				from event_stream s inner join event_stream_work w on w.id = s.id
 				inner join plugin g on g.id = s.event_schema_plugin_id
 				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = s.user_id
+				left join background_work j on j.id = w.current_job_id
 				where s.user_id = ${sql.raw(sqlAlias)}.user_id and s.entity_id = ${sql.raw(sqlAlias)}.entity_id
 				and s.event_schema_plugin_id is not distinct from ${sql.raw(sqlAlias)}.event_schema_plugin_id
 				and s.event_schema_slug = ${sql.raw(sqlAlias)}.event_schema_slug
@@ -414,9 +415,9 @@ const eventScope: CatalogTable = {
 	},
 };
 
-const userWork: CatalogTable = {
+const backgroundWork: CatalogTable = {
 	primaryKey: ["id"],
-	name: "script_work",
+	name: "background_work",
 	visibility: {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
@@ -450,8 +451,7 @@ const eventStreamWork: CatalogTable = {
 	name: "event_stream_work",
 	fields: {
 		id: physicalField("id", "text", false),
-		status: physicalField("status", "text", false),
-		claimedRevision: physicalField("claimed_revision", "number"),
+		completedRevision: physicalField("completed_revision", "number"),
 	},
 	visibility: {
 		user: {
@@ -1351,7 +1351,6 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
 	plugin,
-	userWork,
 	backupRun,
 	importRun,
 	savedView,
@@ -1367,6 +1366,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	signalSchema,
 	sandboxScript,
 	automationRun,
+	backgroundWork,
 	calendarSource,
 	oauthConnection,
 	eventProjection,

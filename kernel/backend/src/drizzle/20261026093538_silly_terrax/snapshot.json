@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "abbed54a-11bc-48f5-b1dc-42cc0ea6b1d5",
+	"id": "4013d47d-b9f8-4c95-981f-65ea410be7fa",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -22,6 +22,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "automation_trigger_recipient",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "background_work",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -311,7 +317,6 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{ "isRlsEnabled": false, "name": "script_work", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "session", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "two_factor", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "user", "entityType": "tables", "schema": "public" },
@@ -1646,6 +1651,175 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_trigger_recipient"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "error",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "scope",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "input_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "account_token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "purpose",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "payload",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "status",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
 		},
 		{
 			"type": "text",
@@ -4391,19 +4565,6 @@
 			"table": "event_stream"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "error",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_work"
-		},
-		{
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -4424,7 +4585,20 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "claimed_revision",
+			"name": "completed_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "current_job_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_work"
@@ -4476,7 +4650,7 @@
 			"default": "0",
 			"generated": null,
 			"identity": null,
-			"name": "attempt",
+			"name": "step",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_work"
@@ -4542,19 +4716,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "'queued'",
-			"generated": null,
-			"identity": null,
-			"name": "status",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_work"
@@ -9949,149 +10110,6 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "error",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "key",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "scope",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "input_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "payload",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "updated_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "status",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "ip_address",
 			"entityType": "columns",
 			"schema": "public",
@@ -11607,6 +11625,78 @@
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "automation_trigger_recipient"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "scope",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "background_work_scope_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "status",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "updated_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "background_work_pending_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "background_work"
 		},
 		{
 			"nameExplicit": true,
@@ -14029,49 +14119,6 @@
 					"asc": true,
 					"nullsFirst": false,
 					"opclass": null
-				},
-				{
-					"value": "plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "scope",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "created_at",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "script_work_scope_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
 				}
 			],
 			"isUnique": false,
@@ -14488,6 +14535,32 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "automation_trigger_recipient"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "background_work_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "background_work_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "background_work"
 		},
 		{
 			"nameExplicit": false,
@@ -15932,32 +16005,6 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
-			"name": "script_work_user_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "script_work_plugin_id_plugin_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "script_work"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
 			"name": "session_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -16165,6 +16212,14 @@
 			"name": "automation_trigger_pkey",
 			"schema": "public",
 			"table": "automation_trigger",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "background_work_pkey",
+			"schema": "public",
+			"table": "background_work",
 			"entityType": "pks"
 		},
 		{
@@ -16573,14 +16628,6 @@
 			"name": "saved_view_pkey",
 			"schema": "public",
 			"table": "saved_view",
-			"entityType": "pks"
-		},
-		{
-			"columns": ["id"],
-			"nameExplicit": false,
-			"name": "script_work_pkey",
-			"schema": "public",
-			"table": "script_work",
 			"entityType": "pks"
 		},
 		{
@@ -17139,20 +17186,6 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "entity_enrichment_request"
-		},
-		{
-			"value": "\"status\" in ('queued', 'running', 'completed', 'failed')",
-			"name": "event_stream_work_status_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "event_stream_work"
-		},
-		{
-			"value": "\"attempt\" >= 0",
-			"name": "event_stream_work_attempt_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "event_stream_work"
 		},
 		{
 			"value": "\"id\" is distinct from \"parent_id\"",

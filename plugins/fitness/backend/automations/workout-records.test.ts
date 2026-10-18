@@ -105,14 +105,8 @@ const recordingHost = (
 	workoutSetExercisePages?: readonly ReturnType<typeof workoutSetExercisePage>[],
 ) => {
 	const requests: unknown[] = [];
-	const workflows: unknown[] = [];
 	let pageIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeWorkflow: (name, reference, input) =>
-			Effect.sync(() => {
-				workflows.push({ name, input, reference });
-				return undefined;
-			}),
 		requestEventStreamWork: (request, reference) =>
 			Effect.sync(() => {
 				requests.push({ request, reference });
@@ -141,12 +135,12 @@ const recordingHost = (
 			});
 		},
 	});
-	return { host, requests, workflows };
+	return { host, requests };
 };
 
 describe("workout start change", () => {
 	it("requests record streams for every exercise in the workout when its start changes", () => {
-		const { host, requests, workflows } = recordingHost(undefined, [
+		const { host, requests } = recordingHost(undefined, [
 			workoutSetExercisePage(["exercise-1", "exercise-1", "exercise-2"], {
 				hasMore: true,
 				nextCursor: "event-cursor",
@@ -169,27 +163,18 @@ describe("workout start change", () => {
 							}),
 						),
 					);
-					expect(workflows).toEqual(
-						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
-							expect.objectContaining({
-								input: { id: `work-${entityId}` },
-								name: `workout-start-records:workout-1:${entityId}`,
-							}),
-						),
-					);
 				}),
 			),
 		);
 	});
 
 	it("requests nothing when the workout update leaves its start unchanged", () => {
-		const { host, requests, workflows } = recordingHost(undefined, []);
+		const { host, requests } = recordingHost(undefined, []);
 		return Effect.runPromise(
 			definition.run(workoutUpdateInput([]), host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(requests).toEqual([]);
-					expect(workflows).toEqual([]);
 				}),
 			),
 		);
@@ -197,7 +182,7 @@ describe("workout start change", () => {
 });
 
 describe("workout record automation", () => {
-	it("deduplicates before and after exercise streams and dispatches one worker per entity", () => {
+	it("deduplicates before and after exercise streams and requests work once per entity", () => {
 		const input = automationInput(
 			[
 				{
@@ -223,7 +208,7 @@ describe("workout record automation", () => {
 			],
 			"import",
 		);
-		const { host, requests, workflows } = recordingHost();
+		const { host, requests } = recordingHost();
 
 		return Effect.runPromise(
 			definition.run(input, host).pipe(
@@ -238,15 +223,6 @@ describe("workout record automation", () => {
 									referenceKind: "script",
 									scriptSlug: "script.workout-record-step",
 								}),
-							}),
-						),
-					);
-					expect(workflows).toHaveLength(3);
-					expect(workflows).toEqual(
-						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
-							expect.objectContaining({
-								input: { id: `work-${entityId}` },
-								name: `workout-records:${entityId}`,
 							}),
 						),
 					);
@@ -267,7 +243,7 @@ describe("workout record automation", () => {
 				after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
 			},
 		]);
-		const { host, requests, workflows } = recordingHost();
+		const { host, requests } = recordingHost();
 
 		return Effect.runPromise(
 			Effect.gen(function* () {
@@ -278,7 +254,6 @@ describe("workout record automation", () => {
 						request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
 					}),
 				]);
-				expect(workflows).toHaveLength(1);
 				const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
 				expect(hook).toMatchObject({
 					stage: "after",
@@ -319,20 +294,19 @@ describe("workout record automation", () => {
 				before: eventSnapshot("event-deleted", "deleted-exercise"),
 			},
 		]);
-		const { host, requests, workflows } = recordingHost([]);
+		const { host, requests } = recordingHost([]);
 
 		return Effect.runPromise(
 			definition.run(input, host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(requests).toEqual([]);
-					expect(workflows).toEqual([]);
 				}),
 			),
 		);
 	});
 
-	it("fails before requesting work when workflow dispatch is unavailable", () => {
+	it("requests work without explicit workflow dispatch", () => {
 		const input = automationInput([
 			{
 				resource: "event",
@@ -341,23 +315,19 @@ describe("workout record automation", () => {
 				after: eventSnapshot("event-1", "exercise-1"),
 			},
 		]);
-		const requests: unknown[] = [];
-		const host = defineSandboxTestHost(manifest, {
-			requestEventStreamWork: (request) =>
-				Effect.sync(() => {
-					requests.push(request);
-					return { workId: "work-1" };
-				}),
-		});
+		const { host, requests } = recordingHost();
 
 		return Effect.runPromise(
-			Effect.gen(function* () {
-				const error = yield* Effect.flip(definition.run(input, host));
-				expect(error).toMatchObject({
-					message: "Workout record stream requires workflow dispatch",
-				});
-				expect(requests).toEqual([]);
-			}),
+			definition.run(input, host).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(requests).toEqual([
+						expect.objectContaining({
+							request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
+						}),
+					]);
+				}),
+			),
 		);
 	});
 });

@@ -40,6 +40,7 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { BackgroundWorkService } from "#modules/background-work/service";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
@@ -357,10 +358,8 @@ const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"][
 		EventStreamWorkService,
 		EventStreamWorkService.of({
 			request,
-			fail: () => Effect.die("Unexpected EventStreamWorkService.fail"),
-			claim: () => Effect.die("Unexpected EventStreamWorkService.claim"),
+			failed: () => Effect.die("Unexpected EventStreamWorkService.failed"),
 			process: () => Effect.die("Unexpected EventStreamWorkService.process"),
-			dispatch: () => Effect.die("Unexpected EventStreamWorkService.dispatch"),
 			reconcile: () => Effect.die("Unexpected EventStreamWorkService.reconcile"),
 		}),
 	);
@@ -664,6 +663,7 @@ const hostFunctionsLayer = (
 				}),
 			);
 			return Layer.mergeAll(
+				BackgroundWorkService.layer,
 				RelationshipMutationPipeline.layer,
 				SandboxSubmissionCommands.layer,
 				Layer.succeed(UserCommands, { commit: () => Effect.die("Unexpected atomic command") }),

@@ -328,10 +328,10 @@ calls. Exact patch shapes, limits, and replay identities are in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
 Event-stream processors use `EventStreamStepInput`/`EventStreamStepOutput` from
-`@ryot-app/plugin-backend-sdk/event-streams`. `requestEventStreamWork` registers an owned schema and
-same-revision processor with declared output properties; registration does not dispatch. Start work
-with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId })` using that SDK's
-reference. The kernel restricts updates to those properties.
+`@ryot-app/plugin-backend-sdk/event-streams`. `requestEventStreamWork` admits one step for an owned
+event schema and same-revision processor with declared output properties. The common kernel
+background-work owner dispatches the step; plugins do not call `executeWorkflow` for event-stream
+work. The kernel restricts updates to the declared output properties and owns publication freshness.
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).

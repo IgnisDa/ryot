@@ -1,7 +1,6 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { sql } from "drizzle-orm";
-import { check, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+import { integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -22,34 +21,20 @@ export const eventStream = snakeCase.table("event_stream", {
 		.references(() => entity.id, { onDelete: "cascade" }),
 });
 
-export const eventStreamWork = snakeCase.table(
-	"event_stream_work",
-	{
-		error: text(),
-		dirtyFrom: timestamptz(),
-		claimedRevision: integer(),
-		accountToken: text().notNull(),
-		pluginRevisionId: text().notNull(),
-		processorScriptId: text().notNull(),
-		attempt: integer().notNull().default(0),
-		pluginPin: jsonb().$type<JsonValue>().notNull(),
-		updatedAt: timestamptz().defaultNow().notNull(),
-		outputSchema: jsonb().$type<AppSchema>().notNull(),
-		checkpoint: jsonb().$type<JsonValue>().default(null),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.references(() => eventStream.id, { onDelete: "cascade" }),
-		status: text()
-			.$type<"queued" | "running" | "completed" | "failed">()
-			.notNull()
-			.default("queued"),
-	},
-	(table) => [
-		check(
-			"event_stream_work_status_check",
-			sql`${table.status} in ('queued', 'running', 'completed', 'failed')`,
-		),
-		check("event_stream_work_attempt_check", sql`${table.attempt} >= 0`),
-	],
-);
+export const eventStreamWork = snakeCase.table("event_stream_work", {
+	currentJobId: text(),
+	dirtyFrom: timestamptz(),
+	completedRevision: integer(),
+	accountToken: text().notNull(),
+	pluginRevisionId: text().notNull(),
+	processorScriptId: text().notNull(),
+	step: integer().notNull().default(0),
+	pluginPin: jsonb().$type<JsonValue>().notNull(),
+	updatedAt: timestamptz().defaultNow().notNull(),
+	outputSchema: jsonb().$type<AppSchema>().notNull(),
+	checkpoint: jsonb().$type<JsonValue>().default(null),
+	id: text()
+		.notNull()
+		.primaryKey()
+		.references(() => eventStream.id, { onDelete: "cascade" }),
+});

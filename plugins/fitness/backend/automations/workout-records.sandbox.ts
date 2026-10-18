@@ -5,7 +5,6 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
-	kernelDispatch,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -60,10 +59,7 @@ type EntityUpdate = Extract<
 	AutomationInput["automation"]["payload"],
 	{ operation: "update"; resource: "entity" }
 >;
-type AutomationHost = Pick<
-	ScriptHost,
-	"executeRyotql" | "executeWorkflow" | "requestEventStreamWork"
->;
+type AutomationHost = Pick<ScriptHost, "executeRyotql" | "requestEventStreamWork">;
 
 type EventBatchItem = Extract<
 	AutomationInput["automation"]["payload"],
@@ -103,26 +99,10 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 			);
 			const exerciseIds = new Set(page.items.map(({ entityId }) => entityId));
 			for (const entityId of exerciseIds) {
-				if (!("executeWorkflow" in host)) {
-					return yield* Effect.fail(
-						new WorkoutRecordAutomationError("Workout record stream requires workflow dispatch"),
-					);
-				}
-				const work = yield* host.requestEventStreamWork(
+				yield* host.requestEventStreamWork(
 					{ entityId, eventSchemaSlug: workoutSetSchemaSlug },
 					recordStepReference,
 				);
-				const dispatch = host.executeWorkflow?.(
-					`workout-start-records:${workout.after.id}:${entityId}`,
-					kernelDispatch,
-					{ id: work.workId },
-				);
-				if (dispatch === undefined) {
-					return yield* Effect.fail(
-						new WorkoutRecordAutomationError("Workout record stream requires workflow dispatch"),
-					);
-				}
-				yield* dispatch;
 			}
 			hasMore = page.pageInfo.hasMore;
 			if (hasMore && page.pageInfo.nextCursor === null) {
@@ -159,11 +139,6 @@ export default defineAutomation({
 			if (streams.size === 0) {
 				return null;
 			}
-			if (!("executeWorkflow" in host)) {
-				return yield* Effect.fail(
-					new WorkoutRecordAutomationError("Workout record stream requires workflow dispatch"),
-				);
-			}
 			const existingExercises = yield* executeRyotqlRecipe(
 				host.executeRyotql,
 				existingExerciseIdsRecipe({
@@ -177,19 +152,7 @@ export default defineAutomation({
 				if (!existingExerciseIds.has(entityId)) {
 					continue;
 				}
-				const work = yield* host.requestEventStreamWork(
-					{ entityId, eventSchemaSlug },
-					recordStepReference,
-				);
-				const dispatch = host.executeWorkflow?.(`workout-records:${entityId}`, kernelDispatch, {
-					id: work.workId,
-				});
-				if (dispatch === undefined) {
-					return yield* Effect.fail(
-						new WorkoutRecordAutomationError("Workout record stream requires workflow dispatch"),
-					);
-				}
-				yield* dispatch;
+				yield* host.requestEventStreamWork({ entityId, eventSchemaSlug }, recordStepReference);
 			}
 			return null;
 		}),

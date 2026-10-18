@@ -6,7 +6,6 @@ import {
 import {
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_EVENT_CREATE_WORKFLOW,
-	KERNEL_EVENT_STREAM_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
@@ -26,7 +25,7 @@ import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { DateTime, Effect, Exit, Layer, Option, Schema } from "effect";
+import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -48,8 +47,6 @@ import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
-import { EventStreamRepository } from "#modules/events/stream-repository";
-import { EventStreamDispatchWorkflow } from "#modules/events/stream-work";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
@@ -63,9 +60,7 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	samePluginPin,
-	sameRevisionPin,
 	type ScriptExecutionPrincipal,
-	ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { DatabaseSession } from "#platform/db/session";
@@ -86,8 +81,6 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 		Schema.check(Schema.isMaxLength(PROVIDER_ENTITY_POPULATION_MAX_ITEMS)),
 	),
 });
-
-const EventStreamDispatchReferenceInput = Schema.Struct({ id: Schema.String });
 
 const wireLifecycleCommand = (
 	callerAuthority: ScriptExecutionPrincipal,
@@ -142,7 +135,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
 		const imports = yield* ImportsRepository;
-		const eventStreams = yield* EventStreamRepository;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
 		const artifacts = yield* ExecutionFileStore;
@@ -206,7 +198,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
-						workflowSlug !== KERNEL_EVENT_STREAM_WORKFLOW &&
 						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
 						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW &&
 						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
@@ -345,79 +336,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						});
 					}
 					const engine = yield* WorkflowEngine;
-					if (workflowSlug === KERNEL_EVENT_STREAM_WORKFLOW) {
-						const decoded = yield* Schema.decodeUnknownEffect(EventStreamDispatchReferenceInput)(
-							input,
-						).pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({
-										kind: "invalid-input",
-										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
-									}),
-							),
-						);
-						const work = yield* eventStreams
-							.get(decoded.id)
-							.pipe(
-								Effect.mapError(
-									(error) =>
-										new SandboxRunError({
-											kind: "infrastructure",
-											message: unknownToMessage(error),
-										}),
-								),
-							);
-						if (!work || work.key.userId !== userId) {
-							return yield* new SandboxRunError({
-								kind: "script-failure",
-								message: "Event stream work does not belong to the executing user",
-							});
-						}
-						const workPin = Option.getOrNull(
-							Schema.decodeUnknownOption(ScriptPluginRevision)(work.pluginPin),
-						);
-						if (
-							!callerPlugin ||
-							work.key.eventSchemaPluginId !== callerPlugin.id ||
-							workPin?.id !== callerPlugin.id ||
-							!sameRevisionPin(workPin, callerPlugin)
-						) {
-							return yield* new SandboxRunError({
-								kind: "script-failure",
-								message: "Event stream work does not match the exact caller plugin pin",
-							});
-						}
-						const accountGeneration =
-							subject.type === "user" || subject.type === "automation-run"
-								? subject.accountGeneration
-								: undefined;
-						if (!accountGeneration) {
-							return yield* new SandboxRunError({
-								kind: "script-failure",
-								message: "Event stream work dispatch requires a user execution",
-							});
-						}
-						yield* dispatchAdmittedWorkflow(
-							receipts,
-							engine,
-							EventStreamDispatchWorkflow,
-							accountGeneration,
-							{ executionId, payload: { id: decoded.id, requestId: executionId } },
-							admit,
-							(execution) =>
-								execution.pipe(
-									Effect.mapError(
-										(error) =>
-											new SandboxRunError({
-												kind: "infrastructure",
-												message: unknownToMessage(error),
-											}),
-									),
-								),
-						);
-						return null;
-					}
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");

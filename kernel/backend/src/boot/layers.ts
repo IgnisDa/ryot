@@ -33,6 +33,8 @@ import {
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
 import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-workflow-live";
+import { BackgroundWorkService } from "#modules/background-work/service";
+import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
 import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/workflow";
 import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
 import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
@@ -69,8 +71,7 @@ import {
 	EventsServiceLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
-import { EventStreamRepository } from "#modules/events/stream-repository";
-import { EventStreamWorkflowDefinitionsLive } from "#modules/events/stream-work";
+import { EventProjectionFinalizerLive } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -126,7 +127,8 @@ import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerProvidedLive, PluginCronServiceLive } from "#modules/scheduler/layer";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
-import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stream-processor";
+import { BackgroundWorkExecutorLive } from "#modules/scripts/executions/background-work";
+import { EventProjectionBindingsLive } from "#modules/scripts/executions/event-projection-bindings";
 import { SandboxExecutionQueueStoreLive } from "#modules/scripts/executions/queues";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
@@ -205,15 +207,14 @@ const ServicesLive = Layer.mergeAll(
 	AuthServiceLive,
 	AutomationHistoryServiceLive,
 	BackupServicesLive,
+	BackgroundWorkService.layer,
 	CollectionsServiceLive,
 	EntitiesServiceRuntimeLive,
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EntityPopulationRetryServiceLive,
 	EventsServiceLive,
-	EventStreamWorkServiceLive.pipe(
-		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(ScriptExecutionServiceLive))),
-	),
+	EventStreamWorkServiceLive.pipe(Layer.provide(EventProjectionBindingsLive)),
 	InstanceAdminServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
@@ -277,7 +278,9 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsProvidedLive,
-	EventStreamWorkflowDefinitionsLive,
+	BackgroundWorkWorkflowLive.pipe(
+		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, EventProjectionFinalizerLive)),
+	),
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
@@ -311,7 +314,6 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 					Layer.mergeAll(
 						ImportsRepository.layer,
 						IngestionCaptures.layer,
-						EventStreamRepository.layer,
 						IntegrationsRepository.layer,
 						PluginRuntimeResolverLive,
 						SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),

@@ -27,7 +27,9 @@ immutable, enforced by a startup-installed database trigger.
 ## Durable Execution
 
 Feature Layers compose dependencies; boot composes features. Upward effects use generic durable
-queue hooks or transaction-scoped ports rather than reverse module dependencies.
+queue hooks or transaction-scoped ports rather than reverse module dependencies. The common
+[background-work owner](src/modules/background-work/README.md) admits pinned user scripts and event
+projection steps in their owning transaction, dispatches after commit, and recovers admitted work.
 `LifecyclePlanner` persists source-write planning, immutable triggers, recipients, and pinned runs in
 the caller's transaction. It executes neither sandbox code nor workflows; execution starts after
 commit. Provider population composes the import workflow, and external event creation runs
@@ -40,6 +42,7 @@ bodies. Public and service-owned event creates await `EventCreateWorkflow`; call
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
 [mutation admission](src/modules/mutations/README.md), [events and projections](src/modules/events/README.md),
+[background work](src/modules/background-work/README.md),
 [user commands](src/modules/user-commands/README.md), [imports](src/modules/imports/README.md),
 [script execution](src/modules/scripts/README.md), and [sandbox isolation](../sandbox/README.md).
 

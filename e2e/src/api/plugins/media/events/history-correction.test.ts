@@ -33,7 +33,7 @@ const eventsFor = (client: Parameters<typeof listEventsForEntity>[0], entityId: 
 	listEventsForEntity(client, entityId, undefined, 100);
 
 const workRecipe = defineRecipe(() => {
-	const work = table("userWork", "work");
+	const work = table("backgroundWork", "work");
 	return {
 		map: ({ work: rows }) => Result.succeed(rows),
 		queries: {
