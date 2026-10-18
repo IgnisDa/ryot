@@ -66,6 +66,9 @@ realm across locations, so the initial page context is not a navigation state so
 Client code runs in an opaque-origin iframe without `localStorage`; keep per-device preferences with
 the client SDK's `usePluginStorage`.
 
+Plugins can request a kernel-rendered fixed card through `client.iosLiveActivities`; the client SDK
+documents its Effect API and lifecycle.
+
 Backend areas group entrypoints under `automations/`, `bootstrap/`, `imports/`, `integrations/`,
 `operations/`, `workflows/`, and `providers/`; cross-area code belongs in `backend/lib/`.
 

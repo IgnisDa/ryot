@@ -157,6 +157,27 @@ iOS suppresses notification presentation while foregrounded; plugins own foregro
 Returning to the app clears delivered local alerts without cancelling pending alerts or their tap
 targets.
 
+### iOS Live Activities
+
+The kernel registers the native capability with its custom bridge view controller and renders
+ActivityKit cards in the Live Activities widget extension. The iOS 16.2 feature does not change the
+app's iOS 15 minimum; Android and web are unsupported. Debug and release widget-extension identifiers
+are `io.ryot.app.dev.liveactivities` and `io.ryot.app.liveactivities`.
+
+The kernel derives an opaque native owner from server, user, and installation scope; native IDs never
+reach plugins. There is at most one active card per installation and four across the app, subject to
+OS limits. Cards survive iframe eviction. Scope changes, logout, and plugin catalog removal end
+cards; hiding a plugin does not. The native registry recovers ActivityKit activities and retains
+ended or dismissed keys in a bounded 128-record registry; terminal records older than eight hours
+are pruned when a new activity starts.
+
+The system renders timer values from dates without per-second JavaScript or native updates. A stale
+date does not act as an exact alarm or continue timer progression; notifications use the separate
+scheduled-alert capability. The feature uses no third-party package, app group, or push service. The
+native recovery policy is pure Swift, and the App compiles the same policy source. Run its tests with
+`swift test --package-path kernel/client/ios/LiveActivityPolicy` from the repository root. Acceptance
+also requires a physical iOS device with the debugger detached.
+
 Android scheduling first creates an inexact alert, then upgrades through the non-prompting update
 API when exact-alarm access is available. This avoids an automatic Settings redirect if permission
 changes during scheduling. Revocation and Doze can still delay or remove alerts. Audible alerts use

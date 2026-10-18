@@ -46,6 +46,8 @@ import {
 import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import { makeOAuthReturnCapture, OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { IntegrationsService } from "#/modules/integrations/service";
+import { unsupportedIosLiveActivityPlatform } from "#/modules/ios-live-activities/platform.test-layer";
+import { IosLiveActivitiesService } from "#/modules/ios-live-activities/service";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
@@ -126,9 +128,12 @@ export const NavigationRouteStubs = Layer.succeed(NavigationService, {
 	load: () => Effect.succeed(navigationData),
 });
 
-export const DeviceRouteStubs = DeviceService.layer.pipe(
-	Layer.provide(makeClientStorage()),
-	Layer.provide(Layer.succeed(DevicePlatform, noopDevicePlatform)),
+export const DeviceRouteStubs = Layer.mergeAll(
+	IosLiveActivitiesService.layer.pipe(Layer.provide(unsupportedIosLiveActivityPlatform)),
+	DeviceService.layer.pipe(
+		Layer.provide(makeClientStorage()),
+		Layer.provide(Layer.succeed(DevicePlatform, noopDevicePlatform)),
+	),
 );
 
 export const makeCustomizeStub = (

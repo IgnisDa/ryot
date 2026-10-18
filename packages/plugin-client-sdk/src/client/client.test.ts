@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Fiber, Result, Schema } from "effect";
 
@@ -219,6 +219,42 @@ describe("Effect-native client capabilities", () => {
 			);
 			expect(yield* Effect.flip(canonical.assets.resolve([asset]))).toBe(failure);
 			expect(yield* Effect.flip(unexpected.data.query(recipe))).toMatchObject({
+				reason: "transport",
+			});
+		}),
+	);
+
+	it.live("validates iOS live activity results and preserves adapter failures", () =>
+		Effect.gen(function* () {
+			const request = { pluginId: PluginId.make("fixture") };
+			const received: unknown[] = [];
+			const client = createRyotClient(
+				createTestRyotAdapter({
+					iosLiveActivity: (value) =>
+						Effect.sync(() => {
+							received.push(value);
+							return { status: "unsupported" };
+						}),
+				}),
+			);
+			expect(yield* client.iosLiveActivities.availability(request)).toEqual({
+				status: "unsupported",
+			});
+			expect(received).toEqual([{ ...request, action: "availability" }]);
+
+			const malformed = createRyotClient(
+				createTestRyotAdapter({ iosLiveActivity: () => Effect.succeed({ status: "invalid" }) }),
+			);
+			expect(yield* Effect.flip(malformed.iosLiveActivities.list(request))).toMatchObject({
+				reason: "malformed-result",
+			});
+
+			const failed = createRyotClient(
+				createTestRyotAdapter({
+					iosLiveActivity: () => Effect.fail(new RyotClientError("transport")),
+				}),
+			);
+			expect(yield* Effect.flip(failed.iosLiveActivities.availability(request))).toMatchObject({
 				reason: "transport",
 			});
 		}),

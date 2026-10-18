@@ -53,6 +53,8 @@ import {
 	type PluginStorageRequest,
 	type PluginDeviceRequest,
 	type PluginDeviceOutcome,
+	type PluginIosLiveActivityRequest,
+	type PluginIosLiveActivityOutcome,
 	type ProviderSearchScreenOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
@@ -96,6 +98,7 @@ type PendingRequest = {
 		| "asset"
 		| "collection"
 		| "external-link"
+		| "ios-live-activity"
 		| "operation"
 		| "provider-search-screen"
 		| "ryotql"
@@ -105,6 +108,9 @@ type PendingRequest = {
 
 type PluginBridgeOptions = {
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onIosLiveActivity: (
+		request: PluginIosLiveActivityRequest,
+	) => Effect.Effect<PluginIosLiveActivityOutcome>;
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
 	readonly compositionHash: string;
@@ -595,6 +601,16 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							runRequest(requestId, "device", (): Effect.Effect<PluginDeviceOutcome> =>
 								options.onDevice(request),
 							),
+						),
+						Match.when(
+							{ type: "ios-live-activity-request" },
+							({ requestId, type: _type, ...request }) =>
+								runRequest(
+									requestId,
+									"ios-live-activity",
+									(): Effect.Effect<PluginIosLiveActivityOutcome> =>
+										options.onIosLiveActivity(request),
+								),
 						),
 						Match.when({ type: "entity-watches" }, ({ visible, foreground }) => {
 							const declaration = { visible, foreground };

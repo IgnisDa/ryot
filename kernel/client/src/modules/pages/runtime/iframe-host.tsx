@@ -22,6 +22,8 @@ import type {
 	PluginStorageRequest,
 	PluginDeviceRequest,
 	PluginDeviceOutcome,
+	PluginIosLiveActivityRequest,
+	PluginIosLiveActivityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
@@ -120,6 +122,9 @@ export function PageIframeHost(props: {
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onIosLiveActivity: (
+		request: PluginIosLiveActivityRequest,
+	) => Effect.Effect<PluginIosLiveActivityOutcome>;
 	readonly onFlushReady: (flush: (() => Effect.Effect<boolean>) | undefined) => void;
 	readonly onReleaseResources: () => void;
 }) {
@@ -378,6 +383,7 @@ export function PageIframeHost(props: {
 			onCollection: (request) => latest.current.onCollection(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
 			onProviderSearch: (request) => latest.current.onProviderSearch(request),
+			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onFailure: () => {

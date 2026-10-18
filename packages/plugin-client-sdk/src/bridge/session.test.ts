@@ -169,6 +169,64 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("correlates iOS live activity results and fails pending calls on disposal", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const request = { pluginId: PluginId.make("fixture") };
+			const call = yield* Effect.forkChild(runtime.client.iosLiveActivities.availability(request), {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "ios-live-activity-request")).toEqual([
+				{
+					pluginId: "fixture",
+					action: "availability",
+					requestId: "ios-live-activity-1",
+					type: "ios-live-activity-request",
+				},
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { status: "available" },
+				type: "ios-live-activity-result",
+				requestId: "ios-live-activity-stale",
+			});
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { status: "available" },
+				requestId: "ios-live-activity-1",
+				type: "ios-live-activity-result",
+			});
+			expect(yield* Fiber.join(call)).toEqual({ status: "available" });
+			const failed = yield* Effect.forkChild(
+				Effect.result(runtime.client.iosLiveActivities.list(request)),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "ios-live-activity-2",
+				type: "ios-live-activity-result",
+			});
+			expect(yield* Fiber.join(failed)).toMatchObject({
+				_tag: "Failure",
+				failure: { reason: "transport" },
+			});
+
+			const disposed = yield* Effect.forkChild(
+				Effect.result(runtime.client.iosLiveActivities.list(request)),
+				{ startImmediately: true },
+			);
+			runtime.dispose();
+			expect(yield* Fiber.join(disposed)).toMatchObject({
+				_tag: "Failure",
+				failure: { reason: "disposed" },
+			});
+		}),
+	);
+
 	it.live("correlates provider-search success and ignores stale results", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

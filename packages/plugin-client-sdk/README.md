@@ -97,6 +97,41 @@ Haptics use `kind: "impact"` for pickup and `kind: "selection"` for reorder drop
 Scheduled alerts own their completion sound; callers must not duplicate it with application audio
 when scheduling reports `scheduled` or `inexact`. Muting uses a silent alert instead.
 
+`client.iosLiveActivities` provides `availability`, `start`, `update`, `end`, and `list` Effects. Every
+request includes `pluginId`; `start` and `update` also require a key and complete content, while
+`update` never creates an activity. `end` accepts optional final content and `dismissalSeconds` from
+0 to 30. `list` is scoped to that plugin. Starting requires the calling plugin frame to be active in
+the foreground. This capability is supported on iOS 16.2 and later; Android and web are unsupported.
+
+Content requires a title, status, primary value, icon, tone, and metrics array (up to two label/value
+pairs). Values can be text, duration, elapsed time from an ISO timestamp, or a countdown with ISO
+start and deadline timestamps. Optional fields are detail, secondary value, progress from 0 to 1, and
+staleness date/message. Content is limited to 3072 UTF-8 bytes; the native host also checks that the
+combined attributes and content remain below 4096 bytes.
+
+```ts
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+
+const startActivity = Effect.gen(function* () {
+	const startedAt = draft.startedAt;
+	if (startedAt === undefined) {
+		return;
+	}
+	return yield* client.iosLiveActivities.start({
+		pluginId,
+		key: `workout:${draft.draftId}`,
+		content: {
+			title: "Workout",
+			status: "In progress",
+			primary: { kind: "elapsed", label: "Active", startedAt },
+			icon: "activity",
+			tone: "accent",
+			metrics: [{ label: "Sets", value: "3/8" }],
+		},
+	});
+});
+```
+
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
 most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
