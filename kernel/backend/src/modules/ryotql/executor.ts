@@ -259,6 +259,9 @@ const compileCast = (
 		const sqlType = castSqlType(expr.target);
 		return sql`(CASE WHEN ${safeInputValid(source, expr.target)} THEN ${source} END)::${sql.raw(sqlType)}`;
 	}
+	if (expr.target === "text") {
+		return compileTextValue(expr.expr, scope);
+	}
 	return typedNull(expr.target);
 };
 
