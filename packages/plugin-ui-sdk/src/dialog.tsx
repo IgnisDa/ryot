@@ -13,9 +13,9 @@ const containerClasses = {
 } as const;
 
 const panelClasses = {
-	side: "h-full max-w-md animate-sheet-in motion-reduce:animate-none",
-	sheet: "max-h-[92%] rounded-t-xl animate-sheet-up motion-reduce:animate-none",
-	center: "max-h-[min(90%,48rem)] animate-dialog-in rounded-xl motion-reduce:animate-none",
+	side: "h-full max-w-md",
+	sheet: "max-h-[92%] rounded-t-xl",
+	center: "max-h-[min(90%,48rem)] rounded-xl",
 } as const;
 
 export function Dialog(props: {
@@ -39,6 +39,7 @@ export function Dialog(props: {
 	return (
 		<Modal
 			labelledBy={titleId}
+			placement={placement}
 			onClose={props.onClose}
 			closeLabel={props.closeLabel}
 			triggerRef={props.triggerRef}
