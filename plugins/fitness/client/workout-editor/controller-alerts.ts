@@ -124,7 +124,7 @@ export const createAlertSynchronizer = (host: {
 		if (now === undefined || !Number.isFinite(now) || now - pulseAt > 500 || !canPulse()) {
 			return;
 		}
-		yield* runDevice({ action: "haptic", pluginId: ports.pluginId });
+		yield* runDevice({ kind: "impact", action: "haptic", pluginId: ports.pluginId });
 	});
 
 	const cancelTimerCallbacks = () => {

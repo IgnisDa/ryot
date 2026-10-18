@@ -127,12 +127,22 @@ describe("plugin Effect request engine", () => {
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const call = yield* Effect.forkChild(
-				runtime.client.device({ action: "haptic", pluginId: PluginId.make("fixture") }),
+				runtime.client.device({
+					kind: "impact",
+					action: "haptic",
+					pluginId: PluginId.make("fixture"),
+				}),
 				{ startImmediately: true },
 			);
 			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "device-request")).toEqual([
-				{ action: "haptic", pluginId: "fixture", requestId: "device-1", type: "device-request" },
+				{
+					kind: "impact",
+					action: "haptic",
+					pluginId: "fixture",
+					requestId: "device-1",
+					type: "device-request",
+				},
 			]);
 			channel.port1.postMessage({
 				outcome: "success",
@@ -143,7 +153,11 @@ describe("plugin Effect request engine", () => {
 			expect(yield* Fiber.join(call)).toEqual({ status: "unsupported" });
 			const disposed = yield* Effect.forkChild(
 				Effect.result(
-					runtime.client.device({ action: "haptic", pluginId: PluginId.make("fixture") }),
+					runtime.client.device({
+						kind: "impact",
+						action: "haptic",
+						pluginId: PluginId.make("fixture"),
+					}),
 				),
 				{ startImmediately: true },
 			);
