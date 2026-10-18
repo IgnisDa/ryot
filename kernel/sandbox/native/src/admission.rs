@@ -252,7 +252,7 @@ impl CpuLease {
     pub(crate) fn resume_after_inline(&self) -> bool {
         let mut stopping = self.entry.stop_receiver();
         let acquire = self.slots.acquire(self.lane);
-        let slot = deno_core::futures::executor::block_on(async move {
+        let slot = deno_core::futures::executor::block_on(tokio::task::unconstrained(async move {
             if *stopping.borrow() {
                 None
             } else {
@@ -262,7 +262,7 @@ impl CpuLease {
                     slot = acquire => Some(slot),
                 }
             }
-        });
+        }));
         let mut state = self.entry.state();
         state.sync_waiting_since = None;
         let Some(slot) = slot.filter(|_| {
