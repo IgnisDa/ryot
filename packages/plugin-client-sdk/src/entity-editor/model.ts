@@ -1,5 +1,6 @@
 import { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import type { EntityEditorSubmission } from "@ryot-app/contract/modules/entities/editor";
+import type { EntityEditorSaveSubmission } from "@ryot-app/contract/modules/entities/editor";
+import type { PluginEntityEditorRelationship } from "@ryot-app/contract/modules/plugins/manifest";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -26,7 +27,8 @@ export type EditorRelationshipDefinition = {
 	readonly name: string;
 	readonly slug: string;
 	readonly propertiesSchema: AppSchema;
-	readonly targetEntitySchemaSlug: string | null;
+	readonly relatedEntitySchemaSlug: string;
+	readonly direction: PluginEntityEditorRelationship["direction"];
 };
 
 export type EditorRelationshipTargets = Readonly<
@@ -101,9 +103,10 @@ export const buildSubmission = (input: {
 	name: string;
 	entitySchema: EntitySchemaReference;
 	properties: Record<string, unknown>;
-	target: EntityEditorSubmission["target"];
+	target: EntityEditorSaveSubmission["target"];
 	relationships: EditorRelationshipTargets;
-}): EntityEditorSubmission => ({
+}): EntityEditorSaveSubmission => ({
+	action: "save",
 	target: input.target,
 	name: input.name.trim(),
 	properties: input.properties,
@@ -113,7 +116,7 @@ export const buildSubmission = (input: {
 
 export const entityRelationshipPayload = (
 	relationships: EditorRelationshipTargets,
-): EntityEditorSubmission["relationships"] =>
+): EntityEditorSaveSubmission["relationships"] =>
 	Object.entries(relationships).map(([relationshipSchemaSlug, targets]) => ({
 		relationshipSchemaSlug,
 		targets: targets.map(({ entityId, properties }) => ({

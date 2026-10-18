@@ -38,6 +38,7 @@ const requestFor = (
 	submittedAt: "2026-10-19T00:00:00.000Z",
 	submission: {
 		name: "Item",
+		action: "save",
 		properties: {},
 		relationships: [],
 		target: { kind: "create" },

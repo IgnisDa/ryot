@@ -1,7 +1,7 @@
 import {
 	type EntityEditorSaveOutput,
 	type EntityEditorSaveRequest,
-	type EntityEditorSubmission,
+	type EntityEditorSaveSubmission,
 	retryableEntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
@@ -59,7 +59,8 @@ export function InlineEntityCreate(props: {
 		}
 		setNameError(undefined);
 		setStatus({ kind: "saving" });
-		const submission: EntityEditorSubmission = {
+		const submission: EntityEditorSaveSubmission = {
+			action: "save",
 			name: name.trim(),
 			relationships: [],
 			target: { kind: "create" },

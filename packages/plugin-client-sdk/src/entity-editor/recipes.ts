@@ -71,6 +71,10 @@ export const entityEditorRelationshipDefinitionsRecipe = defineRecipe(
 						name: selectedField(column(definition, "name"), Schema.String),
 						slug: selectedField(column(definition, "slug"), Schema.String),
 						propertiesSchema: selectedField(column(definition, "propertiesSchema"), AppSchema),
+						sourceEntitySchemaSlug: selectedField(
+							column(definition, "sourceEntitySchemaSlug"),
+							Schema.NullOr(Schema.String),
+						),
 						targetEntitySchemaSlug: selectedField(
 							column(definition, "targetEntitySchemaSlug"),
 							Schema.NullOr(Schema.String),
@@ -119,13 +123,18 @@ export const entityEditorEntityRecipe = defineRecipe(
 
 export const entityEditorRelationshipsRecipe = defineRecipe(
 	(input: {
+		readonly entityId: string;
 		readonly slugs: readonly string[];
-		readonly sourceEntityId: string;
 		readonly after?: string | undefined;
+		readonly direction: "outgoing" | "incoming";
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const relationship = table("relationship", "editorRelationship");
-		const target = table("entity", "editorRelationshipTarget");
+		const related = table("entity", "editorRelationshipRelated");
+		const [ownEnd, relatedEnd] =
+			input.direction === "outgoing"
+				? (["sourceEntityId", "targetEntityId"] as const)
+				: (["targetEntityId", "sourceEntityId"] as const);
 		return {
 			map: ({ relationships }) => Result.succeed(relationships),
 			queries: {
@@ -134,17 +143,17 @@ export const entityEditorRelationshipsRecipe = defineRecipe(
 					limit: ENTITY_EDITOR_PAGE_SIZE,
 					orderBy: [ascending(column(relationship, "id"))],
 					joins: [
-						join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+						join("inner", related, eq(column(relationship, relatedEnd), column(related, "id"))),
 					],
 					where: and(
-						eq(column(relationship, "sourceEntityId"), literal(input.sourceEntityId)),
+						eq(column(relationship, ownEnd), literal(input.entityId)),
 						inArray(column(relationship, "relationshipSchemaSlug"), input.slugs.map(literal)),
 						schemaOwnerPredicate(relationship, "relationshipSchemaPluginId", input.reference),
 					),
 					selection: {
-						name: selectedField(column(target, "name"), Schema.String),
+						name: selectedField(column(related, "name"), Schema.String),
+						entityId: selectedField(column(relationship, relatedEnd), EntityId),
 						properties: selectedField(column(relationship, "properties"), Properties),
-						entityId: selectedField(column(relationship, "targetEntityId"), EntityId),
 						slug: selectedField(column(relationship, "relationshipSchemaSlug"), Schema.String),
 						userId: selectedField(column(relationship, "userId"), Schema.NullOr(Schema.String)),
 					},

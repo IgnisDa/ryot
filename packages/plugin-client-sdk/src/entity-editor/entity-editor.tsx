@@ -5,7 +5,14 @@ import {
 } from "@ryot-app/contract/modules/entities/editor";
 import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
+import {
+	ActionForm,
+	Button,
+	DestructiveConfirmation,
+	Field,
+	StatusMessage,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
 import {
 	type SchemaAssetUpload,
 	SchemaForm,
@@ -42,20 +49,28 @@ import {
 	entityEditorEntityRecipe,
 	entityEditorRelationshipDefinitionsRecipe,
 	entityEditorRelationshipsRecipe,
+	entityEditorTargetsRecipe,
 } from "./recipes";
 import { RelationshipSection } from "./relationship-section";
 import { schemaFormIcons } from "./schema-form-icons";
 
 type EntityEditorMode =
 	| { readonly kind: "edit"; readonly entityId: string }
-	| { readonly kind: "create"; readonly seedEntityId?: string; readonly initialName?: string };
+	| {
+			readonly kind: "create";
+			readonly seedEntityId?: string;
+			readonly initialName?: string;
+			readonly initialProperties?: EditorProperties;
+			readonly parents?: Readonly<Record<string, string>>;
+	  };
 
 export type EntityEditorProps = {
 	readonly onCancel: () => void;
 	readonly mode: EntityEditorMode;
 	readonly entitySchemaSlug: string;
 	readonly packageId: PluginPackageId;
-	readonly onSaved: (entityId: string) => void;
+	readonly onSaved: (entityId: string, parentEntityId: string | undefined) => void;
+	readonly onDeleted: () => void;
 };
 
 const editorTitle = (mode: EntityEditorMode, entityName: string) =>
@@ -63,13 +78,18 @@ const editorTitle = (mode: EntityEditorMode, entityName: string) =>
 
 const STALE_MESSAGE = "This changed elsewhere. Reload and try again.";
 const SAVE_FAILED_MESSAGE = "Could not save. Try again.";
+const DELETE_FAILED_MESSAGE = "Could not delete. Try again.";
 
 type DefinitionsInput = { readonly entitySchemaSlug: string; readonly packageId: PluginPackageId };
 
 type SourceInput = DefinitionsInput & {
 	readonly forEdit: boolean;
 	readonly entityId: string | null;
-	readonly relationshipSlugs: readonly string[];
+	readonly parents: Readonly<Record<string, string>>;
+	readonly relationships: readonly Pick<
+		EditorRelationshipDefinition,
+		"slug" | "direction" | "relatedEntitySchemaSlug"
+	>[];
 };
 
 const definitionsQuery = createRyotQuery(
@@ -79,19 +99,36 @@ const definitionsQuery = createRyotQuery(
 			const entity = yield* client.data.query(
 				entityEditorEntityDefinitionRecipe({ reference, slug: input.entitySchemaSlug }),
 			);
-			const relationshipSlugs = entity.editor?.relationships ?? [];
+			const declared = entity.editor?.relationships ?? [];
 			const found =
-				relationshipSlugs.length === 0
+				declared.length === 0
 					? []
 					: yield* client.data.query(
-							entityEditorRelationshipDefinitionsRecipe({ reference, slugs: relationshipSlugs }),
+							entityEditorRelationshipDefinitionsRecipe({
+								reference,
+								slugs: declared.map(({ slug }) => slug),
+							}),
 						);
-			const relationships = relationshipSlugs.flatMap((slug) => {
+			const relationships = declared.flatMap(({ slug, direction }) => {
 				const definition = found.find((candidate) => candidate.slug === slug);
-				const target = definition?.targetEntitySchemaSlug ?? null;
-				return definition === undefined || target === null
+				if (definition === undefined) {
+					return [];
+				}
+				const related =
+					direction === "outgoing"
+						? definition.targetEntitySchemaSlug
+						: definition.sourceEntitySchemaSlug;
+				return related === null
 					? []
-					: [{ ...definition, targetEntitySchemaSlug: target }];
+					: [
+							{
+								slug,
+								direction,
+								name: definition.name,
+								relatedEntitySchemaSlug: related,
+								propertiesSchema: definition.propertiesSchema,
+							},
+						];
 			});
 			return { entity, relationships };
 		}),
@@ -100,45 +137,59 @@ const definitionsQuery = createRyotQuery(
 const sourceQuery = createRyotQuery(
 	({ input, client }: { readonly client: RyotClient; readonly input: SourceInput }) =>
 		Effect.gen(function* () {
-			const empty = { entity: null, relationships: {} satisfies EditorRelationshipTargets };
-			if (input.entityId === null) {
-				return empty;
-			}
 			const reference = client.pluginIdentity(input.packageId);
+			const relationships: Record<string, EditorRelationshipTarget[]> = Object.fromEntries(
+				input.relationships.map(({ slug }) => [slug, []]),
+			);
+			for (const definition of input.relationships) {
+				const parentId = input.parents[definition.slug];
+				if (definition.direction !== "parent" || parentId === undefined) {
+					continue;
+				}
+				const [parent] = yield* client.data.query(
+					entityEditorTargetsRecipe({
+						reference,
+						entityIds: [EntityId.make(parentId)],
+						entitySchemaSlug: definition.relatedEntitySchemaSlug,
+					}),
+				);
+				if (parent !== undefined) {
+					relationships[definition.slug] = [
+						{ properties: {}, name: parent.name, entityId: parent.id },
+					];
+				}
+			}
+			if (input.entityId === null) {
+				return { entity: null, relationships };
+			}
+			const entityId = input.entityId;
 			const entity = yield* client.data.query(
-				entityEditorEntityRecipe({
-					reference,
-					entityId: input.entityId,
-					entitySchemaSlug: input.entitySchemaSlug,
-				}),
+				entityEditorEntityRecipe({ entityId, reference, entitySchemaSlug: input.entitySchemaSlug }),
 			);
 			if (entity === null) {
-				return empty;
+				return { entity: null, relationships };
 			}
-			const rows =
-				input.relationshipSlugs.length === 0
-					? { items: [] }
-					: yield* readCursorPages((after) =>
+			const rows = yield* Effect.forEach(["outgoing", "incoming"] as const, (direction) => {
+				const slugs = input.relationships
+					.filter(
+						(definition) => (definition.direction === "outgoing") === (direction === "outgoing"),
+					)
+					.map(({ slug }) => slug);
+				return slugs.length === 0
+					? Effect.succeed([])
+					: readCursorPages((after) =>
 							client.data.query(
-								entityEditorRelationshipsRecipe({
-									after,
-									reference,
-									slugs: input.relationshipSlugs,
-									sourceEntityId: input.entityId ?? "",
-								}),
+								entityEditorRelationshipsRecipe({ after, slugs, entityId, direction, reference }),
 							),
-						);
-			const visible = input.forEdit
-				? rows.items.filter(({ userId }) => userId !== null)
-				: rows.items;
-			const relationships: Record<string, EditorRelationshipTarget[]> = Object.fromEntries(
-				input.relationshipSlugs.map((slug) => [slug, []]),
-			);
-			for (const row of [...visible].sort(
-				(left, right) => Number(left.userId === null) - Number(right.userId === null),
-			)) {
+						).pipe(Effect.map(({ items }) => items));
+			});
+			const visible = rows
+				.flat()
+				.filter(({ userId }) => !input.forEdit || userId !== null)
+				.sort((left, right) => Number(left.userId === null) - Number(right.userId === null));
+			for (const row of visible) {
 				const targets = relationships[row.slug] ?? [];
-				if (!targets.some(({ entityId }) => entityId === row.entityId)) {
+				if (!targets.some(({ entityId: related }) => related === row.entityId)) {
 					targets.push({ name: row.name, entityId: row.entityId, properties: row.properties });
 				}
 				relationships[row.slug] = targets;
@@ -158,8 +209,12 @@ type SaveStatus =
 function EntityEditorForm(
 	props: EntityEditorProps & {
 		readonly definitions: {
-			readonly entity: { readonly name: string; readonly propertiesSchema: AppSchema };
 			readonly relationships: readonly EditorRelationshipDefinition[];
+			readonly entity: {
+				readonly name: string;
+				readonly propertiesSchema: AppSchema;
+				readonly editor: { readonly deletable?: boolean | undefined } | null;
+			};
 		};
 		readonly source: {
 			readonly relationships: EditorRelationshipTargets;
@@ -213,6 +268,11 @@ function EntityEditorForm(
 			discard: true,
 		});
 
+	const parentEntityId = definitions.relationships
+		.flatMap((definition) =>
+			definition.direction === "parent" ? (source.relationships[definition.slug] ?? []) : [],
+		)
+		.at(0)?.entityId;
 	const submit = (values: SchemaFormValues) => {
 		const errors = new Map<string, string>();
 		for (const definition of definitions.relationships) {
@@ -277,12 +337,14 @@ function EntityEditorForm(
 						if (output.kind === "saved") {
 							return cleanup(
 								unreferencedUploads(uploaded.current, properties, schema, relationshipAssets()),
-							).pipe(Effect.andThen(Effect.sync(() => props.onSaved(output.entityId))));
+							).pipe(
+								Effect.andThen(Effect.sync(() => props.onSaved(output.entityId, parentEntityId))),
+							);
 						}
 						return Effect.sync(() =>
 							setStatus({
 								kind: "error",
-								message: output.kind === "stale" ? STALE_MESSAGE : output.message,
+								message: output.kind === "invalid" ? output.message : STALE_MESSAGE,
 							}),
 						);
 					},
@@ -292,8 +354,55 @@ function EntityEditorForm(
 		);
 	};
 
+	const deleteTrigger = useRef<HTMLButtonElement>(null);
+	const deleteAttempt = useRef<EntityEditorSaveRequest | undefined>(undefined);
+	const [deleting, setDeleting] = useState<SaveStatus | null>(null);
+	const confirmDelete = () => {
+		if (mode.kind !== "edit" || source.entity === null) {
+			return;
+		}
+		setDeleting({ kind: "saving" });
+		const request = retryableEntityEditorSaveRequest(
+			deleteAttempt.current,
+			{
+				action: "delete",
+				entityId: EntityId.make(mode.entityId),
+				expectedUpdatedAt: source.entity.updatedAt,
+				entitySchema: {
+					slug: EntitySchemaSlug.make(props.entitySchemaSlug),
+					owner: { kind: "plugin", pluginId: client.pluginIdentity(props.packageId).pluginId },
+				},
+			},
+			new Date(schedule.now()),
+		);
+		deleteAttempt.current = request;
+		schedule.run(
+			client.entities.save(request).pipe(
+				Effect.match({
+					onFailure: () => setDeleting({ kind: "error", message: DELETE_FAILED_MESSAGE }),
+					onSuccess: (output) => {
+						if (output.kind === "deleted") {
+							props.onDeleted();
+							return;
+						}
+						setDeleting({
+							kind: "error",
+							message: output.kind === "invalid" ? output.message : STALE_MESSAGE,
+						});
+					},
+				}),
+			),
+			() => undefined,
+		);
+	};
+
 	const form = useSchemaForm({ mode: formMode, onSubmit: submit, schemas: [schema] });
-	const [initialValues] = useState(() => entityFormValues(schema, stored));
+	const [initialValues] = useState(() =>
+		entityFormValues(schema, {
+			...stored,
+			...(mode.kind === "create" ? mode.initialProperties : undefined),
+		}),
+	);
 	useLayoutEffect(() => {
 		form.reset({ fields: initialValues });
 	}, [form, initialValues]);
@@ -375,6 +484,17 @@ function EntityEditorForm(
 				<StatusMessage tone="error">{status.message}</StatusMessage>
 			) : null}
 			<div className="flex flex-row justify-end gap-2">
+				{mode.kind === "edit" && definitions.entity.editor?.deletable === true ? (
+					<Button
+						variant="danger"
+						ref={deleteTrigger}
+						className="mr-auto"
+						disabled={status.kind === "saving"}
+						onClick={() => setDeleting({ kind: "idle" })}
+					>
+						Delete
+					</Button>
+				) : null}
 				<Button variant="ghost" onClick={cancel} disabled={status.kind === "saving"}>
 					Cancel
 				</Button>
@@ -382,6 +502,19 @@ function EntityEditorForm(
 					Save
 				</Button>
 			</div>
+			{deleting === null ? null : (
+				<DestructiveConfirmation
+					actionLabel="Delete"
+					pendingLabel="Deleting…"
+					onConfirm={confirmDelete}
+					triggerRef={deleteTrigger}
+					onClose={() => setDeleting(null)}
+					pending={deleting.kind === "saving"}
+					detail="Items with history or linked items cannot be deleted."
+					title={`Delete this ${definitions.entity.name.toLowerCase()}?`}
+					errorMessage={deleting.kind === "error" ? deleting.message : undefined}
+				/>
+			)}
 		</ActionForm>
 	);
 }
@@ -401,7 +534,14 @@ function EntityEditorSource(
 			entityId,
 			packageId,
 			entitySchemaSlug,
-			relationshipSlugs: definitions.relationships.map(({ slug }) => slug),
+			parents: (mode.kind === "create" ? mode.parents : undefined) ?? {},
+			relationships: definitions.relationships.map(
+				({ slug, direction, relatedEntitySchemaSlug }) => ({
+					slug,
+					direction,
+					relatedEntitySchemaSlug,
+				}),
+			),
 		},
 		{ refreshOnMutation: false },
 	);
@@ -446,7 +586,9 @@ export function EntityEditor(props: EntityEditorProps) {
 	return <EntityEditorSource {...props} definitions={definitions.data} />;
 }
 
-export function EntityEditorScreen(props: Omit<EntityEditorProps, "onCancel" | "onSaved">) {
+export function EntityEditorScreen(
+	props: Omit<EntityEditorProps, "onCancel" | "onSaved" | "onDeleted">,
+) {
 	const { mode, packageId, entitySchemaSlug } = props;
 	const client = useRyot();
 	const navigation = usePluginNavigation();
@@ -460,7 +602,12 @@ export function EntityEditorScreen(props: Omit<EntityEditorProps, "onCancel" | "
 			<EntityEditor
 				{...props}
 				onCancel={() => navigation.back()}
-				onSaved={(entityId) => client.navigation.replace({ entityId, kind: "entity" })}
+				onDeleted={() => navigation.back()}
+				onSaved={(entityId, parentEntityId) =>
+					parentEntityId === undefined
+						? client.navigation.replace({ entityId, kind: "entity" })
+						: navigation.back()
+				}
 			/>
 		</PluginScreenFrame>
 	);

@@ -190,9 +190,11 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 		complete({ kind: "create-requested" });
 		props.onCreate(href);
 	};
-	const createInline = definition?.editor
-		? (query: string) => setView({ name: query, kind: "create" })
-		: undefined;
+	const createInline =
+		definition?.editor &&
+		!definition.editor.relationships.some(({ direction }) => direction === "parent")
+			? (query: string) => setView({ name: query, kind: "create" })
+			: undefined;
 	const create =
 		createRoute === undefined || props.library === undefined ? createInline : createThroughRoute;
 	const close = () => {

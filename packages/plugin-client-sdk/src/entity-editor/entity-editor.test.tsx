@@ -9,6 +9,7 @@ import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { Effect } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { assert } from "vitest";
 
 import type { RyotClientAdapter } from "../client/adapter";
 import { RyotClientError } from "../client/errors";
@@ -30,6 +31,11 @@ const propertiesSchema = {
 };
 const targetSchema = { fields: { role: { label: "Role", type: "string", description: "Role" } } };
 
+const saveSubmission = (request: EntityEditorSaveRequest | undefined) => {
+	assert(request?.submission.action === "save");
+	return request.submission;
+};
+
 type Save = (
 	request: EntityEditorSaveRequest,
 ) => Effect.Effect<EntityEditorSaveOutput, RyotClientError>;
@@ -42,6 +48,7 @@ const adapterFor = (
 		readonly picked?: readonly string[];
 		readonly canEdit?: boolean;
 		readonly relationships?: readonly unknown[];
+		readonly relatedSchemaSide?: "source" | "target";
 	} = {},
 ): Partial<RyotClientAdapter> => ({
 	saveEntity: save,
@@ -63,7 +70,10 @@ const adapterFor = (
 					{
 						name: "Part",
 						propertiesSchema,
-						editor: options.editor === undefined ? { relationships: ["targets"] } : options.editor,
+						editor:
+							options.editor === undefined
+								? { relationships: [{ slug: "targets", direction: "outgoing" }] }
+								: options.editor,
 					},
 				]);
 			} else if (key === "definitions") {
@@ -72,7 +82,8 @@ const adapterFor = (
 						slug: "targets",
 						name: "Targets",
 						propertiesSchema: targetSchema,
-						targetEntitySchemaSlug: "target",
+						sourceEntitySchemaSlug: options.relatedSchemaSide === "source" ? "target" : "part",
+						targetEntitySchemaSlug: options.relatedSchemaSide === "source" ? "part" : "target",
 					},
 				]);
 			} else if (key === "entity") {
@@ -125,6 +136,7 @@ const mount = (
 					entitySchemaSlug="part"
 					onSaved={() => undefined}
 					onCancel={() => undefined}
+					onDeleted={() => undefined}
 					{...props}
 				/>
 			</RyotProvider>,
@@ -179,6 +191,7 @@ describe("EntityEditor", () => {
 			expect(saves.requests[0]?.idempotencyKey).not.toBe("");
 			expect(saves.requests[0]?.submittedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(saves.requests[0]?.submission).toEqual({
+				action: "save",
 				name: "Hammer curl",
 				properties: { kind: "reps", title: "Curl" },
 				entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
@@ -228,8 +241,8 @@ describe("EntityEditor", () => {
 			fireEvent.click(view.getByRole("button", { name: "Save" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
-			expect(saves.requests[0]?.submission.target).toEqual({ kind: "create" });
-			expect(saves.requests[0]?.submission.relationships[0]?.targets).toEqual([
+			expect(saveSubmission(saves.requests[0]).target).toEqual({ kind: "create" });
+			expect(saveSubmission(saves.requests[0]).relationships[0]?.targets).toEqual([
 				{ entityId: "target-1", properties: { role: "primary" } },
 				{ properties: {}, entityId: "target-2" },
 			]);
@@ -379,7 +392,7 @@ describe("EntityEditor", () => {
 			const [first, retry, edited] = requests;
 			expect(retry).toEqual(first);
 			expect(edited?.idempotencyKey).not.toBe(first?.idempotencyKey);
-			expect(edited?.submission.name).toBe("Hammer curl");
+			expect(saveSubmission(edited).name).toBe("Hammer curl");
 		}),
 	);
 
@@ -393,6 +406,83 @@ describe("EntityEditor", () => {
 			const alert = yield* Effect.promise(() => within(container).findByRole("alert"));
 			expect(alert.textContent).toBe("This item cannot be edited here.");
 			expect(saves.requests).toEqual([]);
+		}),
+	);
+	it.live("creates under a fixed parent with seeded properties", () =>
+		Effect.gen(function* () {
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-4") });
+			const saved: Array<readonly [string, string | undefined]> = [];
+			const container = mount(
+				{
+					onSaved: (entityId, parentEntityId) => saved.push([entityId, parentEntityId]),
+					mode: {
+						kind: "create",
+						parents: { targets: "target-2" },
+						initialProperties: { title: "Seeded" },
+					},
+				},
+				adapterFor(saves.save, {
+					relatedSchemaSide: "source",
+					editor: { relationships: [{ slug: "targets", direction: "parent" }] },
+				}),
+			);
+			const view = within(container);
+			yield* Effect.promise(() => view.findByText("Triceps"));
+			expect(view.getByLabelText("Title")).toHaveProperty("value", "Seeded");
+			expect(view.queryByRole("button", { name: "Add Targets" })).toBeNull();
+			expect(view.queryByRole("button", { name: "Remove Triceps from Targets" })).toBeNull();
+			fireEvent.change(view.getByLabelText("Name"), { target: { value: "Child" } });
+			fireEvent.click(view.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+			yield* Effect.promise(() => waitFor(() => expect(saved).toEqual([["part-4", "target-2"]])));
+			expect(saveSubmission(saves.requests[0]).relationships).toEqual([
+				{ relationshipSchemaSlug: "targets", targets: [{ properties: {}, entityId: "target-2" }] },
+			]);
+		}),
+	);
+
+	it.live("confirms deletion, reports refusals, and settles a deleted entity", () =>
+		Effect.gen(function* () {
+			const outputs: EntityEditorSaveOutput[] = [
+				{ kind: "invalid", message: "Remove this entity's history before deleting it" },
+				{ kind: "deleted" },
+			];
+			const requests: EntityEditorSaveRequest[] = [];
+			const deleted: string[] = [];
+			const container = mount(
+				{ onDeleted: () => deleted.push("deleted"), mode: { kind: "edit", entityId: "part-1" } },
+				adapterFor(
+					(request) => {
+						requests.push(request);
+						return Effect.succeed(outputs.shift() ?? { kind: "stale" });
+					},
+					{
+						editor: {
+							deletable: true,
+							relationships: [{ slug: "targets", direction: "outgoing" }],
+						},
+					},
+				),
+			);
+			const view = within(container);
+			fireEvent.click(yield* Effect.promise(() => view.findByRole("button", { name: "Delete" })));
+			const dialog = yield* Effect.promise(() => within(document.body).findByRole("dialog"));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+			yield* Effect.promise(() =>
+				within(dialog).findByText("Remove this entity's history before deleting it"),
+			);
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["deleted"])));
+			expect(requests.map(({ submission }) => submission)).toEqual([
+				{
+					action: "delete",
+					entityId: "part-1",
+					expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+					entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				},
+				requests[0]?.submission,
+			]);
+			expect(requests[1]?.idempotencyKey).toBe(requests[0]?.idempotencyKey);
 		}),
 	);
 });

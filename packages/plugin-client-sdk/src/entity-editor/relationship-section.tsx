@@ -30,6 +30,7 @@ function TargetRow(props: {
 	readonly uploadAsset: SchemaAssetUpload;
 	readonly renderAsset: SchemaAssetRenderer;
 	readonly onReorder: () => void;
+	readonly fixed: boolean;
 }) {
 	const { target, definition } = props;
 	const schema = definition.propertiesSchema;
@@ -43,14 +44,16 @@ function TargetRow(props: {
 		<li className="flex flex-col gap-2 rounded-lg border border-border-card bg-surface p-3">
 			<div className="flex flex-row items-center gap-2">
 				<span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{target.name}</span>
-				<Button
-					size="sm"
-					variant="ghost"
-					onClick={props.onRemove}
-					aria-label={`Remove ${target.name} from ${definition.name}`}
-				>
-					Remove
-				</Button>
+				{props.fixed ? null : (
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={props.onRemove}
+						aria-label={`Remove ${target.name} from ${definition.name}`}
+					>
+						Remove
+					</Button>
+				)}
 			</div>
 			{editable ? (
 				<SchemaForm
@@ -89,6 +92,7 @@ export function RelationshipSection(props: {
 	readonly onReorder: () => void;
 }) {
 	const { targets, definition } = props;
+	const fixed = definition.direction === "parent";
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const cancel = useRef<(() => void) | undefined>(undefined);
@@ -97,8 +101,8 @@ export function RelationshipSection(props: {
 	useEffect(() => () => cancel.current?.(), []);
 
 	const pick = () => {
-		const targetSlug = definition.targetEntitySchemaSlug;
-		if (picking || targetSlug === null) {
+		const targetSlug = definition.relatedEntitySchemaSlug;
+		if (picking) {
 			return;
 		}
 		setPicking(true);
@@ -145,6 +149,7 @@ export function RelationshipSection(props: {
 				<ul className="m-0 flex list-none flex-col gap-2 p-0">
 					{targets.map((target) => (
 						<TargetRow
+							fixed={fixed}
 							target={target}
 							key={target.entityId}
 							definition={definition}
@@ -168,16 +173,18 @@ export function RelationshipSection(props: {
 					))}
 				</ul>
 			)}
-			<Button
-				size="sm"
-				onClick={pick}
-				loading={picking}
-				variant="secondary"
-				className="self-start"
-				aria-label={`Add ${definition.name}`}
-			>
-				Add
-			</Button>
+			{fixed ? null : (
+				<Button
+					size="sm"
+					onClick={pick}
+					loading={picking}
+					variant="secondary"
+					className="self-start"
+					aria-label={`Add ${definition.name}`}
+				>
+					Add
+				</Button>
+			)}
 			{failed ? <FieldMessage>Could not add. Try again.</FieldMessage> : null}
 		</section>
 	);

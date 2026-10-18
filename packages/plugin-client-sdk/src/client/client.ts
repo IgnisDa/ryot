@@ -216,7 +216,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				EntityEditorSaveOutput,
 				yield* adapterEffect(() => save(decodedRequest.success)),
 			);
-			if (output.kind === "saved") {
+			if (output.kind === "saved" || output.kind === "deleted") {
 				mutationCompleted.hint();
 			}
 			return output;

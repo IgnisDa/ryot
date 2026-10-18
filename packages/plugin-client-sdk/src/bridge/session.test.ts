@@ -117,6 +117,7 @@ const entitySave = (pluginId: string) => ({
 		name: "Item",
 		properties: {},
 		relationships: [],
+		action: "save" as const,
 		target: { kind: "create" as const },
 		entitySchema: { slug: "item", owner: { pluginId, kind: "plugin" as const } },
 	},
