@@ -5,6 +5,8 @@ import {
 	TimelineGroup,
 	type TimelineMarker,
 } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
 import {
@@ -16,6 +18,7 @@ import {
 	type MediaActivityRowBase,
 	type MediaActivityTimeline,
 } from "./activity-timeline";
+import { formatLocalMonthLabel } from "./date";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 	readonly segmentNoun: string;
@@ -24,6 +27,7 @@ export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 	readonly rowRun?: (row: Row) => string | undefined;
 	readonly rowSource: (row: Row) => string | undefined;
 	readonly rowExpand?: (row: Row) => MediaActivityRowExpand | undefined;
+	readonly monthSummary?: (rows: readonly Row[]) => string | undefined;
 };
 
 export type MediaActivityRowExpand = {
@@ -147,25 +151,124 @@ const dateGroups = <Row extends MediaActivityRowBase>(rows: readonly Row[]) => {
 	return groups;
 };
 
-export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
+const MONTHLY_DAY_THRESHOLD = 8;
+
+const monthKeyOf = (row: MediaActivityRowBase) =>
+	row.dateKey === "date-unknown" ? row.dateKey : row.dateKey.slice(0, 7);
+
+const monthGroups = <Row extends MediaActivityRowBase>(rows: readonly Row[]) => {
+	const groups: { readonly key: string; readonly rows: Row[]; readonly first: Row }[] = [];
+	for (const row of rows) {
+		const key = monthKeyOf(row);
+		const last = groups.at(-1);
+		if (last?.key === key) {
+			last.rows.push(row);
+		} else {
+			groups.push({ key, first: row, rows: [row] });
+		}
+	}
+	return groups;
+};
+
+function MediaActivityDays<Row extends MediaActivityRowBase>(props: {
 	readonly compact: boolean;
 	readonly rows: readonly Row[];
 	readonly render: MediaActivityRowRender<Row>;
 }) {
-	return (
-		<Timeline>
-			{dateGroups(props.rows).map((group) => (
-				<TimelineGroup
-					key={group.first.key}
-					compact={props.compact}
-					label={mediaActivityDateLabel(group.first)}
-				>
-					{group.rows.map((row) => (
-						<MediaActivityEntry row={row} key={row.key} render={props.render} />
-					))}
-				</TimelineGroup>
+	return dateGroups(props.rows).map((group) => (
+		<TimelineGroup
+			key={group.first.key}
+			compact={props.compact}
+			label={mediaActivityDateLabel(group.first)}
+		>
+			{group.rows.map((row) => (
+				<MediaActivityEntry row={row} key={row.key} render={props.render} />
 			))}
-		</Timeline>
+		</TimelineGroup>
+	));
+}
+
+const monthDetail = <Row extends MediaActivityRowBase>(
+	rows: readonly Row[],
+	render: MediaActivityRowRender<Row>,
+) => {
+	const days = new Set(rows.map(({ dateKey }) => dateKey)).size;
+	const summary =
+		render.monthSummary?.(rows) ?? (rows.length === 1 ? "1 entry" : `${rows.length} entries`);
+	return `${summary} · ${days === 1 ? "1 day" : `${days} days`}`;
+};
+
+function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
+	readonly compact: boolean;
+	readonly initiallyOpen: boolean;
+	readonly rows: readonly Row[];
+	readonly first: Row;
+	readonly render: MediaActivityRowRender<Row>;
+}) {
+	const [open, setOpen] = useState(props.initiallyOpen);
+	const label =
+		props.first.dateKey === "date-unknown"
+			? "Date unknown"
+			: formatLocalMonthLabel(props.first.occurredAt);
+	return (
+		<section aria-label={label} className="grid gap-3">
+			<button
+				type="button"
+				aria-expanded={open}
+				onClick={() => setOpen(!open)}
+				className="flex min-h-9 w-full items-center gap-2 rounded-md px-1 text-left hover:bg-hover pointer-coarse:min-h-11"
+			>
+				<AppIcon
+					size={14}
+					name="chevron-right"
+					className={clsx("shrink-0 text-text-subtle transition-transform", open && "rotate-90")}
+				/>
+				<span className="shrink-0 text-label font-semibold text-text">{label}</span>
+				<span className="min-w-0 flex-1 truncate text-right text-micro text-text-subtle">
+					{monthDetail(props.rows, props.render)}
+				</span>
+			</button>
+			{open ? (
+				<Timeline>
+					<MediaActivityDays rows={props.rows} render={props.render} compact={props.compact} />
+				</Timeline>
+			) : null}
+		</section>
+	);
+}
+
+export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
+	readonly compact: boolean;
+	readonly rows: readonly Row[];
+	readonly render: MediaActivityRowRender<Row>;
+	readonly monthly?: { readonly openNewest: boolean } | undefined;
+}) {
+	const months = monthGroups(props.rows);
+	if (
+		props.monthly === undefined ||
+		months.length < 2 ||
+		dateGroups(props.rows).length <= MONTHLY_DAY_THRESHOLD
+	) {
+		return (
+			<Timeline>
+				<MediaActivityDays rows={props.rows} render={props.render} compact={props.compact} />
+			</Timeline>
+		);
+	}
+	const { openNewest } = props.monthly;
+	return (
+		<div className="grid gap-2">
+			{months.map((month, index) => (
+				<MediaActivityMonth
+					key={month.key}
+					rows={month.rows}
+					first={month.first}
+					render={props.render}
+					compact={props.compact}
+					initiallyOpen={openNewest && index === 0}
+				/>
+			))}
+		</div>
 	);
 }
 
@@ -195,7 +298,14 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 }) {
 	const { render, compact } = props;
 	if (props.timeline.layout === "flat") {
-		return <MediaActivityRows render={render} compact={compact} rows={props.timeline.rows} />;
+		return (
+			<MediaActivityRows
+				render={render}
+				compact={compact}
+				rows={props.timeline.rows}
+				monthly={{ openNewest: true }}
+			/>
+		);
 	}
 	const { open, completed } = props.timeline;
 	const noun = render.segmentNoun;
@@ -204,7 +314,12 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 			{open === undefined ? null : (
 				<div>
 					<MediaActivityWatchSeparator label={`Since the last ${noun.toLowerCase()}`} />
-					<MediaActivityRows rows={open} render={render} compact={compact} />
+					<MediaActivityRows
+						rows={open}
+						render={render}
+						compact={compact}
+						monthly={{ openNewest: true }}
+					/>
 				</div>
 			)}
 			{completed.map((segment, index) => (
@@ -212,7 +327,12 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 					<MediaActivityWatchSeparator
 						label={segmentSeparatorLabel({ noun, index, segment, total: completed.length })}
 					/>
-					<MediaActivityRows render={render} compact={compact} rows={segment.rows} />
+					<MediaActivityRows
+						render={render}
+						compact={compact}
+						rows={segment.rows}
+						monthly={{ openNewest: open === undefined && index === 0 }}
+					/>
 				</div>
 			))}
 		</div>

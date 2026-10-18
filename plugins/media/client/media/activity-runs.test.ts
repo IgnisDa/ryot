@@ -220,7 +220,40 @@ describe("episodic activity runs", () => {
 		});
 
 		expect(historyRows([progress("a", 1, 3), progress("b", 2, 2)])).toHaveLength(2);
-		expect(historyRows([progress("a", 1, 3), watch, progress("b", 1, 1)])).toHaveLength(3);
+		const [later, finished] = historyRows([progress("a", 1, 3), watch, progress("b", 1, 1)]);
+		expect(later?.type).toBe("progress");
+		assert(finished?.type === "watch");
+		expect(finished.run).toEqual({ updates: 1, fromPercent: 50 });
+	});
+
+	it("folds the progress run that finished an episode into its watch", () => {
+		const progress = (id: string, number: number, minute: number, progressPercent: number) =>
+			historyEvent({
+				id,
+				number,
+				season: 1,
+				progressPercent,
+				slug: "progress",
+				occurredAt: `2026-01-05T10:0${minute}:00.000Z`,
+			});
+		const watch = historyEvent({
+			season: 1,
+			number: 1,
+			id: "watch",
+			slug: "complete",
+			occurredAt: "2026-01-05T10:05:00.000Z",
+		});
+
+		const rows = historyRows([
+			watch,
+			progress("c", 1, 4, 100),
+			progress("b", 1, 3, 40),
+			progress("a", 2, 2, 90),
+		]);
+
+		expect(rows.map((row) => row.type)).toEqual(["watch", "progress"]);
+		assert(rows[0]?.type === "watch");
+		expect(rows[0].run).toEqual({ updates: 2, fromPercent: 40 });
 	});
 
 	it("sorts the episodes of a watch day by order", () => {

@@ -52,6 +52,7 @@ import {
 	mediaEpisodicEpisodesAreCollapsed,
 	type MediaEpisodicEpisodeValue,
 	type MediaEpisodicHistoryEvent,
+	mediaEpisodicMonthSummary,
 	mediaEpisodicRangeSummary,
 	type MediaEpisodicRow,
 	mediaEpisodicRowLabel,
@@ -267,9 +268,12 @@ export const defineEpisodicMediaSchema = <
 	const activityRender: MediaActivityRowRender<MediaEpisodicRow> = {
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
+		monthSummary: mediaEpisodicMonthSummary,
 		rowSource: (row) => (row.type === "watch" || row.type === "progress" ? row.source : undefined),
 		rowRun: (row) =>
-			row.type === "progress" && row.run !== undefined ? mediaActivityRunLabel(row.run) : undefined,
+			(row.type === "progress" || row.type === "watch") && row.run !== undefined
+				? mediaActivityRunLabel(row.run)
+				: undefined,
 		rowBody: (row) => {
 			if (row.type === "watch") {
 				return <EpisodicWatchBody row={row} />;

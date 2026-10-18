@@ -319,7 +319,9 @@ export const defineFlatMediaSchema = <
 		segmentNoun: activityCopy.segmentNoun,
 		rowSource: (row) => (row.type === "progress" ? row.source : undefined),
 		rowRun: (row) =>
-			row.type === "progress" && row.run !== undefined ? mediaActivityRunLabel(row.run) : undefined,
+			(row.type === "progress" || row.type === "completion") && row.run !== undefined
+				? mediaActivityRunLabel(row.run)
+				: undefined,
 		rowBody: (row) => {
 			if (row.type === "review") {
 				return <MediaActivityReviewDetail row={row} />;

@@ -53,6 +53,7 @@ export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly minutes: number | undefined;
 	readonly startedOn: string | undefined;
 	readonly dateUnknown: boolean;
+	readonly run?: MediaActivityProgressRun;
 };
 
 export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
@@ -293,6 +294,21 @@ export const mergeProgressRuns = <
 	...current,
 	run: {
 		updates: (current.run?.updates ?? 1) + (next.run?.updates ?? 1),
+		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,
+	},
+});
+
+/** Folds an older progress update into the row that finished it, such as a watch or completion. */
+export const absorbProgressRun = <Row extends { readonly run?: MediaActivityProgressRun }>(
+	current: Row,
+	next: {
+		readonly percent: number | undefined;
+		readonly run?: MediaActivityProgressRun | undefined;
+	},
+): Row => ({
+	...current,
+	run: {
+		updates: (current.run?.updates ?? 0) + (next.run?.updates ?? 1),
 		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,
 	},
 });

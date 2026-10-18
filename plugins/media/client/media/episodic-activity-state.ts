@@ -1,4 +1,5 @@
 import {
+	absorbProgressRun,
 	anchorOf,
 	decimalLabel,
 	type MediaActivityBeatRow,
@@ -145,6 +146,7 @@ export type MediaEpisodicWatchRow = {
 	readonly occurredAt: string;
 	readonly source: string | undefined;
 	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
+	readonly run?: MediaActivityProgressRun;
 };
 
 export type MediaEpisodicProgressRow = {
@@ -331,6 +333,14 @@ export const mergeEpisodicRuns = (
 	) {
 		return mergeProgressRuns(current, next);
 	}
+	if (
+		current.type === "watch" &&
+		next.type === "progress" &&
+		current.dateKey === next.dateKey &&
+		current.episodes.some((episode) => episode.id === next.episode.id)
+	) {
+		return absorbProgressRun(current, next);
+	}
 	return undefined;
 };
 
@@ -449,4 +459,18 @@ export const mediaEpisodicRangeSummary = (episodes: readonly MediaEpisodicWatche
 			return range.length === 1 || first === last ? first : `${first} – ${last}`;
 		})
 		.join(", ");
+};
+
+/** The episode span and count watched across rows ordered newest first, or `undefined` without watches. */
+export const mediaEpisodicMonthSummary = (rows: readonly MediaEpisodicRow[]) => {
+	const watches = rows.flatMap((row) => (row.type === "watch" ? [row] : []));
+	const latest = watches.at(0)?.episodes.at(-1);
+	const earliest = watches.at(-1)?.episodes[0];
+	if (latest === undefined || earliest === undefined) {
+		return undefined;
+	}
+	const count = watches.reduce((total, row) => total + row.episodes.length, 0);
+	const span =
+		earliest.origin === latest.origin ? latest.origin : `${earliest.origin} – ${latest.origin}`;
+	return `${span} · ${count === 1 ? "1 episode" : `${count} episodes`}`;
 };

@@ -75,6 +75,21 @@ describe("flat media activity state", () => {
 		expect(progress.percent).toBe(42);
 	});
 
+	it("folds a same-day progress run into the completion it led to", () => {
+		const view = viewOf({
+			collectionEvents: [],
+			events: [
+				flatCompletionEventRow,
+				{ ...flatProgressEventRow, occurredAt: "2025-11-04T10:00:00.000Z" },
+			],
+		});
+		const [completion, ...rest] = allRows(view);
+
+		assert(completion?.type === "completion");
+		expect(completion.run).toEqual({ updates: 1, fromPercent: 42 });
+		expect(rest).toEqual([]);
+	});
+
 	it("reads a progress event with no recorded percent as part-way through", () => {
 		const view = viewOf({
 			collectionEvents: [],

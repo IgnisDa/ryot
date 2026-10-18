@@ -39,6 +39,9 @@ export const formatLocalDateTimeLabel = (value: string) =>
 export const formatLocalMonthDayLabel = (value: string) =>
 	DateTime.formatLocal(localDate(value), { day: "numeric", month: "short", locale: "en-US" });
 
+export const formatLocalMonthLabel = (value: string) =>
+	DateTime.formatLocal(localDate(value), { month: "long", locale: "en-US", year: "numeric" });
+
 export const formatLocalYearLabel = (value: string) =>
 	DateTime.formatLocal(localDate(value), { locale: "en-US", year: "numeric" });
 

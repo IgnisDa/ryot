@@ -3,6 +3,7 @@ import type {
 	MediaFlatActivityMediaEvent,
 } from "../../shared/media-recipes";
 import {
+	absorbProgressRun,
 	type ActivityAnchor,
 	anchorOf,
 	decimalLabel,
@@ -121,10 +122,16 @@ export const mergeFlatRuns =
 	(
 		current: MediaFlatActivityRow<Subject, Extra>,
 		next: MediaFlatActivityRow<Subject, Extra>,
-	): MediaFlatActivityRow<Subject, Extra> | undefined =>
-		current.type === "progress" && next.type === "progress" && sameTarget(current.extra, next.extra)
-			? mergeProgressRuns(current, next)
+	): MediaFlatActivityRow<Subject, Extra> | undefined => {
+		if (current.type === "progress" && next.type === "progress") {
+			return sameTarget(current.extra, next.extra) ? mergeProgressRuns(current, next) : undefined;
+		}
+		return current.type === "completion" &&
+			next.type === "progress" &&
+			current.dateKey === next.dateKey
+			? absorbProgressRun(current, next)
 			: undefined;
+	};
 
 export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly subject: Subject;
