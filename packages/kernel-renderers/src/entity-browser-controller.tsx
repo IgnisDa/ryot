@@ -137,6 +137,14 @@ const browserIdentity = (
 	filter: ViewFilter | undefined,
 ) => JSON.stringify([key, search, sort, encodeFilterParam(filter)]);
 
+const controlsKey = (controls: BrowserControls) =>
+	JSON.stringify([
+		controls.layout,
+		controls.search,
+		controls.sort,
+		encodeFilterParam(controls.filter),
+	]);
+
 export function EntityBrowserController<Meta>({
 	add,
 	name,
@@ -178,10 +186,11 @@ export function EntityBrowserController<Meta>({
 	const [controls, setControls] = useState(requestedControls);
 	const [draftSearch, setDraftSearch] = useState(requestedControls.search);
 	const controlsRef = useRef(controls);
+	const publishedControls = useRef<BrowserControls[]>([]);
 	const pendingSearch = useRef<
 		| {
 				readonly identity: string;
-				readonly requestedKey: string;
+				readonly controls: BrowserControls;
 				readonly update: Record<string, string | null>;
 		  }
 		| undefined
@@ -228,13 +237,18 @@ export function EntityBrowserController<Meta>({
 					},
 		[identity, result.pages, result.data],
 	);
-	const requestedKey = JSON.stringify([
-		requestedControls.layout,
-		requestedControls.search,
-		requestedControls.sort,
-		encodeFilterParam(requestedControls.filter),
-	]);
+	const requestedKey = controlsKey(requestedControls);
 	useValueChange(requestedKey, () => {
+		const acknowledged = publishedControls.current.findIndex(
+			(published) => controlsKey(published) === requestedKey,
+		);
+		if (acknowledged !== -1) {
+			publishedControls.current.splice(0, acknowledged + 1);
+			return;
+		}
+		publishedControls.current = [];
+		pendingSearch.current = undefined;
+		controlsRef.current = requestedControls;
 		setControls(requestedControls);
 		setDraftSearch(requestedControls.search);
 	});
@@ -246,18 +260,31 @@ export function EntityBrowserController<Meta>({
 		setShowCount(false);
 		setTotal(undefined);
 	});
-	useEffect(() => {
-		const pending = pendingSearch.current;
-		if (pending?.requestedKey !== undefined && pending.requestedKey !== requestedKey) {
-			pendingSearch.current = undefined;
+	const replacePageSearch = (
+		update: Record<string, string | null>,
+		next: Partial<BrowserControls>,
+	) => {
+		const previous = publishedControls.current.at(-1) ?? requestedControls;
+		const published = { ...previous, ...next };
+		if (controlsKey(published) === controlsKey(previous)) {
 			return;
 		}
+		publishedControls.current.push(published);
+		ryot.navigation.pageSearch.replace(update);
+	};
+	const publishSearch = useEffectEvent(replacePageSearch);
+	useEffect(() => {
+		const pending = pendingSearch.current;
 		if (!pending || pending.identity !== identity || state?.identity !== identity) {
 			return;
 		}
 		pendingSearch.current = undefined;
-		ryot.navigation.pageSearch.replace(pending.update);
-	}, [identity, requestedKey, ryot, state]);
+		publishSearch(pending.update, {
+			sort: pending.controls.sort,
+			search: pending.controls.search,
+			filter: pending.controls.filter,
+		});
+	}, [identity, state]);
 
 	const unfiltered = searchText === "" && filter === undefined && knownTotal !== undefined;
 	const transitioning = state?.identity !== identity;
@@ -317,7 +344,7 @@ export function EntityBrowserController<Meta>({
 		}
 		controlsRef.current = next;
 		pendingSearch.current = {
-			requestedKey,
+			controls: next,
 			identity: nextIdentity,
 			update: {
 				sort: next.sort || null,
@@ -337,7 +364,7 @@ export function EntityBrowserController<Meta>({
 		const next: BrowserControls = { ...controlsRef.current, layout: value };
 		controlsRef.current = next;
 		setControls(next);
-		ryot.navigation.pageSearch.replace({ layout: value });
+		replacePageSearch({ layout: value }, { layout: value });
 	};
 	const closeSearch = () => {
 		setSearchOpen(false);
