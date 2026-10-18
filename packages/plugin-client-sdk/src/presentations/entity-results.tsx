@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, resultsLayoutClasses, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	type EntitySyncState,
@@ -707,13 +707,7 @@ export const EntityResults = ({
 	}, [layout, presentations, references, registry, presentationState]);
 	return (
 		<div className="@container">
-			<div
-				className={
-					layout === "grid"
-						? "grid grid-cols-2 gap-x-3 gap-y-5 @md:grid-cols-3 @xl:grid-cols-4 @3xl:grid-cols-5 @5xl:grid-cols-6 @7xl:grid-cols-7"
-						: "grid gap-3"
-				}
-			>
+			<div className={resultsLayoutClasses[layout]}>
 				{items.map((item) => (
 					<SettleHighlight
 						className="rounded-lg"

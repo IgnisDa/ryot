@@ -1,5 +1,6 @@
 import {
 	createRyotBackgroundSubmission,
+	type RyotSubmission,
 	useBackgroundSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
@@ -34,12 +35,6 @@ const createReview = createRyotBackgroundSubmission({
 	input: ({ input }: { readonly input: MediaReviewCreateInput }) => input,
 });
 
-type ReviewSubmission<Input> = {
-	readonly input: Input;
-	readonly submittedAt: string;
-	readonly submissionId: string;
-};
-
 const updateReview = createRyotBackgroundSubmission({
 	label: () => "Edit review",
 	slug: "media-review-update",
@@ -49,7 +44,7 @@ const updateReview = createRyotBackgroundSubmission({
 		input,
 		submittedAt,
 		submissionId,
-	}: ReviewSubmission<{
+	}: RyotSubmission<{
 		readonly text: string;
 		readonly eventId: string;
 		readonly isSpoiler: boolean;
@@ -63,11 +58,7 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	label: () => "Delete review",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaReviewDeleteInput,
-	input: ({
-		input,
-		submittedAt,
-		submissionId,
-	}: ReviewSubmission<{ readonly eventId: string }>) => ({
+	input: ({ input, submittedAt, submissionId }: RyotSubmission<{ readonly eventId: string }>) => ({
 		submittedAt,
 		submissionId,
 		eventId: input.eventId,

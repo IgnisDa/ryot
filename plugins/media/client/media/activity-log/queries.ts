@@ -1,4 +1,8 @@
-import { createRyotBackgroundSubmission, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotBackgroundSubmission,
+	createRyotQuery,
+	type RyotSubmission,
+} from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	type EpisodicEarlierUnwatched,
@@ -88,15 +92,11 @@ export const updateActivitySubmission = createRyotBackgroundSubmission({
 		input,
 		submittedAt,
 		submissionId,
-	}: {
-		readonly submittedAt: string;
-		readonly submissionId: string;
-		readonly input: {
-			readonly eventId: string;
-			readonly patch: MediaActivityPatch;
-			readonly expected: MediaEventSnapshot;
-		};
-	}) => ({ ...input, submittedAt, submissionId }),
+	}: RyotSubmission<{
+		readonly eventId: string;
+		readonly patch: MediaActivityPatch;
+		readonly expected: MediaEventSnapshot;
+	}>) => ({ ...input, submittedAt, submissionId }),
 });
 
 export const deleteActivitySubmission = createRyotBackgroundSubmission({
@@ -109,14 +109,10 @@ export const deleteActivitySubmission = createRyotBackgroundSubmission({
 		input,
 		submittedAt,
 		submissionId,
-	}: {
-		readonly submittedAt: string;
-		readonly submissionId: string;
-		readonly input: {
-			readonly eventIds: readonly string[];
-			readonly expected?: MediaEventSnapshot | undefined;
-		};
-	}) => ({
+	}: RyotSubmission<{
+		readonly eventIds: readonly string[];
+		readonly expected?: MediaEventSnapshot | undefined;
+	}>) => ({
 		submittedAt,
 		submissionId,
 		eventIds: input.eventIds,

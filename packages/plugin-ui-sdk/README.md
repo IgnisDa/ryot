@@ -69,7 +69,7 @@ tokens own exact type, radius, and motion values; use roles, not pixel sizes:
 Use tabular digits for changing values.
 
 Artwork carries identity: give tiles one aspect per shelf or grid, keep chrome away from art, and put
-one primary action per region with secondary actions in a `SplitButton` or `MenuButton`.
+one primary action per region with secondary actions in a `MenuButton`.
 
 Controls grow under `pointer-coarse:`; plugin iframe width is not device size. Each animation respects
 reduced motion inside its document, not through kernel-only CSS.
@@ -91,14 +91,15 @@ reduced motion inside its document, not through kernel-only CSS.
 | `ProgressBar`                   | Determinate progress in a semantic tone.                                                                                                                                                                                                                                                                                                             |
 | `DataTable`                     | Unstyled data with divided rows and right-aligned tabular numbers.                                                                                                                                                                                                                                                                                   |
 | `Shelf`                         | Horizontal item rail with hidden scrollbar, Arrow-key item focus, and desktop paging controls (pass `icons`). Bleeds to the compact gutter.                                                                                                                                                                                                          |
-| `ArtTile`                       | Uniform artwork tile: caller-supplied art fills the aspect box; optional badge, progress, and secondary lines. Wrap in the link that owns focus.                                                                                                                                                                                                     |
-| `SplitButton`                   | One primary action plus a menu of related actions; both halves disable while loading.                                                                                                                                                                                                                                                                |
 | `StatStrip`                     | Description-list figures without a surface; values above labels, optional detail below.                                                                                                                                                                                                                                                              |
 | `Timeline`                      | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                       |
 | `ActivityTray` / `Toast`        | Shell-owned activity notices: attributed `source`, text-only `title`/`status`/`detail`, one optional action, and dismissal. The tray owns one visually hidden polite region; callers throttle its `announcement`. Compact trays span the bottom above the safe area.                                                                                 |
 
 `groupColors`, `groupColorVariable`, and `Card.groupColor` provide labeled group identity; never
 communicate identity through color alone.
+
+`resultsLayoutClasses` supplies the shared `grid` and `list` result layouts. Place the result grid
+inside an `@container` wrapper so its columns follow the available width.
 
 `SchemaForm` renders `AppSchema` with caller-supplied upload, preview, OAuth, and haptic transports.
 Missing capabilities/dynamic choices produce field errors. OAuth and temporary uploads must be
