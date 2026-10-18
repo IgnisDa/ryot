@@ -17,6 +17,8 @@ export {
 	usePrefersReducedMotion,
 } from "./motion";
 export { ActionDock } from "./action-dock";
+export { ActivityTray, Toast } from "./activity-tray";
+export type { ActivityAction, ActivityTone, ActivityTrayEntry } from "./activity-tray";
 export { ProgressBar } from "./progress-bar";
 export { ArtTile } from "./art-tile";
 export type { ArtTileAspect } from "./art-tile";
