@@ -2,7 +2,17 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it } from "vitest";
 
-import { DataTable, type DataTableColumn } from "./table";
+import { DataTable, type DataTableColumn, displayValueText } from "./table";
+
+describe("displayValueText", () => {
+	it("formats years without grouping and numbers with grouping", () => {
+		expect(displayValueText({ value: 1995, displayKind: "year" })).toBe("1995");
+		expect(displayValueText({ value: 1995, displayKind: "number" })).toBe(
+			new Intl.NumberFormat().format(1995),
+		);
+		expect(displayValueText({ value: null, displayKind: "year" })).toBe("");
+	});
+});
 
 type Person = { readonly id: string; readonly name: string };
 

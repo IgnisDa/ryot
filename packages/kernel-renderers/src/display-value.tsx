@@ -1,5 +1,6 @@
 import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
+import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
 export type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];
@@ -20,27 +21,6 @@ export const managedCellAssets = (cells: readonly SavedViewCell[]) =>
 			? [value.value]
 			: [],
 	);
-
-export const cellText = (value: SavedViewCellValue): string => {
-	if (value.value === null || value.displayKind === "managed-asset") {
-		return "";
-	}
-	switch (value.displayKind) {
-		case "boolean":
-			return value.value ? "Yes" : "No";
-		case "date":
-			return new Intl.DateTimeFormat(undefined, { timeZone: "UTC" }).format(new Date(value.value));
-		case "number":
-			return new Intl.NumberFormat().format(value.value);
-		case "year":
-			return String(value.value);
-		case "json":
-			return JSON.stringify(value.value);
-		case "text":
-			return value.value;
-	}
-	return "";
-};
 
 export function CellThumbnail({
 	asset,
@@ -79,6 +59,6 @@ export function CellValue({
 			/>
 		);
 	}
-	const content = cellText(value);
+	const content = displayValueText(value);
 	return value.displayKind === "date" ? <time dateTime={value.value}>{content}</time> : content;
 }

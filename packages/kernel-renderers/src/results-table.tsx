@@ -18,7 +18,7 @@ import {
 import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
+import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import { effectiveFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
 	ResultsTablePageInput,
@@ -28,7 +28,7 @@ import {
 import { useRef, useState } from "react";
 
 import { BrowserNoMatches } from "./browser-states";
-import { cellText, CellValue, managedCellAssets } from "./display-value";
+import { CellValue, managedCellAssets } from "./display-value";
 
 type QueryInput = { readonly filter: ViewFilter | null; readonly after: string | null };
 
@@ -36,7 +36,7 @@ type TableItem = ResultsTableResult["items"][number];
 
 const rowLabel = (item: TableItem) => {
 	const text = item.cells.find(({ value }) => value.displayKind === "text");
-	return text === undefined ? "" : cellText(text.value);
+	return text === undefined ? "" : displayValueText(text.value);
 };
 
 const resultsTableColumns = (

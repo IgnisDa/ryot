@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { type ReactNode, useState } from "react";
+import { type ImgHTMLAttributes, type ReactNode, useState } from "react";
 
 import { entityMonogram, type FieldSyncState, type SyncReason } from "./sync-state";
 
@@ -54,6 +54,7 @@ export function EntityArtWell(props: {
 	readonly url: string | undefined;
 	readonly fit?: ArtFit | undefined;
 	readonly shape?: ArtShape | undefined;
+	readonly referrerPolicy?: ImgHTMLAttributes<HTMLImageElement>["referrerPolicy"];
 }) {
 	const [failedUrl, setFailedUrl] = useState<string>();
 	if (props.url !== undefined && failedUrl !== props.url) {
@@ -63,6 +64,7 @@ export function EntityArtWell(props: {
 				loading="lazy"
 				key={props.url}
 				src={props.url}
+				referrerPolicy={props.referrerPolicy}
 				onError={() => setFailedUrl(props.url)}
 				className={clsx(
 					props.className,

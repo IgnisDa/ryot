@@ -6,14 +6,14 @@ import {
 	SettleHighlight,
 	SyncPip,
 } from "@ryot-app/plugin-ui-sdk/sync";
-import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
+import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type {
 	EntityBrowserPageInput,
 	EntityBrowserResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import type { ReactNode } from "react";
 
-import { cellText, CellThumbnail, CellValue, isAssetCell } from "./display-value";
+import { CellThumbnail, CellValue, isAssetCell } from "./display-value";
 
 type BrowserItem = EntityBrowserResult["items"][number];
 type DeclaredBrowserColumns = NonNullable<
@@ -81,7 +81,7 @@ const browserColumns = (
 								/>
 							)}
 							<span className="truncate text-body text-text">
-								{value === undefined ? "" : cellText(value)}
+								{value === undefined ? "" : displayValueText(value)}
 							</span>
 							{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
 						</PluginLink>
