@@ -54,6 +54,10 @@
 			"types": "./shared/episodic-recipes.ts",
 			"default": "./shared/episodic-recipes.ts"
 		},
+		"./shared/library-summary": {
+			"types": "./shared/library-summary.ts",
+			"default": "./shared/library-summary.ts"
+		},
 		"./shared/lifecycle-expressions": {
 			"types": "./shared/lifecycle-expressions.ts",
 			"default": "./shared/lifecycle-expressions.ts"

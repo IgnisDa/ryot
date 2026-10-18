@@ -2,6 +2,10 @@ import type { PluginRelationshipSchema } from "@ryot-app/contract/modules/plugin
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
+	LIBRARY_SUMMARY_SCRIPT_SLUG,
+	librarySummaryPropertiesSchema,
+} from "../../shared/library-summary";
+import {
 	builtinMediaEntitySchemaSlugs,
 	mediaGroupMemberSlugs,
 } from "../../shared/media-schema-slugs";
@@ -17,6 +21,7 @@ type BuiltinRelationshipSchema = {
 	sourceEntitySchemaSlug: null | string;
 	targetEntitySchemaSlug: null | string;
 	retention?: PluginRelationshipSchema["retention"];
+	projection?: PluginRelationshipSchema["projection"];
 	userWritePolicy?: PluginRelationshipSchema["userWritePolicy"];
 };
 
@@ -81,6 +86,10 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "In Media Library",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: "media-library",
+		projection: {
+			scriptSlug: LIBRARY_SUMMARY_SCRIPT_SLUG,
+			propertiesSchema: librarySummaryPropertiesSchema,
+		},
 		propertiesSchema: {
 			fields: {
 				owned: {

@@ -30,9 +30,9 @@ import {
 	type Table,
 } from "./entity-selections";
 import { episodicEpisodeSelection } from "./episodic-recipes";
+import { libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	type EpisodicKindConfig,
-	episodicLifecycleExpressions,
 	type EpisodicLifecycleState,
 	EpisodicLifecycleStateSchema,
 	episodicNextUpInclude,
@@ -85,8 +85,8 @@ export const episodicByLifecycleStateRecipe = defineRecipe(
 		readonly states: NonEmpty<EpisodicLifecycleState>;
 	}) => {
 		const entity = table("entity", "entity");
-		const lifecycle = episodicLifecycleExpressions(input.config, entity, "listLifecycle");
-		const latestActivityAt = lifecycle.latestSignal.occurredAt;
+		const library = libraryMembershipJoin(entity, "listLibrary");
+		const summary = librarySummary(library.membership);
 		return {
 			map: ({ items }) =>
 				Result.succeed({
@@ -100,16 +100,16 @@ export const episodicByLifecycleStateRecipe = defineRecipe(
 				items: selectedRows(entity, {
 					limit: input.limit,
 					...(input.after === undefined ? {} : { after: input.after }),
-					orderBy: [descending(latestActivityAt), descending(column(entity, "id"))],
+					joins: [library.join],
+					orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
 					selection: {
 						...listedMediaSelection(entity),
-						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
-						latestActivityAt: selectedField(latestActivityAt, Schema.NullOr(IsoDateString)),
+						state: selectedField(summary.lifecycleState, EpisodicLifecycleStateSchema),
+						latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
 					},
 					where: and(
 						entitySchemaPredicate(entity, input.config.parentSchemaSlug, input.reference),
-						libraryLinkExists(entity, "listLibrary", "in-media-library"),
-						isOneOf(lifecycle.state, input.states),
+						isOneOf(summary.lifecycleState, input.states),
 						...(input.entityId === undefined ? [] : [entityId(entity, input.entityId)]),
 					),
 					include: {
@@ -142,8 +142,9 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 		readonly states: NonEmpty<MediaLifecycleState>;
 	}) => {
 		const entity = table("entity", "entity");
+		const library = libraryMembershipJoin(entity, "listLibrary");
+		const summary = librarySummary(library.membership);
 		const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
-		const latestActivityAt = lifecycle.latestSignal.occurredAt;
 		const selectedPosition = (property: string) =>
 			selectedField(latestPosition(entity, property), Schema.NullOr(Schema.Finite));
 		return {
@@ -151,20 +152,20 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 			queries: {
 				items: selectedRows(entity, {
 					limit: input.limit,
-					orderBy: [descending(latestActivityAt), descending(column(entity, "id"))],
+					joins: [library.join],
+					orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
 					where: and(
 						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
 						isOneOf(column(entity, "entitySchemaSlug"), flatMediaSchemaSlugs),
-						libraryLinkExists(entity, "listLibrary", "in-media-library"),
-						isOneOf(lifecycle.state, input.states),
+						isOneOf(summary.lifecycleState, input.states),
 					),
 					selection: {
 						...listedMediaSelection(entity),
 						mangaVolume: selectedPosition("mangaVolume"),
 						animeEpisode: selectedPosition("animeEpisode"),
 						mangaChapter: selectedPosition("mangaChapter"),
-						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
-						latestActivityAt: selectedField(latestActivityAt, Schema.NullOr(IsoDateString)),
+						state: selectedField(summary.lifecycleState, MediaLifecycleStateSchema),
+						latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 					},
 				}),
