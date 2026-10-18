@@ -39,7 +39,6 @@ export const classifyUploadFailure = (error: unknown): PluginUploadBridgeErrorRe
 
 const failWith = (reason: PluginUploadBridgeErrorReason) => new UploadsError({ reason });
 
-type CleanupUploadRequest = Extract<PluginUploadRequest, { readonly action: "cleanup" }>;
 type TemporaryUploadRequest = Extract<PluginUploadRequest, { readonly action: "temporary" }>;
 type PermanentUploadRequest = Extract<PluginUploadRequest, { readonly action: "permanent" }>;
 
@@ -102,16 +101,6 @@ export class Uploads extends Context.Service<Uploads>()("Uploads", {
 				: yield* failWith("malformed-result");
 		});
 
-		const cleanup = Effect.fn("Uploads.cleanup")(function* (
-			scope: ApiScope,
-			request: CleanupUploadRequest,
-		) {
-			const result = yield* api
-				.cleanup(scope, { payload: { asset: request.asset } })
-				.pipe(Effect.mapError((error) => failWith(classifyUploadFailure(error))));
-			return { action: "cleanup", status: result.status } as const;
-		});
-
 		const upload = (
 			scope: ApiScope,
 			request: PluginUploadRequest,
@@ -119,10 +108,7 @@ export class Uploads extends Context.Service<Uploads>()("Uploads", {
 			if (request.action === "temporary") {
 				return uploadTemporary(scope, request);
 			}
-			if (request.action === "permanent") {
-				return uploadPermanent(scope, request);
-			}
-			return cleanup(scope, request);
+			return uploadPermanent(scope, request);
 		};
 
 		const outcome = (

@@ -13,8 +13,6 @@ import {
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Schema } from "effect";
 
-import { managedAssetKey } from "../assets/keys";
-
 export type EditorProperties = Readonly<Record<string, unknown>>;
 
 export type EditorRelationshipTargets = Readonly<
@@ -84,20 +82,6 @@ export const managedAssetsOf = (
 	Object.entries(schema.fields).flatMap(([key, property]) =>
 		propertyAssets(property, properties[key]),
 	);
-
-export const unreferencedUploads = (
-	uploaded: ReadonlyMap<string, ManagedAssetLocator>,
-	saved: EditorProperties,
-	schema: AppSchema,
-	relationshipAssets: readonly ManagedAssetLocator[] = [],
-) => {
-	const referenced = new Set(
-		[...managedAssetsOf(saved, schema), ...relationshipAssets].map((asset) =>
-			managedAssetKey(asset),
-		),
-	);
-	return [...uploaded].flatMap(([key, asset]) => (referenced.has(key) ? [] : [asset]));
-};
 
 export const buildSubmission = (input: {
 	name: string;

@@ -474,11 +474,8 @@ describe("Effect-native client capabilities", () => {
 									token: { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" },
 								};
 							}
-							if (request.action === "permanent") {
-								expect(request.source).toBe(source);
-								return { asset, action: "permanent" };
-							}
-							return { action: "cleanup", status: "deleted" };
+							expect(request.source).toBe(source);
+							return { asset, action: "permanent" };
 						}),
 				}),
 			);
@@ -496,15 +493,12 @@ describe("Effect-native client capabilities", () => {
 					contentType: "text/csv",
 				}),
 			).toEqual(asset);
-			expect(yield* client.uploads.cleanup(asset)).toEqual({ status: "deleted" });
-			expect(uploads.map(({ action }) => action)).toEqual(["temporary", "permanent", "cleanup"]);
+			expect(uploads.map(({ action }) => action)).toEqual(["temporary", "permanent"]);
 			expect(
 				yield* Effect.flip(
 					createRyotClient(
-						createTestRyotAdapter({
-							upload: () => Effect.succeed({ action: "cleanup", status: "unknown" }),
-						}),
-					).uploads.cleanup(asset),
+						createTestRyotAdapter({ upload: () => Effect.succeed({ asset, action: "permanent" }) }),
+					).uploads.uploadTemporary({ source, fileName: "items.csv", contentType: "text/csv" }),
 				),
 			).toMatchObject({ reason: "malformed-result" });
 			expect(yield* Effect.flip(client.assets.resolve([asset]))).toMatchObject({

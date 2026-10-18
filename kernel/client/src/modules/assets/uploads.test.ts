@@ -116,33 +116,6 @@ describe("uploads", () => {
 		),
 	);
 
-	it.live("cleans up a managed asset without creating an upload intent", () => {
-		const asset = { type: "local" as const, key: "permanent/items.csv" };
-		const calls: unknown[] = [];
-		return Effect.promise(() =>
-			withUploads(
-				{
-					cleanup: (actualScope, apiRequest) => {
-						calls.push({ scope: actualScope, request: apiRequest });
-						return Effect.succeed({ status: "deleted" });
-					},
-				},
-				(run) =>
-					expect(
-						run(
-							Effect.flatMap(Uploads, (uploads) =>
-								uploads.outcome(scope, { asset, action: "cleanup" }),
-							),
-						),
-					).resolves.toEqual({ action: "cleanup", status: "deleted", outcome: "success" }),
-			),
-		).pipe(
-			Effect.tap(() =>
-				Effect.sync(() => expect(calls).toEqual([{ scope, request: { payload: { asset } } }])),
-			),
-		);
-	});
-
 	let released = false;
 	let started = false;
 	layer(

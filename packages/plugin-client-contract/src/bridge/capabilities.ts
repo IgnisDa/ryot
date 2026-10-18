@@ -1,5 +1,4 @@
 import {
-	CleanupManagedAssetOutput,
 	ManagedAssetLocator,
 	ManagedAssetResolutionBatch,
 	TemporaryUploadToken,
@@ -598,7 +597,6 @@ const pluginUploadFileFields = {
 const pluginUploadRequestVariants = [
 	strictStruct({ ...pluginUploadFileFields, action: Schema.Literal("temporary") }),
 	strictStruct({ ...pluginUploadFileFields, action: Schema.Literal("permanent") }),
-	strictStruct({ asset: ManagedAssetLocator, action: Schema.Literal("cleanup") }),
 ] as const;
 
 export const PluginUploadRequest = Schema.Union(pluginUploadRequestVariants);
@@ -620,7 +618,6 @@ export type PluginBridgeUploadRequest = Schema.Schema.Type<typeof PluginBridgeUp
 const pluginUploadResultVariants = [
 	strictStruct({ token: TemporaryUploadToken, action: Schema.Literal("temporary") }),
 	strictStruct({ asset: ManagedAssetLocator, action: Schema.Literal("permanent") }),
-	strictStruct({ ...CleanupManagedAssetOutput.fields, action: Schema.Literal("cleanup") }),
 ] as const;
 
 export const PluginUploadResult = Schema.Union(pluginUploadResultVariants);

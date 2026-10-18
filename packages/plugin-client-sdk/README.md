@@ -64,14 +64,13 @@ Each bridge attempt has its own transport `requestId`; it is not a write identit
 `useAssetUrl(asset)` resolves a managed asset through the nearest `ManagedAssetProvider` and returns a
 remote asset's URL directly.
 
-`uploads` is one capability on every adapter that hides intent creation, byte transfer, completion,
-and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
-`uploadPermanent` with the same request shape returns a `ManagedAssetLocator`; `cleanup(asset)` returns
-`{ status: "deleted" | "referenced" }` and rejects missing or foreign assets. Only a record owned by
-the caller or by no one that holds that exact locator keeps it
-`referenced`. Bridge payloads are structured-clone values, so file uploads send a `Blob` or `File` with a
-file name and content type, while cleanup sends only the managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
-fails with `invalid-input`. There is no cancellation; disposal aborts an in-flight request.
+`uploads` is one capability on every adapter that hides intent creation, byte transfer, and
+completion. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
+`uploadPermanent` with the same request shape returns a `ManagedAssetLocator`. Plugins never delete
+permanent uploads; the server collects assets that no saved record references. Bridge payloads are
+structured-clone values, so file uploads send a `Blob` or `File` with a file name and content type.
+The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source fails with
+`invalid-input`. There is no cancellation; disposal aborts an in-flight request.
 
 `storage.get(pluginId, key)`, `storage.set(pluginId, key, value)`, and
 `storage.remove(pluginId, key)` keep JSON values on this device through the kernel, because the

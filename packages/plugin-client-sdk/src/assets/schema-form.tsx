@@ -1,10 +1,9 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { SchemaAssetUpload } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Effect } from "effect";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { useRyot, useRyotSchedule } from "../queries/provider";
-import { managedAssetKey } from "./keys";
+import { useRyot } from "../queries/provider";
 import { ManagedAssetProvider, useAssetUrl } from "./provider";
 
 export function AssetImage(props: { readonly asset: AssetLocator }) {
@@ -28,41 +27,15 @@ export const renderSchemaAsset = (asset: AssetLocator) => (
 
 export function useSchemaAssetUpload(): SchemaAssetUpload {
 	const client = useRyot();
-	const schedule = useRyotSchedule();
-	const mounted = useRef(false);
-	const [uploaded] = useState(
-		() => new Map<string, Effect.Success<ReturnType<typeof client.uploads.uploadPermanent>>>(),
-	);
-	useEffect(() => {
-		mounted.current = true;
-		return () => {
-			mounted.current = false;
-			schedule.run(
-				Effect.forEach(
-					[...uploaded.values()],
-					(asset) => Effect.ignore(client.uploads.cleanup(asset)),
-					{ discard: true },
-				),
-				() => undefined,
-			);
-		};
-	}, [client, schedule, uploaded]);
 	return (request) =>
 		Effect.runPromise(
-			client.uploads.uploadPermanent(request).pipe(
-				Effect.matchEffect({
-					onFailure: () =>
-						Effect.succeed({ kind: "failed" as const, message: "Upload failed. Try again." }),
-					onSuccess: (asset) =>
-						Effect.gen(function* () {
-							if (mounted.current) {
-								uploaded.set(managedAssetKey(asset), asset);
-							} else {
-								yield* Effect.ignore(client.uploads.cleanup(asset));
-							}
-							return { asset, kind: "uploaded" as const };
-						}),
-				}),
-			),
+			client.uploads
+				.uploadPermanent(request)
+				.pipe(
+					Effect.match({
+						onSuccess: (asset) => ({ asset, kind: "uploaded" as const }),
+						onFailure: () => ({ kind: "failed" as const, message: "Upload failed. Try again." }),
+					}),
+				),
 		);
 }

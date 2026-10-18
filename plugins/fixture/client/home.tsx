@@ -1,5 +1,4 @@
 import {
-	type CleanupManagedAssetOutput,
 	type ManagedAssetLocator,
 	RyotClientError,
 	type TemporaryUploadToken,
@@ -73,10 +72,6 @@ const permanentUploadMutation = createRyotMutation<File, ManagedAssetLocator>(({
 	client.uploads.uploadPermanent({ source: input, fileName: input.name, contentType: input.type }),
 );
 
-const permanentCleanupMutation = createRyotMutation<ManagedAssetLocator, CleanupManagedAssetOutput>(
-	({ input, client }) => client.uploads.cleanup(input),
-);
-
 function PermanentUploadImage(props: { readonly asset: ManagedAssetLocator }) {
 	const url = useManagedAssetUrl(props.asset);
 	return url === undefined ? null : <img src={url} alt="Permanent fixture upload" />;
@@ -92,17 +87,13 @@ export const Home = () => {
 	const upload = useRyotMutation(uploadMutation);
 	const [uploadName, setUploadName] = useState("");
 	const permanentUpload = useRyotMutation(permanentUploadMutation);
-	const permanentCleanup = useRyotMutation(permanentCleanupMutation);
 	const [permanentUploadName, setPermanentUploadName] = useState("");
 	const catalog = useRyotQuery(fixtureClientPluginCatalogQuery);
 	const refused =
 		greeting.status === "error" &&
 		greeting.error instanceof RyotClientError &&
 		greeting.error.reason === "operation-failed";
-	const permanentAsset =
-		permanentUpload.status === "success" && permanentCleanup.data?.status !== "deleted"
-			? permanentUpload.data
-			: undefined;
+	const permanentAsset = permanentUpload.status === "success" ? permanentUpload.data : undefined;
 	const installedPackageIds = catalog.data?.map(({ packageId }) => packageId).join(", ") ?? "";
 	let catalogMessage = "Client plugin catalog is unavailable.";
 	if (catalog.status === "pending") {
@@ -136,14 +127,6 @@ export const Home = () => {
 		permanentUploadMessage = "The permanent upload failed.";
 	} else if (permanentUpload.status === "success") {
 		permanentUploadMessage = `Uploaded ${permanentUploadName} permanently.`;
-	}
-	let permanentCleanupMessage = "";
-	if (permanentCleanup.status === "pending") {
-		permanentCleanupMessage = "Cleaning up permanent upload...";
-	} else if (permanentCleanup.status === "error") {
-		permanentCleanupMessage = "Permanent upload cleanup failed.";
-	} else if (permanentCleanup.status === "success") {
-		permanentCleanupMessage = `Permanent upload cleanup: ${permanentCleanup.data?.status ?? ""}`;
 	}
 
 	if (shouldCrash) {
@@ -285,29 +268,14 @@ export const Home = () => {
 									return;
 								}
 								setPermanentUploadName(file.name);
-								permanentCleanup.reset();
 								permanentUpload.mutate(file);
 							}}
 						/>
 					</label>
 					{permanentAsset === undefined ? null : (
-						<>
-							<ManagedAssetProvider assets={[permanentAsset]}>
-								<PermanentUploadImage asset={permanentAsset} />
-							</ManagedAssetProvider>
-							<Button
-								variant="secondary"
-								disabled={permanentCleanup.isPending}
-								onClick={() => permanentCleanup.mutate(permanentAsset)}
-							>
-								Remove permanent upload
-							</Button>
-						</>
-					)}
-					{permanentCleanup.status === "idle" ? null : (
-						<StatusMessage tone={uploadTones[permanentCleanup.status]}>
-							{permanentCleanupMessage}
-						</StatusMessage>
+						<ManagedAssetProvider assets={[permanentAsset]}>
+							<PermanentUploadImage asset={permanentAsset} />
+						</ManagedAssetProvider>
 					)}
 				</section>
 				<PluginLink to={fixtureRoute("/details/item-1", { tab: "stats" })}>

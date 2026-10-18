@@ -75,7 +75,6 @@ export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =
 	Layer.fresh(Uploads.layer).pipe(
 		Layer.provideMerge(
 			Layer.succeed(UploadsApi, {
-				cleanup: unused,
 				putBytes: unused,
 				createIntent: unused,
 				completeIntent: unused,

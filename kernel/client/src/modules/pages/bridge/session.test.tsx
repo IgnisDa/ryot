@@ -2204,16 +2204,14 @@ describe("plugin bridge", () => {
 		}),
 	);
 
-	it.live("round-trips permanent uploads and cleanup on the same capability", () =>
+	it.live("round-trips permanent uploads", () =>
 		Effect.gen(function* () {
 			const calls: PluginUploadRequest[] = [];
 			const asset = { type: "local", key: "permanent/items.csv" } as const;
 			const { init, received, pluginPort } = connect({
 				onUpload: (request) => {
 					calls.push(request);
-					return request.action === "permanent"
-						? Effect.succeed({ asset, outcome: "success", action: "permanent" })
-						: Effect.succeed({ action: "cleanup", outcome: "success", status: "referenced" });
+					return Effect.succeed({ asset, outcome: "success", action: "permanent" });
 				},
 			});
 			pluginPort.postMessage(readyFor(init));
@@ -2238,24 +2236,7 @@ describe("plugin bridge", () => {
 					}),
 				),
 			);
-			pluginPort.postMessage({
-				asset,
-				action: "cleanup",
-				type: "upload-request",
-				requestId: "upload-cleanup",
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(received).toContainEqual({
-						action: "cleanup",
-						outcome: "success",
-						status: "referenced",
-						type: "upload-result",
-						requestId: "upload-cleanup",
-					}),
-				),
-			);
-			expect(calls.map(({ action }) => action)).toEqual(["permanent", "cleanup"]);
+			expect(calls.map(({ action }) => action)).toEqual(["permanent"]);
 		}),
 	);
 

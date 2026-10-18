@@ -430,8 +430,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				image instanceof HTMLImageElement ? image.naturalWidth : -1,
 			),
 		).toBeGreaterThan(0);
-		yield* home.getByRole("button", { name: "Remove permanent upload" }).click();
-		yield* expectVisibleText(home, "Permanent upload cleanup: deleted");
 
 		const html = page.locator("html");
 		const openSettings = Effect.gen(function* () {

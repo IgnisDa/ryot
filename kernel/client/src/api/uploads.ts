@@ -18,8 +18,6 @@ export class UploadsApi extends Context.Service<UploadsApi>()("UploadsApi", {
 		const api = yield* AuthenticatedApi;
 		const http = yield* HttpClient.HttpClient;
 		return {
-			cleanup: (scope: ApiScope, request: ContractRequest<"uploads", "cleanup">) =>
-				api.run(scope, (client) => client.uploads.cleanup(request)),
 			createIntent: (scope: ApiScope, request: ContractRequest<"uploads", "createIntent">) =>
 				api.run(scope, (client) => client.uploads.createIntent(request)),
 			completeIntent: (scope: ApiScope, request: ContractRequest<"uploads", "completeIntent">) =>

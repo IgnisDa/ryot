@@ -15,7 +15,6 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import {
-	type SchemaAssetUpload,
 	SchemaForm,
 	type SchemaFormValues,
 	useSchemaForm,
@@ -24,9 +23,8 @@ import {
 import { Effect } from "effect";
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { managedAssetKey } from "../assets/keys";
 import { ManagedAssetProvider } from "../assets/provider";
-import { AssetImage } from "../assets/schema-form";
+import { AssetImage, useSchemaAssetUpload } from "../assets/schema-form";
 import type { RyotClient } from "../client/client";
 import { PluginScreenFrame } from "../plugin-screen";
 import { readCursorPages } from "../queries/cursor-pages";
@@ -43,7 +41,6 @@ import {
 	entityPropertiesPayload,
 	entityRelationshipPayload,
 	managedAssetsOf,
-	unreferencedUploads,
 } from "./model";
 import {
 	entityEditorEntityDefinitionRecipe,
@@ -331,7 +328,6 @@ function EntityEditorForm(
 	const schema = definitions.entity.propertiesSchema;
 	const formMode = mode.kind === "edit" ? "edit" : "create";
 	const stored = source.entity?.properties ?? {};
-	const uploaded = useRef(new Map<string, ManagedAssetLocator>());
 	const nameInput = useRef<HTMLInputElement>(null);
 	const [nameError, setNameError] = useState<string>();
 	const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
@@ -351,11 +347,6 @@ function EntityEditorForm(
 	const [managed, setManaged] = useState<readonly ManagedAssetLocator[]>(
 		managedAssetsOf(stored, schema),
 	);
-
-	const cleanup = (assets: readonly ManagedAssetLocator[]) =>
-		Effect.forEach(assets, (asset) => Effect.ignore(client.uploads.cleanup(asset)), {
-			discard: true,
-		});
 
 	const parentEntityId = definitions.relationships
 		.flatMap((definition) =>
@@ -424,11 +415,7 @@ function EntityEditorForm(
 						Effect.sync(() => setStatus({ kind: "error", message: SAVE_FAILED_MESSAGE })),
 					onSuccess: (output) => {
 						if (output.kind === "saved") {
-							return cleanup(
-								unreferencedUploads(uploaded.current, properties, schema, relationshipAssets()),
-							).pipe(
-								Effect.andThen(Effect.sync(() => props.onSaved(output.entityId, parentEntityId))),
-							);
+							return Effect.sync(() => props.onSaved(output.entityId, parentEntityId));
 						}
 						return Effect.sync(() =>
 							setStatus({
@@ -496,25 +483,7 @@ function EntityEditorForm(
 		form.reset({ fields: initialValues });
 	}, [form, initialValues]);
 
-	const uploadAsset: SchemaAssetUpload = (request) =>
-		Effect.runPromise(
-			client.uploads.uploadPermanent(request).pipe(
-				Effect.match({
-					onFailure: () => ({ kind: "failed" as const, message: "Upload failed. Try again." }),
-					onSuccess: (asset) => {
-						uploaded.current.set(managedAssetKey(asset), asset);
-						return { asset, kind: "uploaded" as const };
-					},
-				}),
-			),
-		);
-
-	const cancel = () => {
-		schedule.run(
-			cleanup([...uploaded.current.values()]).pipe(Effect.andThen(Effect.sync(props.onCancel))),
-			() => undefined,
-		);
-	};
+	const uploadAsset = useSchemaAssetUpload();
 
 	return (
 		<ActionForm
@@ -584,7 +553,7 @@ function EntityEditorForm(
 						Delete
 					</Button>
 				) : null}
-				<Button variant="ghost" onClick={cancel} disabled={status.kind === "saving"}>
+				<Button variant="ghost" onClick={props.onCancel} disabled={status.kind === "saving"}>
 					Cancel
 				</Button>
 				<Button loading={status.kind === "saving"} onClick={() => void form.handleSubmit()}>

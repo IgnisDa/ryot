@@ -52,7 +52,6 @@ const adapterFor = (
 	} = {},
 ): Partial<RyotClientAdapter> => ({
 	saveEntity: save,
-	upload: () => Effect.succeed({ action: "cleanup", status: "deleted" }),
 	pluginIdentity: () => ({ kind: "local", pluginId: PluginId.make("plugin-1") }),
 	pickEntity: (request) => {
 		options.picks?.push(request);

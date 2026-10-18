@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -8,7 +7,7 @@ import {
 	buildSubmission,
 	entityFormValues,
 	entityPropertiesPayload,
-	unreferencedUploads,
+	managedAssetsOf,
 } from "./model";
 
 const schema = {
@@ -36,7 +35,7 @@ const schema = {
 } satisfies AppSchema;
 
 describe("entity editor model", () => {
-	it("finds nested uploads by schema and retains assets referenced by relationships", () => {
+	it("finds nested managed assets by schema", () => {
 		const nested: AppSchema = {
 			fields: {
 				parts: {
@@ -53,18 +52,10 @@ describe("entity editor model", () => {
 			},
 		};
 		const kept = { type: "local", key: "nested" } as const;
-		const relationship = { type: "local", key: "relationship" } as const;
-		const dropped = { type: "local", key: "dropped" } as const;
-		const uploaded = new Map<string, ManagedAssetLocator>([
-			["local:nested", kept],
-			["local:dropped", dropped],
-			["local:relationship", relationship],
-		]);
+		const undeclared = { type: "local", key: "undeclared" } as const;
 		expect(
-			unreferencedUploads(uploaded, { unrelated: [dropped], parts: [{ images: [kept] }] }, nested, [
-				relationship,
-			]),
-		).toEqual([dropped]);
+			managedAssetsOf({ unrelated: [undeclared], parts: [{ images: [kept] }] }, nested),
+		).toEqual([kept]);
 	});
 	it("keeps declared nested values across a save", () => {
 		const stored = { extra: 1, title: "A", meta: { keep: true } };
@@ -75,17 +66,6 @@ describe("entity editor model", () => {
 			title: "B",
 			meta: { keep: true },
 		});
-	});
-
-	it("lists only uploads that the saved properties no longer reference", () => {
-		const kept = { key: "kept", type: "local" } as const;
-		const dropped = { type: "local", key: "dropped" } as const;
-		const uploaded = new Map<string, ManagedAssetLocator>([
-			["local:kept", kept],
-			["local:dropped", dropped],
-		]);
-
-		expect(unreferencedUploads(uploaded, { images: [kept] }, schema)).toEqual([dropped]);
 	});
 
 	it("builds a trimmed submission carrying relationship properties", () => {

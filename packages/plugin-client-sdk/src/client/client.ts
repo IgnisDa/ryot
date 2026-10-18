@@ -1,8 +1,5 @@
-import type { CleanupManagedAssetOutput } from "@ryot-app/contract/modules/assets/schemas";
-import {
-	ManagedAssetLocator,
-	ManagedAssetResolutionBatch,
-} from "@ryot-app/contract/modules/assets/schemas";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { ManagedAssetResolutionBatch } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	CollectionResponse,
 	type CreateCollectionBody,
@@ -371,21 +368,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				? Effect.succeed(result.asset)
 				: Effect.fail(new RyotClientError("malformed-result")),
 		);
-	const cleanupUpload = (
-		asset: ManagedAssetLocator,
-	): Effect.Effect<CleanupManagedAssetOutput, RyotClientError> => {
-		const decodedAsset = Schema.decodeResult(ManagedAssetLocator)(asset);
-		if (Result.isFailure(decodedAsset)) {
-			return Effect.fail(new RyotClientError("invalid-input"));
-		}
-		return Effect.flatMap(
-			requestUpload({ action: "cleanup", asset: decodedAsset.success }),
-			(result) =>
-				result.action === "cleanup"
-					? Effect.succeed({ status: result.status })
-					: Effect.fail(new RyotClientError("malformed-result")),
-		);
-	};
 	const invokeIosLiveActivity = Effect.fnUntraced(function* <A>(
 		request: PluginIosLiveActivityRequest,
 		resultSchema: Schema.Codec<A, unknown>,
@@ -408,9 +390,9 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		overlayBack,
 		mutationCompleted,
 		userSettings: readUserSettings,
+		uploads: { uploadPermanent, uploadTemporary },
 		screens: { pickEntity, editCollection, addToCollection },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },
-		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
 				throw new RyotClientError("invalid-request");

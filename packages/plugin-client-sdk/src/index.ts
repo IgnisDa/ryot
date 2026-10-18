@@ -10,7 +10,6 @@ export { EntitySyncState, EnrichmentState } from "@ryot-app/contract/modules/ent
 export type {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
-	CleanupManagedAssetOutput,
 } from "@ryot-app/contract/modules/assets/schemas";
 export type {
 	EntityUpdate,
