@@ -18,11 +18,11 @@ struct RyotLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.title, systemImage: symbol(context.state.icon))
+                    Label(context.state.title, systemImage: activitySymbol(context))
                         .font(.caption).lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ActivityValue(value: context.state.primary, end: activityEnd(context))
+                    ActivityPrimaryValue(context: context)
                         .font(.title2).monospacedDigit()
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 120, alignment: .trailing)
@@ -31,14 +31,14 @@ struct RyotLiveActivityWidget: Widget {
                     ActivityDetails(context: context)
                 }
             } compactLeading: {
-                Image(systemName: symbol(context.state.icon)).foregroundStyle(toneColor(context.state.tone))
+                Image(systemName: activitySymbol(context)).foregroundStyle(toneColor(context.state.tone))
             } compactTrailing: {
-                ActivityValue(value: context.state.primary, end: activityEnd(context))
+                ActivityPrimaryValue(context: context)
                     .font(.caption).monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(width: 58, alignment: .trailing)
             } minimal: {
-                Image(systemName: symbol(context.state.icon)).foregroundStyle(toneColor(context.state.tone))
+                Image(systemName: activitySymbol(context)).foregroundStyle(toneColor(context.state.tone))
             }
         }
     }
@@ -48,8 +48,12 @@ private func activityEnd(_ context: ActivityViewContext<RyotLiveActivityAttribut
     context.attributes.startedAt.addingTimeInterval(8 * 60 * 60)
 }
 
-private func symbol(_ icon: String) -> String {
-    switch icon {
+private func countdownExpired(_ context: ActivityViewContext<RyotLiveActivityAttributes>) -> Bool {
+    context.isStale && context.state.primary.kind == .countdown
+}
+
+private func activitySymbol(_ context: ActivityViewContext<RyotLiveActivityAttributes>) -> String {
+    switch countdownExpired(context) ? "activity" : context.state.icon {
     case "timer": return "timer"
     case "progress": return "chart.bar.fill"
     default: return "waveform.path"
@@ -100,16 +104,32 @@ private struct ActivityValue: View {
     }
 }
 
+private struct ActivityPrimaryValue: View {
+    let context: ActivityViewContext<RyotLiveActivityAttributes>
+
+    var body: some View {
+        if countdownExpired(context) {
+            if let value = context.state.secondary {
+                ActivityValue(value: value, end: activityEnd(context))
+            } else {
+                Text("Timer ended")
+            }
+        } else {
+            ActivityValue(value: context.state.primary, end: activityEnd(context))
+        }
+    }
+}
+
 private struct ActivityCard: View {
     let context: ActivityViewContext<RyotLiveActivityAttributes>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(context.state.title, systemImage: symbol(context.state.icon))
+                Label(context.state.title, systemImage: activitySymbol(context))
                     .font(.subheadline.weight(.semibold)).lineLimit(1).privacySensitive()
                 Spacer(minLength: 8)
-                ActivityValue(value: context.state.primary, end: activityEnd(context))
+                ActivityPrimaryValue(context: context)
                     .font(.title2.weight(.semibold)).monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 120, alignment: .trailing)
@@ -132,14 +152,14 @@ private struct ActivityDetails: View {
             if let detail = context.state.detail, !detail.isEmpty {
                 Text(detail).font(.caption).lineLimit(1).privacySensitive()
             }
-            if context.state.primary.kind == .countdown,
+            if !countdownExpired(context), context.state.primary.kind == .countdown,
                let start = context.state.primary.startedAt, let deadline = context.state.primary.deadline {
                 ProgressView(timerInterval: start...max(start, deadline), countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-            } else if let progress = context.state.progress {
+            } else if !countdownExpired(context), let progress = context.state.progress {
                 ProgressView(value: progress)
             }
             HStack(alignment: .firstTextBaseline, spacing: 16) {
-                if let secondary = context.state.secondary {
+                if !countdownExpired(context), let secondary = context.state.secondary {
                     HStack(spacing: 4) {
                         Text(secondary.label)
                         ActivityValue(value: secondary, end: activityEnd(context)).monospacedDigit()

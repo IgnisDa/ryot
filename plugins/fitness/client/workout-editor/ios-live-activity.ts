@@ -118,7 +118,7 @@ export const workoutIosActivityContent = (
 			tone: paused ? "warning" : "accent",
 			staleAt: paused ? undefined : countdown.deadline,
 			detail: execution ? bounded(exercise, 160) : base.detail,
-			staleMessage: execution ? "Set timer ended · open Ryot" : "Rest timer ended · open Ryot",
+			staleMessage: execution ? "Set timer complete" : "Rest complete",
 			status: bounded(
 				`${heading}${paused ? " · timer paused" : ""}${draft.activeDurationStartedAt === undefined ? " · workout paused" : ""}`,
 			),
