@@ -1,5 +1,8 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
-import type { SavedViewTableColumn } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	EntityBrowserSummary,
+	SavedViewTableColumn,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { column, jsonPath, table } from "@ryot-app/ryotql";
 
 import { preferredMediaImageExpression } from "../shared/entity-presentations";
@@ -7,6 +10,7 @@ import { preferredMediaImageExpression } from "../shared/entity-presentations";
 type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
 type ViewExpressions = {
+	readonly summary: EntityBrowserSummary;
 	readonly table: { readonly image: ScalarExpression; readonly columns: readonly ViewColumn[] };
 };
 
@@ -84,6 +88,17 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	return [name, year];
 };
 
-export const buildViewExpressions = (slug: string): ViewExpressions => ({
-	table: { image: entityImage(), columns: tableColumns(slug) },
-});
+const summarySubtitle = (columns: readonly ViewColumn[]): EntityBrowserSummary["subtitle"] => {
+	const detail = columns[1];
+	return detail !== undefined && (detail.displayKind === "year" || detail.displayKind === "text")
+		? { field: detail.field, displayKind: detail.displayKind }
+		: null;
+};
+
+export const buildViewExpressions = (slug: string): ViewExpressions => {
+	const columns = tableColumns(slug);
+	return {
+		table: { columns, image: entityImage() },
+		summary: { image: "image", subtitle: summarySubtitle(columns) },
+	};
+};

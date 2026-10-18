@@ -210,6 +210,11 @@ picker offers for creation with the search text as the `name` search parameter (
 without one but with a manifest `editor`, create inline); `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
 
+Entity-browser settings declare a `summary` for compact kernel lists such as command-center search:
+`image` names a projected managed-asset field and `subtitle` names a projected field with a `text`,
+`date`, `number`, `year`, or `boolean` display kind; either may be null. Installation rejects search,
+sort, column, and summary fields that the source query does not project.
+
 ### User Settings
 
 System and private plugins may declare `userSettingsSchema` with primitive fields, primitive arrays,

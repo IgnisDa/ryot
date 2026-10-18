@@ -551,6 +551,7 @@ describe("client page routes", () => {
 								sourceName: "items",
 								defaultLayout: "list",
 								layouts: ["grid", "list"],
+								summary: { image: null, subtitle: null },
 								subject: {
 									entityAlias: "entity",
 									schemas: [{ slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } }],
@@ -663,6 +664,7 @@ describe("client page routes", () => {
 								sourceName: "items",
 								defaultLayout: "list",
 								layouts: ["grid", "list"],
+								summary: { image: null, subtitle: null },
 								subject: { schemas: [schema], entityAlias: "entity" },
 								addAction: {
 									schema,
@@ -763,6 +765,7 @@ describe("client page routes", () => {
 								defaultLayout: "list",
 								addAction: routeAction,
 								layouts: ["grid", "list"],
+								summary: { image: null, subtitle: null },
 								subject: {
 									entityAlias: "entity",
 									schemas: [{ slug: "unit", owner: { kind: "kernel" } }],

@@ -143,9 +143,9 @@ it("does not satisfy local relationship and audience references from another own
 	).toThrow("references missing relationship schema bottled-by");
 });
 
-it("throws for invalid saved-view filter fields during snapshot validation", () => {
+const bottleBrowserView = (settings: Readonly<Record<string, JsonValue>>): SavedViewDefinition => {
 	const entity = table("entity", "entity");
-	const savedView = (filterFields: readonly JsonValue[]): SavedViewDefinition => ({
+	return {
 		icon: "box",
 		sortOrder: 0,
 		pluginId: null,
@@ -157,7 +157,6 @@ it("throws for invalid saved-view filter fields during snapshot validation", () 
 		}),
 		settings: {
 			pageSize: 20,
-			filterFields,
 			addAction: null,
 			sortChoices: [],
 			searchFields: [],
@@ -165,17 +164,33 @@ it("throws for invalid saved-view filter fields during snapshot validation", () 
 			tableColumns: null,
 			sourceName: "source",
 			defaultLayout: "grid",
+			summary: { image: null, subtitle: null },
 			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
+			...settings,
 		},
-	});
+	};
+};
+
+const buildBottleView = (settings: Readonly<Record<string, JsonValue>>) =>
+	buildDefinitionSnapshot({ ...source(null), savedViews: [bottleBrowserView(settings)] });
+
+it("throws for configured fields the source does not project during snapshot validation", () => {
+	expect(() => buildBottleView({ searchFields: ["name"] })).not.toThrow();
+	expect(() => buildBottleView({ searchFields: ["title"] })).toThrow(
+		"Invalid saved view bottles: configured field 'title' must be a projected scalar field",
+	);
+	expect(() => buildBottleView({ summary: { image: "cover", subtitle: null } })).toThrow(
+		"Invalid saved view bottles: configured field 'cover' must be a projected scalar field",
+	);
+});
+
+it("throws for invalid saved-view filter fields during snapshot validation", () => {
 	const nameField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
-	const build = (filterFields: readonly JsonValue[]) =>
-		buildDefinitionSnapshot({ ...source(null), savedViews: [savedView(filterFields)] });
-	expect(() => build([nameField])).not.toThrow();
-	expect(() => build([nameField, nameField])).toThrow(
+	expect(() => buildBottleView({ filterFields: [nameField] })).not.toThrow();
+	expect(() => buildBottleView({ filterFields: [nameField, nameField] })).toThrow(
 		"Invalid saved view bottles: Filter field key 'name' must be unique",
 	);
-	expect(() => build([{ ...nameField, field: "missing" }])).toThrow(
+	expect(() => buildBottleView({ filterFields: [{ ...nameField, field: "missing" }] })).toThrow(
 		"Invalid saved view bottles: Filter field 'name' must reference a projected scalar field",
 	);
 });

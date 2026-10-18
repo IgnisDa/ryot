@@ -1,7 +1,36 @@
 import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
-import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	EntityBrowserSavedViewSettings,
+	KernelSavedViewRendererName,
+	ResultsTableSavedViewSettings,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { reservedFilterFieldKeys } from "@ryot-app/ryotql-recipes/filters";
+
+const projectedKeys = (query: NamedQuery) =>
+	new Set(
+		query.output.type === "rows"
+			? query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []))
+			: [],
+	);
+
+export const entityBrowserConfiguredFields = (settings: EntityBrowserSavedViewSettings) => [
+	...settings.searchFields,
+	...settings.sortChoices.flatMap(({ orderBy }) => orderBy.map(({ field }) => field)),
+	...(settings.tableColumns?.map(({ field }) => field) ?? []),
+	...(settings.summary.image === null ? [] : [settings.summary.image]),
+	...(settings.summary.subtitle === null ? [] : [settings.summary.subtitle.field]),
+];
+
+export const resultsTableConfiguredFields = (settings: ResultsTableSavedViewSettings) => [
+	...settings.rowKeyFields,
+	...settings.columns.map(({ field }) => field),
+];
+
+export const unprojectedField = (query: NamedQuery, fields: readonly string[]) => {
+	const projected = projectedKeys(query);
+	return fields.find((field) => !projected.has(field));
+};
 
 export const filterFieldIssues = ({
 	query,
@@ -12,11 +41,7 @@ export const filterFieldIssues = ({
 	readonly renderer: KernelSavedViewRendererName;
 	readonly settings: { readonly filterFields?: readonly FilterField[] | undefined };
 }): string | undefined => {
-	const projected = new Set(
-		query.output.type === "rows"
-			? query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []))
-			: [],
-	);
+	const projected = projectedKeys(query);
 	const keys = new Set<string>();
 	for (const filterField of settings.filterFields ?? []) {
 		if (reservedFilterFieldKeys.includes(filterField.key)) {

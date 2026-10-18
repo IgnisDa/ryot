@@ -1,10 +1,14 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
-import type { SavedViewTableColumn } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	EntityBrowserSummary,
+	SavedViewTableColumn,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { castJson, column, jsonPath, table, titleCase } from "@ryot-app/ryotql";
 
 type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
 type ViewExpressions = {
+	readonly summary: EntityBrowserSummary;
 	readonly table: {
 		readonly image: ScalarExpression | null;
 		readonly columns: readonly [ViewColumn, ...ViewColumn[]];
@@ -30,6 +34,13 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	];
 };
 
-export const buildViewExpressions = (slug: string): ViewExpressions => ({
-	table: { columns: tableColumns(slug), image: slug === "exercise" ? entityImage() : null },
-});
+export const buildViewExpressions = (slug: string): ViewExpressions =>
+	slug === "exercise"
+		? {
+				table: { image: entityImage(), columns: tableColumns(slug) },
+				summary: { image: "image", subtitle: { field: "level", displayKind: "text" } },
+			}
+		: {
+				summary: { image: null, subtitle: null },
+				table: { image: null, columns: tableColumns(slug) },
+			};

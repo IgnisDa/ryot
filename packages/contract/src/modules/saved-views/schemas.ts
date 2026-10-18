@@ -183,9 +183,21 @@ export const AuthoredSavedViewSubject = strictStruct({
 });
 export type AuthoredSavedViewSubject = typeof AuthoredSavedViewSubject.Type;
 
+export const EntityBrowserSummary = strictStruct({
+	image: Schema.NullOr(OutputFieldKey),
+	subtitle: Schema.NullOr(
+		strictStruct({
+			field: OutputFieldKey,
+			displayKind: Schema.Literals(["text", "date", "number", "year", "boolean"]),
+		}),
+	),
+});
+export type EntityBrowserSummary = typeof EntityBrowserSummary.Type;
+
 export const EntityBrowserSavedViewSettings = strictStruct({
 	subject: SavedViewSubject,
 	pageSize: SavedViewPageSize,
+	summary: EntityBrowserSummary,
 	sourceName: Schema.NonEmptyString,
 	defaultLayout: EntityBrowserLayout,
 	searchFields: Schema.Array(OutputFieldKey),

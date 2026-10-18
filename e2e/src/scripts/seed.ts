@@ -492,6 +492,7 @@ function buildSeedLayouts(
 			addAction: null,
 			sortChoices: [],
 			searchFields: [],
+			summary: { image: null, subtitle: null },
 			defaultLayout: "grid",
 			layouts: ["grid", "list", "table"],
 			sourceName: "savedView",

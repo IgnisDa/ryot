@@ -92,6 +92,7 @@ describe("filter schemas", () => {
 			tableColumns: null,
 			sourceName: "rows",
 			defaultLayout: "grid",
+			summary: { image: null, subtitle: null },
 			subject: { entityAlias: "entity", schemas: [{ slug: "item", owner: { kind: "kernel" } }] },
 		};
 		expect(decodes(EntityBrowserSavedViewSettings, browser)).toBe(true);

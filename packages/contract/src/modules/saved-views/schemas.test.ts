@@ -19,6 +19,7 @@ const browserSettings = {
 	defaultLayout: "grid",
 	sourceName: "entities",
 	searchFields: ["name"],
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],
@@ -77,6 +78,7 @@ describe("saved-view schemas", () => {
 			defaultLayout: "table",
 			searchFields: ["name"],
 			layouts: ["grid", "table"],
+			summary: { image: null, subtitle: null },
 			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
 			sortChoices: [
 				{ name: "newest", label: "Newest", orderBy: [{ direction: "desc", field: "createdAt" }] },

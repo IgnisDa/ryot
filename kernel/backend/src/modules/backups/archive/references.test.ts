@@ -66,6 +66,7 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 			tableColumns: null,
 			sourceName: "records",
 			defaultLayout: "grid",
+			summary: { image: null, subtitle: null },
 			subject: {
 				entityAlias: "entity",
 				schemas: [
@@ -147,6 +148,7 @@ it.effect(
 				tableColumns: null,
 				sourceName: "records",
 				defaultLayout: "grid",
+				summary: { image: null, subtitle: null },
 				subject: {
 					entityAlias: "entity",
 					schemas: [{ slug: "bottle", owner: { kind: "kernel" } }],
@@ -270,6 +272,7 @@ it.effect("round-trips plugin-route add actions without remapping their package 
 			tableColumns: null,
 			sourceName: "records",
 			defaultLayout: "grid",
+			summary: { image: null, subtitle: null },
 			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
 		};
 		const renderer = { kind: "kernel", name: "entity-browser" };

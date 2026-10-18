@@ -22,6 +22,7 @@ export const browserSettings = {
 	searchFields: ["name"],
 	sourceName: "savedView",
 	layouts: ["grid", "list", "table"],
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ slug: "item", owner: { kind: "plugin", pluginId: "fixture" } }],

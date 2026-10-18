@@ -236,7 +236,7 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const { table: tableExpressions } = buildViewExpressions(view.entitySchemaSlug);
+		const { summary, table: tableExpressions } = buildViewExpressions(view.entitySchemaSlug);
 		const presentation = presentationProjection(view.entitySchemaSlug);
 		const valueFilterFields = mediaValueFilterFields(schema);
 		const filterFields = [
@@ -274,6 +274,7 @@ export const mediaSavedViews = () => {
 				orderBy: savedViewOrderBy(view.entitySchemaSlug),
 			}),
 			settings: {
+				summary,
 				pageSize: 20,
 				sortChoices: [],
 				defaultLayout: "grid",

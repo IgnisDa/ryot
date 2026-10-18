@@ -58,6 +58,7 @@ const browserSettings = {
 	sourceName: "entities",
 	searchFields: ["name"],
 	layouts: ["grid", "list"],
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [
@@ -110,6 +111,22 @@ const rejectsBrowserSettings = (
 			new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } }),
 		);
 	});
+
+it.effect("rejects summary fields that the source does not project", () =>
+	Effect.gen(function* () {
+		yield* rejectsBrowserSettings(
+			{ ...browserSettings, summary: { image: "image", subtitle: null } },
+			"Entity-browser configured field 'image' must be a projected scalar field",
+		);
+		yield* rejectsBrowserSettings(
+			{
+				...browserSettings,
+				summary: { image: null, subtitle: { field: "year", displayKind: "year" } },
+			},
+			"Entity-browser configured field 'year' must be a projected scalar field",
+		);
+	}),
+);
 
 it.effect("rejects a provider add action schema outside the subject", () =>
 	rejectsBrowserSettings(

@@ -112,7 +112,7 @@ export const fitnessSavedViews = () => {
 		},
 	];
 	const entityBrowserViews = inputs.map((input) => {
-		const { table: tableExpressions } = buildViewExpressions(input.entitySchemaSlug);
+		const { summary, table: tableExpressions } = buildViewExpressions(input.entitySchemaSlug);
 		const presentation = fitnessPresentationSource(input.entitySchemaSlug);
 		const fields = [
 			field("entityId", column(entity, "id")),
@@ -146,6 +146,7 @@ export const fitnessSavedViews = () => {
 			icon: iconOf(input.entitySchemaSlug),
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			settings: {
+				summary,
 				pageSize: 20,
 				sortChoices: [],
 				defaultLayout: "grid",

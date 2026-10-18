@@ -95,6 +95,7 @@ describe("Exercises E2E", () => {
 					searchFields: ["name"],
 					sourceName: "savedView",
 					layouts: ["grid", "list", "table"],
+					summary: { image: "image", subtitle: { field: "level", displayKind: "text" } },
 					tableColumns: [
 						{ label: "Name", field: "name" },
 						{ label: "Level", field: "level" },

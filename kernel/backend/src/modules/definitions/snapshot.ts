@@ -33,7 +33,12 @@ import {
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
-import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
+import {
+	entityBrowserConfiguredFields,
+	filterFieldIssues,
+	resultsTableConfiguredFields,
+	unprojectedField,
+} from "#modules/definitions/saved-view-filters";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const pluginIdField = { pluginId: Schema.NullOr(Schema.String) };
@@ -273,6 +278,17 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	if (source?.output.type !== "rows") {
 		throw new Error(
 			`Invalid saved view ${savedView.slug}: source '${decoded.success.sourceName}' must produce rows`,
+		);
+	}
+	const unprojected = unprojectedField(
+		source,
+		"rowKeyFields" in decoded.success
+			? resultsTableConfiguredFields(decoded.success)
+			: entityBrowserConfiguredFields(decoded.success),
+	);
+	if (unprojected !== undefined) {
+		throw new Error(
+			`Invalid saved view ${savedView.slug}: configured field '${unprojected}' must be a projected scalar field`,
 		);
 	}
 	const filterIssue = filterFieldIssues({

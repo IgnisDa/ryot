@@ -436,6 +436,7 @@ describe("filtered recipes", () => {
 		defaultLayout: "grid",
 		searchFields: ["name"],
 		sourceName: "selection",
+		summary: { image: null, subtitle: null },
 		filterFields: [valueField("level", "enum")],
 	} as const;
 	const queryDocument = document({

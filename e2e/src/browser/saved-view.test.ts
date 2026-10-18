@@ -154,6 +154,7 @@ beforeAll(() =>
 				tableColumns: null,
 				sourceName: "entities",
 				searchFields: ["name"],
+				summary: { image: null, subtitle: null },
 				defaultLayout: "grid" as const,
 				layouts: ["grid", "list"] as const,
 				subject: {

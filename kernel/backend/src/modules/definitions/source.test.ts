@@ -21,6 +21,7 @@ const browserSettings = {
 	defaultLayout: "grid",
 	searchFields: ["name"],
 	sourceName: "savedView",
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("bottle") }],

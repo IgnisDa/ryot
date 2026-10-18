@@ -237,6 +237,7 @@ describe("Workout Templates E2E", () => {
 						searchFields: ["name"],
 						sourceName: "savedView",
 						layouts: ["grid", "list", "table"],
+						summary: { image: null, subtitle: null },
 						subject: {
 							entityAlias: "entity",
 							schemas: [{ slug: "workout-template", owner: definitionOwner(pluginId) }],

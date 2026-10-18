@@ -69,6 +69,7 @@ const settings = {
 	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "selection",
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],

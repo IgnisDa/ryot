@@ -133,6 +133,7 @@ export const buildEntityBrowserSavedViewPayload = (
 			defaultLayout: "grid",
 			sourceName: "entities",
 			layouts: ["grid", "list"],
+			summary: { image: null, subtitle: null },
 			subject: { schemas, entityAlias: "browserEntity" },
 		},
 		dataSources: document({

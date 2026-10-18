@@ -17,7 +17,12 @@ import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "#modules/definitions/properties/runtime";
-import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
+import {
+	entityBrowserConfiguredFields,
+	filterFieldIssues,
+	resultsTableConfiguredFields,
+	unprojectedField,
+} from "#modules/definitions/saved-view-filters";
 import { getCatalogTable, jsonElementsTable } from "#modules/ryotql/catalog";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
@@ -135,17 +140,11 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 			"Entity-browser addAction schema must be one of the subject schemas",
 		);
 	}
-	const configuredFields = [
-		...settings.searchFields,
-		...settings.sortChoices.flatMap(({ orderBy }) => orderBy.map(({ field }) => field)),
-		...(settings.tableColumns?.map(({ field }) => field) ?? []),
-	];
-	for (const field of configuredFields) {
-		if (!projectedField(query, field)) {
-			return yield* settingsIncompatible(
-				`Entity-browser configured field '${field}' must be a projected scalar field`,
-			);
-		}
+	const unprojected = unprojectedField(query, entityBrowserConfiguredFields(settings));
+	if (unprojected !== undefined) {
+		return yield* settingsIncompatible(
+			`Entity-browser configured field '${unprojected}' must be a projected scalar field`,
+		);
 	}
 	const filterIssue = filterFieldIssues({ query, settings, renderer: "entity-browser" });
 	if (filterIssue) {
@@ -232,16 +231,11 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 			`Results-table source '${settings.sourceName}' must produce rows`,
 		);
 	}
-	const configuredFields = [
-		...settings.rowKeyFields,
-		...settings.columns.map(({ field }) => field),
-	];
-	for (const field of configuredFields) {
-		if (!projectedField(query, field)) {
-			return yield* settingsIncompatible(
-				`Results-table field '${field}' must be a projected scalar field`,
-			);
-		}
+	const unprojected = unprojectedField(query, resultsTableConfiguredFields(settings));
+	if (unprojected !== undefined) {
+		return yield* settingsIncompatible(
+			`Results-table field '${unprojected}' must be a projected scalar field`,
+		);
 	}
 	if (settings.entityLink) {
 		const field = projectedField(query, settings.entityLink.entityIdField);

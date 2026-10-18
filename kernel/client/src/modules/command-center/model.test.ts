@@ -46,6 +46,7 @@ const settings = {
 	sourceName: "selection",
 	layouts: ["grid", "list"],
 	searchFields: ["nameAlias"],
+	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],

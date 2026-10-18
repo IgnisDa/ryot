@@ -97,6 +97,7 @@ const entityBrowserSettingsBase = {
 	searchFields: ["name"],
 	sourceName: "savedView",
 	layouts: ["grid", "list", "table"],
+	summary: { image: null, subtitle: null },
 	tableColumns: [
 		{ label: "Name", field: "name", displayKind: "text" },
 		{ label: "Year", field: "year", displayKind: "number" },

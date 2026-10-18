@@ -244,6 +244,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 				sourceName: "entities",
 				searchFields: ["name"],
 				layouts: ["grid", "list", "table"],
+				summary: { image: null, subtitle: null },
 				subject: {
 					entityAlias: "browserEntity",
 					schemas: [{ slug: schema.reference.slug, owner: schema.reference.owner }],
