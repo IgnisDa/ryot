@@ -7,7 +7,7 @@ import { Effect, Exit } from "effect";
 import { assert } from "vitest";
 
 import {
-	makeManagedAssetReferenceLocker,
+	ManagedAssetReferenceLocker,
 	ManagedAssetReferenceRejected,
 	type OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
@@ -34,8 +34,8 @@ const record = (
 const lock = (records: ReadonlyArray<OwnedManagedAssetPropertyRecord>) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
-		return yield* session.transaction(lockAssetReferences(records)).pipe(Effect.exit);
+		const assetReferences = yield* ManagedAssetReferenceLocker.make;
+		return yield* session.transaction(assetReferences.lock(records)).pipe(Effect.exit);
 	});
 
 layer(isolatedDatabaseLayer("managed_asset_writes"))((test) => {

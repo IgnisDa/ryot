@@ -143,13 +143,13 @@ export const makePersistMutation = <E, R, Result>({
 	repository,
 	resultCodec,
 	validateDraft,
+	assetReferences,
 	authorizeMutation,
-	lockAssetReferences,
 }: {
 	repository: EntitiesRepository["Service"];
 	planner: LifecyclePlanner["Service"];
 	receipts: MutationReceipts["Service"];
-	lockAssetReferences: ManagedAssetReferenceLocker;
+	assetReferences: ManagedAssetReferenceLocker["Service"];
 	resultCodec: Schema.Codec<Result, unknown>;
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
 	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
@@ -198,12 +198,14 @@ export const makePersistMutation = <E, R, Result>({
 				});
 			}
 		}
-		yield* lockAssetReferences(assetRecords).pipe(
-			Effect.catchTag(
-				"ManagedAssetReferenceRejected",
-				() => new EntityBadRequest({ reason: { code: "asset-forbidden" } }),
-			),
-		);
+		yield* assetReferences
+			.lock(assetRecords)
+			.pipe(
+				Effect.catchTag(
+					"ManagedAssetReferenceRejected",
+					() => new EntityBadRequest({ reason: { code: "asset-forbidden" } }),
+				),
+			);
 		const rows = locked ?? (yield* lockRows(items.map(({ input }) => input)));
 		const writes: Array<{ item: PersistItem; before: AutomationEntitySnapshot | null }> = [];
 		for (const item of items) {

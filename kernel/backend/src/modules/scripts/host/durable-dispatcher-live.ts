@@ -30,7 +30,6 @@ import {
 	NotificationDeliveryWorkflow,
 	NotificationDeliveryWorkflowPayload,
 } from "#modules/notifications/notification-delivery-workflow";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { infrastructureRunError } from "#modules/scripts/executions/run-error";
 import {
@@ -54,6 +53,7 @@ import {
 	SandboxLifecycleHostFailure,
 	SandboxLifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 const PreparedSandboxCreateEvents = Schema.Struct({
@@ -122,7 +122,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
-		const runtime = yield* PluginRuntimeResolver;
+		const submissions = yield* SandboxSubmissionCommands;
 		const authority = yield* SandboxExecutionAuthority;
 		const receipts = yield* MutationReceipts.make;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
@@ -297,11 +297,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						error: SandboxRunError,
 						success: PreparedSandboxCreateEvents,
 						name: `prepare-sandbox-create-events-${request.index}`,
-						execute: prepareSandboxCreateEvents(request, scope, (userId, pluginId) =>
-							runtime
-								.findPluginAvailableToUser(userId, pluginId)
-								.pipe(Effect.map((plugin) => plugin?.installationId ?? null)),
-						),
+						execute: prepareSandboxCreateEvents(request, scope, submissions),
 					});
 					const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
 						prepared,

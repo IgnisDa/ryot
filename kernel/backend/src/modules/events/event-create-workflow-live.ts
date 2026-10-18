@@ -22,10 +22,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
-import {
-	makeManagedAssetReferenceLocker,
-	type ManagedAssetReferenceLocker,
-} from "#lib/domain/managed-asset-writes";
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -137,19 +134,19 @@ const commitEvent = Effect.fnUntraced(function* (
 	draft: AutomationEventDraft,
 	entitySchemaPluginId: string | null,
 	propertiesSchema: AppSchema,
-	lockAssetReferences: ManagedAssetReferenceLocker,
+	assetReferences: ManagedAssetReferenceLocker["Service"],
 ) {
 	const repository = yield* EventsRepository;
 	const planner = yield* LifecyclePlanner;
 	const command = eventCreateWriteCommand(payload, index);
-	yield* lockAssetReferences([
-		{ propertiesSchema, ownerUserId: payload.userId, properties: draft.properties },
-	]).pipe(
-		Effect.catchTag(
-			"ManagedAssetReferenceRejected",
-			() => new EventCreateItemError({ reason: { code: "asset-forbidden" } }),
-		),
-	);
+	yield* assetReferences
+		.lock([{ propertiesSchema, ownerUserId: payload.userId, properties: draft.properties }])
+		.pipe(
+			Effect.catchTag(
+				"ManagedAssetReferenceRejected",
+				() => new EventCreateItemError({ reason: { code: "asset-forbidden" } }),
+			),
+		);
 	const event = yield* repository.createEvent({
 		...draft,
 		userId: payload.userId,
@@ -222,7 +219,7 @@ const prepareChunk = Effect.fn("prepareEventCreateChunk")(function* (
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
-	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+	const assetReferences = yield* ManagedAssetReferenceLocker.make;
 	const writes = yield* DomainWriteChecks;
 	const eventSchemas = yield* EventSchemaReader;
 	const receipts = yield* MutationReceipts.make;
@@ -375,7 +372,7 @@ const prepareChunk = Effect.fn("prepareEventCreateChunk")(function* (
 					validated,
 					current.entityScope.entitySchemaPluginId,
 					current.activePropertiesSchema,
-					lockAssetReferences,
+					assetReferences,
 				);
 				records.push({
 					identity,
@@ -441,7 +438,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;
-	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+	const assetReferences = yield* ManagedAssetReferenceLocker.make;
 	const receipts = yield* MutationReceipts.make;
 	const command = eventCreateWriteCommand(payload, index);
 	const item = payload.payload[index];
@@ -515,7 +512,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					draft,
 					currentScope.entityScope.entitySchemaPluginId,
 					currentScope.activePropertiesSchema,
-					lockAssetReferences,
+					assetReferences,
 				);
 				yield* receipts.insert({
 					identity,

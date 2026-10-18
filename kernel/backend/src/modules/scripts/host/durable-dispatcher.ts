@@ -1,6 +1,5 @@
-import { SandboxRunError, unknownToMessage, type DbError } from "@ryot-app/contract/errors";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -41,7 +40,7 @@ import {
 	type SandboxHttpClassify,
 	type SandboxHttpRedirect,
 } from "#modules/scripts/host/runtime-host-functions";
-import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
+import type { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import { infrastructureRunError } from "../executions/run-error";
 import {
@@ -227,7 +226,7 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
 	scope: HostCallScope,
-	findInstallation: (userId: UserId, pluginId: PluginId) => Effect.Effect<string | null, DbError>,
+	submissions: SandboxSubmissionCommands["Service"],
 ) {
 	const { input } = yield* loadDispatchInput(request, scope);
 	const { principal } = scope;
@@ -262,16 +261,13 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	if (options === undefined) {
 		return { userId, command, payload: items };
 	}
-	const writeCommand = yield* sandboxSubmissionCommand(
-		input,
-		command,
-		options,
-		findInstallation,
-	).pipe(
-		Effect.mapError(
-			(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
-		),
-	);
+	const writeCommand = yield* submissions
+		.commandFor(input, command, options)
+		.pipe(
+			Effect.mapError(
+				(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
+			),
+		);
 	return { userId, command, writeCommand, payload: items };
 });
 

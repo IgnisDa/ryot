@@ -24,10 +24,7 @@ import { makeNotificationScriptHost } from "#modules/notifications/script-host";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { makeOAuthConnectionScriptHost } from "#modules/oauth-connections/script-host";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
-import {
-	PluginRuntimeResolver,
-	PluginRuntimeResolverLive,
-} from "#modules/plugins/catalog/runtime-resolver";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
@@ -55,6 +52,7 @@ import {
 	SandboxHostFunctionsLive,
 	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -77,11 +75,11 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 
 const makeScriptLifecycleHostSteps = Effect.gen(function* () {
 	return {
-		...eventLifecycleHostSteps(yield* EventsService, yield* PluginRuntimeResolver),
+		...eventLifecycleHostSteps(yield* EventsService, yield* SandboxSubmissionCommands),
 		...entityLifecycleHostSteps(yield* EntitiesService),
 		...relationshipLifecycleHostSteps(
 			yield* RelationshipMutationPipeline,
-			yield* PluginRuntimeResolver,
+			yield* SandboxSubmissionCommands,
 		),
 	};
 });
@@ -120,6 +118,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(EntitiesServiceRuntimeLive),
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(EntitiesRepositoryLive),
+	Layer.provide(SandboxSubmissionCommands.layer),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(PluginHttpRateLimitAuthority.layer),
 	Layer.provide(PluginRepository.layer),
@@ -143,6 +142,7 @@ export const SandboxDurableHostServicesLive = Layer.merge(
 		Layer.provide(
 			Layer.mergeAll(
 				ScriptHostImplementationsLive,
+				SandboxSubmissionCommands.layer,
 				PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
 				ProviderHttpAdmissionService.layer,
 			),

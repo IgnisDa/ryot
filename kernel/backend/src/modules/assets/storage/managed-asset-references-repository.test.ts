@@ -218,6 +218,20 @@ layer(testLayer)((test) => {
 		}),
 	);
 
+	test.effect("a locator outside the schema's declared asset fields keeps it referenced", () =>
+		Effect.gen(function* () {
+			const references = yield* ManagedAssetReferencesRepository;
+			const ownerUserId = UserId.make(crypto.randomUUID());
+			const locator = yield* insertManagedAsset(ownerUserId);
+			yield* insertEntity({
+				userId: ownerUserId,
+				properties: { notes: [{ attachment: locator }] },
+				entitySchemaSlug: yield* insertKernelAssetSchema(),
+			});
+			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+		}),
+	);
+
 	test.effect("a translation of the owner's entity holding the locator keeps it referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;

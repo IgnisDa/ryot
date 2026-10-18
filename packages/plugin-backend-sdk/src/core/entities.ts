@@ -1,3 +1,4 @@
+import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -119,6 +120,7 @@ export const updateUserEntityArgsSchema = Schema.Tuple([
 	optionalSubmissionOptions,
 ]);
 export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
+export const entityStaleReasonSchema = EntityStale.fields.reason;
 export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(

@@ -1,5 +1,9 @@
 import { UploadFailureReason } from "@ryot-app/contract/modules/assets/schemas";
-import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EventBadRequest,
 	EventNotFound,
@@ -10,6 +14,7 @@ import {
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
@@ -96,35 +101,40 @@ type BindOptions = {
 	readonly normalize?: (args: ReadonlyArray<unknown>) => ReadonlyArray<unknown>;
 };
 
-const preserveSandboxBoundaryFailure = (error: SandboxHostError) =>
-	hostFailure(error.message, Schema.is(SandboxBoundaryReason)(error.data) ? error.data : undefined);
+const preserveFailure = <Reason>(schema: Schema.Codec<Reason, JsonValue>) => {
+	const decode = Schema.decodeUnknownResult(schema);
+	const encode = Schema.encodeSync(schema);
+	return (error: SandboxHostError) => {
+		const decoded = decode(error.data);
+		return hostFailure(
+			error.message,
+			decoded._tag === "Success" ? encode(decoded.success) : undefined,
+		);
+	};
+};
+
+const preserveSandboxBoundaryFailure = preserveFailure(SandboxBoundaryReason);
 
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	hostFailure(error.message, error.data);
 
-const writeFailureReason = Schema.Union([
-	SandboxBoundaryReason,
-	EntityBadRequest.fields.reason,
-	EntityNotFound.fields.reason,
-	EventBadRequest.fields.reason,
-	EventNotFound.fields.reason,
-	EventStale.fields.reason,
-	RelationshipBadRequest.fields.reason,
-	RelationshipNotFound.fields.reason,
-]);
-const preserveWriteFailure = (error: SandboxHostError) =>
-	hostFailure(error.message, Schema.is(writeFailureReason)(error.data) ? error.data : undefined);
+const preserveWriteFailure = preserveFailure(
+	Schema.Union([
+		SandboxBoundaryReason,
+		EventBadRequest.fields.reason,
+		EventNotFound.fields.reason,
+		EventStale.fields.reason,
+		EntityStale.fields.reason,
+		EntityBadRequest.fields.reason,
+		EntityNotFound.fields.reason,
+		RelationshipBadRequest.fields.reason,
+		RelationshipNotFound.fields.reason,
+	]),
+);
 
-const assetFailureReason = Schema.Union([SandboxBoundaryReason, UploadFailureReason]);
-const decodeAssetFailureReason = Schema.decodeUnknownResult(assetFailureReason);
-const encodeAssetFailureReason = Schema.encodeSync(assetFailureReason);
-const preserveAssetFailure = (error: SandboxHostError) => {
-	const decoded = decodeAssetFailureReason(error.data);
-	return hostFailure(
-		error.message,
-		decoded._tag === "Success" ? encodeAssetFailureReason(decoded.success) : undefined,
-	);
-};
+const preserveAssetFailure = preserveFailure(
+	Schema.Union([SandboxBoundaryReason, UploadFailureReason]),
+);
 
 const bindHostFunction =
 	<Args extends ReadonlyArray<unknown>, Result, Success>(

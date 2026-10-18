@@ -78,10 +78,15 @@ installation, script, and capability. Retry with the identical ordered data, tim
 reusing a key with changed committed data conflicts. The timestamp supplies the stable write-command
 time and any omitted event times. Omitting options keeps execution-scoped write identities.
 
-Event updates may include an `expected` snapshot with `entityId`, `occurredAt`, `updatedAt`,
-`properties`, and `sessionEntityId` (`null` or an ID). Delete options may include an `expected` map
-from every requested event ID to that snapshot. A stale precondition fails before mutation; a
-committed retry returns its receipt before checking the original snapshot again.
+Event updates may include an `expected` precondition
+`{ kind: "fields", entityId, occurredAt, sessionEntityId, properties, absentProperties }`:
+`sessionEntityId` is `null` or an ID, `properties` lists the property values that must still match,
+and `absentProperties` lists keys that must still be missing, at most 100 of each and disjoint.
+Delete options may include an `expected` map from every requested event ID to such a precondition.
+A stale precondition fails before mutation with `data: { code: "event-stale", eventId }`; a stale
+`updateUserEntity` `expected` snapshot fails with `data: { code: "entity-stale", entityId }`, which
+`entityStaleReasonSchema` matches. A committed retry returns its receipt before checking the
+original precondition again.
 Event creation returns `{ count, outcomes }`;
 each outcome is either `{ index, eventId, status: "written" }` or
 `{ index, reason, status: "skipped_by_policy" }`. A creation failure includes

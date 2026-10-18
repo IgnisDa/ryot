@@ -4,7 +4,11 @@ import {
 	AutomationEntityRequestPayload,
 	type AutomationPolicyPatch,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionKey,
 	definitionOwner,
@@ -22,7 +26,7 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -293,7 +297,7 @@ const batchRepresentatives = Effect.fnUntraced(function* <T>(
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+		const assetReferences = yield* ManagedAssetReferenceLocker.make;
 		const writeChecks = yield* DomainWriteChecks;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
@@ -676,7 +680,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			receipts,
 			repository,
 			validateDraft,
-			lockAssetReferences,
+			assetReferences,
 			authorizeMutation: (input: PreparedMutation) =>
 				writeChecks
 					.check(
@@ -1187,7 +1191,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					properties: before.properties,
 				})
 			) {
-				return yield* bad("mutation-conflict", "Entity changed since it was loaded");
+				return yield* new EntityStale({
+					reason: { code: "entity-stale", entityId: input.entityId },
+				});
 			}
 			yield* validateExistingEntity(current.entity, current.userId, input.lifecycle);
 			const validated = yield* validateDraft(

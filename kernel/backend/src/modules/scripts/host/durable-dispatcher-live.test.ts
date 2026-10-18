@@ -45,7 +45,6 @@ import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -65,6 +64,7 @@ import {
 	type ProviderHttpTicket,
 } from "#modules/scripts/host/http-admission";
 import { SandboxLifecycleHostFailure } from "#modules/scripts/host/lifecycle-host";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -204,9 +204,7 @@ const dispatcherLayer = (options: {
 					options.httpClient ?? HttpClient.make(() => Effect.die("unused")),
 				),
 				Layer.succeed(WorkflowEngine, options.engine),
-				Layer.mock(PluginRuntimeResolver)({
-					findPluginAvailableToUser: () => Effect.die("unused"),
-				}),
+				Layer.mock(SandboxSubmissionCommands)({ commandFor: () => Effect.die("unused") }),
 				Layer.succeed(WorkflowInstance, options.instance),
 				options.lifecycleExecution ?? unusedLifecycleExecution,
 				Layer.succeed(ScriptHostImplementations, options.implementations ?? implementations),
