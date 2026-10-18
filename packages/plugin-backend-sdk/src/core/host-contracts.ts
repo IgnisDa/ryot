@@ -109,6 +109,11 @@ import {
 	userPreferencesSchema,
 } from "./state";
 import { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./user-commands";
+import {
+	requestUserWorkArgsSchema,
+	requestUserWorkDataSchema,
+	requestUserWorkResultSchema,
+} from "./user-work";
 
 type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
 type GetPluginConfigResult<Keys extends GetPluginConfigArgs> = Readonly<
@@ -222,6 +227,11 @@ export const domainSandboxHostContracts = {
 		success: UserCommandResult,
 		args: commitUserChangesArgsSchema,
 		result: commitUserChangesResultSchema,
+	},
+	requestUserWork: {
+		args: requestUserWorkArgsSchema,
+		success: requestUserWorkDataSchema,
+		result: requestUserWorkResultSchema,
 	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,

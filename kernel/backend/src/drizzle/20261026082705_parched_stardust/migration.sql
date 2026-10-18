@@ -192,6 +192,13 @@ CREATE TABLE "data_import_submission" (
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "data_revision" (
+	"id" text PRIMARY KEY,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"user_id" text,
+	"plugin_id" text
+);
+--> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
@@ -387,7 +394,9 @@ CREATE TABLE "entity_translation" (
 );
 --> statement-breakpoint
 CREATE TABLE "event" (
+	"order_key" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"order_created_at" timestamp(3) with time zone,
 	"event_schema_slug" text NOT NULL,
 	"occurred_at" timestamp(3) with time zone NOT NULL,
 	"revision" integer DEFAULT 0 NOT NULL,
@@ -405,6 +414,14 @@ CREATE TABLE "event_projection" (
 	"properties" jsonb NOT NULL,
 	"stream_id" text NOT NULL,
 	"event_id" text PRIMARY KEY
+);
+--> statement-breakpoint
+CREATE TABLE "event_scope" (
+	"id" text PRIMARY KEY,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"event_schema_plugin_id" text,
+	"user_id" text NOT NULL,
+	"entity_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream" (
@@ -1031,6 +1048,20 @@ CREATE TABLE "saved_view_override" (
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "script_work" (
+	"error" text,
+	"key" text NOT NULL,
+	"scope" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"input_hash" text NOT NULL,
+	"payload" jsonb NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"status" text NOT NULL,
+	"user_id" text NOT NULL,
+	"plugin_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "session" (
 	"ip_address" text,
 	"user_agent" text,
@@ -1272,6 +1303,7 @@ CREATE INDEX "saved_view_slug_idx" ON "saved_view" ("slug");--> statement-breakp
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_override_kernel_unique" ON "saved_view_override" ("user_id","slug") WHERE "plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_override_plugin_unique" ON "saved_view_override" ("user_id","plugin_id","slug") WHERE "plugin_id" is not null;--> statement-breakpoint
+CREATE INDEX "script_work_scope_idx" ON "script_work" ("user_id","plugin_id","scope","created_at","id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
@@ -1302,6 +1334,8 @@ ALTER TABLE "calendar_source_override" ADD CONSTRAINT "calendar_source_override_
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "data_revision" ADD CONSTRAINT "data_revision_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "data_revision" ADD CONSTRAINT "data_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_calendar_source" ADD CONSTRAINT "definition_calendar_source_zr3mUgmh593q_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_cgKz3LGPs2D1_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1326,6 +1360,9 @@ ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("us
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_stream_id_event_stream_id_fkey" FOREIGN KEY ("stream_id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_event_id_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "event"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1402,6 +1439,8 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "script_work" ADD CONSTRAINT "script_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "script_work" ADD CONSTRAINT "script_work_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

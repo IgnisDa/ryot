@@ -7,6 +7,8 @@ export * from "./entities";
 export * from "./events";
 export * from "./event-streams";
 export * from "./event-projections";
+export * from "./script-work";
+export * from "./data-revisions";
 export * from "./imports";
 export * from "./migration-reports";
 export * from "./mutations";

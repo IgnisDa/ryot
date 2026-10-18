@@ -251,6 +251,8 @@ export type ArchiveRelationship = typeof ArchiveRelationship.Type;
 
 export const ArchiveEvent = strictStruct({
 	id: Schema.String,
+	orderKey: Schema.String,
+	orderCreatedAt: DataRecordTimestamp,
 	...eventDataFields,
 	entityId: Schema.String,
 	createdAt: DataRecordTimestamp,

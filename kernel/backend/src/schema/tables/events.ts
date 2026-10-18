@@ -9,7 +9,9 @@ import { timestamptz, updatedAtColumn } from "./timestamps";
 export const event = snakeCase.table(
 	"event",
 	{
+		orderKey: text(),
 		updatedAt: updatedAtColumn(),
+		orderCreatedAt: timestamptz(),
 		eventSchemaSlug: text().notNull(),
 		occurredAt: timestamptz().notNull(),
 		revision: integer().notNull().default(0),
@@ -52,3 +54,15 @@ export const event = snakeCase.table(
 		),
 	],
 );
+
+export const eventScope = snakeCase.table("event_scope", {
+	id: text().notNull().primaryKey(),
+	revision: integer().notNull().default(0),
+	eventSchemaPluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
+	userId: text()
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	entityId: text()
+		.notNull()
+		.references(() => entity.id, { onDelete: "cascade" }),
+});

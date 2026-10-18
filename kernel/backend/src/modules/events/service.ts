@@ -1261,6 +1261,16 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			},
 		) {
 			yield* assertActiveTransaction;
+			yield* entities.lockEntityReferencesByIds([
+				prepared.before.entityId,
+				...(prepared.before.sessionEntityId === null ? [] : [prepared.before.sessionEntityId]),
+				...(prepared.operation === "delete"
+					? []
+					: [
+							prepared.draft.entityId,
+							...(prepared.draft.sessionEntityId === null ? [] : [prepared.draft.sessionEntityId]),
+						]),
+			]);
 			if (prepared.operation === "delete") {
 				const pin = yield* authorizeEventDelete(
 					prepared.command,

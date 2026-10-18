@@ -1,5 +1,6 @@
 import {
 	CreateEventsResponse,
+	EventOrderAnchor,
 	EventPropertiesPatch,
 	EventWritePrecondition,
 } from "@ryot-app/contract/modules/events/schemas";
@@ -43,6 +44,7 @@ export const createEventItemSchema = strictStruct({
 	properties: jsonValueSchema,
 	eventSchemaSlug: sandboxIdSchema,
 	occurredAt: Schema.optional(Schema.String),
+	orderAfter: Schema.optional(EventOrderAnchor),
 	sessionEntityId: Schema.optional(sandboxIdSchema),
 });
 export type CreateEventItem = Schema.Schema.Type<typeof createEventItemSchema>;

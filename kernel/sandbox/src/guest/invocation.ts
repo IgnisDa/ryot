@@ -292,7 +292,7 @@ const stableJson = (value: unknown): string => {
 };
 
 const transportArguments = (fnName: string, args: ReadonlyArray<unknown>) => {
-	if (fnName !== "requestEventStreamWork") {
+	if (fnName !== "requestEventStreamWork" && fnName !== "requestUserWork") {
 		return args;
 	}
 	const reference = args[1];
@@ -737,7 +737,7 @@ const createHost = (
 		}
 		const transported = transportArguments(name, args);
 		if (!transported) {
-			return Effect.fail(createFailure("requestEventStreamWork requires a script reference"));
+			return Effect.fail(createFailure(name + " requires a script reference"));
 		}
 		let jsonArgs: JsonValue;
 		try {
@@ -942,7 +942,7 @@ const createDurableHost = (
 			}
 			const transported = transportArguments(name, args);
 			if (!transported) {
-				return Effect.fail(createFailure("requestEventStreamWork requires a script reference"));
+				return Effect.fail(createFailure(name + " requires a script reference"));
 			}
 			const requestIndex = requests.length;
 			return register(

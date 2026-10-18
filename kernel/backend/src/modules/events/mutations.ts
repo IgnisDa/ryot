@@ -54,6 +54,16 @@ export const PreparedEventChange = Schema.Struct({
 	receipt: MutationReceiptIdentity,
 	schemaFingerprint: CatalogDefinitionFingerprint,
 	source: Schema.NullOr(Schema.Struct({ revision: Schema.Int, snapshot: AutomationEventSnapshot })),
+	order: Schema.optionalKey(
+		Schema.NullOr(
+			Schema.Struct({
+				anchorId: EventId,
+				key: Schema.String,
+				revision: Schema.Int,
+				createdAt: Schema.String,
+			}),
+		),
+	),
 });
 export const PreparedEventChanges = Schema.Struct({
 	items: Schema.Array(PreparedEventChange),
@@ -242,7 +252,43 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 						eventSchemaPluginId: scope.eventSchemaScope.pluginId,
 						entitySchemaPluginId: scope.entityScope.entitySchemaPluginId,
 					}).pipe(Effect.mapError(() => bad("invalid-properties", "Event draft is invalid")));
+					let anchor;
+					if (item.change.kind === "create") {
+						anchor = item.change.item.orderAfter;
+					}
+					if (item.change.kind === "update") {
+						anchor = item.change.item.patch.orderAfter;
+					}
+					let order: typeof PreparedEventChange.Type.order;
+					if (anchor === null) {
+						order = null;
+					} else if (anchor) {
+						const source = yield* repository.getEventOrder({
+							userId: input.userId,
+							eventId: anchor.eventId,
+						});
+						if (
+							!writer ||
+							!source ||
+							source.eventSchemaPluginId !== writer.id ||
+							![draft.entityId, draft.sessionEntityId].some(
+								(id) => id !== null && (id === source.entityId || id === source.sessionEntityId),
+							)
+						) {
+							return yield* bad(
+								"mutation-conflict",
+								"Event order anchor is outside the command scope",
+							);
+						}
+						order = {
+							anchorId: anchor.eventId,
+							revision: source.revision,
+							createdAt: source.createdAt,
+							key: `${source.key}~${anchor.suffix}`,
+						};
+					}
 					return {
+						...(order === undefined ? {} : { order }),
 						draft,
 						change: item.change,
 						source: item.source,
@@ -335,7 +381,10 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					referencedIds.has(EntityId.make(id)),
 				),
 			);
-			const eventIds = rows.flatMap((row) => (row.source ? [row.source.snapshot.id] : []));
+			const eventIds = rows.flatMap((row) => [
+				...(row.source ? [row.source.snapshot.id] : []),
+				...(row.order ? [row.order.anchorId] : []),
+			]);
 			yield* entities.lockEntityReferencesByIds(
 				Object.keys(references)
 					.map((id) => EntityId.make(id))
@@ -421,6 +470,24 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					);
 				}
 				const draft = accepted.request.draft;
+				if (row.order) {
+					const anchor = yield* repository.getEventOrder({
+						userId: input.userId,
+						eventId: row.order.anchorId,
+					});
+					if (
+						!anchor ||
+						anchor.revision !== row.order.revision ||
+						anchor.eventSchemaPluginId !== draft.eventSchemaPluginId ||
+						![draft.entityId, draft.sessionEntityId].some(
+							(id) => id !== null && (id === anchor.entityId || id === anchor.sessionEntityId),
+						)
+					) {
+						return yield* new EventStale({
+							reason: { code: "event-stale", eventId: row.order.anchorId },
+						});
+					}
+				}
 				const command = {
 					...commandFor(input.command, row.change.itemIdentity),
 					causation: {
@@ -463,6 +530,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 				let eventId: EventId;
 				if (row.change.kind === "create") {
 					const event = yield* repository.createEvent({
+						order: row.order ?? undefined,
 						...draft,
 						userId: input.userId,
 						eventSchemaName: schema.name,
@@ -504,6 +572,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 							!(yield* repository.updatePreparedEvent({
 								...identity,
 								draft,
+								order: row.order,
 								updatedAt: DateTime.toDate(DateTime.makeUnsafe(command.occurredAt)),
 							}))
 						) {

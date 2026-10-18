@@ -913,6 +913,8 @@ const eventPagesSourceHash = pluginContentHash(eventPagesManifest);
 const eventRow = (id: string, note: string) => ({
 	id,
 	note,
+	orderKey: null,
+	orderCreatedAt: null,
 	sessionEntityId: null,
 	entityId: "private-entity",
 	eventSchemaSlug: "watched",

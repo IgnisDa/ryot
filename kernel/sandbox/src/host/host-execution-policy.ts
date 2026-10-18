@@ -21,6 +21,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	log: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
 	getCurrentIntegration: { resultBytes: null, dispatch: "activity" },
 	requestEventStreamWork: { resultBytes: KiB, dispatch: "activity" },
+	requestUserWork: { resultBytes: KiB, dispatch: "service-workflow" },
 	span: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
 	deleteEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },
 	updateEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },

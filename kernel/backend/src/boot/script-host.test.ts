@@ -81,7 +81,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
 import { user } from "#schema/tables/auth";
-import { makeAppConfigLayer, makeRedisService } from "#testing/effect";
+import { makeAppConfigLayer, makeRedisService, workflowEngineTestLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { makeAdditionalScriptHostFunctions } from "./script-host";
@@ -405,6 +405,7 @@ const hostFunctionsLayer = (
 				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
 			);
 			const dependencies = Layer.mergeAll(
+				workflowEngineTestLayer,
 				hostDatabaseLayer,
 				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				DomainWriteChecksLive.pipe(Layer.provide(hostDatabaseLayer)),

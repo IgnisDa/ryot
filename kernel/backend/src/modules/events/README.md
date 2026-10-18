@@ -29,6 +29,21 @@ commands, including the chunked calls a plugin makes for one logical batch, carr
 Their order relies on `createdAt` being set per insert from the server clock, so a later call never
 sorts before an earlier one.
 
+Derived records can retain an authorized source-order anchor through event mutation commands.
+RyotQL exposes `orderCreatedAt` and `orderKey` as the effective creation-order pair: an explicit event
+uses its own creation time and ID; an anchored event follows its captured source order with the
+declared suffix. Consumers that need logical history order sort by `(occurredAt, orderCreatedAt,
+orderKey)`. Physical identity and audit timestamps remain separate. Backups preserve the effective
+order even when restore remaps physical event IDs.
+
+`event_scope` tracks a revision per user, plugin owner, and entity-or-session reference. Source writes
+advance old and new scopes, including deletions and reference moves. Read-dependent user commands
+can use that scalar revision as their atomic baseline instead of carrying every source event ID.
+
+Snapshot reads do not lock event rows. Preparation can therefore read history while a commit holds
+entity locks. Persistence locks entity references before event rows and rechecks captured revisions;
+an edit or deletion that changed after preparation fails as stale.
+
 ## Stream work and freshness
 
 A stream is keyed by user, entity, event-schema owner, and event-schema slug. Source event writes

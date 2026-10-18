@@ -2,7 +2,13 @@ import { Schema } from "effect";
 
 import { EventId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import { CreateEventItem, EventWritePrecondition, UpdateEventItem } from "./schemas";
+import {
+	CreateEventItem,
+	EventOrderAnchor,
+	EventUpdatePatch,
+	EventWritePrecondition,
+	UpdateEventItem,
+} from "./schemas";
 
 export const EventMutationChange = Schema.Union([
 	strictStruct({
@@ -11,9 +17,15 @@ export const EventMutationChange = Schema.Union([
 		itemIdentity: Schema.NonEmptyString,
 	}),
 	strictStruct({
-		item: UpdateEventItem,
 		kind: Schema.Literal("update"),
 		itemIdentity: Schema.NonEmptyString,
+		item: strictStruct({
+			...UpdateEventItem.fields,
+			patch: strictStruct({
+				...EventUpdatePatch.fields,
+				orderAfter: Schema.optional(Schema.NullOr(EventOrderAnchor)),
+			}).check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)),
+		}),
 	}),
 	strictStruct({
 		eventId: EventId,

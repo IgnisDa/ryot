@@ -305,6 +305,7 @@ const event: CatalogTable = {
 		id: physicalField("id", "text", false),
 		userId: physicalField("user_id", "text", false),
 		entityId: physicalField("entity_id", "text", false),
+		revision: physicalField("revision", "number", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		properties: physicalField("properties", "json", false),
@@ -312,6 +313,18 @@ const event: CatalogTable = {
 		sessionEntityId: physicalField("session_entity_id", "text"),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
 		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+		orderKey: {
+			kind: "text",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql`coalesce(${sql.raw(sqlAlias)}.order_key, ${sql.raw(sqlAlias)}.id)`,
+		},
+		orderCreatedAt: {
+			kind: "date",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql`coalesce(${sql.raw(sqlAlias)}.order_created_at, ${sql.raw(sqlAlias)}.created_at)`,
+		},
 		projection: {
 			kind: "json",
 			nullable: true,
@@ -384,6 +397,51 @@ const eventStream: CatalogTable = {
 		revision: physicalField("revision", "number", false),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
 		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+	},
+};
+
+const eventScope: CatalogTable = {
+	primaryKey: ["id"],
+	name: "event_scope",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		entityId: physicalField("entity_id", "text", false),
+		revision: physicalField("revision", "number", false),
+		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+	},
+};
+
+const userWork: CatalogTable = {
+	primaryKey: ["id"],
+	name: "script_work",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	},
+	fields: {
+		error: physicalField("error", "text"),
+		id: physicalField("id", "text", false),
+		scope: physicalField("scope", "text", false),
+		status: physicalField("status", "text", false),
+		pluginId: physicalField("plugin_id", "text", false),
+		createdAt: physicalField("created_at", "date", false),
+		updatedAt: physicalField("updated_at", "date", false),
+	},
+};
+
+const dataRevision: CatalogTable = {
+	primaryKey: ["id"],
+	name: "data_revision",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		userId: physicalField("user_id", "text"),
+		pluginId: physicalField("plugin_id", "text"),
+		revision: physicalField("revision", "number", false),
 	},
 };
 
@@ -1293,13 +1351,16 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
 	plugin,
+	userWork,
 	backupRun,
 	importRun,
 	savedView,
+	eventScope,
 	eventStream,
 	eventSchema,
 	integration,
 	importIssue,
+	dataRevision,
 	entitySchema,
 	importSource,
 	relationship,

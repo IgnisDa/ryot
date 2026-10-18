@@ -96,6 +96,17 @@ operation seals its batch-hook evidence and retains its aggregate result. Commit
 `commitUserChanges` commits a root user entity, relationships, and event creates, updates, and
 deletes in one database transaction. References can target the root entity before it exists. Any
 validation or commit failure leaves the entire command unchanged. File uploads are separate.
+`events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. `dataBaseline` optionally
+protects the plugin's global and owned `dataRevision` counters. These scalar guards do not grow with
+the history or inventory. Event creates/updates may retain logical source order with `orderAfter`;
+an update with `orderAfter: null` restores physical creation order.
+
+`requestUserWork({ key, scope, input }, scriptReference)` admits a declared script dependency as
+independent, pinned user background work and returns `{ workId }`. Keys and scopes are nonempty and
+at most 512 characters; input must fit the sandbox context bound. The same key and input replay one
+admission; changing input or scope conflicts. Plugins page their own work, persist checkpoints with
+atomic commands, and schedule continuations with new deterministic keys. The user-scoped `userWork`
+RyotQL table exposes status and scope, not execution input. Retry a failed job with a new key.
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return

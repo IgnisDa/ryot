@@ -80,7 +80,7 @@ export type AppStringPropertyFormat =
 	| { readonly kind: "oauth-connection"; readonly provider: string };
 
 export type AppStringPropertyReference = {
-	readonly kind: "entity-id" | "relationship-id";
+	readonly kind: "entity-id" | "relationship-id" | "event-id";
 	readonly required?: true | undefined;
 };
 
@@ -346,7 +346,7 @@ const stringPropertyFormatSchema = Schema.Union([
 
 const stringPropertyReferenceSchema = strictStruct({
 	required: Schema.optional(Schema.Literal(true)),
-	kind: Schema.Literals(["entity-id", "relationship-id"]),
+	kind: Schema.Literals(["entity-id", "relationship-id", "event-id"]),
 });
 
 export const AppChoiceSchema = strictStruct({

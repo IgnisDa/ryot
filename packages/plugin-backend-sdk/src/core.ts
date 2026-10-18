@@ -128,6 +128,11 @@ export {
 } from "./core/integrations";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export {
+	requestUserWorkArgsSchema,
+	requestUserWorkDataSchema,
+	requestUserWorkResultSchema,
+} from "./core/user-work";
+export {
 	EVENT_MUTATION_SANDBOX_LIMITS,
 	GLOBAL_WRITE_SANDBOX_LIMITS,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,

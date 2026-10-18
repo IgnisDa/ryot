@@ -311,6 +311,59 @@ export default defineAutomation({
 				);
 			}),
 	);
+	test.effect("records user-work requests as script capabilities and dependencies", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compilePluginSandboxSourceEntries(
+				{
+					"backend/worker.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+
+export const manifest = defineManifest({ kind: "script", name: "User worker", slug: "user-worker" });
+export default defineScript({
+  manifest,
+  input: Schema.Struct({ value: Schema.String }),
+  output: Schema.String,
+  run: (input) => Effect.succeed(input.value),
+});
+`,
+					"backend/automation.sandbox.ts": `
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
+
+const worker = defineScriptReference({
+  scriptSlug: "user-worker",
+  input: Schema.Struct({ value: Schema.String }),
+  output: Schema.String,
+});
+export const manifest = defineManifest({
+  kind: "automation",
+  name: "User-work request",
+  slug: "user-work-request",
+  automationType: "automation",
+  inputProjection: { event: { properties: [], compareProperties: [] } },
+});
+export default defineAutomation({
+  manifest,
+  run: (_input, host) => host.requestUserWork({ scope: "test", key: "work-key", input: { value: "queued" } }, worker).pipe(Effect.as(null)),
+});
+`,
+				},
+				[
+					{ kind: "automation", entry: "backend/automation.sandbox.ts" },
+					{ kind: "script", entry: "backend/worker.sandbox.ts" },
+				],
+			);
+			const automation = compiled.find(({ entry }) => entry === "backend/automation.sandbox.ts")
+				?.compiled.manifest;
+			expect(automation).toMatchObject({
+				capabilities: ["requestUserWork"],
+				executableDependencies: [{ kind: "script", slug: "user-worker" }],
+			});
+		}),
+	);
 	test.effect.each(["source", "package"] as const)(
 		"rejects workflow filesystem capabilities through the $0 entrypoint",
 		(entrypoint) =>

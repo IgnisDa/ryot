@@ -68,6 +68,11 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		subjects: ["user", "automation-run", "event-projection"] as const,
 	},
+	requestUserWork: {
+		bridge: true,
+		requiresSystemPlugin: true,
+		subjects: ["user", "automation-run"],
+	},
 	getUserPreferences: {
 		bridge: true,
 		subjects: ["user", "automation-run", "event-projection"] as const,

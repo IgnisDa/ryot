@@ -720,12 +720,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						return {
 							id: row.id,
 							entityId: row.entityId,
+							orderKey: row.orderKey ?? row.id,
 							eventSchemaSlug: row.eventSchemaSlug,
 							sessionEntityId: row.sessionEntityId,
 							createdAt: row.createdAt.toISOString(),
 							updatedAt: row.updatedAt.toISOString(),
 							occurredAt: row.occurredAt.toISOString(),
 							properties: decodeArchiveJsonObject(row.properties),
+							orderCreatedAt: (row.orderCreatedAt ?? row.createdAt).toISOString(),
 							eventSchemaPluginKey: row.eventSchemaPluginId
 								? yield* requirePluginKey(input.pluginKeyById, row.eventSchemaPluginId)
 								: null,

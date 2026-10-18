@@ -88,9 +88,18 @@ const rewritePropertyValueReferences = (
 	value: JsonValue,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
+	eventId: ((id: string) => string) | undefined,
 ): Effect.Effect<JsonValue, DataReferenceError> =>
 	Effect.gen(function* () {
 		if (definition.type === "string" && definition.reference && typeof value === "string") {
+			if (definition.reference.kind === "event-id") {
+				return eventId
+					? eventId(value)
+					: yield* new DataReferenceError({
+							code: "missing_reference_mapping",
+							message: `Missing event reference mapping for '${value}'`,
+						});
+			}
 			const kind = definition.reference.kind === "entity-id" ? "entity" : "relationship";
 			const mapping = kind === "entity" ? entityIds : relationshipIds;
 			const replacement = mapping.get(value);
@@ -111,6 +120,7 @@ const rewritePropertyValueReferences = (
 						childValue,
 						entityIds,
 						relationshipIds,
+						eventId,
 					);
 				}
 			}
@@ -120,7 +130,13 @@ const rewritePropertyValueReferences = (
 			const rewritten: JsonValue[] = [];
 			for (const item of value) {
 				rewritten.push(
-					yield* rewritePropertyValueReferences(definition.items, item, entityIds, relationshipIds),
+					yield* rewritePropertyValueReferences(
+						definition.items,
+						item,
+						entityIds,
+						relationshipIds,
+						eventId,
+					),
 				);
 			}
 			return rewritten;
@@ -133,6 +149,7 @@ export const rewritePropertyReferences = Effect.fn(function* (
 	schema: AppSchema,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
+	eventId?: (id: string) => string,
 ) {
 	const rewritten: JsonObject = { ...value };
 	for (const [key, definition] of Object.entries(schema.fields)) {
@@ -143,6 +160,7 @@ export const rewritePropertyReferences = Effect.fn(function* (
 				property,
 				entityIds,
 				relationshipIds,
+				eventId,
 			);
 		}
 	}

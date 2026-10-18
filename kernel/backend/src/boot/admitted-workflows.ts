@@ -25,6 +25,7 @@ import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { UserWorkWorkflow } from "#modules/scripts/executions/user-work";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -53,6 +54,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessIntegrationRunWorkflow,
 		IntegrationSyncWorkflow,
 		ScriptExecutionWorkflow,
+		UserWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,
 		CollectionMembershipWorkflow,
 		UserBootstrapWorkflow,

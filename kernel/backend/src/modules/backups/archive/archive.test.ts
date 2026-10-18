@@ -180,12 +180,14 @@ const validationError = Effect.fn(function* (
 
 const event = (id = "event-1"): ArchiveEvent => ({
 	id,
+	orderKey: id,
 	properties: {},
 	entityId: "entity-1",
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	occurredAt: timestamp,
 	sessionEntityId: null,
+	orderCreatedAt: timestamp,
 	eventSchemaSlug: "changed",
 	eventSchemaPluginKey: null,
 });

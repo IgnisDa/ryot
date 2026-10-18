@@ -339,6 +339,7 @@ export const rewriteEventReferences = Effect.fn(function* (
 	propertiesSchema: AppSchema,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
+	eventId: (id: string) => string,
 ) {
 	const entityId = yield* requiredArchiveReference(entityIds, event.entityId, "entity");
 	const sessionEntityId =
@@ -350,6 +351,7 @@ export const rewriteEventReferences = Effect.fn(function* (
 		propertiesSchema,
 		entityIds,
 		relationshipIds,
+		eventId,
 	).pipe(Effect.mapError(archiveReferenceError));
 	return { ...event, entityId, properties, sessionEntityId };
 });

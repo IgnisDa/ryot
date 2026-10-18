@@ -47,6 +47,7 @@ import {
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations, eventPolicyItems, PreparedEventChanges } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
+import { DataRevisions } from "#modules/mutations/data-revisions";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
@@ -192,6 +193,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			const entityRows = yield* EntitiesRepository;
 			const eventRows = yield* EventsRepository;
 			const events = yield* EventMutations;
+			const dataRevisions = yield* DataRevisions;
 			const relationships = yield* RelationshipsService;
 			const planner = yield* LifecyclePlanner;
 			const lifecycle = yield* LifecycleExecution;
@@ -232,6 +234,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					kind: "create" as const,
 					itemIdentity: item.itemIdentity,
 					item: {
+						...(item.orderAfter ? { orderAfter: item.orderAfter } : {}),
 						properties: item.properties,
 						occurredAt: item.occurredAt,
 						entityId: referencedEntity(item.entity, entity.entityId),
@@ -352,9 +355,28 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 							if (replay) {
 								return { result: replay.result, dispatch: replay.dispatch };
 							}
+							const baselines = payload.input.events.baselines ?? [];
+							for (const baseline of baselines) {
+								const visible = yield* entityRows.getByIdForUser({
+									userId: payload.userId,
+									entityId: baseline.entityId,
+								});
+								if (
+									!visible ||
+									visible.entitySchemaPluginId !== payload.command.writeContext?.pluginRevision?.id
+								) {
+									return yield* new EventBadRequest({
+										reason: {
+											code: "mutation-conflict",
+											message: "Event baseline is outside the command scope",
+										},
+									});
+								}
+							}
 							const references = [
 								...new Set([
 									entity.entityId,
+									...baselines.map((baseline) => baseline.entityId),
 									...preparedBatches.flatMap((batch) =>
 										Object.keys(batch.validated.references).map((id) => EntityId.make(id)),
 									),
@@ -364,7 +386,45 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 									]),
 								]),
 							].sort();
-							yield* entityRows.getMutationEntities(references, true);
+							const lockedReferences = yield* entityRows.getMutationEntities(references, true);
+							if (payload.input.dataBaseline) {
+								const owner = payload.command.writeContext?.pluginRevision;
+								if (
+									!owner ||
+									!(yield* dataRevisions.validate({
+										pluginId: owner.id,
+										userId: payload.userId,
+										...payload.input.dataBaseline,
+									}))
+								) {
+									return yield* new EntityStale({
+										reason: { code: "entity-stale", entityId: entity.entityId },
+									});
+								}
+							}
+							for (const baseline of baselines) {
+								if (!lockedReferences.has(baseline.entityId)) {
+									return yield* new EntityStale({
+										reason: { code: "entity-stale", entityId: baseline.entityId },
+									});
+								}
+								const owner = payload.command.writeContext?.pluginRevision;
+								if (!owner) {
+									return yield* new DbError({
+										message: "User command requires exact plugin authority",
+									});
+								}
+								const current = yield* eventRows.getScopeRevision({
+									userId: payload.userId,
+									entityId: baseline.entityId,
+									eventSchemaPluginId: owner.id,
+								});
+								if (baseline.revision !== current) {
+									return yield* new EntityStale({
+										reason: { code: "entity-stale", entityId: baseline.entityId },
+									});
+								}
+							}
 							const expected = payload.input.events.expected;
 							if (expected) {
 								const owner = payload.command.writeContext?.pluginRevision;
@@ -435,4 +495,4 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			return committed.result;
 		}),
 	),
-);
+).pipe(Layer.provide(DataRevisions.layer));

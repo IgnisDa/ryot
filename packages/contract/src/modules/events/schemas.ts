@@ -28,6 +28,11 @@ export const EventPropertiesPatch = strictStruct({
 
 export type EventPropertiesPatch = typeof EventPropertiesPatch.Type;
 
+export const EventOrderAnchor = strictStruct({
+	eventId: EventId,
+	suffix: Schema.NonEmptyString.check(Schema.isMaxLength(64)),
+});
+
 export const EventUpdatePatch = strictStruct({
 	entityId: Schema.optional(EntityId),
 	occurredAt: Schema.optional(Schema.String),
@@ -127,6 +132,7 @@ export const CreateEventItem = Schema.Struct({
 	eventSchemaSlug: EventSchemaSlug,
 	occurredAt: Schema.optional(Schema.String),
 	sessionEntityId: Schema.optional(EntityId),
+	orderAfter: Schema.optional(EventOrderAnchor),
 });
 
 export type CreateEventItem = typeof CreateEventItem.Type;

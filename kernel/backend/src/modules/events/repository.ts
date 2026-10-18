@@ -14,6 +14,7 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -54,10 +55,12 @@ export const RESTORE_EVENT_BATCH_SIZE = 1_000;
 const createdEventSelection = {
 	id: schema.event.id,
 	entityId: schema.event.entityId,
+	orderKey: schema.event.orderKey,
 	createdAt: schema.event.createdAt,
 	updatedAt: schema.event.updatedAt,
 	occurredAt: schema.event.occurredAt,
 	properties: schema.event.properties,
+	orderCreatedAt: schema.event.orderCreatedAt,
 	eventSchemaSlug: schema.event.eventSchemaSlug,
 	sessionEntityId: schema.event.sessionEntityId,
 	eventSchemaPluginId: schema.event.eventSchemaPluginId,
@@ -101,6 +104,46 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		);
 		const receipts = yield* MutationReceipts.make;
 		const eventStreams = yield* EventStreamRepository.make;
+		const touchScopes = Effect.fn("EventsRepository.touchScopes")(function* (
+			rows: ReadonlyArray<{
+				userId: string;
+				eventSchemaPluginId: string | null;
+				entityId: string;
+				sessionEntityId: string | null;
+			}>,
+		) {
+			const scopes = new Map(
+				rows.flatMap((row) =>
+					[...new Set([row.entityId, row.sessionEntityId].filter((id) => id !== null))].map(
+						(entityId) => {
+							const id = sha256Hex(
+								stableStringify([row.userId, row.eventSchemaPluginId, entityId]),
+							);
+							return [
+								id,
+								{ id, entityId, userId: row.userId, eventSchemaPluginId: row.eventSchemaPluginId },
+							] as const;
+						},
+					),
+				),
+			);
+			for (const [, scope] of [...scopes].sort(([a], [b]) => {
+				if (a === b) {
+					return 0;
+				}
+				return a < b ? -1 : 1;
+			})) {
+				yield* session.run((db) =>
+					db
+						.insert(schema.eventScope)
+						.values({ ...scope, revision: 1 })
+						.onConflictDoUpdate({
+							target: schema.eventScope.id,
+							set: { revision: sql`${schema.eventScope.revision} + 1` },
+						}),
+				);
+			}
+		});
 		const getEventForMutation = Effect.fn("EventsRepository.getEventForMutation")(function* (
 			input: EventIdentityInput,
 		) {
@@ -172,6 +215,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			eventSchemaSlug: EventSchemaSlug;
 			eventSchemaPluginId: string | null;
 			properties: Record<string, unknown>;
+			order?: { createdAt: string; key: string } | undefined;
 			sessionEntityId?: EntityId | undefined;
 		}) {
 			yield* requireTransaction;
@@ -194,9 +238,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						entityId: input.entityId,
 						properties: input.properties,
 						occurredAt: input.occurredAt,
+						orderKey: input.order?.key ?? null,
 						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId ?? null,
 						eventSchemaPluginId: input.eventSchemaPluginId,
+						orderCreatedAt: input.order
+							? DateTime.toDate(DateTime.makeUnsafe(input.order.createdAt))
+							: null,
 					})
 					.onConflictDoNothing()
 					.returning(createdEventSelection),
@@ -228,6 +276,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				return yield* new DbError({ message: "Conflicting event command identity" });
 			}
 			if (inserted) {
+				yield* touchScopes([{ ...input, sessionEntityId: input.sessionEntityId ?? null }]);
 				yield* eventStreams.touch([{ ...streamKey, occurredAt: inserted.occurredAt }]);
 			}
 
@@ -280,6 +329,44 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					.pipe(Effect.map((rows) => rows.map((row) => EventId.make(row.id))));
 			},
 		);
+		const getScopeRevision = Effect.fn("EventsRepository.getScopeRevision")(function* (input: {
+			userId: UserId;
+			entityId: EntityId;
+			eventSchemaPluginId: string;
+		}) {
+			const [row] = yield* session.run((db) =>
+				db
+					.select({ revision: schema.eventScope.revision })
+					.from(schema.eventScope)
+					.where(
+						eq(
+							schema.eventScope.id,
+							sha256Hex(stableStringify([input.userId, input.eventSchemaPluginId, input.entityId])),
+						),
+					),
+			);
+			return row?.revision ?? 0;
+		});
+		const getEventOrder = Effect.fn("EventsRepository.getEventOrder")(function* (
+			input: EventIdentityInput,
+		) {
+			const [row] = yield* session.run((db) =>
+				db
+					.select({
+						revision: schema.event.revision,
+						entityId: schema.event.entityId,
+						sessionEntityId: schema.event.sessionEntityId,
+						eventSchemaPluginId: schema.event.eventSchemaPluginId,
+						key: sql<string>`coalesce(${schema.event.orderKey}, ${schema.event.id})`,
+						createdAt: sql<string>`coalesce(${schema.event.orderCreatedAt}, ${schema.event.createdAt})::text`,
+					})
+					.from(schema.event)
+					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId))),
+			);
+			return row
+				? { ...row, createdAt: DateTime.formatIso(DateTime.makeUnsafe(row.createdAt)) }
+				: null;
+		});
 		const listEventIdentitiesForEntities = Effect.fn(
 			"EventsRepository.listEventIdentitiesForEntities",
 		)(function* (entityIds: ReadonlyArray<EntityId>) {
@@ -324,6 +411,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					.returning({ id: schema.event.id }),
 			);
 			if (row) {
+				yield* touchScopes([current]);
 				yield* touchEventMutation({
 					after: streamKey,
 					before: streamKey,
@@ -358,6 +446,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					.returning({ id: schema.event.id }),
 			);
 			if (row) {
+				yield* touchScopes([current]);
 				yield* touchEventMutation({
 					after: streamKey,
 					before: streamKey,
@@ -410,6 +499,17 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					),
 				);
 				if (row) {
+					yield* touchScopes([
+						current,
+						{
+							...current,
+							entityId: current.entityId === input.mergeFrom ? input.mergeInto : current.entityId,
+							sessionEntityId:
+								current.sessionEntityId === input.mergeFrom
+									? input.mergeInto
+									: current.sessionEntityId,
+						},
+					]);
 					yield* touchEventMutation({
 						after: afterKey,
 						before: beforeKey,
@@ -425,6 +525,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		const updatePreparedEvent = Effect.fn("EventsRepository.updatePreparedEvent")(function* (
 			input: EventIdentityInput & {
 				draft: AutomationEventDraft;
+				order?: { createdAt: string; key: string } | null | undefined;
 				expectedRevision: number;
 				updatedAt: Date;
 			},
@@ -445,6 +546,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						set
 							"updated_at" = ${input.updatedAt},
 							"revision" = "revision" + 1,
+							"order_key" = case when ${input.order !== undefined} then ${input.order?.key ?? null} else "order_key" end,
+							"order_created_at" = case when ${input.order !== undefined} then ${input.order?.createdAt ?? null}::timestamptz else "order_created_at" end,
 							"entity_id" = ${input.draft.entityId},
 							"session_entity_id" = ${input.draft.sessionEntityId},
 							"occurred_at" = ${DateTime.toDate(DateTime.makeUnsafe(input.draft.occurredAt))},
@@ -458,6 +561,14 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				),
 			);
 			if (row) {
+				yield* touchScopes([
+					current,
+					{
+						...current,
+						entityId: input.draft.entityId,
+						sessionEntityId: input.draft.sessionEntityId,
+					},
+				]);
 				yield* touchEventMutation({
 					after: afterKey,
 					afterOccurredAt,
@@ -501,8 +612,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					})
 					.from(schema.event)
 					.innerJoin(schema.entity, eq(schema.entity.id, schema.event.entityId))
-					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
-					.for("update", { of: schema.event }),
+					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId))),
 			);
 			if (!row) {
 				return null;
@@ -554,7 +664,9 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			createEvent,
 			hasUserEvents,
 			lockEventRows,
+			getEventOrder,
 			getEventSnapshot,
+			getScopeRevision,
 			getCreateProgress,
 			deletePreparedEvent,
 			updatePreparedEvent,

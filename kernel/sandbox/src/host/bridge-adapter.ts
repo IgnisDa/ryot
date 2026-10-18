@@ -295,6 +295,12 @@ export const bindSandboxHostFunctions = <Input>(
 			implementations.executeRyotql,
 			{ failure: preserveHttpFailureDetails },
 		),
+		requestUserWork: bind(
+			"requestUserWork",
+			domainSandboxHostContracts.requestUserWork,
+			implementations.requestUserWork,
+			{ failure: preserveWriteFailure },
+		),
 		upsertGlobalRelationships: bind(
 			"upsertGlobalRelationships",
 			domainSandboxHostContracts.upsertGlobalRelationships,

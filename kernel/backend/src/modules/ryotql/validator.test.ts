@@ -210,6 +210,9 @@ it("exposes only approved event fields", () => {
 			"projection",
 			"projectionStatus",
 			"sessionEntityId",
+			"revision",
+			"orderCreatedAt",
+			"orderKey",
 		]),
 	);
 });

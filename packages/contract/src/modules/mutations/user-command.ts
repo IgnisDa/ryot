@@ -4,6 +4,7 @@ import { EntityId, EventId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { EventMutationChange } from "../events/mutations";
+import { EventOrderAnchor } from "../events/schemas";
 
 export const CommandEntityReference = Schema.Union([
 	strictStruct({ kind: Schema.Literal("root") }),
@@ -19,6 +20,16 @@ export const UserCommand = strictStruct({
 			relationshipSchemaSlug: Schema.NonEmptyString,
 			propertiesMode: Schema.Literals(["merge", "replace"]),
 		}),
+	),
+	dataBaseline: Schema.optional(
+		strictStruct({
+			userRevision: Schema.optional(Schema.Int),
+			globalRevision: Schema.optional(Schema.Int),
+		}).check(
+			Schema.makeFilter(
+				(value) => value.globalRevision !== undefined || value.userRevision !== undefined,
+			),
+		),
 	),
 	entity: strictStruct({
 		properties,
@@ -40,6 +51,17 @@ export const UserCommand = strictStruct({
 		expected: Schema.optional(
 			strictStruct({ eventIds: Schema.Array(EventId), eventSchemaSlug: Schema.NonEmptyString }),
 		),
+		baselines: Schema.optional(
+			Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
+				.check(Schema.isMinLength(1))
+				.check(Schema.isMaxLength(100))
+				.check(
+					Schema.makeFilter(
+						(baselines) =>
+							new Set(baselines.map((baseline) => baseline.entityId)).size === baselines.length,
+					),
+				),
+		),
 		creates: Schema.Array(
 			strictStruct({
 				properties,
@@ -47,6 +69,7 @@ export const UserCommand = strictStruct({
 				itemIdentity: Schema.NonEmptyString,
 				eventSchemaSlug: Schema.NonEmptyString,
 				occurredAt: Schema.optional(Schema.String),
+				orderAfter: Schema.optional(EventOrderAnchor),
 				session: Schema.optional(CommandEntityReference),
 			}),
 		),

@@ -36,6 +36,7 @@ const makeImplementations = (
 	setCachedValue: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
 	getUserSettings: () => Effect.fail({ message: "unused" }),
+	requestUserWork: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),

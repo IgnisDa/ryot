@@ -14,6 +14,7 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { entityLifecycleHostSteps, makeEntityScriptHost } from "#modules/entities/script-host";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsServiceLive, EventStreamWorkServiceLive } from "#modules/events/layer";
 import { eventLifecycleHostSteps, makeEventScriptHost } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
@@ -42,6 +43,10 @@ import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
 import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stream-processor";
+import {
+	makeUserWorkScriptHost,
+	UserWorkWorkflowLive,
+} from "#modules/scripts/executions/user-work";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import {
 	SandboxDurableHostDispatcherLive,
@@ -76,6 +81,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makeRyotQLScriptHost),
 		...(yield* makeProKeyScriptHost),
 		...(yield* makeUserCommandScriptHost),
+		...(yield* makeUserWorkScriptHost),
 	} satisfies AdditionalScriptHostImplementationMap;
 });
 
@@ -111,6 +117,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 ).pipe(
 	Layer.provide(
 		Layer.mergeAll(
+			DomainWriteChecksLive,
 			EventsServiceLive,
 			ManagedAssetsServiceLive,
 			EventStreamWorkServiceProvidedLive,
@@ -147,7 +154,8 @@ export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );
 
-export const SandboxDurableHostServicesLive = Layer.merge(
+export const SandboxDurableHostServicesLive = Layer.mergeAll(
+	UserWorkWorkflowLive,
 	SandboxDurableHostDispatcherLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(

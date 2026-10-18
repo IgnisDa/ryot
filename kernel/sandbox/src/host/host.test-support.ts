@@ -64,6 +64,7 @@ const unusedSandboxHostFunctionMap = (
 	setCachedValue: unusedHostCall,
 	getPluginConfig: unusedHostCall,
 	getUserSettings: unusedHostCall,
+	requestUserWork: unusedHostCall,
 	createUserEntity: unusedHostCall,
 	deleteUserEntity: unusedHostCall,
 	updateUserEntity: unusedHostCall,

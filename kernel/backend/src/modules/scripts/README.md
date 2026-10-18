@@ -107,6 +107,20 @@ be disposed within two seconds before its reservation is refunded.
   TTL is leak cleanup, not normal ownership. Logs/spans/console output are diagnostics, not journal.
 - Trusted subjects override input user IDs; relayed ingestion/automation attribution is owner-validated.
 
+### User work
+
+`requestUserWork` admits an independent background invocation of a declared script dependency. It
+requires a pinned user/account generation and current write authority. The caller supplies a stable
+key, a plugin-defined scope, and bounded JSON input. Identity includes account generation, plugin,
+script, and key; replay with different input or scope is refused. Continuations use fresh deterministic
+keys and stay independent of the invocation that admitted them.
+
+`UserWorkWorkflow` owns the child script and the `script_work` row. Queued, running, succeeded, and
+failed status is readable through user-scoped RyotQL without exposing execution input or pins.
+Suspension is not failure; terminal script failures and defects are recorded. Plugins own progress
+checkpoints, scope vocabulary, bounded application steps, and retry controls. A new retry request does
+not replay the failed child's cached result. Retired account generations cannot admit new work.
+
 ## Capabilities
 
 Compiler-derived local metadata constrains every runner, host, durable dispatch, and filesystem grant.

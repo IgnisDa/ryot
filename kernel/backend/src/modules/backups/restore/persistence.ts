@@ -57,6 +57,8 @@ type RestoreRelationshipInput = Pick<
 type RestoreEventInput = Pick<
 	typeof schema.event.$inferInsert,
 	| "id"
+	| "orderKey"
+	| "orderCreatedAt"
 	| "userId"
 	| "entityId"
 	| "createdAt"

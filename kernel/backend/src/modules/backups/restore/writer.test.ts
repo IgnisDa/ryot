@@ -89,6 +89,10 @@ const manifestsByKey = (
 ) => Object.fromEntries(records.map(({ key, manifest }) => [key, stableStringify(manifest)]));
 
 const fixedDate = new Date("2026-10-01T00:00:00.000Z");
+const logicalOrderCreatedAt = {
+	A: new Date("2026-09-17T00:00:00.000Z"),
+	B: new Date("2026-09-18T00:00:00.000Z"),
+} as const;
 
 it("keeps restored installations inactive when required secrets were redacted", () => {
 	expect(
@@ -612,9 +616,11 @@ const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): Arc
 	sessionEntityId: null,
 	entityId: "user-entity",
 	eventSchemaSlug: "changed",
+	orderKey: "event-order-key",
 	createdAt: "2026-08-23T12:00:00.000Z",
 	updatedAt: "2026-08-23T12:00:00.000Z",
 	occurredAt: "2026-08-23T12:00:00.000Z",
+	orderCreatedAt: "2026-08-23T12:00:00.000Z",
 });
 
 it.effect("preflights all qualified schema provenance including streamed events", () =>
@@ -903,6 +909,7 @@ const bootstrapEntitySchema = {
 
 const archivedEvent = (id: string): ArchiveEvent => ({
 	id,
+	orderKey: id,
 	properties: {},
 	sessionEntityId: null,
 	eventSchemaSlug: "review",
@@ -911,6 +918,7 @@ const archivedEvent = (id: string): ArchiveEvent => ({
 	createdAt: "2026-08-23T12:00:00.000Z",
 	updatedAt: "2026-08-23T12:00:00.000Z",
 	occurredAt: "2026-08-23T12:00:00.000Z",
+	orderCreatedAt: "2026-08-23T12:00:00.000Z",
 });
 
 const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
@@ -1373,9 +1381,11 @@ describe("account backup restore in PostgreSQL", () => {
 								updatedAt: timestamp,
 								sessionEntityId: null,
 								occurredAt: timestamp,
+								orderKey: "logical-order",
 								eventSchemaSlug: "changed",
 								entityId: "restored-entity",
 								eventSchemaPluginKey: pluginKey,
+								orderCreatedAt: "2026-09-17T00:00:00.000Z",
 							}),
 					};
 					const writer = yield* BackupRestoreWriter;
@@ -1754,6 +1764,9 @@ describe("account backup restore in PostgreSQL", () => {
 											eventSchemaSlug: "changed",
 											properties: { value: label },
 											eventSchemaPluginId: sourceId,
+											orderKey: `logical-order-${label}`,
+											orderCreatedAt:
+												label === "A" ? logicalOrderCreatedAt.A : logicalOrderCreatedAt.B,
 										},
 									]);
 									yield* automations.insertNotificationSubscription({
@@ -1854,6 +1867,15 @@ describe("account backup restore in PostgreSQL", () => {
 						expect(exported.records.calendarSourceOverrides).toEqual([
 							{ isHidden: true, pluginKey: firstKey, slug: "bottle-dates" },
 						]);
+						const originalEventLines = (yield* fs.readFileString(exported.events.path))
+							.trim()
+							.split("\n");
+						const originalEvents: ArchiveEvent[] = [];
+						for (const line of originalEventLines) {
+							originalEvents.push(
+								yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveEvent))(line),
+							);
+						}
 						const validated = yield* validateArchiveStream(
 							createArchiveStream({
 								assets: [],
@@ -2080,11 +2102,23 @@ describe("account backup restore in PostgreSQL", () => {
 							.trim()
 							.split("\n");
 						expect(eventLines).toHaveLength(2);
+						const restoredEvents: ArchiveEvent[] = [];
 						for (const line of eventLines) {
 							const event = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveEvent))(line);
+							restoredEvents.push(event);
 							const entity = reexported.records.entities.find(({ id }) => id === event.entityId);
 							expect(entity?.entitySchemaPluginKey).toBe(event.eventSchemaPluginKey);
 							expect(event.sessionEntityId).toBe(event.entityId);
+						}
+						expect(new Set(restoredEvents.map(({ orderKey }) => orderKey))).toEqual(
+							new Set(["logical-order-A", "logical-order-B"]),
+						);
+						for (const event of restoredEvents) {
+							const original = originalEvents.find(({ orderKey }) => orderKey === event.orderKey);
+							assert(original);
+							expect(original.orderCreatedAt).not.toBe(original.createdAt);
+							expect(event.orderCreatedAt).toBe(original.orderCreatedAt);
+							expect(event.id).not.toBe(original.id);
 						}
 						expect(
 							reexported.records.installations.find(

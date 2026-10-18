@@ -1236,6 +1236,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							propertiesSchema,
 							entityIdMap,
 							relationshipIdMap,
+							(id) => sha256Hex(identityTupleKey("backup-event", userId, id)),
 						);
 						const sessionEntityId = rewritten.sessionEntityId
 							? EntityId.make(rewritten.sessionEntityId)
@@ -1251,10 +1252,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							entityId,
 							properties,
 							sessionEntityId,
+							orderKey: event.orderKey,
 							createdAt: parseDate(event.createdAt),
 							updatedAt: parseDate(event.updatedAt),
 							eventSchemaSlug: event.eventSchemaSlug,
 							occurredAt: parseDate(event.occurredAt),
+							orderCreatedAt: parseDate(event.orderCreatedAt),
 							id: sha256Hex(identityTupleKey("backup-event", userId, event.id)),
 							eventSchemaPluginId: event.eventSchemaPluginKey
 								? (pluginIdByKey.get(event.eventSchemaPluginKey) ?? null)

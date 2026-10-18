@@ -353,6 +353,43 @@ export default defineWorkflow({
 		}),
 	);
 
+	test.effect("strips user-work script references to their transport fields", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compileTestScript(
+				defineNativeScript(
+					'(input, host) => host.requestUserWork({ scope: "test", key: "work-key", input: { value: input.value } }, worker)',
+					{
+						input: "Schema.Struct({ value: Schema.String })",
+						imports:
+							'import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";',
+						topLevel:
+							'const worker = defineScriptReference({ scriptSlug: "user-worker", input: Schema.Struct({ value: Schema.String }), output: Schema.String });',
+					},
+				),
+			);
+			const args: unknown[][] = [];
+			const result = yield* runNative(
+				compiled,
+				{ value: "queued" },
+				{
+					functions: {
+						requestUserWork: (values) =>
+							Effect.sync(() => {
+								args.push([...values]);
+								return hostSuccess({ workId: "work-1" });
+							}),
+					},
+				},
+			);
+			expect(result.response).toMatchObject({ success: true, value: { workId: "work-1" } });
+			expect(args).toEqual([
+				[
+					{ scope: "test", key: "work-key", input: { value: "queued" } },
+					{ referenceKind: "script", scriptSlug: "user-worker" },
+				],
+			]);
+		}),
+	);
 	test.effect("keeps the workflow date guard across approved dependency calls", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileTestScript(
