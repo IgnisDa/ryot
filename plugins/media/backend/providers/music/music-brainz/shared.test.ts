@@ -53,7 +53,7 @@ describe("music.music-brainz sandbox script", () => {
 	});
 	it("groups artists and release-groups, computes duration and byVariousArtists", () => {
 		const host = makeHost((url) => {
-			if (url.includes("coverartarchive.org")) {
+			if (new URL(url).hostname === "coverartarchive.org") {
 				return null;
 			}
 			return {

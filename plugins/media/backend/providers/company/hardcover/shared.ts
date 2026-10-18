@@ -4,7 +4,6 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { asRecord, stringValue } from "../../../lib/records";
 import {
-	escapeGraphqlString,
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
 	hardcoverGql,
@@ -25,11 +24,11 @@ export const search = defineProvider({
 			Effect.flatMap((apiKey) => {
 				// Hardcover uses a GraphQL publishers query since there is no search API for publishers.
 				const graphqlQuery = `
-query {
+query SearchHardcoverPublishers($name: String!) {
   publishers(
     limit: ${input.pageSize},
     offset: ${(input.page - 1) * input.pageSize},
-    where: { name: { _ilike: "%${escapeGraphqlString(input.query).replace(/%/g, "\\%")}%" } }
+    where: { name: { _ilike: $name } }
   ) {
     id
     name
@@ -38,7 +37,10 @@ query {
 `;
 				return hardcoverGql(
 					host,
-					{ query: graphqlQuery },
+					{
+						query: graphqlQuery,
+						variables: { name: `%${input.query.replace(/[\\%_]/g, "\\$&")}%` },
+					},
 					apiKey,
 					"Hardcover publisher search request failed",
 				).pipe(

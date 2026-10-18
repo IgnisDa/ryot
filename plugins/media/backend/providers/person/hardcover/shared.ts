@@ -5,7 +5,6 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
-	escapeGraphqlString,
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
 	hardcoverGql,
@@ -25,11 +24,11 @@ export const search = defineProvider({
 		getHardcoverApiKey(host).pipe(
 			Effect.flatMap((apiKey) => {
 				const graphqlQuery = `
-query {
+query SearchHardcover($query: String!) {
   search(
     page: ${input.page},
     per_page: ${input.pageSize},
-    query: "${escapeGraphqlString(input.query)}",
+    query: $query,
     query_type: "author"
   ) {
     results
@@ -38,7 +37,7 @@ query {
 `;
 				return hardcoverGql(
 					host,
-					{ query: graphqlQuery },
+					{ query: graphqlQuery, variables: { query: input.query } },
 					apiKey,
 					"Hardcover person search request failed",
 				).pipe(
