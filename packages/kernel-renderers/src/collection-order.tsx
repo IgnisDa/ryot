@@ -13,7 +13,14 @@ import {
 	useRyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, IconButton, ReorderableList, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Eyebrow,
+	IconButton,
+	ReorderableList,
+	schemaSlugLabel,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	collectionMembersRecipe,
@@ -34,6 +41,11 @@ const moveMutation = createRyotMutation(
 			idempotencyKey: input.submissionId,
 		}),
 );
+
+const jumps = [
+	{ kind: "start", icon: "arrow-up-to-line" },
+	{ kind: "end", icon: "arrow-down-to-line" },
+] as const;
 
 export const CollectionOrder = ({
 	name,
@@ -185,31 +197,22 @@ export const CollectionOrder = ({
 							</span>
 							<div className="grid min-w-0 flex-1 gap-0.5 pl-2">
 								<span className="truncate text-sm font-medium text-text">{item.name}</span>
-								<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-									{item.entitySchemaSlug.split("-").join(" ")}
-								</span>
+								<Eyebrow>{schemaSlugLabel(item.entitySchemaSlug)}</Eyebrow>
 							</div>
 							<div className="flex shrink-0 items-center gap-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100">
-								<IconButton
-									size="sm"
-									label={`Move ${item.name} to start`}
-									onClick={() => {
-										feedback("selection");
-										submit(item.entityId, { kind: "start" });
-									}}
-								>
-									<AppIcon size={16} name="arrow-up-to-line" />
-								</IconButton>
-								<IconButton
-									size="sm"
-									label={`Move ${item.name} to end`}
-									onClick={() => {
-										feedback("selection");
-										submit(item.entityId, { kind: "end" });
-									}}
-								>
-									<AppIcon size={16} name="arrow-down-to-line" />
-								</IconButton>
+								{jumps.map(({ kind, icon }) => (
+									<IconButton
+										size="sm"
+										key={kind}
+										label={`Move ${item.name} to ${kind}`}
+										onClick={() => {
+											feedback("selection");
+											submit(item.entityId, { kind });
+										}}
+									>
+										<AppIcon size={16} name={icon} />
+									</IconButton>
+								))}
 							</div>
 						</div>
 					)}
