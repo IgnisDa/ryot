@@ -50,6 +50,7 @@
 
 - Stay within the agreed scope. Ask before widening it; do not start another review round after findings are addressed.
 - During implementation, make affected package/app checks pass before running their tests. Both must pass before review; include results in the handoff.
+- Use root-level Turbo `--filter` runs without passthrough arguments for non-e2e package validation so final runs reuse caches. Do not force reruns, disable caching, or clear caches unless explicitly requested or needed to investigate a confirmed cache problem.
 - Reviews are read-only. Reviewers report findings without editing files or rerunning checks/tests.
 - For code changes, complete implementation and review fixes, then execute `.agents/skills/codebase-cleanup` in the main session.
 - Run repository-wide validation only at the end. For code changes, `bun run check` must pass before `bun turbo --filter='!@ryot-app/e2e' test`; both must pass before completion. Run only affected e2e files, never the whole suite.
