@@ -48,6 +48,7 @@ import {
 	makePluginEntitySaves,
 	makePluginQueries,
 	makePluginStorage,
+	makePluginCalendarSources,
 } from "#/modules/pages/bridge/services.test-layer";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -287,6 +288,7 @@ function mount(options: {
 			}),
 			makePluginQueries(),
 			makePluginStorage(),
+			makePluginCalendarSources(),
 			makePluginEntitySaves(),
 			makeCollectionsApi(options.collections),
 			makeRyotQLApi(options.ryotql === undefined ? {} : { execute: options.ryotql }),

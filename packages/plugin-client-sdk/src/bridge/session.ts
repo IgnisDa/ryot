@@ -18,6 +18,8 @@ import {
 	type PluginBridgeAddToCollectionScreenCancel,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
+	type PluginBridgeCalendarSourceVisibilityRequest,
+	type PluginCalendarSourceVisibilityRequest,
 	type PluginBridgeCollectionRequest,
 	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeDismissOverlayResult,
@@ -73,6 +75,7 @@ type RequestType =
 	| "ios-live-activity"
 	| "add-to-collection-screen"
 	| "asset"
+	| "calendar-source-visibility"
 	| "collection"
 	| "edit-collection-screen"
 	| "entity-editor-save"
@@ -346,6 +349,17 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgeCollectionRequest,
 		);
 
+	const setCalendarSourceVisibility = (request: PluginCalendarSourceVisibilityRequest) =>
+		sendRequest(
+			"calendar-source-visibility",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "calendar-source-visibility-request",
+				}) satisfies PluginBridgeCalendarSourceVisibilityRequest,
+		);
+
 	const saveEntity = (request: EntityEditorSaveRequest) => {
 		const owner = request.submission.entitySchema.owner;
 		return owner.kind !== "plugin" ||
@@ -494,6 +508,7 @@ export const createPluginRuntime = (
 		invokeOperation,
 		mutateCollection,
 		navigatePageSearch,
+		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
 		openExternalLink: (request) =>
@@ -766,6 +781,13 @@ export const createPluginRuntime = (
 						message.outcome === "failure"
 							? message
 							: { outcome: "success", value: message.response },
+					);
+					return;
+				case "calendar-source-visibility-result":
+					settle(
+						"calendar-source-visibility",
+						message.requestId,
+						message.outcome === "failure" ? message : { value: null, outcome: "success" },
 					);
 					return;
 				case "upload-result": {

@@ -4,6 +4,7 @@ import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
+import { SetCalendarSourceVisibilityBody } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -175,6 +176,68 @@ export const PluginBridgeCollectionResult = Schema.Union([
 ]);
 
 export type PluginBridgeCollectionResult = Schema.Schema.Type<typeof PluginBridgeCollectionResult>;
+
+export const PluginCalendarSourceVisibilityBridgeErrorReason = Schema.Literals([
+	"transport",
+	"invalid-request",
+	"malformed-result",
+]);
+
+export type PluginCalendarSourceVisibilityBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginCalendarSourceVisibilityBridgeErrorReason
+>;
+
+export const PluginCalendarSourceVisibilityRequest = SetCalendarSourceVisibilityBody;
+
+export type PluginCalendarSourceVisibilityRequest = Schema.Schema.Type<
+	typeof PluginCalendarSourceVisibilityRequest
+>;
+
+export const PluginBridgeCalendarSourceVisibilityRequest = strictStruct({
+	...SetCalendarSourceVisibilityBody.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("calendar-source-visibility-request"),
+});
+
+export type PluginBridgeCalendarSourceVisibilityRequest = Schema.Schema.Type<
+	typeof PluginBridgeCalendarSourceVisibilityRequest
+>;
+
+const pluginCalendarSourceVisibilitySuccessFields = { outcome: Schema.Literal("success") };
+
+const pluginCalendarSourceVisibilityFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginCalendarSourceVisibilityBridgeErrorReason,
+};
+
+const pluginBridgeCalendarSourceVisibilityResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("calendar-source-visibility-result"),
+};
+
+export const PluginCalendarSourceVisibilityOutcome = Schema.Union([
+	strictStruct(pluginCalendarSourceVisibilitySuccessFields),
+	strictStruct(pluginCalendarSourceVisibilityFailureFields),
+]);
+
+export type PluginCalendarSourceVisibilityOutcome = Schema.Schema.Type<
+	typeof PluginCalendarSourceVisibilityOutcome
+>;
+
+export const PluginBridgeCalendarSourceVisibilityResult = Schema.Union([
+	strictStruct({
+		...pluginCalendarSourceVisibilitySuccessFields,
+		...pluginBridgeCalendarSourceVisibilityResultFields,
+	}),
+	strictStruct({
+		...pluginCalendarSourceVisibilityFailureFields,
+		...pluginBridgeCalendarSourceVisibilityResultFields,
+	}),
+]);
+
+export type PluginBridgeCalendarSourceVisibilityResult = Schema.Schema.Type<
+	typeof PluginBridgeCalendarSourceVisibilityResult
+>;
 
 export const PluginManagedAssetResolution = strictStruct({
 	url: HttpUrl,

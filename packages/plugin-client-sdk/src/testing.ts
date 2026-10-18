@@ -13,6 +13,7 @@ import {
 	PluginBridgeClientMessage,
 	PluginEntityLocation,
 	type PluginAssetOutcome,
+	type PluginCalendarSourceVisibilityOutcome,
 	type PluginBridgeHostMessage,
 	type PluginBridgeLocation,
 	type PluginLogicalLocation,
@@ -352,6 +353,8 @@ export const mountPluginPage = (
 		assetCancels: () => clientMessagesOfType("asset-cancel"),
 		assetRequests: () => clientMessagesOfType("asset-request"),
 		container: document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID),
+		calendarSourceVisibilityRequests: () =>
+			clientMessagesOfType("calendar-source-visibility-request"),
 		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
 			send({ ...outcome, requestId, type: "asset-result" }),
 		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
@@ -360,6 +363,10 @@ export const mountPluginPage = (
 			clientMessagesOfType("ryotql-request").filter(
 				(request) => queryKey === undefined || queryKey in request.document.queries,
 			),
+		replyCalendarSourceVisibility: (
+			requestId: string,
+			outcome: PluginCalendarSourceVisibilityOutcome,
+		) => send({ ...outcome, requestId, type: "calendar-source-visibility-result" }),
 		dispose: () => {
 			const index = mounted.indexOf(page);
 			if (index >= 0) {

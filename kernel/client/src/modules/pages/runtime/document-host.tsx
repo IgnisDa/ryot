@@ -36,6 +36,7 @@ import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
+import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
@@ -592,6 +593,18 @@ function ClientPageFrame(props: {
 					.runSync(PagesApi)
 					.document(props.scope, { payload: { identity } })
 					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
+			}
+			onCalendarSourceVisibility={(request) =>
+				props.runtime
+					.runSync(PluginCalendarSources)
+					.outcome(props.scope, identity, request)
+					.pipe(
+						Effect.tap((outcome) =>
+							outcome.outcome === "success"
+								? Effect.sync(() => ryot.mutationCompleted.hint())
+								: Effect.void,
+						),
+					)
 			}
 			onPageSearch={({ mode, update }) => {
 				const location = router.state.location;
