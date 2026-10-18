@@ -10,17 +10,16 @@ import {
 	settledPrivateInstallation,
 	testPluginManifest,
 } from "~/fixtures/kernel";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const encodeString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
 it.live("flushes large device drafts before navigation and restores scoped return shortcuts", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const manifest = testPluginManifest({
 			pluginSlug: `device-draft-${crypto.randomUUID()}`,
 			clientDefinition: {
@@ -42,7 +41,6 @@ it.live("flushes large device drafts before navigation and restores scoped retur
 		const { id } = yield* installPrivatePluginPackage({
 			client,
 			config: {},
-			baseUrl: apiUrl,
 			pluginPackage: {
 				manifest,
 				files: encodePluginSourceFiles({
@@ -91,8 +89,7 @@ export default function Home() {
 		const page = yield* (yield* Playwright.Browser).newPage();
 		const path = pluginPath(installed.packageId);
 		yield* signInThroughHostedOAuth(page, email, password, { entryPath: path });
-		yield* page.goto(`${frontendUrl}${path}`);
-		const surface = page.locator('main > div:not([aria-hidden="true"]) iframe').contentFrame();
+		const surface = pluginFrame(page);
 		yield* surface.getByText("Ready", { exact: true }).waitFor({ state: "visible" });
 		const value = "筋力💪".repeat(2000);
 		yield* surface.getByRole("textbox", { name: "Draft" }).fill(value);
