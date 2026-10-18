@@ -4,7 +4,6 @@ import {
 	createAuthenticatedClient,
 	createEventTestFixture,
 	listEventSchemas,
-	listEventsForEntity,
 	requireEventSchemaBySlug,
 	waitForCreateEvents,
 	waitForEventCount,
@@ -48,7 +47,7 @@ describe("POST /events with global entities", () => {
 		}),
 	);
 
-	it.live("writes nothing from the chunk of a later failing event", () =>
+	it.live("writes valid events around a failing event and upserts membership once", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { entity, schema } = yield* createGlobalBookEntityFixture(client);
@@ -66,15 +65,24 @@ describe("POST /events with global entities", () => {
 				}),
 			);
 			expect(yield* waitForCreateEvents(client, result)).toMatchObject({
-				count: 0,
-				outcomes: [],
+				count: 2,
 				failure: { index: 1, reason: { code: "invalid-properties" } },
+				outcomes: [
+					{ index: 0, status: "written", eventId: expect.any(String) },
+					{ index: 1, status: "failed", reason: { code: "invalid-properties" } },
+					{ index: 2, status: "written", eventId: expect.any(String) },
+				],
 			});
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
-			).toHaveLength(0);
-			expect(yield* listEventsForEntity(client, entity.id, undefined, 100)).toEqual([]);
+			).toHaveLength(1);
+			const events = yield* waitForEventCount(client, entity.id, 3);
+			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
+				"add-to-media-library",
+				"backlog",
+				"backlog",
+			]);
 		}),
 	);
 });

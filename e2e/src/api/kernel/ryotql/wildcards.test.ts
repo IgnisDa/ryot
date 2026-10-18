@@ -116,6 +116,8 @@ describe("RyotQL wildcard projections", () => {
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
+					"projection",
+					"projectionStatus",
 					"properties",
 					"sessionEntityId",
 					"updatedAt",
@@ -126,6 +128,8 @@ describe("RyotQL wildcard projections", () => {
 			expect(requireRyotQLValue(item, "entityId")).toBe(fixture.entity.id);
 			expect(requireRyotQLValue(item, "entityName")).toBe("RyotQLWildcardRoot Entity");
 			expect(requireRyotQLValue(item, "properties")).toEqual({ rating: 5 });
+			expect(requireRyotQLValue(item, "projection")).toBeNull();
+			expect(requireRyotQLValue(item, "projectionStatus")).toBe("none");
 			expect(requireRyotQLValue(item, "occurredAt")).toBe("2026-08-01T00:00:00.000Z");
 			expect(requireRyotQLValue(item, "sessionEntityId")).toBeNull();
 			expect(item["name"]).toBeUndefined();
@@ -193,6 +197,8 @@ describe("RyotQL wildcard projections", () => {
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
+					"projection",
+					"projectionStatus",
 					"properties",
 					"sessionEntityId",
 					"updatedAt",
@@ -201,6 +207,8 @@ describe("RyotQL wildcard projections", () => {
 			);
 			expect(requireRyotQLValue(includedEvent, "id")).toBe(fixture.event.id);
 			expect(requireRyotQLValue(includedEvent, "properties")).toEqual({ rating: 5 });
+			expect(requireRyotQLValue(includedEvent, "projection")).toBeNull();
+			expect(requireRyotQLValue(includedEvent, "projectionStatus")).toBe("none");
 		}),
 	);
 });

@@ -60,8 +60,8 @@ describe("Events bulk POST", () => {
 			);
 			expect(yield* waitForCreateEvents(apiClient, rejectedResult)).toMatchObject({
 				count: 0,
-				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
 			});
 
 			const acceptedResult = yield* apiClient.call((c) =>

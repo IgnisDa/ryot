@@ -144,8 +144,8 @@ describe("Event write path — propertiesSchema validation", () => {
 
 			expect(result).toMatchObject({
 				count: 0,
-				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
 			});
 		}),
 	);
@@ -163,8 +163,8 @@ describe("Event write path — propertiesSchema validation", () => {
 
 			expect(result).toMatchObject({
 				count: 0,
-				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
 			});
 		}),
 	);

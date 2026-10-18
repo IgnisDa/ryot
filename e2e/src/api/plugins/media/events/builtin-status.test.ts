@@ -197,8 +197,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(result).toMatchObject({
 				count: 0,
-				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
 			});
 		}),
 	);
@@ -308,8 +308,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(result).toMatchObject({
 				count: 0,
-				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
 			});
 		}),
 	);
