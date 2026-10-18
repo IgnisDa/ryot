@@ -6,7 +6,7 @@ import { ProviderSearchResultRow } from "#/modules/provider-add/result-row";
 const item = { externalId: "fixture", title: "Fixture item" };
 
 describe("provider search result row", () => {
-	it("shows the queued and importing states and clears pending styling when idle", () => {
+	it("shows the queued and importing states and clears the busy state when idle", () => {
 		let addCount = 0;
 		const onAdd = () => {
 			addCount += 1;
@@ -49,7 +49,6 @@ describe("provider search result row", () => {
 		const spinner = status.querySelector('[aria-hidden="true"]');
 		expect(spinner?.classList.contains("motion-reduce:animate-none")).toBe(true);
 		expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBe("true");
-		expect(view.container.firstElementChild?.classList.contains("bg-accent-soft")).toBe(true);
 
 		view.rerender(
 			<ProviderSearchResultRow
@@ -60,7 +59,6 @@ describe("provider search result row", () => {
 			/>,
 		);
 		expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBeNull();
-		expect(view.container.firstElementChild?.classList.contains("bg-accent-soft")).toBe(false);
 	});
 
 	it("shows a failed import message and retries the add", () => {

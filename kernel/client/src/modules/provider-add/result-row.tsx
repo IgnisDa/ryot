@@ -2,7 +2,6 @@ import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { Link } from "@tanstack/react-router";
-import clsx from "clsx";
 import { Match } from "effect";
 
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
@@ -40,15 +39,15 @@ function ResultAction(props: {
 			<span
 				role="status"
 				aria-label={`${importing ? "Adding" : "Queued"} ${props.title}`}
-				className="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-md bg-accent-soft px-2.5 text-xs font-semibold whitespace-nowrap text-accent-text"
+				className="inline-flex h-7 shrink-0 items-center gap-1.5 px-1 text-xs whitespace-nowrap text-text-muted"
 			>
 				{importing ? (
 					<span
 						aria-hidden="true"
-						className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
+						className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
 					/>
 				) : (
-					<AppIcon size={16} name="clock" />
+					<AppIcon size={14} name="clock" />
 				)}
 				{importing ? "Adding…" : "Queued"}
 			</span>
@@ -96,12 +95,7 @@ export function ProviderSearchResultRow(props: {
 	return (
 		<div
 			aria-busy={pending || undefined}
-			className={clsx(
-				"flex items-center gap-3 rounded-lg px-3 py-2.5",
-				pending
-					? "bg-accent-soft ring-1 ring-accent-border ring-inset"
-					: "bg-surface-2 md:bg-transparent",
-			)}
+			className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent"
 		>
 			<EntityArtWell
 				state="absent"
