@@ -53,8 +53,8 @@ fitness record rebuilding, Calendar, Pro verification, and admin log downloads n
 Recommendations, watch-provider display, media home queries, and episode progress also
 have client consumers, not only hand-built test queries.
 
-The main remaining work is notification producers, safe data retention, collection
-ordering and richer browsing, some custom-media/history controls, and complete V1-style
+The main remaining work is notification producers, safe data retention, richer collection
+browsing, some custom-media/history controls, and complete V1-style
 analytics. Default collections, immutable history, a nightly calendar table, and destructive
 workout replay are **not** accurate descriptions of the current V2 design.
 
@@ -90,7 +90,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | 2 | Done | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
 | 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
 | 4 | Done | **Add explicit provider refresh** | Existing population/enrichment workflows | Successful provider data can be refreshed from Media detail screens with progress, failure and retry controls. Shared bounded admission, write fences, current-language translation refresh, and successful-check freshness evidence preserve saved data and user intent. See the Order 4 acceptance record below. |
-| 5 | Pending | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
+| 5 | Done | **Add collection member reordering** | Existing memberships and rank reads | Server-owned moves, sparse integer ranks, transactional respacing, revision-fenced pagination, retry-safe submissions and shared pointer/keyboard controls with haptics are shipped. Real dump migrations preserve complete collection order. See the Order 5 acceptance record below. |
 | 6 | Pending | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
 | 7 | Done | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
 | 8 | Done | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Ship one confirmed destructive **Remove from library** action that clears the caller's history, reviews, annotations, monitoring, collection memberships and correction evidence, including child data. Preserve metadata and structural links. Already-running and future imports/integrations may restore data normally; add no exclusion state. Merge keeps same-schema/identity rules, destination conflict values and explicit records; missing or ambiguous child mappings reject before any writes with actionable errors. See the Order 8 acceptance record below. |
@@ -359,6 +359,63 @@ Validation on **2026-10-27**:
 - Main-session review and scoped cleanup are complete. Duplicate SDK types and an unused request
   patch field were removed; no compatibility path or type-checker bypass was added. This item is **Done**.
 
+### Phase 1, Order 5 — Collection ordering acceptance
+
+Accepted behavior: collection detail offers **Reorder members** with immediate saves, shared
+pointer/keyboard handles and bridged haptics. Reorder mode is unfiltered. Start/end actions span
+unloaded pages; moves at a loaded boundary use actual server-side neighbors. Returning to normal
+browsing loads a fresh member query. New members still prepend, member-field edits preserve order,
+and rank changes do not manufacture collection add/remove events or domain hooks.
+
+The canonical move command carries an expected collection revision and immutable submission
+identity/time. Ownership, move/rebalance and replay receipt commit atomically. Completed requests
+replay before newer-revision checks; changed input with the same identity conflicts. Transport and
+malformed-response retries retain the original submission. Stale moves and continuation pages offer
+reload rather than silently mixing orders.
+
+Dump research rejected consecutive-position range shifting: collections reach **28,179** members.
+The shared relationship writer uses sparse safe-integer ranks with an initial `2^32` spacing,
+indexed rank/member-ID reads, and collection-scoped locking. Gap exhaustion first respaces up to
+128 neighbors on each side; a fully dense window uses one set-based collection-wide respace without
+loading that collection into application memory. Inserts, updates, removals, merges and cascading
+deletions share the invariant. V1 conversion assigns spaced integers in legacy order; no decimal
+fallback, compatibility path, protocol-version change or background compaction job is added.
+
+Owners: collection contract/routes and `CollectionOrderingService`, relationship rank persistence,
+entity deletion locks and collection-revision trigger, RyotQL catalog/collection recipes, client
+bridge/SDK and collection renderer. Haptic requests are owner-neutral through the existing device
+capability; other device actions retain plugin ownership checks. User documentation:
+`apps/docs/src/concepts/collections.md`. Migration:
+`kernel/backend/src/drizzle/20261027150457_warm_zaran/`.
+
+Validation on **2026-10-27**:
+
+- Affected package checks passed before tests. Collection backend suites: **48 passed**, including
+  repeated tight-gap moves, local/full respacing, concurrent adds/moves, replay, stale input,
+  ownership, metadata preservation and deletion revisions. Renderer suites: **50 passed**;
+  collection recipes: **20 passed**. Broader entity/editor/user-data/relationship suites:
+  **142 passed** across five files.
+- API/browser acceptance: **23 passed** across collection ordering, existing collection commands
+  and collection detail, then **23 passed again** after review and cleanup. The final browser case
+  checks normal browse order after leaving reorder mode.
+- Full migration-only validation and restart passed for `tmp/file.sql` and `tmp/file2.sql` in
+  isolated local PostgreSQL, Redis and S3 resources. All **28,464** and **100,289** memberships retain
+  complete per-collection ordered-ID hashes and counts; ranks are valid/unique and revisions match
+  membership counts after restart. Automation history, enrichment requests and translations remain
+  empty; content generations and environment configuration revisions pass their checks. The larger
+  dump reports **103 unresolved asset locators** with the available asset cache; locators are retained.
+  Other reports are documented legacy-data anomalies, not ordering errors. This is not a claim that
+  every migration mapping or external provider was re-audited.
+- Both shipped plugins, kernel renderers and the client built. Main-session review and cleanup are
+  complete; redundant bridge dispatch, query state and fixture layers were removed. Disposable
+  validation resources were removed without changing the working database, Redis DB 0, local `ryot`
+  bucket, original dumps or cached source assets. Repository-wide `bun run check` passed:
+  **38 successful tasks**, **30 projects / 7,482 files**. The docs production build passed.
+  The first full test run found three stale field/trigger inventory expectations; those are updated,
+  with all **47 focused tests passed**. Final repository `bun run check` passed again, followed by
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**, no failures. No timeout or
+  capacity limit was raised. This item is **Done**.
+
 ### Phase 1 Order 8 acceptance — Media removal and merge
 
 Media detail screens expose **Your data** with confirmed **Remove from library** and
@@ -431,7 +488,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
 | Correct/delete existing history or reviews | Covered | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Media-owned completion evidence and atomic reconciliation repair derived records, preserve explicit overrides and deletion suppressions, and keep corrections silent. |
 | Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
-| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters. Rank reads exist; user reordering does not. Details below. |
+| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, and server-owned reordering with revision-fenced pagination and shared haptics. Richer domain browsing remains in Order 6. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
 | Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job. |
 | Custom metadata/person/group | Covered | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, groups, show seasons/episodes and podcast episodes. Atomic saves compare loaded entity/relationship baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Children are deleted only without history. Duplicate actions are deferred. |
@@ -631,7 +688,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `remove_cached_metadata_after_updates`, `expire_cache_keys` | Direct RyotQL reads, mutation refresh hints, entity watches, TTL caches and trending refresh replace V1 recommendation-cache invalidation. No need to recreate obsolete application-cache rows. |
 | `put_entities_in_partial_state` | No daily invalidation of every library provider entity. Watches fill missing base/related data; monitoring refreshes monitored data. Successfully populated unmonitored data refreshes only on explicit request. |
 | `revoke_invalid_access_tokens` | This function revokes expired/exhausted **access links**, not all login tokens. Excluded with sharing links; OAuth/API-key expiry is handled by auth. |
-| `rebalance_collection_ranks` | Missing, together with user collection reordering. Current insertion prepends using integer ranks; V1's fractional-fragmentation thresholds are not a V2 requirement yet. |
+| `rebalance_collection_ranks` | Reshaped: canonical collection writes allocate sparse integer ranks and respace exhausted gaps transactionally, first in a bounded window and then set-based across a fully dense collection if needed. No separate job or V1 fractional-fragmentation thresholds. |
 | `UpdateExerciseLibrary`, `UpdateGithubExercises` | Free Exercise DB search/details and watched population replace eager whole-library loading. No exposed refresh-all-dataset command. |
 | Scheduled / explicit `ReviseUserWorkouts` | Replaced by source-preserving event-stream record processors and reconciliation, including migrated stream seeding. It is incorrect to call fitness recalculation unbuilt because the V1 destructive replay scheduler is absent. |
 | `UpdateMediaDetails`, post-import person/group enrichment | Provider import/population fetches base details; foreground interest completes related data, monitoring refreshes. Explicit enrichment refreshes successful data through the same population owner. No separate stub-enrichment job. |
@@ -706,9 +763,10 @@ resolved export, genre, Calendar, editor or projection work.
 
 ### Collections and browse controls
 
-- **Ordering:** no reorder command/client control and no rank rebalance. The five collection
-  endpoints are create, update, delete, add/upsert member and remove member. Membership upsert
-  preserves/assigns rank; it does not implement V1 neighbor-midpoint reordering.
+- **Ordering:** `POST /collections/memberships/reorder` moves a member relative to an anchor or
+  absolute end. Sparse integer ranks, on-demand respacing, collection-scoped locks, revision-fenced
+  pages and immutable retry identities preserve order. The collection detail's unfiltered reorder
+  mode uses shared drag/keyboard handles and haptics; ordinary member-field edits preserve position.
 - **Remaining V1 browse controls:** current collection detail supports name/type/member-field
   and cross-collection filtering, plus collection order/name/add-date sorts. It does not expose
   V1's media/exercise-specific filters and rating/consumption/date/random sorts as a complete set.
@@ -899,7 +957,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `exporter` | `user_exports` | `deploy_export_job` | Backup runs, export and download. |
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
-| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands; reorder and collection recommendations remain absent. |
+| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands and server-owned reordering with client controls; collection recommendations remain absent. |
 | `statistics` | `user_analytics_parameters`, `user_analytics` | — | Partial domain analytics, not a complete unified replacement. |
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
