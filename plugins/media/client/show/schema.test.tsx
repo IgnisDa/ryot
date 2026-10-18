@@ -138,6 +138,7 @@ describe("show schema", () => {
 			noopAdapter,
 			<showSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={showSchema.mapActivity(readyQueryResult(decodeShowActivity()))}
 			/>,

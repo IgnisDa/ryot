@@ -21,6 +21,7 @@ import {
 	MediaProgressBar,
 	useMediaOpenLink,
 } from "./primitives";
+import { MediaReviewButton } from "./review";
 import {
 	mediaCollectionsLabel,
 	type MediaEntitySummaryValue,
@@ -88,7 +89,7 @@ function MediaDescription(props: { readonly text: string }) {
 	);
 }
 
-function MediaActions(props: { readonly logActivity: boolean }) {
+function MediaActions(props: { readonly logActivity: boolean; readonly entityId: string }) {
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			{props.logActivity ? (
@@ -97,10 +98,7 @@ function MediaActions(props: { readonly logActivity: boolean }) {
 					Log activity
 				</Button>
 			) : null}
-			<Button variant="secondary" onClick={() => console.log("TODO: open review form")}>
-				<AppIcon size={15} name="star" />
-				Write review
-			</Button>
+			<MediaReviewButton entityId={props.entityId} />
 		</div>
 	);
 }
@@ -246,7 +244,7 @@ export function MediaSummaryHeader(props: {
 					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
 			)}
-			<MediaActions logActivity={detail.rail.logActivity} />
+			<MediaActions entityId={media.id} logActivity={detail.rail.logActivity} />
 		</>
 	);
 	const rail = <MediaStatusRail media={media} config={detail.rail} />;

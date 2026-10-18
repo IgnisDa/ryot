@@ -83,6 +83,7 @@ describe("music schema", () => {
 			noopAdapter,
 			<musicSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={musicSchema.mapActivity(readyQueryResult(repeatedFlatActivity()))}
 			/>,

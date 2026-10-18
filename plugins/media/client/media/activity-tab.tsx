@@ -22,6 +22,7 @@ import {
 } from "./activity-timeline";
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
+import { MediaReviewButton } from "./review";
 
 export type MediaActivityCopy = {
 	readonly recordLabel: string;
@@ -49,6 +50,7 @@ function MediaActivityFooter(props: { readonly partial: boolean; readonly histor
 
 function MediaActivityEmpty(props: {
 	readonly detail: string;
+	readonly entityId: string;
 	readonly action: MediaActivityEmptyAction;
 }) {
 	return (
@@ -61,10 +63,7 @@ function MediaActivityEmpty(props: {
 					onClick={() => console.log("TODO: open activity form")}
 				/>
 			) : (
-				<MediaLinkButton
-					label="Write review"
-					onClick={() => console.log("TODO: open review form")}
-				/>
+				<MediaReviewButton link entityId={props.entityId} />
 			)}
 		</div>
 	);
@@ -74,11 +73,11 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 	readonly compact: boolean;
 	readonly partial: boolean;
 	readonly aside?: ReactNode;
+	readonly history?: ReactNode;
 	readonly recordLabel: string;
 	readonly render: MediaActivityRowRender<Row>;
 	readonly timeline: MediaActivityTimeline<Row>;
 	readonly figures: readonly MediaActivityFigure[];
-	readonly history?: ReactNode;
 }) {
 	const { compact } = props;
 	return (
@@ -105,6 +104,7 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 }
 
 export function MediaActivity<View>(props: {
+	readonly entityId: string;
 	readonly compact: boolean;
 	readonly refresh: () => void;
 	readonly copy: MediaActivityCopy;
@@ -112,8 +112,8 @@ export function MediaActivity<View>(props: {
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly history?: ReactNode;
 	readonly Record: (input: {
-		readonly compact: boolean;
 		readonly view: View;
+		readonly compact: boolean;
 		readonly history?: ReactNode;
 	}) => ReactNode;
 }) {
@@ -125,7 +125,13 @@ export function MediaActivity<View>(props: {
 		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "empty") {
-		return <MediaActivityEmpty action={props.emptyAction} detail={props.copy.emptyDetail} />;
+		return (
+			<MediaActivityEmpty
+				entityId={props.entityId}
+				action={props.emptyAction}
+				detail={props.copy.emptyDetail}
+			/>
+		);
 	}
 	return <props.Record view={state.view} compact={props.compact} history={props.history} />;
 }
@@ -135,26 +141,27 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 	readonly copy: MediaActivityCopy;
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly view: (result: Result) => View | undefined;
+	readonly hasMoreActivities: (result: Result) => boolean;
+	readonly renderHistory: (items: readonly Event[]) => ReactNode;
 	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
-	readonly Record: (props: {
-		readonly compact: boolean;
-		readonly view: View;
-		readonly history?: ReactNode;
-	}) => ReactNode;
 	readonly historyQuery: RyotQuery<
 		{ readonly entityId: string; readonly after: string | null },
 		MediaCursorPage<Event>
 	>;
-	readonly renderHistory: (items: readonly Event[]) => ReactNode;
-	readonly hasMoreActivities: (result: Result) => boolean;
+	readonly Record: (props: {
+		readonly view: View;
+		readonly compact: boolean;
+		readonly history?: ReactNode;
+	}) => ReactNode;
 }) => {
 	const mapActivity = (result: RyotQueryResult<Result>) => mapMediaActivity(result, input.view);
 
 	function Activity(props: {
+		readonly entityId: string;
 		readonly compact: boolean;
 		readonly refresh: () => void;
-		readonly state: MediaActivityState<View>;
 		readonly history?: ReactNode;
+		readonly state: MediaActivityState<View>;
 	}) {
 		return (
 			<MediaActivity
@@ -164,6 +171,7 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 				history={props.history}
 				compact={props.compact}
 				refresh={props.refresh}
+				entityId={props.entityId}
 				emptyAction={input.emptyAction}
 			/>
 		);
@@ -193,6 +201,7 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 					history={history}
 					compact={props.compact}
 					refresh={result.refetch}
+					entityId={props.entityId}
 					state={mapActivity(result)}
 				/>
 			</>

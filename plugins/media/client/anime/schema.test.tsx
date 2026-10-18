@@ -114,6 +114,7 @@ describe("anime schema", () => {
 			noopAdapter,
 			<animeSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={animeSchema.mapActivity(
 					readyQueryResult(
@@ -178,6 +179,7 @@ describe("anime schema", () => {
 			noopAdapter,
 			<animeSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={animeSchema.mapActivity(readyQueryResult(activity))}
 			/>,

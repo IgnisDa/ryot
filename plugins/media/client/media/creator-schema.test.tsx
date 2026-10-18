@@ -58,7 +58,12 @@ const renderBody = (
 const renderActivity = (state: Parameters<typeof creatorFixtureSchema.Activity>[0]["state"]) =>
 	mountRyotClient(
 		noopAdapter,
-		<creatorFixtureSchema.Activity compact state={state} refresh={() => undefined} />,
+		<creatorFixtureSchema.Activity
+			compact
+			state={state}
+			entityId="media-1"
+			refresh={() => undefined}
+		/>,
 	);
 
 const sectionTitles = (container: HTMLElement) =>

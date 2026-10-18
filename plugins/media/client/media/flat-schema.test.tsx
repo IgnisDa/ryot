@@ -112,6 +112,7 @@ const renderBody = (
 			activity={
 				<fixtureSchema.Activity
 					compact
+					entityId="media-1"
 					refresh={() => undefined}
 					state={fixtureSchema.mapActivity(readyQueryResult(decodeFlatActivity()))}
 				/>
@@ -122,7 +123,7 @@ const renderBody = (
 const renderActivity = (state: Parameters<typeof fixtureSchema.Activity>[0]["state"]) =>
 	mountRyotClient(
 		noopAdapter,
-		<fixtureSchema.Activity compact state={state} refresh={() => undefined} />,
+		<fixtureSchema.Activity compact state={state} entityId="media-1" refresh={() => undefined} />,
 	);
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
