@@ -5,10 +5,12 @@ import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	AddToCollectionRequest,
+	BackgroundSubmissionOutcome,
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
 	PickEntityRequest,
+	PluginBackgroundOperationRequest,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
@@ -41,6 +43,17 @@ export type OperationAdapterRequest = Omit<OperationRequest, "operationSlug"> & 
 	readonly slug: OperationRequest["operationSlug"];
 };
 
+type BackgroundOperationRequest = Schema.Codec.Encoded<typeof PluginBackgroundOperationRequest>;
+export type BackgroundOperationAdapterRequest = Omit<
+	BackgroundOperationRequest,
+	"operationSlug"
+> & { readonly slug: BackgroundOperationRequest["operationSlug"] };
+
+export type BackgroundSettlement = {
+	readonly submissionId: string;
+	readonly outcome: BackgroundSubmissionOutcome;
+};
+
 export type CollectionAdapterRequest = PluginCollectionRequest;
 
 export type StorageAdapterRequest = PluginStorageRequest;
@@ -60,6 +73,11 @@ export type OperationInvocation<
 	readonly input: Input["Type"];
 	readonly refreshOnSuccess?: boolean;
 };
+
+export type BackgroundOperationInvocation<Input extends Schema.Codec<unknown, unknown>> = Omit<
+	BackgroundOperationAdapterRequest,
+	"input"
+> & { readonly inputSchema: Input; readonly input: Input["Type"] };
 
 export type FileUploadRequest = Omit<
 	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
@@ -82,6 +100,10 @@ export type RyotClientAdapter = {
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
+	readonly submitBackground?: (
+		request: BackgroundOperationAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly subscribeBackgroundSettled?: (listener: (settlement: unknown) => void) => () => void;
 	readonly pickEntity?: (request: PickEntityRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly editCollection?: (
 		request: EditCollectionRequest,

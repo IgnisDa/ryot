@@ -19,6 +19,8 @@ import {
 	type PluginBridgeAddToCollectionScreenCancel,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
+	type PluginBridgeBackgroundOperationRequest,
+	type PluginBridgeBackgroundOperationSettled,
 	type PluginBridgeCalendarSourceVisibilityRequest,
 	type PluginBridgeCollectionRequest,
 	type PluginBridgeDismissOverlayResult,
@@ -59,6 +61,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
 
 import type {
+	BackgroundOperationAdapterRequest,
 	CollectionAdapterRequest,
 	EntityUpdate,
 	OperationAdapterRequest,
@@ -78,6 +81,7 @@ type RequestType =
 	| "ios-live-activity"
 	| "add-to-collection-screen"
 	| "asset"
+	| "background-operation"
 	| "calendar-source-visibility"
 	| "collection"
 	| "edit-collection-screen"
@@ -189,6 +193,9 @@ export const createPluginRuntime = (
 	const applyThemeMode = (mode: PluginThemeSnapshot["resolvedMode"]) =>
 		root.setAttribute("data-theme", mode);
 	const themeListeners = new Set<() => void>();
+	const backgroundListeners = new Set<
+		(settlement: PluginBridgeBackgroundOperationSettled) => void
+	>();
 	const pending = new Map<string, PendingCall>();
 	const interestOwners = new Set<{
 		interest: EntityWatch;
@@ -248,6 +255,7 @@ export const createPluginRuntime = (
 		flushHandlers.clear();
 		rejectPending(reason);
 		themeListeners.clear();
+		backgroundListeners.clear();
 		interestOwners.clear();
 		hasLocation = false;
 		navigationStore.clear();
@@ -344,6 +352,21 @@ export const createPluginRuntime = (
 						? {}
 						: { idempotencyKey: operation.idempotencyKey }),
 				}) satisfies PluginBridgeOperationRequest,
+		);
+
+	const submitBackground = (submission: BackgroundOperationAdapterRequest) =>
+		sendRequest(
+			"background-operation",
+			(requestId) =>
+				({
+					requestId,
+					input: submission.input,
+					label: submission.label,
+					operationSlug: submission.slug,
+					type: "background-operation-request",
+					idempotencyKey: submission.idempotencyKey,
+					packageId: PluginPackageId.make(submission.packageId),
+				}) satisfies PluginBridgeBackgroundOperationRequest,
 		);
 
 	const mutateCollection = (collection: CollectionAdapterRequest) =>
@@ -554,6 +577,7 @@ export const createPluginRuntime = (
 		addToCollection,
 		invokeOperation,
 		retryPopulation,
+		submitBackground,
 		readUserSettings,
 		mutateCollection,
 		navigatePageSearch,
@@ -591,6 +615,15 @@ export const createPluginRuntime = (
 				if (state === "active") {
 					post({ type: "persistence-state", enabled: flushHandlers.size > 0 });
 				}
+			};
+		},
+		subscribeBackgroundSettled: (listener) => {
+			if (state === "closing" || state === "failed" || state === "disposed") {
+				throw new RyotClientError(terminalReason ?? "transport");
+			}
+			backgroundListeners.add(listener);
+			return () => {
+				backgroundListeners.delete(listener);
 			};
 		},
 		theme: {
@@ -794,6 +827,20 @@ export const createPluginRuntime = (
 						message.requestId,
 						message.outcome === "failure" ? message : { outcome: "success", value: message.value },
 					);
+					return;
+				case "background-operation-accepted":
+					settle(
+						"background-operation",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.submissionId },
+					);
+					return;
+				case "background-operation-settled":
+					for (const listener of backgroundListeners) {
+						listener(message);
+					}
 					return;
 				case "pick-entity-screen-result":
 					settle("pick-entity-screen", message.requestId, message);

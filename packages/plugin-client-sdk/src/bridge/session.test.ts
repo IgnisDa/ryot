@@ -1190,6 +1190,95 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("sends normalized background submissions and relays their settlement", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			let hints = 0;
+			runtime.client.mutationCompleted.subscribe(() => hints++);
+			const settlements: unknown[] = [];
+			const unsubscribe = runtime.client.operations.backgroundSettled((settlement) =>
+				settlements.push(settlement),
+			);
+			const longTitle = "Ep".repeat(80);
+			const submit = (idempotencyKey: string, label: string) =>
+				Effect.forkChild(
+					Effect.result(
+						runtime.client.operations.submitBackground({
+							label,
+							slug: "log",
+							idempotencyKey,
+							input: { n: 1 },
+							packageId: "test/fixture",
+							inputSchema: Schema.Struct({ n: Schema.Finite }),
+						}),
+					),
+					{ startImmediately: true },
+				);
+			const accepted = yield* submit(
+				"key-1",
+				`  Logged\n${String.fromCodePoint(0x202e)}episode\t3  `,
+			);
+			const truncated = yield* submit("key-2", longTitle);
+			const oversized = yield* submit("k".repeat(129), "Logged");
+			yield* waitForMessagePortMacrotask;
+
+			const requests = sent(messages, "background-operation-request");
+			expect(requests).toEqual([
+				{
+					input: { n: 1 },
+					operationSlug: "log",
+					idempotencyKey: "key-1",
+					packageId: "test/fixture",
+					label: "Logged episode 3",
+					requestId: "background-operation-1",
+					type: "background-operation-request",
+				},
+				expect.objectContaining({ idempotencyKey: "key-2", requestId: "background-operation-2" }),
+			]);
+			expect(requests[1]).toMatchObject({ label: `${"Ep".repeat(59)}E…` });
+			expect(yield* Fiber.join(oversized)).toMatchObject({ failure: { reason: "invalid-input" } });
+
+			channel.port1.postMessage({
+				outcome: "success",
+				submissionId: "submission-1",
+				requestId: "background-operation-1",
+				type: "background-operation-accepted",
+			});
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "operation-failed",
+				requestId: "background-operation-2",
+				type: "background-operation-accepted",
+			});
+			expect(yield* Fiber.join(accepted)).toMatchObject({ success: "submission-1" });
+			expect(yield* Fiber.join(truncated)).toMatchObject({
+				failure: { reason: "operation-failed" },
+			});
+
+			channel.port1.postMessage({
+				submissionId: "submission-1",
+				type: "background-operation-settled",
+				outcome: { status: "failed", message: "No such episode", reason: "operation-rejected" },
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(settlements).toEqual([
+				{
+					submissionId: "submission-1",
+					outcome: { status: "failed", message: "No such episode", reason: "operation-rejected" },
+				},
+			]);
+			unsubscribe();
+			channel.port1.postMessage({
+				submissionId: "submission-1",
+				outcome: { status: "succeeded" },
+				type: "background-operation-settled",
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(settlements).toHaveLength(1);
+			expect(hints).toBe(0);
+		}),
+	);
+
 	it.live("keeps theme, page refresh, and entity-watches subscriptions synchronous", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

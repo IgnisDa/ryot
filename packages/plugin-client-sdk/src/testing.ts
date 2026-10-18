@@ -3,6 +3,7 @@ import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references"
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
+	type BackgroundSubmissionOutcome,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
@@ -31,8 +32,9 @@ import * as TestClock from "effect/testing/TestClock";
 import { act, type ComponentType, createElement, Fragment } from "react";
 
 import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
-import type { RyotClientAdapter } from "./client/adapter";
+import type { BackgroundOperationAdapterRequest, RyotClientAdapter } from "./client/adapter";
 import { createRyotClient } from "./client/client";
+import type { RyotClientError } from "./client/errors";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import type { EntityPresentationRegistration } from "./presentations/entity-results";
 import { makeRyotPluginLayer } from "./runtime/runtime";
@@ -61,6 +63,39 @@ export const createTestRyotAdapter = (
 	},
 	...overrides,
 });
+
+/**
+ * A recording background-submission capability. `accept` decides each acceptance (default: a
+ * sequential submission ID); `settle` delivers a kernel settlement to subscribed hooks.
+ */
+export const createTestBackgroundSubmissions = (
+	accept?: (request: BackgroundOperationAdapterRequest) => Effect.Effect<string, RyotClientError>,
+) => {
+	const requests: BackgroundOperationAdapterRequest[] = [];
+	const listeners = new Set<(settlement: unknown) => void>();
+	const adapter = {
+		subscribeBackgroundSettled: (listener) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		submitBackground: (request) => {
+			requests.push(request);
+			return accept?.(request) ?? Effect.succeed(`submission-${requests.length}`);
+		},
+	} satisfies Pick<RyotClientAdapter, "submitBackground" | "subscribeBackgroundSettled">;
+	return {
+		adapter,
+		requests,
+		settle: (submissionId: string, outcome: BackgroundSubmissionOutcome) =>
+			act(() => {
+				for (const listener of listeners) {
+					listener({ outcome, submissionId });
+				}
+			}),
+	};
+};
 
 export const createTestPluginStorage = (initial: Iterable<readonly [string, JsonValue]> = []) => {
 	const entries = new Map<string, JsonValue>(initial);

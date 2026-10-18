@@ -11,6 +11,9 @@ export {
 } from "@ryot-app/contract/modules/entities/schemas";
 export type { EntityWatch, RyotClientErrorReason } from "@ryot-app/plugin-client-contract";
 export type {
+	BackgroundOperationAdapterRequest,
+	BackgroundOperationInvocation,
+	BackgroundSettlement,
 	CollectionAdapterRequest,
 	EntityUpdate,
 	EntityWatchSubscription,

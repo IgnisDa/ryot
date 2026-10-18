@@ -20,13 +20,17 @@ import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
+	BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH,
+	BackgroundSubmissionOutcome,
 	EditCollectionOutcome,
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
+	isBackgroundSubmissionLabelCharacterAllowed,
 	PickEntityOutcome,
 	PickEntityRequest,
+	PluginBackgroundOperationRequest,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
@@ -44,6 +48,8 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
 
 import type {
+	BackgroundOperationInvocation,
+	BackgroundSettlement,
 	EntityUpdate,
 	EntityWatchSubscription,
 	FileUploadRequest,
@@ -66,6 +72,31 @@ const normalizeInterest = (interest: EntityWatch): EntityWatch => {
 	const roots = new Set(foreground);
 	const visible = [...new Set(decoded.success.visible)].filter((id) => !roots.has(id)).sort();
 	return { visible, foreground };
+};
+
+const BackgroundSettlementMessage = Schema.Struct({
+	submissionId: Schema.String,
+	outcome: BackgroundSubmissionOutcome,
+});
+
+const normalizeBackgroundLabel = (label: string) => {
+	const cleaned = Array.from(label, (character) =>
+		isBackgroundSubmissionLabelCharacterAllowed(character) ? character : " ",
+	)
+		.join("")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (cleaned.length <= BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) {
+		return cleaned;
+	}
+	let truncated = "";
+	for (const character of cleaned) {
+		if (truncated.length + character.length >= BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) {
+			break;
+		}
+		truncated += character;
+	}
+	return `${truncated.trimEnd()}…`;
 };
 
 const decodeCapability = <A>(
@@ -520,41 +551,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					return decoded.success;
 				}),
 		},
-		operations: {
-			invoke: <
-				Input extends Schema.Codec<unknown, unknown>,
-				Output extends Schema.Codec<unknown, unknown>,
-			>(
-				request: OperationInvocation<Input, Output>,
-			): Effect.Effect<Output["Type"], RyotClientError> =>
-				Effect.gen(function* () {
-					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
-						request.input,
-					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
-					const invoke = adapter.invokeOperation;
-					if (!invoke) {
-						return yield* new RyotClientError("unsupported-capability");
-					}
-					const value = yield* adapterEffect(() =>
-						invoke({
-							input,
-							slug: request.slug,
-							packageId: request.packageId,
-							...(request.idempotencyKey === undefined
-								? {}
-								: { idempotencyKey: request.idempotencyKey }),
-						}),
-					);
-					if (!isJsonValue(value)) {
-						return yield* new RyotClientError("malformed-result");
-					}
-					const decoded = yield* decodeCapability(request.output, value);
-					if (request.refreshOnSuccess !== false) {
-						mutationCompleted.hint();
-					}
-					return decoded;
-				}),
-		},
 		entities: {
 			retryPopulation,
 			save: saveEntity,
@@ -606,6 +602,78 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					throw asTransportError(error);
 				}
 			},
+		},
+		operations: {
+			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {
+				const subscribe = adapter.subscribeBackgroundSettled;
+				if (!subscribe) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				return subscribe((value) => {
+					const decoded = Schema.decodeUnknownResult(BackgroundSettlementMessage)(value);
+					if (Result.isSuccess(decoded)) {
+						listener(decoded.success);
+					}
+				});
+			},
+			submitBackground: <Input extends Schema.Codec<unknown, unknown>>(
+				request: BackgroundOperationInvocation<Input>,
+			): Effect.Effect<string, RyotClientError> =>
+				Effect.gen(function* () {
+					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
+						request.input,
+					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
+					const decoded = Schema.decodeResult(PluginBackgroundOperationRequest)({
+						input,
+						operationSlug: request.slug,
+						packageId: request.packageId,
+						idempotencyKey: request.idempotencyKey,
+						label: normalizeBackgroundLabel(request.label),
+					});
+					if (Result.isFailure(decoded)) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					const submit = adapter.submitBackground;
+					if (!submit) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const { operationSlug, ...submission } = decoded.success;
+					const value = yield* adapterEffect(() => submit({ ...submission, slug: operationSlug }));
+					return yield* decodeCapability(Schema.String, value);
+				}),
+			invoke: <
+				Input extends Schema.Codec<unknown, unknown>,
+				Output extends Schema.Codec<unknown, unknown>,
+			>(
+				request: OperationInvocation<Input, Output>,
+			): Effect.Effect<Output["Type"], RyotClientError> =>
+				Effect.gen(function* () {
+					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
+						request.input,
+					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
+					const invoke = adapter.invokeOperation;
+					if (!invoke) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const value = yield* adapterEffect(() =>
+						invoke({
+							input,
+							slug: request.slug,
+							packageId: request.packageId,
+							...(request.idempotencyKey === undefined
+								? {}
+								: { idempotencyKey: request.idempotencyKey }),
+						}),
+					);
+					if (!isJsonValue(value)) {
+						return yield* new RyotClientError("malformed-result");
+					}
+					const decoded = yield* decodeCapability(request.output, value);
+					if (request.refreshOnSuccess !== false) {
+						mutationCompleted.hint();
+					}
+					return decoded;
+				}),
 		},
 	};
 };

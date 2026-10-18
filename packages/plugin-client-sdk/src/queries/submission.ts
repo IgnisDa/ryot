@@ -16,6 +16,13 @@ const freeze = <A>(value: A): A => {
 	return value;
 };
 
+export const snapshotRyotSubmission = <Input>(
+	input: Input,
+	submissionId: string,
+	now: number,
+): RyotSubmission<Input> =>
+	freeze({ submissionId, input: structuredClone(input), submittedAt: new Date(now).toISOString() });
+
 export const createRyotSubmission = <Input>(createId: () => string, now: () => number) => {
 	let state: SubmissionState<Input> = { status: "idle", submission: null };
 	const listeners = new Set<() => void>();
@@ -60,11 +67,7 @@ export const createRyotSubmission = <Input>(createId: () => string, now: () => n
 			if (state.status !== "idle") {
 				return null;
 			}
-			const submission = freeze({
-				submissionId: createId(),
-				input: structuredClone(input),
-				submittedAt: new Date(now()).toISOString(),
-			});
+			const submission = snapshotRyotSubmission(input, createId(), now());
 			publish({ submission, status: "pending" });
 			return submission;
 		},

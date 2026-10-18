@@ -206,8 +206,28 @@ UUIDs; tests can inject their generator. The submission timestamp uses the SDK c
 across retries.
 
 The helper provides no server durability, automatic retries, persistence, or error interpretation.
-Use it only where the owning backend write enforces retry safety. Fields, recovery messages, and
+Use it only where the owning backend write enforces retry safety and the caller needs the result;
+other tracking writes use [background submissions](#background-submissions). Fields, recovery messages, and
 whether an incomplete submission can be abandoned remain caller-owned.
+
+## Background Submissions
+
+`useBackgroundSubmission(definition, { createId })` hands a write to the kernel shell. A definition
+from `createRyotBackgroundSubmission` names the operation `slug`, `packageId`, and `inputSchema`, a
+`label(input)` for the shell's activity tray, and `input(submission)`, which builds the operation
+input from the frozen `RyotSubmission` snapshot. `submit(input, { onAccepted, onRejected })` freezes
+the input, uses the submission ID as the idempotency key, and resolves once the kernel accepts the
+request; the shell then owns the attempt, its tray entry, and its Retry, so the caller may close a
+dialog or navigate away. The SDK collapses control characters and whitespace in labels and truncates
+them to 120 characters. `state` moves through `sending`, `accepted` or `rejected`, and `settled`;
+`last` is the latest submission's settled outcome while the component stays mounted, for optimistic
+rollback in toggles. Settlements never carry the operation result. A successful settlement also
+reaches the page through the normal `page-refresh` hint. Tests pass the adapter from
+`createTestBackgroundSubmissions` (`./testing`) and deliver settlements with its `settle`.
+
+Use background submission for tracking and other retry-safe writes whose result the flow does not
+need to continue. Keep `useRyotSubmission` (or `operations.invoke`) for flows that need the result to
+continue, such as wizards, entity-editor creation, and navigation after a save.
 
 ## Entity Interest
 

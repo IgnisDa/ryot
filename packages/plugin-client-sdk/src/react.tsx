@@ -33,6 +33,12 @@ export { usePluginStorage, type PluginStorageState } from "./queries/storage";
 export { usePluginUserSettings } from "./queries/user-settings";
 export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
+export {
+	createRyotBackgroundSubmission,
+	useBackgroundSubmission,
+	type RyotBackgroundSubmission,
+	type RyotBackgroundSubmissionState,
+} from "./queries/background-submission-hook";
 export { usePagination, useRyotInfiniteQuery } from "./queries/pagination-hook";
 export { nextPageCursor, paginationItems, PaginationError } from "./queries/pagination";
 export { useEntityRefresh, useEntitySettle } from "./refresh/entity-hooks";
