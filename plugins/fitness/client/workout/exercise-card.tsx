@@ -1,8 +1,10 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { Card } from "@ryot-app/plugin-ui-sdk";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
 import { useAssetUrl } from "../asset-urls";
+import { supersetColorVariable, supersetSoftColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
 import {
 	personalBestLabels,
@@ -200,6 +202,7 @@ function RecordStatusNote(props: { readonly card: ExerciseCard }) {
 }
 
 export function ExerciseCardView(props: {
+	readonly groupColor?: string;
 	readonly imperial: boolean;
 	readonly compact: boolean;
 	readonly card: ExerciseCard;
@@ -208,12 +211,15 @@ export function ExerciseCardView(props: {
 	const { card, compact } = props;
 	const meta = exerciseMeta(card);
 	return (
-		<article
+		<Card
+			padding="none"
 			data-exercise-id={card.exercise.id}
-			className={clsx(
-				"min-w-0 overflow-hidden rounded-xl border bg-surface",
-				card.supersetTag === null ? "border-border" : "border-info",
-			)}
+			className="min-w-0 overflow-hidden"
+			style={
+				props.groupColor === undefined
+					? undefined
+					: { boxShadow: `inset 3px 0 0 ${supersetColorVariable(props.groupColor)}` }
+			}
 		>
 			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
 				<PluginLink
@@ -225,7 +231,17 @@ export function ExerciseCardView(props: {
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<div className="flex min-w-0 items-center gap-2">
 						{card.supersetTag === null ? null : (
-							<span className="shrink-0 rounded-sm bg-surface-2 px-1.5 py-0.5 font-ui font-bold text-[12px] text-info">
+							<span
+								className="shrink-0 rounded-sm px-1.5 py-0.5 font-ui font-bold text-[12px]"
+								style={
+									props.groupColor === undefined
+										? undefined
+										: {
+												color: supersetColorVariable(props.groupColor),
+												backgroundColor: supersetSoftColorVariable(props.groupColor),
+											}
+								}
+							>
 								{card.supersetTag}
 							</span>
 						)}
@@ -273,7 +289,7 @@ export function ExerciseCardView(props: {
 					videos={card.media.videos}
 				/>
 			) : null}
-		</article>
+		</Card>
 	);
 }
 
@@ -284,7 +300,7 @@ export function ExerciseGroups(props: {
 	readonly workoutStartedAt: string | null;
 }) {
 	return (
-		<div className={clsx("grid items-start gap-4", !props.compact && "lg:grid-cols-2")}>
+		<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
 			{props.groups.map((group) =>
 				group.kind === "single" ? (
 					<ExerciseCardView
@@ -301,19 +317,26 @@ export function ExerciseGroups(props: {
 						key={group.cards.map((card) => card.key).join("+")}
 					>
 						<div className="flex items-center gap-3 font-ui">
-							<span className="rounded-pill bg-surface-2 px-2.5 py-1 font-semibold text-[13px] text-info">
+							<span
+								className="rounded-pill px-2.5 py-1 font-semibold text-[13px]"
+								style={{
+									color: supersetColorVariable(group.color),
+									backgroundColor: supersetSoftColorVariable(group.color),
+								}}
+							>
 								Superset {group.label}
 							</span>
 							<span className="text-[14px] text-text-muted">
 								Alternate {group.cards.map((card) => card.supersetTag).join(" and ")}
 							</span>
 						</div>
-						<div className={clsx("grid items-start gap-4", !props.compact && "lg:grid-cols-2")}>
+						<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
 							{group.cards.map((card) => (
 								<ExerciseCardView
 									card={card}
 									key={card.key}
 									compact={props.compact}
+									groupColor={group.color}
 									imperial={props.imperial}
 									workoutStartedAt={props.workoutStartedAt}
 								/>

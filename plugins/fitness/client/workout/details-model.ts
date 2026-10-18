@@ -29,7 +29,12 @@ export type ExerciseCard = {
 
 export type CardGroup =
 	| { readonly kind: "single"; readonly card: ExerciseCard }
-	| { readonly kind: "superset"; readonly label: string; readonly cards: readonly ExerciseCard[] };
+	| {
+			readonly kind: "superset";
+			readonly label: string;
+			readonly color: string;
+			readonly cards: readonly ExerciseCard[];
+	  };
 
 export type TimelineSegment = {
 	readonly key: string;
@@ -111,6 +116,7 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 		occurrenceCount.set(exercise.id, (occurrenceCount.get(exercise.id) ?? 0) + 1);
 	}
 	const supersets = (workout.supersets ?? []).map((superset, index) => ({
+		color: superset.color,
 		label: supersetLetter(index),
 		orders: [...superset.exercises].sort((left, right) => left - right),
 	}));
@@ -157,7 +163,12 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 		} else if (last?.kind === "superset" && last.label === superset.label) {
 			groups[groups.length - 1] = { ...last, cards: [...last.cards, card] };
 		} else {
-			groups.push({ cards: [card], kind: "superset", label: superset.label });
+			groups.push({
+				cards: [card],
+				kind: "superset",
+				label: superset.label,
+				color: superset.color,
+			});
 		}
 	}
 	return groups;
