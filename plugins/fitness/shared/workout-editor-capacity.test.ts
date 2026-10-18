@@ -52,8 +52,8 @@ const occurrence = (clientId: string, index: number, setCount: number, rich = tr
 		: undefined,
 });
 
-const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true) => {
-	const draft = Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
+const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true) =>
+	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
 		occurrences,
 		activeDuration: 3600,
 		startedAt: timestamp,
@@ -89,15 +89,6 @@ const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true)
 						},
 					],
 	});
-	return {
-		...draft,
-		uploadedAssets: [
-			...draft.images,
-			...draft.videos,
-			...draft.occurrences.flatMap((item) => item.images.concat(item.videos)),
-		].filter((asset) => asset.type !== "remote"),
-	};
-};
 
 const templateDraft = () =>
 	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({

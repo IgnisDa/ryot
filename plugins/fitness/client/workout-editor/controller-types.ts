@@ -63,7 +63,6 @@ export type WorkoutEditorControllerPorts = {
 	readonly target: PluginNavigationTarget;
 	readonly now: Effect.Effect<number, unknown>;
 	readonly feedback: () => Effect.Effect<void>;
-	readonly cleanup: RyotClient["uploads"]["cleanup"];
 	readonly schedule: Pick<RyotSchedule, "run" | "after">;
 	readonly upload: RyotClient["uploads"]["uploadPermanent"];
 	readonly iosLiveActivities: RyotClient["iosLiveActivities"];

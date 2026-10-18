@@ -59,7 +59,6 @@ const createEditorSession = (
 		now: Effect.sync(() => schedule.now()),
 		iosLiveActivities: client.iosLiveActivities,
 		device: (request) => client.device(request),
-		cleanup: (asset) => client.uploads.cleanup(asset),
 		refreshContext: invokeWorkoutEditorContext(client),
 		foreground: () => document.visibilityState === "visible",
 		upload: (request) => client.uploads.uploadPermanent(request),

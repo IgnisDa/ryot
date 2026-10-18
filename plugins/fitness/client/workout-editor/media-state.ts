@@ -7,16 +7,10 @@ export type WorkoutMediaKind = "images" | "videos";
 export type WorkoutMediaTarget =
 	{ readonly kind: "workout" } | { readonly kind: "occurrence"; readonly occurrenceId: string };
 
-export const sameMedia = (left: WorkoutSetAssetLocator, right: WorkoutSetAssetLocator) =>
+const sameMedia = (left: WorkoutSetAssetLocator, right: WorkoutSetAssetLocator) =>
 	left.type === "remote"
 		? right.type === "remote" && left.url === right.url
 		: right.type !== "remote" && left.type === right.type && left.key === right.key;
-
-export const draftMedia = (draft: WorkoutEditorDraft) => [
-	...draft.images,
-	...draft.videos,
-	...draft.occurrences.flatMap((occurrence) => [...occurrence.images, ...occurrence.videos]),
-];
 
 export const targetMedia = (draft: WorkoutEditorDraft, target: WorkoutMediaTarget) =>
 	target.kind === "workout"
@@ -34,12 +28,10 @@ export const attachDraftMedia = (
 		return draft;
 	}
 	const media = [...current[kind], asset];
-	const uploadedAssets = [...(draft.uploadedAssets ?? []), asset];
 	return target.kind === "workout"
-		? { ...draft, [kind]: media, uploadedAssets }
+		? { ...draft, [kind]: media }
 		: {
 				...draft,
-				uploadedAssets,
 				occurrences: draft.occurrences.map((occurrence) =>
 					occurrence.clientId === target.occurrenceId
 						? { ...occurrence, [kind]: media }

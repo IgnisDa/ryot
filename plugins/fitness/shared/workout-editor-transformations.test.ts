@@ -194,7 +194,6 @@ it("replaces only one occurrence when the exercise kind stays the same", () => {
 it("repeats reusable data with fresh identities and clears session-only state", () => {
 	const source = makeDraft({
 		images: [{ type: "s3", key: "workout/cover.jpg" }],
-		uploadedAssets: [{ type: "s3", key: "workout/cover.jpg" }],
 		supersets: [
 			{ color: "blue", clientId: "superset-1", occurrenceIds: ["occurrence-1", "occurrence-2"] },
 		],
@@ -242,7 +241,6 @@ it("repeats reusable data with fresh identities and clears session-only state", 
 		mode: { kind: "live", source: { kind: "repeat", entityId: "workout-1" } },
 	});
 	expect(repeated.occurrences[0]?.notes).toEqual(["Keep this exercise cue"]);
-	expect(repeated.uploadedAssets).toBeUndefined();
 	expect(repeated.occurrences[0]).toMatchObject({ images: [], videos: [] });
 	expect(repeatedSet).toMatchObject({
 		reps: "5",

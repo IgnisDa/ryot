@@ -1,4 +1,4 @@
-import { type ManagedAssetLocator, RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 
 import {
@@ -22,8 +22,6 @@ import {
 import { createWorkoutIosActivityPublisher } from "./ios-live-activity-sync";
 import {
 	attachDraftMedia,
-	draftMedia,
-	sameMedia,
 	targetMedia,
 	type WorkoutMediaKind,
 	type WorkoutMediaTarget,
@@ -199,56 +197,7 @@ export const createWorkoutEditorController = (
 			}),
 		);
 
-	const cleanupAssets = (assets: readonly ManagedAssetLocator[]) =>
-		Effect.forEach(assets, (asset) => ports.cleanup(asset).pipe(Effect.ignore), { discard: true });
-
-	const cleanupAbandonedMedia = () =>
-		Effect.gen(function* () {
-			if (
-				disposed ||
-				!isReady(snapshot) ||
-				isWorkoutEditorSaving(snapshot) ||
-				snapshot.draft.submission !== undefined
-			) {
-				return;
-			}
-			const draftId = snapshot.draft.draftId;
-			const media = draftMedia(snapshot.draft);
-			const abandoned = (snapshot.draft.uploadedAssets ?? []).filter(
-				(asset) => !media.some((candidate) => sameMedia(candidate, asset)),
-			);
-			if (abandoned.length === 0) {
-				return;
-			}
-			for (const asset of abandoned) {
-				const cleaned = yield* ports
-					.cleanup(asset)
-					.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
-				const latest = getSnapshot();
-				if (
-					cleaned &&
-					isReady(latest) &&
-					latest.draft.draftId === draftId &&
-					latest.draft.submission === undefined
-				) {
-					setDraft({
-						...latest.draft,
-						uploadedAssets: latest.draft.uploadedAssets?.filter(
-							(candidate) => !sameMedia(candidate, asset),
-						),
-					});
-				}
-			}
-			yield* flushDraft();
-		});
-
-	const flush = () =>
-		mediaSemaphore.withPermit(
-			Effect.gen(function* () {
-				yield* flushDraft();
-				yield* cleanupAbandonedMedia();
-			}),
-		);
+	const flush = () => mediaSemaphore.withPermit(flushDraft());
 
 	const startFlush = () => {
 		if (disposed || flushRunning || !isReady(snapshot) || !snapshot.dirty) {
@@ -409,7 +358,6 @@ export const createWorkoutEditorController = (
 					discarding = true;
 					const removedDraftId = isReady(snapshot) ? snapshot.draft.draftId : undefined;
 					const removedDraft = isReady(snapshot) ? snapshot.draft : undefined;
-					const uploadedAssets = isReady(snapshot) ? (snapshot.draft.uploadedAssets ?? []) : [];
 					const removed = yield* Effect.match(ports.storage.remove, {
 						onSuccess: () => ({ kind: "success" as const }),
 						onFailure: (error) => ({ error, kind: "failure" as const }),
@@ -438,7 +386,6 @@ export const createWorkoutEditorController = (
 					if (removedDraft === undefined) {
 						iosActivity.synchronize(undefined, exerciseNames);
 					}
-					yield* cleanupAssets(uploadedAssets);
 					return true;
 				}).pipe(Effect.uninterruptible),
 			);
@@ -529,7 +476,6 @@ export const createWorkoutEditorController = (
 							snapshot.draft.submission !== undefined ||
 							targetMedia(snapshot.draft, target) === undefined
 						) {
-							yield* cleanupAssets([asset]);
 							return;
 						}
 						setDraft(attachDraftMedia(snapshot.draft, target, kind, asset));

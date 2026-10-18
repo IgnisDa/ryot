@@ -263,7 +263,6 @@ export const cloneWorkoutEditorSource = (
 		draftId: input.draftId,
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
-		uploadedAssets: undefined,
 		activeOccurrenceId: undefined,
 		executionCountdown: undefined,
 		stopwatchStartedAt: undefined,

@@ -34,7 +34,6 @@ export const controllerHarness = (
 		readonly events?: string[];
 		readonly pluginId?: PluginId;
 		readonly onRemove?: () => void;
-		readonly cleanupFails?: boolean;
 		readonly onRead?: () => unknown;
 		readonly foreground?: () => boolean;
 		readonly target?: PluginNavigationTarget;
@@ -52,7 +51,6 @@ export const controllerHarness = (
 	let reads = 0;
 	let removals = 0;
 	const writes: string[] = [];
-	const cleaned: ManagedAssetLocator[] = [];
 	const submissions: Parameters<WorkoutEditorControllerPorts["save"]>[0][] = [];
 	const controller = createWorkoutEditorController({
 		feedback: () => Effect.void,
@@ -79,16 +77,6 @@ export const controllerHarness = (
 			update: unsupportedIosActivity,
 			availability: unsupportedIosActivity,
 		},
-		cleanup: (locator) =>
-			Effect.sync(() => {
-				cleaned.push(locator);
-			}).pipe(
-				Effect.flatMap(() =>
-					options.cleanupFails
-						? Effect.fail(new RyotClientError("transport"))
-						: Effect.succeed({ status: "deleted" as const }),
-				),
-			),
 		storage: {
 			read: Effect.sync(() => {
 				reads += 1;
@@ -115,7 +103,6 @@ export const controllerHarness = (
 	});
 	return {
 		writes,
-		cleaned,
 		controller,
 		submissions,
 		read: () => stored,
