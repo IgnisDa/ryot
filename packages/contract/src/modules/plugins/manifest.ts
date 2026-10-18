@@ -609,7 +609,9 @@ const httpsUrl = (reservedParameters: ReadonlyArray<string> = []) =>
 
 const oauthScope = Schema.String.pipe(
 	Schema.check(
-		Schema.makeFilter((value) => (/^[!#-[\]-~]+$/.test(value) ? true : "Expected an OAuth scope")),
+		Schema.makeFilter((value) =>
+			/^[\x21\x23-\x5B\x5D-\x7E]+$/.test(value) ? true : "Expected an OAuth scope",
+		),
 	),
 );
 
