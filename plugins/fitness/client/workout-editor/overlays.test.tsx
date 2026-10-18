@@ -90,6 +90,7 @@ describe("workout editor overlays", () => {
 				};
 				const changes: string[] = [];
 				const closes: string[] = [];
+				const feedback: string[] = [];
 				let result = currentDraft;
 				mount()(
 					<BulkDeleteOverlay
@@ -98,6 +99,7 @@ describe("workout editor overlays", () => {
 						safeAreaBottom={0}
 						draft={currentDraft}
 						onClose={() => closes.push("close")}
+						onDeletedSets={() => feedback.push("delete")}
 						onChange={(transform) => {
 							result = transform(result);
 							changes.push("change");
@@ -124,6 +126,7 @@ describe("workout editor overlays", () => {
 				);
 				expect(changes).toEqual([]);
 				expect(closes).toEqual([]);
+				expect(feedback).toEqual([]);
 				expect(
 					screen.getByRole("checkbox", { checked: true, name: /Squat.*whole exercise/ }),
 				).toBeTruthy();
@@ -139,6 +142,7 @@ describe("workout editor overlays", () => {
 
 				expect(changes).toEqual(["change"]);
 				expect(closes).toEqual(["close"]);
+				expect(feedback).toEqual(["delete"]);
 				expect(result.occurrences).toHaveLength(1);
 				expect(result.occurrences[0]?.clientId).toBe("press");
 				expect(result.occurrences[0]?.sets).toEqual([]);
@@ -155,6 +159,7 @@ describe("workout editor overlays", () => {
 				safeAreaBottom={0}
 				onClose={() => {}}
 				onChange={() => {}}
+				onDeletedSets={() => {}}
 				initialOccurrenceId="press"
 			/>,
 		);

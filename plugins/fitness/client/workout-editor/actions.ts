@@ -66,12 +66,14 @@ export const updateOccurrence = (
 	draft: WorkoutEditorDraft,
 	id: string,
 	change: (occurrence: WorkoutEditorOccurrence) => WorkoutEditorOccurrence,
-): WorkoutEditorDraft => ({
-	...draft,
-	occurrences: draft.occurrences.map((occurrence) =>
+): WorkoutEditorDraft => {
+	const occurrences = draft.occurrences.map((occurrence) =>
 		occurrence.clientId === id ? change(occurrence) : occurrence,
-	),
-});
+	);
+	return occurrences.every((occurrence, index) => occurrence === draft.occurrences[index])
+		? draft
+		: { ...draft, occurrences };
+};
 
 export const updateSet = (
 	draft: WorkoutEditorDraft,

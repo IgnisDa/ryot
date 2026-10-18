@@ -55,7 +55,7 @@ export function ExerciseCard(props: {
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly settings: WorkoutPreferenceSettings;
 	readonly exercise: EditorExercise | undefined;
-	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
+	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => boolean;
 	readonly onConfirm: (set: WorkoutEditorSet) => void;
 	readonly onStartExecution: (set: WorkoutEditorSet) => void;
 	readonly onPrevious: (set: WorkoutEditorSet) => void;
@@ -63,7 +63,8 @@ export function ExerciseCard(props: {
 	readonly onSheet: (sheet: ExerciseSheet) => void;
 	readonly onDelete: () => void;
 	readonly onCycle: () => void;
-	readonly onAddedSet: () => void;
+	readonly onAddedSet: (setId: string) => void;
+	readonly onDeletedSet: () => void;
 	readonly onManage: (kind: "reorder" | "bulk-delete" | "supersets") => void;
 }) {
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
@@ -314,14 +315,15 @@ export function ExerciseCard(props: {
 							variant="ghost"
 							disabled={disabled}
 							onClick={() => {
-								change((item) => {
+								const setId = crypto.randomUUID();
+								const added = change((item) => {
 									const last = item.sets.at(-1);
 									return {
 										...item,
 										sets: [
 											...item.sets,
 											{
-												...newWorkoutSet(crypto.randomUUID(), item.exerciseKind, last),
+												...newWorkoutSet(setId, item.exerciseKind, last),
 												included: editorDraft.mode.kind === "historical",
 												setLot:
 													last === undefined || last.setLot === "warm_up" ? "normal" : last.setLot,
@@ -329,18 +331,20 @@ export function ExerciseCard(props: {
 										],
 									};
 								});
-								props.onAddedSet();
+								if (added) {
+									props.onAddedSet(setId);
+								}
 							}}
 						>
 							<AppIcon size={15} name="plus" />
 							Add set
 						</Button>
-						{note === "" ? (
+						<Collapse open={note === ""}>
 							<Button size="sm" variant="ghost" onClick={() => props.onSheet("notes")}>
 								<AppIcon size={14} name="pencil" />
 								Note
 							</Button>
-						) : null}
+						</Collapse>
 						<span className="flex-1" />
 						{normalRest.kind === "resolved" ? (
 							<span className="pr-2 text-xs text-text-subtle tabular-nums">
@@ -377,10 +381,17 @@ export function ExerciseCard(props: {
 							return rest.kind === "resolved" ? rest.seconds : 0;
 						})()}
 						onDelete={() => {
-							change((item) => ({
-								...item,
-								sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
-							}));
+							const deleted = change((item) =>
+								item.sets.some(({ clientId }) => clientId === openSet.clientId)
+									? {
+											...item,
+											sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
+										}
+									: item,
+							);
+							if (deleted) {
+								props.onDeletedSet();
+							}
 							setOpenSetId(undefined);
 						}}
 					/>

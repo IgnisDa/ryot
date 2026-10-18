@@ -675,6 +675,7 @@ describe("WorkoutEditorScreen", () => {
 				change(name, "Latest workout name");
 				expect(inputValue(name)).toBe("Latest workout name");
 				click(within(details).getByRole("button", { name: "Done" }));
+				yield* Effect.promise(() => waitFor(() => expect(details.isConnected).toBe(false)));
 				const reps = screen.getByRole("textbox", { name: "Set 1 reps" });
 				const weight = screen.getByRole("textbox", { name: "Set 1 weight (kg)" });
 				change(reps, "9");
@@ -1044,6 +1045,11 @@ describe("WorkoutEditorScreen", () => {
 				);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getAllByRole("group", { name: /^Set \d/ })).toHaveLength(1)),
+				);
+				click(
+					within(screen.getByRole("region", { name: "Weight exercise" })).getByRole("button", {
+						name: "Collapse Weight exercise",
+					}),
 				);
 				click(
 					within(screen.getByRole("region", { name: "Weight exercise" })).getByRole("button", {
