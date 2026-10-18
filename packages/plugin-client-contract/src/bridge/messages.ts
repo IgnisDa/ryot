@@ -1,6 +1,11 @@
 import { Schema } from "effect";
 
 import {
+	PluginBridgeBackgroundOperationAccepted,
+	PluginBridgeBackgroundOperationRequest,
+	PluginBridgeBackgroundOperationSettled,
+} from "./background-submissions";
+import {
 	PluginBridgeAssetCancel,
 	PluginBridgeAssetRequest,
 	PluginBridgeAssetResult,
@@ -95,6 +100,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeUserSettingsRequest,
 	PluginBridgeRetryPopulationRequest,
 	PluginBridgeOperationRequest,
+	PluginBridgeBackgroundOperationRequest,
 	PluginBridgeEntitySaveRequest,
 	PluginBridgeCollectionRequest,
 	PluginBridgeCalendarSourceVisibilityRequest,
@@ -129,6 +135,8 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeUserSettingsResult,
 	PluginBridgeRetryPopulationResult,
 	PluginBridgeOperationResult,
+	PluginBridgeBackgroundOperationAccepted,
+	PluginBridgeBackgroundOperationSettled,
 	PluginBridgeEntitySaveResult,
 	PluginBridgeCollectionResult,
 	PluginBridgeCalendarSourceVisibilityResult,

@@ -22,6 +22,7 @@ export {
 } from "./artifact";
 
 export { CLIENT_API_VERSION };
+export * from "./bridge/background-submissions";
 export * from "./bridge/capabilities";
 export * from "./bridge/device";
 export * from "./bridge/lifecycle";

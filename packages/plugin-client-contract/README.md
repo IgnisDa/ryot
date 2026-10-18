@@ -16,8 +16,9 @@ Internal modules split the package: `src/source-policy.ts` (file extensions, con
 predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
 `src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, entity picker,
 overlay, and close messages), `src/bridge/capabilities.ts` (operation, collection, calendar source visibility, asset, upload,
-storage, RyotQL, entity-watch, and external-link payloads), and `src/bridge/messages.ts` (the client and host message
-unions). `src/index.ts` only aggregates them.
+storage, RyotQL, entity-watch, and external-link payloads), `src/bridge/background-submissions.ts`
+(background operation requests, acceptance, settlement, and shared limits), and
+`src/bridge/messages.ts` (the client and host message unions). `src/index.ts` only aggregates them.
 
 `src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
 calculation used by the compiler, ingestion, and server assembly. The hash includes the plugin name,
@@ -50,6 +51,18 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
 failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
 be shown to the user, and retrying the same input cannot succeed.
+
+`background-operation-request` carries the same package, operation slug, and JSON input as
+`operation-request`, plus a required idempotency key (non-empty, at most 128 characters) and a
+`label` (non-empty, at most 120 characters, with no C0/C1 control or U+202A–U+202E/U+2066–U+2069
+bidi control characters). It never carries a content hash, action, URL, or icon. The reply
+`background-operation-accepted` returns a kernel `submissionId` or fails with `transport`,
+`operation-failed`, or `malformed-result`. Later, `background-operation-settled` reports that
+submission's outcome: `succeeded`, `incomplete`, or `failed` with `transport`, `operation-failed`,
+`malformed-result`, `app-updated`, or `operation-rejected` plus its message. It never carries the
+operation result. `BACKGROUND_SUBMISSION_LIMITS` (8 in flight per kernel service, 4 per bridge
+session, 20 tray entries) is shared so both peers agree on the bounds; the kernel enforces them.
+Tray behavior belongs to the [kernel host](../../kernel/client/README.md#background-submissions).
 
 `entity-editor-save-request` carries an `EntityEditorSaveRequest` (submission, idempotency key, and
 UTC `submittedAt`). Its result returns the editor output or fails with `invalid-request` (schema owner
