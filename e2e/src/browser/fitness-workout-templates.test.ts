@@ -5,6 +5,7 @@ import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	openFitnessPage,
+	overlay,
 	readWorkoutDetails,
 	renameDraft,
 	saveDraft,
@@ -34,11 +35,7 @@ it.live(
 			yield* frame.getByRole("button", { name: "Add", exact: true }).click();
 			yield* renameDraft(frame, "Template details", name);
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-			const picker = frame.getByRole("dialog", {
-				exact: true,
-				includeHidden: true,
-				name: "Add exercises",
-			});
+			const picker = overlay(frame, "Add exercises");
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
 			yield* picker.getByRole("button", { exact: true, name: "Add 1 exercise" }).click();
 			yield* picker.waitFor({ state: "hidden" });

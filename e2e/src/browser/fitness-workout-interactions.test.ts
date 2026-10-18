@@ -5,11 +5,41 @@ import { createAuthenticatedClient } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	openFitnessPage,
+	overlay,
 	updateExerciseOverrides,
+	waitInScrollBand,
 } from "~/fixtures/plugins/fitness";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
+
+const startWorkoutWith = (names: readonly string[], reducedMotion: "no-preference" | "reduce") =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		for (const name of names) {
+			const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
+			yield* updateExerciseOverrides(client, {
+				exerciseId,
+				remove: [],
+				set: { normalRestTime: 0 },
+			});
+		}
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* page.setViewportSize({ width: 390, height: 844 });
+		yield* page.use((raw) => raw.emulateMedia({ reducedMotion }));
+		yield* signInThroughHostedOAuth(page, email, password);
+		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
+		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
+		const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
+		for (const name of names) {
+			yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(name);
+			yield* picker.getByRole("checkbox", { name, exact: true }).check();
+		}
+		yield* picker
+			.getByRole("button", { exact: true, name: `Add ${names.length} exercises` })
+			.click();
+		return { page, frame, picker };
+	});
 
 it.live(
 	"snaps back a short sheet pull and dismisses a downward drag without leaving the workout",
@@ -62,31 +92,11 @@ it.live(
 for (const reducedMotion of ["reduce", "no-preference"] as const) {
 	it.live(`brings the next superset exercise into view with motion ${reducedMotion}`, () =>
 		Effect.gen(function* () {
-			const { email, client, password } = yield* createAuthenticatedClient();
 			const names = [
 				`Superset first ${crypto.randomUUID()}`,
 				`Superset next ${crypto.randomUUID()}`,
 			];
-			for (const name of names) {
-				const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					remove: [],
-					set: { normalRestTime: 0 },
-				});
-			}
-			const page = yield* (yield* Playwright.Browser).newPage();
-			yield* page.setViewportSize({ width: 390, height: 844 });
-			yield* page.use((raw) => raw.emulateMedia({ reducedMotion }));
-			yield* signInThroughHostedOAuth(page, email, password);
-			const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
-			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-			const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
-			for (const name of names) {
-				yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(name);
-				yield* picker.getByRole("checkbox", { name, exact: true }).check();
-			}
-			yield* picker.getByRole("button", { exact: true, name: "Add 2 exercises" }).click();
+			const { frame, picker } = yield* startWorkoutWith(names, reducedMotion);
 			yield* picker.waitFor({ state: "hidden" });
 			for (const name of names) {
 				const exercise = frame.getByRole("region", { name, exact: true });
@@ -96,11 +106,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 			}
 			yield* frame.getByRole("button", { exact: true, name: "Workout actions" }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Supersets" }).click();
-			const supersets = frame.getByRole("dialog", {
-				exact: true,
-				name: "Supersets",
-				includeHidden: true,
-			});
+			const supersets = overlay(frame, "Supersets");
 			for (const name of names) {
 				yield* supersets.getByRole("checkbox", { name, exact: false }).check();
 			}
@@ -123,24 +129,12 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 						exact: true,
 						name: names[(position + 1) % names.length],
 					});
-					yield* next
-						.getByRole("group", { exact: true, name: `Set ${position === 0 ? index : index + 1}` })
-						.waitForFunction((set) => {
-							const root = set.closest("[data-motion-scroll-root]");
-							const header = root
-								?.querySelector('[data-scroll-obstruction="top"]')
-								?.getBoundingClientRect();
-							const dock = root?.parentElement
-								?.querySelector('[data-scroll-obstruction="bottom"]')
-								?.getBoundingClientRect();
-							const bounds = set.getBoundingClientRect();
-							return (
-								header !== undefined &&
-								dock !== undefined &&
-								bounds.top >= header.bottom &&
-								bounds.bottom <= dock.top
-							);
-						});
+					yield* waitInScrollBand(
+						next.getByRole("group", {
+							exact: true,
+							name: `Set ${position === 0 ? index : index + 1}`,
+						}),
+					);
 				}
 			}
 		}).pipe(PlaywrightSpawner.withBrowser),
@@ -149,28 +143,8 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 		`progresses, collapses and scrolls above the floating timer with motion ${reducedMotion}`,
 		() =>
 			Effect.gen(function* () {
-				const { email, client, password } = yield* createAuthenticatedClient();
 				const names = [`First ${crypto.randomUUID()}`, `Next ${crypto.randomUUID()}`];
-				for (const name of names) {
-					const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
-					yield* updateExerciseOverrides(client, {
-						exerciseId,
-						remove: [],
-						set: { normalRestTime: 0 },
-					});
-				}
-				const page = yield* (yield* Playwright.Browser).newPage();
-				yield* page.setViewportSize({ width: 390, height: 844 });
-				yield* page.use((raw) => raw.emulateMedia({ reducedMotion }));
-				yield* signInThroughHostedOAuth(page, email, password);
-				const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
-				yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-				const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
-				for (const name of names) {
-					yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(name);
-					yield* picker.getByRole("checkbox", { name, exact: true }).check();
-				}
-				yield* picker.getByRole("button", { exact: true, name: "Add 2 exercises" }).click();
+				const { page, frame } = yield* startWorkoutWith(names, reducedMotion);
 				const first = frame.getByRole("region", { exact: true, name: names[0] });
 				const next = frame.getByRole("region", { exact: true, name: names[1] });
 				yield* next.getByRole("button", { exact: true, name: `Collapse ${names[1]}` }).click();
@@ -180,14 +154,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 				const editing = first.getByRole("textbox", { exact: true, name: "Set 6 reps" });
 				yield* editing.fill("8");
 				yield* page.setViewportSize({ width: 390, height: 500 });
-				yield* editing.waitForFunction((field) => {
-					const root = field.closest("[data-motion-scroll-root]");
-					const dock = root?.parentElement
-						?.querySelector('[data-scroll-obstruction="bottom"]')
-						?.getBoundingClientRect();
-					const bounds = field.getBoundingClientRect();
-					return dock !== undefined && bounds.top >= 0 && bounds.bottom <= dock.top;
-				});
+				yield* waitInScrollBand(editing);
 				yield* page.setViewportSize({ width: 390, height: 844 });
 				for (let index = 1; index <= 6; index += 1) {
 					yield* first.getByRole("textbox", { exact: true, name: `Set ${index} reps` }).fill("8");
@@ -201,25 +168,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 						.getByRole("button", { exact: true, name: `Expand ${names[0]}` })
 						.getAttribute("aria-expanded"),
 				).toBe("false");
-				yield* next.getByRole("group", { exact: true, name: "Set 1" }).waitForFunction((set) => {
-					const root = set.closest("[data-motion-scroll-root]");
-					if (root === null) {
-						return false;
-					}
-					const bounds = set.getBoundingClientRect();
-					const header = root
-						.querySelector('[data-scroll-obstruction="top"]')
-						?.getBoundingClientRect();
-					const dock = root.parentElement
-						?.querySelector('[data-scroll-obstruction="bottom"]')
-						?.getBoundingClientRect();
-					return (
-						header !== undefined &&
-						dock !== undefined &&
-						bounds.top >= header.bottom &&
-						bounds.bottom <= dock.top
-					);
-				});
+				yield* waitInScrollBand(next.getByRole("group", { exact: true, name: "Set 1" }));
 				yield* first.getByRole("button", { exact: true, name: `Expand ${names[0]}` }).click();
 				yield* first
 					.getByRole("button", { exact: true, name: "Set 1, Normal. Set options" })

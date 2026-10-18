@@ -9,17 +9,27 @@ import { getFrontendUrl } from "~/support/harness-target";
 export const openFitnessPage = (page: Playwright.Page, path: string, frontendUrl?: string) =>
 	page.goto(`${frontendUrl ?? getFrontendUrl()}${path}`).pipe(Effect.as(pluginFrame(page)));
 
+export const overlay = (frame: Playwright.FrameLocator, name: string) =>
+	frame.getByRole("dialog", { name, exact: true, includeHidden: true });
+
+export const waitInScrollBand = (target: Playwright.Locator) =>
+	target.waitForFunction((element) => {
+		const root = element.closest("[data-motion-scroll-root]");
+		const header = root?.querySelector('[data-scroll-obstruction="top"]')?.getBoundingClientRect();
+		const dock = root?.parentElement
+			?.querySelector('[data-scroll-obstruction="bottom"]')
+			?.getBoundingClientRect();
+		const bounds = element.getBoundingClientRect();
+		return dock !== undefined && bounds.top >= (header?.bottom ?? 0) && bounds.bottom <= dock.top;
+	});
+
 export const draftHeading = (frame: Playwright.FrameLocator, name: string) =>
 	frame.getByRole("heading", { name, level: 1, exact: true });
 
 export const renameDraft = (frame: Playwright.FrameLocator, dialogTitle: string, name: string) =>
 	Effect.gen(function* () {
 		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
-		const details = frame.getByRole("dialog", {
-			exact: true,
-			name: dialogTitle,
-			includeHidden: true,
-		});
+		const details = overlay(frame, dialogTitle);
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* details.waitFor({ state: "hidden" });
