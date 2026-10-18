@@ -506,6 +506,7 @@ it.live(
 				.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
 				.waitFor();
 			yield* rows.nth(1).waitFor({ state: "detached" });
+			yield* rows.getByText("Second row", { exact: true }).waitFor({ state: "visible" });
 			expect(yield* rows.allInnerTexts()).toEqual([expect.stringContaining("Second row")]);
 			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
 
