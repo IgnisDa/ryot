@@ -124,7 +124,7 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 	const counts = new Map<string, number>();
 	let cursor: string | null = null;
 	for (;;) {
-		const inputs = yield* connection
+		const inputs: ReadonlyArray<typeof DescriptionInput.Type> = yield* connection
 			.execute(
 				`SELECT * FROM _legacy_description_inputs
 			WHERE $1::text IS NULL OR "entityId" > $1
