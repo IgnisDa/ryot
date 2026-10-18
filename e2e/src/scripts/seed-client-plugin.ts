@@ -28,9 +28,9 @@ const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 dotenv.config({ path: `${repositoryRoot}apps/server/.env`, quiet: true });
 
-process.env.E2E_API_URL ??= `http://localhost:${process.env.PORT ?? 3000}/api`;
-process.env.E2E_FRONTEND_URL ??= new URL(process.env.E2E_API_URL).origin;
+process.env.E2E_API_URL ??= `https://ryot-testing.ignisda.me/api`;
 process.env.E2E_ADMIN_ACCESS_TOKEN ??= process.env.SERVER_ADMIN_ACCESS_TOKEN;
+process.env.E2E_FRONTEND_URL ??= new URL(process.env.E2E_API_URL).origin;
 
 async function buildFixturePlugin() {
 	const build = Bun.spawn(["bun", "turbo", "--filter=@ryot-app/fixture-plugin", "build"], {
