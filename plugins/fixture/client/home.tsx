@@ -4,7 +4,7 @@ import {
 	type ManagedAssetLocator,
 	type TemporaryUploadToken,
 } from "@ryot-app/plugin-client-sdk";
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
@@ -69,33 +69,12 @@ const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ input, 
 	client.uploads.uploadTemporary({ source: input, fileName: input.name, contentType: input.type }),
 );
 
-const permanentUploadMutation = createRyotMutation<
-	{ readonly file: File; readonly onUploaded: (asset: ManagedAssetLocator) => void },
-	ManagedAssetLocator
->(({ input, client }) =>
-	Effect.gen(function* () {
-		const asset = yield* client.uploads.uploadPermanent({
-			source: input.file,
-			fileName: input.file.name,
-			contentType: input.file.type,
-		});
-		input.onUploaded(asset);
-		return asset;
-	}),
+const permanentUploadMutation = createRyotMutation<File, ManagedAssetLocator>(({ input, client }) =>
+	client.uploads.uploadPermanent({ source: input, fileName: input.name, contentType: input.type }),
 );
 
-const permanentCleanupMutation = createRyotMutation<
-	{
-		readonly asset: ManagedAssetLocator;
-		readonly onCleaned: (status: CleanupManagedAssetOutput["status"]) => void;
-	},
-	CleanupManagedAssetOutput
->(({ input, client }) =>
-	Effect.gen(function* () {
-		const result = yield* client.uploads.cleanup(input.asset);
-		input.onCleaned(result.status);
-		return result;
-	}),
+const permanentCleanupMutation = createRyotMutation<ManagedAssetLocator, CleanupManagedAssetOutput>(
+	({ input, client }) => client.uploads.cleanup(input),
 );
 
 function PermanentUploadImage(props: { readonly asset: ManagedAssetLocator }) {
@@ -115,12 +94,15 @@ export const Home = () => {
 	const permanentUpload = useRyotMutation(permanentUploadMutation);
 	const permanentCleanup = useRyotMutation(permanentCleanupMutation);
 	const [permanentUploadName, setPermanentUploadName] = useState("");
-	const [permanentAsset, setPermanentAsset] = useState<ManagedAssetLocator>();
 	const catalog = useRyotQuery(fixtureClientPluginCatalogQuery);
 	const refused =
 		greeting.status === "error" &&
 		greeting.error instanceof RyotClientError &&
 		greeting.error.reason === "operation-failed";
+	const permanentAsset =
+		permanentUpload.status === "success" && permanentCleanup.data?.status !== "deleted"
+			? permanentUpload.data
+			: undefined;
 	const installedPackageIds = catalog.data?.map(({ packageId }) => packageId).join(", ") ?? "";
 	let catalogMessage = "Client plugin catalog is unavailable.";
 	if (catalog.status === "pending") {
@@ -302,10 +284,9 @@ export const Home = () => {
 								if (file === undefined) {
 									return;
 								}
-								setPermanentAsset(undefined);
 								setPermanentUploadName(file.name);
 								permanentCleanup.reset();
-								permanentUpload.mutate({ file, onUploaded: setPermanentAsset });
+								permanentUpload.mutate(file);
 							}}
 						/>
 					</label>
@@ -317,16 +298,7 @@ export const Home = () => {
 							<Button
 								variant="secondary"
 								disabled={permanentCleanup.isPending}
-								onClick={() =>
-									permanentCleanup.mutate({
-										asset: permanentAsset,
-										onCleaned: (status) => {
-											if (status === "deleted") {
-												setPermanentAsset(undefined);
-											}
-										},
-									})
-								}
+								onClick={() => permanentCleanup.mutate(permanentAsset)}
 							>
 								Remove permanent upload
 							</Button>

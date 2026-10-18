@@ -234,12 +234,7 @@ function SelectedCollection(props: {
 		);
 	}
 	return (
-		<Dialog
-			onClose={props.onClose}
-			title="Add to collection"
-			closeLabel="Close collections"
-			closeIcon={<AppIcon name="x" size={18} />}
-		>
+		<Dialog onClose={props.onClose} title="Add to collection" closeLabel="Close collections">
 			{result.isError ? (
 				<Notice
 					tone="danger"
@@ -278,12 +273,7 @@ export function AddWorkoutToCollection(props: {
 		);
 	}
 	return (
-		<Dialog
-			onClose={props.onClose}
-			title="Add to collection"
-			closeLabel="Close collections"
-			closeIcon={<AppIcon name="x" size={18} />}
-		>
+		<Dialog onClose={props.onClose} title="Add to collection" closeLabel="Close collections">
 			<div className="grid gap-3">
 				<Field label="Search collections">
 					{(control) => (

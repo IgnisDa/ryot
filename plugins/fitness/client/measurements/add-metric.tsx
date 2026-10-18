@@ -1,15 +1,14 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
 	Button,
-	FieldMessage,
-	Modal,
+	Dialog,
+	Field,
 	StatusMessage,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
-import { useId, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import {
 	MeasurementMetricCreateInput,
@@ -21,21 +20,16 @@ import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const createMetricMutation = createRyotMutation<
-	{ readonly metric: MeasurementMetricCreateInput; readonly onCreated: () => void },
+	MeasurementMetricCreateInput,
 	typeof MeasurementMetricCreateOutput.Type
->(({ client, input: { metric, onCreated } }) =>
-	Schema.encodeEffect(Schema.toCodecJson(MeasurementMetricCreateInput))(metric).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
-		Effect.flatMap((input) =>
-			client.operations.invoke({
-				input,
-				packageId: PLUGIN_PACKAGE_ID,
-				output: MeasurementMetricCreateOutput,
-				slug: measurementMetricCreateOperationSlug,
-			}),
-		),
-		Effect.tap(() => Effect.sync(onCreated)),
-	),
+>(({ input, client }) =>
+	client.operations.invoke({
+		input,
+		packageId: PLUGIN_PACKAGE_ID,
+		output: MeasurementMetricCreateOutput,
+		inputSchema: MeasurementMetricCreateInput,
+		slug: measurementMetricCreateOperationSlug,
+	}),
 );
 
 export function AddMetricDialog(props: {
@@ -43,14 +37,17 @@ export function AddMetricDialog(props: {
 	readonly metrics: readonly MeasurementSummary[];
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const nameId = useId();
-	const unitId = useId();
-	const nameErrorId = useId();
+	const { onClose } = props;
 	const nameRef = useRef<HTMLInputElement>(null);
 	const [name, setName] = useState("");
 	const [unit, setUnit] = useState("");
 	const [submitted, setSubmitted] = useState(false);
 	const create = useRyotMutation(createMetricMutation);
+	useEffect(() => {
+		if (create.data !== undefined) {
+			onClose();
+		}
+	}, [create.data, onClose]);
 	const key = measurementMetricKey(name);
 	const canonicalUnit = measurementMetricUnit(key);
 	const duplicate = key.length > 0 && props.metrics.some((metric) => metric.key === key);
@@ -67,79 +64,69 @@ export function AddMetricDialog(props: {
 			unit: canonicalUnit ?? unit,
 		});
 		if (!duplicate && Result.isSuccess(metric)) {
-			create.mutate({ metric: metric.success, onCreated: props.onClose });
+			create.mutate(metric.success);
 		}
 	};
 	return (
-		<Modal
-			label="Add metric"
-			onClose={props.onClose}
+		<Dialog
+			onClose={onClose}
+			title="Add metric"
 			initialFocusRef={nameRef}
 			triggerRef={props.triggerRef}
 			closeLabel="Close add metric"
 			dismissible={!create.isPending}
-			containerClassName="items-center justify-center p-4"
-			className="w-full max-w-md rounded-xl border border-border bg-raised p-5 font-ui"
+			footer={
+				<>
+					<Button onClick={onClose} variant="secondary" disabled={create.isPending}>
+						Cancel
+					</Button>
+					<Button onClick={save} disabled={create.isPending || duplicate}>
+						{create.isPending ? "Adding…" : "Add metric"}
+					</Button>
+				</>
+			}
 		>
 			<ActionForm onSubmit={save} label="Add metric" className="flex flex-col gap-4">
-				<h2 className="font-display text-xl font-semibold text-text">Add metric</h2>
 				<fieldset disabled={create.isPending} className="flex flex-col gap-4">
-					<div className="flex flex-col gap-1.5">
-						<label htmlFor={nameId} className="text-sm font-medium text-text">
-							Name
-						</label>
-						<TextField
-							id={nameId}
-							value={name}
-							ref={nameRef}
-							invalid={nameError !== undefined}
-							aria-describedby={nameError === undefined ? undefined : nameErrorId}
-							onChange={(event) => {
-								setName(event.target.value);
-								create.reset();
-							}}
-						/>
-						{nameError === undefined ? null : (
-							<FieldMessage id={nameErrorId}>{nameError}</FieldMessage>
+					<Field label="Name" error={nameError}>
+						{(control) => (
+							<TextField
+								{...control}
+								value={name}
+								ref={nameRef}
+								onChange={(event) => {
+									setName(event.target.value);
+									create.reset();
+								}}
+							/>
 						)}
-					</div>
-					<div className="flex flex-col gap-1.5">
-						<label htmlFor={unitId} className="text-sm font-medium text-text">
-							Unit (optional)
-						</label>
-						<TextField
-							id={unitId}
-							value={canonicalUnit ?? unit}
-							readOnly={canonicalUnit !== undefined}
-							onChange={(event) => {
-								setUnit(event.target.value);
-								create.reset();
-							}}
-						/>
-						{canonicalUnit === undefined ? null : (
-							<p className="text-sm text-text-muted">
-								This metric uses {canonicalUnit} to match OpenScale imports.
-							</p>
+					</Field>
+					<Field
+						optional
+						label="Unit"
+						hint={
+							canonicalUnit === undefined
+								? undefined
+								: `This metric uses ${canonicalUnit} to match OpenScale imports.`
+						}
+					>
+						{(control) => (
+							<TextField
+								{...control}
+								value={canonicalUnit ?? unit}
+								readOnly={canonicalUnit !== undefined}
+								onChange={(event) => {
+									setUnit(event.target.value);
+									create.reset();
+								}}
+							/>
 						)}
-					</div>
+					</Field>
 				</fieldset>
 				{create.error === null ? null : (
 					<StatusMessage tone="error">The metric couldn't be added. Try again.</StatusMessage>
 				)}
-				<div className="flex justify-end gap-2">
-					<Button
-						type="button"
-						variant="secondary"
-						onClick={props.onClose}
-						disabled={create.isPending}
-					>
-						Cancel
-					</Button>
-					<Button type="button" onClick={save} disabled={create.isPending || duplicate}>
-						{create.isPending ? "Adding…" : "Add metric"}
-					</Button>
-				</div>
 			</ActionForm>
-		</Modal>
+		</Dialog>
 	);
 }

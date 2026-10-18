@@ -1,22 +1,21 @@
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { useMemo, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
 import { LogMeasurementDialog } from "./log-measurement-dialog";
+import { rangeStartAt } from "./model";
 import { summaryQuery } from "./queries";
 
-const RANGE_START = "1970-01-01T00:00:00.000Z";
-
-type MeasurementDialog = {
+export type MeasurementDialogState = {
 	readonly kind: "add-metric" | "log";
 	readonly metrics: readonly MeasurementSummary[];
 };
 
 export const useMeasurementLogger = () => {
-	const [dialog, setDialog] = useState<MeasurementDialog>();
-	const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
-	const result = useRyotQuery(summaryQuery, { rangeStart: RANGE_START });
+	const [dialog, setDialog] = useState<MeasurementDialogState>();
+	const trigger = useRef<HTMLButtonElement | null>(null);
+	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt("All", new Date()) });
 	const log = () => {
 		if (result.data !== undefined) {
 			setDialog({ metrics: result.data, kind: result.data.length === 0 ? "add-metric" : "log" });
@@ -26,34 +25,35 @@ export const useMeasurementLogger = () => {
 		log,
 		dialog,
 		trigger,
-		setTrigger,
 		error: result.isError,
 		retry: result.refetch,
 		close: () => setDialog(undefined),
 		loading: result.data === undefined && !result.isError,
 		unavailable: result.data === undefined || result.isFetching || result.isError,
+		setTrigger: (node: HTMLButtonElement | null) => {
+			trigger.current = node;
+		},
 	};
 };
 
 export function MeasurementDialogs(props: {
 	readonly onClose: () => void;
-	readonly trigger: HTMLButtonElement | null;
-	readonly dialog: MeasurementDialog | undefined;
+	readonly trigger: RefObject<HTMLButtonElement | null>;
+	readonly dialog: MeasurementDialogState | undefined;
 }) {
-	const focusTarget = useMemo(() => ({ current: props.trigger }), [props.trigger]);
 	if (props.dialog === undefined) {
 		return null;
 	}
 	return props.dialog.kind === "add-metric" ? (
 		<AddMetricDialog
 			onClose={props.onClose}
-			triggerRef={focusTarget}
+			triggerRef={props.trigger}
 			metrics={props.dialog.metrics}
 		/>
 	) : (
 		<LogMeasurementDialog
 			onClose={props.onClose}
-			triggerRef={focusTarget}
+			triggerRef={props.trigger}
 			metrics={props.dialog.metrics}
 		/>
 	);

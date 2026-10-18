@@ -25,7 +25,6 @@ const deleteWorkout = createRyotMutation<
 		submittedAt: input.submittedAt,
 		submissionId: input.submissionId,
 	}).pipe(
-		Effect.flatMap(Schema.encodeEffect(Schema.toCodecJson(WorkoutDeleteInputSchema))),
 		Effect.mapError(() => new RyotClientError("invalid-input")),
 		Effect.flatMap((payload) =>
 			client.operations.invoke({
@@ -34,6 +33,7 @@ const deleteWorkout = createRyotMutation<
 				packageId: PLUGIN_PACKAGE_ID,
 				slug: workoutDeleteOperationSlug,
 				output: WorkoutDeleteOutputSchema,
+				inputSchema: WorkoutDeleteInputSchema,
 			}),
 		),
 	),
@@ -61,6 +61,7 @@ export function DeleteWorkout(props: {
 	}, [client, deletion.data]);
 	return (
 		<Dialog
+			closeIcon={null}
 			title="Delete workout?"
 			onClose={props.onClose}
 			closeLabel="Cancel deletion"

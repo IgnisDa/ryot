@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import {
 	buildMetricRows,
-	chunk,
 	formatChange,
 	formatValue,
 	groupByMonth,
@@ -197,12 +196,5 @@ describe("groupReadings", () => {
 				"Asia/Kolkata",
 			)[0]?.label,
 		).toBe("October 2026");
-	});
-});
-
-describe("chunk", () => {
-	it("splits into batches of the given size", () => {
-		expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
-		expect(chunk([], 2)).toEqual([]);
 	});
 });

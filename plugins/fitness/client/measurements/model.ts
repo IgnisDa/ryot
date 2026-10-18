@@ -3,6 +3,7 @@ import type { TimeSeriesPoint } from "@ryot-app/plugin-ui-sdk/charts";
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
 import type { MeasurementReadingListResult } from "../../shared/query-recipes";
+import { formatNumber } from "../workout/format";
 
 export type RangeKey = "1M" | "3M" | "1Y" | "All";
 export type MetricSort = "recent" | "changed" | "az";
@@ -135,9 +136,8 @@ export const sortMetricRows = (rows: readonly MetricRow[], sort: MetricSort) =>
 export const isStale = (latestAt: string, now: Date) =>
 	now.getTime() - Date.parse(latestAt) > STALE_AFTER_DAYS * DAY_MS;
 
-const numberFormat = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
-
-export const formatNumber = (value: number) => numberFormat.format(value);
+export const unitSuffix = (unit: string | null) =>
+	unit === null || unit === "" ? "" : ` (${unit})`;
 
 export const formatValue = (value: number, unit: string | null) => {
 	const text = formatNumber(value);
@@ -236,8 +236,3 @@ export const groupByMonth = (
 	}
 	return sections;
 };
-
-export const chunk = <T>(items: readonly T[], size: number): readonly (readonly T[])[] =>
-	Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
-		items.slice(index * size, (index + 1) * size),
-	);
