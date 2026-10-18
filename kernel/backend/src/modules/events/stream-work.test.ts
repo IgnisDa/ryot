@@ -649,6 +649,7 @@ layer(streamWorkTestLayer)((test) => {
 			expect(checkpointed.step).toBe(before.step + 1);
 			assert(checkpointed.currentJobId);
 			expect(checkpointed.currentJobId).not.toBe(job.id);
+			yield* background.dispatch(checkpointed.currentJobId);
 			const nextJob = yield* background.start(checkpointed.currentJobId);
 			assert(nextJob);
 			expect(nextJob.execution.subject.type).toBe("event-projection");
@@ -657,6 +658,39 @@ layer(streamWorkTestLayer)((test) => {
 					.checkpoint,
 			).toEqual({ cursor: "next-page" });
 			expect((yield* controls.processorCalls)[0]).toEqual({ id, jobId: job.id });
+		}),
+	);
+
+	test.effect("advances a multi-step stream to done through scope handoff", () =>
+		Effect.gen(function* () {
+			const controls = yield* StreamWorkControls;
+			const streams = yield* EventStreamRepository;
+			const background = yield* BackgroundWorkService;
+			const { id, eventId } = yield* seedStream("multi-step");
+			yield* controls.setProcessor(id, () => Effect.succeed(page(eventId, 5, "second")));
+			const first = yield* processCurrent(id);
+			const continued = yield* streams.get(id);
+			assert(continued?.currentJobId);
+			expect(yield* backgroundJob(continued.currentJobId)).toEqual({
+				error: null,
+				status: "queued",
+			});
+
+			yield* background.dispatch(first.id);
+			expect(yield* backgroundJob(continued.currentJobId)).toEqual({
+				error: null,
+				status: "running",
+			});
+
+			yield* controls.setProcessor(id, () =>
+				Effect.succeed({ ...page(eventId, 6, "last"), done: true }),
+			);
+			const last = yield* processCurrent(id);
+			expect(last.id).toBe(continued.currentJobId);
+			const finished = yield* streams.get(id);
+			expect(finished?.status).toBe("succeeded");
+			expect(yield* projection(eventId)).toEqual({ properties: { score: 6 } });
+			expect(yield* backgroundJob(last.id)).toEqual({ error: null, status: "succeeded" });
 		}),
 	);
 
@@ -952,6 +986,7 @@ layer(streamWorkTestLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const service = yield* EventStreamWorkService;
+				const background = yield* BackgroundWorkService;
 				const streams = yield* EventStreamRepository;
 				const controls = yield* StreamWorkControls;
 				const session = yield* DatabaseSession;
@@ -961,6 +996,7 @@ layer(streamWorkTestLayer)((test) => {
 				const healthyBefore = yield* streams.get(healthy.id);
 				assert(failedBefore?.currentJobId);
 				assert(healthyBefore?.currentJobId);
+				const healthyBeforeJobId = healthyBefore.currentJobId;
 
 				const restoreRows = Effect.gen(function* () {
 					yield* session.run((db) =>
@@ -989,6 +1025,7 @@ layer(streamWorkTestLayer)((test) => {
 				const beforeAdmissionCalls = yield* controls.admissionCalls;
 				const beforeWorkflowCalls = yield* controls.workflowCalls;
 				const reconciliation = Effect.gen(function* () {
+					yield* background.finish(healthyBeforeJobId, "succeeded");
 					yield* session.run((db) =>
 						db
 							.update(tables.eventStreamWork)
@@ -1016,7 +1053,7 @@ layer(streamWorkTestLayer)((test) => {
 					expect(failedAfter.updatedAt.getTime()).toBeGreaterThan(healthyAfter.updatedAt.getTime());
 					expect(yield* backgroundJob(healthyAfter.currentJobId)).toEqual({
 						error: null,
-						status: "queued",
+						status: "running",
 					});
 
 					const admissionCalls = (yield* controls.admissionCalls).slice(

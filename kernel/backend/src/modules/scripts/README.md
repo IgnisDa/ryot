@@ -117,8 +117,9 @@ keys and stay independent of the invocation that admitted them.
 
 `BackgroundWorkWorkflow` and `background_work` own admission and status for the independent script
 execution. Admission records workflow-owner receipts and retains the existing script/config references
-in the caller's transaction; dispatch starts after commit. Bounded recovery resumes admitted jobs and
-fails jobs whose workflow ended before settlement. Queued, running, succeeded, and failed status is
+in the caller's transaction; dispatch starts after commit and runs one job at a time per scope. Bounded
+recovery resumes each scope's running or oldest queued job and fails jobs whose workflow ended before
+settlement. Queued, running, succeeded, and failed status is
 readable through the user-scoped `backgroundWork` RyotQL table without exposing execution input or
 pins. Suspension is not failure; terminal script failures and defects are recorded. Plugins own
 progress checkpoints, scope vocabulary, bounded application steps, and retry controls. A new retry

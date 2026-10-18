@@ -12,11 +12,20 @@ and configuration references. The row records the work identity, purpose, scope,
 `queued`, `running`, `succeeded`, or `failed` status. The user-scoped `backgroundWork` RyotQL table
 exposes status and scope, not the execution payload or pins.
 
-Dispatch starts only after commit. The deterministic `BackgroundWorkWorkflow` starts the row and runs
-the pinned script through `ScriptExecutionWorkflow`, registering its child ownership before execution;
-plugins do not separately dispatch the generic
-worker. User work and event projections use the same owner, while their admission rules and feature
-state remain with their respective modules.
+Dispatch starts only after commit and serializes by scope: at most one job runs at a time per
+`(userId, pluginId, purpose, scope)`. Dispatching any job dispatches its scope. Under a transaction-scoped
+advisory lock on that key, dispatch fails a running job whose workflow wrapper expired or ended, then
+claims the oldest `queued` job (`createdAt`, then ID) by setting it `running` only when no job in the
+key is running. After the claim commits, dispatch registers the workflow-owner receipt and starts the
+deterministic `BackgroundWorkWorkflow` for the key's running job, which also repairs a claim whose
+start was lost. Order is best-effort FIFO because `createdAt` is transaction-start time. A hung running
+job holds its scope until its workflow expires.
+
+The workflow starts only a `running` row, so a row settled by recovery is never revived, runs the
+pinned script through `ScriptExecutionWorkflow`, registering its child ownership before execution, and
+after settlement dispatches its own scope from the workflow body so the next queued job starts.
+Plugins do not separately dispatch the generic worker. User work and event projections use the same
+owner, while their admission rules and feature state remain with their respective modules.
 
 `requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
 account generation, plugin, script, and caller key. Reusing the identity with changed input or scope is
@@ -30,9 +39,11 @@ settlement, and any continuation admission atomically. Dispatch follows the tran
 
 ## Recovery and settlement
 
-Recovery examines at most 100 pending rows per pass, in update-time and ID order. It re-dispatches
-admitted queued/running jobs through their deterministic owner. A wrapper that is expired or already
-failed/succeeded before the job settles is recorded as failed rather than left pending. Suspension is
+Recovery selects at most 100 running rows (oldest update first) and at most 100 scopes whose oldest
+queued row has no running sibling, then dispatches each distinct scope once. Queued rows behind a
+running head are never selected individually, so they cannot crowd out heads. A wrapper that is
+expired or already failed/succeeded before the job settles is recorded as failed and its scope moves
+on, rather than leaving the job pending. Suspension is
 not failure. Terminal settlement only transitions queued/running rows, so late or repeated settlement
 cannot change a terminal result; settling also releases retained execution references.
 

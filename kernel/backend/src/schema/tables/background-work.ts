@@ -30,6 +30,7 @@ export const backgroundWork = snakeCase.table(
 		index("background_work_scope_idx").on(
 			table.userId,
 			table.pluginId,
+			table.purpose,
 			table.scope,
 			table.createdAt,
 			table.id,

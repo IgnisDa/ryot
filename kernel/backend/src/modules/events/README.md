@@ -59,7 +59,9 @@ stream state in one transaction. Publication requires the canonical job to be ru
 stream's current job at the claimed source revision, and rechecks the effective declaration and current
 processor binding. A changed binding is re-requested; a stale claim cannot publish. The transaction
 settles the canonical job and admits the next step when `done: false`; workflow dispatch starts only
-after the transaction/activity completes.
+after the transaction/activity completes. Projection jobs use the stream's entity as their background
+scope, so one entity's streams run one step at a time; the settled job's workflow dispatches the
+continuation.
 
 RyotQL exposes `event.projection` only for completed work whose claimed revision matches the stream,
 whose plugin revision and configuration pin are current, and whose plugin and installation are

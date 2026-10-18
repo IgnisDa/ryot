@@ -14,7 +14,11 @@ import { DatabaseSession } from "#platform/db/session";
 import { asIndependentWorkflowRoot } from "#platform/workflow/scope";
 
 import { BackgroundWorkInput } from "./model";
-import { BackgroundWorkRepository } from "./repository";
+import {
+	BackgroundWorkRepository,
+	backgroundWorkScopeIdentity,
+	type BackgroundWorkScopeKey,
+} from "./repository";
 
 export const BackgroundWorkWorkflow = Workflow.make("BackgroundWorkWorkflow", {
 	error: DbError,
@@ -108,27 +112,85 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				session
 					.transaction(settle(id, status, error))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-			const dispatch = Effect.fn("BackgroundWorkService.dispatch")(function* (id: string) {
-				yield* session.requireRoot.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				const job = yield* repository.get(id);
-				if (!job || (job.status !== "queued" && job.status !== "running")) {
-					return;
-				}
-				yield* receipts
+			const launch = Effect.fn("BackgroundWorkService.launch")(function* (job: {
+				id: string;
+				userId: string;
+				accountToken: string;
+			}) {
+				const rejected = yield* receipts
 					.registerWorkflow(
 						{ token: job.accountToken, userId: UserId.make(job.userId) },
 						BackgroundWorkWorkflow._tag,
-						id,
+						job.id,
 					)
 					.pipe(
+						Effect.as(null),
 						Effect.catchTag("DbError", (error) =>
-							finish(id, "failed", error.message).pipe(Effect.andThen(Effect.fail(error))),
+							finish(job.id, "failed", error.message).pipe(Effect.as(error)),
 						),
 					);
+				if (rejected) {
+					return rejected;
+				}
 				yield* engine
-					.execute(BackgroundWorkWorkflow, { discard: true, executionId: id, payload: { id } })
+					.execute(BackgroundWorkWorkflow, {
+						discard: true,
+						executionId: job.id,
+						payload: { id: job.id },
+					})
 					.pipe(asIndependentWorkflowRoot);
-				yield* repository.dispatched(id);
+				yield* repository.dispatched(job.id);
+				return null;
+			});
+			const dispatchScope = Effect.fn("BackgroundWorkService.dispatchScope")(function* (
+				key: BackgroundWorkScopeKey,
+			) {
+				yield* session.requireRoot.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+				let failure: DbError | null = null;
+				for (;;) {
+					const head = yield* session
+						.transaction(
+							Effect.gen(function* () {
+								yield* repository.lockScope(key);
+								const current = yield* repository.running(key);
+								if (
+									current?.expiredAt === null &&
+									current.workflowStatus !== "failed" &&
+									current.workflowStatus !== "succeeded"
+								) {
+									return current.job;
+								}
+								if (current) {
+									yield* settle(
+										current.job.id,
+										"failed",
+										"Background workflow ended before settlement",
+									);
+								}
+								const claimed = yield* repository.claim(key);
+								return claimed ? yield* repository.get(claimed) : null;
+							}),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+					if (!head) {
+						break;
+					}
+					const error = yield* launch(head);
+					if (!error) {
+						break;
+					}
+					failure ??= error;
+				}
+				if (failure) {
+					return yield* failure;
+				}
+				return undefined;
+			});
+			const dispatch = Effect.fn("BackgroundWorkService.dispatch")(function* (id: string) {
+				const job = yield* repository.get(id);
+				if (job) {
+					yield* dispatchScope(job);
+				}
 			});
 			const start = Effect.fn("BackgroundWorkService.start")(function* (id: string) {
 				const row = yield* repository.start(id);
@@ -140,12 +202,12 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				);
 			});
 			const recover = Effect.fn("BackgroundWorkService.recover")(function* () {
-				for (const { job, expiredAt, workflowStatus } of yield* repository.pending()) {
-					if (expiredAt !== null || workflowStatus === "failed" || workflowStatus === "succeeded") {
-						yield* finish(job.id, "failed", "Background workflow ended before settlement");
-						continue;
-					}
-					yield* dispatch(job.id).pipe(
+				const keys = new Map<string, BackgroundWorkScopeKey>();
+				for (const key of yield* repository.pending()) {
+					keys.set(backgroundWorkScopeIdentity(key), key);
+				}
+				for (const key of keys.values()) {
+					yield* dispatchScope(key).pipe(
 						Effect.catchTag("DbError", (error) =>
 							Effect.logWarning("Background dispatch failed", error.message),
 						),

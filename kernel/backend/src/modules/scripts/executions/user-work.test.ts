@@ -233,6 +233,13 @@ const workRequest = (key: string, scope = "same-scope", input: JsonValue = { val
 	scope,
 });
 
+const markRunning = (id: string) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db.update(backgroundWork).set({ status: "running" }).where(eq(backgroundWork.id, id)),
+		),
+	);
+
 const workReference = { scriptSlug: targetSlug, referenceKind: "script" } as const;
 
 type DispatchRecord = {
@@ -278,6 +285,62 @@ const userWorkHostLayer = () =>
 		),
 		Layer.provideMerge(userWorkDatabaseLayer()),
 	);
+
+const admitQueued = (fixture: UserWorkFixtureValue, id: string, scope: string) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const work = yield* BackgroundWorkService;
+		yield* session.transaction(
+			work.admit(backgroundWorkInput(fixture, { id, scope, key: id, input: null })),
+		);
+	});
+
+const expireWrapper = (id: string) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const now = yield* DateTime.nowAsDate;
+		yield* session.run((db) =>
+			db
+				.insert(tables.workflowExecution)
+				.values({
+					expiredAt: now,
+					executionId: id,
+					status: "failed",
+					completedAt: now,
+					rootExecutionId: id,
+					workflowName: BackgroundWorkWorkflow._tag,
+					rootWorkflowName: BackgroundWorkWorkflow._tag,
+				}),
+		);
+	});
+
+const workStatus = (id: string) =>
+	Effect.gen(function* () {
+		const row = yield* (yield* BackgroundWorkRepository.make).get(id);
+		return row?.status;
+	});
+
+const runBody = (id: string, execute: () => Effect.Effect<unknown, DbError>) => {
+	const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
+	return runBackgroundWorkWorkflow({ id }).pipe(
+		Effect.provideService(BackgroundWorkExecutor, { execute }),
+		Effect.provideService(BackgroundWorkProjectionFinalizer, {
+			publish: () => Effect.die("Unexpected projection output"),
+			failed: () => Effect.die("Unexpected projection failure"),
+		}),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+	);
+};
+
+const dispatchedIds = Effect.gen(function* () {
+	return (yield* (yield* UserWorkHostCalls).dispatches).map(({ executionId }) => executionId);
+});
+
+const workflowCallsFor = (id: string) =>
+	Effect.gen(function* () {
+		return (yield* dispatchedIds).filter((executionId) => executionId === id);
+	});
 
 const userWorkWorkflowLayer = () =>
 	Layer.mergeAll(
@@ -486,7 +549,7 @@ layer(userWorkHostLayer())((test) => {
 				const [queued] = yield* session.run((db) =>
 					db.select().from(backgroundWork).where(eq(backgroundWork.id, first.workId)),
 				);
-				expect(queued?.status).toBe("queued");
+				expect(queued?.status).toBe("running");
 				expect(queued?.payload).toMatchObject({
 					id: first.workId,
 					key: request.key,
@@ -603,6 +666,197 @@ layer(userWorkHostLayer())((test) => {
 		}),
 	);
 
+	test.effect("keeps a second job in one scope queued until the first settles, then runs it", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const scope = `serial-${crypto.randomUUID()}`;
+			const first = `${scope}-first`;
+			const second = `${scope}-second`;
+			yield* admitQueued(fixture, first, scope);
+			yield* admitQueued(fixture, second, scope);
+
+			yield* work.dispatch(first);
+			yield* work.dispatch(second);
+			expect(yield* workStatus(first)).toBe("running");
+			expect(yield* workStatus(second)).toBe("queued");
+			expect(yield* workflowCallsFor(second)).toEqual([]);
+
+			yield* runBody(first, () => Effect.void);
+			expect(yield* workStatus(first)).toBe("succeeded");
+			expect(yield* workStatus(second)).toBe("running");
+			expect(yield* workflowCallsFor(second)).toEqual([second]);
+		}),
+	);
+
+	test.effect("runs jobs concurrently across scopes and across purposes in one scope", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const repository = yield* BackgroundWorkRepository.make;
+			const scope = `parallel-${crypto.randomUUID()}`;
+			const otherScope = `${scope}-other`;
+			const userJob = `${scope}-user`;
+			const otherScopeJob = `${scope}-other-scope`;
+			const projectionJob = `${scope}-projection`;
+			yield* admitQueued(fixture, userJob, scope);
+			yield* admitQueued(fixture, otherScopeJob, otherScope);
+			yield* repository.request({
+				...workRow(fixture, { scope, payload: {}, id: projectionJob, key: projectionJob }),
+				purpose: "event-projection",
+			});
+
+			for (const id of [userJob, otherScopeJob, projectionJob]) {
+				yield* work.dispatch(id);
+			}
+			expect([
+				yield* workStatus(userJob),
+				yield* workStatus(otherScopeJob),
+				yield* workStatus(projectionJob),
+			]).toEqual(["running", "running", "running"]);
+		}),
+	);
+
+	test.effect("hands the scope to the next job when the running job fails", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const scope = `failure-${crypto.randomUUID()}`;
+			const first = `${scope}-first`;
+			const second = `${scope}-second`;
+			yield* admitQueued(fixture, first, scope);
+			yield* admitQueued(fixture, second, scope);
+			yield* work.dispatch(first);
+
+			yield* runBody(first, () => Effect.fail(new DbError({ message: "boom" })));
+			expect(yield* workStatus(first)).toBe("failed");
+			expect(yield* workStatus(second)).toBe("running");
+			expect(yield* workflowCallsFor(second)).toEqual([second]);
+		}),
+	);
+
+	test.effect("fails a running job whose wrapper expired and dispatches the next job", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const scope = `expired-${crypto.randomUUID()}`;
+			const first = `${scope}-first`;
+			const second = `${scope}-second`;
+			yield* admitQueued(fixture, first, scope);
+			yield* admitQueued(fixture, second, scope);
+			yield* work.dispatch(first);
+			yield* expireWrapper(first);
+
+			yield* work.recover();
+			expect(yield* workStatus(first)).toBe("failed");
+			expect(yield* workStatus(second)).toBe("running");
+			expect(yield* workflowCallsFor(second)).toEqual([second]);
+		}),
+	);
+
+	test.effect("recovers a job claimed before its workflow was executed", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const id = `claimed-${crypto.randomUUID()}`;
+			yield* admitQueued(fixture, id, id);
+			yield* markRunning(id);
+			expect(yield* workflowCallsFor(id)).toEqual([]);
+
+			yield* work.recover();
+			expect(yield* workflowCallsFor(id)).toEqual([id]);
+			expect(yield* workStatus(id)).toBe("running");
+		}),
+	);
+
+	test.effect("claims exactly one row when one scope is dispatched concurrently", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const scope = `race-${crypto.randomUUID()}`;
+			const ids = [0, 1, 2].map((index) => `${scope}-${index}`);
+			for (const id of ids) {
+				yield* admitQueued(fixture, id, scope);
+			}
+
+			yield* Effect.forEach(ids, (id) => work.dispatch(id), { concurrency: "unbounded" });
+			const rows = yield* session.run((db) =>
+				db.select().from(backgroundWork).where(eq(backgroundWork.scope, scope)),
+			);
+			expect(rows.filter(({ status }) => status === "running")).toHaveLength(1);
+			expect(rows.filter(({ status }) => status === "queued")).toHaveLength(2);
+		}),
+	);
+
+	test.effect("heals an expired head in one recovery pass despite many queued rows elsewhere", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const session = yield* DatabaseSession;
+			const work = yield* BackgroundWorkService;
+			const base = `crowd-${crypto.randomUUID()}`;
+			const crowdScope = `${base}-crowd`;
+			const scope = `${base}-target`;
+			const first = `${scope}-first`;
+			const second = `${scope}-second`;
+			const old = DateTime.toDateUtc(DateTime.makeUnsafe(0));
+			yield* session.run((db) =>
+				db
+					.insert(backgroundWork)
+					.values(
+						Array.from({ length: 102 }, (_, index) => ({
+							...workRow(fixture, {
+								payload: {},
+								scope: crowdScope,
+								id: `${crowdScope}-${index}`,
+								key: `${crowdScope}-${index}`,
+								status: index === 0 ? ("running" as const) : ("queued" as const),
+							}),
+							createdAt: old,
+							updatedAt: old,
+						})),
+					),
+			);
+			yield* admitQueued(fixture, first, scope);
+			yield* admitQueued(fixture, second, scope);
+			yield* work.dispatch(first);
+			yield* expireWrapper(first);
+
+			yield* work.recover();
+			expect(yield* workStatus(first)).toBe("failed");
+			expect(yield* workStatus(second)).toBe("running");
+			expect(yield* workflowCallsFor(second)).toEqual([second]);
+			yield* session.run((db) =>
+				db
+					.update(backgroundWork)
+					.set({ status: "failed" })
+					.where(eq(backgroundWork.scope, crowdScope)),
+			);
+		}),
+	);
+
+	test.effect("fails an expired running head when its scope is dispatched", () =>
+		Effect.gen(function* () {
+			const fixture = yield* UserWorkFixture;
+			const work = yield* BackgroundWorkService;
+			const repository = yield* BackgroundWorkRepository.make;
+			const scope = `heal-${crypto.randomUUID()}`;
+			const first = `${scope}-first`;
+			const second = `${scope}-second`;
+			yield* admitQueued(fixture, first, scope);
+			yield* admitQueued(fixture, second, scope);
+			yield* work.dispatch(first);
+			yield* expireWrapper(first);
+
+			yield* work.dispatch(second);
+			expect((yield* repository.get(first))?.error).toBe(
+				"Background workflow ended before settlement",
+			);
+			expect(yield* workStatus(first)).toBe("failed");
+			expect(yield* workStatus(second)).toBe("running");
+		}),
+	);
+
 	test.effect("rolls back work admission and its retained reference", () =>
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
@@ -648,6 +902,7 @@ layer(userWorkHostLayer())((test) => {
 			yield* session.transaction(
 				work.admit(backgroundWorkInput(fixture, { id, key: id, input: null, scope: "suspension" })),
 			);
+			yield* markRunning(id);
 			const suspended = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
 			const failure = yield* Effect.exit(
 				runBackgroundWorkWorkflow({ id }).pipe(
@@ -711,6 +966,7 @@ layer(userWorkHostLayer())((test) => {
 				);
 				expect(yield* repository.get(denied.id)).toBeNull();
 				yield* session.transaction(work.admit(job));
+				yield* markRunning(id);
 				const now = yield* DateTime.nowAsDate;
 				yield* session.run((db) =>
 					db
@@ -756,6 +1012,7 @@ layer(userWorkWorkflowLayer())((test) => {
 					backgroundWorkInput(fixture, { id, key: id, input: "failure", scope: "concurrency" }),
 				),
 			);
+			yield* markRunning(id);
 			yield* Effect.forEach(
 				[0, 1],
 				() => engine.execute(BackgroundWorkWorkflow, { executionId: id, payload: { id } }),
@@ -775,6 +1032,7 @@ layer(userWorkWorkflowLayer())((test) => {
 					}),
 				),
 			);
+			yield* markRunning(retryId);
 			yield* engine.execute(BackgroundWorkWorkflow, {
 				executionId: retryId,
 				payload: { id: retryId },
@@ -801,6 +1059,7 @@ layer(userWorkWorkflowLayer())((test) => {
 				const id = `user-work-${name}-${crypto.randomUUID()}`;
 				const job = backgroundWorkInput(fixture, { id, input, key: id, scope: "workflow-test" });
 				yield* session.transaction(work.admit(job));
+				yield* markRunning(id);
 				yield* BackgroundWorkWorkflow.execute({ id });
 
 				const [stored] = yield* session.run((db) =>
@@ -831,6 +1090,7 @@ layer(userWorkWorkflowLayer())((test) => {
 				scope: "retirement-test",
 			});
 			yield* session.transaction(work.admit(job));
+			yield* markRunning(id);
 			yield* session.run((db) =>
 				db
 					.update(tables.user)

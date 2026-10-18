@@ -55,7 +55,13 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 	if (result._tag === "Failure" && job.purpose === "event-projection") {
 		yield* projection.failed(job);
 	}
-	yield* service.recover();
+	yield* service
+		.dispatch(id)
+		.pipe(
+			Effect.catchTag("DbError", (error) =>
+				Effect.logWarning("Background handoff failed", error.message),
+			),
+		);
 	return undefined;
 });
 
