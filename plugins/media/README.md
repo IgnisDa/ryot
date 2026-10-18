@@ -430,7 +430,7 @@ immutable trigger evidence; current-state RyotQL cannot reconstruct omitted hist
 | Association / relationship sync | Batch hooks filter projected changes; association resolves credits together, and sync uses the population batch leader. Item-count chunks remain subject to the separate invocation byte limit.                                                                                                                             |
 | Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and emits monitoring signals.                                                                                                                                                                                             |
 | Episodic session                | Before-event policy patches only `sessionEntityId`; missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                                                                                                                         |
-| Completion reconciliation       | A required batch hook (`batchMaxItems` 60) groups history creates, updates, and deletes by entity/session and requests durable user work. The async terminal-status hook uses the same worker. Atomic evidence/output/checkpoint writes and scalar source/data revisions reject stale repair.                               |
+| Completion reconciliation       | A required batch hook (`batchMaxItems` 60) groups history creates, updates, and deletes by entity/session and requests durable user work. The async terminal-status hook uses the same worker. Atomic evidence/output/checkpoint writes with a scalar source revision and per-record guards reject stale repair.            |
 | Review / collection pushes      | Review includes kernel collection reviews; Radarr/Sonarr observe collection additions. Notifications/pushes have one attempt and no automatic external retry.                                                                                                                                                               |
 
 Membership batch hooks run after the written prefix, so later items in that request cannot depend on
@@ -476,15 +476,22 @@ do not rewrite frozen episode inventories or positional totals. Relationship cha
 coverage without creating history.
 Completion time follows the closing coverage event; consumption source is copied only when all
 supporting completions agree. Source corrections can change that time or invalidate the completion.
-Each step commits evidence, outputs, and its checkpoint atomically against both the subject and library
-event-scope revisions and the plugin's global/owned data revisions. The unchanged library entity is
-not rewritten, so independent checkpoint writes do not invalidate inventory capture. Entity and
-relationship triggers advance data revisions in the source transaction, including cascading deletes.
-An unfrozen inventory restarts capture if provider or owned data changes between pages. A retained
-inventory is not recaptured. Each invocation runs at most eight steps, then admits a deterministic
-continuation. Source and evidence reads are paged; inventory writes contain at most 50 episodes.
-Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Large repairs can become visible in stages. The Activity
-tab shows pending or failed work and offers Try again without rolling back the recorded source facts.
+Each step commits evidence, outputs, and its checkpoint atomically against the subject's event-scope
+revision and each updated record's expected revision. Background work runs one correction job at a
+time per subject, so that job is the only writer of the subject's records; the library event scope is
+not guarded and the unchanged library entity is not rewritten, so corrections for other subjects do
+not invalidate each other. A per-subject inventory fingerprint (required and total episode counts,
+the latest episode, season, and link timestamps, and the subject's update time) is stored when a
+snapshot begins and checked at the start of each later snapshot and publish step. An unfrozen
+inventory restarts capture if the fingerprint changes between pages. A change landing during the
+publish step itself is recorded as read, matching the rule that later provider changes do not rewrite
+a past completion. A retained inventory is not recaptured. Each invocation runs at most eight steps,
+then admits a deterministic continuation. Source and evidence reads are paged; inventory writes contain
+at most 50 episodes, and audit, prune, and sweep handle up to 25 records per step.
+Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Ten
+consecutive continuations that commit no step fail the job; any committed step resets the count. Large
+repairs can become visible in stages. The Activity tab shows pending or failed work and offers Try
+again, which starts a fresh chain, without rolling back the recorded source facts.
 The shared background-work record exposes job status without exposing its execution input or pins;
 Try again admits a new keyed job rather than replaying a failed child's cached result.
 

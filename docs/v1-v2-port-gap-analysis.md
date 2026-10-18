@@ -204,16 +204,54 @@ Validation on **2026-10-26**:
   **51 successful tasks**, with no failures. All selected API/browser cases passed across these runs.
 
 The owner approved generic logical event ordering, normalized event-backed evidence, scalar scope
-revisions, and durable atomic correction steps with visible pending/failed state. The approved
-entity/relationship revision guards prevent mixed inventories across provider changes. The worker
+revisions, and durable atomic correction steps with visible pending/failed state. A per-subject
+inventory fingerprint prevents mixed inventories across provider changes. The worker
 uses event-backed evidence and persists progress after bounded steps. Repeated stale-write conflicts
 yield to a fresh durable continuation. Status reads handle multiple historical and active work rows.
 No truncation, limit increase, compatibility path, or serialization bypass is added. Final validation
 is complete; this item is **Done**.
 
-The owner also approved atomic guards for source and evidence scopes together. Checkpoint steps no
-longer mutate the library entity: its unchanged save uses the existing no-op persistence behavior.
-This prevents independent large captures from repeatedly invalidating each other's owned-data guards.
+Checkpoint steps no longer mutate the library entity: its unchanged save uses the existing no-op
+persistence behavior.
+
+#### Liveness follow-up
+
+The owner approved removing the plugin-wide and library-wide commit guards that let unrelated writes
+and other subjects' corrections stale every step. Changes:
+
+- Kernel background work serializes jobs per `(userId, pluginId, purpose, scope)`: dispatch claims the
+  oldest queued job under an advisory lock only when none is running, fails a running job whose
+  workflow wrapper expired, and hands the scope to its next job when a job settles. Recovery selects
+  running heads and one oldest queued job per idle scope, so queued rows cannot crowd out heads. The
+  per-job `recover()` call is gone from the workflow body.
+- The kernel `dataBaseline` command field, the `data_revision` table and triggers, the `dataRevision`
+  RyotQL table, and `DataRevisions` are removed. The migration baseline is regenerated as
+  `20261026132345_broken_mattie_franklin`; its only semantic changes are the dropped table and the
+  `purpose` column added to `background_work_scope_idx` (drizzle-kit also reorders the `purpose` and
+  `current_job_id` column declarations).
+- Media drops the library event-scope baseline and replaces the revision checks with a per-subject
+  inventory fingerprint (`correctionInventoryFingerprintRecipe`) stored as `inventory` on the
+  checkpoint. Audit, prune, and sweep process up to 25 records per step.
+- Conflict requeues are capped at ten consecutive no-progress continuations (`conflictBase` and
+  `conflictAttempt`); a committed step resets the count, and a capped job fails.
+
+Validation on **2026-10-26** (before repository-wide checks):
+
+- Kernel backend: **2,775 tests passed** across 327 files, including eight new scope-serialization,
+  handoff, expiry, recovery-crowding, and concurrent-claim cases. Contract: **283**; backend SDK:
+  **104**; RyotQL: **37**; full Media: **1,700 tests passed** across 232 files, including conflict-cap
+  chains, fingerprint reset cases, and 25-record audit, prune, and sweep pages with revision prediction.
+- New API suite `history-correction-liveness.test.ts`: **5 passed** (60-subject fan-out with a second
+  wave mid-run, overlapping chains with a concurrent Retry, a multi-page snapshot under unrelated
+  provider writes, batched audit revision prediction, and fingerprint changes after real episode,
+  season, show, link-add, and link-remove writes). Existing history-correction (**6**), recovery
+  (**1**), episodic-lifecycle (**6**), automations (**15**), and activity-log (**13**) suites still pass.
+- After cleanup and DRY consolidation (shared scope-key helpers, correction request builders, and a
+  shared e2e correction fixture): repository-wide `bun run check` and
+  `bun turbo --filter='!@ryot-app/e2e' test` (**51 of 51 tasks**) passed, and the six suites above passed
+  again. An independent outcome review confirmed the change.
+- Not covered by an API test: cap failure followed by Retry. The status recipe is unchanged, and its
+  failed/Retry path is covered by recipe, operation, client, and recovery tests.
 
 ### Phase 1, Order 2 — Custom entity editing acceptance
 

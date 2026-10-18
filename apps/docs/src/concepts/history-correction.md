@@ -14,4 +14,6 @@ or change monitoring. Provider updates do not erase past completion records; new
 change current coverage.
 
 The Activity tab shows **Updating history…** while a repair runs. Large repairs can appear in stages.
-If a repair fails, the source edit remains saved. Use **Try again** in the Activity tab to continue it.
+Repairs for one item run one at a time. If a repair keeps conflicting with concurrent changes and makes
+no progress, it stops and shows as failed; the source edit remains saved. Use **Try again** in the
+Activity tab to continue it.
