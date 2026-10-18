@@ -2,8 +2,8 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { useCollectionScreens } from "#/modules/collections/screens";
-import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
+import { ClientPage } from "#/modules/pages/documents/page";
+import { useClearClientPageDocument } from "#/modules/pages/documents/state";
 import { ClientPagePending } from "#/modules/pages/loading";
 import { prepareClientPage } from "#/modules/pages/preparation/prepare";
 import { AppScreen } from "#/modules/shell/app-screen";
@@ -32,24 +32,10 @@ function EntityNotice(props: { readonly title: string }) {
 	return <AppScreen title={props.title}>{null}</AppScreen>;
 }
 
-function EntityDocument(props: {
-	readonly prepared: Parameters<typeof useClientPageDocument>[0]["prepared"];
-}) {
-	const collections = useCollectionScreens();
-	useClientPageDocument({
-		title: "Entity details",
-		inert: collections.open,
-		prepared: props.prepared,
-		onEditCollection: collections.onEditCollection,
-		onAddToCollection: collections.onAddToCollection,
-	});
-	return collections.screen;
-}
-
 function EntityPage() {
 	const { preparation } = Route.useLoaderData();
 	if (preparation.kind === "ready") {
-		return <EntityDocument prepared={preparation.prepared} />;
+		return <ClientPage title="Entity details" prepared={preparation.prepared} />;
 	}
 	if (preparation.reason.code === "entity-not-found") {
 		return <EntityNotice title="Entity not found" />;

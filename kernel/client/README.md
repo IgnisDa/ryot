@@ -10,6 +10,8 @@ bridge dispatch, and all native and platform authority. Plugins own domain UI an
 Routes publish plugin routes, entity pages, saved views, and workspace homes to the shell-owned client
 page document host. Compatible prepared pages share a compiled React DOM artifact in a sandboxed,
 opaque-origin iframe.
+Plugin and entity pages share `modules/pages/documents/page.tsx` for host entity-picker and collection
+screens. Saved views retain their URL-owned provider-add screen.
 
 `modules/plugins` owns installation management and the executable catalog. `modules/pages` owns how
 a prepared page executes: `preparation` resolves targets and freshness, `documents` owns the

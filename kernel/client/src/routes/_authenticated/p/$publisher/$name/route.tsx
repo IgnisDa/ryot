@@ -1,16 +1,13 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-import { useCollectionScreens } from "#/modules/collections/screens";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
-import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
+import { ClientPage } from "#/modules/pages/documents/page";
+import { useClearClientPageDocument } from "#/modules/pages/documents/state";
 import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare";
 import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
-import { EntityPickerModal } from "#/modules/provider-add/modal";
-import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { AppScreen } from "#/modules/shell/app-screen";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
@@ -31,7 +28,7 @@ export function PluginRoutePage({
 		return <PluginNotice title="Plugin page not found" />;
 	}
 	const installation = effectiveCatalogPlugin(catalog, packageId);
-	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
+	return <ClientPage prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 
 function PluginNotice(props: { readonly title: string }) {
@@ -58,33 +55,5 @@ function PluginNotFound() {
 				</div>
 			</section>
 		</main>
-	);
-}
-
-function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
-	const navigate = useNavigate();
-	const { open, session } = useEntityPickerSession();
-	const collections = useCollectionScreens();
-	useClientPageDocument({
-		...props,
-		onPickEntity: open,
-		inert: session !== null || collections.open,
-		onEditCollection: collections.onEditCollection,
-		onAddToCollection: collections.onAddToCollection,
-	});
-	return (
-		<>
-			{session === null ? null : (
-				<EntityPickerModal
-					onComplete={session.complete}
-					schema={session.request.schema}
-					library={session.request.library}
-					initialQuery={session.request.initialQuery}
-					onCreate={(href) => void navigate({ href })}
-					onClose={() => session.complete({ kind: "cancelled" })}
-				/>
-			)}
-			{collections.screen}
-		</>
 	);
 }
