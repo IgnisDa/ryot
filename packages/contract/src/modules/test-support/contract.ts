@@ -5,13 +5,7 @@ import { AdminMiddleware } from "../../auth-middleware";
 import { EntityId, ImportRunId, PluginId, SandboxProviderId, UserId } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
 import { EntitySchemaReference, RelationshipSchemaReference } from "../plugins/references";
-import {
-	InstallPluginBody,
-	PluginConflictError,
-	PluginNotFoundError,
-	PluginRequestError,
-	UpdatePrivatePluginBody,
-} from "../plugins/schemas";
+import { PluginConflictError, PluginNotFoundError, PluginRequestError } from "../plugins/schemas";
 import { RelationshipScope } from "../relationships/schemas";
 import { SandboxRunResult } from "../scripts/schemas";
 import {
@@ -221,35 +215,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			OpenApi.Description,
 			"Updates an exact system plugin after checking its active source hash",
 		),
-	)
-	.add(
-		HttpApiEndpoint.post("installPrivatePlugin", "/test-support/users/:userId/plugins", {
-			payload: InstallPluginBody,
-			params: { userId: UserId },
-			success: TestSupportPluginWriteResult.pipe(HttpApiSchema.status(201)),
-			error: [
-				...testSupportErrors,
-				PluginRequestError.pipe(HttpApiSchema.status(400)),
-				PluginConflictError.pipe(HttpApiSchema.status(409)),
-			],
-		}).annotate(OpenApi.Description, "Installs a private plugin for an E2E fixture owner"),
-	)
-	.add(
-		HttpApiEndpoint.put(
-			"updatePrivatePlugin",
-			"/test-support/users/:userId/plugins/installations/:installationId/package",
-			{
-				payload: UpdatePrivatePluginBody,
-				success: TestSupportPluginWriteResult,
-				params: { userId: UserId, installationId: Schema.String },
-				error: [
-					...testSupportErrors,
-					PluginRequestError.pipe(HttpApiSchema.status(400)),
-					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-					PluginConflictError.pipe(HttpApiSchema.status(409)),
-				],
-			},
-		).annotate(OpenApi.Description, "Updates a private plugin for an E2E fixture owner"),
 	)
 	.add(
 		HttpApiEndpoint.post(

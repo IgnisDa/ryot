@@ -1047,6 +1047,18 @@ layer(catalogDatabaseLayer)((test) => {
 });
 
 layer(catalogDatabaseLayer)((test) => {
+	test.effect("exposes the private installation configuration pin to admin readers", () =>
+		Effect.gen(function* () {
+			const installations = yield* readRows("admin", "pluginInstallation", [
+				"id",
+				"activeConfigRevisionId",
+			]);
+			expect(installations.find(({ id }) => id === "owner-private")).toEqual({
+				id: "owner-private",
+				activeConfigRevisionId: "private-config",
+			});
+		}),
+	);
 	test.effect("hides uninstalled installations from users but not from admins", () =>
 		Effect.gen(function* () {
 			for (const audience of ["kernel", "plugin"] as const) {

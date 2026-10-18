@@ -155,20 +155,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.updateSystemPlugin(params.pluginId, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("installPrivatePlugin", ({ params, payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.installPrivatePlugin(params.userId, payload).pipe(dieOnDbError);
-			}),
-		)
-		.handle("updatePrivatePlugin", ({ params, payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc
-					.updatePrivatePlugin(params.userId, params.installationId, payload)
-					.pipe(dieOnDbError);
-			}),
-		)
 		.handle("reconcilePluginInstallations", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

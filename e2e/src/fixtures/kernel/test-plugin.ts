@@ -1,27 +1,39 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import {
-	type PluginConfigRevisionId,
-	type PluginId,
+	PluginConfigRevisionId,
+	PluginId,
 	PluginPackageId,
-	type PluginRevisionId,
-	type SandboxScriptId,
+	PluginRevisionId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
+import {
+	ascending,
+	column,
+	defineRecipe,
+	eq,
+	join,
+	literal,
+	selectedField,
+	selectedOptionalRow,
+	table,
+} from "@ryot-app/ryotql";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
+import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import { adminSystemPluginsRecipe, listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
 import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
 import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
-import { collectAdminRyotQLRecipeItems } from "./ryotql";
+import { collectAdminRyotQLRecipeItems, executeAdminRyotQLRecipe } from "./ryotql";
 import { authoredEntityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
@@ -283,8 +295,48 @@ const installedSourceHash = (
 		return plugin.contentHash;
 	});
 
-const requireFixtureUserId = (client: Client) =>
-	requirePresent(client.userId, "Private test plugin client has no fixture user ID");
+const privateInstallationTable = table("pluginInstallation", "installation");
+const privatePluginTable = table("plugin", "plugin");
+
+const privatePluginOperationRecipe = defineRecipe((installationId: string) => ({
+	map: ({ operation }) => Result.succeed(operation),
+	queries: {
+		operation: selectedOptionalRow(privateInstallationTable, {
+			orderBy: [ascending(column(privateInstallationTable, "id"))],
+			where: eq(column(privateInstallationTable, "id"), literal(installationId)),
+			joins: [
+				join(
+					"inner",
+					privatePluginTable,
+					eq(column(privatePluginTable, "id"), column(privateInstallationTable, "pluginId")),
+				),
+			],
+			selection: {
+				pluginId: selectedField(column(privatePluginTable, "id"), PluginId),
+				installationId: selectedField(column(privateInstallationTable, "id"), Schema.String),
+				activationId: selectedField(column(privatePluginTable, "activationId"), Schema.String),
+				activePluginRevisionId: selectedField(
+					column(privatePluginTable, "activeRevisionId"),
+					PluginRevisionId,
+				),
+				configRevisionId: selectedField(
+					column(privateInstallationTable, "activeConfigRevisionId"),
+					Schema.NullOr(PluginConfigRevisionId),
+				),
+			},
+		}),
+	},
+}));
+
+const privatePluginOperationResult = (installationId: string, baseUrl?: string) =>
+	Effect.gen(function* () {
+		const operation = requirePresent(
+			yield* executeAdminRyotQLRecipe(privatePluginOperationRecipe(installationId), baseUrl),
+			`Private plugin installation '${installationId}' was not found`,
+		);
+		const scripts = yield* listAdminSandboxScripts(operation.activePluginRevisionId, baseUrl);
+		return { ...operation, scripts: scripts.map(({ id, slug }) => ({ id, slug })) };
+	});
 
 export const installTestPlugin = (
 	input: {
@@ -325,14 +377,10 @@ export const installTestPlugin = (
 			operationResult = yield* installTestSupportSystemPlugin({ files, manifest });
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
-			operationResult = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.installPrivatePlugin({
-						payload: { uploadToken, config: input.config ?? {} },
-						params: { userId: requireFixtureUserId(input.client) },
-					}),
-				adminHeaders(),
+			const installed = yield* input.client.call((c) =>
+				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
+			operationResult = yield* privatePluginOperationResult(installed.id);
 			const installationId = requirePresent(
 				operationResult.installationId,
 				"Private test plugin installation ID missing",
@@ -441,14 +489,10 @@ export const installTestPluginBundle = (
 				{ files, manifest },
 				input.baseUrl,
 			);
-			operationResult = yield* getApiClient(input.baseUrl).call(
-				(c) =>
-					c.testSupport.installPrivatePlugin({
-						payload: { uploadToken, config: input.config ?? {} },
-						params: { userId: requireFixtureUserId(input.client) },
-					}),
-				adminHeaders(),
+			const installed = yield* input.client.call((c) =>
+				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
+			operationResult = yield* privatePluginOperationResult(installed.id, input.baseUrl);
 			const installationId = requirePresent(
 				operationResult.installationId,
 				"Private test plugin installation ID missing",
@@ -519,7 +563,10 @@ export const installTestDefinitions = (input: {
 	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 }) =>
 	Effect.gen(function* () {
-		const registrationKey = stableStringify([requireFixtureUserId(input.client), input.pluginSlug]);
+		const registrationKey = stableStringify([
+			requirePresent(input.client.userId, "Private test plugin client has no fixture user ID"),
+			input.pluginSlug,
+		]);
 		const current = definitionManifests.get(registrationKey);
 		let installationId = current?.installationId;
 		let pluginId = current?.pluginId;
@@ -618,20 +665,18 @@ export const reinstallTestPluginScript = (
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			const uploadToken = yield* uploadPrivatePluginPackage(client, { files, manifest });
-			operationResult = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.updatePrivatePlugin({
-						payload: { uploadToken, contentHash: installed.contentHash },
-						params: {
-							userId: requireFixtureUserId(client),
-							installationId: requirePresent(
-								installed.installationId,
-								"Private installation ID missing",
-							),
-						},
-					}),
-				adminHeaders(),
+			const updated = yield* client.call((c) =>
+				c.plugins.update({
+					payload: { uploadToken, contentHash: installed.contentHash },
+					params: {
+						installationId: requirePresent(
+							installed.installationId,
+							"Private installation ID missing",
+						),
+					},
+				}),
 			);
+			operationResult = yield* privatePluginOperationResult(updated.id);
 		}
 		const nextScriptIds = operationScriptIds(operationResult);
 		const scriptId = requirePresent(
