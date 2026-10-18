@@ -9,7 +9,7 @@ import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
 import { ingestionBlockReasonLabel } from "./run-presentation";
 
-export type ImportStartFailure = { readonly detail: string; readonly step: WizardStep | undefined };
+export type ImportStartFailure = { readonly detail: string; readonly step: undefined | WizardStep };
 
 const fallback = {
 	step: undefined,

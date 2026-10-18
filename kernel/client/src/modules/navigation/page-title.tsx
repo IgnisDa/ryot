@@ -18,7 +18,7 @@ type PageTitleRegistry = {
 	readonly set: (id: string, title: string) => void;
 };
 
-const PageTitleRegistryContext = createContext<PageTitleRegistry | undefined>(undefined);
+const PageTitleRegistryContext = createContext<undefined | PageTitleRegistry>(undefined);
 
 export function usePageTitle(title: string) {
 	const id = useId();

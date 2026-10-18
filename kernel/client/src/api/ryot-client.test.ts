@@ -357,7 +357,7 @@ describe("kernel Ryot client", () => {
 	});
 
 	it.live("resolves managed assets through the authenticated upload port", () => {
-		const calls: Array<{ readonly scope: typeof scope; readonly request: unknown }> = [];
+		const calls: Array<{ readonly request: unknown; readonly scope: typeof scope }> = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),

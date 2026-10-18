@@ -30,6 +30,135 @@ const modeContent = {
 	},
 } as const;
 
+export function TwoFactorForm(props: {
+	onBack: () => void;
+	method: TwoFactorMethod;
+	methods: readonly TwoFactorMethod[];
+	onMethodChange: (method: TwoFactorMethod) => void;
+	onSubmit: (code: string) => Effect.Effect<string | undefined>;
+}) {
+	const [serverError, setServerError] = useState<string>();
+	const usingBackupCode = props.method === "backupCode";
+	const controller = useRef(new AbortController());
+	useEffect(() => () => controller.current.abort(), []);
+	const form = useForm({
+		errorVisibility,
+		defaultValues: { code: "" },
+		onSubmit: ({ value }) => {
+			setServerError(undefined);
+			return Effect.runPromiseExit(
+				props.onSubmit(value.code.trim()).pipe(
+					Effect.map((error) => {
+						setServerError(error);
+						if (error) {
+							form.reset();
+						}
+						return undefined;
+					}),
+				),
+				{ signal: controller.current.signal },
+			);
+		},
+	});
+
+	function changeMethod() {
+		form.reset();
+		setServerError(undefined);
+		props.onMethodChange(usingBackupCode ? "totp" : "backupCode");
+	}
+
+	return (
+		<div className="ui-stack">
+			<div>
+				<h1 id="auth-title" className="ui-heading">
+					One more step
+				</h1>
+				<p className="ui-subtitle">
+					{usingBackupCode
+						? "Enter one of your saved backup codes."
+						: "Enter the 6-digit code from your authenticator app."}
+				</p>
+			</div>
+			<form
+				noValidate
+				className="ui-stack"
+				onSubmit={(event) => {
+					event.preventDefault();
+					void form.handleSubmit();
+				}}
+			>
+				<form.Field
+					name="code"
+					validators={[
+						{
+							runOnMount: true,
+							triggers: ["change", "blur"],
+							run: ({ value }) =>
+								value.trim() === "" ? "Enter your two-factor authentication code." : undefined,
+						},
+					]}
+				>
+					{(field) => (
+						<label className="ui-field-label">
+							<span>{usingBackupCode ? "Backup code" : "Authenticator code"}</span>
+							<input
+								autoFocus
+								name={field.name}
+								value={field.value}
+								autoCapitalize="none"
+								onBlur={field.handleBlur}
+								className="ui-field-input"
+								autoComplete="one-time-code"
+								aria-invalid={field.errors.length > 0}
+								maxLength={usingBackupCode ? undefined : 6}
+								inputMode={usingBackupCode ? "text" : "numeric"}
+								placeholder={usingBackupCode ? "Backup code" : "000000"}
+								aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
+								onChange={(event) => {
+									field.handleChange(event.currentTarget.value);
+									setServerError(undefined);
+								}}
+							/>
+							{field.errors[0] && (
+								<small role="alert" id="code-error" className="ui-field-error">
+									{field.errors[0].message}
+								</small>
+							)}
+						</label>
+					)}
+				</form.Field>
+				{serverError && (
+					<p role="alert" className="ui-field-error">
+						{serverError}
+					</p>
+				)}
+				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+					{([canSubmit, isSubmitting]) => (
+						<>
+							<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
+								{isSubmitting ? "Verifying..." : "Verify"}
+							</Button>
+							{props.methods.length > 1 && (
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={changeMethod}
+									disabled={isSubmitting}
+								>
+									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
+								</Button>
+							)}
+							<Button type="button" variant="ghost" onClick={props.onBack} disabled={isSubmitting}>
+								Back to sign in
+							</Button>
+						</>
+					)}
+				</form.Subscribe>
+			</form>
+		</div>
+	);
+}
+
 export function CredentialsForm(props: {
 	mode: AuthMode;
 	disabled: boolean;
@@ -208,135 +337,6 @@ export function CredentialsForm(props: {
 						>
 							{isSubmitting ? content.pending : content.action}
 						</Button>
-					)}
-				</form.Subscribe>
-			</form>
-		</div>
-	);
-}
-
-export function TwoFactorForm(props: {
-	onBack: () => void;
-	method: TwoFactorMethod;
-	methods: readonly TwoFactorMethod[];
-	onMethodChange: (method: TwoFactorMethod) => void;
-	onSubmit: (code: string) => Effect.Effect<string | undefined>;
-}) {
-	const [serverError, setServerError] = useState<string>();
-	const usingBackupCode = props.method === "backupCode";
-	const controller = useRef(new AbortController());
-	useEffect(() => () => controller.current.abort(), []);
-	const form = useForm({
-		errorVisibility,
-		defaultValues: { code: "" },
-		onSubmit: ({ value }) => {
-			setServerError(undefined);
-			return Effect.runPromiseExit(
-				props.onSubmit(value.code.trim()).pipe(
-					Effect.map((error) => {
-						setServerError(error);
-						if (error) {
-							form.reset();
-						}
-						return undefined;
-					}),
-				),
-				{ signal: controller.current.signal },
-			);
-		},
-	});
-
-	function changeMethod() {
-		form.reset();
-		setServerError(undefined);
-		props.onMethodChange(usingBackupCode ? "totp" : "backupCode");
-	}
-
-	return (
-		<div className="ui-stack">
-			<div>
-				<h1 id="auth-title" className="ui-heading">
-					One more step
-				</h1>
-				<p className="ui-subtitle">
-					{usingBackupCode
-						? "Enter one of your saved backup codes."
-						: "Enter the 6-digit code from your authenticator app."}
-				</p>
-			</div>
-			<form
-				noValidate
-				className="ui-stack"
-				onSubmit={(event) => {
-					event.preventDefault();
-					void form.handleSubmit();
-				}}
-			>
-				<form.Field
-					name="code"
-					validators={[
-						{
-							runOnMount: true,
-							triggers: ["change", "blur"],
-							run: ({ value }) =>
-								value.trim() === "" ? "Enter your two-factor authentication code." : undefined,
-						},
-					]}
-				>
-					{(field) => (
-						<label className="ui-field-label">
-							<span>{usingBackupCode ? "Backup code" : "Authenticator code"}</span>
-							<input
-								autoFocus
-								name={field.name}
-								value={field.value}
-								autoCapitalize="none"
-								onBlur={field.handleBlur}
-								className="ui-field-input"
-								autoComplete="one-time-code"
-								aria-invalid={field.errors.length > 0}
-								maxLength={usingBackupCode ? undefined : 6}
-								inputMode={usingBackupCode ? "text" : "numeric"}
-								placeholder={usingBackupCode ? "Backup code" : "000000"}
-								aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
-								onChange={(event) => {
-									field.handleChange(event.currentTarget.value);
-									setServerError(undefined);
-								}}
-							/>
-							{field.errors[0] && (
-								<small role="alert" id="code-error" className="ui-field-error">
-									{field.errors[0].message}
-								</small>
-							)}
-						</label>
-					)}
-				</form.Field>
-				{serverError && (
-					<p role="alert" className="ui-field-error">
-						{serverError}
-					</p>
-				)}
-				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
-					{([canSubmit, isSubmitting]) => (
-						<>
-							<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-								{isSubmitting ? "Verifying..." : "Verify"}
-							</Button>
-							{props.methods.length > 1 && (
-								<Button
-									type="button"
-									variant="ghost"
-									onClick={changeMethod}
-									disabled={isSubmitting}
-								>
-									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
-								</Button>
-							)}
-							<Button type="button" variant="ghost" onClick={props.onBack} disabled={isSubmitting}>
-								Back to sign in
-							</Button>
-						</>
 					)}
 				</form.Subscribe>
 			</form>

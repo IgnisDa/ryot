@@ -193,7 +193,7 @@ const decodeRun = (runs: readonly unknown[]) =>
 	);
 
 const makeImportSourceQueries = (
-	sources: readonly ImportSourceItem[] | null | (() => readonly ImportSourceItem[] | null),
+	sources: null | readonly ImportSourceItem[] | (() => null | readonly ImportSourceItem[]),
 	issues: readonly IngestionIssue[],
 	requests: (string | undefined)[] = [],
 ) =>
@@ -259,7 +259,7 @@ const mountView = (
 	initialEntry: string,
 	importsApi: Layer.Layer<ImportsApi> = makeImportsApi(),
 	imports: Layer.Layer<ImportsService> = ImportsRouteStubs,
-	sources: readonly ImportSourceItem[] | null | (() => readonly ImportSourceItem[] | null) = [
+	sources: null | readonly ImportSourceItem[] | (() => null | readonly ImportSourceItem[]) = [
 		alphaSource,
 	],
 	issues: readonly IngestionIssue[] = [],
@@ -378,7 +378,7 @@ describe("import data list", () => {
 					})),
 					conditional,
 				];
-				let current: readonly ImportSourceItem[] | null = catalogSources;
+				let current: null | readonly ImportSourceItem[] = catalogSources;
 				const view = mountView(
 					"/settings/import-data?start=true",
 					makeImportsApi(),

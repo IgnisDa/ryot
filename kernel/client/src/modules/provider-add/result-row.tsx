@@ -10,6 +10,46 @@ import type { ProviderSearchResultItem } from "#/modules/provider-add/search-con
 
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md object-cover";
 
+export function ProviderSearchResultRow(props: {
+	readonly onAdd: () => void;
+	readonly item: ProviderSearchResultItem;
+	readonly entry: ProviderEntityImportEntry;
+	readonly linkedEntityId: EntityId | undefined;
+}) {
+	const display = describeProviderSearchResultItem(props.item);
+	const pending =
+		props.linkedEntityId === undefined &&
+		(props.entry.status === "queued" || props.entry.status === "importing");
+	return (
+		<div
+			aria-busy={pending || undefined}
+			className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent"
+		>
+			<EntityArtWell
+				state="absent"
+				url={display.imageUrl}
+				monogram={display.title}
+				className={IMAGE_CLASS_NAME}
+			/>
+			<div className="grid min-w-0 flex-1 gap-0.5">
+				<p className="line-clamp-2 text-[15px] font-medium text-text">{display.title}</p>
+				{display.metaText === undefined ? null : (
+					<p className="truncate text-xs text-text-muted">{display.metaText}</p>
+				)}
+				{props.entry.status === "failed" ? (
+					<p className="text-xs text-text-muted">{props.entry.message}</p>
+				) : null}
+			</div>
+			<ResultAction
+				entry={props.entry}
+				onAdd={props.onAdd}
+				title={display.title}
+				linkedEntityId={props.linkedEntityId}
+			/>
+		</div>
+	);
+}
+
 function InLibraryLink(props: { readonly title: string; readonly entityId: EntityId }) {
 	return (
 		<Link
@@ -79,45 +119,5 @@ function ResultAction(props: {
 			</button>
 		)),
 		Match.exhaustive,
-	);
-}
-
-export function ProviderSearchResultRow(props: {
-	readonly onAdd: () => void;
-	readonly item: ProviderSearchResultItem;
-	readonly entry: ProviderEntityImportEntry;
-	readonly linkedEntityId: EntityId | undefined;
-}) {
-	const display = describeProviderSearchResultItem(props.item);
-	const pending =
-		props.linkedEntityId === undefined &&
-		(props.entry.status === "queued" || props.entry.status === "importing");
-	return (
-		<div
-			aria-busy={pending || undefined}
-			className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent"
-		>
-			<EntityArtWell
-				state="absent"
-				url={display.imageUrl}
-				monogram={display.title}
-				className={IMAGE_CLASS_NAME}
-			/>
-			<div className="grid min-w-0 flex-1 gap-0.5">
-				<p className="line-clamp-2 text-[15px] font-medium text-text">{display.title}</p>
-				{display.metaText === undefined ? null : (
-					<p className="truncate text-xs text-text-muted">{display.metaText}</p>
-				)}
-				{props.entry.status === "failed" ? (
-					<p className="text-xs text-text-muted">{props.entry.message}</p>
-				) : null}
-			</div>
-			<ResultAction
-				entry={props.entry}
-				onAdd={props.onAdd}
-				title={display.title}
-				linkedEntityId={props.linkedEntityId}
-			/>
-		</div>
 	);
 }

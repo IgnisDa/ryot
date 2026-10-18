@@ -102,7 +102,7 @@ const reply = (test: ReturnType<typeof harness>, index: number) => settle(test.c
 const present = (
 	tray: BackgroundSubmissionTray,
 	entry: BackgroundSubmissionEntry,
-	options: { readonly catalog?: PluginClientCatalog; readonly onReload?: () => void } = {},
+	options: { readonly onReload?: () => void; readonly catalog?: PluginClientCatalog } = {},
 ) =>
 	backgroundSubmissionTrayEntry({
 		tray,

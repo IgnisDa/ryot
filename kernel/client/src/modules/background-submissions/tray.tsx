@@ -23,7 +23,7 @@ import {
 } from "#/modules/background-submissions/service";
 import type { ClientRuntime } from "#/runtime";
 
-const BackgroundSubmissionsContext = createContext<BackgroundSubmissionTray | null>(null);
+const BackgroundSubmissionsContext = createContext<null | BackgroundSubmissionTray>(null);
 
 export const useBackgroundSubmissionTray = () => useContext(BackgroundSubmissionsContext);
 
@@ -39,7 +39,7 @@ export function BackgroundSubmissionsProvider(props: {
 	useLayoutEffect(() => {
 		onSucceeded.current = props.onSucceeded;
 	});
-	const [tray, setTray] = useState<BackgroundSubmissionTray | null>(null);
+	const [tray, setTray] = useState<null | BackgroundSubmissionTray>(null);
 	useEffect(() => {
 		const opened = runtime.runSync(
 			Effect.flatMap(BackgroundSubmissionService, (service) =>
@@ -86,11 +86,21 @@ const tones = {
 	ActivityTrayEntry["tone"]
 >;
 
-export function backgroundSubmissionTrayEntry(options: {
-	readonly entry: BackgroundSubmissionEntry;
-	readonly tray: BackgroundSubmissionTray;
-	readonly catalog: PluginClientCatalog;
+export function BackgroundSubmissionTrayView(props: {
+	readonly compact: boolean;
 	readonly onReload: () => void;
+	readonly safeAreaBottom: number;
+	readonly catalog: PluginClientCatalog;
+}) {
+	const tray = useBackgroundSubmissionTray();
+	return tray === null ? null : <TrayEntries {...props} tray={tray} />;
+}
+
+export function backgroundSubmissionTrayEntry(options: {
+	readonly onReload: () => void;
+	readonly catalog: PluginClientCatalog;
+	readonly tray: BackgroundSubmissionTray;
+	readonly entry: BackgroundSubmissionEntry;
 }): ActivityTrayEntry {
 	const { tray, entry, catalog } = options;
 	const { state } = entry;
@@ -117,8 +127,8 @@ function TrayEntries(props: {
 	readonly compact: boolean;
 	readonly onReload: () => void;
 	readonly safeAreaBottom: number;
-	readonly tray: BackgroundSubmissionTray;
 	readonly catalog: PluginClientCatalog;
+	readonly tray: BackgroundSubmissionTray;
 }) {
 	const { tray } = props;
 	const snapshot = useSyncExternalStore(tray.subscribe, tray.getSnapshot, tray.getSnapshot);
@@ -139,14 +149,4 @@ function TrayEntries(props: {
 			)}
 		/>
 	);
-}
-
-export function BackgroundSubmissionTrayView(props: {
-	readonly compact: boolean;
-	readonly onReload: () => void;
-	readonly safeAreaBottom: number;
-	readonly catalog: PluginClientCatalog;
-}) {
-	const tray = useBackgroundSubmissionTray();
-	return tray === null ? null : <TrayEntries {...props} tray={tray} />;
 }

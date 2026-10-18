@@ -71,7 +71,7 @@ const rowsFor = (document: RyotQLDocument) => {
 	};
 };
 
-const makeApi = (options: { readonly onExecute?: () => void; readonly fail?: boolean } = {}) => {
+const makeApi = (options: { readonly fail?: boolean; readonly onExecute?: () => void } = {}) => {
 	const executed: Array<{ readonly scope: ApiScope; readonly document: RyotQLDocument }> = [];
 	return {
 		executed,

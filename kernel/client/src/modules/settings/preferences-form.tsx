@@ -60,55 +60,6 @@ export function PreferenceRow(props: {
 	);
 }
 
-function LanguageField(props: {
-	value: string;
-	disabled: boolean;
-	onChange: (value: string) => void;
-}) {
-	const code = props.value.trim();
-	const known = LANGUAGE_OPTIONS.some((option) => option.value === code);
-	const [custom, setCustom] = useState(code !== "" && !known);
-	const isCustom = custom || (code !== "" && !known);
-	let selected: string = code === "" ? DEFAULT_LANGUAGE : code;
-	if (isCustom) {
-		selected = CUSTOM_LANGUAGE;
-	}
-
-	const select = (next: string) => {
-		if (next === CUSTOM_LANGUAGE) {
-			setCustom(true);
-			return;
-		}
-		setCustom(false);
-		props.onChange(next === DEFAULT_LANGUAGE ? "" : next);
-	};
-
-	return (
-		<>
-			<Select
-				value={selected}
-				onChange={select}
-				label="Entity language"
-				choices={languageChoices}
-				disabled={props.disabled}
-				checkIcon={<AppIcon size={16} name="check" />}
-				chevronIcon={<AppIcon size={16} name="chevron-down" />}
-			/>
-			{isCustom && (
-				<TextField
-					density="compact"
-					autoComplete="off"
-					value={props.value}
-					disabled={props.disabled}
-					placeholder="For example, sv or pt-BR"
-					aria-label="Custom entity language code"
-					onChange={(event) => props.onChange(event.currentTarget.value)}
-				/>
-			)}
-		</>
-	);
-}
-
 export function PreferencesForm(props: {
 	disabled?: boolean;
 	preferences: UserPreferences;
@@ -195,5 +146,54 @@ export function PreferencesForm(props: {
 				</form.Subscribe>
 			</div>
 		</form>
+	);
+}
+
+function LanguageField(props: {
+	value: string;
+	disabled: boolean;
+	onChange: (value: string) => void;
+}) {
+	const code = props.value.trim();
+	const known = LANGUAGE_OPTIONS.some((option) => option.value === code);
+	const [custom, setCustom] = useState(code !== "" && !known);
+	const isCustom = custom || (code !== "" && !known);
+	let selected: string = code === "" ? DEFAULT_LANGUAGE : code;
+	if (isCustom) {
+		selected = CUSTOM_LANGUAGE;
+	}
+
+	const select = (next: string) => {
+		if (next === CUSTOM_LANGUAGE) {
+			setCustom(true);
+			return;
+		}
+		setCustom(false);
+		props.onChange(next === DEFAULT_LANGUAGE ? "" : next);
+	};
+
+	return (
+		<>
+			<Select
+				value={selected}
+				onChange={select}
+				label="Entity language"
+				choices={languageChoices}
+				disabled={props.disabled}
+				checkIcon={<AppIcon size={16} name="check" />}
+				chevronIcon={<AppIcon size={16} name="chevron-down" />}
+			/>
+			{isCustom && (
+				<TextField
+					density="compact"
+					autoComplete="off"
+					value={props.value}
+					disabled={props.disabled}
+					placeholder="For example, sv or pt-BR"
+					aria-label="Custom entity language code"
+					onChange={(event) => props.onChange(event.currentTarget.value)}
+				/>
+			)}
+		</>
 	);
 }

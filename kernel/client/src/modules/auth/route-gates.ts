@@ -10,17 +10,7 @@ import { ServerService } from "#/modules/server/service";
 export type AuthSessionState =
 	| { readonly status: "pending" }
 	| { readonly status: "missing" }
-	| { readonly status: "authenticated"; readonly userId: string };
-
-export type AuthRouteDecision =
-	| { readonly action: "wait" }
-	| { readonly action: "redirect"; readonly to: SafeRedirect }
-	| { readonly action: "stay"; readonly redirectTo: SafeRedirect | undefined }
-	| {
-			readonly to: "/onboarding";
-			readonly action: "redirect";
-			readonly redirectTo: SafeRedirect | undefined;
-	  };
+	| { readonly userId: string; readonly status: "authenticated" };
 
 export type ProtectedRouteDecision =
 	| { readonly action: "wait" }
@@ -28,11 +18,21 @@ export type ProtectedRouteDecision =
 	| {
 			readonly action: "redirect";
 			readonly to: "/auth" | "/onboarding";
-			readonly redirectTo: SafeRedirect | undefined;
+			readonly redirectTo: undefined | SafeRedirect;
+	  };
+
+export type AuthRouteDecision =
+	| { readonly action: "wait" }
+	| { readonly to: SafeRedirect; readonly action: "redirect" }
+	| { readonly action: "stay"; readonly redirectTo: undefined | SafeRedirect }
+	| {
+			readonly to: "/onboarding";
+			readonly action: "redirect";
+			readonly redirectTo: undefined | SafeRedirect;
 	  };
 
 export function decideAuthRoute(
-	server: ServerOrigin | null,
+	server: null | ServerOrigin,
 	session: AuthSessionState,
 	redirectIntent: unknown,
 ): AuthRouteDecision {
@@ -50,7 +50,7 @@ export function decideAuthRoute(
 }
 
 export function decideProtectedRoute(
-	server: ServerOrigin | null,
+	server: null | ServerOrigin,
 	session: AuthSessionState,
 	destination: unknown,
 ): ProtectedRouteDecision {

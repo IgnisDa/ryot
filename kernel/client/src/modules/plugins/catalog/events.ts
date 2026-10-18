@@ -8,12 +8,6 @@ import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
-type CatalogStreamResponse = {
-	readonly ok: boolean;
-	readonly status: number;
-	readonly body: ReadableStream<Uint8Array> | null;
-};
-
 export type CatalogStreamRequest = {
 	readonly signal: AbortSignal;
 	readonly headers: Record<string, string>;
@@ -23,6 +17,12 @@ export type CatalogStreamFactory = (
 	url: string,
 	request: CatalogStreamRequest,
 ) => Promise<CatalogStreamResponse>;
+
+type CatalogStreamResponse = {
+	readonly ok: boolean;
+	readonly status: number;
+	readonly body: null | ReadableStream<Uint8Array>;
+};
 
 class CatalogStreamClosed extends Data.TaggedError("CatalogStreamClosed")<{
 	readonly cause: unknown;

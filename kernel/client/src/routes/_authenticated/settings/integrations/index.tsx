@@ -42,9 +42,9 @@ const listState = (page: IntegrationList): IntegrationListState =>
 		: { status: "ready", integrations: page.items, hasMore: page.pageInfo.hasMore };
 
 const queryListState = (
-	page: IntegrationList | undefined,
+	page: undefined | IntegrationList,
 	pending: boolean,
-): IntegrationListState | undefined => {
+): undefined | IntegrationListState => {
 	if (page !== undefined) {
 		return listState(page);
 	}
@@ -110,7 +110,7 @@ function IntegrationsRoute() {
 	};
 
 	const storedPause = preferences.data?.disableIntegrations;
-	const pause: IntegrationPauseState | undefined =
+	const pause: undefined | IntegrationPauseState =
 		storedPause === undefined
 			? undefined
 			: {

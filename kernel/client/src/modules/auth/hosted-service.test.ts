@@ -21,7 +21,7 @@ const requestUrl = (input: Parameters<typeof fetch>[0]) => {
 describe("hosted auth service demo sign-in", () => {
 	it.live.each(["demo", "standard"] as const)("accepts the %s mode", (mode) =>
 		Effect.gen(function* () {
-			const requests: Array<{ init?: RequestInit; url: string }> = [];
+			const requests: Array<{ url: string; init?: RequestInit }> = [];
 			const request = requestDemoSignIn((input, init) => {
 				requests.push({ init, url: requestUrl(input) });
 				return Promise.resolve(Response.json({ mode }));
@@ -70,7 +70,7 @@ describe("hosted auth service demo sign-in", () => {
 describe("hosted auth initialization status", () => {
 	it.live.each(["initializing", "ready"] as const)("accepts the %s status", (status) =>
 		Effect.gen(function* () {
-			const requests: Array<{ init?: RequestInit; url: string }> = [];
+			const requests: Array<{ url: string; init?: RequestInit }> = [];
 			const request = requestInitializationStatus((input, init) => {
 				requests.push({ init, url: requestUrl(input) });
 				return Promise.resolve(Response.json({ status }));
@@ -119,7 +119,7 @@ describe("hosted auth initialization status", () => {
 describe("hosted impersonation redemption", () => {
 	it.live("redeems the one-use ticket with same-origin credentials", () =>
 		Effect.gen(function* () {
-			const requests: Array<{ readonly init?: RequestInit; readonly url: string }> = [];
+			const requests: Array<{ readonly url: string; readonly init?: RequestInit }> = [];
 			let body: Promise<unknown> = Promise.resolve(undefined);
 			const result = yield* requestImpersonationRedeem(
 				(input, init) => {

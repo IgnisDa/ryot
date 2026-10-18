@@ -8,7 +8,7 @@ const OAuthTokenIdentity = Schema.Struct({
 	sid: Schema.optional(Schema.String),
 });
 
-export const decodeOAuthTokenIdentity = (token: string): typeof OAuthTokenIdentity.Type | null => {
+export const decodeOAuthTokenIdentity = (token: string): null | typeof OAuthTokenIdentity.Type => {
 	try {
 		return decodeOAuthTokenClaims(token, OAuthTokenIdentity);
 	} catch {
@@ -17,7 +17,7 @@ export const decodeOAuthTokenIdentity = (token: string): typeof OAuthTokenIdenti
 };
 
 /** Who the tokens sign in as: rotating tokens for the same user and session keeps the key. */
-export const oauthTokenSessionKey = (tokens: StoredTokenSet | null) => {
+export const oauthTokenSessionKey = (tokens: null | StoredTokenSet) => {
 	if (tokens === null) {
 		return null;
 	}
@@ -35,7 +35,7 @@ const accessTokenFromStorage = (value: string) => {
 	}
 };
 
-export const oauthSessionBoundaryChanged = (previous: string | null, next: string | null) => {
+export const oauthSessionBoundaryChanged = (previous: null | string, next: null | string) => {
 	if (previous === null || next === null) {
 		return previous !== next;
 	}

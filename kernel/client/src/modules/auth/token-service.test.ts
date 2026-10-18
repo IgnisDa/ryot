@@ -54,8 +54,8 @@ type EndpointRequest = { readonly url: string; readonly body: string };
 class FakeOAuthEndpoint extends Context.Service<
 	FakeOAuthEndpoint,
 	{
-		readonly requests: Effect.Effect<ReadonlyArray<EndpointRequest>>;
 		readonly release: Effect.Effect<void>;
+		readonly requests: Effect.Effect<ReadonlyArray<EndpointRequest>>;
 	}
 >()("test/FakeOAuthEndpoint") {}
 

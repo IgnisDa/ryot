@@ -24,8 +24,6 @@ export const IMPORT_LOAD_ERROR = {
 	detail: "Your import history could not be loaded. Check the server and try again.",
 };
 
-type SourceNames = ReadonlyMap<string, string>;
-
 export type ImportRunListState =
 	| { readonly status: "empty" }
 	| { readonly status: "failed" }
@@ -36,118 +34,18 @@ export type ImportRunListState =
 			readonly runs: readonly ImportRunSummary[];
 	  };
 
+type SourceNames = ReadonlyMap<string, string>;
+
 type ImportDataViewProps = {
 	readonly nowMs: number;
 	readonly onRetry: () => void;
 	readonly isFetching?: boolean;
-	readonly isFetchingNextPage: boolean;
 	readonly onShowOlder: () => void;
 	readonly sourceNames: SourceNames;
 	readonly onStartImport: () => void;
 	readonly state: ImportRunListState;
-};
-
-function LiveImportRunCard(props: {
-	readonly nowMs: number;
-	readonly sourceName: string;
-	readonly run: ImportRunSummary;
-}) {
-	return (
-		<Link
-			params={{ runId: props.run.id }}
-			to="/settings/import-data/$runId"
-			aria-label={`Open the ${props.sourceName} import in progress`}
-			className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4"
-		>
-			<span className="flex items-center justify-between gap-3">
-				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-					{props.sourceName}
-				</span>
-				<RunStatusPill status={props.run.status} />
-			</span>
-			<IngestionRunReport run={props.run} />
-			<span className="text-xs text-text-subtle">{runStartedLabel(props.run, props.nowMs)}</span>
-			<span className="text-xs text-text-muted">
-				This keeps running on your server, even if you close Ryot or the server restarts.
-			</span>
-		</Link>
-	);
-}
-
-function ImportHistoryRow(props: {
-	readonly nowMs: number;
-	readonly isFirst: boolean;
-	readonly sourceName: string;
-	readonly run: ImportRunSummary;
-}) {
-	const duration = runDurationLabel(props.run, props.nowMs);
-	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
-	return (
-		<Link
-			params={{ runId: props.run.id }}
-			to="/settings/import-data/$runId"
-			aria-label={`Open the ${props.sourceName} import from ${relative}`}
-			className={clsx(
-				"flex items-center gap-3 border-b border-border py-3",
-				props.isFirst && "border-t",
-			)}
-		>
-			<RunStatusGlyph status={props.run.status} />
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="truncate text-sm font-medium text-text">{props.sourceName}</span>
-				<span className="truncate text-xs text-text-subtle">
-					{duration === undefined ? relative : `${relative} · ${duration}`}
-				</span>
-			</span>
-			<span className="line-clamp-2 max-w-40 text-right text-xs tabular-nums text-text-muted">
-				{importRunOutcomeLabel(props.run)}
-			</span>
-			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
-		</Link>
-	);
-}
-
-function ImportHistory(props: {
-	readonly nowMs: number;
-	readonly hasMore: boolean;
-	readonly isFetching?: boolean;
 	readonly isFetchingNextPage: boolean;
-	readonly onShowOlder: () => void;
-	readonly sourceNames: SourceNames;
-	readonly runs: readonly ImportRunSummary[];
-}) {
-	return (
-		<div className="flex flex-col gap-2">
-			<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
-				Recent
-			</span>
-			<div>
-				{props.runs.map((run, index) => (
-					<ImportHistoryRow
-						run={run}
-						key={run.id}
-						nowMs={props.nowMs}
-						isFirst={index === 0}
-						sourceName={importSourceName(run, props.sourceNames)}
-					/>
-				))}
-			</div>
-			{props.hasMore ? (
-				<LoadMoreButton
-					type="button"
-					variant="ghost"
-					label="Show older imports"
-					onClick={props.onShowOlder}
-					disabled={props.isFetching}
-					aria-label="Show older imports"
-					loadingLabel="Loading older imports..."
-					isFetchingNextPage={props.isFetchingNextPage}
-					className="self-start py-2 text-sm font-medium text-accent-text"
-				/>
-			) : null}
-		</div>
-	);
-}
+};
 
 export function ImportDataView(props: ImportDataViewProps) {
 	if (props.state.status === "failed") {
@@ -225,5 +123,107 @@ export function ImportDataView(props: ImportDataViewProps) {
 				<AppIcon size={14} name="arrow-right" className="text-accent-text" />
 			</Link>
 		</div>
+	);
+}
+
+function LiveImportRunCard(props: {
+	readonly nowMs: number;
+	readonly sourceName: string;
+	readonly run: ImportRunSummary;
+}) {
+	return (
+		<Link
+			params={{ runId: props.run.id }}
+			to="/settings/import-data/$runId"
+			aria-label={`Open the ${props.sourceName} import in progress`}
+			className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4"
+		>
+			<span className="flex items-center justify-between gap-3">
+				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
+					{props.sourceName}
+				</span>
+				<RunStatusPill status={props.run.status} />
+			</span>
+			<IngestionRunReport run={props.run} />
+			<span className="text-xs text-text-subtle">{runStartedLabel(props.run, props.nowMs)}</span>
+			<span className="text-xs text-text-muted">
+				This keeps running on your server, even if you close Ryot or the server restarts.
+			</span>
+		</Link>
+	);
+}
+
+function ImportHistory(props: {
+	readonly nowMs: number;
+	readonly hasMore: boolean;
+	readonly isFetching?: boolean;
+	readonly onShowOlder: () => void;
+	readonly sourceNames: SourceNames;
+	readonly isFetchingNextPage: boolean;
+	readonly runs: readonly ImportRunSummary[];
+}) {
+	return (
+		<div className="flex flex-col gap-2">
+			<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
+				Recent
+			</span>
+			<div>
+				{props.runs.map((run, index) => (
+					<ImportHistoryRow
+						run={run}
+						key={run.id}
+						nowMs={props.nowMs}
+						isFirst={index === 0}
+						sourceName={importSourceName(run, props.sourceNames)}
+					/>
+				))}
+			</div>
+			{props.hasMore ? (
+				<LoadMoreButton
+					type="button"
+					variant="ghost"
+					label="Show older imports"
+					onClick={props.onShowOlder}
+					disabled={props.isFetching}
+					aria-label="Show older imports"
+					loadingLabel="Loading older imports..."
+					isFetchingNextPage={props.isFetchingNextPage}
+					className="self-start py-2 text-sm font-medium text-accent-text"
+				/>
+			) : null}
+		</div>
+	);
+}
+
+function ImportHistoryRow(props: {
+	readonly nowMs: number;
+	readonly isFirst: boolean;
+	readonly sourceName: string;
+	readonly run: ImportRunSummary;
+}) {
+	const duration = runDurationLabel(props.run, props.nowMs);
+	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
+	return (
+		<Link
+			params={{ runId: props.run.id }}
+			to="/settings/import-data/$runId"
+			aria-label={`Open the ${props.sourceName} import from ${relative}`}
+			className={clsx(
+				"flex items-center gap-3 border-b border-border py-3",
+				props.isFirst && "border-t",
+			)}
+		>
+			<RunStatusGlyph status={props.run.status} />
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-medium text-text">{props.sourceName}</span>
+				<span className="truncate text-xs text-text-subtle">
+					{duration === undefined ? relative : `${relative} · ${duration}`}
+				</span>
+			</span>
+			<span className="line-clamp-2 max-w-40 text-right text-xs tabular-nums text-text-muted">
+				{importRunOutcomeLabel(props.run)}
+			</span>
+			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
+		</Link>
 	);
 }

@@ -8,12 +8,12 @@ export const listenDeviceEvents = Effect.fn("listenDeviceEvents")(
 	function* (
 		platform: {
 			readonly native: boolean;
+			readonly app: Pick<AppPlugin, "getState" | "addListener">;
+			readonly notifications: Pick<LocalNotificationsPlugin, "addListener">;
 			readonly document: Pick<
 				Document,
 				"visibilityState" | "addEventListener" | "removeEventListener"
 			>;
-			readonly notifications: Pick<LocalNotificationsPlugin, "addListener">;
-			readonly app: Pick<AppPlugin, "addListener" | "getState">;
 		},
 		tap: (id: number) => void,
 		foreground: (active: boolean) => void,

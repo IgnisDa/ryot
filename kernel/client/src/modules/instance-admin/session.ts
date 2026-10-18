@@ -6,7 +6,7 @@ export type InstanceAdminSession = { readonly token: string; readonly origin: Se
 
 export type InstanceAdminSessionServiceShape = {
 	readonly clear: (sessionId: string) => Effect.Effect<void>;
-	readonly get: (sessionId: string) => Effect.Effect<InstanceAdminSession | null>;
+	readonly get: (sessionId: string) => Effect.Effect<null | InstanceAdminSession>;
 	readonly create: (origin: ServerOrigin, token: string) => Effect.Effect<string>;
 };
 

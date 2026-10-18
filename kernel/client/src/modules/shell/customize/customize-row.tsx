@@ -5,11 +5,27 @@ import { cloneElement, type ComponentProps, isValidElement, type ReactNode } fro
 
 import type { CustomizeDraftItem } from "#/modules/shell/customize/customize-state";
 
+export function CustomizeHomeRow() {
+	return (
+		<div className="flex h-11 items-center gap-2 border-b border-border bg-raised px-1">
+			<span aria-hidden="true" className="flex size-10 items-center justify-center opacity-40">
+				<AppIcon size={18} name="grip-vertical" className="text-text-subtle" />
+			</span>
+			<AppIcon size={17} name="house" className="shrink-0 text-text" />
+			<span className="min-w-0 flex-1 truncate text-sm text-text">Home</span>
+			<span className="flex items-center gap-1.5 text-text-subtle">
+				<AppIcon size={13} name="lock" />
+				<span className="text-xs">Always shown</span>
+			</span>
+		</div>
+	);
+}
+
 export function CustomizeRow(props: {
 	readonly isLast: boolean;
 	readonly handle: ReactNode;
-	readonly item: CustomizeDraftItem;
 	readonly readOnly?: boolean;
+	readonly item: CustomizeDraftItem;
 	readonly toggleDisabled?: boolean;
 	readonly onToggle: (slug: string) => void;
 }) {
@@ -34,22 +50,6 @@ export function CustomizeRow(props: {
 				onChange={() => props.onToggle(props.item.id)}
 				disabled={props.readOnly === true || props.toggleDisabled}
 			/>
-		</div>
-	);
-}
-
-export function CustomizeHomeRow() {
-	return (
-		<div className="flex h-11 items-center gap-2 border-b border-border bg-raised px-1">
-			<span aria-hidden="true" className="flex size-10 items-center justify-center opacity-40">
-				<AppIcon size={18} name="grip-vertical" className="text-text-subtle" />
-			</span>
-			<AppIcon size={17} name="house" className="shrink-0 text-text" />
-			<span className="min-w-0 flex-1 truncate text-sm text-text">Home</span>
-			<span className="flex items-center gap-1.5 text-text-subtle">
-				<AppIcon size={13} name="lock" />
-				<span className="text-xs">Always shown</span>
-			</span>
 		</div>
 	);
 }

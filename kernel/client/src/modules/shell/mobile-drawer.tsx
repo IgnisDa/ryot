@@ -28,8 +28,6 @@ import type {
 } from "#/modules/shell/sidebar-sections";
 
 type MobileDrawerProps = {
-	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
-	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly isPro: boolean;
 	readonly isOpen: boolean;
 	readonly drawerId: string;
@@ -38,23 +36,25 @@ type MobileDrawerProps = {
 	readonly activeHome: boolean;
 	readonly onCustomize: () => void;
 	readonly activeSettings: boolean;
-	readonly activeKey: string | null;
+	readonly activeKey: null | string;
 	readonly onOpenSearch: () => void;
-	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
-	readonly current: PluginClientCatalogEntry | null;
-	readonly triggerRef: RefObject<HTMLElement | null>;
+	readonly onCreateCollection: () => void;
+	readonly current: null | PluginClientCatalogEntry;
+	readonly triggerRef: RefObject<null | HTMLElement>;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
-	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly expandedSections?: undefined | Partial<Record<SidebarSectionName, boolean>>;
+	readonly onToggleSection?: undefined | ((section: SidebarSectionName, expanded: boolean) => void);
 };
 
-const restoreFocus = (trigger: RefObject<HTMLElement | null>) =>
+const restoreFocus = (trigger: RefObject<null | HTMLElement>) =>
 	queueMicrotask(() => trigger.current?.focus());
 
 export function MobileDrawer(props: MobileDrawerProps) {

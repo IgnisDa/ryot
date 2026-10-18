@@ -50,8 +50,8 @@ type ImpersonationEvent = { readonly kind: string; readonly [key: string]: unkno
 class ImpersonationProbe extends Context.Service<
 	ImpersonationProbe,
 	{
-		readonly events: Effect.Effect<ReadonlyArray<ImpersonationEvent>>;
 		readonly authorization: unknown;
+		readonly events: Effect.Effect<ReadonlyArray<ImpersonationEvent>>;
 	}
 >()("test/ImpersonationProbe") {}
 
@@ -59,7 +59,7 @@ const impersonationLayer = (failure?: "admin") =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const events = yield* Ref.make<ReadonlyArray<ImpersonationEvent>>([]);
-			const storedTokens = yield* Ref.make<StoredTokenSet | null>(originalTokens);
+			const storedTokens = yield* Ref.make<null | StoredTokenSet>(originalTokens);
 			const record = (event: ImpersonationEvent) =>
 				Ref.update(events, (previous) => [...previous, event]);
 			const storage: OAuthStorage["Service"] = {

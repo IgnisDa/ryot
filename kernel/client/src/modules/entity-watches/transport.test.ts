@@ -8,8 +8,8 @@ describe("entity interest live lifecycle", () => {
 	it.live("subscribes native resume and releases a late listener without later callbacks", () =>
 		Effect.gen(function* () {
 			let events = 0;
-			let resume: (() => void) | undefined;
-			let registered: ((handle: PluginListenerHandle) => void) | undefined;
+			let resume: undefined | (() => void);
+			let registered: undefined | ((handle: PluginListenerHandle) => void);
 			let removed = 0;
 			const release = subscribeNativeResume(
 				() => {
@@ -45,8 +45,8 @@ describe("entity interest live lifecycle", () => {
 			Effect.gen(function* () {
 				let events = 0;
 				let removed = 0;
-				let resume: (() => void) | undefined;
-				let registered: ((handle: PluginListenerHandle) => void) | undefined;
+				let resume: undefined | (() => void);
+				let registered: undefined | ((handle: PluginListenerHandle) => void);
 				const window = new EventTarget();
 				const document = new EventTarget();
 				const release = subscribeEntityWatchLifecycle(

@@ -24,8 +24,8 @@ export const DevicePlatformLive = Layer.effect(
 		const android = Capacitor.getPlatform() === "android";
 		const callbacks = new Map<number, Fiber.Fiber<void>>();
 		const delivered = new Map<number, Notification>();
-		let onTap: ((id: number) => void) | undefined;
-		let wakeLock: WakeLockSentinel | undefined;
+		let onTap: undefined | ((id: number) => void);
+		let wakeLock: undefined | WakeLockSentinel;
 		let awakeWanted = false;
 		let awakeGeneration = 0;
 		const cancelWeb = (id: number) => {

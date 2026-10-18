@@ -14,12 +14,12 @@ import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 export function IntegrationSettingsForm(props: {
-	readonly mode: SchemaFormMode;
 	readonly form: SchemaFormApi;
+	readonly mode: SchemaFormMode;
 	readonly uploadFile: SchemaFileUpload;
 	readonly uploadAsset: SchemaAssetUpload;
-	readonly provider: IntegrationProviderItem;
 	readonly connectOAuth: SchemaOAuthConnect;
+	readonly provider: IntegrationProviderItem;
 	readonly oauthDisabledReason: string | undefined;
 }) {
 	return (

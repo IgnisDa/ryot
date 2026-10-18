@@ -2,9 +2,9 @@ import { Button, Dialog, Notice } from "@ryot-app/plugin-ui-sdk";
 
 export function CollectionLoadDialog(props: {
 	readonly title: string;
-	readonly closeLabel: string;
 	readonly failed: boolean;
 	readonly missing: boolean;
+	readonly closeLabel: string;
 	readonly onClose: () => void;
 	readonly onRetry: () => void;
 }) {

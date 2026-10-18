@@ -77,5 +77,5 @@ export type SettingsSectionSlug = SettingsSection["slug"];
 const matchesSection = (pathname: string, section: SettingsSection) =>
 	pathname === section.path || pathname.startsWith(`${section.path}/`);
 
-export const activeSettingsSection = (pathname: string): SettingsSectionSlug | null =>
+export const activeSettingsSection = (pathname: string): null | SettingsSectionSlug =>
 	settingsSections.find((section) => matchesSection(pathname, section))?.slug ?? null;

@@ -63,12 +63,12 @@ export const SEARCH_DEBOUNCE_MS = 350;
 type ProviderSearchInput = {
 	readonly query: string;
 	readonly providerId: SandboxProviderId;
-	readonly options?: NonNullable<SearchProviderEntitiesBody["options"]> | undefined;
+	readonly options?: undefined | NonNullable<SearchProviderEntitiesBody["options"]>;
 };
 
 const nonEmptySearchOptions = (
 	options: NonNullable<SearchProviderEntitiesBody["options"]>,
-): NonNullable<SearchProviderEntitiesBody["options"]> | undefined =>
+): undefined | NonNullable<SearchProviderEntitiesBody["options"]> =>
 	Object.keys(options).length === 0 ? undefined : options;
 
 export type ProviderEntityLinks = ReadonlyMap<string, EntityId>;
@@ -78,27 +78,34 @@ export type ProviderSummariesState =
 	| { readonly status: "loading" }
 	| { readonly status: "ready"; readonly providers: readonly ProviderSearchSummary[] };
 
+export type ImportProviderEntity = (input: {
+	readonly externalId: string;
+	readonly providerId: SandboxProviderId;
+	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
+}) => Effect.Effect<ProviderEntityImportEntry, ProviderAddLoadError>;
+
 export type ProviderEntityLinksInput = {
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalIds: readonly [string, ...string[]];
-	readonly relationshipSlug: string;
-	readonly librarySchemaSlug: string;
 };
 
 type ProviderSearchPanelProps = {
 	readonly onClose: () => void;
-	readonly onCreateCustom?: ((query: string) => void) | undefined;
-	readonly onImported: (entityId: EntityId) => void;
+	readonly relationshipSlug: string;
+	readonly librarySchemaSlug: string;
 	readonly uploadFile: SchemaFileUpload;
 	readonly uploadAsset: SchemaAssetUpload;
 	readonly renderAsset: SchemaAssetRenderer;
 	readonly providers: ProviderSummariesState;
 	readonly initialQuery?: string | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly relationshipSlug: string;
-	readonly librarySchemaSlug: string;
-	readonly selectedProviderId: SandboxProviderId | undefined;
+	readonly importEntity: ImportProviderEntity;
+	readonly onImported: (entityId: EntityId) => void;
+	readonly selectedProviderId: undefined | SandboxProviderId;
+	readonly onCreateCustom?: undefined | ((query: string) => void);
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
 	readonly searchOptionsQuery: RyotQuery<
 		SandboxProviderId,
@@ -112,14 +119,7 @@ type ProviderSearchPanelProps = {
 	readonly search: (
 		payload: SearchProviderEntitiesBody,
 	) => Effect.Effect<SearchProviderEntitiesResponse, ProviderAddLoadError>;
-	readonly importEntity: ImportProviderEntity;
 };
-
-export type ImportProviderEntity = (input: {
-	readonly externalId: string;
-	readonly providerId: SandboxProviderId;
-	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
-}) => Effect.Effect<ProviderEntityImportEntry, ProviderAddLoadError>;
 
 export const schemaFormIcons: SchemaFormIcons = {
 	close: <AppIcon name="x" size={14} />,
@@ -131,9 +131,13 @@ export const schemaFormIcons: SchemaFormIcons = {
 	chevron: <AppIcon size={15} name="chevron-down" />,
 };
 
-function StatusLine(props: { readonly text: string }) {
-	return <p className="text-sm text-text-muted">{props.text}</p>;
-}
+type ProviderSearchSessionProps = ProviderSearchPanelProps & {
+	readonly query: string;
+	readonly provider: ProviderSearchSummary;
+	readonly onQueryChange: (query: string) => void;
+	readonly importState: ProviderEntityImportState;
+	readonly importItem: (providerId: SandboxProviderId, externalId: string) => void;
+};
 
 export function Spinner(props: { readonly label: string; readonly className?: string }) {
 	return (
@@ -147,11 +151,27 @@ export function Spinner(props: { readonly label: string; readonly className?: st
 	);
 }
 
+export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
+	const available = props.providers.status === "ready" ? props.providers.providers : [];
+	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
+	const [query, setQuery] = useState(props.initialQuery ?? "");
+	const { importItem, importState } = useProviderEntityImports({
+		showImported: true,
+		onImported: props.onImported,
+		importEntity: props.importEntity,
+	});
+	const session = { ...props, query, importItem, importState, onQueryChange: setQuery };
+	if (selected === undefined) {
+		return <ProviderSearchLayout {...session} />;
+	}
+	return <ProviderSearchSession key={selected.providerId} {...session} provider={selected} />;
+}
+
 export function PanelFailure(props: {
-	readonly className?: string;
 	readonly error?: unknown;
-	readonly providerName?: string;
+	readonly className?: string;
 	readonly onRetry?: () => void;
+	readonly providerName?: string;
 }) {
 	const copy =
 		props.providerName === undefined
@@ -174,7 +194,7 @@ export function PanelFailure(props: {
 
 export function ProviderChips(props: {
 	readonly providers: readonly ProviderSearchSummary[];
-	readonly selectedProviderId: SandboxProviderId | undefined;
+	readonly selectedProviderId: undefined | SandboxProviderId;
 	readonly onSelect: (provider: ProviderSearchSummary) => void;
 }) {
 	const options = props.providers.map((provider) => ({
@@ -203,6 +223,75 @@ export function ProviderChips(props: {
 			/>
 		</div>
 	);
+}
+
+export function useExternalIdLookup<A>(input: {
+	readonly key: string;
+	readonly fallback: A;
+	readonly externalIds: readonly string[];
+	readonly load: (externalIds: readonly [string, ...string[]]) => Effect.Effect<A, unknown>;
+}) {
+	const [loaded, setLoaded] = useState<{ readonly value: A; readonly key: string }>();
+	const load = useEffectEvent((key: string, isActive: () => boolean) => {
+		if (input.externalIds.length === 0) {
+			return;
+		}
+		void Effect.runPromise(
+			input.load([input.externalIds[0], ...input.externalIds.slice(1)]).pipe(
+				Effect.orElseSucceed(() => input.fallback),
+				Effect.tap((value) =>
+					Effect.sync(() => {
+						if (isActive()) {
+							setLoaded({ key, value });
+						}
+					}),
+				),
+			),
+		);
+	});
+	useEffect(() => {
+		let active = true;
+		load(input.key, () => active);
+		return () => {
+			active = false;
+		};
+	}, [input.key]);
+	if (input.externalIds.length === 0) {
+		return input.fallback;
+	}
+	return loaded?.key === input.key ? loaded.value : undefined;
+}
+
+export function useProviderEntityImports(input: {
+	readonly showImported: boolean;
+	readonly importEntity: ImportProviderEntity;
+	readonly onImported: (entityId: EntityId) => void;
+}) {
+	const [importState, setImportState] = useState(createProviderEntityImportState);
+	const importItem = (providerId: SandboxProviderId, externalId: string) => {
+		const current = providerEntityImportEntry(importState, externalId).status;
+		if (current === "queued" || current === "importing") {
+			return;
+		}
+		const setEntry = (entry: ProviderEntityImportEntry) =>
+			setImportState((entries) => setProviderEntityImportEntry(entries, externalId, entry));
+		setEntry({ status: "importing" });
+		void Effect.runPromise(
+			input.importEntity({ externalId, providerId, onProgress: setEntry }).pipe(
+				Effect.tap((entry) =>
+					Effect.sync(() => {
+						if (entry.status === "imported") {
+							input.onImported(entry.entityId);
+						}
+						if (input.showImported || entry.status !== "imported") {
+							setEntry(entry);
+						}
+					}),
+				),
+			),
+		);
+	};
+	return { importItem, importState };
 }
 
 export function PickerSearchBar(props: {
@@ -268,87 +357,53 @@ export function PickerSearchBar(props: {
 	);
 }
 
-export function useProviderEntityImports(input: {
-	readonly showImported: boolean;
-	readonly importEntity: ImportProviderEntity;
-	readonly onImported: (entityId: EntityId) => void;
-}) {
-	const [importState, setImportState] = useState(createProviderEntityImportState);
-	const importItem = (providerId: SandboxProviderId, externalId: string) => {
-		const current = providerEntityImportEntry(importState, externalId).status;
-		if (current === "queued" || current === "importing") {
-			return;
-		}
-		const setEntry = (entry: ProviderEntityImportEntry) =>
-			setImportState((entries) => setProviderEntityImportEntry(entries, externalId, entry));
-		setEntry({ status: "importing" });
-		void Effect.runPromise(
-			input.importEntity({ externalId, providerId, onProgress: setEntry }).pipe(
-				Effect.tap((entry) =>
-					Effect.sync(() => {
-						if (entry.status === "imported") {
-							input.onImported(entry.entityId);
-						}
-						if (input.showImported || entry.status !== "imported") {
-							setEntry(entry);
-						}
-					}),
-				),
-			),
-		);
-	};
-	return { importItem, importState };
+function StatusLine(props: { readonly text: string }) {
+	return <p className="text-sm text-text-muted">{props.text}</p>;
 }
 
-export function useExternalIdLookup<A>(input: {
-	readonly key: string;
-	readonly fallback: A;
-	readonly externalIds: readonly string[];
-	readonly load: (externalIds: readonly [string, ...string[]]) => Effect.Effect<A, unknown>;
-}) {
-	const [loaded, setLoaded] = useState<{ readonly key: string; readonly value: A }>();
-	const load = useEffectEvent((key: string, isActive: () => boolean) => {
-		if (input.externalIds.length === 0) {
-			return;
-		}
-		void Effect.runPromise(
-			input.load([input.externalIds[0], ...input.externalIds.slice(1)]).pipe(
-				Effect.orElseSucceed(() => input.fallback),
-				Effect.tap((value) =>
-					Effect.sync(() => {
-						if (isActive()) {
-							setLoaded({ key, value });
-						}
-					}),
-				),
-			),
-		);
+function ProviderSearchSession(props: ProviderSearchSessionProps) {
+	return props.provider.searchOptionsSchema === null ? (
+		<ProviderSearchForm {...props} />
+	) : (
+		<ProviderSearchOptions {...props} />
+	);
+}
+
+function ProviderSearchOptions(props: ProviderSearchSessionProps) {
+	const options = useRyotQuery(props.searchOptionsQuery, props.provider.providerId, {
+		refreshOnMutation: false,
 	});
-	useEffect(() => {
-		let active = true;
-		load(input.key, () => active);
-		return () => {
-			active = false;
-		};
-	}, [input.key]);
-	if (input.externalIds.length === 0) {
-		return input.fallback;
+	if (!options.isSuccess || options.isFetching || options.data === undefined) {
+		return (
+			<ProviderSearchLayout {...props}>
+				{options.isError && !options.isFetching ? (
+					<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
+						<p className="text-sm text-text-muted">Could not load filters.</p>
+						<Button onClick={options.refetch} aria-label="Retry loading filters">
+							Retry
+						</Button>
+					</div>
+				) : (
+					<Spinner label="Loading filters" className="items-center py-2" />
+				)}
+			</ProviderSearchLayout>
+		);
 	}
-	return loaded?.key === input.key ? loaded.value : undefined;
+	return <ProviderSearchForm {...props} optionsSchema={options.data.schema ?? undefined} />;
 }
 
 function ProviderSearchResultList(props: {
-	readonly providerId: SandboxProviderId;
-	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly relationshipSlug: string;
 	readonly librarySchemaSlug: string;
+	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 	readonly items: readonly ProviderSearchResultItem[];
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
 }) {
 	const externalIds = props.items.map((item) => item.externalId);
-	const links = useExternalIdLookup<ProviderEntityLinks | undefined>({
+	const links = useExternalIdLookup<undefined | ProviderEntityLinks>({
 		externalIds,
 		fallback: undefined,
 		key: JSON.stringify([
@@ -384,21 +439,21 @@ function ProviderSearchResultList(props: {
 }
 
 function ProviderSearchResults(props: {
-	readonly onLoadMore: () => void;
-	readonly onRetry: () => void;
 	readonly query: string;
-	readonly items: readonly ProviderSearchResultItem[];
 	readonly hasMore: boolean;
+	readonly onRetry: () => void;
 	readonly isFetching: boolean;
-	readonly isFetchingNextPage: boolean;
 	readonly isRefreshing: boolean;
-	readonly errorOperation: "initial" | "refresh" | "append" | null;
-	readonly providerId: SandboxProviderId;
-	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly onLoadMore: () => void;
 	readonly relationshipSlug: string;
 	readonly librarySchemaSlug: string;
+	readonly isFetchingNextPage: boolean;
+	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
+	readonly items: readonly ProviderSearchResultItem[];
+	readonly errorOperation: null | "append" | "initial" | "refresh";
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
 }) {
 	const renderPaginationAction = () => {
@@ -454,64 +509,92 @@ function ProviderSearchResults(props: {
 	);
 }
 
-export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
-	const available = props.providers.status === "ready" ? props.providers.providers : [];
-	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
-	const [query, setQuery] = useState(props.initialQuery ?? "");
-	const { importItem, importState } = useProviderEntityImports({
-		showImported: true,
-		onImported: props.onImported,
-		importEntity: props.importEntity,
-	});
-	const session = { ...props, query, importItem, importState, onQueryChange: setQuery };
-	if (selected === undefined) {
-		return <ProviderSearchLayout {...session} />;
-	}
-	return <ProviderSearchSession key={selected.providerId} {...session} provider={selected} />;
-}
-
-type ProviderSearchSessionProps = ProviderSearchPanelProps & {
-	readonly query: string;
-	readonly onQueryChange: (query: string) => void;
-	readonly provider: ProviderSearchSummary;
-	readonly importItem: (providerId: SandboxProviderId, externalId: string) => void;
-	readonly importState: ProviderEntityImportState;
-};
-
-function ProviderSearchSession(props: ProviderSearchSessionProps) {
-	return props.provider.searchOptionsSchema === null ? (
-		<ProviderSearchForm {...props} />
-	) : (
-		<ProviderSearchOptions {...props} />
-	);
-}
-
-function ProviderSearchOptions(props: ProviderSearchSessionProps) {
-	const options = useRyotQuery(props.searchOptionsQuery, props.provider.providerId, {
-		refreshOnMutation: false,
-	});
-	if (!options.isSuccess || options.isFetching || options.data === undefined) {
-		return (
-			<ProviderSearchLayout {...props}>
-				{options.isError && !options.isFetching ? (
-					<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
-						<p className="text-sm text-text-muted">Could not load filters.</p>
-						<Button onClick={options.refetch} aria-label="Retry loading filters">
-							Retry
-						</Button>
-					</div>
-				) : (
-					<Spinner label="Loading filters" className="items-center py-2" />
+function ProviderSearchLayout(
+	props: ProviderSearchPanelProps & {
+		readonly query: string;
+		readonly onEnter?: () => void;
+		readonly children?: ReactNode;
+		readonly fields?: SchemaFormValues;
+		readonly provider?: ProviderSearchSummary;
+		readonly onQueryChange: (query: string) => void;
+	},
+) {
+	const timer = useRef<undefined | ReturnType<typeof setTimeout>>(undefined);
+	const submit = useEffectEvent(() => props.onEnter?.());
+	const searchKey =
+		props.onEnter === undefined || props.query.trim() === ""
+			? undefined
+			: JSON.stringify([props.query, props.fields]);
+	useEffect(() => {
+		if (searchKey === undefined) {
+			return undefined;
+		}
+		const scheduled = setTimeout(() => {
+			timer.current = undefined;
+			submit();
+		}, SEARCH_DEBOUNCE_MS);
+		timer.current = scheduled;
+		return () => {
+			clearTimeout(scheduled);
+			if (timer.current === scheduled) {
+				timer.current = undefined;
+			}
+		};
+	}, [searchKey]);
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div className="grid gap-3 p-4 pb-3">
+				<PickerSearchBar
+					query={props.query}
+					onClose={props.onClose}
+					label="Search providers"
+					onChange={props.onQueryChange}
+					onEnter={() => {
+						if (timer.current !== undefined) {
+							clearTimeout(timer.current);
+							timer.current = undefined;
+						}
+						props.onEnter?.();
+					}}
+				/>
+				{Match.value(props.providers).pipe(
+					Match.when({ status: "loading" }, () => (
+						<Spinner label="Loading providers" className="min-h-32 items-center" />
+					)),
+					Match.when({ status: "failed" }, () => <PanelFailure className="min-h-32" />),
+					Match.when({ status: "ready" }, (ready) =>
+						ready.providers.length === 0 ? (
+							<StatusLine text="No providers are configured for this item type." />
+						) : (
+							<ProviderChips
+								providers={ready.providers}
+								selectedProviderId={props.provider?.providerId}
+								onSelect={(provider) => props.onSelectProvider(provider.providerId)}
+							/>
+						),
+					),
+					Match.exhaustive,
 				)}
-			</ProviderSearchLayout>
-		);
-	}
-	return <ProviderSearchForm {...props} optionsSchema={options.data.schema ?? undefined} />;
+			</div>
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+				<div className="grid gap-3">{props.children}</div>
+			</div>
+			{props.onCreateCustom === undefined ? null : (
+				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+					<p className="text-sm text-text-muted">Can't find it?</p>
+					<Button variant="secondary" onClick={() => props.onCreateCustom?.(props.query.trim())}>
+						<AppIcon size={15} name="plus" />
+						Create custom
+					</Button>
+				</div>
+			)}
+		</div>
+	);
 }
 
 function ProviderSearchForm(
 	props: ProviderSearchSessionProps & {
-		readonly optionsSchema?: SearchProviderOptionsResponse["schema"] | undefined;
+		readonly optionsSchema?: undefined | SearchProviderOptionsResponse["schema"];
 	},
 ) {
 	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -668,88 +751,5 @@ function ProviderSearchForm(
 				);
 			}}
 		</optionsForm.Subscribe>
-	);
-}
-
-function ProviderSearchLayout(
-	props: ProviderSearchPanelProps & {
-		readonly query: string;
-		readonly onQueryChange: (query: string) => void;
-		readonly provider?: ProviderSearchSummary;
-		readonly onEnter?: () => void;
-		readonly fields?: SchemaFormValues;
-		readonly children?: ReactNode;
-	},
-) {
-	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	const submit = useEffectEvent(() => props.onEnter?.());
-	const searchKey =
-		props.onEnter === undefined || props.query.trim() === ""
-			? undefined
-			: JSON.stringify([props.query, props.fields]);
-	useEffect(() => {
-		if (searchKey === undefined) {
-			return undefined;
-		}
-		const scheduled = setTimeout(() => {
-			timer.current = undefined;
-			submit();
-		}, SEARCH_DEBOUNCE_MS);
-		timer.current = scheduled;
-		return () => {
-			clearTimeout(scheduled);
-			if (timer.current === scheduled) {
-				timer.current = undefined;
-			}
-		};
-	}, [searchKey]);
-	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="grid gap-3 p-4 pb-3">
-				<PickerSearchBar
-					query={props.query}
-					onClose={props.onClose}
-					label="Search providers"
-					onChange={props.onQueryChange}
-					onEnter={() => {
-						if (timer.current !== undefined) {
-							clearTimeout(timer.current);
-							timer.current = undefined;
-						}
-						props.onEnter?.();
-					}}
-				/>
-				{Match.value(props.providers).pipe(
-					Match.when({ status: "loading" }, () => (
-						<Spinner label="Loading providers" className="min-h-32 items-center" />
-					)),
-					Match.when({ status: "failed" }, () => <PanelFailure className="min-h-32" />),
-					Match.when({ status: "ready" }, (ready) =>
-						ready.providers.length === 0 ? (
-							<StatusLine text="No providers are configured for this item type." />
-						) : (
-							<ProviderChips
-								providers={ready.providers}
-								selectedProviderId={props.provider?.providerId}
-								onSelect={(provider) => props.onSelectProvider(provider.providerId)}
-							/>
-						),
-					),
-					Match.exhaustive,
-				)}
-			</div>
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-				<div className="grid gap-3">{props.children}</div>
-			</div>
-			{props.onCreateCustom === undefined ? null : (
-				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-					<p className="text-sm text-text-muted">Can't find it?</p>
-					<Button variant="secondary" onClick={() => props.onCreateCustom?.(props.query.trim())}>
-						<AppIcon size={15} name="plus" />
-						Create custom
-					</Button>
-				</div>
-			)}
-		</div>
 	);
 }

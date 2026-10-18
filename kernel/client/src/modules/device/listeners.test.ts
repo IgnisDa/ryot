@@ -7,8 +7,8 @@ import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
-type NativeListener = "action" | "received" | "app";
-type Step = NativeListener | "state";
+type Step = "state" | NativeListener;
+type NativeListener = "app" | "action" | "received";
 
 const harness = (
 	options: {
@@ -16,9 +16,9 @@ const harness = (
 		blocked?: Step;
 		native?: boolean;
 		active?: boolean;
-		visibility?: DocumentVisibilityState;
 		removeFailure?: NativeListener;
 		blockedRemoval?: NativeListener;
+		visibility?: DocumentVisibilityState;
 	} = {},
 ) => {
 	const acquired: string[] = [];
@@ -34,7 +34,7 @@ const harness = (
 	let blocked = options.blocked;
 	let blockedRemoval = options.blockedRemoval;
 	let visibility = options.visibility ?? "visible";
-	let releaseHandle: (() => void) | undefined;
+	let releaseHandle: undefined | (() => void);
 	const register = (name: NativeListener) => {
 		if (failure === name) {
 			return Promise.reject(new Error(name));

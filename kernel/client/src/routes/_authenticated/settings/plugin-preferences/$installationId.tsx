@@ -31,7 +31,7 @@ import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 
 type PluginUserSetting = PluginUserSettingsPage["items"][number];
-type EditorStatus = "saved" | "save-failed" | "reset" | "reset-failed";
+type EditorStatus = "saved" | "reset" | "save-failed" | "reset-failed";
 
 const initialPluginUserSettingsFormValues = (setting: PluginUserSetting): SchemaFormValues =>
 	initialSchemaFormValues(setting.settingsSchema, undefined, setting.settings);
@@ -73,8 +73,8 @@ function PluginUserSettingsRoute() {
 }
 
 function PluginUserSettingsEditor(props: {
-	readonly setting: PluginUserSetting;
 	readonly disabled: boolean;
+	readonly setting: PluginUserSetting;
 }) {
 	const { backInterceptors } = Route.useRouteContext();
 	const uploadFile = useSchemaFileUpload();

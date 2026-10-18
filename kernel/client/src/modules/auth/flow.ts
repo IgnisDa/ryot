@@ -13,5 +13,5 @@ export const isTwoFactorRedirect = (
 	"twoFactorRedirect" in data &&
 	data.twoFactorRedirect === true;
 
-export const availableTwoFactorMethods = (configured: readonly string[] | undefined) =>
+export const availableTwoFactorMethods = (configured: undefined | readonly string[]) =>
 	configured?.includes("totp") ? (["totp", "backupCode"] as const) : (["backupCode"] as const);

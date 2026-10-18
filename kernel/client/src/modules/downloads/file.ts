@@ -4,7 +4,7 @@ import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
-export type FileDownloadRequest = Pick<DownloadFileOptions, "url"> & { readonly fileName: string };
+export type FileDownloadRequest = { readonly fileName: string } & Pick<DownloadFileOptions, "url">;
 
 export class FileDownloadError extends Data.TaggedError("FileDownloadError")<{
 	readonly cause: unknown;
@@ -21,11 +21,11 @@ const nativeError = (cause: unknown) => {
 };
 
 export const makeNativeFileDownload = (ports: {
-	readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
-	readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
-	readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
-	readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
 	readonly remove: (path: string) => Effect.Effect<void>;
+	readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
+	readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
+	readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
+	readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
 }) =>
 	Effect.fn("NativeFileDownload")(function* (request: FileDownloadRequest) {
 		const directory = `ryot-download-${crypto.randomUUID()}`;

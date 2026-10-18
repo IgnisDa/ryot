@@ -7,11 +7,11 @@ import {
 } from "#/modules/integrations/oauth-return";
 
 const makeHistory = () => {
-	const replaced: { readonly state: unknown; readonly url: string }[] = [];
+	const replaced: { readonly url: string; readonly state: unknown }[] = [];
 	const state: unknown = { key: "entry-1", __TSR_index: 0 };
 	const history = {
 		state,
-		replaceState: (next: unknown, _unused: string, url?: string | URL | null) => {
+		replaceState: (next: unknown, _unused: string, url?: URL | null | string) => {
 			replaced.push({ state: next, url: String(url) });
 		},
 	};

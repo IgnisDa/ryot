@@ -7,19 +7,19 @@ import {
 
 export type FieldDraft = {
 	readonly id: string;
-	readonly key?: string | undefined;
 	readonly label: string;
-	readonly type: CollectionFieldType;
+	readonly choices: string;
 	readonly required: boolean;
 	readonly description: string;
-	readonly choices: string;
 	readonly defaultValue: string;
+	readonly key?: string | undefined;
+	readonly type: CollectionFieldType;
 	readonly storedDefault?: CollectionField["defaultValue"];
 };
 
 export const fieldTypeChoices: ReadonlyArray<{
-	readonly value: CollectionFieldType;
 	readonly label: string;
+	readonly value: CollectionFieldType;
 }> = [
 	{ value: "text", label: "Text" },
 	{ value: "number", label: "Number" },

@@ -9,27 +9,27 @@ import type { OAuthTokenError } from "#/modules/auth/token-service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
 
-export type AuthSessionSnapshot =
-	| { readonly status: "pending" }
-	| { readonly status: "missing" }
-	| {
-			readonly status: "authenticated";
-			readonly accessClass: AccessClass;
-			readonly user: {
-				readonly id: string;
-				readonly name: string;
-				readonly email: string;
-				readonly image: string | null;
-			};
-			readonly impersonation?: ImpersonationSession;
-	  };
-
 export type SettledAuthSession = Exclude<AuthSessionSnapshot, { readonly status: "pending" }>;
 
 export type AuthSessionStore = {
 	readonly getSnapshot: () => AuthSessionSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
 };
+
+export type AuthSessionSnapshot =
+	| { readonly status: "pending" }
+	| { readonly status: "missing" }
+	| {
+			readonly status: "authenticated";
+			readonly accessClass: AccessClass;
+			readonly impersonation?: ImpersonationSession;
+			readonly user: {
+				readonly id: string;
+				readonly name: string;
+				readonly email: string;
+				readonly image: null | string;
+			};
+	  };
 
 export const toAuthSessionState = (session: SettledAuthSession) =>
 	session.status === "authenticated"
@@ -135,7 +135,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			return true;
 		});
 		const changeServer = Effect.fn("AuthService.changeServer")(function* (
-			origin: ServerOrigin | null,
+			origin: null | ServerOrigin,
 		) {
 			if (origin) {
 				yield* clearSession(origin);

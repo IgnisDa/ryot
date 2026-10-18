@@ -14,6 +14,15 @@ const toneClassName: Record<RunStatusTone, string> = {
 	muted: "text-text-muted",
 };
 
+export function RunStatusGlyph(props: { readonly status: PresentedRunStatus }) {
+	const pill = runStatusPill(props.status);
+	return (
+		<span role="img" className="shrink-0" aria-label={pill.label}>
+			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />
+		</span>
+	);
+}
+
 export function RunStatusPill(props: { readonly status: PresentedRunStatus }) {
 	const pill = runStatusPill(props.status);
 	return (
@@ -22,15 +31,6 @@ export function RunStatusPill(props: { readonly status: PresentedRunStatus }) {
 			<span className={clsx("text-[11px] font-medium", toneClassName[pill.tone])}>
 				{pill.label}
 			</span>
-		</span>
-	);
-}
-
-export function RunStatusGlyph(props: { readonly status: PresentedRunStatus }) {
-	const pill = runStatusPill(props.status);
-	return (
-		<span role="img" className="shrink-0" aria-label={pill.label}>
-			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />
 		</span>
 	);
 }

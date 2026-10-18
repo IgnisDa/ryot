@@ -37,10 +37,19 @@ type Step =
 	| { readonly kind: "finished" }
 	| { readonly kind: "manage"; readonly enabled: boolean; readonly password: string }
 	| {
-			readonly kind: "challenge";
 			readonly password: string;
+			readonly kind: "challenge";
 			readonly methods: readonly TwoFactorMethod[];
 	  };
+
+function OAuthTwoFactorFrame(props: { readonly children: ReactNode }) {
+	usePageTitle("Two-factor authentication");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			{props.children}
+		</main>
+	);
+}
 
 function OAuthTwoFactorUnavailable() {
 	const router = useRouter();
@@ -188,14 +197,5 @@ function OAuthTwoFactor() {
 				)}
 			</section>
 		</OAuthTwoFactorFrame>
-	);
-}
-
-function OAuthTwoFactorFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Two-factor authentication");
-	return (
-		<main {...mainContentProps} className="ui-page">
-			{props.children}
-		</main>
 	);
 }

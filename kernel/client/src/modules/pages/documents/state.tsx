@@ -37,12 +37,12 @@ export type ClientPageDocument = {
 const cancelled = Effect.succeed({ kind: "cancelled" as const });
 
 type ClientPageDocumentState = {
-	readonly document: ClientPageDocument | null;
 	readonly clear: () => void;
+	readonly document: null | ClientPageDocument;
 	readonly publish: (document: ClientPageDocument) => void;
 };
 
-const ClientPageDocumentContext = createContext<ClientPageDocumentState | undefined>(undefined);
+const ClientPageDocumentContext = createContext<undefined | ClientPageDocumentState>(undefined);
 
 const useDocumentState = () => {
 	const state = useContext(ClientPageDocumentContext);
@@ -52,8 +52,13 @@ const useDocumentState = () => {
 	return state;
 };
 
+export function useClearClientPageDocument() {
+	const { clear } = useDocumentState();
+	useLayoutEffect(() => clear(), [clear]);
+}
+
 export function ClientPageDocumentProvider(props: { readonly children: ReactNode }) {
-	const [document, setDocument] = useState<ClientPageDocument | null>(null);
+	const [document, setDocument] = useState<null | ClientPageDocument>(null);
 	const clear = useCallback(() => setDocument(null), []);
 	const state = useMemo<ClientPageDocumentState>(
 		() => ({ clear, document, publish: setDocument }),
@@ -80,11 +85,6 @@ export function useClientPageDocument(document: ClientPageDocument) {
 		[document.inert, document.prepared, document.title],
 	);
 	useLayoutEffect(() => publish(published), [publish, published]);
-}
-
-export function useClearClientPageDocument() {
-	const { clear } = useDocumentState();
-	useLayoutEffect(() => clear(), [clear]);
 }
 
 export const usePublishedClientPageDocument = () => useDocumentState().document;

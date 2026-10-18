@@ -44,8 +44,8 @@ const mountView = (
 	initialEntry: string,
 	saves: SavedPlan[] = [],
 	options: {
-		readonly auth?: Layer.Layer<AuthService>;
 		readonly catalog?: typeof catalog;
+		readonly auth?: Layer.Layer<AuthService>;
 		readonly storage?: ClientStorage["Service"];
 	} = {},
 ) => {

@@ -6,19 +6,19 @@ import { renderSVG } from "uqr";
 
 import type { HostedAuthService } from "#/modules/auth/hosted-service";
 
+type TwoFactorEnrollment = Effect.Success<ReturnType<TwoFactorActions["enableTwoFactor"]>>;
+
 type TwoFactorActions = Pick<
 	HostedAuthService["Service"],
 	"enableTwoFactor" | "confirmTwoFactor" | "disableTwoFactor" | "regenerateBackupCodes"
 >;
 
-type TwoFactorEnrollment = Effect.Success<ReturnType<TwoFactorActions["enableTwoFactor"]>>;
-
 type ManagementView =
 	| { readonly kind: "overview" }
 	| { readonly kind: "turned-off" }
 	| { readonly kind: "enroll"; readonly enrollment: TwoFactorEnrollment }
-	| { readonly kind: "confirm"; readonly action: "regenerate" | "disable" }
-	| { readonly kind: "backup-codes"; readonly message: string; readonly codes: readonly string[] };
+	| { readonly kind: "confirm"; readonly action: "disable" | "regenerate" }
+	| { readonly message: string; readonly kind: "backup-codes"; readonly codes: readonly string[] };
 
 const errorVisibility = createErrorVisibility(
 	({ state, fieldState }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
@@ -77,7 +77,7 @@ export function TwoFactorManagement(props: {
 		);
 	}
 
-	function confirmAction(action: "regenerate" | "disable") {
+	function confirmAction(action: "disable" | "regenerate") {
 		if (action === "disable") {
 			return props.actions.disableTwoFactor(props.password).pipe(
 				Effect.match({

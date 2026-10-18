@@ -39,7 +39,7 @@ const permanentUploadOutcome = (uploadScope: typeof scope) =>
 const withUploads = <A>(
 	overrides: Parameters<typeof makeUploadsApi>[0],
 	body: (
-		run: <B, E>(effect: Effect.Effect<B, E, UploadsApi | Uploads>) => Promise<B>,
+		run: <B, E>(effect: Effect.Effect<B, E, Uploads | UploadsApi>) => Promise<B>,
 	) => Promise<A>,
 ) => {
 	const runtime = ManagedRuntime.make(makeUploadsApi(overrides));

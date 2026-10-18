@@ -1,7 +1,7 @@
 import { Deferred, Effect } from "effect";
 
 export const makeSingleFlight = <A, E>() => {
-	let pending: Deferred.Deferred<A, E> | undefined;
+	let pending: undefined | Deferred.Deferred<A, E>;
 	return Effect.fnUntraced(function* (compute: Effect.Effect<A, E>) {
 		const deferred = yield* Effect.uninterruptible(
 			Effect.gen(function* () {

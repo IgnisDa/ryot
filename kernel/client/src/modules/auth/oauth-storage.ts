@@ -14,17 +14,17 @@ const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 const OAUTH_PENDING_PREFIX = "ryot:oauth:pending:";
 const OAUTH_TOKEN_PREFIX = "ryot:oauth:tokens:";
 
-export class OAuthStorageError extends Data.TaggedError("OAuthStorageError")<{
-	readonly reason: "read-failed" | "write-failed";
-	readonly cause?: unknown;
-}> {}
-
 export type OAuthStorageAdapter = {
 	readonly keys: Effect.Effect<readonly string[], OAuthStorageError>;
 	readonly removeItem: (key: string) => Effect.Effect<void, OAuthStorageError>;
-	readonly getItem: (key: string) => Effect.Effect<string | null, OAuthStorageError>;
+	readonly getItem: (key: string) => Effect.Effect<null | string, OAuthStorageError>;
 	readonly setItem: (key: string, value: string) => Effect.Effect<void, OAuthStorageError>;
 };
+
+export class OAuthStorageError extends Data.TaggedError("OAuthStorageError")<{
+	readonly cause?: unknown;
+	readonly reason: "read-failed" | "write-failed";
+}> {}
 
 export const oauthPendingKey = (origin: string, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
@@ -190,21 +190,21 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 export class OAuthStorage extends Context.Service<
 	OAuthStorage,
 	{
-		readonly removePending: (origin: ServerOrigin, state: string) => Effect.Effect<void>;
 		readonly clearPending: (origin: ServerOrigin) => Effect.Effect<void>;
+		readonly removePending: (origin: ServerOrigin, state: string) => Effect.Effect<void>;
 		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void, OAuthStorageError>;
-		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
+		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<null | StoredTokenSetValue>;
 		readonly setPending: (
 			pending: PendingAuthorizationValue,
 		) => Effect.Effect<void, OAuthStorageError>;
 		readonly getPending: (
 			origin: ServerOrigin,
 			state: string,
-		) => Effect.Effect<PendingAuthorizationValue | null>;
+		) => Effect.Effect<null | PendingAuthorizationValue>;
 		readonly takePending: (
 			origin: ServerOrigin,
 			state: string,
-		) => Effect.Effect<PendingAuthorizationValue | null>;
+		) => Effect.Effect<null | PendingAuthorizationValue>;
 		readonly setTokenSet: (
 			origin: ServerOrigin,
 			tokenSet: StoredTokenSetValue,

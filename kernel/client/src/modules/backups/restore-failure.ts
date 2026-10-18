@@ -9,7 +9,7 @@ export type BackupRestoreStep = (typeof BACKUP_RESTORE_STEPS)[number];
 
 export type BackupRestoreFailure = {
 	readonly detail: string;
-	readonly step: BackupRestoreStep | undefined;
+	readonly step: undefined | BackupRestoreStep;
 };
 
 const fallback = {

@@ -80,7 +80,7 @@ const makeView = (
 
 describe("plugin catalog provider", () => {
 	it.live("reconciles on stream connection and on subsequent invalidation", () => {
-		let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+		let controller: undefined | ReadableStreamDefaultController<Uint8Array>;
 		let loads = 0;
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(

@@ -7,7 +7,7 @@ type StatusStateProps = {
 	readonly icon?: ReactNode;
 	readonly action?: ReactNode;
 	readonly className?: string;
-	readonly detailTone?: "default" | "danger";
+	readonly detailTone?: "danger" | "default";
 };
 
 export function StatusState(props: StatusStateProps) {

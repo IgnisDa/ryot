@@ -43,14 +43,14 @@ const authenticated = (accessClass: AccessClass) => ({
 
 const mountDemo = (
 	options: {
-		readonly accessClass?: AccessClass;
-		readonly failHosted?: boolean;
-		readonly mode?: "demo" | "standard";
 		readonly native?: boolean;
+		readonly failHosted?: boolean;
+		readonly accessClass?: AccessClass;
+		readonly mode?: "demo" | "standard";
 	} = {},
 ) => {
 	let hostedCalls = 0;
-	const prepared: Array<ExplicitOAuthClientDescriptor | undefined> = [];
+	const prepared: Array<undefined | ExplicitOAuthClientDescriptor> = [];
 	const launched: OAuthLaunchPlan[] = [];
 	const oauth = makeOAuthRouteStubs(
 		{},

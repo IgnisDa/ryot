@@ -2,18 +2,18 @@ import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/na
 
 import { savedViewHref } from "#/modules/plugins/catalog/location";
 
-type NavigationCollection = NavigationData["collections"][number];
+export type SidebarItem = SidebarEntry | (NavigationCollection & { readonly kind: "home" });
 
 export type SidebarEntry =
 	| (NavigationView & { readonly kind: "view" })
 	| (NavigationCollection & { readonly kind: "collection" });
-export type SidebarItem = SidebarEntry | (NavigationCollection & { readonly kind: "home" });
-
 export type SidebarSections = {
 	readonly views: readonly SidebarItem[];
 	readonly savedViews: readonly SidebarEntry[];
 	readonly collections: readonly SidebarEntry[];
 };
+
+type NavigationCollection = NavigationData["collections"][number];
 
 const homeItem = {
 	name: "Home",

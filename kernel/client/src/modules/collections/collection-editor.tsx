@@ -77,9 +77,9 @@ const saveCollection = createRyotMutation<
 
 const deleteCollection = createRyotMutation<
 	{
+		readonly onDeleted: () => void;
 		readonly collectionId: EntityId;
 		readonly invalidate: () => Promise<void>;
-		readonly onDeleted: () => void;
 	},
 	void,
 	KernelHostServices,
@@ -158,13 +158,48 @@ const editorErrors = (error: unknown): EditorErrors => {
 	return { ...noErrors, general: "The collection could not be saved. Check the fields." };
 };
 
+export function CollectionEditor(props: {
+	readonly onClose: () => void;
+	readonly onDeleted: () => void;
+	readonly initialName?: string | undefined;
+	readonly collectionId?: EntityId | undefined;
+	readonly onSaved: (collectionId: EntityId) => void;
+}) {
+	if (props.collectionId === undefined) {
+		return <CollectionEditorForm {...props} header={null} initialName={props.initialName ?? ""} />;
+	}
+	return <ExistingCollectionEditor {...props} collectionId={props.collectionId} />;
+}
+
+function ExistingCollectionEditor(props: {
+	readonly onClose: () => void;
+	readonly onDeleted: () => void;
+	readonly collectionId: EntityId;
+	readonly onSaved: (collectionId: EntityId) => void;
+}) {
+	const result = useRyotQuery(collectionHeader, props.collectionId, { refreshOnMutation: false });
+	if (result.data) {
+		return <CollectionEditorForm {...props} initialName="" header={result.data} />;
+	}
+	return (
+		<CollectionLoadDialog
+			title="Edit collection"
+			onClose={props.onClose}
+			failed={result.isError}
+			onRetry={result.refetch}
+			missing={result.data === null}
+			closeLabel="Close collection editor"
+		/>
+	);
+}
+
 function FieldDraftEditor(props: {
 	readonly index: number;
 	readonly draft: FieldDraft;
 	readonly disabled: boolean;
+	readonly onRemove: () => void;
 	readonly errors: ReadonlyArray<string>;
 	readonly onChange: (draft: FieldDraft) => void;
-	readonly onRemove: () => void;
 }) {
 	const { draft } = props;
 	const update = (change: Partial<FieldDraft>) => props.onChange({ ...draft, ...change });
@@ -271,11 +306,11 @@ function FieldDraftEditor(props: {
 }
 
 function CollectionEditorForm(props: {
-	readonly header: NonNullable<CollectionHeaderResult> | null;
 	readonly initialName: string;
 	readonly onClose: () => void;
-	readonly onSaved: (collectionId: EntityId) => void;
 	readonly onDeleted: () => void;
+	readonly onSaved: (collectionId: EntityId) => void;
+	readonly header: null | NonNullable<CollectionHeaderResult>;
 }) {
 	const { header } = props;
 	const router = useRouter();
@@ -456,40 +491,5 @@ function CollectionEditorForm(props: {
 				/>
 			) : null}
 		</Dialog>
-	);
-}
-
-export function CollectionEditor(props: {
-	readonly collectionId?: EntityId | undefined;
-	readonly initialName?: string | undefined;
-	readonly onClose: () => void;
-	readonly onSaved: (collectionId: EntityId) => void;
-	readonly onDeleted: () => void;
-}) {
-	if (props.collectionId === undefined) {
-		return <CollectionEditorForm {...props} header={null} initialName={props.initialName ?? ""} />;
-	}
-	return <ExistingCollectionEditor {...props} collectionId={props.collectionId} />;
-}
-
-function ExistingCollectionEditor(props: {
-	readonly collectionId: EntityId;
-	readonly onClose: () => void;
-	readonly onSaved: (collectionId: EntityId) => void;
-	readonly onDeleted: () => void;
-}) {
-	const result = useRyotQuery(collectionHeader, props.collectionId, { refreshOnMutation: false });
-	if (result.data) {
-		return <CollectionEditorForm {...props} initialName="" header={result.data} />;
-	}
-	return (
-		<CollectionLoadDialog
-			title="Edit collection"
-			onClose={props.onClose}
-			failed={result.isError}
-			onRetry={result.refetch}
-			missing={result.data === null}
-			closeLabel="Close collection editor"
-		/>
 	);
 }

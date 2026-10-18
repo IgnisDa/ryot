@@ -59,8 +59,8 @@ const membershipTarget = createRyotQuery(
 		input,
 		client,
 	}: {
-		readonly input: { readonly entityId: EntityId };
 		readonly client: RyotClient;
+		readonly input: { readonly entityId: EntityId };
 	}) => client.data.query(collectionMembershipTargetRecipe(input)),
 );
 
@@ -69,13 +69,13 @@ const collectionOptions = createRyotQuery(
 		input,
 		client,
 	}: {
-		readonly input: Parameters<typeof collectionPickerRecipe>[0];
 		readonly client: RyotClient;
+		readonly input: Parameters<typeof collectionPickerRecipe>[0];
 	}) => client.data.query(collectionPickerRecipe(input)),
 );
 
 const membershipDetails = createRyotQuery(
-	({ input, client }: { readonly input: MembershipTarget; readonly client: RyotClient }) =>
+	({ input, client }: { readonly client: RyotClient; readonly input: MembershipTarget }) =>
 		Effect.all(
 			{
 				membership: client.data.query(collectionMembershipRecipe(input)),
@@ -91,21 +91,132 @@ const upsertMembership = createRyotMutation(
 		input,
 		client,
 	}: {
-		readonly input: Parameters<RyotClient["collections"]["upsertMembership"]>[0];
 		readonly client: RyotClient;
+		readonly input: Parameters<RyotClient["collections"]["upsertMembership"]>[0];
 	}) => client.collections.upsertMembership(input),
 );
 
 const removeMembership = createRyotMutation(
-	({ input, client }: { readonly input: MembershipTarget; readonly client: RyotClient }) =>
+	({ input, client }: { readonly client: RyotClient; readonly input: MembershipTarget }) =>
 		client.collections.removeMembership(input),
 );
 
 const emptyMembershipSchema = { fields: {} };
 
-function CollectionOptions(props: {
+type AddView =
+	| { readonly kind: "pick" }
+	| { readonly name: string; readonly kind: "create" }
+	| { readonly kind: "membership"; readonly collectionId: EntityId };
+
+export function AddToCollection(props: {
 	readonly entityId: EntityId;
+	readonly onClose: () => void;
+	readonly onSaved: () => void;
+	readonly onRemoved: () => void;
+	readonly collectionId?: EntityId | undefined;
+}) {
+	const [search, setSearch] = useState("");
+	const target = useRyotQuery(membershipTarget, { entityId: props.entityId });
+	const outcome = useRef<AddToCollectionOutcome["kind"]>("cancelled");
+	const [view, setView] = useState<AddView>(
+		props.collectionId === undefined
+			? { kind: "pick" }
+			: { kind: "membership", collectionId: props.collectionId },
+	);
+	const returnToCollections = () => setView({ kind: "pick" });
+	const close = () => {
+		if (outcome.current === "saved") {
+			props.onSaved();
+		} else if (outcome.current === "removed") {
+			props.onRemoved();
+		} else {
+			props.onClose();
+		}
+	};
+	if (view.kind === "membership") {
+		return (
+			<SelectedCollection
+				onClose={returnToCollections}
+				target={{ entityId: props.entityId, collectionId: view.collectionId }}
+				onSaved={() => {
+					outcome.current = "saved";
+					returnToCollections();
+				}}
+				onRemoved={() => {
+					outcome.current = "removed";
+					returnToCollections();
+				}}
+			/>
+		);
+	}
+	if (view.kind === "create") {
+		return (
+			<CollectionEditor
+				initialName={view.name}
+				onClose={returnToCollections}
+				onDeleted={returnToCollections}
+				onSaved={(collectionId) => setView({ collectionId, kind: "membership" })}
+			/>
+		);
+	}
+	const query = search.trim();
+	return (
+		<Dialog
+			onClose={close}
+			closeLabel="Close collections"
+			footer={<Button onClick={close}>Done</Button>}
+			title={target.data ? `Collections for ${target.data.name}` : "Collections"}
+		>
+			<div className="grid gap-3">
+				<Field label="Search collections">
+					{(control) => (
+						<TextField
+							{...control}
+							value={search}
+							onChange={(event) => setSearch(event.target.value)}
+						/>
+					)}
+				</Field>
+				<Button variant="secondary" onClick={() => setView({ name: query, kind: "create" })}>
+					{query === "" ? "New collection" : `Create “${query}” and add`}
+				</Button>
+				<CollectionOptions
+					key={search}
+					search={search}
+					entityId={props.entityId}
+					onSelect={(option) => setView({ kind: "membership", collectionId: option.id })}
+				/>
+			</div>
+		</Dialog>
+	);
+}
+
+function SelectedCollection(props: {
+	readonly onClose: () => void;
+	readonly onSaved: () => void;
+	readonly onRemoved: () => void;
+	readonly target: MembershipTarget;
+}) {
+	const result = useRyotQuery(membershipDetails, props.target, { refreshOnMutation: false });
+	const header = result.data?.header;
+	if (result.data && header) {
+		return <MembershipForm {...props} header={header} membership={result.data.membership} />;
+	}
+	return (
+		<CollectionLoadDialog
+			title="Collection"
+			onClose={props.onClose}
+			failed={result.isError}
+			onRetry={result.refetch}
+			missing={result.data !== undefined}
+			closeLabel="Close collection membership"
+		/>
+	);
+}
+
+function CollectionOptions(props: {
 	readonly search: string;
+	readonly entityId: EntityId;
 	readonly onSelect: (option: CollectionOption) => void;
 }) {
 	const result = useRyotInfiniteQuery(
@@ -185,12 +296,12 @@ function CollectionOptions(props: {
 }
 
 function MembershipForm(props: {
-	readonly target: MembershipTarget;
-	readonly header: NonNullable<CollectionHeaderResult>;
-	readonly membership: CollectionMembershipResult;
 	readonly onClose: () => void;
 	readonly onSaved: () => void;
 	readonly onRemoved: () => void;
+	readonly target: MembershipTarget;
+	readonly membership: CollectionMembershipResult;
+	readonly header: NonNullable<CollectionHeaderResult>;
 }) {
 	const { header, membership } = props;
 	const uploadAsset = useSchemaAssetUpload();
@@ -283,117 +394,6 @@ function MembershipForm(props: {
 					errorMessage={remove.error ? "The item could not be removed. Try again." : undefined}
 				/>
 			) : null}
-		</Dialog>
-	);
-}
-
-function SelectedCollection(props: {
-	readonly target: MembershipTarget;
-	readonly onClose: () => void;
-	readonly onSaved: () => void;
-	readonly onRemoved: () => void;
-}) {
-	const result = useRyotQuery(membershipDetails, props.target, { refreshOnMutation: false });
-	const header = result.data?.header;
-	if (result.data && header) {
-		return <MembershipForm {...props} header={header} membership={result.data.membership} />;
-	}
-	return (
-		<CollectionLoadDialog
-			title="Collection"
-			onClose={props.onClose}
-			failed={result.isError}
-			onRetry={result.refetch}
-			missing={result.data !== undefined}
-			closeLabel="Close collection membership"
-		/>
-	);
-}
-
-type AddView =
-	| { readonly kind: "pick" }
-	| { readonly kind: "create"; readonly name: string }
-	| { readonly kind: "membership"; readonly collectionId: EntityId };
-
-export function AddToCollection(props: {
-	readonly entityId: EntityId;
-	readonly collectionId?: EntityId | undefined;
-	readonly onClose: () => void;
-	readonly onSaved: () => void;
-	readonly onRemoved: () => void;
-}) {
-	const [search, setSearch] = useState("");
-	const target = useRyotQuery(membershipTarget, { entityId: props.entityId });
-	const outcome = useRef<AddToCollectionOutcome["kind"]>("cancelled");
-	const [view, setView] = useState<AddView>(
-		props.collectionId === undefined
-			? { kind: "pick" }
-			: { kind: "membership", collectionId: props.collectionId },
-	);
-	const returnToCollections = () => setView({ kind: "pick" });
-	const close = () => {
-		if (outcome.current === "saved") {
-			props.onSaved();
-		} else if (outcome.current === "removed") {
-			props.onRemoved();
-		} else {
-			props.onClose();
-		}
-	};
-	if (view.kind === "membership") {
-		return (
-			<SelectedCollection
-				onClose={returnToCollections}
-				target={{ entityId: props.entityId, collectionId: view.collectionId }}
-				onSaved={() => {
-					outcome.current = "saved";
-					returnToCollections();
-				}}
-				onRemoved={() => {
-					outcome.current = "removed";
-					returnToCollections();
-				}}
-			/>
-		);
-	}
-	if (view.kind === "create") {
-		return (
-			<CollectionEditor
-				initialName={view.name}
-				onClose={returnToCollections}
-				onDeleted={returnToCollections}
-				onSaved={(collectionId) => setView({ collectionId, kind: "membership" })}
-			/>
-		);
-	}
-	const query = search.trim();
-	return (
-		<Dialog
-			onClose={close}
-			closeLabel="Close collections"
-			footer={<Button onClick={close}>Done</Button>}
-			title={target.data ? `Collections for ${target.data.name}` : "Collections"}
-		>
-			<div className="grid gap-3">
-				<Field label="Search collections">
-					{(control) => (
-						<TextField
-							{...control}
-							value={search}
-							onChange={(event) => setSearch(event.target.value)}
-						/>
-					)}
-				</Field>
-				<Button variant="secondary" onClick={() => setView({ name: query, kind: "create" })}>
-					{query === "" ? "New collection" : `Create “${query}” and add`}
-				</Button>
-				<CollectionOptions
-					key={search}
-					search={search}
-					entityId={props.entityId}
-					onSelect={(option) => setView({ kind: "membership", collectionId: option.id })}
-				/>
-			</div>
 		</Dialog>
 	);
 }

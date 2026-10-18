@@ -67,36 +67,6 @@ export const Route = createFileRoute("/_authenticated")({
 	shouldReload: ({ location }) => location.pathname === "/",
 });
 
-function AuthenticatedLayout() {
-	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
-	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
-	const { userId, serverUrl } = scope;
-	useEffect(
-		() =>
-			runtime.runSync(
-				Effect.map(EntityWatchService, (service) => service.acquire({ userId, serverUrl })),
-			),
-		[runtime, serverUrl, userId],
-	);
-	return (
-		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
-			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-				<BackgroundSubmissionsProvider
-					scope={scope}
-					runtime={runtime}
-					onSucceeded={ryot.mutationCompleted.hint}
-				>
-					<AuthenticatedShell
-						isPro={isPro}
-						navigation={navigation}
-						initialRememberedPluginId={rememberedPluginId}
-					/>
-				</BackgroundSubmissionsProvider>
-			</PluginCatalogProvider>
-		</KernelRyotProvider>
-	);
-}
-
 function RestoringSession() {
 	usePageTitle("Restoring session");
 	return (
@@ -136,5 +106,35 @@ function AuthenticatedLoadError() {
 				</div>
 			</section>
 		</main>
+	);
+}
+
+function AuthenticatedLayout() {
+	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
+	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
+	const { userId, serverUrl } = scope;
+	useEffect(
+		() =>
+			runtime.runSync(
+				Effect.map(EntityWatchService, (service) => service.acquire({ userId, serverUrl })),
+			),
+		[runtime, serverUrl, userId],
+	);
+	return (
+		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
+			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
+				<BackgroundSubmissionsProvider
+					scope={scope}
+					runtime={runtime}
+					onSucceeded={ryot.mutationCompleted.hint}
+				>
+					<AuthenticatedShell
+						isPro={isPro}
+						navigation={navigation}
+						initialRememberedPluginId={rememberedPluginId}
+					/>
+				</BackgroundSubmissionsProvider>
+			</PluginCatalogProvider>
+		</KernelRyotProvider>
 	);
 }

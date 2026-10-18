@@ -121,8 +121,8 @@ const makeDetail = (overrides: Partial<AutomationRunDetail> = {}): AutomationRun
 
 const makeAutomationQueries = (
 	options: {
-		readonly list?: (cursor?: string) => Effect.Effect<AutomationRunPage>;
 		readonly detail?: () => Effect.Effect<AutomationRunDetail>;
+		readonly list?: (cursor?: string) => Effect.Effect<AutomationRunPage>;
 	} = {},
 ): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({

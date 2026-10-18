@@ -90,18 +90,14 @@ import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const OVERLAY_DISMISS_TIMEOUT_MS = 1_000;
 
-type PluginBridgeTarget = {
-	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
-};
-
 export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
-export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 
+export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 export type PluginBridgeSession = {
-	readonly requestFlush: () => Effect.Effect<boolean>;
 	readonly close: () => void;
 	readonly sendPageRefresh: () => void;
 	readonly requestOverlayDismiss: () => boolean;
+	readonly requestFlush: () => Effect.Effect<boolean>;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendShortcut: (shortcut: PageShortcutKey) => void;
 	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
@@ -113,28 +109,32 @@ export type PluginBridgeSession = {
 	) => void;
 };
 
-type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
+type PluginBridgeState = "ready" | "active" | "failed" | "closing" | "disposed";
 
-type HostScreenType = "add-to-collection-screen" | "edit-collection-screen" | "pick-entity-screen";
+type HostScreenType = "pick-entity-screen" | "edit-collection-screen" | "add-to-collection-screen";
+
+type PluginBridgeTarget = {
+	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
+};
 
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
 	readonly type:
-		| HostScreenType
-		| "device"
 		| "asset"
-		| "background-operation"
-		| "calendar-source-visibility"
-		| "collection"
-		| "entity-editor-save"
-		| "external-link"
-		| "ios-live-activity"
-		| "operation"
+		| "device"
 		| "ryotql"
-		| "storage"
 		| "upload"
+		| "storage"
+		| "operation"
+		| "collection"
 		| "enrichment"
-		| "user-settings";
+		| HostScreenType
+		| "external-link"
+		| "user-settings"
+		| "ios-live-activity"
+		| "entity-editor-save"
+		| "background-operation"
+		| "calendar-source-visibility";
 };
 
 const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenType>([
@@ -148,16 +148,12 @@ export type BackgroundOperationAcceptance =
 	| { readonly outcome: "success"; readonly reservation: BackgroundSubmissionReservation };
 
 type PluginBridgeOptions = {
-	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
-	readonly onIosLiveActivity: (
-		request: PluginIosLiveActivityRequest,
-	) => Effect.Effect<PluginIosLiveActivityOutcome>;
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
-	readonly compositionHash: string;
-	readonly onFailure: () => void;
-	readonly page?: ClientPageContext;
 	readonly documentKey: string;
+	readonly onFailure: () => void;
+	readonly compositionHash: string;
+	readonly page?: ClientPageContext;
 	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
@@ -168,50 +164,54 @@ type PluginBridgeOptions = {
 	readonly onOverlayState: (count: number) => void;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
-	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PageScreenReadiness) => void;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
+	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
+	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
+	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
+	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
+	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
 	readonly onPickEntity: (
 		request: PluginBridgePickEntityScreen,
 	) => Effect.Effect<PickEntityOutcome>;
 	readonly onEditCollection: (
 		request: EditCollectionRequest,
 	) => Effect.Effect<EditCollectionOutcome>;
+	readonly onCollection: (
+		request: PluginCollectionRequest,
+	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onEntitySave: (
+		request: EntityEditorSaveRequest,
+	) => Effect.Effect<PluginEntitySaveOutcome>;
+	readonly onEnrichment: (
+		request: PluginEnrichmentRequest,
+	) => Effect.Effect<PluginEnrichmentOutcome>;
 	readonly onAddToCollection: (
 		request: AddToCollectionRequest,
 	) => Effect.Effect<AddToCollectionOutcome>;
-	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
-	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
-	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
+	readonly onUserSettings: (
+		request: PluginUserSettingsRequest,
+	) => Effect.Effect<PluginUserSettingsOutcome>;
+	readonly onIosLiveActivity: (
+		request: PluginIosLiveActivityRequest,
+	) => Effect.Effect<PluginIosLiveActivityOutcome>;
+	readonly onCalendarSourceVisibility: (
+		request: PluginCalendarSourceVisibilityRequest,
+	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
+	readonly onDiagnostic?: (diagnostic: {
+		readonly cause: unknown;
+		readonly requestId: string;
+		readonly type: PendingRequest["type"];
+	}) => void;
 	readonly onBackgroundOperation: (
 		request: PluginBackgroundOperationRequest,
 		binding: BackgroundSubmissionBinding,
 	) => Effect.Effect<BackgroundOperationAcceptance>;
-	readonly onCollection: (
-		request: PluginCollectionRequest,
-	) => Effect.Effect<PluginCollectionOutcome>;
-	readonly onCalendarSourceVisibility: (
-		request: PluginCalendarSourceVisibilityRequest,
-	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
-	readonly onEntitySave: (
-		request: EntityEditorSaveRequest,
-	) => Effect.Effect<PluginEntitySaveOutcome>;
-	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
-	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
-	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
-	readonly onUserSettings: (
-		request: PluginUserSettingsRequest,
-	) => Effect.Effect<PluginUserSettingsOutcome>;
-	readonly onEnrichment: (
-		request: PluginEnrichmentRequest,
-	) => Effect.Effect<PluginEnrichmentOutcome>;
-	readonly onDiagnostic?: (diagnostic: {
-		readonly type: PendingRequest["type"];
-		readonly requestId: string;
-		readonly cause: unknown;
-	}) => void;
 };
 
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
@@ -249,7 +249,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let navigation = options.navigation;
 	let documentGeneration = 0;
 	const backgroundSession = {};
-	let pendingDocument: { readonly key: string; readonly page: ClientPageContext } | undefined;
+	let pendingDocument: undefined | { readonly key: string; readonly page: ClientPageContext };
 	let mode = options.theme.resolvedMode;
 	let interestIds = new Set<string>();
 	const channel = new MessageChannel();
@@ -259,11 +259,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	const flushes = new Map<string, (flushed: boolean) => void>();
 	let nextFlushId = 0;
 	let needsFlush = false;
-	let interest: EntityWatchSubscription | undefined;
+	let interest: undefined | EntityWatchSubscription;
 	let overlayCount = 0;
 	let nextOverlayRequestId = 0;
 	let overlayDismiss:
-		{ readonly requestId: string; readonly cancelTimeout: () => void } | undefined;
+		undefined | { readonly requestId: string; readonly cancelTimeout: () => void };
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
 	function finish(next: "failed" | "disposed", notify: boolean) {
@@ -456,7 +456,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 	}
 
-	function handleLifecycleClose(reason: "disposed" | "failed") {
+	function handleLifecycleClose(reason: "failed" | "disposed") {
 		if (reason === "failed") {
 			fail(false);
 		} else {
@@ -613,7 +613,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	function handleBackgroundOperation(request: PluginBridgeBackgroundOperationRequest) {
 		const { requestId, type: _type, ...capabilityRequest } = request;
 		const acceptedGeneration = documentGeneration;
-		let reservation: BackgroundSubmissionReservation | undefined;
+		let reservation: undefined | BackgroundSubmissionReservation;
 		runRequest(
 			requestId,
 			"background-operation",

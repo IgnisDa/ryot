@@ -112,19 +112,19 @@ const documentOwner = ({ context, identity }: PreparedClientPage) => {
 	return `${identity.kind}:${documentId}:${documentRevision}:${contextDigest}`;
 };
 
+type FramePool = {
+	readonly activeKey: null | string;
+	readonly entries: ReadonlyMap<string, FrameEntry>;
+};
+
 type FrameEntry = {
 	readonly key: string;
 	readonly generation: number;
 	readonly compositionHash: string;
-	readonly location: { readonly pathname: string; readonly searchStr: string };
 	readonly document: ClientPageDocument;
-	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 	readonly navigation: PluginBridgeNavigationState;
-};
-
-type FramePool = {
-	readonly activeKey: string | null;
-	readonly entries: ReadonlyMap<string, FrameEntry>;
+	readonly location: { readonly pathname: string; readonly searchStr: string };
+	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 };
 
 export function retainCompositionRuntime<T>(
@@ -168,7 +168,7 @@ export function ClientPageDocumentHost() {
 		readonly pathname: string;
 		readonly searchStr: string;
 		readonly navigationKey: string;
-		readonly previousDocument: ClientPageDocument | null;
+		readonly previousDocument: null | ClientPageDocument;
 	}>();
 	const scopeKey = `${scope.serverUrl}\0${scope.userId}`;
 	const [poolScope, setPoolScope] = useState(scopeKey);
@@ -207,7 +207,7 @@ export function ClientPageDocumentHost() {
 		[document, location.pathname, location.searchStr, rendererContributor],
 	);
 	const entry = useMemo(() => historyEntry(location.state), [location.state]);
-	const navigation = useMemo<PluginBridgeNavigationState | undefined>(
+	const navigation = useMemo<undefined | PluginBridgeNavigationState>(
 		() =>
 			logicalLocation
 				? {
@@ -228,10 +228,10 @@ export function ClientPageDocumentHost() {
 		setPool({ activeKey: null, entries: new Map() });
 	}
 	const [syncedPool, setSyncedPool] = useState<{
-		readonly document: ClientPageDocument | null;
 		readonly pathname: string;
 		readonly searchStr: string;
-		readonly navigation: PluginBridgeNavigationState | undefined;
+		readonly document: null | ClientPageDocument;
+		readonly navigation: undefined | PluginBridgeNavigationState;
 	}>();
 	if (
 		syncedPool === undefined ||
@@ -430,10 +430,10 @@ function ClientPageFrame(props: {
 	readonly edgeLeading: ReactNode;
 	readonly onReloadCurrent: () => void;
 	readonly document: ClientPageDocument;
-	readonly presentation: ClientPagePresentationController;
 	readonly freshnessCheckRevision: number;
 	readonly backInterceptors: BackInterceptors;
 	readonly navigation: PluginBridgeNavigationState;
+	readonly presentation: ClientPagePresentationController;
 	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 }) {
 	const ryot = useRyot();
@@ -442,7 +442,7 @@ function ClientPageFrame(props: {
 	const active = useRef(props.active);
 	const frameScope = useRef<ApiScope | undefined>(props.scope);
 	const frameKey = `${props.owner}:${props.navigation.key}`;
-	const flush = useRef<(() => Effect.Effect<boolean>) | undefined>(undefined);
+	const flush = useRef<undefined | (() => Effect.Effect<boolean>)>(undefined);
 	useBlocker({
 		enableBeforeUnload: false,
 		shouldBlockFn: () =>

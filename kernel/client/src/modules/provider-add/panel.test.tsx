@@ -36,16 +36,16 @@ type PanelProps = ComponentProps<typeof ProviderSearchPanel>;
 
 const renderPanel = (
 	options: {
-		readonly onCreateCustom?: (query: string) => void;
-		readonly search?: PanelProps["search"];
-		readonly providers?: readonly ProviderSearchSummary[];
-		readonly selectedProviderId?: SandboxProviderId;
 		readonly initialQuery?: string;
+		readonly search?: PanelProps["search"];
+		readonly onImported?: PanelProps["onImported"];
+		readonly selectedProviderId?: SandboxProviderId;
+		readonly onCreateCustom?: (query: string) => void;
+		readonly importEntity?: PanelProps["importEntity"];
+		readonly providers?: readonly ProviderSearchSummary[];
 		readonly loadSearchOptions?: (
 			providerId: SandboxProviderId,
 		) => Effect.Effect<SearchProviderOptionsResponse, Error>;
-		readonly importEntity?: PanelProps["importEntity"];
-		readonly onImported?: PanelProps["onImported"];
 	} = {},
 ) => {
 	const clock = createTestRyotClock();
@@ -106,9 +106,9 @@ const withOptions = (index: number): ProviderSearchSummary => ({
 
 const pendingOptions = () => {
 	const requests: {
+		readonly fail: () => void;
 		readonly providerId: SandboxProviderId;
 		readonly succeed: (response: SearchProviderOptionsResponse) => void;
-		readonly fail: () => void;
 	}[] = [];
 	const interrupted: SandboxProviderId[] = [];
 	return {
@@ -470,7 +470,7 @@ describe("provider search panel", () => {
 	it.live("keeps an active import owned outside provider-keyed search sessions", () =>
 		Effect.gen(function* () {
 			const completions: ((entry: ProviderEntityImportEntry) => void)[] = [];
-			const imports: { readonly providerId: SandboxProviderId; readonly externalId: string }[] = [];
+			const imports: { readonly externalId: string; readonly providerId: SandboxProviderId }[] = [];
 			const imported: EntityId[] = [];
 			renderPanel({
 				initialQuery: "Sample",

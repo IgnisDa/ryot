@@ -42,7 +42,7 @@ const providerRow = {
 };
 
 type EntityProvidersMethod = keyof EntityProvidersApi["Service"];
-type ContractCall = { readonly method: EntityProvidersMethod; readonly request: unknown };
+type ContractCall = { readonly request: unknown; readonly method: EntityProvidersMethod };
 
 class FakeEntityProvidersApi extends Context.Service<
 	FakeEntityProvidersApi,

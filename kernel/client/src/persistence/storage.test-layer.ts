@@ -43,10 +43,10 @@ export class FakeBrowserStorage extends Context.Service<
 
 export const fakeClientStorageLayer = (
 	options: {
-		readonly entries?: ReadonlyArray<readonly [string, string]>;
 		readonly getItem?: BrowserStorage["getItem"];
-		readonly removeItem?: BrowserStorage["removeItem"];
 		readonly setItem?: BrowserStorage["setItem"];
+		readonly removeItem?: BrowserStorage["removeItem"];
+		readonly entries?: ReadonlyArray<readonly [string, string]>;
 	} = {},
 ) =>
 	Layer.unwrap(

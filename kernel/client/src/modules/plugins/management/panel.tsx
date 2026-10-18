@@ -32,6 +32,47 @@ const pillClassName = "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium
 
 const compactButtonClassName = "min-h-9 px-3 py-1.5 text-sm";
 
+export function PluginManagementPanel(props: {
+	readonly pending: boolean;
+	readonly error?: string | undefined;
+	readonly status?: string | undefined;
+	readonly onAction: (action: PluginManagementAction) => void;
+	readonly installations: readonly ManagedPluginInstallation[];
+}) {
+	return (
+		<div className="flex flex-col gap-6 pb-4">
+			<p className="text-sm leading-6 text-text-muted">
+				Plugins add workspaces, views, and data types to Ryot. Package names are metadata, not
+				publisher verification. Unavailable entries do not load plugin client code.
+			</p>
+			{props.error ? (
+				<StatusMessage tone="error" className="text-sm">
+					{props.error}
+				</StatusMessage>
+			) : null}
+			{props.status ? (
+				<StatusMessage tone="success" className="text-sm">
+					{props.status}
+				</StatusMessage>
+			) : null}
+			{props.installations.length === 0 ? (
+				<p className="text-sm text-text-muted">No plugin installations.</p>
+			) : (
+				<div className="flex flex-col gap-2">
+					{props.installations.map((installation) => (
+						<InstallationCard
+							pending={props.pending}
+							onAction={props.onAction}
+							installation={installation}
+							key={installation.installationId}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
 function DetailsSection(props: { readonly title: string; readonly children: ReactNode }) {
 	return (
 		<section className="flex flex-col gap-2">
@@ -43,9 +84,62 @@ function DetailsSection(props: { readonly title: string; readonly children: Reac
 	);
 }
 
-function InstallationDetails(props: {
-	readonly installation: ManagedPluginInstallation;
+function InstallationCard(props: {
 	readonly pending: boolean;
+	readonly installation: ManagedPluginInstallation;
+	readonly onAction: (action: PluginManagementAction) => void;
+}) {
+	const installation = props.installation;
+	const health = healthPresentation[installation.health];
+	return (
+		<details className="group rounded-xl border border-border bg-surface">
+			<summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+				<span
+					className={clsx(
+						"flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-text",
+						installation.isHidden && "opacity-60",
+					)}
+				>
+					<AppIcon size={18} name={installation.icon} />
+				</span>
+				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span className="flex min-w-0 items-baseline gap-2">
+						<span className="truncate text-sm font-medium text-text">{installation.name}</span>
+						<span className="shrink-0 text-xs text-text-subtle">v{installation.version}</span>
+					</span>
+					<span className="truncate font-mono text-xs text-text-subtle">
+						{installation.packageId}
+					</span>
+				</span>
+				<span className="hidden shrink-0 items-center gap-1.5 sm:flex">
+					{installation.isHidden ? (
+						<span className={clsx(pillClassName, "border border-border text-text-subtle")}>
+							Hidden
+						</span>
+					) : null}
+					<span className={clsx(pillClassName, "border border-border-strong text-text-muted")}>
+						{installation.scope === "system" ? "System" : "Private"}
+					</span>
+				</span>
+				<span className={clsx(pillClassName, health.className)}>{health.label}</span>
+				<AppIcon
+					size={16}
+					name="chevron-down"
+					className="shrink-0 text-text-subtle transition-transform group-open:rotate-180"
+				/>
+			</summary>
+			<InstallationDetails
+				pending={props.pending}
+				onAction={props.onAction}
+				installation={installation}
+			/>
+		</details>
+	);
+}
+
+function InstallationDetails(props: {
+	readonly pending: boolean;
+	readonly installation: ManagedPluginInstallation;
 	readonly onAction: (action: PluginManagementAction) => void;
 }) {
 	const installation = props.installation;
@@ -237,100 +331,6 @@ function InstallationDetails(props: {
 					detail={`This targets ${installation.pluginId}. Referenced data can prevent removal. No forced or destructive uninstall is available.`}
 				/>
 			) : null}
-		</div>
-	);
-}
-
-function InstallationCard(props: {
-	readonly installation: ManagedPluginInstallation;
-	readonly pending: boolean;
-	readonly onAction: (action: PluginManagementAction) => void;
-}) {
-	const installation = props.installation;
-	const health = healthPresentation[installation.health];
-	return (
-		<details className="group rounded-xl border border-border bg-surface">
-			<summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-				<span
-					className={clsx(
-						"flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-text",
-						installation.isHidden && "opacity-60",
-					)}
-				>
-					<AppIcon size={18} name={installation.icon} />
-				</span>
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span className="flex min-w-0 items-baseline gap-2">
-						<span className="truncate text-sm font-medium text-text">{installation.name}</span>
-						<span className="shrink-0 text-xs text-text-subtle">v{installation.version}</span>
-					</span>
-					<span className="truncate font-mono text-xs text-text-subtle">
-						{installation.packageId}
-					</span>
-				</span>
-				<span className="hidden shrink-0 items-center gap-1.5 sm:flex">
-					{installation.isHidden ? (
-						<span className={clsx(pillClassName, "border border-border text-text-subtle")}>
-							Hidden
-						</span>
-					) : null}
-					<span className={clsx(pillClassName, "border border-border-strong text-text-muted")}>
-						{installation.scope === "system" ? "System" : "Private"}
-					</span>
-				</span>
-				<span className={clsx(pillClassName, health.className)}>{health.label}</span>
-				<AppIcon
-					size={16}
-					name="chevron-down"
-					className="shrink-0 text-text-subtle transition-transform group-open:rotate-180"
-				/>
-			</summary>
-			<InstallationDetails
-				pending={props.pending}
-				onAction={props.onAction}
-				installation={installation}
-			/>
-		</details>
-	);
-}
-
-export function PluginManagementPanel(props: {
-	readonly installations: readonly ManagedPluginInstallation[];
-	readonly pending: boolean;
-	readonly onAction: (action: PluginManagementAction) => void;
-	readonly error?: string | undefined;
-	readonly status?: string | undefined;
-}) {
-	return (
-		<div className="flex flex-col gap-6 pb-4">
-			<p className="text-sm leading-6 text-text-muted">
-				Plugins add workspaces, views, and data types to Ryot. Package names are metadata, not
-				publisher verification. Unavailable entries do not load plugin client code.
-			</p>
-			{props.error ? (
-				<StatusMessage tone="error" className="text-sm">
-					{props.error}
-				</StatusMessage>
-			) : null}
-			{props.status ? (
-				<StatusMessage tone="success" className="text-sm">
-					{props.status}
-				</StatusMessage>
-			) : null}
-			{props.installations.length === 0 ? (
-				<p className="text-sm text-text-muted">No plugin installations.</p>
-			) : (
-				<div className="flex flex-col gap-2">
-					{props.installations.map((installation) => (
-						<InstallationCard
-							pending={props.pending}
-							onAction={props.onAction}
-							installation={installation}
-							key={installation.installationId}
-						/>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }

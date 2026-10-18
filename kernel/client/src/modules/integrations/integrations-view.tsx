@@ -24,6 +24,12 @@ export const INTEGRATION_LOAD_ERROR = {
 const INTRO =
 	"Keep Ryot in step with the services you already use. Integrations run on your own server, on a schedule or as events arrive.";
 
+export type IntegrationPauseState = {
+	readonly paused: boolean;
+	readonly failed: boolean;
+	readonly isSaving: boolean;
+};
+
 export type IntegrationListState =
 	| { readonly status: "empty" }
 	| { readonly status: "failed" }
@@ -33,86 +39,23 @@ export type IntegrationListState =
 			readonly integrations: readonly IntegrationSummary[];
 	  };
 
-export type IntegrationPauseState = {
-	readonly paused: boolean;
-	readonly failed: boolean;
-	readonly isSaving: boolean;
-};
-
 type IntegrationsViewProps = {
 	readonly nowMs: number;
 	readonly isSyncing: boolean;
-	readonly isFetching?: boolean;
 	readonly readOnly?: boolean;
 	readonly onRetry: () => void;
+	readonly isFetching?: boolean;
 	readonly onConnect: () => void;
 	readonly onSyncAll: () => void;
 	readonly syncSucceeded: boolean;
-	readonly isFetchingNextPage: boolean;
 	readonly onShowMore: () => void;
+	readonly isFetchingNextPage: boolean;
 	readonly state: IntegrationListState;
 	readonly syncDetail: string | undefined;
 	readonly providerNames: IntegrationProviderNames;
-	readonly pause: IntegrationPauseState | undefined;
+	readonly pause: undefined | IntegrationPauseState;
 	readonly onPauseChange: (paused: boolean) => void;
 };
-
-function PauseIntegrations(props: {
-	readonly readOnly: boolean;
-	readonly state: IntegrationPauseState;
-	readonly onChange: (paused: boolean) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2">
-			<div className="rounded-xl border border-border bg-surface">
-				<PreferenceRow
-					onChange={props.onChange}
-					title="Pause integrations"
-					checked={props.state.paused}
-					disabled={props.readOnly || props.state.isSaving}
-					detail="Stop all external integration processing for your account."
-				/>
-			</div>
-			{props.state.failed && (
-				<StatusMessage tone="error" className="text-sm">
-					Could not update integrations. Try again.
-				</StatusMessage>
-			)}
-		</div>
-	);
-}
-
-function IntegrationRow(props: {
-	readonly nowMs: number;
-	readonly isFirst: boolean;
-	readonly integration: IntegrationSummary;
-	readonly providerNames: IntegrationProviderNames;
-}) {
-	const title = integrationTitle(props.integration, props.providerNames);
-	return (
-		<Link
-			to="/settings/integrations/$integrationId"
-			aria-label={`Open the ${title} integration`}
-			params={{ integrationId: props.integration.id }}
-			className={clsx(
-				"flex items-center gap-3 border-b border-border py-3",
-				props.isFirst && "border-t",
-				props.integration.isDisabled && "opacity-70",
-			)}
-		>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="truncate text-sm font-medium text-text">{title}</span>
-				<span className="truncate text-xs text-text-subtle">
-					{`${integrationStateLabel(props.integration)} · ${integrationSyncLabel(props.integration, props.nowMs)}`}
-				</span>
-			</span>
-			<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
-				{integrationLotLabel(props.integration.lot)}
-			</span>
-			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
-		</Link>
-	);
-}
 
 export function IntegrationsView(props: IntegrationsViewProps) {
 	if (props.state.status === "failed") {
@@ -226,5 +169,62 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 				<AppIcon size={14} name="arrow-right" className="text-accent-text" />
 			</Link>
 		</div>
+	);
+}
+
+function PauseIntegrations(props: {
+	readonly readOnly: boolean;
+	readonly state: IntegrationPauseState;
+	readonly onChange: (paused: boolean) => void;
+}) {
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="rounded-xl border border-border bg-surface">
+				<PreferenceRow
+					onChange={props.onChange}
+					title="Pause integrations"
+					checked={props.state.paused}
+					disabled={props.readOnly || props.state.isSaving}
+					detail="Stop all external integration processing for your account."
+				/>
+			</div>
+			{props.state.failed && (
+				<StatusMessage tone="error" className="text-sm">
+					Could not update integrations. Try again.
+				</StatusMessage>
+			)}
+		</div>
+	);
+}
+
+function IntegrationRow(props: {
+	readonly nowMs: number;
+	readonly isFirst: boolean;
+	readonly integration: IntegrationSummary;
+	readonly providerNames: IntegrationProviderNames;
+}) {
+	const title = integrationTitle(props.integration, props.providerNames);
+	return (
+		<Link
+			to="/settings/integrations/$integrationId"
+			aria-label={`Open the ${title} integration`}
+			params={{ integrationId: props.integration.id }}
+			className={clsx(
+				"flex items-center gap-3 border-b border-border py-3",
+				props.isFirst && "border-t",
+				props.integration.isDisabled && "opacity-70",
+			)}
+		>
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-medium text-text">{title}</span>
+				<span className="truncate text-xs text-text-subtle">
+					{`${integrationStateLabel(props.integration)} · ${integrationSyncLabel(props.integration, props.nowMs)}`}
+				</span>
+			</span>
+			<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
+				{integrationLotLabel(props.integration.lot)}
+			</span>
+			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
+		</Link>
 	);
 }

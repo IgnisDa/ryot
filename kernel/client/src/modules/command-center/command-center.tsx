@@ -25,6 +25,10 @@ import type { ClientRuntime } from "#/runtime";
 
 const SAVED_VIEW_LIMIT = 100;
 
+type LibraryViewsState =
+	| { readonly status: "failed" | "pending" }
+	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
+
 type CommandCenterProps = {
 	readonly scope: ApiScope;
 	readonly onClose: () => void;
@@ -34,10 +38,6 @@ type CommandCenterProps = {
 	readonly onInterceptBack: () => boolean;
 	readonly onNavigate: (href: string) => void;
 };
-
-type LibraryViewsState =
-	| { readonly status: "pending" | "failed" }
-	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
 
 const recentOptions = (
 	recents: readonly {
@@ -58,7 +58,7 @@ export function CommandCenter(props: CommandCenterProps) {
 	const [filter, setFilter] = useState(ALL_FILTER);
 	const [viewsState, setViewsState] = useState<LibraryViewsState>({ status: "pending" });
 	const [recents, setRecents] = useState<readonly CommandOption[]>([]);
-	const [commit, setCommit] = useState<LibraryCommit | undefined>(undefined);
+	const [commit, setCommit] = useState<undefined | LibraryCommit>(undefined);
 	const trimmed = query.trim();
 	const request = useMemo(() => ({ attempt, query: trimmed }), [trimmed, attempt]);
 	const destinations = useMemo(

@@ -4,7 +4,7 @@ import { ingestionBlockReasonLabel } from "./run-presentation";
 
 export const ingestionReadinessRequirement = (
 	readiness: IngestionReadiness,
-	scope: "system" | "user" | null,
+	scope: null | "user" | "system",
 ) =>
 	readiness.ready
 		? undefined
@@ -13,7 +13,7 @@ export const ingestionReadinessRequirement = (
 
 export function IngestionReadinessNotice(props: {
 	readonly readiness: IngestionReadiness;
-	readonly scope: "system" | "user" | null;
+	readonly scope: null | "user" | "system";
 }) {
 	return props.readiness.ready ? null : (
 		<div role="status" className="text-sm text-text-muted">

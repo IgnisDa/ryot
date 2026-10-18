@@ -47,14 +47,14 @@ function mount(
 	options: {
 		readonly onReloadCurrent?: () => void;
 		readonly onLoadDocument?: () => Effect.Effect<string, Error>;
-		readonly onCheckFreshness?: () => Effect.Effect<boolean, Error>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
-		readonly onInvokeOperation?: (
-			request: PluginOperationRequest,
-		) => Effect.Effect<PluginOperationDispatchOutcome>;
+		readonly onCheckFreshness?: () => Effect.Effect<boolean, Error>;
 		readonly onPickEntity?: (
 			request: PluginBridgePickEntityScreen,
 		) => Effect.Effect<PickEntityOutcome>;
+		readonly onInvokeOperation?: (
+			request: PluginOperationRequest,
+		) => Effect.Effect<PluginOperationDispatchOutcome>;
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
@@ -267,8 +267,8 @@ function flush() {
 
 function connect(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
-	let init: PluginBridgeInit | undefined;
-	let port: MessagePort | undefined;
+	let init: undefined | PluginBridgeInit;
+	let port: undefined | MessagePort;
 	Object.defineProperty(frame, "contentWindow", {
 		configurable: true,
 		value: {
@@ -684,7 +684,7 @@ describe("PageIframeHost", () => {
 
 	it.live("sends the same page refresh on native resume and releases the listener", () =>
 		Effect.gen(function* () {
-			let resume: (() => void) | undefined;
+			let resume: undefined | (() => void);
 			let released = false;
 			const host = mount({
 				subscribeResume: (resumed) => {

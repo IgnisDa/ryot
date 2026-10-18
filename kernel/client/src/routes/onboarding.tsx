@@ -28,7 +28,7 @@ const serverOptions = [
 export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
-	beforeLoad: ({ search, context }): ReturnType<typeof redirect> | undefined => {
+	beforeLoad: ({ search, context }): undefined | ReturnType<typeof redirect> => {
 		const isNative = isNativePlatform();
 		const server = context.runtime.runSync(
 			Effect.flatMap(ServerService, (service) => service.selected),

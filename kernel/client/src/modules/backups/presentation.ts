@@ -85,7 +85,7 @@ const stoppedEarly = {
 	detail: "This stopped before it finished. Nothing was left half-written.",
 } as const;
 
-export const backupRunFailureNotice = (failure: BackupRunFailure | null): BackupRunFailureNotice =>
+export const backupRunFailureNotice = (failure: null | BackupRunFailure): BackupRunFailureNotice =>
 	failure === null
 		? stoppedEarly
 		: Match.value(failure).pipe(

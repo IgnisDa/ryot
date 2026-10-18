@@ -63,7 +63,7 @@ export function ImportStartWizard(props: {
 	const uploadFile = useSchemaFileUpload();
 	const uploadAsset = useSchemaAssetUpload();
 	const startMutation = useRyotMutation(createImportRunMutation);
-	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
+	const [failure, setFailure] = useState<undefined | ImportStartFailure>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.sources.status === "ready" ? props.sources.sources : [];
 	const source = useLatestDefined(listed.find((item) => importSourceKey(item) === state.slug));

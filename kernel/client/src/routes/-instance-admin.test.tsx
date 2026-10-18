@@ -43,7 +43,7 @@ import {
 
 const makeView = (
 	path = "/instance-admin",
-	selected: typeof server | null = server,
+	selected: null | typeof server = server,
 	adminService: AdminApiService = {
 		run: () => Effect.die("not used"),
 		download: () => Effect.die("not used"),

@@ -55,7 +55,7 @@ const makePlan = (nativeApplicationId: OAuthLaunchPlan["client"]["nativeApplicat
 
 const mountAuth = (plan: OAuthLaunchPlan) => {
 	const launched: OAuthLaunchPlan[] = [];
-	const changedServers: (ServerOrigin | null)[] = [];
+	const changedServers: (null | ServerOrigin)[] = [];
 	const oauth = makeOAuthRouteStubs(
 		{},
 		{},

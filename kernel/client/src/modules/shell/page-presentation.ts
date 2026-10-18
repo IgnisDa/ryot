@@ -4,8 +4,8 @@ import type {
 	PluginHeaderContent,
 } from "@ryot-app/plugin-client-contract";
 
-export type PageHeaderPublication = Pick<PluginBridgeHeader, "index" | "key"> & {
-	readonly title: PluginHeaderContent["title"] | null;
-};
-
 export type PageScreenReadiness = Omit<PluginBridgeScreenState, "type">;
+
+export type PageHeaderPublication = Pick<PluginBridgeHeader, "key" | "index"> & {
+	readonly title: null | PluginHeaderContent["title"];
+};

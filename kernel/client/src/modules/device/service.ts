@@ -33,13 +33,13 @@ const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 export class DevicePlatform extends Context.Service<
 	DevicePlatform,
 	{
+		readonly haptic: (kind: PluginHapticKind) => Effect.Effect<void>;
+		readonly cancel: (id: number) => Effect.Effect<void, DevicePlatformError>;
+		readonly awake: (enabled: boolean) => Effect.Effect<void, DevicePlatformError>;
 		readonly schedule: (
 			id: number,
 			request: ScheduleRequest,
 		) => Effect.Effect<PluginDeviceResult, DevicePlatformError>;
-		readonly cancel: (id: number) => Effect.Effect<void, DevicePlatformError>;
-		readonly awake: (enabled: boolean) => Effect.Effect<void, DevicePlatformError>;
-		readonly haptic: (kind: PluginHapticKind) => Effect.Effect<void>;
 		readonly listen: (
 			tap: (id: number) => void,
 			foreground: (active: boolean) => void,
@@ -57,15 +57,15 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 		const mutex = Semaphore.makeUnsafe(1);
 		const listeners = new Set<() => void>();
 		const alertListeners = new Set<() => void>();
-		const demands = new Map<string, { enabled: boolean; active: boolean }>();
+		const demands = new Map<string, { active: boolean; enabled: boolean }>();
 		let state: DeviceState = emptyDeviceState;
 		let loaded = false;
 		let activeScope: string | undefined;
 		let foreground = true;
 		let awake = false;
 		let pendingTap: number | undefined;
-		let listenerScope: Scope.Closeable | undefined;
-		let navigate: ((target: PluginNavigationTarget) => void) | undefined;
+		let listenerScope: undefined | Scope.Closeable;
+		let navigate: undefined | ((target: PluginNavigationTarget) => void);
 		const publish = () => listeners.forEach((listener) => listener());
 		const load = Effect.gen(function* () {
 			if (!loaded) {
@@ -201,7 +201,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 						if (owner?.kind !== "plugin" || activeScope !== key) {
 							return { outcome: "failure", reason: "invalid-request" } as const;
 						}
-						let target: PluginNavigationTarget | undefined;
+						let target: undefined | PluginNavigationTarget;
 						if (request.action === "schedule") {
 							target = request.target;
 						} else if (request.action === "return-shortcut") {

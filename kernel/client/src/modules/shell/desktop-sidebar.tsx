@@ -18,28 +18,28 @@ import type {
 } from "#/modules/shell/sidebar-sections";
 
 type DesktopSidebarProps = {
-	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
-	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly isPro: boolean;
 	readonly activeHome: boolean;
 	readonly activeSettings: boolean;
-	readonly activeKey: string | null;
+	readonly activeKey: null | string;
 	readonly onOpenSearch: () => void;
-	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly customizePanel: ReactNode;
 	readonly shortcutsEnabled: boolean;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
+	readonly onCreateCollection: () => void;
 	readonly workspaceSwitcherOpen: boolean;
-	readonly current: PluginClientCatalogEntry | null;
+	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
 	readonly onEditSection: (section: CustomizeSection) => void;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
-	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly expandedSections?: undefined | Partial<Record<SidebarSectionName, boolean>>;
+	readonly onToggleSection?: undefined | ((section: SidebarSectionName, expanded: boolean) => void);
 };
 
 export function DesktopSidebar(props: DesktopSidebarProps) {

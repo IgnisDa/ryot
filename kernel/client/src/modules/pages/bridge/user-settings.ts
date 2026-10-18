@@ -17,9 +17,9 @@ const transport = { outcome: "failure", reason: "transport" } as const;
 
 export const pluginUserSettingsOutcome = (input: {
 	readonly scope: ApiScope;
-	readonly api: Pick<RyotQLApi["Service"], "execute">;
-	readonly currentScope: () => ApiScope | undefined;
 	readonly request: PluginUserSettingsRequest;
+	readonly currentScope: () => ApiScope | undefined;
+	readonly api: Pick<RyotQLApi["Service"], "execute">;
 	readonly contributors: PreparedClientPage["identity"]["contributors"];
 }): Effect.Effect<PluginUserSettingsOutcome> =>
 	Effect.gen(function* () {

@@ -29,15 +29,12 @@ export const GO_TO_GROUP = "Go to";
 export const ALL_FILTER = "all";
 export const PAGES_FILTER = "pages";
 
-export type CommandOption = {
-	readonly id: string;
-	readonly href: string;
-	readonly icon: string;
+export type ViewOutcome = Result.Result<LibrarySearchResult, "failed">;
+
+export type CommandFilter = {
+	readonly key: string;
 	readonly label: string;
-	readonly group: string;
-	readonly tag?: string | undefined;
-	readonly description?: string | undefined;
-	readonly art?: { readonly image: AssetLocator | null } | undefined;
+	readonly count?: number | undefined;
 };
 
 export type CommandGroup = {
@@ -47,10 +44,18 @@ export type CommandGroup = {
 	readonly options: readonly CommandOption[];
 };
 
-export type CommandFilter = {
-	readonly key: string;
-	readonly label: string;
-	readonly count?: number | undefined;
+export type LibraryCommit = {
+	readonly query: string;
+	readonly complete: boolean;
+	readonly outcomes: readonly { readonly view: LibraryView; readonly outcome: ViewOutcome }[];
+};
+
+export type CommandResults = {
+	readonly empty: boolean;
+	readonly filter: string;
+	readonly failed: readonly LibraryView[];
+	readonly groups: readonly CommandGroup[];
+	readonly filters: readonly CommandFilter[];
 };
 
 export type LibraryView = {
@@ -63,20 +68,15 @@ export type LibraryView = {
 	readonly settings: EntityBrowserSavedViewSettings;
 };
 
-export type ViewOutcome = Result.Result<LibrarySearchResult, "failed">;
-
-export type LibraryCommit = {
-	readonly query: string;
-	readonly complete: boolean;
-	readonly outcomes: readonly { readonly view: LibraryView; readonly outcome: ViewOutcome }[];
-};
-
-export type CommandResults = {
-	readonly empty: boolean;
-	readonly filter: string;
-	readonly groups: readonly CommandGroup[];
-	readonly filters: readonly CommandFilter[];
-	readonly failed: readonly LibraryView[];
+export type CommandOption = {
+	readonly id: string;
+	readonly href: string;
+	readonly icon: string;
+	readonly label: string;
+	readonly group: string;
+	readonly tag?: string | undefined;
+	readonly description?: string | undefined;
+	readonly art?: undefined | { readonly image: null | AssetLocator };
 };
 
 const matchesText = (text: string, query: string) =>
@@ -182,7 +182,7 @@ const searchLibraryView = <Failure>(
 	view: LibraryView,
 	query: string,
 	execute: LibraryExecute<Failure>,
-): Effect.Effect<LibrarySearchResult, Failure | Error> => {
+): Effect.Effect<LibrarySearchResult, Error | Failure> => {
 	const prepared = librarySearchRecipe({
 		searchText: query,
 		settings: view.settings,

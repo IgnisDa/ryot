@@ -23,15 +23,20 @@ import {
 export const SUCCESS_DISMISS_MS = 6_000;
 export const ANNOUNCEMENT_INTERVAL_MS = 2_000;
 
-type BackgroundSubmissionState =
-	| { readonly status: "pending" }
-	| { readonly status: "succeeded" }
-	| { readonly status: "incomplete"; readonly count: number | undefined }
-	| {
-			readonly status: "failed";
-			readonly reason: Exclude<BackgroundSubmissionFailureClass, "operation-rejected">;
-	  }
-	| { readonly status: "failed"; readonly message: string; readonly reason: "operation-rejected" };
+export type BackgroundSubmissionTarget = ClientPageOperationTarget & {
+	readonly pluginName: string;
+};
+
+export type BackgroundSubmissionReservation = {
+	readonly start: () => void;
+	readonly cancel: () => void;
+	readonly submissionId: string;
+};
+
+export type BackgroundSubmissionBinding = {
+	readonly session: object;
+	readonly settle: (submissionId: string, outcome: BackgroundSubmissionOutcome) => void;
+};
 
 export type BackgroundSubmissionEntry = {
 	readonly id: string;
@@ -47,33 +52,28 @@ type BackgroundSubmissionSnapshot = {
 	readonly entries: readonly BackgroundSubmissionEntry[];
 };
 
-export type BackgroundSubmissionTarget = ClientPageOperationTarget & {
-	readonly pluginName: string;
-};
-
-export type BackgroundSubmissionReservation = {
-	readonly submissionId: string;
-	readonly start: () => void;
-	readonly cancel: () => void;
-};
-
-export type BackgroundSubmissionBinding = {
-	readonly session: object;
-	readonly settle: (submissionId: string, outcome: BackgroundSubmissionOutcome) => void;
-};
-
 type SubmissionRecord = {
-	readonly id: string;
-	readonly session: object;
-	readonly target: BackgroundSubmissionTarget;
-	readonly request: PluginOperationRequest;
-	readonly label: string;
-	readonly settle: BackgroundSubmissionBinding["settle"];
 	reserved: boolean;
+	readonly id: string;
+	readonly label: string;
 	transportSeen: boolean;
+	readonly session: object;
 	state: BackgroundSubmissionState;
-	fiber: Fiber.Fiber<unknown, unknown> | undefined;
+	readonly request: PluginOperationRequest;
+	readonly target: BackgroundSubmissionTarget;
+	fiber: undefined | Fiber.Fiber<unknown, unknown>;
+	readonly settle: BackgroundSubmissionBinding["settle"];
 };
+
+type BackgroundSubmissionState =
+	| { readonly status: "pending" }
+	| { readonly status: "succeeded" }
+	| { readonly status: "incomplete"; readonly count: number | undefined }
+	| { readonly message: string; readonly status: "failed"; readonly reason: "operation-rejected" }
+	| {
+			readonly status: "failed";
+			readonly reason: Exclude<BackgroundSubmissionFailureClass, "operation-rejected">;
+	  };
 
 const retryableReasons: ReadonlySet<BackgroundSubmissionFailureClass> =
 	new Set<BackgroundSubmissionFailureClass>(["transport", "malformed-result"]);
@@ -86,7 +86,7 @@ export const resolveBackgroundSubmissionTarget = (
 	identity: Pick<PreparedClientPage["identity"], "contributors" | "operationTargets">,
 	catalog: PluginClientCatalog,
 	packageId: string,
-): BackgroundSubmissionTarget | undefined => {
+): undefined | BackgroundSubmissionTarget => {
 	const target = identity.operationTargets.find((candidate) => candidate.packageId === packageId);
 	const contributor = identity.contributors.find(
 		(candidate) =>
@@ -123,7 +123,7 @@ const settledState = (outcome: PluginOperationDispatchOutcome): BackgroundSubmis
 	return { status: "succeeded" };
 };
 
-const wireOutcome = (state: BackgroundSubmissionState): BackgroundSubmissionOutcome | undefined => {
+const wireOutcome = (state: BackgroundSubmissionState): undefined | BackgroundSubmissionOutcome => {
 	if (state.status === "pending") {
 		return undefined;
 	}
@@ -156,16 +156,16 @@ const announcementText = (entry: BackgroundSubmissionEntry) =>
 	`${entry.pluginName}: ${entry.label}. ${backgroundSubmissionStatus(entry)}.`;
 
 export type BackgroundSubmissionTray = {
+	readonly dispose: () => void;
+	readonly dismiss: (id: string) => void;
 	readonly getSnapshot: () => BackgroundSubmissionSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
+	readonly retry: (id: string, catalog: PluginClientCatalog) => boolean;
 	readonly reserve: (submission: {
 		readonly target: BackgroundSubmissionTarget;
 		readonly binding: BackgroundSubmissionBinding;
 		readonly request: PluginBackgroundOperationRequest;
-	}) => BackgroundSubmissionReservation | undefined;
-	readonly retry: (id: string, catalog: PluginClientCatalog) => boolean;
-	readonly dismiss: (id: string) => void;
-	readonly dispose: () => void;
+	}) => undefined | BackgroundSubmissionReservation;
 };
 
 export class BackgroundSubmissionService extends Context.Service<BackgroundSubmissionService>()(
@@ -192,7 +192,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 				let announcement = "";
 				let announcedAt: number | undefined;
 				let queued: string[] = [];
-				let announcing: Fiber.Fiber<unknown, unknown> | undefined;
+				let announcing: undefined | Fiber.Fiber<unknown, unknown>;
 				let snapshot: BackgroundSubmissionSnapshot = { entries: [], announcement };
 
 				const toEntry = (record: SubmissionRecord): BackgroundSubmissionEntry => ({

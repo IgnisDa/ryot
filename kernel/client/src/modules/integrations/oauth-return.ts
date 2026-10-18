@@ -11,9 +11,9 @@ import type { AuthenticatedApiError } from "#/api/authenticated";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import type { KernelHostServices } from "#/host-services";
 
-type ReturnLocation = Pick<Location, "hash" | "pathname" | "search">;
+type ReturnHistory = Pick<History, "state" | "replaceState">;
 
-type ReturnHistory = Pick<History, "replaceState" | "state">;
+type ReturnLocation = Pick<Location, "hash" | "search" | "pathname">;
 
 const decodeFragment = Schema.decodeUnknownOption(OAuthConnectionReturnFragment);
 
@@ -53,7 +53,7 @@ export class OAuthReturnCapture extends Context.Service<
 }
 
 export const completeOAuthConnectionMutation = createRyotMutation<
-	{ readonly connectionId: OAuthConnectionId; readonly secret: string },
+	{ readonly secret: string; readonly connectionId: OAuthConnectionId },
 	ContractSuccess<"oauthConnections", "complete">,
 	KernelHostServices,
 	AuthenticatedApiError

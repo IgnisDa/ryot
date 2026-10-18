@@ -77,7 +77,7 @@ const PLUGIN_BACK_SETTLE_MS = 500;
 const BOOTSTRAP_TIMEOUT_MS = 15_000;
 
 const afterFlush = (
-	session: PluginBridgeSession | undefined,
+	session: undefined | PluginBridgeSession,
 	act: (flushed: boolean) => void,
 	signal?: AbortSignal,
 ) =>
@@ -103,11 +103,12 @@ export function PageIframeHost(props: {
 	readonly onReloadCurrent: () => void;
 	readonly watchEntities: WatchEntities;
 	readonly freshnessCheckRevision: number;
+	readonly onReleaseResources: () => void;
 	readonly backInterceptors: BackInterceptors;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onOverlayState: (count: number) => void;
-	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
+	readonly chromeTriggerRef: RefObject<null | HTMLElement>;
 	readonly onHeader: (header: PageHeaderPublication) => void;
 	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
@@ -116,49 +117,48 @@ export function PageIframeHost(props: {
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
-	readonly onScreenState: (state: PageScreenReadiness | null) => void;
+	readonly onScreenState: (state: null | PageScreenReadiness) => void;
+	readonly onFlushReady: (flush: undefined | (() => Effect.Effect<boolean>)) => void;
+	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
+	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
+	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
+	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onPickEntity: (
 		request: PluginBridgePickEntityScreen,
 	) => Effect.Effect<PickEntityOutcome>;
 	readonly onEditCollection: (
 		request: EditCollectionRequest,
 	) => Effect.Effect<EditCollectionOutcome>;
-	readonly onAddToCollection: (
-		request: AddToCollectionRequest,
-	) => Effect.Effect<AddToCollectionOutcome>;
-	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
-	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
-	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
 	readonly onEntitySave: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<PluginEntitySaveOutcome>;
-	readonly onCalendarSourceVisibility: (
-		request: PluginCalendarSourceVisibilityRequest,
-	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
-	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
+	readonly onEnrichment: (
+		request: PluginEnrichmentRequest,
+	) => Effect.Effect<PluginEnrichmentOutcome>;
+	readonly onAddToCollection: (
+		request: AddToCollectionRequest,
+	) => Effect.Effect<AddToCollectionOutcome>;
+	readonly onUserSettings: (
+		request: PluginUserSettingsRequest,
+	) => Effect.Effect<PluginUserSettingsOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
+	readonly onIosLiveActivity: (
+		request: PluginIosLiveActivityRequest,
+	) => Effect.Effect<PluginIosLiveActivityOutcome>;
+	readonly onCalendarSourceVisibility: (
+		request: PluginCalendarSourceVisibilityRequest,
+	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
 	readonly onBackgroundOperation: (
 		request: PluginBackgroundOperationRequest,
 		binding: BackgroundSubmissionBinding,
 	) => Effect.Effect<BackgroundOperationAcceptance>;
-	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
-	readonly onUserSettings: (
-		request: PluginUserSettingsRequest,
-	) => Effect.Effect<PluginUserSettingsOutcome>;
-	readonly onEnrichment: (
-		request: PluginEnrichmentRequest,
-	) => Effect.Effect<PluginEnrichmentOutcome>;
-	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
-	readonly onIosLiveActivity: (
-		request: PluginIosLiveActivityRequest,
-	) => Effect.Effect<PluginIosLiveActivityOutcome>;
-	readonly onFlushReady: (flush: (() => Effect.Effect<boolean>) | undefined) => void;
-	readonly onReleaseResources: () => void;
 }) {
 	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
@@ -173,7 +173,7 @@ export function PageIframeHost(props: {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
-	const markCompositionStale = useRef<(() => void) | undefined>(undefined);
+	const markCompositionStale = useRef<undefined | (() => void)>(undefined);
 	const freshnessRevision = useRef(props.freshnessCheckRevision);
 	const documentKey = useRef(props.documentKey);
 	const mutationRevision = useRef(0);
@@ -576,7 +576,7 @@ export function PageIframeHost(props: {
 	);
 }
 
-function PageShortcut(props: { readonly shortcut: PageShortcutKey; readonly onPress: () => void }) {
+function PageShortcut(props: { readonly onPress: () => void; readonly shortcut: PageShortcutKey }) {
 	const press = useRef(props.onPress);
 	useLayoutEffect(() => {
 		press.current = props.onPress;

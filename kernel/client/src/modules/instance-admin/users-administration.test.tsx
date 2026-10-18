@@ -218,7 +218,7 @@ describe("Instance Admin users administration", () => {
 	it.live("interrupts an action on unmount and ignores its late unauthorized result", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
-			let settle: (() => void) | undefined;
+			let settle: undefined | (() => void);
 			let interrupted = false;
 			const view = renderUsers([makeUser(0)], undefined, {
 				resetUserPassword: () =>
@@ -498,7 +498,7 @@ describe("Instance Admin users administration", () => {
 	it.live("refuses every dismissal while the destructive operation is pending", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
-			let settle: (() => void) | undefined;
+			let settle: undefined | (() => void);
 			const view = renderUsers([makeUser(0)], undefined, {
 				deleteUser: () =>
 					Effect.callback((resolve) => {

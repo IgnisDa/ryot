@@ -9,7 +9,7 @@ export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
 
 type ListenNativeResume = (
 	notify: () => void,
-) => Effect.Effect<PluginListenerHandle | undefined, Cause.UnknownError>;
+) => Effect.Effect<undefined | PluginListenerHandle, Cause.UnknownError>;
 
 const listenNativeResume: ListenNativeResume = (notify) =>
 	Capacitor.isNativePlatform()

@@ -28,6 +28,15 @@ export const Route = createFileRoute("/oauth/login")({
 		),
 });
 
+function OAuthLoginFrame(props: { readonly children: ReactNode }) {
+	usePageTitle("Sign in");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			{props.children}
+		</main>
+	);
+}
+
 function OAuthLoginUnavailable() {
 	const router = useRouter();
 	return (
@@ -199,14 +208,5 @@ function OAuthLogin() {
 				)}
 			</section>
 		</OAuthLoginFrame>
-	);
-}
-
-function OAuthLoginFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Sign in");
-	return (
-		<main {...mainContentProps} className="ui-page">
-			{props.children}
-		</main>
 	);
 }

@@ -7,18 +7,18 @@ import {
 	type ThemeRoot,
 } from "#/modules/theme/preference";
 
-type ThemeMedia = {
-	readonly matches: boolean;
-	addEventListener(type: "change", listener: () => void): void;
-	removeEventListener(type: "change", listener: () => void): void;
-};
-
 export type ThemeStore = {
 	readonly destroy: () => void;
 	readonly getPreference: () => ThemePreference;
 	readonly getSnapshot: () => PluginThemeSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
 	readonly setPreference: (preference: ThemePreference) => void;
+};
+
+type ThemeMedia = {
+	readonly matches: boolean;
+	addEventListener(type: "change", listener: () => void): void;
+	removeEventListener(type: "change", listener: () => void): void;
 };
 
 export function createThemeStore(

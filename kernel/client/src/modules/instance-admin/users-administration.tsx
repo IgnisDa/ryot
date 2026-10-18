@@ -42,28 +42,8 @@ import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
 
-type UserAction = "password" | "disabled" | "reset" | "delete" | "impersonate";
-
-function UserPageStatus(props: {
-	readonly state: "loading" | "error";
-	readonly onRetry: () => void;
-}) {
-	if (props.state === "loading") {
-		return <p role="status">Loading users...</p>;
-	}
-	return (
-		<div className="grid justify-items-center gap-3">
-			<p role="alert" className="text-danger">
-				Could not load users. Check the server and try again.
-			</p>
-			<Button type="button" variant="secondary" onClick={props.onRetry}>
-				Retry
-			</Button>
-		</div>
-	);
-}
-
 export type InstanceAdminUserOperations = {
+	readonly impersonateUser: (userId: string) => Effect.Effect<string, unknown>;
 	readonly resetUser: (userId: string) => Effect.Effect<InstanceAdminUserResetResult, unknown>;
 	readonly deleteUser: (
 		userId: string,
@@ -80,15 +60,35 @@ export type InstanceAdminUserOperations = {
 		after: string | undefined,
 		limit: number,
 	) => Effect.Effect<InstanceAdminUsers, unknown>;
-	readonly impersonateUser: (userId: string) => Effect.Effect<string, unknown>;
 };
+
+type UserAction = "reset" | "delete" | "password" | "disabled" | "impersonate";
 
 type UsersAdministrationProps = {
 	readonly onUnauthorized: () => void;
-	readonly operations: InstanceAdminUserOperations;
 	readonly backInterceptors: BackInterceptors;
 	readonly transferAdminLink: AdminLinkTransfer;
+	readonly operations: InstanceAdminUserOperations;
 };
+
+function UserPageStatus(props: {
+	readonly onRetry: () => void;
+	readonly state: "error" | "loading";
+}) {
+	if (props.state === "loading") {
+		return <p role="status">Loading users...</p>;
+	}
+	return (
+		<div className="grid justify-items-center gap-3">
+			<p role="alert" className="text-danger">
+				Could not load users. Check the server and try again.
+			</p>
+			<Button type="button" variant="secondary" onClick={props.onRetry}>
+				Retry
+			</Button>
+		</div>
+	);
+}
 
 const formatDate = (value: string) =>
 	new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
@@ -244,31 +244,83 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	);
 }
 
+function Badge(props: { readonly children: string; readonly tone?: "danger" | "success" }) {
+	return (
+		<span
+			className={clsx(
+				"inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold",
+				props.tone === "success" && "bg-success-soft text-success",
+				props.tone === "danger" && "text-danger",
+			)}
+		>
+			{props.children}
+		</span>
+	);
+}
+
+function UserActionsMenu(props: {
+	readonly id: string;
+	readonly open: boolean;
+	readonly note?: string;
+	readonly activeIndex: number;
+	readonly items: ReadonlyArray<MenuItem>;
+	readonly backInterceptors: BackInterceptors;
+	readonly onClose: (restoreFocus: boolean) => void;
+	readonly onActiveIndexChange: (index: number) => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const { open, backInterceptors } = props;
+	const close = useEffectEvent((restoreFocus: boolean) => props.onClose(restoreFocus));
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		return backInterceptors.register(() => {
+			close(true);
+			return true;
+		});
+	}, [backInterceptors, open]);
+
+	return open ? (
+		<Menu
+			id={props.id}
+			note={props.note}
+			items={props.items}
+			label="User actions"
+			onClose={props.onClose}
+			triggerRef={props.triggerRef}
+			activeIndex={props.activeIndex}
+			onActiveIndexChange={props.onActiveIndexChange}
+		/>
+	) : null;
+}
+
 function UserRow(props: {
-	readonly user: InstanceAdminUser;
 	readonly onRefresh: () => void;
+	readonly user: InstanceAdminUser;
 	readonly onUnauthorized: () => void;
-	readonly operations: InstanceAdminUserOperations;
 	readonly backInterceptors: BackInterceptors;
 	readonly transferAdminLink: AdminLinkTransfer;
+	readonly operations: InstanceAdminUserOperations;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const pendingRef = useRef<string | null>(null);
+	const pendingRef = useRef<null | string>(null);
 	const unmountSignal = useUnmountSignal();
 	const menuId = useId();
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string>();
-	const [confirmation, setConfirmation] = useState<"reset" | "delete" | null>(null);
+	const [confirmation, setConfirmation] = useState<null | "reset" | "delete">(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeMenuIndex, setActiveMenuIndex] = useState(0);
 	const [pending, setPending] = useState<
-		"password" | "disabled" | "reset" | "delete" | "impersonation" | null
+		null | "reset" | "delete" | "password" | "disabled" | "impersonation"
 	>(null);
 	const [result, setResult] = useState<
-		InstanceAdminPasswordResetResult | InstanceAdminUserResetResult | null
+		null | InstanceAdminUserResetResult | InstanceAdminPasswordResetResult
 	>(null);
-	const [impersonationUrl, setImpersonationUrl] = useState<string | null>(null);
+	const [impersonationUrl, setImpersonationUrl] = useState<null | string>(null);
 	const linkUrl = impersonationUrl ?? result?.resetUrl;
 	const linkLabel = impersonationUrl === null ? "Password reset link" : "Impersonation link";
 	const isDisabled = props.user.disabledAt !== null;
@@ -596,58 +648,6 @@ function UserRow(props: {
 	);
 }
 
-function UserActionsMenu(props: {
-	readonly id: string;
-	readonly open: boolean;
-	readonly note?: string;
-	readonly activeIndex: number;
-	readonly items: ReadonlyArray<MenuItem>;
-	readonly backInterceptors: BackInterceptors;
-	readonly onClose: (restoreFocus: boolean) => void;
-	readonly onActiveIndexChange: (index: number) => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const { open, backInterceptors } = props;
-	const close = useEffectEvent((restoreFocus: boolean) => props.onClose(restoreFocus));
-
-	useEffect(() => {
-		if (!open) {
-			return undefined;
-		}
-		return backInterceptors.register(() => {
-			close(true);
-			return true;
-		});
-	}, [backInterceptors, open]);
-
-	return open ? (
-		<Menu
-			id={props.id}
-			note={props.note}
-			items={props.items}
-			label="User actions"
-			onClose={props.onClose}
-			triggerRef={props.triggerRef}
-			activeIndex={props.activeIndex}
-			onActiveIndexChange={props.onActiveIndexChange}
-		/>
-	) : null;
-}
-
-function Badge(props: { readonly children: string; readonly tone?: "success" | "danger" }) {
-	return (
-		<span
-			className={clsx(
-				"inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold",
-				props.tone === "success" && "bg-success-soft text-success",
-				props.tone === "danger" && "text-danger",
-			)}
-		>
-			{props.children}
-		</span>
-	);
-}
-
 const authLabel = (state: InstanceAdminUser["authState"]) =>
 	({ oidc: "OIDC", none: "None", mixed: "Mixed", credential: "Password" })[state];
 
@@ -658,7 +658,7 @@ function ConfirmationDialog(props: {
 	readonly onConfirm: () => void;
 	readonly kind: "reset" | "delete";
 	readonly backInterceptors: BackInterceptors;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const close = useEffectEvent(() => props.onClose());

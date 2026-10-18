@@ -16,6 +16,12 @@ import type { ApiScope } from "#/api/scope";
 import { PluginCatalogEventsService } from "#/modules/plugins/catalog/events";
 import { pluginCatalogQuery } from "#/modules/plugins/catalog/service";
 
+type PluginCatalogContextValue = {
+	readonly refetch: () => void;
+	readonly catalog: PluginClientCatalog;
+	readonly invalidationRevision: number;
+};
+
 type PluginCatalogProviderRuntime = {
 	readonly runFork: (
 		effect: Effect.Effect<never, never, PluginCatalogEventsService>,
@@ -23,13 +29,27 @@ type PluginCatalogProviderRuntime = {
 	) => Fiber.Fiber<never>;
 };
 
-type PluginCatalogContextValue = {
-	readonly refetch: () => void;
-	readonly catalog: PluginClientCatalog;
-	readonly invalidationRevision: number;
-};
+const PluginCatalogContext = createContext<undefined | PluginCatalogContextValue>(undefined);
 
-const PluginCatalogContext = createContext<PluginCatalogContextValue | undefined>(undefined);
+export function usePluginCatalog() {
+	const context = useContext(PluginCatalogContext);
+	if (context === undefined) {
+		throw new Error("usePluginCatalog must be used within PluginCatalogProvider");
+	}
+	return context;
+}
+
+export function useIngestionCatalogRefresh(refetch: () => void) {
+	const { invalidationRevision } = usePluginCatalog();
+	const previous = useRef(invalidationRevision);
+	const refresh = useEffectEvent(refetch);
+	useEffect(() => {
+		if (previous.current !== invalidationRevision) {
+			previous.current = invalidationRevision;
+			refresh();
+		}
+	}, [invalidationRevision]);
+}
 
 export function PluginCatalogProvider(props: {
 	readonly scope: ApiScope;
@@ -67,24 +87,4 @@ export function PluginCatalogProvider(props: {
 	return (
 		<PluginCatalogContext.Provider value={value}>{props.children}</PluginCatalogContext.Provider>
 	);
-}
-
-export function usePluginCatalog() {
-	const context = useContext(PluginCatalogContext);
-	if (context === undefined) {
-		throw new Error("usePluginCatalog must be used within PluginCatalogProvider");
-	}
-	return context;
-}
-
-export function useIngestionCatalogRefresh(refetch: () => void) {
-	const { invalidationRevision } = usePluginCatalog();
-	const previous = useRef(invalidationRevision);
-	const refresh = useEffectEvent(refetch);
-	useEffect(() => {
-		if (previous.current !== invalidationRevision) {
-			previous.current = invalidationRevision;
-			refresh();
-		}
-	}, [invalidationRevision]);
 }

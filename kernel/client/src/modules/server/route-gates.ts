@@ -1,24 +1,24 @@
 import type { ServerOrigin } from "#/api/origin";
 import { type SafeRedirect, sanitizeRedirect } from "#/modules/server/redirect";
 
+export type OnboardingCompletionDecision = Exclude<OnboardingGateDecision, { action: "stay" }>;
+
 export type RootGateDecision =
-	| { readonly action: "redirect"; readonly to: "/auth" }
-	| { readonly action: "redirect"; readonly to: "/onboarding" };
+	| { readonly to: "/auth"; readonly action: "redirect" }
+	| { readonly to: "/onboarding"; readonly action: "redirect" };
 
 export type OnboardingGateDecision =
-	| { readonly action: "enter-instance-admin"; readonly to: SafeRedirect }
-	| { readonly action: "stay"; readonly redirectTo: SafeRedirect | undefined }
+	| { readonly to: SafeRedirect; readonly action: "enter-instance-admin" }
+	| { readonly action: "stay"; readonly redirectTo: undefined | SafeRedirect }
 	| {
 			readonly to: "/auth";
 			readonly action: "start-oauth";
-			readonly redirectTo: SafeRedirect | undefined;
+			readonly redirectTo: undefined | SafeRedirect;
 	  };
-
-export type OnboardingCompletionDecision = Exclude<OnboardingGateDecision, { action: "stay" }>;
 
 export const decideRootGate = (
 	isNative: boolean,
-	server: ServerOrigin | null,
+	server: null | ServerOrigin,
 ): RootGateDecision => ({
 	action: "redirect",
 	to: isNative && server === null ? "/onboarding" : "/auth",
@@ -26,7 +26,7 @@ export const decideRootGate = (
 
 export function decideOnboardingGate(
 	isNative: boolean,
-	server: ServerOrigin | null,
+	server: null | ServerOrigin,
 	redirectIntent: unknown,
 ): OnboardingGateDecision {
 	return isNative && server === null

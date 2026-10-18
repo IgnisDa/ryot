@@ -2,17 +2,17 @@ import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugi
 
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
+export type IntegrationProviderNames = ReadonlyMap<string, string>;
+
 type IntegrationIdentity = {
 	readonly provider: string;
-	readonly name?: string | null;
-	readonly pluginId: string | null;
+	readonly name?: null | string;
+	readonly pluginId: null | string;
 };
-
-export type IntegrationProviderNames = ReadonlyMap<string, string>;
 
 export const integrationProviderKey = (input: {
 	readonly provider: string;
-	readonly pluginId: string | null;
+	readonly pluginId: null | string;
 }) => definitionKey("integration-provider", definitionOwner(input.pluginId), input.provider);
 
 export const integrationProviderName = (
@@ -34,7 +34,7 @@ export const integrationStateLabel = (integration: { readonly isDisabled: boolea
 	integration.isDisabled ? "Paused" : "Active";
 
 export const integrationSyncLabel = (
-	integration: { readonly lastFinishedAt: string | null },
+	integration: { readonly lastFinishedAt: null | string },
 	nowMs: number,
 ) =>
 	integration.lastFinishedAt === null

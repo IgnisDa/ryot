@@ -31,10 +31,14 @@ type EntityPickPanelProps = {
 	readonly onClose: () => void;
 	readonly initialQuery?: string | undefined;
 	readonly providers: ProviderSummariesState;
-	readonly selectedProviderId: SandboxProviderId | undefined;
-	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
-	readonly onCreate?: ((query: string) => void) | undefined;
+	readonly importEntity: ImportProviderEntity;
 	readonly onSelect: (entityId: EntityId) => void;
+	readonly onCreate?: undefined | ((query: string) => void);
+	readonly selectedProviderId: undefined | SandboxProviderId;
+	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
+	readonly search: (
+		payload: SearchProviderEntitiesBody,
+	) => Effect.Effect<SearchProviderEntitiesResponse, ProviderAddLoadError>;
 	readonly loadEntities: (input: {
 		readonly query: string;
 		readonly after: string | undefined;
@@ -43,11 +47,57 @@ type EntityPickPanelProps = {
 		readonly providerId: SandboxProviderId;
 		readonly externalIds: readonly [string, ...string[]];
 	}) => Effect.Effect<ReadonlySet<string>, ProviderAddLoadError>;
-	readonly search: (
-		payload: SearchProviderEntitiesBody,
-	) => Effect.Effect<SearchProviderEntitiesResponse, ProviderAddLoadError>;
-	readonly importEntity: ImportProviderEntity;
 };
+
+export function EntityPickPanel(props: EntityPickPanelProps) {
+	const available = props.providers.status === "ready" ? props.providers.providers : [];
+	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
+	const [query, setQuery] = useState(props.initialQuery ?? "");
+	const debouncedQuery = useDebouncedQuery(query);
+	const trimmed = query.trim();
+
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div className="grid gap-3 p-4 pb-3">
+				<PickerSearchBar query={query} label="Search" onChange={setQuery} onClose={props.onClose} />
+				{available.length > 1 ? (
+					<ProviderChips
+						providers={available}
+						selectedProviderId={selected?.providerId}
+						onSelect={(provider) => props.onSelectProvider(provider.providerId)}
+					/>
+				) : null}
+			</div>
+
+			<div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 pb-4">
+				<ExistingEntities
+					query={debouncedQuery}
+					onSelect={props.onSelect}
+					loadEntities={props.loadEntities}
+				/>
+				{selected === undefined || debouncedQuery.trim() === "" ? null : (
+					<ProviderResults
+						provider={selected}
+						search={props.search}
+						query={debouncedQuery}
+						onSelect={props.onSelect}
+						importEntity={props.importEntity}
+						loadMaterialized={props.loadMaterialized}
+					/>
+				)}
+			</div>
+
+			{props.onCreate === undefined ? null : (
+				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+					<Button variant="secondary" onClick={() => props.onCreate?.(trimmed)}>
+						<AppIcon size={15} name="plus" />
+						{trimmed === "" ? "Create new" : `Create "${trimmed}"`}
+					</Button>
+				</div>
+			)}
+		</div>
+	);
+}
 
 function useDebouncedQuery(query: string) {
 	const [debounced, setDebounced] = useState(query);
@@ -207,55 +257,5 @@ function ProviderResults(props: {
 				/>
 			) : null}
 		</section>
-	);
-}
-
-export function EntityPickPanel(props: EntityPickPanelProps) {
-	const available = props.providers.status === "ready" ? props.providers.providers : [];
-	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
-	const [query, setQuery] = useState(props.initialQuery ?? "");
-	const debouncedQuery = useDebouncedQuery(query);
-	const trimmed = query.trim();
-
-	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="grid gap-3 p-4 pb-3">
-				<PickerSearchBar query={query} label="Search" onChange={setQuery} onClose={props.onClose} />
-				{available.length > 1 ? (
-					<ProviderChips
-						providers={available}
-						selectedProviderId={selected?.providerId}
-						onSelect={(provider) => props.onSelectProvider(provider.providerId)}
-					/>
-				) : null}
-			</div>
-
-			<div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 pb-4">
-				<ExistingEntities
-					query={debouncedQuery}
-					onSelect={props.onSelect}
-					loadEntities={props.loadEntities}
-				/>
-				{selected === undefined || debouncedQuery.trim() === "" ? null : (
-					<ProviderResults
-						provider={selected}
-						search={props.search}
-						query={debouncedQuery}
-						onSelect={props.onSelect}
-						importEntity={props.importEntity}
-						loadMaterialized={props.loadMaterialized}
-					/>
-				)}
-			</div>
-
-			{props.onCreate === undefined ? null : (
-				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-					<Button variant="secondary" onClick={() => props.onCreate?.(trimmed)}>
-						<AppIcon size={15} name="plus" />
-						{trimmed === "" ? "Create new" : `Create "${trimmed}"`}
-					</Button>
-				</div>
-			)}
-		</div>
 	);
 }

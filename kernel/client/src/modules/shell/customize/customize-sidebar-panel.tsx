@@ -8,10 +8,10 @@ import type { CustomizeDraftState } from "#/modules/shell/customize/use-customiz
 
 export function CustomizeSidebarPanel(props: {
 	readonly onSave: () => void;
+	readonly readOnly?: boolean;
 	readonly onLeave: () => void;
 	readonly customize: CustomizeDraftState;
-	readonly readOnly?: boolean;
-	readonly initialSection?: CustomizeSection | undefined;
+	readonly initialSection?: undefined | CustomizeSection;
 }) {
 	const canSave = props.readOnly !== true && props.customize.isDirty && !props.customize.isSaving;
 	return (

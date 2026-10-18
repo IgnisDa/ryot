@@ -1,20 +1,20 @@
 import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot-app/contract/oauth";
 import { type Cause, Context, Effect, Layer } from "effect";
 
-export type NativeAppSource = {
-	readonly exitApp: () => void;
-	readonly getLaunchUrl: () => Effect.Effect<string | null, Cause.UnknownError>;
-	readonly onBackButton: (handler: () => void) => Effect.Effect<() => void, Cause.UnknownError>;
-	readonly onUrlOpen: (
-		handler: (url: string) => void,
-	) => Effect.Effect<() => void, Cause.UnknownError>;
-};
-
 export type DeepLinkNavigator = {
 	readonly back: () => void;
 	readonly canGoBack: () => boolean;
 	readonly dismissOverlay: () => boolean;
 	readonly navigate: (href: string, options: { readonly replace: boolean }) => void;
+};
+
+export type NativeAppSource = {
+	readonly exitApp: () => void;
+	readonly getLaunchUrl: () => Effect.Effect<null | string, Cause.UnknownError>;
+	readonly onBackButton: (handler: () => void) => Effect.Effect<() => void, Cause.UnknownError>;
+	readonly onUrlOpen: (
+		handler: (url: string) => void,
+	) => Effect.Effect<() => void, Cause.UnknownError>;
 };
 
 type DeepLinkClaim = (rawUrl: string) => void;
@@ -57,7 +57,7 @@ export class DeepLinkClaims extends Context.Service<
 const isAppScheme = (scheme: string): boolean =>
 	OAUTH_NATIVE_APPLICATION_IDS.some((candidate) => candidate === scheme);
 
-export function resolveDeepLinkHref(rawUrl: string): string | null {
+export function resolveDeepLinkHref(rawUrl: string): null | string {
 	let url: URL;
 	try {
 		url = new URL(rawUrl);
@@ -94,7 +94,7 @@ export function createDeepLinkBridge(
 		removers.push(remove);
 	};
 
-	const open = (rawUrl: string | null, options: { readonly replace: boolean }) => {
+	const open = (rawUrl: null | string, options: { readonly replace: boolean }) => {
 		if (isDisposed || rawUrl === null) {
 			return;
 		}

@@ -45,7 +45,7 @@ export function BackupRestoreWizard(props: {
 	const mutation = useRyotMutation(createRestoreMutation);
 	const [step, setStep] = useState<BackupRestoreStep>("choose");
 	const [uploadToken, setUploadToken] = useState<string | undefined>();
-	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
+	const [failure, setFailure] = useState<undefined | BackupRestoreFailure>();
 
 	const startRestore = () => {
 		return Effect.runPromise(

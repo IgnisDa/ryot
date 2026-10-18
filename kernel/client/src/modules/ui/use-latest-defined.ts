@@ -9,7 +9,7 @@ export function useLatestDefined<Value>(value: Value | undefined) {
 }
 
 export function useLatestListState<Data, State>(
-	query: { readonly data: Data | undefined; readonly isError: boolean },
+	query: { readonly isError: boolean; readonly data: Data | undefined },
 	toState: (data: Data) => State,
 ) {
 	const latest = useLatestDefined(query.data);

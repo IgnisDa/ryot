@@ -18,13 +18,13 @@ export const isDemoOperationProtectedError = (
 	error instanceof AuthenticatedApiError && error.cause instanceof DemoOperationProtected;
 
 export type AuthenticatedApiService = {
+	readonly authorization: (
+		scope: ApiScope,
+	) => Effect.Effect<Record<string, string>, AuthenticatedApiError>;
 	readonly run: <A, E>(
 		scope: ApiScope,
 		program: ContractProgram<A, E>,
 	) => Effect.Effect<A, AuthenticatedApiError>;
-	readonly authorization: (
-		scope: ApiScope,
-	) => Effect.Effect<Record<string, string>, AuthenticatedApiError>;
 };
 
 const tokenForScope = (

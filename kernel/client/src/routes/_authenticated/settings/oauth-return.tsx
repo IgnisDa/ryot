@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/settings/oauth-return")({
 	component: OAuthReturnRoute,
 });
 
-type OAuthReturnState = "completing" | "connected" | "failed" | "empty";
+type OAuthReturnState = "empty" | "failed" | "connected" | "completing";
 
 function OAuthReturnRoute() {
 	const { runtime } = Route.useRouteContext();

@@ -90,12 +90,12 @@ const uploadStub = () =>
 			}),
 	});
 
-type RunsResponse = {
-	readonly items: readonly BackupRunItem[];
-	readonly hasMore?: boolean;
-	readonly nextCursor?: string | null;
-};
 type RunsLoad = (after?: string) => Effect.Effect<RunsResponse, AuthenticatedApiError>;
+type RunsResponse = {
+	readonly hasMore?: boolean;
+	readonly nextCursor?: null | string;
+	readonly items: readonly BackupRunItem[];
+};
 
 const makeBackupQueries = (load: RunsLoad): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({

@@ -2,33 +2,34 @@ import type { BackupRunStatus } from "@ryot-app/contract/modules/backups/schemas
 import type { ImportRunStatus } from "@ryot-app/contract/modules/imports/schemas";
 import { DateTime, Match } from "effect";
 
-/**
- * Structural rather than derived from one row type: manual import runs and integration runs both
- * feed these, and a run's timing is the only thing they are guaranteed to share.
- */
-type RunTiming = {
-	readonly createdAt: string;
-	readonly startedAt: string | null;
-	readonly finishedAt: string | null;
-};
-
 export type PresentedRunStatus = ImportRunStatus | BackupRunStatus;
 
-type RunDuration = Pick<RunTiming, "startedAt" | "finishedAt"> & {
-	readonly status: PresentedRunStatus;
-};
-
 export type RunStatusTone = "info" | "muted" | "danger" | "success";
-
-export type RunProgress =
-	| { readonly kind: "indeterminate"; readonly label: string }
-	| { readonly kind: "determinate"; readonly label: string; readonly percent: number };
 
 export type RunProgressValue = {
 	readonly text: string;
 	readonly now?: number;
 	readonly min?: number;
 	readonly max?: number;
+};
+
+export type RunProgress =
+	| { readonly label: string; readonly kind: "indeterminate" }
+	| { readonly label: string; readonly percent: number; readonly kind: "determinate" };
+
+type RunDuration = { readonly status: PresentedRunStatus } & Pick<
+	RunTiming,
+	"startedAt" | "finishedAt"
+>;
+
+/**
+ * Structural rather than derived from one row type: manual import runs and integration runs both
+ * feed these, and a run's timing is the only thing they are guaranteed to share.
+ */
+type RunTiming = {
+	readonly createdAt: string;
+	readonly startedAt: null | string;
+	readonly finishedAt: null | string;
 };
 
 const MINUTE_MS = 60_000;

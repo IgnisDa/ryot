@@ -40,84 +40,21 @@ type NotificationChannelsViewProps = {
 	readonly nowMs: number;
 	readonly onAdd: () => void;
 	readonly isTesting: boolean;
-	readonly isFetching?: boolean;
 	readonly onRetry: () => void;
+	readonly isFetching?: boolean;
 	readonly enabledCount: number;
 	readonly onSendTest: () => void;
 	readonly testSucceeded: boolean;
-	readonly isFetchingNextPage: boolean;
 	readonly onShowMore: () => void;
+	readonly isDemoProtected: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly onDelete: (id: string) => void;
 	readonly testDetail: string | undefined;
 	readonly deleteFailedId: string | undefined;
 	readonly state: NotificationChannelListState;
 	readonly pendingChannelId: string | undefined;
-	readonly isDemoProtected: boolean;
 	readonly onToggle: (id: string, isDisabled: boolean) => void;
 };
-
-function NotificationChannelRow(props: {
-	readonly nowMs: number;
-	readonly isFirst: boolean;
-	readonly isPending: boolean;
-	readonly onDelete: () => void;
-	readonly deleteFailed: boolean;
-	readonly channel: NotificationChannelSummary;
-	readonly onToggle: (isDisabled: boolean) => void;
-	readonly isDemoProtected: boolean;
-}) {
-	const triggerRef = useRef<HTMLButtonElement>(null);
-	const [isConfirming, setIsConfirming] = useState(false);
-	const name = notificationChannelName(props.channel.channel);
-
-	return (
-		<div
-			className={clsx(
-				"flex items-center gap-3 border-b border-border py-3",
-				props.isFirst && "border-t",
-				props.channel.isDisabled && "opacity-70",
-			)}
-		>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="truncate text-sm font-medium text-text">{name}</span>
-				<span className="truncate text-xs text-text-subtle">
-					{notificationChannelDetail(props.channel, props.nowMs)}
-				</span>
-			</span>
-			<Switch
-				checked={!props.channel.isDisabled}
-				onChange={(checked) => props.onToggle(!checked)}
-				disabled={props.isPending || props.isDemoProtected}
-				label={`${props.channel.isDisabled ? "Enable" : "Pause"} the ${name} channel`}
-			/>
-			<button
-				type="button"
-				ref={triggerRef}
-				onClick={() => setIsConfirming(true)}
-				aria-label={`Delete the ${name} channel`}
-				disabled={props.isPending || props.isDemoProtected}
-				className="shrink-0 p-1.5 text-text-subtle disabled:opacity-50"
-			>
-				<AppIcon size={16} name="trash-2" />
-			</button>
-			{isConfirming && (
-				<DestructiveConfirmation
-					triggerRef={triggerRef}
-					pending={props.isPending}
-					onConfirm={props.onDelete}
-					pendingLabel="Deleting..."
-					actionLabel="Delete channel"
-					title={`Delete the ${name} channel?`}
-					onClose={() => setIsConfirming(false)}
-					detail={notificationChannelDeleteConfirmation(props.channel)}
-					errorMessage={
-						props.deleteFailed ? "This channel could not be deleted. Try again." : undefined
-					}
-				/>
-			)}
-		</div>
-	);
-}
 
 export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 	if (props.state.status === "failed") {
@@ -216,6 +153,69 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 						/>
 					) : null}
 				</div>
+			)}
+		</div>
+	);
+}
+
+function NotificationChannelRow(props: {
+	readonly nowMs: number;
+	readonly isFirst: boolean;
+	readonly isPending: boolean;
+	readonly onDelete: () => void;
+	readonly deleteFailed: boolean;
+	readonly isDemoProtected: boolean;
+	readonly channel: NotificationChannelSummary;
+	readonly onToggle: (isDisabled: boolean) => void;
+}) {
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const [isConfirming, setIsConfirming] = useState(false);
+	const name = notificationChannelName(props.channel.channel);
+
+	return (
+		<div
+			className={clsx(
+				"flex items-center gap-3 border-b border-border py-3",
+				props.isFirst && "border-t",
+				props.channel.isDisabled && "opacity-70",
+			)}
+		>
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-medium text-text">{name}</span>
+				<span className="truncate text-xs text-text-subtle">
+					{notificationChannelDetail(props.channel, props.nowMs)}
+				</span>
+			</span>
+			<Switch
+				checked={!props.channel.isDisabled}
+				onChange={(checked) => props.onToggle(!checked)}
+				disabled={props.isPending || props.isDemoProtected}
+				label={`${props.channel.isDisabled ? "Enable" : "Pause"} the ${name} channel`}
+			/>
+			<button
+				type="button"
+				ref={triggerRef}
+				onClick={() => setIsConfirming(true)}
+				aria-label={`Delete the ${name} channel`}
+				disabled={props.isPending || props.isDemoProtected}
+				className="shrink-0 p-1.5 text-text-subtle disabled:opacity-50"
+			>
+				<AppIcon size={16} name="trash-2" />
+			</button>
+			{isConfirming && (
+				<DestructiveConfirmation
+					triggerRef={triggerRef}
+					pending={props.isPending}
+					onConfirm={props.onDelete}
+					pendingLabel="Deleting..."
+					actionLabel="Delete channel"
+					title={`Delete the ${name} channel?`}
+					onClose={() => setIsConfirming(false)}
+					detail={notificationChannelDeleteConfirmation(props.channel)}
+					errorMessage={
+						props.deleteFailed ? "This channel could not be deleted. Try again." : undefined
+					}
+				/>
 			)}
 		</div>
 	);

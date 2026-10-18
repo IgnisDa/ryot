@@ -176,7 +176,7 @@ const adders = (): readonly LibraryView[] =>
 
 const commitOf = (
 	query: string,
-	outcomes: readonly (readonly [LibraryView | undefined, LibrarySearchResult | "failed"])[],
+	outcomes: readonly (readonly [undefined | LibraryView, "failed" | LibrarySearchResult])[],
 ): LibraryCommit => ({
 	query,
 	complete: true,

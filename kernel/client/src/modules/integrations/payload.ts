@@ -90,8 +90,8 @@ export const initialIntegrationFormValues = (
  * unless the user replaces them.
  */
 export const storedIntegrationFormValues = (input: {
-	readonly integration: IntegrationClientDetail;
 	readonly provider: IntegrationProviderItem;
+	readonly integration: IntegrationClientDetail;
 }): SchemaFormValues => {
 	return {
 		...initialSchemaFormValues(input.provider.commonSchema),

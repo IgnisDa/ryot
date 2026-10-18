@@ -72,6 +72,135 @@ type CreateWizardProps = {
 	readonly providers: IntegrationProviderPickerState;
 };
 
+export function IntegrationCreateWizard(props: CreateWizardProps) {
+	const uploadFile = useSchemaFileUpload();
+	const uploadAsset = useSchemaAssetUpload();
+	const create = useRyotMutation(createIntegrationMutation);
+	const [failure, setFailure] = useState<undefined | IntegrationSaveFailure>();
+	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
+	const listed = props.providers.status === "ready" ? props.providers.sources : [];
+	const provider = useLatestDefined(
+		listed.find((item) => integrationProviderItemKey(item) === state.slug),
+	);
+
+	const connect = (values: SchemaFormValues) => {
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (provider === undefined) {
+					return;
+				}
+				setFailure(undefined);
+				yield* create.mutateEffect(createIntegrationBody({ values, provider })).pipe(
+					Effect.tap(() =>
+						Effect.sync(() => {
+							props.onCreated();
+							props.onClose();
+						}),
+					),
+					Effect.catchCause((cause) =>
+						Effect.sync(() => {
+							const saveFailure = integrationSaveFailure(Cause.squash(cause));
+							setFailure(saveFailure);
+							if (saveFailure.step !== undefined) {
+								dispatch({ type: "recover-at", step: saveFailure.step });
+							}
+						}),
+					),
+				);
+			}),
+		);
+	};
+
+	const requestReview = () => {
+		setFailure(undefined);
+		dispatch({ type: "review-requested" });
+	};
+
+	const form = useSchemaForm({
+		onSubmit: requestReview,
+		schemas: [provider?.commonSchema, provider?.settingsSchema],
+	});
+
+	useFormSeed(form, state.slug, () =>
+		provider === undefined ? {} : initialIntegrationFormValues(provider),
+	);
+
+	const goBack = () => {
+		setFailure(undefined);
+		dispatch({ type: "back" });
+	};
+
+	const chooseProvider = (slug: string) => {
+		setFailure(undefined);
+		dispatch({ slug, type: "picked" });
+	};
+
+	const reviewFailure = failure?.step === undefined ? failure?.detail : undefined;
+	const settingsFailure = failure?.step === "configure" ? failure.detail : undefined;
+	const providerFailure = failure?.step === "pick" ? failure.detail : undefined;
+
+	const stepBody = Match.value(state.step).pipe(
+		Match.when("pick", () => (
+			<>
+				{providerFailure === undefined ? null : (
+					<StatusMessage tone="error" className="text-sm">
+						{providerFailure}
+					</StatusMessage>
+				)}
+				<CatalogPicker
+					copy={pickerCopy}
+					state={props.providers}
+					onChoose={chooseProvider}
+					onRetry={props.onRetryProviders}
+					toEntry={integrationProviderEntry}
+					chooseLabel={integrationProviderChooseLabel}
+				/>
+			</>
+		)),
+		Match.when("configure", () =>
+			provider === undefined ? null : (
+				<SettingsStep
+					form={form}
+					onBack={goBack}
+					provider={provider}
+					uploadFile={uploadFile}
+					uploadAsset={uploadAsset}
+					failureDetail={settingsFailure}
+					onContinue={() => void form.handleSubmit()}
+				/>
+			),
+		),
+		Match.when("review", () =>
+			provider === undefined ? null : (
+				<form.Subscribe selector={(formState) => formState.values.fields}>
+					{(values) => (
+						<ReviewStep
+							values={values}
+							onBack={goBack}
+							provider={provider}
+							pending={create.isPending}
+							failureDetail={reviewFailure}
+							onConnect={() => void connect(values)}
+						/>
+					)}
+				</form.Subscribe>
+			),
+		),
+		Match.exhaustive,
+	);
+
+	return (
+		<WizardShell
+			onClose={props.onClose}
+			title={INTEGRATION_WIZARD_TITLE}
+			closeLabel="Close the integration wizard"
+			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
+		>
+			{stepBody}
+		</WizardShell>
+	);
+}
+
 function SettingsStep(props: {
 	readonly onBack: () => void;
 	readonly form: SchemaFormApi;
@@ -195,134 +324,5 @@ function ReviewStep(props: {
 				</Button>
 			</div>
 		</div>
-	);
-}
-
-export function IntegrationCreateWizard(props: CreateWizardProps) {
-	const uploadFile = useSchemaFileUpload();
-	const uploadAsset = useSchemaAssetUpload();
-	const create = useRyotMutation(createIntegrationMutation);
-	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
-	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
-	const listed = props.providers.status === "ready" ? props.providers.sources : [];
-	const provider = useLatestDefined(
-		listed.find((item) => integrationProviderItemKey(item) === state.slug),
-	);
-
-	const connect = (values: SchemaFormValues) => {
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				if (provider === undefined) {
-					return;
-				}
-				setFailure(undefined);
-				yield* create.mutateEffect(createIntegrationBody({ values, provider })).pipe(
-					Effect.tap(() =>
-						Effect.sync(() => {
-							props.onCreated();
-							props.onClose();
-						}),
-					),
-					Effect.catchCause((cause) =>
-						Effect.sync(() => {
-							const saveFailure = integrationSaveFailure(Cause.squash(cause));
-							setFailure(saveFailure);
-							if (saveFailure.step !== undefined) {
-								dispatch({ type: "recover-at", step: saveFailure.step });
-							}
-						}),
-					),
-				);
-			}),
-		);
-	};
-
-	const requestReview = () => {
-		setFailure(undefined);
-		dispatch({ type: "review-requested" });
-	};
-
-	const form = useSchemaForm({
-		onSubmit: requestReview,
-		schemas: [provider?.commonSchema, provider?.settingsSchema],
-	});
-
-	useFormSeed(form, state.slug, () =>
-		provider === undefined ? {} : initialIntegrationFormValues(provider),
-	);
-
-	const goBack = () => {
-		setFailure(undefined);
-		dispatch({ type: "back" });
-	};
-
-	const chooseProvider = (slug: string) => {
-		setFailure(undefined);
-		dispatch({ slug, type: "picked" });
-	};
-
-	const reviewFailure = failure?.step === undefined ? failure?.detail : undefined;
-	const settingsFailure = failure?.step === "configure" ? failure.detail : undefined;
-	const providerFailure = failure?.step === "pick" ? failure.detail : undefined;
-
-	const stepBody = Match.value(state.step).pipe(
-		Match.when("pick", () => (
-			<>
-				{providerFailure === undefined ? null : (
-					<StatusMessage tone="error" className="text-sm">
-						{providerFailure}
-					</StatusMessage>
-				)}
-				<CatalogPicker
-					copy={pickerCopy}
-					state={props.providers}
-					onChoose={chooseProvider}
-					onRetry={props.onRetryProviders}
-					toEntry={integrationProviderEntry}
-					chooseLabel={integrationProviderChooseLabel}
-				/>
-			</>
-		)),
-		Match.when("configure", () =>
-			provider === undefined ? null : (
-				<SettingsStep
-					form={form}
-					onBack={goBack}
-					provider={provider}
-					uploadFile={uploadFile}
-					uploadAsset={uploadAsset}
-					failureDetail={settingsFailure}
-					onContinue={() => void form.handleSubmit()}
-				/>
-			),
-		),
-		Match.when("review", () =>
-			provider === undefined ? null : (
-				<form.Subscribe selector={(formState) => formState.values.fields}>
-					{(values) => (
-						<ReviewStep
-							values={values}
-							onBack={goBack}
-							provider={provider}
-							pending={create.isPending}
-							failureDetail={reviewFailure}
-							onConnect={() => void connect(values)}
-						/>
-					)}
-				</form.Subscribe>
-			),
-		),
-		Match.exhaustive,
-	);
-
-	return (
-		<WizardShell
-			onClose={props.onClose}
-			title={INTEGRATION_WIZARD_TITLE}
-			closeLabel="Close the integration wizard"
-			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
-		>
-			{stepBody}
-		</WizardShell>
 	);
 }

@@ -31,14 +31,14 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
 			const declarations = new Map<string, Set<Owner>>();
 			let active:
+				| undefined
 				| {
 						key: string;
 						release: () => void;
 						refresh: () => void;
 						reconnect: () => void;
 						retain: () => () => void;
-				  }
-				| undefined;
+				  };
 
 			const watch = (
 				scope: ApiScope,
@@ -100,14 +100,14 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				let effective = new Set<string>();
 				let appliedForeground = new Set<string>();
 				let effectiveForeground = new Set<string>();
-				let batch: (() => void) | undefined;
-				let retry: (() => void) | undefined;
-				let socket: InterestSocket | undefined;
-				let deadline: (() => void) | undefined;
+				let batch: undefined | (() => void);
+				let retry: undefined | (() => void);
+				let socket: undefined | InterestSocket;
+				let deadline: undefined | (() => void);
 				const grace = new Map<string, () => void>();
-				let ticketFiber: Fiber.Fiber<void> | undefined;
-				let socketListeners: AbortController | undefined;
-				let pending: { revision: number; ids: Set<string>; foreground: Set<string> } | undefined;
+				let ticketFiber: undefined | Fiber.Fiber<void>;
+				let socketListeners: undefined | AbortController;
+				let pending: undefined | { revision: number; ids: Set<string>; foreground: Set<string> };
 
 				const stop = () => {
 					attempt++;

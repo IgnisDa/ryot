@@ -13,19 +13,19 @@ import type {
 } from "#/modules/shell/customize/customize-state";
 
 export type CustomizeUpdate = {
-	readonly reference: SavedViewReference;
 	readonly payload: UpdateSavedViewBody;
+	readonly reference: SavedViewReference;
+};
+
+export type CustomizeWorkspaceUpdate = {
+	readonly installationId: string;
+	readonly payload: UpdatePluginInstallationBody;
 };
 
 export type CustomizePlan = {
 	readonly updates: readonly CustomizeUpdate[];
 	readonly reorders: readonly ReorderSavedViewsBody[];
 	readonly workspaceUpdates: readonly CustomizeWorkspaceUpdate[];
-};
-
-export type CustomizeWorkspaceUpdate = {
-	readonly installationId: string;
-	readonly payload: UpdatePluginInstallationBody;
 };
 
 const sections = ["views", "savedViews"] as const satisfies readonly CustomizeSection[];

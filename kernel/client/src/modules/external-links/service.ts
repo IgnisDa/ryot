@@ -3,10 +3,10 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 type ExternalLinkWindow = {
+	readonly close: () => void;
 	readonly detachOpener: () => void;
 	readonly setNoReferrer: () => void;
 	readonly replace: (url: string) => void;
-	readonly close: () => void;
 };
 
 export class ExternalLinkPlatform extends Context.Service<
@@ -14,7 +14,7 @@ export class ExternalLinkPlatform extends Context.Service<
 	{
 		readonly isNative: boolean;
 		readonly isActive: () => boolean;
-		readonly openBlank: () => ExternalLinkWindow | null;
+		readonly openBlank: () => null | ExternalLinkWindow;
 		readonly openNative: (url: string) => Effect.Effect<void, RyotClientError>;
 	}
 >()("ExternalLinkPlatform") {}

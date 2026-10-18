@@ -52,10 +52,10 @@ const captureFrom = (hash: string) => {
 
 const mountReturn = (
 	hash: string,
-	options: { readonly auth?: Layer.Layer<AuthService>; readonly destinations?: unknown[] } = {},
+	options: { readonly destinations?: unknown[]; readonly auth?: Layer.Layer<AuthService> } = {},
 ) => {
 	const closed: string[] = [];
-	const completes: { readonly connectionId: string; readonly secret: string }[] = [];
+	const completes: { readonly secret: string; readonly connectionId: string }[] = [];
 	const capture = makeOAuthReturnCapture(() => void closed.push("closed"));
 	const { entry, fragment } = captureFrom(hash);
 	const events = makePluginCatalogEventsTestLayer();

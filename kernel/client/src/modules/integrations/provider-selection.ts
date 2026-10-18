@@ -53,7 +53,7 @@ export const integrationProviderNames = (providers: readonly IntegrationProvider
 
 export const findOwnedIntegrationProvider = (
 	providers: readonly IntegrationProviderItem[],
-	owner: { readonly provider: string; readonly pluginId: string | null } | undefined,
+	owner: undefined | { readonly provider: string; readonly pluginId: null | string },
 ) =>
 	owner === undefined
 		? undefined

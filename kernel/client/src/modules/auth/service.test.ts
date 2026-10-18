@@ -36,10 +36,10 @@ class FakeAuthDependencies extends Context.Service<
 		readonly userInfoCalls: Effect.Effect<number>;
 		readonly accessTokenCalls: Effect.Effect<number>;
 		readonly clears: Effect.Effect<ReadonlyArray<string>>;
+		readonly respondToAccessToken: (behavior: AccessTokenBehavior) => Effect.Effect<void>;
 		readonly logouts: Effect.Effect<
 			ReadonlyArray<{ readonly origin: string; readonly redirectUri: string }>
 		>;
-		readonly respondToAccessToken: (behavior: AccessTokenBehavior) => Effect.Effect<void>;
 	}
 >()("test/FakeAuthDependencies") {}
 

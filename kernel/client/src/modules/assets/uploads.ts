@@ -39,9 +39,9 @@ export const classifyUploadFailure = (error: unknown): PluginUploadBridgeErrorRe
 
 const failWith = (reason: PluginUploadBridgeErrorReason) => new UploadsError({ reason });
 
+type CleanupUploadRequest = Extract<PluginUploadRequest, { readonly action: "cleanup" }>;
 type TemporaryUploadRequest = Extract<PluginUploadRequest, { readonly action: "temporary" }>;
 type PermanentUploadRequest = Extract<PluginUploadRequest, { readonly action: "permanent" }>;
-type CleanupUploadRequest = Extract<PluginUploadRequest, { readonly action: "cleanup" }>;
 
 export class Uploads extends Context.Service<Uploads>()("Uploads", {
 	make: Effect.gen(function* () {

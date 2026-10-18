@@ -14,7 +14,7 @@ export const migrationReportLevelPresentation = (level: MigrationReportLevel) =>
 		Match.exhaustive,
 	);
 
-export const formatMigrationReportElapsed = (elapsedSeconds: number | null) =>
+export const formatMigrationReportElapsed = (elapsedSeconds: null | number) =>
 	elapsedSeconds === null ? "-" : `${elapsedSeconds.toLocaleString()}s`;
 
 export const migrationReportDetailProvenance = (detail: MigrationReportDetail) =>
@@ -26,7 +26,7 @@ export const buildMigrationReportClipboardText = (input: {
 	readonly code: string;
 	readonly phase: string;
 	readonly message: string;
-	readonly totalDetails: number | null;
+	readonly totalDetails: null | number;
 	readonly details: readonly MigrationReportDetail[];
 }) => {
 	const lines = [

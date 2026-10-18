@@ -10,7 +10,7 @@ import { importRunSourceKey } from "./run-presentation";
 
 export type ImportWizardSource = Pick<
 	ImportSourceItem,
-	"reference" | "slug" | "name" | "description" | "inputSchema" | "exportHelp"
+	"slug" | "name" | "reference" | "exportHelp" | "description" | "inputSchema"
 >;
 
 const SERVER_INPUT_SHAPE = "Server";

@@ -7,10 +7,10 @@ import { makeSingleFlight } from "#/modules/auth/single-flight";
 import type { OAuthTokenError } from "#/modules/auth/token-service";
 
 const equivalentTokens = Schema.toEquivalence(Schema.NullOr(StoredTokenSet));
-const makeAuthorization = (tokens: StoredTokenSet | null) => ({
+const makeAuthorization = (tokens: null | StoredTokenSet) => ({
 	tokens,
 	resolution: makeSingleFlight<SettledAuthSession, OAuthTokenError>(),
-	refresh: makeSingleFlight<StoredTokenSet | null, OAuthTokenError>(),
+	refresh: makeSingleFlight<null | StoredTokenSet, OAuthTokenError>(),
 });
 
 export type Authorization = ReturnType<typeof makeAuthorization>;
@@ -31,7 +31,7 @@ const makeServerAuthorization = () => {
 		snapshot = next;
 		listeners.forEach((listener) => listener());
 	};
-	const adopt = (tokens: StoredTokenSet | null) => {
+	const adopt = (tokens: null | StoredTokenSet) => {
 		current = makeAuthorization(tokens);
 		publish(current, { status: tokens === null ? "missing" : "pending" });
 		return current;
@@ -43,11 +43,11 @@ const makeServerAuthorization = () => {
 			return current;
 		},
 		isCurrent: (authorization: Authorization) => authorization === current,
-		replace: (tokens: StoredTokenSet | null) => {
+		replace: (tokens: null | StoredTokenSet) => {
 			restoreAllowed = tokens !== null;
 			return adopt(tokens);
 		},
-		observe: (tokens: StoredTokenSet | null) =>
+		observe: (tokens: null | StoredTokenSet) =>
 			!restoreAllowed || equivalentTokens(tokens, current.tokens) ? current : adopt(tokens),
 		store: {
 			getSnapshot: () => snapshot,

@@ -37,8 +37,8 @@ type Exchange = {
 	readonly code: string;
 	readonly state: string;
 	readonly origin: string;
-	readonly clientIds: readonly string[];
 	readonly redirectUri: string;
+	readonly clientIds: readonly string[];
 };
 
 const pending = (destination = "/") => makePendingAuthorization(server, { destination });
@@ -46,9 +46,9 @@ const pending = (destination = "/") => makePendingAuthorization(server, { destin
 const mountCallback = (
 	initialEntry: string | readonly string[],
 	options: {
-		readonly destination?: string;
 		readonly fail?: boolean;
 		readonly native?: boolean;
+		readonly destination?: string;
 	} = {},
 ) => {
 	const exchanges: Exchange[] = [];

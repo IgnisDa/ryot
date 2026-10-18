@@ -20,17 +20,17 @@ export type RuntimeOAuthClientDescriptor = {
 	readonly logoutUri: string;
 	readonly callbackUri: string;
 	readonly clientId: PendingAuthorization["clientId"];
-	readonly nativeApplicationId: NativeOAuthApplicationId | null;
+	readonly nativeApplicationId: null | NativeOAuthApplicationId;
 };
-
-export class RuntimeOAuthClientError extends Data.TaggedError("RuntimeOAuthClientError")<{
-	readonly cause: unknown;
-}> {}
 
 type RuntimeOAuthClientSource = {
 	readonly isNative: () => boolean;
 	readonly getApplicationId: Effect.Effect<string, RuntimeOAuthClientError>;
 };
+
+export class RuntimeOAuthClientError extends Data.TaggedError("RuntimeOAuthClientError")<{
+	readonly cause: unknown;
+}> {}
 
 export const makeRuntimeOAuthClient = Effect.fnUntraced(function* (
 	source: RuntimeOAuthClientSource,

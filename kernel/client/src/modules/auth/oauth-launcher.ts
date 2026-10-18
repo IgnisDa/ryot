@@ -14,22 +14,22 @@ import {
 import { AuthService } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";
 
-export class OAuthLauncherError extends Data.TaggedError("OAuthLauncherError")<{
-	readonly cause?: unknown;
-	readonly reason: "unknown-native-application" | "launch-failed" | "storage-failed";
-}> {}
-
-export type OAuthLaunchPlan = {
-	readonly authorizationUrl: string;
-	readonly codeChallenge: string;
-	readonly pending: PendingAuthorization;
-	readonly client: RuntimeOAuthClientDescriptor;
-};
-
 export type ExplicitOAuthClientDescriptor = {
 	readonly serverOrigin: ServerOrigin;
 	readonly client: RuntimeOAuthClientDescriptor;
 };
+
+export type OAuthLaunchPlan = {
+	readonly codeChallenge: string;
+	readonly authorizationUrl: string;
+	readonly pending: PendingAuthorization;
+	readonly client: RuntimeOAuthClientDescriptor;
+};
+
+export class OAuthLauncherError extends Data.TaggedError("OAuthLauncherError")<{
+	readonly cause?: unknown;
+	readonly reason: "launch-failed" | "storage-failed" | "unknown-native-application";
+}> {}
 
 const launch = (plan: OAuthLaunchPlan, authorizationUrl = plan.authorizationUrl) =>
 	plan.client.nativeApplicationId !== null
@@ -88,7 +88,7 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 			redirectIntent: unknown,
 			explicit?: ExplicitOAuthClientDescriptor,
 		) {
-			let selected: ServerOrigin | null;
+			let selected: null | ServerOrigin;
 			if (explicit) {
 				selected = explicit.serverOrigin;
 			} else if (runtimeClient.isNative) {

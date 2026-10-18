@@ -43,110 +43,11 @@ type BackupsViewProps = {
 	readonly onOpenRestore: () => void;
 	readonly onCreateExport: () => void;
 	readonly downloadingRunId: string | undefined;
-	readonly onDownload: (run: BackupRunItem) => void;
 	readonly createFailureDetail: string | undefined;
+	readonly onDownload: (run: BackupRunItem) => void;
 	readonly downloadFailureDetail: string | undefined;
 	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
 };
-
-function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: BackupRunItem }) {
-	const progress = backupRunProgress(props.run);
-	return (
-		<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
-			<div className="flex items-center justify-between gap-3">
-				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-					{backupRunKindLabel(props.run.kind)}
-				</span>
-				<RunStatusPill status={props.run.status} />
-			</div>
-			<div className="flex flex-col gap-2">
-				<RunProgressBar progress={progress} value={backupRunProgressValue(props.run)} />
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-xs text-text-subtle">
-						{runStartedLabel(props.run, props.nowMs)}
-					</span>
-					<span className="text-xs font-medium tabular-nums text-text-subtle">
-						{progress.label}
-					</span>
-				</div>
-			</div>
-			<span className="text-xs text-text-muted">{KEEPS_RUNNING}</span>
-		</div>
-	);
-}
-
-function BackupHistoryRow(props: {
-	readonly nowMs: number;
-	readonly run: BackupRunItem;
-	readonly isFirst: boolean;
-	readonly isDownloading: boolean;
-	readonly downloadDisabled: boolean;
-	readonly onDownload: (run: BackupRunItem) => void;
-	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
-}) {
-	const kind = backupRunKindLabel(props.run.kind);
-	const duration = runDurationLabel(props.run, props.nowMs);
-	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
-	const notice =
-		props.run.status === "failed" ? backupRunFailureNotice(props.run.failure) : undefined;
-	const expiry = backupExpiryLabel(props.run, props.nowMs);
-	const canDownload = canDownloadBackupRun(props.run, props.nowMs);
-	const canDelete = canDeleteBackupRun(props.run.status);
-	return (
-		<div
-			className={clsx(
-				"flex flex-col gap-2 border-b border-border py-3",
-				props.isFirst && "border-t",
-			)}
-		>
-			<div className="flex items-center gap-3">
-				<RunStatusGlyph status={props.run.status} />
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span className="truncate text-sm font-medium text-text">{kind}</span>
-					<span className="truncate text-xs text-text-subtle">
-						{duration === undefined ? relative : `${relative} · ${duration}`}
-					</span>
-				</span>
-				<span className="line-clamp-2 max-w-40 text-right text-xs tabular-nums text-text-muted">
-					{backupRunOutcomeLabel(props.run, props.nowMs)}
-				</span>
-			</div>
-			{notice === undefined ? null : (
-				<p className="text-xs leading-5 text-danger">{notice.detail}</p>
-			)}
-			{!canDownload && !canDelete ? null : (
-				<div className="flex items-center gap-3">
-					{canDownload ? (
-						<Button
-							type="button"
-							variant="secondary"
-							disabled={props.downloadDisabled}
-							onClick={() => props.onDownload(props.run)}
-							aria-label={`Download the backup from ${relative}`}
-							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
-						>
-							<AppIcon size={15} name="download" className="text-text" />
-							{props.isDownloading ? "Preparing..." : "Download"}
-						</Button>
-					) : null}
-					{canDownload && expiry !== undefined ? (
-						<span className="min-w-0 flex-1 text-xs text-text-subtle">{expiry}</span>
-					) : null}
-					{canDelete ? (
-						<button
-							type="button"
-							className="ml-auto shrink-0 p-1"
-							aria-label={`Delete the ${kind.toLowerCase()} record from ${relative}`}
-							onClick={(event) => props.onRequestDelete(props.run, event.currentTarget)}
-						>
-							<AppIcon size={16} name="trash-2" className="text-text-subtle" />
-						</button>
-					) : null}
-				</div>
-			)}
-		</div>
-	);
-}
 
 export function BackupsView(props: BackupsViewProps) {
 	const runs = props.state.status === "ready" ? props.state.runs : [];
@@ -227,6 +128,105 @@ export function BackupsView(props: BackupsViewProps) {
 							/>
 						))}
 					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: BackupRunItem }) {
+	const progress = backupRunProgress(props.run);
+	return (
+		<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+			<div className="flex items-center justify-between gap-3">
+				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
+					{backupRunKindLabel(props.run.kind)}
+				</span>
+				<RunStatusPill status={props.run.status} />
+			</div>
+			<div className="flex flex-col gap-2">
+				<RunProgressBar progress={progress} value={backupRunProgressValue(props.run)} />
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-xs text-text-subtle">
+						{runStartedLabel(props.run, props.nowMs)}
+					</span>
+					<span className="text-xs font-medium tabular-nums text-text-subtle">
+						{progress.label}
+					</span>
+				</div>
+			</div>
+			<span className="text-xs text-text-muted">{KEEPS_RUNNING}</span>
+		</div>
+	);
+}
+
+function BackupHistoryRow(props: {
+	readonly nowMs: number;
+	readonly isFirst: boolean;
+	readonly run: BackupRunItem;
+	readonly isDownloading: boolean;
+	readonly downloadDisabled: boolean;
+	readonly onDownload: (run: BackupRunItem) => void;
+	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
+}) {
+	const kind = backupRunKindLabel(props.run.kind);
+	const duration = runDurationLabel(props.run, props.nowMs);
+	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
+	const notice =
+		props.run.status === "failed" ? backupRunFailureNotice(props.run.failure) : undefined;
+	const expiry = backupExpiryLabel(props.run, props.nowMs);
+	const canDownload = canDownloadBackupRun(props.run, props.nowMs);
+	const canDelete = canDeleteBackupRun(props.run.status);
+	return (
+		<div
+			className={clsx(
+				"flex flex-col gap-2 border-b border-border py-3",
+				props.isFirst && "border-t",
+			)}
+		>
+			<div className="flex items-center gap-3">
+				<RunStatusGlyph status={props.run.status} />
+				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span className="truncate text-sm font-medium text-text">{kind}</span>
+					<span className="truncate text-xs text-text-subtle">
+						{duration === undefined ? relative : `${relative} · ${duration}`}
+					</span>
+				</span>
+				<span className="line-clamp-2 max-w-40 text-right text-xs tabular-nums text-text-muted">
+					{backupRunOutcomeLabel(props.run, props.nowMs)}
+				</span>
+			</div>
+			{notice === undefined ? null : (
+				<p className="text-xs leading-5 text-danger">{notice.detail}</p>
+			)}
+			{!canDownload && !canDelete ? null : (
+				<div className="flex items-center gap-3">
+					{canDownload ? (
+						<Button
+							type="button"
+							variant="secondary"
+							disabled={props.downloadDisabled}
+							onClick={() => props.onDownload(props.run)}
+							aria-label={`Download the backup from ${relative}`}
+							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
+						>
+							<AppIcon size={15} name="download" className="text-text" />
+							{props.isDownloading ? "Preparing..." : "Download"}
+						</Button>
+					) : null}
+					{canDownload && expiry !== undefined ? (
+						<span className="min-w-0 flex-1 text-xs text-text-subtle">{expiry}</span>
+					) : null}
+					{canDelete ? (
+						<button
+							type="button"
+							className="ml-auto shrink-0 p-1"
+							aria-label={`Delete the ${kind.toLowerCase()} record from ${relative}`}
+							onClick={(event) => props.onRequestDelete(props.run, event.currentTarget)}
+						>
+							<AppIcon size={16} name="trash-2" className="text-text-subtle" />
+						</button>
+					) : null}
 				</div>
 			)}
 		</div>

@@ -34,7 +34,7 @@ import { RUN_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { StatusState } from "#/modules/ui/status-state";
 import { useNowMs } from "#/modules/ui/use-now-ms";
 
-const detailState = (detail: ImportRunDetail): ImportRunDetailState | undefined =>
+const detailState = (detail: ImportRunDetail): undefined | ImportRunDetailState =>
 	detail.run === undefined ? undefined : { status: "ready", run: detail.run };
 
 export const Route = createFileRoute("/_authenticated/settings/import-data/$runId")({
@@ -63,6 +63,36 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 		),
 });
 
+function ImportRunPending() {
+	return (
+		<ImportRunFrame title="Import">
+			<StatusState className="py-16" detail="Loading this import..." />
+		</ImportRunFrame>
+	);
+}
+
+function ImportRunLoaderError() {
+	const router = useRouter();
+	return (
+		<ImportRunFrame title="Import">
+			<ImportRunLoadErrorBody onRetry={() => void router.load()} />
+		</ImportRunFrame>
+	);
+}
+
+function ImportRunNotFound() {
+	return (
+		<ImportRunFrame title="Import">
+			<StatusState
+				className="py-16"
+				title="Import not found"
+				detail="This import is no longer on your server."
+				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+			/>
+		</ImportRunFrame>
+	);
+}
+
 function ImportRunFrame(props: {
 	readonly title: string;
 	readonly meta?: ReactNode;
@@ -81,6 +111,26 @@ function ImportRunFrame(props: {
 	);
 }
 
+function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
+	return (
+		<StatusState
+			detailTone="danger"
+			title="Unable to load this import"
+			className="rounded-xl border border-border bg-surface p-6"
+			detail="This import could not be loaded. Check the server and try again."
+			action={
+				<button
+					type="button"
+					onClick={props.onRetry}
+					className="min-h-11 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-text"
+				>
+					Try again
+				</button>
+			}
+		/>
+	);
+}
+
 function ImportRunRoute() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
@@ -89,12 +139,12 @@ function ImportRunRoute() {
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
-	const [confirmation, setConfirmation] = useState<"cancel" | "delete" | null>(null);
+	const [confirmation, setConfirmation] = useState<null | "cancel" | "delete">(null);
 	const [issueDownload, setIssueDownload] = useState<{
 		readonly runId: string;
-		readonly status: "downloading" | "failed";
+		readonly status: "failed" | "downloading";
 	}>();
-	const issueDownloadController = useRef<AbortController | undefined>(undefined);
+	const issueDownloadController = useRef<undefined | AbortController>(undefined);
 	const detail = useRyotQuery(importRunQuery, { runId });
 	const sources = useRyotQuery(importSourcesQuery);
 	const deletion = useRyotMutation(deleteImportRunMutation);
@@ -324,56 +374,6 @@ function ImportRunRoute() {
 					}
 				/>
 			)}
-		</ImportRunFrame>
-	);
-}
-
-function ImportRunPending() {
-	return (
-		<ImportRunFrame title="Import">
-			<StatusState className="py-16" detail="Loading this import..." />
-		</ImportRunFrame>
-	);
-}
-
-function ImportRunLoaderError() {
-	const router = useRouter();
-	return (
-		<ImportRunFrame title="Import">
-			<ImportRunLoadErrorBody onRetry={() => void router.load()} />
-		</ImportRunFrame>
-	);
-}
-
-function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
-	return (
-		<StatusState
-			detailTone="danger"
-			title="Unable to load this import"
-			className="rounded-xl border border-border bg-surface p-6"
-			detail="This import could not be loaded. Check the server and try again."
-			action={
-				<button
-					type="button"
-					onClick={props.onRetry}
-					className="min-h-11 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-text"
-				>
-					Try again
-				</button>
-			}
-		/>
-	);
-}
-
-function ImportRunNotFound() {
-	return (
-		<ImportRunFrame title="Import">
-			<StatusState
-				className="py-16"
-				title="Import not found"
-				detail="This import is no longer on your server."
-				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
-			/>
 		</ImportRunFrame>
 	);
 }

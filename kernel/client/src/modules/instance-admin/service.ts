@@ -18,14 +18,14 @@ import {
 } from "#/modules/instance-admin/user-lifecycle";
 
 export type InstanceAdminUsers = InstanceAdminUsersPage;
-export type InstanceAdminUser = InstanceAdminUsers["items"][number];
-export type InstanceAdminSetDisabledResult = ContractSuccess<"instanceAdmin", "setUserDisabled">;
 export type InstanceAdminMigrationReport = MigrationReportPage;
+export type InstanceAdminUser = InstanceAdminUsers["items"][number];
+export type InstanceAdminLogs = ContractSuccess<"serverLogs", "list">;
+export type InstanceAdminSetDisabledResult = ContractSuccess<"instanceAdmin", "setUserDisabled">;
 export type InstanceAdminPasswordResetResult = ContractSuccess<
 	"instanceAdmin",
 	"resetUserPassword"
 >;
-export type InstanceAdminLogs = ContractSuccess<"serverLogs", "list">;
 
 export class InstanceAdminSessionNotFound extends Data.TaggedError("InstanceAdminSessionNotFound")<{
 	readonly sessionId: string;
@@ -113,7 +113,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 			const lifecycle = Effect.fn("InstanceAdminService.lifecycle")(function* (
 				sessionId: string,
 				userId: string,
-				kind: "delete" | "reset",
+				kind: "reset" | "delete",
 			) {
 				const { token, origin } = yield* credentials(sessionId);
 				const params = { userId: UserId.make(userId) };

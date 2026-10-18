@@ -76,21 +76,11 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 		),
 });
 
-function IntegrationFrame(props: {
-	readonly title: string;
-	readonly meta?: ReactNode;
-	readonly actions?: ReactNode;
-	readonly children: ReactNode;
-}) {
+function IntegrationPending() {
 	return (
-		<SettingsFrame
-			meta={props.meta}
-			title={props.title}
-			actions={props.actions}
-			backFallbackHref="/settings/integrations"
-		>
-			{props.children}
-		</SettingsFrame>
+		<IntegrationFrame title="Integration">
+			<StatusState className="py-16" detail="Loading this integration..." />
+		</IntegrationFrame>
 	);
 }
 
@@ -109,6 +99,56 @@ function DemoIntegrationDetail() {
 				detail={DEMO_PROTECTION_MESSAGE}
 				title="Integration configuration unavailable"
 				className="rounded-xl border border-border bg-surface p-6"
+			/>
+		</IntegrationFrame>
+	);
+}
+
+function IntegrationNotFound() {
+	return (
+		<IntegrationFrame title="Integration">
+			<StatusState
+				className="py-16"
+				title="Integration not found"
+				detail="This integration may have been deleted from another device."
+				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+			/>
+		</IntegrationFrame>
+	);
+}
+
+function IntegrationFrame(props: {
+	readonly title: string;
+	readonly meta?: ReactNode;
+	readonly actions?: ReactNode;
+	readonly children: ReactNode;
+}) {
+	return (
+		<SettingsFrame
+			meta={props.meta}
+			title={props.title}
+			actions={props.actions}
+			backFallbackHref="/settings/integrations"
+		>
+			{props.children}
+		</SettingsFrame>
+	);
+}
+
+function IntegrationLoadError() {
+	const router = useRouter();
+	return (
+		<IntegrationFrame title="Integration">
+			<StatusState
+				detailTone="danger"
+				title="Unable to load this integration"
+				className="rounded-xl border border-border bg-surface p-6"
+				detail="This integration could not be loaded. Check the server and try again."
+				action={
+					<Button type="button" variant="secondary" onClick={() => void router.load()}>
+						Try again
+					</Button>
+				}
 			/>
 		</IntegrationFrame>
 	);
@@ -330,46 +370,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 					}
 				/>
 			)}
-		</IntegrationFrame>
-	);
-}
-
-function IntegrationPending() {
-	return (
-		<IntegrationFrame title="Integration">
-			<StatusState className="py-16" detail="Loading this integration..." />
-		</IntegrationFrame>
-	);
-}
-
-function IntegrationLoadError() {
-	const router = useRouter();
-	return (
-		<IntegrationFrame title="Integration">
-			<StatusState
-				detailTone="danger"
-				title="Unable to load this integration"
-				className="rounded-xl border border-border bg-surface p-6"
-				detail="This integration could not be loaded. Check the server and try again."
-				action={
-					<Button type="button" variant="secondary" onClick={() => void router.load()}>
-						Try again
-					</Button>
-				}
-			/>
-		</IntegrationFrame>
-	);
-}
-
-function IntegrationNotFound() {
-	return (
-		<IntegrationFrame title="Integration">
-			<StatusState
-				className="py-16"
-				title="Integration not found"
-				detail="This integration may have been deleted from another device."
-				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
-			/>
 		</IntegrationFrame>
 	);
 }

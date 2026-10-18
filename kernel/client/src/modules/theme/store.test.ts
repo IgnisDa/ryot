@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createThemeStore } from "#/modules/theme/store";
 
-function setup(matches: boolean, initial: "light" | "dark" | "system" = "system") {
+function setup(matches: boolean, initial: "dark" | "light" | "system" = "system") {
 	const attributes = new Map<string, string>();
 	const mediaListeners = new Set<() => void>();
 	const media = {

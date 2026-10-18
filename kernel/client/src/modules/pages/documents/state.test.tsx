@@ -25,13 +25,13 @@ function Page(props: { readonly screens: RouteScreens }) {
 	return null;
 }
 
-function Reader(props: { readonly onPublished: (published: ClientPageDocument | null) => void }) {
+function Reader(props: { readonly onPublished: (published: null | ClientPageDocument) => void }) {
 	props.onPublished(usePublishedClientPageDocument());
 	return null;
 }
 
 function mount(screens: RouteScreens) {
-	let published: ClientPageDocument | null = null;
+	let published: null | ClientPageDocument = null;
 	const tree = (next: RouteScreens) => (
 		<ClientPageDocumentProvider>
 			<Page screens={next} />

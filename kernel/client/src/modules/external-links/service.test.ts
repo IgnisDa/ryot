@@ -10,7 +10,7 @@ const recordingPlatform = (
 		readonly native?: boolean;
 		readonly active?: boolean;
 		readonly blocked?: boolean;
-		readonly failAt?: "detach" | "policy" | "replace" | "native" | "blank";
+		readonly failAt?: "blank" | "detach" | "policy" | "native" | "replace";
 	} = {},
 ) => {
 	const record = (event: string) => {

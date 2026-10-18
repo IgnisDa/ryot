@@ -41,6 +41,15 @@ export const Route = createFileRoute("/reset-password")({
 	},
 });
 
+function ResetPasswordFrame(props: { readonly children: ReactNode }) {
+	usePageTitle("Choose a new password");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			{props.children}
+		</main>
+	);
+}
+
 function ResetPassword() {
 	const { token } = Route.useSearch();
 	const navigate = Route.useNavigate();
@@ -246,14 +255,5 @@ function ResetPasswordForm(props: {
 				</form>
 			</section>
 		</ResetPasswordFrame>
-	);
-}
-
-function ResetPasswordFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Choose a new password");
-	return (
-		<main {...mainContentProps} className="ui-page">
-			{props.children}
-		</main>
 	);
 }

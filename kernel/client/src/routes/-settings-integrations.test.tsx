@@ -232,16 +232,16 @@ const runsResponse = (
 
 const makeIntegrationQueries = (
 	options: {
+		readonly settings?: () => typeof userSettings;
+		readonly providerRequests?: (string | undefined)[];
 		readonly runs?: (limit: number) => ReturnType<typeof runsResponse>;
 		readonly list?: (limit: number) => ReturnType<typeof listResponse>;
 		readonly listEffect?: (limit: number) => Effect.Effect<ReturnType<typeof listResponse>>;
+		readonly detail?: () => Effect.Effect<undefined | IntegrationDetailRow, AuthenticatedApiError>;
 		readonly providers?: () => Effect.Effect<
 			readonly IntegrationProviderItem[],
 			AuthenticatedApiError
 		>;
-		readonly providerRequests?: (string | undefined)[];
-		readonly detail?: () => Effect.Effect<IntegrationDetailRow | undefined, AuthenticatedApiError>;
-		readonly settings?: () => typeof userSettings;
 	} = {},
 ): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({
@@ -837,7 +837,7 @@ describe("integration detail", () => {
 		"preserves edited settings when the provider is removed, refresh fails, and the provider returns",
 		() =>
 			Effect.gen(function* () {
-				let current: readonly IntegrationProviderItem[] | null = [libraryProvider];
+				let current: null | readonly IntegrationProviderItem[] = [libraryProvider];
 				const requests: (string | undefined)[] = [];
 				mountView(
 					"/settings/integrations/int_1",

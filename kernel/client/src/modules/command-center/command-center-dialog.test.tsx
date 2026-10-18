@@ -50,10 +50,10 @@ function Harness(props: {
 	readonly closed?: string[];
 	readonly retried?: string[];
 	readonly selected?: string[];
-	readonly initialQuery?: string;
 	readonly filtered?: string[];
-	readonly failed?: readonly string[];
+	readonly initialQuery?: string;
 	readonly results: CommandResults;
+	readonly failed?: readonly string[];
 }) {
 	const [query, setQuery] = useState(props.initialQuery ?? "");
 	const [filter, setFilter] = useState(props.results.filter);

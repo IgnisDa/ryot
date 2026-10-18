@@ -468,7 +468,7 @@ export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageFreshness, {
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
 	readonly popupOpenWhenSet: boolean[];
-	readonly setCalls: Array<{ readonly scope: ApiScope; readonly slug: string }>;
+	readonly setCalls: Array<{ readonly slug: string; readonly scope: ApiScope }>;
 };
 
 export const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
@@ -478,7 +478,7 @@ export const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
 });
 
 export const makeStorageStub = (
-	rememberedPluginId: string | null = null,
+	rememberedPluginId: null | string = null,
 	recorder?: WorkspaceStorageRecorder,
 ): ClientStorage["Service"] => {
 	let lastWorkspace = rememberedPluginId === null ? null : PluginId.make(rememberedPluginId);

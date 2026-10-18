@@ -25,7 +25,7 @@ type KernelApiRuntime = {
 		effect: Effect.Effect<
 			A,
 			never,
-			EntityWatchService | CollectionsApi | RyotQLApi | UploadsApi | Uploads
+			Uploads | RyotQLApi | UploadsApi | CollectionsApi | EntityWatchService
 		>,
 	) => A;
 };

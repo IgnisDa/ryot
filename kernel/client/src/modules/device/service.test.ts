@@ -52,9 +52,9 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 	const awake: boolean[] = [];
 	const haptics: PluginHapticKind[] = [];
 	const navigated: PluginNavigationTarget[] = [];
-	let tap: ((id: number) => void) | undefined;
-	let foreground: ((active: boolean) => void) | undefined;
-	let delivered: ((id: number) => void) | undefined;
+	let tap: undefined | ((id: number) => void);
+	let foreground: undefined | ((active: boolean) => void);
+	let delivered: undefined | ((id: number) => void);
 	let listens = 0;
 	const platform = Layer.succeed(DevicePlatform, {
 		cancel: (id) =>
@@ -280,7 +280,7 @@ describe("device authority", () => {
 	const entered = Deferred.makeUnsafe<void>();
 	const cancelledDuringScheduling: number[] = [];
 	const navigatedDuringScheduling: PluginNavigationTarget[] = [];
-	let tapDuringScheduling: ((id: number) => void) | undefined;
+	let tapDuringScheduling: undefined | ((id: number) => void);
 	const serializationPlatform = Layer.succeed(DevicePlatform, {
 		...noopDevicePlatform,
 		cancel: (id) =>

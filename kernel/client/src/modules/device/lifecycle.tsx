@@ -40,8 +40,8 @@ export function ReturnShortcutBar(props: {
 	readonly scope: ApiScope;
 	readonly runtime: DeviceRuntime;
 	readonly safeAreaBottom: number;
-	readonly isCurrent: (target: PluginNavigationTarget) => boolean;
 	readonly onNavigate: (target: PluginNavigationTarget) => void;
+	readonly isCurrent: (target: PluginNavigationTarget) => boolean;
 }) {
 	const service = props.runtime.runSync(DeviceService);
 	const shortcuts = useSyncExternalStore(service.subscribe, service.shortcuts, service.shortcuts);

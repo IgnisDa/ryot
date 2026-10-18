@@ -1,7 +1,7 @@
 import type { PluginLeadingIntent } from "@ryot-app/plugin-client-contract";
 
-export type EdgeOwner = "iframe-overlay" | "kernel" | "plugin";
 export type EdgeIntent = PluginLeadingIntent;
+export type EdgeOwner = "kernel" | "plugin" | "iframe-overlay";
 
 export type EdgeResolution = {
 	readonly owner: EdgeOwner;

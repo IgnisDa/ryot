@@ -4,12 +4,12 @@ import { Clock, DateTime, Effect } from "effect";
 
 type NativeAlerts = Pick<
 	LocalNotificationsPlugin,
+	| "update"
+	| "schedule"
+	| "createChannel"
 	| "checkPermissions"
 	| "requestPermissions"
 	| "checkExactNotificationSetting"
-	| "createChannel"
-	| "schedule"
-	| "update"
 >;
 
 export const cancelNativeAlert = Effect.fn("cancelNativeAlert")(function* (

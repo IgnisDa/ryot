@@ -27,12 +27,12 @@ import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
+type InvokeResult = Effect.Effect<ContractSuccess<"plugins", "invoke">, AuthenticatedApiError>;
+
 type InvokeRequest = {
 	readonly payload: ContractPayload<"plugins", "invoke">;
 	readonly params: ContractPathParams<"plugins", "invoke">;
 };
-
-type InvokeResult = Effect.Effect<ContractSuccess<"plugins", "invoke">, AuthenticatedApiError>;
 
 class FakePluginsApi extends Context.Service<
 	FakePluginsApi,

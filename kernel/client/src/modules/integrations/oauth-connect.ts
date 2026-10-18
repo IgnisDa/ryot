@@ -65,6 +65,21 @@ const MESSAGES = {
 
 export type OAuthPopup = { opener: unknown; close: () => void; location: { href: string } };
 
+export type OAuthConnectInput = {
+	readonly field: string;
+	readonly scope: ApiScope;
+	readonly signal: AbortSignal;
+	readonly integrationId?: IntegrationId;
+	readonly integrationProvider: DeclarationReference;
+};
+
+type SettledOutcome = Exclude<PollOutcome, { readonly kind: "pending" }>;
+
+type PollOutcome = SchemaOAuthConnectOutcome | { readonly kind: "pending" };
+
+type NativeReturn =
+	{ readonly kind: "failed" } | { readonly kind: "secret"; readonly secret: string };
+
 class OAuthConnectFailed extends Data.TaggedError("OAuthConnectFailed")<{
 	readonly message: (typeof MESSAGES)[keyof typeof MESSAGES];
 }> {}
@@ -72,7 +87,7 @@ class OAuthConnectFailed extends Data.TaggedError("OAuthConnectFailed")<{
 export class OAuthConnectPlatform extends Context.Service<
 	OAuthConnectPlatform,
 	{
-		readonly openPopup: () => OAuthPopup | null;
+		readonly openPopup: () => null | OAuthPopup;
 		readonly onWake: (handler: () => void) => () => void;
 		readonly browser: {
 			readonly close: Effect.Effect<void>;
@@ -108,21 +123,6 @@ export class OAuthConnectPlatform extends Context.Service<
 		},
 	});
 }
-
-export type OAuthConnectInput = {
-	readonly field: string;
-	readonly scope: ApiScope;
-	readonly signal: AbortSignal;
-	readonly integrationProvider: DeclarationReference;
-	readonly integrationId?: IntegrationId;
-};
-
-type PollOutcome = SchemaOAuthConnectOutcome | { readonly kind: "pending" };
-
-type SettledOutcome = Exclude<PollOutcome, { readonly kind: "pending" }>;
-
-type NativeReturn =
-	{ readonly kind: "failed" } | { readonly kind: "secret"; readonly secret: string };
 
 const failed = (message: OAuthConnectFailed["message"]) =>
 	({ message, kind: "failed" }) as const satisfies SchemaOAuthConnectOutcome;
@@ -178,7 +178,7 @@ const matchNativeReturn = (
 	rawUrl: string,
 	applicationId: string,
 	connectionId: OAuthConnectionId,
-): NativeReturn | undefined => {
+): undefined | NativeReturn => {
 	const url = URL.parse(rawUrl);
 	if (url === null || url.protocol !== `${applicationId}:`) {
 		return undefined;
@@ -377,8 +377,8 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 }
 
 export const useOAuthConnect = (input: {
-	readonly integrationProvider: DeclarationReference;
 	readonly integrationId?: IntegrationId;
+	readonly integrationProvider: DeclarationReference;
 }): { readonly connect: SchemaOAuthConnect; readonly disabledReason: string | undefined } => {
 	const { scope, server, runtime } = useRouteContext({ from: "/_authenticated" });
 	const client = useRyot();

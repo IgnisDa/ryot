@@ -103,7 +103,7 @@ export function SavedViewPage({
 	const providerAddAction = addAction?.type === "provider-search" ? addAction : null;
 	const addOpen = add === true && providerAddAction !== null;
 
-	const navigateAddSearch = (update: Record<string, string | null>, replace: boolean) => {
+	const navigateAddSearch = (update: Record<string, null | string>, replace: boolean) => {
 		const nextSearch = mergePageSearch(location.searchStr, update);
 		const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
 		void navigate({ href, replace });

@@ -15,6 +15,49 @@ import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 const HELP_LABEL = "Where do I find this file?";
 
+export function ImportInputStep(props: {
+	readonly onBack: () => void;
+	readonly form: SchemaFormApi;
+	readonly onContinue: () => void;
+	readonly source: ImportWizardSource;
+	readonly uploadFile: SchemaFileUpload;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly failureDetail: string | undefined;
+}) {
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-1">
+				<h3 className="font-display text-lg font-semibold text-text">{props.source.name}</h3>
+				<p className="text-sm leading-6 text-text-muted">{props.source.description}</p>
+			</div>
+			{props.source.exportHelp === undefined ? null : (
+				<ImportExportHelp help={props.source.exportHelp} />
+			)}
+			<SchemaForm
+				form={props.form}
+				icons={schemaFormIcons}
+				onChange={() => undefined}
+				uploadFile={props.uploadFile}
+				uploadAsset={props.uploadAsset}
+				renderAsset={renderSchemaAsset}
+				schema={props.source.inputSchema}
+				onReorder={schemaFormReorderFeedback}
+			/>
+			{props.failureDetail === undefined ? null : (
+				<FieldMessage>{props.failureDetail}</FieldMessage>
+			)}
+			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
+				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
+					Continue
+				</Button>
+				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
+					Back
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 function ImportExportHelp(props: { readonly help: NonNullable<ImportWizardSource["exportHelp"]> }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const docsUrl = props.help.docsUrl;
@@ -56,49 +99,6 @@ function ImportExportHelp(props: { readonly help: NonNullable<ImportWizardSource
 					)}
 				</div>
 			) : null}
-		</div>
-	);
-}
-
-export function ImportInputStep(props: {
-	readonly onBack: () => void;
-	readonly form: SchemaFormApi;
-	readonly onContinue: () => void;
-	readonly source: ImportWizardSource;
-	readonly uploadFile: SchemaFileUpload;
-	readonly uploadAsset: SchemaAssetUpload;
-	readonly failureDetail: string | undefined;
-}) {
-	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-1">
-				<h3 className="font-display text-lg font-semibold text-text">{props.source.name}</h3>
-				<p className="text-sm leading-6 text-text-muted">{props.source.description}</p>
-			</div>
-			{props.source.exportHelp === undefined ? null : (
-				<ImportExportHelp help={props.source.exportHelp} />
-			)}
-			<SchemaForm
-				form={props.form}
-				icons={schemaFormIcons}
-				onChange={() => undefined}
-				uploadFile={props.uploadFile}
-				uploadAsset={props.uploadAsset}
-				renderAsset={renderSchemaAsset}
-				schema={props.source.inputSchema}
-				onReorder={schemaFormReorderFeedback}
-			/>
-			{props.failureDetail === undefined ? null : (
-				<FieldMessage>{props.failureDetail}</FieldMessage>
-			)}
-			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
-					Continue
-				</Button>
-				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
-					Back
-				</Button>
-			</div>
 		</div>
 	);
 }

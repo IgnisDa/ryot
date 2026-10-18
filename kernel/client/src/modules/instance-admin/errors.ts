@@ -25,8 +25,8 @@ export const runAdminAction = <A>(input: {
 	readonly onUnauthorized: () => void;
 	readonly onSuccess: (value: A) => void;
 	readonly onSettled: (aborted: boolean) => void;
-	readonly onFailure: (cause: Cause.Cause<unknown>) => void;
 	readonly operation: () => Effect.Effect<A, unknown>;
+	readonly onFailure: (cause: Cause.Cause<unknown>) => void;
 }) =>
 	Effect.suspend(input.operation).pipe(
 		Effect.matchCause({

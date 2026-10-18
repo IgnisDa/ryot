@@ -37,13 +37,13 @@ import {
 
 type ResetCall = {
 	readonly token: string;
-	readonly server: ServerOrigin;
 	readonly password: string;
+	readonly server: ServerOrigin;
 };
 
 const makeView = (
 	path = "/reset-password?token=reset-secret",
-	selected: ServerOrigin | null = server,
+	selected: null | ServerOrigin = server,
 	resetPassword: HostedAuthService["Service"]["resetPassword"] = () => Effect.void,
 ) => {
 	const calls: ResetCall[] = [];

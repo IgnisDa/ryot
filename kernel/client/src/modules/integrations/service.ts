@@ -30,14 +30,15 @@ import type { KernelHostServices } from "#/host-services";
 export const INTEGRATIONS_PAGE_SIZE = 20;
 export const INTEGRATION_RUNS_PAGE_SIZE = 10;
 
-export type IntegrationProviderItem = Omit<IntegrationProvidersPage["items"][number], "id"> & {
-	readonly isCreatable: boolean;
-};
+export type IntegrationProviderItem = { readonly isCreatable: boolean } & Omit<
+	IntegrationProvidersPage["items"][number],
+	"id"
+>;
 
-export type IntegrationClientDetail = Omit<
+export type IntegrationClientDetail = { readonly webhookUrl?: string } & Omit<
 	IntegrationDetail extends Option.Option<infer Row> ? Row : never,
 	"webhookToken"
-> & { readonly webhookUrl?: string };
+>;
 
 type IntegrationsClient = Pick<KernelRyotClient, "data">;
 
@@ -78,7 +79,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					.getSystemConfig(serverUrl)
 					.pipe(Effect.orElseSucceed(() => null));
 				const providers: IntegrationProviderItem[] = [];
-				let after: string | undefined | null;
+				let after: null | string | undefined;
 				do {
 					const page = yield* client.data
 						.query(integrationProvidersRecipe({ limit: 100, after: after ?? undefined }))
@@ -171,7 +172,7 @@ export const integrationProvidersQuery = createRyotQuery<
 
 export const integrationDetailQuery = createRyotQuery<
 	string,
-	IntegrationClientDetail | undefined,
+	undefined | IntegrationClientDetail,
 	KernelHostServices,
 	IntegrationsLoadError
 >(({ input, client, hostServices }) =>

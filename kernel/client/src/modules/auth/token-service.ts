@@ -52,6 +52,7 @@ const storedTokenSet = (
 };
 
 export class OAuthTokenError extends Data.TaggedError("OAuthTokenError")<{
+	readonly cause?: unknown;
 	readonly reason:
 		| "invalid-grant"
 		| "invalid-nonce"
@@ -60,7 +61,6 @@ export class OAuthTokenError extends Data.TaggedError("OAuthTokenError")<{
 		| "invalid-callback"
 		| "missing-authorization"
 		| "authorization-rejected";
-	readonly cause?: unknown;
 }> {}
 
 const requestFailed = (cause: unknown) => new OAuthTokenError({ cause, reason: "request-failed" });
@@ -416,34 +416,34 @@ const makeTokenService = (
 export class OAuthTokenService extends Context.Service<
 	OAuthTokenService,
 	{
+		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly authorization: ReturnType<typeof makeAuthorizationState>;
+		readonly rejectAuthorization: (
+			origin: ServerOrigin,
+			state: string,
+		) => Effect.Effect<never, OAuthTokenError>;
+		readonly accessToken: (
+			origin: ServerOrigin,
+			forceRefresh?: boolean,
+		) => Effect.Effect<null | string, OAuthTokenError>;
 		readonly logout: (
 			origin: ServerOrigin,
 			postLogoutRedirectUri: string,
-		) => Effect.Effect<string | null, OAuthTokenError>;
-		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
+		) => Effect.Effect<null | string, OAuthTokenError>;
+		readonly userInfo: (
+			origin: ServerOrigin,
+			authorization: Authorization,
+		) => Effect.Effect<
+			null | (OAuthUserInfo & { readonly accessClass: AccessClass }),
+			OAuthTokenError
+		>;
 		readonly access: (
 			origin: ServerOrigin,
 			forceRefresh?: boolean,
 		) => Effect.Effect<{
 			readonly authorization: Authorization;
-			readonly result: Result.Result<string | null, OAuthTokenError>;
+			readonly result: Result.Result<null | string, OAuthTokenError>;
 		}>;
-		readonly accessToken: (
-			origin: ServerOrigin,
-			forceRefresh?: boolean,
-		) => Effect.Effect<string | null, OAuthTokenError>;
-		readonly userInfo: (
-			origin: ServerOrigin,
-			authorization: Authorization,
-		) => Effect.Effect<
-			(OAuthUserInfo & { readonly accessClass: AccessClass }) | null,
-			OAuthTokenError
-		>;
-		readonly rejectAuthorization: (
-			origin: ServerOrigin,
-			state: string,
-		) => Effect.Effect<never, OAuthTokenError>;
 		readonly completeAuthorization: (
 			origin: ServerOrigin,
 			expectedClientIds: readonly PendingAuthorization["clientId"][],

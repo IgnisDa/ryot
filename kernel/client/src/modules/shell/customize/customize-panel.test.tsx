@@ -12,7 +12,7 @@ import {
 	toggleCustomizeItem,
 } from "#/modules/shell/customize/customize-state";
 
-const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({
+const item = (slug: string, pluginInstallationId: null | string, isHidden = false) => ({
 	slug,
 	isHidden,
 	icon: "list",

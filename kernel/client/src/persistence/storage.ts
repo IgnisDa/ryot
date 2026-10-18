@@ -35,16 +35,16 @@ export const rememberedProviderKey = (scope: ApiScope, schemaKey: string) =>
 export const pluginStorageKey = (scope: ApiScope, pluginId: PluginId, key: string) =>
 	`${RYOT_STORAGE_PREFIX}plugin-storage:${identityTupleKey(scope.serverUrl, scope.userId, pluginId, key)}`;
 
+export type BrowserStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export class PluginStorageQuotaError extends Data.TaggedError("PluginStorageQuotaError") {}
-export class PluginStorageAccessError extends Data.TaggedError("PluginStorageAccessError")<{
-	readonly cause: unknown;
-}> {}
 
 export class DeviceStateAccessError extends Data.TaggedError("DeviceStateAccessError")<{
 	readonly cause: unknown;
 }> {}
 
-export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+export class PluginStorageAccessError extends Data.TaggedError("PluginStorageAccessError")<{
+	readonly cause: unknown;
+}> {}
 
 const browserStorage = () => {
 	try {
@@ -65,7 +65,7 @@ const bestEffort = <A>(fallback: A, evaluate: () => A) =>
 			return fallback;
 		}
 	});
-const parseExpanded = (value: string | null | undefined) => {
+const parseExpanded = (value: null | string | undefined) => {
 	if (value === "true") {
 		return true;
 	}
@@ -89,7 +89,7 @@ const attemptPluginStorageAccess = <A>(evaluate: () => A) =>
 const isQuotaExceededError = (cause: unknown) =>
 	cause instanceof DOMException && cause.name === "QuotaExceededError";
 
-const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
+const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
 	remove: (keys) => Effect.sync(() => keys.forEach((key) => storage?.removeItem(key))),
 	setServerSelection: (origin) => Effect.sync(() => storage?.setItem(SERVER_SELECTION_KEY, origin)),
@@ -202,64 +202,64 @@ export class ClientStorage extends Context.Service<
 	ClientStorage,
 	{
 		readonly clearServerSelection: Effect.Effect<void>;
-		readonly getDeviceState: Effect.Effect<DeviceState, DeviceStateAccessError>;
 		readonly getThemePreference: Effect.Effect<ThemePreference>;
-		readonly getServerSelection: Effect.Effect<ServerOrigin | null>;
+		readonly getServerSelection: Effect.Effect<null | ServerOrigin>;
 		readonly remove: (keys: readonly string[]) => Effect.Effect<void>;
-		readonly setDeviceState: (state: DeviceState) => Effect.Effect<void, DeviceStateAccessError>;
 		readonly setServerSelection: (origin: ServerOrigin) => Effect.Effect<void>;
-		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<PluginId | null>;
-		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;
+		readonly getDeviceState: Effect.Effect<DeviceState, DeviceStateAccessError>;
+		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<null | PluginId>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
+		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;
+		readonly setDeviceState: (state: DeviceState) => Effect.Effect<void, DeviceStateAccessError>;
 		readonly getSavedViewLayout: (scope: ApiScope, slug: string) => Effect.Effect<SavedViewLayout>;
 		readonly getRecentDestinations: (
 			scope: ApiScope,
 		) => Effect.Effect<readonly RecentDestination[]>;
+		readonly getRememberedProvider: (
+			scope: ApiScope,
+			schemaKey: string,
+		) => Effect.Effect<null | ProviderId>;
+		readonly setSavedViewLayout: (
+			scope: ApiScope,
+			slug: string,
+			layout: SavedViewLayout,
+		) => Effect.Effect<void>;
 		readonly setRecentDestinations: (
 			scope: ApiScope,
 			destinations: readonly RecentDestination[],
+		) => Effect.Effect<void>;
+		readonly setRememberedProvider: (
+			scope: ApiScope,
+			schemaKey: string,
+			providerId: ProviderId,
 		) => Effect.Effect<void>;
 		readonly getSidebarSectionExpanded: (
 			scope: ApiScope,
 			workspace: string,
 			section: string,
-		) => Effect.Effect<boolean | null>;
+		) => Effect.Effect<null | boolean>;
+		readonly removePluginValue: (
+			scope: ApiScope,
+			pluginId: PluginId,
+			key: string,
+		) => Effect.Effect<void, PluginStorageAccessError>;
 		readonly setSidebarSectionExpanded: (
 			scope: ApiScope,
 			workspace: string,
 			section: string,
 			expanded: boolean,
 		) => Effect.Effect<void>;
-		readonly getRememberedProvider: (
-			scope: ApiScope,
-			schemaKey: string,
-		) => Effect.Effect<ProviderId | null>;
-		readonly setRememberedProvider: (
-			scope: ApiScope,
-			schemaKey: string,
-			providerId: ProviderId,
-		) => Effect.Effect<void>;
-		readonly setSavedViewLayout: (
-			scope: ApiScope,
-			slug: string,
-			layout: SavedViewLayout,
-		) => Effect.Effect<void>;
 		readonly getPluginValue: (
 			scope: ApiScope,
 			pluginId: PluginId,
 			key: string,
-		) => Effect.Effect<JsonValue | null, PluginStorageAccessError>;
+		) => Effect.Effect<null | JsonValue, PluginStorageAccessError>;
 		readonly setPluginValue: (
 			scope: ApiScope,
 			pluginId: PluginId,
 			key: string,
 			value: JsonValue,
-		) => Effect.Effect<void, PluginStorageAccessError | PluginStorageQuotaError>;
-		readonly removePluginValue: (
-			scope: ApiScope,
-			pluginId: PluginId,
-			key: string,
-		) => Effect.Effect<void, PluginStorageAccessError>;
+		) => Effect.Effect<void, PluginStorageQuotaError | PluginStorageAccessError>;
 	}
 >()("ClientStorage") {
 	static readonly layer = Layer.effect(
@@ -268,5 +268,5 @@ export class ClientStorage extends Context.Service<
 	);
 }
 
-export const clientStorageLayer = (storage: BrowserStorage | undefined) =>
+export const clientStorageLayer = (storage: undefined | BrowserStorage) =>
 	Layer.succeed(ClientStorage, makeStorage(storage));

@@ -27,128 +27,25 @@ import {
 
 type SidebarNavProps = {
 	readonly activeHome: boolean;
-	readonly activeKey: string | null;
+	readonly activeKey: null | string;
 	readonly onOpenSearch: () => void;
-	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
-	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
-	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly navigation: NavigationData;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
+	readonly onCreateCollection: () => void;
 	readonly workspaceSwitcherOpen: boolean;
-	readonly onCustomize?: (() => void) | undefined;
-	readonly current: PluginClientCatalogEntry | null;
+	readonly onCustomize?: undefined | (() => void);
+	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly showWorkspaceShortcut?: boolean | undefined;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
-	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
-	readonly onEditSection?: ((section: Exclude<CustomizeSection, "workspaces">) => void) | undefined;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly expandedSections?: undefined | Partial<Record<SidebarSectionName, boolean>>;
+	readonly onToggleSection?: undefined | ((section: SidebarSectionName, expanded: boolean) => void);
+	readonly onEditSection?: undefined | ((section: Exclude<CustomizeSection, "workspaces">) => void);
 };
-
-function SidebarRow(props: {
-	readonly href: string;
-	readonly active: boolean;
-	readonly item: SidebarItem;
-	readonly onNavigate: () => void | Promise<void>;
-}) {
-	return (
-		<a
-			href={props.href}
-			onClick={activateLink(props.onNavigate)}
-			aria-current={props.active ? "page" : undefined}
-			className={clsx(
-				"group/row flex min-h-8 items-center gap-2.5 rounded-md px-2.5 transition-colors duration-100 motion-reduce:transition-none",
-				props.active ? "bg-nav-indicator" : "hover:bg-hover",
-			)}
-		>
-			<AppIcon size={16} name={props.item.icon} className="text-text-muted" />
-			<span
-				className={clsx(
-					"min-w-0 flex-1 truncate text-sm font-medium",
-					props.active ? "text-text" : "text-text-muted",
-				)}
-			>
-				{props.item.name}
-			</span>
-			{props.item.kind !== "home" && (
-				<AppIcon
-					size={14}
-					name="chevron-right"
-					className="text-text-subtle pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100"
-				/>
-			)}
-		</a>
-	);
-}
-
-function SidebarSection(props: {
-	readonly title: string;
-	readonly count?: number;
-	readonly isEmpty?: boolean;
-	readonly className: string;
-	readonly children: ReactNode;
-	readonly emptyMessage?: string;
-	readonly onEdit?: (() => void) | undefined;
-	readonly onCreate?: { readonly label: string; readonly run: () => void } | undefined;
-	readonly toggle?:
-		| { readonly expanded: boolean; readonly hiddenCount: number; readonly run: () => void }
-		| undefined;
-}) {
-	return (
-		<section className="group flex flex-col gap-1">
-			<header className="flex items-center gap-2 px-1">
-				<h2 className="text-[11px] font-semibold tracking-[0.07em] text-text-subtle uppercase">
-					{props.title}
-				</h2>
-				{props.count !== undefined && (
-					<span className="text-[11px] text-text-subtle tabular-nums">{props.count}</span>
-				)}
-				{props.onEdit !== undefined && (
-					<button
-						type="button"
-						onClick={props.onEdit}
-						aria-label={`Edit ${props.title} section`}
-						className="ml-auto rounded px-1.5 py-0.5 text-xs font-medium text-text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-					>
-						Edit
-					</button>
-				)}
-				{props.onCreate !== undefined && (
-					<button
-						type="button"
-						onClick={props.onCreate.run}
-						aria-label={props.onCreate.label}
-						className={clsx(
-							"rounded p-0.5 text-text-muted hover:text-text",
-							props.onEdit === undefined && "ml-auto",
-						)}
-					>
-						<AppIcon size={14} name="plus" />
-					</button>
-				)}
-			</header>
-			<div className={clsx("flex flex-col gap-0.5 overflow-y-auto", props.className)}>
-				{props.isEmpty ? (
-					<p className="px-2 py-1 text-xs text-text-subtle">{props.emptyMessage}</p>
-				) : (
-					props.children
-				)}
-				{props.toggle !== undefined && (
-					<button
-						type="button"
-						onClick={props.toggle.run}
-						aria-expanded={props.toggle.expanded}
-						className="min-h-8 rounded-md px-2.5 text-left text-label font-medium text-text-muted hover:bg-hover"
-					>
-						{props.toggle.expanded ? "Show less" : `Show ${props.toggle.hiddenCount} more`}
-					</button>
-				)}
-			</div>
-		</section>
-	);
-}
 
 export function SidebarNav(props: SidebarNavProps) {
 	const href = (item: SidebarItem) => {
@@ -267,5 +164,108 @@ export function SidebarNav(props: SidebarNavProps) {
 				))}
 			</SidebarSection>
 		</nav>
+	);
+}
+
+function SidebarRow(props: {
+	readonly href: string;
+	readonly active: boolean;
+	readonly item: SidebarItem;
+	readonly onNavigate: () => void | Promise<void>;
+}) {
+	return (
+		<a
+			href={props.href}
+			onClick={activateLink(props.onNavigate)}
+			aria-current={props.active ? "page" : undefined}
+			className={clsx(
+				"group/row flex min-h-8 items-center gap-2.5 rounded-md px-2.5 transition-colors duration-100 motion-reduce:transition-none",
+				props.active ? "bg-nav-indicator" : "hover:bg-hover",
+			)}
+		>
+			<AppIcon size={16} name={props.item.icon} className="text-text-muted" />
+			<span
+				className={clsx(
+					"min-w-0 flex-1 truncate text-sm font-medium",
+					props.active ? "text-text" : "text-text-muted",
+				)}
+			>
+				{props.item.name}
+			</span>
+			{props.item.kind !== "home" && (
+				<AppIcon
+					size={14}
+					name="chevron-right"
+					className="text-text-subtle pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100"
+				/>
+			)}
+		</a>
+	);
+}
+
+function SidebarSection(props: {
+	readonly title: string;
+	readonly count?: number;
+	readonly isEmpty?: boolean;
+	readonly className: string;
+	readonly children: ReactNode;
+	readonly emptyMessage?: string;
+	readonly onEdit?: undefined | (() => void);
+	readonly onCreate?: undefined | { readonly label: string; readonly run: () => void };
+	readonly toggle?:
+		| undefined
+		| { readonly run: () => void; readonly expanded: boolean; readonly hiddenCount: number };
+}) {
+	return (
+		<section className="group flex flex-col gap-1">
+			<header className="flex items-center gap-2 px-1">
+				<h2 className="text-[11px] font-semibold tracking-[0.07em] text-text-subtle uppercase">
+					{props.title}
+				</h2>
+				{props.count !== undefined && (
+					<span className="text-[11px] text-text-subtle tabular-nums">{props.count}</span>
+				)}
+				{props.onEdit !== undefined && (
+					<button
+						type="button"
+						onClick={props.onEdit}
+						aria-label={`Edit ${props.title} section`}
+						className="ml-auto rounded px-1.5 py-0.5 text-xs font-medium text-text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+					>
+						Edit
+					</button>
+				)}
+				{props.onCreate !== undefined && (
+					<button
+						type="button"
+						onClick={props.onCreate.run}
+						aria-label={props.onCreate.label}
+						className={clsx(
+							"rounded p-0.5 text-text-muted hover:text-text",
+							props.onEdit === undefined && "ml-auto",
+						)}
+					>
+						<AppIcon size={14} name="plus" />
+					</button>
+				)}
+			</header>
+			<div className={clsx("flex flex-col gap-0.5 overflow-y-auto", props.className)}>
+				{props.isEmpty ? (
+					<p className="px-2 py-1 text-xs text-text-subtle">{props.emptyMessage}</p>
+				) : (
+					props.children
+				)}
+				{props.toggle !== undefined && (
+					<button
+						type="button"
+						onClick={props.toggle.run}
+						aria-expanded={props.toggle.expanded}
+						className="min-h-8 rounded-md px-2.5 text-left text-label font-medium text-text-muted hover:bg-hover"
+					>
+						{props.toggle.expanded ? "Show less" : `Show ${props.toggle.hiddenCount} more`}
+					</button>
+				)}
+			</div>
+		</section>
 	);
 }

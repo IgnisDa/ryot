@@ -9,6 +9,18 @@ function Titled(props: { readonly title: string }) {
 	return null;
 }
 
+function Navigating() {
+	const [title, setTitle] = useState("Items");
+	return (
+		<>
+			<Titled title={title} />
+			<button type="button" onClick={() => setTitle("Records")}>
+				navigate
+			</button>
+		</>
+	);
+}
+
 function Swap() {
 	const [slug, setSlug] = useState("items");
 	return (
@@ -29,18 +41,6 @@ function Interleaved() {
 			<Titled title="Incoming" />
 			<button type="button" onClick={() => setOutgoingMounted(false)}>
 				settle
-			</button>
-		</>
-	);
-}
-
-function Navigating() {
-	const [title, setTitle] = useState("Items");
-	return (
-		<>
-			<Titled title={title} />
-			<button type="button" onClick={() => setTitle("Records")}>
-				navigate
 			</button>
 		</>
 	);

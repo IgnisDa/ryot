@@ -24,7 +24,7 @@ const viewReference = (slug: string) => ({
 
 const viewId = (slug: string) => identityTupleKey(viewReference(slug));
 
-const view = (slug: string, workspaceName: string | null, sortOrder: number, isHidden = false) => ({
+const view = (slug: string, workspaceName: null | string, sortOrder: number, isHidden = false) => ({
 	slug,
 	isHidden,
 	sortOrder,

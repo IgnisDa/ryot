@@ -8,17 +8,17 @@ const OAuthErrorResponse = Schema.Struct({
 	error_description: Schema.optional(Schema.String),
 });
 
-export class OAuthEndpointError extends Data.TaggedError("OAuthEndpointError")<{
-	readonly code: string;
-	readonly status: number;
-	readonly description?: string;
-}> {}
+export type OAuthFetch = typeof fetch;
 
 export class OAuthTransportError extends Data.TaggedError("OAuthTransportError")<{
 	readonly cause: unknown;
 }> {}
 
-export type OAuthFetch = typeof fetch;
+export class OAuthEndpointError extends Data.TaggedError("OAuthEndpointError")<{
+	readonly code: string;
+	readonly status: number;
+	readonly description?: string;
+}> {}
 
 const readJson = (response: Response) =>
 	Effect.tryPromise({

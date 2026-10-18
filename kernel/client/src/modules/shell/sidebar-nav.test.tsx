@@ -220,7 +220,7 @@ describe("sidebar overflow", () => {
 		})),
 	};
 	const renderMany = (props: {
-		readonly activeKey: string | null;
+		readonly activeKey: null | string;
 		readonly expanded?: boolean | undefined;
 		readonly onToggle?: (section: string, expanded: boolean) => void;
 	}) =>

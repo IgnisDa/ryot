@@ -17,7 +17,7 @@ import {
 
 type WorkspaceSwitcherProps = Omit<
 	Parameters<typeof WorkspaceSwitcherView>[0],
-	"onOpenChange" | "open"
+	"open" | "onOpenChange"
 >;
 
 function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
@@ -398,7 +398,7 @@ describe("workspace switcher", () => {
 	it.live("closes and restores trigger focus before selecting another workspace", () =>
 		Effect.gen(function* () {
 			const current = workspace();
-			const observations: Array<{ focused: boolean; open: boolean; slug: string }> = [];
+			const observations: Array<{ slug: string; open: boolean; focused: boolean }> = [];
 			render(
 				<WorkspaceSwitcher
 					current={current}

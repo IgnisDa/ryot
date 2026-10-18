@@ -45,11 +45,11 @@ const page = (items: readonly unknown[]) => ({
 });
 
 type InstanceAdminCall = {
-	readonly origin: ServerOrigin;
-	readonly token: string;
-	readonly document?: PreparedRecipe<unknown>["document"];
 	readonly name: string;
+	readonly token: string;
 	readonly request?: unknown;
+	readonly origin: ServerOrigin;
+	readonly document?: PreparedRecipe<unknown>["document"];
 };
 
 const resetResult = {
@@ -69,8 +69,8 @@ const authorization: ImpersonationAuthorization = {
 class FakeInstanceAdminApi extends Context.Service<
 	FakeInstanceAdminApi,
 	{
-		readonly calls: Effect.Effect<ReadonlyArray<InstanceAdminCall>>;
 		readonly lifecyclePolls: Effect.Effect<number>;
+		readonly calls: Effect.Effect<ReadonlyArray<InstanceAdminCall>>;
 	}
 >()("test/FakeInstanceAdminApi") {}
 
@@ -90,8 +90,8 @@ const instanceAdminLayer = () =>
 					M extends
 						| "resetUser"
 						| "deleteUser"
-						| "resetUserPassword"
 						| "setUserDisabled"
+						| "resetUserPassword"
 						| "startUserImpersonation",
 				>(
 					name: M,

@@ -9,8 +9,8 @@ import {
 } from "#/modules/settings/sections";
 
 type SettingsSectionNavProps = {
-	readonly variant: "sidebar" | "index";
-	readonly active: SettingsSectionSlug | null;
+	readonly variant: "index" | "sidebar";
+	readonly active: null | SettingsSectionSlug;
 	readonly onSelect: (section: SettingsSection) => void | Promise<void>;
 };
 

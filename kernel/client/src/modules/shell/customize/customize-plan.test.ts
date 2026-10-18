@@ -8,7 +8,7 @@ const reference = (slug: string) => ({
 	kind: "custom" as const,
 	savedViewId: SavedViewId.make(slug),
 });
-const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({
+const item = (slug: string, pluginInstallationId: null | string, isHidden = false) => ({
 	slug,
 	isHidden,
 	icon: "list",

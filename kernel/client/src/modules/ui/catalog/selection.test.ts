@@ -13,9 +13,9 @@ import {
 const source = (input: {
 	name: string;
 	slug: string;
-	packageId: PluginPackageId;
 	description?: string;
 	isAvailable?: boolean;
+	packageId: PluginPackageId;
 }) => ({
 	name: input.name,
 	slug: input.slug,

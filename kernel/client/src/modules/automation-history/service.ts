@@ -19,10 +19,10 @@ import type { KernelHostServices } from "#/host-services";
 export type AutomationRunDetail =
 	AutomationHistoryRunDetail extends Option.Option<infer Run> ? Run : never;
 
-type AutomationHistoryQueryInput = Omit<
+type AutomationHistoryQueryInput = { readonly limit?: number; readonly cursor?: string } & Omit<
 	Parameters<typeof automationHistoryRunsRecipe>[0],
 	"after" | "limit"
-> & { readonly cursor?: string; readonly limit?: number };
+>;
 
 export const automationHistoryPageQuery = createRyotQuery<
 	AutomationHistoryQueryInput,

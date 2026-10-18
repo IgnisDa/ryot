@@ -10,7 +10,7 @@ import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
 export type IntegrationSaveFailure = {
 	readonly detail: string;
-	readonly step: WizardStep | undefined;
+	readonly step: undefined | WizardStep;
 };
 
 const fallback = {

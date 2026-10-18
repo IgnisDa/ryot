@@ -26,46 +26,11 @@ export type CatalogPickerCopy = {
 	readonly loadingDetail: string;
 };
 
-function CatalogOption(props: {
-	readonly isFirst: boolean;
-	readonly entry: CatalogEntry;
-	readonly onChoose: () => void;
-	readonly chooseLabel: (entry: CatalogEntry) => string;
-}) {
-	return (
-		<button
-			type="button"
-			onClick={props.onChoose}
-			disabled={!props.entry.isAvailable}
-			aria-label={props.chooseLabel(props.entry)}
-			className={clsx(
-				"flex w-full items-center gap-3 border-b border-border py-3 text-left",
-				props.isFirst && "border-t",
-				!props.entry.isAvailable && "opacity-70",
-			)}
-		>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="truncate text-sm font-medium text-text">{props.entry.name}</span>
-				<span className="line-clamp-2 text-xs text-text-muted">{props.entry.description}</span>
-				{props.entry.requirement === undefined ? null : (
-					<span className="text-xs text-danger">{props.entry.requirement}</span>
-				)}
-			</span>
-			<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
-				{props.entry.badge}
-			</span>
-			{props.entry.isAvailable ? (
-				<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
-			) : null}
-		</button>
-	);
-}
-
 export function CatalogPicker<Source extends { name: string; description: string }>(props: {
 	readonly copy: CatalogPickerCopy;
 	readonly onChoose: (key: string) => void;
 	readonly state: CatalogPickerState<Source>;
-	readonly onRetry?: (() => void) | undefined;
+	readonly onRetry?: undefined | (() => void);
 	readonly toEntry: (source: Source) => CatalogEntry;
 	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
@@ -165,5 +130,40 @@ export function CatalogPicker<Source extends { name: string; description: string
 				))
 			)}
 		</div>
+	);
+}
+
+function CatalogOption(props: {
+	readonly isFirst: boolean;
+	readonly entry: CatalogEntry;
+	readonly onChoose: () => void;
+	readonly chooseLabel: (entry: CatalogEntry) => string;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={props.onChoose}
+			disabled={!props.entry.isAvailable}
+			aria-label={props.chooseLabel(props.entry)}
+			className={clsx(
+				"flex w-full items-center gap-3 border-b border-border py-3 text-left",
+				props.isFirst && "border-t",
+				!props.entry.isAvailable && "opacity-70",
+			)}
+		>
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-medium text-text">{props.entry.name}</span>
+				<span className="line-clamp-2 text-xs text-text-muted">{props.entry.description}</span>
+				{props.entry.requirement === undefined ? null : (
+					<span className="text-xs text-danger">{props.entry.requirement}</span>
+				)}
+			</span>
+			<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
+				{props.entry.badge}
+			</span>
+			{props.entry.isAvailable ? (
+				<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
+			) : null}
+		</button>
 	);
 }

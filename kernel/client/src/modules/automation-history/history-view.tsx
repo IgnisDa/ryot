@@ -9,66 +9,31 @@ import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { StatusState } from "#/modules/ui/status-state";
 
-type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];
-
 export type AutomationHistoryListState =
-	| { readonly status: "loading" }
-	| { readonly status: "failed" }
 	| { readonly status: "empty" }
+	| { readonly status: "failed" }
+	| { readonly status: "loading" }
 	| {
 			readonly status: "ready";
+			readonly nextCursor: null | string;
 			readonly runs: readonly AutomationHistoryRun[];
-			readonly nextCursor: string | null;
 	  };
+
+type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];
 
 type AutomationHistoryViewProps = {
 	readonly nowMs: number;
-	readonly isFetching?: boolean;
-	readonly state: AutomationHistoryListState;
 	readonly onRetry: () => void;
+	readonly isFetching?: boolean;
 	readonly onShowOlder: () => void;
-	readonly isFetchingNextPage: boolean;
 	readonly olderLoadFailed: boolean;
+	readonly isFetchingNextPage: boolean;
+	readonly state: AutomationHistoryListState;
 };
 
 const sourceLabel = (run: AutomationHistoryRun) => run.pluginName ?? "Kernel";
 
 const attemptLabel = (count: number) => `${count} ${count === 1 ? "attempt" : "attempts"}`;
-
-function AutomationHistoryRow(props: {
-	readonly run: AutomationHistoryRun;
-	readonly nowMs: number;
-	readonly isFirst: boolean;
-}) {
-	const relative = formatRelativeTime(props.run.queuedAt, props.nowMs);
-	return (
-		<Link
-			params={{ runId: props.run.id }}
-			to="/settings/automation-history/$runId"
-			aria-label={`Open ${props.run.hookName} run from ${relative}`}
-			className={clsx(
-				"flex items-center gap-3 border-b border-border py-3",
-				props.isFirst && "border-t",
-			)}
-		>
-			<AutomationStatusGlyph status={props.run.status} />
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="truncate text-sm font-medium text-text">{props.run.hookName}</span>
-				<span className="truncate text-xs text-text-subtle">
-					{sourceLabel(props.run)} · {relative}
-				</span>
-				<span className="text-xs tabular-nums text-text-muted sm:hidden">
-					{attemptLabel(props.run.attemptCount)}
-				</span>
-			</span>
-			<span className="hidden text-xs tabular-nums text-text-muted sm:block">
-				{attemptLabel(props.run.attemptCount)}
-			</span>
-			<AutomationStatusPill status={props.run.status} />
-			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
-		</Link>
-	);
-}
 
 export function AutomationHistoryView(props: AutomationHistoryViewProps) {
 	if (props.state.status === "failed") {
@@ -132,5 +97,40 @@ export function AutomationHistoryView(props: AutomationHistoryViewProps) {
 				)}
 			</div>
 		</div>
+	);
+}
+
+function AutomationHistoryRow(props: {
+	readonly nowMs: number;
+	readonly isFirst: boolean;
+	readonly run: AutomationHistoryRun;
+}) {
+	const relative = formatRelativeTime(props.run.queuedAt, props.nowMs);
+	return (
+		<Link
+			params={{ runId: props.run.id }}
+			to="/settings/automation-history/$runId"
+			aria-label={`Open ${props.run.hookName} run from ${relative}`}
+			className={clsx(
+				"flex items-center gap-3 border-b border-border py-3",
+				props.isFirst && "border-t",
+			)}
+		>
+			<AutomationStatusGlyph status={props.run.status} />
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-medium text-text">{props.run.hookName}</span>
+				<span className="truncate text-xs text-text-subtle">
+					{sourceLabel(props.run)} · {relative}
+				</span>
+				<span className="text-xs tabular-nums text-text-muted sm:hidden">
+					{attemptLabel(props.run.attemptCount)}
+				</span>
+			</span>
+			<span className="hidden text-xs tabular-nums text-text-muted sm:block">
+				{attemptLabel(props.run.attemptCount)}
+			</span>
+			<AutomationStatusPill status={props.run.status} />
+			<AppIcon size={16} name="chevron-right" className="shrink-0 text-text-subtle" />
+		</Link>
 	);
 }

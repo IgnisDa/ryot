@@ -27,7 +27,7 @@ export const effectiveCatalogPlugin = (catalog: PluginClientCatalog, packageId: 
 
 export const savedViewHref = (
 	reference: SavedViewReference,
-	packageId: PluginPackageId | null | undefined,
+	packageId: null | undefined | PluginPackageId,
 ) => {
 	if (reference.kind !== "plugin") {
 		return savedViewPath(reference);
@@ -47,6 +47,17 @@ export function toPluginLocation(
 		kind: "route",
 		search: searchStr.startsWith("?") ? searchStr.slice(1) : searchStr,
 	};
+}
+
+export function validatePluginLocation(location: PluginRouteLocation) {
+	const path = dropTrailingSlash(location.path);
+	if (path.startsWith("//") || !safePath.test(path) || !safeSearch.test(location.search)) {
+		return undefined;
+	}
+	if (path.split("/").some((segment) => dotSegment.test(segment))) {
+		return undefined;
+	}
+	return { path, kind: "route", search: location.search } satisfies PluginRouteLocation;
 }
 
 export function toGlobalHref(target: PluginNavigationTarget, catalog: PluginClientCatalog) {
@@ -73,21 +84,10 @@ export function toGlobalHref(target: PluginNavigationTarget, catalog: PluginClie
 	);
 }
 
-export function validatePluginLocation(location: PluginRouteLocation) {
-	const path = dropTrailingSlash(location.path);
-	if (path.startsWith("//") || !safePath.test(path) || !safeSearch.test(location.search)) {
-		return undefined;
-	}
-	if (path.split("/").some((segment) => dotSegment.test(segment))) {
-		return undefined;
-	}
-	return { path, kind: "route", search: location.search } satisfies PluginRouteLocation;
-}
-
 export function toNavigationRequest(
 	request: PluginBridgeNavigate,
 	catalog: PluginClientCatalog,
-): PluginNavigationRequest | undefined {
+): undefined | PluginNavigationRequest {
 	const target = Match.value(request.target).pipe(
 		Match.when({ kind: "plugin-preferences" }, (preferences) => preferences),
 		Match.when({ kind: "plugin-route" }, (route) => {

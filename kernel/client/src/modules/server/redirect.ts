@@ -2,7 +2,7 @@ export type SafeRedirect = string;
 
 const redirectBase = new URL("https://ryot.invalid");
 
-export function sanitizeRedirect(value: unknown): SafeRedirect | undefined {
+export function sanitizeRedirect(value: unknown): undefined | SafeRedirect {
 	if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
 		return undefined;
 	}

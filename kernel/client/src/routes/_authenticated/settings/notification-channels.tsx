@@ -37,9 +37,9 @@ const listState = (page: NotificationChannelsResult): NotificationChannelListSta
 		: { status: "ready", channels: page.items, hasMore: page.pageInfo.hasMore };
 
 const queryListState = (
-	page: NotificationChannelsResult | undefined,
+	page: undefined | NotificationChannelsResult,
 	pending: boolean,
-): NotificationChannelListState | undefined => {
+): undefined | NotificationChannelListState => {
 	if (page !== undefined) {
 		return listState(page);
 	}
@@ -58,11 +58,31 @@ export const Route = createFileRoute("/_authenticated/settings/notification-chan
 	}),
 });
 
+function NotificationChannelsPending() {
+	return (
+		<NotificationChannelsFrame>
+			<StatusState className="py-16" detail="Loading your notification channels..." />
+		</NotificationChannelsFrame>
+	);
+}
+
 function NotificationChannelsFrame(props: { readonly children: ReactNode }) {
 	return (
 		<SettingsFrame backFallbackHref="/settings" title="Notification channels">
 			{props.children}
 		</SettingsFrame>
+	);
+}
+
+function NotificationChannelsLoadError(props: { readonly onRetry: () => void }) {
+	return (
+		<NotificationChannelsFrame>
+			<LoadErrorState
+				onRetry={props.onRetry}
+				title={NOTIFICATION_CHANNELS_LOAD_ERROR.title}
+				detail={NOTIFICATION_CHANNELS_LOAD_ERROR.detail}
+			/>
+		</NotificationChannelsFrame>
 	);
 }
 
@@ -194,26 +214,6 @@ function NotificationChannelsRoute() {
 					onCreated={wizard.markCompleted}
 				/>
 			)}
-		</NotificationChannelsFrame>
-	);
-}
-
-function NotificationChannelsPending() {
-	return (
-		<NotificationChannelsFrame>
-			<StatusState className="py-16" detail="Loading your notification channels..." />
-		</NotificationChannelsFrame>
-	);
-}
-
-function NotificationChannelsLoadError(props: { readonly onRetry: () => void }) {
-	return (
-		<NotificationChannelsFrame>
-			<LoadErrorState
-				onRetry={props.onRetry}
-				title={NOTIFICATION_CHANNELS_LOAD_ERROR.title}
-				detail={NOTIFICATION_CHANNELS_LOAD_ERROR.detail}
-			/>
 		</NotificationChannelsFrame>
 	);
 }

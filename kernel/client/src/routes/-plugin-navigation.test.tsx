@@ -193,15 +193,15 @@ function mount(options: {
 	readonly entry: string;
 	readonly pendingMs?: number;
 	readonly entries?: PluginClientCatalog;
-	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly storage?: ClientStorage["Service"];
-	readonly loadProviders?: ProviderAddService["Service"]["loadProviders"];
-	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
+	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly prepare?: PagesApi["Service"]["prepare"];
+	readonly ryotql?: RyotQLApi["Service"]["execute"];
 	readonly check?: ClientPageFreshness["Service"]["check"];
 	readonly collections?: Partial<CollectionsApi["Service"]>;
-	readonly ryotql?: RyotQLApi["Service"]["execute"];
+	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
 	readonly invoke?: PluginOperationsService["Service"]["invoke"];
+	readonly loadProviders?: ProviderAddService["Service"]["loadProviders"];
 }) {
 	const targets: ClientPageTarget[] = [];
 	let navigationLoads = 0;
@@ -332,8 +332,8 @@ const noProviders = () =>
 
 function connectFrame(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
-	let init: PluginBridgeInit | undefined;
-	let port: MessagePort | undefined;
+	let init: undefined | PluginBridgeInit;
+	let port: undefined | MessagePort;
 	Object.defineProperty(frame, "contentWindow", {
 		configurable: true,
 		value: {

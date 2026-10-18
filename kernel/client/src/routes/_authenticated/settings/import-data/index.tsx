@@ -27,7 +27,7 @@ const listState = (page: ImportRunList): ImportRunListState =>
 		? { status: "empty" }
 		: { status: "ready", runs: page.items, hasMore: page.pageInfo.hasMore };
 
-const queryListState = (page: ImportRunList | undefined, pending: boolean): ImportRunListState => {
+const queryListState = (page: undefined | ImportRunList, pending: boolean): ImportRunListState => {
 	if (page !== undefined) {
 		return listState(page);
 	}

@@ -8,6 +8,10 @@ import { useHasPublishedClientPageDocument } from "#/modules/pages/documents/sta
 import { useScreenLeadingControl } from "#/modules/shell/app-screen";
 import { useEdge, useShellChrome } from "#/modules/shell/authenticated-shell-context";
 
+export function ClientPagePending() {
+	return useHasPublishedClientPageDocument() ? null : <ClientPageLoadingScreen />;
+}
+
 export function ClientPageLoading(props: {
 	readonly title: string;
 	readonly icon?: string;
@@ -61,10 +65,6 @@ export function ClientPageLoading(props: {
 			</div>
 		</div>
 	);
-}
-
-export function ClientPagePending() {
-	return useHasPublishedClientPageDocument() ? null : <ClientPageLoadingScreen />;
 }
 
 function ClientPageLoadingScreen() {

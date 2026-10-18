@@ -34,6 +34,33 @@ export function PluginRoutePage({
 	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 
+function PluginNotice(props: { readonly title: string }) {
+	useClearClientPageDocument();
+	return <AppScreen title={props.title}>{null}</AppScreen>;
+}
+
+function PluginNotFound() {
+	useClearClientPageDocument();
+	usePageTitle("Plugin not found");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			<section
+				aria-labelledby="plugin-route-title"
+				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
+			>
+				<div>
+					<h1 className="ui-heading" id="plugin-route-title">
+						Plugin not found
+					</h1>
+					<p role="status" className="ui-subtitle">
+						This page does not exist.
+					</p>
+				</div>
+			</section>
+		</main>
+	);
+}
+
 function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
 	const navigate = useNavigate();
 	const { open, session } = useEntityPickerSession();
@@ -59,32 +86,5 @@ function PluginDocument(props: { readonly title: string; readonly prepared: Prep
 			)}
 			{collections.screen}
 		</>
-	);
-}
-
-function PluginNotice(props: { readonly title: string }) {
-	useClearClientPageDocument();
-	return <AppScreen title={props.title}>{null}</AppScreen>;
-}
-
-function PluginNotFound() {
-	useClearClientPageDocument();
-	usePageTitle("Plugin not found");
-	return (
-		<main {...mainContentProps} className="ui-page">
-			<section
-				aria-labelledby="plugin-route-title"
-				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
-			>
-				<div>
-					<h1 className="ui-heading" id="plugin-route-title">
-						Plugin not found
-					</h1>
-					<p role="status" className="ui-subtitle">
-						This page does not exist.
-					</p>
-				</div>
-			</section>
-		</main>
 	);
 }

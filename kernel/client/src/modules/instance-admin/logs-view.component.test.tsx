@@ -111,7 +111,7 @@ describe("ServerLogsView", () => {
 
 	it.live("interrupts a download on unmount and ignores its late unauthorized result", () =>
 		Effect.gen(function* () {
-			let settle: (() => void) | undefined;
+			let settle: undefined | (() => void);
 			let interrupted = false;
 			const calls: string[] = [];
 			const view = render(
@@ -168,7 +168,7 @@ describe("ServerLogsView", () => {
 	it.live("loads and appends the next server-side page", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
-			const requests: Array<{ readonly after: string | undefined; readonly limit: number }> = [];
+			const requests: Array<{ readonly limit: number; readonly after: string | undefined }> = [];
 			render(
 				<ServerLogsView
 					download={() => Effect.void}
@@ -208,7 +208,7 @@ describe("ServerLogsView", () => {
 	it.live("downloads one selected file or all files", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
-			const downloaded: Array<InstanceAdminLogs["files"][number] | undefined> = [];
+			const downloaded: Array<undefined | InstanceAdminLogs["files"][number]> = [];
 			render(
 				<ServerLogsView
 					unauthorized={() => undefined}

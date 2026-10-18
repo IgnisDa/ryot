@@ -83,18 +83,20 @@ export const Route = createFileRoute("/_authenticated/settings/backups")({
 	}),
 });
 
+function BackupsPending() {
+	return (
+		<BackupsFrame>
+			<StatusState className="py-16" detail="Loading your backups..." />
+		</BackupsFrame>
+	);
+}
+
 function BackupsFrame(props: { readonly children: ReactNode }) {
 	return (
 		<SettingsFrame title="Backups" backFallbackHref="/settings">
 			{props.children}
 		</SettingsFrame>
 	);
-}
-
-function BackupsRoute() {
-	const { server, runtime } = Route.useRouteContext();
-	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
-	return isDemo ? <BackupsDemoProtected /> : <BackupsStandard />;
 }
 
 function BackupsDemoProtected() {
@@ -104,6 +106,24 @@ function BackupsDemoProtected() {
 				className="py-16"
 				title="Backups are unavailable"
 				detail={DEMO_PROTECTION_MESSAGE}
+			/>
+		</BackupsFrame>
+	);
+}
+
+function BackupsRoute() {
+	const { server, runtime } = Route.useRouteContext();
+	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
+	return isDemo ? <BackupsDemoProtected /> : <BackupsStandard />;
+}
+
+function BackupsLoadError(props: { readonly onRetry: () => void }) {
+	return (
+		<BackupsFrame>
+			<LoadErrorState
+				onRetry={props.onRetry}
+				title={BACKUP_LOAD_ERROR.title}
+				detail={BACKUP_LOAD_ERROR.detail}
 			/>
 		</BackupsFrame>
 	);
@@ -122,17 +142,17 @@ function BackupsStandard() {
 	const { scope, runtime } = Route.useRouteContext();
 	const downloading = useRef<string | undefined>(undefined);
 	const controller = useRef(new AbortController());
-	const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+	const deleteTrigger = useRef<null | HTMLButtonElement>(null);
 	const [downloadFailed, setDownloadFailed] = useState(false);
 	const [downloadingRunId, setDownloadingRunId] = useState<string | undefined>();
-	const [pendingDelete, setPendingDelete] = useState<BackupRunItem | undefined>();
+	const [pendingDelete, setPendingDelete] = useState<undefined | BackupRunItem>();
 	const firstPage = pagination.pages.at(0);
 	const runs = paginationItems(
 		pagination.pages,
 		(page) => page.items,
 		(run) => run.id,
 	);
-	let state: BackupRunListState | undefined;
+	let state: undefined | BackupRunListState;
 	if (firstPage !== undefined) {
 		state = runs.length === 0 ? { status: "empty" } : { runs, status: "ready" };
 	}
@@ -283,26 +303,6 @@ function BackupsStandard() {
 					disabled={live !== undefined || createMutation.isPending}
 				/>
 			)}
-		</BackupsFrame>
-	);
-}
-
-function BackupsPending() {
-	return (
-		<BackupsFrame>
-			<StatusState className="py-16" detail="Loading your backups..." />
-		</BackupsFrame>
-	);
-}
-
-function BackupsLoadError(props: { readonly onRetry: () => void }) {
-	return (
-		<BackupsFrame>
-			<LoadErrorState
-				onRetry={props.onRetry}
-				title={BACKUP_LOAD_ERROR.title}
-				detail={BACKUP_LOAD_ERROR.detail}
-			/>
 		</BackupsFrame>
 	);
 }

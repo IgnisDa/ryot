@@ -25,8 +25,8 @@ export const visibleWorkspaces = (catalog: PluginClientCatalog) =>
 
 export const resolveRememberedWorkspace = (
 	catalog: PluginClientCatalog,
-	rememberedPluginId: string | null,
-): PluginClientCatalogEntry | null => {
+	rememberedPluginId: null | string,
+): null | PluginClientCatalogEntry => {
 	const visible = visibleWorkspaces(catalog);
 	return visible.find(({ pluginId }) => pluginId === rememberedPluginId) ?? visible.at(0) ?? null;
 };
@@ -38,7 +38,7 @@ export const preparedPageInstallationId = (prepared: PreparedClientPage) =>
 
 export type WorkspaceTarget = Pick<PluginClientCatalogEntry, "pluginId" | "packageId">;
 
-export const isWorkspaceRoot = (pathname: string, workspace: PluginClientCatalogEntry | null) => {
+export const isWorkspaceRoot = (pathname: string, workspace: null | PluginClientCatalogEntry) => {
 	if (workspace === null) {
 		return false;
 	}

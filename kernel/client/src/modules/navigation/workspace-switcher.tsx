@@ -24,8 +24,8 @@ type WorkspaceSwitcherProps = {
 	readonly catalog: PluginClientCatalog;
 	readonly showShortcut?: boolean | undefined;
 	readonly onOpenChange: (open: boolean) => void;
-	readonly onCustomize?: (() => void) | undefined;
-	readonly current: PluginClientCatalogEntry | null;
+	readonly onCustomize?: undefined | (() => void);
+	readonly current: null | PluginClientCatalogEntry;
 	readonly onSelect: (workspace: WorkspaceTarget) => void | Promise<void>;
 };
 
@@ -42,16 +42,11 @@ export function workspacePickerSummary(data: NavigationData, installationId: str
 	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
 }
 
-function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
-	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
-	return null;
-}
-
 export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const menuId = useId();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const container = useRef<HTMLDivElement>(null);
-	const items = useRef<Array<HTMLButtonElement | null>>([]);
+	const items = useRef<Array<null | HTMLButtonElement>>([]);
 	const workspaces = visibleWorkspaces(props.catalog);
 	const menuLength = workspaces.length + (props.onCustomize === undefined ? 0 : 1);
 	const currentPluginId = props.current?.pluginId;
@@ -162,7 +157,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 						}}
 						className="absolute top-full left-0 z-50 mt-2 flex w-full flex-col gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-card"
 						onKeyDown={(event) => {
-							let nextIndex: number | null = null;
+							let nextIndex: null | number = null;
 							if (event.key === "Home") {
 								nextIndex = 0;
 							}
@@ -250,4 +245,9 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 			</div>
 		</OverlayScope>
 	);
+}
+
+function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
+	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
+	return null;
 }

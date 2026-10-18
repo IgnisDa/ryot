@@ -22,15 +22,15 @@ const AUTHORIZE_URL = "https://accounts.example/authorize?state=state-1";
 const connectionId = OAuthConnectionId.make("connection-1");
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
-type TestPopup = OAuthPopup & { closed: boolean; closeCount: number };
+type StatusReply = "not-found" | OAuthConnectionStatus;
 
-type StatusReply = OAuthConnectionStatus | "not-found";
+type TestPopup = OAuthPopup & { closed: boolean; closeCount: number };
 
 const makeHarness = (
 	options: {
 		readonly native?: boolean;
-		readonly authorizeUrl?: string;
 		readonly blockPopup?: boolean;
+		readonly authorizeUrl?: string;
 	} = {},
 ) => {
 	const claims = makeDeepLinkClaims();
@@ -39,7 +39,7 @@ const makeHarness = (
 	const finished = new Set<() => void>();
 	const browserOpened: string[] = [];
 	const creates: CreateOAuthConnectionBody[] = [];
-	const completes: { readonly connectionId: string; readonly secret: string }[] = [];
+	const completes: { readonly secret: string; readonly connectionId: string }[] = [];
 	const state = { reads: 0, browserClosed: 0, status: "pending" as StatusReply };
 
 	const platform = Layer.succeed(OAuthConnectPlatform, {

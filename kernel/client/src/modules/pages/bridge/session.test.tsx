@@ -144,31 +144,31 @@ const invalidDeviceRequest = { outcome: "failure", reason: "invalid-request" } a
 
 const connect = (
 	options: {
-		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
-		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
 		readonly timeoutMs?: number;
+		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
-		readonly onExternalLink?: Parameters<typeof openPluginBridge>[0]["onExternalLink"];
-		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
-		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
-		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
-		readonly onCalendarSourceVisibility?: Parameters<
-			typeof openPluginBridge
-		>[0]["onCalendarSourceVisibility"];
-		readonly onEntitySave?: Parameters<typeof openPluginBridge>[0]["onEntitySave"];
+		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
+		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
+		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
+		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
+		readonly onEntitySave?: Parameters<typeof openPluginBridge>[0]["onEntitySave"];
+		readonly onEnrichment?: Parameters<typeof openPluginBridge>[0]["onEnrichment"];
+		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
+		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
+		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
+		readonly onExternalLink?: Parameters<typeof openPluginBridge>[0]["onExternalLink"];
+		readonly onUserSettings?: Parameters<typeof openPluginBridge>[0]["onUserSettings"];
+		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
+		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
+		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
 		readonly onBackgroundOperation?: Parameters<
 			typeof openPluginBridge
 		>[0]["onBackgroundOperation"];
-		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
-		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
-		readonly onUserSettings?: Parameters<typeof openPluginBridge>[0]["onUserSettings"];
-		readonly onEnrichment?: Parameters<typeof openPluginBridge>[0]["onEnrichment"];
-		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
-		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
-		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
-		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
+		readonly onCalendarSourceVisibility?: Parameters<
+			typeof openPluginBridge
+		>[0]["onCalendarSourceVisibility"];
 	} = {},
 ) => {
 	const backs: null[] = [];
@@ -180,12 +180,12 @@ const connect = (
 	const messages: unknown[] = [];
 	const pageSearches: unknown[] = [];
 	const overlayStates: number[] = [];
-	let init: PluginBridgeInit | undefined;
+	let init: undefined | PluginBridgeInit;
 	const shortcuts: KernelShortcut[] = [];
 	const entityPicks: unknown[] = [];
 	const collectionEdits: unknown[] = [];
 	const collectionAdds: unknown[] = [];
-	let pluginPort: MessagePort | undefined;
+	let pluginPort: undefined | MessagePort;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PageScreenReadiness[] = [];
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
@@ -987,7 +987,7 @@ describe("bridge entity interest", () => {
 				const declarations: unknown[] = [];
 				let disposed = 0;
 				let notify:
-					Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1] | undefined;
+					undefined | Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1];
 				const client = createRyotClient(
 					createTestRyotAdapter({
 						query: () => Effect.succeed({}),
@@ -1132,7 +1132,7 @@ describe("plugin bridge", () => {
 
 	it.live("fails a document whose overlay dismissal is not acknowledged within the bound", () =>
 		Effect.gen(function* () {
-			let expire: (() => void) | undefined;
+			let expire: undefined | (() => void);
 			const { init, session, failures, pluginPort } = connect({
 				scheduleOverlayDismissTimeout: (onTimeout) => {
 					expire = onTimeout;
@@ -1671,7 +1671,7 @@ describe("plugin bridge", () => {
 
 	it.live("aborts pending asset work on disposal and suppresses its late result", () =>
 		Effect.gen(function* () {
-			let signal: AbortSignal | undefined;
+			let signal: undefined | AbortSignal;
 			const call = deferred<PluginAssetOutcome>();
 			const { init, session, received, pluginPort } = connect({
 				onAssets: () =>
@@ -1730,7 +1730,7 @@ describe("plugin bridge", () => {
 
 	it.live("honors peer disposal, aborts work, and ignores late admissions", () =>
 		Effect.gen(function* () {
-			let signal: AbortSignal | undefined;
+			let signal: undefined | AbortSignal;
 			const call = deferred<PluginOperationOutcome>();
 			const { init, received, pluginPort, navigations } = connect({
 				onOperation: () =>
@@ -2683,7 +2683,7 @@ describe("plugin bridge", () => {
 
 	it.live("fails the session on a malformed active-port message and suppresses late work", () =>
 		Effect.gen(function* () {
-			let signal: AbortSignal | undefined;
+			let signal: undefined | AbortSignal;
 			const call = deferred<PluginOperationOutcome>();
 			const { init, received, failures, pluginPort } = connect({
 				onOperation: () =>
@@ -2739,8 +2739,8 @@ describe("plugin bridge", () => {
 		"aborts pending operation and RyotQL work on failure and suppresses both late results",
 		() =>
 			Effect.gen(function* () {
-				let operationSignal: AbortSignal | undefined;
-				let querySignal: AbortSignal | undefined;
+				let operationSignal: undefined | AbortSignal;
+				let querySignal: undefined | AbortSignal;
 				const operationCall = deferred<PluginOperationOutcome>();
 				const queryCall = deferred<PluginRyotQLOutcome>();
 				const { init, received, failures, pluginPort } = connect({
@@ -2807,7 +2807,7 @@ describe("plugin bridge", () => {
 
 	it.live("aborts pending signals on close and posts nothing after a late resolution", () =>
 		Effect.gen(function* () {
-			let signal: AbortSignal | undefined;
+			let signal: undefined | AbortSignal;
 			const call = deferred<PluginOperationOutcome>();
 			const { init, session, received, pluginPort } = connect({
 				onOperation: () =>
@@ -2936,7 +2936,7 @@ describe("plugin bridge", () => {
 
 	it.live("aborts a pending RyotQL request and suppresses its late response", () =>
 		Effect.gen(function* () {
-			let signal: AbortSignal | undefined;
+			let signal: undefined | AbortSignal;
 			const call = deferred<PluginRyotQLOutcome>();
 			const { init, session, received, pluginPort } = connect({
 				onRyotQL: () =>

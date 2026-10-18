@@ -25,14 +25,14 @@ import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 
-type ProviderAddClient = Pick<KernelRyotClient, "data">;
-
 export type ProviderSearchSummary = ProviderSearchResult["items"][number];
+
+type ProviderAddClient = Pick<KernelRyotClient, "data">;
 
 export class ProviderAddLoadError extends Data.TaggedError("ProviderAddLoadError")<{
 	readonly cause: unknown;
 	readonly stage:
-		"providers" | "links" | "options" | "search" | "import" | "schema" | "entities" | "create";
+		"links" | "search" | "import" | "schema" | "create" | "options" | "entities" | "providers";
 }> {}
 
 const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect<A, E>) =>

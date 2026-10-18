@@ -6,8 +6,6 @@ import { HttpClient } from "effect/http";
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 import { FileDownloads } from "#/modules/downloads/file";
 
-export class AdminApiError extends Data.TaggedError("AdminApiError")<{ readonly cause: unknown }> {}
-
 export type AdminApiService = {
 	readonly download: (url: string, fileName: string) => Effect.Effect<void, AdminApiError>;
 	readonly run: <A, E>(
@@ -16,6 +14,8 @@ export type AdminApiService = {
 		program: ContractProgram<A, E>,
 	) => Effect.Effect<A, AdminApiError>;
 };
+
+export class AdminApiError extends Data.TaggedError("AdminApiError")<{ readonly cause: unknown }> {}
 
 export const makeAdminApi = (
 	http: HttpClient.HttpClient,

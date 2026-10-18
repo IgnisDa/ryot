@@ -15,9 +15,9 @@ import {
 const ROW_HEIGHT = 44;
 
 type CustomizePanelProps = {
-	readonly draft: CustomizeDraft;
 	readonly readOnly?: boolean;
-	readonly initialSection?: CustomizeSection | undefined;
+	readonly draft: CustomizeDraft;
+	readonly initialSection?: undefined | CustomizeSection;
 	readonly onToggle: (section: CustomizeSection, slug: string) => void;
 	readonly onMove: (section: CustomizeSection, fromIndex: number, toIndex: number) => void;
 };
@@ -29,59 +29,16 @@ type SectionProps = {
 	readonly emptyMessage?: string;
 	readonly onToggle: (slug: string) => void;
 	readonly items: readonly CustomizeDraftItem[];
-	readonly scrollRef: RefObject<HTMLDivElement | null>;
-	readonly anchorRef: (element: HTMLElement | null) => void;
+	readonly scrollRef: RefObject<null | HTMLDivElement>;
+	readonly anchorRef: (element: null | HTMLElement) => void;
 	readonly onMove: (fromIndex: number, toIndex: number) => void;
 	readonly counts: { readonly shown: number; readonly total: number };
-	readonly toggleDisabled?: ((item: CustomizeDraftItem) => boolean) | undefined;
+	readonly toggleDisabled?: undefined | ((item: CustomizeDraftItem) => boolean);
 };
-
-function CustomizeSection({ anchorRef, scrollRef, ...props }: SectionProps) {
-	return (
-		<section className="flex flex-col gap-1.5">
-			<h2
-				ref={anchorRef}
-				className="px-1 text-xs font-semibold uppercase tracking-[1.6px] text-text-subtle"
-			>
-				{props.title} · {props.counts.shown} of {props.counts.total} shown
-			</h2>
-			<div className="overflow-hidden rounded-lg border border-border bg-raised">
-				{props.leading}
-				{props.items.length === 0 && props.emptyMessage !== undefined && (
-					<p className="px-2 py-1 text-xs text-text-subtle">{props.emptyMessage}</p>
-				)}
-				{props.items.length > 0 && (
-					<ReorderableList
-						label={props.title}
-						items={props.items}
-						scrollRef={scrollRef}
-						itemHeight={ROW_HEIGHT}
-						onReorder={props.onMove}
-						itemKey={(item) => item.id}
-						itemLabel={(item) => item.name}
-						onPickUp={() => Effect.runFork(impactHaptic)}
-						onDrop={() => Effect.runFork(selectionHaptic)}
-						handleIcon={<AppIcon size={18} name="grip-vertical" />}
-						renderItem={({ item, index, handle }) => (
-							<CustomizeRow
-								item={item}
-								handle={handle}
-								readOnly={props.readOnly}
-								onToggle={props.onToggle}
-								isLast={index === props.items.length - 1}
-								toggleDisabled={props.toggleDisabled?.(item)}
-							/>
-						)}
-					/>
-				)}
-			</div>
-		</section>
-	);
-}
 
 export function CustomizePanel(props: CustomizePanelProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
-	const anchors = useRef(new Map<CustomizeSection, HTMLElement | null>());
+	const anchors = useRef(new Map<CustomizeSection, null | HTMLElement>());
 	const initialSection = props.initialSection;
 	const enabledWorkspaceCount = props.draft.workspaces.filter(({ isHidden }) => !isHidden).length;
 
@@ -93,7 +50,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 		}
 	}, [initialSection]);
 
-	const anchorRef = (section: CustomizeSection) => (element: HTMLElement | null) => {
+	const anchorRef = (section: CustomizeSection) => (element: null | HTMLElement) => {
 		anchors.current.set(section, element);
 	};
 
@@ -142,5 +99,48 @@ export function CustomizePanel(props: CustomizePanelProps) {
 				</p>
 			</div>
 		</div>
+	);
+}
+
+function CustomizeSection({ anchorRef, scrollRef, ...props }: SectionProps) {
+	return (
+		<section className="flex flex-col gap-1.5">
+			<h2
+				ref={anchorRef}
+				className="px-1 text-xs font-semibold uppercase tracking-[1.6px] text-text-subtle"
+			>
+				{props.title} · {props.counts.shown} of {props.counts.total} shown
+			</h2>
+			<div className="overflow-hidden rounded-lg border border-border bg-raised">
+				{props.leading}
+				{props.items.length === 0 && props.emptyMessage !== undefined && (
+					<p className="px-2 py-1 text-xs text-text-subtle">{props.emptyMessage}</p>
+				)}
+				{props.items.length > 0 && (
+					<ReorderableList
+						label={props.title}
+						items={props.items}
+						scrollRef={scrollRef}
+						itemHeight={ROW_HEIGHT}
+						onReorder={props.onMove}
+						itemKey={(item) => item.id}
+						itemLabel={(item) => item.name}
+						onPickUp={() => Effect.runFork(impactHaptic)}
+						onDrop={() => Effect.runFork(selectionHaptic)}
+						handleIcon={<AppIcon size={18} name="grip-vertical" />}
+						renderItem={({ item, index, handle }) => (
+							<CustomizeRow
+								item={item}
+								handle={handle}
+								readOnly={props.readOnly}
+								onToggle={props.onToggle}
+								isLast={index === props.items.length - 1}
+								toggleDisabled={props.toggleDisabled?.(item)}
+							/>
+						)}
+					/>
+				)}
+			</div>
+		</section>
 	);
 }

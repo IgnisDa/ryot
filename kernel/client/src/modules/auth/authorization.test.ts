@@ -43,7 +43,7 @@ const json = (value: unknown, status = 200) =>
 
 type PendingRequest = {
 	readonly url: string;
-	readonly init: RequestInit | undefined;
+	readonly init: undefined | RequestInit;
 	readonly reply: Deferred.Deferred<Response>;
 };
 class Endpoint extends Context.Service<

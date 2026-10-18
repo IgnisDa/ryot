@@ -24,17 +24,7 @@ afterEach(() => {
 class RecordingSocket extends EventTarget implements InterestSocket {
 	closed = false;
 	readonly sent: unknown[] = [];
-	messageListener: EventListener | undefined;
-	override addEventListener(
-		type: string,
-		listener: EventListenerOrEventListenerObject | null,
-		options?: AddEventListenerOptions | boolean,
-	) {
-		if (type === "message" && typeof listener === "function") {
-			this.messageListener = listener;
-		}
-		super.addEventListener(type, listener, options);
-	}
+	messageListener: undefined | EventListener;
 	close() {
 		this.closed = true;
 	}
@@ -53,6 +43,16 @@ class RecordingSocket extends EventTarget implements InterestSocket {
 			heartbeatIntervalMs: 25_000,
 		});
 	}
+	override addEventListener(
+		type: string,
+		listener: null | EventListenerOrEventListenerObject,
+		options?: boolean | AddEventListenerOptions,
+	) {
+		if (type === "message" && typeof listener === "function") {
+			this.messageListener = listener;
+		}
+		super.addEventListener(type, listener, options);
+	}
 }
 
 const settle = () =>
@@ -69,7 +69,7 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 	let tickets = 0;
 	let cancelledTickets = 0;
 	let available = true;
-	let changed: (() => void) | undefined;
+	let changed: undefined | (() => void);
 	const urls: string[] = [];
 	const overflows: number[] = [];
 	const sockets: RecordingSocket[] = [];

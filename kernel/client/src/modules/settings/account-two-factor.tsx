@@ -11,9 +11,9 @@ const manageClassName =
 export function AccountTwoFactor(props: {
 	readonly isDemo: boolean;
 	readonly isLoading: boolean;
-	readonly status: TwoFactorStatus | undefined;
 	readonly onRetry: () => void;
-	readonly onOpenNative: (() => void) | undefined;
+	readonly status: undefined | TwoFactorStatus;
+	readonly onOpenNative: undefined | (() => void);
 }) {
 	if (props.isDemo || props.status?.available === false) {
 		return null;

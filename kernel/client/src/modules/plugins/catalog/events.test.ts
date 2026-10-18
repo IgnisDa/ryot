@@ -24,7 +24,7 @@ class TestStream {
 	closed = false;
 	aborted = false;
 	readonly body: ReadableStream<Uint8Array>;
-	private controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+	private controller: undefined | ReadableStreamDefaultController<Uint8Array>;
 
 	constructor(signal: AbortSignal) {
 		this.body = new ReadableStream<Uint8Array>({
@@ -41,13 +41,13 @@ class TestStream {
 		});
 	}
 
-	send(text: string) {
-		this.controller?.enqueue(encoder.encode(text));
-	}
-
 	end() {
 		this.closed = true;
 		this.controller?.close();
+	}
+
+	send(text: string) {
+		this.controller?.enqueue(encoder.encode(text));
 	}
 }
 

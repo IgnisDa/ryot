@@ -10,10 +10,10 @@ type HostScreenSession<Request, Outcome extends HostScreenOutcome> = {
 
 export function useHostScreenSession<Request, Outcome extends HostScreenOutcome>(
 	cancelled: Outcome,
-	options: { readonly onOpen?: (request: Request) => void; readonly onDismiss?: () => void } = {},
+	options: { readonly onDismiss?: () => void; readonly onOpen?: (request: Request) => void } = {},
 ) {
-	const pending = useRef<((outcome: Outcome) => void) | null>(null);
-	const [session, setSession] = useState<HostScreenSession<Request, Outcome> | null>(null);
+	const pending = useRef<null | ((outcome: Outcome) => void)>(null);
+	const [session, setSession] = useState<null | HostScreenSession<Request, Outcome>>(null);
 	const open = (request: Request) =>
 		Effect.callback<Outcome>((resume) => {
 			if (pending.current !== null) {

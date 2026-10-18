@@ -34,14 +34,14 @@ type CreateStatus =
 	| { readonly kind: "error"; readonly message: string };
 
 export function InlineEntityCreate(props: {
+	readonly onBack: () => void;
 	readonly initialName: string;
-	readonly schema: EntitySchemaReference;
-	readonly definition: { readonly name: string; readonly propertiesSchema: AppSchema };
 	readonly uploadFile: SchemaFileUpload;
+	readonly schema: EntitySchemaReference;
 	readonly uploadAsset: SchemaAssetUpload;
 	readonly renderAsset: SchemaAssetRenderer;
-	readonly onBack: () => void;
 	readonly onCreated: (entityId: EntityId) => void;
+	readonly definition: { readonly name: string; readonly propertiesSchema: AppSchema };
 	readonly create: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<EntityEditorSaveOutput, ProviderAddLoadError>;
@@ -50,7 +50,7 @@ export function InlineEntityCreate(props: {
 	const [name, setName] = useState(props.initialName);
 	const [nameError, setNameError] = useState<string>();
 	const [status, setStatus] = useState<CreateStatus>({ kind: "idle" });
-	const attempt = useRef<EntityEditorSaveRequest | undefined>(undefined);
+	const attempt = useRef<undefined | EntityEditorSaveRequest>(undefined);
 
 	const submit = (values: SchemaFormValues) => {
 		if (name.trim() === "") {

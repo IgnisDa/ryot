@@ -37,11 +37,11 @@ const downloadMessage = (cause: Cause.Cause<unknown>) => {
 
 export function ServerLogsView(props: {
 	readonly unauthorized: () => void;
+	readonly download: (file?: LogFile) => Effect.Effect<void, unknown>;
 	readonly load: (
 		after: string | undefined,
 		limit: number,
 	) => Effect.Effect<InstanceAdminLogs, unknown>;
-	readonly download: (file?: LogFile) => Effect.Effect<void, unknown>;
 }) {
 	const [downloadError, setDownloadError] = useState<string>();
 	const [downloading, setDownloading] = useState<string>();
@@ -195,8 +195,8 @@ export function ServerLogsView(props: {
 function LogTableRow(props: {
 	readonly file: LogFile;
 	readonly loading: boolean;
-	readonly onDownload: (file: LogFile) => void;
 	readonly downloading: string | undefined;
+	readonly onDownload: (file: LogFile) => void;
 }) {
 	return (
 		<tr className="border-b border-border last:border-b-0">

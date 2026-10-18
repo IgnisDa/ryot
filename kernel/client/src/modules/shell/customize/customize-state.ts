@@ -4,7 +4,10 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 
 import { sortWorkspaces } from "#/modules/navigation/workspace-state";
 
-export type CustomizeSection = "workspaces" | "views" | "savedViews";
+export type CustomizeSection = "views" | "workspaces" | "savedViews";
+
+export type CustomizeDraftViewItem = CustomizeDraftItem &
+	Pick<NavigationView, "reference" | "pluginInstallationId">;
 
 export type CustomizeDraftItem = {
 	readonly id: string;
@@ -12,22 +15,19 @@ export type CustomizeDraftItem = {
 	readonly icon: string;
 	readonly isHidden: boolean;
 };
-
-export type CustomizeDraftViewItem = CustomizeDraftItem &
-	Pick<NavigationView, "reference" | "pluginInstallationId">;
 export type CustomizeDraftWorkspaceItem = CustomizeDraftItem &
 	Pick<PluginClientCatalog[number], "pluginId" | "packageId" | "installationId">;
 
 export type CustomizeDraft = {
 	readonly views: readonly CustomizeDraftViewItem[];
-	readonly workspaces: readonly CustomizeDraftWorkspaceItem[];
 	readonly savedViews: readonly CustomizeDraftViewItem[];
+	readonly workspaces: readonly CustomizeDraftWorkspaceItem[];
 };
 
 const clampIndex = (index: number, length: number) =>
 	Math.min(Math.max(index, 0), Math.max(length - 1, 0));
 
-const draftItems = (items: readonly NavigationView[], installationId: string | null | undefined) =>
+const draftItems = (items: readonly NavigationView[], installationId: null | string | undefined) =>
 	[...items]
 		.filter((item) => item.pluginInstallationId === installationId)
 		.sort((left, right) => left.sortOrder - right.sortOrder)
@@ -77,31 +77,6 @@ export function initCustomizeDraft(props: {
 	};
 }
 
-export function moveCustomizeItem(props: {
-	readonly toIndex: number;
-	readonly fromIndex: number;
-	readonly draft: CustomizeDraft;
-	readonly section: CustomizeSection;
-}): CustomizeDraft {
-	const items = props.draft[props.section];
-	if (items.length === 0) {
-		return props.draft;
-	}
-
-	const fromIndex = clampIndex(props.fromIndex, items.length);
-	const toIndex = clampIndex(props.toIndex, items.length);
-	const item = items[fromIndex];
-	if (fromIndex === toIndex) {
-		return props.draft;
-	}
-
-	const next = [...items];
-	next.splice(fromIndex, 1);
-	next.splice(toIndex, 0, item);
-
-	return { ...props.draft, [props.section]: next };
-}
-
 export function toggleCustomizeItem(props: {
 	readonly id: string;
 	readonly draft: CustomizeDraft;
@@ -128,6 +103,31 @@ export function toggleCustomizeItem(props: {
 	};
 }
 
+export function moveCustomizeItem(props: {
+	readonly toIndex: number;
+	readonly fromIndex: number;
+	readonly draft: CustomizeDraft;
+	readonly section: CustomizeSection;
+}): CustomizeDraft {
+	const items = props.draft[props.section];
+	if (items.length === 0) {
+		return props.draft;
+	}
+
+	const fromIndex = clampIndex(props.fromIndex, items.length);
+	const toIndex = clampIndex(props.toIndex, items.length);
+	const item = items[fromIndex];
+	if (fromIndex === toIndex) {
+		return props.draft;
+	}
+
+	const next = [...items];
+	next.splice(fromIndex, 1);
+	next.splice(toIndex, 0, item);
+
+	return { ...props.draft, [props.section]: next };
+}
+
 export const isCustomizeDraftDirty = (props: {
 	readonly draft: CustomizeDraft;
 	readonly initial: CustomizeDraft;
@@ -135,6 +135,19 @@ export const isCustomizeDraftDirty = (props: {
 	!areSectionsEqual(props.draft.workspaces, props.initial.workspaces) ||
 	!areSectionsEqual(props.draft.views, props.initial.views) ||
 	!areSectionsEqual(props.draft.savedViews, props.initial.savedViews);
+
+export function customizeSearchSection(search: {
+	readonly section?: unknown;
+}): undefined | CustomizeSection {
+	if (
+		search.section === "workspaces" ||
+		search.section === "views" ||
+		search.section === "savedViews"
+	) {
+		return search.section;
+	}
+	return undefined;
+}
 
 export function customizeSectionCounts(props: {
 	readonly draft: CustomizeDraft;
@@ -145,17 +158,4 @@ export function customizeSectionCounts(props: {
 	const pinned = props.section === "views" ? 1 : 0;
 
 	return { shown: shown + pinned, total: items.length + pinned };
-}
-
-export function customizeSearchSection(search: {
-	readonly section?: unknown;
-}): CustomizeSection | undefined {
-	if (
-		search.section === "workspaces" ||
-		search.section === "views" ||
-		search.section === "savedViews"
-	) {
-		return search.section;
-	}
-	return undefined;
 }

@@ -11,15 +11,15 @@ const userLifecyclePollSchedule = Schedule.spaced("2 seconds").pipe(
 	Schedule.upTo({ times: USER_LIFECYCLE_POLL_ATTEMPTS }),
 );
 
-class UserLifecycleOperationPending {
-	readonly _tag = "UserLifecycleOperationPending";
-}
-
 export type InstanceAdminUserLifecycleOperation = UserLifecycleOperation;
 
 export type InstanceAdminUserResetResult = NonNullable<
 	InstanceAdminUserLifecycleOperation["resetResult"]
 >;
+
+class UserLifecycleOperationPending {
+	readonly _tag = "UserLifecycleOperationPending";
+}
 
 export class InstanceAdminOperationNotFound extends Data.TaggedError(
 	"InstanceAdminOperationNotFound",

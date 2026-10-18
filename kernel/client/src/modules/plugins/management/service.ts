@@ -22,23 +22,23 @@ import { Uploads } from "#/modules/assets/uploads";
 export type ManagedPluginInstallation = PluginInstallationsPage["items"][number];
 
 export type PluginManagementAction =
+	| { readonly kind: "uninstall"; readonly installation: ManagedPluginInstallation }
 	| {
-			readonly kind: "state";
-			readonly installation: ManagedPluginInstallation;
-			readonly isHidden: boolean;
-	  }
-	| {
-			readonly kind: "configure";
-			readonly installation: ManagedPluginInstallation;
-			readonly config: string;
-			readonly unsetKeys: string;
-	  }
-	| {
+			readonly file: File;
 			readonly kind: "package";
 			readonly installation: ManagedPluginInstallation;
-			readonly file: File;
 	  }
-	| { readonly kind: "uninstall"; readonly installation: ManagedPluginInstallation };
+	| {
+			readonly kind: "state";
+			readonly isHidden: boolean;
+			readonly installation: ManagedPluginInstallation;
+	  }
+	| {
+			readonly config: string;
+			readonly kind: "configure";
+			readonly unsetKeys: string;
+			readonly installation: ManagedPluginInstallation;
+	  };
 
 export class PluginManagementError extends Data.TaggedError("PluginManagementError")<{
 	readonly detail: string;
@@ -90,7 +90,7 @@ const commandFailure = (cause: unknown) =>
 				: "The plugin command failed.",
 	});
 
-export const errorDetail = (error: Error | null) =>
+export const errorDetail = (error: null | Error) =>
 	error instanceof PluginManagementError ? error.detail : error?.message;
 
 export class PluginManagementService extends Context.Service<PluginManagementService>()(

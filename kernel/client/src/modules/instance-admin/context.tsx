@@ -6,7 +6,7 @@ export type InstanceAdminContextValue = {
 	readonly unauthorized: () => void;
 };
 
-export const InstanceAdminContext = createContext<InstanceAdminContextValue | undefined>(undefined);
+export const InstanceAdminContext = createContext<undefined | InstanceAdminContextValue>(undefined);
 
 export function useInstanceAdmin() {
 	const context = useContext(InstanceAdminContext);

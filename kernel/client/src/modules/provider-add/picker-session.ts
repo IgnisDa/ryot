@@ -7,8 +7,8 @@ import { useHostScreenSession } from "#/modules/ui/host-screen-session";
 
 export const useEntityPickerSession = (
 	options: {
-		readonly onOpen?: (request: PluginBridgePickEntityScreen) => void;
 		readonly onDismiss?: () => void;
+		readonly onOpen?: (request: PluginBridgePickEntityScreen) => void;
 	} = {},
 ) =>
 	useHostScreenSession<PluginBridgePickEntityScreen, PickEntityOutcome>(

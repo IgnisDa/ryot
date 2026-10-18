@@ -10,15 +10,15 @@ import type { TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
 import { type CredentialsValues, registrationName } from "#/modules/auth/form-values";
 
-export class HostedAuthError extends Data.TaggedError("HostedAuthError")<{
-	readonly code?: string;
-	readonly message: string;
-}> {}
-
 type AuthResponse<A> = {
 	readonly data: A;
 	readonly error: null | { readonly code?: string; readonly message?: string };
 };
+
+export class HostedAuthError extends Data.TaggedError("HostedAuthError")<{
+	readonly code?: string;
+	readonly message: string;
+}> {}
 
 const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standard"]) });
 const InitializationStatusResponse = strictStruct({
@@ -173,7 +173,7 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 
 export class HostedAuthService extends Context.Service<HostedAuthService>()("HostedAuthService", {
 	make: Effect.sync(() => {
-		let hosted: ReturnType<typeof makeHostedClient> | undefined;
+		let hosted: undefined | ReturnType<typeof makeHostedClient>;
 		const client = () => (hosted ??= makeHostedClient());
 		const signInDemo = Effect.suspend(() =>
 			requestDemoSignIn(globalThis.fetch, window.location.origin),

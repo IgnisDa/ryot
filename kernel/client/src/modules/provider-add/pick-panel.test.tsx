@@ -35,7 +35,7 @@ const searchResponse: SearchProviderEntitiesResponse = {
 const renderPanel = ({
 	selected,
 	...overrides
-}: Partial<Parameters<typeof EntityPickPanel>[0]> & { readonly selected: EntityId[] }) =>
+}: { readonly selected: EntityId[] } & Partial<Parameters<typeof EntityPickPanel>[0]>) =>
 	render(
 		<EntityPickPanel
 			initialQuery="ceps"

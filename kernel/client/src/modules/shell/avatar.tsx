@@ -4,14 +4,14 @@ import { useState } from "react";
 
 type AvatarProps = {
 	readonly name: string;
-	readonly image: string | null;
 	readonly className?: string;
+	readonly image: null | string;
 };
 
 export function Avatar({ name, image, className }: AvatarProps) {
 	const trimmed = image?.trim() ?? "";
 	const source = trimmed === "" ? null : trimmed;
-	const [failedSource, setFailedSource] = useState<string | null>(null);
+	const [failedSource, setFailedSource] = useState<null | string>(null);
 	return (
 		<span
 			data-avatar="root"

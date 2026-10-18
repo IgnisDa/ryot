@@ -43,8 +43,8 @@ const request: PluginIosLiveActivityRequest = {
 
 const harness = (
 	options: {
-		readonly retain?: () => Effect.Effect<void, IosLiveActivityPlatformError>;
 		readonly fail?: boolean;
+		readonly retain?: () => Effect.Effect<void, IosLiveActivityPlatformError>;
 	} = {},
 ) => {
 	const calls: { readonly owner: string; readonly request: PluginIosLiveActivityRequest }[] = [];

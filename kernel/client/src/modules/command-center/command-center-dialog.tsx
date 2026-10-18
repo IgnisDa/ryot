@@ -30,10 +30,10 @@ type CommandCenterDialogProps = {
 
 const isHttpUrl = Schema.is(HttpUrl);
 
-const displayableImage = (image: AssetLocator | null) =>
+const displayableImage = (image: null | AssetLocator) =>
 	image === null || (image.type === "remote" && !isHttpUrl(image.url)) ? undefined : image;
 
-function OptionArt(props: { readonly label: string; readonly image: AssetLocator | null }) {
+function OptionArt(props: { readonly label: string; readonly image: null | AssetLocator }) {
 	const url = useAssetUrl(displayableImage(props.image));
 	return (
 		<EntityArtWell
@@ -49,9 +49,9 @@ function OptionArt(props: { readonly label: string; readonly image: AssetLocator
 function OptionRow(props: {
 	readonly id: string;
 	readonly active: boolean;
-	readonly option: CommandOption;
 	readonly onHover: () => void;
 	readonly onSelect: () => void;
+	readonly option: CommandOption;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
 	useEffect(() => {

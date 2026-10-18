@@ -6,12 +6,12 @@ import { SettingsSection } from "#/modules/settings/settings-section";
 import { Avatar } from "#/modules/shell/avatar";
 
 type AccountProfileProps = {
-	readonly identity: SettledAuthSession | undefined;
 	readonly isLoading: boolean;
+	readonly onRetry: () => void;
 	readonly isGenerating: boolean;
 	readonly generationFailed: boolean;
-	readonly onRetry: () => void;
 	readonly onGenerateAvatar: () => void;
+	readonly identity: undefined | SettledAuthSession;
 };
 
 export function AccountProfile(props: AccountProfileProps) {

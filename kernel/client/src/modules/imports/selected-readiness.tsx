@@ -16,57 +16,11 @@ import { IngestionReadinessNotice } from "./readiness-presentation";
 import { importSourcesQuery } from "./service";
 
 type SelectedReadinessProps = {
-	readonly reference: DeclarationReference;
-	readonly settings: Readonly<Record<string, unknown>>;
 	readonly integrationId?: string;
+	readonly reference: DeclarationReference;
 	readonly children: (ready: boolean) => ReactNode;
+	readonly settings: Readonly<Record<string, unknown>>;
 };
-
-function SelectedReadiness(props: {
-	readonly query: Pick<RyotQueryResult<unknown>, "status" | "isFetching" | "refetch">;
-	readonly scope: "system" | "user" | null | undefined;
-	readonly readiness: IngestionReadiness | undefined;
-	readonly evaluationFailed: boolean;
-	readonly missingLabel: string;
-	readonly children: (ready: boolean) => ReactNode;
-}) {
-	const { query, readiness } = props;
-	let notice: ReactNode;
-	if (query.status === "error" || props.evaluationFailed) {
-		notice = (
-			<p role="status" className="text-sm text-text-muted">
-				Could not check setup.{" "}
-				<Button variant="secondary" onClick={query.refetch}>
-					Try again
-				</Button>
-			</p>
-		);
-	} else if (readiness === undefined) {
-		notice = (
-			<p role="status" className="text-sm text-text-muted">
-				{query.status === "success" ? props.missingLabel : "Checking setup..."}
-			</p>
-		);
-	} else {
-		notice = <IngestionReadinessNotice readiness={readiness} scope={props.scope ?? null} />;
-	}
-	return (
-		<>
-			{notice}
-			{query.status === "error" ? null : (
-				<Button variant="secondary" onClick={query.refetch} disabled={query.isFetching}>
-					Check setup again
-				</Button>
-			)}
-			{props.children(
-				query.status === "success" &&
-					!query.isFetching &&
-					!props.evaluationFailed &&
-					readiness?.ready === true,
-			)}
-		</>
-	);
-}
 
 export function SelectedImportReadiness(props: SelectedReadinessProps) {
 	const query = useRyotQuery(importSourcesQuery);
@@ -105,5 +59,51 @@ export function SelectedIntegrationReadiness(props: SelectedReadinessProps) {
 		>
 			{props.children}
 		</SelectedReadiness>
+	);
+}
+
+function SelectedReadiness(props: {
+	readonly missingLabel: string;
+	readonly evaluationFailed: boolean;
+	readonly children: (ready: boolean) => ReactNode;
+	readonly readiness: undefined | IngestionReadiness;
+	readonly scope: null | "user" | "system" | undefined;
+	readonly query: Pick<RyotQueryResult<unknown>, "status" | "refetch" | "isFetching">;
+}) {
+	const { query, readiness } = props;
+	let notice: ReactNode;
+	if (query.status === "error" || props.evaluationFailed) {
+		notice = (
+			<p role="status" className="text-sm text-text-muted">
+				Could not check setup.{" "}
+				<Button variant="secondary" onClick={query.refetch}>
+					Try again
+				</Button>
+			</p>
+		);
+	} else if (readiness === undefined) {
+		notice = (
+			<p role="status" className="text-sm text-text-muted">
+				{query.status === "success" ? props.missingLabel : "Checking setup..."}
+			</p>
+		);
+	} else {
+		notice = <IngestionReadinessNotice readiness={readiness} scope={props.scope ?? null} />;
+	}
+	return (
+		<>
+			{notice}
+			{query.status === "error" ? null : (
+				<Button variant="secondary" onClick={query.refetch} disabled={query.isFetching}>
+					Check setup again
+				</Button>
+			)}
+			{props.children(
+				query.status === "success" &&
+					!query.isFetching &&
+					!props.evaluationFailed &&
+					readiness?.ready === true,
+			)}
+		</>
 	);
 }

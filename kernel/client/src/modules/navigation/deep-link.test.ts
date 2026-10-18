@@ -15,7 +15,7 @@ const RETURN_URL = "io.ryot.app:/settings/oauth-return#connection=connection-1&s
 
 type Recorded = { readonly href: string; readonly replace: boolean };
 
-const makeHarness = (launchUrl: string | null = null) => {
+const makeHarness = (launchUrl: null | string = null) => {
 	let exited = 0;
 	let backCount = 0;
 	let dismissed = 0;
@@ -23,8 +23,8 @@ const makeHarness = (launchUrl: string | null = null) => {
 	let overlayOpen = false;
 	const removed: Array<string> = [];
 	const navigated: Array<Recorded> = [];
-	let backButton: (() => void) | undefined;
-	let urlOpen: ((url: string) => void) | undefined;
+	let backButton: undefined | (() => void);
+	let urlOpen: undefined | ((url: string) => void);
 
 	const source: NativeAppSource = {
 		exitApp: () => {

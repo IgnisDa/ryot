@@ -13,7 +13,7 @@ export const buildSearchPayload = (input: {
 	readonly page: number;
 	readonly query: string;
 	readonly providerId: SandboxProviderId;
-	readonly options?: Readonly<Record<string, JsonValue>> | undefined;
+	readonly options?: undefined | Readonly<Record<string, JsonValue>>;
 }): SearchProviderEntitiesBody => {
 	const payload = {
 		page: input.page,

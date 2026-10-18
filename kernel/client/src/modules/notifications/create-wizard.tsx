@@ -60,109 +60,6 @@ const pickerCopy = {
 	errorDetail: "The list of channels could not be loaded.",
 };
 
-function ConfigureStep(props: {
-	readonly onBack: () => void;
-	readonly form: SchemaFormApi;
-	readonly onContinue: () => void;
-	readonly uploadAsset: SchemaAssetUpload;
-	readonly failureDetail: string | undefined;
-	readonly definition: NotificationChannelDefinition;
-}) {
-	const uploadFile = useSchemaFileUpload();
-	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-1">
-				<h3 className="font-display text-lg font-semibold text-text">{props.definition.name}</h3>
-				<p className="text-sm leading-6 text-text-muted">{props.definition.description}</p>
-			</div>
-			<SchemaForm
-				form={props.form}
-				icons={schemaFormIcons}
-				uploadFile={uploadFile}
-				onChange={() => undefined}
-				uploadAsset={props.uploadAsset}
-				renderAsset={renderSchemaAsset}
-				schema={props.definition.schema}
-				onReorder={schemaFormReorderFeedback}
-			/>
-			{props.failureDetail === undefined ? null : (
-				<FieldMessage>{props.failureDetail}</FieldMessage>
-			)}
-			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
-					Continue
-				</Button>
-				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
-					Back
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-function ReviewStep(props: {
-	readonly pending: boolean;
-	readonly onAdd: () => void;
-	readonly onBack: () => void;
-	readonly values: SchemaFormValues;
-	readonly failureDetail: string | undefined;
-	readonly definition: NotificationChannelDefinition;
-}) {
-	const rows = schemaReviewRows(props.definition.schema, props.values);
-	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
-				<div className="flex items-center justify-between gap-3">
-					<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-						{props.definition.name}
-					</span>
-					<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
-						{props.definition.badge}
-					</span>
-				</div>
-				<div className="flex flex-col gap-2">
-					{rows.map((row) => (
-						<div
-							key={row.label}
-							className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3"
-						>
-							<span className="text-xs text-text-subtle sm:w-40">{row.label}</span>
-							<span className="min-w-0 flex-1 text-sm font-medium text-text">{row.value}</span>
-						</div>
-					))}
-				</div>
-			</div>
-			<p className="text-sm leading-6 text-text-muted">
-				Ryot sends notifications here as soon as the channel is added. Credentials are never shown
-				again once saved.
-			</p>
-			{props.failureDetail === undefined ? null : (
-				<FieldMessage>{props.failureDetail}</FieldMessage>
-			)}
-			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button
-					type="button"
-					variant="primary"
-					className="sm:px-6"
-					onClick={props.onAdd}
-					disabled={props.pending}
-				>
-					{props.pending ? "Adding..." : "Add channel"}
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					className="sm:px-6"
-					onClick={props.onBack}
-					disabled={props.pending}
-				>
-					Back
-				</Button>
-			</div>
-		</div>
-	);
-}
-
 export function NotificationChannelCreateWizard(props: {
 	readonly onClose: () => void;
 	readonly smtpEnabled: boolean;
@@ -171,7 +68,7 @@ export function NotificationChannelCreateWizard(props: {
 	const create = useRyotMutation(createNotificationChannelMutation);
 	const uploadAsset = useSchemaAssetUpload();
 	const [failure, setFailure] = useState<
-		{ readonly step: "configure" | "review"; readonly detail: string } | undefined
+		undefined | { readonly detail: string; readonly step: "review" | "configure" }
 	>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
@@ -283,5 +180,108 @@ export function NotificationChannelCreateWizard(props: {
 		>
 			{stepBody}
 		</WizardShell>
+	);
+}
+
+function ConfigureStep(props: {
+	readonly onBack: () => void;
+	readonly form: SchemaFormApi;
+	readonly onContinue: () => void;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly failureDetail: string | undefined;
+	readonly definition: NotificationChannelDefinition;
+}) {
+	const uploadFile = useSchemaFileUpload();
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-1">
+				<h3 className="font-display text-lg font-semibold text-text">{props.definition.name}</h3>
+				<p className="text-sm leading-6 text-text-muted">{props.definition.description}</p>
+			</div>
+			<SchemaForm
+				form={props.form}
+				icons={schemaFormIcons}
+				uploadFile={uploadFile}
+				onChange={() => undefined}
+				uploadAsset={props.uploadAsset}
+				renderAsset={renderSchemaAsset}
+				schema={props.definition.schema}
+				onReorder={schemaFormReorderFeedback}
+			/>
+			{props.failureDetail === undefined ? null : (
+				<FieldMessage>{props.failureDetail}</FieldMessage>
+			)}
+			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
+				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
+					Continue
+				</Button>
+				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
+					Back
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function ReviewStep(props: {
+	readonly pending: boolean;
+	readonly onAdd: () => void;
+	readonly onBack: () => void;
+	readonly values: SchemaFormValues;
+	readonly failureDetail: string | undefined;
+	readonly definition: NotificationChannelDefinition;
+}) {
+	const rows = schemaReviewRows(props.definition.schema, props.values);
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
+				<div className="flex items-center justify-between gap-3">
+					<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
+						{props.definition.name}
+					</span>
+					<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
+						{props.definition.badge}
+					</span>
+				</div>
+				<div className="flex flex-col gap-2">
+					{rows.map((row) => (
+						<div
+							key={row.label}
+							className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3"
+						>
+							<span className="text-xs text-text-subtle sm:w-40">{row.label}</span>
+							<span className="min-w-0 flex-1 text-sm font-medium text-text">{row.value}</span>
+						</div>
+					))}
+				</div>
+			</div>
+			<p className="text-sm leading-6 text-text-muted">
+				Ryot sends notifications here as soon as the channel is added. Credentials are never shown
+				again once saved.
+			</p>
+			{props.failureDetail === undefined ? null : (
+				<FieldMessage>{props.failureDetail}</FieldMessage>
+			)}
+			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
+				<Button
+					type="button"
+					variant="primary"
+					className="sm:px-6"
+					onClick={props.onAdd}
+					disabled={props.pending}
+				>
+					{props.pending ? "Adding..." : "Add channel"}
+				</Button>
+				<Button
+					type="button"
+					variant="secondary"
+					className="sm:px-6"
+					onClick={props.onBack}
+					disabled={props.pending}
+				>
+					Back
+				</Button>
+			</div>
+		</div>
 	);
 }

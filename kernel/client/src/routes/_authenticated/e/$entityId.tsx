@@ -23,18 +23,13 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 		),
 });
 
-function EntityPage() {
-	const { preparation } = Route.useLoaderData();
-	if (preparation.kind === "ready") {
-		return <EntityDocument prepared={preparation.prepared} />;
-	}
-	if (preparation.reason.code === "entity-not-found") {
-		return <EntityNotice title="Entity not found" />;
-	}
-	if (preparation.reason.code === "entity-detail-page-not-registered") {
-		return <EntityNotice title="Entity page not registered" />;
-	}
-	return <EntityNotice title="Required plugin unavailable" />;
+function EntityError() {
+	return <EntityNotice title="Retryable entity load failure" />;
+}
+
+function EntityNotice(props: { readonly title: string }) {
+	useClearClientPageDocument();
+	return <AppScreen title={props.title}>{null}</AppScreen>;
 }
 
 function EntityDocument(props: {
@@ -51,11 +46,16 @@ function EntityDocument(props: {
 	return collections.screen;
 }
 
-function EntityError() {
-	return <EntityNotice title="Retryable entity load failure" />;
-}
-
-function EntityNotice(props: { readonly title: string }) {
-	useClearClientPageDocument();
-	return <AppScreen title={props.title}>{null}</AppScreen>;
+function EntityPage() {
+	const { preparation } = Route.useLoaderData();
+	if (preparation.kind === "ready") {
+		return <EntityDocument prepared={preparation.prepared} />;
+	}
+	if (preparation.reason.code === "entity-not-found") {
+		return <EntityNotice title="Entity not found" />;
+	}
+	if (preparation.reason.code === "entity-detail-page-not-registered") {
+		return <EntityNotice title="Entity page not registered" />;
+	}
+	return <EntityNotice title="Required plugin unavailable" />;
 }

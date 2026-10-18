@@ -79,7 +79,7 @@ export const importRunCountsLabel = (run: RunCounts & Pick<ImportRunSummary, "st
 
 export const ingestionBlockReasonLabel = (
 	reason: IngestionBlockReason,
-	scope?: "system" | "user" | null,
+	scope?: null | "user" | "system",
 ) => {
 	if (reason.code === "connection-required") {
 		return `Connect ${reason.key} for this account.`;
@@ -96,7 +96,7 @@ export const ingestionBlockReasonLabel = (
 };
 
 export const importRunFailureNotice = (
-	reason: ImportRunFailureReason | null,
+	reason: null | ImportRunFailureReason,
 ): ImportRunFailureNotice => {
 	if (reason === null) {
 		return stoppedEarly;
@@ -184,7 +184,7 @@ export const humanizeImportSourceSlug = (slug: string) => {
 	return words.length === 0 ? slug : words.join(" ");
 };
 
-export const importRunSourceKey = (installationId: string | null, slug: string) =>
+export const importRunSourceKey = (installationId: null | string, slug: string) =>
 	identityTupleKey(installationId, slug);
 
 export const importSourceName = (

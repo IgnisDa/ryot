@@ -1,14 +1,14 @@
-export type ConnectionState =
-	| { readonly status: "idle" }
-	| { readonly status: "error" }
-	| { readonly status: "success" }
-	| { readonly status: "checking" };
-
 export type ConnectionAction =
 	| { readonly type: "failed" }
 	| { readonly type: "changed" }
 	| { readonly type: "started" }
 	| { readonly type: "succeeded" };
+
+export type ConnectionState =
+	| { readonly status: "idle" }
+	| { readonly status: "error" }
+	| { readonly status: "success" }
+	| { readonly status: "checking" };
 
 export const initialConnectionState: ConnectionState = { status: "idle" };
 

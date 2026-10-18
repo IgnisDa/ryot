@@ -13,7 +13,7 @@ export const generateOAuthRandomValue = () => encodeBase64Url(randomBytes(32));
 
 // `crypto.subtle` is undefined on the plain-HTTP origins self-hosters run, even
 // though the DOM types declare it as always present.
-const resolveSubtleCrypto = (): SubtleCrypto | undefined => crypto.subtle;
+const resolveSubtleCrypto = (): undefined | SubtleCrypto => crypto.subtle;
 
 const digestSha256 = (input: Uint8Array<ArrayBuffer>) => {
 	const subtle = resolveSubtleCrypto();

@@ -33,22 +33,22 @@ import { ClientStorage } from "#/persistence/storage";
 
 export const PROVIDER_ADD_TITLE = "Add from a provider";
 
-type EntityPickerModalProps = {
-	readonly onClose: () => void;
-	readonly onCreate: (href: string) => void;
-	readonly onComplete?: (outcome: PickEntityOutcome) => void;
-	readonly initialQuery?: string | undefined;
-	readonly schema: EntitySchemaReference;
-	readonly library?: ProviderLibraryMembership | undefined;
-};
+type EntityPickerView =
+	{ readonly kind: "browse" } | { readonly name: string; readonly kind: "create" };
 
 type EntityPickerModalState = {
 	readonly providers: ProviderSummariesState;
-	readonly selectedProviderId: SandboxProviderId | undefined;
+	readonly selectedProviderId: undefined | SandboxProviderId;
 };
 
-type EntityPickerView =
-	{ readonly kind: "browse" } | { readonly kind: "create"; readonly name: string };
+type EntityPickerModalProps = {
+	readonly onClose: () => void;
+	readonly schema: EntitySchemaReference;
+	readonly onCreate: (href: string) => void;
+	readonly initialQuery?: string | undefined;
+	readonly library?: undefined | ProviderLibraryMembership;
+	readonly onComplete?: (outcome: PickEntityOutcome) => void;
+};
 
 export function EntityPickerModal(props: EntityPickerModalProps) {
 	const uploadAsset = useSchemaAssetUpload();

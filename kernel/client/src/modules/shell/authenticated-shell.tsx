@@ -78,44 +78,10 @@ import { useSidebarExpansion } from "#/modules/shell/use-sidebar-expansion";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
-function useActiveSidebarKey() {
-	const customViewPath = useMatch({
-		shouldThrow: false,
-		from: "/_authenticated/v/c/$savedViewId",
-		select: ({ params }) =>
-			savedViewPath({ kind: "custom", savedViewId: SavedViewId.make(params.savedViewId) }),
-	});
-	const kernelViewPath = useMatch({
-		shouldThrow: false,
-		from: "/_authenticated/v/k/$slug",
-		select: ({ params }) => savedViewPath({ kind: "kernel", slug: params.slug }),
-	});
-	const pluginViewPath = useMatch({
-		shouldThrow: false,
-		from: "/_authenticated/v/p/$publisher/$name/$slug",
-		select: ({ params }) =>
-			savedViewPath({
-				kind: "plugin",
-				slug: params.slug,
-				packageId: pluginPackageIdFromSegments(params),
-			}),
-	});
-	const collectionSlug = useMatch({
-		shouldThrow: false,
-		from: "/_authenticated/e/$entityId",
-		select: ({ params }) => params.entityId,
-	});
-	const viewPath = customViewPath ?? kernelViewPath ?? pluginViewPath;
-	if (viewPath !== undefined) {
-		return `view:${viewPath}`;
-	}
-	return collectionSlug === undefined ? null : `collection:${collectionSlug}`;
-}
-
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
 	readonly navigation: NavigationData;
-	readonly initialRememberedPluginId: PluginId | null;
+	readonly initialRememberedPluginId: null | PluginId;
 }) {
 	const drawerId = useId();
 	const router = useRouter();
@@ -560,11 +526,11 @@ export function AuthenticatedShell(props: {
 }
 
 function ImpersonationBanner(props: {
-	readonly user: { readonly name: string; readonly email: string };
+	readonly pending: boolean;
 	readonly expiresAt: number;
 	readonly onStop: () => void;
-	readonly pending: boolean;
 	readonly error: string | undefined;
+	readonly user: { readonly name: string; readonly email: string };
 }) {
 	const expiration = new Intl.DateTimeFormat(undefined, {
 		timeStyle: "short",
@@ -585,4 +551,38 @@ function ImpersonationBanner(props: {
 			</Button>
 		</aside>
 	);
+}
+
+function useActiveSidebarKey() {
+	const customViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/c/$savedViewId",
+		select: ({ params }) =>
+			savedViewPath({ kind: "custom", savedViewId: SavedViewId.make(params.savedViewId) }),
+	});
+	const kernelViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/k/$slug",
+		select: ({ params }) => savedViewPath({ kind: "kernel", slug: params.slug }),
+	});
+	const pluginViewPath = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/v/p/$publisher/$name/$slug",
+		select: ({ params }) =>
+			savedViewPath({
+				kind: "plugin",
+				slug: params.slug,
+				packageId: pluginPackageIdFromSegments(params),
+			}),
+	});
+	const collectionSlug = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/e/$entityId",
+		select: ({ params }) => params.entityId,
+	});
+	const viewPath = customViewPath ?? kernelViewPath ?? pluginViewPath;
+	if (viewPath !== undefined) {
+		return `view:${viewPath}`;
+	}
+	return collectionSlug === undefined ? null : `collection:${collectionSlug}`;
 }

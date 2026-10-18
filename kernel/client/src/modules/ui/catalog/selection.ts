@@ -8,6 +8,8 @@ import { Match } from "effect";
 
 export type CatalogEntryGroup = { readonly key: string; readonly heading: string };
 
+export type CatalogGroup = CatalogEntryGroup & { readonly entries: readonly CatalogEntry[] };
+
 export type CatalogEntry = {
 	readonly key: string;
 	readonly name: string;
@@ -17,8 +19,6 @@ export type CatalogEntry = {
 	readonly group: CatalogEntryGroup;
 	readonly requirement: string | undefined;
 };
-
-export type CatalogGroup = CatalogEntryGroup & { readonly entries: readonly CatalogEntry[] };
 
 type CatalogSource = { readonly name: string; readonly description: string };
 
@@ -32,7 +32,7 @@ export const pluginHeading = (packageId: PluginPackageId) => {
 	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
 };
 
-const pluginScopeLabel = (scope: PluginPackageReference["scope"] | null) =>
+const pluginScopeLabel = (scope: null | PluginPackageReference["scope"]) =>
 	Match.value(scope).pipe(
 		Match.when("system", () => "System"),
 		Match.when("user", () => "Private"),
@@ -42,15 +42,15 @@ const pluginScopeLabel = (scope: PluginPackageReference["scope"] | null) =>
 
 const pluginInstallationLabel = (input: {
 	readonly name: string;
-	readonly packageId: PluginPackageId | null;
-	readonly scope: PluginPackageReference["scope"] | null;
+	readonly packageId: null | PluginPackageId;
+	readonly scope: null | PluginPackageReference["scope"];
 }) => `${input.name} · ${pluginScopeLabel(input.scope)} · ${input.packageId ?? "Unknown package"}`;
 
 export const pluginCatalogGroup = (item: {
 	readonly name: string;
 	readonly reference: DeclarationReference;
-	readonly packageId: PluginPackageId | null;
-	readonly pluginScope: PluginPackageReference["scope"] | null;
+	readonly packageId: null | PluginPackageId;
+	readonly pluginScope: null | PluginPackageReference["scope"];
 }): CatalogEntryGroup =>
 	item.reference.owner.kind === "kernel"
 		? { key: "kernel", heading: "Ryot" }

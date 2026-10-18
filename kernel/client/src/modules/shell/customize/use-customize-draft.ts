@@ -17,13 +17,13 @@ import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 
 const SAVE_ERROR = "Could not save sidebar changes.";
 
+export type CustomizeDraftState = ReturnType<typeof useCustomizeDraft>;
+
 type Session = {
 	readonly active: boolean;
 	readonly draft: CustomizeDraft;
 	readonly initial: CustomizeDraft;
 };
-
-export type CustomizeDraftState = ReturnType<typeof useCustomizeDraft>;
 
 export function useCustomizeDraft(props: {
 	readonly active: boolean;
@@ -32,7 +32,7 @@ export function useCustomizeDraft(props: {
 	readonly workspaceInstallationId: string | undefined;
 }) {
 	const { scope } = useRouteContext({ from: "/_authenticated" });
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<null | string>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [session, setSession] = useState<Session>(() => {
 		const initial = initCustomizeDraft(props);

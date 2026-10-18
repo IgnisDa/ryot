@@ -231,8 +231,8 @@ describe("mobile drawer", () => {
 
 	it.live("closes before Home and workspace navigation", () =>
 		Effect.gen(function* () {
-			let homeOpen: boolean | null = null;
-			let selected: { readonly open: boolean; readonly slug: string } | null = null;
+			let homeOpen: null | boolean = null;
+			let selected: null | { readonly slug: string; readonly open: boolean } = null;
 			const journal = workspace({
 				sortOrder: 1,
 				name: "Journal",

@@ -9,12 +9,12 @@ import {
 } from "#/modules/downloads/file";
 
 type NativeCalls = {
-	readonly sequence: Array<string>;
+	readonly shared: Array<string>;
 	readonly created: Array<string>;
+	readonly removed: Array<string>;
+	readonly sequence: Array<string>;
 	readonly uriPaths: Array<string>;
 	readonly transfers: Array<DownloadFileOptions>;
-	readonly shared: Array<string>;
-	readonly removed: Array<string>;
 };
 
 const makeCalls = (): NativeCalls => ({

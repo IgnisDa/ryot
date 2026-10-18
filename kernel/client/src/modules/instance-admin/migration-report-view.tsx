@@ -28,6 +28,111 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 const formatMigrationReportTime = (value: string) => dateTimeFormatter.format(new Date(value));
 
+export function MigrationReportView(props: {
+	readonly unauthorized: () => void;
+	readonly load: (
+		after: string | undefined,
+	) => Effect.Effect<InstanceAdminMigrationReport, unknown>;
+}) {
+	const pagination = usePagination<InstanceAdminMigrationReport, string | undefined>({
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		identity: "instance-admin-migration-report",
+		load: (after) => withAdminAuthorization(props.load(after), props.unauthorized),
+	});
+	const entries = paginationItems(
+		pagination.pages,
+		(page) => page.items,
+		(entry) => String(entry.seq),
+	);
+	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
+
+	if (unauthorized) {
+		return null;
+	}
+
+	return (
+		<section aria-labelledby="migration-report-title" className="ui-card w-full overflow-hidden">
+			<p className="ui-overline">Administration</p>
+			<h1 id="migration-report-title" className="font-display text-3xl font-semibold">
+				Migration report
+			</h1>
+			<p className="ui-subtitle mb-5">Legacy migration activity reported by this server.</p>
+			{entries.length > 0 && <MigrationReportTable entries={entries} />}
+			{entries.length === 0 && pagination.pages.length > 0 && !pagination.isFetching && (
+				<div className="grid justify-items-center gap-2 py-12 text-center">
+					<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
+					<h2 className="font-display text-lg font-semibold">No migration report</h2>
+					<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
+				</div>
+			)}
+			{pagination.isPending || pagination.isFetchingNextPage ? (
+				<p role="status" className="py-12 text-center text-sm text-text-muted">
+					Loading migration report...
+				</p>
+			) : null}
+			{pagination.errorOperation !== null && (
+				<div className="grid justify-items-center gap-4 py-10 text-center">
+					<p role="alert" className="text-sm text-danger">
+						Could not load the migration report. Check the server and try again.
+					</p>
+					<Button type="button" variant="secondary" onClick={pagination.retry}>
+						Retry
+					</Button>
+				</div>
+			)}
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
+				<div className="mt-5 flex justify-center">
+					<LoadMoreButton
+						type="button"
+						label="Load more reports"
+						onClick={pagination.fetchNextPage}
+						loadingLabel="Loading more reports..."
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+					/>
+				</div>
+			)}
+		</section>
+	);
+}
+
+function MigrationReportTable(props: { readonly entries: ReadonlyArray<MigrationReportEntry> }) {
+	return (
+		<div className="overflow-x-auto">
+			<table className="w-full min-w-225 border-collapse text-left text-xs">
+				<thead>
+					<tr className="border-b border-border text-text-muted">
+						<th scope="col" className="w-44 px-2 py-3 font-semibold">
+							Time
+						</th>
+						<th scope="col" className="w-28 px-2 py-3 font-semibold">
+							Severity
+						</th>
+						<th scope="col" className="w-52 px-2 py-3 font-semibold">
+							Phase
+						</th>
+						<th scope="col" className="min-w-72 px-2 py-3 font-semibold">
+							Message
+						</th>
+						<th scope="col" className="w-20 px-2 py-3 font-semibold">
+							Count
+						</th>
+						<th scope="col" className="w-20 px-2 py-3 font-semibold">
+							Elapsed
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					{props.entries.map((entry) => (
+						<MigrationReportRow entry={entry} key={entry.seq} />
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
+
 function DetailList(props: { readonly entry: MigrationReportEntry }) {
 	const { entry } = props;
 	const code = entry.code;
@@ -140,110 +245,5 @@ function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 				</tr>
 			) : null}
 		</>
-	);
-}
-
-function MigrationReportTable(props: { readonly entries: ReadonlyArray<MigrationReportEntry> }) {
-	return (
-		<div className="overflow-x-auto">
-			<table className="w-full min-w-225 border-collapse text-left text-xs">
-				<thead>
-					<tr className="border-b border-border text-text-muted">
-						<th scope="col" className="w-44 px-2 py-3 font-semibold">
-							Time
-						</th>
-						<th scope="col" className="w-28 px-2 py-3 font-semibold">
-							Severity
-						</th>
-						<th scope="col" className="w-52 px-2 py-3 font-semibold">
-							Phase
-						</th>
-						<th scope="col" className="min-w-72 px-2 py-3 font-semibold">
-							Message
-						</th>
-						<th scope="col" className="w-20 px-2 py-3 font-semibold">
-							Count
-						</th>
-						<th scope="col" className="w-20 px-2 py-3 font-semibold">
-							Elapsed
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{props.entries.map((entry) => (
-						<MigrationReportRow entry={entry} key={entry.seq} />
-					))}
-				</tbody>
-			</table>
-		</div>
-	);
-}
-
-export function MigrationReportView(props: {
-	readonly unauthorized: () => void;
-	readonly load: (
-		after: string | undefined,
-	) => Effect.Effect<InstanceAdminMigrationReport, unknown>;
-}) {
-	const pagination = usePagination<InstanceAdminMigrationReport, string | undefined>({
-		initialPageParam: undefined,
-		getNextPageParam: nextPageCursor,
-		identity: "instance-admin-migration-report",
-		load: (after) => withAdminAuthorization(props.load(after), props.unauthorized),
-	});
-	const entries = paginationItems(
-		pagination.pages,
-		(page) => page.items,
-		(entry) => String(entry.seq),
-	);
-	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
-
-	if (unauthorized) {
-		return null;
-	}
-
-	return (
-		<section aria-labelledby="migration-report-title" className="ui-card w-full overflow-hidden">
-			<p className="ui-overline">Administration</p>
-			<h1 id="migration-report-title" className="font-display text-3xl font-semibold">
-				Migration report
-			</h1>
-			<p className="ui-subtitle mb-5">Legacy migration activity reported by this server.</p>
-			{entries.length > 0 && <MigrationReportTable entries={entries} />}
-			{entries.length === 0 && pagination.pages.length > 0 && !pagination.isFetching && (
-				<div className="grid justify-items-center gap-2 py-12 text-center">
-					<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
-					<h2 className="font-display text-lg font-semibold">No migration report</h2>
-					<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
-				</div>
-			)}
-			{pagination.isPending || pagination.isFetchingNextPage ? (
-				<p role="status" className="py-12 text-center text-sm text-text-muted">
-					Loading migration report...
-				</p>
-			) : null}
-			{pagination.errorOperation !== null && (
-				<div className="grid justify-items-center gap-4 py-10 text-center">
-					<p role="alert" className="text-sm text-danger">
-						Could not load the migration report. Check the server and try again.
-					</p>
-					<Button type="button" variant="secondary" onClick={pagination.retry}>
-						Retry
-					</Button>
-				</div>
-			)}
-			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
-				<div className="mt-5 flex justify-center">
-					<LoadMoreButton
-						type="button"
-						label="Load more reports"
-						onClick={pagination.fetchNextPage}
-						loadingLabel="Loading more reports..."
-						isFetchingNextPage={pagination.isFetchingNextPage}
-						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
-					/>
-				</div>
-			)}
-		</section>
 	);
 }

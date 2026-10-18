@@ -16,8 +16,8 @@ export type WizardState = { readonly step: WizardStep; readonly slug: string | u
 export type WizardAction =
 	| { readonly type: "back" }
 	| { readonly type: "review-requested" }
-	| { readonly type: "picked"; readonly slug: string }
-	| { readonly type: "recover-at"; readonly step: WizardStep };
+	| { readonly slug: string; readonly type: "picked" }
+	| { readonly step: WizardStep; readonly type: "recover-at" };
 
 const previousStep = {
 	pick: "pick",

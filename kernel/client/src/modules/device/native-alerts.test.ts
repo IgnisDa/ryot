@@ -48,7 +48,7 @@ it.effect("cancels both pending and delivered instances of a native alert", () =
 	}),
 );
 
-const deliveredHarness = (notifications: { id: number; title: string; body: string }[]) => {
+const deliveredHarness = (notifications: { id: number; body: string; title: string }[]) => {
 	const removedIds: number[][] = [];
 	return {
 		removedIds,
@@ -81,7 +81,7 @@ it.effect("does not call removal when there are no delivered notifications", () 
 	}),
 );
 
-const harness = (options: { denied?: boolean; exact?: boolean } = {}) => {
+const harness = (options: { exact?: boolean; denied?: boolean } = {}) => {
 	const calls: Parameters<NativeAlerts["schedule"]>[0][] = [];
 	const channels: Parameters<NativeAlerts["createChannel"]>[0][] = [];
 	const updates: Parameters<NativeAlerts["update"]>[0][] = [];

@@ -4,5 +4,5 @@ import type { ProviderSearchSummary } from "#/modules/provider-add/service";
 
 export const selectPreferredProvider = (
 	providers: readonly ProviderSearchSummary[],
-	remembered: SandboxProviderId | null,
+	remembered: null | SandboxProviderId,
 ) => providers.find((provider) => provider.providerId === remembered) ?? providers.at(0);

@@ -32,7 +32,7 @@ import {
 
 const systemConfig = (
 	frontendOrigin: string,
-	auth: { readonly localAuthDisabled: boolean; readonly oidcEnabled: boolean },
+	auth: { readonly oidcEnabled: boolean; readonly localAuthDisabled: boolean },
 ) => ({
 	analytics: {},
 	frontendOrigin,

@@ -15,7 +15,7 @@ import { type ApiScope, apiScopeKey } from "#/api/scope";
 
 type Installation = Pick<
 	Extract<PreparedClientPage["identity"]["contributors"][number], { readonly kind: "plugin" }>,
-	"installationId" | "pluginId"
+	"pluginId" | "installationId"
 >;
 
 export class IosLiveActivityPlatformError extends Data.TaggedError("IosLiveActivityPlatformError")<{

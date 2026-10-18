@@ -33,7 +33,7 @@ export const pluginUserSettingsQuery = createRyotQuery<
 
 export const pluginUserSettingQuery = createRyotQuery<
 	{ readonly installationId: string },
-	PluginUserSetting | undefined,
+	undefined | PluginUserSetting,
 	KernelHostServices
 >(({ input, client }) =>
 	Effect.map(loadPluginUserSettings(client), (settings) =>

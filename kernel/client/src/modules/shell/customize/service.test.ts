@@ -17,8 +17,8 @@ import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 type Call =
-	| { readonly kind: "reorder"; readonly payload: ContractPayload<"savedViews", "reorder"> }
 	| { readonly kind: "update"; readonly payload: ContractPayload<"savedViews", "update"> }
+	| { readonly kind: "reorder"; readonly payload: ContractPayload<"savedViews", "reorder"> }
 	| {
 			readonly kind: "workspace";
 			readonly payload: ContractPayload<"plugins", "updatePluginState">;

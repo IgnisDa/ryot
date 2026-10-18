@@ -85,7 +85,7 @@ export const importSourcesQuery = createRyotQuery<
 >(({ client }) =>
 	Effect.gen(function* () {
 		const sources: ImportSourceItem[] = [];
-		let after: string | null | undefined;
+		let after: null | string | undefined;
 		do {
 			const page = yield* client.data.query(
 				importSourcesRecipe({ limit: 100, after: after ?? undefined }),

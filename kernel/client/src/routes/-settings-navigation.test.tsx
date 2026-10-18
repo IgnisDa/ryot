@@ -84,7 +84,7 @@ const makeUserSettingsQueries = (
 
 const mountView = (
 	initialEntry: string | string[],
-	rememberedSlug: string | null = "plugin-1",
+	rememberedSlug: null | string = "plugin-1",
 	entries: PluginClientCatalog = catalog,
 	authLayer: Layer.Layer<AuthService> = AuthStub,
 	publicLayer = makePublicApiStub(),
@@ -704,7 +704,7 @@ describe("account settings", () => {
 	it.live("generates a new avatar and forces the session to refresh", () =>
 		Effect.gen(function* () {
 			const refreshes: boolean[] = [];
-			let avatar: string | null = null;
+			let avatar: null | string = null;
 			mountView(
 				"/settings/account",
 				undefined,

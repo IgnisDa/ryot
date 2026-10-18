@@ -23,14 +23,14 @@ export const PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE =
 export const PROVIDER_IMPORT_TIMEOUT_MESSAGE =
 	"The import is taking longer than expected. Check your library in a few minutes.";
 
+export type ProviderEntityImportState = ReadonlyMap<string, ProviderEntityImportEntry>;
+
 export type ProviderEntityImportEntry =
 	| { readonly status: "idle" }
 	| { readonly status: "queued" }
 	| { readonly status: "importing" }
-	| { readonly status: "failed"; readonly message: string }
+	| { readonly message: string; readonly status: "failed" }
 	| { readonly status: "imported"; readonly entityId: EntityId };
-
-export type ProviderEntityImportState = ReadonlyMap<string, ProviderEntityImportEntry>;
 
 const failedEntry = (message: string) => ({ message, status: "failed" }) as const;
 
@@ -112,9 +112,9 @@ const pollProviderEntityImport = Effect.fnUntraced(function* (
 });
 
 export const importProviderEntity = (input: {
+	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
 	readonly start: Effect.Effect<{ readonly jobId: string }, ProviderAddLoadError>;
 	readonly poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, ProviderAddLoadError>;
-	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
 }) =>
 	Effect.gen(function* () {
 		const started = yield* Effect.result(input.start);
