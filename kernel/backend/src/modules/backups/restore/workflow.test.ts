@@ -130,6 +130,7 @@ const makeLayer = (
 										savedViews: {},
 										entitySchemas: {},
 										signalSchemas: {},
+										calendarSources: {},
 										relationshipSchemas: {},
 									}),
 								...input.pluginRestore,
@@ -155,6 +156,7 @@ const emptyRecords = {
 	relationships: [],
 	privatePlugins: [],
 	entityDependencies: [],
+	calendarSourceOverrides: [],
 	notificationSubscriptions: [],
 	profile: {
 		image: null,

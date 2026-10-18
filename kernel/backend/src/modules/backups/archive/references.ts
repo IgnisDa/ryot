@@ -1,4 +1,5 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { calendarSourceDocument } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
 	mapFilterFieldReference,
 	type ValueFilterField,
@@ -260,6 +261,9 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		for (const view of plugin.manifest.savedViews) {
 			addQueryPackages(view.dataSources);
 		}
+		for (const source of plugin.manifest.calendarSources ?? []) {
+			addQueryPackages(calendarSourceDocument(source.query));
+		}
 	}
 	for (const installation of records.installations) {
 		add(installation.packageKey);
@@ -283,6 +287,9 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	}
 	for (const relationship of records.relationships) {
 		add(relationship.relationshipSchemaPluginKey);
+	}
+	for (const override of records.calendarSourceOverrides) {
+		add(override.pluginKey);
 	}
 	for (const view of records.savedViews) {
 		add(view.pluginKey);

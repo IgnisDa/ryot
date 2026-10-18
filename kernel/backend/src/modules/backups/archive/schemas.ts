@@ -56,6 +56,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"relationships.ndjson",
 	"events.ndjson",
 	"saved-views.ndjson",
+	"calendar-source-overrides.ndjson",
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 ] as const;
@@ -344,6 +345,13 @@ export const ArchiveSavedView = Schema.Union([
 ]);
 export type ArchiveSavedView = typeof ArchiveSavedView.Type;
 
+export const ArchiveCalendarSourceOverride = strictStruct({
+	slug: Schema.String,
+	isHidden: Schema.Boolean,
+	pluginKey: Schema.String,
+});
+export type ArchiveCalendarSourceOverride = typeof ArchiveCalendarSourceOverride.Type;
+
 export const ArchiveIntegration = strictStruct({
 	id: Schema.String,
 	provider: Schema.String,
@@ -392,6 +400,7 @@ export const ARCHIVE_CODECS = {
 	"relationships.ndjson": ArchiveRelationship,
 	"private-plugins.ndjson": ArchivePrivatePlugin,
 	"entity-dependencies.ndjson": ArchiveEntityDependency,
+	"calendar-source-overrides.ndjson": ArchiveCalendarSourceOverride,
 	"notification-subscriptions.ndjson": ArchiveNotificationSubscription,
 } as const;
 
@@ -399,6 +408,7 @@ export type ArchiveRecords = {
 	readonly profile: ArchiveProfile;
 	readonly entities: ReadonlyArray<ArchiveUserEntity>;
 	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
+	readonly calendarSourceOverrides: ReadonlyArray<ArchiveCalendarSourceOverride>;
 	readonly integrations: ReadonlyArray<ArchiveIntegration>;
 	readonly installations: ReadonlyArray<ArchiveInstallation>;
 	readonly relationships: ReadonlyArray<ArchiveRelationship>;

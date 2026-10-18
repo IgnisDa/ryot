@@ -7,7 +7,7 @@ Account export and restore use the deterministic `ryot-backup` version 1 archive
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
@@ -57,6 +57,8 @@ Installation records require `isInitialized`, the persisted completion marker fr
 Explicit maps bind package keys, installation IDs, entity IDs, relationship IDs, and custom saved-view IDs. Events retain duplicate detection through deterministic destination-user-scoped IDs without an event-count-sized map. Providers, sessions, integrations, subscriptions, renderer owners, workspace associations, home references, and built-in overrides keep their exact ownership. Only typed query plugin references and the known renderer schema-reference codec remap plugin ownership. Ordinary query literals and opaque plugin JSON remain unchanged.
 
 Installation records include per-user plugin preferences as JSON. Plugin manifest settings schemas forbid secret fields, so these preferences are included as non-secret data and validated against the active manifest during restore. The archive format version remains 1.
+
+Calendar source overrides carry the exact owner package key, source slug, and hidden state. Export skips an override whose source no longer resolves to a current or retained definition, so stale state never blocks a backup. Restore maps the package key like built-in view overrides and rejects an override whose restored definition is unavailable. An existing override makes the destination account unclean.
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Built-ins use exact owner plus local slug; custom views have their own namespace. Homes use tagged custom, kernel, or plugin references. The archive format version remains 1.
 

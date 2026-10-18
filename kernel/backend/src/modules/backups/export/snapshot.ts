@@ -51,6 +51,7 @@ import {
 } from "../archive/references";
 import type {
 	ArchiveRecords,
+	ArchiveCalendarSourceOverride,
 	ArchiveEntityDependency,
 	ArchiveEvent,
 	ArchiveInstallation,
@@ -143,7 +144,13 @@ const privateDefinitionSnapshot = (plugin: {
 }): DefinitionSnapshot =>
 	buildDefinitionSnapshot(
 		mergeManifestDefinitions(
-			{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+			{
+				savedViews: [],
+				entitySchemas: [],
+				signalSchemas: [],
+				calendarSources: [],
+				relationshipSchemas: [],
+			},
 			[plugin],
 		),
 	);
@@ -185,6 +192,11 @@ const definitionLookups = (
 		"signal",
 		definitions.signalSchemas,
 		(id) => historical.get(id)?.signalSchemas,
+	),
+	calendarSource: definitionLookup(
+		"calendar-source",
+		definitions.calendarSources,
+		(id) => historical.get(id)?.calendarSources,
 	),
 	relationshipSchema: definitionLookup(
 		"relationship",
@@ -511,6 +523,18 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								: yield* requirePluginKey(pluginKeyById, override.pluginId),
 					});
 				}
+				const calendarSourceOverrideRecords: ArchiveCalendarSourceOverride[] = [];
+				for (const override of yield* exportRepository.listCalendarSourceOverrides(userId)) {
+					const pluginKey = pluginKeyById.get(override.pluginId);
+					if (!pluginKey || !context.calendarSource(override.slug, override.pluginId)) {
+						continue;
+					}
+					calendarSourceOverrideRecords.push({
+						pluginKey,
+						slug: override.slug,
+						isHidden: override.isHidden,
+					});
+				}
 				const subscriptionRecords: ArchiveNotificationSubscription[] = yield* Effect.forEach(
 					storedSubscriptions.filter(({ isActive, metadata }) => !isActive || metadata !== null),
 					({ metadata, isActive, signalSchemaSlug, signalSchemaPluginId }) =>
@@ -643,6 +667,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
+					calendarSourceOverrides: calendarSourceOverrideRecords,
 					entities: yield* Effect.forEach(userEntities, (entity) =>
 						toArchiveEntity(entity, pluginKeyById),
 					),
@@ -1039,6 +1064,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						privatePlugins: data.privatePlugins,
 						relationships: exportedRelationships,
 						installations: exportedInstallations,
+						calendarSourceOverrides: data.calendarSourceOverrides,
 					} satisfies ArchiveRecords;
 					const referencedPluginKeys = collectReferencedPluginKeys(records);
 					const requiredPlugins = context.installedPlugins

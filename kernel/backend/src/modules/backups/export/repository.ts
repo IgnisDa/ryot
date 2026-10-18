@@ -21,7 +21,21 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 					);
 				},
 			);
-			return { listSavedViewOverrides };
+			const listCalendarSourceOverrides = Effect.fn(
+				"BackupExportRepository.listCalendarSourceOverrides",
+			)(function* (userId: UserId) {
+				return yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.calendarSourceOverride)
+						.where(eq(schema.calendarSourceOverride.userId, userId))
+						.orderBy(
+							asc(schema.calendarSourceOverride.pluginId),
+							asc(schema.calendarSourceOverride.slug),
+						),
+				);
+			});
+			return { listSavedViewOverrides, listCalendarSourceOverrides };
 		}),
 	},
 ) {

@@ -77,6 +77,7 @@ const recordCollections = (records: ArchiveRecords) => ({
 	"relationships.ndjson": records.relationships,
 	"private-plugins.ndjson": records.privatePlugins,
 	"entity-dependencies.ndjson": records.entityDependencies,
+	"calendar-source-overrides.ndjson": records.calendarSourceOverrides,
 	"notification-subscriptions.ndjson": records.notificationSubscriptions,
 });
 
@@ -121,6 +122,11 @@ const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	),
 	notificationSubscriptions: sortedIfNeeded(records.notificationSubscriptions, (left, right) =>
 		left.signalSchemaSlug.localeCompare(right.signalSchemaSlug),
+	),
+	calendarSourceOverrides: sortedIfNeeded(
+		records.calendarSourceOverrides,
+		(left, right) =>
+			left.pluginKey.localeCompare(right.pluginKey) || left.slug.localeCompare(right.slug),
 	),
 });
 
@@ -268,6 +274,18 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 			);
 		}
 	}
+	const calendarSourceKeys = new Set<string>();
+	for (const override of records.calendarSourceOverrides) {
+		const key = identityTupleKey(override.pluginKey, override.slug);
+		if (calendarSourceKeys.has(key)) {
+			throw archiveError(
+				"duplicate_record_id",
+				`Duplicate calendar source slug '${override.slug}'`,
+				"calendar-source-overrides.ndjson",
+			);
+		}
+		calendarSourceKeys.add(key);
+	}
 	const signalSlugs = new Set<string>();
 	for (const subscription of records.notificationSubscriptions) {
 		const key = identityTupleKey(subscription.signalSchemaPluginKey, subscription.signalSchemaSlug);
@@ -376,6 +394,12 @@ const buildManifest = (
 		boundedSection("relationships.ndjson", records, records.relationships.length, limits),
 		eventsSection,
 		boundedSection("saved-views.ndjson", records, records.savedViews.length, limits),
+		boundedSection(
+			"calendar-source-overrides.ndjson",
+			records,
+			records.calendarSourceOverrides.length,
+			limits,
+		),
 		boundedSection("integrations.ndjson", records, records.integrations.length, limits),
 		boundedSection(
 			"notification-subscriptions.ndjson",
@@ -908,6 +932,10 @@ const validateExtracted = (
 	};
 	const entities = readSection("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]);
 	const savedViews = readSection("saved-views.ndjson", ARCHIVE_CODECS["saved-views.ndjson"]);
+	const calendarSourceOverrides = readSection(
+		"calendar-source-overrides.ndjson",
+		ARCHIVE_CODECS["calendar-source-overrides.ndjson"],
+	);
 	const integrations = readSection("integrations.ndjson", ARCHIVE_CODECS["integrations.ndjson"]);
 	const privatePlugins = readSection(
 		"private-plugins.ndjson",
@@ -931,6 +959,7 @@ const validateExtracted = (
 		installations,
 		relationships,
 		privatePlugins,
+		calendarSourceOverrides,
 		notificationSubscriptions,
 		entityDependencies: dependencies,
 	});
@@ -943,6 +972,7 @@ const validateExtracted = (
 			installations,
 			relationships,
 			privatePlugins,
+			calendarSourceOverrides,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},
@@ -1007,6 +1037,7 @@ const validateExtracted = (
 			installations,
 			relationships,
 			privatePlugins,
+			calendarSourceOverrides,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},

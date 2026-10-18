@@ -47,6 +47,7 @@ const records: ArchiveRecords = {
 	privatePlugins: [],
 	entityDependencies: [],
 	notificationSubscriptions: [],
+	calendarSourceOverrides: [{ slug: "dates", isHidden: true, pluginKey: systemKey }],
 	profile: {
 		image: null,
 		name: "Test User",
@@ -645,6 +646,36 @@ layer(BunFileSystem.layer)((test) => {
 			expect(yield* spoolEntries()).toBe(0);
 
 			yield* fs.remove(root, { force: true, recursive: true });
+		}),
+	);
+
+	test.effect("rejects duplicate and undeclared calendar source overrides", () =>
+		Effect.gen(function* () {
+			const override = { slug: "dates", isHidden: true, pluginKey: systemKey };
+			for (const [values, reason] of [
+				[[override, override], "duplicate_record_id"],
+				[[{ ...override, pluginKey: "undeclared" }], "missing_reference_mapping"],
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					const path = "calendar-source-overrides.ndjson";
+					const payload = encoder.encode(
+						values.map((value) => `${JSON.stringify(value)}\n`).join(""),
+					);
+					replaceSection(files, path, payload);
+					const manifestFile = files["manifest.json"];
+					assert(manifestFile !== undefined);
+					const manifest = decodeManifest(manifestFile);
+					files["manifest.json"] = encodeManifest({
+						...manifest,
+						sections: manifest.sections.map((section) =>
+							section.path === path
+								? Object.assign({}, section, { count: values.length })
+								: section,
+						),
+					});
+				});
+				expect((yield* validationError(archive)).reason).toBe(reason);
+			}
 		}),
 	);
 
