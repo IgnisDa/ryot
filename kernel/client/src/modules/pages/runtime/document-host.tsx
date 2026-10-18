@@ -461,9 +461,9 @@ function ClientPageFrame(props: {
 	const { catalog } = usePluginCatalog();
 	const { context, identity } = props.document.prepared;
 	const renderer = context.renderer;
-	const rendererName =
+	const rendererPlugin =
 		renderer.kind === "plugin"
-			? catalog.find(({ pluginId }) => pluginId === renderer.pluginId)?.name
+			? catalog.find(({ pluginId }) => pluginId === renderer.pluginId)
 			: undefined;
 
 	const checkFreshness = useCallback(
@@ -528,10 +528,11 @@ function ClientPageFrame(props: {
 			backInterceptors={props.backInterceptors}
 			chromeTriggerRef={props.chrome.triggerRef}
 			mutationCompleted={ryot.mutationCompleted}
-			title={rendererName ?? props.document.title}
 			onNavigateBack={() => router.history.back()}
 			onKernelShortcut={props.chrome.onKernelShortcut}
+			icon={rendererPlugin?.icon ?? context.view?.icon}
 			documentKey={documentOwner(props.document.prepared)}
+			title={rendererPlugin?.name ?? props.document.title}
 			freshnessCheckRevision={props.freshnessCheckRevision}
 			compositionHash={props.document.prepared.composition.hash}
 			onFlushReady={(handler) => {

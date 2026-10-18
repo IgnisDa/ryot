@@ -17,7 +17,7 @@ import {
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import type { ReactNode } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -276,6 +276,29 @@ function connect(frame: HTMLIFrameElement) {
 }
 
 describe("PageIframeHost", () => {
+	it.live("keeps the minimal interstitial visible through document loading and bootstrap", () =>
+		Effect.gen(function* () {
+			const document = yield* Deferred.make<string, Error>();
+			mount({ onLoadDocument: () => Deferred.await(document) });
+
+			expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
+			expect(screen.getByRole("status").textContent).toContain("Getting your view ready");
+			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+
+			yield* Deferred.succeed(document, srcDoc);
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
+
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("status")).toBeNull()));
+			expect(screen.queryByRole("heading")).toBeNull();
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		}),
+	);
+
 	it.live("uses one document and bridge while location and global history change", () =>
 		Effect.gen(function* () {
 			const host = mount();
@@ -464,7 +487,7 @@ describe("PageIframeHost", () => {
 			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
 			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
 			expect(host.documentLoads()).toBe(1);
-			expect(screen.queryByText("Preparing this plugin...")).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Opening Fixture" })).toBeNull();
 		}),
 	);
 

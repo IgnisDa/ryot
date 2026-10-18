@@ -55,6 +55,7 @@ import {
 	type PluginBridgeSession,
 	type PluginBridgeViewportInsets,
 } from "#/modules/pages/bridge/session";
+import { ClientPageLoading } from "#/modules/pages/loading";
 import {
 	toNavigationRequest,
 	type PluginNavigationRequest,
@@ -65,13 +66,6 @@ import type { ThemeStore } from "#/modules/theme/store";
 
 const PLUGIN_BACK_SETTLE_MS = 500;
 const BOOTSTRAP_TIMEOUT_MS = 15_000;
-
-type PluginHostStatus = "loading" | "handshake-failure";
-
-const noticeMessages: Record<PluginHostStatus, string> = {
-	loading: "Preparing this plugin...",
-	"handshake-failure": "This plugin stopped working.",
-};
 
 const afterFlush = (
 	session: PluginBridgeSession | undefined,
@@ -86,13 +80,13 @@ const afterFlush = (
 	);
 
 export function PageIframeHost(props: {
-	readonly active: boolean;
 	readonly title: string;
+	readonly icon?: string;
+	readonly active: boolean;
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
-	readonly compositionHash: string;
-	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly documentKey: string;
+	readonly compositionHash: string;
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
@@ -105,10 +99,11 @@ export function PageIframeHost(props: {
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
-	readonly mutationCompleted: RyotClient["mutationCompleted"];
-	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
 	readonly onHeader: (header: PageHeaderPublication) => void;
+	readonly onLoadDocument: () => Effect.Effect<string, Error>;
+	readonly mutationCompleted: RyotClient["mutationCompleted"];
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
+	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
@@ -483,7 +478,7 @@ export function PageIframeHost(props: {
 
 	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
 	if (frameStatus === "handshake-failure") {
-		return <PluginNotice {...chrome} status={frameStatus} onRetry={retryDocument} />;
+		return <PluginNotice {...chrome} onRetry={retryDocument} />;
 	}
 
 	return (
@@ -524,14 +519,7 @@ export function PageIframeHost(props: {
 			)}
 			{frameStatus === "ready" ? null : (
 				<div className="absolute inset-0">
-					<PluginChromeFrame
-						compact={compact}
-						title="Loading plugin"
-						leading={props.chromeLeading}
-						safeAreaTop={props.viewport.safeAreaTop}
-					>
-						<PluginNoticePanel status="loading" />
-					</PluginChromeFrame>
+					<ClientPageLoading {...chrome} icon={props.icon} title={`Opening ${props.title}`} />
 				</div>
 			)}
 			{updateAvailable ? (
@@ -597,37 +585,25 @@ function PluginNotice(props: {
 	readonly compact: boolean;
 	readonly leading: ReactNode;
 	readonly safeAreaTop: number;
-	readonly onRetry?: () => void;
-	readonly status: PluginHostStatus;
+	readonly onRetry: () => void;
 }) {
 	return (
 		<div className="h-full">
 			<PluginChromeFrame
 				compact={props.compact}
 				leading={props.leading}
+				title="Plugin unavailable"
 				safeAreaTop={props.safeAreaTop}
-				title={props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
 			>
-				<PluginNoticePanel status={props.status} onRetry={props.onRetry} />
+				<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
+					<p role="alert" className="text-text-muted">
+						This plugin stopped working.
+					</p>
+					<Button type="button" onClick={props.onRetry}>
+						Retry
+					</Button>
+				</section>
 			</PluginChromeFrame>
 		</div>
-	);
-}
-
-function PluginNoticePanel(props: {
-	readonly onRetry?: () => void;
-	readonly status: PluginHostStatus;
-}) {
-	return (
-		<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
-			<p className="text-text-muted" role={props.status === "loading" ? "status" : "alert"}>
-				{noticeMessages[props.status]}
-			</p>
-			{props.onRetry ? (
-				<Button type="button" onClick={props.onRetry}>
-					Retry
-				</Button>
-			) : null}
-		</section>
 	);
 }
