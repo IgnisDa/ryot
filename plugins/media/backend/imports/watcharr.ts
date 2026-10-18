@@ -215,7 +215,7 @@ export const adaptWatcharrExportBatch = (
 		const review = createReviewEvent({
 			occurredAt,
 			text: item.thoughts,
-			rating: normalizeRating(String(item.rating)),
+			rating: normalizeRating(String(item.rating), 10),
 		});
 		if (review) {
 			pushEvent(review);

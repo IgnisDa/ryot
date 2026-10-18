@@ -3,6 +3,35 @@ import { describe, expect, it } from "vitest";
 import { adaptWatcharrExportBatch } from "./watcharr";
 
 describe("adaptWatcharrExportBatch", () => {
+	it.each([
+		[1, 10],
+		[4, 40],
+		[5, 50],
+		[10, 100],
+		[0, null],
+	])("imports a ten-point rating of %s as %s", (score, rating) => {
+		const result = adaptWatcharrExportBatch(
+			JSON.stringify([
+				{
+					thoughts: "",
+					rating: score,
+					pinned: false,
+					status: "PLANNED",
+					content: { tmdbId: 10, type: "movie", title: "Arrival" },
+				},
+			]),
+			0,
+			25,
+		);
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("preserves movie lifecycle, review, collection, and show episode assertions", () => {
 		const exportJson = JSON.stringify([
 			{

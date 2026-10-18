@@ -5,6 +5,23 @@ import { adaptGrouveeCsv } from "./grouvee";
 const GROUVEE_HEADERS = "id,name,dates,shelves,statuses,review,rating,giantbomb_id";
 
 describe("adaptGrouveeCsv", () => {
+	it.each([
+		["1", 20],
+		["3", 60],
+		["5", 100],
+		["0", null],
+		["", null],
+	])("imports a five-point rating of %s as %s", (score, rating) => {
+		const result = adaptGrouveeCsv(`${GROUVEE_HEADERS}\n1,Game,[],{},[],,${score},111`);
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("maps gameplay history, status reviews, ratings, and custom shelves", () => {
 		const csv = [
 			GROUVEE_HEADERS,

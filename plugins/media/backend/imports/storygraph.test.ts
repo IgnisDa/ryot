@@ -6,6 +6,23 @@ const STORYGRAPH_HEADERS =
 	"Title,ISBN/UID,Read Status,Read Count,Star Rating,Review,Last Date Read,Tags";
 
 describe("adaptStorygraphCsv", () => {
+	it.each([
+		["0.25", 5],
+		["2.5", 50],
+		["5", 100],
+		["0", null],
+		["", null],
+	])("imports a five-point rating of %s as %s", (score, rating) => {
+		const result = adaptStorygraphCsv(`${STORYGRAPH_HEADERS}\nBook,9780140328721,,0,${score},,,`);
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("maps read count, current status, reviews, and tags to an unresolved group", () => {
 		const csv = [
 			STORYGRAPH_HEADERS,

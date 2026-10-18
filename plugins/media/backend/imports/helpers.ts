@@ -42,17 +42,12 @@ export const normalizeReadCount = (value: string) => {
 	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
 };
 
-export const normalizeRating = (value: string) => {
+export const normalizeRating = (value: string, sourceScale: 5 | 10 | 100) => {
 	const parsed = Number.parseFloat(value.trim());
 	if (!Number.isFinite(parsed) || parsed <= 0) {
 		return null;
 	}
-	let normalized = parsed;
-	if (parsed <= 5) {
-		normalized = parsed * 20;
-	} else if (parsed <= 10) {
-		normalized = parsed * 10;
-	}
+	const normalized = (parsed / sourceScale) * 100;
 	return Math.round(Math.min(100, normalized) * 100) / 100;
 };
 

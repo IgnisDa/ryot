@@ -5,6 +5,23 @@ import { adaptGoodreadsCsv } from "./goodreads";
 const GOODREADS_HEADERS = "Title,ISBN13,My Rating,Date Read,Bookshelves,My Review,Read Count";
 
 describe("adaptGoodreadsCsv", () => {
+	it.each([
+		["1", 20],
+		["3", 60],
+		["5", 100],
+		["0", null],
+		["", null],
+	])("imports a five-point rating of %s as %s", (score, rating) => {
+		const result = adaptGoodreadsCsv(`${GOODREADS_HEADERS}\nBook,9780140328721,${score},,,,0`);
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("maps completed history, reviews, and custom shelves to unresolved groups", () => {
 		const csv = [
 			GOODREADS_HEADERS,

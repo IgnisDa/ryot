@@ -5,6 +5,27 @@ import { adaptMyanimelistExports } from "./myanimelist";
 const anime = (body: string) => `<myanimelist><anime>${body}</anime></myanimelist>`;
 
 describe("adaptMyanimelistExports", () => {
+	it.each([
+		[1, 10],
+		[4, 40],
+		[5, 50],
+		[10, 100],
+		[0, null],
+	])("imports a ten-point rating of %s as %s", (score, rating) => {
+		const result = adaptMyanimelistExports({
+			animeXml: anime(
+				`<series_animedb_id>101</series_animedb_id><my_watched_episodes>0</my_watched_episodes><my_score>${score}</my_score>`,
+			),
+		});
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("maps anime and manga exports into coverage, lifecycle, and review events", () => {
 		const animeXml = anime(
 			"<series_animedb_id>101</series_animedb_id><series_title>Frieren</series_title><my_watched_episodes>2</my_watched_episodes><my_start_date>2026-01-01</my_start_date><my_finish_date>2026-01-02</my_finish_date><my_score>8</my_score><my_status>Completed</my_status>",

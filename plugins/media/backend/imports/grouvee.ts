@@ -163,7 +163,7 @@ export const adaptGrouveeCsv = (
 		const review = createReviewEvent({
 			text: row["review"] ?? "",
 			occurredAt: lastOccurredAt ?? importedAt,
-			rating: normalizeRating(row["rating"] ?? ""),
+			rating: normalizeRating(row["rating"] ?? "", 5),
 		});
 		if (review) {
 			pushEvent(review);

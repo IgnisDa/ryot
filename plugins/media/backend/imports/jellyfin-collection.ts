@@ -112,8 +112,9 @@ export const collectJellyfin = Effect.fn(function* (input: MediaSourceInput, hos
 				});
 				continue;
 			}
-			const occurredAt = parseDateInput(item.UserData?.LastPlayedDate);
-			if (!occurredAt) {
+			const playedDate = item.UserData?.LastPlayedDate?.trim();
+			const completedOn = parseDateInput(playedDate);
+			if (playedDate && !completedOn) {
 				records.push(
 					...normalizeMediaRecords(
 						{
@@ -123,7 +124,7 @@ export const collectJellyfin = Effect.fn(function* (input: MediaSourceInput, hos
 									itemIndex: 0,
 									sourceLabel: item.Name,
 									sourceIdentifier: item.Id,
-									message: "Jellyfin item has no played timestamp",
+									message: "Jellyfin item has an invalid played timestamp",
 								},
 							],
 						},
@@ -156,19 +157,20 @@ export const collectJellyfin = Effect.fn(function* (input: MediaSourceInput, hos
 				);
 				continue;
 			}
+			const occurredAt = completedOn ?? input.importedAt;
 			const event =
 				task.kind === "episodes"
 					? {
-							occurredAt,
-							eventSchemaSlug: "progress",
-							properties: { progressPercent: 100 },
+							...(completedOn
+								? { occurredAt, eventSchemaSlug: "progress", properties: { progressPercent: 100 } }
+								: createCompleteEvent({ occurredAt, completedOn })),
 							unresolvedEpisode: {
 								type: "show" as const,
 								episodeNumber: item.IndexNumber ?? 0,
 								seasonNumber: item.ParentIndexNumber ?? 0,
 							},
 						}
-					: createCompleteEvent({ occurredAt, completedOn: occurredAt });
+					: createCompleteEvent({ occurredAt, completedOn });
 			records.push(
 				...normalizeMediaRecords(
 					{
