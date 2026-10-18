@@ -9,6 +9,8 @@ import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { kilogramsToPounds } from "../../shared/workout-units";
 import { AdjustWorkoutTime } from "./adjust-time";
+import { AddWorkoutToCollection } from "./collections";
+import { DeleteWorkout } from "./delete";
 import type {
 	MuscleCount,
 	TimelineSegment,
@@ -24,20 +26,18 @@ import {
 	formatTimeRange,
 } from "./format";
 
-const later = (action: string) => () => {
-	console.log(`TODO: ${action}`);
-};
-
 function WorkoutActions(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly name: string;
 	readonly proAvailable: boolean;
 }) {
 	const client = useRyot();
 	const [adjustingTime, setAdjustingTime] = useState(false);
-	const openEditor = (action: string) => () => {
+	const [action, setAction] = useState<"collections" | "delete">();
+	const openEditor = (editorAction: string) => () => {
 		client.navigation.push(
-			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${action}`),
+			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${editorAction}`),
 		);
 	};
 	return (
@@ -65,18 +65,28 @@ function WorkoutActions(props: {
 					{
 						key: "collections",
 						label: "Add to collection",
-						onSelect: later("add workout to collection"),
+						onSelect: () => setAction("collections"),
 					},
 					{
 						key: "delete",
 						destructive: true,
 						label: "Delete workout",
-						onSelect: later("delete workout"),
+						onSelect: () => setAction("delete"),
 					},
 				]}
 			/>
 			{adjustingTime ? (
 				<AdjustWorkoutTime entityId={props.entityId} onClose={() => setAdjustingTime(false)} />
+			) : null}
+			{action === "collections" ? (
+				<AddWorkoutToCollection entityId={props.entityId} onClose={() => setAction(undefined)} />
+			) : null}
+			{action === "delete" ? (
+				<DeleteWorkout
+					name={props.name}
+					entityId={props.entityId}
+					onClose={() => setAction(undefined)}
+				/>
 			) : null}
 		</div>
 	);
@@ -147,6 +157,7 @@ export function WorkoutHeader(props: {
 				</p>
 			</div>
 			<WorkoutActions
+				name={workout.name}
 				entityId={workout.id}
 				compact={props.compact}
 				proAvailable={props.proAvailable ?? false}
