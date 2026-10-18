@@ -1,3 +1,4 @@
+import type { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
@@ -5,6 +6,7 @@ import {
 	ascending,
 	castText,
 	column,
+	conditional,
 	contains,
 	descending,
 	document,
@@ -13,12 +15,19 @@ import {
 	literal,
 	or,
 	rows,
+	startsWith,
 	table,
 } from "@ryot-app/ryotql";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
+import {
+	entityBrowserCountRecipe,
+	entityBrowserRecipe,
+	librarySearchRecipe,
+	resultsTableRecipe,
+} from "./saved-views";
 
 const entity = table("entity", "entity");
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" } as const;
@@ -65,7 +74,104 @@ const pageLimit = (pageSize?: number) => {
 	return output?.type === "rows" ? output.pagination.limit : undefined;
 };
 
+const searchSource = document({
+	selection: rows(entity, {
+		orderBy: [descending(column(entity, "updatedAt"))],
+		fields: [
+			field("nameAlias", column(entity, "name")),
+			field("cover", column(entity, "properties")),
+			field("year", column(entity, "createdAt")),
+		],
+	}),
+});
+
+const searchSettings = {
+	...browserSettings,
+	summary: { image: "cover", subtitle: { field: "year", displayKind: "year" } },
+} as const;
+
+const librarySearch = (
+	searchText: string,
+	settings: EntityBrowserSavedViewSettings = searchSettings,
+) => librarySearchRecipe({ settings, limit: 8, searchText, queryDocument: searchSource });
+
+const searchData = (items: readonly unknown[]) => ({
+	data: {
+		hits: { items, pageInfo, type: "rows" },
+		total: { type: "aggregate", items: [{ total: 12 }] },
+	},
+});
+
 describe("saved-view recipes", () => {
+	it("ranks library search hits by match quality before the view order", () => {
+		const prepared = Result.getOrThrow(librarySearch("50%_off\\"));
+		const name = castText(column(entity, "name"));
+		const rank = conditional(
+			or(startsWith(name, literal("50%_off\\"))),
+			literal(0),
+			conditional(or(contains(name, literal(" 50%_off\\"))), literal(1), literal(2)),
+		);
+		const where = and(itemPredicate, or(contains(name, literal("50%_off\\"))));
+
+		expect(sortBy(Object.keys(prepared.document.queries))).toEqual(["hits", "total"]);
+		expect(prepared.document.queries.hits).toEqual(
+			rows(entity, {
+				where,
+				limit: 8,
+				orderBy: [
+					ascending(rank),
+					descending(column(entity, "updatedAt")),
+					ascending(column(entity, "id")),
+				],
+				fields: [
+					field("entityId", column(entity, "id")),
+					field("name", column(entity, "name")),
+					field("rank", rank),
+					field("image", column(entity, "properties")),
+					field("subtitle", column(entity, "createdAt")),
+				],
+			}),
+		);
+		expect(prepared.document.queries.total?.where).toEqual(where);
+	});
+
+	it("decodes library search hits with their declared summary", () => {
+		const prepared = Result.getOrThrow(librarySearch("dark"));
+		const hit = {
+			rank: 0,
+			name: "Dark",
+			subtitle: 2017,
+			entityId: "item-1",
+			image: { type: "remote", url: "https://example.com/dark.jpg" },
+		};
+
+		expect(Result.getOrThrow(prepared.decode(searchData([hit])))).toEqual({
+			total: 12,
+			hits: [
+				{
+					rank: 0,
+					name: "Dark",
+					entityId: "item-1",
+					subtitle: { value: 2017, displayKind: "year" },
+					image: { type: "remote", url: "https://example.com/dark.jpg" },
+				},
+			],
+		});
+		expect(Result.isFailure(prepared.decode(searchData([hit, hit])))).toBe(true);
+
+		const bare = Result.getOrThrow(librarySearch("dark", browserSettings));
+		expect(
+			Result.getOrThrow(bare.decode(searchData([{ rank: 2, name: "Darkest", entityId: "item-2" }])))
+				.hits,
+		).toEqual([{ rank: 2, image: null, subtitle: null, name: "Darkest", entityId: "item-2" }]);
+	});
+
+	it("refuses library search for views without search fields", () => {
+		expect(Result.isFailure(librarySearch("dark", { ...browserSettings, searchFields: [] }))).toBe(
+			true,
+		);
+	});
+
 	it("prepares the named entity selection with runtime pagination and canonical fields", () => {
 		const prepared = Result.getOrThrow(
 			entityBrowserRecipe({

@@ -26,6 +26,7 @@ import {
 	ascending,
 	castText,
 	column,
+	conditional,
 	contains,
 	defineRecipe,
 	descending,
@@ -34,8 +35,10 @@ import {
 	literal,
 	or,
 	type PreparedRecipe,
+	rows,
 	selectedAggregate,
 	selectedMeasure,
+	startsWith,
 	table,
 } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
@@ -185,6 +188,22 @@ export const unusedFieldKey = (fields: readonly FieldSelection[], base: string) 
 const selectedFields = (source: RowsQuery) =>
 	source.output.fields.flatMap((selection) => ("key" in selection ? [selection] : []));
 
+const searchExpressions = (
+	source: RowsQuery,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "searchFields">,
+): Result.Result<readonly ScalarExpression[], Error> => {
+	const fields = selectedFields(source);
+	const expressions: ScalarExpression[] = [];
+	for (const key of settings.searchFields) {
+		const selection = fields.find((candidate) => candidate.key === key);
+		if (!selection) {
+			return Result.fail(new Error(`Entity-browser search field '${key}' is missing or unusable`));
+		}
+		expressions.push(castText(selection.expr));
+	}
+	return Result.succeed(expressions);
+};
+
 const browserSearchPredicate = (
 	source: RowsQuery,
 	settings: Pick<EntityBrowserSavedViewSettingsValue, "searchFields">,
@@ -193,20 +212,11 @@ const browserSearchPredicate = (
 	if (searchText === undefined || searchText.length === 0) {
 		return Result.succeed(undefined);
 	}
-	const fields = selectedFields(source);
-	const expressions: ScalarExpression[] = [];
-	for (const key of settings.searchFields) {
-		const selection = fields.find((candidate) => candidate.key === key);
-		if (!selection) {
-			return Result.fail(new Error(`Entity-browser search field '${key}' is missing or unusable`));
-		}
-		expressions.push(selection.expr);
-	}
-	return expressions.length === 0
-		? Result.succeed(undefined)
-		: Result.succeed(
-				or(...expressions.map((expression) => contains(castText(expression), literal(searchText)))),
-			);
+	return Result.map(searchExpressions(source, settings), (expressions) =>
+		expressions.length === 0
+			? undefined
+			: or(...expressions.map((expression) => contains(expression, literal(searchText)))),
+	);
 };
 
 const combineWhere = (fixed: Predicate | undefined, runtime: Predicate | undefined) => {
@@ -417,6 +427,137 @@ export const entityBrowserCountRecipe = (
 		}));
 		return Result.succeed(recipe());
 	});
+
+export const LibrarySearchHit = Schema.Struct({
+	name: Schema.String,
+	rank: Schema.Finite,
+	entityId: Schema.String,
+	image: Schema.NullOr(AssetLocator),
+	subtitle: Schema.NullOr(SavedViewDisplayValue),
+});
+export type LibrarySearchHit = typeof LibrarySearchHit.Type;
+
+export type LibrarySearchResult = {
+	readonly total: number;
+	readonly hits: readonly LibrarySearchHit[];
+};
+
+const summaryExpression = (source: RowsQuery, key: string | null) => {
+	if (key === null) {
+		return Result.succeed(null);
+	}
+	const selection = selectedFields(source).find((candidate) => candidate.key === key);
+	return selection
+		? Result.succeed(selection.expr)
+		: Result.fail(new Error(`Entity-browser summary field '${key}' is missing or unusable`));
+};
+
+const decodeLibrarySearchHit = (
+	row: SavedViewRawRow,
+	summary: EntityBrowserSavedViewSettingsValue["summary"],
+) =>
+	Result.gen(function* () {
+		const image =
+			summary.image === null
+				? null
+				: yield* Result.flatMap(rawField(row, "image"), (value) =>
+						value === null ? Result.succeed(null) : Schema.decodeUnknownResult(AssetLocator)(value),
+					);
+		const subtitleKind = summary.subtitle?.displayKind;
+		const subtitle =
+			subtitleKind === undefined
+				? null
+				: yield* Result.flatMap(rawField(row, "subtitle"), (value) =>
+						displayValue(value, subtitleKind, "subtitle"),
+					);
+		return {
+			image,
+			subtitle,
+			name: yield* textField(row, "name"),
+			entityId: yield* textField(row, "entityId"),
+			rank: yield* Result.flatMap(rawField(row, "rank"), (value) =>
+				Schema.decodeUnknownResult(Schema.Finite)(value),
+			),
+		};
+	});
+
+export const librarySearchRecipe = (input: {
+	readonly limit: number;
+	readonly searchText: string;
+	readonly queryDocument: RyotQLDocument;
+	readonly settings: EntityBrowserSavedViewSettingsValue;
+}): Result.Result<PreparedRecipe<LibrarySearchResult>, Error> =>
+	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) =>
+		Result.gen(function* () {
+			const expressions = yield* searchExpressions(source, input.settings);
+			if (expressions.length === 0) {
+				return yield* Result.fail(new Error("Library search requires declared search fields"));
+			}
+			const image = yield* summaryExpression(source, input.settings.summary.image);
+			const subtitle = yield* summaryExpression(
+				source,
+				input.settings.summary.subtitle?.field ?? null,
+			);
+			const entity = table("entity", input.settings.subject.entityAlias);
+			const matching = (predicate: typeof contains, text: string) =>
+				or(...expressions.map((expression) => predicate(expression, literal(text))));
+			const rank = conditional(
+				matching(startsWith, input.searchText),
+				literal(0),
+				conditional(matching(contains, ` ${input.searchText}`), literal(1), literal(2)),
+			);
+			const where = combineWhere(
+				combineWhere(source.where, subjectSchemaPredicate(input.settings.subject, entity)),
+				matching(contains, input.searchText),
+			);
+			const hits = rows(source.from, {
+				where,
+				limit: input.limit,
+				joins: source.joins,
+				orderBy: [ascending(rank), ...source.output.orderBy, ascending(column(entity, "id"))],
+				fields: [
+					field("entityId", column(entity, "id")),
+					field("name", column(entity, "name")),
+					field("rank", rank),
+					...(image === null ? [] : [field("image", image)]),
+					...(subtitle === null ? [] : [field("subtitle", subtitle)]),
+				],
+			});
+			const recipe = defineRecipe(() => ({
+				map: ({ total, hits: found }) => Result.succeed({ hits: found, total: total.total }),
+				queries: {
+					total: selectedAggregate(source.from, {
+						where,
+						joins: source.joins,
+						measures: {
+							total: selectedMeasure(
+								{ function: "countDistinct", expr: column(entity, "id") },
+								Schema.Finite,
+							),
+						},
+					}),
+					hits: {
+						document: hits,
+						decodeResult: (result: unknown) =>
+							Result.flatMap(Schema.decodeUnknownResult(savedViewRows)(result), ({ items }) =>
+								Result.gen(function* () {
+									const decoded = yield* Result.all(
+										items.map((row) => decodeLibrarySearchHit(row, input.settings.summary)),
+									);
+									if (new Set(decoded.map(({ entityId }) => entityId)).size !== decoded.length) {
+										return yield* Result.fail(
+											new Error("Library search page contains duplicate entity IDs"),
+										);
+									}
+									return decoded;
+								}),
+							),
+					},
+				},
+			}));
+			return recipe();
+		}),
+	);
 
 export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
