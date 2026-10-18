@@ -104,7 +104,7 @@ Phase 1 does not require completion of the later analytics or notification work.
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
 | 9 | Done | **Clean up removed and abandoned managed assets** | 2 and 7 for editor integration; existing managed-reference checks | Schedule or request cleanup after committed edits/deletions, not before them. Recheck ownership and live references, including retained workflow evidence. Shared/retained assets survive; unused uploads and previously saved removed assets eventually disappear. Failure is retryable and does not turn a successful edit into data loss. See the Order 9 acceptance record below. |
-| 10 | Pending | **Collect genuinely unreferenced provider graphs** | 8 and the explicit-membership policy | Define graph roots and traversal before deletion. All users' library memberships and owned data, current relations, active work and retained dependencies must be considered. Collect eligible unused provider entities/children/genres and associated runtime data in bounded, retry-safe batches. Do not infer that an entity is disposable merely because it has no events, and do not port V1's association-join deletion rule literally. |
+| 10 | Done | **Collect genuinely unreferenced provider graphs** | 8 and the explicit-membership policy | Define graph roots and traversal before deletion. All users' library memberships and owned data, current relations, active work and retained dependencies must be considered. Collect eligible unused provider entities/children/genres and associated runtime data in bounded, retry-safe batches. Do not infer that an entity is disposable merely because it has no events, and do not port V1's association-join deletion rule literally. See the Order 10 acceptance record below. |
 
 These are storage-maintenance tasks, not a reason to postpone usable Phase 1 features.
 Asset-reference and entity-reachability rules are different; one collector must not borrow
@@ -475,6 +475,44 @@ Validation on **2026-10-28**:
 - One additive migration adds `check_after` and two partial indexes. No compatibility path, version
   change or type-checker bypass was added. This item is **Done**.
 
+### Phase 2 Order 10 acceptance — Provider graph and accumulated data collection
+
+Provider entities carry `check_after`, which defaults to seven days after insertion and is pushed
+forward by provider refreshes and active watches. Plugin relationship schemas may declare
+`retention: "composition"` (members live and die as one unit) or `"root"` (the relationship keeps
+its endpoints). Media declares show/season/episode and podcast/episode as compositions and trending
+as a root. The frequent `entity-graph-collection` cron takes due provider entities, expands them to
+composition units and locks members with `SKIP LOCKED`. A unit is live when any member is user-owned,
+not yet due, used by an event, linked by a user or root relationship, pending enrichment or import,
+named by a typed entity reference in user-owned properties, or mentioned by pending background work,
+pending automation triggers or saved views. Dead units one global reference away from a live unit
+are deferred seven days. Everything else is deleted with its dependent rows, and surviving neighbors
+have `related_populated_at` cleared so they repopulate. A pending or running backup pauses collection.
+
+Accepted submissions must be within seven days of server time. Older or future-dated submissions fail
+with `SubmissionExpired` (410). Mutation receipts are pruned after 14 days once no unexpired workflow
+execution or pending batch candidate can replay them. Settled background work older than seven days
+is pruned, except the latest row per scope and jobs that an event stream still references.
+
+Validation on **2026-10-28**:
+
+- New kernel suites cover graph collection, background-work pruning, receipt pruning and the submission
+  window. The collector tests cover orphan and translation deletion, user, event and root deferral,
+  whole-unit composition decisions, one-hop references with neighbor refresh, typed references, the
+  backup fence, and skipping writer-locked rows. Fixed-timestamp tests now submit at the current time.
+- Affected e2e files passed: `api/kernel/entity-user-data/entity-user-data.test.ts`, including the new
+  expired-submission case, plus `api/plugins/fitness/workout-actions.test.ts`,
+  `api/plugins/fitness/measurements.test.ts`, `api/plugins/media/activity-log.test.ts`,
+  `api/kernel/collections/ordering.test.ts` and `api/plugins/media/custom-entity-editor.test.ts`.
+  The first measurements run hit a 12-second database stall during server startup. Workflows stopped
+  after cluster shard-lock storage timed out, before any new cron task had run, and the unchanged
+  rerun passed.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,504 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**.
+- One additive migration adds relationship `retention`, `entity.check_after`, and indexes for due
+  entities, receipt age, workflow execution lookup and stream-current jobs. No compatibility path,
+  version change or type-checker bypass was added. This item is **Done**.
+
 ## Functional inventory
 
 Paths abbreviated as `modules/...` in the tables below are under
@@ -712,7 +750,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | Outdated seen-entry notifications | Missing 7-day in-progress / 14-day on-hold nudge producer; V1 gated this on Pro. |
 | `regenerate_user_summaries`, `RecalculateUserActivitiesAndSummary` | On-demand domain recipes and projections cover part of the result; no full V1 daily activity/summary reconstruction. |
 | Integration sync to Owned collection | Ownership sync annotates Media library links during integration application; covered/reshaped. |
-| `remove_useless_data` | No general unreferenced entity/genre graph collector. V2 does have workflow, automation, plugin-artifact, backup and upload cleanup; do not call all garbage collection missing. Legacy cache/access-link rows no longer exist. |
+| `remove_useless_data` | Reshaped: the frequent `entity-graph-collection` cron deletes unused provider entities, children and genres by declared composition/reference retention, and receipt and background-work retention prune replay records. Legacy cache/access-link rows no longer exist. |
 | `cleanup_user_and_metadata_association` | Accepted redesign: no reason recomputation or automatic deletion after the last history/review/collection reason disappears. Membership persists until explicit removal; full clear removes user data. |
 | `remove_cached_metadata_after_updates`, `expire_cache_keys` | Direct RyotQL reads, mutation refresh hints, entity watches, TTL caches and trending refresh replace V1 recommendation-cache invalidation. No need to recreate obsolete application-cache rows. |
 | `put_entities_in_partial_state` | No daily invalidation of every library provider entity. Watches fill missing base/related data; monitoring refreshes monitored data. Successfully populated unmonitored data refreshes only on explicit request. |
@@ -727,9 +765,10 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 
 V2 also reconciles bootstrap/account-lifecycle work, event streams, automation runs and
 retention, integration recovery, OAuth connections, upload intents, plugin catalogs and
-installations, expired backup artifacts, and completed workflow trees. See
-`modules/garbage-collection/README.md` for workflow retention. Redis expiry and these
-collectors must not be confused with a media-library orphan policy.
+installations, expired backup artifacts, completed workflow trees, mutation receipts and settled
+background work. See `modules/garbage-collection/README.md` for workflow retention. Unused provider
+entities follow the graph retention rules in `modules/entities/README.md`; library membership is a
+root, not something the collector removes.
 
 ## Notification inventory
 
@@ -777,13 +816,12 @@ resolved export, genre, Calendar, editor or projection work.
 
 ### Retention and metadata freshness
 
-- No general collector removes provider entities, genres, or their unused graph after all
-  user references disappear. Define reachability across child entities, credits, suggestions,
-  user relationships and backup dependencies before treating V1's user-association join as safe.
+- Unused provider entities, genres and their children are collected by declared graph retention
+  (Order 10). User links, events, typed references, active work and recent interest are roots.
 - No job recomputes V1 library reasons or removes memberships automatically. **Accepted V2
   behavior:** membership persists until explicit removal; deleting the last event, review or
   collection entry must not remove it. Do not build a reason-based membership cleanup job.
-  Safe graph collection must treat library memberships as roots.
+  Graph collection treats library memberships as roots.
 - Explicit enrichment refreshes successful provider data; entity interest only fills missing
   details/related data. Monitoring remains automatic; unmonitored successful data refreshes only
   on request. `providerCheckedAt` records successful canonical/inventory checks, not generic edits

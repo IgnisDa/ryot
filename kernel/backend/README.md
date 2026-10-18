@@ -60,6 +60,11 @@ uploads. A check locks the row, so a concurrent writer either commits its refere
 retirement and is rejected. Unreferenced assets are retired, their object is deleted, and only then is
 the row removed; a failed deletion is retried on the next run.
 
+Unused provider entities are collected by the [graph retention](src/modules/entities/README.md#graph-retention)
+rules. Mutation receipts and settled background work expire as described in
+[mutation admission](src/modules/mutations/README.md#receipt-retention) and
+[background work](src/modules/background-work/README.md).
+
 Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its
 `ryot:sandbox:*` recovery and quarantine keys. See the [entity-watch protocol](src/modules/entities/watches/README.md)
 and [authentication/proxy rules](src/modules/accounts/auth/README.md) for those boundaries.

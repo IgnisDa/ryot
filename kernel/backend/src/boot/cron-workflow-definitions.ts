@@ -13,11 +13,14 @@ import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackupsService } from "#modules/backups/service";
+import type { EntityGraphCollector } from "#modules/entities/retention/collector";
+import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
 import { EventStreamWorkService } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
@@ -40,9 +43,11 @@ const frequentCronTasks: ReadonlyArray<
 		| WorkflowEngine
 		| ImportsService
 		| DatabaseSession
+		| MutationReceipts
 		| AutomationRetention
 		| UploadIntentsService
 		| UserLifecycleService
+		| EntityGraphCollector
 		| ManagedAssetCollector
 		| BackgroundWorkService
 		| EventStreamWorkService
@@ -85,6 +90,20 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	{
+		name: "background-work-retention",
+		run: () =>
+			Effect.flatMap(BackgroundWorkService, (service) => service.pruneSettled(500)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("background work retention failed", cause)),
+			),
+	},
+	{
+		name: "mutation-receipt-retention",
+		run: () =>
+			Effect.flatMap(MutationReceipts, (receipts) => receipts.pruneRetired(500)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("mutation receipt retention failed", cause)),
+			),
+	},
+	{
 		name: "event-stream-work-reconcile",
 		run: () =>
 			Effect.flatMap(EventStreamWorkService, (service) => service.reconcile()).pipe(
@@ -108,6 +127,7 @@ const frequentCronTasks: ReadonlyArray<
 	oauthConnectionsFrequentTask,
 	uploadsFrequentTask,
 	managedAssetsFrequentTask,
+	entityGraphFrequentTask,
 	userBootstrapFrequentTask,
 	userLifecycleFrequentTask,
 	pluginCatalogFrequentTask,

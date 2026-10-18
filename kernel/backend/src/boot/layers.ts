@@ -52,7 +52,11 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EnrichmentRecovery } from "#modules/entities/enrichment/recovery";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { EntitiesServiceMigrationLive, EntitiesServiceRuntimeLive } from "#modules/entities/layer";
+import {
+	EntitiesServiceMigrationLive,
+	EntitiesServiceRuntimeLive,
+	EntityGraphCollectorLive,
+} from "#modules/entities/layer";
 import {
 	TranslateEntityAttemptWorkflowDefinitionsLive,
 	TranslateEntityWorkflowDefinitionsLive,
@@ -97,6 +101,7 @@ import {
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
 } from "#modules/integrations/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	NotificationDeliveryServiceLive,
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
@@ -244,6 +249,8 @@ const ServicesLive = Layer.mergeAll(
 	TranslationsServiceLive,
 	UploadServicesLive,
 	ManagedAssetCollectorLive,
+	EntityGraphCollectorLive,
+	MutationReceipts.layer,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
 	EntityUserDataServiceLive,
