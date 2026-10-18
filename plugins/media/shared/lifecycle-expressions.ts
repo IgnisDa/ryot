@@ -426,6 +426,8 @@ export const episodicEpisodeQuery = (
 	if (config.kind === "podcast") {
 		const relationship = table("relationship", `${alias}Relationship`);
 		return {
+			season: null,
+			links: [relationship],
 			position: [episodeNumber],
 			parentId: column(relationship, "sourceEntityId"),
 			joins: [
@@ -448,6 +450,8 @@ export const episodicEpisodeQuery = (
 	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
 	const seasonNumber = castNumber(jsonPath(column(season, "properties"), "seasonNumber"));
 	return {
+		season,
+		links: [showSeason, seasonEpisode],
 		position: [seasonNumber, episodeNumber],
 		parentId: column(showSeason, "sourceEntityId"),
 		joins: [

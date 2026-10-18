@@ -21,16 +21,6 @@ export const UserCommand = strictStruct({
 			propertiesMode: Schema.Literals(["merge", "replace"]),
 		}),
 	),
-	dataBaseline: Schema.optional(
-		strictStruct({
-			userRevision: Schema.optional(Schema.Int),
-			globalRevision: Schema.optional(Schema.Int),
-		}).check(
-			Schema.makeFilter(
-				(value) => value.globalRevision !== undefined || value.userRevision !== undefined,
-			),
-		),
-	),
 	entity: strictStruct({
 		properties,
 		name: Schema.NonEmptyString,

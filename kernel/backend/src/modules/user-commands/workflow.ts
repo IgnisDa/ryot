@@ -47,7 +47,6 @@ import {
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations, eventPolicyItems, PreparedEventChanges } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { DataRevisions } from "#modules/mutations/data-revisions";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
@@ -193,7 +192,6 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			const entityRows = yield* EntitiesRepository;
 			const eventRows = yield* EventsRepository;
 			const events = yield* EventMutations;
-			const dataRevisions = yield* DataRevisions;
 			const relationships = yield* RelationshipsService;
 			const planner = yield* LifecyclePlanner;
 			const lifecycle = yield* LifecycleExecution;
@@ -387,21 +385,6 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								]),
 							].sort();
 							const lockedReferences = yield* entityRows.getMutationEntities(references, true);
-							if (payload.input.dataBaseline) {
-								const owner = payload.command.writeContext?.pluginRevision;
-								if (
-									!owner ||
-									!(yield* dataRevisions.validate({
-										pluginId: owner.id,
-										userId: payload.userId,
-										...payload.input.dataBaseline,
-									}))
-								) {
-									return yield* new EntityStale({
-										reason: { code: "entity-stale", entityId: entity.entityId },
-									});
-								}
-							}
 							for (const baseline of baselines) {
 								if (!lockedReferences.has(baseline.entityId)) {
 									return yield* new EntityStale({
@@ -495,4 +478,4 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			return committed.result;
 		}),
 	),
-).pipe(Layer.provide(DataRevisions.layer));
+);

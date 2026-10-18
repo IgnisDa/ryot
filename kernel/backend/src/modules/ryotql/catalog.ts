@@ -432,20 +432,6 @@ const backgroundWork: CatalogTable = {
 	},
 };
 
-const dataRevision: CatalogTable = {
-	primaryKey: ["id"],
-	name: "data_revision",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		userId: physicalField("user_id", "text"),
-		pluginId: physicalField("plugin_id", "text"),
-		revision: physicalField("revision", "number", false),
-	},
-};
-
 const eventStreamWork: CatalogTable = {
 	primaryKey: ["id"],
 	name: "event_stream_work",
@@ -1359,7 +1345,6 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	eventSchema,
 	integration,
 	importIssue,
-	dataRevision,
 	entitySchema,
 	importSource,
 	relationship,

@@ -6,12 +6,15 @@ import {
 	castDate,
 	castNumber,
 	castText,
+	coalesce,
 	column,
+	conditional,
 	count,
 	countDistinct,
 	defineRecipe,
 	eq,
 	exists,
+	gt,
 	inArray,
 	isNotNull,
 	isNull,
@@ -287,38 +290,18 @@ export const coverageBasisRecipe = defineRecipe(
 export const historyCorrectionContextRecipe = defineRecipe(
 	(input: { entityId: string; libraryId: string }) => {
 		const scope = table("eventScope", "correctionScope");
-		const evidenceScope = table("eventScope", "correctionEvidenceScope");
-		const revision = table("dataRevision", "correctionData");
 		const target = table("entity", "correctionTarget");
 		const library = table("entity", "correctionLibrary");
 		const work = table("event", "correctionWork");
 		return {
-			map: ({
-				revisions,
-				library: root,
-				target: subject,
-				work: checkpoint,
-				scope: sourceScope,
-				evidenceScope: evidence,
-			}) =>
+			map: ({ library: root, target: subject, work: checkpoint, scope: sourceScope }) =>
 				Result.succeed({
 					library: root,
 					target: subject,
 					work: checkpoint,
-					evidenceRevision: evidence?.revision ?? 0,
 					sourceRevision: sourceScope?.revision ?? 0,
-					userRevision: revisions.items.find((row) => row.userId !== null)?.revision ?? 0,
-					globalRevision: revisions.items.find((row) => row.userId === null)?.revision ?? 0,
 				}),
 			queries: {
-				evidenceScope: selectedOptionalRow(evidenceScope, {
-					orderBy: [ascending(column(evidenceScope, "id"))],
-					selection: { revision: selectedField(column(evidenceScope, "revision"), Schema.Int) },
-					where: and(
-						own(evidenceScope),
-						eq(column(evidenceScope, "entityId"), literal(input.libraryId)),
-					),
-				}),
 				scope: selectedOptionalRow(scope, {
 					orderBy: [ascending(column(scope, "id"))],
 					selection: { revision: selectedField(column(scope, "revision"), Schema.Int) },
@@ -326,15 +309,6 @@ export const historyCorrectionContextRecipe = defineRecipe(
 						schemaOwnerPredicate(scope, "eventSchemaPluginId", { kind: "self" }),
 						eq(column(scope, "entityId"), literal(input.entityId)),
 					),
-				}),
-				revisions: selectedRows(revision, {
-					limit: 2,
-					orderBy: [ascending(column(revision, "id"))],
-					where: schemaOwnerPredicate(revision, "pluginId", { kind: "self" }),
-					selection: {
-						revision: selectedField(column(revision, "revision"), Schema.Int),
-						userId: selectedField(column(revision, "userId"), Schema.NullOr(Schema.String)),
-					},
 				}),
 				target: selectedOptionalRow(target, {
 					orderBy: [ascending(column(target, "id"))],
@@ -572,6 +546,61 @@ export const correctionInventoryRecipe = defineRecipe(
 							),
 						),
 					],
+				}),
+			},
+		};
+	},
+);
+
+export const correctionInventoryFingerprintRecipe = defineRecipe(
+	(input: { config: EpisodicKindConfig; subjectEntityId: string }) => {
+		const parent = table("entity", "fingerprintParent");
+		const required = table("entity", "fingerprintRequired");
+		const total = table("entity", "fingerprintTotal");
+		const requiredScope = episodicEpisodeQuery(
+			input.config,
+			parent,
+			required,
+			"fingerprintRequired",
+		);
+		const totalScope = episodicEpisodeQuery(
+			input.config,
+			parent,
+			total,
+			"fingerprintTotal",
+			"any",
+			"all",
+		);
+		const [firstLink, secondLink] = totalScope.links.map((link) =>
+			maximum(total, column(link, "createdAt"), totalScope),
+		);
+		return {
+			map: ({ fingerprint }) => Result.succeed(fingerprint),
+			queries: {
+				fingerprint: selectedOptionalRow(parent, {
+					orderBy: [ascending(column(parent, "id"))],
+					where: eq(column(parent, "id"), literal(input.subjectEntityId)),
+					selection: {
+						total: selectedField(count(total, totalScope), Schema.Int),
+						required: selectedField(count(required, requiredScope), Schema.Int),
+						subjectUpdatedAt: selectedField(column(parent, "updatedAt"), Schema.String),
+						latestEpisode: selectedField(
+							maximum(total, column(total, "updatedAt"), totalScope),
+							Schema.NullOr(Schema.String),
+						),
+						latestSeason: selectedField(
+							totalScope.season
+								? maximum(total, column(totalScope.season, "updatedAt"), totalScope)
+								: literal(null),
+							Schema.NullOr(Schema.String),
+						),
+						latestLink: selectedField(
+							firstLink && secondLink
+								? conditional(gt(firstLink, secondLink), firstLink, coalesce(secondLink, firstLink))
+								: (firstLink ?? literal(null)),
+							Schema.NullOr(Schema.String),
+						),
+					},
 				}),
 			},
 		};

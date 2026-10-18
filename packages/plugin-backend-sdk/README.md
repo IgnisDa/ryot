@@ -96,8 +96,7 @@ operation seals its batch-hook evidence and retains its aggregate result. Commit
 `commitUserChanges` commits a root user entity, relationships, and event creates, updates, and
 deletes in one database transaction. References can target the root entity before it exists. Any
 validation or commit failure leaves the entire command unchanged. File uploads are separate.
-`events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. `dataBaseline` optionally
-protects the plugin's global and owned `dataRevision` counters. These scalar guards do not grow with
+`events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. These scalar guards do not grow with
 the history or inventory. Event creates/updates may retain logical source order with `orderAfter`;
 an update with `orderAfter: null` restores physical creation order.
 

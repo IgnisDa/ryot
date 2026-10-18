@@ -42,12 +42,6 @@ including standalone deletions. Readers obtain the revision from RyotQL's `event
 zero for a scope with no row. The baseline size is independent of history length.
 Commands can guard source and evidence scopes together; unchanged root entities are not rewritten.
 
-`dataBaseline` optionally compares global and owned plugin data revisions from RyotQL's
-`dataRevision` table. Entity and relationship statements advance affected old/new ownership scopes
-through transaction-time triggers; cascades and rollback follow the source transaction. Commit locks
-entity references before locking and comparing requested counters. This guards multi-page evidence
-capture without embedding every entity or relationship revision in the command.
-
 Event creates can name an `orderAfter` anchor and suffix. The anchor must be an existing event in
 the same user's plugin scope, sharing an entity or session with the output. Preparation captures its
 revision and commit rechecks it under an event lock. An update can replace the anchor or set it to

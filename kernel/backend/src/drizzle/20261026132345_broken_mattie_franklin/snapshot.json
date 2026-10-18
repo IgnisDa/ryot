@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "4013d47d-b9f8-4c95-981f-65ea410be7fa",
+	"id": "b38b0143-6e46-43c9-949c-24042d2ebcb4",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -62,7 +62,6 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{ "isRlsEnabled": false, "name": "data_revision", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "definition_calendar_source",
@@ -1731,19 +1730,6 @@
 			"table": "background_work"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "purpose",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "background_work"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
@@ -1778,6 +1764,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "background_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "purpose",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "background_work"
@@ -2327,58 +2326,6 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "data_import_submission"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "data_revision"
-		},
-		{
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"name": "revision",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "data_revision"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "data_revision"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "data_revision"
 		},
 		{
 			"type": "text",
@@ -4565,6 +4512,19 @@
 			"table": "event_stream"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "current_job_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_work"
+		},
+		{
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -4586,19 +4546,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "completed_revision",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_work"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "current_job_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_work"
@@ -11644,6 +11591,13 @@
 					"opclass": null
 				},
 				{
+					"value": "purpose",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
 					"value": "scope",
 					"isExpression": false,
 					"asc": true,
@@ -14629,32 +14583,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "data_revision_user_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "data_revision"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "data_revision_plugin_id_plugin_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "data_revision"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["plugin_revision_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin_revision",
@@ -16244,14 +16172,6 @@
 			"name": "client_page_composition_pkey",
 			"schema": "public",
 			"table": "client_page_composition",
-			"entityType": "pks"
-		},
-		{
-			"columns": ["id"],
-			"nameExplicit": false,
-			"name": "data_revision_pkey",
-			"schema": "public",
-			"table": "data_revision",
 			"entityType": "pks"
 		},
 		{

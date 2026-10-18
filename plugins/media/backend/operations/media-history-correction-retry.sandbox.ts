@@ -21,7 +21,10 @@ import {
 	MediaHistoryCorrectionRetryOutput,
 } from "../../shared/history-correction-status";
 import { mediaActivityEntitySchemaSlugs } from "../../shared/media-activity-fields";
-import { historyCorrectionReference } from "../contracts/history-correction";
+import {
+	historyCorrectionReference,
+	startHistoryCorrection,
+} from "../contracts/history-correction";
 
 const mediaActivityRootSlugs = mediaActivityEntitySchemaSlugs.filter(
 	(slug) => slug !== "show-episode" && slug !== "podcast-episode",
@@ -64,20 +67,14 @@ export default defineOperation({
 			if (target === undefined) {
 				return yield* Effect.fail(new OperationRejectedError("Media activity is unavailable"));
 			}
-			const key = `${input.entityId}:retry:${input.submissionId}`;
 			return yield* host.requestUserWork(
-				{
-					key,
-					scope: input.entityId,
-					input: {
-						force: true,
-						workKey: key,
-						liveSourceIds: [],
-						conflictAttempt: 0,
-						entityId: input.entityId,
-						requestKey: input.submissionId,
-					},
-				},
+				startHistoryCorrection({
+					force: true,
+					liveSourceIds: [],
+					entityId: input.entityId,
+					requestKey: input.submissionId,
+					workKey: `${input.entityId}:retry:${input.submissionId}`,
+				}),
 				historyCorrectionReference,
 			);
 		}),

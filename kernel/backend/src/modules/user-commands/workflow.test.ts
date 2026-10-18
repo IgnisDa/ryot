@@ -598,18 +598,6 @@ layer(testLayer(false))((test) => {
 			assert(rootBefore);
 			expect(rootBefore.name).toBe(input.input.entity.name);
 			expect(rootBefore.properties).toEqual(input.input.entity.properties);
-			const [dataRevisionBefore] = yield* input.session.run((db) =>
-				db
-					.select({ revision: tables.dataRevision.revision })
-					.from(tables.dataRevision)
-					.where(
-						and(
-							eq(tables.dataRevision.pluginId, input.pluginId),
-							eq(tables.dataRevision.userId, userId),
-						),
-					),
-			);
-			assert(dataRevisionBefore);
 			const eventRows = yield* EventsRepository;
 			const evidenceRevisionBefore = yield* eventRows.getScopeRevision({
 				userId,
@@ -682,19 +670,7 @@ layer(testLayer(false))((test) => {
 					.from(tables.entity)
 					.where(eq(tables.entity.id, original.entityId)),
 			);
-			const [dataRevisionAfter] = yield* input.session.run((db) =>
-				db
-					.select({ revision: tables.dataRevision.revision })
-					.from(tables.dataRevision)
-					.where(
-						and(
-							eq(tables.dataRevision.pluginId, input.pluginId),
-							eq(tables.dataRevision.userId, userId),
-						),
-					),
-			);
 			expect(rootAfter).toEqual(rootBefore);
-			expect(dataRevisionAfter).toEqual(dataRevisionBefore);
 		}),
 	);
 

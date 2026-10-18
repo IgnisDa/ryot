@@ -86,6 +86,10 @@
 			"types": "./shared/media-activity-operations.ts",
 			"default": "./shared/media-activity-operations.ts"
 		},
+		"./backend/contracts/history-correction-recipes": {
+			"types": "./backend/contracts/history-correction-recipes.ts",
+			"default": "./backend/contracts/history-correction-recipes.ts"
+		},
 		"./shared/history-correction-status": {
 			"types": "./shared/history-correction-status.ts",
 			"default": "./shared/history-correction-status.ts"

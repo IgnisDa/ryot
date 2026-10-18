@@ -15,6 +15,7 @@ const request = {
 	workKey: "work",
 	conflictAttempt: 0,
 	entityId: "subject",
+	conflictBase: "work",
 	requestKey: "request",
 	liveSourceIds: ["source"],
 };
@@ -71,13 +72,28 @@ const reply = (name: string, items: readonly JsonValue[], nextCursor: string | n
 	data: { [name]: rows(items, nextCursor) },
 });
 
+const inventoryRow = {
+	total: 60,
+	required: 58,
+	latestSeason: timestamp,
+	latestEpisode: timestamp,
+	subjectUpdatedAt: timestamp,
+	latestLink: "2026-01-02T00:00:00.000Z",
+};
+const inventoryFingerprint = JSON.stringify([
+	inventoryRow.required,
+	inventoryRow.total,
+	inventoryRow.latestEpisode,
+	inventoryRow.latestSeason,
+	inventoryRow.latestLink,
+	inventoryRow.subjectUpdatedAt,
+]);
+
 const harness = (
 	input: {
 		state?: HistoryCorrection;
 		sourceRevision?: number;
-		userRevision?: number;
-		globalRevision?: number;
-		evidenceRevision?: number;
+		inventory?: typeof inventoryRow;
 		schemaSlug?: string;
 		properties?: Readonly<Record<string, JsonValue>>;
 		responses?: readonly ReturnType<typeof reply>[];
@@ -99,17 +115,15 @@ const harness = (
 					data: {
 						work: rows([record(state, "checkpoint")]),
 						scope: rows([{ revision: input.sourceRevision ?? 4 }]),
-						evidenceScope: rows([{ revision: input.evidenceRevision ?? 0 }]),
 						library: rows([{ properties: {}, name: "Library", updatedAt: timestamp }]),
 						target: rows([
 							{ properties: input.properties ?? {}, schemaSlug: input.schemaSlug ?? "movie" },
 						]),
-						revisions: rows([
-							{ userId: null, revision: input.globalRevision ?? 0 },
-							{ userId: "owner", revision: input.userRevision ?? 0 },
-						]),
 					},
 				});
+			}
+			if ("fingerprint" in document.queries) {
+				return Effect.succeed(reply("fingerprint", [input.inventory ?? inventoryRow]));
 			}
 			const response = responses.shift();
 			assert(response, "Unexpected worker query");
@@ -162,6 +176,48 @@ it.effect("records a deleted active output as durable suppression", () =>
 		]);
 		expect(test.commands[0]?.events.creates).toEqual([]);
 	}),
+);
+
+it.effect.each([
+	{ changes: "override", phase: "audit" as const },
+	{ phase: "prune" as const, changes: "remove-output" },
+	{ phase: "sweep" as const, changes: "remove-output" },
+])(
+	"$phase handles a page of 25 records in one step and predicts the source revision",
+	({ phase, changes }) =>
+		Effect.gen(function* () {
+			const ids = Array.from({ length: 25 }, (_, index) => `occurrence-${index}`);
+			const test = harness({
+				state: checkpoint({ phase }),
+				responses: [
+					reply(
+						"records",
+						ids.map((id) => record(occurrence({ frozen: true, status: "active" }), id)),
+					),
+					...ids.map((id) =>
+						reply("event", [
+							source({
+								id: `output-${id}`,
+								eventSchemaSlug: "complete",
+								properties: { timeSpent: 1, completionKey: id },
+							}),
+						]),
+					),
+				],
+			});
+			yield* test.run();
+			const applied = test.commands[0]?.events.changes ?? [];
+			expect(
+				applied.filter((change) => change.itemIdentity.startsWith(`${changes}:`)),
+			).toHaveLength(25);
+			expect(
+				applied.filter((change) => change.itemIdentity.startsWith("replace:occurrence-")),
+			).toHaveLength(25);
+			expect(test.commands[0]?.events.baselines).toEqual([
+				{ revision: 4, entityId: EntityId.make("subject") },
+			]);
+			expect(test.saved().sourceRevision).toBe(4 + 25);
+		}),
 );
 
 it.effect("restarts pending work for a new explicit correction request", () =>
@@ -288,20 +344,25 @@ it.effect("does not publish when an explicit completion blocks the source", () =
 	}),
 );
 
-it.effect("recaptures inventory after provider changes between pages", () =>
+it.effect.each([
+	{ name: "an added link", change: { total: 61, latestLink: "2026-02-01T00:00:00.000Z" } },
+	{ name: "a removed link", change: { total: 59, required: 57 } },
+	{ name: "an updated episode", change: { latestEpisode: "2026-02-01T00:00:00.000Z" } },
+	{ name: "an updated season", change: { latestSeason: "2026-02-01T00:00:00.000Z" } },
+	{ name: "a changed production status", change: { subjectUpdatedAt: "2026-02-01T00:00:00.000Z" } },
+])("recaptures inventory after $name between pages", ({ change }) =>
 	Effect.gen(function* () {
 		const test = harness({
-			globalRevision: 9,
 			schemaSlug: "show",
+			inventory: { ...inventoryRow, ...change },
 			responses: [
 				reply("records", [record(occurrence({ rule: "coverage", status: "building" }), "basis")]),
 			],
 			state: checkpoint({
-				userRevision: 0,
 				basisId: "basis",
 				phase: "snapshot",
-				globalRevision: 8,
 				evidenceAfter: "page-1",
+				inventory: inventoryFingerprint,
 			}),
 		});
 		yield* test.run();
@@ -311,12 +372,11 @@ it.effect("recaptures inventory after provider changes between pages", () =>
 	}),
 );
 
-it.effect("recaptures inventory after owned relationships change between pages", () =>
+it.effect("recaptures an unfrozen snapshot whose checkpoint has no inventory", () =>
 	Effect.gen(function* () {
 		const test = harness({
-			userRevision: 3,
 			schemaSlug: "show",
-			state: checkpoint({ userRevision: 2, phase: "publish", basisId: "basis", globalRevision: 0 }),
+			state: checkpoint({ phase: "publish", basisId: "basis" }),
 			responses: [
 				reply("records", [record(occurrence({ rule: "coverage", status: "building" }), "basis")]),
 			],
@@ -324,6 +384,21 @@ it.effect("recaptures inventory after owned relationships change between pages",
 		yield* test.run();
 		expect(test.saved().phase).toBe("reset-snapshot");
 		expect(test.commands[0]?.events.creates).toEqual([]);
+	}),
+);
+
+it.effect("records the inventory when a reset removes stale evidence", () =>
+	Effect.gen(function* () {
+		const test = harness({
+			schemaSlug: "show",
+			state: checkpoint({ basisId: "basis", inventory: "stale", phase: "reset-snapshot" }),
+			responses: [
+				reply("records", [record(occurrence({ rule: "coverage", status: "building" }), "basis")]),
+				reply("records", []),
+			],
+		});
+		yield* test.run();
+		expect(test.saved()).toMatchObject({ phase: "snapshot", inventory: inventoryFingerprint });
 	}),
 );
 
@@ -337,11 +412,10 @@ it.effect("resumes a large inventory with bounded evidence writes and an atomic 
 		const test = harness({
 			schemaSlug: "show",
 			state: checkpoint({
-				userRevision: 0,
 				basisId: "basis",
 				phase: "snapshot",
-				globalRevision: 0,
 				evidenceAfter: "page-58",
+				inventory: inventoryFingerprint,
 			}),
 			responses: [
 				reply("records", [record(occurrence({ rule: "coverage", status: "building" }), "basis")]),
@@ -352,11 +426,13 @@ it.effect("resumes a large inventory with bounded evidence writes and an atomic 
 		expect(test.commands).toHaveLength(1);
 		expect(test.commands[0]?.events.creates).toHaveLength(50);
 		expect(test.saved()).toMatchObject({
-			userRevision: 0,
 			phase: "snapshot",
 			evidenceAfter: "page-59",
+			inventory: inventoryFingerprint,
 		});
-		expect(test.commands[0]?.dataBaseline).toEqual({ userRevision: 0, globalRevision: 0 });
+		expect(test.commands[0]?.events.baselines).toEqual([
+			{ revision: 4, entityId: EntityId.make("subject") },
+		]);
 		expect(stableStringify(test.commands[0]).length).toBeLessThan(30_000);
 	}),
 );
@@ -468,10 +544,9 @@ it.effect(
 it.effect("captures 3,000 required episodes across resumable bounded pages", () =>
 	Effect.gen(function* () {
 		let state = checkpoint({
-			userRevision: 0,
 			basisId: "basis",
 			phase: "snapshot",
-			globalRevision: 0,
+			inventory: inventoryFingerprint,
 		});
 		let captured = 0;
 		let largestCommand = 0;
@@ -487,7 +562,6 @@ it.effect("captures 3,000 required episodes across resumable bounded pages", () 
 			const test = harness({
 				state,
 				schemaSlug: "show",
-				evidenceRevision: page * 100,
 				responses: [
 					reply("records", [record(occurrence({ rule: "coverage", status: "building" }), "basis")]),
 					reply("episodes", items, page === 59 ? null : `page-${page + 1}`),
@@ -501,7 +575,7 @@ it.effect("captures 3,000 required episodes across resumable bounded pages", () 
 			largestCommand = Math.max(largestCommand, stableStringify(test.commands[0]).length);
 		}
 		expect(captured).toBe(3_000);
-		expect(state).toMatchObject({ step: 65, userRevision: 0, phase: "publish" });
+		expect(state).toMatchObject({ step: 65, phase: "publish", inventory: inventoryFingerprint });
 		expect(state).not.toHaveProperty("evidenceAfter");
 		expect(largestCommand).toBeLessThan(30_000);
 	}),

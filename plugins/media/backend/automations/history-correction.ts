@@ -30,6 +30,7 @@ import { isPositional, positionalProperties } from "../../shared/media-schema-sl
 import type { HistoryCorrectionRequest } from "../contracts/history-correction";
 import {
 	correctionCoverageRecipe,
+	correctionInventoryFingerprintRecipe,
 	correctionInventoryRecipe,
 	correctionRecordsRecipe,
 	coverageBasisRecipe,
@@ -227,6 +228,8 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 	};
 };
 
+const maintenancePageSize = 25;
+
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
 const preserveDecision = (value: CompletionOccurrence): CompletionOccurrence["status"] =>
@@ -306,6 +309,26 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 	if (context.target.schemaSlug === "podcast") {
 		config = podcastEpisodicKindConfig;
 	}
+	const inventory = (episodic: EpisodicKindConfig) =>
+		executeRyotqlRecipe(
+			host.executeRyotql,
+			correctionInventoryFingerprintRecipe({ config: episodic, subjectEntityId: input.entityId }),
+		).pipe(
+			Effect.map((row) =>
+				JSON.stringify(
+					row
+						? [
+								row.required,
+								row.total,
+								row.latestEpisode,
+								row.latestSeason,
+								row.latestLink,
+								row.subjectUpdatedAt,
+							]
+						: null,
+				),
+			),
+		);
 	const changePhase = (phase: HistoryCorrection["phase"]) => {
 		state.phase = phase;
 		delete state.after;
@@ -339,8 +362,8 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		if (state.phase === "audit" || state.phase === "prune" || state.phase === "sweep") {
 			const phase = state.phase;
 			const page = yield* records(CompletionOccurrence, "completion-occurrence", {
-				limit: 1,
 				after: state.after,
+				limit: maintenancePageSize,
 				...(phase === "prune"
 					? {
 							where: (event: Parameters<typeof historyProperty>[0]) =>
@@ -348,8 +371,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						}
 					: {}),
 			});
-			const row = page.items[0];
-			if (row) {
+			for (const row of page.items) {
 				if (phase === "audit" && row.properties.status === "active") {
 					const output = yield* actual(row.id);
 					if (!output) {
@@ -440,15 +462,16 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						silent: output
 							? row.properties.silent
 							: row.properties.silent || row.properties.frozen || source.revision !== 0,
-						...(typeof source.properties["consumedOn"] === "string"
-							? { expectedConsumedOn: source.properties["consumedOn"] }
-							: {}),
-						...(source.properties["dateUnknown"] === true ? { expectedDateUnknown: true } : {}),
 					};
-					if (typeof source.properties["consumedOn"] !== "string") {
+					const consumedOn = source.properties["consumedOn"];
+					if (typeof consumedOn === "string") {
+						value.expectedConsumedOn = consumedOn;
+					} else {
 						delete value.expectedConsumedOn;
 					}
-					if (source.properties["dateUnknown"] !== true) {
+					if (source.properties["dateUnknown"] === true) {
+						value.expectedDateUnknown = true;
+					} else {
 						delete value.expectedDateUnknown;
 					}
 					write.output(row, value, source, output);
@@ -616,8 +639,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 							if (state.basisId) {
 								const basis = yield* occurrence(state.basisId);
 								state.phase = basis?.properties.frozen ? "snapshot" : "reset-snapshot";
-								state.globalRevision = context.globalRevision;
-								state.userRevision = context.userRevision;
+								state.inventory = yield* inventory(config);
 							}
 							delete state.evidenceAfter;
 						} else {
@@ -637,6 +659,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			if (!basis) {
 				return yield* new MediaSandboxError({ message: "Completion occurrence is unavailable" });
 			}
+			const fingerprint = yield* inventory(config);
 			if (state.phase === "reset-snapshot") {
 				const page = yield* records(CompletionEpisode, "completion-episode", {
 					where: (event) => eq(historyProperty(event, "occurrenceId"), literal(basis.id)),
@@ -644,17 +667,12 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				for (const row of page.items) {
 					write.remove(row);
 				}
-				state.globalRevision = context.globalRevision;
-				state.userRevision = context.userRevision;
+				state.inventory = fingerprint;
 				if (!page.pageInfo.hasMore) {
 					state.phase = "snapshot";
 					delete state.evidenceAfter;
 				}
-			} else if (
-				!basis.properties.frozen &&
-				(state.globalRevision !== context.globalRevision ||
-					state.userRevision !== context.userRevision)
-			) {
+			} else if (!basis.properties.frozen && state.inventory !== fingerprint) {
 				state.phase = "reset-snapshot";
 				delete state.evidenceAfter;
 			} else if (state.phase === "snapshot") {
@@ -760,8 +778,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				delete state.basisId;
 				delete state.closingEventId;
 				delete state.evidenceAfter;
-				delete state.globalRevision;
-				delete state.userRevision;
+				delete state.inventory;
 			}
 		} else if (state.phase === "clear") {
 			const page = yield* records(HistoryCoverage, "history-coverage");
@@ -807,14 +824,10 @@ const commitStep = Effect.fn("commitHistoryCorrectionStep")(function* (
 	}
 	yield* host.commitUserChanges({
 		relationships: [],
-		dataBaseline: { userRevision: context.userRevision, globalRevision: context.globalRevision },
 		events: {
 			creates: write.creates,
 			changes: write.changes,
-			baselines: [
-				{ revision: context.sourceRevision, entityId: EntityId.make(entityId) },
-				{ revision: context.evidenceRevision, entityId: EntityId.make(libraryId) },
-			],
+			baselines: [{ revision: context.sourceRevision, entityId: EntityId.make(entityId) }],
 		},
 		entity: {
 			name: library.name,

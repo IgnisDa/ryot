@@ -275,15 +275,9 @@ describe("immutable plugin revisions", () => {
 					),
 				);
 				expect(triggers.map(({ name }) => name)).toEqual([
-					"ryot_entity_data_revision_delete",
-					"ryot_entity_data_revision_insert",
-					"ryot_entity_data_revision_update",
 					"ryot_plugin_revision_immutable",
 					"ryot_plugin_revision_manifest_immutable",
 					"ryot_plugin_revision_manifest_truncate",
-					"ryot_relationship_data_revision_delete",
-					"ryot_relationship_data_revision_insert",
-					"ryot_relationship_data_revision_update",
 					"ryot_revision_manifest_present",
 					"ryot_revision_manifest_retained",
 					"ryot_revision_manifest_sections",

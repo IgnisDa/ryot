@@ -3,7 +3,10 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { mediaActivityEntitySchemaSlugs } from "../../shared/media-activity-fields";
-import { historyCorrectionReference } from "../contracts/history-correction";
+import {
+	historyCorrectionReference,
+	startHistoryCorrection,
+} from "../contracts/history-correction";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -72,20 +75,14 @@ export default defineAutomation({
 				add(payload.subjectEntityId);
 			}
 			for (const [entityId, sources] of targets) {
-				const workKey = `${entityId}:${automation.runId}:start`;
 				yield* host.requestUserWork(
-					{
-						key: workKey,
-						scope: entityId,
-						input: {
-							force,
-							workKey,
-							entityId,
-							conflictAttempt: 0,
-							liveSourceIds: [...sources],
-							requestKey: automation.runId,
-						},
-					},
+					startHistoryCorrection({
+						force,
+						entityId,
+						liveSourceIds: [...sources],
+						requestKey: automation.runId,
+						workKey: `${entityId}:${automation.runId}:start`,
+					}),
 					historyCorrectionReference,
 				);
 			}

@@ -138,10 +138,10 @@ CREATE TABLE "background_work" (
 	"id" text PRIMARY KEY,
 	"input_hash" text NOT NULL,
 	"account_token" text NOT NULL,
-	"purpose" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"purpose" text NOT NULL,
 	"status" text NOT NULL,
 	"user_id" text NOT NULL,
 	"plugin_id" text NOT NULL
@@ -206,13 +206,6 @@ CREATE TABLE "data_import_submission" (
 	"upload_token_hashes" text[] DEFAULT '{}'::text[] NOT NULL,
 	"integration_id" text,
 	"user_id" text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "data_revision" (
-	"id" text PRIMARY KEY,
-	"revision" integer DEFAULT 0 NOT NULL,
-	"user_id" text,
-	"plugin_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
@@ -451,9 +444,9 @@ CREATE TABLE "event_stream" (
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream_work" (
+	"current_job_id" text,
 	"dirty_from" timestamp(3) with time zone,
 	"completed_revision" integer,
-	"current_job_id" text,
 	"account_token" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
@@ -1200,7 +1193,7 @@ CREATE INDEX "automation_trigger_parent_trigger_idx" ON "automation_trigger" ("p
 CREATE INDEX "automation_trigger_scope_idx" ON "automation_trigger" ("scope_user_id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_retention_idx" ON "automation_trigger" ("created_at","id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_recipient_user_idx" ON "automation_trigger_recipient" ("user_id","trigger_id");--> statement-breakpoint
-CREATE INDEX "background_work_scope_idx" ON "background_work" ("user_id","plugin_id","scope","created_at","id");--> statement-breakpoint
+CREATE INDEX "background_work_scope_idx" ON "background_work" ("user_id","plugin_id","purpose","scope","created_at","id");--> statement-breakpoint
 CREATE INDEX "background_work_pending_idx" ON "background_work" ("status","updated_at","id");--> statement-breakpoint
 CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-breakpoint
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
@@ -1336,8 +1329,6 @@ ALTER TABLE "calendar_source_override" ADD CONSTRAINT "calendar_source_override_
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "data_revision" ADD CONSTRAINT "data_revision_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "data_revision" ADD CONSTRAINT "data_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_calendar_source" ADD CONSTRAINT "definition_calendar_source_zr3mUgmh593q_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_cgKz3LGPs2D1_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
