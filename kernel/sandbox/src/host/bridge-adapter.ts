@@ -291,6 +291,12 @@ export const bindSandboxHostFunctions = <Input>(
 			implementations.createUserEntity,
 			{ failure: preserveWriteFailure },
 		),
+		deleteUserEntity: bind(
+			"deleteUserEntity",
+			domainSandboxHostContracts.deleteUserEntity,
+			implementations.deleteUserEntity,
+			{ failure: preserveWriteFailure },
+		),
 		updateUserEntity: bind(
 			"updateUserEntity",
 			domainSandboxHostContracts.updateUserEntity,

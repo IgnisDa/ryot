@@ -2,6 +2,7 @@ import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugi
 import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	createUserEntityArgsSchema,
+	deleteUserEntityArgsSchema,
 	updateUserEntityArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -147,6 +148,39 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return lifecycle.upsertGlobalEntities.value(result);
 				}),
 			),
+		deleteUserEntity: (rawInput, rawItem, options) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "deleteUserEntity");
+					const [item, submission] = yield* Schema.decodeEffect(deleteUserEntityArgsSchema)([
+						rawItem,
+						options,
+					]);
+					if (!input.principal.pluginRevision) {
+						return yield* sandboxHostFailure("Entity deletion requires a pinned plugin");
+					}
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const command = yield* sandboxSubmissionCommand(
+						input,
+						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteUserEntity"),
+						submission,
+						findInstallation,
+					);
+					const { warnings } = yield* entities.deleteByIds(
+						[EntityId.make(item.entityId)],
+						command,
+						{
+							userId,
+							entitySchema: {
+								owner: principalOwner(input.principal),
+								slug: EntitySchemaSlug.make(item.entitySchemaSlug),
+							},
+						},
+					);
+					yield* reportSandboxLifecycleWarnings("deleteUserEntity", warnings);
+					return { entityId: item.entityId };
+				}),
+			),
 		updateUserEntity: (
 			rawInput,
 			rawItem,
@@ -282,6 +316,10 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
-		"createUserEntity" | "updateUserEntity" | "ensureUserEntities" | "upsertGlobalEntities"
+		| "createUserEntity"
+		| "deleteUserEntity"
+		| "updateUserEntity"
+		| "ensureUserEntities"
+		| "upsertGlobalEntities"
 	>;
 });
