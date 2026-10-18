@@ -10,8 +10,8 @@ const options = [
 	{ value: "logo", label: "Logo 2" },
 ] as const;
 
-function Filter(props: { readonly overflow: "scroll" | "wrap" }) {
-	const [value, setValue] = useState<(typeof options)[number]["value"] | undefined>("all");
+function Filter(props: { readonly overflow: "wrap" | "scroll" }) {
+	const [value, setValue] = useState<undefined | (typeof options)[number]["value"]>("all");
 	return (
 		<ChipRadioGroup
 			value={value}

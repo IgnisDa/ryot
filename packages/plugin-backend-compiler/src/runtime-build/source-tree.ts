@@ -1,6 +1,8 @@
 import { Data, Effect, FileSystem, Path } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 
+export type SourceWalkBudget = { files: number; totalBytes: number };
+
 export interface SourceWalkLimits {
 	readonly maxDepth: number;
 	readonly maxFiles: number;
@@ -10,10 +12,8 @@ export interface SourceWalkLimits {
 export class SourceWalkError extends Data.TaggedError("SourceWalkError")<{
 	readonly path: string;
 	readonly message: string;
-	readonly reason: "depth-limit" | "file-limit" | "size-limit" | "symbolic-link";
+	readonly reason: "file-limit" | "size-limit" | "depth-limit" | "symbolic-link";
 }> {}
-
-export type SourceWalkBudget = { files: number; totalBytes: number };
 
 export const createSourceWalkBudget = (): SourceWalkBudget => ({ files: 0, totalBytes: 0 });
 
@@ -80,8 +80,8 @@ export const readSourceWithin = (
 	});
 
 export interface SourceWalkOptions {
-	readonly limits?: SourceWalkLimits | undefined;
-	readonly budget?: SourceWalkBudget | undefined;
+	readonly limits?: undefined | SourceWalkLimits;
+	readonly budget?: undefined | SourceWalkBudget;
 }
 
 export const walkSourcePaths = (
@@ -91,7 +91,7 @@ export const walkSourcePaths = (
 ): Effect.Effect<
 	ReadonlyArray<string>,
 	PlatformError | SourceWalkError,
-	FileSystem.FileSystem | Path.Path
+	Path.Path | FileSystem.FileSystem
 > => {
 	const limits = options.limits ?? unboundedSourceWalkLimits;
 	const budget = options.budget ?? createSourceWalkBudget();
@@ -101,7 +101,7 @@ export const walkSourcePaths = (
 	): Effect.Effect<
 		ReadonlyArray<string>,
 		PlatformError | SourceWalkError,
-		FileSystem.FileSystem | Path.Path
+		Path.Path | FileSystem.FileSystem
 	> =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

@@ -24,12 +24,26 @@ const fieldClassName = (
 		className,
 	);
 
+type ChoiceProps = { readonly label: ReactNode } & Omit<ComponentProps<"input">, "type">;
+
+type FieldControl = {
+	readonly id: string;
+	readonly invalid: boolean;
+	readonly "aria-describedby": string | undefined;
+};
+
+export function FieldMessage({ className, ...props }: ComponentProps<"p">) {
+	return (
+		<p role="alert" className={clsx("text-xs font-medium text-danger", className)} {...props} />
+	);
+}
+
 export function TextField({
 	invalid,
 	density,
 	className,
 	...props
-}: ComponentProps<"input"> & FieldProps) {
+}: FieldProps & ComponentProps<"input">) {
 	return (
 		<input
 			{...props}
@@ -48,7 +62,7 @@ export function TextArea({
 	density,
 	className,
 	...props
-}: ComponentProps<"textarea"> & FieldProps) {
+}: FieldProps & ComponentProps<"textarea">) {
 	return (
 		<textarea
 			{...props}
@@ -83,24 +97,12 @@ export function CellInput({
 	);
 }
 
-export function FieldMessage({ className, ...props }: ComponentProps<"p">) {
-	return (
-		<p role="alert" className={clsx("text-xs font-medium text-danger", className)} {...props} />
-	);
-}
-
-type FieldControl = {
-	readonly id: string;
-	readonly invalid: boolean;
-	readonly "aria-describedby": string | undefined;
-};
-
 export function Field(props: {
 	readonly label: ReactNode;
 	readonly hint?: ReactNode;
-	readonly error?: string | undefined;
 	readonly optional?: boolean;
 	readonly className?: string;
+	readonly error?: string | undefined;
 	readonly children: (control: FieldControl) => ReactNode;
 }) {
 	const id = useId();
@@ -130,10 +132,21 @@ export function Field(props: {
 	);
 }
 
-type ChoiceProps = Omit<ComponentProps<"input">, "type"> & { readonly label: ReactNode };
-
 const choiceLabel =
 	"inline-flex items-center gap-2.5 text-sm text-text has-disabled:opacity-50 pointer-coarse:min-h-11";
+
+export function Radio({ label, className, ...props }: ChoiceProps) {
+	return (
+		<label className={clsx(choiceLabel, className)}>
+			<input
+				{...props}
+				type="radio"
+				className="size-4.5 shrink-0 appearance-none rounded-full border-[1.5px] border-border-strong bg-surface transition-[border-width,border-color] duration-100 checked:border-[5px] checked:border-accent-deep motion-reduce:transition-none"
+			/>
+			{label}
+		</label>
+	);
+}
 
 export function Checkbox({ label, className, ...props }: ChoiceProps) {
 	return (
@@ -149,19 +162,6 @@ export function Checkbox({ label, className, ...props }: ChoiceProps) {
 					className="pointer-events-none absolute mb-0.5 h-2.5 w-1.5 rotate-45 border-r-2 border-b-2 border-surface opacity-0 peer-checked:opacity-100"
 				/>
 			</span>
-			{label}
-		</label>
-	);
-}
-
-export function Radio({ label, className, ...props }: ChoiceProps) {
-	return (
-		<label className={clsx(choiceLabel, className)}>
-			<input
-				{...props}
-				type="radio"
-				className="size-4.5 shrink-0 appearance-none rounded-full border-[1.5px] border-border-strong bg-surface transition-[border-width,border-color] duration-100 checked:border-[5px] checked:border-accent-deep motion-reduce:transition-none"
-			/>
 			{label}
 		</label>
 	);

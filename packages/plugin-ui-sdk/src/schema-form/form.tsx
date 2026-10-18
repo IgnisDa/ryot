@@ -54,6 +54,37 @@ export type SchemaFormIcons = SchemaFileIcons & {
 
 const emptyValues: { readonly fields: SchemaFormValues } = { fields: {} };
 
+export type SchemaFormApi = ReturnType<typeof useSchemaForm>;
+
+export type SchemaAssetRenderer = (asset: AssetLocator) => ReactNode;
+type NodeProps = {
+	readonly value: unknown;
+	readonly addressable: boolean;
+	readonly mode: SchemaFormMode;
+	readonly path: readonly string[];
+	readonly input: SchemaFormValues;
+	readonly context: SchemaFormProps;
+	readonly property: AppPropertyDefinition;
+	readonly issues: readonly PropertyValidationIssue[];
+	readonly onChange: (value: SchemaFormValue) => void;
+};
+
+type SchemaFormProps = {
+	readonly title?: string;
+	readonly schema: AppSchema;
+	readonly timeZone?: string;
+	readonly form: SchemaFormApi;
+	readonly onChange: () => void;
+	readonly mode?: SchemaFormMode;
+	readonly icons: SchemaFormIcons;
+	readonly onReorder?: () => void;
+	readonly uploadFile: SchemaFileUpload;
+	readonly oauthDisabledReason?: string;
+	readonly uploadAsset?: SchemaAssetUpload;
+	readonly connectOAuth?: SchemaOAuthConnect;
+	readonly renderAsset?: SchemaAssetRenderer;
+};
+
 export function useSchemaForm(props: {
 	mode?: SchemaFormMode;
 	schemas: readonly (AppSchema | undefined)[];
@@ -90,37 +121,6 @@ export function useSchemaForm(props: {
 		],
 	});
 }
-
-export type SchemaFormApi = ReturnType<typeof useSchemaForm>;
-export type SchemaAssetRenderer = (asset: AssetLocator) => ReactNode;
-
-type SchemaFormProps = {
-	readonly title?: string;
-	readonly schema: AppSchema;
-	readonly form: SchemaFormApi;
-	readonly onChange: () => void;
-	readonly mode?: SchemaFormMode;
-	readonly icons: SchemaFormIcons;
-	readonly uploadFile: SchemaFileUpload;
-	readonly connectOAuth?: SchemaOAuthConnect;
-	readonly uploadAsset?: SchemaAssetUpload;
-	readonly oauthDisabledReason?: string;
-	readonly renderAsset?: SchemaAssetRenderer;
-	readonly timeZone?: string;
-	readonly onReorder?: () => void;
-};
-
-type NodeProps = {
-	readonly context: SchemaFormProps;
-	readonly property: AppPropertyDefinition;
-	readonly path: readonly string[];
-	readonly value: unknown;
-	readonly input: SchemaFormValues;
-	readonly issues: readonly PropertyValidationIssue[];
-	readonly addressable: boolean;
-	readonly mode: SchemaFormMode;
-	readonly onChange: (value: SchemaFormValue) => void;
-};
 
 const textValue = (value: unknown) =>
 	typeof value === "string" || typeof value === "number" || typeof value === "boolean"
@@ -197,11 +197,319 @@ const newArrayItem = (property: AppPropertyDefinition, timeZone: string): JsonVa
 	return property.type === "string" ? "" : null;
 };
 
+export function SchemaForm(props: SchemaFormProps) {
+	const root = useRef<HTMLDivElement>(null);
+	const mode = props.mode ?? "create";
+	return (
+		<props.form.Subscribe
+			selector={(state) => ({ values: state.values.fields, attempts: state.submissionAttempts })}
+		>
+			{({ values, attempts }) => {
+				const input = schemaFormInput(props.schema, values);
+				const issues =
+					attempts > 0
+						? schemaFormIssues(props.schema, values, mode, props.form.defaultValues.fields)
+						: [];
+				const description = describeSchemaFormFields(props.schema, values, mode);
+				return (
+					<div
+						ref={root}
+						className="flex min-w-0 flex-col gap-3"
+						onKeyDown={(event) => {
+							if (
+								event.key !== "Enter" ||
+								!(event.target instanceof HTMLInputElement) ||
+								event.target.type === "radio" ||
+								event.target.type === "checkbox"
+							) {
+								return;
+							}
+							event.preventDefault();
+							event.stopPropagation();
+							const inputs = [
+								...event.currentTarget.querySelectorAll<HTMLInputElement>(
+									'input:not(:disabled):not([type="radio"]):not([type="checkbox"])',
+								),
+							].filter((control) => control.closest("details:not([open])") === null);
+							const next = inputs[inputs.indexOf(event.target) + 1];
+							if (next) {
+								next.focus();
+							} else {
+								void props.form.handleSubmit();
+							}
+						}}
+					>
+						{props.title === undefined ? null : (
+							<span className="text-xs font-medium text-text-subtle">{props.title}</span>
+						)}
+						<props.form.Field name="fields">
+							{(formField) =>
+								description.fields.map((field) => (
+									<SchemaNode
+										mode={mode}
+										addressable
+										input={input}
+										key={field.key}
+										context={props}
+										issues={issues}
+										path={[field.key]}
+										value={values[field.key]}
+										property={field.property}
+										onChange={(value) => {
+											formField.handleChange({ ...formField.value, [field.key]: value });
+											props.onChange();
+										}}
+									/>
+								))
+							}
+						</props.form.Field>
+						{issues
+							.filter((issue) => issue.path.length === 0)
+							.map((issue) => (
+								<FieldMessage key={issue.message}>{issue.message}</FieldMessage>
+							))}
+						<FocusInvalid root={root} attempts={attempts} />
+					</div>
+				);
+			}}
+		</props.form.Subscribe>
+	);
+}
+
+function FocusInvalid(props: {
+	readonly attempts: number;
+	readonly root: RefObject<null | HTMLDivElement>;
+}) {
+	useLayoutEffect(() => {
+		if (props.attempts > 0) {
+			const control = props.root.current?.querySelector<HTMLElement>(
+				'[data-invalid="true"] input, [data-invalid="true"] button, [data-invalid="true"] select',
+			);
+			let parent = control?.parentElement;
+			while (parent) {
+				if (parent instanceof HTMLDetailsElement) {
+					parent.open = true;
+				}
+				parent = parent.parentElement;
+			}
+			control?.focus();
+		}
+	}, [props.attempts, props.root]);
+	return null;
+}
+
+function NodeFrame(props: {
+	readonly id: string;
+	readonly label: string;
+	readonly invalid: boolean;
+	readonly expandable: boolean;
+	readonly children: ReactNode;
+}) {
+	if (props.expandable) {
+		return (
+			<details
+				open
+				role="group"
+				aria-labelledby={props.id}
+				className="min-w-0 space-y-2"
+				data-invalid={props.invalid ? "true" : undefined}
+			>
+				<summary id={props.id} className="cursor-pointer text-xs font-medium text-text-muted">
+					{props.label}
+				</summary>
+				{props.children}
+			</details>
+		);
+	}
+	return (
+		<div
+			className="flex min-w-0 flex-col gap-1.5"
+			data-invalid={props.invalid ? "true" : undefined}
+		>
+			<span id={props.id} className="text-xs font-medium text-text-muted">
+				{props.label}
+			</span>
+			{props.children}
+		</div>
+	);
+}
+
+function AssetControl(props: NodeProps) {
+	const { icons, uploadAsset, renderAsset } = props.context;
+	if (uploadAsset === undefined || renderAsset === undefined) {
+		return <FieldMessage>{`Uploads are not available for ${props.property.label}.`}</FieldMessage>;
+	}
+	const multiple = props.property.type === "array";
+	const property = props.property.type === "array" ? props.property.items : props.property;
+	let values: readonly JsonValue[] = arrayValue(props.value);
+	if (!multiple) {
+		values = isJsonValue(props.value) && props.value !== null ? [props.value] : [];
+	}
+	const assets = values.filter(isAsset);
+	const occurrences = new Map<string, number>();
+	const metadataRows = assets.map((asset, index) => {
+		const locator = asset.type === "remote" ? asset.url : `${asset.type}:${asset.key}`;
+		const occurrence = occurrences.get(locator) ?? 0;
+		occurrences.set(locator, occurrence + 1);
+		return { index, value: values[index], key: `${locator}:${occurrence}` };
+	});
+	const setValues = (next: readonly JsonValue[]) =>
+		props.onChange(multiple ? next : (next[0] ?? null));
+	return (
+		<div className="flex flex-col gap-3">
+			<SchemaAssetField
+				icons={icons}
+				value={assets}
+				replace={!multiple}
+				uploadAsset={uploadAsset}
+				renderAsset={renderAsset}
+				label={props.property.label}
+				pickFile={pickBrowserMediaFile}
+				onReorder={props.context.onReorder}
+				maximum={props.property.type === "array" ? props.property.validation?.maxItems : 1}
+				onChange={(next) => {
+					setValues(
+						next.map((asset) => {
+							const retained = values.find(
+								(value) => isAsset(value) && JSON.stringify(asset) === JSON.stringify(value),
+							);
+							if (retained !== undefined) {
+								return retained;
+							}
+							const metadata = multiple
+								? {}
+								: Object.fromEntries(
+										Object.entries(objectValue(values[0])).filter(
+											([key]) => !["key", "url", "type"].includes(key),
+										),
+									);
+							return { ...metadata, ...asset };
+						}),
+					);
+				}}
+			/>
+			{metadataRows.map(({ key, value, index }) => (
+				<ObjectControl
+					{...props}
+					key={key}
+					value={value}
+					property={property}
+					excluded={["key", "url", "type"]}
+					addressable={multiple ? false : props.addressable}
+					path={multiple ? [...props.path, String(index)] : props.path}
+					onChange={(next) =>
+						setValues(
+							values.map((current, position) => (position === index ? (next ?? null) : current)),
+						)
+					}
+				/>
+			))}
+		</div>
+	);
+}
+
+function SchemaNode(props: NodeProps) {
+	const id = useId();
+	const { value, property } = props;
+	if (
+		isFixedEnumProperty(property) ||
+		(props.addressable && isAppSchemaPathHidden(props.context.schema, props.path, props.input))
+	) {
+		return null;
+	}
+	const required = props.addressable
+		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
+		: property.validation?.required === true;
+	const readOnly = props.mode === "edit" && property.immutable === true;
+	const hasHelp = property.description !== property.label;
+	const absentObject =
+		property.type === "object" &&
+		!property.validation?.asset &&
+		(value === undefined || value === null);
+	const issue = props.issues.find((candidate) => {
+		if (samePath(candidate.path, props.path)) {
+			return true;
+		}
+		if (!props.path.every((segment, index) => candidate.path[index] === segment)) {
+			return false;
+		}
+		return (
+			absentObject ||
+			(property.type === "object" &&
+				!Object.hasOwn(property.properties, candidate.path[props.path.length] ?? ""))
+		);
+	});
+	return (
+		<NodeFrame
+			id={`${id}-label`}
+			invalid={issue !== undefined}
+			label={`${property.label}${required ? " *" : ""}`}
+			expandable={property.type === "object" || property.type === "array"}
+		>
+			<fieldset
+				disabled={readOnly}
+				className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 disabled:opacity-60"
+				aria-describedby={
+					[issue ? `${id}-error` : undefined, hasHelp ? `${id}-help` : undefined]
+						.filter((describedBy) => describedBy !== undefined)
+						.join(" ") || undefined
+				}
+			>
+				{absentObject ? (
+					<Button
+						variant="secondary"
+						className="self-start"
+						onClick={() => {
+							props.onChange(
+								Object.fromEntries(
+									Object.entries(
+										initialSchemaFormValues(
+											{ fields: property.properties },
+											props.context.timeZone,
+										),
+									).filter((entry): entry is [string, JsonValue] => entry[1] !== undefined),
+								),
+							);
+						}}
+					>{`Add ${property.label}`}</Button>
+				) : (
+					<NodeControl {...props} />
+				)}
+				{!required && value !== undefined && value !== null ? (
+					<Button
+						variant="ghost"
+						className="self-start"
+						onClick={() => props.onChange(null)}
+						aria-label={`Clear ${property.label}`}
+					>
+						Clear
+					</Button>
+				) : null}
+			</fieldset>
+			{readOnly ? (
+				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
+			) : null}
+			{hasHelp ? (
+				<span id={`${id}-help`} className="text-xs text-text-subtle">
+					{property.description}
+				</span>
+			) : null}
+			{props.mode === "edit" && property.secret ? (
+				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>
+			) : null}
+			{property.type === "datetime" ? (
+				<span className="text-xs text-text-subtle">{`Time zone: ${props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone}`}</span>
+			) : null}
+			{issue ? <FieldMessage id={`${id}-error`}>{issue.message}</FieldMessage> : null}
+		</NodeFrame>
+	);
+}
+
 function ArrayControl(props: NodeProps) {
 	const values = arrayValue(props.value);
 	const [rowState, setRowState] = useState<{
-		readonly ids: readonly number[];
 		readonly next: number;
+		readonly ids: readonly number[];
 	}>({ next: 0, ids: [] });
 	let rows = rowState;
 	if (rows.ids.length !== values.length) {
@@ -307,80 +615,6 @@ function ArrayControl(props: NodeProps) {
 	);
 }
 
-function AssetControl(props: NodeProps) {
-	const { icons, uploadAsset, renderAsset } = props.context;
-	if (uploadAsset === undefined || renderAsset === undefined) {
-		return <FieldMessage>{`Uploads are not available for ${props.property.label}.`}</FieldMessage>;
-	}
-	const multiple = props.property.type === "array";
-	const property = props.property.type === "array" ? props.property.items : props.property;
-	let values: readonly JsonValue[] = arrayValue(props.value);
-	if (!multiple) {
-		values = isJsonValue(props.value) && props.value !== null ? [props.value] : [];
-	}
-	const assets = values.filter(isAsset);
-	const occurrences = new Map<string, number>();
-	const metadataRows = assets.map((asset, index) => {
-		const locator = asset.type === "remote" ? asset.url : `${asset.type}:${asset.key}`;
-		const occurrence = occurrences.get(locator) ?? 0;
-		occurrences.set(locator, occurrence + 1);
-		return { index, value: values[index], key: `${locator}:${occurrence}` };
-	});
-	const setValues = (next: readonly JsonValue[]) =>
-		props.onChange(multiple ? next : (next[0] ?? null));
-	return (
-		<div className="flex flex-col gap-3">
-			<SchemaAssetField
-				icons={icons}
-				value={assets}
-				replace={!multiple}
-				uploadAsset={uploadAsset}
-				renderAsset={renderAsset}
-				label={props.property.label}
-				pickFile={pickBrowserMediaFile}
-				onReorder={props.context.onReorder}
-				maximum={props.property.type === "array" ? props.property.validation?.maxItems : 1}
-				onChange={(next) => {
-					setValues(
-						next.map((asset) => {
-							const retained = values.find(
-								(value) => isAsset(value) && JSON.stringify(asset) === JSON.stringify(value),
-							);
-							if (retained !== undefined) {
-								return retained;
-							}
-							const metadata = multiple
-								? {}
-								: Object.fromEntries(
-										Object.entries(objectValue(values[0])).filter(
-											([key]) => !["key", "url", "type"].includes(key),
-										),
-									);
-							return { ...metadata, ...asset };
-						}),
-					);
-				}}
-			/>
-			{metadataRows.map(({ key, value, index }) => (
-				<ObjectControl
-					{...props}
-					key={key}
-					value={value}
-					property={property}
-					excluded={["key", "url", "type"]}
-					addressable={multiple ? false : props.addressable}
-					path={multiple ? [...props.path, String(index)] : props.path}
-					onChange={(next) =>
-						setValues(
-							values.map((current, position) => (position === index ? (next ?? null) : current)),
-						)
-					}
-				/>
-			))}
-		</div>
-	);
-}
-
 function NodeControl(props: NodeProps) {
 	const { context, property } = props;
 	const field = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode);
@@ -395,17 +629,8 @@ function NodeControl(props: NodeProps) {
 		);
 	}
 	switch (field.control) {
-		case "object":
-			return <ObjectControl {...props} />;
 		case "list":
 			return <ArrayControl {...props} />;
-		case "asset":
-		case "assets":
-			return <AssetControl {...props} />;
-		case "switch":
-			return (
-				<Switch label={property.label} onChange={props.onChange} checked={props.value === true} />
-			);
 		case "file":
 			return (
 				<SchemaFileField
@@ -416,82 +641,6 @@ function NodeControl(props: NodeProps) {
 					pickFile={pickBrowserUploadFile}
 					value={value === "" ? undefined : value}
 					allowedFileExtensions={field.allowedFileExtensions ?? []}
-				/>
-			);
-		case "oauth-connection":
-			return context.connectOAuth === undefined || field.oauthProvider === undefined ? (
-				<FieldMessage>{`OAuth connections are not available for ${property.label}.`}</FieldMessage>
-			) : (
-				<SchemaOAuthField
-					label={property.label}
-					onChange={props.onChange}
-					field={props.path[0] ?? ""}
-					provider={field.oauthProvider}
-					connect={context.connectOAuth}
-					value={value === "" ? undefined : value}
-					disabledReason={context.oauthDisabledReason}
-				/>
-			);
-		case "multi-select":
-			return (
-				<MultiSelect
-					choices={choices}
-					label={property.label}
-					onChange={props.onChange}
-					checkIcon={context.icons.check}
-					closeIcon={context.icons.close}
-					searchIcon={context.icons.search}
-					chevronIcon={context.icons.chevron}
-					selected={arrayValue(props.value).filter(
-						(item): item is string => typeof item === "string",
-					)}
-				/>
-			);
-		case "timezone": {
-			const zones = Intl.supportedValuesOf("timeZone");
-			return (
-				<Select
-					value={value}
-					label={property.label}
-					onChange={props.onChange}
-					checkIcon={context.icons.check}
-					searchIcon={context.icons.search}
-					chevronIcon={context.icons.chevron}
-					choices={(value === "" || zones.includes(value) ? zones : [value, ...zones]).map(
-						(zone) => ({ value: zone, label: zone }),
-					)}
-				/>
-			);
-		}
-		case "segmented":
-			return (
-				<SegmentedControl
-					value={value}
-					label={property.label}
-					onChange={props.onChange}
-					className="max-w-full overflow-x-auto"
-					optionClassName="shrink-0 whitespace-nowrap px-3"
-					options={choices.map((choice) => ({
-						value: choice.value,
-						label: schemaChoiceLabel(choice),
-						content: schemaChoiceLabel(choice),
-					}))}
-				/>
-			);
-		case "chips":
-			return (
-				<RadioGroup
-					value={value}
-					label={property.label}
-					onChange={props.onChange}
-					className="flex flex-wrap gap-1.5"
-					options={choices.map((choice) => ({
-						value: choice.value,
-						label: schemaChoiceLabel(choice),
-					}))}
-					renderOption={(option, selected) => ({
-						content: <Chip className="px-2.5" checked={selected} label={option.label} />,
-					})}
 				/>
 			);
 		case "text": {
@@ -540,240 +689,91 @@ function NodeControl(props: NodeProps) {
 				/>
 			);
 		}
-	}
-	return null;
-}
-
-function NodeFrame(props: {
-	readonly id: string;
-	readonly label: string;
-	readonly expandable: boolean;
-	readonly invalid: boolean;
-	readonly children: ReactNode;
-}) {
-	if (props.expandable) {
-		return (
-			<details
-				open
-				role="group"
-				aria-labelledby={props.id}
-				className="min-w-0 space-y-2"
-				data-invalid={props.invalid ? "true" : undefined}
-			>
-				<summary id={props.id} className="cursor-pointer text-xs font-medium text-text-muted">
-					{props.label}
-				</summary>
-				{props.children}
-			</details>
-		);
-	}
-	return (
-		<div
-			className="flex min-w-0 flex-col gap-1.5"
-			data-invalid={props.invalid ? "true" : undefined}
-		>
-			<span id={props.id} className="text-xs font-medium text-text-muted">
-				{props.label}
-			</span>
-			{props.children}
-		</div>
-	);
-}
-
-function SchemaNode(props: NodeProps) {
-	const id = useId();
-	const { value, property } = props;
-	if (
-		isFixedEnumProperty(property) ||
-		(props.addressable && isAppSchemaPathHidden(props.context.schema, props.path, props.input))
-	) {
-		return null;
-	}
-	const required = props.addressable
-		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
-		: property.validation?.required === true;
-	const readOnly = props.mode === "edit" && property.immutable === true;
-	const hasHelp = property.description !== property.label;
-	const absentObject =
-		property.type === "object" &&
-		!property.validation?.asset &&
-		(value === undefined || value === null);
-	const issue = props.issues.find((candidate) => {
-		if (samePath(candidate.path, props.path)) {
-			return true;
-		}
-		if (!props.path.every((segment, index) => candidate.path[index] === segment)) {
-			return false;
-		}
-		return (
-			absentObject ||
-			(property.type === "object" &&
-				!Object.hasOwn(property.properties, candidate.path[props.path.length] ?? ""))
-		);
-	});
-	return (
-		<NodeFrame
-			id={`${id}-label`}
-			invalid={issue !== undefined}
-			label={`${property.label}${required ? " *" : ""}`}
-			expandable={property.type === "object" || property.type === "array"}
-		>
-			<fieldset
-				disabled={readOnly}
-				className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 disabled:opacity-60"
-				aria-describedby={
-					[issue ? `${id}-error` : undefined, hasHelp ? `${id}-help` : undefined]
-						.filter((describedBy) => describedBy !== undefined)
-						.join(" ") || undefined
-				}
-			>
-				{absentObject ? (
-					<Button
-						variant="secondary"
-						className="self-start"
-						onClick={() => {
-							props.onChange(
-								Object.fromEntries(
-									Object.entries(
-										initialSchemaFormValues(
-											{ fields: property.properties },
-											props.context.timeZone,
-										),
-									).filter((entry): entry is [string, JsonValue] => entry[1] !== undefined),
-								),
-							);
-						}}
-					>{`Add ${property.label}`}</Button>
-				) : (
-					<NodeControl {...props} />
-				)}
-				{!required && value !== undefined && value !== null ? (
-					<Button
-						variant="ghost"
-						className="self-start"
-						onClick={() => props.onChange(null)}
-						aria-label={`Clear ${property.label}`}
-					>
-						Clear
-					</Button>
-				) : null}
-			</fieldset>
-			{readOnly ? (
-				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
-			) : null}
-			{hasHelp ? (
-				<span id={`${id}-help`} className="text-xs text-text-subtle">
-					{property.description}
-				</span>
-			) : null}
-			{props.mode === "edit" && property.secret ? (
-				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>
-			) : null}
-			{property.type === "datetime" ? (
-				<span className="text-xs text-text-subtle">{`Time zone: ${props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone}`}</span>
-			) : null}
-			{issue ? <FieldMessage id={`${id}-error`}>{issue.message}</FieldMessage> : null}
-		</NodeFrame>
-	);
-}
-
-function FocusInvalid(props: {
-	readonly attempts: number;
-	readonly root: RefObject<HTMLDivElement | null>;
-}) {
-	useLayoutEffect(() => {
-		if (props.attempts > 0) {
-			const control = props.root.current?.querySelector<HTMLElement>(
-				'[data-invalid="true"] input, [data-invalid="true"] button, [data-invalid="true"] select',
+		case "asset":
+		case "assets":
+			return <AssetControl {...props} />;
+		case "chips":
+			return (
+				<RadioGroup
+					value={value}
+					label={property.label}
+					onChange={props.onChange}
+					className="flex flex-wrap gap-1.5"
+					options={choices.map((choice) => ({
+						value: choice.value,
+						label: schemaChoiceLabel(choice),
+					}))}
+					renderOption={(option, selected) => ({
+						content: <Chip className="px-2.5" checked={selected} label={option.label} />,
+					})}
+				/>
 			);
-			let parent = control?.parentElement;
-			while (parent) {
-				if (parent instanceof HTMLDetailsElement) {
-					parent.open = true;
-				}
-				parent = parent.parentElement;
-			}
-			control?.focus();
+		case "object":
+			return <ObjectControl {...props} />;
+		case "switch":
+			return (
+				<Switch label={property.label} onChange={props.onChange} checked={props.value === true} />
+			);
+		case "timezone": {
+			const zones = Intl.supportedValuesOf("timeZone");
+			return (
+				<Select
+					value={value}
+					label={property.label}
+					onChange={props.onChange}
+					checkIcon={context.icons.check}
+					searchIcon={context.icons.search}
+					chevronIcon={context.icons.chevron}
+					choices={(value === "" || zones.includes(value) ? zones : [value, ...zones]).map(
+						(zone) => ({ value: zone, label: zone }),
+					)}
+				/>
+			);
 		}
-	}, [props.attempts, props.root]);
+		case "segmented":
+			return (
+				<SegmentedControl
+					value={value}
+					label={property.label}
+					onChange={props.onChange}
+					className="max-w-full overflow-x-auto"
+					optionClassName="shrink-0 whitespace-nowrap px-3"
+					options={choices.map((choice) => ({
+						value: choice.value,
+						label: schemaChoiceLabel(choice),
+						content: schemaChoiceLabel(choice),
+					}))}
+				/>
+			);
+		case "multi-select":
+			return (
+				<MultiSelect
+					choices={choices}
+					label={property.label}
+					onChange={props.onChange}
+					checkIcon={context.icons.check}
+					closeIcon={context.icons.close}
+					searchIcon={context.icons.search}
+					chevronIcon={context.icons.chevron}
+					selected={arrayValue(props.value).filter(
+						(item): item is string => typeof item === "string",
+					)}
+				/>
+			);
+		case "oauth-connection":
+			return context.connectOAuth === undefined || field.oauthProvider === undefined ? (
+				<FieldMessage>{`OAuth connections are not available for ${property.label}.`}</FieldMessage>
+			) : (
+				<SchemaOAuthField
+					label={property.label}
+					onChange={props.onChange}
+					field={props.path[0] ?? ""}
+					provider={field.oauthProvider}
+					connect={context.connectOAuth}
+					value={value === "" ? undefined : value}
+					disabledReason={context.oauthDisabledReason}
+				/>
+			);
+	}
 	return null;
-}
-
-export function SchemaForm(props: SchemaFormProps) {
-	const root = useRef<HTMLDivElement>(null);
-	const mode = props.mode ?? "create";
-	return (
-		<props.form.Subscribe
-			selector={(state) => ({ values: state.values.fields, attempts: state.submissionAttempts })}
-		>
-			{({ values, attempts }) => {
-				const input = schemaFormInput(props.schema, values);
-				const issues =
-					attempts > 0
-						? schemaFormIssues(props.schema, values, mode, props.form.defaultValues.fields)
-						: [];
-				const description = describeSchemaFormFields(props.schema, values, mode);
-				return (
-					<div
-						ref={root}
-						className="flex min-w-0 flex-col gap-3"
-						onKeyDown={(event) => {
-							if (
-								event.key !== "Enter" ||
-								!(event.target instanceof HTMLInputElement) ||
-								event.target.type === "radio" ||
-								event.target.type === "checkbox"
-							) {
-								return;
-							}
-							event.preventDefault();
-							event.stopPropagation();
-							const inputs = [
-								...event.currentTarget.querySelectorAll<HTMLInputElement>(
-									'input:not(:disabled):not([type="radio"]):not([type="checkbox"])',
-								),
-							].filter((control) => control.closest("details:not([open])") === null);
-							const next = inputs[inputs.indexOf(event.target) + 1];
-							if (next) {
-								next.focus();
-							} else {
-								void props.form.handleSubmit();
-							}
-						}}
-					>
-						{props.title === undefined ? null : (
-							<span className="text-xs font-medium text-text-subtle">{props.title}</span>
-						)}
-						<props.form.Field name="fields">
-							{(formField) =>
-								description.fields.map((field) => (
-									<SchemaNode
-										mode={mode}
-										addressable
-										input={input}
-										key={field.key}
-										context={props}
-										issues={issues}
-										path={[field.key]}
-										value={values[field.key]}
-										property={field.property}
-										onChange={(value) => {
-											formField.handleChange({ ...formField.value, [field.key]: value });
-											props.onChange();
-										}}
-									/>
-								))
-							}
-						</props.form.Field>
-						{issues
-							.filter((issue) => issue.path.length === 0)
-							.map((issue) => (
-								<FieldMessage key={issue.message}>{issue.message}</FieldMessage>
-							))}
-						<FocusInvalid root={root} attempts={attempts} />
-					</div>
-				);
-			}}
-		</props.form.Subscribe>
-	);
 }

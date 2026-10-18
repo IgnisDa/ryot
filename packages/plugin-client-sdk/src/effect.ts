@@ -1,2 +1,2 @@
-export { DateTime, Effect, Match, Option, Result, Schema, SchemaGetter } from "effect";
 export * as Semaphore from "effect/Semaphore";
+export { Match, Effect, Option, Result, Schema, DateTime, SchemaGetter } from "effect";

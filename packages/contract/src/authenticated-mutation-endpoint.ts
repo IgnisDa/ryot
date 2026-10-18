@@ -3,7 +3,7 @@ import { HttpApiEndpoint } from "effect/http-api";
 import { DemoAccessPolicy } from "./http-annotations";
 
 const withDemoAccessPolicy =
-	<Method extends "POST" | "PUT" | "PATCH" | "DELETE">(method: Method) =>
+	<Method extends "PUT" | "POST" | "PATCH" | "DELETE">(method: Method) =>
 	(policy: DemoAccessPolicy) =>
 		new Proxy(HttpApiEndpoint.make(method), {
 			apply(target, thisArg, args) {

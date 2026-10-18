@@ -25,17 +25,17 @@ const plainFormat = {
 
 type StepperProps = {
 	readonly step: number;
-	readonly min?: number | undefined;
 	readonly label: string;
 	readonly id?: string | undefined;
-	readonly className?: string | undefined;
-	readonly disabled?: boolean | undefined;
-	readonly invalid?: boolean | undefined;
+	readonly min?: number | undefined;
 	readonly incrementIcon: ReactNode;
 	readonly decrementIcon: ReactNode;
 	readonly value: number | undefined;
-	readonly "aria-describedby"?: string | undefined;
+	readonly invalid?: boolean | undefined;
+	readonly className?: string | undefined;
+	readonly disabled?: boolean | undefined;
 	readonly format?: (value: number) => string;
+	readonly "aria-describedby"?: string | undefined;
 	readonly parse?: (text: string) => number | undefined;
 	readonly onChange: (value: number | undefined) => void;
 };
@@ -56,7 +56,7 @@ export function Stepper({
 	format = plainFormat.format,
 	"aria-describedby": describedBy,
 }: StepperProps) {
-	const [draft, setDraft] = useState<string | null>(null);
+	const [draft, setDraft] = useState<null | string>(null);
 	const shift = (delta: number) => {
 		setDraft(null);
 		onChange(Math.max(min, (value ?? min) + delta));

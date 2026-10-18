@@ -18,7 +18,7 @@ const decodeSandboxExecutionMetadata = Schema.decodeUnknownResult(SandboxExecuti
 
 export const validateSandboxCapabilities = (
 	manifest: SandboxManifest & SandboxSourceExecutionMetadata,
-): PluginBackendCompilerDiagnostic | undefined => {
+): undefined | PluginBackendCompilerDiagnostic => {
 	if (manifest.kind === "workflow" && manifest.capabilities.length > 0) {
 		return pluginBackendCompilerDiagnostic(
 			"RYOT_CAPABILITY",

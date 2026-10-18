@@ -6,28 +6,12 @@ import type {
 
 import { type PluginScreen, reconcileStack, type ResolvePluginScreen } from "./stack";
 
+export type PluginViewportInsets = Omit<PluginBridgeViewport, "type">;
+
 export type PluginNavigationEntry = {
 	readonly key: string;
 	readonly index: number;
 	readonly location: PluginLogicalLocation;
-};
-
-export type PluginViewportInsets = Omit<PluginBridgeViewport, "type">;
-
-export type PluginNavigationSnapshot = PluginViewportInsets & {
-	readonly compact: boolean;
-	readonly edgeBack: boolean;
-	readonly leading: PluginLeadingIntent;
-	readonly screens: readonly PluginScreen[];
-	readonly entry: PluginNavigationEntry | undefined;
-	readonly transition: PluginNavigationTransition | undefined;
-};
-
-export type PluginNavigationLocation = {
-	readonly compact: boolean;
-	readonly edgeBack: boolean;
-	readonly leading: PluginLeadingIntent;
-	readonly entry: PluginNavigationEntry;
 };
 
 export type PluginNavigationTransition = {
@@ -41,20 +25,36 @@ export type PluginNavigationStore = {
 	readonly subscribe: (listener: () => void) => () => void;
 };
 
+export type PluginNavigationLocation = {
+	readonly compact: boolean;
+	readonly edgeBack: boolean;
+	readonly leading: PluginLeadingIntent;
+	readonly entry: PluginNavigationEntry;
+};
+
 export type PluginRouterNavigation = PluginNavigationStore & {
 	readonly back: () => void;
 	readonly openDrawer: () => void;
 	readonly completeTransition: (id: number) => void;
-	readonly publishTitle: (title: string | null) => void;
+	readonly publishTitle: (title: null | string) => void;
 	readonly registerShortcut: (shortcut: string, press: () => void) => () => void;
+};
+
+export type PluginNavigationSnapshot = PluginViewportInsets & {
+	readonly compact: boolean;
+	readonly edgeBack: boolean;
+	readonly leading: PluginLeadingIntent;
+	readonly screens: readonly PluginScreen[];
+	readonly entry: undefined | PluginNavigationEntry;
+	readonly transition: undefined | PluginNavigationTransition;
 };
 
 export type PluginNavigationController = PluginNavigationStore & {
 	readonly clear: () => void;
 	readonly completeTransition: (id: number) => void;
 	readonly setViewport: (insets: PluginViewportInsets) => void;
-	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
 	readonly replaceDocument: (resolve: ResolvePluginScreen) => void;
+	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
 };
 
 const initialSnapshot = (insets: PluginViewportInsets): PluginNavigationSnapshot => ({

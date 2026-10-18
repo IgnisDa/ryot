@@ -46,10 +46,10 @@ const selection = {
 
 export const integrationsRecipe = defineRecipe(
 	(input: {
-		readonly after?: string | undefined;
 		readonly limit: number;
+		readonly after?: string | undefined;
 		readonly isDisabled?: boolean | undefined;
-		readonly provider?: IntegrationProvider | undefined;
+		readonly provider?: undefined | IntegrationProvider;
 	}) => {
 		const predicates = [
 			...(input.provider === undefined
@@ -99,6 +99,6 @@ export const integrationRecipe = defineRecipe((input: { readonly id: string }) =
 	},
 }));
 
-export type IntegrationList = Recipe.Success<typeof integrationsRecipe>;
 export type IntegrationSummary = IntegrationList["items"][number];
+export type IntegrationList = Recipe.Success<typeof integrationsRecipe>;
 export type IntegrationDetail = Recipe.Success<typeof integrationRecipe>;

@@ -10,14 +10,14 @@ import { isEntityPresentationDefinition } from "../presentations/entity-results"
 import { loadStylesheet } from "../stylesheets";
 import { bootstrapClientPage, bootstrapClientPlugin } from "./application";
 
-type ClientModule = Readonly<Record<string, unknown>>;
-
 export type CompositionDependencies = {
 	readonly bootstrapPage: typeof bootstrapClientPage;
 	readonly bootstrapPlugin: typeof bootstrapClientPlugin;
-	readonly loadModule: (specifier: string) => Promise<ClientModule>;
 	readonly loadStylesheet: (href: string) => Promise<void>;
+	readonly loadModule: (specifier: string) => Promise<ClientModule>;
 };
+
+type ClientModule = Readonly<Record<string, unknown>>;
 
 const defaultDependencies: CompositionDependencies = {
 	loadStylesheet,
@@ -47,7 +47,7 @@ const readDescriptor = () => {
 };
 
 const exported = <Value>(
-	module: ClientModule | undefined,
+	module: undefined | ClientModule,
 	{ binding, specifier }: ClientCompositionModuleReference,
 	isValue: (value: unknown) => value is Value,
 ): Value => {

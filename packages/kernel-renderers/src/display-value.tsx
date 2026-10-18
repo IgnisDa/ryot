@@ -3,8 +3,8 @@ import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync
 import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
-export type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];
 export type SavedViewCellValue = SavedViewCell["value"];
+export type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];
 export type SavedViewCellAsset = Extract<
 	SavedViewCellValue,
 	{ readonly displayKind: "managed-asset" }
@@ -31,7 +31,7 @@ export function CellThumbnail({
 	readonly monogram: string;
 	readonly className: string;
 	readonly state: FieldSyncState;
-	readonly asset: SavedViewCellAsset | undefined;
+	readonly asset: undefined | SavedViewCellAsset;
 }) {
 	const url = useAssetUrl(asset ?? undefined);
 	return <EntityArtWell url={url} state={state} monogram={monogram} className={className} />;

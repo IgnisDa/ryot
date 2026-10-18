@@ -254,12 +254,12 @@ const manifest = { ...authoredManifest, scripts };
 
 type DeclaredEditorRelationship = {
 	readonly slug: string;
-	readonly direction: "outgoing" | "incoming" | "parent";
+	readonly direction: "parent" | "outgoing" | "incoming";
 };
 const outgoing = (slug: string): DeclaredEditorRelationship => ({ slug, direction: "outgoing" });
 const incoming = (slug: string): DeclaredEditorRelationship => ({ slug, direction: "incoming" });
 
-const editorRelationship = (slug: string, sourceEntitySchemaSlug: string | null) => ({
+const editorRelationship = (slug: string, sourceEntitySchemaSlug: null | string) => ({
 	slug,
 	name: slug,
 	sourceEntitySchemaSlug,

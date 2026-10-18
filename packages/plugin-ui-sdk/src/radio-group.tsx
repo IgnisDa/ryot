@@ -1,18 +1,18 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
+export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
+
 export type RadioGroupOption = {
 	readonly value: string;
 	readonly label: string;
 	readonly disabled?: boolean;
 };
 
-export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
-
 type RadioGroupProps<O extends RadioGroupOption> = {
 	readonly label: string;
 	readonly className?: string;
 	readonly options: readonly O[];
-	readonly value: O["value"] | undefined;
+	readonly value: undefined | O["value"];
 	readonly onChange: (value: O["value"]) => void;
 	readonly renderOption: (option: O, selected: boolean) => RadioGroupOptionView;
 };
@@ -25,7 +25,7 @@ export function RadioGroup<O extends RadioGroupOption>({
 	className,
 	renderOption,
 }: RadioGroupProps<O>) {
-	const radios = useRef<Array<HTMLButtonElement | null>>([]);
+	const radios = useRef<Array<null | HTMLButtonElement>>([]);
 	const enabled = options.flatMap((option, index) => (option.disabled === true ? [] : [index]));
 	const selectedIndex = options.findIndex((option) => option.value === value);
 	const tabStop = enabled.includes(selectedIndex) ? selectedIndex : enabled[0];

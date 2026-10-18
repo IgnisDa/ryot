@@ -110,7 +110,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		const checkSteps = () => (steps > maximumSteps ? Effect.fail(analysisLimit()) : Effect.void);
 		const files = new Set(project.sourceFiles.map((file) => file.fileName));
 		const visited = new Set<ts.Node>();
-		const visitedReceivers = new Map<ts.Node, Set<boolean | string>>();
+		const visitedReceivers = new Map<ts.Node, Set<string | boolean>>();
 		const diagnostics = new Map<string, PluginBackendCompilerDiagnostic>();
 		const required = new Set<string>();
 		const optional = new Set<string>();
@@ -128,14 +128,14 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		const oauth = new Set<string>();
 		const executables: SandboxSourceExecutionMetadata["executableDependencies"][number][] = [];
 		const analyzedMethods = new Set([
-			"getPluginConfig",
-			"activity",
 			"child",
+			"activity",
+			"getPluginConfig",
 			"executeWorkflow",
-			"getOAuthAccessToken",
-			"invalidateOAuthAccessToken",
-			"requestEventStreamWork",
 			"requestUserWork",
+			"getOAuthAccessToken",
+			"requestEventStreamWork",
+			"invalidateOAuthAccessToken",
 		]);
 		const fail = (node: ts.Node, message: string) => {
 			const diagnostic = sandboxDiagnosticAt(node, "RYOT_DEPENDENCY", message);
@@ -317,9 +317,9 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const visit = Effect.fnUntraced(function* (
 			node: ts.Node,
-			receiver: boolean | string = false,
+			receiver: string | boolean = false,
 		): Effect.fn.Return<void, Cause.UnknownError | PluginBackendCompilerFailure> {
-			const selections = visitedReceivers.get(node) ?? new Set<boolean | string>();
+			const selections = visitedReceivers.get(node) ?? new Set<string | boolean>();
 			if (
 				(receiver !== false ? selections.has(receiver) : visited.has(node)) ||
 				ts.isTypeNode(node) ||
@@ -674,7 +674,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				}
 			}
 			for (const child of children(node)) {
-				let selected: boolean | string = definitionReceiver ? false : receiver;
+				let selected: string | boolean = definitionReceiver ? false : receiver;
 				if (
 					(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
 					child === node.expression
@@ -691,13 +691,13 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const initialized = new Set<ts.SourceFile>();
 		const deferredSdkInitializers = new Set([
-			"defineManifest",
 			"defineScript",
+			"defineManifest",
 			"defineWorkflow",
+			"defineProvider",
 			"defineOperation",
 			"defineAutomation",
 			"defineAutomationPolicy",
-			"defineProvider",
 		]);
 		const visitInitialization = Effect.fnUntraced(function* (
 			node: ts.Node,
@@ -725,7 +725,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				}
 				if (
 					symbol &&
-					["runSync", "runPromise", "runFork"].includes(symbol.name) &&
+					["runSync", "runFork", "runPromise"].includes(symbol.name) &&
 					symbol.declarations.some((handle) => handle.path.includes("/effect/"))
 				) {
 					fail(node, "Effect execution during module initialization is unsupported");
@@ -740,7 +740,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				}
 				if (
 					symbol &&
-					["fn", "fnUntraced", "gen"].includes(symbol.name) &&
+					["fn", "gen", "fnUntraced"].includes(symbol.name) &&
 					symbol.declarations.some((handle) => handle.path.includes("/effect/"))
 				) {
 					return;

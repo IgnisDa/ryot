@@ -1,12 +1,12 @@
 export {
 	Clock,
-	DateTime,
-	Duration,
 	Effect,
 	Option,
 	Result,
 	Schema,
-	SchemaGetter,
+	DateTime,
+	Duration,
 	SchemaIssue,
+	SchemaGetter,
 	SchemaTransformation,
 } from "effect";

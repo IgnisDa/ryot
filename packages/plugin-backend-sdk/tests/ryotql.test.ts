@@ -112,16 +112,16 @@ describe("RyotQL sandbox SDK", () => {
 	});
 });
 
-const pageOf = (items: number[], nextCursor: string | null) =>
+const pageOf = (items: number[], nextCursor: null | string) =>
 	Effect.succeed({ items, pageInfo: { nextCursor, hasMore: nextCursor !== null } });
 
 describe("readAllRyotqlPages", () => {
 	it("concatenates pages until the cursor ends", () => {
 		const afters: Array<string | undefined> = [];
 		const pages = new Map([
-			[undefined, pageOf([1], "a")],
 			["a", pageOf([2], "b")],
 			["b", pageOf([3], null)],
+			[undefined, pageOf([1], "a")],
 		]);
 		return expect(
 			Effect.runPromise(

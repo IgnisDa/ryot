@@ -17,21 +17,21 @@ import {
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result } from "effect";
 
+export type SchemaFormMode = "edit" | "create";
 export type SchemaFormValue = JsonValue | undefined;
 export type SchemaFormValues = Readonly<Record<string, unknown>>;
-export type SchemaFormMode = "edit" | "create";
-export type SchemaFormTextFormat = "url" | "email" | "date" | "datetime";
+export type SchemaFormTextFormat = "url" | "date" | "email" | "datetime";
 export type SchemaFormControl =
 	| "list"
 	| "text"
+	| "file"
 	| "asset"
+	| "chips"
 	| "assets"
 	| "object"
-	| "file"
-	| "chips"
 	| "switch"
-	| "segmented"
 	| "timezone"
+	| "segmented"
 	| "multi-select"
 	| "oauth-connection";
 
@@ -42,15 +42,15 @@ export type SchemaFormField = {
 	readonly readOnly: boolean;
 	readonly required: boolean;
 	readonly description: string;
-	readonly property: AppPropertyDefinition;
-	readonly type: AppPropertyDefinition["type"] | "assets";
 	readonly control: SchemaFormControl;
-	readonly format: SchemaFormTextFormat | undefined;
-	readonly choices: readonly AppChoice[] | undefined;
+	readonly property: AppPropertyDefinition;
 	readonly oauthProvider: string | undefined;
-	readonly arrayItem: AppPropertyDefinition | undefined;
-	readonly allowedFileExtensions: readonly string[] | undefined;
-	readonly arrayValidation: AppArrayPropertyValidation | undefined;
+	readonly format: undefined | SchemaFormTextFormat;
+	readonly choices: undefined | readonly AppChoice[];
+	readonly arrayItem: undefined | AppPropertyDefinition;
+	readonly type: "assets" | AppPropertyDefinition["type"];
+	readonly allowedFileExtensions: undefined | readonly string[];
+	readonly arrayValidation: undefined | AppArrayPropertyValidation;
 };
 
 export const schemaChoiceLabel = (choice: AppChoice) => choice.label ?? choice.value;
@@ -109,7 +109,7 @@ export const describeSchemaFormField = (
 	required = property.validation?.required === true,
 ): SchemaFormField => {
 	const control = schemaFieldControl(property);
-	let format: SchemaFormTextFormat | undefined;
+	let format: undefined | SchemaFormTextFormat;
 	if (property.type === "date" || property.type === "datetime") {
 		format = property.type;
 	} else if (
@@ -386,7 +386,7 @@ export const schemaFormIssues = (
 	return result.success
 		? []
 		: result.issues.map((issue) => {
-				let property: AppPropertyDefinition | undefined = schema.fields[issue.path[0] ?? ""];
+				let property: undefined | AppPropertyDefinition = schema.fields[issue.path[0] ?? ""];
 				for (const segment of issue.path.slice(1)) {
 					if (property?.type === "array") {
 						property = property.items;

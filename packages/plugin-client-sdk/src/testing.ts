@@ -229,8 +229,8 @@ export const entityPageContext = (options: {
 	readonly entityId: string;
 	readonly exportName: string;
 	readonly entitySchemaSlug: string;
-	readonly params?: Record<string, string> | undefined;
-	readonly settings?: Record<string, unknown> | undefined;
+	readonly params?: undefined | Record<string, string>;
+	readonly settings?: undefined | Record<string, unknown>;
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
 		view: null,
@@ -252,7 +252,7 @@ export const savedViewPageContext = (options: {
 	readonly rendererName: string;
 	readonly settings: Record<string, unknown>;
 	readonly dataSources: Record<string, unknown>;
-	readonly view?: { readonly name: string; readonly icon: string } | undefined;
+	readonly view?: undefined | { readonly name: string; readonly icon: string };
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
 		contributors: [],
@@ -266,9 +266,9 @@ export const savedViewPageContext = (options: {
 
 export const kernelEntityPageContext = (options: {
 	readonly entityId: string;
-	readonly entitySchemaSlug: string;
 	readonly rendererName: string;
-	readonly settings?: Record<string, unknown> | undefined;
+	readonly entitySchemaSlug: string;
+	readonly settings?: undefined | Record<string, unknown>;
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
 		view: null,
@@ -302,11 +302,11 @@ export const disposePluginBridges = () => {
 export const mountPluginPage = (
 	component: ComponentType,
 	options: {
-		readonly page?: ClientPageContext | undefined;
-		readonly location?: PluginLogicalLocation | undefined;
-		readonly bootstrap?: ReturnType<typeof createClientBootstrap> | undefined;
-		readonly onClientMessage?: ((message: PluginBridgeClientMessage) => void) | undefined;
-		readonly entityPresentations?: readonly EntityPresentationRegistration[] | undefined;
+		readonly page?: undefined | ClientPageContext;
+		readonly location?: undefined | PluginLogicalLocation;
+		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
+		readonly entityPresentations?: undefined | readonly EntityPresentationRegistration[];
+		readonly onClientMessage?: undefined | ((message: PluginBridgeClientMessage) => void);
 	} = {},
 ) => {
 	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
@@ -355,7 +355,7 @@ export const mountPluginPage = (
 	const send = (message: PluginBridgeHostMessage) => channel.port1.postMessage(message);
 	const navigate = (
 		location: PluginLogicalLocation,
-		overrides: Partial<Omit<PluginBridgeLocation, "location" | "type">> = {},
+		overrides: Partial<Omit<PluginBridgeLocation, "type" | "location">> = {},
 	) =>
 		send({
 			index: 0,

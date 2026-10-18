@@ -55,24 +55,24 @@ import {
 import { RelationshipSection } from "./relationship-section";
 import { schemaFormIcons } from "./schema-form-icons";
 
-type EntityEditorMode =
-	| { readonly kind: "edit"; readonly entityId: string }
-	| {
-			readonly kind: "create";
-			readonly seedEntityId?: string;
-			readonly initialName?: string;
-			readonly initialProperties?: EditorProperties;
-			readonly parents?: Readonly<Record<string, string>>;
-	  };
-
 export type EntityEditorProps = {
 	readonly onCancel: () => void;
+	readonly onDeleted: () => void;
 	readonly mode: EntityEditorMode;
 	readonly entitySchemaSlug: string;
 	readonly packageId: PluginPackageId;
 	readonly onSaved: (entityId: string, parentEntityId: string | undefined) => void;
-	readonly onDeleted: () => void;
 };
+
+type EntityEditorMode =
+	| { readonly kind: "edit"; readonly entityId: string }
+	| {
+			readonly kind: "create";
+			readonly initialName?: string;
+			readonly seedEntityId?: string;
+			readonly initialProperties?: EditorProperties;
+			readonly parents?: Readonly<Record<string, string>>;
+	  };
 
 const editorTitle = (mode: EntityEditorMode, entityName: string) =>
 	`${mode.kind === "edit" ? "Edit" : "New"} ${entityName}`;
@@ -85,7 +85,7 @@ type DefinitionsInput = { readonly entitySchemaSlug: string; readonly packageId:
 
 type SourceInput = DefinitionsInput & {
 	readonly forEdit: boolean;
-	readonly entityId: string | null;
+	readonly entityId: null | string;
 	readonly parents: Readonly<Record<string, string>>;
 	readonly relationships: readonly Pick<
 		EditorRelationshipDefinition,
@@ -204,23 +204,117 @@ type SaveStatus =
 	| { readonly kind: "saving" }
 	| { readonly kind: "error"; readonly message: string };
 
+export function EntityEditor(props: EntityEditorProps) {
+	const { packageId, entitySchemaSlug } = props;
+	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
+	if (definitions.isError) {
+		return <LoadFailure onRetry={() => definitions.refetch()} />;
+	}
+	if (definitions.data === undefined) {
+		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+	}
+	if (definitions.data.entity.editor === null) {
+		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
+	}
+	return <EntityEditorSource {...props} definitions={definitions.data} />;
+}
+
+export function EntityEditorScreen(
+	props: Omit<EntityEditorProps, "onSaved" | "onCancel" | "onDeleted">,
+) {
+	const { mode, packageId, entitySchemaSlug } = props;
+	const client = useRyot();
+	const navigation = usePluginNavigation();
+	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
+	return (
+		<PluginScreenFrame
+			title={
+				definitions.data === undefined ? null : editorTitle(mode, definitions.data.entity.name)
+			}
+		>
+			<EntityEditor
+				{...props}
+				onCancel={() => navigation.back()}
+				onDeleted={() => navigation.back()}
+				onSaved={(entityId, parentEntityId) =>
+					parentEntityId === undefined
+						? client.navigation.replace({ entityId, kind: "entity" })
+						: navigation.back()
+				}
+			/>
+		</PluginScreenFrame>
+	);
+}
+
+function LoadFailure(props: { readonly onRetry: () => void }) {
+	return (
+		<div className="flex flex-col items-start gap-3">
+			<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
+			<Button variant="secondary" onClick={props.onRetry}>
+				Retry
+			</Button>
+		</div>
+	);
+}
+
+function EntityEditorSource(
+	props: EntityEditorProps & {
+		readonly definitions: Parameters<typeof EntityEditorForm>[0]["definitions"];
+	},
+) {
+	const { mode, packageId, definitions, entitySchemaSlug } = props;
+	const forEdit = mode.kind === "edit";
+	const entityId = mode.kind === "edit" ? mode.entityId : (mode.seedEntityId ?? null);
+	const source = useRyotQuery(
+		sourceQuery,
+		{
+			forEdit,
+			entityId,
+			packageId,
+			entitySchemaSlug,
+			parents: (mode.kind === "create" ? mode.parents : undefined) ?? {},
+			relationships: definitions.relationships.map(
+				({ slug, direction, relatedEntitySchemaSlug }) => ({
+					slug,
+					direction,
+					relatedEntitySchemaSlug,
+				}),
+			),
+		},
+		{ refreshOnMutation: false },
+	);
+	if (source.isError) {
+		return <LoadFailure onRetry={() => source.refetch()} />;
+	}
+	if (source.data === undefined) {
+		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+	}
+	if (entityId !== null && source.data.entity === null) {
+		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
+	}
+	if (forEdit && source.data.entity?.canEdit !== true) {
+		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
+	}
+	return <EntityEditorForm {...props} source={source.data} definitions={definitions} />;
+}
+
 function EntityEditorForm(
 	props: EntityEditorProps & {
+		readonly source: {
+			readonly relationships: EditorRelationshipTargets;
+			readonly entity: null | {
+				readonly name: string;
+				readonly updatedAt: string;
+				readonly properties: EditorProperties;
+			};
+		};
 		readonly definitions: {
 			readonly relationships: readonly EditorRelationshipDefinition[];
 			readonly entity: {
 				readonly name: string;
 				readonly propertiesSchema: AppSchema;
-				readonly editor: { readonly deletable?: boolean | undefined } | null;
+				readonly editor: null | { readonly deletable?: boolean | undefined };
 			};
-		};
-		readonly source: {
-			readonly relationships: EditorRelationshipTargets;
-			readonly entity: {
-				readonly name: string;
-				readonly updatedAt: string;
-				readonly properties: EditorProperties;
-			} | null;
 		};
 	},
 ) {
@@ -236,7 +330,7 @@ function EntityEditorForm(
 		);
 	};
 	const { mode, source, definitions } = props;
-	const attempt = useRef<EntityEditorSaveRequest | undefined>(undefined);
+	const attempt = useRef<undefined | EntityEditorSaveRequest>(undefined);
 	const schema = definitions.entity.propertiesSchema;
 	const formMode = mode.kind === "edit" ? "edit" : "create";
 	const stored = source.entity?.properties ?? {};
@@ -353,8 +447,8 @@ function EntityEditorForm(
 	};
 
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
-	const deleteAttempt = useRef<EntityEditorSaveRequest | undefined>(undefined);
-	const [deleting, setDeleting] = useState<SaveStatus | null>(null);
+	const deleteAttempt = useRef<undefined | EntityEditorSaveRequest>(undefined);
+	const [deleting, setDeleting] = useState<null | SaveStatus>(null);
 	const confirmDelete = () => {
 		if (mode.kind !== "edit" || source.entity === null) {
 			return;
@@ -514,99 +608,5 @@ function EntityEditorForm(
 				/>
 			)}
 		</ActionForm>
-	);
-}
-
-function EntityEditorSource(
-	props: EntityEditorProps & {
-		readonly definitions: Parameters<typeof EntityEditorForm>[0]["definitions"];
-	},
-) {
-	const { mode, packageId, definitions, entitySchemaSlug } = props;
-	const forEdit = mode.kind === "edit";
-	const entityId = mode.kind === "edit" ? mode.entityId : (mode.seedEntityId ?? null);
-	const source = useRyotQuery(
-		sourceQuery,
-		{
-			forEdit,
-			entityId,
-			packageId,
-			entitySchemaSlug,
-			parents: (mode.kind === "create" ? mode.parents : undefined) ?? {},
-			relationships: definitions.relationships.map(
-				({ slug, direction, relatedEntitySchemaSlug }) => ({
-					slug,
-					direction,
-					relatedEntitySchemaSlug,
-				}),
-			),
-		},
-		{ refreshOnMutation: false },
-	);
-	if (source.isError) {
-		return <LoadFailure onRetry={() => source.refetch()} />;
-	}
-	if (source.data === undefined) {
-		return <StatusMessage tone="pending">Loading…</StatusMessage>;
-	}
-	if (entityId !== null && source.data.entity === null) {
-		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
-	}
-	if (forEdit && source.data.entity?.canEdit !== true) {
-		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
-	}
-	return <EntityEditorForm {...props} source={source.data} definitions={definitions} />;
-}
-
-function LoadFailure(props: { readonly onRetry: () => void }) {
-	return (
-		<div className="flex flex-col items-start gap-3">
-			<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
-			<Button variant="secondary" onClick={props.onRetry}>
-				Retry
-			</Button>
-		</div>
-	);
-}
-
-export function EntityEditor(props: EntityEditorProps) {
-	const { packageId, entitySchemaSlug } = props;
-	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
-	if (definitions.isError) {
-		return <LoadFailure onRetry={() => definitions.refetch()} />;
-	}
-	if (definitions.data === undefined) {
-		return <StatusMessage tone="pending">Loading…</StatusMessage>;
-	}
-	if (definitions.data.entity.editor === null) {
-		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
-	}
-	return <EntityEditorSource {...props} definitions={definitions.data} />;
-}
-
-export function EntityEditorScreen(
-	props: Omit<EntityEditorProps, "onCancel" | "onSaved" | "onDeleted">,
-) {
-	const { mode, packageId, entitySchemaSlug } = props;
-	const client = useRyot();
-	const navigation = usePluginNavigation();
-	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
-	return (
-		<PluginScreenFrame
-			title={
-				definitions.data === undefined ? null : editorTitle(mode, definitions.data.entity.name)
-			}
-		>
-			<EntityEditor
-				{...props}
-				onCancel={() => navigation.back()}
-				onDeleted={() => navigation.back()}
-				onSaved={(entityId, parentEntityId) =>
-					parentEntityId === undefined
-						? client.navigation.replace({ entityId, kind: "entity" })
-						: navigation.back()
-				}
-			/>
-		</PluginScreenFrame>
 	);
 }

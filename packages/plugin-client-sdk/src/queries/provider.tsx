@@ -24,13 +24,13 @@ import { type RyotSchedule, RyotScheduleService } from "../schedule";
 import { idleTTL } from "./definitions";
 
 export const RyotContext = createContext<
+	| undefined
 	| {
 			readonly client: RyotClient;
 			readonly hostServices: unknown;
 			readonly schedule: RyotSchedule;
-			readonly navigation: PluginRouterNavigation | undefined;
+			readonly navigation: undefined | PluginRouterNavigation;
 	  }
-	| undefined
 >(undefined);
 
 export const usePluginIdentity = (packageId: PluginPackageId) =>

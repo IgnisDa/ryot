@@ -20,12 +20,16 @@ export const makeContractClient = (
 export type ContractClient = Effect.Success<ReturnType<typeof makeContractClient>>;
 export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
 
-type GroupKey = keyof ContractClient;
-type MethodKey<G extends GroupKey> = keyof ContractClient[G];
-type ContractEndpoint<G extends GroupKey, M extends MethodKey<G>> = HttpApiEndpoint.WithIdentifier<
-	HttpApiGroup.EndpointsWithIdentifier<AppGroups, G>,
-	Extract<M, string>
+export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { payload: infer P } ? P : never;
+export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { query: infer U } ? U : never;
+export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
+	ContractRequest<G, M> extends { params: infer P } ? P : never;
+export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = HttpApiClient.SuccessType<
+	HttpApiEndpoint.Success<ContractEndpoint<G, M>>
 >;
+
 export type ContractRequest<
 	G extends GroupKey,
 	M extends MethodKey<G>,
@@ -36,13 +40,9 @@ export type ContractRequest<
 	ContractEndpoint<G, M>["~Headers"],
 	"decoded-only"
 >;
-
-export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
-	ContractRequest<G, M> extends { payload: infer P } ? P : never;
-export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
-	ContractRequest<G, M> extends { query: infer U } ? U : never;
-export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
-	ContractRequest<G, M> extends { params: infer P } ? P : never;
-export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = HttpApiClient.SuccessType<
-	HttpApiEndpoint.Success<ContractEndpoint<G, M>>
+type GroupKey = keyof ContractClient;
+type MethodKey<G extends GroupKey> = keyof ContractClient[G];
+type ContractEndpoint<G extends GroupKey, M extends MethodKey<G>> = HttpApiEndpoint.WithIdentifier<
+	HttpApiGroup.EndpointsWithIdentifier<AppGroups, G>,
+	Extract<M, string>
 >;

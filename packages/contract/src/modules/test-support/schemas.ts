@@ -23,10 +23,6 @@ const TestSupportDiagnosticReason = Schema.Union([
 	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("resource-not-found") }),
 ]);
 
-export class TestSupportBadRequest extends Schema.TaggedError<
-	TestSupportBadRequest,
-	{ readonly brand: unique symbol }
->()("TestSupportBadRequest", { reason: TestSupportDiagnosticReason }) {}
 export class TestSupportNotFound extends Schema.TaggedError<
 	TestSupportNotFound,
 	{ readonly brand: unique symbol }
@@ -35,6 +31,10 @@ export class TestSupportConflict extends Schema.TaggedError<
 	TestSupportConflict,
 	{ readonly brand: unique symbol }
 >()("TestSupportConflict", { reason: TestSupportDiagnosticReason }) {}
+export class TestSupportBadRequest extends Schema.TaggedError<
+	TestSupportBadRequest,
+	{ readonly brand: unique symbol }
+>()("TestSupportBadRequest", { reason: TestSupportDiagnosticReason }) {}
 export class TestSupportOperationFailure extends Schema.TaggedError<
 	TestSupportOperationFailure,
 	{ readonly brand: unique symbol }

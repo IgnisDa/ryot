@@ -17,26 +17,26 @@ import {
 } from "./definitions";
 import { RyotContext } from "./provider";
 
+export type RyotQueryHookOptions = { readonly refreshOnMutation?: boolean };
+
 export type RyotQueryResult<Data> = {
 	readonly isError: boolean;
 	readonly isSuccess: boolean;
 	readonly isPending: boolean;
-	readonly error: Error | null;
+	readonly error: null | Error;
 	readonly isFetching: boolean;
 	readonly refetch: () => void;
 	readonly data: Data | undefined;
-	readonly status: "pending" | "error" | "success";
+	readonly status: "error" | "pending" | "success";
 };
-
-export type RyotQueryHookOptions = { readonly refreshOnMutation?: boolean };
 
 export type RyotMutationResult<Input, Data, Failure extends Error = Error> = {
 	readonly reset: () => void;
 	readonly isPending: boolean;
-	readonly error: Error | null;
+	readonly error: null | Error;
 	readonly data: Data | undefined;
 	readonly mutate: (input: Input) => void;
-	readonly status: "idle" | "pending" | "error" | "success";
+	readonly status: "idle" | "error" | "pending" | "success";
 	readonly mutateEffect: (input: Input) => Effect.Effect<Data, Failure>;
 };
 
@@ -83,7 +83,7 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 		if (!active || !query.refreshWhile) {
 			return undefined;
 		}
-		let cancel: (() => void) | undefined;
+		let cancel: undefined | (() => void);
 		let disposed = false;
 		const arm = () => {
 			cancel?.();

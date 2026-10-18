@@ -62,7 +62,7 @@ const sourceSelection = {
 export const evaluateImportSourceReadiness = (
 	item: Pick<
 		SelectedRow<typeof sourceSelection>,
-		"isStartable" | "workflowSlug" | "inputSchema" | "readinessMetadata" | "plan"
+		"plan" | "isStartable" | "inputSchema" | "workflowSlug" | "readinessMetadata"
 	>,
 	settings?: Readonly<Record<string, unknown>>,
 ) => {
@@ -81,7 +81,7 @@ export const evaluateImportSourceReadiness = (
 };
 
 export const importSourcesRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		queries: {
 			sources: selectedRows(source, {
 				after: input.after,

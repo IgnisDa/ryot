@@ -31,14 +31,14 @@ const presentation = defineEntityPresentation<string>({
 type Recorded = {
 	readonly loaded: string[];
 	readonly stylesheets: string[];
-	readonly pages: { component: unknown; options: unknown }[];
-	readonly plugins: { definition: unknown; options: unknown }[];
+	readonly pages: { options: unknown; component: unknown }[];
+	readonly plugins: { options: unknown; definition: unknown }[];
 };
 
 const harness = (
 	modules: Record<string, Record<string, unknown>>,
 	failures: { readonly modules?: readonly string[]; readonly stylesheets?: readonly string[] } = {},
-): { readonly dependencies: CompositionDependencies; readonly recorded: Recorded } => {
+): { readonly recorded: Recorded; readonly dependencies: CompositionDependencies } => {
 	const recorded: Recorded = { pages: [], loaded: [], plugins: [], stylesheets: [] };
 	return {
 		recorded,

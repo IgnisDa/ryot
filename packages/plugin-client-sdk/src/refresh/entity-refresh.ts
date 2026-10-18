@@ -36,9 +36,9 @@ export const createEntityRefresh = <E>(
 	let running = false;
 	let blocked = false;
 	let disposed = false;
-	let cancel: (() => void) | undefined;
-	let interrupt: (() => void) | undefined;
-	let queued: Map<string, EntityUpdate> | undefined;
+	let cancel: undefined | (() => void);
+	let interrupt: undefined | (() => void);
+	let queued: undefined | Map<string, EntityUpdate>;
 	let immediate = false;
 	const requeue = (batch: readonly EntityUpdate[]) => {
 		const restored = new Map(batch.map((update) => [update.entityId, update]));

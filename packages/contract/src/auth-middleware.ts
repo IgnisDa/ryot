@@ -22,10 +22,35 @@ const AuthRateLimitReason = Schema.Struct({
 	retryAfterMs: Schema.NullOr(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
 });
 
+export type CurrentUserValue = {
+	readonly id: UserId;
+	readonly name: string;
+	readonly email: string;
+	readonly image: null | string;
+	readonly preferences: UserPreferences;
+	readonly accountGeneration: AccountGeneration;
+};
+
+export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()("CurrentUser") {}
+
+export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
+	"AdminAccess",
+) {}
+
+export class AuthorizationContext extends Context.Service<
+	AuthorizationContext,
+	AuthorizationContextValue
+>()("AuthorizationContext") {}
+
 export class AuthRateLimited extends Schema.TaggedError<
 	AuthRateLimited,
 	{ readonly brand: unique symbol }
 >()("AuthRateLimited", { reason: AuthRateLimitReason }) {}
+
+export class UserInitializing extends Schema.TaggedError<
+	UserInitializing,
+	{ readonly brand: unique symbol }
+>()("UserInitializing", { reason: Schema.Struct({ code: Schema.Literal("user-initializing") }) }) {}
 
 export class DemoOperationProtected extends Schema.TaggedError<
 	DemoOperationProtected,
@@ -34,30 +59,13 @@ export class DemoOperationProtected extends Schema.TaggedError<
 	reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }),
 }) {}
 
-export class UserInitializing extends Schema.TaggedError<
-	UserInitializing,
-	{ readonly brand: unique symbol }
->()("UserInitializing", { reason: Schema.Struct({ code: Schema.Literal("user-initializing") }) }) {}
-
-export type CurrentUserValue = {
-	readonly id: UserId;
-	readonly accountGeneration: AccountGeneration;
-	readonly name: string;
-	readonly email: string;
-	readonly image: string | null;
-	readonly preferences: UserPreferences;
-};
-
-export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()("CurrentUser") {}
-
-export class AuthorizationContext extends Context.Service<
-	AuthorizationContext,
-	AuthorizationContextValue
->()("AuthorizationContext") {}
-
-export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
-	"AdminAccess",
-) {}
+export class AdminMiddleware extends HttpApiMiddleware.Service<
+	AdminMiddleware,
+	{ provides: AdminAccess }
+>()("AdminMiddleware", {
+	error: AuthUnauthorized.pipe(HttpApiSchema.status(401)),
+	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
+}) {}
 
 /**
  * @effect-expect-leaking HttpServerRequest
@@ -66,7 +74,7 @@ export class AdminAccess extends Context.Service<AdminAccess, { readonly authori
  */
 export class AuthMiddleware extends HttpApiMiddleware.Service<
 	AuthMiddleware,
-	{ provides: AuthorizationContext | CurrentUser }
+	{ provides: CurrentUser | AuthorizationContext }
 >()("AuthMiddleware", {
 	security: {
 		oauth: HttpApiSecurity.bearer,
@@ -78,12 +86,4 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
 		UserInitializing.pipe(HttpApiSchema.status(503)),
 	],
-}) {}
-
-export class AdminMiddleware extends HttpApiMiddleware.Service<
-	AdminMiddleware,
-	{ provides: AdminAccess }
->()("AdminMiddleware", {
-	error: AuthUnauthorized.pipe(HttpApiSchema.status(401)),
-	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
 }) {}

@@ -226,9 +226,9 @@ const uploadAsset: SchemaAssetUpload = () =>
 	Promise.resolve({ kind: "uploaded", asset: { type: "local", key: "images/new.png" } });
 
 function SchemaFormHarness(props: {
+	assets?: boolean;
 	schema?: AppSchema;
 	mode?: SchemaFormMode;
-	assets?: boolean;
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	const selectedSchema = props.schema ?? schema;

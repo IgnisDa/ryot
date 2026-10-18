@@ -64,11 +64,12 @@ export const defineAutomation = <
 	Failure,
 	Run extends AutomationDefinition<Manifest, Failure>["run"],
 >(definition: {
+	readonly run: Run;
 	readonly manifest: Manifest;
-	readonly run: Run;
-}): Omit<AutomationDefinition<Manifest, Effect.Error<ReturnType<Run>>>, "run"> & {
-	readonly run: Run;
-} => ({
+}): { readonly run: Run } & Omit<
+	AutomationDefinition<Manifest, Effect.Error<ReturnType<Run>>>,
+	"run"
+> => ({
 	run: definition.run,
 	input: automationInputSchema,
 	manifest: definition.manifest,
@@ -80,11 +81,12 @@ export const defineAutomationPolicy = <
 	Failure,
 	Run extends AutomationPolicyDefinition<Manifest, Failure>["run"],
 >(definition: {
+	readonly run: Run;
 	readonly manifest: Manifest;
-	readonly run: Run;
-}): Omit<AutomationPolicyDefinition<Manifest, Effect.Error<ReturnType<Run>>>, "run"> & {
-	readonly run: Run;
-} => ({
+}): { readonly run: Run } & Omit<
+	AutomationPolicyDefinition<Manifest, Effect.Error<ReturnType<Run>>>,
+	"run"
+> => ({
 	run: definition.run,
 	manifest: definition.manifest,
 	input: automationPolicyBatchInputSchema,

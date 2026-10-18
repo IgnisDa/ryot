@@ -145,7 +145,7 @@ export type ProviderDetailsChildEntity = {
 	readonly properties: JsonValue;
 	readonly entitySchemaSlug: string;
 	readonly expectedChildEntitySchemaSlug?: string | undefined;
-	readonly childEntities?: readonly ProviderDetailsChildEntity[] | undefined;
+	readonly childEntities?: undefined | readonly ProviderDetailsChildEntity[];
 };
 export const providerDetailsChildEntitySchema: Schema.Codec<
 	ProviderDetailsChildEntity,
@@ -198,52 +198,53 @@ export const providerOperationContracts = {
 	},
 } as const;
 
-export type ProviderSearchResultItem = Schema.Schema.Type<typeof providerSearchResultItemSchema>;
+export type ProviderOperation = keyof typeof providerOperationContracts;
 export type ProviderSearchInput = Schema.Schema.Type<typeof providerSearchInputSchema>;
 export type ProviderSearchResult = Schema.Schema.Type<typeof providerSearchResultSchema>;
+export type ProviderDetailsInput = Schema.Schema.Type<typeof providerDetailsInputSchema>;
+export type ProviderRelatedInput = Schema.Schema.Type<typeof providerRelatedInputSchema>;
+export type ProviderResolveInput = Schema.Schema.Type<typeof providerResolveInputSchema>;
+export type ProviderDetailsResult = Schema.Schema.Type<typeof providerDetailsResultSchema>;
+export type ProviderRelatedResult = Schema.Schema.Type<typeof providerRelatedResultSchema>;
+export type ProviderResolveResult = Schema.Schema.Type<typeof providerResolveResultSchema>;
+export type ProviderTranslateInput = Schema.Schema.Type<typeof providerTranslateInputSchema>;
+export type ProviderTranslateResult = Schema.Schema.Type<typeof providerTranslateResultSchema>;
+export type ProviderSearchResultItem = Schema.Schema.Type<typeof providerSearchResultItemSchema>;
 export type ProviderSearchOptionsInput = Schema.Schema.Type<
 	typeof providerSearchOptionsInputSchema
 >;
 export type ProviderSearchOptionsResult = Schema.Schema.Type<
 	typeof providerSearchOptionsResultSchema
 >;
-export type ProviderDetailsInput = Schema.Schema.Type<typeof providerDetailsInputSchema>;
-export type ProviderDetailsResult = Schema.Schema.Type<typeof providerDetailsResultSchema>;
-export type ProviderRelatedInput = Schema.Schema.Type<typeof providerRelatedInputSchema>;
-export type ProviderRelatedResult = Schema.Schema.Type<typeof providerRelatedResultSchema>;
-export type ProviderResolveInput = Schema.Schema.Type<typeof providerResolveInputSchema>;
-export type ProviderResolveResult = Schema.Schema.Type<typeof providerResolveResultSchema>;
-export type ProviderTranslateInput = Schema.Schema.Type<typeof providerTranslateInputSchema>;
-export type ProviderTranslateResult = Schema.Schema.Type<typeof providerTranslateResultSchema>;
 export type ProviderDetailsRelatedEntity = Schema.Schema.Type<
 	typeof providerDetailsRelatedEntitySchema
 >;
 export type ProviderDetailsRelatedEntityGroup = Schema.Schema.Type<
 	typeof providerDetailsRelatedEntityGroupSchema
 >;
-export type ProviderOperation = keyof typeof providerOperationContracts;
 export type ProviderDefinition<
 	Manifest extends ProviderManifest,
 	Operation extends ProviderOperation,
 	Failure,
-> = GenericScriptDefinition<
+> = { readonly operation: Operation } & GenericScriptDefinition<
 	Manifest,
 	(typeof providerOperationContracts)[Operation]["input"],
 	(typeof providerOperationContracts)[Operation]["output"],
 	Failure
-> & { readonly operation: Operation };
+>;
 export const defineProvider = <
 	const Manifest extends ProviderManifest,
 	const Operation extends ProviderOperation,
 	Failure,
 	Run extends ProviderDefinition<Manifest, Operation, Failure>["run"],
 >(definition: {
+	readonly run: Run;
 	readonly manifest: Manifest;
 	readonly operation: Operation;
-	readonly run: Run;
-}): Omit<ProviderDefinition<Manifest, Operation, Effect.Error<ReturnType<Run>>>, "run"> & {
-	readonly run: Run;
-} => ({
+}): { readonly run: Run } & Omit<
+	ProviderDefinition<Manifest, Operation, Effect.Error<ReturnType<Run>>>,
+	"run"
+> => ({
 	...definition,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
 	input: providerOperationContracts[definition.operation].input,

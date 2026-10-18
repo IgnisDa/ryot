@@ -12,8 +12,8 @@ const toneClasses = {
 type StatusMessageProps = ComponentProps<"p"> & {
 	readonly tone: keyof typeof toneClasses;
 	readonly action?:
-		| { readonly label: string; readonly disabled?: boolean; readonly onClick: () => void }
-		| undefined;
+		| undefined
+		| { readonly label: string; readonly disabled?: boolean; readonly onClick: () => void };
 };
 
 export function StatusMessage({ tone, action, className, ...props }: StatusMessageProps) {

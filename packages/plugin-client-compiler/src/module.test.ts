@@ -25,7 +25,7 @@ const pluginIdentity = {
 	kind: "plugin" as const,
 	clientDeclarationHash: clientDeclarationHash({ homeView: null, apiVersion: CLIENT_API_VERSION }),
 };
-const text = (contents: Uint8Array | undefined) => new TextDecoder().decode(contents);
+const text = (contents: undefined | Uint8Array) => new TextDecoder().decode(contents);
 const assertDefined: <Value>(value: Value | undefined) => asserts value is Value = (value) => {
 	expect(value).toBeDefined();
 };

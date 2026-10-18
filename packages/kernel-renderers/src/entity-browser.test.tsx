@@ -90,7 +90,7 @@ const replyBrowser = (
 	requestId: string,
 	items: readonly Record<string, unknown>[],
 	hasMore = false,
-	nextCursor: string | null = null,
+	nextCursor: null | string = null,
 ) =>
 	page.replyQuery(requestId, {
 		outcome: "success",
@@ -109,7 +109,7 @@ const answerBrowser = (
 	answered: Set<string>,
 	items: readonly Record<string, unknown>[],
 	hasMore = false,
-	nextCursor: string | null = null,
+	nextCursor: null | string = null,
 ) =>
 	waitFor(() => {
 		const pending = page
@@ -782,7 +782,7 @@ const lastFiltersUpdate = (page: ReturnType<typeof mountPluginPage>) =>
 		.map(({ update }) => update["filters"])
 		.at(-1);
 
-const decodeFiltersUpdate = (encoded: string | null | undefined): unknown =>
+const decodeFiltersUpdate = (encoded: null | string | undefined): unknown =>
 	typeof encoded === "string"
 		? JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"))
 		: encoded;

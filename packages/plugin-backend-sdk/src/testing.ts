@@ -11,6 +11,11 @@ import {
 	workflowReplayJournalEntrySchema,
 } from "./workflow/protocol";
 
+type SandboxTestHost<Host extends object> = Partial<Omit<Host, "getPluginConfig">> &
+	("getPluginConfig" extends keyof Host
+		? { readonly getPluginConfig?: CoreSandboxHostMethodMap["getPluginConfig"] }
+		: object);
+
 type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
 	readonly kind: "workflow";
 }
@@ -18,11 +23,6 @@ type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
 	: Manifest extends { readonly kind: "automation"; readonly automationType: "policy" }
 		? PolicyHost
 		: ScriptHost;
-
-type SandboxTestHost<Host extends object> = Partial<Omit<Host, "getPluginConfig">> &
-	("getPluginConfig" extends keyof Host
-		? { readonly getPluginConfig?: CoreSandboxHostMethodMap["getPluginConfig"] }
-		: object);
 
 export function defineSandboxTestHost<const Manifest extends SandboxManifest>(
 	_manifest: Manifest,
@@ -44,10 +44,10 @@ export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): Workflo
 		}),
 });
 
-let testFilesystem: SandboxFilesystemBinding | undefined;
+let testFilesystem: undefined | SandboxFilesystemBinding;
 let testFilesystemConfigured = false;
 
-export const installSandboxTestFilesystem = (binding: SandboxFilesystemBinding | undefined) => {
+export const installSandboxTestFilesystem = (binding: undefined | SandboxFilesystemBinding) => {
 	if (!testFilesystemConfigured) {
 		configureSandboxFilesystem(() => testFilesystem);
 		testFilesystemConfigured = true;

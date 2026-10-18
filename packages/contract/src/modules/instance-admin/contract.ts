@@ -32,14 +32,14 @@ const InstanceAdminInternalFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("impersonation-unavailable") }),
 ]);
 
-export class InstanceAdminRequestFailure extends Schema.TaggedError<
-	InstanceAdminRequestFailure,
-	{ readonly brand: unique symbol }
->()("InstanceAdminRequestFailure", { reason: InstanceAdminRequestFailureReason }) {}
 export class InstanceAdminNotFound extends Schema.TaggedError<
 	InstanceAdminNotFound,
 	{ readonly brand: unique symbol }
 >()("InstanceAdminNotFound", { reason: InstanceAdminNotFoundReason }) {}
+export class InstanceAdminRequestFailure extends Schema.TaggedError<
+	InstanceAdminRequestFailure,
+	{ readonly brand: unique symbol }
+>()("InstanceAdminRequestFailure", { reason: InstanceAdminRequestFailureReason }) {}
 export class InstanceAdminInternalFailure extends Schema.TaggedError<
 	InstanceAdminInternalFailure,
 	{ readonly brand: unique symbol }

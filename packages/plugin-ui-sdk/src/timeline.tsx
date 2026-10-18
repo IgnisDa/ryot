@@ -52,13 +52,13 @@ export function TimelineEntry(props: {
 	readonly actions?: ReactNode | undefined;
 	readonly children?: ReactNode | undefined;
 	readonly expand?:
+		| undefined
 		| {
 				readonly label: string;
 				readonly expanded: boolean;
 				readonly content: ReactNode;
 				readonly onToggle: () => void;
-		  }
-		| undefined;
+		  };
 }) {
 	const contentId = useId();
 	return (

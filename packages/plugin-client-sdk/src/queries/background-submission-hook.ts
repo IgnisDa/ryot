@@ -30,8 +30,8 @@ export const createRyotBackgroundSubmission = <
 
 export type RyotBackgroundSubmissionState<Input> =
 	| { readonly status: "idle" }
-	| { readonly status: "sending"; readonly submission: RyotSubmission<Input> }
 	| { readonly status: "rejected"; readonly error: RyotClientError }
+	| { readonly status: "sending"; readonly submission: RyotSubmission<Input> }
 	| {
 			readonly status: "accepted";
 			readonly submissionId: string;
@@ -54,7 +54,7 @@ export const useBackgroundSubmission = <
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const [state, setState] = useState<RyotBackgroundSubmissionState<Input>>({ status: "idle" });
-	const latest = useRef<{ submissionId: string | undefined } | undefined>(undefined);
+	const latest = useRef<undefined | { submissionId: string | undefined }>(undefined);
 	const settled = useRef(new Map<string, BackgroundSubmissionOutcome>());
 
 	useEffect(

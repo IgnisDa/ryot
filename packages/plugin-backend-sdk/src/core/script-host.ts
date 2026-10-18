@@ -5,16 +5,10 @@ import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { SandboxHostError } from "../wire";
 import type { SandboxHostMethodMap } from "./host-contracts";
 
-export type SandboxWorkflowReference<
-	Input extends Schema.Constraint,
-	Output extends Schema.ConstraintDecoder<unknown>,
-> = {
-	readonly input: Input;
-	readonly output: Output;
-	readonly workflowSlug: string;
-	readonly referenceKind: "workflow";
-	readonly selection?: SandboxExecutionMetadata["executableDependencies"][number]["selection"];
-};
+export type ScriptHost = Readonly<SandboxWorkflowHost & SandboxHostMethodMap>;
+export type PolicyHost = Readonly<
+	Pick<SandboxHostMethodMap, (typeof POLICY_SAFE_SANDBOX_CAPABILITIES)[number]>
+>;
 export type SandboxWorkflowHost = {
 	readonly executeWorkflow?: <
 		Input extends Schema.Constraint,
@@ -25,7 +19,13 @@ export type SandboxWorkflowHost = {
 		input: Input["Type"],
 	) => Effect.Effect<Output["Type"], SandboxHostError>;
 };
-export type ScriptHost = Readonly<SandboxHostMethodMap & SandboxWorkflowHost>;
-export type PolicyHost = Readonly<
-	Pick<SandboxHostMethodMap, (typeof POLICY_SAFE_SANDBOX_CAPABILITIES)[number]>
->;
+export type SandboxWorkflowReference<
+	Input extends Schema.Constraint,
+	Output extends Schema.ConstraintDecoder<unknown>,
+> = {
+	readonly input: Input;
+	readonly output: Output;
+	readonly workflowSlug: string;
+	readonly referenceKind: "workflow";
+	readonly selection?: SandboxExecutionMetadata["executableDependencies"][number]["selection"];
+};

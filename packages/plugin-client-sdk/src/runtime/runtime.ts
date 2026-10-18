@@ -6,19 +6,6 @@ import type { RyotClient } from "../client/client";
 import type { PluginRouterNavigation } from "../navigation/store";
 import { RyotScheduleService } from "../schedule";
 
-export class RyotClientService extends Context.Service<RyotClientService, RyotClient>()(
-	"RyotClientService",
-) {
-	static readonly layer = (client: RyotClient) => Layer.succeed(this, client);
-}
-
-export class RyotNavigationService extends Context.Service<
-	RyotNavigationService,
-	PluginRouterNavigation
->()("RyotNavigationService") {
-	static readonly layer = (navigation: PluginRouterNavigation) => Layer.succeed(this, navigation);
-}
-
 export type RyotRuntime = ManagedRuntime.ManagedRuntime<
 	RyotClientService | RyotScheduleService,
 	never
@@ -32,6 +19,19 @@ export type RyotPluginRuntime = ManagedRuntime.ManagedRuntime<
 	RyotClientService | RyotScheduleService | RyotNavigationService,
 	never
 >;
+
+export class RyotClientService extends Context.Service<RyotClientService, RyotClient>()(
+	"RyotClientService",
+) {
+	static readonly layer = (client: RyotClient) => Layer.succeed(this, client);
+}
+
+export class RyotNavigationService extends Context.Service<
+	RyotNavigationService,
+	PluginRouterNavigation
+>()("RyotNavigationService") {
+	static readonly layer = (navigation: PluginRouterNavigation) => Layer.succeed(this, navigation);
+}
 
 const makeRyotLayer = (client: RyotClient, schedule: Layer.Layer<RyotScheduleService>) =>
 	Layer.mergeAll(RyotClientService.layer(client), schedule);

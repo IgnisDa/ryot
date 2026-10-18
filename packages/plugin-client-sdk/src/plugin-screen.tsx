@@ -14,7 +14,7 @@ type PluginScreenFrameProps = {
 	readonly menuLabel?: string;
 	readonly children: ReactNode;
 	readonly actions?: ReactNode;
-	readonly title: string | null;
+	readonly title: null | string;
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
@@ -107,7 +107,7 @@ export const viewResultLabel = (input: {
 	readonly loaded: number;
 	readonly hasMore: boolean;
 	readonly total: number | undefined;
-	readonly noun?: { readonly one: string; readonly other: string } | undefined;
+	readonly noun?: undefined | { readonly one: string; readonly other: string };
 }) => {
 	const { one, other } = input.noun ?? { one: "result", other: "results" };
 	if (input.hasMore && input.total !== undefined) {
@@ -123,7 +123,7 @@ export function ViewFiltersButton({
 }: {
 	readonly onClick: () => void;
 	readonly activeCount: number;
-	readonly ref?: Ref<HTMLButtonElement> | undefined;
+	readonly ref?: undefined | Ref<HTMLButtonElement>;
 }) {
 	return (
 		<button

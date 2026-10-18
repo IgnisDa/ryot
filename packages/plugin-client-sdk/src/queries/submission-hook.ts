@@ -16,7 +16,7 @@ export const useRyotSubmission = <Input, Data, HostServices, Failure extends Err
 	);
 	const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
 	const mutation = useRyotMutation(definition);
-	const run = (submission: RyotSubmission<Input> | null) => {
+	const run = (submission: null | RyotSubmission<Input>) => {
 		if (submission === null) {
 			return;
 		}

@@ -18,7 +18,7 @@ describe("authenticated mutation endpoints", () => {
 			for (const endpoint of Object.values(group.endpoints)) {
 				if (
 					!endpoint.middlewares.has(AuthMiddleware) ||
-					!["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method)
+					!["PUT", "POST", "PATCH", "DELETE"].includes(endpoint.method)
 				) {
 					continue;
 				}

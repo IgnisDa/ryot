@@ -7,6 +7,6 @@ export const importRunFailureStages = [
 	"input_transformation",
 ] as const;
 
-export type ImportRunFailureStage = (typeof importRunFailureStages)[number];
-
 export type ImportRunSource = string;
+
+export type ImportRunFailureStage = (typeof importRunFailureStages)[number];

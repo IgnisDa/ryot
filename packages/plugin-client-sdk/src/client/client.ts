@@ -121,7 +121,7 @@ const adapterEffect = (call: () => Effect.Effect<unknown, RyotClientError>) =>
 const openScreen = <Request, Outcome>(
 	requestSchema: Schema.Codec<Request, unknown>,
 	outcomeSchema: Schema.Codec<Outcome, unknown>,
-	open: ((request: Request) => Effect.Effect<unknown, RyotClientError>) | undefined,
+	open: undefined | ((request: Request) => Effect.Effect<unknown, RyotClientError>),
 	request: unknown,
 ): Effect.Effect<Outcome, RyotClientError> => {
 	const decoded = Schema.decodeUnknownResult(requestSchema)(request);
@@ -221,7 +221,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			}
 			return output;
 		});
-	const accessStorage = (request: unknown): Effect.Effect<JsonValue | null, RyotClientError> =>
+	const accessStorage = (request: unknown): Effect.Effect<null | JsonValue, RyotClientError> =>
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
 			if (Result.isFailure(decodedRequest)) {
@@ -286,7 +286,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			return result;
 		});
 	let themeSnapshotInput: unknown;
-	let themeSnapshot: PluginThemeSnapshot | undefined;
+	let themeSnapshot: undefined | PluginThemeSnapshot;
 	const decodeThemeSnapshot = (value: unknown): PluginThemeSnapshot => {
 		if (themeSnapshot && Object.is(value, themeSnapshotInput)) {
 			return themeSnapshot;
@@ -332,7 +332,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const pickEntity = (request: RyotPickEntityRequest) =>
 		openScreen(PickEntityRequest, PickEntityOutcome, adapter.pickEntity, request);
 	const refreshAfterCollectionScreen = Effect.fnUntraced(function* (
-		outcome: AddToCollectionOutcome | EditCollectionOutcome,
+		outcome: EditCollectionOutcome | AddToCollectionOutcome,
 	) {
 		if (outcome.kind !== "cancelled") {
 			yield* Effect.sync(() => mutationCompleted.hint());

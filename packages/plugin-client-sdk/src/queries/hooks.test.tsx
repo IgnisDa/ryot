@@ -99,7 +99,7 @@ describe("Effect-native React definitions", () => {
 			Effect.gen(function* () {
 				type Page = {
 					readonly items: readonly string[];
-					readonly pageInfo: { readonly nextCursor: string | null };
+					readonly pageInfo: { readonly nextCursor: null | string };
 				};
 				const requests: Array<{
 					readonly selection: string;
@@ -107,7 +107,7 @@ describe("Effect-native React definitions", () => {
 					readonly resume: (page: Page) => void;
 				}> = [];
 				const query = createRyotQuery<
-					{ readonly selection: string; readonly after: string | null },
+					{ readonly selection: string; readonly after: null | string },
 					Page
 				>(({ input }) =>
 					Effect.callback<Page>((resume, signal) => {
@@ -122,7 +122,7 @@ describe("Effect-native React definitions", () => {
 					const result = useRyotInfiniteQuery(query, selection, {
 						initialPageParam: null,
 						getNextPageParam: nextPageCursor,
-						getPageInput: (input, after: string | null) => ({ after, selection: input }),
+						getPageInput: (input, after: null | string) => ({ after, selection: input }),
 					});
 					return <p>{result.data?.items.join(",") ?? "pending"}</p>;
 				};
@@ -147,13 +147,13 @@ describe("Effect-native React definitions", () => {
 		Effect.gen(function* () {
 			type Page = {
 				readonly items: readonly string[];
-				readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+				readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 			};
 			const requests: Array<{
-				readonly after: string | null;
+				readonly after: null | string;
 				readonly resume: (page: Page) => void;
 			}> = [];
-			const query = createRyotQuery<string | null, Page>(
+			const query = createRyotQuery<null | string, Page>(
 				({ input: after }) =>
 					Effect.callback<Page>((resume) => {
 						requests.push({ after, resume: (page) => resume(Effect.succeed(page)) });
@@ -164,7 +164,7 @@ describe("Effect-native React definitions", () => {
 				const result = useRyotInfiniteQuery(query, undefined, {
 					initialPageParam: null,
 					getNextPageParam: nextPageCursor,
-					getPageInput: (_, after: string | null) => after,
+					getPageInput: (_, after: null | string) => after,
 				});
 				return (
 					<>
@@ -299,7 +299,7 @@ describe("Effect-native React definitions", () => {
 	it.live("shares a query atom and refetches it on demand", () =>
 		Effect.gen(function* () {
 			let calls = 0;
-			let latest: RyotQueryResult<number> | undefined;
+			let latest: undefined | RyotQueryResult<number>;
 			const query = createRyotQuery(() => Effect.sync(() => ++calls));
 			const View = () => {
 				const result = useRyotQuery(query);
@@ -327,7 +327,7 @@ describe("Effect-native React definitions", () => {
 			Effect.gen(function* () {
 				type HostServices = { readonly value: string };
 				let calls = 0;
-				let latest: RyotQueryResult<string> | undefined;
+				let latest: undefined | RyotQueryResult<string>;
 				const query = createRyotQuery<{ readonly page: number }, string, HostServices>(
 					({ input, hostServices }) =>
 						Effect.sync(() => {
@@ -366,7 +366,7 @@ describe("Effect-native React definitions", () => {
 					readonly input: string;
 					readonly resume: (result: Effect.Effect<string, RyotClientError>) => void;
 				}> = [];
-				let latest: RyotQueryResult<string> | undefined;
+				let latest: undefined | RyotQueryResult<string>;
 				const query = createRyotQuery<string, string>(({ input }) =>
 					Effect.callback<string, RyotClientError>((resume) => {
 						requests.push({ input, resume });
@@ -411,7 +411,7 @@ describe("Effect-native React definitions", () => {
 	it.live("reads the provider clock on each execution without changing query identity", () =>
 		Effect.gen(function* () {
 			const clock = makeClock();
-			let latest: RyotQueryResult<number> | undefined;
+			let latest: undefined | RyotQueryResult<number>;
 			let calls = 0;
 			const query = createRyotQuery(({ schedule }) =>
 				Effect.sync(() => {
@@ -443,7 +443,7 @@ describe("Effect-native React definitions", () => {
 				readonly signal: AbortSignal;
 				readonly resume: (value: string) => void;
 			}> = [];
-			let latest: RyotQueryResult<string> | undefined;
+			let latest: undefined | RyotQueryResult<string>;
 			const query = createRyotQuery(
 				() =>
 					Effect.callback<string>((resume, signal) => {
@@ -485,7 +485,7 @@ describe("Effect-native React definitions", () => {
 	it.live("keeps the initial hydration through a query refresh", () =>
 		Effect.gen(function* () {
 			let calls = 0;
-			let latest: RyotQueryResult<number> | undefined;
+			let latest: undefined | RyotQueryResult<number>;
 			const query = createRyotQuery(() => Effect.sync(() => ++calls), { initialData: () => 0 });
 			const View = () => {
 				const result = useRyotQuery(query);
@@ -528,7 +528,7 @@ describe("Effect-native React definitions", () => {
 	it.live("runs a sequential mutation with typed failures and one capability completion hint", () =>
 		Effect.gen(function* () {
 			let hints = 0;
-			let latest: RyotMutationResult<string, string> | undefined;
+			let latest: undefined | RyotMutationResult<string, string>;
 			const clock = makeClock({ invokeOperation: ({ input }) => Effect.succeed(input) });
 			clock.client.mutationCompleted.subscribe(() => hints++);
 			const mutation = createRyotMutation<string, string>(({ input, client }) =>
@@ -569,7 +569,7 @@ describe("Effect-native React definitions", () => {
 
 	it.live("surfaces a tagged mutation failure and reset", () =>
 		Effect.gen(function* () {
-			let latest: RyotMutationResult<string, string> | undefined;
+			let latest: undefined | RyotMutationResult<string, string>;
 			const mutation = createRyotMutation<string, string>(() =>
 				Effect.fail(new RyotClientError("quota")),
 			);

@@ -73,7 +73,7 @@ const BrowserCount = ({
 
 type EntityBrowserPageProps = {
 	readonly add?: AddAction | undefined;
-	readonly renderResults?: BrowserResultsRenderer | undefined;
+	readonly renderResults?: undefined | BrowserResultsRenderer;
 };
 
 const Browser = ({

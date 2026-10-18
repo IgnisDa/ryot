@@ -17,6 +17,10 @@ import { managedAssetKey } from "../assets/keys";
 
 export type EditorProperties = Readonly<Record<string, unknown>>;
 
+export type EditorRelationshipTargets = Readonly<
+	Record<string, readonly EditorRelationshipTarget[]>
+>;
+
 export type EditorRelationshipTarget = {
 	readonly name: string;
 	readonly entityId: EntityId;
@@ -30,10 +34,6 @@ export type EditorRelationshipDefinition = {
 	readonly relatedEntitySchemaSlug: string;
 	readonly direction: PluginEntityEditorRelationship["direction"];
 };
-
-export type EditorRelationshipTargets = Readonly<
-	Record<string, readonly EditorRelationshipTarget[]>
->;
 
 const isManagedAsset = Schema.is(ManagedAssetLocator);
 
@@ -103,8 +103,8 @@ export const buildSubmission = (input: {
 	name: string;
 	entitySchema: EntitySchemaReference;
 	properties: Record<string, unknown>;
-	target: EntityEditorSaveSubmission["target"];
 	relationships: EditorRelationshipTargets;
+	target: EntityEditorSaveSubmission["target"];
 }): EntityEditorSaveSubmission => ({
 	action: "save",
 	target: input.target,

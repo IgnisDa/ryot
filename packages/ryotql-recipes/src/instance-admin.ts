@@ -32,7 +32,7 @@ const detail = table("migrationReportDetail", "detail");
 const operation = table("userLifecycleOperation", "operation");
 
 export const instanceAdminUsersRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number; readonly search?: string }) => {
+	(input: { readonly limit: number; readonly after?: string; readonly search?: string }) => {
 		const where = input.search?.trim()
 			? contains(column(user, "email"), literal(input.search.trim()))
 			: undefined;
@@ -70,7 +70,7 @@ export const instanceAdminUsersRecipe = defineRecipe(
 );
 
 export const migrationReportRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ entries }) => Result.succeed(entries),
 		queries: {
 			entries: selectedRows(report, {
@@ -138,6 +138,6 @@ export const userLifecycleOperationRecipe = defineRecipe((input: { readonly id: 
 	},
 }));
 
-export type InstanceAdminUsersPage = Recipe.Success<typeof instanceAdminUsersRecipe>;
 export type MigrationReportPage = Recipe.Success<typeof migrationReportRecipe>;
+export type InstanceAdminUsersPage = Recipe.Success<typeof instanceAdminUsersRecipe>;
 export type UserLifecycleOperationDetail = Recipe.Success<typeof userLifecycleOperationRecipe>;

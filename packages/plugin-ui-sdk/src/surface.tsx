@@ -5,6 +5,18 @@ import { type GroupColor, groupColorVariable } from "./group-colors";
 
 const cardPadding = { none: "", md: "p-4", lg: "p-5" } as const;
 
+export function RowGroup({ className, ...props }: ComponentProps<"div">) {
+	return (
+		<div
+			className={clsx(
+				"divide-y divide-border overflow-hidden rounded-lg border border-border-card bg-surface",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
 export function Card({
 	style,
 	className,
@@ -12,8 +24,8 @@ export function Card({
 	padding = "md",
 	...props
 }: ComponentProps<"div"> & {
-	readonly groupColor?: GroupColor | undefined;
 	readonly padding?: keyof typeof cardPadding;
+	readonly groupColor?: undefined | GroupColor;
 }) {
 	return (
 		<div
@@ -32,23 +44,11 @@ export function Card({
 	);
 }
 
-export function RowGroup({ className, ...props }: ComponentProps<"div">) {
-	return (
-		<div
-			className={clsx(
-				"divide-y divide-border overflow-hidden rounded-lg border border-border-card bg-surface",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
 export function Row(props: {
 	readonly title: ReactNode;
+	readonly className?: string;
 	readonly leading?: ReactNode;
 	readonly trailing?: ReactNode;
-	readonly className?: string;
 	readonly description?: ReactNode;
 }) {
 	return (

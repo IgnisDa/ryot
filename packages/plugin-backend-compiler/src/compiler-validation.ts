@@ -25,30 +25,30 @@ import {
 import { SANDBOX_COMPILER_LIMITS } from "./limits";
 
 export type SandboxEntryDeclaration =
+	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation }
 	| {
-			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
 			readonly providerOperation?: never;
-	  }
-	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation };
+			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
+	  };
 
 const inspectedSandboxEntry = Symbol("InspectedSandboxEntry");
-
-export type InspectedSandboxEntry = SandboxProjectEntry & {
-	readonly [inspectedSandboxEntry]: true;
-	readonly source: string;
-	readonly inspection: ReturnType<typeof inspectSandboxSource>;
-};
 
 export type ValidatedSandboxEntry = InspectedSandboxEntry & {
 	readonly manifest: SandboxManifest;
 	readonly metadata: SandboxSourceExecutionMetadata;
 };
 
+export type InspectedSandboxEntry = SandboxProjectEntry & {
+	readonly source: string;
+	readonly [inspectedSandboxEntry]: true;
+	readonly inspection: ReturnType<typeof inspectSandboxSource>;
+};
+
 type ValidateSandboxEntryInput = {
 	readonly inspected: InspectedSandboxEntry;
 	readonly sourceFiles: readonly ts.SourceFile[];
-	readonly moduleDiagnostics: readonly PluginBackendCompilerDiagnostic[];
 	readonly declaration?: SandboxEntryDeclaration;
+	readonly moduleDiagnostics: readonly PluginBackendCompilerDiagnostic[];
 };
 
 export const inspectSandboxEntry = Effect.fn("inspectSandboxEntry")(function* (

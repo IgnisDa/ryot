@@ -105,8 +105,8 @@ export const getOAuthEndpoint = (origin: string, path: string) => fromOrigin(ori
 
 export const buildOAuthAuthorizationUrl = (
 	origin: string,
-	authorization: Pick<PendingAuthorization, "clientId" | "redirectUri" | "state" | "nonce"> &
-		Pick<ImpersonationAuthorization, "codeChallenge">,
+	authorization: Pick<ImpersonationAuthorization, "codeChallenge"> &
+		Pick<PendingAuthorization, "state" | "nonce" | "clientId" | "redirectUri">,
 ) => {
 	const url = new URL(getOAuthEndpoint(origin, OAUTH_AUTHORIZE_PATH));
 	url.search = new URLSearchParams({

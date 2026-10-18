@@ -70,6 +70,18 @@ export const UpdateEventItem = strictStruct({
 
 export type UpdateEventItem = typeof UpdateEventItem.Type;
 
+export class EventStale extends Schema.TaggedError<EventStale, { readonly brand: unique symbol }>()(
+	"EventStale",
+	{ reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }) },
+) {}
+
+export class EventNotFound extends Schema.TaggedError<
+	EventNotFound,
+	{ readonly brand: unique symbol }
+>()("EventNotFound", {
+	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-not-found") }),
+}) {}
+
 export class EventBadRequest extends Schema.TaggedError<
 	EventBadRequest,
 	{ readonly brand: unique symbol }
@@ -91,18 +103,6 @@ export class EventBadRequest extends Schema.TaggedError<
 		}),
 	]),
 }) {}
-
-export class EventNotFound extends Schema.TaggedError<
-	EventNotFound,
-	{ readonly brand: unique symbol }
->()("EventNotFound", {
-	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-not-found") }),
-}) {}
-
-export class EventStale extends Schema.TaggedError<EventStale, { readonly brand: unique symbol }>()(
-	"EventStale",
-	{ reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }) },
-) {}
 
 export const EventMutationResponse = strictStruct({
 	eventId: Schema.NullOr(EventId),

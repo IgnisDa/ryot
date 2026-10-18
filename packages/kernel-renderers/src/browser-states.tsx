@@ -12,6 +12,26 @@ export function BrowserSearching() {
 	);
 }
 
+export function BrowserInlineError({
+	title,
+	message,
+	onRetry,
+}: {
+	readonly title: string;
+	readonly message: string;
+	readonly onRetry: () => void;
+}) {
+	return (
+		<section className={panel}>
+			<h2 className="text-xl font-semibold">{title}</h2>
+			<p className="text-sm text-text-muted">{message}</p>
+			<Button variant="link" className="mt-2" onClick={onRetry}>
+				Try again
+			</Button>
+		</section>
+	);
+}
+
 export function BrowserEmpty({
 	name,
 	onAdd,
@@ -40,6 +60,41 @@ export function BrowserEmpty({
 				</Button>
 			)}
 		</section>
+	);
+}
+
+export function BrowserPagination({
+	name,
+	loaded,
+	hasMore,
+	disabled,
+	onLoadMore,
+	isFetchingNextPage,
+}: {
+	readonly name: string;
+	readonly loaded: number;
+	readonly hasMore: boolean;
+	readonly disabled: boolean;
+	readonly onLoadMore: () => void;
+	readonly isFetchingNextPage: boolean;
+}) {
+	if (!hasMore) {
+		return (
+			<p className="text-center text-xs text-text-subtle">
+				End of {name} · {loaded.toLocaleString()} items
+			</p>
+		);
+	}
+	return (
+		<LoadMoreButton
+			label="Load more"
+			disabled={disabled}
+			onClick={onLoadMore}
+			isFetchingNextPage={isFetchingNextPage}
+			icon={<AppIcon size={16} name="chevron-down" className="text-text" />}
+			aria-label={isFetchingNextPage ? "Loading more results" : "Load more results"}
+			className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
+		/>
 	);
 }
 
@@ -91,60 +146,5 @@ export function BrowserNoMatches({
 				</div>
 			)}
 		</section>
-	);
-}
-
-export function BrowserInlineError({
-	title,
-	message,
-	onRetry,
-}: {
-	readonly title: string;
-	readonly message: string;
-	readonly onRetry: () => void;
-}) {
-	return (
-		<section className={panel}>
-			<h2 className="text-xl font-semibold">{title}</h2>
-			<p className="text-sm text-text-muted">{message}</p>
-			<Button variant="link" className="mt-2" onClick={onRetry}>
-				Try again
-			</Button>
-		</section>
-	);
-}
-
-export function BrowserPagination({
-	name,
-	loaded,
-	hasMore,
-	disabled,
-	onLoadMore,
-	isFetchingNextPage,
-}: {
-	readonly name: string;
-	readonly loaded: number;
-	readonly hasMore: boolean;
-	readonly isFetchingNextPage: boolean;
-	readonly disabled: boolean;
-	readonly onLoadMore: () => void;
-}) {
-	if (!hasMore) {
-		return (
-			<p className="text-center text-xs text-text-subtle">
-				End of {name} · {loaded.toLocaleString()} items
-			</p>
-		);
-	}
-	return (
-		<LoadMoreButton
-			label="Load more"
-			disabled={disabled}
-			onClick={onLoadMore}
-			isFetchingNextPage={isFetchingNextPage}
-			icon={<AppIcon size={16} name="chevron-down" className="text-text" />}
-			aria-label={isFetchingNextPage ? "Loading more results" : "Load more results"}
-			className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
-		/>
 	);
 }

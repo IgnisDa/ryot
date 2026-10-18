@@ -11,6 +11,18 @@ const choices = [
 	{ value: "comedy", label: "Comedy" },
 ];
 
+function DefaultIconSelect() {
+	const [selected, setSelected] = useState<ReadonlyArray<"action" | "comedy">>([]);
+	return (
+		<MultiSelect
+			label="Genres"
+			selected={selected}
+			onChange={setSelected}
+			choices={[{ value: "action" }, { value: "comedy" }]}
+		/>
+	);
+}
+
 function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 	const [selected, setSelected] = useState<ReadonlyArray<string>>(["action"]);
 	return (
@@ -24,18 +36,6 @@ function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 			selected={selected}
 			onChange={setSelected}
 			variant={props.variant}
-		/>
-	);
-}
-
-function DefaultIconSelect() {
-	const [selected, setSelected] = useState<ReadonlyArray<"action" | "comedy">>([]);
-	return (
-		<MultiSelect
-			label="Genres"
-			selected={selected}
-			onChange={setSelected}
-			choices={[{ value: "action" }, { value: "comedy" }]}
 		/>
 	);
 }

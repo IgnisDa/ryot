@@ -40,19 +40,19 @@ import { makeRyotPluginRuntime, type RyotPluginRuntime } from "../runtime/runtim
 type ClientPluginDefinition = PluginRouterDefinition;
 
 const PageContext = createContext<
-	| {
-			readonly getSnapshot: () => ClientPageContext | undefined;
-			readonly subscribe: (listener: () => void) => () => void;
-	  }
 	| undefined
+	| {
+			readonly subscribe: (listener: () => void) => () => void;
+			readonly getSnapshot: () => undefined | ClientPageContext;
+	  }
 >(undefined);
 
 const PageStoreProvider = ({
 	store,
 	children,
 }: {
-	readonly store: NonNullable<ContextType<typeof PageContext>>;
 	readonly children: ReactNode;
+	readonly store: NonNullable<ContextType<typeof PageContext>>;
 }) => <PageContext.Provider value={store}>{children}</PageContext.Provider>;
 
 export const usePageContext = () => {
@@ -93,16 +93,16 @@ const KernelShortcutForwarder = ({
 };
 
 const bootstrapClientApplication = (
-	createResolver: (page: ClientPageContext | undefined) => ResolvePluginScreen,
+	createResolver: (page: undefined | ClientPageContext) => ResolvePluginScreen,
 	registrations: readonly EntityPresentationRegistration[],
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => {
 	let root: Root | undefined;
 	const listener = new AbortController();
-	let sdkRuntime: RyotPluginRuntime | undefined;
-	let sessionListener: AbortController | undefined;
-	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
-	let currentPage: ClientPageContext | undefined;
+	let sdkRuntime: undefined | RyotPluginRuntime;
+	let sessionListener: undefined | AbortController;
+	let runtime: undefined | ReturnType<typeof createPluginRuntime>;
+	let currentPage: undefined | ClientPageContext;
 	let documentKey = "";
 	const pageListeners = new Set<() => void>();
 	const pageStore = {

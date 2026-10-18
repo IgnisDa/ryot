@@ -17,7 +17,7 @@ export function Tabs<T extends string>(props: {
 	readonly onChange: (value: T) => void;
 	readonly options: readonly TabOption<T>[];
 }) {
-	const tabs = useRef<Array<HTMLButtonElement | null>>([]);
+	const tabs = useRef<Array<null | HTMLButtonElement>>([]);
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const current = props.options.findIndex((option) => option.value === props.value);

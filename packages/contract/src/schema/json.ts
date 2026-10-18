@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export type JsonPrimitive = boolean | number | string | null;
+export type JsonPrimitive = null | number | string | boolean;
 
 export type JsonValue =
 	JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };

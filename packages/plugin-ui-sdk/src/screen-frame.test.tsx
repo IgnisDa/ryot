@@ -9,8 +9,8 @@ import { SCREEN_BAR_HEIGHT, ScreenFrame } from "./screen-frame";
 type Observation = {
 	readonly target: Element;
 	readonly rootMargin: string | undefined;
-	readonly root: Element | Document | null | undefined;
 	readonly emit: (isIntersecting: boolean) => void;
+	readonly root: null | Element | Document | undefined;
 };
 
 let observations: Observation[] = [];
@@ -32,7 +32,7 @@ class FakeIntersectionObserver implements IntersectionObserver {
 	readonly rootMargin: string;
 	readonly scrollMargin = "0px";
 	readonly thresholds: readonly number[];
-	readonly root: Element | Document | null;
+	readonly root: null | Element | Document;
 
 	constructor(
 		private readonly callback: IntersectionObserverCallback,
@@ -43,6 +43,16 @@ class FakeIntersectionObserver implements IntersectionObserver {
 		this.thresholds = [options?.threshold ?? 0].flat();
 	}
 
+	unobserve() {}
+
+	disconnect() {
+		disconnects += 1;
+	}
+
+	takeRecords(): IntersectionObserverEntry[] {
+		return [];
+	}
+
 	observe(target: Element) {
 		observations.push({
 			target,
@@ -50,16 +60,6 @@ class FakeIntersectionObserver implements IntersectionObserver {
 			rootMargin: this.rootMargin,
 			emit: (isIntersecting) => this.callback([entryFor(target, isIntersecting)], this),
 		});
-	}
-
-	disconnect() {
-		disconnects += 1;
-	}
-
-	unobserve() {}
-
-	takeRecords(): IntersectionObserverEntry[] {
-		return [];
 	}
 }
 

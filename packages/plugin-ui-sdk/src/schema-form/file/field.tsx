@@ -15,17 +15,17 @@ import {
 	unsupportedFileExtensionMessage,
 } from "./upload";
 
-type SchemaFileState =
-	| { readonly status: "empty" }
-	| { readonly status: "failed"; readonly message: string }
-	| { readonly status: "uploaded"; readonly name: string; readonly size: number }
-	| { readonly status: "uploading"; readonly name: string; readonly size: number };
-
 export type SchemaFileIcons = {
 	readonly file: ReactNode;
 	readonly remove: ReactNode;
 	readonly upload: ReactNode;
 };
+
+type SchemaFileState =
+	| { readonly status: "empty" }
+	| { readonly message: string; readonly status: "failed" }
+	| { readonly name: string; readonly size: number; readonly status: "uploaded" }
+	| { readonly name: string; readonly size: number; readonly status: "uploading" };
 
 const ATTACHED_FILE_FALLBACK_NAME = "Attached file";
 
@@ -38,7 +38,7 @@ type AttachedFile = {
 const attachedFile = (
 	state: SchemaFileState,
 	value: string | undefined,
-): AttachedFile | undefined => {
+): undefined | AttachedFile => {
 	if (state.status === "uploading" || state.status === "uploaded") {
 		return { name: state.name, size: state.size, uploading: state.status === "uploading" };
 	}
@@ -55,26 +55,6 @@ const attachedFileDetail = (file: AttachedFile, readyLabel: string) => {
 	const size = formatFileSize(file.size);
 	return file.uploading ? `Uploading · ${size}` : `${size} · ${readyLabel}`;
 };
-
-function SchemaFileRow(props: {
-	readonly name: string;
-	readonly detail: string;
-	readonly icon: ReactNode;
-	readonly trailing: ReactNode;
-}) {
-	return (
-		<div className="flex flex-row items-center gap-2 rounded-lg border border-border bg-raised px-3 py-2.5">
-			<span aria-hidden="true" className="shrink-0 text-text-muted">
-				{props.icon}
-			</span>
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-sm font-medium text-text">{props.name}</p>
-				<p className="text-xs text-text-subtle">{props.detail}</p>
-			</div>
-			{props.trailing}
-		</div>
-	);
-}
 
 export function SchemaFileField(props: {
 	readonly label: string;
@@ -210,5 +190,25 @@ export function SchemaFileField(props: {
 				{state.status === "failed" ? <FieldMessage>{state.message}</FieldMessage> : null}
 			</div>
 		</FileDropZone>
+	);
+}
+
+function SchemaFileRow(props: {
+	readonly name: string;
+	readonly detail: string;
+	readonly icon: ReactNode;
+	readonly trailing: ReactNode;
+}) {
+	return (
+		<div className="flex flex-row items-center gap-2 rounded-lg border border-border bg-raised px-3 py-2.5">
+			<span aria-hidden="true" className="shrink-0 text-text-muted">
+				{props.icon}
+			</span>
+			<div className="min-w-0 flex-1">
+				<p className="truncate text-sm font-medium text-text">{props.name}</p>
+				<p className="text-xs text-text-subtle">{props.detail}</p>
+			</div>
+			{props.trailing}
+		</div>
 	);
 }

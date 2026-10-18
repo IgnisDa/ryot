@@ -40,7 +40,7 @@ export const SourcePlan = strictStruct({ selections: Schema.Record(name, SourceP
 export type SourcePlan = Schema.Schema.Type<typeof SourcePlan>;
 
 export const selectSourcePlan = (
-	source: { readonly workflowSlug: string; readonly plan?: SourcePlan | undefined },
+	source: { readonly workflowSlug: string; readonly plan?: undefined | SourcePlan },
 	settings: Readonly<Record<string, unknown>>,
 ): IngestionPlan => ({
 	operation: source.workflowSlug,
@@ -132,7 +132,7 @@ export const hasReachableExternalEffects = (
 
 export const sourcePlanConfigKeys = (
 	manifest: Pick<ExecutableManifest, "scripts" | "workflows">,
-	source: { readonly workflowSlug: string; readonly plan?: SourcePlan | undefined },
+	source: { readonly workflowSlug: string; readonly plan?: undefined | SourcePlan },
 	settings?: Readonly<Record<string, unknown>>,
 ): string[] => {
 	const selections =
@@ -279,7 +279,7 @@ export const hasValidExecutableDependencies = (manifest: ExecutableManifest): bo
 			}
 			if ("field" in selection) {
 				const field = source.settingsSchema.fields[selection.field];
-				let values: ReadonlyArray<string> | undefined;
+				let values: undefined | ReadonlyArray<string>;
 				if (field?.type === "enum" && field.choices.kind === "static") {
 					values = field.choices.values.map(({ value }) => value);
 				}

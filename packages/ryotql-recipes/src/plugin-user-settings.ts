@@ -21,7 +21,7 @@ const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");
 
 export const pluginUserSettingsRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ installations }) => Result.succeed(installations),
 		queries: {
 			installations: selectedRows(installation, {

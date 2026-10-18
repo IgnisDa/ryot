@@ -29,9 +29,9 @@ const mountQueries = (
 	} = {},
 ) => {
 	const watches: Array<{
+		disposed: boolean;
 		readonly interests: EntityWatch[];
 		readonly hint: (update: EntityUpdate) => void;
-		disposed: boolean;
 	}> = [];
 	const requests: Array<{
 		readonly signal: AbortSignal;

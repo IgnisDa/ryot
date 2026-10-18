@@ -37,14 +37,21 @@ const mapped = defineRecipe((id: string) => ({
 	map: ({ entries: selected }) => Result.succeed({ id, count: selected.items.length }),
 }));
 
+export type RecipeContractChecks = [
+	UnmappedResult,
+	MappedResult,
+	InputTuple,
+	CannotForgeUnmappedSuccess,
+];
+type InputTuple = Assert<Equal<Parameters<typeof unmapped>, [id: string, limit: number]>>;
+type MappedResult = Assert<Equal<Recipe.Success<typeof mapped>, { id: string; count: number }>>;
 type UnmappedResult = Assert<
 	Equal<
 		Recipe.Success<typeof unmapped>["entries"],
 		typeof entries extends SelectedQuery<infer Success> ? Success : never
 	>
 >;
-type MappedResult = Assert<Equal<Recipe.Success<typeof mapped>, { id: string; count: number }>>;
-type InputTuple = Assert<Equal<Parameters<typeof unmapped>, [id: string, limit: number]>>;
+
 type CannotForgeUnmappedSuccess = Assert<
 	{ queries: { entries: typeof entries } } extends ReturnType<
 		Parameters<typeof defineRecipe<[], { entries: typeof entries }, string>>[0]
@@ -52,10 +59,3 @@ type CannotForgeUnmappedSuccess = Assert<
 		? false
 		: true
 >;
-
-export type RecipeContractChecks = [
-	UnmappedResult,
-	MappedResult,
-	InputTuple,
-	CannotForgeUnmappedSuccess,
-];

@@ -67,15 +67,15 @@ const runSelection = {
 
 export const automationHistoryRunsRecipe = defineRecipe(
 	(input: {
-		readonly after?: string;
+		readonly to?: string;
 		readonly limit: number;
-		readonly status?: AutomationRunStatus;
-		readonly stage?: "before" | "after";
+		readonly from?: string;
+		readonly after?: string;
 		readonly pluginId?: string;
 		readonly hookSlug?: string;
 		readonly triggerId?: string;
-		readonly from?: string;
-		readonly to?: string;
+		readonly stage?: "after" | "before";
+		readonly status?: AutomationRunStatus;
 	}) => {
 		const filters = [
 			...(input.status === undefined ? [] : [eq(column(run, "status"), literal(input.status))]),

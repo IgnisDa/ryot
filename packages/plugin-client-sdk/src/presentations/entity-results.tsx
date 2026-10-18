@@ -35,25 +35,20 @@ import { usePageRefreshRequest } from "../refresh/page-registry";
 
 export type EntityResultsLayout = "grid" | "list";
 
-export type EntityReference = EntitySyncState & {
-	readonly entityId: string;
-	readonly ownerPluginId: string | null;
-	readonly entitySchemaSlug: string;
-	readonly name: string | null;
-};
+export type EntityPresentationSource = Readonly<Record<string, JsonValue>>;
 
 export type EntityPresentationComponentProps<Data> = {
 	readonly data: Data;
-	readonly reference: EntityReference;
 	readonly viewContext: JsonValue;
+	readonly reference: EntityReference;
 };
 
-export type EntityPresentationSource = Readonly<Record<string, JsonValue>>;
-
-export type EntityPresentationPrepare<Data = unknown> = (context: {
-	readonly sources: ReadonlyMap<string, EntityPresentationSource>;
-	readonly references: readonly EntityReference[];
-}) => Result.Result<Readonly<Record<string, Data>>, unknown>;
+export type EntityReference = EntitySyncState & {
+	readonly entityId: string;
+	readonly name: null | string;
+	readonly entitySchemaSlug: string;
+	readonly ownerPluginId: null | string;
+};
 
 export type EntityPresentationLoader<Data = unknown> = (context: {
 	readonly client: RyotClient;
@@ -65,6 +60,11 @@ export type EntityPresentationDefinition = {
 	readonly prepare: EntityPresentationPrepare;
 	readonly component: ComponentType<EntityPresentationComponentProps<unknown>>;
 };
+
+export type EntityPresentationPrepare<Data = unknown> = (context: {
+	readonly references: readonly EntityReference[];
+	readonly sources: ReadonlyMap<string, EntityPresentationSource>;
+}) => Result.Result<Readonly<Record<string, Data>>, unknown>;
 
 export const isEntityPresentationDefinition = (
 	value: unknown,
@@ -96,18 +96,18 @@ export type EntityPresentationRegistration = {
 };
 
 type BatchInput = readonly EntityReference[];
+type PreparedPresentation =
+	{ readonly success: false } | { readonly success: true; readonly data: unknown };
 type PresentationRuntime = {
 	readonly definition: EntityPresentationDefinition;
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
 };
-type PreparedPresentation =
-	{ readonly success: true; readonly data: unknown } | { readonly success: false };
 
 type PresentationEntry = {
-	readonly getSnapshot: () => "idle" | "loading" | "ready" | "failed";
-	readonly subscribe: (listener: () => void) => () => void;
 	readonly load: () => void;
-	readonly getRuntime: () => PresentationRuntime | undefined;
+	readonly subscribe: (listener: () => void) => () => void;
+	readonly getRuntime: () => undefined | PresentationRuntime;
+	readonly getSnapshot: () => "idle" | "ready" | "failed" | "loading";
 };
 
 const registryKey = (
@@ -116,7 +116,7 @@ const registryKey = (
 	layout: EntityResultsLayout,
 ) => `${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}`;
 
-const PresentationRegistryContext = createContext<ReadonlyMap<string, PresentationEntry> | null>(
+const PresentationRegistryContext = createContext<null | ReadonlyMap<string, PresentationEntry>>(
 	null,
 );
 
@@ -124,7 +124,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 	const registry = new Map<string, PresentationEntry>();
 	for (const registration of registrations) {
 		let state: ReturnType<PresentationEntry["getSnapshot"]> = "idle";
-		let presentation: PresentationRuntime | undefined;
+		let presentation: undefined | PresentationRuntime;
 		const listeners = new Set<() => void>();
 		const notify = () => {
 			for (const listener of listeners) {
@@ -259,9 +259,9 @@ const ItemFailure = ({
 	onRetry,
 	reference,
 }: {
-	readonly reference: EntityReference;
 	readonly message: string;
 	readonly onRetry?: () => void;
+	readonly reference: EntityReference;
 }) => (
 	<article>
 		<StatusMessage tone="error">{message}</StatusMessage>
@@ -379,13 +379,13 @@ const LoadedEntity = ({
 };
 
 type ResolvedItem =
+	| { readonly kind: "failed"; readonly reference: EntityReference }
 	| { readonly kind: "generic"; readonly reference: EntityReference }
 	| {
 			readonly kind: "pending";
-			readonly reference: EntityReference;
 			readonly entry: PresentationEntry;
+			readonly reference: EntityReference;
 	  }
-	| { readonly kind: "failed"; readonly reference: EntityReference }
 	| {
 			readonly kind: "load";
 			readonly input: BatchInput;
@@ -405,8 +405,8 @@ const EntityResultItem = ({
 	viewContext,
 }: {
 	readonly item: ResolvedItem;
-	readonly layout: EntityResultsLayout;
 	readonly viewContext: JsonValue;
+	readonly layout: EntityResultsLayout;
 }) => {
 	if (item.kind === "generic") {
 		return <GenericEntityCard layout={layout} reference={item.reference} />;
@@ -460,8 +460,8 @@ const PendingPresentation = ({
 	reference,
 }: {
 	readonly entry: PresentationEntry;
-	readonly layout: EntityResultsLayout;
 	readonly reference: EntityReference;
+	readonly layout: EntityResultsLayout;
 }) => {
 	const state = useSyncExternalStore(entry.subscribe, entry.getSnapshot, entry.getSnapshot);
 	useEffect(() => entry.load(), [entry]);
@@ -498,7 +498,7 @@ export const EntityResults = ({
 	readonly layout: EntityResultsLayout;
 	readonly references: readonly EntityReference[];
 	readonly presentations: ReadonlyMap<string, EntityPresentationSource>;
-	readonly renderItemActions?: ((reference: EntityReference) => ReactNode) | undefined;
+	readonly renderItemActions?: undefined | ((reference: EntityReference) => ReactNode);
 }) => {
 	const registry = useContext(PresentationRegistryContext);
 	if (!registry) {
@@ -527,7 +527,7 @@ export const EntityResults = ({
 	const { isActive, scrollRootRef } = usePluginScreenSurface();
 	const requestPageRefresh = usePageRefreshRequest();
 	const [visibleEntityIds, setVisibleEntityIds] = useState<ReadonlySet<string>>(() => new Set());
-	const observer = useRef<IntersectionObserver | null>(null);
+	const observer = useRef<null | IntersectionObserver>(null);
 	const observedElements = useRef(new Map<Element, string>());
 	const visibleElements = useRef(new Set<Element>());
 	const visibleElementCounts = useRef(new Map<string, number>());
@@ -650,7 +650,7 @@ export const EntityResults = ({
 						sources.set(reference.entityId, source);
 					}
 				}
-				let result: Result.Result<Readonly<Record<string, unknown>>, unknown> | undefined;
+				let result: undefined | Result.Result<Readonly<Record<string, unknown>>, unknown>;
 				if (sources.size === batchReferences.length) {
 					try {
 						result = runtime.definition.prepare({ sources, references: batchReferences });

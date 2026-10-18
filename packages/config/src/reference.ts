@@ -15,9 +15,9 @@ export type ConfigReferencePlugin = Pick<PluginMetadata, "name" | "packageId"> &
 const isDefinition = (value: AppSchema | ConfigDefinition): value is ConfigDefinition =>
 	"schema" in value && "fields" in value;
 
-const fieldHidden = (definition: ConfigDefinition | undefined, path: ReadonlyArray<string>) => {
+const fieldHidden = (definition: undefined | ConfigDefinition, path: ReadonlyArray<string>) => {
 	let fields = definition?.fields;
-	let node: ConfigNode | undefined;
+	let node: undefined | ConfigNode;
 	for (const segment of path) {
 		node = fields?.[segment];
 		fields = node?.kind === "group" ? node.fields : undefined;
@@ -32,7 +32,7 @@ const formatDefaultValue = (value: unknown) =>
 
 const renderTable = (
 	schema: AppSchemaFields,
-	definition: ConfigDefinition | undefined,
+	definition: undefined | ConfigDefinition,
 	resolveEnvKey: ConfigEnvironmentKeyResolver,
 	lines: string[],
 	path: ReadonlyArray<string>,
@@ -77,7 +77,7 @@ export const renderConfigReference = (
 		core,
 		(path) => {
 			let fields = core.fields;
-			let node: ConfigNode | undefined;
+			let node: undefined | ConfigNode;
 			for (const segment of path) {
 				node = fields[segment];
 				fields = node?.kind === "group" ? node.fields : {};

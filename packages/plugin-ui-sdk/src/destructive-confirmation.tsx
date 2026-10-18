@@ -10,12 +10,12 @@ export function DestructiveConfirmation(props: {
 	readonly pending: boolean;
 	readonly onClose: () => void;
 	readonly actionLabel: string;
-	readonly onConfirm: () => void;
 	readonly pendingLabel: string;
+	readonly onConfirm: () => void;
 	readonly actionDisabled?: boolean;
 	readonly confirmationPhrase?: string;
 	readonly errorMessage: string | undefined;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const confirmationId = useId();
 	const cancelRef = useRef<HTMLButtonElement>(null);

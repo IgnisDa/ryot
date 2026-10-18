@@ -12,16 +12,16 @@ export type MultiSelectChoice<Value extends string = string> = {
 
 type MultiSelectProps<Value extends string> = {
 	readonly label: string;
+	readonly placeholder?: string;
 	readonly checkIcon?: ReactNode;
 	readonly closeIcon?: ReactNode;
 	readonly searchIcon?: ReactNode;
 	readonly chevronIcon?: ReactNode;
-	readonly placeholder?: string;
-	readonly variant?: "chip" | "field" | undefined;
 	readonly selected: ReadonlyArray<Value>;
 	readonly onInterceptBack?: () => boolean;
-	readonly choices: ReadonlyArray<MultiSelectChoice<Value>>;
+	readonly variant?: "chip" | "field" | undefined;
 	readonly onChange: (value: ReadonlyArray<Value>) => void;
+	readonly choices: ReadonlyArray<MultiSelectChoice<Value>>;
 };
 
 const defaultCheckIcon = <Check size={14} />;

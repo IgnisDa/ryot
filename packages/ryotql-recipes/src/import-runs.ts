@@ -47,7 +47,7 @@ const runSelection = (source: typeof importRun) => ({
 });
 
 export const manualImportRunsRecipe = defineRecipe(
-	(input: { readonly after?: string | undefined; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string | undefined }) => ({
 		map: ({ importRuns }) => Result.succeed(importRuns),
 		queries: {
 			importRuns: selectedRows(importRun, {

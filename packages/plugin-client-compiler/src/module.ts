@@ -41,8 +41,8 @@ const failure = (entry: string, code: string, message: string) =>
 const viteDiagnostic = (diagnostic: {
 	readonly code?: string;
 	readonly file?: string;
-	readonly location?: { readonly line: number; readonly column: number };
 	readonly message: string;
+	readonly location?: { readonly line: number; readonly column: number };
 }): ClientPluginCompilerDiagnostic => ({
 	severity: "error",
 	message: diagnostic.message,
@@ -107,7 +107,7 @@ type KernelInput = Extract<PluginClientCompilerPackageInput, { readonly kind: "k
 type Compilation<Output> = Effect.Effect<
 	Output,
 	PluginClientCompilerFailure,
-	FileSystem.FileSystem | Path.Path | ViteBuildService
+	Path.Path | ViteBuildService | FileSystem.FileSystem
 >;
 
 export function compileClientPluginModule(

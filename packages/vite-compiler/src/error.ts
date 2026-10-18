@@ -1,31 +1,31 @@
 import { Data } from "effect";
 
-export type ViteCompilerErrorReason =
-	| "invalid-input"
-	| "invalid-output"
-	| "vite-build"
-	| "workspace-collision"
-	| "workspace-filesystem";
-
 export interface ViteDiagnosticLocation {
 	readonly line: number;
 	readonly column: number;
 }
 
+export type ViteCompilerErrorReason =
+	| "vite-build"
+	| "invalid-input"
+	| "invalid-output"
+	| "workspace-collision"
+	| "workspace-filesystem";
+
 export interface ViteDiagnostic {
-	readonly severity: "warning" | "error";
-	readonly message: string;
 	readonly code?: string;
-	readonly plugin?: string;
 	readonly file?: string;
-	readonly location?: ViteDiagnosticLocation;
 	readonly frame?: string;
+	readonly message: string;
+	readonly plugin?: string;
+	readonly severity: "error" | "warning";
+	readonly location?: ViteDiagnosticLocation;
 }
 
 export class ViteCompilerError extends Data.TaggedError("ViteCompilerError")<{
-	readonly reason: ViteCompilerErrorReason;
 	readonly message: string;
 	readonly cause?: unknown;
+	readonly reason: ViteCompilerErrorReason;
 	readonly diagnostics?: readonly ViteDiagnostic[];
 }> {}
 

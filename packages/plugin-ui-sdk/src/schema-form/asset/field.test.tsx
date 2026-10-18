@@ -22,8 +22,8 @@ const picked: SchemaFilePickOutcome = {
 
 function Harness(props: {
 	readonly replace?: boolean;
-	readonly pick: SchemaFilePickOutcome;
 	readonly upload: SchemaAssetUpload;
+	readonly pick: SchemaFilePickOutcome;
 	readonly onChange: (value: readonly AssetLocator[]) => void;
 }) {
 	const [value, setValue] = useState<readonly AssetLocator[]>([

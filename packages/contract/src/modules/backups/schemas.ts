@@ -88,11 +88,6 @@ const BackupInternalErrorReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("unexpected-error") }),
 ]);
 
-export class BackupBadRequest extends Schema.TaggedError<
-	BackupBadRequest,
-	{ readonly brand: unique symbol }
->()("BackupBadRequest", { reason: BackupBadRequestReason }) {}
-
 export class BackupConflict extends Schema.TaggedError<
 	BackupConflict,
 	{ readonly brand: unique symbol }
@@ -102,6 +97,11 @@ export class BackupNotFound extends Schema.TaggedError<
 	BackupNotFound,
 	{ readonly brand: unique symbol }
 >()("BackupNotFound", { reason: BackupNotFoundReason }) {}
+
+export class BackupBadRequest extends Schema.TaggedError<
+	BackupBadRequest,
+	{ readonly brand: unique symbol }
+>()("BackupBadRequest", { reason: BackupBadRequestReason }) {}
 
 export class BackupInternalError extends Schema.TaggedError<
 	BackupInternalError,

@@ -10,7 +10,7 @@ import {
 } from "react";
 
 type ShortcutScope = { readonly id: symbol; readonly parent?: ShortcutScope };
-type OverlayEntry = { readonly dismiss: () => boolean; readonly scope: ShortcutScope };
+type OverlayEntry = { readonly scope: ShortcutScope; readonly dismiss: () => boolean };
 
 const rootScope: ShortcutScope = { id: Symbol("shortcut-scope-root") };
 const listeners = new Set<() => void>();
@@ -19,7 +19,7 @@ const backStack: OverlayEntry[] = [];
 
 const ShortcutScopeContext = createContext(rootScope);
 export type OverlayBackAdapter = { readonly register: (dismiss: () => boolean) => () => void };
-const OverlayBackContext = createContext<OverlayBackAdapter | undefined>(undefined);
+const OverlayBackContext = createContext<undefined | OverlayBackAdapter>(undefined);
 
 export function OverlayBackProvider(props: {
 	readonly children: ReactNode;

@@ -81,10 +81,10 @@ export const DataJsonDocument = strictStruct({
 	relationships: Schema.Array(DataJsonRelationship),
 });
 
-export type DataJsonEntity = typeof DataJsonEntity.Type;
 export type DataJsonEvent = typeof DataJsonEvent.Type;
-export type DataJsonRelationship = typeof DataJsonRelationship.Type;
+export type DataJsonEntity = typeof DataJsonEntity.Type;
 export type DataJsonDocument = typeof DataJsonDocument.Type;
+export type DataJsonRelationship = typeof DataJsonRelationship.Type;
 
 export const DataJsonImportBody = strictStruct({
 	uploadToken: Schema.NonEmptyString,

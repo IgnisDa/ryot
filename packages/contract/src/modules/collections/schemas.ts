@@ -43,15 +43,15 @@ const CollectionNotFoundReason = Schema.Union([
 	}),
 ]);
 
-export class CollectionBadRequest extends Schema.TaggedError<
-	CollectionBadRequest,
-	{ readonly brand: unique symbol }
->()("CollectionBadRequest", { reason: CollectionBadRequestReason }) {}
-
 export class CollectionNotFound extends Schema.TaggedError<
 	CollectionNotFound,
 	{ readonly brand: unique symbol }
 >()("CollectionNotFound", { reason: CollectionNotFoundReason }) {}
+
+export class CollectionBadRequest extends Schema.TaggedError<
+	CollectionBadRequest,
+	{ readonly brand: unique symbol }
+>()("CollectionBadRequest", { reason: CollectionBadRequestReason }) {}
 
 export const CollectionResponse = Schema.Struct({
 	id: EntityId,

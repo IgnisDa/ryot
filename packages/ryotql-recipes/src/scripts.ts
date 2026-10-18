@@ -60,9 +60,9 @@ export const entityReadRecipe = defineRecipe(
 );
 
 export const eventReadRecipe = (input: {
-	readonly owner: QueryOwnerReference;
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
+	readonly owner: QueryOwnerReference;
 	readonly after?: string | undefined;
 	readonly entityId?: string | undefined;
 	readonly sessionEntityId?: string | undefined;
@@ -76,5 +76,5 @@ export const eventReadRecipe = (input: {
 		entitySchemaSlugs: [input.entitySchemaSlug],
 	});
 
-export type EntityReadResult = Recipe.Success<typeof entityReadRecipe>;
 export type EventReadResult = Recipe.Success<typeof eventReadRecipe>;
+export type EntityReadResult = Recipe.Success<typeof entityReadRecipe>;

@@ -1,20 +1,20 @@
 import * as ts from "typescript/unstable/ast";
 
+export type TypeScriptReference =
+	| Reference<"import-type", ts.ImportTypeNode>
+	| Reference<"dynamic-import", ts.CallExpression>
+	| Reference<"import-declaration", ts.ImportDeclaration>
+	| Reference<"export-declaration", ts.ExportDeclaration>
+	| Reference<"import-equals-alias", ts.ImportEqualsDeclaration>
+	| Reference<"import-meta", ts.MetaProperty | ts.NewExpression>
+	| Reference<"import-equals-require", ts.ImportEqualsDeclaration>;
+
 type Reference<Kind extends string, Node extends ts.Node> = {
 	readonly kind: Kind;
 	readonly node: Node;
-	readonly specifier: string | null;
 	readonly isTopLevel: boolean;
+	readonly specifier: null | string;
 };
-
-export type TypeScriptReference =
-	| Reference<"import-declaration", ts.ImportDeclaration>
-	| Reference<"export-declaration", ts.ExportDeclaration>
-	| Reference<"import-equals-require", ts.ImportEqualsDeclaration>
-	| Reference<"import-equals-alias", ts.ImportEqualsDeclaration>
-	| Reference<"import-type", ts.ImportTypeNode>
-	| Reference<"dynamic-import", ts.CallExpression>
-	| Reference<"import-meta", ts.MetaProperty | ts.NewExpression>;
 
 const literalText = (node: ts.Node | undefined) =>
 	node && ts.isStringLiteralLikeNode(node) ? node.text : null;
@@ -41,7 +41,7 @@ const isImportMetaUrlBase = (node: ts.MetaProperty) => {
 	return ts.isNewExpression(site) && importMetaUrlBase(site) === node;
 };
 
-const reference = (node: ts.Node): TypeScriptReference | null => {
+const reference = (node: ts.Node): null | TypeScriptReference => {
 	const isTopLevel = ts.isSourceFile(node.parent);
 	if (ts.isImportDeclaration(node)) {
 		return {

@@ -57,8 +57,8 @@ describe("entity editor model", () => {
 		const dropped = { type: "local", key: "dropped" } as const;
 		const uploaded = new Map<string, ManagedAssetLocator>([
 			["local:nested", kept],
-			["local:relationship", relationship],
 			["local:dropped", dropped],
+			["local:relationship", relationship],
 		]);
 		expect(
 			unreferencedUploads(uploaded, { unrelated: [dropped], parts: [{ images: [kept] }] }, nested, [

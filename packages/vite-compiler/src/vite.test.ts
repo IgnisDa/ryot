@@ -22,7 +22,7 @@ const virtualWorkspace: CompilerWorkspace = {
 const typeScriptProject = { compilerOptions: { target: "ES2022" } };
 const output = { output: [{ type: "chunk", code: "export {};", fileName: "app.js" }] };
 
-const protectedConfiguration = (config: InlineConfig | undefined) => ({
+const protectedConfiguration = (config: undefined | InlineConfig) => ({
 	oxc: config?.oxc,
 	root: config?.root,
 	envDir: config?.envDir,

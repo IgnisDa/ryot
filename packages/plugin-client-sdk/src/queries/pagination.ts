@@ -4,31 +4,31 @@ import * as Equal from "effect/Equal";
 import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 
-export type PaginationOperation = "initial" | "refresh" | "append";
+export type PaginationOperation = "append" | "initial" | "refresh";
+
+export type PaginationSnapshot<Page, Param> = {
+	readonly pages: readonly Page[];
+	readonly nextPageParam: null | Param;
+	readonly pageParams: readonly Param[];
+	readonly cause: null | Cause.Cause<unknown>;
+	readonly operation: null | PaginationOperation;
+	readonly errorOperation: null | PaginationOperation;
+};
+
+export type PaginationOptions<Page, Param> = {
+	readonly initialPageParam: Param;
+	readonly mode?: "append" | "replace" | undefined;
+	readonly load: (param: Param, refresh: boolean) => Effect.Effect<Page, unknown>;
+	readonly getNextPageParam: (page: Page, param: Param, pages: readonly Page[]) => null | Param;
+};
 
 export class PaginationError extends Schema.TaggedError<
 	PaginationError,
 	{ readonly brand: unique symbol }
 >()("PaginationError", { reason: Schema.Literal("cursor-did-not-advance") }) {}
 
-export type PaginationOptions<Page, Param> = {
-	readonly initialPageParam: Param;
-	readonly load: (param: Param, refresh: boolean) => Effect.Effect<Page, unknown>;
-	readonly getNextPageParam: (page: Page, param: Param, pages: readonly Page[]) => Param | null;
-	readonly mode?: "append" | "replace" | undefined;
-};
-
-export type PaginationSnapshot<Page, Param> = {
-	readonly pages: readonly Page[];
-	readonly pageParams: readonly Param[];
-	readonly operation: PaginationOperation | null;
-	readonly errorOperation: PaginationOperation | null;
-	readonly cause: Cause.Cause<unknown> | null;
-	readonly nextPageParam: Param | null;
-};
-
 export const nextPageCursor = (page: {
-	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
 }) => {
 	const { hasMore, nextCursor } = page.pageInfo;
 	if (hasMore === false) {
@@ -100,7 +100,7 @@ export const createPagination = <Page, Param>(initialOptions: PaginationOptions<
 				const pages: Page[] = [];
 				const params: Param[] = [];
 				const seen = operation === "append" ? [...previous.pageParams] : [];
-				let nextPageParam: Param | null = null;
+				let nextPageParam: null | Param = null;
 				const depth =
 					operation === "refresh" && options.mode !== "replace"
 						? Math.max(1, previous.pages.length)

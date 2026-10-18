@@ -40,7 +40,7 @@ const selection = {
 };
 
 export const backupRunsRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ runs }) => Result.succeed(runs),
 		queries: {
 			runs: selectedRows(run, {
@@ -64,6 +64,6 @@ export const backupRunRecipe = defineRecipe((input: { readonly id: string }) => 
 	},
 }));
 
+export type BackupRunItem = BackupRunsPage["items"][number];
 export type BackupRunsPage = Recipe.Success<typeof backupRunsRecipe>;
 export type BackupRunDetail = Recipe.Success<typeof backupRunRecipe>;
-export type BackupRunItem = BackupRunsPage["items"][number];

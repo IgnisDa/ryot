@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Button, IconButton } from "./button";
 import { MotionList } from "./motion";
 
-export type ActivityTone = "pending" | "success" | "warning" | "error";
+export type ActivityTone = "error" | "pending" | "success" | "warning";
 
 export type ActivityAction = { readonly label: string; readonly onClick: () => void };
 
@@ -12,11 +12,11 @@ export type ActivityTrayEntry = {
 	readonly id: string;
 	readonly title: string;
 	readonly source: string;
-	readonly tone: ActivityTone;
 	readonly status: string;
+	readonly tone: ActivityTone;
 	readonly detail?: string | undefined;
-	readonly action?: ActivityAction | undefined;
-	readonly onDismiss?: (() => void) | undefined;
+	readonly action?: undefined | ActivityAction;
+	readonly onDismiss?: undefined | (() => void);
 };
 
 const toneClasses = {
@@ -33,9 +33,40 @@ const markerClasses = {
 	pending: "animate-pulse bg-text-subtle motion-reduce:animate-none",
 } as const satisfies Record<ActivityTone, string>;
 
-export function Toast(props: {
-	readonly entry: ActivityTrayEntry;
+export function ActivityTray(props: {
+	readonly label: string;
+	readonly compact: boolean;
+	readonly announcement: string;
 	readonly dismissIcon: ReactNode;
+	readonly safeAreaBottom: number;
+	readonly entries: ReadonlyArray<ActivityTrayEntry>;
+}) {
+	return (
+		<section
+			aria-label={props.label}
+			style={{ paddingBottom: props.safeAreaBottom + 12 }}
+			className={clsx(
+				"pointer-events-none fixed z-40 flex flex-col",
+				props.compact
+					? "inset-x-0 bottom-0 px-3"
+					: "right-4 bottom-4 w-90 max-w-[calc(100vw-2rem)]",
+			)}
+		>
+			<p aria-live="polite" aria-atomic="true" className="sr-only">
+				{props.announcement}
+			</p>
+			<MotionList className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+				{props.entries.map((entry) => (
+					<Toast entry={entry} key={entry.id} dismissIcon={props.dismissIcon} />
+				))}
+			</MotionList>
+		</section>
+	);
+}
+
+export function Toast(props: {
+	readonly dismissIcon: ReactNode;
+	readonly entry: ActivityTrayEntry;
 }) {
 	const { entry } = props;
 	return (
@@ -75,36 +106,5 @@ export function Toast(props: {
 				</IconButton>
 			)}
 		</article>
-	);
-}
-
-export function ActivityTray(props: {
-	readonly label: string;
-	readonly compact: boolean;
-	readonly announcement: string;
-	readonly dismissIcon: ReactNode;
-	readonly safeAreaBottom: number;
-	readonly entries: ReadonlyArray<ActivityTrayEntry>;
-}) {
-	return (
-		<section
-			aria-label={props.label}
-			style={{ paddingBottom: props.safeAreaBottom + 12 }}
-			className={clsx(
-				"pointer-events-none fixed z-40 flex flex-col",
-				props.compact
-					? "inset-x-0 bottom-0 px-3"
-					: "right-4 bottom-4 w-90 max-w-[calc(100vw-2rem)]",
-			)}
-		>
-			<p aria-live="polite" aria-atomic="true" className="sr-only">
-				{props.announcement}
-			</p>
-			<MotionList className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
-				{props.entries.map((entry) => (
-					<Toast entry={entry} key={entry.id} dismissIcon={props.dismissIcon} />
-				))}
-			</MotionList>
-		</section>
 	);
 }

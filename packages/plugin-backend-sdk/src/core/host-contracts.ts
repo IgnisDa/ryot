@@ -116,13 +116,13 @@ import {
 } from "./user-work";
 
 type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
+type GetConfig = <const Keys extends GetPluginConfigArgs>(
+	keys: Keys,
+) => Effect.Effect<GetPluginConfigResult<Keys>, SandboxHostError>;
 type GetPluginConfigResult<Keys extends GetPluginConfigArgs> = Readonly<
 	Record<NonNullable<Keys["required"]>[number], JsonValue> &
 		Partial<Record<NonNullable<Keys["optional"]>[number], JsonValue>>
 >;
-type GetConfig = <const Keys extends GetPluginConfigArgs>(
-	keys: Keys,
-) => Effect.Effect<GetPluginConfigResult<Keys>, SandboxHostError>;
 export const coreSandboxHostContracts = {
 	log: { args: logArgsSchema, success: Schema.Null, result: logResultSchema },
 	span: { success: Schema.Null, args: spanArgsSchema, result: spanResultSchema },
@@ -182,6 +182,15 @@ export const coreSandboxHostContracts = {
 		result: updateUserSettingsResultSchema,
 	},
 } as const;
+export type CoreSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
+	typeof coreSandboxHostContracts
+>;
+export type CoreSandboxHostImplementationMap<Context> = {
+	readonly [Capability in CoreSandboxHostCapability]: (
+		context: Context,
+		...args: Parameters<CoreSandboxHostMethodMap[Capability]>
+	) => ReturnType<CoreSandboxHostMethodMap[Capability]>;
+};
 type SandboxHostContract = {
 	readonly args: Schema.Constraint;
 	readonly success: Schema.Constraint;
@@ -192,15 +201,6 @@ type SandboxHostMethodMapFromContracts<Contracts extends Record<string, SandboxH
 			? Contracts[Capability]["args"]["Type"]
 			: never
 	) => Effect.Effect<Contracts[Capability]["success"]["Type"], SandboxHostError>;
-};
-export type CoreSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
-	typeof coreSandboxHostContracts
->;
-export type CoreSandboxHostImplementationMap<Context> = {
-	readonly [Capability in CoreSandboxHostCapability]: (
-		context: Context,
-		...args: Parameters<CoreSandboxHostMethodMap[Capability]>
-	) => ReturnType<CoreSandboxHostMethodMap[Capability]>;
 };
 export const domainSandboxHostContracts = {
 	executeRyotql: {
@@ -341,15 +341,17 @@ export const sandboxHostContracts = {
 export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof automationSandboxHostContracts
 >;
+export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
+	DomainSandboxHostImplementationMap<Context> &
+	AutomationSandboxHostImplementationMap<Context>;
+export type SandboxHostMethodMap = DomainSandboxHostMethodMap &
+	AutomationSandboxHostMethodMap & { readonly getPluginConfig: GetConfig } & Omit<
+		CoreSandboxHostMethodMap,
+		"getPluginConfig"
+	>;
 export type AutomationSandboxHostImplementationMap<Context> = {
 	readonly [Capability in AutomationSandboxHostCapability]: (
 		context: Context,
 		...args: Parameters<AutomationSandboxHostMethodMap[Capability]>
 	) => ReturnType<AutomationSandboxHostMethodMap[Capability]>;
 };
-export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getPluginConfig"> &
-	DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap & { readonly getPluginConfig: GetConfig };
-export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
-	DomainSandboxHostImplementationMap<Context> &
-	AutomationSandboxHostImplementationMap<Context>;

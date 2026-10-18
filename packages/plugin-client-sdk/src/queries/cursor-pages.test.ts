@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { readCursorPages } from "./cursor-pages";
 
-const page = (items: readonly number[], nextCursor: string | null) => ({
+const page = (items: readonly number[], nextCursor: null | string) => ({
 	items,
 	pageInfo: { nextCursor, hasMore: nextCursor !== null },
 });

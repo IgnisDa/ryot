@@ -10,7 +10,7 @@ import type { SchemaAssetUpload } from "./upload";
 type SchemaAssetState = { readonly valueKey: string } & (
 	| { readonly status: "idle" }
 	| { readonly status: "uploading" }
-	| { readonly status: "failed"; readonly message: string }
+	| { readonly message: string; readonly status: "failed" }
 );
 
 const assetKey = (asset: AssetLocator, index: number) =>
@@ -18,15 +18,15 @@ const assetKey = (asset: AssetLocator, index: number) =>
 
 export function SchemaAssetField(props: {
 	readonly label: string;
+	readonly replace?: boolean;
 	readonly icons: SchemaFileIcons;
+	readonly maximum?: number | undefined;
 	readonly value: readonly AssetLocator[];
 	readonly uploadAsset: SchemaAssetUpload;
+	readonly onReorder?: undefined | (() => void);
 	readonly pickFile: () => Promise<SchemaFilePickOutcome>;
 	readonly renderAsset: (asset: AssetLocator) => ReactNode;
 	readonly onChange: (value: readonly AssetLocator[]) => void;
-	readonly maximum?: number | undefined;
-	readonly replace?: boolean;
-	readonly onReorder?: (() => void) | undefined;
 }) {
 	const attempt = useRef(0);
 	const mounted = useRef(true);

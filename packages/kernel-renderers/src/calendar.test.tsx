@@ -74,7 +74,7 @@ const source = (
 const occurrence = (
 	subject: string,
 	at: string,
-	caption: string | null,
+	caption: null | string,
 	extra: Readonly<Record<string, unknown>> = {},
 ) => ({
 	at,
@@ -90,7 +90,7 @@ const occurrence = (
 
 const rows = (
 	items: readonly Readonly<Record<string, unknown>>[],
-	nextCursor: string | null = null,
+	nextCursor: null | string = null,
 ) => ({
 	items: [...items],
 	type: "rows" as const,
@@ -171,7 +171,7 @@ const answerOccurrences = (
 	page: Page,
 	alias: string,
 	items: readonly Readonly<Record<string, unknown>>[],
-	nextCursor: string | null = null,
+	nextCursor: null | string = null,
 ) =>
 	Effect.gen(function* () {
 		const request = yield* nextOccurrenceRequest(page, alias);

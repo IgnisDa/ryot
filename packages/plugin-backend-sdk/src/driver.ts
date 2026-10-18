@@ -41,10 +41,11 @@ export const defineScript = <
 	Failure,
 	Run extends ScriptExecution<Input, Output, Manifest, Failure>["run"],
 >(
-	definition: Omit<
+	definition: { readonly run: Run } & Omit<
 		GenericScriptDefinition<Manifest, Input, Output, Failure>,
-		"definitionType" | "run"
-	> & { readonly run: Run },
-): Omit<GenericScriptDefinition<Manifest, Input, Output, Effect.Error<ReturnType<Run>>>, "run"> & {
-	readonly run: Run;
-} => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });
+		"run" | "definitionType"
+	>,
+): { readonly run: Run } & Omit<
+	GenericScriptDefinition<Manifest, Input, Output, Effect.Error<ReturnType<Run>>>,
+	"run"
+> => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });

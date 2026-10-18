@@ -24,5 +24,5 @@ const entries = await Effect.runPromise(
 
 await Bun.write(
 	new URL("sources.generated.ts", sourceRoot),
-	`export const kernelRendererSources = {\n${entries.join("\n")}\n} as const;\n`,
+	`export const kernelRendererSources = {\n${entries.sort((left, right) => left.length - right.length).join("\n")}\n} as const;\n`,
 );

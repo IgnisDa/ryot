@@ -38,7 +38,7 @@ export function Shelf(props: {
 	readonly compact: boolean;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
-	readonly icons: { readonly previous: ReactNode; readonly next: ReactNode };
+	readonly icons: { readonly next: ReactNode; readonly previous: ReactNode };
 }) {
 	const scroller = useRef<HTMLUListElement>(null);
 	const [edges, setEdges] = useState({ end: false, start: false });

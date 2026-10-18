@@ -21,25 +21,6 @@ const panelClasses = {
 
 const defaultCloseIcon = <AppIcon name="x" size={18} />;
 
-function CloseButton(props: {
-	readonly label: string;
-	readonly disabled: boolean;
-	readonly children: ReactNode;
-}) {
-	const close = useModalClose();
-	return (
-		<IconButton
-			size="sm"
-			label={props.label}
-			className="-mt-1 -mr-2"
-			onClick={() => close()}
-			disabled={props.disabled}
-		>
-			{props.children}
-		</IconButton>
-	);
-}
-
 export function Dialog(props: {
 	readonly title: string;
 	readonly closeLabel: string;
@@ -50,11 +31,11 @@ export function Dialog(props: {
 	readonly dismissible?: boolean;
 	readonly description?: ReactNode;
 	readonly safeAreaBottom?: number;
-	readonly placement?: "center" | "sheet" | "side";
 	readonly size?: keyof typeof sizeClasses;
 	readonly onInterceptBack?: () => boolean;
-	readonly triggerRef?: RefObject<HTMLElement | null>;
-	readonly initialFocusRef?: RefObject<HTMLElement | null>;
+	readonly placement?: "side" | "sheet" | "center";
+	readonly triggerRef?: RefObject<null | HTMLElement>;
+	readonly initialFocusRef?: RefObject<null | HTMLElement>;
 }) {
 	const titleId = useId();
 	const placement = props.placement ?? "center";
@@ -129,5 +110,24 @@ export function Dialog(props: {
 				</footer>
 			)}
 		</Modal>
+	);
+}
+
+function CloseButton(props: {
+	readonly label: string;
+	readonly disabled: boolean;
+	readonly children: ReactNode;
+}) {
+	const close = useModalClose();
+	return (
+		<IconButton
+			size="sm"
+			label={props.label}
+			className="-mt-1 -mr-2"
+			onClick={() => close()}
+			disabled={props.disabled}
+		>
+			{props.children}
+		</IconButton>
 	);
 }

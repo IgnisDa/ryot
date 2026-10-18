@@ -12,7 +12,7 @@ export const rowsResponse = (
 	pageInfo: RowsResult["pageInfo"],
 ) => ({ data: { [queryName]: rowsResult(items, pageInfo) } });
 
-export const requireRowsQuery = (query: NamedQuery | undefined) => {
+export const requireRowsQuery = (query: undefined | NamedQuery) => {
 	if (query?.output.type !== "rows") {
 		throw new Error("Expected rows query");
 	}

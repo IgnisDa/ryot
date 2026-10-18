@@ -8,7 +8,7 @@ const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable="false"]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])';
 
 const unreachable = (element: HTMLElement) => {
-	for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
+	for (let node: null | HTMLElement = element; node !== null; node = node.parentElement) {
 		if (node.hidden || node.hasAttribute("inert")) {
 			return true;
 		}
@@ -20,7 +20,7 @@ const unreachable = (element: HTMLElement) => {
 	return false;
 };
 
-export const focusableElements = (container: HTMLElement | null) =>
+export const focusableElements = (container: null | HTMLElement) =>
 	Array.from(container?.querySelectorAll<HTMLElement>(focusable) ?? []).filter(
 		(element) => !unreachable(element),
 	);
@@ -28,7 +28,89 @@ export const focusableElements = (container: HTMLElement | null) =>
 const inertOwners = new WeakMap<Element, { count: number; readonly wasInert: boolean }>();
 const scrollOwners = new WeakMap<HTMLElement, { count: number; readonly overflow: string }>();
 
-export function useInertBackground(ref: RefObject<HTMLElement | null>) {
+export function useRestoreFocus(
+	triggerRef: RefObject<null | HTMLElement>,
+	scopeRef?: RefObject<null | HTMLElement>,
+) {
+	const restore = useCallback(() => {
+		const trigger = triggerRef.current;
+		const scope = scopeRef?.current;
+		queueMicrotask(() => {
+			if (
+				scope !== undefined &&
+				document.activeElement !== document.body &&
+				!scope?.contains(document.activeElement)
+			) {
+				return;
+			}
+			if (trigger?.isConnected && !trigger.closest("[inert]")) {
+				trigger.focus();
+			}
+		});
+	}, [scopeRef, triggerRef]);
+
+	useEffect(() => restore, [restore]);
+
+	return restore;
+}
+
+export function useDismissOnOutside(
+	refs: ReadonlyArray<RefObject<null | HTMLElement>>,
+	onDismiss: () => void,
+	options: { readonly enabled: boolean },
+) {
+	const inside = useEffectEvent((node: Node) =>
+		refs.some((ref) => ref.current?.contains(node) === true),
+	);
+	const dismiss = useEffectEvent(() => onDismiss());
+
+	const enabled = options.enabled;
+	useEffect(() => {
+		if (!enabled) {
+			return undefined;
+		}
+		const onPointerDown = (event: PointerEvent) => {
+			if (event.target instanceof Node && inside(event.target)) {
+				return;
+			}
+			dismiss();
+		};
+		document.addEventListener("pointerdown", onPointerDown);
+		return () => document.removeEventListener("pointerdown", onPointerDown);
+	}, [enabled]);
+}
+
+export function useScrollLock(enabled: boolean) {
+	const lockedBody = useRef<null | HTMLElement>(null);
+	const unlock = useCallback(() => {
+		const body = lockedBody.current;
+		if (body !== null) {
+			const owner = scrollOwners.get(body);
+			if (owner !== undefined && --owner.count === 0) {
+				body.style.overflow = owner.overflow;
+				scrollOwners.delete(body);
+			}
+			lockedBody.current = null;
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!enabled) {
+			return undefined;
+		}
+		const body = document.body;
+		const owner = scrollOwners.get(body) ?? { count: 0, overflow: body.style.overflow };
+		owner.count += 1;
+		scrollOwners.set(body, owner);
+		lockedBody.current = body;
+		body.style.overflow = "hidden";
+		return unlock;
+	}, [enabled, unlock]);
+
+	return useMemo(() => ({ unlock }), [unlock]);
+}
+
+export function useInertBackground(ref: RefObject<null | HTMLElement>) {
 	useEffect(() => {
 		const panel = ref.current;
 		if (panel === null || !document.body.contains(panel)) {
@@ -60,7 +142,7 @@ export function useInertBackground(ref: RefObject<HTMLElement | null>) {
 }
 
 export function useFocusTrap(
-	ref: RefObject<HTMLElement | null>,
+	ref: RefObject<null | HTMLElement>,
 	options: { readonly enabled: boolean },
 ) {
 	const enabled = options.enabled;
@@ -90,86 +172,4 @@ export function useFocusTrap(
 		container.addEventListener("keydown", contain);
 		return () => container.removeEventListener("keydown", contain);
 	}, [enabled, ref]);
-}
-
-export function useScrollLock(enabled: boolean) {
-	const lockedBody = useRef<HTMLElement | null>(null);
-	const unlock = useCallback(() => {
-		const body = lockedBody.current;
-		if (body !== null) {
-			const owner = scrollOwners.get(body);
-			if (owner !== undefined && --owner.count === 0) {
-				body.style.overflow = owner.overflow;
-				scrollOwners.delete(body);
-			}
-			lockedBody.current = null;
-		}
-	}, []);
-
-	useEffect(() => {
-		if (!enabled) {
-			return undefined;
-		}
-		const body = document.body;
-		const owner = scrollOwners.get(body) ?? { count: 0, overflow: body.style.overflow };
-		owner.count += 1;
-		scrollOwners.set(body, owner);
-		lockedBody.current = body;
-		body.style.overflow = "hidden";
-		return unlock;
-	}, [enabled, unlock]);
-
-	return useMemo(() => ({ unlock }), [unlock]);
-}
-
-export function useDismissOnOutside(
-	refs: ReadonlyArray<RefObject<HTMLElement | null>>,
-	onDismiss: () => void,
-	options: { readonly enabled: boolean },
-) {
-	const inside = useEffectEvent((node: Node) =>
-		refs.some((ref) => ref.current?.contains(node) === true),
-	);
-	const dismiss = useEffectEvent(() => onDismiss());
-
-	const enabled = options.enabled;
-	useEffect(() => {
-		if (!enabled) {
-			return undefined;
-		}
-		const onPointerDown = (event: PointerEvent) => {
-			if (event.target instanceof Node && inside(event.target)) {
-				return;
-			}
-			dismiss();
-		};
-		document.addEventListener("pointerdown", onPointerDown);
-		return () => document.removeEventListener("pointerdown", onPointerDown);
-	}, [enabled]);
-}
-
-export function useRestoreFocus(
-	triggerRef: RefObject<HTMLElement | null>,
-	scopeRef?: RefObject<HTMLElement | null>,
-) {
-	const restore = useCallback(() => {
-		const trigger = triggerRef.current;
-		const scope = scopeRef?.current;
-		queueMicrotask(() => {
-			if (
-				scope !== undefined &&
-				document.activeElement !== document.body &&
-				!scope?.contains(document.activeElement)
-			) {
-				return;
-			}
-			if (trigger?.isConnected && !trigger.closest("[inert]")) {
-				trigger.focus();
-			}
-		});
-	}, [scopeRef, triggerRef]);
-
-	useEffect(() => restore, [restore]);
-
-	return restore;
 }

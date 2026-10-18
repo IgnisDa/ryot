@@ -14,23 +14,15 @@ import { buildWithVite } from "./vite";
 import { acquireCompilerWorkspace, validateRelativePath } from "./workspace";
 import type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
 
+export type SandboxEsmBuildOptions = SandboxEsmStagedBuildOptions | SandboxEsmExternalBuildOptions;
+
+export interface SandboxEsmPackageModule extends SandboxEsmBuildResult {
+	readonly entry: string;
+}
+
 export interface SandboxEsmAlias {
 	readonly replacement: string;
 	readonly find: string | RegExp;
-}
-
-interface SandboxEsmBuildCommonOptions {
-	readonly outputFile: string;
-	readonly sourceMap?: boolean;
-	readonly aliases?: readonly SandboxEsmAlias[];
-	readonly workspaceOptions?: CompilerWorkspaceOptions;
-	readonly approvedExternalSpecifiers: ReadonlySet<string>;
-	readonly approvedDynamicImportExpressions?: ReadonlySet<string>;
-}
-
-export interface SandboxEsmStagedBuildOptions extends SandboxEsmBuildCommonOptions {
-	readonly entry: string;
-	readonly sources: readonly WorkspaceFile[];
 }
 
 export interface SandboxEsmExternalBuildOptions extends SandboxEsmBuildCommonOptions {
@@ -38,11 +30,8 @@ export interface SandboxEsmExternalBuildOptions extends SandboxEsmBuildCommonOpt
 	readonly sources?: undefined;
 }
 
-export type SandboxEsmBuildOptions = SandboxEsmStagedBuildOptions | SandboxEsmExternalBuildOptions;
-
-export interface SandboxEsmPackageBuildOptions extends SandboxEsmBuildCommonOptions {
-	readonly concurrency?: number;
-	readonly entries: readonly string[];
+export interface SandboxEsmStagedBuildOptions extends SandboxEsmBuildCommonOptions {
+	readonly entry: string;
 	readonly sources: readonly WorkspaceFile[];
 }
 
@@ -52,8 +41,19 @@ export interface SandboxEsmBuildResult {
 	readonly diagnostics: readonly ViteDiagnostic[];
 }
 
-export interface SandboxEsmPackageModule extends SandboxEsmBuildResult {
-	readonly entry: string;
+export interface SandboxEsmPackageBuildOptions extends SandboxEsmBuildCommonOptions {
+	readonly concurrency?: number;
+	readonly entries: readonly string[];
+	readonly sources: readonly WorkspaceFile[];
+}
+
+interface SandboxEsmBuildCommonOptions {
+	readonly outputFile: string;
+	readonly sourceMap?: boolean;
+	readonly aliases?: readonly SandboxEsmAlias[];
+	readonly workspaceOptions?: CompilerWorkspaceOptions;
+	readonly approvedExternalSpecifiers: ReadonlySet<string>;
+	readonly approvedDynamicImportExpressions?: ReadonlySet<string>;
 }
 
 const typeScriptProject = {
@@ -67,9 +67,9 @@ const typeScriptProject = {
 
 const forbiddenImportPattern = /^(?:node:|bun:|https?:|npm:|jsr:)/;
 const forbiddenViteIdentifiers = new Set([
-	"__vite_browser_external",
-	"__vite__mapDeps",
 	"__vitePreload",
+	"__vite__mapDeps",
+	"__vite_browser_external",
 ]);
 
 const diagnosticError = (message: string) =>

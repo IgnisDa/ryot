@@ -41,7 +41,7 @@ const fitDiagnostic = (diagnostic: PluginBackendCompilerDiagnostic, maximumBytes
 	const characters = Array.from(segmenter.segment(diagnostic.message), ({ segment }) => segment);
 	let low = 0;
 	let high = characters.length;
-	let fitted: PluginBackendCompilerDiagnostic | null = null;
+	let fitted: null | PluginBackendCompilerDiagnostic = null;
 	while (low <= high) {
 		const middle = Math.floor((low + high) / 2);
 		const candidate = { ...diagnostic, message: characters.slice(0, middle).join("") };

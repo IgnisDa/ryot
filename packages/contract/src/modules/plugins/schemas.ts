@@ -161,11 +161,6 @@ const PluginInvocationFailureReason = Schema.Union([
 	}),
 ]);
 
-export class PluginRequestError extends Schema.TaggedError<
-	PluginRequestError,
-	{ readonly brand: unique symbol }
->()("PluginRequestError", { reason: PluginRequestFailureReason }) {}
-
 export class PluginConflictError extends Schema.TaggedError<
 	PluginConflictError,
 	{ readonly brand: unique symbol }
@@ -176,15 +171,20 @@ export class PluginNotFoundError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PluginNotFoundError", { reason: PluginNotFoundReason }) {}
 
-export class PluginInvocationError extends Schema.TaggedError<
-	PluginInvocationError,
+export class PluginRequestError extends Schema.TaggedError<
+	PluginRequestError,
 	{ readonly brand: unique symbol }
->()("PluginInvocationError", { reason: PluginInvocationFailureReason }) {}
+>()("PluginRequestError", { reason: PluginRequestFailureReason }) {}
 
 export class PluginOperationRejected extends Schema.TaggedError<
 	PluginOperationRejected,
 	{ readonly brand: unique symbol }
 >()("PluginOperationRejected", { message: Schema.String }) {}
+
+export class PluginInvocationError extends Schema.TaggedError<
+	PluginInvocationError,
+	{ readonly brand: unique symbol }
+>()("PluginInvocationError", { reason: PluginInvocationFailureReason }) {}
 
 export const InstallPluginBody = Schema.Struct({
 	uploadToken: Schema.String,

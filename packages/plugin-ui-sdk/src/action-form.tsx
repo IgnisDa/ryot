@@ -1,21 +1,21 @@
 import type { ComponentProps, KeyboardEvent } from "react";
 
 const submitOnEnterInputTypes = new Set([
+	"tel",
+	"url",
+	"text",
 	"email",
 	"number",
-	"password",
 	"search",
-	"tel",
-	"text",
-	"url",
+	"password",
 ]);
 
-type ActionFormProps = Omit<ComponentProps<"div">, "aria-label" | "onSubmit" | "role"> & {
+type ActionFormProps = Omit<ComponentProps<"div">, "role" | "onSubmit" | "aria-label"> & {
 	readonly label: string;
 	readonly onSubmit: () => void;
 };
 
-const isSubmitOnEnterInput = (target: EventTarget | null): target is HTMLInputElement =>
+const isSubmitOnEnterInput = (target: null | EventTarget): target is HTMLInputElement =>
 	target instanceof HTMLInputElement && submitOnEnterInputTypes.has(target.type);
 
 export function ActionForm({ label, onSubmit, onKeyDown, ...props }: ActionFormProps) {

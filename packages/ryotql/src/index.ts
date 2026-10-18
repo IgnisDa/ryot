@@ -50,10 +50,10 @@ type DateBucketExpression = Extract<ScalarExpression, { type: "dateBucket" }>;
 type ConditionalExpression = Extract<ScalarExpression, { type: "conditional" }>;
 type CorrelatedQueryInput = {
 	readonly where?: Predicate | undefined;
-	readonly joins?: readonly Join[] | undefined;
+	readonly joins?: undefined | readonly Join[];
 };
 
-const isNonEmpty = <T>(values: readonly T[] | undefined): values is readonly [T, ...T[]] =>
+const isNonEmpty = <T>(values: undefined | readonly T[]): values is readonly [T, ...T[]] =>
 	values !== undefined && values.length > 0;
 
 export const table = (tableName: string, alias: string): TableReference => ({
@@ -61,7 +61,7 @@ export const table = (tableName: string, alias: string): TableReference => ({
 	table: tableName,
 });
 
-export function column(elements: JsonElementsJoin, field: "ordinal" | "value"): ColumnExpression;
+export function column(elements: JsonElementsJoin, field: "value" | "ordinal"): ColumnExpression;
 export function column(tableName: TableReference, field: string): ColumnExpression;
 export function column(tableName: Pick<TableReference, "alias">, field: string): ColumnExpression {
 	return { field, type: "column", tableAlias: tableName.alias };
@@ -280,14 +280,14 @@ export const ascending = (expr: ScalarExpression): OrderBy => ({ expr, direction
 
 export const descending = (expr: ScalarExpression): OrderBy => ({ expr, direction: "desc" });
 
-export const join = (type: "inner" | "left", tableName: TableReference, on: Predicate): Join => ({
+export const join = (type: "left" | "inner", tableName: TableReference, on: Predicate): Join => ({
 	on,
 	type,
 	table: tableName,
 });
 
 export const jsonElementsJoin = (
-	mode: "inner" | "left",
+	mode: "left" | "inner",
 	alias: string,
 	expr: ScalarExpression,
 ): JsonElementsJoin => ({ expr, mode, alias, type: "jsonElements" });
@@ -398,8 +398,8 @@ export const include = (
 		readonly limit: number;
 		readonly where?: Predicate | undefined;
 		readonly fields: readonly RowSelection[];
-		readonly joins?: readonly Join[] | undefined;
-		readonly include?: readonly Include[] | undefined;
+		readonly joins?: undefined | readonly Join[];
+		readonly include?: undefined | readonly Include[];
 		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
 	},
 ): Include => ({
@@ -420,9 +420,9 @@ export const rows = (
 		readonly limit?: number | undefined;
 		readonly where?: Predicate | undefined;
 		readonly fields: readonly RowSelection[];
-		readonly joins?: readonly Join[] | undefined;
-		readonly include?: readonly Include[] | undefined;
-		readonly orderBy?: readonly OrderBy[] | undefined;
+		readonly joins?: undefined | readonly Join[];
+		readonly include?: undefined | readonly Include[];
+		readonly orderBy?: undefined | readonly OrderBy[];
 	},
 ): NamedQuery & { readonly output: RowsOutput } => ({
 	from,
@@ -447,64 +447,26 @@ export const selectedField = <A, I>(
 	codec: Schema.Codec<A, I>,
 ): SelectedField<A, I> => ({ expr, codec });
 
+export type SelectedRowsPageInfo = RowsResult["pageInfo"];
+
+export type SelectedIncludePageInfo = IncludeResult["pageInfo"];
+
 export type SelectedSelection = Readonly<Record<string, SelectedField<unknown>>>;
 
-type SelectedValue<Field> = Field extends SelectedField<infer A, infer _I> ? A : never;
+export type SelectedQuery<Success, Query extends NamedQuery = NamedQuery> = {
+	readonly document: Query;
+	readonly decodeResult: (result: unknown) => Result.Result<Success, unknown>;
+};
 
 export type SelectedIncludes = Readonly<
 	Record<
 		string,
 		{
-			readonly decodeResult: (result: unknown) => Result.Result<unknown, unknown>;
 			readonly include: (key: string) => Include;
+			readonly decodeResult: (result: unknown) => Result.Result<unknown, unknown>;
 		}
 	>
 >;
-
-type SelectedIncludeValue<Selected> =
-	Selected extends SelectedIncludeQuery<infer Selection, infer Includes>
-		? SelectedIncludeResult<Selection, Includes>
-		: never;
-
-export type SelectedRow<
-	Selection extends SelectedSelection,
-	Includes extends SelectedIncludes = Record<never, never>,
-> = { readonly [Key in keyof Selection]: SelectedValue<Selection[Key]> } & {
-	readonly [Key in keyof Includes]: SelectedIncludeValue<Includes[Key]>;
-};
-
-export type SelectedRowsPageInfo = RowsResult["pageInfo"];
-
-export type SelectedIncludePageInfo = IncludeResult["pageInfo"];
-
-export type SelectedRowsResult<
-	Selection extends SelectedSelection,
-	Includes extends SelectedIncludes = Record<never, never>,
-> = {
-	readonly items: readonly SelectedRow<Selection, Includes>[];
-	readonly pageInfo: SelectedRowsPageInfo;
-};
-
-export type SelectedIncludeResult<
-	Selection extends SelectedSelection,
-	Includes extends SelectedIncludes = Record<never, never>,
-> = {
-	readonly items: readonly SelectedRow<Selection, Includes>[];
-	readonly pageInfo: SelectedIncludePageInfo;
-};
-
-type SelectedRowsInput<
-	Selection extends SelectedSelection,
-	Includes extends SelectedIncludes,
-> = Omit<Parameters<typeof rows>[1], "fields" | "include"> & {
-	readonly include?: Includes | undefined;
-	readonly selection: Selection;
-};
-
-export type SelectedQuery<Success, Query extends NamedQuery = NamedQuery> = {
-	readonly decodeResult: (result: unknown) => Result.Result<Success, unknown>;
-	readonly document: Query;
-};
 
 export type SelectedRowsQuery<
 	Selection extends SelectedSelection,
@@ -514,14 +476,52 @@ export type SelectedRowsQuery<
 	NamedQuery & { readonly output: RowsOutput }
 >;
 
+export type SelectedRowsResult<
+	Selection extends SelectedSelection,
+	Includes extends SelectedIncludes = Record<never, never>,
+> = {
+	readonly pageInfo: SelectedRowsPageInfo;
+	readonly items: readonly SelectedRow<Selection, Includes>[];
+};
+
+export type SelectedIncludeResult<
+	Selection extends SelectedSelection,
+	Includes extends SelectedIncludes = Record<never, never>,
+> = {
+	readonly pageInfo: SelectedIncludePageInfo;
+	readonly items: readonly SelectedRow<Selection, Includes>[];
+};
+
+export type SelectedRow<
+	Selection extends SelectedSelection,
+	Includes extends SelectedIncludes = Record<never, never>,
+> = { readonly [Key in keyof Selection]: SelectedValue<Selection[Key]> } & {
+	readonly [Key in keyof Includes]: SelectedIncludeValue<Includes[Key]>;
+};
+
 export type SelectedIncludeQuery<
 	Selection extends SelectedSelection,
 	Includes extends SelectedIncludes = Record<never, never>,
 > = {
+	readonly include: (key: string) => Include;
 	readonly decodeResult: (
 		result: unknown,
 	) => Result.Result<SelectedIncludeResult<Selection, Includes>, unknown>;
-	readonly include: (key: string) => Include;
+};
+
+type SelectedValue<Field> = Field extends SelectedField<infer A, infer _I> ? A : never;
+
+type SelectedIncludeValue<Selected> =
+	Selected extends SelectedIncludeQuery<infer Selection, infer Includes>
+		? SelectedIncludeResult<Selection, Includes>
+		: never;
+
+type SelectedRowsInput<
+	Selection extends SelectedSelection,
+	Includes extends SelectedIncludes,
+> = Omit<Parameters<typeof rows>[1], "fields" | "include"> & {
+	readonly selection: Selection;
+	readonly include?: Includes | undefined;
 };
 
 const fail = (message: string) => Result.fail(new Error(message));
@@ -582,7 +582,7 @@ const decodeRowsPageInfo = (value: unknown) =>
 		}),
 	);
 
-const compileIncludes = (includes: SelectedIncludes | undefined) =>
+const compileIncludes = (includes: undefined | SelectedIncludes) =>
 	includes
 		? Object.entries(includes).map(([key, selectedInclude]) => selectedInclude.include(key))
 		: [];
@@ -657,16 +657,16 @@ export const selectedRows = <
 	};
 };
 
-type SelectedRowsSourceQueryInput = Omit<Parameters<typeof rows>[1], "fields" | "include">;
-
 export type SelectedRowsSource<Data> = {
-	readonly fields: readonly FieldSelection[];
 	readonly include: RowsOutput["include"];
+	readonly fields: readonly FieldSelection[];
 	readonly decode: (value: unknown) => Result.Result<Data, unknown>;
 	readonly query: (
 		input?: SelectedRowsSourceQueryInput,
 	) => SelectedQuery<{ readonly items: readonly Data[]; readonly pageInfo: SelectedRowsPageInfo }>;
 };
+
+type SelectedRowsSourceQueryInput = Omit<Parameters<typeof rows>[1], "fields" | "include">;
 
 export const selectedRowsSource = <
 	const Selection extends SelectedSelection,
@@ -710,7 +710,7 @@ function selectedRowWithCardinality<
 	from: TableReference,
 	input: SelectedCardinalityInput<Selection, Includes>,
 	optional: true,
-): SelectedQuery<SelectedRow<Selection, Includes> | undefined>;
+): SelectedQuery<undefined | SelectedRow<Selection, Includes>>;
 function selectedRowWithCardinality<
 	const Selection extends SelectedSelection,
 	const Includes extends SelectedIncludes,
@@ -718,7 +718,7 @@ function selectedRowWithCardinality<
 	from: TableReference,
 	input: SelectedCardinalityInput<Selection, Includes>,
 	optional: boolean,
-): SelectedQuery<SelectedRow<Selection, Includes> | undefined> {
+): SelectedQuery<undefined | SelectedRow<Selection, Includes>> {
 	const query = selectedRows(from, { ...input, limit: 2 });
 	return {
 		document: query.document,
@@ -750,15 +750,15 @@ export const selectedOptionalRow = <
 >(
 	from: TableReference,
 	input: SelectedCardinalityInput<Selection, Includes>,
-): SelectedQuery<SelectedRow<Selection, Includes> | undefined> =>
+): SelectedQuery<undefined | SelectedRow<Selection, Includes>> =>
 	selectedRowWithCardinality(from, input, true);
 
 type SelectedIncludeInput<
 	Selection extends SelectedSelection,
 	Includes extends SelectedIncludes,
-> = Omit<Parameters<typeof include>[1], "fields" | "include" | "key"> & {
-	readonly include?: Includes | undefined;
+> = Omit<Parameters<typeof include>[1], "key" | "fields" | "include"> & {
 	readonly selection: Selection;
+	readonly include?: Includes | undefined;
 };
 
 export const selectedInclude = <
@@ -797,6 +797,11 @@ export const selectedInclude = <
 	};
 };
 
+export type PreparedRecipe<Success> = {
+	readonly document: RyotQLDocument;
+	readonly decode: (response: unknown) => Result.Result<Success, unknown>;
+};
+
 type AnySelectedQuery = SelectedQuery<unknown>;
 
 type RecipeQueries = Readonly<Record<string, AnySelectedQuery>>;
@@ -805,11 +810,6 @@ type QueryResults<Queries extends RecipeQueries> = {
 	readonly [Key in keyof Queries]: Queries[Key] extends SelectedQuery<infer Success>
 		? Success
 		: never;
-};
-
-export type PreparedRecipe<Success> = {
-	readonly decode: (response: unknown) => Result.Result<Success, unknown>;
-	readonly document: RyotQLDocument;
 };
 
 export namespace Recipe {
@@ -824,7 +824,7 @@ export function defineRecipe<
 	const InputTuple extends readonly unknown[],
 	const Queries extends RecipeQueries,
 >(
-	builder: (...input: InputTuple) => { readonly queries: Queries; readonly map?: never },
+	builder: (...input: InputTuple) => { readonly map?: never; readonly queries: Queries },
 ): (...input: InputTuple) => PreparedRecipe<QueryResults<Queries>>;
 export function defineRecipe<
 	const InputTuple extends readonly unknown[],
@@ -885,10 +885,10 @@ export const aggregate = (
 	input: {
 		readonly limit?: number | undefined;
 		readonly where?: Predicate | undefined;
-		readonly joins?: readonly Join[] | undefined;
-		readonly groupBy?: readonly FieldSelection[] | undefined;
+		readonly joins?: undefined | readonly Join[];
+		readonly groupBy?: undefined | readonly FieldSelection[];
 		readonly measures: readonly [AggregateMeasure, ...AggregateMeasure[]];
-		readonly orderBy?: readonly [AggregateOrderBy, ...AggregateOrderBy[]] | undefined;
+		readonly orderBy?: undefined | readonly [AggregateOrderBy, ...AggregateOrderBy[]];
 	},
 ): NamedQuery & { readonly output: AggregateOutput } => ({
 	from,
@@ -912,7 +912,7 @@ export const timeSeries = (
 		readonly startAt: string;
 		readonly time: ScalarExpression;
 		readonly where?: Predicate | undefined;
-		readonly joins?: readonly Join[] | undefined;
+		readonly joins?: undefined | readonly Join[];
 		readonly bucket: TimeSeriesOutput["time"]["bucket"];
 		readonly measure: TimeSeriesOutput["measure"]["aggregation"];
 	},
@@ -932,8 +932,8 @@ export const timeSeries = (
 });
 
 export type SelectedMeasure<A, I = unknown> = {
-	readonly aggregation: AggregationSpec;
 	readonly codec: Schema.Codec<A, I>;
+	readonly aggregation: AggregationSpec;
 };
 
 export const selectedMeasure = <A, I>(
@@ -941,9 +941,13 @@ export const selectedMeasure = <A, I>(
 	codec: Schema.Codec<A, I>,
 ): SelectedMeasure<A, I> => ({ codec, aggregation });
 
-type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
-
-type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
+export type SelectedAggregateResult<
+	GroupBy extends SelectedSelection,
+	Measures extends SelectedMeasures,
+> = {
+	readonly pageInfo?: undefined | SelectedIncludePageInfo;
+	readonly items: readonly SelectedAggregateRow<GroupBy, Measures>[];
+};
 
 export type SelectedAggregateRow<
 	GroupBy extends SelectedSelection,
@@ -952,13 +956,13 @@ export type SelectedAggregateRow<
 	readonly [Key in keyof Measures]: SelectedMeasureValue<Measures[Key]>;
 };
 
-export type SelectedAggregateResult<
-	GroupBy extends SelectedSelection,
-	Measures extends SelectedMeasures,
-> = {
-	readonly items: readonly SelectedAggregateRow<GroupBy, Measures>[];
-	readonly pageInfo?: SelectedIncludePageInfo | undefined;
-};
+type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
+
+type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
+
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = {
+	readonly groupBy?: undefined;
+} & Omit<SelectedAggregateInput<Record<never, never>, Measures>, "groupBy">;
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,
@@ -967,11 +971,6 @@ type SelectedAggregateInput<
 	readonly groupBy: GroupBy;
 	readonly measures: Measures;
 };
-
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<
-	SelectedAggregateInput<Record<never, never>, Measures>,
-	"groupBy"
-> & { readonly groupBy?: undefined };
 
 const decodeSelectedAggregateRow = <
 	GroupBy extends SelectedSelection,
@@ -992,6 +991,26 @@ const decodeSelectedAggregateRow = <
 		);
 	});
 
+export type SelectedTimeSeriesResult<Selection extends SelectedTimeSeriesSelection> = {
+	readonly buckets: readonly SelectedTimeSeriesBucket<Selection>[];
+};
+export type SelectedTimeSeriesBucket<Selection extends SelectedTimeSeriesSelection> = {
+	readonly endAt: CodecValue<Selection["endAt"]>;
+	readonly value: CodecValue<Selection["value"]>;
+	readonly startAt: CodecValue<Selection["startAt"]>;
+};
+type CodecValue<Codec> = Codec extends Schema.Codec<infer A, infer _I> ? A : never;
+
+type SelectedTimeSeriesInput<Selection extends SelectedTimeSeriesSelection> = {
+	readonly selection: Selection;
+} & Omit<Parameters<typeof timeSeries>[1], "selection">;
+
+type SelectedTimeSeriesSelection = {
+	readonly endAt: Schema.Codec<unknown, unknown>;
+	readonly value: Schema.Codec<unknown, unknown>;
+	readonly startAt: Schema.Codec<unknown, unknown>;
+};
+
 export function selectedAggregate<const Measures extends SelectedMeasures>(
 	from: TableReference,
 	input: SelectedUngroupedAggregateInput<Measures>,
@@ -1006,8 +1025,8 @@ export function selectedAggregate<
 export function selectedAggregate(
 	from: TableReference,
 	input:
-		| SelectedAggregateInput<SelectedSelection, SelectedMeasures>
-		| SelectedUngroupedAggregateInput<SelectedMeasures>,
+		| SelectedUngroupedAggregateInput<SelectedMeasures>
+		| SelectedAggregateInput<SelectedSelection, SelectedMeasures>,
 ): SelectedQuery<unknown> {
 	const { measures, groupBy = {}, ...aggregateInput } = input;
 	const compiledMeasures = Object.entries(measures).map(([key, selected]) =>
@@ -1056,29 +1075,6 @@ export function selectedAggregate(
 			}),
 	};
 }
-
-type SelectedTimeSeriesSelection = {
-	readonly endAt: Schema.Codec<unknown, unknown>;
-	readonly startAt: Schema.Codec<unknown, unknown>;
-	readonly value: Schema.Codec<unknown, unknown>;
-};
-
-type CodecValue<Codec> = Codec extends Schema.Codec<infer A, infer _I> ? A : never;
-
-export type SelectedTimeSeriesBucket<Selection extends SelectedTimeSeriesSelection> = {
-	readonly endAt: CodecValue<Selection["endAt"]>;
-	readonly startAt: CodecValue<Selection["startAt"]>;
-	readonly value: CodecValue<Selection["value"]>;
-};
-
-export type SelectedTimeSeriesResult<Selection extends SelectedTimeSeriesSelection> = {
-	readonly buckets: readonly SelectedTimeSeriesBucket<Selection>[];
-};
-
-type SelectedTimeSeriesInput<Selection extends SelectedTimeSeriesSelection> = Omit<
-	Parameters<typeof timeSeries>[1],
-	"selection"
-> & { readonly selection: Selection };
 
 export const selectedTimeSeries = <const Selection extends SelectedTimeSeriesSelection>(
 	from: TableReference,

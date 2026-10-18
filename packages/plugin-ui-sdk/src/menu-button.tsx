@@ -4,10 +4,10 @@ import { IconButton } from "./button";
 import { Menu, type MenuItem } from "./menu";
 
 type MenuTrigger = {
+	readonly onClick: () => void;
 	readonly "aria-haspopup": "menu";
 	readonly "aria-expanded": boolean;
-	readonly onClick: () => void;
-	readonly ref: (element: HTMLButtonElement | null) => void;
+	readonly ref: (element: null | HTMLButtonElement) => void;
 };
 
 export function MenuButton(props: {
@@ -17,7 +17,7 @@ export function MenuButton(props: {
 	readonly items: ReadonlyArray<MenuItem>;
 	readonly renderTrigger?: (trigger: MenuTrigger) => ReactNode;
 }) {
-	const [triggerElement, setTriggerElement] = useState<HTMLButtonElement | null>(null);
+	const [triggerElement, setTriggerElement] = useState<null | HTMLButtonElement>(null);
 	const triggerRef = useMemo(() => ({ current: triggerElement }), [triggerElement]);
 	const [open, setOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);

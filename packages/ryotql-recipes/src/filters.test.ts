@@ -88,7 +88,7 @@ const source = requireRowsQuery(
 
 const valueField = (
 	key: string,
-	type: "enum" | "enum-list" | "text" | "text-list" | "number" | "date" | "boolean",
+	type: "enum" | "text" | "date" | "number" | "boolean" | "enum-list" | "text-list",
 ): ValueFilterField =>
 	type === "enum" || type === "enum-list"
 		? { key, type, label: key, field: key, kind: "value", choices: [{ value: "a", label: "A" }] }

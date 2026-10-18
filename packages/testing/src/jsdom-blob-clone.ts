@@ -73,7 +73,7 @@ export const installJsdomBlobClone = () => {
 	port.addEventListener = function patchedAddEventListener(
 		this: MessagePort,
 		type: string,
-		listener: EventListenerOrEventListenerObject | null,
+		listener: null | EventListenerOrEventListenerObject,
 		options?: boolean | AddEventListenerOptions,
 	) {
 		if (type !== "message" || typeof listener !== "function") {
@@ -92,7 +92,7 @@ export const installJsdomBlobClone = () => {
 	if (assign !== undefined) {
 		Object.defineProperty(port, "onmessage", {
 			...descriptor,
-			set(this: MessagePort, listener: ((event: MessageEvent) => void) | null) {
+			set(this: MessagePort, listener: null | ((event: MessageEvent) => void)) {
 				assign.call(
 					this,
 					listener === null ? null : (event: Event) => listener(reviveEvent(event)),

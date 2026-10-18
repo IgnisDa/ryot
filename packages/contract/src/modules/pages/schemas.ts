@@ -363,16 +363,16 @@ export const ClientCompositionDocument = strictStruct({
 });
 export type ClientCompositionDocument = typeof ClientCompositionDocument.Type;
 
-export class ClientPageDocumentStale extends Schema.TaggedError<
-	ClientPageDocumentStale,
-	{ readonly brand: unique symbol }
->()("ClientPageDocumentStale", {
-	reason: strictStruct({ code: Schema.Literal("client-page-document-stale") }),
-}) {}
-
 export class PageBundleFileNotFound extends Schema.TaggedError<
 	PageBundleFileNotFound,
 	{ readonly brand: unique symbol }
 >()("PageBundleFileNotFound", {
 	reason: strictStruct({ code: Schema.Literal("client-asset-not-found") }),
+}) {}
+
+export class ClientPageDocumentStale extends Schema.TaggedError<
+	ClientPageDocumentStale,
+	{ readonly brand: unique symbol }
+>()("ClientPageDocumentStale", {
+	reason: strictStruct({ code: Schema.Literal("client-page-document-stale") }),
 }) {}

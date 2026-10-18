@@ -31,24 +31,24 @@ export const sandboxTypeScriptProject = {
 export const sandboxSourcePath = (fileName: string) =>
 	fileName.startsWith(`${virtualRoot}/`) ? fileName.slice(virtualRoot.length + 1) : fileName;
 
-class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
-	message: string;
-}> {}
-
 export type SandboxTypeScriptSources = {
 	readonly entry: string;
 	readonly files: Readonly<Record<string, string>>;
 };
-
-type SandboxEntryExecution = Effect.Success<
-	ReturnType<ReturnType<typeof createSandboxExecutionAnalyzer>>
->;
 
 export type SandboxProjectEntry = {
 	readonly entry: string;
 	readonly sourceFile: ts.SourceFile;
 	readonly execution: SandboxEntryExecution;
 };
+
+type SandboxEntryExecution = Effect.Success<
+	ReturnType<ReturnType<typeof createSandboxExecutionAnalyzer>>
+>;
+
+class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
+	message: string;
+}> {}
 
 export const createTypeScriptSourcesProjectForEntries = (
 	sources: SandboxTypeScriptSources,

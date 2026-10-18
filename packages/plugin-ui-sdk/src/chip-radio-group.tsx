@@ -7,8 +7,8 @@ type ChipRadioGroupProps<O extends RadioGroupOption> = {
 	readonly label: string;
 	readonly className?: string;
 	readonly options: readonly O[];
-	readonly value: O["value"] | undefined;
-	readonly overflow: "scroll" | "wrap";
+	readonly overflow: "wrap" | "scroll";
+	readonly value: undefined | O["value"];
 	readonly onChange: (value: O["value"]) => void;
 };
 

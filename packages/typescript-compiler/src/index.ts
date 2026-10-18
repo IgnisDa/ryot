@@ -19,9 +19,9 @@ export const TypeScriptCompilerDiagnostic = Schema.Struct({
 	severity: Schema.Literals(["error", "warning", "info"]),
 });
 
-export type TypeScriptCompilerDiagnostic = Schema.Schema.Type<typeof TypeScriptCompilerDiagnostic>;
-
 export type TypeScriptProjectSources = Readonly<Record<string, string>>;
+
+export type TypeScriptCompilerDiagnostic = Schema.Schema.Type<typeof TypeScriptCompilerDiagnostic>;
 
 export type TypeScriptProjectConfiguration = {
 	readonly compilerOptions: Readonly<Record<string, unknown>>;
@@ -87,9 +87,9 @@ export const resolveTypeScriptCompilerPath = (from: string) => {
 export type TypeScriptProjectAccess = {
 	readonly checker: Checker;
 	readonly program: Program;
-	readonly entrySourceFiles: Readonly<Record<string, ts.SourceFile>>;
-	readonly sourceFiles: readonly ts.SourceFile[];
 	readonly diagnostics: readonly Diagnostic[];
+	readonly sourceFiles: readonly ts.SourceFile[];
+	readonly entrySourceFiles: Readonly<Record<string, ts.SourceFile>>;
 };
 
 export const withTypeScriptProject = <A, E, R>(

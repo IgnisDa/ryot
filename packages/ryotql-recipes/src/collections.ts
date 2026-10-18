@@ -110,7 +110,7 @@ const membershipFieldPrefix = "membership.";
 
 const collectionMemberTypeValue = (group: {
 	readonly entitySchemaSlug: string;
-	readonly ownerPluginId: string | null;
+	readonly ownerPluginId: null | string;
 }) => `${group.ownerPluginId ?? ""}/${group.entitySchemaSlug}`;
 
 const alsoInCollectionField: QueryRelationshipFilterField = {
@@ -123,7 +123,7 @@ const alsoInCollectionField: QueryRelationshipFilterField = {
 
 export const collectionMemberFilterFields = (input: {
 	readonly groups: CollectionMembersAggregateResult;
-	readonly membershipPropertiesSchema: AppSchemaValue | null;
+	readonly membershipPropertiesSchema: null | AppSchemaValue;
 }): readonly QueryFilterField[] => {
 	const [firstType, ...otherTypes] = input.groups.items.map((group) => ({
 		label: group.typeLabel,
@@ -194,8 +194,8 @@ const collectionMemberFilter = (
 
 const collectionTypeLabel = (input: {
 	readonly entitySchemaSlug: string;
-	readonly ownerPluginId: string | null;
-	readonly ownerPluginName: string | null;
+	readonly ownerPluginId: null | string;
+	readonly ownerPluginName: null | string;
 }) => {
 	if (input.ownerPluginId === null && input.entitySchemaSlug === "collection") {
 		return "Collections";
@@ -229,7 +229,7 @@ type CollectionMemberColumnDescriptor = {
 };
 
 const collectionMemberColumnDescriptors = (
-	membershipPropertiesSchema: AppSchemaValue | null,
+	membershipPropertiesSchema: null | AppSchemaValue,
 ): readonly CollectionMemberColumnDescriptor[] => {
 	const fields = getOrderedAppSchemaFieldEntries(membershipPropertiesSchema?.fields ?? {}).filter(
 		([, definition]) => definition.secret !== true,
@@ -258,7 +258,7 @@ const collectionMemberColumnDescriptors = (
 };
 
 export const collectionMemberTableColumns = (
-	membershipPropertiesSchema: AppSchemaValue | null,
+	membershipPropertiesSchema: null | AppSchemaValue,
 ): readonly SavedViewTableColumn[] =>
 	collectionMemberColumnDescriptors(membershipPropertiesSchema).map(
 		({ column: tableColumn }) => tableColumn,
@@ -278,11 +278,11 @@ const collectionMemberCells = (
 	member: {
 		readonly name: string;
 		readonly entitySchemaSlug: string;
-		readonly ownerPluginId: string | null;
-		readonly ownerPluginName: string | null;
+		readonly ownerPluginId: null | string;
+		readonly ownerPluginName: null | string;
 		readonly properties: Readonly<Record<string, JsonValue>>;
 	},
-	membershipPropertiesSchema: AppSchemaValue | null,
+	membershipPropertiesSchema: null | AppSchemaValue,
 ) => {
 	const typeLabel = collectionTypeLabel(member);
 	return collectionMemberColumnDescriptors(membershipPropertiesSchema).map(
@@ -370,7 +370,7 @@ export const collectionMembershipTargetRecipe = defineRecipe(
 );
 
 export const collectionPickerRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly search: string; readonly after?: string }) => {
+	(input: { readonly search: string; readonly after?: string; readonly entityId: string }) => {
 		const collection = table("entity", "collectionOption");
 		const membership = table("relationship", "optionMembership");
 		return {
@@ -412,8 +412,8 @@ export type CollectionPickerResult = Recipe.Success<typeof collectionPickerRecip
 const collectionHeaderFields = (
 	rawFields: JsonValue | undefined,
 ): {
-	readonly fields: ReadonlyArray<KeyedCollectionField> | null;
-	readonly membershipPropertiesSchema: AppSchemaValue | null;
+	readonly membershipPropertiesSchema: null | AppSchemaValue;
+	readonly fields: null | ReadonlyArray<KeyedCollectionField>;
 } => {
 	const fields = decodeCollectionFields(rawFields);
 	if (Result.isFailure(fields)) {
@@ -462,7 +462,7 @@ export const collectionHeaderRecipe = defineRecipe((input: { readonly collection
 export type CollectionHeaderResult = Recipe.Success<typeof collectionHeaderRecipe>;
 
 export const collectionMembershipRecipe = defineRecipe(
-	(input: { readonly collectionId: string; readonly entityId: string }) => {
+	(input: { readonly entityId: string; readonly collectionId: string }) => {
 		const membership = table("relationship", "collectionMembership");
 		return {
 			map: ({ membership: row }) => {
@@ -494,13 +494,13 @@ export type CollectionMembershipResult = Recipe.Success<typeof collectionMembers
 export const collectionMembersRecipe = defineRecipe(
 	(
 		input: FilterInput & {
+			readonly collectionId: string;
 			readonly after?: string | undefined;
 			readonly limit?: number | undefined;
-			readonly collectionId: string;
 			readonly searchText?: string | undefined;
-			readonly sort?: CollectionMemberSort | undefined;
-			readonly filterFields?: readonly QueryFilterField[] | undefined;
-			readonly membershipPropertiesSchema: AppSchemaValue | null;
+			readonly sort?: undefined | CollectionMemberSort;
+			readonly membershipPropertiesSchema: null | AppSchemaValue;
+			readonly filterFields?: undefined | readonly QueryFilterField[];
 		},
 	) => {
 		const tables = collectionMembershipTables();
@@ -576,7 +576,7 @@ export const collectionMembersCountRecipe = defineRecipe(
 		input: FilterInput & {
 			readonly collectionId: string;
 			readonly searchText?: string | undefined;
-			readonly filterFields?: readonly QueryFilterField[] | undefined;
+			readonly filterFields?: undefined | readonly QueryFilterField[];
 		},
 	) => {
 		const tables = collectionMembershipTables();

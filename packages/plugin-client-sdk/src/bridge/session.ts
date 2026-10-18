@@ -74,33 +74,33 @@ import { RyotClientError } from "../client/errors";
 import type { RyotNavigationTarget } from "../client/navigation-target";
 import type { PluginNavigationController, PluginNavigationSnapshot } from "../navigation/store";
 
-type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
+type PluginRuntimeState = "ready" | "active" | "failed" | "closing" | "disposed";
 
-type RequestType =
-	| "device"
-	| "ios-live-activity"
-	| "add-to-collection-screen"
-	| "asset"
-	| "background-operation"
-	| "calendar-source-visibility"
-	| "collection"
-	| "edit-collection-screen"
-	| "entity-editor-save"
-	| "external-link"
-	| "operation"
-	| "pick-entity-screen"
-	| "enrichment"
-	| "ryotql"
-	| "storage"
-	| "upload"
-	| "user-settings";
+type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) => void };
 
 type PendingCall = {
 	readonly type: RequestType;
 	readonly complete: (result: Effect.Effect<unknown, RyotClientError>) => void;
 };
 
-type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) => void };
+type RequestType =
+	| "asset"
+	| "device"
+	| "ryotql"
+	| "upload"
+	| "storage"
+	| "operation"
+	| "collection"
+	| "enrichment"
+	| "external-link"
+	| "user-settings"
+	| "ios-live-activity"
+	| "entity-editor-save"
+	| "pick-entity-screen"
+	| "background-operation"
+	| "edit-collection-screen"
+	| "add-to-collection-screen"
+	| "calendar-source-visibility";
 
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const noOverlayToDismiss = () => false;
@@ -128,7 +128,7 @@ export const createPluginRuntime = (
 	navigationStore: PluginNavigationController,
 	onActive?: () => void,
 	onTerminal?: () => void,
-	onDocument?: (documentKey: string, page: ClientPageContext | undefined) => void,
+	onDocument?: (documentKey: string, page: undefined | ClientPageContext) => void,
 ) => {
 	let hasLocation = false;
 	let contributors = init.page?.contributors ?? [];
@@ -139,7 +139,7 @@ export const createPluginRuntime = (
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
-	let terminalReason: RyotClientErrorReason | undefined;
+	let terminalReason: undefined | RyotClientErrorReason;
 	let dismissOverlay = noOverlayToDismiss;
 	let overlayCount = 0;
 	const flushHandlers = new Set<() => Effect.Effect<void, RyotClientError>>();
@@ -150,7 +150,7 @@ export const createPluginRuntime = (
 		completeTransition: navigationStore.completeTransition,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
 		openDrawer: () => post({ type: "open-drawer" } satisfies PluginBridgeOpenDrawer),
-		publishTitle: (title: string | null) => {
+		publishTitle: (title: null | string) => {
 			const entry = navigationStore.getSnapshot().entry;
 			if (entry === undefined) {
 				return;
@@ -461,11 +461,11 @@ export const createPluginRuntime = (
 		type: RequestType,
 		requestId: string,
 		outcome:
-			| { readonly outcome: "success"; readonly value: unknown }
+			| { readonly value: unknown; readonly outcome: "success" }
 			| {
+					readonly message?: string;
 					readonly outcome: "failure";
 					readonly reason: RyotClientErrorReason;
-					readonly message?: string;
 			  },
 	) => {
 		const call = pending.get(requestId);
@@ -743,6 +743,40 @@ export const createPluginRuntime = (
 			}
 			const message = decoded.success;
 			switch (message.type) {
+				case "theme":
+					applyThemeMode(message.mode);
+					theme = { resolvedMode: message.mode };
+					for (const listener of themeListeners) {
+						listener();
+					}
+					return;
+				case "document":
+					contributors = message.page?.contributors ?? [];
+					resetDocument();
+					onDocument?.(message.documentKey, message.page);
+					acceptLocation(message.navigation);
+					return;
+				case "location":
+					acceptLocation(message);
+					return;
+				case "viewport":
+					navigationStore.setViewport({
+						safeAreaTop: message.safeAreaTop,
+						safeAreaBottom: message.safeAreaBottom,
+					});
+					return;
+				case "page-refresh":
+					client.mutationCompleted.hint();
+					return;
+				case "asset-result":
+					settle(
+						"asset",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.resolutions },
+					);
+					return;
 				case "flush-request":
 					Effect.runFork(
 						Effect.forEach([...flushHandlers], (flush) => flush(), { discard: true }).pipe(
@@ -760,14 +794,37 @@ export const createPluginRuntime = (
 				case "device-result":
 					settle("device", message.requestId, message);
 					return;
-				case "ios-live-activity-result":
-					settle("ios-live-activity", message.requestId, message);
+				case "upload-result": {
+					if (message.outcome === "failure") {
+						settle("upload", message.requestId, message);
+						return;
+					}
+					const { type: _type, outcome: _outcome, requestId: _requestId, ...value } = message;
+					settle("upload", message.requestId, { value, outcome: "success" });
 					return;
-				case "document":
-					contributors = message.page?.contributors ?? [];
-					resetDocument();
-					onDocument?.(message.documentKey, message.page);
-					acceptLocation(message.navigation);
+				}
+				case "ryotql-result":
+					settle(
+						"ryotql",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.response },
+					);
+					return;
+				case "entity-updated":
+					for (const owner of Array.from(interestOwners)) {
+						if (
+							interestOwners.has(owner) &&
+							(owner.interest.foreground.includes(message.entityId) ||
+								owner.interest.visible.includes(message.entityId))
+						) {
+							owner.onUpdate({ reason: message.reason, entityId: message.entityId });
+						}
+					}
+					return;
+				case "storage-result":
+					settle("storage", message.requestId, message);
 					return;
 				case "dismiss-overlay": {
 					let dismissed = false;
@@ -783,41 +840,6 @@ export const createPluginRuntime = (
 					} satisfies PluginBridgeDismissOverlayResult);
 					return;
 				}
-				case "entity-updated":
-					for (const owner of Array.from(interestOwners)) {
-						if (
-							interestOwners.has(owner) &&
-							(owner.interest.foreground.includes(message.entityId) ||
-								owner.interest.visible.includes(message.entityId))
-						) {
-							owner.onUpdate({ reason: message.reason, entityId: message.entityId });
-						}
-					}
-					return;
-				case "location":
-					acceptLocation(message);
-					return;
-				case "viewport":
-					navigationStore.setViewport({
-						safeAreaTop: message.safeAreaTop,
-						safeAreaBottom: message.safeAreaBottom,
-					});
-					return;
-				case "theme":
-					applyThemeMode(message.mode);
-					theme = { resolvedMode: message.mode };
-					for (const listener of themeListeners) {
-						listener();
-					}
-					return;
-				case "page-refresh":
-					client.mutationCompleted.hint();
-					return;
-				case "page-shortcut-press":
-					for (const press of pageShortcuts.get(message.shortcut) ?? []) {
-						press();
-					}
-					return;
 				case "lifecycle-close":
 					finish(message.reason, message.reason === "disposed" ? "disposed" : "protocol", false);
 					return;
@@ -826,50 +848,6 @@ export const createPluginRuntime = (
 						"operation",
 						message.requestId,
 						message.outcome === "failure" ? message : { outcome: "success", value: message.value },
-					);
-					return;
-				case "background-operation-accepted":
-					settle(
-						"background-operation",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.submissionId },
-					);
-					return;
-				case "background-operation-settled":
-					for (const listener of backgroundListeners) {
-						listener(message);
-					}
-					return;
-				case "pick-entity-screen-result":
-					settle("pick-entity-screen", message.requestId, message);
-					return;
-				case "edit-collection-screen-result":
-					settle("edit-collection-screen", message.requestId, message);
-					return;
-				case "add-to-collection-screen-result":
-					settle("add-to-collection-screen", message.requestId, message);
-					return;
-				case "external-link-result":
-					settle(
-						"external-link",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: { outcome: "success" } },
-					);
-					return;
-				case "storage-result":
-					settle("storage", message.requestId, message);
-					return;
-				case "user-settings-result":
-					settle(
-						"user-settings",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.settings },
 					);
 					return;
 				case "enrichment-result":
@@ -881,13 +859,6 @@ export const createPluginRuntime = (
 							: { outcome: "success", value: { enrichmentRequestId: message.enrichmentRequestId } },
 					);
 					return;
-				case "entity-editor-save-result":
-					settle(
-						"entity-editor-save",
-						message.requestId,
-						message.outcome === "failure" ? message : { outcome: "success", value: message.output },
-					);
-					return;
 				case "collection-result":
 					settle(
 						"collection",
@@ -897,38 +868,67 @@ export const createPluginRuntime = (
 							: { outcome: "success", value: message.response },
 					);
 					return;
+				case "page-shortcut-press":
+					for (const press of pageShortcuts.get(message.shortcut) ?? []) {
+						press();
+					}
+					return;
+				case "external-link-result":
+					settle(
+						"external-link",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: { outcome: "success" } },
+					);
+					return;
+				case "user-settings-result":
+					settle(
+						"user-settings",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.settings },
+					);
+					return;
+				case "ios-live-activity-result":
+					settle("ios-live-activity", message.requestId, message);
+					return;
+				case "pick-entity-screen-result":
+					settle("pick-entity-screen", message.requestId, message);
+					return;
+				case "entity-editor-save-result":
+					settle(
+						"entity-editor-save",
+						message.requestId,
+						message.outcome === "failure" ? message : { outcome: "success", value: message.output },
+					);
+					return;
+				case "background-operation-settled":
+					for (const listener of backgroundListeners) {
+						listener(message);
+					}
+					return;
+				case "background-operation-accepted":
+					settle(
+						"background-operation",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.submissionId },
+					);
+					return;
+				case "edit-collection-screen-result":
+					settle("edit-collection-screen", message.requestId, message);
+					return;
+				case "add-to-collection-screen-result":
+					settle("add-to-collection-screen", message.requestId, message);
+					return;
 				case "calendar-source-visibility-result":
 					settle(
 						"calendar-source-visibility",
 						message.requestId,
 						message.outcome === "failure" ? message : { value: null, outcome: "success" },
-					);
-					return;
-				case "upload-result": {
-					if (message.outcome === "failure") {
-						settle("upload", message.requestId, message);
-						return;
-					}
-					const { type: _type, outcome: _outcome, requestId: _requestId, ...value } = message;
-					settle("upload", message.requestId, { value, outcome: "success" });
-					return;
-				}
-				case "asset-result":
-					settle(
-						"asset",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.resolutions },
-					);
-					return;
-				case "ryotql-result":
-					settle(
-						"ryotql",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.response },
 					);
 					return;
 				default: {

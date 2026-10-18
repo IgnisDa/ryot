@@ -36,15 +36,15 @@ const SavedViewNotFoundReason = Schema.Union([
 	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("saved-view-not-found") }),
 ]);
 
-export class SavedViewBadRequest extends Schema.TaggedError<
-	SavedViewBadRequest,
-	{ readonly brand: unique symbol }
->()("SavedViewBadRequest", { reason: SavedViewBadRequestReason }) {}
-
 export class SavedViewNotFound extends Schema.TaggedError<
 	SavedViewNotFound,
 	{ readonly brand: unique symbol }
 >()("SavedViewNotFound", { reason: SavedViewNotFoundReason }) {}
+
+export class SavedViewBadRequest extends Schema.TaggedError<
+	SavedViewBadRequest,
+	{ readonly brand: unique symbol }
+>()("SavedViewBadRequest", { reason: SavedViewBadRequestReason }) {}
 
 export const SavedViewDisplayKind = Schema.Literals([
 	"text",
@@ -153,13 +153,13 @@ export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddActi
 
 export const mapEntityBrowserAddActionSchema = <Schema, Mapped>(
 	action:
+		| null
 		| typeof EntityBrowserPluginRouteAddAction.Type
 		| {
 				readonly schema: Schema;
 				readonly type: "provider-search";
 				readonly library: ProviderLibraryMembership;
-		  }
-		| null,
+		  },
 	mapSchema: (schema: Schema) => Mapped,
 ) =>
 	action === null || action.type === "plugin-route"

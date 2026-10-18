@@ -15,10 +15,10 @@ export interface ViteCompilerResult {
 }
 
 export interface ViteCompilerOptions {
-	readonly workspace: CompilerWorkspace;
-	readonly config: InlineConfig;
-	readonly typeScriptProject: TypeScriptProjectConfiguration;
 	readonly root?: string;
+	readonly config: InlineConfig;
+	readonly workspace: CompilerWorkspace;
+	readonly typeScriptProject: TypeScriptProjectConfiguration;
 }
 
 export class ViteBuildService extends Context.Service<

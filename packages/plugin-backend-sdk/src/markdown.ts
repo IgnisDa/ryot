@@ -9,26 +9,26 @@ import { toMarkdown } from "mdast-util-to-markdown";
 import { directive } from "micromark-extension-directive";
 
 const removedElements = new Set([
+	"svg",
+	"form",
 	"audio",
+	"embed",
+	"input",
+	"style",
+	"track",
+	"video",
 	"button",
 	"canvas",
-	"embed",
-	"form",
 	"iframe",
-	"input",
 	"object",
-	"picture",
 	"script",
 	"select",
 	"source",
-	"style",
-	"svg",
+	"picture",
 	"textarea",
-	"track",
-	"video",
 ]);
 
-const cleanHtml = (node: HastRoot | Element): void => {
+const cleanHtml = (node: Element | HastRoot): void => {
 	node.children = node.children.filter(
 		(child) => child.type !== "element" || !removedElements.has(child.tagName),
 	);
@@ -77,13 +77,6 @@ const phrasing = (nodes: readonly Nodes[], baseUrl: string | undefined): Phrasin
 				return textContent(node.value);
 			case "code":
 				return textContent(node.value.replace(/\n+$/, ""));
-			case "break":
-				return [{ type: "break" }];
-			case "strong":
-			case "emphasis": {
-				const children = phrasing(node.children, baseUrl);
-				return children.length === 0 ? [] : [{ children, type: node.type }];
-			}
 			case "link": {
 				const children = phrasing(node.children, baseUrl);
 				const url = safeUrl(node.url, baseUrl);
@@ -91,33 +84,40 @@ const phrasing = (nodes: readonly Nodes[], baseUrl: string | undefined): Phrasin
 					? children
 					: [{ url, children, type: "link" }];
 			}
+			case "html":
+			case "list":
+			case "root":
+			case "yaml":
+			case "table":
+			case "delete":
+			case "heading":
+			case "listItem":
+			case "tableRow":
+			case "paragraph":
+			case "tableCell":
+			case "blockquote":
+			case "definition":
+			case "leafDirective":
+			case "linkReference":
+			case "thematicBreak":
+			case "footnoteReference":
+			case "footnoteDefinition":
+				return "children" in node ? phrasing(node.children, baseUrl) : [];
+			case "break":
+				return [{ type: "break" }];
 			case "image":
 			case "imageReference":
 				return node.alt?.trim() ? textContent(node.alt) : [];
+			case "strong":
+			case "emphasis": {
+				const children = phrasing(node.children, baseUrl);
+				return children.length === 0 ? [] : [{ children, type: node.type }];
+			}
 			case "textDirective":
 			case "containerDirective":
 				return node.name === "spoiler"
 					? [{ name: "spoiler", type: "textDirective", children: phrasing(node.children, baseUrl) }]
 					: phrasing(node.children, baseUrl);
-			case "blockquote":
-			case "definition":
-			case "delete":
-			case "footnoteDefinition":
-			case "footnoteReference":
-			case "heading":
-			case "html":
-			case "leafDirective":
-			case "linkReference":
-			case "list":
-			case "listItem":
-			case "paragraph":
-			case "root":
-			case "table":
-			case "tableCell":
-			case "tableRow":
-			case "thematicBreak":
-			case "yaml":
-				return "children" in node ? phrasing(node.children, baseUrl) : [];
 			default:
 				return node;
 		}
@@ -126,21 +126,13 @@ const phrasing = (nodes: readonly Nodes[], baseUrl: string | undefined): Phrasin
 const blocks = (nodes: readonly Nodes[], baseUrl: string | undefined): BlockContent[] =>
 	nodes.flatMap((node): BlockContent[] => {
 		switch (node.type) {
-			case "paragraph":
-			case "code": {
+			case "code":
+			case "paragraph": {
 				const children = phrasing([node], baseUrl);
 				return children.some((child) => child.type !== "text" || child.value.length > 0)
 					? [{ children, type: "paragraph" }]
 					: [];
 			}
-			case "heading": {
-				const children = phrasing(node.children, baseUrl);
-				return children.length === 0
-					? []
-					: [{ type: "paragraph", children: [{ children, type: "strong" }] }];
-			}
-			case "blockquote":
-				return [{ type: "blockquote", children: blocks(node.children, baseUrl) }];
 			case "list":
 				return [
 					{
@@ -155,6 +147,42 @@ const blocks = (nodes: readonly Nodes[], baseUrl: string | undefined): BlockCont
 						})),
 					},
 				];
+			case "root":
+			case "listItem":
+				return blocks(node.children, baseUrl);
+			case "link":
+			case "text":
+			case "yaml":
+			case "break":
+			case "image":
+			case "table":
+			case "delete":
+			case "strong":
+			case "emphasis":
+			case "tableRow":
+			case "tableCell":
+			case "inlineCode":
+			case "leafDirective":
+			case "linkReference":
+			case "textDirective":
+			case "imageReference":
+			case "footnoteReference":
+			case "footnoteDefinition": {
+				const children = phrasing([node], baseUrl);
+				return children.length === 0 ? [] : [{ children, type: "paragraph" }];
+			}
+			case "html":
+			case "definition":
+			case "thematicBreak":
+				return [];
+			case "heading": {
+				const children = phrasing(node.children, baseUrl);
+				return children.length === 0
+					? []
+					: [{ type: "paragraph", children: [{ children, type: "strong" }] }];
+			}
+			case "blockquote":
+				return [{ type: "blockquote", children: blocks(node.children, baseUrl) }];
 			case "containerDirective":
 				return node.name === "spoiler"
 					? [
@@ -165,34 +193,6 @@ const blocks = (nodes: readonly Nodes[], baseUrl: string | undefined): BlockCont
 							},
 						]
 					: blocks(node.children, baseUrl);
-			case "root":
-			case "listItem":
-				return blocks(node.children, baseUrl);
-			case "break":
-			case "delete":
-			case "emphasis":
-			case "footnoteDefinition":
-			case "footnoteReference":
-			case "image":
-			case "imageReference":
-			case "inlineCode":
-			case "leafDirective":
-			case "link":
-			case "linkReference":
-			case "strong":
-			case "table":
-			case "tableCell":
-			case "tableRow":
-			case "text":
-			case "textDirective":
-			case "yaml": {
-				const children = phrasing([node], baseUrl);
-				return children.length === 0 ? [] : [{ children, type: "paragraph" }];
-			}
-			case "definition":
-			case "html":
-			case "thematicBreak":
-				return [];
 			default:
 				return node;
 		}

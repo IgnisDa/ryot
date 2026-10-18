@@ -6,9 +6,9 @@ const SETTLE_MS = 240;
 const SCRIM_OPACITY = 0.25;
 
 export type ScreenFrame = {
-	readonly scrim: HTMLElement | null;
-	readonly incoming: HTMLElement | null;
-	readonly outgoing: HTMLElement | null;
+	readonly scrim: null | HTMLElement;
+	readonly incoming: null | HTMLElement;
+	readonly outgoing: null | HTMLElement;
 };
 
 export const prefersReducedMotion = () =>

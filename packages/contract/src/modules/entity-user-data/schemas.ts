@@ -26,15 +26,15 @@ const EntityUserDataNotFoundReason = Schema.Union([
 	}),
 ]);
 
-export class EntityUserDataBadRequest extends Schema.TaggedError<
-	EntityUserDataBadRequest,
-	{ readonly brand: unique symbol }
->()("EntityUserDataBadRequest", { reason: EntityUserDataBadRequestReason }) {}
-
 export class EntityUserDataNotFound extends Schema.TaggedError<
 	EntityUserDataNotFound,
 	{ readonly brand: unique symbol }
 >()("EntityUserDataNotFound", { reason: EntityUserDataNotFoundReason }) {}
+
+export class EntityUserDataBadRequest extends Schema.TaggedError<
+	EntityUserDataBadRequest,
+	{ readonly brand: unique symbol }
+>()("EntityUserDataBadRequest", { reason: EntityUserDataBadRequestReason }) {}
 
 export const ClearEntityUserDataResponse = Schema.Struct({
 	entityId: EntityId,

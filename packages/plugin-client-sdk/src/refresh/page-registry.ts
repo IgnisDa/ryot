@@ -8,17 +8,17 @@ import type { RyotSchedule } from "../schedule";
 import { createEntityRefresh } from "./entity-refresh";
 
 export type PageRefreshHandle = () => Effect.Effect<void>;
+export type ManagedPageRefreshRegistry = PageRefreshRegistry & {
+	readonly dispose: () => void;
+	readonly activate: () => void;
+};
 export type PageRefreshRegistry = {
-	readonly generation: () => number;
 	readonly hint: () => void;
+	readonly generation: () => number;
 	readonly register: (handle: PageRefreshHandle, consumedGeneration?: number) => () => void;
 };
-export type ManagedPageRefreshRegistry = PageRefreshRegistry & {
-	readonly activate: () => void;
-	readonly dispose: () => void;
-};
 
-export const PageRefreshRegistryContext = createContext<PageRefreshRegistry | undefined>(undefined);
+export const PageRefreshRegistryContext = createContext<undefined | PageRefreshRegistry>(undefined);
 
 const browserFocusSignal = Atom.readable((get) => {
 	let version = 0;
@@ -108,7 +108,7 @@ export const usePageRefresh = (handle: PageRefreshHandle) => {
 	const active = useContext(ActiveScreenContext);
 	const registry = useContext(PageRefreshRegistryContext);
 	const refresh = useEffectEvent(handle);
-	const consumed = useRef<{ registry: PageRefreshRegistry; generation: number } | undefined>(
+	const consumed = useRef<undefined | { generation: number; registry: PageRefreshRegistry }>(
 		undefined,
 	);
 	useEffect(() => {

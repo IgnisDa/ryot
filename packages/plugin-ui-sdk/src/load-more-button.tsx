@@ -2,12 +2,12 @@ import { type ComponentProps, type ReactNode, useEffect, useRef } from "react";
 
 import { Button } from "./button";
 
-type LoadMoreButtonProps = Omit<ComponentProps<typeof Button>, "children" | "loading"> & {
+type LoadMoreButtonProps = Omit<ComponentProps<typeof Button>, "loading" | "children"> & {
 	readonly label: string;
-	readonly isFetchingNextPage: boolean;
-	readonly loadingLabel?: string;
 	readonly icon?: ReactNode;
-	readonly onVisible?: (() => void) | undefined;
+	readonly loadingLabel?: string;
+	readonly isFetchingNextPage: boolean;
+	readonly onVisible?: undefined | (() => void);
 };
 
 const PREFETCH_MARGIN = "0px 0px 800px 0px";

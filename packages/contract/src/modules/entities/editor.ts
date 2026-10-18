@@ -66,7 +66,7 @@ export const EntityEditorSaveRequest = strictStruct({
 export type EntityEditorSaveRequest = typeof EntityEditorSaveRequest.Type;
 
 export const retryableEntityEditorSaveRequest = (
-	previous: EntityEditorSaveRequest | undefined,
+	previous: undefined | EntityEditorSaveRequest,
 	submission: EntityEditorSubmission,
 	now: Date,
 ): EntityEditorSaveRequest =>

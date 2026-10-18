@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { afterEach, expect, test } from "vitest";
 
-let activeBinding: SandboxFilesystemBinding | undefined;
+let activeBinding: undefined | SandboxFilesystemBinding;
 configureSandboxFilesystem(() => activeBinding);
 
 const makeBinding = (overrides: Partial<SandboxFilesystemBinding>): SandboxFilesystemBinding => ({

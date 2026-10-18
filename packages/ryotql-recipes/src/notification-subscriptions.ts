@@ -36,7 +36,7 @@ const selection = {
 };
 
 export const notificationSubscriptionsRecipe = defineRecipe(
-	(input: { readonly after?: string | undefined; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string | undefined }) => ({
 		map: ({ notificationSubscriptions }) => Result.succeed(notificationSubscriptions),
 		queries: {
 			notificationSubscriptions: selectedRows(notificationSubscription, {

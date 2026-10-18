@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { EntityArtWell } from "./sync";
 
-const artWell = (state: "pending" | "failed" | "absent") =>
+const artWell = (state: "failed" | "absent" | "pending") =>
 	render(<EntityArtWell state={state} url={undefined} className="art" monogram="example" />)
 		.container;
 

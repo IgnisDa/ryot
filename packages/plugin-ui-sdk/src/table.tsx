@@ -6,18 +6,18 @@ export const displayValueText = (value: SavedViewDisplayValue): string => {
 		return "";
 	}
 	switch (value.displayKind) {
-		case "boolean":
-			return value.value ? "Yes" : "No";
 		case "date":
 			return new Intl.DateTimeFormat(undefined, { timeZone: "UTC" }).format(new Date(value.value));
-		case "number":
-			return new Intl.NumberFormat().format(value.value);
 		case "year":
 			return String(value.value);
 		case "json":
 			return JSON.stringify(value.value);
 		case "text":
 			return value.value;
+		case "number":
+			return new Intl.NumberFormat().format(value.value);
+		case "boolean":
+			return value.value ? "Yes" : "No";
 	}
 	return "";
 };

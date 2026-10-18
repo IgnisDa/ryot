@@ -26,7 +26,7 @@ import { Result, Schema } from "effect";
 import { IsoDateString } from "./codecs";
 import { eventOrderDescending } from "./event-expressions";
 
-export { eventIsAfter, eventOrderDescending, latestEventField } from "./event-expressions";
+export { eventIsAfter, latestEventField, eventOrderDescending } from "./event-expressions";
 
 export const eventHistoryRecipe = defineRecipe(
 	(input: {

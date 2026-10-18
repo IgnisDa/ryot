@@ -84,7 +84,7 @@ export const reservedFilterFieldKeys: readonly string[] = [collectionsFilterFiel
 
 export const effectiveFilterFields = (
 	renderer: KernelSavedViewRendererName,
-	settings: { readonly filterFields?: readonly FilterField[] | undefined },
+	settings: { readonly filterFields?: undefined | readonly FilterField[] },
 ): readonly QueryFilterField[] => [
 	...(settings.filterFields ?? []).map((field) =>
 		mapFilterFieldReference<
@@ -96,18 +96,18 @@ export const effectiveFilterFields = (
 ];
 
 export type FilterInput =
-	| { readonly filter?: undefined; readonly now?: undefined }
-	| { readonly filter: Filter; readonly now: DateTime.Utc };
-
-type CompileInput = {
-	readonly now: DateTime.Utc;
-	readonly filter: Filter;
-	readonly source: RowsQuery;
-	readonly fields: readonly QueryFilterField[];
-	readonly subject: { readonly entityAlias: string } | undefined;
-};
+	| { readonly filter: Filter; readonly now: DateTime.Utc }
+	| { readonly now?: undefined; readonly filter?: undefined };
 
 type CompileContext = Omit<CompileInput, "filter"> & { readonly aliases: Set<string> };
+
+type CompileInput = {
+	readonly filter: Filter;
+	readonly now: DateTime.Utc;
+	readonly source: RowsQuery;
+	readonly fields: readonly QueryFilterField[];
+	readonly subject: undefined | { readonly entityAlias: string };
+};
 
 const failure = (message: string) => Result.fail(new Error(message));
 
@@ -155,30 +155,30 @@ const compileRelationship = (
 	const linkedTo = (ids: readonly string[]) =>
 		linked((alias) => inArray(column(alias, otherColumn), textLiterals(ids)));
 	switch (rule.operator) {
+		case "eq":
+		case "is":
+		case "gte":
+		case "lte":
+		case "after":
+		case "before":
+		case "isTrue":
+		case "between":
+		case "isFalse":
+		case "contains":
+		case "notContains":
+		case "betweenDates":
+		case "withinLastDays":
+			break;
 		case "anyOf":
 			return Result.succeed(linkedTo(rule.values));
 		case "allOf":
 			return Result.succeed(and(...rule.values.map((value) => linkedTo([value]))));
+		case "empty":
+			return Result.succeed(not(linked()));
 		case "noneOf":
 			return Result.succeed(not(linkedTo(rule.values)));
 		case "notEmpty":
 			return Result.succeed(linked());
-		case "empty":
-			return Result.succeed(not(linked()));
-		case "gte":
-		case "lte":
-		case "eq":
-		case "between":
-		case "before":
-		case "after":
-		case "betweenDates":
-		case "withinLastDays":
-		case "contains":
-		case "notContains":
-		case "is":
-		case "isTrue":
-		case "isFalse":
-			break;
 	}
 	return unavailable(rule, spec.key);
 };
@@ -210,30 +210,30 @@ const compileSessionEvent = (
 	const loggedFor = (ids: readonly string[]) =>
 		logged((event) => inArray(column(event, "entityId"), textLiterals(ids)));
 	switch (rule.operator) {
+		case "eq":
+		case "is":
+		case "gte":
+		case "lte":
+		case "after":
+		case "before":
+		case "isTrue":
+		case "between":
+		case "isFalse":
+		case "contains":
+		case "notContains":
+		case "betweenDates":
+		case "withinLastDays":
+			break;
 		case "anyOf":
 			return Result.succeed(loggedFor(rule.values));
 		case "allOf":
 			return Result.succeed(and(...rule.values.map((value) => loggedFor([value]))));
+		case "empty":
+			return Result.succeed(not(logged()));
 		case "noneOf":
 			return Result.succeed(not(loggedFor(rule.values)));
 		case "notEmpty":
 			return Result.succeed(logged());
-		case "empty":
-			return Result.succeed(not(logged()));
-		case "gte":
-		case "lte":
-		case "eq":
-		case "between":
-		case "before":
-		case "after":
-		case "betweenDates":
-		case "withinLastDays":
-		case "contains":
-		case "notContains":
-		case "is":
-		case "isTrue":
-		case "isFalse":
-			break;
 	}
 	return unavailable(rule, spec.key);
 };
@@ -244,12 +244,27 @@ const compileList = (
 	spec: ValueFilterField,
 ): Result.Result<Predicate, Error> => {
 	switch (rule.operator) {
+		case "is":
+		case "eq":
+		case "gte":
+		case "lte":
+		case "after":
+		case "before":
+		case "isTrue":
+		case "between":
+		case "isFalse":
+		case "notContains":
+		case "betweenDates":
+		case "withinLastDays":
+			break;
 		case "anyOf":
 			return Result.succeed(jsonArrayExists(expr, inArray(element(), textLiterals(rule.values))));
 		case "allOf":
 			return Result.succeed(
 				and(...rule.values.map((value) => jsonArrayExists(expr, eq(element(), literal(value))))),
 			);
+		case "empty":
+			return Result.succeed(or(isNull(expr), not(jsonArrayExists(expr))));
 		case "noneOf":
 			return Result.succeed(
 				not(jsonArrayExists(expr, inArray(element(), textLiterals(rule.values)))),
@@ -258,21 +273,6 @@ const compileList = (
 			return Result.succeed(jsonArrayExists(expr, contains(element(), literal(rule.value))));
 		case "notEmpty":
 			return Result.succeed(jsonArrayExists(expr));
-		case "empty":
-			return Result.succeed(or(isNull(expr), not(jsonArrayExists(expr))));
-		case "notContains":
-		case "is":
-		case "gte":
-		case "lte":
-		case "eq":
-		case "between":
-		case "before":
-		case "after":
-		case "betweenDates":
-		case "withinLastDays":
-		case "isTrue":
-		case "isFalse":
-			break;
 	}
 	return unavailable(rule, spec.key);
 };
@@ -287,46 +287,46 @@ const compileScalar = (
 	const number = castNumber(expr);
 	const date = castDate(expr);
 	switch (rule.operator) {
-		case "empty":
-			return Result.succeed(isNull(expr));
-		case "notEmpty":
-			return Result.succeed(isNotNull(expr));
-		case "anyOf":
-			return Result.succeed(inArray(text, textLiterals(rule.values)));
-		case "noneOf":
-			return Result.succeed(or(isNull(expr), not(inArray(text, textLiterals(rule.values)))));
-		case "contains":
-			return Result.succeed(contains(text, literal(rule.value)));
-		case "notContains":
-			return Result.succeed(or(isNull(expr), not(contains(text, literal(rule.value)))));
 		case "is":
 			return Result.succeed(eq(text, literal(rule.value)));
+		case "eq":
+			return Result.succeed(eq(number, literal(rule.value)));
 		case "gte":
 			return Result.succeed(gte(number, literal(rule.value)));
 		case "lte":
 			return Result.succeed(lte(number, literal(rule.value)));
-		case "eq":
-			return Result.succeed(eq(number, literal(rule.value)));
+		case "empty":
+			return Result.succeed(isNull(expr));
+		case "anyOf":
+			return Result.succeed(inArray(text, textLiterals(rule.values)));
+		case "after":
+			return Result.succeed(gt(date, isoDate(rule.value)));
+		case "allOf":
+			break;
+		case "noneOf":
+			return Result.succeed(or(isNull(expr), not(inArray(text, textLiterals(rule.values)))));
+		case "before":
+			return Result.succeed(lt(date, isoDate(rule.value)));
+		case "isTrue":
+			return Result.succeed(eq(castBoolean(expr), literal(true)));
 		case "between":
 			return rule.min > rule.max
 				? failure(`Range for field '${spec.key}' must not be inverted`)
 				: Result.succeed(and(gte(number, literal(rule.min)), lte(number, literal(rule.max))));
-		case "before":
-			return Result.succeed(lt(date, isoDate(rule.value)));
-		case "after":
-			return Result.succeed(gt(date, isoDate(rule.value)));
+		case "isFalse":
+			return Result.succeed(eq(castBoolean(expr), literal(false)));
+		case "notEmpty":
+			return Result.succeed(isNotNull(expr));
+		case "contains":
+			return Result.succeed(contains(text, literal(rule.value)));
+		case "notContains":
+			return Result.succeed(or(isNull(expr), not(contains(text, literal(rule.value)))));
 		case "betweenDates":
 			return Result.succeed(and(gte(date, isoDate(rule.from)), lte(date, isoDate(rule.to))));
 		case "withinLastDays":
 			return Result.succeed(
 				gte(date, isoDate(DateTime.formatIso(DateTime.subtract(now, { days: rule.days })))),
 			);
-		case "isTrue":
-			return Result.succeed(eq(castBoolean(expr), literal(true)));
-		case "isFalse":
-			return Result.succeed(eq(castBoolean(expr), literal(false)));
-		case "allOf":
-			break;
 	}
 	return unavailable(rule, spec.key);
 };
@@ -387,7 +387,7 @@ const compileNode = (
 
 export const compileOptionalFilter = (
 	input: FilterInput,
-	context: Omit<CompileInput, "filter" | "now">,
+	context: Omit<CompileInput, "now" | "filter">,
 ): Result.Result<Predicate | undefined, Error> =>
 	input.filter === undefined
 		? Result.succeed(undefined)
@@ -446,7 +446,7 @@ const leniently = (node: unknown, fields: readonly QueryFilterField[]): Filter |
 };
 
 export const decodeFilterParam = (
-	raw: string | null | undefined,
+	raw: null | string | undefined,
 	fields: readonly QueryFilterField[],
 ): Filter | undefined => {
 	if (raw === null || raw === undefined || raw === "") {
@@ -462,12 +462,12 @@ export const decodeFilterParam = (
 	);
 };
 
-export const encodeFilterParam = (filter: Filter | undefined): string | null =>
+export const encodeFilterParam = (filter: Filter | undefined): null | string =>
 	filter === undefined ? null : Base64Url.encode(JSON.stringify(filter));
 
 export const editableGroup = (
 	filter: Filter | undefined,
-): { readonly match: "all" | "any"; readonly rules: readonly FilterRule[] } | null => {
+): null | { readonly match: "all" | "any"; readonly rules: readonly FilterRule[] } => {
 	if (filter === undefined) {
 		return { rules: [], match: "all" };
 	}
@@ -500,8 +500,8 @@ export const activeRuleCount = (filter: Filter | undefined): number =>
 	editableGroup(filter)?.rules.length ?? 1;
 
 export type FilterDraft = {
-	readonly field: string;
 	readonly text: string;
+	readonly field: string;
 	readonly second: string;
 	readonly operator: FilterOperator;
 	readonly values: readonly string[];
@@ -536,36 +536,36 @@ const draftNumber = (text: string) => (text.trim() === "" ? undefined : Number(t
 
 const draftRuleInput = (draft: FilterDraft): Record<string, unknown> => {
 	switch (draft.operator) {
+		case "eq":
+		case "gte":
+		case "lte":
+			return { value: draftNumber(draft.text) };
+		case "is":
+		case "after":
+		case "before":
+		case "contains":
+		case "notContains":
+			return { value: draft.text === "" ? undefined : draft.text };
 		case "anyOf":
 		case "allOf":
 		case "noneOf":
 			return { values: draft.values };
-		case "gte":
-		case "lte":
-		case "eq":
-			return { value: draftNumber(draft.text) };
+		case "empty":
+		case "isTrue":
+		case "isFalse":
+		case "notEmpty":
+			break;
 		case "between":
 			return { min: draftNumber(draft.text), max: draftNumber(draft.second) };
-		case "before":
-		case "after":
-		case "contains":
-		case "notContains":
-		case "is":
-			return { value: draft.text === "" ? undefined : draft.text };
 		case "betweenDates":
 			return { from: draft.text, to: draft.second };
 		case "withinLastDays":
 			return { days: draftNumber(draft.text) };
-		case "empty":
-		case "notEmpty":
-		case "isTrue":
-		case "isFalse":
-			break;
 	}
 	return {};
 };
 
-export const draftRule = (draft: FilterDraft): FilterRule | undefined => {
+export const draftRule = (draft: FilterDraft): undefined | FilterRule => {
 	const rule = decodeRule({
 		...draftRuleInput(draft),
 		field: draft.field,

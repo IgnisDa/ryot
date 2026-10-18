@@ -56,15 +56,15 @@ const EntityNotFoundReason = Schema.Union([
 	Schema.Struct({ schema: EntitySchemaReference, code: Schema.Literal("entity-schema-not-found") }),
 ]);
 
-export class EntityBadRequest extends Schema.TaggedError<
-	EntityBadRequest,
-	{ readonly brand: unique symbol }
->()("EntityBadRequest", { reason: EntityBadRequestReason }) {}
-
 export class EntityNotFound extends Schema.TaggedError<
 	EntityNotFound,
 	{ readonly brand: unique symbol }
 >()("EntityNotFound", { reason: EntityNotFoundReason }) {}
+
+export class EntityBadRequest extends Schema.TaggedError<
+	EntityBadRequest,
+	{ readonly brand: unique symbol }
+>()("EntityBadRequest", { reason: EntityBadRequestReason }) {}
 
 export class EntityStale extends Schema.TaggedError<
 	EntityStale,

@@ -42,7 +42,7 @@ const failureType: Expect<
 		SandboxHostError | { _tag: "MissingProviderValue" }
 	>
 > = true;
-const externalIdType: Expect<Equal<ProviderResolveResult["externalId"], string | null>> = true;
+const externalIdType: Expect<Equal<ProviderResolveResult["externalId"], null | string>> = true;
 void manifestType;
 void resolveType;
 void failureType;

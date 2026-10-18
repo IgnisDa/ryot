@@ -3,7 +3,7 @@ import type { SavedViewReference } from "./references";
 
 type SavedViewPathReference =
 	| Exclude<SavedViewReference, { readonly kind: "plugin" }>
-	| { readonly kind: "plugin"; readonly packageId: PluginPackageId; readonly slug: string };
+	| { readonly slug: string; readonly kind: "plugin"; readonly packageId: PluginPackageId };
 
 const packagePath = (packageId: PluginPackageId) => {
 	const { name, publisher } = pluginPackageSegments(packageId);

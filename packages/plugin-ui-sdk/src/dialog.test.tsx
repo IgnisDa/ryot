@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { Dialog } from "./dialog";
 
-const renderSheet = (props: { readonly dismissible: boolean; readonly onClose: () => void }) =>
+const renderSheet = (props: { readonly onClose: () => void; readonly dismissible: boolean }) =>
 	render(
 		<Dialog
 			title="Set 1"

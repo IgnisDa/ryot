@@ -1,7 +1,7 @@
 export type RyotSubmission<Input> = {
 	readonly input: Input;
-	readonly submissionId: string;
 	readonly submittedAt: string;
+	readonly submissionId: string;
 };
 
 type SubmissionState<Input> =

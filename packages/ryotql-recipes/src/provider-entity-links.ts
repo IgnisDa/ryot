@@ -24,12 +24,12 @@ import { Result, Schema } from "effect";
 
 export const providerEntityLinksRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly providerId: SandboxProviderId;
-		readonly entitySchemaSlug: EntitySchemaSlug;
-		readonly externalIds: readonly [string, ...string[]];
 		readonly relationshipSlug: string;
 		readonly librarySchemaSlug: string;
+		readonly providerId: SandboxProviderId;
+		readonly reference: PluginIdentityReference;
+		readonly entitySchemaSlug: EntitySchemaSlug;
+		readonly externalIds: readonly [string, ...string[]];
 	}) => {
 		const entity = table("entity", "entity");
 		const libraryEntity = table("entity", "libraryEntity");

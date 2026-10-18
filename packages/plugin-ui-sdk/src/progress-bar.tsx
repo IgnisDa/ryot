@@ -9,9 +9,9 @@ export function ProgressBar(props: {
 	readonly label: string;
 	readonly value: number;
 	readonly className?: string | undefined;
-	readonly fillClassName?: string | undefined;
 	readonly tone: keyof typeof toneClasses;
 	readonly track?: keyof typeof trackClasses;
+	readonly fillClassName?: string | undefined;
 }) {
 	const max = Math.max(0, props.max);
 	const value = Math.min(max, Math.max(0, props.value));

@@ -10,7 +10,36 @@ export const revealOffset = (
 		? target.top - band.top
 		: Math.max(0, target.bottom - band.bottom);
 let users = 0;
-let dispose: (() => void) | undefined;
+let dispose: undefined | (() => void);
+
+export function useFocusedFieldVisibility() {
+	useEffect(() => {
+		if (users++ === 0) {
+			let frame = 0;
+			const reveal = () => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(revealFocusedField);
+			};
+			document.addEventListener("focusin", reveal);
+			window.addEventListener("resize", reveal);
+			window.visualViewport?.addEventListener("resize", reveal);
+			window.visualViewport?.addEventListener("scroll", reveal);
+			dispose = () => {
+				cancelAnimationFrame(frame);
+				document.removeEventListener("focusin", reveal);
+				window.removeEventListener("resize", reveal);
+				window.visualViewport?.removeEventListener("resize", reveal);
+				window.visualViewport?.removeEventListener("scroll", reveal);
+			};
+		}
+		return () => {
+			if (--users === 0) {
+				dispose?.();
+				dispose = undefined;
+			}
+		};
+	}, []);
+}
 
 export function revealFocusedField() {
 	const field = document.activeElement;
@@ -50,33 +79,4 @@ export function revealFocusedField() {
 			parent.scrollTop += offset;
 		}
 	}
-}
-
-export function useFocusedFieldVisibility() {
-	useEffect(() => {
-		if (users++ === 0) {
-			let frame = 0;
-			const reveal = () => {
-				cancelAnimationFrame(frame);
-				frame = requestAnimationFrame(revealFocusedField);
-			};
-			document.addEventListener("focusin", reveal);
-			window.addEventListener("resize", reveal);
-			window.visualViewport?.addEventListener("resize", reveal);
-			window.visualViewport?.addEventListener("scroll", reveal);
-			dispose = () => {
-				cancelAnimationFrame(frame);
-				document.removeEventListener("focusin", reveal);
-				window.removeEventListener("resize", reveal);
-				window.visualViewport?.removeEventListener("resize", reveal);
-				window.visualViewport?.removeEventListener("scroll", reveal);
-			};
-		}
-		return () => {
-			if (--users === 0) {
-				dispose?.();
-				dispose = undefined;
-			}
-		};
-	}, []);
 }

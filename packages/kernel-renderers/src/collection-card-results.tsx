@@ -78,8 +78,8 @@ export const CollectionCardResults = ({
 	layout,
 	references,
 }: {
-	readonly items: readonly EntityBrowserResultItem[];
 	readonly references: readonly EntityReference[];
+	readonly items: readonly EntityBrowserResultItem[];
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
 	const counts = new Map(

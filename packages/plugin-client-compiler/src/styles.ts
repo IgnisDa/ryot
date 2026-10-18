@@ -40,7 +40,7 @@ const importFailure = (path: string, message: string) =>
 
 const isImportGlob = (meta: ts.MetaProperty) => {
 	const access = meta.parent;
-	let name: string | null = null;
+	let name: null | string = null;
 	if (ts.isPropertyAccessExpression(access)) {
 		name = access.name.text;
 	} else if (
@@ -242,8 +242,8 @@ export const validateClientSourcePolicy = ({
 }: {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly sourceFiles: Readonly<Record<string, string>>;
-	readonly parsedFiles: Readonly<Record<string, ts.SourceFile>>;
 	readonly unresolvedPluginDependencies?: readonly string[];
+	readonly parsedFiles: Readonly<Record<string, ts.SourceFile>>;
 }) => {
 	const unresolved = new Set(unresolvedPluginDependencies);
 	return Object.entries(sourceFiles).flatMap(([path, contents]) => {

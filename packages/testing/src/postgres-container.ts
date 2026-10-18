@@ -19,7 +19,7 @@ export class PostgresContainerError extends Data.TaggedError("PostgresContainerE
 
 const platformLayer = Layer.merge(BunFileSystem.layer, BunPath.layer);
 
-const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+const withPlatform = <A, E>(effect: Effect.Effect<A, E, Path.Path | FileSystem.FileSystem>) =>
 	Effect.scoped(
 		Layer.build(platformLayer).pipe(Effect.flatMap((context) => Effect.provide(effect, context))),
 	);
@@ -36,7 +36,7 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 		yield* fs
 			.writeFile(logPath, new Uint8Array())
 			.pipe(Effect.mapError((cause) => containerError("Could not create PostgreSQL logs", cause)));
-		let logFiber: Fiber.Fiber<void, PostgresContainerError> | undefined;
+		let logFiber: undefined | Fiber.Fiber<void, PostgresContainerError>;
 		const container = yield* Effect.tryPromise({
 			catch: (cause) => containerError("Could not start PostgreSQL container", cause),
 			try: () =>

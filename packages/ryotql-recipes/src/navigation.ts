@@ -64,5 +64,5 @@ export const navigationRecipe = defineRecipe(() => ({
 	},
 }));
 
-export type NavigationData = Recipe.Success<typeof navigationRecipe>;
 export type NavigationView = NavigationData["savedViews"][number];
+export type NavigationData = Recipe.Success<typeof navigationRecipe>;

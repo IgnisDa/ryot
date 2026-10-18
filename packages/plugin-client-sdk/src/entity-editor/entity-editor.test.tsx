@@ -31,7 +31,7 @@ const propertiesSchema = {
 };
 const targetSchema = { fields: { role: { label: "Role", type: "string", description: "Role" } } };
 
-const saveSubmission = (request: EntityEditorSaveRequest | undefined) => {
+const saveSubmission = (request: undefined | EntityEditorSaveRequest) => {
 	assert(request?.submission.action === "save");
 	return request.submission;
 };
@@ -44,9 +44,9 @@ const adapterFor = (
 	save: Save,
 	options: {
 		readonly editor?: unknown;
-		readonly picks?: PickEntityRequest[];
-		readonly picked?: readonly string[];
 		readonly canEdit?: boolean;
+		readonly picked?: readonly string[];
+		readonly picks?: PickEntityRequest[];
 		readonly relationships?: readonly unknown[];
 		readonly relatedSchemaSide?: "source" | "target";
 	} = {},

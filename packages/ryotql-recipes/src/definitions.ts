@@ -34,7 +34,7 @@ const relationship = table("relationshipSchema", "relationship");
 const signal = table("signalSchema", "signal");
 
 export const entityDefinitionsRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ entities }) => Result.succeed(entities),
 		queries: {
 			entities: selectedRows(entity, {
@@ -90,7 +90,7 @@ export const entityDefinitionsRecipe = defineRecipe(
 );
 
 export const relationshipDefinitionsRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ relationships }) => Result.succeed(relationships),
 		queries: {
 			relationships: selectedRows(relationship, {
@@ -118,7 +118,7 @@ export const relationshipDefinitionsRecipe = defineRecipe(
 );
 
 export const activeSignalSchemasRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		map: ({ signals }) => Result.succeed(signals),
 		queries: {
 			signals: selectedRows(signal, {
@@ -144,5 +144,5 @@ export const activeSignalSchemasRecipe = defineRecipe(
 );
 
 export type EntityDefinitionsPage = Recipe.Success<typeof entityDefinitionsRecipe>;
-export type RelationshipDefinitionsPage = Recipe.Success<typeof relationshipDefinitionsRecipe>;
 export type ActiveSignalSchemasPage = Recipe.Success<typeof activeSignalSchemasRecipe>;
+export type RelationshipDefinitionsPage = Recipe.Success<typeof relationshipDefinitionsRecipe>;

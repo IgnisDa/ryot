@@ -112,7 +112,7 @@ describe("Modal", () => {
 
 	it.live("restores trigger focus after document Back dismisses it", () =>
 		Effect.gen(function* () {
-			let dismiss: (() => boolean) | undefined;
+			let dismiss: undefined | (() => boolean);
 			const adapter: OverlayBackAdapter = {
 				register: (handler) => {
 					dismiss = handler;

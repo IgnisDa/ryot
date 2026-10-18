@@ -2,7 +2,7 @@ import type { EnrichmentState, EntitySyncState } from "@ryot-app/contract/module
 
 export type SyncReason = "populating" | "translating";
 
-export type FieldSyncState = "ready" | "pending" | "failed" | "absent";
+export type FieldSyncState = "ready" | "failed" | "absent" | "pending";
 
 export const isEnrichmentActive = (enrichment: EnrichmentState) =>
 	enrichment.state === "queued" ||

@@ -46,8 +46,8 @@ const CollectionCount = ({
 	collectionId,
 	filterFields,
 }: {
-	readonly collectionId: string;
 	readonly searchText: string;
+	readonly collectionId: string;
 	readonly filter: BrowserQueryInput["filter"];
 	readonly filterFields: CollectionFilterFields;
 	readonly onTotal: (total: number | undefined) => void;

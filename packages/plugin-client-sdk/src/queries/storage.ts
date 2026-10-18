@@ -25,8 +25,8 @@ export const usePluginStorage = <A>(options: {
 	const client = useRyot();
 	const { key, schema, pluginId } = options;
 	const identity = JSON.stringify([pluginId, key]);
-	const [stored, setStored] = useState<{ readonly identity: string; readonly value: A | null }>();
-	const decode = useEffectEvent((value: JsonValue | null) =>
+	const [stored, setStored] = useState<{ readonly value: A | null; readonly identity: string }>();
+	const decode = useEffectEvent((value: null | JsonValue) =>
 		value === null ? null : Option.getOrNull(Schema.decodeOption(schema)(value)),
 	);
 	useEffect(() => {

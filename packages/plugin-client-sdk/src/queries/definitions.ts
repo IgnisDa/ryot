@@ -12,14 +12,14 @@ export const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/plugin-client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/plugin-client-sdk/react/mutation");
 
+export type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
+
 export type QueryContext<Input, HostServices> = {
 	readonly input: Input;
 	readonly client: RyotClient;
 	readonly schedule: RyotSchedule;
 	readonly hostServices: HostServices;
 };
-
-export type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
 
 export interface RyotQuery<
 	Input,
@@ -30,8 +30,8 @@ export interface RyotQuery<
 	readonly [queryTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
-		readonly hostServices?: HostServices;
 		readonly failure?: Failure;
+		readonly hostServices?: HostServices;
 	};
 }
 
@@ -44,8 +44,8 @@ export interface RyotMutation<
 	readonly [mutationTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
-		readonly hostServices?: HostServices;
 		readonly failure?: Failure;
+		readonly hostServices?: HostServices;
 	};
 }
 
@@ -53,7 +53,7 @@ export type RyotQueryOptions<Input, Data> = {
 	/** Cancels in-flight work when the final consumer for an input unmounts. */
 	readonly cancelOnUnmount?: boolean;
 	readonly initialData?: (input: Input) => Data;
-	readonly refreshWhile?: (context: { readonly input: Input; readonly data: Data }) => boolean;
+	readonly refreshWhile?: (context: { readonly data: Data; readonly input: Input }) => boolean;
 	readonly entityWatch?: (context: {
 		readonly input: Input;
 		readonly data: Data | undefined;
@@ -86,6 +86,19 @@ export const makeQueryAtom = <Data, Failure extends Error>(
 	return requestSource.pipe(Atom.swr({ staleTime }), Atom.setIdleTTL(idleTTL));
 };
 
+export class MutationDefinition<
+	Input,
+	Data,
+	HostServices,
+	Failure extends Error,
+> implements RyotMutation<Input, Data, HostServices, Failure> {
+	readonly [mutationTypeId] = {};
+
+	constructor(
+		readonly run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+	) {}
+}
+
 export class QueryDefinition<Input, Data, HostServices, Failure extends Error> implements RyotQuery<
 	Input,
 	Data,
@@ -108,17 +121,26 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 	) {}
 }
 
-export class MutationDefinition<
+export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
+	mutation: (
+		context: Omit<MutationContext<void, undefined>, "input">,
+	) => Effect.Effect<Data, Failure>,
+): RyotMutation<void, Data, undefined, Failure>;
+export function createRyotMutation<
 	Input,
 	Data,
-	HostServices,
-	Failure extends Error,
-> implements RyotMutation<Input, Data, HostServices, Failure> {
-	readonly [mutationTypeId] = {};
-
-	constructor(
-		readonly run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
-	) {}
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+): RyotMutation<Input, Data, HostServices, Failure>;
+export function createRyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>) {
+	return new MutationDefinition<Input, Data, HostServices, Failure>(mutation);
 }
 
 export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
@@ -195,26 +217,4 @@ export function createRyotQuery<
 		options?.entityWatch,
 		options?.refreshWhile,
 	);
-}
-
-export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
-	mutation: (
-		context: Omit<MutationContext<void, undefined>, "input">,
-	) => Effect.Effect<Data, Failure>,
-): RyotMutation<void, Data, undefined, Failure>;
-export function createRyotMutation<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
->(
-	mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
-): RyotMutation<Input, Data, HostServices, Failure>;
-export function createRyotMutation<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
->(mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>) {
-	return new MutationDefinition<Input, Data, HostServices, Failure>(mutation);
 }

@@ -109,10 +109,10 @@ export const SavedViewReference = Schema.Union([
 ]);
 export type SavedViewReference = typeof SavedViewReference.Type;
 
-export const definitionOwner = (pluginId: string | null): DefinitionOwner =>
+export const definitionOwner = (pluginId: null | string): DefinitionOwner =>
 	pluginId === null ? { kind: "kernel" } : { kind: "plugin", pluginId: PluginId.make(pluginId) };
 
-export const definitionOwnerPluginId = (owner: DefinitionOwner): PluginId | null =>
+export const definitionOwnerPluginId = (owner: DefinitionOwner): null | PluginId =>
 	owner.kind === "plugin" ? owner.pluginId : null;
 
 export const ownerIdentityReference = (owner: DefinitionOwner): QueryOwnerReference =>
@@ -129,7 +129,7 @@ export const sameDeclaration = (left: DeclarationReference, right: DeclarationRe
 	definitionKey("declaration", right.owner, right.slug);
 
 export const builtinSavedViewReference = (
-	pluginId: string | null,
+	pluginId: null | string,
 	slug: string,
 ): SavedViewReference =>
 	pluginId === null

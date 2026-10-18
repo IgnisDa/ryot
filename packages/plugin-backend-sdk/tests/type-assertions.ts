@@ -1,4 +1,4 @@
-type IsAny<T> = 0 extends 1 & T ? true : false;
+export type Expect<T extends true> = T;
 
 export type Equal<X, Y> =
 	IsAny<X> extends true
@@ -9,4 +9,4 @@ export type Equal<X, Y> =
 				? true
 				: false;
 
-export type Expect<T extends true> = T;
+type IsAny<T> = 0 extends 1 & T ? true : false;

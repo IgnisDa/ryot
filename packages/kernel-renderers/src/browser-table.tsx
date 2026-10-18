@@ -15,11 +15,11 @@ import type { ReactNode } from "react";
 
 import { CellThumbnail, CellValue, isAssetCell } from "./display-value";
 
+export type BrowserColumns = readonly DeclaredBrowserColumns[number][];
 type BrowserItem = EntityBrowserResult["items"][number];
 type DeclaredBrowserColumns = NonNullable<
 	(typeof EntityBrowserPageInput.Type)["settings"]["tableColumns"]
 >;
-export type BrowserColumns = readonly DeclaredBrowserColumns[number][];
 
 const rowThumbnail = (item: BrowserItem) => item.cells.find(isAssetCell)?.value.value;
 
@@ -35,7 +35,7 @@ const VALUE_COLUMN = {
 } as const;
 
 const browserColumns = (
-	declared: BrowserColumns | null,
+	declared: null | BrowserColumns,
 	settled: EntitySettle,
 ): readonly DataTableColumn<BrowserItem>[] =>
 	(declared ?? [])
@@ -92,7 +92,7 @@ const browserColumns = (
 
 export type BrowserItemActions = (item: {
 	readonly entityId: string;
-	readonly name: string | null;
+	readonly name: null | string;
 }) => ReactNode;
 
 const actionsColumn = (itemActions: BrowserItemActions): DataTableColumn<BrowserItem> => ({
@@ -110,9 +110,9 @@ export function BrowserTable({
 	renderItemActions,
 }: {
 	readonly settled: EntitySettle;
-	readonly columns: BrowserColumns | null;
 	readonly items: readonly BrowserItem[];
-	readonly renderItemActions?: BrowserItemActions | undefined;
+	readonly columns: null | BrowserColumns;
+	readonly renderItemActions?: undefined | BrowserItemActions;
 }) {
 	const declared = browserColumns(columns, settled);
 	return (

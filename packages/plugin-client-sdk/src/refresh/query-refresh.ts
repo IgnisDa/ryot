@@ -13,17 +13,17 @@ import { createEntityRefresh, entityTransport } from "./entity-refresh";
 import { type PageRefreshRegistry, PageRefreshRegistryContext } from "./page-registry";
 
 type PageGeneration = { generation: number };
+type AtomRefresh = {
+	retired: boolean;
+	controller: undefined | QueryRefresh;
+	readonly pages: WeakMap<PageRefreshRegistry, PageGeneration>;
+};
+
 type QueryRefresh = {
 	users: number;
 	readonly hint: () => void;
-	readonly retainPage: (page: PageRefreshRegistry, consumed: PageGeneration) => () => void;
 	readonly dispose: () => void;
-};
-
-type AtomRefresh = {
-	controller: QueryRefresh | undefined;
-	retired: boolean;
-	readonly pages: WeakMap<PageRefreshRegistry, PageGeneration>;
+	readonly retainPage: (page: PageRefreshRegistry, consumed: PageGeneration) => () => void;
 };
 
 const atomRefreshes = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<object, AtomRefresh>>();
@@ -55,7 +55,7 @@ const retainQueryRefresh = <Data, Failure extends Error>(
 	const remount = !controller && record.retired && !AsyncResult.isInitial(registry.get(atom));
 	if (!controller) {
 		let data: Data | undefined;
-		let subscription: EntityWatchSubscription | undefined;
+		let subscription: undefined | EntityWatchSubscription;
 		const refresh = createEntityRefresh(schedule, () =>
 			Effect.sync(() => {
 				if (registry.get(atom).waiting) {

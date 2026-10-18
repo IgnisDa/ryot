@@ -15,11 +15,11 @@ const rows: readonly Row[] = [
 ];
 
 function Harness(props: {
-	readonly items?: readonly Row[];
-	readonly scrollRef?: RefObject<HTMLElement | null>;
-	readonly onPickUp?: () => void;
-	readonly onReorder?: (from: number, to: number) => void;
 	readonly onDrop?: () => void;
+	readonly onPickUp?: () => void;
+	readonly items?: readonly Row[];
+	readonly scrollRef?: RefObject<null | HTMLElement>;
+	readonly onReorder?: (from: number, to: number) => void;
 }) {
 	const [items, setItems] = useState(rows);
 	return (

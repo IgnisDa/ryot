@@ -72,62 +72,62 @@ import { type BrowserColumns, type BrowserItemActions, BrowserTable } from "./br
 import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
-export type BrowserQueryPage<Meta> = { readonly result: BrowserResult; readonly meta: Meta };
-export type BrowserQueryInput = {
-	readonly filter: ViewFilter | null;
-	readonly searchText: string;
-	readonly sortChoice: string;
-	readonly cursor: string | null;
-};
-
-type BrowserControls = {
-	readonly sort: string;
-	readonly filter: ViewFilter | undefined;
-	readonly search: string;
-	readonly layout: EntityBrowserLayout;
-};
-
 export type BrowserSortChoice = { readonly label: string; readonly value: string };
+export type BrowserQueryPage<Meta> = { readonly meta: Meta; readonly result: BrowserResult };
 
 export type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
 
-type HeaderAction = { readonly label: string; readonly icon: string; readonly run: () => void };
+export type BrowserQueryInput = {
+	readonly searchText: string;
+	readonly sortChoice: string;
+	readonly cursor: null | string;
+	readonly filter: null | ViewFilter;
+};
 
 export type BrowserResultsRenderer = (input: {
-	readonly layout: Exclude<EntityBrowserLayout, "table">;
-	readonly references: readonly EntityReference[];
 	readonly items: BrowserResult["items"];
+	readonly references: readonly EntityReference[];
+	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => ReactNode;
 
+type HeaderAction = { readonly icon: string; readonly label: string; readonly run: () => void };
+
+type BrowserControls = {
+	readonly sort: string;
+	readonly search: string;
+	readonly layout: EntityBrowserLayout;
+	readonly filter: undefined | ViewFilter;
+};
+
 type EntityBrowserControllerProps<Meta> = {
+	readonly icon: string;
+	readonly errorTitle: string;
+	readonly identityKey: string;
+	readonly errorMessage: string;
 	readonly add?: AddAction | undefined;
 	readonly canSearch?: boolean | undefined;
-	readonly count?:
-		| ((input: {
-				readonly searchText: string;
-				readonly filter: ViewFilter | undefined;
-				readonly onTotal: (total: number | undefined) => void;
-		  }) => ReactNode)
-		| undefined;
-	readonly filterFields: readonly ViewFilterField[];
+	readonly knownTotal?: number | undefined;
+	readonly emptyMessage?: string | undefined;
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
-	readonly emptyMessage?: string | undefined;
-	readonly headerAction?: HeaderAction | undefined;
-	readonly renderItemActions?: BrowserItemActions | undefined;
-	readonly errorMessage: string;
-	readonly errorTitle: string;
-	readonly icon: string;
-	readonly identityKey: string;
-	readonly knownTotal?: number | undefined;
+	readonly headerAction?: undefined | HeaderAction;
 	readonly layouts: readonly EntityBrowserLayout[];
+	readonly filterFields: readonly ViewFilterField[];
 	readonly name: (meta: Meta | undefined) => string;
-	readonly query: RyotQuery<BrowserQueryInput, BrowserQueryPage<Meta>>;
-	readonly renderResults?: BrowserResultsRenderer | undefined;
-	readonly renderSummary?: ((meta: Meta, loaded: number) => ReactNode) | undefined;
 	readonly sortChoices: readonly BrowserSortChoice[];
-	readonly tableColumns: BrowserColumns | null | ((meta: Meta | undefined) => BrowserColumns);
+	readonly renderItemActions?: undefined | BrowserItemActions;
+	readonly renderResults?: undefined | BrowserResultsRenderer;
+	readonly query: RyotQuery<BrowserQueryInput, BrowserQueryPage<Meta>>;
 	readonly viewContext: ComponentProps<typeof EntityResults>["viewContext"];
+	readonly renderSummary?: undefined | ((meta: Meta, loaded: number) => ReactNode);
+	readonly tableColumns: null | BrowserColumns | ((meta: Meta | undefined) => BrowserColumns);
+	readonly count?:
+		| undefined
+		| ((input: {
+				readonly searchText: string;
+				readonly filter: undefined | ViewFilter;
+				readonly onTotal: (total: number | undefined) => void;
+		  }) => ReactNode);
 };
 
 const MAX_TABLE_INTEREST = 500;
@@ -140,7 +140,7 @@ const browserIdentity = (
 	key: string,
 	search: string,
 	sort: string,
-	filter: ViewFilter | undefined,
+	filter: undefined | ViewFilter,
 ) => JSON.stringify([key, search, sort, encodeFilterParam(filter)]);
 
 const controlsKey = (controls: BrowserControls) =>
@@ -194,12 +194,12 @@ export function EntityBrowserController<Meta>({
 	const controlsRef = useRef(controls);
 	const publishedControls = useRef<BrowserControls[]>([]);
 	const pendingSearch = useRef<
+		| undefined
 		| {
 				readonly identity: string;
 				readonly controls: BrowserControls;
-				readonly update: Record<string, string | null>;
+				readonly update: Record<string, null | string>;
 		  }
-		| undefined
 	>(undefined);
 	const { layout, filter, sort: sortChoice, search: searchText } = controls;
 	const filterCount = activeRuleCount(filter);
@@ -218,7 +218,7 @@ export function EntityBrowserController<Meta>({
 		{
 			initialPageParam: null,
 			getNextPageParam: (page) => nextPageCursor(page.result),
-			getPageInput: (selection, cursor: string | null) => ({
+			getPageInput: (selection, cursor: null | string) => ({
 				cursor,
 				filter: selection.filter,
 				searchText: selection.searchText,
@@ -266,7 +266,7 @@ export function EntityBrowserController<Meta>({
 		setTotal(undefined);
 	});
 	const replacePageSearch = (
-		update: Record<string, string | null>,
+		update: Record<string, null | string>,
 		next: Partial<BrowserControls>,
 	) => {
 		const previous = publishedControls.current.at(-1) ?? requestedControls;
@@ -332,7 +332,7 @@ export function EntityBrowserController<Meta>({
 	});
 
 	const setQueryControls = (
-		update: Partial<Pick<BrowserControls, "search" | "sort" | "filter">>,
+		update: Partial<Pick<BrowserControls, "sort" | "search" | "filter">>,
 	) => {
 		const next = { ...controlsRef.current, ...update };
 		const nextIdentity = browserIdentity(identityKey, next.search, next.sort, next.filter);
@@ -359,7 +359,7 @@ export function EntityBrowserController<Meta>({
 		};
 		setControls(next);
 	};
-	const setFilter = (next: ViewFilter | undefined) => setQueryControls({ filter: next });
+	const setFilter = (next: undefined | ViewFilter) => setQueryControls({ filter: next });
 	const commitSearch = (value: string) => setQueryControls({ search: normalizeViewSearch(value) });
 	const commitDraftSearch = useEffectEvent((value: string) => commitSearch(value));
 	const setLayout = (value: string) => {

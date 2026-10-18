@@ -133,9 +133,9 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 const entityLocation = (entityId: string, entitySchemaSlug: string, search = "") =>
 	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
 
-let observedSearch: URLSearchParams | undefined;
-let observedParams: Record<string, string> | undefined;
-let observedLocation: PluginLogicalLocation | undefined;
+let observedSearch: undefined | URLSearchParams;
+let observedParams: undefined | Record<string, string>;
+let observedLocation: undefined | PluginLogicalLocation;
 
 const LocationProbe = () => {
 	const params = usePluginParams();
@@ -163,7 +163,7 @@ const openChannel = (
 		completeTransition: store.completeTransition,
 		back: () => messages.push({ type: "navigate-back" }),
 		openDrawer: () => messages.push({ type: "open-drawer" }),
-		publishTitle: (title: string | null) => messages.push({ title, type: "header" }),
+		publishTitle: (title: null | string) => messages.push({ title, type: "header" }),
 	};
 	let compact = false;
 	let edgeBack = false;

@@ -17,22 +17,22 @@ import type { WorkflowReference, WorkflowScriptReference } from "./workflow/refe
 
 const pending = Symbol("workflow-durable-call-pending");
 
-class WorkflowJournalMismatchError extends Error {
-	readonly _tag = "WorkflowJournalMismatchError";
-}
-
-type WorkflowReplayFailure =
-	SandboxHostError | Schema.SchemaError | WorkflowJournalMismatchError | typeof pending;
+export type WorkflowDefinition<
+	Manifest extends WorkflowManifest,
+	Input extends Schema.Codec<unknown, unknown>,
+> = {
+	readonly input: Input;
+	readonly manifest: Manifest;
+	readonly output: typeof workflowReplayEnvelopeSchema;
+	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
+	readonly run: (
+		input: Input["Type"],
+		host: WorkflowReplayHost,
+		execution: ExecutionMetadata,
+	) => RuntimeEffect.Effect<WorkflowReplayEnvelope, SandboxHostError>;
+};
 
 export type WorkflowReplay = {
-	readonly activity: <
-		Input extends Schema.Constraint,
-		Output extends Schema.ConstraintDecoder<unknown>,
-	>(
-		name: string,
-		reference: WorkflowScriptReference<Input, Output>,
-		input: Input["Type"],
-	) => RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure>;
 	readonly sleep: (
 		name: string,
 		durationMs: number,
@@ -45,7 +45,18 @@ export type WorkflowReplay = {
 		reference: WorkflowReference<Input, Output>,
 		input: Input["Type"],
 	) => RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure>;
+	readonly activity: <
+		Input extends Schema.Constraint,
+		Output extends Schema.ConstraintDecoder<unknown>,
+	>(
+		name: string,
+		reference: WorkflowScriptReference<Input, Output>,
+		input: Input["Type"],
+	) => RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure>;
 };
+
+type WorkflowReplayFailure =
+	typeof pending | SandboxHostError | Schema.SchemaError | WorkflowJournalMismatchError;
 
 type WorkflowExecution<
 	Manifest extends WorkflowManifest,
@@ -63,20 +74,9 @@ type WorkflowExecution<
 	) => RuntimeEffect.Effect<Output["Type"], Failure>;
 };
 
-export type WorkflowDefinition<
-	Manifest extends WorkflowManifest,
-	Input extends Schema.Codec<unknown, unknown>,
-> = {
-	readonly input: Input;
-	readonly output: typeof workflowReplayEnvelopeSchema;
-	readonly manifest: Manifest;
-	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
-	readonly run: (
-		input: Input["Type"],
-		host: WorkflowReplayHost,
-		execution: ExecutionMetadata,
-	) => RuntimeEffect.Effect<WorkflowReplayEnvelope, SandboxHostError>;
-};
+class WorkflowJournalMismatchError extends Error {
+	readonly _tag = "WorkflowJournalMismatchError";
+}
 
 // A host call that may already have reached an external system reports `external-uncertain` so the
 // kernel refuses to auto-retry it unless the hook declared run-ID idempotency.
@@ -116,7 +116,7 @@ const makeWorkflowReplay = (
 	requests: WorkflowDurableCallRequest[],
 	host: WorkflowReplayHost,
 ): WorkflowReplay => {
-	const inlineValues: Array<WorkflowReplayJournalEntry["value"] | undefined> = [];
+	const inlineValues: Array<undefined | WorkflowReplayJournalEntry["value"]> = [];
 	let settledLength = journal.length;
 	const resolve = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
@@ -267,31 +267,31 @@ export const Effect = {
 };
 export { Schema };
 export { defineManifest } from "./driver";
+export type { WorkflowReference, WorkflowScriptReference } from "./workflow/references";
 export {
-	workflowActivityRequestSchema,
-	workflowChildRequestSchema,
-	workflowDurableCallRequestSchema,
-	workflowDurableResultSchema,
-	workflowHostRequestSchema,
-	workflowInlineRequestSchema,
-	workflowNestedChildRequestSchema,
-	workflowReplayEnvelopeSchema,
-	workflowReplayJournalEntrySchema,
-	workflowSleepRequestSchema,
-} from "./workflow/protocol";
+	selectExecutable,
+	defineScriptReference,
+	defineWorkflowReference,
+	defineExecutableAlternatives,
+} from "./workflow/references";
 export type {
-	WorkflowDurableCallRequest,
+	WorkflowReplayHost,
 	WorkflowDurableResult,
 	WorkflowInlineRequest,
-	WorkflowReplayEnvelope,
-	WorkflowReplayHost,
 	WorkflowReplayJournal,
+	WorkflowReplayEnvelope,
+	WorkflowDurableCallRequest,
 	WorkflowReplayJournalEntry,
 } from "./workflow/protocol";
 export {
-	defineExecutableAlternatives,
-	defineScriptReference,
-	defineWorkflowReference,
-	selectExecutable,
-} from "./workflow/references";
-export type { WorkflowReference, WorkflowScriptReference } from "./workflow/references";
+	workflowHostRequestSchema,
+	workflowChildRequestSchema,
+	workflowSleepRequestSchema,
+	workflowDurableResultSchema,
+	workflowInlineRequestSchema,
+	workflowReplayEnvelopeSchema,
+	workflowActivityRequestSchema,
+	workflowDurableCallRequestSchema,
+	workflowNestedChildRequestSchema,
+	workflowReplayJournalEntrySchema,
+} from "./workflow/protocol";

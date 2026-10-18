@@ -122,10 +122,10 @@ export const listZipEntries = Effect.fn("filesystem.listZipEntries")(function* (
 });
 
 export const readZipEntryRange = Effect.fn("filesystem.readZipEntryRange")(function* (input: {
-	entry: ZipEntry;
+	key?: string;
 	offset: number;
 	length: number;
-	key?: string;
+	entry: ZipEntry;
 }) {
 	const { key, entry, offset, length } = input;
 	if (

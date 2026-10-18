@@ -408,7 +408,7 @@ const AutomationProviderImportChangePayload = strictStruct({
 	resource: Schema.Literal("provider-entity-import"),
 });
 const batchChange = <
-	const Resource extends "entity" | "event" | "relationship",
+	const Resource extends "event" | "entity" | "relationship",
 	Items extends Schema.Top,
 >(
 	resource: Resource,

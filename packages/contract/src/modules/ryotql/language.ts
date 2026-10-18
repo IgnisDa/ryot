@@ -34,39 +34,11 @@ const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
 const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
 const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month"]);
 
-export type CorrelatedQuerySet = {
-	readonly from: TableReference;
-	readonly where?: Predicate | undefined;
-	readonly joins?: readonly [Join, ...Join[]] | undefined;
-};
-
-export type AggregationSpec =
-	| { readonly function: "count" }
-	| { readonly expr: ScalarExpression; readonly function: "countDistinct" }
-	| {
-			readonly expr: ScalarExpression;
-			readonly function: "average" | "maximum" | "minimum" | "sum";
-	  };
-
-export type ExistsExpression = { readonly type: "exists"; readonly query: CorrelatedQuerySet };
-
 export type JsonElementExpression = { readonly type: "jsonElement" };
 
 export type CurrentDateExpression = { readonly type: "currentDate" };
 
-export type JsonArrayExistsExpression = {
-	readonly type: "jsonExists";
-	readonly array: ScalarExpression;
-	readonly where?: Predicate | undefined;
-};
-
-export type JsonArrayFirstExpression = {
-	readonly type: "jsonFirst";
-	readonly array: ScalarExpression;
-	readonly select: ScalarExpression;
-	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
-	readonly where?: Predicate | undefined;
-};
+export type ExistsExpression = { readonly type: "exists"; readonly query: CorrelatedQuerySet };
 
 export type JsonArrayCountExpression = {
 	readonly type: "jsonCount";
@@ -74,25 +46,53 @@ export type JsonArrayCountExpression = {
 	readonly where?: Predicate | undefined;
 };
 
+export type JsonArrayExistsExpression = {
+	readonly type: "jsonExists";
+	readonly array: ScalarExpression;
+	readonly where?: Predicate | undefined;
+};
+
+export type CorrelatedQuerySet = {
+	readonly from: TableReference;
+	readonly where?: Predicate | undefined;
+	readonly joins?: undefined | readonly [Join, ...Join[]];
+};
+
+export type JsonArrayFirstExpression = {
+	readonly type: "jsonFirst";
+	readonly array: ScalarExpression;
+	readonly select: ScalarExpression;
+	readonly where?: Predicate | undefined;
+	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+};
+
+export type AggregationSpec =
+	| { readonly function: "count" }
+	| { readonly expr: ScalarExpression; readonly function: "countDistinct" }
+	| {
+			readonly expr: ScalarExpression;
+			readonly function: "sum" | "average" | "maximum" | "minimum";
+	  };
+
 export type ScalarExpression =
 	| ColumnExpression
-	| CurrentDateExpression
 	| ExistsExpression
-	| JsonArrayCountExpression
-	| JsonArrayExistsExpression
-	| JsonArrayFirstExpression
-	| JsonElementExpression
 	| LiteralExpression
 	| PluginIdExpression
+	| CurrentDateExpression
+	| JsonElementExpression
+	| JsonArrayCountExpression
+	| JsonArrayFirstExpression
+	| JsonArrayExistsExpression
 	| { readonly type: "floor"; readonly expr: ScalarExpression }
 	| { readonly type: "round"; readonly expr: ScalarExpression }
 	| { readonly type: "integer"; readonly expr: ScalarExpression }
 	| { readonly type: "isNotNull"; readonly expr: ScalarExpression }
+	| { readonly type: "concat"; readonly values: readonly [ScalarExpression, ...ScalarExpression[]] }
 	| {
 			readonly type: "coalesce";
 			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
 	  }
-	| { readonly type: "concat"; readonly values: readonly [ScalarExpression, ...ScalarExpression[]] }
 	| {
 			readonly type: "cast";
 			readonly expr: ScalarExpression;
@@ -102,6 +102,16 @@ export type ScalarExpression =
 			readonly type: "jsonPath";
 			readonly expr: ScalarExpression;
 			readonly path: typeof JsonPath.Type;
+	  }
+	| {
+			readonly type: "transform";
+			readonly expr: ScalarExpression;
+			readonly name: typeof TransformName.Type;
+	  }
+	| {
+			readonly type: "aggregate";
+			readonly query: CorrelatedQuerySet;
+			readonly aggregation: AggregationSpec;
 	  }
 	| {
 			readonly timeZone: string;
@@ -116,26 +126,16 @@ export type ScalarExpression =
 			readonly whenFalse: ScalarExpression;
 	  }
 	| {
-			readonly type: "transform";
-			readonly expr: ScalarExpression;
-			readonly name: typeof TransformName.Type;
+			readonly type: "first";
+			readonly select: ScalarExpression;
+			readonly query: CorrelatedQuerySet;
+			readonly orderBy: readonly [OrderBy, ...OrderBy[]];
 	  }
 	| {
 			readonly type: "arithmetic";
 			readonly left: ScalarExpression;
 			readonly right: ScalarExpression;
 			readonly operator: "add" | "divide" | "multiply" | "subtract";
-	  }
-	| {
-			readonly type: "aggregate";
-			readonly query: CorrelatedQuerySet;
-			readonly aggregation: AggregationSpec;
-	  }
-	| {
-			readonly type: "first";
-			readonly select: ScalarExpression;
-			readonly query: CorrelatedQuerySet;
-			readonly orderBy: readonly [OrderBy, ...OrderBy[]];
 	  };
 
 export const CorrelatedQuerySet: Schema.Codec<CorrelatedQuerySet, unknown> = Schema.suspend(() =>
@@ -267,12 +267,12 @@ const ComparisonPredicate = strictStruct({
 
 export type Predicate =
 	| ExistsExpression
-	| JsonArrayExistsExpression
 	| typeof InPredicate.Type
+	| JsonArrayExistsExpression
 	| typeof IsNullPredicate.Type
 	| typeof ContainsPredicate.Type
-	| typeof StartsWithPredicate.Type
 	| typeof IsNotNullPredicate.Type
+	| typeof StartsWithPredicate.Type
 	| typeof ComparisonPredicate.Type
 	| { readonly type: "not"; readonly predicate: Predicate }
 	| { readonly type: "or"; readonly predicates: readonly Predicate[] }
@@ -389,8 +389,8 @@ export type Include = {
 	readonly where?: Predicate | undefined;
 	readonly fields: readonly RowSelection[];
 	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
-	readonly joins?: readonly [Join, ...Join[]] | undefined;
-	readonly include?: readonly [Include, ...Include[]] | undefined;
+	readonly joins?: undefined | readonly [Join, ...Join[]];
+	readonly include?: undefined | readonly [Include, ...Include[]];
 };
 
 export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
@@ -470,13 +470,22 @@ export const RyotQLDocument = strictStruct({
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
 
+export type RyotQLDocumentWithSelections<Selection extends RowSelection> = {
+	readonly queries: Readonly<Record<string, NamedQueryWithSelections<Selection>>>;
+};
+
+export type NamedQueryWithSelections<Selection extends RowSelection> = Omit<
+	NamedQuery,
+	"output"
+> & { readonly output: AggregateOutput | TimeSeriesOutput | RowsOutputWithSelections<Selection> };
+
 export type IncludeWithSelections<Selection extends RowSelection> = Omit<
 	Include,
 	"fields" | "include"
 > & {
 	readonly fields: readonly Selection[];
 	readonly include?:
-		readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]] | undefined;
+		undefined | readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]];
 };
 
 export type RowsOutputWithSelections<Selection extends RowSelection> = Omit<
@@ -485,16 +494,7 @@ export type RowsOutputWithSelections<Selection extends RowSelection> = Omit<
 > & {
 	readonly fields: readonly Selection[];
 	readonly include?:
-		readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]] | undefined;
-};
-
-export type NamedQueryWithSelections<Selection extends RowSelection> = Omit<
-	NamedQuery,
-	"output"
-> & { readonly output: RowsOutputWithSelections<Selection> | AggregateOutput | TimeSeriesOutput };
-
-export type RyotQLDocumentWithSelections<Selection extends RowSelection> = {
-	readonly queries: Readonly<Record<string, NamedQueryWithSelections<Selection>>>;
+		undefined | readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]];
 };
 
 const mapNonEmpty = <A, B>(
@@ -505,7 +505,7 @@ const mapNonEmpty = <A, B>(
 export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	document: RyotQLDocumentWithSelections<Selection>,
 	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
-): RyotQLDocumentWithSelections<FieldSelection | Selection> => {
+): RyotQLDocumentWithSelections<Selection | FieldSelection> => {
 	const aggregation = (value: AggregationSpec): AggregationSpec =>
 		value.function === "count" ? value : { ...value, expr: expression(value.expr) };
 	const ordering = (value: OrderBy): OrderBy => ({ ...value, expr: expression(value.expr) });
@@ -513,7 +513,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 		...value,
 		expr: expression(value.expr),
 	});
-	const selection = (value: Selection): FieldSelection | Selection =>
+	const selection = (value: Selection): Selection | FieldSelection =>
 		"expr" in value ? field(value) : value;
 	const join = (value: Join): Join =>
 		value.type === "jsonElements"
@@ -526,48 +526,39 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	});
 	function expression(value: ScalarExpression): ScalarExpression {
 		switch (value.type) {
-			case "pluginId":
-				return { ...value, reference: transform(value.reference) };
-			case "column":
-			case "literal":
-			case "currentDate":
-			case "jsonElement":
-				return value;
 			case "cast":
-			case "dateBucket":
 			case "floor":
-			case "integer":
-			case "isNotNull":
-			case "jsonPath":
 			case "round":
+			case "integer":
+			case "jsonPath":
+			case "isNotNull":
 			case "transform":
+			case "dateBucket":
 				return { ...value, expr: expression(value.expr) };
-			case "coalesce":
-			case "concat":
-				return { ...value, values: mapNonEmpty(value.values, expression) };
-			case "arithmetic":
-				return { ...value, left: expression(value.left), right: expression(value.right) };
-			case "conditional":
-				return {
-					...value,
-					whenTrue: expression(value.whenTrue),
-					condition: predicate(value.condition),
-					whenFalse: expression(value.whenFalse),
-				};
-			case "exists":
-				return { ...value, query: querySet(value.query) };
-			case "aggregate":
-				return {
-					...value,
-					query: querySet(value.query),
-					aggregation: aggregation(value.aggregation),
-				};
 			case "first":
 				return {
 					...value,
 					query: querySet(value.query),
 					select: expression(value.select),
 					orderBy: mapNonEmpty(value.orderBy, ordering),
+				};
+			case "column":
+			case "literal":
+			case "currentDate":
+			case "jsonElement":
+				return value;
+			case "concat":
+			case "coalesce":
+				return { ...value, values: mapNonEmpty(value.values, expression) };
+			case "exists":
+				return { ...value, query: querySet(value.query) };
+			case "pluginId":
+				return { ...value, reference: transform(value.reference) };
+			case "aggregate":
+				return {
+					...value,
+					query: querySet(value.query),
+					aggregation: aggregation(value.aggregation),
 				};
 			case "jsonCount":
 			case "jsonExists":
@@ -584,28 +575,37 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 					orderBy: mapNonEmpty(value.orderBy, ordering),
 					...(value.where === undefined ? {} : { where: predicate(value.where) }),
 				};
+			case "arithmetic":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
+			case "conditional":
+				return {
+					...value,
+					whenTrue: expression(value.whenTrue),
+					condition: predicate(value.condition),
+					whenFalse: expression(value.whenFalse),
+				};
 			default:
 				throw new Error(`Unknown RyotQL expression: ${String(value satisfies never)}`);
 		}
 	}
 	function predicate(value: Predicate): Predicate {
 		switch (value.type) {
-			case "and":
 			case "or":
+			case "and":
 				return { ...value, predicates: value.predicates.map(predicate) };
-			case "not":
-				return { ...value, predicate: predicate(value.predicate) };
-			case "comparison":
-			case "contains":
-			case "startsWith":
-				return { ...value, left: expression(value.left), right: expression(value.right) };
 			case "in":
 				return { ...value, expr: expression(value.expr), values: value.values.map(expression) };
+			case "not":
+				return { ...value, predicate: predicate(value.predicate) };
 			case "isNull":
 			case "isNotNull":
 				return { ...value, expr: expression(value.expr) };
 			case "exists":
 				return { ...value, query: querySet(value.query) };
+			case "contains":
+			case "comparison":
+			case "startsWith":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
 			case "jsonExists":
 				return {
 					...value,
@@ -618,7 +618,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	}
 	const include = (
 		value: IncludeWithSelections<Selection>,
-	): IncludeWithSelections<FieldSelection | Selection> => ({
+	): IncludeWithSelections<Selection | FieldSelection> => ({
 		...querySet(value),
 		fields: value.fields.map(selection),
 		orderBy: mapNonEmpty(value.orderBy, ordering),
@@ -626,7 +626,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	});
 	function query(
 		value: NamedQueryWithSelections<Selection>,
-	): NamedQueryWithSelections<FieldSelection | Selection> {
+	): NamedQueryWithSelections<Selection | FieldSelection> {
 		const output = value.output;
 		switch (output.type) {
 			case "rows":
@@ -685,11 +685,11 @@ const IncludePageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolea
 	identifier: "RyotQLIncludePageInfo",
 });
 
+export type RowItem = Readonly<Record<string, unknown>>;
 export type IncludeResult = {
 	readonly items: readonly RowItem[];
 	readonly pageInfo: typeof IncludePageInfo.Type;
 };
-export type RowItem = Readonly<Record<string, unknown>>;
 
 const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
 	Schema.Union([

@@ -12,7 +12,7 @@ export const defineClientConfig = ({
 	setupFiles,
 	maxWorkers,
 	testTimeout,
-}: { setupFiles?: string[]; maxWorkers?: number; testTimeout?: number } = {}) => {
+}: { maxWorkers?: number; testTimeout?: number; setupFiles?: string[] } = {}) => {
 	const client: ViteUserConfig = {
 		test: {
 			...(maxWorkers === undefined ? {} : { maxWorkers }),

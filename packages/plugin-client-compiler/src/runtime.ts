@@ -33,9 +33,9 @@ const failure = (message: string) =>
 const toDiagnostic = (diagnostic: {
 	readonly code?: string;
 	readonly file?: string;
-	readonly location?: { readonly line: number; readonly column: number };
 	readonly message: string;
 	readonly severity: "error" | "warning";
+	readonly location?: { readonly line: number; readonly column: number };
 }) => ({
 	message: diagnostic.message,
 	severity: diagnostic.severity,

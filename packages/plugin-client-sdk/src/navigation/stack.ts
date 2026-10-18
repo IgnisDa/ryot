@@ -3,6 +3,28 @@ import type { ReactElement } from "react";
 
 export const PLUGIN_SCREEN_STACK_LIMIT = 5;
 
+export type ScreenRole = "hidden" | "active" | "beneath" | "leaving";
+
+export type StackTransition = "pop" | "same" | "push" | "reset" | "replace";
+
+export type PresentedScreen = { readonly role: ScreenRole; readonly screen: PluginScreen };
+
+export type StackResult = {
+	readonly transition: StackTransition;
+	readonly stack: readonly PluginScreen[];
+};
+
+export type StackEntry = {
+	readonly key: string;
+	readonly index: number;
+	readonly location: PluginLogicalLocation;
+};
+
+export type ResolvePluginScreen = (location: PluginLogicalLocation) => {
+	readonly element: ReactElement;
+	readonly params: Record<string, string>;
+};
+
 export type PluginScreen = {
 	readonly key: string;
 	readonly index: number;
@@ -10,12 +32,6 @@ export type PluginScreen = {
 	readonly params: Record<string, string>;
 	readonly location: PluginLogicalLocation;
 };
-
-export type StackTransition = "same" | "push" | "pop" | "replace" | "reset";
-
-export type ScreenRole = "hidden" | "active" | "beneath" | "leaving";
-
-export type PresentedScreen = { readonly role: ScreenRole; readonly screen: PluginScreen };
 
 export type Presentation =
 	| { readonly kind: "idle" }
@@ -26,21 +42,22 @@ export type Presentation =
 			readonly incoming: string | undefined;
 	  };
 
-export type StackEntry = {
-	readonly key: string;
-	readonly index: number;
-	readonly location: PluginLogicalLocation;
-};
-
-export type StackResult = {
-	readonly transition: StackTransition;
-	readonly stack: readonly PluginScreen[];
-};
-
-export type ResolvePluginScreen = (location: PluginLogicalLocation) => {
-	readonly element: ReactElement;
-	readonly params: Record<string, string>;
-};
+export function presentScreens(
+	screens: readonly PluginScreen[],
+	presentation: Presentation,
+): readonly PresentedScreen[] {
+	const active = screens.length - 1;
+	const beneath = presentation.kind === "dragging" ? active - 1 : -1;
+	const presented = screens.map((screen, position): PresentedScreen => {
+		if (position === active) {
+			return { screen, role: "active" };
+		}
+		return { screen, role: position === beneath ? "beneath" : "hidden" };
+	});
+	return presentation.kind === "popping"
+		? [...presented, { role: "leaving", screen: presentation.leaving }]
+		: presented;
+}
 
 export function reconcileStack(
 	stack: readonly PluginScreen[],
@@ -72,21 +89,4 @@ export function reconcileStack(
 		return { transition: "pop", stack: stack.slice(0, retained + 1) };
 	}
 	return { stack: [screen], transition: "reset" };
-}
-
-export function presentScreens(
-	screens: readonly PluginScreen[],
-	presentation: Presentation,
-): readonly PresentedScreen[] {
-	const active = screens.length - 1;
-	const beneath = presentation.kind === "dragging" ? active - 1 : -1;
-	const presented = screens.map((screen, position): PresentedScreen => {
-		if (position === active) {
-			return { screen, role: "active" };
-		}
-		return { screen, role: position === beneath ? "beneath" : "hidden" };
-	});
-	return presentation.kind === "popping"
-		? [...presented, { role: "leaving", screen: presentation.leaving }]
-		: presented;
 }

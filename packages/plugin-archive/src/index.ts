@@ -57,26 +57,26 @@ export const PluginArchiveErrorReason = Schema.Literals([
 
 export type PluginArchiveErrorReason = typeof PluginArchiveErrorReason.Type;
 
-export class PluginArchiveError extends Schema.TaggedError<
-	PluginArchiveError,
-	{ readonly brand: unique symbol }
->()("PluginArchiveError", { reason: PluginArchiveErrorReason }) {}
-
 export type PluginArchiveCompiledScript = {
 	readonly entry: string;
-	readonly javascript: string;
 	readonly format: number;
+	readonly javascript: string;
 };
 
 export type PluginArchivePackage = {
 	readonly manifest: PluginManifest;
-	readonly compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>;
 	readonly compiledClient?: PluginClientArtifactType;
+	readonly compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>;
 };
 
 type PluginArchiveInput = Omit<PluginArchivePackage, "compiledScripts"> & {
 	readonly compiledScripts?: ReadonlyArray<PluginArchiveCompiledScript>;
 };
+
+export class PluginArchiveError extends Schema.TaggedError<
+	PluginArchiveError,
+	{ readonly brand: unique symbol }
+>()("PluginArchiveError", { reason: PluginArchiveErrorReason }) {}
 
 const compiledBackendMetadataPath = "compiled-backend/metadata.json";
 const compiledBackendFilePrefix = "compiled-backend/files/";
@@ -329,10 +329,17 @@ const validateEntryBytes = (path: string, entryBytes: number, totalBytes: number
 };
 
 class ArchivePathValidator {
-	readonly #paths = new Set<string>();
 	#entryCount = 0;
 	#manifestCount = 0;
 	#compiledClientFileCount = 0;
+	readonly #paths = new Set<string>();
+
+	finish() {
+		if (this.#manifestCount === 0) {
+			throw failure("missing-manifest");
+		}
+		return this.#paths;
+	}
 
 	add(path: string, pathBytes: number) {
 		this.#entryCount += 1;
@@ -375,13 +382,6 @@ class ArchivePathValidator {
 		if (path === "manifest.json") {
 			this.#manifestCount += 1;
 		}
-	}
-
-	finish() {
-		if (this.#manifestCount === 0) {
-			throw failure("missing-manifest");
-		}
-		return this.#paths;
 	}
 }
 
@@ -449,7 +449,7 @@ const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) 
 	paths.finish();
 };
 
-type ExtractedEntry = { readonly chunks: Uint8Array[]; bytes: number };
+type ExtractedEntry = { bytes: number; readonly chunks: Uint8Array[] };
 
 const readUint16 = (view: DataView, offset: number) => view.getUint16(offset, true);
 const readUint32 = (view: DataView, offset: number) => view.getUint32(offset, true);
@@ -545,16 +545,16 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 };
 
 class PluginArchiveReader {
-	readonly #archive: Uint8Array[] = [];
-	readonly #entries = new Map<string, ExtractedEntry>();
-	#archiveBytes = 0;
 	#entryCount = 0;
 	#totalBytes = 0;
-	#compiledBackendBytes = 0;
+	#archiveBytes = 0;
 	#compiledClientBytes = 0;
+	#compiledBackendBytes = 0;
 	#compiledClientFileCount = 0;
 	#unzipFailure: unknown = null;
-	#failure: PluginArchiveError | null = null;
+	readonly #archive: Uint8Array[] = [];
+	#failure: null | PluginArchiveError = null;
+	readonly #entries = new Map<string, ExtractedEntry>();
 	readonly #unzip = new Unzip((file) => {
 		this.#entryCount += 1;
 		try {
@@ -686,6 +686,41 @@ class PluginArchiveReader {
 		} satisfies PluginArchivePackage;
 	}
 
+	#readCompiledClient(
+		compiledClientFiles: ReadonlyMap<string, Uint8Array>,
+		manifest: PluginManifest,
+	) {
+		const metadataEntry = this.#entries.get(compiledClientMetadataPath);
+		if (metadataEntry === undefined) {
+			if (compiledClientFiles.size > 0) {
+				throw failure("compiled-client-invalid");
+			}
+			return undefined;
+		}
+		let metadata: typeof PluginClientArtifactArchiveMetadata.Type;
+		try {
+			metadata = Schema.decodeSync(Schema.fromJsonString(PluginClientArtifactArchiveMetadata))(
+				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
+			);
+		} catch {
+			throw failure("compiled-client-invalid");
+		}
+		if (metadata.files.length > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles) {
+			throw failure("compiled-client-file-count-exceeded");
+		}
+		if (metadata.files.length !== compiledClientFiles.size) {
+			throw failure("compiled-client-invalid");
+		}
+		const files = metadata.files.map(({ name, contentType }) => {
+			const contents = compiledClientFiles.get(`${compiledClientFilePrefix}${name}`);
+			if (contents === undefined) {
+				throw failure("compiled-client-invalid");
+			}
+			return { name, contents, contentType };
+		});
+		return validateCompiledClientArtifact({ ...metadata, files }, manifest);
+	}
+
 	#readCompiledScripts(
 		compiledBackendFiles: ReadonlyMap<string, Uint8Array>,
 		manifest: PluginArchivePackage["manifest"],
@@ -761,41 +796,6 @@ class PluginArchiveReader {
 			throw failure("compiled-script-invalid");
 		}
 		return compiledScripts;
-	}
-
-	#readCompiledClient(
-		compiledClientFiles: ReadonlyMap<string, Uint8Array>,
-		manifest: PluginManifest,
-	) {
-		const metadataEntry = this.#entries.get(compiledClientMetadataPath);
-		if (metadataEntry === undefined) {
-			if (compiledClientFiles.size > 0) {
-				throw failure("compiled-client-invalid");
-			}
-			return undefined;
-		}
-		let metadata: typeof PluginClientArtifactArchiveMetadata.Type;
-		try {
-			metadata = Schema.decodeSync(Schema.fromJsonString(PluginClientArtifactArchiveMetadata))(
-				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
-			);
-		} catch {
-			throw failure("compiled-client-invalid");
-		}
-		if (metadata.files.length > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles) {
-			throw failure("compiled-client-file-count-exceeded");
-		}
-		if (metadata.files.length !== compiledClientFiles.size) {
-			throw failure("compiled-client-invalid");
-		}
-		const files = metadata.files.map(({ name, contentType }) => {
-			const contents = compiledClientFiles.get(`${compiledClientFilePrefix}${name}`);
-			if (contents === undefined) {
-				throw failure("compiled-client-invalid");
-			}
-			return { name, contents, contentType };
-		});
-		return validateCompiledClientArtifact({ ...metadata, files }, manifest);
 	}
 }
 

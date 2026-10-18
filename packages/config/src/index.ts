@@ -26,7 +26,7 @@ type FieldOptions<A> = {
 	readonly envKey?: string | undefined;
 	readonly hidden?: boolean | undefined;
 	readonly defaultValue?: A | undefined;
-	readonly validation?: Validation | undefined;
+	readonly validation?: undefined | Validation;
 };
 
 type FieldValue<A, O> = O extends { readonly secret: true }
@@ -53,8 +53,36 @@ const fieldSchemaOptions = <A>(options: FieldOptions<A>) =>
 		readonly description: string;
 		readonly secret?: true | undefined;
 		readonly defaultValue?: A | undefined;
-		readonly validation?: Validation | undefined;
+		readonly validation?: undefined | Validation;
 	};
+
+export type ConfigNode = ConfigFieldDefinition | ConfigGroupDefinition;
+
+export interface ConfigFields {
+	readonly [key: string]: ConfigNode;
+}
+
+export type ConfigValues<F extends ConfigFields> = { readonly [K in keyof F]: ConfigValue<F[K]> };
+export type ConfigEnvironmentKeyResolver = (
+	path: ReadonlyArray<string>,
+	field: AppPropertyDefinition,
+) => string;
+
+export type ConfigGroupDefinition<F extends ConfigFields = ConfigFields> = {
+	readonly fields: F;
+	readonly kind: "group";
+	readonly schema: AppObjectProperty;
+	readonly [ConfigValueType]?: ConfigValues<F>;
+};
+
+export type ConfigValue<D extends ConfigNode | ConfigDefinition> =
+	D extends ConfigGroupDefinition<infer F>
+		? ConfigValues<F>
+		: D extends ConfigFieldDefinition<infer A>
+			? A
+			: D extends ConfigDefinition<infer F>
+				? ConfigValues<F>
+				: never;
 
 export type ConfigFieldDefinition<
 	A = unknown,
@@ -67,29 +95,6 @@ export type ConfigFieldDefinition<
 	readonly envKey?: string | undefined;
 };
 
-export type ConfigGroupDefinition<F extends ConfigFields = ConfigFields> = {
-	readonly fields: F;
-	readonly kind: "group";
-	readonly schema: AppObjectProperty;
-	readonly [ConfigValueType]?: ConfigValues<F>;
-};
-
-export type ConfigNode = ConfigFieldDefinition | ConfigGroupDefinition;
-export interface ConfigFields {
-	readonly [key: string]: ConfigNode;
-}
-
-export type ConfigValue<D extends ConfigNode | ConfigDefinition> =
-	D extends ConfigGroupDefinition<infer F>
-		? ConfigValues<F>
-		: D extends ConfigFieldDefinition<infer A>
-			? A
-			: D extends ConfigDefinition<infer F>
-				? ConfigValues<F>
-				: never;
-
-export type ConfigValues<F extends ConfigFields> = { readonly [K in keyof F]: ConfigValue<F[K]> };
-
 export type ConfigDefinition<F extends ConfigFields = ConfigFields> = {
 	readonly fields: F;
 	readonly label: string;
@@ -98,11 +103,6 @@ export type ConfigDefinition<F extends ConfigFields = ConfigFields> = {
 	readonly [ConfigValueType]?: ConfigValues<F>;
 	readonly config: Config.Config<ConfigValues<F>>;
 };
-
-export type ConfigEnvironmentKeyResolver = (
-	path: ReadonlyArray<string>,
-	field: AppPropertyDefinition,
-) => string;
 
 export const stringField = <const O extends FieldOptions<string>>(
 	options: O,
@@ -263,7 +263,7 @@ export const configFromAppSchema = (
 
 const define = <const F extends ConfigFields>(
 	fields: F,
-	options: { readonly label?: string; readonly description?: string } | undefined,
+	options: undefined | { readonly label?: string; readonly description?: string },
 	resolveEnvKey: ConfigEnvironmentKeyResolver,
 	redactSecrets: boolean,
 ) => {
@@ -285,7 +285,7 @@ export const defineConfig = <const F extends ConfigFields>(
 		fields,
 		options,
 		(path) => {
-			let node: ConfigNode | undefined;
+			let node: undefined | ConfigNode;
 			let children: ConfigFields = fields;
 			for (const segment of path) {
 				node = children[segment];

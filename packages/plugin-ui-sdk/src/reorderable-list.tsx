@@ -26,25 +26,25 @@ const edgeDelta = (pointer: number, bounds: DOMRect) => {
 
 type Drag = {
 	readonly key: string;
-	readonly keys: readonly string[];
 	readonly pointerId: number;
 	readonly itemHeight: number;
 	readonly startIndex: number;
 	readonly startPointerY: number;
 	readonly startScrollTop: number;
+	readonly keys: readonly string[];
 };
 
 type ReorderableListProps<T> = {
 	readonly label: string;
 	readonly itemHeight: number;
 	readonly className?: string;
-	readonly items: readonly T[];
 	readonly onDrop: () => void;
-	readonly handleIcon: ReactNode;
+	readonly items: readonly T[];
 	readonly onPickUp: () => void;
+	readonly handleIcon: ReactNode;
 	readonly itemKey: (item: T) => string;
 	readonly itemLabel: (item: T) => string;
-	readonly scrollRef?: RefObject<HTMLElement | null>;
+	readonly scrollRef?: RefObject<null | HTMLElement>;
 	readonly onReorder: (fromIndex: number, toIndex: number) => void;
 	readonly renderItem: (state: {
 		readonly item: T;
@@ -66,11 +66,11 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	const pointerY = useRef(0);
 	const drag = useRef<Drag | null>(null);
 	const [offset, setOffset] = useState(0);
-	const frame = useRef<number | null>(null);
-	const focusKey = useRef<string | null>(null);
+	const frame = useRef<null | number>(null);
+	const focusKey = useRef<null | string>(null);
 	const [announcement, setAnnouncement] = useState("");
-	const [dragKey, setDragKey] = useState<string | null>(null);
-	const handles = useRef(new Map<string, HTMLButtonElement | null>());
+	const [dragKey, setDragKey] = useState<null | string>(null);
+	const handles = useRef(new Map<string, null | HTMLButtonElement>());
 	const count = props.items.length;
 	const fromIndex = props.items.findIndex((item) => props.itemKey(item) === dragKey);
 	const destination = clamp(Math.round(offset / props.itemHeight), 0, count - 1);

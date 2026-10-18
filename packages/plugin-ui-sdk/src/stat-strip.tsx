@@ -10,8 +10,8 @@ export type Stat = {
 
 export function StatStrip(props: {
 	readonly compact: boolean;
-	readonly className?: string | undefined;
 	readonly stats: readonly Stat[];
+	readonly className?: string | undefined;
 }) {
 	return (
 		<dl

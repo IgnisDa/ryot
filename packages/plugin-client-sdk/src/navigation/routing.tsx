@@ -45,13 +45,13 @@ import {
 } from "./stack";
 import type { PluginNavigationEntry } from "./store";
 
-export type PluginRouteDefinition = { readonly path: string; readonly component: ComponentType };
-
 export type PluginHomeDefinition = { readonly component: ComponentType };
 
 export type EntityRendererProps = Pick<PluginEntityLocation, "entityId" | "entitySchemaSlug">;
 
 export type PluginEntityDefinition = { readonly component: ComponentType<EntityRendererProps> };
+
+export type PluginRouteDefinition = { readonly path: string; readonly component: ComponentType };
 
 export type PluginRouterDefinition = {
 	readonly notFound?: ComponentType;
@@ -62,7 +62,13 @@ export type PluginRouterDefinition = {
 
 type RouterContextValue = { params: Record<string, string>; location: PluginLogicalLocation };
 
-const RouterContext = createContext<RouterContextValue | undefined>(undefined);
+const RouterContext = createContext<undefined | RouterContextValue>(undefined);
+
+export type PluginScreenSurface = {
+	readonly isActive: boolean;
+	readonly floatingRoot: null | HTMLElement;
+	readonly scrollRootRef: RefObject<null | HTMLDivElement>;
+};
 
 export type PluginChromeValue = {
 	readonly back: () => void;
@@ -71,19 +77,13 @@ export type PluginChromeValue = {
 	readonly openDrawer: () => void;
 	readonly safeAreaBottom: number;
 	readonly leading: PluginLeadingIntent;
-	readonly entry: PluginNavigationEntry | undefined;
-	readonly publishTitle: (title: string | null) => void;
+	readonly entry: undefined | PluginNavigationEntry;
+	readonly publishTitle: (title: null | string) => void;
 };
 
-export type PluginScreenSurface = {
-	readonly isActive: boolean;
-	readonly floatingRoot: HTMLElement | null;
-	readonly scrollRootRef: RefObject<HTMLDivElement | null>;
-};
+const PluginChromeContext = createContext<undefined | PluginChromeValue>(undefined);
 
-const PluginChromeContext = createContext<PluginChromeValue | undefined>(undefined);
-
-const PluginScreenContext = createContext<PluginScreenSurface | undefined>(undefined);
+const PluginScreenContext = createContext<undefined | PluginScreenSurface>(undefined);
 
 export const usePluginChrome = () => {
 	const context = useContext(PluginChromeContext);
@@ -110,7 +110,7 @@ export const useRyotViewport = () => {
 	);
 };
 
-export function usePluginTitle(title: string | null) {
+export function usePluginTitle(title: null | string) {
 	const { entry, publishTitle } = usePluginChrome();
 	const { isActive } = usePluginScreenSurface();
 
@@ -159,7 +159,7 @@ export const usePluginSearch = () =>
 
 type PluginLinkProps = { readonly to: RyotNavigationTarget } & Omit<
 	AnchorHTMLAttributes<HTMLAnchorElement>,
-	"download" | "href" | "target"
+	"href" | "target" | "download"
 >;
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
@@ -364,7 +364,7 @@ const edgeStyle: CSSProperties = {
 const rootStyle: CSSProperties = { height: "100%", overflow: "hidden", position: "relative" };
 
 const frameFor = (
-	scrim: HTMLDivElement | null,
+	scrim: null | HTMLDivElement,
 	screens: ReadonlyMap<string, HTMLDivElement>,
 	outgoingKey: string | undefined,
 	incomingKey: string | undefined,
@@ -380,7 +380,7 @@ export const PluginRouter = () => {
 	const navigation = usePluginNavigation();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const scrimRef = useRef<HTMLDivElement>(null);
-	const settling = useRef<Effect.Effect<void> | undefined>(undefined);
+	const settling = useRef<undefined | Effect.Effect<void>>(undefined);
 	const screenRefs = useRef(new Map<string, HTMLDivElement>());
 	const isFirstEntry = useRef(true);
 	const drag = useRef({
@@ -574,6 +574,32 @@ export const PluginRouter = () => {
 	);
 };
 
+function EdgeStrip(props: {
+	readonly onEnd: () => void;
+	readonly onStart: (event: PointerEvent<HTMLDivElement>) => void;
+	readonly onMove: (event: PointerEvent<HTMLDivElement>, originX: number, originY: number) => void;
+}) {
+	const origin = useRef({ x: 0, y: 0 });
+
+	return (
+		<div
+			style={edgeStyle}
+			aria-hidden="true"
+			data-plugin-edge="back"
+			onPointerUp={props.onEnd}
+			onPointerCancel={props.onEnd}
+			onPointerMove={(event) => props.onMove(event, origin.current.x, origin.current.y)}
+			onPointerDown={(event) => {
+				origin.current = { x: event.clientX, y: event.clientY };
+				if (typeof event.currentTarget.setPointerCapture === "function") {
+					event.currentTarget.setPointerCapture(event.pointerId);
+				}
+				props.onStart(event);
+			}}
+		/>
+	);
+}
+
 function Screen(props: {
 	readonly role: ScreenRole;
 	readonly screen: PluginScreen;
@@ -582,7 +608,7 @@ function Screen(props: {
 }) {
 	const active = props.role === "active";
 	const scrollRoot = useRef<HTMLDivElement>(null);
-	const [floatingRoot, setFloatingRoot] = useState<HTMLDivElement | null>(null);
+	const [floatingRoot, setFloatingRoot] = useState<null | HTMLDivElement>(null);
 	const { params, location } = props.screen;
 	const value = useMemo(() => ({ params, location }), [location, params]);
 	const surface = useMemo<PluginScreenSurface>(
@@ -622,31 +648,5 @@ function Screen(props: {
 				</ActiveScreenContext.Provider>
 			</PluginScreenContext.Provider>
 		</div>
-	);
-}
-
-function EdgeStrip(props: {
-	readonly onEnd: () => void;
-	readonly onStart: (event: PointerEvent<HTMLDivElement>) => void;
-	readonly onMove: (event: PointerEvent<HTMLDivElement>, originX: number, originY: number) => void;
-}) {
-	const origin = useRef({ x: 0, y: 0 });
-
-	return (
-		<div
-			style={edgeStyle}
-			aria-hidden="true"
-			data-plugin-edge="back"
-			onPointerUp={props.onEnd}
-			onPointerCancel={props.onEnd}
-			onPointerMove={(event) => props.onMove(event, origin.current.x, origin.current.y)}
-			onPointerDown={(event) => {
-				origin.current = { x: event.clientX, y: event.clientY };
-				if (typeof event.currentTarget.setPointerCapture === "function") {
-					event.currentTarget.setPointerCapture(event.pointerId);
-				}
-				props.onStart(event);
-			}}
-		/>
 	);
 }

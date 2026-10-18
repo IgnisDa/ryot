@@ -15,22 +15,22 @@ const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 const MIN_MONTH_LABEL_GAP_WEEKS = 3;
 const calendarMonthFormat = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
 
+export type CalendarHeatmapLevel = (typeof LEVELS)[number];
+
 /** One calendar day: `date` is `YYYY-MM-DD`, `value` is the day's activity amount. */
 export type CalendarHeatmapDay = { readonly date: string; readonly value: number };
 
-export type CalendarHeatmapLevel = (typeof LEVELS)[number];
-
 export type CalendarHeatmapProps = {
-	/** Days in any order. Dates missing between the earliest and latest day render as zero. */
-	readonly days: ReadonlyArray<CalendarHeatmapDay>;
 	/** First row of each week column: 0 = Sunday, 1 = Monday. */
 	readonly weekStart: 0 | 1;
-	/** Tooltip text for one day; also used as the chart's accessible point text. */
-	readonly formatTooltip: (day: CalendarHeatmapDay) => string;
 	/** Smaller cells for touch layouts. */
 	readonly compact: boolean;
 	/** Accessible chart name. */
 	readonly ariaLabel: string;
+	/** Days in any order. Dates missing between the earliest and latest day render as zero. */
+	readonly days: ReadonlyArray<CalendarHeatmapDay>;
+	/** Tooltip text for one day; also used as the chart's accessible point text. */
+	readonly formatTooltip: (day: CalendarHeatmapDay) => string;
 };
 
 type CalendarCell = CalendarHeatmapDay & {
@@ -90,6 +90,54 @@ const monthLabels = (cells: ReadonlyArray<CalendarCell>) => {
 	}
 	return labels;
 };
+
+export type TimeSeriesPoint = { readonly at: string; readonly value: number };
+
+/** One ranked row; `key` must be unique and stable. */
+export type RankedBarListRow = {
+	readonly key: string;
+	readonly label: string;
+	readonly value: number;
+};
+
+export type RankedBarListProps = {
+	readonly rows: ReadonlyArray<RankedBarListRow>;
+	/** Text shown beside each bar, such as a percentage or count. */
+	readonly formatValue: (row: RankedBarListRow) => string;
+};
+
+export type SparklineProps = {
+	readonly ariaLabel: string;
+	/** `accent` draws in the chart accent color, `muted` in a neutral. */
+	readonly tone: "muted" | "accent";
+	readonly points: ReadonlyArray<TimeSeriesPoint>;
+};
+
+type SeriesRow = { readonly ms: number; readonly value: null | number };
+
+/** Rows sorted by descending value, each with a single-hue bar scaled to the largest value. */
+export function RankedBarList({ rows, formatValue }: RankedBarListProps) {
+	const ranked = [...rows].sort((left, right) => right.value - left.value);
+	const max = Math.max(0, ...ranked.map(({ value }) => value));
+	return (
+		<ol className="flex flex-col gap-3">
+			{ranked.map((row) => (
+				<li key={row.key} className="flex flex-col gap-1">
+					<div className="flex items-baseline justify-between gap-3 text-sm">
+						<span className="min-w-0 truncate text-text">{row.label}</span>
+						<span className="shrink-0 text-text-muted tabular-nums">{formatValue(row)}</span>
+					</div>
+					<div aria-hidden="true" className="h-2 overflow-hidden rounded-pill bg-chart-seq-0">
+						<div
+							className="h-full rounded-pill bg-chart-accent"
+							style={{ width: `${max > 0 ? (Math.max(0, row.value) / max) * 100 : 0}%` }}
+						/>
+					</div>
+				</li>
+			))}
+		</ol>
+	);
+}
 
 /** A 7-row by N-week activity calendar with month labels and a level legend, opening on the newest week. */
 export function CalendarHeatmap({
@@ -173,54 +221,6 @@ export function CalendarHeatmap({
 	);
 }
 
-/** One ranked row; `key` must be unique and stable. */
-export type RankedBarListRow = {
-	readonly key: string;
-	readonly label: string;
-	readonly value: number;
-};
-
-export type RankedBarListProps = {
-	readonly rows: ReadonlyArray<RankedBarListRow>;
-	/** Text shown beside each bar, such as a percentage or count. */
-	readonly formatValue: (row: RankedBarListRow) => string;
-};
-
-/** Rows sorted by descending value, each with a single-hue bar scaled to the largest value. */
-export function RankedBarList({ rows, formatValue }: RankedBarListProps) {
-	const ranked = [...rows].sort((left, right) => right.value - left.value);
-	const max = Math.max(0, ...ranked.map(({ value }) => value));
-	return (
-		<ol className="flex flex-col gap-3">
-			{ranked.map((row) => (
-				<li key={row.key} className="flex flex-col gap-1">
-					<div className="flex items-baseline justify-between gap-3 text-sm">
-						<span className="min-w-0 truncate text-text">{row.label}</span>
-						<span className="shrink-0 text-text-muted tabular-nums">{formatValue(row)}</span>
-					</div>
-					<div aria-hidden="true" className="h-2 overflow-hidden rounded-pill bg-chart-seq-0">
-						<div
-							className="h-full rounded-pill bg-chart-accent"
-							style={{ width: `${max > 0 ? (Math.max(0, row.value) / max) * 100 : 0}%` }}
-						/>
-					</div>
-				</li>
-			))}
-		</ol>
-	);
-}
-
-export type TimeSeriesPoint = { readonly at: string; readonly value: number };
-
-export type SparklineProps = {
-	readonly points: ReadonlyArray<TimeSeriesPoint>;
-	readonly ariaLabel: string;
-	/** `accent` draws in the chart accent color, `muted` in a neutral. */
-	readonly tone: "accent" | "muted";
-};
-
-type SeriesRow = { readonly ms: number; readonly value: number | null };
-
 const ACCENT_COLOR = "var(--chart-accent)";
 const SPARKLINE_WIDTH = 96;
 const SPARKLINE_HEIGHT = 28;
@@ -229,6 +229,28 @@ const TONE_COLORS = { accent: ACCENT_COLOR, muted: "var(--border-strong)" } as c
 
 const chronological = (points: ReadonlyArray<TimeSeriesPoint>): ReadonlyArray<SeriesRow> =>
 	points.map(({ at, value }) => ({ value, ms: Date.parse(at) })).sort((a, b) => a.ms - b.ms);
+
+export type TimeSeriesChartSeries = {
+	readonly label: string;
+	/** Precomputed smoothed values, drawn as the emphasised line. */
+	readonly trend: ReadonlyArray<TimeSeriesPoint>;
+	readonly formatValue: (value: number) => string;
+	/** Raw observations, drawn as faint dots. */
+	readonly readings: ReadonlyArray<TimeSeriesPoint>;
+};
+
+export type TimeSeriesChartProps = {
+	/** Trend lines break between consecutive trend points further apart than this. */
+	readonly gapMs: number;
+	/** Smaller height for touch layouts. */
+	readonly compact: boolean;
+	readonly ariaLabel: string;
+	readonly primary: TimeSeriesChartSeries;
+	/** Drawn against its own right-hand axis. */
+	readonly compare?: TimeSeriesChartSeries;
+	/** X domain as ISO datetimes. */
+	readonly range: { readonly endAt: string; readonly startAt: string };
+};
 
 /** A fixed-size trend line with a soft area fill and an emphasised last point; no axes or tooltip. */
 export function Sparkline({ tone, points, ariaLabel }: SparklineProps) {
@@ -272,28 +294,6 @@ export function Sparkline({ tone, points, ariaLabel }: SparklineProps) {
 		/>
 	);
 }
-
-export type TimeSeriesChartSeries = {
-	readonly label: string;
-	/** Raw observations, drawn as faint dots. */
-	readonly readings: ReadonlyArray<TimeSeriesPoint>;
-	/** Precomputed smoothed values, drawn as the emphasised line. */
-	readonly trend: ReadonlyArray<TimeSeriesPoint>;
-	readonly formatValue: (value: number) => string;
-};
-
-export type TimeSeriesChartProps = {
-	/** X domain as ISO datetimes. */
-	readonly range: { readonly startAt: string; readonly endAt: string };
-	readonly primary: TimeSeriesChartSeries;
-	/** Drawn against its own right-hand axis. */
-	readonly compare?: TimeSeriesChartSeries;
-	/** Trend lines break between consecutive trend points further apart than this. */
-	readonly gapMs: number;
-	readonly ariaLabel: string;
-	/** Smaller height for touch layouts. */
-	readonly compact: boolean;
-};
 
 const COMPARE_COLOR = "var(--info)";
 const COMPARE_WINDOW_MS = 2 * DAY_MS;
@@ -351,8 +351,8 @@ const monthFormat = new Intl.DateTimeFormat(undefined, { month: "short", year: "
 const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 type SeriesRows = {
-	readonly readings: ReadonlyArray<SeriesRow>;
 	readonly trend: ReadonlyArray<SeriesRow>;
+	readonly readings: ReadonlyArray<SeriesRow>;
 };
 
 const seriesRows = (series: TimeSeriesChartSeries): SeriesRows => ({

@@ -27,17 +27,17 @@ import {
 import { parseErrorToIssues } from "./property-validation";
 import { Email, HttpUrl, isNamedTimeZone } from "./utils";
 
+type NumberValueSchema = Schema.Codec<number>;
+type PropertyValueField = PropertyValueSchema;
+type StringValueSchema = Schema.Codec<string>;
+type PropertyValues = Record<string, unknown>;
+type PropertyValueSchema = Schema.ConstraintCodec<unknown, unknown>;
 type ArrayValueSchema<A = unknown, I = A, R = never> = Schema.Codec<
 	ReadonlyArray<A>,
 	ReadonlyArray<I>,
 	R,
 	R
 >;
-type NumberValueSchema = Schema.Codec<number>;
-type PropertyValueSchema = Schema.ConstraintCodec<unknown, unknown>;
-type PropertyValueField = PropertyValueSchema;
-type StringValueSchema = Schema.Codec<string>;
-type PropertyValues = Record<string, unknown>;
 
 type ValidationResult =
 	| { readonly success: true; readonly data: PropertyValues }

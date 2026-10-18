@@ -9,22 +9,22 @@ const PackageManifest = Schema.fromJsonString(
 	Schema.Struct({ name: Schema.String, version: Schema.optional(Schema.String) }),
 );
 
-type RegistryEntry = (typeof SANDBOX_RUNTIME_REGISTRY)[number];
-
 export type ResolvedSandboxRuntimeDependency = {
 	readonly version: string;
 	readonly entrypoint: string;
 	readonly runtimeFile: string;
 	readonly aliases: readonly string[];
-	readonly runtimeExternals: RegistryEntry["runtimeExternals"];
 	readonly name: RegistryEntry["name"];
 	readonly sdkImport: RegistryEntry["sdkImport"];
 	readonly packageName: RegistryEntry["packageName"];
+	readonly runtimeExternals: RegistryEntry["runtimeExternals"];
 	readonly buildAliases: readonly {
 		readonly replacement: string;
 		readonly find: string | RegExp;
 	}[];
 };
+
+type RegistryEntry = (typeof SANDBOX_RUNTIME_REGISTRY)[number];
 
 const resolvePackageManifest = (packageName: string, resolveFrom: string) =>
 	Effect.gen(function* () {

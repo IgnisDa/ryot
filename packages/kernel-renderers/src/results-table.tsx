@@ -30,9 +30,9 @@ import { useRef, useState } from "react";
 import { BrowserNoMatches } from "./browser-states";
 import { CellValue, managedCellAssets } from "./display-value";
 
-type QueryInput = { readonly filter: ViewFilter | null; readonly after: string | null };
-
 type TableItem = ResultsTableResult["items"][number];
+
+type QueryInput = { readonly after: null | string; readonly filter: null | ViewFilter };
 
 const rowLabel = (item: TableItem) => {
 	const text = item.cells.find(({ value }) => value.displayKind === "text");
@@ -91,7 +91,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 		{
 			initialPageParam: null,
 			getNextPageParam: nextPageCursor,
-			getPageInput: (selection, after: string | null) => ({ after, filter: selection.filter }),
+			getPageInput: (selection, after: null | string) => ({ after, filter: selection.filter }),
 		},
 	);
 	const state = {

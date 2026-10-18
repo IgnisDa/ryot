@@ -31,13 +31,13 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly entry: string;
 	readonly source: string;
 	readonly compiled: CompiledSandboxModule;
-	readonly providerOperation: string | null;
+	readonly providerOperation: null | string;
 };
 
+type SandboxCompilerDependencies = Effect.Success<typeof resolveSandboxCompilerDependencies>;
 type SandboxPackageProject = Effect.Success<
 	ReturnType<typeof createTypeScriptSourcesProjectForEntries>
 >;
-type SandboxCompilerDependencies = Effect.Success<typeof resolveSandboxCompilerDependencies>;
 
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	sources.files[sources.entry] === undefined

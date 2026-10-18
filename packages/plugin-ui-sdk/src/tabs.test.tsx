@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { tabId, Tabs } from "./tabs";
 
 function Harness() {
-	const [value, setValue] = useState<"activity" | "overview" | "reviews">("overview");
+	const [value, setValue] = useState<"reviews" | "activity" | "overview">("overview");
 	return (
 		<>
 			<Tabs

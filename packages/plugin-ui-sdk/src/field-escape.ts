@@ -1,7 +1,7 @@
 import { type RefObject, useEffect, useEffectEvent } from "react";
 
 export function useFieldEscape(
-	ref: RefObject<HTMLInputElement | null>,
+	ref: RefObject<null | HTMLInputElement>,
 	options: { readonly hasValue: boolean; readonly onClear: () => void },
 ) {
 	const clear = useEffectEvent(() => options.onClear());

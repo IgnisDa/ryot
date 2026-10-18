@@ -35,14 +35,14 @@ const request = (page: ReturnType<typeof mountPluginPage>, name: string, index =
 	});
 
 type CollectionAnswer = {
+	readonly name: string;
+	readonly total?: number | undefined;
+	readonly hasMore?: boolean | undefined;
+	readonly description?: string | undefined;
+	readonly groupsHaveMore?: boolean | undefined;
 	readonly groups?: readonly Record<string, JsonValue>[];
 	readonly members?: readonly Record<string, JsonValue>[];
-	readonly name: string;
-	readonly hasMore?: boolean | undefined;
-	readonly groupsHaveMore?: boolean | undefined;
-	readonly membershipFields?: ReadonlyArray<KeyedCollectionField> | undefined;
-	readonly description?: string | undefined;
-	readonly total?: number | undefined;
+	readonly membershipFields?: undefined | ReadonlyArray<KeyedCollectionField>;
 };
 
 const replyMembers = (

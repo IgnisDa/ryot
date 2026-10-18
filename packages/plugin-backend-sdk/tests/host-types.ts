@@ -45,11 +45,11 @@ defineScript({
 			void headers;
 			void status;
 
-			const cached: JsonValue | null = yield* host.getCachedValue("key");
+			const cached: null | JsonValue = yield* host.getCachedValue("key");
 			const stored: null = yield* host.setCachedValue("key", { nested: [true] }, 60);
 			const claim = yield* host.claimPersistentValue("key", "value", 60);
 			if (!claim.claimed) {
-				const value: JsonValue | null = claim.value;
+				const value: null | JsonValue = claim.value;
 				void value;
 			}
 			const pluginConfig = yield* host.getPluginConfig({
@@ -125,7 +125,7 @@ defineScript({
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
-			const token: { readonly accessToken: string; readonly expiresAt: string } =
+			const token: { readonly expiresAt: string; readonly accessToken: string } =
 				yield* host.getOAuthAccessToken({ field: "account" });
 			const invalidated: null = yield* host.invalidateOAuthAccessToken({
 				field: "account",

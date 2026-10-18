@@ -40,8 +40,8 @@ const selection = {
 
 export const savedViewRecordsRecipe = defineRecipe(
 	(input: {
-		readonly after?: string | undefined;
 		readonly limit: number;
+		readonly after?: string | undefined;
 		readonly pluginId?: string | undefined;
 		readonly includeHidden?: boolean | undefined;
 	}) => {

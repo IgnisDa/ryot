@@ -1,3 +1,10 @@
+export type SchemaFilePicker = (options: {
+	readonly allowedFileExtensions: readonly string[];
+}) => Promise<SchemaFilePickOutcome>;
+
+export type SchemaFilePickOutcome =
+	{ readonly kind: "canceled" } | { readonly kind: "picked"; readonly file: SchemaFileCandidate };
+
 export type SchemaFileCandidate = {
 	readonly name: string;
 	readonly size: number;
@@ -5,20 +12,13 @@ export type SchemaFileCandidate = {
 	readonly contentType: string;
 };
 
-export type SchemaFilePickOutcome =
-	{ readonly kind: "canceled" } | { readonly kind: "picked"; readonly file: SchemaFileCandidate };
-
-export type SchemaFilePicker = (options: {
-	readonly allowedFileExtensions: readonly string[];
-}) => Promise<SchemaFilePickOutcome>;
-
 export type SchemaFileUploadOutcome =
 	| { readonly kind: "failed"; readonly message: string }
-	| { readonly kind: "uploaded"; readonly token: string };
+	| { readonly token: string; readonly kind: "uploaded" };
 
 export type SchemaFileUpload = (request: {
-	readonly fileName: string;
 	readonly source: Blob;
+	readonly fileName: string;
 	readonly contentType: string;
 }) => Promise<SchemaFileUploadOutcome>;
 
@@ -26,16 +26,16 @@ const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB"] as const;
 const ZIP_CONTENT_TYPE = "application/zip";
 const GENERIC_CONTENT_TYPES = new Set([
 	"",
-	"application/octet-stream",
-	"application/x-download",
 	"binary/octet-stream",
+	"application/x-download",
+	"application/octet-stream",
 ]);
 const ZIP_CONTENT_TYPES = new Set([
 	ZIP_CONTENT_TYPE,
-	"application/x-compressed",
-	"application/x-zip",
-	"application/x-zip-compressed",
 	"multipart/x-zip",
+	"application/x-zip",
+	"application/x-compressed",
+	"application/x-zip-compressed",
 ]);
 
 export const DEFAULT_UPLOAD_CONTENT_TYPE = "application/octet-stream";

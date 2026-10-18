@@ -51,7 +51,7 @@ const presentationsAt = (references: readonly EntityReference[], revision: numbe
 		Object.fromEntries(references.map(({ entityId }) => [entityId, { revision }])),
 	);
 
-const presentationRevision = (source: EntityPresentationSource | undefined) =>
+const presentationRevision = (source: undefined | EntityPresentationSource) =>
 	typeof source?.revision === "number" ? source.revision : -1;
 
 const unusedPresentationLoader = () => Effect.die("Unexpected presentation loader");
@@ -180,18 +180,18 @@ afterEach(() => {
 
 const installIntersectionObserver = () => {
 	type Record = {
-		readonly root: Element | Document | null;
-		readonly targets: Set<Element>;
 		disconnected: boolean;
+		readonly targets: Set<Element>;
+		readonly root: null | Element | Document;
 		emit: (target: Element, isIntersecting: boolean) => void;
 	};
 	const records: Record[] = [];
 	class RecordingIntersectionObserver implements IntersectionObserver {
-		readonly root: Element | Document | null;
+		readonly thresholds = [0];
 		readonly rootMargin = "0px";
 		readonly scrollMargin = "0px";
-		readonly thresholds = [0];
 		readonly targets = new Set<Element>();
+		readonly root: null | Element | Document;
 		private readonly record: Record;
 		constructor(
 			private readonly callback: IntersectionObserverCallback,
@@ -206,18 +206,18 @@ const installIntersectionObserver = () => {
 			};
 			records.push(this.record);
 		}
-		disconnect() {
-			this.record.disconnected = true;
-			this.targets.clear();
+		takeRecords() {
+			return [];
 		}
 		observe(target: Element) {
 			this.targets.add(target);
 		}
-		takeRecords() {
-			return [];
-		}
 		unobserve(target: Element) {
 			this.targets.delete(target);
+		}
+		disconnect() {
+			this.record.disconnected = true;
+			this.targets.clear();
 		}
 		private emit(target: Element, isIntersecting: boolean) {
 			const rect = target.getBoundingClientRect();
@@ -291,7 +291,7 @@ describe("EntityResults", () => {
 	it.live("loads and caches one lazy definition per provider", () =>
 		Effect.gen(function* () {
 			let definitionLoad:
-				PromiseWithResolvers<ReturnType<typeof defineEntityPresentation<string>>> | undefined;
+				undefined | PromiseWithResolvers<ReturnType<typeof defineEntityPresentation<string>>>;
 			let definitionLoads = 0;
 			let preparations = 0;
 			let mounts = 0;
@@ -512,8 +512,8 @@ describe("EntityResults", () => {
 		Effect.gen(function* () {
 			const loads: string[] = [];
 			const requests: Array<{
-				readonly sourceIds: readonly string[];
 				readonly ids: readonly string[];
+				readonly sourceIds: readonly string[];
 			}> = [];
 			const presentation = (label: string) =>
 				defineEntityPresentation<string>({
@@ -569,8 +569,8 @@ describe("EntityResults", () => {
 	it.live("prepares sorted chunks of at most 100 entities", () =>
 		Effect.gen(function* () {
 			const requests: Array<{
-				readonly sourceIds: readonly string[];
 				readonly ids: readonly string[];
+				readonly sourceIds: readonly string[];
 			}> = [];
 			const registration = {
 				ownerPluginId: "owner",
@@ -675,7 +675,7 @@ describe("EntityResults", () => {
 		Effect.gen(function* () {
 			const observers = installIntersectionObserver();
 			const interests: EntityWatch[] = [];
-			let completion: ((update: EntityUpdate) => void) | undefined;
+			let completion: undefined | ((update: EntityUpdate) => void);
 			let disposals = 0;
 			let preparations = 0;
 			const registration = {

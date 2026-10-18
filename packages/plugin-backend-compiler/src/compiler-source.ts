@@ -58,7 +58,7 @@ const codeGeneratorName = (expression: ts.Expression) => {
 	return null;
 };
 
-const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => {
+const inspectsGeneratedModule = (node: ts.NewExpression | ts.CallExpression) => {
 	const name = codeGeneratorName(node.expression);
 	if (name === "Worker" || name === "SharedWorker") {
 		return true;
@@ -70,7 +70,7 @@ const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => 
 	);
 };
 
-const expressionPath = (expression: ts.Expression): readonly string[] | null => {
+const expressionPath = (expression: ts.Expression): null | readonly string[] => {
 	if (ts.isIdentifier(expression)) {
 		return [expression.text];
 	}
@@ -376,7 +376,7 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: SandboxManifest["kind"] | null = null;
+	let definitionKind: null | SandboxManifest["kind"] = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
@@ -430,7 +430,7 @@ const inspectScriptDefinition = (
 	let hasInput = false;
 	let hasOutput = false;
 	let hasDrivers = false;
-	let providerOperation: string | null = null;
+	let providerOperation: null | string = null;
 	for (const property of definition.properties) {
 		if (
 			ts.isShorthandPropertyAssignment(property) &&
@@ -510,7 +510,7 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile, sourcePath: str
 	inspectImports(file, true, sourcePath).diagnostics;
 
 export const sandboxDefinitionMismatch = (
-	inspection: { readonly definitionKind: SandboxManifest["kind"] | null },
+	inspection: { readonly definitionKind: null | SandboxManifest["kind"] },
 	manifest: SandboxManifest,
 ) => {
 	let helper = "defineScript";

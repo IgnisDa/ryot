@@ -3,21 +3,21 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 
 export * from "@ryot-app/ryotql";
-export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 export { JsonValue } from "@ryot-app/contract/schema/json";
-export {
-	entityReadRecipe,
-	eventReadRecipe,
-	type EntityReadResult,
-	type EventReadResult,
-} from "@ryot-app/ryotql-recipes/scripts";
-export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export {
+	eventReadRecipe,
+	entityReadRecipe,
+	type EventReadResult,
+	type EntityReadResult,
+} from "@ryot-app/ryotql-recipes/scripts";
 export {
 	eventIsAfter,
+	latestEventField,
 	eventOrderAscending,
 	eventOrderDescending,
-	latestEventField,
 } from "@ryot-app/ryotql-recipes/event-expressions";
 
 export class RyotqlRecipeDecodeError extends Schema.TaggedError<
@@ -51,7 +51,7 @@ export const readAllRyotqlPages = <Item, Error, Requirements>(
 	) => Effect.Effect<
 		{
 			readonly items: ReadonlyArray<Item>;
-			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 		},
 		Error,
 		Requirements

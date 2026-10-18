@@ -44,16 +44,7 @@ export const MAX_SOURCE_OCCURRENCES = 1000;
 
 const MONTH_CELL_ITEMS = 3;
 
-type Layout = "agenda" | "month";
-
-type FeedState = {
-	readonly windowKey: string;
-	readonly failed: boolean;
-	readonly pending: boolean;
-	readonly truncated: boolean;
-	readonly retry: () => void;
-	readonly items: readonly CalendarOccurrence[];
-};
+type Layout = "month" | "agenda";
 
 type SourceFeedData = {
 	readonly truncated: boolean;
@@ -68,11 +59,20 @@ type Entry = {
 	readonly occurrence: CalendarOccurrence;
 };
 
+type FeedState = {
+	readonly failed: boolean;
+	readonly pending: boolean;
+	readonly windowKey: string;
+	readonly retry: () => void;
+	readonly truncated: boolean;
+	readonly items: readonly CalendarOccurrence[];
+};
+
 const pad = (value: number) => String(value).padStart(2, "0");
 
 const localMonthKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
 
-const parseMonth = (value: string | null) =>
+const parseMonth = (value: null | string) =>
 	value !== null && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : undefined;
 
 const monthParts = (month: string) => {
@@ -144,6 +144,106 @@ const sourcesQuery = createRyotQuery(({ client }) => client.data.query(calendarS
 	cancelOnUnmount: true,
 });
 
+function DoneMark() {
+	return (
+		<span role="img" aria-label="Done" className="inline-flex shrink-0 text-success">
+			<AppIcon size={16} name="circle-check" />
+		</span>
+	);
+}
+
+function SourceDot({
+	color,
+	size = "size-2",
+}: {
+	readonly size?: string;
+	readonly color: GroupColor;
+}) {
+	return (
+		<span
+			aria-hidden="true"
+			className={clsx(size, "shrink-0 rounded-pill")}
+			style={{ background: groupColorVariable(color) }}
+		/>
+	);
+}
+
+function OccurrenceArt({ size, entry }: { readonly entry: Entry; readonly size: "sm" | "md" }) {
+	const url = useAssetUrl(entry.occurrence.art ?? undefined);
+	const box = size === "md" ? "h-14 w-14" : "h-12 w-12";
+	if (entry.occurrence.art !== null) {
+		return (
+			<EntityArtWell
+				url={url}
+				state="ready"
+				className={clsx(box, "shrink-0 rounded-md")}
+				monogram={entry.occurrence.subject.name.slice(0, 1).toUpperCase()}
+			/>
+		);
+	}
+	return (
+		<div
+			data-testid="calendar-icon-tile"
+			className={clsx(box, "grid shrink-0 place-items-center rounded-md")}
+			style={{
+				color: groupColorVariable(entry.color),
+				background: groupColorVariable(entry.color, { soft: true }),
+			}}
+		>
+			<AppIcon name={entry.source.icon} size={size === "md" ? 26 : 22} />
+		</div>
+	);
+}
+
+function AgendaRow({
+	past,
+	entry,
+	compact,
+}: {
+	readonly entry: Entry;
+	readonly past: boolean;
+	readonly compact: boolean;
+}) {
+	const { occurrence } = entry;
+	return (
+		<li className="border-t border-border first:border-t-0">
+			<PluginLink
+				data-past={past ? "" : undefined}
+				to={{ kind: "entity", entityId: occurrence.subject.id }}
+				className={clsx(
+					"flex min-h-11 items-center gap-3.5 px-3.5 py-2.5 text-text hover:bg-hover",
+					past && "opacity-70",
+				)}
+			>
+				<OccurrenceArt entry={entry} size={compact ? "sm" : "md"} />
+				<span className="grid min-w-0 flex-1 gap-0.5">
+					<span className="flex min-w-0 items-center gap-1.5">
+						<span className="truncate text-sm font-semibold">{occurrence.subject.name}</span>
+						{occurrence.done && <DoneMark />}
+					</span>
+					<span className="flex min-w-0 items-center gap-1.5 text-[13px] text-text-muted">
+						{compact && <SourceDot color={entry.color} />}
+						<span className="truncate">{occurrence.caption ?? entry.source.name}</span>
+					</span>
+				</span>
+				{!compact && (
+					<span className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
+						<SourceDot color={entry.color} />
+						{entry.source.name}
+					</span>
+				)}
+				<time
+					data-testid="calendar-time"
+					dateTime={occurrence.startAt}
+					className="w-16 shrink-0 text-right text-[13px] tabular-nums"
+				>
+					{timeLabel(occurrence)}
+				</time>
+			</PluginLink>
+		</li>
+	);
+}
+
 function SourceFeed({
 	source,
 	window,
@@ -194,106 +294,6 @@ function SourceFeed({
 	}, [data, isError, isPending, onState, refetch, source.sourceKey, windowKey]);
 	useEffect(() => () => onState(source.sourceKey, undefined), [onState, source.sourceKey]);
 	return null;
-}
-
-function OccurrenceArt({ size, entry }: { readonly entry: Entry; readonly size: "sm" | "md" }) {
-	const url = useAssetUrl(entry.occurrence.art ?? undefined);
-	const box = size === "md" ? "h-14 w-14" : "h-12 w-12";
-	if (entry.occurrence.art !== null) {
-		return (
-			<EntityArtWell
-				url={url}
-				state="ready"
-				className={clsx(box, "shrink-0 rounded-md")}
-				monogram={entry.occurrence.subject.name.slice(0, 1).toUpperCase()}
-			/>
-		);
-	}
-	return (
-		<div
-			data-testid="calendar-icon-tile"
-			className={clsx(box, "grid shrink-0 place-items-center rounded-md")}
-			style={{
-				color: groupColorVariable(entry.color),
-				background: groupColorVariable(entry.color, { soft: true }),
-			}}
-		>
-			<AppIcon name={entry.source.icon} size={size === "md" ? 26 : 22} />
-		</div>
-	);
-}
-
-function DoneMark() {
-	return (
-		<span role="img" aria-label="Done" className="inline-flex shrink-0 text-success">
-			<AppIcon size={16} name="circle-check" />
-		</span>
-	);
-}
-
-function SourceDot({
-	color,
-	size = "size-2",
-}: {
-	readonly color: GroupColor;
-	readonly size?: string;
-}) {
-	return (
-		<span
-			aria-hidden="true"
-			className={clsx(size, "shrink-0 rounded-pill")}
-			style={{ background: groupColorVariable(color) }}
-		/>
-	);
-}
-
-function AgendaRow({
-	past,
-	entry,
-	compact,
-}: {
-	readonly past: boolean;
-	readonly entry: Entry;
-	readonly compact: boolean;
-}) {
-	const { occurrence } = entry;
-	return (
-		<li className="border-t border-border first:border-t-0">
-			<PluginLink
-				data-past={past ? "" : undefined}
-				to={{ kind: "entity", entityId: occurrence.subject.id }}
-				className={clsx(
-					"flex min-h-11 items-center gap-3.5 px-3.5 py-2.5 text-text hover:bg-hover",
-					past && "opacity-70",
-				)}
-			>
-				<OccurrenceArt entry={entry} size={compact ? "sm" : "md"} />
-				<span className="grid min-w-0 flex-1 gap-0.5">
-					<span className="flex min-w-0 items-center gap-1.5">
-						<span className="truncate text-sm font-semibold">{occurrence.subject.name}</span>
-						{occurrence.done && <DoneMark />}
-					</span>
-					<span className="flex min-w-0 items-center gap-1.5 text-[13px] text-text-muted">
-						{compact && <SourceDot color={entry.color} />}
-						<span className="truncate">{occurrence.caption ?? entry.source.name}</span>
-					</span>
-				</span>
-				{!compact && (
-					<span className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
-						<SourceDot color={entry.color} />
-						{entry.source.name}
-					</span>
-				)}
-				<time
-					data-testid="calendar-time"
-					dateTime={occurrence.startAt}
-					className="w-16 shrink-0 text-right text-[13px] tabular-nums"
-				>
-					{timeLabel(occurrence)}
-				</time>
-			</PluginLink>
-		</li>
-	);
 }
 
 function Agenda({
@@ -386,290 +386,6 @@ function Agenda({
 
 const cellLabel = (day: string, count: number) =>
 	`${dayLabel(day)}, ${count} ${count === 1 ? "item" : "items"}`;
-
-function MonthGrid({
-	month,
-	today,
-	byDay,
-	compact,
-	onShowDay,
-}: {
-	readonly month: string;
-	readonly today: string;
-	readonly compact: boolean;
-	readonly onShowDay: (day: string) => void;
-	readonly byDay: ReadonlyMap<string, readonly Entry[]>;
-}) {
-	const { year, index } = monthParts(month);
-	const offset = (new Date(year, index - 1, 1).getDay() + 6) % 7;
-	const length = new Date(year, index, 0).getDate();
-	const weeks = Array.from({ length: Math.ceil((offset + length) / 7) }, (_row, week) =>
-		Array.from(
-			{ length: 7 },
-			(_cell, weekday) => new Date(year, index - 1, 1 - offset + week * 7 + weekday),
-		),
-	);
-	const dayNumber = (date: Date, day: string, inMonth: boolean) => (
-		<span
-			className={clsx(
-				"grid h-6 min-w-6 place-items-center self-start rounded-pill px-1 text-[13px]",
-				day === today && "bg-accent font-semibold text-accent-ink",
-				day !== today && (inMonth ? "text-text" : "text-text-subtle"),
-			)}
-		>
-			{date.getDate()}
-		</span>
-	);
-	return (
-		<div className={clsx(!compact && "overflow-x-auto")}>
-			<div
-				role="grid"
-				aria-label={monthLabel(month)}
-				className={clsx(
-					"overflow-hidden rounded-lg border border-border bg-surface",
-					!compact && "min-w-[760px]",
-				)}
-			>
-				<div role="row" className="grid grid-cols-7 border-b border-border">
-					{weekdayHeaders.map((label) => (
-						<div
-							key={label}
-							role="columnheader"
-							className={clsx(
-								"py-2 text-xs font-medium text-text-muted",
-								compact ? "px-1 text-center" : "px-2.5",
-							)}
-						>
-							{label}
-						</div>
-					))}
-				</div>
-				{weeks.map((dates) => (
-					<div
-						role="row"
-						key={localDay(dates[0] ?? new Date(year, index - 1, 1))}
-						className="grid grid-cols-7 border-b border-border last:border-b-0"
-					>
-						{dates.map((date) => {
-							const day = localDay(date);
-							const inMonth = date.getMonth() === index - 1;
-							const entries = inMonth ? (byDay.get(day) ?? []) : [];
-							const hidden = entries.length - MONTH_CELL_ITEMS;
-							const visible = entries.slice(0, MONTH_CELL_ITEMS);
-							if (compact) {
-								return (
-									<div
-										key={day}
-										data-day={day}
-										role="gridcell"
-										className={clsx(
-											"min-w-0 border-r border-border last:border-r-0",
-											!inMonth && "bg-surface-2",
-										)}
-									>
-										{inMonth ? (
-											<button
-												type="button"
-												onClick={() => onShowDay(day)}
-												aria-label={cellLabel(day, entries.length)}
-												className={clsx(
-													"flex min-h-14 w-full flex-col items-center gap-1 py-1.5 hover:bg-hover",
-													day < today && "opacity-70",
-												)}
-											>
-												{dayNumber(date, day, inMonth)}
-												<span aria-hidden="true" className="flex items-center gap-0.5">
-													{visible.map((entry) => (
-														<SourceDot key={entry.key} size="size-1.5" color={entry.color} />
-													))}
-												</span>
-												{hidden > 0 && (
-													<span
-														aria-hidden="true"
-														className="text-[10px] leading-none text-text-muted"
-													>
-														+{hidden}
-													</span>
-												)}
-											</button>
-										) : (
-											<div className="flex min-h-14 justify-center py-1.5">
-												{dayNumber(date, day, inMonth)}
-											</div>
-										)}
-									</div>
-								);
-							}
-							return (
-								<div
-									key={day}
-									data-day={day}
-									role="gridcell"
-									className={clsx(
-										"flex min-h-33 flex-col gap-0.5 border-r border-border p-1.5 last:border-r-0",
-										!inMonth && "bg-surface-2",
-									)}
-								>
-									{dayNumber(date, day, inMonth)}
-									{visible.map((entry) => (
-										<PluginLink
-											key={entry.key}
-											to={{ kind: "entity", entityId: entry.occurrence.subject.id }}
-											className={clsx(
-												"flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 text-xs text-text hover:bg-hover",
-												day < today && "opacity-70",
-											)}
-										>
-											<SourceDot size="size-1.5" color={entry.color} />
-											{entry.occurrence.precision === "instant" && (
-												<span className="shrink-0 text-text-muted tabular-nums">
-													{timeLabel(entry.occurrence)}
-												</span>
-											)}
-											<span className="truncate">
-												{entry.occurrence.caption === null
-													? entry.occurrence.subject.name
-													: `${entry.occurrence.subject.name} · ${entry.occurrence.caption}`}
-											</span>
-										</PluginLink>
-									))}
-									{hidden > 0 && (
-										<Button
-											size="sm"
-											variant="ghost"
-											className="self-start"
-											onClick={() => onShowDay(day)}
-										>
-											+{hidden} more
-										</Button>
-									)}
-								</div>
-							);
-						})}
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
-
-function SourceChips({
-	counts,
-	colors,
-	sources,
-	pending,
-	onToggle,
-}: {
-	readonly sources: readonly CalendarSource[];
-	readonly pending: ReadonlySet<string>;
-	readonly counts: ReadonlyMap<string, number>;
-	readonly colors: ReadonlyMap<string, GroupColor>;
-	readonly onToggle: (source: CalendarSource) => void;
-}) {
-	const hidden = sources.filter(({ isHidden }) => isHidden).length;
-	return (
-		<section aria-label="Sources" className="mb-5 grid gap-2">
-			<div className="flex flex-wrap gap-2">
-				{sources.map((source) => {
-					const color = colors.get(source.sourceKey) ?? "blue";
-					return (
-						<button
-							type="button"
-							key={source.sourceKey}
-							aria-pressed={!source.isHidden}
-							onClick={() => onToggle(source)}
-							disabled={pending.has(source.sourceKey)}
-							className={clsx(
-								"flex h-8.5 items-center gap-2 rounded-pill border border-border pr-3 pl-2.5 text-[13px] hover:border-border-emphasis disabled:opacity-60",
-								source.isHidden ? "text-text-muted" : "bg-surface text-text",
-							)}
-						>
-							<span
-								aria-hidden="true"
-								className="size-2.5 rounded-pill border-2"
-								style={{
-									borderColor: groupColorVariable(color),
-									background: source.isHidden ? "transparent" : groupColorVariable(color),
-								}}
-							/>
-							<span className={clsx("font-medium", source.isHidden && "line-through")}>
-								{source.name}
-							</span>
-							<span className="text-xs text-text-muted">{source.pluginName ?? ""}</span>
-							<span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-2 px-1.5 text-xs text-text-muted tabular-nums">
-								{source.isHidden ? "–" : (counts.get(source.sourceKey) ?? 0)}
-							</span>
-						</button>
-					);
-				})}
-			</div>
-			<p className="text-xs text-text-muted">
-				{hidden === 0
-					? "Showing every source from your installed plugins."
-					: `${hidden} ${hidden === 1 ? "source" : "sources"} hidden · saved to your account, so it stays hidden on every device.`}
-			</p>
-		</section>
-	);
-}
-
-function SourcesSheet({
-	sources,
-	pending,
-	onClose,
-	onToggle,
-	triggerRef,
-}: {
-	readonly onClose: () => void;
-	readonly pending: ReadonlySet<string>;
-	readonly sources: readonly CalendarSource[];
-	readonly onToggle: (source: CalendarSource) => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const groups = new Map<string, CalendarSource[]>();
-	for (const source of sources) {
-		const group = source.pluginName ?? "";
-		groups.set(group, [...(groups.get(group) ?? []), source]);
-	}
-	return (
-		<ViewFiltersSheet compact title="Sources" onClose={onClose} triggerRef={triggerRef}>
-			<p className="mt-2 text-label text-text-muted">
-				Each installed plugin can add sources. What you hide is saved to your account.
-			</p>
-			{[...groups].map(([group, items]) => (
-				<div key={group} className="mt-4 grid gap-1">
-					<h3 className="px-0.5 text-xs font-medium text-text-muted">{group}</h3>
-					<ul className="overflow-hidden rounded-lg border border-border">
-						{items.map((source) => (
-							<li
-								key={source.sourceKey}
-								className="flex min-h-12 items-center gap-3 border-t border-border px-3.5 first:border-t-0"
-							>
-								<span
-									className={clsx(
-										"flex-1 font-medium",
-										source.isHidden ? "text-text-muted" : "text-text",
-									)}
-								>
-									{source.name}
-								</span>
-								<Switch
-									checked={!source.isHidden}
-									label={`Show ${source.name}`}
-									onChange={() => onToggle(source)}
-									disabled={pending.has(source.sourceKey)}
-								/>
-							</li>
-						))}
-					</ul>
-				</div>
-			))}
-		</ViewFiltersSheet>
-	);
-}
-
-function Notices({ children }: { readonly children: ReactNode }) {
-	return <div className="mb-4 grid gap-2">{children}</div>;
-}
 
 export default function CalendarPage() {
 	const ryot = useRyot();
@@ -1000,5 +716,289 @@ export default function CalendarPage() {
 				/>
 			)}
 		</ManagedAssetProvider>
+	);
+}
+
+function Notices({ children }: { readonly children: ReactNode }) {
+	return <div className="mb-4 grid gap-2">{children}</div>;
+}
+
+function SourcesSheet({
+	sources,
+	pending,
+	onClose,
+	onToggle,
+	triggerRef,
+}: {
+	readonly onClose: () => void;
+	readonly pending: ReadonlySet<string>;
+	readonly sources: readonly CalendarSource[];
+	readonly onToggle: (source: CalendarSource) => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const groups = new Map<string, CalendarSource[]>();
+	for (const source of sources) {
+		const group = source.pluginName ?? "";
+		groups.set(group, [...(groups.get(group) ?? []), source]);
+	}
+	return (
+		<ViewFiltersSheet compact title="Sources" onClose={onClose} triggerRef={triggerRef}>
+			<p className="mt-2 text-label text-text-muted">
+				Each installed plugin can add sources. What you hide is saved to your account.
+			</p>
+			{[...groups].map(([group, items]) => (
+				<div key={group} className="mt-4 grid gap-1">
+					<h3 className="px-0.5 text-xs font-medium text-text-muted">{group}</h3>
+					<ul className="overflow-hidden rounded-lg border border-border">
+						{items.map((source) => (
+							<li
+								key={source.sourceKey}
+								className="flex min-h-12 items-center gap-3 border-t border-border px-3.5 first:border-t-0"
+							>
+								<span
+									className={clsx(
+										"flex-1 font-medium",
+										source.isHidden ? "text-text-muted" : "text-text",
+									)}
+								>
+									{source.name}
+								</span>
+								<Switch
+									checked={!source.isHidden}
+									label={`Show ${source.name}`}
+									onChange={() => onToggle(source)}
+									disabled={pending.has(source.sourceKey)}
+								/>
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+		</ViewFiltersSheet>
+	);
+}
+
+function SourceChips({
+	counts,
+	colors,
+	sources,
+	pending,
+	onToggle,
+}: {
+	readonly pending: ReadonlySet<string>;
+	readonly sources: readonly CalendarSource[];
+	readonly counts: ReadonlyMap<string, number>;
+	readonly colors: ReadonlyMap<string, GroupColor>;
+	readonly onToggle: (source: CalendarSource) => void;
+}) {
+	const hidden = sources.filter(({ isHidden }) => isHidden).length;
+	return (
+		<section aria-label="Sources" className="mb-5 grid gap-2">
+			<div className="flex flex-wrap gap-2">
+				{sources.map((source) => {
+					const color = colors.get(source.sourceKey) ?? "blue";
+					return (
+						<button
+							type="button"
+							key={source.sourceKey}
+							aria-pressed={!source.isHidden}
+							onClick={() => onToggle(source)}
+							disabled={pending.has(source.sourceKey)}
+							className={clsx(
+								"flex h-8.5 items-center gap-2 rounded-pill border border-border pr-3 pl-2.5 text-[13px] hover:border-border-emphasis disabled:opacity-60",
+								source.isHidden ? "text-text-muted" : "bg-surface text-text",
+							)}
+						>
+							<span
+								aria-hidden="true"
+								className="size-2.5 rounded-pill border-2"
+								style={{
+									borderColor: groupColorVariable(color),
+									background: source.isHidden ? "transparent" : groupColorVariable(color),
+								}}
+							/>
+							<span className={clsx("font-medium", source.isHidden && "line-through")}>
+								{source.name}
+							</span>
+							<span className="text-xs text-text-muted">{source.pluginName ?? ""}</span>
+							<span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-2 px-1.5 text-xs text-text-muted tabular-nums">
+								{source.isHidden ? "–" : (counts.get(source.sourceKey) ?? 0)}
+							</span>
+						</button>
+					);
+				})}
+			</div>
+			<p className="text-xs text-text-muted">
+				{hidden === 0
+					? "Showing every source from your installed plugins."
+					: `${hidden} ${hidden === 1 ? "source" : "sources"} hidden · saved to your account, so it stays hidden on every device.`}
+			</p>
+		</section>
+	);
+}
+
+function MonthGrid({
+	month,
+	today,
+	byDay,
+	compact,
+	onShowDay,
+}: {
+	readonly month: string;
+	readonly today: string;
+	readonly compact: boolean;
+	readonly onShowDay: (day: string) => void;
+	readonly byDay: ReadonlyMap<string, readonly Entry[]>;
+}) {
+	const { year, index } = monthParts(month);
+	const offset = (new Date(year, index - 1, 1).getDay() + 6) % 7;
+	const length = new Date(year, index, 0).getDate();
+	const weeks = Array.from({ length: Math.ceil((offset + length) / 7) }, (_row, week) =>
+		Array.from(
+			{ length: 7 },
+			(_cell, weekday) => new Date(year, index - 1, 1 - offset + week * 7 + weekday),
+		),
+	);
+	const dayNumber = (date: Date, day: string, inMonth: boolean) => (
+		<span
+			className={clsx(
+				"grid h-6 min-w-6 place-items-center self-start rounded-pill px-1 text-[13px]",
+				day === today && "bg-accent font-semibold text-accent-ink",
+				day !== today && (inMonth ? "text-text" : "text-text-subtle"),
+			)}
+		>
+			{date.getDate()}
+		</span>
+	);
+	return (
+		<div className={clsx(!compact && "overflow-x-auto")}>
+			<div
+				role="grid"
+				aria-label={monthLabel(month)}
+				className={clsx(
+					"overflow-hidden rounded-lg border border-border bg-surface",
+					!compact && "min-w-[760px]",
+				)}
+			>
+				<div role="row" className="grid grid-cols-7 border-b border-border">
+					{weekdayHeaders.map((label) => (
+						<div
+							key={label}
+							role="columnheader"
+							className={clsx(
+								"py-2 text-xs font-medium text-text-muted",
+								compact ? "px-1 text-center" : "px-2.5",
+							)}
+						>
+							{label}
+						</div>
+					))}
+				</div>
+				{weeks.map((dates) => (
+					<div
+						role="row"
+						key={localDay(dates[0] ?? new Date(year, index - 1, 1))}
+						className="grid grid-cols-7 border-b border-border last:border-b-0"
+					>
+						{dates.map((date) => {
+							const day = localDay(date);
+							const inMonth = date.getMonth() === index - 1;
+							const entries = inMonth ? (byDay.get(day) ?? []) : [];
+							const hidden = entries.length - MONTH_CELL_ITEMS;
+							const visible = entries.slice(0, MONTH_CELL_ITEMS);
+							if (compact) {
+								return (
+									<div
+										key={day}
+										data-day={day}
+										role="gridcell"
+										className={clsx(
+											"min-w-0 border-r border-border last:border-r-0",
+											!inMonth && "bg-surface-2",
+										)}
+									>
+										{inMonth ? (
+											<button
+												type="button"
+												onClick={() => onShowDay(day)}
+												aria-label={cellLabel(day, entries.length)}
+												className={clsx(
+													"flex min-h-14 w-full flex-col items-center gap-1 py-1.5 hover:bg-hover",
+													day < today && "opacity-70",
+												)}
+											>
+												{dayNumber(date, day, inMonth)}
+												<span aria-hidden="true" className="flex items-center gap-0.5">
+													{visible.map((entry) => (
+														<SourceDot key={entry.key} size="size-1.5" color={entry.color} />
+													))}
+												</span>
+												{hidden > 0 && (
+													<span
+														aria-hidden="true"
+														className="text-[10px] leading-none text-text-muted"
+													>
+														+{hidden}
+													</span>
+												)}
+											</button>
+										) : (
+											<div className="flex min-h-14 justify-center py-1.5">
+												{dayNumber(date, day, inMonth)}
+											</div>
+										)}
+									</div>
+								);
+							}
+							return (
+								<div
+									key={day}
+									data-day={day}
+									role="gridcell"
+									className={clsx(
+										"flex min-h-33 flex-col gap-0.5 border-r border-border p-1.5 last:border-r-0",
+										!inMonth && "bg-surface-2",
+									)}
+								>
+									{dayNumber(date, day, inMonth)}
+									{visible.map((entry) => (
+										<PluginLink
+											key={entry.key}
+											to={{ kind: "entity", entityId: entry.occurrence.subject.id }}
+											className={clsx(
+												"flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 text-xs text-text hover:bg-hover",
+												day < today && "opacity-70",
+											)}
+										>
+											<SourceDot size="size-1.5" color={entry.color} />
+											{entry.occurrence.precision === "instant" && (
+												<span className="shrink-0 text-text-muted tabular-nums">
+													{timeLabel(entry.occurrence)}
+												</span>
+											)}
+											<span className="truncate">
+												{entry.occurrence.caption === null
+													? entry.occurrence.subject.name
+													: `${entry.occurrence.subject.name} · ${entry.occurrence.caption}`}
+											</span>
+										</PluginLink>
+									))}
+									{hidden > 0 && (
+										<Button
+											size="sm"
+											variant="ghost"
+											className="self-start"
+											onClick={() => onShowDay(day)}
+										>
+											+{hidden} more
+										</Button>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				))}
+			</div>
+		</div>
 	);
 }

@@ -85,6 +85,13 @@ export const AutomationHistoryRetryResult = strictStruct({
 
 export type AutomationHistoryRetryResult = typeof AutomationHistoryRetryResult.Type;
 
+export class AutomationHistoryInternalError extends Schema.TaggedError<
+	AutomationHistoryInternalError,
+	{ readonly brand: unique symbol }
+>()("AutomationHistoryInternalError", {
+	reason: strictStruct({ code: Schema.Literal("history-unavailable") }),
+}) {}
+
 export class AutomationHistoryNotFound extends Schema.TaggedError<
 	AutomationHistoryNotFound,
 	{ readonly brand: unique symbol }
@@ -100,11 +107,4 @@ export class AutomationHistoryRetryConflict extends Schema.TaggedError<
 		runId: AutomationRunId,
 		code: Schema.Union([AutomationRetryUnavailableReason, Schema.Literal("retry-conflict")]),
 	}),
-}) {}
-
-export class AutomationHistoryInternalError extends Schema.TaggedError<
-	AutomationHistoryInternalError,
-	{ readonly brand: unique symbol }
->()("AutomationHistoryInternalError", {
-	reason: strictStruct({ code: Schema.Literal("history-unavailable") }),
 }) {}

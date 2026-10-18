@@ -78,8 +78,8 @@ export type CalendarSource = Recipe.Success<typeof calendarSourcesRecipe>[number
 
 export type CalendarWindow = {
 	readonly month: string;
-	readonly localStart: string;
 	readonly localEnd: string;
+	readonly localStart: string;
 };
 
 const nextMonth = (month: string) => {
@@ -99,23 +99,23 @@ const calendarWindowBounds = (precision: CalendarSourcePrecision, window: Calend
 
 export type CalendarOccurrence = {
 	readonly key: string;
-	readonly startAt: string;
 	readonly done: boolean;
+	readonly startAt: string;
 	readonly sourceKey: string;
-	readonly caption: string | null;
-	readonly art: AssetLocator | null;
+	readonly caption: null | string;
+	readonly art: null | AssetLocator;
 	readonly precision: CalendarSourcePrecision;
 	readonly subject: {
 		readonly id: string;
 		readonly name: string;
 		readonly schemaSlug: string;
-		readonly owner: string | null;
+		readonly owner: null | string;
 	};
 };
 
 type CalendarOccurrencePage = {
 	readonly items: readonly CalendarOccurrence[];
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
 
 const occurrenceRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
@@ -123,7 +123,7 @@ const decodeArt = Schema.decodeUnknownResult(AssetLocator);
 
 type OccurrenceRow = Readonly<Record<string, JsonValue>>;
 
-const rowValue = (row: OccurrenceRow, key: string | null) =>
+const rowValue = (row: OccurrenceRow, key: null | string) =>
 	key === null ? null : (row[key] ?? null);
 
 const textValue = (row: OccurrenceRow, key: string) => {
@@ -153,7 +153,7 @@ export const calendarOccurrencesPageRecipe = (input: {
 	if (startAt === undefined) {
 		return Result.fail(new Error(`Calendar source '${source.slug}' does not project its start`));
 	}
-	const named = new Set([source.startAt, source.caption, source.art, source.done]);
+	const named = new Set([source.art, source.done, source.startAt, source.caption]);
 	const subject = table("entity", source.subject.entityAlias);
 	const idKey = unusedFieldKey(fields, "__calendarSubjectId");
 	const nameKey = unusedFieldKey(fields, "__calendarSubjectName");

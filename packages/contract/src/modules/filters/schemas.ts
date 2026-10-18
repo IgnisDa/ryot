@@ -103,6 +103,8 @@ export const AuthoredFilterField = Schema.Union([
 ]);
 export type AuthoredFilterField = typeof AuthoredFilterField.Type;
 
+export type QueryFilterField = FilterFieldWith<{ readonly owner: QueryOwnerReference }>;
+
 export type FilterFieldWith<Owner extends object> =
 	| ValueFilterField
 	| (Omit<RelationshipFilterField, "relationship"> & {
@@ -114,8 +116,6 @@ export type FilterFieldWith<Owner extends object> =
 				readonly entitySchemaSlug: EntitySchemaSlug;
 			};
 	  });
-
-export type QueryFilterField = FilterFieldWith<{ readonly owner: QueryOwnerReference }>;
 
 export const mapFilterFieldReference = <From extends object, To extends object>(
 	filterField: FilterFieldWith<From>,
@@ -177,7 +177,7 @@ export type FilterOperator = FilterRule["operator"];
 export type Filter =
 	| FilterRule
 	| { readonly type: "not"; readonly filter: Filter }
-	| { readonly type: "and" | "or"; readonly filters: readonly Filter[] };
+	| { readonly type: "or" | "and"; readonly filters: readonly Filter[] };
 
 export const Filter: Schema.Codec<Filter, unknown> = Schema.suspend(() =>
 	Schema.Union([

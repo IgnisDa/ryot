@@ -52,7 +52,7 @@ export function useImageTint(url: string | undefined) {
 	const [tint, setTint] = useState<{
 		readonly url: string;
 		readonly failed: boolean;
-		readonly gradientStops: readonly [string, string, string] | undefined;
+		readonly gradientStops: undefined | readonly [string, string, string];
 	}>();
 
 	useEffect(() => {
@@ -97,8 +97,8 @@ export function useImageTint(url: string | undefined) {
 const GRADIENT_ANGLE = { vertical: "to bottom", horizontal: "to right" } as const;
 
 export function ImageTintOverlay(props: {
-	readonly direction: "horizontal" | "vertical";
-	readonly gradientStops?: readonly [string, string, string] | undefined;
+	readonly direction: "vertical" | "horizontal";
+	readonly gradientStops?: undefined | readonly [string, string, string];
 }) {
 	const gradientStops = props.gradientStops;
 	const [visible, setVisible] = useState(false);

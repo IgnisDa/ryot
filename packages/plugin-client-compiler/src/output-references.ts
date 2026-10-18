@@ -7,7 +7,7 @@ const url = (nodes: ReturnType<typeof valueParser>["nodes"]) => {
 };
 
 export const cssOutputReferences = (contents: string, name: string) => {
-	const references: Array<{ readonly kind: "css" | "css-import"; readonly reference: string }> = [];
+	const references: Array<{ readonly reference: string; readonly kind: "css" | "css-import" }> = [];
 	const css = parse(contents, { from: name });
 	css.walkAtRules("import", (rule) => {
 		const first = valueParser(rule.params).nodes.find(

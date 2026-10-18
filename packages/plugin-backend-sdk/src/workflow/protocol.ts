@@ -120,7 +120,7 @@ export type WorkflowReplayHost = {
 	readonly settleInline: (
 		requests: ReadonlyArray<Schema.Schema.Type<typeof workflowSleepRequestSchema>>,
 	) => RuntimeEffect.Effect<
-		ReadonlyArray<WorkflowReplayJournalEntry["value"]> | null,
+		null | ReadonlyArray<WorkflowReplayJournalEntry["value"]>,
 		SandboxHostError
 	>;
 };

@@ -20,8 +20,8 @@ export type MenuItem = {
 	readonly key: string;
 	readonly label: string;
 	readonly disabled?: boolean;
-	readonly destructive?: boolean;
 	readonly onSelect: () => void;
+	readonly destructive?: boolean;
 };
 
 type MenuProps = {
@@ -33,8 +33,8 @@ type MenuProps = {
 	readonly items: ReadonlyArray<MenuItem>;
 	readonly onInterceptBack?: () => boolean;
 	readonly onClose: (restoreFocus: boolean) => void;
+	readonly triggerRef: RefObject<null | HTMLElement>;
 	readonly onActiveIndexChange: (index: number) => void;
-	readonly triggerRef: RefObject<HTMLElement | null>;
 };
 
 const enabledIndices = (items: ReadonlyArray<MenuItem>) =>
@@ -53,7 +53,7 @@ export function Menu({
 	onActiveIndexChange,
 }: MenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
-	const menuItems = useRef<Array<HTMLButtonElement | null>>([]);
+	const menuItems = useRef<Array<null | HTMLButtonElement>>([]);
 	const [position, setPosition] = useState({ top: 0, left: 0 });
 	const close = (restoreFocus: boolean) => {
 		if (onInterceptBack?.() === true) {

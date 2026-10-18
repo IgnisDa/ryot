@@ -35,10 +35,10 @@ type ModalProps = {
 	readonly backEnabled?: boolean;
 	readonly scrimClassName?: string;
 	readonly containerClassName?: string;
-	readonly onInterceptBack?: (() => boolean) | undefined;
-	readonly triggerRef?: RefObject<HTMLElement | null> | undefined;
-	readonly initialFocusRef?: RefObject<HTMLElement | null> | undefined;
-	readonly placement?: "center" | "sheet" | "side";
+	readonly placement?: "side" | "sheet" | "center";
+	readonly onInterceptBack?: undefined | (() => boolean);
+	readonly triggerRef?: undefined | RefObject<null | HTMLElement>;
+	readonly initialFocusRef?: undefined | RefObject<null | HTMLElement>;
 };
 
 const ModalClose = createContext<() => boolean>(() => false);
@@ -65,7 +65,7 @@ export function Modal({
 	placement = "center",
 }: ModalProps) {
 	const panelRef = useRef<HTMLDivElement>(null);
-	const fallbackTriggerRef = useRef<HTMLElement | null>(null);
+	const fallbackTriggerRef = useRef<null | HTMLElement>(null);
 	const present = useIsPresent();
 	const reduced = useReducedMotion();
 	const transition = useMotionTransition();

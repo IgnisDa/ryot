@@ -8,6 +8,19 @@ const noticeTones = {
 	warning: { icon: "text-warning", box: "bg-warning-soft" },
 } as const;
 
+export function Skeleton({ className, ...props }: ComponentProps<"div">) {
+	return (
+		<div
+			aria-hidden="true"
+			className={clsx(
+				"animate-pulse rounded-sm bg-surface-2 motion-reduce:animate-none",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
 export function Notice(props: {
 	readonly icon?: ReactNode;
 	readonly title?: ReactNode;
@@ -65,18 +78,5 @@ export function EmptyState(props: {
 			)}
 			{props.action !== undefined && <div className="mt-3">{props.action}</div>}
 		</div>
-	);
-}
-
-export function Skeleton({ className, ...props }: ComponentProps<"div">) {
-	return (
-		<div
-			aria-hidden="true"
-			className={clsx(
-				"animate-pulse rounded-sm bg-surface-2 motion-reduce:animate-none",
-				className,
-			)}
-			{...props}
-		/>
 	);
 }

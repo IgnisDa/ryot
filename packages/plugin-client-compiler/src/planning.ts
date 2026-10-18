@@ -41,11 +41,11 @@ const failure = (entry: string, code: string, message: string) =>
 
 export interface ClientCompilationPlan {
 	readonly entry: string;
-	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly pluginDependencies: readonly string[];
 	readonly validationSource: string;
-	readonly typeAliases: Readonly<Record<string, string>>;
 	readonly dependencyDeclarations?: string;
+	readonly pluginDependencies: readonly string[];
+	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly typeAliases: Readonly<Record<string, string>>;
 }
 
 export const planClientCompilation = (

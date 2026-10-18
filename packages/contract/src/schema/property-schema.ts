@@ -25,87 +25,25 @@ const appPropertyPrimitiveTypes = [
 	"datetime",
 ] as const;
 
-export type AppPropertyPrimitiveType = (typeof appPropertyPrimitiveTypes)[number];
-
 export type AppSchemaRulePath = ReadonlyArray<string>;
 
-export type AppSchemaRuleValue = boolean | null | number | string;
+export type AppSchemaRuleValue = null | number | string | boolean;
 
 export type AppPropertyRoundNormalization = { readonly scale: number };
 
-export type AppPropertyNormalization = { readonly round: AppPropertyRoundNormalization };
-
 export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 
-type AppPropertyValidationBase = { readonly required?: true | undefined };
+export type AppSchemaFields = Readonly<Record<string, AppPropertyDefinition>>;
 
-type AppObjectPropertyValidation = AppPropertyValidationBase & {
-	readonly asset?: true | undefined;
-};
+export type AppPropertyPrimitiveType = (typeof appPropertyPrimitiveTypes)[number];
 
-export type AppArrayPropertyValidation = AppPropertyValidationBase & {
-	readonly maxItems?: number | undefined;
-	readonly minItems?: number | undefined;
-};
+export type AppChoice = { readonly value: string; readonly label?: string | undefined };
 
-export type AppNumberPropertyValidation = AppPropertyValidationBase & {
-	readonly maximum?: number | undefined;
-	readonly minimum?: number | undefined;
-	readonly multipleOf?: number | undefined;
-	readonly exclusiveMaximum?: number | undefined;
-	readonly exclusiveMinimum?: number | undefined;
-};
-
-export type AppStringPropertyValidation = AppPropertyValidationBase & {
-	readonly pattern?: string | undefined;
-	readonly maxLength?: number | undefined;
-	readonly minLength?: number | undefined;
-};
-
-type AppPropertyBase<TValidation> = {
-	readonly label: string;
-	readonly description: string;
-	readonly secret?: true | undefined;
-	readonly immutable?: true | undefined;
-	readonly position?: number | undefined;
-	readonly translatable?: true | undefined;
-	readonly validation?: TValidation | undefined;
-};
-
-export type AppStringPropertyFormat =
-	| { readonly kind: "url" }
-	| { readonly kind: "email" }
-	| { readonly kind: "timezone" }
-	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> }
-	| { readonly kind: "oauth-connection"; readonly provider: string };
+export type AppPropertyNormalization = { readonly round: AppPropertyRoundNormalization };
 
 export type AppStringPropertyReference = {
-	readonly kind: "entity-id" | "relationship-id" | "event-id";
 	readonly required?: true | undefined;
-};
-
-export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
-	readonly type: "string";
-	readonly defaultValue?: string | undefined;
-	readonly format?: AppStringPropertyFormat | undefined;
-	readonly reference?: AppStringPropertyReference | undefined;
-};
-
-export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
-	readonly type: "number";
-	readonly defaultValue?: number | undefined;
-	readonly normalize?: AppPropertyNormalization | undefined;
-};
-
-export type AppIntegerProperty = AppPropertyBase<AppNumberPropertyValidation> & {
-	readonly type: "integer";
-	readonly defaultValue?: number | undefined;
-	readonly normalize?: AppPropertyNormalization | undefined;
-};
-
-export type AppBooleanProperty = AppPropertyBase<AppPropertyValidationBase> & {
-	readonly type: "boolean";
-	readonly defaultValue?: boolean | undefined;
+	readonly kind: "event-id" | "entity-id" | "relationship-id";
 };
 
 export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
@@ -113,15 +51,23 @@ export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly defaultValue?: string | undefined;
 };
 
+export type AppArrayPropertyValidation = AppPropertyValidationBase & {
+	readonly maxItems?: number | undefined;
+	readonly minItems?: number | undefined;
+};
+
+export type AppBooleanProperty = AppPropertyBase<AppPropertyValidationBase> & {
+	readonly type: "boolean";
+	readonly defaultValue?: boolean | undefined;
+};
+
 export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "datetime";
 	readonly defaultValue?: string | undefined;
 };
 
-export type AppChoice = { readonly value: string; readonly label?: string | undefined };
-
 export type AppChoices =
-	| { readonly kind: "dynamic"; readonly source: string }
+	| { readonly source: string; readonly kind: "dynamic" }
 	| { readonly kind: "static"; readonly values: ReadonlyArray<AppChoice> };
 
 export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
@@ -130,24 +76,47 @@ export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly defaultValue?: string | undefined;
 };
 
+export type AppSchema = {
+	readonly fields: AppSchemaFields;
+	readonly rules?: undefined | ReadonlyArray<AppSchemaRule>;
+	readonly unknownKeys?: undefined | AppSchemaUnknownKeysPolicy;
+};
+
+export type AppStringPropertyValidation = AppPropertyValidationBase & {
+	readonly pattern?: string | undefined;
+	readonly maxLength?: number | undefined;
+	readonly minLength?: number | undefined;
+};
+
 export type AppEnumArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "enum-array";
 	readonly choices: AppChoices;
-	readonly defaultValue?: ReadonlyArray<string> | undefined;
+	readonly defaultValue?: undefined | ReadonlyArray<string>;
 };
 
 export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "array";
 	readonly items: AppPropertyDefinition;
-	readonly defaultValue?: ReadonlyArray<unknown> | undefined;
+	readonly defaultValue?: undefined | ReadonlyArray<unknown>;
 };
 
-export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
-	readonly type: "object";
-	readonly properties: AppSchemaFields;
-	readonly unknownKeys?: AppSchemaUnknownKeysPolicy | undefined;
-	readonly defaultValue?: Readonly<Record<string, unknown>> | undefined;
+export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
+	readonly type: "number";
+	readonly defaultValue?: number | undefined;
+	readonly normalize?: undefined | AppPropertyNormalization;
 };
+
+export type AppIntegerProperty = AppPropertyBase<AppNumberPropertyValidation> & {
+	readonly type: "integer";
+	readonly defaultValue?: number | undefined;
+	readonly normalize?: undefined | AppPropertyNormalization;
+};
+
+export type AppSchemaRule = AppSchemaRuleBase &
+	(
+		| { readonly kind: "visibility"; readonly visibility: { readonly hidden: true } }
+		| { readonly kind: "validation"; readonly validation: { readonly required: true } }
+	);
 
 export type AppPropertyDefinition =
 	| AppDateProperty
@@ -161,12 +130,34 @@ export type AppPropertyDefinition =
 	| AppDateTimeProperty
 	| AppEnumArrayProperty;
 
-export type AppSchemaFields = Readonly<Record<string, AppPropertyDefinition>>;
+export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
+	readonly type: "string";
+	readonly defaultValue?: string | undefined;
+	readonly format?: undefined | AppStringPropertyFormat;
+	readonly reference?: undefined | AppStringPropertyReference;
+};
 
-type AppSchemaLeafRuleCondition<T extends string, TValue = never> = {
-	readonly operator: T;
-	readonly path: AppSchemaRulePath;
-} & ([TValue] extends [never] ? object : { readonly value: TValue });
+export type AppStringPropertyFormat =
+	| { readonly kind: "url" }
+	| { readonly kind: "email" }
+	| { readonly kind: "timezone" }
+	| { readonly provider: string; readonly kind: "oauth-connection" }
+	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> };
+
+export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
+	readonly type: "object";
+	readonly properties: AppSchemaFields;
+	readonly unknownKeys?: undefined | AppSchemaUnknownKeysPolicy;
+	readonly defaultValue?: undefined | Readonly<Record<string, unknown>>;
+};
+
+export type AppNumberPropertyValidation = AppPropertyValidationBase & {
+	readonly maximum?: number | undefined;
+	readonly minimum?: number | undefined;
+	readonly multipleOf?: number | undefined;
+	readonly exclusiveMaximum?: number | undefined;
+	readonly exclusiveMinimum?: number | undefined;
+};
 
 export type AppSchemaRuleCondition =
 	| AppSchemaLeafRuleCondition<"exists">
@@ -178,22 +169,31 @@ export type AppSchemaRuleCondition =
 	| { readonly operator: "all"; readonly conditions: ReadonlyArray<AppSchemaRuleCondition> }
 	| { readonly operator: "any"; readonly conditions: ReadonlyArray<AppSchemaRuleCondition> };
 
+type AppPropertyValidationBase = { readonly required?: true | undefined };
+
+type AppObjectPropertyValidation = AppPropertyValidationBase & {
+	readonly asset?: true | undefined;
+};
+
 type AppSchemaRuleBase = {
 	readonly path: AppSchemaRulePath;
 	readonly when: AppSchemaRuleCondition;
 	readonly message?: string | undefined;
 };
 
-export type AppSchemaRule = AppSchemaRuleBase &
-	(
-		| { readonly kind: "validation"; readonly validation: { readonly required: true } }
-		| { readonly kind: "visibility"; readonly visibility: { readonly hidden: true } }
-	);
+type AppSchemaLeafRuleCondition<T extends string, TValue = never> = {
+	readonly operator: T;
+	readonly path: AppSchemaRulePath;
+} & ([TValue] extends [never] ? object : { readonly value: TValue });
 
-export type AppSchema = {
-	readonly fields: AppSchemaFields;
-	readonly rules?: ReadonlyArray<AppSchemaRule> | undefined;
-	readonly unknownKeys?: AppSchemaUnknownKeysPolicy | undefined;
+type AppPropertyBase<TValidation> = {
+	readonly label: string;
+	readonly description: string;
+	readonly secret?: true | undefined;
+	readonly immutable?: true | undefined;
+	readonly position?: number | undefined;
+	readonly translatable?: true | undefined;
+	readonly validation?: undefined | TValidation;
 };
 
 const PropertyValidationIssue = Schema.Struct({
@@ -386,7 +386,7 @@ const staticEnumDefaultIsValid = (value: {
 
 const staticEnumArrayDefaultIsValid = (value: {
 	readonly choices: AppChoices;
-	readonly defaultValue?: ReadonlyArray<string> | undefined;
+	readonly defaultValue?: undefined | ReadonlyArray<string>;
 }) => {
 	const choices = value.choices;
 	if (choices.kind === "dynamic") {
@@ -732,7 +732,7 @@ export const getAppPropertyDefinitionAtPath = (
 	fields: AppSchemaFields,
 	path: AppSchemaRulePath,
 ) => {
-	let property: AppPropertyDefinition | undefined;
+	let property: undefined | AppPropertyDefinition;
 	let currentFields = fields;
 	for (const segment of path) {
 		if (!Object.hasOwn(currentFields, segment)) {

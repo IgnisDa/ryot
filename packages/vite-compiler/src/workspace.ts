@@ -3,21 +3,21 @@ import { Effect, Exit, FileSystem, Path, Result, Scope } from "effect";
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError } from "./error";
 
-export interface CompilerWorkspace {
-	readonly rootPath: string;
-	readonly sourcePath: string;
-	readonly generatedPath: string;
-	readonly outputPath: string;
-}
-
-export interface CompilerWorkspaceOptions {
-	readonly parentPath?: string;
-	readonly jobId?: string;
-}
-
 export interface WorkspaceFile {
 	readonly path: string;
 	readonly contents: string | Uint8Array;
+}
+
+export interface CompilerWorkspaceOptions {
+	readonly jobId?: string;
+	readonly parentPath?: string;
+}
+
+export interface CompilerWorkspace {
+	readonly rootPath: string;
+	readonly sourcePath: string;
+	readonly outputPath: string;
+	readonly generatedPath: string;
 }
 
 interface CompilerWorkspaceInput extends CompilerWorkspaceOptions {

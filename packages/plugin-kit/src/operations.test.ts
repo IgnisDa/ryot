@@ -13,7 +13,7 @@ const recipe = defineOperationRecipe({
 
 describe("invokeOperationRecipe", () => {
 	it("encodes the input, forwards the request, and decodes the transport result", () => {
-		const request: { payload: unknown; packageId: PluginPackageId; operationSlug: string }[] = [];
+		const request: { payload: unknown; operationSlug: string; packageId: PluginPackageId }[] = [];
 		const result = Effect.runSync(
 			invokeOperationRecipe(recipe, { count: 3 }, (incoming) => {
 				request.push(incoming);

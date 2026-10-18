@@ -83,7 +83,7 @@ describe("Sandbox ESM audit", () => {
 							'export * from "zeta";',
 							'await import("middle");',
 						].join("\n"),
-						new Set(["alpha", "middle", "zeta"]),
+						new Set(["zeta", "alpha", "middle"]),
 					),
 				).toEqual(Result.succeed(["alpha", "middle", "zeta"]));
 			}),

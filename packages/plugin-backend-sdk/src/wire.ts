@@ -7,7 +7,7 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 export { jsonValueSchema };
-export type { JsonPrimitive, JsonValue };
+export type { JsonValue, JsonPrimitive };
 
 export const asRecord = (value: unknown) => (isObjectRecord(value) ? value : null);
 

@@ -26,37 +26,37 @@ import { SystemGroup } from "./modules/system/contract";
 import { TestSupportGroup } from "./modules/test-support/contract";
 
 export type AppGroups =
-	| typeof SystemGroup
-	| typeof AutomationsGroup
-	| typeof AutomationHistoryGroup
-	| typeof BackupsGroup
-	| typeof BackupDownloadsGroup
-	| typeof RelationshipsGroup
-	| typeof EntitiesGroup
-	| typeof EntityProvidersGroup
-	| typeof EntityUserDataGroup
-	| typeof AccountGroup
-	| typeof EventsGroup
-	| typeof UploadsGroup
-	| typeof LocalUploadsGroup
-	| typeof SavedViewsGroup
-	| typeof CalendarSourcesGroup
-	| typeof CollectionsGroup
 	| typeof PagesGroup
-	| typeof PageBundlesGroup
-	| typeof InstanceAdminGroup
-	| typeof ServerLogsGroup
-	| typeof ServerLogDownloadsGroup
-	| typeof TestSupportGroup
-	| typeof ImportsGroup
-	| typeof ImportDownloadsGroup
-	| typeof IntegrationsGroup
-	| typeof OAuthConnectionsGroup
+	| typeof SystemGroup
+	| typeof EventsGroup
 	| typeof RyotQLGroup
+	| typeof BackupsGroup
+	| typeof AccountGroup
+	| typeof UploadsGroup
+	| typeof ImportsGroup
+	| typeof PluginsGroup
+	| typeof EntitiesGroup
+	| typeof SavedViewsGroup
+	| typeof ServerLogsGroup
+	| typeof AutomationsGroup
+	| typeof CollectionsGroup
+	| typeof PageBundlesGroup
+	| typeof TestSupportGroup
 	| typeof AdminRyotQLGroup
+	| typeof LocalUploadsGroup
+	| typeof IntegrationsGroup
+	| typeof RelationshipsGroup
+	| typeof InstanceAdminGroup
 	| typeof EntityWatchesGroup
 	| typeof NotificationsGroup
-	| typeof PluginsGroup;
+	| typeof EntityUserDataGroup
+	| typeof BackupDownloadsGroup
+	| typeof EntityProvidersGroup
+	| typeof CalendarSourcesGroup
+	| typeof ImportDownloadsGroup
+	| typeof OAuthConnectionsGroup
+	| typeof AutomationHistoryGroup
+	| typeof ServerLogDownloadsGroup;
 
 export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryot")
 	.add(SystemGroup)

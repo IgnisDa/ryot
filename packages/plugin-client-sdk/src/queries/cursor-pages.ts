@@ -8,7 +8,7 @@ export const readCursorPages = <A>(
 	) => Effect.Effect<
 		{
 			readonly items: readonly A[];
-			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 		},
 		RyotClientError
 	>,

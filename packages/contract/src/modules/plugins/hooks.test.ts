@@ -40,8 +40,8 @@ const registeredScript = (
 	slug: string,
 	capabilities: ReadonlyArray<string> = [],
 	executableDependencies: ReadonlyArray<{
-		readonly kind: "script" | "workflow";
 		readonly slug: string;
+		readonly kind: "script" | "workflow";
 	}> = [],
 ) => ({
 	slug,

@@ -820,7 +820,7 @@ describe("immutable properties", () => {
 		},
 	} satisfies AppSchema;
 
-	const readOnlyOf = (mode: "create" | "edit") =>
+	const readOnlyOf = (mode: "edit" | "create") =>
 		Object.fromEntries(
 			describeSchemaFormFields(immutableSchema, {}, mode).fields.map(
 				({ key, readOnly }) => [key, readOnly] as const,

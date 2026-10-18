@@ -12,7 +12,7 @@ const collectText = <E, R>(stream: Stream.Stream<Uint8Array, E, R>) =>
 
 export interface RunProcessOptions {
 	readonly input?: string | undefined;
-	readonly env?: Record<string, string | undefined> | undefined;
+	readonly env?: undefined | Record<string, string | undefined>;
 }
 
 export const runProcessCapturing = (

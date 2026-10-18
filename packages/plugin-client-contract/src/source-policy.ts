@@ -56,10 +56,10 @@ export const PLUGIN_CLIENT_FILE_EXTENSIONS = [
 	...PLUGIN_CLIENT_ASSET_EXTENSIONS,
 ] as const;
 
-export type PluginClientTextSourceExtension = (typeof PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS)[number];
 export type PluginClientFileExtension = (typeof PLUGIN_CLIENT_FILE_EXTENSIONS)[number];
+export type PluginClientTextSourceExtension = (typeof PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS)[number];
 
-export const pluginClientFileExtension = (path: string): PluginClientFileExtension | undefined =>
+export const pluginClientFileExtension = (path: string): undefined | PluginClientFileExtension =>
 	PLUGIN_CLIENT_FILE_EXTENSIONS.find((extension) => path.endsWith(extension));
 
 const isPluginTestSource = (path: string) =>

@@ -6,17 +6,17 @@ import { entityMonogram, type FieldSyncState, type SyncReason } from "./sync-sta
 export {
 	entityMonogram,
 	fieldSyncState,
+	type SyncReason,
 	isTitleProvisional,
 	isEnrichmentActive,
 	type FieldSyncState,
-	type SyncReason,
 } from "./sync-state";
 
 export const SETTLE_RING_DURATION_MS = 900;
 
-type ArtShape = "rounded" | "circle";
-
 type ArtFit = "cover" | "contain";
+
+type ArtShape = "circle" | "rounded";
 
 const reasonBackground = (reason: SyncReason) =>
 	reason === "translating" ? "bg-translate" : "bg-info";
@@ -31,6 +31,15 @@ const shapeClassName = (shape: ArtShape | undefined) => {
 	return shape === "circle" ? "rounded-full" : "rounded-lg";
 };
 
+export function TranslationChip(props: { readonly icon: ReactNode }) {
+	return (
+		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-xs text-text-muted">
+			<span className="text-translate">{props.icon}</span>
+			Translating...
+		</span>
+	);
+}
+
 export function SyncPip(props: {
 	readonly reason: SyncReason;
 	readonly className?: string | undefined;
@@ -44,6 +53,52 @@ export function SyncPip(props: {
 				props.className,
 			)}
 		/>
+	);
+}
+
+export function SettleHighlight(props: {
+	readonly children: ReactNode;
+	readonly className?: string | undefined;
+	readonly reason: undefined | SyncReason;
+}) {
+	return (
+		<div
+			className={clsx(
+				props.className,
+				props.reason === "populating" &&
+					"animate-settle-ring [--settle-ring-color:var(--info)] motion-reduce:animate-none",
+				props.reason === "translating" &&
+					"animate-settle-ring [--settle-ring-color:var(--translate)] motion-reduce:animate-none",
+			)}
+		>
+			{props.children}
+		</div>
+	);
+}
+
+export function SyncCountLine(props: {
+	readonly populating: number;
+	readonly translating: number;
+}) {
+	if (props.populating === 0 && props.translating === 0) {
+		return null;
+	}
+	return (
+		<span className="inline-flex items-center gap-2">
+			{props.populating > 0 && (
+				<span className="inline-flex items-center gap-1.5">
+					<SyncPip reason="populating" />
+					{`${props.populating} populating`}
+				</span>
+			)}
+			{props.populating > 0 && props.translating > 0 && <span aria-hidden="true">·</span>}
+			{props.translating > 0 && (
+				<span className="inline-flex items-center gap-1.5">
+					<SyncPip reason="translating" />
+					{`${props.translating} translating`}
+				</span>
+			)}
+		</span>
 	);
 }
 
@@ -101,60 +156,5 @@ export function EntityArtWell(props: {
 			)}
 			{pending && <SyncPip reason="populating" className="absolute top-1 right-1" />}
 		</div>
-	);
-}
-
-export function SettleHighlight(props: {
-	readonly children: ReactNode;
-	readonly className?: string | undefined;
-	readonly reason: SyncReason | undefined;
-}) {
-	return (
-		<div
-			className={clsx(
-				props.className,
-				props.reason === "populating" &&
-					"animate-settle-ring [--settle-ring-color:var(--info)] motion-reduce:animate-none",
-				props.reason === "translating" &&
-					"animate-settle-ring [--settle-ring-color:var(--translate)] motion-reduce:animate-none",
-			)}
-		>
-			{props.children}
-		</div>
-	);
-}
-
-export function TranslationChip(props: { readonly icon: ReactNode }) {
-	return (
-		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-xs text-text-muted">
-			<span className="text-translate">{props.icon}</span>
-			Translating...
-		</span>
-	);
-}
-
-export function SyncCountLine(props: {
-	readonly populating: number;
-	readonly translating: number;
-}) {
-	if (props.populating === 0 && props.translating === 0) {
-		return null;
-	}
-	return (
-		<span className="inline-flex items-center gap-2">
-			{props.populating > 0 && (
-				<span className="inline-flex items-center gap-1.5">
-					<SyncPip reason="populating" />
-					{`${props.populating} populating`}
-				</span>
-			)}
-			{props.populating > 0 && props.translating > 0 && <span aria-hidden="true">·</span>}
-			{props.translating > 0 && (
-				<span className="inline-flex items-center gap-1.5">
-					<SyncPip reason="translating" />
-					{`${props.translating} translating`}
-				</span>
-			)}
-		</span>
 	);
 }

@@ -13,10 +13,10 @@ const options = [
 ] as const;
 
 function ThemeChoice(props: {
-	readonly initial?: "light" | "dark" | "system";
-	readonly disabled?: "light" | "dark" | "system";
+	readonly initial?: "dark" | "light" | "system";
+	readonly disabled?: "dark" | "light" | "system";
 }) {
-	const [value, setValue] = useState<"light" | "dark" | "system" | undefined>(props.initial);
+	const [value, setValue] = useState<"dark" | "light" | "system" | undefined>(props.initial);
 	return (
 		<RadioGroup
 			value={value}

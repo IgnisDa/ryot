@@ -1,9 +1,9 @@
+export { buildClientRuntime } from "./runtime";
 export { compileClientPluginModule } from "./module";
 export { pluginClientCompilerPlatformLayer } from "./platform";
-export { buildClientRuntime } from "./runtime";
+export { PluginClientCompilerFailure, ClientPluginCompilerDiagnostic } from "./diagnostics";
 export {
-	ClientPluginCompilerPackageExport,
-	PluginClientCompilerPackageInput,
 	ClientPluginExportKind,
+	PluginClientCompilerPackageInput,
+	ClientPluginCompilerPackageExport,
 } from "./input";
-export { ClientPluginCompilerDiagnostic, PluginClientCompilerFailure } from "./diagnostics";

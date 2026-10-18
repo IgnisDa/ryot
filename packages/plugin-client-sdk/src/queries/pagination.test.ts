@@ -5,14 +5,14 @@ import { RyotClientError } from "../client/errors";
 import { createPagination, nextPageCursor, PaginationError, paginationItems } from "./pagination";
 
 type Item = { readonly id: string; readonly value: string };
-type Page = { readonly items: readonly Item[]; readonly next: string | null };
+type Page = { readonly next: null | string; readonly items: readonly Item[] };
 type Request<Param> = {
 	readonly param: Param;
 	readonly refresh: boolean;
 	readonly resume: (result: Effect.Effect<Page, unknown>) => void;
 };
 
-const page = (items: readonly Item[], next: string | null): Page => ({ next, items });
+const page = (items: readonly Item[], next: null | string): Page => ({ next, items });
 const getNextPageParam = (loaded: Page) => loaded.next;
 
 const controlledLoad = <Param>() => {

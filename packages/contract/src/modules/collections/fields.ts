@@ -49,8 +49,8 @@ export type KeyedCollectionField = typeof KeyedCollectionField.Type;
 export const reservedCollectionFieldKeys: ReadonlySet<string> = new Set([
 	"rank",
 	"__proto__",
-	"constructor",
 	"prototype",
+	"constructor",
 ]);
 
 const textListItem = { label: "Item", type: "string", description: "Item" } as const;

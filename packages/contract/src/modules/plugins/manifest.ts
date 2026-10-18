@@ -154,7 +154,7 @@ const isUserSettingsProperty = (property: AppPropertyDefinition): boolean => {
 		return false;
 	}
 	if (property.type === "array") {
-		return ["boolean", "integer", "number", "string"].includes(property.items.type);
+		return ["number", "string", "boolean", "integer"].includes(property.items.type);
 	}
 	if (property.type === "enum" || property.type === "enum-array") {
 		return property.choices.kind === "static";
@@ -893,12 +893,6 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 				continue;
 			}
 			switch (target.resource) {
-				case "entity":
-				case "provider-entity-import":
-					if (!manifest.entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
-						return false;
-					}
-					break;
 				case "event":
 					if (
 						!manifest.entitySchemas.some(
@@ -907,6 +901,12 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 								entity.eventSchemas.some(({ slug }) => slug === target.eventSchemaSlug),
 						)
 					) {
+						return false;
+					}
+					break;
+				case "entity":
+				case "provider-entity-import":
+					if (!manifest.entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
 						return false;
 					}
 					break;
@@ -939,7 +939,7 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 const hasValidClientManifestReferences = (
 	manifest: Pick<
 		typeof AuthoredPluginManifestFields.Type,
-		"client" | "entitySchemas" | "metadata" | "savedViews"
+		"client" | "metadata" | "savedViews" | "entitySchemas"
 	>,
 ) => {
 	const clientExports = manifest.client?.exports ?? {};
@@ -998,7 +998,7 @@ const hasValidClientManifestReferences = (
 const hasValidOAuthProviderReferences = (
 	manifest: Pick<
 		typeof AuthoredPluginManifestFields.Type,
-		"configSchema" | "integrationProviders" | "oauthProviders"
+		"configSchema" | "oauthProviders" | "integrationProviders"
 	>,
 ) => {
 	const oauthProviders = manifest.oauthProviders ?? [];

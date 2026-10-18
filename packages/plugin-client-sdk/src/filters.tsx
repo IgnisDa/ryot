@@ -35,12 +35,12 @@ import { createRyotQuery } from "./queries/definitions";
 import { useRyotQuery } from "./queries/hooks";
 import { useRyot } from "./queries/provider";
 
-export type ViewFilterField = ReturnType<typeof effectiveFilterFields>[number];
 export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
+export type ViewFilterField = ReturnType<typeof effectiveFilterFields>[number];
+type RuleGroup = NonNullable<ReturnType<typeof editableGroup>>;
 type ViewFilterRule = NonNullable<ReturnType<typeof draftRule>>;
 type FilterOperator = ReturnType<typeof filterOperatorsFor>[number];
 type LinkedField = Exclude<ViewFilterField, { readonly kind: "value" }>;
-type RuleGroup = NonNullable<ReturnType<typeof editableGroup>>;
 
 export const activeFiltersPhrase = (count: number) =>
 	`${count} active ${count === 1 ? "filter" : "filters"}`;
@@ -54,7 +54,7 @@ export const useViewFilter = (fields: readonly ViewFilterField[]) => {
 	return {
 		filter,
 		activeCount: activeRuleCount(filter),
-		setFilter: (next: ViewFilter | undefined) =>
+		setFilter: (next: undefined | ViewFilter) =>
 			ryot.navigation.pageSearch.replace({ filters: encodeFilterParam(next) }),
 	};
 };
@@ -70,7 +70,7 @@ export function ViewFiltersSheet({
 	readonly compact: boolean;
 	readonly onClose: () => void;
 	readonly children: ReactNode;
-	readonly triggerRef?: RefObject<HTMLElement | null> | undefined;
+	readonly triggerRef?: undefined | RefObject<null | HTMLElement>;
 }) {
 	return (
 		<Modal
@@ -104,7 +104,7 @@ const choicesQuery = createRyotQuery<string, LinkedFilterChoices>(({ input, clie
 
 const choicesKey = (
 	field: LinkedField,
-	extra: { readonly ids?: readonly string[]; readonly searchText?: string },
+	extra: { readonly searchText?: string; readonly ids?: readonly string[] },
 ) => JSON.stringify(linkedFilterChoicesInput(field, extra));
 
 const operatorLabels: Readonly<Record<FilterOperator, string>> = {
@@ -273,9 +273,9 @@ function LinkedValueEditor({
 }
 
 const listOperators: ReadonlySet<FilterOperator> = new Set(["anyOf", "allOf", "noneOf"]);
-const numberOperators: ReadonlySet<FilterOperator> = new Set(["gte", "lte", "eq"]);
-const textOperators: ReadonlySet<FilterOperator> = new Set(["contains", "notContains", "is"]);
-const dateOperators: ReadonlySet<FilterOperator> = new Set(["before", "after"]);
+const numberOperators: ReadonlySet<FilterOperator> = new Set(["eq", "gte", "lte"]);
+const textOperators: ReadonlySet<FilterOperator> = new Set(["is", "contains", "notContains"]);
+const dateOperators: ReadonlySet<FilterOperator> = new Set(["after", "before"]);
 
 function ValueEditor({
 	draft,
@@ -290,7 +290,7 @@ function ValueEditor({
 	const input = (
 		role: string,
 		key: "text" | "second",
-		type: "text" | "number" | "date",
+		type: "text" | "date" | "number",
 		extra: { readonly min?: number; readonly step?: number } = {},
 	) => (
 		<TextField
@@ -362,77 +362,6 @@ const selectIcons = {
 	chevronIcon: <AppIcon size={14} name="chevron-down" />,
 };
 
-function RuleRow({
-	draft,
-	index,
-	fields,
-	compact,
-	onChange,
-	onRemove,
-}: {
-	readonly index: number;
-	readonly compact: boolean;
-	readonly draft: FilterDraft;
-	readonly onRemove: () => void;
-	readonly onChange: (draft: FilterDraft) => void;
-	readonly fields: readonly ViewFilterField[];
-}) {
-	const field = fields.find(({ key }) => key === draft.field);
-	if (field === undefined) {
-		return null;
-	}
-	const position = index + 1;
-	return (
-		<div
-			role="group"
-			aria-label={`Filter ${position}`}
-			className="grid gap-2 rounded-lg border border-border bg-surface-2 p-3"
-		>
-			<div className={compact ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
-				<Select
-					{...selectIcons}
-					value={field.key}
-					label={`Filter ${position} field`}
-					choices={fields.map(({ key, label }) => ({ label, value: key }))}
-					onChange={(key) => {
-						const next = fields.find((candidate) => candidate.key === key);
-						if (next !== undefined && next.key !== field.key) {
-							onChange(newFilterDraft(next));
-						}
-					}}
-				/>
-				<Select
-					{...selectIcons}
-					value={draft.operator}
-					label={`Filter ${position} operator`}
-					choices={filterOperatorsFor(field).map((operator) => ({
-						value: operator,
-						label: operatorLabel(field, operator),
-					}))}
-					onChange={(operator) => {
-						const next = filterOperatorsFor(field).find((candidate) => candidate === operator);
-						if (next !== undefined) {
-							onChange({ ...draft, text: "", second: "", operator: next });
-						}
-					}}
-				/>
-			</div>
-			<div className="flex items-start gap-2">
-				<div className="grid min-w-0 flex-1 gap-2">
-					<ValueEditor
-						field={field}
-						draft={draft}
-						onChange={(update) => onChange({ ...draft, ...update })}
-					/>
-				</div>
-				<IconButton size="sm" onClick={onRemove} label={`Remove filter ${position}`}>
-					<AppIcon name="x" size={16} />
-				</IconButton>
-			</div>
-		</div>
-	);
-}
-
 export function FilterRules({
 	filter,
 	fields,
@@ -440,9 +369,9 @@ export function FilterRules({
 	onChange,
 }: {
 	readonly compact: boolean;
-	readonly filter: ViewFilter | undefined;
-	readonly onChange: (filter: ViewFilter | undefined) => void;
+	readonly filter: undefined | ViewFilter;
 	readonly fields: readonly ViewFilterField[];
+	readonly onChange: (filter: undefined | ViewFilter) => void;
 }) {
 	const group = editableGroup(filter);
 	const [state, setState] = useState<PanelState>(() =>
@@ -528,68 +457,79 @@ export function FilterRules({
 	);
 }
 
+function RuleRow({
+	draft,
+	index,
+	fields,
+	compact,
+	onChange,
+	onRemove,
+}: {
+	readonly index: number;
+	readonly compact: boolean;
+	readonly draft: FilterDraft;
+	readonly onRemove: () => void;
+	readonly fields: readonly ViewFilterField[];
+	readonly onChange: (draft: FilterDraft) => void;
+}) {
+	const field = fields.find(({ key }) => key === draft.field);
+	if (field === undefined) {
+		return null;
+	}
+	const position = index + 1;
+	return (
+		<div
+			role="group"
+			aria-label={`Filter ${position}`}
+			className="grid gap-2 rounded-lg border border-border bg-surface-2 p-3"
+		>
+			<div className={compact ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
+				<Select
+					{...selectIcons}
+					value={field.key}
+					label={`Filter ${position} field`}
+					choices={fields.map(({ key, label }) => ({ label, value: key }))}
+					onChange={(key) => {
+						const next = fields.find((candidate) => candidate.key === key);
+						if (next !== undefined && next.key !== field.key) {
+							onChange(newFilterDraft(next));
+						}
+					}}
+				/>
+				<Select
+					{...selectIcons}
+					value={draft.operator}
+					label={`Filter ${position} operator`}
+					choices={filterOperatorsFor(field).map((operator) => ({
+						value: operator,
+						label: operatorLabel(field, operator),
+					}))}
+					onChange={(operator) => {
+						const next = filterOperatorsFor(field).find((candidate) => candidate === operator);
+						if (next !== undefined) {
+							onChange({ ...draft, text: "", second: "", operator: next });
+						}
+					}}
+				/>
+			</div>
+			<div className="flex items-start gap-2">
+				<div className="grid min-w-0 flex-1 gap-2">
+					<ValueEditor
+						field={field}
+						draft={draft}
+						onChange={(update) => onChange({ ...draft, ...update })}
+					/>
+				</div>
+				<IconButton size="sm" onClick={onRemove} label={`Remove filter ${position}`}>
+					<AppIcon name="x" size={16} />
+				</IconButton>
+			</div>
+		</div>
+	);
+}
+
 const chipClassName =
 	"inline-flex h-7 max-w-full items-center rounded-pill border border-accent-border bg-accent-soft text-xs font-medium text-accent-text pointer-coarse:h-9";
-
-function FilterChip({
-	text,
-	onOpen,
-	onRemove,
-	removeLabel,
-}: {
-	readonly text: string;
-	readonly removeLabel: string;
-	readonly onOpen: () => void;
-	readonly onRemove?: (() => void) | undefined;
-}) {
-	return (
-		<span className={chipClassName}>
-			<button type="button" onClick={onOpen} className="min-w-0 truncate pr-1 pl-3">
-				{text}
-			</button>
-			{onRemove !== undefined && (
-				<button
-					type="button"
-					onClick={onRemove}
-					aria-label={removeLabel}
-					className="flex h-full items-center pr-2 pl-0.5"
-				>
-					<AppIcon name="x" size={12} />
-				</button>
-			)}
-		</span>
-	);
-}
-
-function LinkedRuleChip({
-	ids,
-	rule,
-	field,
-	onOpen,
-	onRemove,
-}: {
-	readonly ids: readonly string[];
-	readonly field: LinkedField;
-	readonly rule: ViewFilterRule;
-	readonly onOpen: () => void;
-	readonly onRemove: () => void;
-}) {
-	const known = useRyotQuery(choicesQuery, choicesKey(field, { ids }));
-	const labels = new Map((known.data ?? []).map(({ value, label }) => [value, label]));
-	const values = "values" in rule ? rule.values : [];
-	const resolved = values.every((value) => labels.has(value));
-	const valueText = resolved ? ruleValueText(rule, (value) => labels.get(value) ?? value) : "";
-	return (
-		<FilterChip
-			onOpen={onOpen}
-			onRemove={onRemove}
-			removeLabel={`Remove ${field.label} filter`}
-			text={
-				resolved ? ruleText(field, rule, valueText) : `${field.label}: ${values.length} selected`
-			}
-		/>
-	);
-}
 
 export function FilterChips({
 	filter,
@@ -598,9 +538,9 @@ export function FilterChips({
 	onChange,
 }: {
 	readonly onOpen: () => void;
-	readonly filter: ViewFilter | undefined;
+	readonly filter: undefined | ViewFilter;
 	readonly fields: readonly ViewFilterField[];
-	readonly onChange: (filter: ViewFilter | undefined) => void;
+	readonly onChange: (filter: undefined | ViewFilter) => void;
 }) {
 	if (filter === undefined) {
 		return null;
@@ -686,5 +626,65 @@ export function FilterChips({
 				Clear
 			</Button>
 		</div>
+	);
+}
+
+function FilterChip({
+	text,
+	onOpen,
+	onRemove,
+	removeLabel,
+}: {
+	readonly text: string;
+	readonly onOpen: () => void;
+	readonly removeLabel: string;
+	readonly onRemove?: undefined | (() => void);
+}) {
+	return (
+		<span className={chipClassName}>
+			<button type="button" onClick={onOpen} className="min-w-0 truncate pr-1 pl-3">
+				{text}
+			</button>
+			{onRemove !== undefined && (
+				<button
+					type="button"
+					onClick={onRemove}
+					aria-label={removeLabel}
+					className="flex h-full items-center pr-2 pl-0.5"
+				>
+					<AppIcon name="x" size={12} />
+				</button>
+			)}
+		</span>
+	);
+}
+
+function LinkedRuleChip({
+	ids,
+	rule,
+	field,
+	onOpen,
+	onRemove,
+}: {
+	readonly field: LinkedField;
+	readonly onOpen: () => void;
+	readonly rule: ViewFilterRule;
+	readonly onRemove: () => void;
+	readonly ids: readonly string[];
+}) {
+	const known = useRyotQuery(choicesQuery, choicesKey(field, { ids }));
+	const labels = new Map((known.data ?? []).map(({ value, label }) => [value, label]));
+	const values = "values" in rule ? rule.values : [];
+	const resolved = values.every((value) => labels.has(value));
+	const valueText = resolved ? ruleValueText(rule, (value) => labels.get(value) ?? value) : "";
+	return (
+		<FilterChip
+			onOpen={onOpen}
+			onRemove={onRemove}
+			removeLabel={`Remove ${field.label} filter`}
+			text={
+				resolved ? ruleText(field, rule, valueText) : `${field.label}: ${values.length} selected`
+			}
+		/>
 	);
 }

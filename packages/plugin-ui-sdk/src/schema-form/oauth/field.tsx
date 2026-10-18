@@ -10,7 +10,7 @@ const CONNECT_FAILURE_MESSAGE = "Couldn't connect. Try again.";
 type SchemaOAuthState =
 	| { readonly status: "idle" }
 	| { readonly status: "connecting" }
-	| { readonly status: "failed"; readonly message: string };
+	| { readonly message: string; readonly status: "failed" };
 
 export function SchemaOAuthField(props: {
 	readonly field: string;
@@ -22,7 +22,7 @@ export function SchemaOAuthField(props: {
 	readonly onChange: (connectionId: string) => void;
 }) {
 	const attempt = useRef(0);
-	const controller = useRef<AbortController | undefined>(undefined);
+	const controller = useRef<undefined | AbortController>(undefined);
 	const [state, setState] = useState<SchemaOAuthState>({ status: "idle" });
 
 	const abortAttempt = () => {

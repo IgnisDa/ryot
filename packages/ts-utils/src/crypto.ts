@@ -1,12 +1,12 @@
 type HashInput = string | Uint8Array;
 type HashAlgorithm = "sha1" | "sha256";
-type CryptoHasher = {
-	update(value: HashInput): CryptoHasher;
-	digest(): Uint8Array;
-	digest(format: "base64url" | "hex"): string;
-};
 type BunCrypto = {
 	CryptoHasher: new (algorithm: HashAlgorithm, secret?: HashInput) => CryptoHasher;
+};
+type CryptoHasher = {
+	digest(): Uint8Array;
+	update(value: HashInput): CryptoHasher;
+	digest(format: "hex" | "base64url"): string;
 };
 
 const bun = (globalThis as typeof globalThis & { Bun: BunCrypto }).Bun;

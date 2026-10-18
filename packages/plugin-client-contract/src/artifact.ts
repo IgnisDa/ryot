@@ -97,7 +97,7 @@ export const clientArtifactMetadata = (
 	pluginName: string,
 	packageId: PluginPackageId,
 	files: readonly PluginClientArtifactFile[],
-	identity: Pick<PluginClientArtifactMetadata, "clientDeclarationHash" | "imports">,
+	identity: Pick<PluginClientArtifactMetadata, "imports" | "clientDeclarationHash">,
 ): PluginClientArtifactMetadata => {
 	const owner = { packageId, clientDeclarationHash: identity.clientDeclarationHash };
 	return { ...artifactMetadata(pluginName, files, owner, identity.imports), ...owner };
@@ -113,8 +113,8 @@ const artifactMetadata = (
 	pluginName: string,
 	files: readonly PluginClientArtifactFile[],
 	owner:
-		| Pick<PluginClientArtifactMetadata, "packageId" | "clientDeclarationHash">
-		| { readonly kind: "kernel" },
+		| { readonly kind: "kernel" }
+		| Pick<PluginClientArtifactMetadata, "packageId" | "clientDeclarationHash">,
 	imports: readonly PluginClientImport[],
 ): ClientRuntimeArtifactMetadata => {
 	const versions = {

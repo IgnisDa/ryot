@@ -6,6 +6,13 @@ import { SANDBOX_FAILURE_KINDS } from "./modules/scripts/wire";
 export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
 export type SandboxFailureKind = typeof SandboxFailureKind.Type;
 
+type PgErrorLike = {
+	readonly code?: unknown;
+	readonly table?: unknown;
+	readonly column?: unknown;
+	readonly constraint?: unknown;
+};
+
 export class DbError extends Schema.TaggedError<DbError, { readonly brand: unique symbol }>()(
 	"DbError",
 	{
@@ -16,13 +23,6 @@ export class DbError extends Schema.TaggedError<DbError, { readonly brand: uniqu
 		columnName: Schema.optional(Schema.String),
 	},
 ) {}
-
-type PgErrorLike = {
-	readonly code?: unknown;
-	readonly table?: unknown;
-	readonly column?: unknown;
-	readonly constraint?: unknown;
-};
 
 const pgStringField = (cause: unknown, field: keyof PgErrorLike) => {
 	if (!cause || typeof cause !== "object") {
@@ -46,11 +46,6 @@ export const unknownToDbError = (cause: unknown) =>
 			: {}),
 	});
 
-export class BadRequest extends Schema.TaggedError<BadRequest, { readonly brand: unique symbol }>()(
-	"BadRequest",
-	{ message: Schema.String },
-) {}
-
 export class Conflict extends Schema.TaggedError<Conflict, { readonly brand: unique symbol }>()(
 	"Conflict",
 	{ message: Schema.String },
@@ -61,15 +56,20 @@ export class NotFound extends Schema.TaggedError<NotFound, { readonly brand: uni
 	{ message: Schema.String },
 ) {}
 
-export class Unauthorized extends Schema.TaggedError<
-	Unauthorized,
-	{ readonly brand: unique symbol }
->()("Unauthorized", { message: Schema.String }) {}
+export class BadRequest extends Schema.TaggedError<BadRequest, { readonly brand: unique symbol }>()(
+	"BadRequest",
+	{ message: Schema.String },
+) {}
 
 export class RateLimited extends Schema.TaggedError<
 	RateLimited,
 	{ readonly brand: unique symbol }
 >()("RateLimited", { message: Schema.String }) {}
+
+export class Unauthorized extends Schema.TaggedError<
+	Unauthorized,
+	{ readonly brand: unique symbol }
+>()("Unauthorized", { message: Schema.String }) {}
 
 export class InternalError extends Schema.TaggedError<
 	InternalError,

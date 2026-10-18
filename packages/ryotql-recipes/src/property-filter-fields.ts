@@ -38,22 +38,22 @@ const valueFilterField = (
 				choices,
 				type: definition.type === "enum" ? "enum" : "enum-list",
 			}));
-		case "number":
-		case "integer":
-			return Result.succeed({ ...base, type: "number" });
 		case "date":
 		case "datetime":
 			return Result.succeed({ ...base, type: "date" });
-		case "boolean":
-			return Result.succeed({ ...base, type: "boolean" });
-		case "string":
-			return Result.succeed({ ...base, type: "text" });
 		case "array":
 			return definition.items.type === "string"
 				? Result.succeed({ ...base, type: "text-list" })
 				: unsupported(property);
+		case "number":
+		case "integer":
+			return Result.succeed({ ...base, type: "number" });
+		case "string":
+			return Result.succeed({ ...base, type: "text" });
 		case "object":
 			break;
+		case "boolean":
+			return Result.succeed({ ...base, type: "boolean" });
 	}
 	return unsupported(property);
 };

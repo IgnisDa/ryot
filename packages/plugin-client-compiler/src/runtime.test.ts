@@ -55,7 +55,7 @@ const assertDefined: <Value>(value: Value | undefined) => asserts value is Value
 const emittedRuntime = (
 	javascript: string,
 	css = "",
-	chunks: readonly { readonly fileName: string; readonly code: string }[] = [],
+	chunks: readonly { readonly code: string; readonly fileName: string }[] = [],
 ) =>
 	Layer.mergeAll(
 		BunPath.layer,

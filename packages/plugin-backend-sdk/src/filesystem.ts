@@ -3,28 +3,28 @@ import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const encoder = new TextEncoder();
 const NativeError = Error;
-let filesystemRuntime: (() => SandboxFilesystemBinding | undefined) | undefined;
+let filesystemRuntime: undefined | (() => undefined | SandboxFilesystemBinding);
+
+export type SandboxScratchChunk = { readonly name: string; readonly contents: string | Uint8Array };
+
+export type SandboxFilesystemError = {
+	readonly message: string;
+	readonly data?: SandboxBoundaryReason;
+	readonly _tag: "SandboxFilesystemError";
+};
 
 export type SandboxFilesystemBinding = {
+	readonly readArtifact: () => Promise<Uint8Array>;
+	readonly readNamedArtifact: (key: string) => Promise<Uint8Array>;
 	readonly readArtifactRange: (
 		offset: number,
 		length: number,
 		key?: string,
-	) => Promise<{ bytes: Uint8Array; size: number }>;
-	readonly readArtifact: () => Promise<Uint8Array>;
-	readonly readNamedArtifact: (key: string) => Promise<Uint8Array>;
+	) => Promise<{ size: number; bytes: Uint8Array }>;
 	readonly writeScratchChunks: (
 		chunks: ReadonlyArray<{ readonly name: string; readonly contents: Uint8Array }>,
 	) => Promise<void>;
 };
-
-export type SandboxFilesystemError = {
-	readonly message: string;
-	readonly _tag: "SandboxFilesystemError";
-	readonly data?: SandboxBoundaryReason;
-};
-
-export type SandboxScratchChunk = { readonly name: string; readonly contents: string | Uint8Array };
 
 export const sandboxScratchManifestSchema = Schema.Struct({
 	chunkFiles: Schema.Array(Schema.String),
@@ -55,7 +55,7 @@ const filesystemError = (error: unknown, data?: SandboxBoundaryReason): SandboxF
 const missingGrant = (message: string, operation: string) =>
 	filesystemError(message, { operation, code: "missing-artifact-grant" });
 
-export const configureSandboxFilesystem = (runtime: () => SandboxFilesystemBinding | undefined) => {
+export const configureSandboxFilesystem = (runtime: () => undefined | SandboxFilesystemBinding) => {
 	if (filesystemRuntime !== undefined) {
 		throw new NativeError("Sandbox filesystem runtime is already configured");
 	}

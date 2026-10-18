@@ -2,8 +2,8 @@ import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 export interface OperationRecipe<Input, InputEncoded, Output, OutputEncoded> {
-	readonly packageId: PluginPackageId;
 	readonly operationSlug: string;
+	readonly packageId: PluginPackageId;
 	readonly input: Schema.Schema<Input> & Schema.Encoder<InputEncoded>;
 	readonly output: Schema.Decoder<Output> & Schema.Encoder<OutputEncoded>;
 }
@@ -16,9 +16,9 @@ export const invokeOperationRecipe = <Input, InputEncoded, Output, OutputEncoded
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 	transport: (request: {
-		readonly packageId: PluginPackageId;
 		readonly payload: InputEncoded;
 		readonly operationSlug: string;
+		readonly packageId: PluginPackageId;
 	}) => Effect.Effect<unknown, E, R>,
 ) =>
 	Schema.encodeEffect(recipe.input)(input).pipe(

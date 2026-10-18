@@ -75,7 +75,7 @@ export const browserRow = (entityId: string, name: string) => ({
 export const browserPage = (
 	items: readonly Record<string, unknown>[],
 	hasMore = false,
-	nextCursor: string | null = null,
+	nextCursor: null | string = null,
 ) => ({
 	data: {
 		entityBrowser: { items, type: "rows" as const, pageInfo: { hasMore, limit: 2, nextCursor } },

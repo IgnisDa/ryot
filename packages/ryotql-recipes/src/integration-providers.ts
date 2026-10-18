@@ -63,11 +63,11 @@ const providerSelection = {
 export const evaluateIntegrationProviderReadiness = (
 	item: Pick<
 		SelectedRow<typeof providerSelection>,
+		| "plan"
 		| "hasScript"
 		| "scriptSlug"
 		| "settingsSchema"
 		| "readinessMetadata"
-		| "plan"
 		| "readinessConnections"
 	>,
 	settings?: Readonly<Record<string, unknown>>,
@@ -98,7 +98,7 @@ export const evaluateIntegrationProviderReadiness = (
 			});
 
 export const integrationProvidersRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly limit: number }) => ({
+	(input: { readonly limit: number; readonly after?: string }) => ({
 		queries: {
 			providers: selectedRows(provider, {
 				after: input.after,

@@ -3,6 +3,8 @@ import { type ComponentProps, type ReactNode, type RefObject, useEffect, useStat
 
 export const SCREEN_BAR_HEIGHT = 54;
 
+type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: string };
+
 type ScreenFrameProps = {
 	readonly title: string;
 	readonly meta?: ReactNode;
@@ -16,11 +18,9 @@ type ScreenFrameProps = {
 	readonly barActions?: ReactNode;
 	readonly width?: "full" | "readable";
 	readonly hideTitle?: boolean | undefined;
-	readonly scrollRootRef: RefObject<HTMLElement | null>;
-	readonly hero?: { readonly height: number; readonly node: ReactNode } | undefined;
+	readonly scrollRootRef: RefObject<null | HTMLElement>;
+	readonly hero?: undefined | { readonly height: number; readonly node: ReactNode };
 };
-
-type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: string };
 
 const fade = "transition-opacity duration-150 ease-out motion-reduce:transition-none";
 
@@ -48,7 +48,7 @@ export function ScreenFrame({
 	safeAreaTop,
 	scrollRootRef,
 }: ScreenFrameProps) {
-	const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+	const [sentinel, setSentinel] = useState<null | HTMLDivElement>(null);
 	const [isScrolled, setIsScrolled] = useState(false);
 	const collapsible = hero !== undefined || searchRow === undefined;
 	const chromeTop = compact ? safeAreaTop + SCREEN_BAR_HEIGHT : 0;

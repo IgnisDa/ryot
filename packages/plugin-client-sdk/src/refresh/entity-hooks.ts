@@ -23,7 +23,7 @@ export const useEntitySettle = (interest: EntityWatch) => {
 	const active = useContext(ActiveScreenContext);
 	const { settled, tracker } = useSettleTracker();
 	const latestInterest = useRef(interest);
-	const subscription = useRef<EntityWatchSubscription | undefined>(undefined);
+	const subscription = useRef<undefined | EntityWatchSubscription>(undefined);
 	useEffect(() => {
 		latestInterest.current = interest;
 	});
@@ -47,9 +47,9 @@ export const useEntitySettle = (interest: EntityWatch) => {
 };
 
 export const useEntityRefresh = (options: {
-	readonly enabled?: boolean;
 	readonly blocked: boolean;
 	readonly identity: string;
+	readonly enabled?: boolean;
 	readonly interest: EntityWatch;
 	readonly onRefresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void>;
 }) => {
@@ -60,13 +60,13 @@ export const useEntityRefresh = (options: {
 	const latest = useRef(options);
 	const previous = useRef({ active, identity: options.identity });
 	const controller = useRef<
+		| undefined
 		| {
-				subscription: EntityWatchSubscription | undefined;
-				readonly client: RyotClient;
 				readonly identity: string;
+				readonly client: RyotClient;
+				subscription: undefined | EntityWatchSubscription;
 				readonly refresh: ReturnType<typeof createEntityRefresh>;
 		  }
-		| undefined
 	>(undefined);
 	useEffect(() => {
 		latest.current = options;

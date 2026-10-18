@@ -39,6 +39,51 @@ const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetReso
 
 const ManagedAssetUrlsContext = createContext<ReadonlyMap<string, string>>(new Map());
 
+export function useManagedAssetUrl(asset: undefined | ManagedAssetLocator) {
+	const urls = useContext(ManagedAssetUrlsContext);
+	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
+}
+
+export function useAssetUrl(asset: undefined | AssetLocator) {
+	const managedUrl = useManagedAssetUrl(asset?.type === "remote" ? undefined : asset);
+	return asset?.type === "remote" ? asset.url : managedUrl;
+}
+
+export function ManagedAssetProvider(props: {
+	readonly children: ReactNode;
+	readonly assets: readonly ManagedAssetLocator[];
+}) {
+	const parentUrls = useContext(ManagedAssetUrlsContext);
+	const stableAssets = useStableManagedAssetLocators(props.assets);
+	const batches = useMemo(() => managedAssetBatches(stableAssets), [stableAssets]);
+	const [resolvedBatches, setResolvedBatches] = useState<
+		ReadonlyMap<string, ReadonlyMap<string, string>>
+	>(new Map());
+
+	const onResolved = useCallback((batchKey: string, urls: ReadonlyMap<string, string>) => {
+		setResolvedBatches((previous) => new Map(previous).set(batchKey, urls));
+	}, []);
+
+	const urls = useMemo(() => {
+		const merged = new Map(parentUrls);
+		for (const batch of batches) {
+			for (const [key, url] of resolvedBatches.get(batch.key) ?? []) {
+				merged.set(key, url);
+			}
+		}
+		return merged;
+	}, [parentUrls, batches, resolvedBatches]);
+
+	return (
+		<ManagedAssetUrlsContext.Provider value={urls}>
+			{batches.map((batch) => (
+				<ManagedAssetBatchResolver key={batch.key} batchKey={batch.key} onResolved={onResolved} />
+			))}
+			{props.children}
+		</ManagedAssetUrlsContext.Provider>
+	);
+}
+
 function ManagedAssetBatchResolver(props: {
 	readonly batchKey: string;
 	readonly onResolved: (batchKey: string, urls: ReadonlyMap<string, string>) => void;
@@ -76,49 +121,4 @@ function ManagedAssetBatchResolver(props: {
 	}, [resolutions, schedule]);
 
 	return null;
-}
-
-export function ManagedAssetProvider(props: {
-	readonly assets: readonly ManagedAssetLocator[];
-	readonly children: ReactNode;
-}) {
-	const parentUrls = useContext(ManagedAssetUrlsContext);
-	const stableAssets = useStableManagedAssetLocators(props.assets);
-	const batches = useMemo(() => managedAssetBatches(stableAssets), [stableAssets]);
-	const [resolvedBatches, setResolvedBatches] = useState<
-		ReadonlyMap<string, ReadonlyMap<string, string>>
-	>(new Map());
-
-	const onResolved = useCallback((batchKey: string, urls: ReadonlyMap<string, string>) => {
-		setResolvedBatches((previous) => new Map(previous).set(batchKey, urls));
-	}, []);
-
-	const urls = useMemo(() => {
-		const merged = new Map(parentUrls);
-		for (const batch of batches) {
-			for (const [key, url] of resolvedBatches.get(batch.key) ?? []) {
-				merged.set(key, url);
-			}
-		}
-		return merged;
-	}, [parentUrls, batches, resolvedBatches]);
-
-	return (
-		<ManagedAssetUrlsContext.Provider value={urls}>
-			{batches.map((batch) => (
-				<ManagedAssetBatchResolver key={batch.key} batchKey={batch.key} onResolved={onResolved} />
-			))}
-			{props.children}
-		</ManagedAssetUrlsContext.Provider>
-	);
-}
-
-export function useManagedAssetUrl(asset: ManagedAssetLocator | undefined) {
-	const urls = useContext(ManagedAssetUrlsContext);
-	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
-}
-
-export function useAssetUrl(asset: AssetLocator | undefined) {
-	const managedUrl = useManagedAssetUrl(asset?.type === "remote" ? undefined : asset);
-	return asset?.type === "remote" ? asset.url : managedUrl;
 }

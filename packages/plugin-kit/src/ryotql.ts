@@ -8,7 +8,7 @@ export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export {
 	eventIsAfter,
+	latestEventField,
 	eventOrderAscending,
 	eventOrderDescending,
-	latestEventField,
 } from "@ryot-app/ryotql-recipes/event-expressions";

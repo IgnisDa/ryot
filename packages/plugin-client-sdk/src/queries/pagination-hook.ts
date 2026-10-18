@@ -39,7 +39,7 @@ export const usePagination = <Page, Param>(
 		pagination.configure(options);
 	});
 	const controller = useRef<
-		{ readonly pagination: typeof pagination; readonly lifetime: AbortController } | undefined
+		undefined | { readonly lifetime: AbortController; readonly pagination: typeof pagination }
 	>(undefined);
 	const run = useCallback(
 		(work: Effect.Effect<void>) => {
@@ -74,7 +74,7 @@ export const usePagination = <Page, Param>(
 	const error = snapshot.cause === null ? null : Cause.squash(snapshot.cause);
 	const isPending = snapshot.pages.length === 0 && snapshot.cause === null;
 	const isError = snapshot.cause !== null;
-	let status: "pending" | "success" | "error" = "success";
+	let status: "error" | "pending" | "success" = "success";
 	if (isError) {
 		status = "error";
 	} else if (isPending) {
@@ -112,10 +112,10 @@ export const useRyotInfiniteQuery = <
 	input: Input,
 	options: {
 		readonly initialPageParam: Param;
+		readonly enabled?: boolean | undefined;
+		readonly mode?: "append" | "replace" | undefined;
 		readonly getPageInput: (input: Input, param: Param) => QueryInput;
 		readonly getNextPageParam: PaginationOptions<Page, Param>["getNextPageParam"];
-		readonly mode?: "append" | "replace" | undefined;
-		readonly enabled?: boolean | undefined;
 	},
 ) => {
 	const context = useContext(RyotContext);

@@ -1,7 +1,7 @@
 type ApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => Promise<A>;
 
 const NativeError = Error;
-let approvedDependencyRuntime: ApprovedDependencyRuntime | undefined;
+let approvedDependencyRuntime: undefined | ApprovedDependencyRuntime;
 
 export const configureApprovedDependencyRuntime = (runtime: ApprovedDependencyRuntime) => {
 	if (approvedDependencyRuntime !== undefined) {

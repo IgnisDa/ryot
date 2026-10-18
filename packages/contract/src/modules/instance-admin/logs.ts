@@ -17,17 +17,17 @@ const ServerLogsLimit = Schema.Int.pipe(
 	Schema.check(Schema.isLessThanOrEqualTo(100)),
 );
 
+export class ServerLogsFailure extends Schema.TaggedError<
+	ServerLogsFailure,
+	{ readonly brand: unique symbol }
+>()("ServerLogsFailure", { reason: Schema.Struct({ code: Schema.Literal("log-read-failed") }) }) {}
+
 export class ServerLogsNotFound extends Schema.TaggedError<
 	ServerLogsNotFound,
 	{ readonly brand: unique symbol }
 >()("ServerLogsNotFound", {
 	reason: Schema.Struct({ code: Schema.Literal("log-file-unavailable") }),
 }) {}
-
-export class ServerLogsFailure extends Schema.TaggedError<
-	ServerLogsFailure,
-	{ readonly brand: unique symbol }
->()("ServerLogsFailure", { reason: Schema.Struct({ code: Schema.Literal("log-read-failed") }) }) {}
 
 const errors = [
 	ServerLogsNotFound.pipe(HttpApiSchema.status(404)),

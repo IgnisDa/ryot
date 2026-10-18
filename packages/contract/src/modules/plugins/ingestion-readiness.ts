@@ -32,14 +32,14 @@ export const IngestionReadiness = Schema.Struct({
 export type IngestionReadiness = typeof IngestionReadiness.Type;
 
 export const evaluateIngestionReadiness = (input: {
-	readonly metadata: IngestionReadinessMetadata;
 	readonly operation: string;
-	readonly kind: "script" | "workflow";
-	readonly sourcePlan?: SourcePlan | undefined;
 	readonly settingsSchema: AppSchema;
-	readonly settings?: Readonly<Record<string, unknown>> | undefined;
-	readonly connectedFields?: ReadonlyArray<string> | undefined;
-	readonly acceptedPlan?: IngestionPlan | undefined;
+	readonly kind: "script" | "workflow";
+	readonly sourcePlan?: undefined | SourcePlan;
+	readonly metadata: IngestionReadinessMetadata;
+	readonly acceptedPlan?: undefined | IngestionPlan;
+	readonly connectedFields?: undefined | ReadonlyArray<string>;
+	readonly settings?: undefined | Readonly<Record<string, unknown>>;
 }): IngestionReadiness => {
 	const settings =
 		input.settings === undefined

@@ -40,13 +40,13 @@ const PackageJson = Schema.Struct({
 	),
 });
 
-type BuildOptions = { readonly cwd: string; readonly output: string | undefined };
-
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
 
-type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifestSchema>;
-
 type SourceFile = { readonly path: string; readonly contents: Uint8Array };
+
+type BuildOptions = { readonly cwd: string; readonly output: string | undefined };
+
+type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifestSchema>;
 
 const isWithin = (path: Path.Path, root: string, candidate: string) => {
 	const relative = path.relative(root, candidate);
@@ -214,7 +214,7 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
 	compiledScripts: PluginArchivePackage["compiledScripts"],
-	compiledClient: PluginClientArtifact | undefined,
+	compiledClient: undefined | PluginClientArtifact,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

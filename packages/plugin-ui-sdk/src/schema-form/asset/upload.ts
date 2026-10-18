@@ -5,7 +5,7 @@ export type SchemaAssetUploadOutcome =
 	| { readonly kind: "uploaded"; readonly asset: AssetLocator };
 
 export type SchemaAssetUpload = (request: {
-	readonly fileName: string;
 	readonly source: Blob;
+	readonly fileName: string;
 	readonly contentType: string;
 }) => Promise<SchemaAssetUploadOutcome>;

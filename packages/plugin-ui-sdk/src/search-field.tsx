@@ -17,7 +17,7 @@ type SearchFieldProps = {
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
 	readonly onChange: (value: string) => void;
-	readonly inputRef?: RefObject<HTMLInputElement | null>;
+	readonly inputRef?: RefObject<null | HTMLInputElement>;
 };
 
 export function SearchField({

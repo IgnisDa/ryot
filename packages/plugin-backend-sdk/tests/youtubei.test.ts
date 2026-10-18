@@ -255,7 +255,7 @@ describe("Youtubei sandbox adapter", () => {
 				const requests: {
 					url: string;
 					body: string | undefined;
-					headers: Record<string, string> | undefined;
+					headers: undefined | Record<string, string>;
 				}[] = [];
 				const host = {
 					httpCall: (_method, url, options) =>
@@ -295,7 +295,7 @@ describe("Youtubei sandbox adapter", () => {
 	])("scopes the authentication origin for $url", ({ url, expectedOrigin }) =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const origins: (string | null)[] = [];
+				const origins: (null | string)[] = [];
 				const host = {
 					httpCall: (_method, _url, options) =>
 						Effect.sync(() => {

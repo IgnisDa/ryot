@@ -54,6 +54,6 @@ export const latestEventField = (
 	input: {
 		readonly select: ScalarExpression;
 		readonly where?: Predicate | undefined;
-		readonly joins?: readonly Join[] | undefined;
+		readonly joins?: undefined | readonly Join[];
 	},
 ) => first(event, { ...input, orderBy: eventOrderDescending(event) });

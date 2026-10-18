@@ -12,7 +12,7 @@ import {
 import { zipSync } from "fflate";
 import { afterEach, assert, expect, test } from "vitest";
 
-let activeBinding: SandboxFilesystemBinding | undefined;
+let activeBinding: undefined | SandboxFilesystemBinding;
 configureSandboxFilesystem(() => activeBinding);
 
 const makeBinding = (overrides: Partial<SandboxFilesystemBinding>): SandboxFilesystemBinding => ({

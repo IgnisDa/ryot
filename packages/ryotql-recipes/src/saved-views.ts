@@ -59,7 +59,7 @@ export type SavedViewResult<Item> = {
 	readonly pageInfo: {
 		readonly limit: number;
 		readonly hasMore: boolean;
-		readonly nextCursor: string | null;
+		readonly nextCursor: null | string;
 	};
 };
 
@@ -385,7 +385,7 @@ export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
 	settings: Pick<
 		EntityBrowserSavedViewSettingsValue,
-		"sourceName" | "subject" | "searchFields" | "filterFields"
+		"subject" | "sourceName" | "searchFields" | "filterFields"
 	>,
 	input: FilterInput & { readonly searchText?: string | undefined } = {},
 ): Result.Result<PreparedRecipe<number>, Error> =>
@@ -442,7 +442,7 @@ export type LibrarySearchResult = {
 	readonly hits: readonly LibrarySearchHit[];
 };
 
-const summaryExpression = (source: RowsQuery, key: string | null) => {
+const summaryExpression = (source: RowsQuery, key: null | string) => {
 	if (key === null) {
 		return Result.succeed(null);
 	}
@@ -566,6 +566,8 @@ export const ResultsTablePageInput = Schema.Struct({
 	view: Schema.NullOr(SavedViewPageIdentity),
 });
 
+export type ResultsTableResult = SavedViewResult<ResultsTableResultItem>;
+
 export type ResultsTableResultItem = {
 	readonly key: string;
 	readonly entityId: string | undefined;
@@ -575,8 +577,6 @@ export type ResultsTableResultItem = {
 		readonly value: SavedViewDisplayValue;
 	}[];
 };
-
-export type ResultsTableResult = SavedViewResult<ResultsTableResultItem>;
 
 type ResultsTableRecipeInput = FilterInput & {
 	readonly after?: string | undefined;

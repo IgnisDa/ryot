@@ -8,8 +8,8 @@ export const SANDBOX_COMPILED_FORMAT = 1 as const;
 
 export type CompiledSandboxModule = {
 	readonly javascript: string;
-	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
 	readonly format: typeof SANDBOX_COMPILED_FORMAT;
+	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
 };
 
 export const CompilerWorkerRequest = Schema.Struct({

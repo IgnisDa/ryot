@@ -662,9 +662,9 @@ export const PluginBridgeRyotQLRequest = strictStruct({
 	type: Schema.Literal("ryotql-request"),
 });
 
-export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRyotQLRequest>;
-
 export type PluginRyotQLRequest = Pick<PluginBridgeRyotQLRequest, "document">;
+
+export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRyotQLRequest>;
 
 export const PluginBridgeRyotQLCancel = strictStruct({
 	requestId: Schema.String,

@@ -8,11 +8,11 @@ export type PurchaseCompleteEmailProps = {
 	planType: string;
 	renewOn?: string;
 	details?:
-		| { kind: "self_hosted"; key: string }
+		| { key: string; kind: "self_hosted" }
 		| {
 				kind: "cloud";
 				auth:
-					| { provider: "google"; email: string }
+					| { email: string; provider: "google" }
 					| { username: string; provider: "password"; passwordChangeUrl: string };
 		  };
 };

@@ -26,9 +26,9 @@ const createBackAdapter = () => {
 
 function ConfirmationPage(props: {
 	readonly events: Event[];
-	readonly adapter: OverlayBackAdapter;
 	readonly pending?: boolean;
 	readonly errorMessage?: string;
+	readonly adapter: OverlayBackAdapter;
 	readonly confirmationPhrase?: string;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);

@@ -21,81 +21,21 @@ import {
 import { entityEditorTargetsRecipe } from "./recipes";
 import { schemaFormIcons, unsupportedFileUpload } from "./schema-form-icons";
 
-function TargetRow(props: {
-	readonly error: string | undefined;
-	readonly definition: EditorRelationshipDefinition;
-	readonly target: EditorRelationshipTarget;
-	readonly onRemove: () => void;
-	readonly onChange: (properties: EditorProperties) => void;
+export function RelationshipSection(props: {
+	readonly onReorder: () => void;
+	readonly packageId: PluginPackageId;
 	readonly uploadAsset: SchemaAssetUpload;
 	readonly renderAsset: SchemaAssetRenderer;
-	readonly onReorder: () => void;
-	readonly fixed: boolean;
-}) {
-	const { target, definition } = props;
-	const schema = definition.propertiesSchema;
-	const form = useSchemaForm({ schemas: [schema], onSubmit: () => undefined });
-	const [initialValues] = useState(() => entityFormValues(schema, target.properties));
-	useLayoutEffect(() => {
-		form.reset({ fields: initialValues });
-	}, [form, initialValues]);
-	const editable = describeSchemaFormFields(schema).fields.length > 0;
-	return (
-		<li className="flex flex-col gap-2 rounded-lg border border-border-card bg-surface p-3">
-			<div className="flex flex-row items-center gap-2">
-				<span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{target.name}</span>
-				{props.fixed ? null : (
-					<Button
-						size="sm"
-						variant="ghost"
-						onClick={props.onRemove}
-						aria-label={`Remove ${target.name} from ${definition.name}`}
-					>
-						Remove
-					</Button>
-				)}
-			</div>
-			{editable ? (
-				<SchemaForm
-					form={form}
-					schema={schema}
-					icons={schemaFormIcons}
-					onReorder={props.onReorder}
-					uploadAsset={props.uploadAsset}
-					renderAsset={props.renderAsset}
-					uploadFile={unsupportedFileUpload}
-					onChange={() =>
-						props.onChange(
-							entityPropertiesPayload(
-								schema,
-								form.state.values.fields,
-								"create",
-								target.properties,
-							),
-						)
-					}
-				/>
-			) : null}
-			{props.error === undefined ? null : <FieldMessage>{props.error}</FieldMessage>}
-		</li>
-	);
-}
-
-export function RelationshipSection(props: {
-	readonly packageId: PluginPackageId;
+	readonly errors: ReadonlyMap<string, string>;
 	readonly definition: EditorRelationshipDefinition;
 	readonly targets: readonly EditorRelationshipTarget[];
-	readonly errors: ReadonlyMap<string, string>;
 	readonly onChange: (targets: readonly EditorRelationshipTarget[]) => void;
-	readonly uploadAsset: SchemaAssetUpload;
-	readonly renderAsset: SchemaAssetRenderer;
-	readonly onReorder: () => void;
 }) {
 	const { targets, definition } = props;
 	const fixed = definition.direction === "parent";
 	const client = useRyot();
 	const schedule = useRyotSchedule();
-	const cancel = useRef<(() => void) | undefined>(undefined);
+	const cancel = useRef<undefined | (() => void)>(undefined);
 	const [picking, setPicking] = useState(false);
 	const [failed, setFailed] = useState(false);
 	useEffect(() => () => cancel.current?.(), []);
@@ -187,5 +127,65 @@ export function RelationshipSection(props: {
 			)}
 			{failed ? <FieldMessage>Could not add. Try again.</FieldMessage> : null}
 		</section>
+	);
+}
+
+function TargetRow(props: {
+	readonly fixed: boolean;
+	readonly onRemove: () => void;
+	readonly onReorder: () => void;
+	readonly error: string | undefined;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly target: EditorRelationshipTarget;
+	readonly renderAsset: SchemaAssetRenderer;
+	readonly definition: EditorRelationshipDefinition;
+	readonly onChange: (properties: EditorProperties) => void;
+}) {
+	const { target, definition } = props;
+	const schema = definition.propertiesSchema;
+	const form = useSchemaForm({ schemas: [schema], onSubmit: () => undefined });
+	const [initialValues] = useState(() => entityFormValues(schema, target.properties));
+	useLayoutEffect(() => {
+		form.reset({ fields: initialValues });
+	}, [form, initialValues]);
+	const editable = describeSchemaFormFields(schema).fields.length > 0;
+	return (
+		<li className="flex flex-col gap-2 rounded-lg border border-border-card bg-surface p-3">
+			<div className="flex flex-row items-center gap-2">
+				<span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{target.name}</span>
+				{props.fixed ? null : (
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={props.onRemove}
+						aria-label={`Remove ${target.name} from ${definition.name}`}
+					>
+						Remove
+					</Button>
+				)}
+			</div>
+			{editable ? (
+				<SchemaForm
+					form={form}
+					schema={schema}
+					icons={schemaFormIcons}
+					onReorder={props.onReorder}
+					uploadAsset={props.uploadAsset}
+					renderAsset={props.renderAsset}
+					uploadFile={unsupportedFileUpload}
+					onChange={() =>
+						props.onChange(
+							entityPropertiesPayload(
+								schema,
+								form.state.values.fields,
+								"create",
+								target.properties,
+							),
+						)
+					}
+				/>
+			) : null}
+			{props.error === undefined ? null : <FieldMessage>{props.error}</FieldMessage>}
+		</li>
 	);
 }

@@ -14,7 +14,7 @@ import { Result, Schema } from "effect";
 import { IsoDateString } from "./codecs";
 
 export const notificationChannelsRecipe = defineRecipe(
-	(input: { readonly after?: string | undefined; readonly limit: number }) => {
+	(input: { readonly limit: number; readonly after?: string | undefined }) => {
 		const notificationChannel = table("notificationChannel", "notificationChannel");
 		return {
 			map: ({ notificationChannels }) => Result.succeed(notificationChannels),
@@ -40,6 +40,6 @@ export const notificationChannelsRecipe = defineRecipe(
 	},
 );
 
-export type NotificationChannelsResult = Recipe.Success<typeof notificationChannelsRecipe>;
-
 export type NotificationChannelSummary = NotificationChannelsResult["items"][number];
+
+export type NotificationChannelsResult = Recipe.Success<typeof notificationChannelsRecipe>;
