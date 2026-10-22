@@ -151,9 +151,8 @@ const createParentCompletion = (
 				entityId: trigger.parentEntityId,
 				sessionEntityId: trigger.parentEntityId,
 				properties: {
-					completedOn: occurredAt,
-					completionMode: "custom_timestamps",
 					...(snapshot.agreedConsumedOn === null ? {} : { consumedOn: snapshot.agreedConsumedOn }),
+					...(snapshot.allDatesUnknown ? { dateUnknown: true } : {}),
 				},
 			},
 		])

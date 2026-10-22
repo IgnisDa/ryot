@@ -5,11 +5,13 @@ import {
 	castDate,
 	castNumber,
 	castText,
+	coalesce,
 	column,
 	conditional,
 	count,
 	currentDate,
 	descending,
+	divide,
 	eq,
 	first,
 	gt,
@@ -21,8 +23,10 @@ import {
 	latestEventField,
 	literal,
 	lte,
+	multiply,
 	neq,
 	or,
+	round,
 	selectedInclude,
 	type SelectedSelection,
 	table,
@@ -256,6 +260,13 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		eq(column(progressEvent, "eventSchemaSlug"), literal("progress")),
 	);
 	const latestProgress = latestEventOrderExpressions(progressWhere, progressAlias);
+	const progressProperty = (name: string) =>
+		castNumber(jsonPath(column(progressEvent, "properties"), name));
+	const entityProperty = (name: string) => castNumber(jsonPath(column(entity, "properties"), name));
+	const hasPosition = or(
+		isNotNull(progressProperty("animeEpisode")),
+		isNotNull(progressProperty("mangaChapter")),
+	);
 	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
 	const snapshotAlias = `${alias}SnapshotBoundary`;
 	const snapshotEvent = table("event", snapshotAlias);
@@ -281,10 +292,30 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 					orderExpressionsAreAfter(latestProgress, boundaryCompleteEvent),
 					orderExpressionsAreAfter(latestProgress, boundarySnapshotEvent),
 				),
-				latestEventField(progressEvent, {
-					where: progressWhere,
-					select: castNumber(jsonPath(column(progressEvent, "properties"), "progressPercent")),
-				}),
+				coalesce(
+					divide(
+						round(
+							multiply(
+								divide(
+									latestEventField(progressEvent, {
+										where: and(progressWhere, hasPosition),
+										select: coalesce(
+											progressProperty("animeEpisode"),
+											progressProperty("mangaChapter"),
+										),
+									}),
+									coalesce(entityProperty("episodes"), entityProperty("chapters")),
+								),
+								literal(10000),
+							),
+						),
+						literal(100),
+					),
+					latestEventField(progressEvent, {
+						where: progressWhere,
+						select: progressProperty("progressPercent"),
+					}),
+				),
 				literal(null),
 			),
 		),

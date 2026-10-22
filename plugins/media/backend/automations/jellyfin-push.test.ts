@@ -49,10 +49,10 @@ const schema = entitySchemaRecord({
 
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
 	eventAutomationContext({
+		properties: {},
 		entityId: "movie-1",
 		entitySchemaSlug: "movie",
 		eventSchemaSlug: "complete",
-		properties: { completionMode: "just_now" },
 		...overrides,
 	});
 

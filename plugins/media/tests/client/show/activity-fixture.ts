@@ -23,7 +23,7 @@ const emptyEventProperties = {
 	consumedOn: null,
 };
 
-const emptyParentProperties = { ...emptyEventProperties, startedOn: null, completedOn: null };
+const emptyParentProperties = { ...emptyEventProperties, startedOn: null, dateUnknown: null };
 
 const firstEpisode = {
 	seasonNumber: 1,

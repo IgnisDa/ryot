@@ -27,7 +27,7 @@ export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
 export type MediaEpisodicParentEvent = MediaActivityEventRow & {
 	readonly kind: "parent";
 	readonly startedOn: string | null;
-	readonly completedOn: string | null;
+	readonly dateUnknown: boolean | null;
 	readonly eventSchemaSlug: MediaEpisodicBeat | "complete" | "review" | "add-to-media-library";
 };
 

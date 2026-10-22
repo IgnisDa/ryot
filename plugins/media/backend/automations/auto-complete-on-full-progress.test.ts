@@ -154,11 +154,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 								entityId: "entity-1",
 								eventSchemaSlug: "complete",
 								occurredAt: "2026-02-03T04:05:06.000Z",
-								properties: {
-									consumedOn: "Jellyfin",
-									completionMode: "custom_timestamps",
-									completedOn: "2026-02-03T04:05:06.000Z",
-								},
+								properties: { consumedOn: "Jellyfin" },
 							},
 						],
 					]);
@@ -191,14 +187,18 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			).pipe(
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
-					expect(created[0]).toMatchObject([
+					expect(created[0]).toEqual([
 						{
+							entityId: "entity-1",
+							eventSchemaSlug: "complete",
+							properties: { consumedOn: "Plex" },
 							occurredAt: "2026-02-03T04:05:06.000Z",
-							properties: { consumedOn: "Plex", completedOn: "2026-02-03T04:05:06.000Z" },
 						},
 						{
+							entityId: "entity-1",
+							eventSchemaSlug: "complete",
 							occurredAt: "2026-02-04T04:05:06.000Z",
-							properties: { consumedOn: "Jellyfin", completedOn: "2026-02-04T04:05:06.000Z" },
+							properties: { consumedOn: "Jellyfin" },
 						},
 					]);
 				}),
@@ -229,93 +229,141 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		},
 	);
 
-	it("waits for complete anime coverage and emits on the completing episode", () => {
-		const events = [
-			eventRecord({
-				id: "episode-1",
-				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { animeEpisode: 1, progressPercent: 100 },
-			}),
-			eventRecord({
-				id: "episode-2",
-				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: { animeEpisode: 2, progressPercent: 100 },
-			}),
-		];
-		const complete = createHost({ events, entityProperties: { episodes: 2 } });
-		const incomplete = createHost({
-			events: events.slice(0, 1),
-			entityProperties: { episodes: 2 },
-		});
+	it("completes anime once the cumulative position reaches the episode total", () => {
+		const atTotal = createHost({ entityProperties: { episodes: 28 } });
+		const beforeTotal = createHost({ entityProperties: { episodes: 28 } });
 		return Effect.runPromise(
 			Effect.all(
 				[
 					run(
 						eventAutomationContext({
-							id: "episode-2",
 							entityId: "entity-1",
 							entitySchemaSlug: "anime",
-							properties: { animeEpisode: 2, progressPercent: 100 },
+							properties: { animeEpisode: 28 },
+							occurredAt: "2026-03-01T00:00:00.000Z",
 						}),
-						complete.host,
+						atTotal.host,
 					),
 					run(
 						eventAutomationContext({
-							id: "episode-1",
 							entityId: "entity-1",
 							entitySchemaSlug: "anime",
-							properties: { animeEpisode: 1, progressPercent: 100 },
+							properties: { animeEpisode: 12 },
 						}),
-						incomplete.host,
+						beforeTotal.host,
 					),
 				],
 				{ concurrency: "unbounded" },
 			).pipe(
 				Effect.map(() => {
-					expect(complete.created).toHaveLength(1);
-					expect(incomplete.created).toHaveLength(0);
+					expect(atTotal.created).toEqual([
+						[
+							{
+								properties: {},
+								entityId: "entity-1",
+								eventSchemaSlug: "complete",
+								occurredAt: "2026-03-01T00:00:00.000Z",
+							},
+						],
+					]);
+					expect(beforeTotal.created).toEqual([]);
 					return undefined;
 				}),
 			),
 		);
 	});
 
-	it("submits distinct manga coverage passes together when both close in one batch", () => {
-		const events = [
-			eventRecord({
-				id: "chapter-1a",
-				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { mangaChapter: 1, progressPercent: 100 },
-			}),
-			eventRecord({
-				id: "chapter-2a",
-				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: { mangaChapter: 2, progressPercent: 100 },
-			}),
-			eventRecord({
-				id: "chapter-1b",
-				occurredAt: "2026-01-03T00:00:00.000Z",
-				properties: { mangaChapter: 1, progressPercent: 100 },
-			}),
-			eventRecord({
-				id: "chapter-2b",
-				occurredAt: "2026-01-04T00:00:00.000Z",
-				properties: { mangaChapter: 2, progressPercent: 100 },
-			}),
-		];
-		const { host, created } = createHost({ events, entityProperties: { chapters: 2 } });
+	it("completes manga on a full percent without a position and ignores unknown totals", () => {
+		const fullPercent = createHost({ entityProperties: { chapters: 40 } });
+		const unknownTotal = createHost({ entityProperties: {} });
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(
+						eventAutomationContext({
+							entityId: "entity-1",
+							entitySchemaSlug: "manga",
+							properties: { progressPercent: 100 },
+						}),
+						fullPercent.host,
+					),
+					run(
+						eventAutomationContext({
+							entityId: "entity-1",
+							entitySchemaSlug: "manga",
+							properties: { mangaChapter: 99 },
+						}),
+						unknownTotal.host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(fullPercent.created).toHaveLength(1);
+					expect(unknownTotal.created).toEqual([]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("does not complete again when an equal-or-later completion exists", () => {
+		const completion = eventRecord({
+			id: "completion-1",
+			eventSchemaSlug: "complete",
+			occurredAt: "2026-03-01T00:00:00.000Z",
+		});
+		const repeated = createHost({ events: [completion], entityProperties: { episodes: 28 } });
+		const rewatch = createHost({ events: [completion], entityProperties: { episodes: 28 } });
+		return Effect.runPromise(
+			Effect.all(
+				[
+					run(
+						eventAutomationContext({
+							entityId: "entity-1",
+							entitySchemaSlug: "anime",
+							properties: { animeEpisode: 28 },
+							occurredAt: "2026-03-01T00:00:00.000Z",
+						}),
+						repeated.host,
+					),
+					run(
+						eventAutomationContext({
+							entityId: "entity-1",
+							entitySchemaSlug: "anime",
+							properties: { animeEpisode: 28 },
+							occurredAt: "2026-04-01T00:00:00.000Z",
+						}),
+						rewatch.host,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(repeated.created).toEqual([]);
+					expect(rewatch.created).toHaveLength(1);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("completes each later cycle once when several positions reach the total in one batch", () => {
+		const { host, created } = createHost({ entityProperties: { chapters: 2 } });
 		return Effect.runPromise(
 			run(
 				eventBatch(
 					eventAutomationContext({
-						id: "chapter-2a",
+						id: "first",
 						entitySchemaSlug: "manga",
-						properties: { mangaChapter: 2, progressPercent: 100 },
+						properties: { mangaChapter: 2 },
+						occurredAt: "2026-01-02T00:00:00.000Z",
 					}),
 					eventAutomationContext({
-						id: "chapter-2b",
+						id: "second",
 						entitySchemaSlug: "manga",
-						properties: { mangaChapter: 2, progressPercent: 100 },
+						properties: { mangaChapter: 2 },
+						occurredAt: "2026-01-04T00:00:00.000Z",
 					}),
 				),
 				host,
@@ -323,48 +371,9 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
 					expect(created[0]?.map((event) => event.occurredAt)).toEqual([
-						"2026-01-02T00:00:00+00:00",
-						"2026-01-04T00:00:00+00:00",
+						"2026-01-02T00:00:00.000Z",
+						"2026-01-04T00:00:00.000Z",
 					]);
-				}),
-			),
-		);
-	});
-
-	it("combines every progress event page before checking coverage", () => {
-		const firstPage = Array.from({ length: 100 }, (_, index) =>
-			eventRecord({
-				id: `episode-${index + 1}`,
-				properties: { progressPercent: 100, animeEpisode: index + 1 },
-				occurredAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
-			}),
-		);
-		const finalEvent = eventRecord({
-			id: "episode-101",
-			properties: { animeEpisode: 101, progressPercent: 100 },
-			occurredAt: new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
-		});
-		const { host, created, documents } = createHost({
-			entityProperties: { episodes: 101 },
-			eventPages: [firstPage, [finalEvent]],
-		});
-		return Effect.runPromise(
-			run(
-				eventAutomationContext({
-					id: finalEvent.id,
-					entityId: "entity-1",
-					entitySchemaSlug: "anime",
-					properties: { animeEpisode: 101, progressPercent: 100 },
-				}),
-				host,
-			).pipe(
-				Effect.map(() => {
-					expect(created).toHaveLength(1);
-					expect(documents.filter((document) => "events" in document.queries)).toMatchObject([
-						{ queries: { events: { output: { pagination: {} } } } },
-						{ queries: { events: { output: { pagination: { after: "events-1" } } } } },
-					]);
-					return undefined;
 				}),
 			),
 		);

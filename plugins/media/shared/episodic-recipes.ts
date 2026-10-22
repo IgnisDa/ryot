@@ -19,6 +19,7 @@ import {
 	IsoDateString,
 	join,
 	literal,
+	or,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 	selectedAggregate,
@@ -43,6 +44,7 @@ import {
 import {
 	entityId,
 	entityIdentitySelection,
+	propertyBoolean,
 	propertyJson,
 	propertyNumber,
 	propertyText,
@@ -309,7 +311,10 @@ export const episodicParentEventsQuery = (input: {
 		selection: (event) => ({
 			...mediaActivityEventSelection(event),
 			startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
-			completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
+			dateUnknown: selectedField(
+				propertyBoolean(event, "dateUnknown"),
+				Schema.NullOr(Schema.Boolean),
+			),
 			eventSchemaSlug: selectedField(
 				column(event, "eventSchemaSlug"),
 				Schema.Literals(mediaActivityParentSlugs),
@@ -470,6 +475,10 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			entitySchemaPredicate(episode, input.config.episodeSchemaSlug, input.reference),
 			schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 			eq(column(event, "eventSchemaSlug"), literal("complete")),
+			or(
+				isNull(propertyBoolean(event, "dateUnknown")),
+				eq(propertyBoolean(event, "dateUnknown"), literal(false)),
+			),
 			episodicEpisodeMembership(input.config, episode, input.entityId, `${input.alias}Member`),
 		),
 		groupBy: {

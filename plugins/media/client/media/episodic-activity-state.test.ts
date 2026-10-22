@@ -119,7 +119,7 @@ describe("episodic activity state", () => {
 					startedOn: null,
 					isSpoiler: null,
 					consumedOn: null,
-					completedOn: null,
+					dateUnknown: null,
 					id: "parent-dropped",
 					eventSchemaSlug: "dropped",
 					createdAt: "2025-11-03T12:00:05.000Z",

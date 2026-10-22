@@ -1,7 +1,11 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import { episodicParentCoverageQuery, mediaEpisodicRecipes } from "./episodic-recipes";
+import {
+	episodicParentCoverageQuery,
+	episodicWatchDaysQuery,
+	mediaEpisodicRecipes,
+} from "./episodic-recipes";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-expressions";
 
 const fixtureRecipes = mediaEpisodicRecipes({
@@ -98,7 +102,7 @@ const PARENT_EVENT_ROW = {
 	isSpoiler: null,
 	startedOn: null,
 	consumedOn: null,
-	completedOn: null,
+	dateUnknown: null,
 	id: "parent-complete",
 	eventSchemaSlug: "complete",
 	createdAt: "2024-02-02T10:00:00.000Z",
@@ -503,5 +507,22 @@ describe("episodic media recipes", () => {
 		expect(decodeActivity({ watchCount: 3 })).toMatchObject({
 			success: { watchCount: 3, coverage: [{ id: "parent-1", episodeTotal: 6, watchedTotal: 2 }] },
 		});
+	});
+});
+
+describe("episodic watch days", () => {
+	it("leaves completions with an unknown date out of the watch-day buckets", () => {
+		const query = episodicWatchDaysQuery({
+			limit: 10,
+			alias: "days",
+			timeZone: "UTC",
+			entityId: "show-1",
+			orderProperties: [],
+			episodeFields: () => ({}),
+			reference: { kind: "self" },
+			config: podcastEpisodicKindConfig,
+		});
+
+		expect(JSON.stringify(query)).toContain("dateUnknown");
 	});
 });

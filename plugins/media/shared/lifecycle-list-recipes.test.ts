@@ -129,6 +129,47 @@ describe("flat lifecycle list recipe", () => {
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
 
+	it("reads the latest position from events that carry one", () => {
+		const recipe = flatByLifecycleStateRecipe({
+			limit: 1,
+			states: ["in_progress"],
+			reference: { kind: "self" },
+		});
+		const field = (key: string) => {
+			const output = recipe.document.queries["items"]?.output;
+			if (output?.type !== "rows") {
+				throw new Error("Expected rows");
+			}
+			return JSON.stringify(output.fields.find((entry) => "key" in entry && entry.key === key));
+		};
+
+		expect(field("animeEpisode")).toContain('"type":"isNotNull"');
+		expect(field("mangaChapter")).toContain('"type":"isNotNull"');
+		expect(field("mangaVolume")).toContain('"type":"isNotNull"');
+	});
+
+	it("derives the in-progress percent from the cumulative position over the total", () => {
+		const recipe = flatByLifecycleStateRecipe({
+			limit: 1,
+			states: ["in_progress"],
+			reference: { kind: "self" },
+		});
+		const output = recipe.document.queries["items"]?.output;
+		if (output?.type !== "rows") {
+			throw new Error("Expected rows");
+		}
+		const percent = JSON.stringify(
+			output.fields.find((entry) => "key" in entry && entry.key === "progressPercent"),
+		);
+
+		expect(percent).toContain('"operator":"divide"');
+		expect(percent).toContain('"animeEpisode"');
+		expect(percent).toContain('"mangaChapter"');
+		expect(percent).toContain('"episodes"');
+		expect(percent).toContain('"chapters"');
+		expect(percent).toContain('"progressPercent"');
+	});
+
 	it("reads every flat builtin schema and neither episodic one", () => {
 		const where = JSON.stringify(
 			flatByLifecycleStateRecipe({ limit: 1, states: ["backlog"], reference: { kind: "self" } })

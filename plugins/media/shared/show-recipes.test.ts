@@ -1205,7 +1205,7 @@ describe("media show query recipes", () => {
 			"timeSpent",
 			"consumedOn",
 			"startedOn",
-			"completedOn",
+			"dateUnknown",
 			"eventSchemaSlug",
 		]);
 		expect(episodeEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(

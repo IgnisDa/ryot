@@ -34,7 +34,7 @@ const PROGRESS_EVENT = {
 	isSpoiler: null,
 	listState: null,
 	mangaChapter: 45,
-	completedOn: null,
+	dateUnknown: null,
 	progressPercent: 62,
 	id: "manga-progress",
 	consumedOn: "Kavita",

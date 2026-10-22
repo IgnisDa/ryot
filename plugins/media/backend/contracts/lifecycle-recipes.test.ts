@@ -28,6 +28,7 @@ describe("media lifecycle recipes", () => {
 				"boundaryId",
 				"coverageComplete",
 				"agreedConsumedOn",
+				"allDatesUnknown",
 				"closingId",
 				"closingCreatedAt",
 				"closingOccurredAt",
@@ -71,6 +72,7 @@ describe("media lifecycle recipes", () => {
 									boundaryId: null,
 									state: "caught_up",
 									entityId: "episode-2",
+									allDatesUnknown: true,
 									coverageComplete: true,
 									boundaryCreatedAt: null,
 									id: "episode-complete-2",
@@ -94,6 +96,7 @@ describe("media lifecycle recipes", () => {
 
 			expect(calls).toBe(1);
 			expect(snapshot).toMatchObject({
+				allDatesUnknown: true,
 				coverageComplete: true,
 				parentEntityId: "show-1",
 				agreedConsumedOn: "Plex",

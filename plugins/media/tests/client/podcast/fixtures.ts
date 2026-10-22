@@ -127,7 +127,7 @@ export const decodePodcastActivity = (
 						startedOn: null,
 						isSpoiler: null,
 						consumedOn: null,
-						completedOn: null,
+						dateUnknown: null,
 						id: "podcast-complete",
 						eventSchemaSlug: "complete",
 						createdAt: "2025-11-06T12:00:05.000Z",
