@@ -9,13 +9,13 @@ import { buildReportSql, insertAnomalyReport, withReservedConnection } from "./s
 const reportPhase = "application_cache -> integration progress persistent cache";
 
 const targetByLegacyProvider = new Map([
-	["Audiobookshelf", { consumedOn: "", provider: "audiobookshelf" }],
-	["Emby", { provider: "emby", consumedOn: "emby" }],
-	["Jellyfin", { provider: "jellyfin_sink", consumedOn: "jellyfin_sink" }],
-	["Kodi", { provider: "kodi", consumedOn: "kodi" }],
-	["Komga", { provider: "komga", consumedOn: "komga" }],
-	["Plex", { provider: "plex_sink", consumedOn: "plex_sink" }],
-	["Youtube Music", { provider: "youtube_music", consumedOn: "youtube_music" }],
+	["Audiobookshelf", { provider: "audiobookshelf", consumedOn: "Audiobookshelf" }],
+	["Emby", { provider: "emby", consumedOn: "Emby" }],
+	["Jellyfin", { consumedOn: "Jellyfin", provider: "jellyfin_sink" }],
+	["Kodi", { provider: "kodi", consumedOn: "Kodi" }],
+	["Komga", { provider: "komga", consumedOn: "Komga" }],
+	["Plex", { consumedOn: "Plex", provider: "plex_sink" }],
+	["Youtube Music", { provider: "youtube_music", consumedOn: "YouTube Music" }],
 ]);
 
 const LegacyProgressCacheRow = Schema.Struct({
