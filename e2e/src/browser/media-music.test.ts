@@ -75,14 +75,14 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		yield* createEventFixture(client, {
 			entityId: seeded.track.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-01T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 		yield* createEventFixture(client, {
 			entityId: seeded.track.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-08T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 
 		const browser = yield* Playwright.Browser;

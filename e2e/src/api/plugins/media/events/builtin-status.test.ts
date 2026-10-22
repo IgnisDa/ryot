@@ -95,18 +95,11 @@ describe("Events built-in status schemas", () => {
 			const createResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
+						{ entityId, properties: {}, eventSchemaSlug: completeEventSchemaSlug },
 						{
 							entityId,
+							properties: { dateUnknown: true },
 							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { completionMode: "just_now" },
-						},
-						{
-							entityId,
-							eventSchemaSlug: completeEventSchemaSlug,
-							properties: {
-								completionMode: "custom_timestamps",
-								completedOn: "2026-03-27T18:30:00Z",
-							},
 						},
 					],
 				}),
@@ -119,10 +112,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 			expect(events.map((event) => event.properties)).toEqual(
-				expect.arrayContaining([
-					{ completionMode: "custom_timestamps", completedOn: "2026-03-27T18:30:00Z" },
-					{ completionMode: "just_now" },
-				]),
+				expect.arrayContaining([{ dateUnknown: true }, {}]),
 			);
 		}),
 	);
@@ -136,11 +126,7 @@ describe("Events built-in status schemas", () => {
 			const createResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { timeSpent: 120, completionMode: "just_now" },
-						},
+						{ entityId, properties: { timeSpent: 120 }, eventSchemaSlug: completeEventSchemaSlug },
 					],
 				}),
 			);
@@ -151,7 +137,7 @@ describe("Events built-in status schemas", () => {
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 			expect(events).toHaveLength(1);
 			expect(events[0]?.eventSchemaSlug).toBe("complete");
-			expect(events[0]?.properties).toMatchObject({ timeSpent: 120, completionMode: "just_now" });
+			expect(events[0]?.properties).toMatchObject({ timeSpent: 120 });
 		}),
 	);
 
@@ -166,8 +152,8 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
+							properties: { dateUnknown: true },
 							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { completionMode: "unknown" },
 						},
 					],
 				}),
@@ -186,11 +172,7 @@ describe("Events built-in status schemas", () => {
 			const result = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { timeSpent: -10, completionMode: "just_now" },
-						},
+						{ entityId, properties: { timeSpent: -10 }, eventSchemaSlug: completeEventSchemaSlug },
 					],
 				}),
 			);
@@ -285,6 +267,31 @@ describe("Events built-in status schemas", () => {
 			const onHoldEvent = allEvents.find((event) => event.eventSchemaSlug === "on_hold");
 			expect(onHoldEvent?.eventSchemaSlug).toBe("on_hold");
 			expect(onHoldEvent?.properties).toMatchObject({ timeSpent: 45, progressPercent: 60 });
+		}),
+	);
+
+	it.live("accepts progress, dropped and on_hold events without progressPercent", () =>
+		Effect.gen(function* () {
+			const { client: apiClient } = yield* createAuthenticatedClient();
+			const { entityId, onHoldEventSchemaSlug, droppedEventSchemaSlug, progressEventSchemaSlug } =
+				yield* createBuiltinMediaLifecycleFixture(apiClient);
+
+			const createResult = yield* apiClient.call((c) =>
+				c.events.create({
+					payload: [
+						{ entityId, properties: {}, eventSchemaSlug: progressEventSchemaSlug },
+						{ entityId, properties: {}, eventSchemaSlug: droppedEventSchemaSlug },
+						{ entityId, properties: {}, eventSchemaSlug: onHoldEventSchemaSlug },
+					],
+				}),
+			);
+
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(3);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 4);
+			for (const slug of ["progress", "dropped", "on_hold"]) {
+				const event = allEvents.find((candidate) => candidate.eventSchemaSlug === slug);
+				expect(event?.properties).toEqual({});
+			}
 		}),
 	);
 
@@ -384,7 +391,7 @@ describe("Events built-in status schemas", () => {
 		}),
 	);
 
-	it.live("creates dropped and on_hold events without positional episode fields for shows", () =>
+	it.live("accepts dropped and on_hold events without progressPercent for shows", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
 			const { schema } = yield* findMediaEntitySchema(apiClient, "show");
@@ -416,16 +423,8 @@ describe("Events built-in status schemas", () => {
 			const createResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId: entity.id,
-							properties: { progressPercent: 50 },
-							eventSchemaSlug: droppedEventSchema.id,
-						},
-						{
-							entityId: entity.id,
-							properties: { progressPercent: 75 },
-							eventSchemaSlug: onHoldEventSchema.id,
-						},
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: droppedEventSchema.id },
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: onHoldEventSchema.id },
 					],
 				}),
 			);
@@ -437,10 +436,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
 			const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
-			expect(sortedEvents.map((event) => event.properties)).toEqual([
-				{ progressPercent: 50 },
-				{ progressPercent: 75 },
-			]);
+			expect(sortedEvents.map((event) => event.properties)).toEqual([{}, {}]);
 		}),
 	);
 });

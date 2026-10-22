@@ -107,9 +107,9 @@ describe("AniList list-state media queries", () => {
 
 				yield* createEventFixture(client, {
 					entityId: anime.id,
+					properties: { animeEpisode: 8 },
 					occurredAt: "2026-01-01T00:00:00.000Z",
 					eventSchemaSlug: schemas.anime.progress,
-					properties: { animeEpisode: 8, progressPercent: 100 },
 				});
 				yield* createListStateSnapshot(client, {
 					entityId: anime.id,
@@ -185,9 +185,9 @@ describe("AniList list-state media queries", () => {
 
 				yield* createEventFixture(client, {
 					entityId: anime.id,
+					properties: { animeEpisode: 6 },
 					occurredAt: "2026-01-03T00:00:00.000Z",
 					eventSchemaSlug: schemas.anime.progress,
-					properties: { animeEpisode: 3, progressPercent: 25 },
 				});
 				const resumedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(resumedSummary).toMatchObject({ progressPercent: 25, state: "in_progress" });
@@ -201,7 +201,7 @@ describe("AniList list-state media queries", () => {
 				);
 				const resumedAnime = resumedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(resumedAnime, "Expected the resumed anime in the flat lifecycle list");
-				expect(resumedAnime).toMatchObject({ animeEpisode: 3, progressPercent: 25 });
+				expect(resumedAnime).toMatchObject({ animeEpisode: 6 });
 
 				yield* createListStateSnapshot(client, {
 					entityId: anime.id,

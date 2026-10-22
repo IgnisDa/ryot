@@ -82,14 +82,14 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		yield* createEventFixture(client, {
 			entityId: seeded.book.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-01T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 		yield* createEventFixture(client, {
 			entityId: seeded.book.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-08T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 
 		const browser = yield* Playwright.Browser;

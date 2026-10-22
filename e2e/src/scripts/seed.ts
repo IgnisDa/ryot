@@ -1445,14 +1445,15 @@ async function seedMedia(client: APIClient) {
 	const processingPromises: Promise<void>[] = [];
 
 	const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
-	const completionVariants: Array<() => Record<string, unknown>> = [
-		() => ({ completionMode: "just_now" }),
-		() => ({ completionMode: "unknown" }),
-		() => ({ completionMode: "custom_timestamps", completedOn: daysAgo(randomInt(1, 365)) }),
+	const completionVariants: Array<
+		() => { occurredAt?: string; properties: Record<string, unknown> }
+	> = [
+		() => ({ properties: {} }),
+		() => ({ properties: { dateUnknown: true } }),
+		() => ({ properties: {}, occurredAt: daysAgo(randomInt(1, 365)) }),
 		() => ({
-			completionMode: "custom_timestamps",
-			startedOn: daysAgo(randomInt(400, 730)),
-			completedOn: daysAgo(randomInt(1, 365)),
+			properties: { startedOn: daysAgo(randomInt(400, 730)) },
+			occurredAt: daysAgo(randomInt(1, 365)),
 		}),
 	];
 
@@ -1491,7 +1492,10 @@ async function seedMedia(client: APIClient) {
 				{
 					entityId: entity.id,
 					eventSchemaSlug: eventSchemas.progress.id,
-					properties: { progressPercent: randomInt(10, 85), ...episodicFields },
+					properties:
+						slug === "anime" || slug === "manga"
+							? episodicFields
+							: { progressPercent: randomInt(10, 85), ...episodicFields },
 				},
 			];
 		} else if (lifecycle === "complete") {
@@ -1499,7 +1503,7 @@ async function seedMedia(client: APIClient) {
 				{
 					entityId: entity.id,
 					eventSchemaSlug: eventSchemas.complete.id,
-					properties: randomChoice(completionVariants)(),
+					...randomChoice(completionVariants)(),
 				},
 			];
 		} else {
@@ -1507,7 +1511,7 @@ async function seedMedia(client: APIClient) {
 				{
 					entityId: entity.id,
 					eventSchemaSlug: eventSchemas.complete.id,
-					properties: randomChoice(completionVariants)(),
+					...randomChoice(completionVariants)(),
 				},
 				{
 					entityId: entity.id,
