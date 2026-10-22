@@ -104,12 +104,7 @@ export const collectAudiobookshelf = Effect.fn(function* (input: MediaSourceInpu
 								itemIndex: 0,
 								entityRef: ref,
 								collectionMemberships: task.name.trim() ? [{ collectionName: task.name }] : [],
-								events: [
-									createCompleteEvent({
-										occurredAt: input.importedAt,
-										completedOn: input.importedAt,
-									}),
-								],
+								events: [createCompleteEvent({ dateUnknown: true, occurredAt: input.importedAt })],
 							},
 						],
 					},

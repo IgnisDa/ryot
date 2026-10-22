@@ -99,11 +99,7 @@ describe("adaptWatcharrExportBatch", () => {
 					occurredAt: "2026-01-02T10:00:00.000Z",
 					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
 				},
-				{
-					eventSchemaSlug: "dropped",
-					properties: { progressPercent: 1 },
-					occurredAt: "2026-01-02T10:00:00.000Z",
-				},
+				{ properties: {}, eventSchemaSlug: "dropped", occurredAt: "2026-01-02T10:00:00.000Z" },
 			],
 		});
 	});

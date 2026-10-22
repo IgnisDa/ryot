@@ -2,7 +2,7 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 
 import { collectMediaXml } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
-import { adaptMyanimelistExports, myanimelistCoverageCount } from "./myanimelist";
+import { adaptMyanimelistExports } from "./myanimelist";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -14,13 +14,10 @@ export default defineScript({
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
 	run: (input) =>
-		collectMediaXml(input, (xml, coverageStart) => ({
-			coverageTotal: myanimelistCoverageCount(xml, input.fileIndex === 0 ? "anime" : "manga"),
-			result: adaptMyanimelistExports({
-				coverageStart,
-				coverageLimit: 128,
+		collectMediaXml(input, (xml) =>
+			adaptMyanimelistExports({
 				importedAt: input.importedAt,
 				...(input.fileIndex === 0 ? { animeXml: xml } : { mangaXml: xml }),
 			}),
-		})),
+		),
 });

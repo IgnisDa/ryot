@@ -68,13 +68,13 @@ export const adaptStorygraphCsv = (
 		const occurredAt = completedOn ?? importedAt;
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
 		for (let index = eventStart; index < Math.min(readCount, eventStart + eventLimit); index++) {
-			group.events.push(createCompleteEvent({ occurredAt, completedOn }));
+			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: !completedOn }));
 		}
 		if (eventStart + eventLimit < readCount) {
 			continue;
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
-			group.events.push(createCompleteEvent({ occurredAt, completedOn }));
+			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: !completedOn }));
 		} else if (lifecycleStatus === "progress") {
 			group.events.push(createProgressEvent(occurredAt));
 		} else if (lifecycleStatus === "backlog") {

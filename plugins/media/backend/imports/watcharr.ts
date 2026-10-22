@@ -173,7 +173,7 @@ export const adaptWatcharrExportBatch = (
 				const occurredAt = normalizeOccurredAt(activity.customDate, importedAt);
 				latest = latest ? latestOccurredAt(latest, occurredAt) : occurredAt;
 				hasHistory = true;
-				pushEvent(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
+				pushEvent(createCompleteEvent({ occurredAt }));
 			}
 		} else {
 			for (const episode of item.watchedEpisodes ?? []) {
@@ -210,7 +210,7 @@ export const adaptWatcharrExportBatch = (
 		} else if (item.status === "DROPPED") {
 			pushEvent(createDroppedEvent({ occurredAt }));
 		} else if (item.status === "FINISHED" && entitySchemaSlug === "movie" && !hasHistory) {
-			pushEvent(createCompleteEvent({ occurredAt }));
+			pushEvent(createCompleteEvent({ occurredAt, dateUnknown: true }));
 		}
 		const review = createReviewEvent({
 			occurredAt,

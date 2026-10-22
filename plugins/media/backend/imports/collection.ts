@@ -747,10 +747,7 @@ export const xmlRecordFrames = (bytes: Uint8Array, tag: string, eof: boolean) =>
 
 export const collectMediaXml = Effect.fn(function* (
 	input: MediaSourceInput,
-	adapt: (
-		xml: string,
-		coverageStart: number,
-	) => { result: MediaIntegrationAdapterResult; coverageTotal: number },
+	adapt: (xml: string) => MediaIntegrationAdapterResult,
 ) {
 	const key = input.fileIndex === 0 ? "animeUploadToken" : "mangaUploadToken";
 	const tag = input.fileIndex === 0 ? "anime" : "manga";
@@ -779,21 +776,11 @@ export const collectMediaXml = Effect.fn(function* (
 	let itemIndex = input.itemIndex;
 	let consumed = 0;
 	let length = 0;
-	let coverageStart = Number(input.header || 0);
-	if (!Number.isSafeInteger(coverageStart) || coverageStart < 0) {
-		throw new Error("Invalid MyAnimeList coverage cursor");
-	}
 	for (const frame of framed.frames) {
 		const adapted = adapt(
 			`<myanimelist>${decoder.decode(bytes.subarray(frame.start, frame.end))}</myanimelist>`,
-			coverageStart,
 		);
-		const normalized = normalizeMediaRecords(
-			adapted.result,
-			itemIndex,
-			"myanimelist",
-			coverageStart,
-		);
+		const normalized = normalizeMediaRecords(adapted, itemIndex, "myanimelist");
 		const size = encoder.encode(serializeMediaRecords(normalized)).length;
 		if (size > RECORD_BYTES) {
 			throw new Error("Normalized MyAnimeList record exceeds 3 MiB");
@@ -803,12 +790,6 @@ export const collectMediaXml = Effect.fn(function* (
 		}
 		records.push(...normalized);
 		length += size;
-		if (!adapted.result.failures.length && coverageStart + 128 < adapted.coverageTotal) {
-			coverageStart += 128;
-			consumed = frame.start;
-			break;
-		}
-		coverageStart = 0;
 		itemIndex++;
 		consumed = frame.end;
 		if (length >= WINDOW_BYTES) {
@@ -816,7 +797,7 @@ export const collectMediaXml = Effect.fn(function* (
 		}
 	}
 	let tail = bytes.slice(consumed);
-	const allConsumed = itemIndex - input.itemIndex === framed.frames.length && !coverageStart;
+	const allConsumed = itemIndex - input.itemIndex === framed.frames.length;
 	if (allConsumed && (eof || framed.closed)) {
 		if (!framed.closed) {
 			throw new Error("MyAnimeList XML document is not closed");
@@ -833,8 +814,8 @@ export const collectMediaXml = Effect.fn(function* (
 		...(yield* writeMediaCapture(chunks)),
 		offset,
 		itemIndex,
+		header: "",
 		fileIndex: input.fileIndex,
-		header: String(coverageStart),
 		done: framed.closed && !tail.length,
 		carryFile: tail.length ? "carry.bin" : null,
 	});

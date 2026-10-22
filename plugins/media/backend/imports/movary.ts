@@ -153,7 +153,7 @@ export const adaptMovaryExports = (input: {
 				sourceLabel: label,
 				tmdbId: tmdbId(row),
 			});
-			group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
+			group.events.push(createCompleteEvent({ occurredAt }));
 			const comment = readCell(row, COMMENT_ALIASES);
 			const review = createReviewEvent({ occurredAt, ...(comment ? { text: comment } : {}) });
 			if (review) {

@@ -171,10 +171,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 						});
 					}
 				} else {
-					events.push({
-						...createCompleteEvent({ occurredAt, completedOn: occurredAt }),
-						operationId,
-					});
+					events.push({ ...createCompleteEvent({ occurredAt }), operationId });
 				}
 			}
 			nextSeenOffset = seenOffset + 64 < details.seenHistory.length ? seenOffset + 64 : 0;

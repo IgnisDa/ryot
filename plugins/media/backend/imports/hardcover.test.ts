@@ -45,11 +45,7 @@ describe("adaptHardcoverCsv", () => {
 			{
 				eventSchemaSlug: "complete",
 				occurredAt: "2026-03-07T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					startedOn: "2026-03-01T00:00:00.000Z",
-					completedOn: "2026-03-07T00:00:00.000Z",
-				},
+				properties: { startedOn: "2026-03-01T00:00:00.000Z" },
 			},
 			{
 				eventSchemaSlug: "review",

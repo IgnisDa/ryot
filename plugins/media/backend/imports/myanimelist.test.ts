@@ -26,7 +26,7 @@ describe("adaptMyanimelistExports", () => {
 		).toEqual(rating === null ? [] : [rating]);
 	});
 
-	it("maps anime and manga exports into coverage, lifecycle, and review events", () => {
+	it("maps anime and manga exports into cumulative progress, lifecycle, and review events", () => {
 		const animeXml = anime(
 			"<series_animedb_id>101</series_animedb_id><series_title>Frieren</series_title><my_watched_episodes>2</my_watched_episodes><my_start_date>2026-01-01</my_start_date><my_finish_date>2026-01-02</my_finish_date><my_score>8</my_score><my_status>Completed</my_status>",
 		);
@@ -45,13 +45,8 @@ describe("adaptMyanimelistExports", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
+					properties: { animeEpisode: 2 },
 					occurredAt: "2026-01-02T00:00:00.000Z",
-					properties: { animeEpisode: 1, progressPercent: 100 },
-				},
-				{
-					eventSchemaSlug: "progress",
-					occurredAt: "2026-01-02T00:00:00.000Z",
-					properties: { animeEpisode: 2, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "review",
@@ -71,7 +66,7 @@ describe("adaptMyanimelistExports", () => {
 		});
 	});
 
-	it("keeps lifecycle events when coverage progress exists", () => {
+	it("keeps lifecycle events when progress exists", () => {
 		const result = adaptMyanimelistExports({
 			animeXml: anime(
 				"<series_animedb_id>303</series_animedb_id><series_title>Dropped Show</series_title><my_watched_episodes>1</my_watched_episodes><my_start_date>2026-01-01</my_start_date><my_finish_date>0000-00-00</my_finish_date><my_score>0</my_score><my_status>Dropped</my_status>",
@@ -82,16 +77,33 @@ describe("adaptMyanimelistExports", () => {
 		expect(result.entityGroups[0]?.events).toEqual([
 			{
 				eventSchemaSlug: "progress",
-				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { animeEpisode: 1, progressPercent: 100 },
-			},
-			{
-				eventSchemaSlug: "dropped",
-				properties: { progressPercent: 1 },
+				properties: { animeEpisode: 1 },
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			},
+			{ properties: {}, eventSchemaSlug: "dropped", occurredAt: "2026-01-01T00:00:00.000Z" },
 		]);
 	});
+
+	it.each([
+		["anime", "my_watched_episodes", "animeEpisode"],
+		["manga", "my_read_chapters", "mangaChapter"],
+	] as const)(
+		"writes one cumulative %s progress event for an 800-unit entry",
+		(lot, tag, property) => {
+			const body = `<${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}>9</${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}><${tag}>800</${tag}><my_score>0</my_score><my_status>Watching</my_status>`;
+			const result = adaptMyanimelistExports(
+				lot === "anime"
+					? { animeXml: anime(body) }
+					: { mangaXml: `<myanimelist><manga>${body}</manga></myanimelist>` },
+			);
+			expect(result.failures).toEqual([]);
+			const events = result.entityGroups.flatMap((group) => group.events);
+			expect(events.map((event) => [event.eventSchemaSlug, event.properties])).toEqual([
+				["progress", { [property]: 800 }],
+				["progress", {}],
+			]);
+		},
+	);
 
 	it("records malformed XML items as row failures", () => {
 		const result = adaptMyanimelistExports({

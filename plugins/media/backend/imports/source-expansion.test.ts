@@ -61,7 +61,7 @@ it.live(
 			).toHaveLength(1);
 		}),
 );
-it.live("expands gzip XML coverage in bounded steps and ignores closing tags inside CDATA", () =>
+it.live("reads gzip XML into one cumulative event and ignores closing tags inside CDATA", () =>
 	Effect.gen(function* () {
 		const fs = mediaFilesystem({
 			mangaUploadToken: gzipSync(
@@ -72,11 +72,9 @@ it.live("expands gzip XML coverage in bounded steps and ignores closing tags ins
 		});
 		let input = mediaStageInput({ fileIndex: 1 });
 		const records: MediaSourceRecord[] = [];
-		let steps = 0;
 		for (;;) {
 			const result = yield* myanimelist.run(input);
 			records.push(...(yield* fs.records()));
-			steps++;
 			if (result.done) {
 				break;
 			}
@@ -88,15 +86,14 @@ it.live("expands gzip XML coverage in bounded steps and ignores closing tags ins
 				ingestionArtifacts: { runId: "run", captures: { carry: "carry" } },
 			});
 		}
-		expect(steps).toBeGreaterThan(1);
 		const events = records.flatMap((record) => record.group?.events ?? []);
 		expect(
 			events
 				.filter((event) => event.eventSchemaSlug === "progress")
 				.map((event) => event.properties["mangaChapter"]),
-		).toEqual(Array.from({ length: 513 }, (_, index) => index + 1));
+		).toEqual([513]);
 		expect(events.filter((event) => event.eventSchemaSlug === "backlog")).toHaveLength(1);
-		expect(new Set(events.map((event) => event.operationId)).size).toBe(514);
+		expect(new Set(events.map((event) => event.operationId)).size).toBe(2);
 		expect(records[0]?.group?.entityRef.sourceLabel).toBe("Title </manga> é");
 	}),
 );

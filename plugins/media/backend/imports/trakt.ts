@@ -174,9 +174,7 @@ export const adaptTraktExport = (archive: Record<string, Uint8Array>) => {
 						properties: { progressPercent: 100 },
 					});
 				} else {
-					group.events.push(
-						createCompleteEvent({ occurredAt: item.watched_at, completedOn: item.watched_at }),
-					);
+					group.events.push(createCompleteEvent({ occurredAt: item.watched_at }));
 				}
 				continue;
 			}

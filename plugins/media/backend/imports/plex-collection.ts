@@ -140,7 +140,7 @@ export const collectPlex = Effect.fn(function* (input: MediaSourceInput, host: H
 								seasonNumber: item.parentIndex ?? 0,
 							},
 						}
-					: createCompleteEvent({ occurredAt, completedOn: occurredAt });
+					: createCompleteEvent({ occurredAt });
 			records.push(
 				...normalizeMediaRecords(
 					{

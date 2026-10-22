@@ -45,27 +45,9 @@ describe("adaptStorygraphCsv", () => {
 			{ collectionName: "Favorites" },
 		]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2026-02-03T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2026-02-03T00:00:00.000Z",
-				},
-			},
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2026-02-03T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2026-02-03T00:00:00.000Z",
-				},
-			},
-			{
-				eventSchemaSlug: "progress",
-				properties: { progressPercent: 1 },
-				occurredAt: "2026-02-03T00:00:00.000Z",
-			},
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-02-03T00:00:00.000Z" },
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-02-03T00:00:00.000Z" },
+			{ properties: {}, eventSchemaSlug: "progress", occurredAt: "2026-02-03T00:00:00.000Z" },
 			{
 				eventSchemaSlug: "review",
 				occurredAt: "2026-02-03T00:00:00.000Z",
@@ -84,11 +66,7 @@ describe("adaptStorygraphCsv", () => {
 		const result = adaptStorygraphCsv(csv);
 
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "on_hold",
-				properties: { progressPercent: 1 },
-				occurredAt: "2026-02-03T00:00:00.000Z",
-			},
+			{ properties: {}, eventSchemaSlug: "on_hold", occurredAt: "2026-02-03T00:00:00.000Z" },
 		]);
 		expect(result.failures).toEqual([
 			{ itemIndex: 1, message: "No ISBN found", sourceLabel: "Missing ISBN" },

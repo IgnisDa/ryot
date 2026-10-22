@@ -19,6 +19,10 @@ import { manifest } from "./write-chunks.sandbox";
 const input = (
 	properties: Readonly<Record<string, JsonValue>> = { consumedOn: "Plex", progressPercent: 50 },
 	event: Partial<MediaImportWriteChunkInput["entityGroups"][number]["events"][number]> = {},
+	entity: { entitySchemaSlug: string; providerSlug: string } = {
+		entitySchemaSlug: "movie",
+		providerSlug: "movie.tmdb",
+	},
 ): MediaImportWriteChunkInput => ({
 	failures: [],
 	integration: { importRunId: "run-1", integrationId: "integration-1" },
@@ -27,13 +31,7 @@ const input = (
 		{
 			itemIndex: 7,
 			collectionMemberships: [],
-			entityRef: {
-				kind: "resolved",
-				externalId: "42",
-				sourceLabel: "Movie",
-				entitySchemaSlug: "movie",
-				providerSlug: "movie.tmdb",
-			},
+			entityRef: { kind: "resolved", externalId: "42", sourceLabel: "Movie", ...entity },
 			events: [
 				{
 					properties,
@@ -46,6 +44,8 @@ const input = (
 		},
 	],
 });
+
+const manga = { entitySchemaSlug: "manga", providerSlug: "manga.anilist" };
 
 const createHost = (
 	options: {
@@ -145,30 +145,29 @@ it.live(
 );
 
 it.live(
-	"compares the latest matching consumption/subitem identity and suppresses duplicates within a produced batch",
+	"compares the latest matching consumption identity and suppresses duplicates within a produced batch",
 	() =>
 		Effect.gen(function* () {
 			const { host } = createHost({
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { animeEpisode: 1, consumedOn: "Plex", progressPercent: 35 },
+						properties: { consumedOn: "Plex", progressPercent: 35 },
 					}),
 					eventRecord({
 						occurredAt: "2026-01-02T00:00:00.000Z",
-						properties: { animeEpisode: 1, consumedOn: "Other", progressPercent: 50 },
+						properties: { consumedOn: "Other", progressPercent: 50 },
 					}),
 				],
 			});
 			const duplicate = yield* admitIntegrationProgress(
-				input({ animeEpisode: "1", consumedOn: "Plex", progressPercent: "35" }),
+				input({ consumedOn: "Plex", progressPercent: "35" }),
 				host,
 			);
 			expect(duplicate.entityGroups[0]?.events).toEqual([]);
 			const distinctProperties: Readonly<Record<string, JsonValue>>[] = [
-				{ animeEpisode: 1, consumedOn: "Other", progressPercent: 35 },
-				{ animeEpisode: 2, consumedOn: "Plex", progressPercent: 35 },
-				{ mangaVolume: 1, mangaChapter: 1, consumedOn: "Plex", progressPercent: 35 },
+				{ consumedOn: "Other", progressPercent: 35 },
+				{ consumedOn: "Plex", progressPercent: 36 },
 			];
 			yield* Effect.forEach(
 				distinctProperties,
@@ -188,6 +187,59 @@ it.live(
 				{ concurrency: "unbounded" },
 			);
 		}),
+);
+
+it.live(
+	"admits a positional manga event without a percent and suppresses an identical repeat by position",
+	() =>
+		Effect.gen(function* () {
+			const history = createHost({
+				minimum: 5,
+				events: [
+					eventRecord({
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						properties: { mangaChapter: 10, consumedOn: "Komga" },
+					}),
+				],
+			});
+			const advanced = input({ mangaChapter: 11, consumedOn: "Komga" }, {}, manga);
+			const repeated = {
+				...advanced,
+				entityGroups: advanced.entityGroups.map((group) => ({
+					...group,
+					events: [...group.events, ...group.events],
+				})),
+			};
+			expect(yield* admitIntegrationProgress(repeated, history.host)).toEqual(advanced);
+			const unchanged = createHost({
+				events: [
+					eventRecord({
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						properties: { mangaChapter: 11, consumedOn: "Komga" },
+					}),
+				],
+			});
+			const duplicate = yield* admitIntegrationProgress(advanced, unchanged.host);
+			expect(duplicate.entityGroups[0]?.events).toEqual([]);
+			expect(unchanged.logs[0]?.attributes).toMatchObject({ reason: "duplicate_progress" });
+		}),
+);
+
+it.live("rejects progress carrying neither a percent nor a position for its schema", () =>
+	Effect.gen(function* () {
+		const { host, logs } = createHost();
+		const empty = yield* admitIntegrationProgress(input({ consumedOn: "Komga" }, {}, manga), host);
+		const wrongSchema = yield* admitIntegrationProgress(
+			input({ mangaChapter: 3, consumedOn: "Komga" }),
+			host,
+		);
+		expect(empty.entityGroups[0]?.events).toEqual([]);
+		expect(wrongSchema.entityGroups[0]?.events).toEqual([]);
+		expect(logs.map((log) => log.attributes?.["reason"])).toEqual([
+			"invalid_progress",
+			"invalid_progress",
+		]);
+	}),
 );
 
 it.live.each([
@@ -248,7 +300,7 @@ it.live(
 			expect(queryValues).toContain("show-episode");
 			expect(queryValues).not.toContain("movie-1");
 			expect(logs[0]?.attributes?.["claimKey"]).toBe(
-				'["media.integration-progress.v1","integration-1","episode-1","show-episode","progress","Plex",""]',
+				'["media.integration-progress.v1","integration-1","episode-1","show-episode","progress","Plex"]',
 			);
 			expect(logs[1]?.attributes?.["claimKey"]).toBe(logs[0]?.attributes?.["claimKey"]);
 			expect(logs[2]?.attributes?.["claimKey"]).not.toBe(logs[0]?.attributes?.["claimKey"]);

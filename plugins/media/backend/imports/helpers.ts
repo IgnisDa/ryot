@@ -110,8 +110,8 @@ export const createBacklogEvent = (occurredAt: string): ImportMediaEvent => ({
 
 export const createProgressEvent = (occurredAt: string): ImportMediaEvent => ({
 	occurredAt,
+	properties: {},
 	eventSchemaSlug: "progress",
-	properties: { progressPercent: 1 },
 });
 
 export const createDroppedEvent = (input: {
@@ -120,7 +120,7 @@ export const createDroppedEvent = (input: {
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "dropped",
 	occurredAt: input.occurredAt,
-	properties: { ...(input.startedOn ? { startedOn: input.startedOn } : {}), progressPercent: 1 },
+	properties: input.startedOn ? { startedOn: input.startedOn } : {},
 });
 
 export const createOnHoldEvent = (input: {
@@ -129,21 +129,19 @@ export const createOnHoldEvent = (input: {
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "on_hold",
 	occurredAt: input.occurredAt,
-	properties: { ...(input.startedOn ? { startedOn: input.startedOn } : {}), progressPercent: 1 },
+	properties: input.startedOn ? { startedOn: input.startedOn } : {},
 });
 
 export const createCompleteEvent = (input: {
 	occurredAt: string;
 	startedOn?: string | null;
-	completedOn?: string | null;
+	dateUnknown?: boolean;
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "complete",
 	occurredAt: input.occurredAt,
 	properties: {
 		...(input.startedOn ? { startedOn: input.startedOn } : {}),
-		...(input.completedOn
-			? { completedOn: input.completedOn, completionMode: "custom_timestamps" }
-			: { completionMode: "unknown" }),
+		...(input.dateUnknown ? { dateUnknown: true } : {}),
 	},
 });
 

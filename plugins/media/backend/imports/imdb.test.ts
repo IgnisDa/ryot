@@ -45,15 +45,7 @@ describe("adaptImdbCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.collectionMemberships).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2023-08-15T00:00:00.000Z",
-				properties: {
-					consumedOn: "imdb",
-					completionMode: "custom_timestamps",
-					completedOn: "2023-08-15T00:00:00.000Z",
-				},
-			},
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2023-08-15T00:00:00.000Z" },
 			{
 				eventSchemaSlug: "review",
 				properties: { rating: 90 },
@@ -70,7 +62,7 @@ describe("adaptImdbCsv", () => {
 			{
 				eventSchemaSlug: "complete",
 				occurredAt: expect.any(String),
-				properties: { consumedOn: "imdb", completionMode: "unknown" },
+				properties: { dateUnknown: true },
 			},
 			{
 				eventSchemaSlug: "review",
@@ -87,15 +79,7 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2023-08-15T00:00:00.000Z",
-				properties: {
-					consumedOn: "imdb",
-					completionMode: "custom_timestamps",
-					completedOn: "2023-08-15T00:00:00.000Z",
-				},
-			},
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2023-08-15T00:00:00.000Z" },
 		]);
 	});
 

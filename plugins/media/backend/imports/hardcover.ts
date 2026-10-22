@@ -69,7 +69,11 @@ export const adaptHardcoverCsv = (csvText: string, importedAt = nowIso()) => {
 		const occurredAt = completedOn ?? startedOn ?? reviewOccurredAt;
 		if (lifecycleStatus === "complete" || completedOn) {
 			group.events.push(
-				createCompleteEvent({ startedOn, completedOn, occurredAt: completedOn ?? occurredAt }),
+				createCompleteEvent({
+					startedOn,
+					dateUnknown: !completedOn,
+					occurredAt: completedOn ?? occurredAt,
+				}),
 			);
 		} else if (lifecycleStatus === "progress") {
 			group.events.push(createProgressEvent(startedOn ?? occurredAt));

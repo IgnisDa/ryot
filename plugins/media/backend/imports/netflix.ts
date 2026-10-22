@@ -133,7 +133,7 @@ export const adaptNetflixCsv = (input: {
 									episodeNumber: episode.episode,
 								},
 							}
-						: createCompleteEvent({ occurredAt: date, completedOn: date }),
+						: createCompleteEvent({ occurredAt: date }),
 				);
 			} else if (input.file === "Ratings.csv") {
 				const event = createReviewEvent({

@@ -158,7 +158,7 @@ export default defineScript({
 			if (parsed.lot === "movie") {
 				return progressResult({
 					occurredAt,
-					consumedOn: "plex_sink",
+					consumedOn: "Plex",
 					progressPercent: parsed.percent,
 					entityRef: resolvedMediaRef("movie", "tmdb", parsed.id, parsed.label),
 				});
@@ -169,7 +169,7 @@ export default defineScript({
 					showId
 						? progressResult({
 								occurredAt,
-								consumedOn: "plex_sink",
+								consumedOn: "Plex",
 								progressPercent: percent,
 								unresolvedEpisode: locator,
 								entityRef: resolvedMediaRef("show", "tmdb", showId, label),

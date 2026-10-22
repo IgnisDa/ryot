@@ -46,22 +46,8 @@ describe("adaptGoodreadsCsv", () => {
 			},
 		});
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2026-01-02T00:00:00.000Z",
-				},
-			},
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2026-01-02T00:00:00.000Z",
-				},
-			},
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-01-02T00:00:00.000Z" },
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-01-02T00:00:00.000Z" },
 			{
 				eventSchemaSlug: "review",
 				occurredAt: "2026-01-02T00:00:00.000Z",
@@ -164,7 +150,7 @@ describe("adaptGoodreadsCsv", () => {
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]?.events[0]).toMatchObject({
 			eventSchemaSlug: "complete",
-			properties: { completedOn: "2023-01-02T00:00:00.000Z" },
+			occurredAt: "2023-01-02T00:00:00.000Z",
 		});
 	});
 });

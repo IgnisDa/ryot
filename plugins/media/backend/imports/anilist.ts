@@ -14,7 +14,7 @@ import {
 	finalizeEntityGroups,
 	normalizeRating,
 } from "./helpers";
-import type { ImportMediaEvent, MediaImportAdapterFailure } from "./schemas";
+import type { MediaImportAdapterFailure } from "./schemas";
 
 export const AnilistList = Schema.Struct({
 	id: Schema.Int,
@@ -38,8 +38,6 @@ const AnilistReview = Schema.Struct({
 	updated_at: Schema.String,
 });
 const AnilistFavorite = Schema.Struct({ favourite_id: Schema.Int, favourite_type: Schema.Int });
-export const anilistCoverageCount = (item: typeof AnilistList.Type) =>
-	item.progress + (item.series_type === 1 ? item.progress_volume : 0);
 
 const AnilistRoot = Schema.Struct({
 	lists: Schema.optional(Schema.Array(Schema.Unknown)),
@@ -73,6 +71,7 @@ const getSeriesTarget = (seriesType: number) => {
 			sourceLabelPrefix: "Anime",
 			entitySchemaSlug: "anime" as const,
 			providerSlug: "anime.anilist" as const,
+			positionProperty: "animeEpisode" as const,
 		};
 	}
 	if (seriesType === 1) {
@@ -80,6 +79,7 @@ const getSeriesTarget = (seriesType: number) => {
 			sourceLabelPrefix: "Manga",
 			entitySchemaSlug: "manga" as const,
 			providerSlug: "manga.anilist" as const,
+			positionProperty: "mangaChapter" as const,
 		};
 	}
 	return undefined;
@@ -104,13 +104,7 @@ const parseCustomListIds = (value: string | null | undefined) => {
 		: [];
 };
 
-export const adaptAnilistExport = (
-	jsonText: string,
-	timezone: string,
-	importedAt = nowIso(),
-	coverageStart = 0,
-	coverageLimit = Number.MAX_SAFE_INTEGER,
-) => {
+export const adaptAnilistExport = (jsonText: string, timezone: string, importedAt = nowIso()) => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const data = decodeRoot(JSON.parse(jsonText) as unknown);
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -146,12 +140,7 @@ export const adaptAnilistExport = (
 		}
 		const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
 		const volumeProgress = target.entitySchemaSlug === "manga" ? item.progress_volume : 0;
-		const coverageCount = anilistCoverageCount(item);
-		if (
-			!Number.isSafeInteger(volumeProgress) ||
-			volumeProgress < 0 ||
-			!Number.isSafeInteger(coverageCount)
-		) {
+		if (!Number.isSafeInteger(volumeProgress) || volumeProgress < 0) {
 			failures.push({ itemIndex, message: "AniList progress count is invalid" });
 			itemIndex++;
 			continue;
@@ -168,24 +157,15 @@ export const adaptAnilistExport = (
 			},
 			itemIndex,
 		);
-		for (
-			let progress = coverageStart + 1;
-			progress <= Math.min(coverageCount, coverageStart + coverageLimit);
-			progress++
-		) {
-			let properties: ImportMediaEvent["properties"];
-			if (target.entitySchemaSlug === "anime") {
-				properties = { progressPercent: 100, animeEpisode: progress };
-			} else if (progress <= item.progress) {
-				properties = { progressPercent: 100, mangaChapter: progress };
-			} else {
-				properties = { progressPercent: 100, mangaVolume: progress - item.progress };
-			}
-			group.events.push({ occurredAt, properties, eventSchemaSlug: "progress" });
-		}
-		if (coverageStart + coverageLimit < coverageCount) {
-			itemIndex++;
-			continue;
+		if (item.progress > 0 || volumeProgress > 0) {
+			group.events.push({
+				occurredAt,
+				eventSchemaSlug: "progress",
+				properties: {
+					...(item.progress > 0 ? { [target.positionProperty]: item.progress } : {}),
+					...(volumeProgress > 0 ? { mangaVolume: volumeProgress } : {}),
+				},
+			});
 		}
 		const lifecycle = getLifecycle(item.status);
 		if (lifecycle === "progress") {
@@ -193,7 +173,7 @@ export const adaptAnilistExport = (
 		} else if (lifecycle === "backlog") {
 			group.events.push(createBacklogEvent(occurredAt));
 		} else if (lifecycle === "complete") {
-			group.events.push(createCompleteEvent({ occurredAt }));
+			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: true }));
 		} else if (lifecycle === "dropped") {
 			group.events.push(createDroppedEvent({ occurredAt }));
 		} else if (lifecycle === "on_hold") {

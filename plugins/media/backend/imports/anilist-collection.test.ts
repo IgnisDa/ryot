@@ -16,11 +16,10 @@ for (const { volumes, chapters } of [
 	{ volumes: 0, chapters: 0 },
 	{ chapters: 0, volumes: 257 },
 	{ volumes: 257, chapters: 129 },
-	{ volumes: 0, chapters: 128 },
-	{ chapters: 0, volumes: 128 },
+	{ volumes: 0, chapters: 800 },
 ]) {
 	it.live(
-		`imports ${chapters} chapters and ${volumes} volumes in bounded AniList continuations`,
+		`imports ${chapters} chapters and ${volumes} volumes as one cumulative progress event`,
 		() =>
 			Effect.gen(function* () {
 				const fs = mediaFilesystem({
@@ -54,17 +53,9 @@ for (const { volumes, chapters } of [
 					ingestionArtifacts: { runId: "run", captures: { records: "records" } },
 				});
 				const records: MediaSourceRecord[] = [];
-				let steps = 0;
 				for (;;) {
 					const result = yield* anilist.run(input);
-					const batch = yield* fs.records();
-					expect(
-						batch
-							.flatMap((record) => record.group?.events ?? [])
-							.filter((event) => event.eventSchemaSlug === "progress").length,
-					).toBeLessThanOrEqual(128);
-					records.push(...batch);
-					steps++;
+					records.push(...(yield* fs.records()));
 					if (result.done) {
 						break;
 					}
@@ -78,28 +69,29 @@ for (const { volumes, chapters } of [
 				expect(records.flatMap((record) => (record.failure ? [record.failure] : []))).toEqual([]);
 				expect(
 					events
-						.filter((event) => event.properties["mangaChapter"] !== undefined)
-						.map((event) => event.properties["mangaChapter"]),
-				).toEqual(Array.from({ length: chapters }, (_, index) => index + 1));
-				expect(
-					events
-						.filter((event) => event.properties["mangaVolume"] !== undefined)
-						.map((event) => event.properties["mangaVolume"]),
-				).toEqual(Array.from({ length: volumes }, (_, index) => index + 1));
+						.filter((event) => event.eventSchemaSlug === "progress")
+						.map((event) => event.properties),
+				).toEqual(
+					chapters + volumes === 0
+						? []
+						: [
+								{
+									...(chapters > 0 ? { mangaChapter: chapters } : {}),
+									...(volumes > 0 ? { mangaVolume: volumes } : {}),
+								},
+							],
+				);
 				expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 				expect(
 					events
 						.filter((event) => event.eventSchemaSlug === "review")
 						.map((event) => event.properties),
 				).toEqual([{ rating: 4 }]);
-				expect(events).toHaveLength(chapters + volumes + 2);
+				expect(events).toHaveLength(chapters + volumes > 0 ? 3 : 2);
 				expect(new Set(events.map((event) => event.operationId)).size).toBe(events.length);
 				expect(records.flatMap((record) => record.group?.collectionMemberships ?? [])).toEqual([
 					{ collectionName: "Reading Club" },
 				]);
-				if (chapters + volumes > 128) {
-					expect(steps).toBeGreaterThan(1);
-				}
 			}),
 	);
 }
