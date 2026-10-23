@@ -2,6 +2,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	defineProvider,
 	providerDetailsResultSchema,
+	providerRelatedInputSchema,
+	providerRelatedResultSchema,
 	providerResolveResultSchema,
 	providerSearchInputSchema,
 	providerSearchOptionsInputSchema,
@@ -63,6 +65,73 @@ describe("provider definitions", () => {
 		expect(definition.input).toBe(providerSearchOptionsInputSchema);
 		expect(definition.output).toBe(providerSearchOptionsResultSchema);
 		expect(decode(definition.input)({})).toEqual({});
+	});
+});
+
+describe("provider related pages", () => {
+	const group = {
+		entities: [],
+		direction: "outgoing" as const,
+		synchronization: "authoritative" as const,
+		relationshipSchemaSlug: "company-to-movie",
+	};
+	const details = (continuation: unknown) => ({
+		properties: {},
+		name: "Company",
+		relatedEntityGroups: [{ ...group, continuation }],
+	});
+
+	test("selects the related operation contract", () => {
+		const definition = defineProvider({
+			manifest,
+			operation: "related",
+			run: () => Effect.succeed({ entities: [], continuation: null }),
+		});
+
+		expect(definition.input).toBe(providerRelatedInputSchema);
+		expect(definition.output).toBe(providerRelatedResultSchema);
+		expect(
+			decode(definition.input)({
+				direction: "outgoing",
+				externalId: " company-1 ",
+				continuation: { page: 2 },
+				relationshipSchemaSlug: "company-to-movie",
+			}),
+		).toEqual({
+			direction: "outgoing",
+			externalId: "company-1",
+			continuation: { page: 2 },
+			relationshipSchemaSlug: "company-to-movie",
+		});
+		expect(decode(providerRelatedResultSchema)({ entities: [], continuation: null })).toEqual({
+			entities: [],
+			continuation: null,
+		});
+		expect(() => decode(providerRelatedResultSchema)({ entities: [] })).toThrow();
+	});
+
+	test("accepts a group continuation up to 4 KiB encoded and rejects larger ones", () => {
+		const fits = { cursor: "a".repeat(4 * 1024 - '{"cursor":""}'.length) };
+		expect(decode(providerDetailsResultSchema)(details(fits))).toMatchObject({
+			relatedEntityGroups: [{ continuation: fits }],
+		});
+		expect(() =>
+			decode(providerDetailsResultSchema)(details({ cursor: "a".repeat(4 * 1024) })),
+		).toThrow("at most 4096 bytes");
+		expect(() =>
+			decode(providerRelatedResultSchema)({
+				entities: [],
+				continuation: { cursor: "a".repeat(4 * 1024) },
+			}),
+		).toThrow("at most 4096 bytes");
+		expect(() =>
+			decode(providerRelatedInputSchema)({
+				direction: "outgoing",
+				externalId: "company-1",
+				relationshipSchemaSlug: "company-to-movie",
+				continuation: { cursor: "a".repeat(4 * 1024) },
+			}),
+		).toThrow("at most 4096 bytes");
 	});
 });
 

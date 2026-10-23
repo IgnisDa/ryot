@@ -478,6 +478,33 @@ export default defineProvider({
 		}),
 	);
 
+	test.effect("accepts the related provider operation", () =>
+		Effect.gen(function* () {
+			const source = `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "Provider Related",
+	slug: "provider.related",
+});
+
+export default defineProvider({
+	manifest,
+	operation: "related",
+	run: () => Effect.succeed({ entities: [], continuation: null }),
+});
+`;
+			const compiled = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
+				{ kind: "provider", providerOperation: "related", entry: "provider.sandbox.ts" },
+			]);
+
+			expect(compiled[0]?.compiled.manifest.kind).toBe("provider");
+		}),
+	);
+
 	test.effect("preserves provider search options metadata", () =>
 		Effect.gen(function* () {
 			const source = `

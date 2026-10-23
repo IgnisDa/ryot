@@ -79,8 +79,18 @@ backend/providers/<provider slug path>/<operation>.sandbox.ts
 ```
 
 The path is the provider slug with `/` replacing `.`, and the basename is `details`, `search`,
-`search-options`, `resolve`, or `translate`. Other sandbox basenames in a provider directory are
+`search-options`, `related`, `resolve`, or `translate`. Other sandbox basenames in a provider directory are
 provider-associated ordinary scripts.
+
+### Paged related groups
+
+A `details` related-entity group may carry a `continuation` (JSON, at most 4 KiB encoded) when more
+entities exist than one run can fetch. The provider must then declare a `related` script. It receives
+`{ externalId, relationshipSchemaSlug, direction, continuation }` and returns
+`{ entities, continuation }`; a `null` continuation ends the group. Each run is its own sandbox
+execution with its own host-call budget. The kernel writes each page as it arrives, so a page must be
+self-contained, and it removes stale relationships of an `authoritative` group only after the final
+page succeeds. See the [provider population](../../kernel/backend/src/modules/entities/providers/README.md#paged-related-groups).
 
 ## Script Discovery
 
@@ -106,8 +116,8 @@ build-derived script metadata. There are no driver maps or runtime kind selectio
 | `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
 | `provider`   | `defineProvider`         | One logical provider operation                                  |
 
-A logical provider requires `details` and may declare `search`, `resolve`, and `translate`, each as a
-separate provider script. `rootEntitySchemaSlug` may reference an entity schema from the same plugin.
+A logical provider requires `details` and may declare `search`, `related`, `resolve`, and `translate`,
+each as a separate provider script. `rootEntitySchemaSlug` may reference an entity schema from the same plugin.
 User-effective provider and schema resolution includes ready private installations only for their
 owner; APIs without user context resolve system definitions only. Persisted provenance uses stable
 plugin ID, not installation ID.
