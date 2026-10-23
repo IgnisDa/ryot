@@ -2,6 +2,7 @@ export { ActionForm } from "./action-form";
 export { Menu } from "./menu";
 export { MenuButton } from "./menu-button";
 export { Chip } from "./chips";
+export { ChipRadioGroup } from "./chip-radio-group";
 export { Badge } from "./badge";
 export { Button, IconButton } from "./button";
 export { LoadMoreButton } from "./load-more-button";

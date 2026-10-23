@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { StatusMessage } from "./status-message";
@@ -36,5 +36,37 @@ describe("StatusMessage", () => {
 		);
 
 		expect(screen.getByRole("status").classList.contains("mt-2")).toBe(true);
+	});
+
+	it("renders the action next to the message and reports its activation", () => {
+		const activated: string[] = [];
+		render(
+			<StatusMessage
+				tone="error"
+				action={{ label: "Try again", onClick: () => activated.push("retry") }}
+			>
+				Unable to load.
+			</StatusMessage>,
+		);
+
+		expect(screen.getByRole("alert").textContent).toBe("Unable to load.");
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+		expect(activated).toEqual(["retry"]);
+	});
+
+	it("disables the action on request", () => {
+		render(
+			<StatusMessage tone="pending" action={{ label: "Wait", disabled: true, onClick: () => {} }}>
+				Counting
+			</StatusMessage>,
+		);
+
+		expect(screen.getByRole("button", { name: "Wait" }).hasAttribute("disabled")).toBe(true);
+	});
+
+	it("renders no button without an action", () => {
+		render(<StatusMessage tone="pending">Counting</StatusMessage>);
+
+		expect(screen.queryByRole("button")).toBeNull();
 	});
 });

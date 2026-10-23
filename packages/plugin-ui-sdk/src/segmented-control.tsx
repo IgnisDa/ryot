@@ -12,6 +12,7 @@ type SegmentedControlOption<T extends string> = {
 type SegmentedControlProps<T extends string> = {
 	readonly value: T;
 	readonly label: string;
+	readonly fill?: boolean;
 	readonly className?: string;
 	readonly optionClassName?: string;
 	readonly onChange: (value: T) => void;
@@ -19,6 +20,7 @@ type SegmentedControlProps<T extends string> = {
 };
 
 export function SegmentedControl<T extends string>({
+	fill,
 	value,
 	label,
 	options,
@@ -34,13 +36,15 @@ export function SegmentedControl<T extends string>({
 			onChange={onChange}
 			className={clsx(
 				"inline-flex h-9 items-stretch gap-0.5 rounded-md bg-surface-2 p-0.5 pointer-coarse:h-11",
+				fill === true && "w-full",
 				className,
 			)}
 			renderOption={(option, selected) => ({
 				content: option.content,
 				className: clsx(
 					"flex items-center justify-center gap-1.5 rounded-sm text-[13px] font-medium transition-colors duration-100 motion-reduce:transition-none",
-					optionClassName ?? "w-8 pointer-coarse:w-10",
+					fill === true && "flex-1",
+					optionClassName ?? (fill === true ? undefined : "w-8 pointer-coarse:w-10"),
 					selected
 						? "bg-raised text-text shadow-sm ring-1 ring-border"
 						: "text-text-muted hover:text-text",

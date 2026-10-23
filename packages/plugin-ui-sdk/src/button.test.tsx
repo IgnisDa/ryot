@@ -54,4 +54,40 @@ describe("Button", () => {
 		expect(button.hasAttribute("disabled")).toBe(true);
 		expect(button.getAttribute("aria-busy")).toBe("true");
 	});
+
+	it.each([
+		["link", "text-accent-text"],
+		["linkPlain", "text-text"],
+	] as const)(
+		"renders the %s variant as a plain-text button with only its tone, touch and disabled classes",
+		(variant, tone) => {
+			render(
+				<Button size="lg" variant={variant}>
+					Open
+				</Button>,
+			);
+
+			expect(screen.getByRole("button", { name: "Open" }).className).toBe(
+				`font-ui font-medium text-[13px] ${tone} pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50`,
+			);
+		},
+	);
+
+	it("defaults the link variants to a non-submitting button that an explicit type overrides", () => {
+		render(
+			<>
+				<Button variant="link">Plain</Button>
+				<Button variant="linkPlain">Plain tone</Button>
+				<Button type="submit" variant="link">
+					Submit
+				</Button>
+				<Button>Primary</Button>
+			</>,
+		);
+
+		expect(screen.getByRole("button", { name: "Plain" }).getAttribute("type")).toBe("button");
+		expect(screen.getByRole("button", { name: "Plain tone" }).getAttribute("type")).toBe("button");
+		expect(screen.getByRole("button", { name: "Submit" }).getAttribute("type")).toBe("submit");
+		expect(screen.getByRole("button", { name: "Primary" }).hasAttribute("type")).toBe(false);
+	});
 });

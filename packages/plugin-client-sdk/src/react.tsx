@@ -1,4 +1,5 @@
 export { ActiveScreenContext } from "./active-screen";
+export { localDay } from "./local-day";
 export {
 	canonicalAssetBatchKey,
 	managedAssetBatches,
