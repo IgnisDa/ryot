@@ -1,11 +1,9 @@
 import type { IntegrationProviderSettings } from "@ryot-app/contract/modules/integrations/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const redactPropertyValue = (definition: AppPropertyDefinition, value: unknown): unknown => {
-	if (definition.type === "object" && isRecord(value)) {
+	if (definition.type === "object" && isObjectRecord(value)) {
 		return redactSecretValues(definition.properties, value);
 	}
 	if (definition.type === "array" && Array.isArray(value)) {

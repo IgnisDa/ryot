@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.5"
 	},
 	"devDependencies": {

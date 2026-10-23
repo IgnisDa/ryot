@@ -5,6 +5,7 @@ import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
@@ -42,9 +43,6 @@ const attribution = (
 	pluginRevisionId: row.pluginRevisionId,
 	payloadFingerprint: row.payloadFingerprint,
 });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 const encodePointerSegment = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
@@ -123,7 +121,7 @@ const addMissingValue = (properties: Record<string, unknown>, path: ReadonlyArra
 			container = container[itemIndex];
 			continue;
 		}
-		if (!isRecord(container)) {
+		if (!isObjectRecord(container)) {
 			return false;
 		}
 		if (final) {
@@ -148,7 +146,7 @@ const addMissingSecretArrayItems = (
 	configured: Set<string>,
 	allowedMissingRequiredPaths: Array<ReadonlyArray<string>>,
 ) => {
-	if (definition.type === "object" && isRecord(value)) {
+	if (definition.type === "object" && isObjectRecord(value)) {
 		for (const [key, childDefinition] of Object.entries(definition.properties)) {
 			addMissingSecretArrayItems(
 				childDefinition,
@@ -187,7 +185,7 @@ const stripConfiguredSecrets = (
 	path: string,
 	configured: ReadonlySet<string>,
 ) => {
-	if (definition.type === "object" && isRecord(value)) {
+	if (definition.type === "object" && isObjectRecord(value)) {
 		for (const [key, childDefinition] of Object.entries(definition.properties)) {
 			const childPath = `${path}/${encodePointerSegment(key)}`;
 			if (configured.has(childPath)) {

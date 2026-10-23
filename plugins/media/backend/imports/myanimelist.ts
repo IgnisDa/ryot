@@ -5,6 +5,7 @@ import {
 	EntityDecoder,
 	XMLParser,
 } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -33,12 +34,13 @@ const createParser = () =>
 		}),
 	});
 
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isXmlItem = (value: unknown): value is MyanimelistXmlItem =>
-	isObjectRecord(value) &&
-	Object.values(value).every((entry) => entry === undefined || typeof entry === "string");
+const isXmlItem = (value: unknown): value is MyanimelistXmlItem => {
+	const record = asRecord(value);
+	return (
+		record !== null &&
+		Object.values(record).every((entry) => entry === undefined || typeof entry === "string")
+	);
+};
 
 const assertWellFormedXml = (xml: string) => {
 	const stack: string[] = [];
@@ -74,10 +76,11 @@ const assertWellFormedXml = (xml: string) => {
 const lotItems = (xmlText: string, lot: MyanimelistLot) => {
 	assertWellFormedXml(xmlText);
 	const document = createParser().parse(xmlText) as unknown;
-	if (!isObjectRecord(document) || !isObjectRecord(document["myanimelist"])) {
+	const root = asRecord(asRecord(document)?.["myanimelist"]);
+	if (root === null) {
 		return [];
 	}
-	const items = document["myanimelist"][lot];
+	const items = root[lot];
 	return Array.isArray(items) && items.every(isXmlItem) ? items : [];
 };
 

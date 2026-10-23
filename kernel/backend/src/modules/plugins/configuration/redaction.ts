@@ -1,8 +1,6 @@
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const collectSecretPaths = (
 	definition: AppPropertyDefinition,
@@ -14,7 +12,7 @@ const collectSecretPaths = (
 		paths.push(path);
 		return;
 	}
-	if (definition.type === "object" && isRecord(value)) {
+	if (definition.type === "object" && isObjectRecord(value)) {
 		for (const [key, child] of Object.entries(definition.properties)) {
 			collectSecretPaths(child, value[key], [...path, key], paths);
 		}

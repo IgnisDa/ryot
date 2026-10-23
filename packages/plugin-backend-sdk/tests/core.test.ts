@@ -17,7 +17,7 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 import { describe, expect, test } from "vitest";
 
 import { defineManifest, defineScript, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
-import { asRecord, isRecord, jsonValueSchema } from "../src/wire";
+import { asRecord, jsonValueSchema } from "../src/wire";
 
 const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
 
@@ -323,6 +323,5 @@ describe("asRecord", () => {
 
 	test.each([null, undefined, [], [1], "text", 3, true])("rejects %j", (value) => {
 		expect(asRecord(value)).toBeNull();
-		expect(isRecord(value)).toBe(false);
 	});
 });

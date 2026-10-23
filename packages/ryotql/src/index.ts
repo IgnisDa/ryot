@@ -35,6 +35,7 @@ import type {
 	WildcardSelection,
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
@@ -519,11 +520,8 @@ export type SelectedIncludeQuery<
 
 const fail = (message: string) => Result.fail(new Error(message));
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const record = (value: unknown, message: string) =>
-	isRecord(value) ? Result.succeed(value) : fail(message);
+	isObjectRecord(value) ? Result.succeed(value) : fail(message);
 
 const decodeValue = <A, I>(value: unknown, codec: Schema.Codec<A, I>, fieldName: string) =>
 	Schema.decodeUnknownResult(codec)(value).pipe(

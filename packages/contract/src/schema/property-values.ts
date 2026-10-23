@@ -1,3 +1,4 @@
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Result, Schema, SchemaGetter } from "effect";
 
 import { roundHalfUp } from "./numeric-normalization";
@@ -45,13 +46,10 @@ type ValidationResult =
 const dateDecoder = Schema.decodeUnknownResult(Schema.DateFromString);
 const dateTimeDecoder = Schema.decodeUnknownResult(Schema.DateTimeUtcFromString);
 
-const isStringRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const hasValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	let value = input;
 	for (const segment of path) {
-		if (!isStringRecord(value) || !Object.hasOwn(value, segment)) {
+		if (!isObjectRecord(value) || !Object.hasOwn(value, segment)) {
 			return false;
 		}
 		value = value[segment];
@@ -167,7 +165,7 @@ const collectRequiredPropertyIssues = (
 			},
 		];
 	}
-	if (property.type === "object" && isStringRecord(value)) {
+	if (property.type === "object" && isObjectRecord(value)) {
 		return Object.entries(property.properties).flatMap(([key, child]) =>
 			collectRequiredPropertyIssues(
 				schema,
@@ -229,7 +227,7 @@ const omitValueAtPath = (input: PropertyValues, path: AppSchemaRulePath) => {
 			return;
 		}
 		const child = value[segment];
-		if (!isStringRecord(child)) {
+		if (!isObjectRecord(child)) {
 			return;
 		}
 		value = child;
@@ -375,7 +373,7 @@ const createObjectValueSchema = (
 };
 
 const isManagedAsset = (value: unknown) => {
-	if (!isStringRecord(value)) {
+	if (!isObjectRecord(value)) {
 		return false;
 	}
 	if (value["type"] === "remote") {
@@ -481,7 +479,7 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	propertiesSchema: AppSchema;
 	allowedMissingRequiredPaths?: ReadonlyArray<ReadonlyArray<string>>;
 }): ValidationResult => {
-	if (!isStringRecord(input.properties)) {
+	if (!isObjectRecord(input.properties)) {
 		return {
 			success: false,
 			issues: [

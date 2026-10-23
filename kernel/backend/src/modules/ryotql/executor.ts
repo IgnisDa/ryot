@@ -19,6 +19,7 @@ import type {
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -906,7 +907,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 		bytes.toString("utf8"),
 	).pipe(Effect.mapError(cursorError));
 	if (
-		!isRecord(decoded) ||
+		!isObjectRecord(decoded) ||
 		decoded["version"] !== CURSOR_VERSION ||
 		decoded["ownerIdentity"] !== ownerIdentity ||
 		!Array.isArray(decoded["directions"]) ||
@@ -927,7 +928,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	const values: CursorValue[] = [];
 	for (const [index, raw] of decoded["values"].entries()) {
 		const expected = kinds[index];
-		if (!isRecord(raw) || typeof raw["kind"] !== "string" || !("value" in raw)) {
+		if (!isObjectRecord(raw) || typeof raw["kind"] !== "string" || !("value" in raw)) {
 			return yield* cursorError();
 		}
 		if (raw["kind"] === "null") {
@@ -1378,9 +1379,6 @@ const isFieldKind = (value: unknown): value is ScalarKind =>
 	value === "number" ||
 	value === "text";
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const reconstructKind = (
 	expr: ScalarExpression,
 	scope: CompileScope,
@@ -1409,7 +1407,7 @@ const reconstructInclude = (
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 ): IncludeResult => {
-	if (!isRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
+	if (!isObjectRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
 		throw new Error(`RyotQL received an invalid include value for '${include.key}'`);
 	}
 	const items = raw["items"].map((item): RowItem => {

@@ -448,6 +448,7 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@types/hast": "3.0.4",
         "@types/mdast": "4.0.4",
         "@types/papaparse": "5.5.2",
@@ -570,6 +571,7 @@
       "name": "@ryot-app/plugin-ui-sdk",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@tanstack/charts": "0.18.0",
         "@tanstack/react-form": "2.0.0-alpha.1",
         "@tanstack/react-hotkeys": "0.10.0",
@@ -604,6 +606,7 @@
     "packages/ryotql": {
       "name": "@ryot-app/ryotql",
       "dependencies": {
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.5",
       },
       "devDependencies": {
@@ -620,6 +623,7 @@
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.5",
       },
       "devDependencies": {
