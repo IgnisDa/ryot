@@ -10,7 +10,6 @@ import {
 	type MediaActivityWhen,
 } from "../../../shared/media-activity-operations";
 import { mediaActivityDurationLabel } from "../activity-timeline";
-import { type MediaWatchProviders, viewerRegion, watchProviderGroups } from "../watch-providers";
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
@@ -54,7 +53,8 @@ export type ActivityDraft = {
 	readonly hours: string;
 	readonly minutes: string;
 	readonly progressMode: "started" | "amount";
-	readonly percent: string;
+	readonly amount: string;
+	readonly amountUnit: "percent" | "unit";
 	readonly position: number | undefined;
 	readonly status: MediaActivityStatus;
 };
@@ -156,18 +156,31 @@ export const activityUnitTotal = (logger: MediaActivityLogger, context: MediaAct
 		? context[logger.progressUnit.field]
 		: null;
 
-export const percentFromUnit = (value: string, total: number) => {
-	const text = value.trim();
-	const amount = text === "" ? Number.NaN : Number(text);
-	if (!Number.isFinite(amount) || amount <= 0 || total <= 0) {
-		return undefined;
-	}
-	return String(Math.min(100, Math.round((amount / total) * 10000) / 100));
+const unitPercent = (amount: string, total: number) => {
+	const text = amount.trim();
+	const value = text === "" ? Number.NaN : Number(text);
+	return Number.isFinite(value) && value > 0 && value <= total
+		? Math.round((value / total) * 10000) / 100
+		: undefined;
 };
 
-export const unitFromPercent = (percent: string, total: number) => {
-	const value = percentValue(percent);
-	return value === undefined ? "" : String(Math.round((value / 100) * total));
+export const draftProgressPercent = (draft: ActivityDraft, total: number | null) =>
+	draft.amountUnit === "unit" && total !== null
+		? unitPercent(draft.amount, total)
+		: percentValue(draft.amount);
+
+export const convertedAmount = (
+	draft: ActivityDraft,
+	amountUnit: ActivityDraft["amountUnit"],
+	total: number,
+) => {
+	const percent = draftProgressPercent(draft, total);
+	if (percent === undefined) {
+		return draft.amount;
+	}
+	return String(
+		amountUnit === "unit" ? Math.round((percent / 100) * total) : Math.round(percent * 100) / 100,
+	);
 };
 
 export const initialActivityDraft = (
@@ -178,18 +191,22 @@ export const initialActivityDraft = (
 	const progress = context.progressPercent ?? 0;
 	const total = activityPositionTotal(logger, context);
 	const next = (context.position ?? 0) + 1;
+	const status =
+		activityStatusOptions(logger).find((option) => option.value !== context.state)?.value ??
+		"backlog";
 	return {
+		status,
 		hours: "",
 		minutes: "",
 		when: "now",
 		startedDay: "",
 		consumedOn: "",
-		status: "backlog",
 		finishedDay: today,
+		amountUnit: "percent",
 		progressMode: progress > 0 ? "amount" : "started",
 		intent: INTENT_ORDER[logger.family][0] ?? "finished",
 		position: total === null ? next : Math.min(next, total),
-		percent: progress > 0 ? String(Math.round(progress)) : "30",
+		amount: progress > 0 ? String(Math.round(progress)) : "30",
 	};
 };
 
@@ -197,6 +214,7 @@ type ActivityDraftErrors = {
 	readonly when?: string;
 	readonly time?: string;
 	readonly percent?: string;
+	readonly status?: string;
 	readonly position?: string;
 	readonly consumedOn?: string;
 };
@@ -231,6 +249,9 @@ export const activityDraftErrors = (input: {
 	const { draft, today, logger, context } = input;
 	const errors: { -readonly [Key in keyof ActivityDraftErrors]: ActivityDraftErrors[Key] } = {};
 	if (draft.intent === "status") {
+		if (draft.status === context.state) {
+			errors.status = "It already has this status.";
+		}
 		return errors;
 	}
 	if (draft.consumedOn.trim().length > CONSUMED_ON_LIMIT) {
@@ -245,13 +266,14 @@ export const activityDraftErrors = (input: {
 	if (draft.intent === "finished" && parseTimeSpent(draft.hours, draft.minutes) === null) {
 		errors.time = "Enter whole hours and minutes.";
 	}
-	if (
-		draft.intent === "progress" &&
-		logger.family === "flat" &&
-		draft.progressMode === "amount" &&
-		percentValue(draft.percent) === undefined
-	) {
-		errors.percent = "Enter a percent above 0 and up to 100.";
+	if (draft.intent === "progress" && logger.family === "flat" && draft.progressMode === "amount") {
+		const total = activityUnitTotal(logger, context);
+		if (draftProgressPercent(draft, total) === undefined) {
+			errors.percent =
+				draft.amountUnit === "unit" && total !== null && logger.progressUnit !== undefined
+					? `Enter ${logger.progressUnit.plural} above 0 and up to ${total}.`
+					: "Enter a percent above 0 and up to 100.";
+		}
 	}
 	if (draft.intent === "progress" && logger.family === "positional") {
 		const total = activityPositionTotal(logger, context);
@@ -282,6 +304,7 @@ export const activityEntryDraft = (input: {
 	readonly entityId: string;
 	readonly draft: ActivityDraft;
 	readonly logger: MediaActivityLogger;
+	readonly context: MediaActivityLogContext;
 	readonly episodeEntityIds: readonly string[];
 }): ActivityEntryDraft => {
 	const { draft, entityId } = input;
@@ -300,7 +323,7 @@ export const activityEntryDraft = (input: {
 		};
 	}
 	if (draft.intent === "progress") {
-		const percent = percentValue(draft.percent);
+		const percent = draftProgressPercent(draft, activityUnitTotal(input.logger, input.context));
 		return {
 			...source,
 			entityId,
@@ -487,6 +510,7 @@ export const activityCopyLabels = (input: {
 	readonly logger: MediaActivityLogger;
 	readonly draft: ActivityDraft;
 	readonly name: string;
+	readonly context: MediaActivityLogContext;
 }) => {
 	const { draft, logger } = input;
 	const { gerund, participle } = logger.copy;
@@ -509,7 +533,9 @@ export const activityCopyLabels = (input: {
 		return {
 			offerReview: false,
 			submit: started ? `Start ${gerund}` : "Save progress",
-			success: started ? `Marked as ${gerund}.` : `Progress saved at ${draft.percent.trim()}%.`,
+			success: started
+				? `Marked as ${gerund}.`
+				: `Progress saved at ${draftProgressPercent(draft, activityUnitTotal(logger, input.context)) ?? ""}%.`,
 		};
 	}
 	if (draft.intent === "episode") {
@@ -553,18 +579,6 @@ export const activityStatusNote = (
 	}
 	const progress = context.progressPercent ?? 0;
 	return progress > 0 ? `Keeps your progress at ${Math.round(progress)}%.` : undefined;
-};
-
-export const activitySources = (context: MediaActivityLogContext) => {
-	const providers = watchProviderGroups(
-		{ watchProviders: context.watchProviders } satisfies MediaWatchProviders,
-		viewerRegion(),
-	)
-		.filter((group) => group.offer === "stream")
-		.flatMap((group) => group.providers.map((provider) => provider.name));
-	return [...context.consumedOn, ...providers].filter(
-		(value, index, all) => all.indexOf(value) === index,
-	);
 };
 
 export const activityRuntimeHint = (runtime: number | null) =>

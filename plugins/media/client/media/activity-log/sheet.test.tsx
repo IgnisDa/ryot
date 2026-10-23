@@ -271,27 +271,9 @@ it.live("does not submit the log form when toggling more details", () =>
 	}),
 );
 
-it.live("offers streaming providers after the previous sources", () =>
+it.live("suggests only previously used sources", () =>
 	Effect.gen(function* () {
-		const region = new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region ?? "US";
-		const mounted = mountLog({
-			logger: movie,
-			fake: {
-				consumedOn: ["Plex"],
-				target: contextTarget({
-					watchProviders: [
-						{
-							link: null,
-							country: region,
-							providers: [
-								{ image: null, name: "Netflix", offers: ["stream"] },
-								{ image: null, name: "Apple TV", offers: ["rent"] },
-							],
-						},
-					],
-				}),
-			},
-		});
+		const mounted = mountLog({ logger: movie, fake: { consumedOn: ["Plex", "Netflix"] } });
 		try {
 			const dialog = yield* openLog(mounted);
 			const chips = within(dialog)
@@ -429,12 +411,11 @@ it.live("closes the sheet and opens the review composer from a finished success"
 	}),
 );
 
-it.live("records just started and a set amount for flat progress", () =>
+it.live("records just started and an amount in either unit for flat progress", () =>
 	Effect.gen(function* () {
 		const started = mountLog({ logger: book, fake: { target: contextTarget({ pages: 300 }) } });
 		try {
 			const dialog = yield* openLog(started);
-			radio(dialog, "Progress").click();
 			clickRyotElement(radio(dialog, "Progress"));
 			expect(getByText(dialog, /Marks it as in progress without an amount/)).toBeDefined();
 			press(dialog, "Start reading");
@@ -451,10 +432,17 @@ it.live("records just started and a set amount for flat progress", () =>
 		try {
 			const dialog = yield* openLog(amount);
 			clickRyotElement(radio(dialog, "Progress"));
-			clickRyotElement(radio(dialog, "Set amount"));
-			expect(getByLabelText(dialog, "Pages")).toHaveProperty("value", "90");
-			input(getByLabelText(dialog, "Pages"), "120");
-			expect(getByLabelText(dialog, "Percent")).toHaveProperty("value", "40");
+			press(dialog, "Add an amount");
+			const field = () => getByLabelText(dialog, "How far along?");
+			expect(field()).toHaveProperty("value", "30");
+			expect(getByText(dialog, "300 pages in total")).toBeDefined();
+			clickRyotElement(radio(dialog, "Pages"));
+			expect(field()).toHaveProperty("value", "90");
+			expect(getByText(dialog, "of 300 pages")).toBeDefined();
+			input(field(), "120");
+			clickRyotElement(radio(dialog, "Percent"));
+			expect(field()).toHaveProperty("value", "40");
+			clickRyotElement(radio(dialog, "Pages"));
 			press(dialog, "Kindle");
 			press(dialog, "Save progress");
 			yield* submitted(amount);
@@ -472,7 +460,26 @@ it.live("records just started and a set amount for flat progress", () =>
 	}),
 );
 
-it.live("rejects an out-of-range percent and allows 100", () =>
+it.live("goes back to just started without sending an amount", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: game,
+			fake: { target: contextTarget({ progressPercent: 20 }) },
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			clickRyotElement(radio(dialog, "Progress"));
+			press(dialog, "Just started? Skip the amount");
+			press(dialog, "Start playing");
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([operation({ kind: "progress", entityId: "entity-1" })]);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("rejects an out-of-range amount and allows 100", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({
 			logger: game,
@@ -482,11 +489,11 @@ it.live("rejects an out-of-range percent and allows 100", () =>
 			const dialog = yield* openLog(mounted);
 			clickRyotElement(radio(dialog, "Progress"));
 			const submit = getByRole(dialog, "button", { name: "Save progress" });
-			input(getByLabelText(dialog, "Percent"), "101");
+			input(getByLabelText(dialog, "How far along?"), "101");
 			expect(submit.hasAttribute("disabled")).toBe(true);
-			input(getByLabelText(dialog, "Percent"), "0");
+			input(getByLabelText(dialog, "How far along?"), "0");
 			expect(submit.hasAttribute("disabled")).toBe(true);
-			input(getByLabelText(dialog, "Percent"), "100");
+			input(getByLabelText(dialog, "How far along?"), "100");
 			expect(submit.hasAttribute("disabled")).toBe(false);
 		} finally {
 			mounted.view.unmount();
@@ -566,6 +573,32 @@ it.live("records a status without a source and keeps the progress note", () =>
 			]);
 			yield* eventually(() => expect(getByText(dialog, "Marked as dropped.")).toBeDefined());
 			expect(queryByText(dialog, "Write a review")).toBeNull();
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("disables the status the item already has and preselects another", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: movie,
+			fake: { target: contextTarget({ state: "backlog" }) },
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			clickRyotElement(radio(dialog, "Status"));
+			const backlog = radio(dialog, "Backlog");
+			expect(backlog.getAttribute("aria-disabled")).toBe("true");
+			expect(getByText(dialog, "Current status")).toBeDefined();
+			expect(radio(dialog, "On hold").getAttribute("aria-checked")).toBe("true");
+			clickRyotElement(backlog);
+			expect(backlog.getAttribute("aria-checked")).toBe("false");
+			press(dialog, "Put on hold");
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({ kind: "status", status: "on_hold", entityId: "entity-1" }),
+			]);
 		} finally {
 			mounted.view.unmount();
 		}
