@@ -416,7 +416,7 @@ export const selectedEpisode = (input: {
 	return { ...nextUp, state: "untracked", seasonNumber: nextUp.seasonNumber ?? null };
 };
 
-export type ActivityQuickAction = {
+type ActivityQuickAction = {
 	readonly text: string;
 	readonly label: string;
 	readonly entry: ActivityEntryDraft;
