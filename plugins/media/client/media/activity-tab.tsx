@@ -4,7 +4,7 @@ import {
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { MediaHistoryButton } from "./activity-history";
 import { MediaLogActivityButton } from "./activity-log/button";
@@ -55,6 +55,7 @@ function MediaActivityEmpty(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly action: MediaActivityEmptyAction;
+	readonly onOpenChange: (open: boolean) => void;
 }) {
 	return (
 		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
@@ -68,6 +69,7 @@ function MediaActivityEmpty(props: {
 					logger={props.action}
 					compact={props.compact}
 					entityId={props.entityId}
+					onOpenChange={props.onOpenChange}
 				/>
 			)}
 		</div>
@@ -123,21 +125,23 @@ export function MediaActivity<View>(props: {
 	}) => ReactNode;
 }) {
 	const { state } = props;
+	const [logging, setLogging] = useState(false);
+	if (state.status === "empty" || logging) {
+		return (
+			<MediaActivityEmpty
+				compact={props.compact}
+				entityId={props.entityId}
+				onOpenChange={setLogging}
+				action={props.emptyAction}
+				detail={props.copy.emptyDetail}
+			/>
+		);
+	}
 	if (state.status === "loading") {
 		return <MediaStatusMessage title="Loading activity..." detail={props.copy.loadingDetail} />;
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
 		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
-	}
-	if (state.status === "empty") {
-		return (
-			<MediaActivityEmpty
-				compact={props.compact}
-				entityId={props.entityId}
-				action={props.emptyAction}
-				detail={props.copy.emptyDetail}
-			/>
-		);
 	}
 	return <props.Record view={state.view} compact={props.compact} history={props.history} />;
 }
