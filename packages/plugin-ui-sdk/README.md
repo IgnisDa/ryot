@@ -177,7 +177,8 @@ or transport services.
 
 `RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection. Consumers provide
 visuals through `renderOption`; menus are not radiogroups. `Select` closes on activation, while a
-radio picker stays open for keyboard selection. `ChipRadioGroup` is that composition for chip rows that scroll or wrap.
+radio picker stays open for keyboard selection. `ChipRadioGroup` is that composition for chip rows
+that scroll or wrap.
 
 `ReorderableList` ships pointer and keyboard reordering without a drag-and-drop dependency. Its drag
 handle is a real button, supports Arrow/Home/End, and announces the new position through a live
