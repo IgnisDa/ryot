@@ -62,6 +62,47 @@ and writes each page in one transaction:
 A `details` result that returns a continuation for a provider with no `related` script fails the
 population before anything is written.
 
+### Failed populations
+
+A population of an entity row that exists and is not yet populated records a failure when the
+provider's `details` run fails deterministically:
+
+- a script error (`script-failure` without a boundary reason), stored as `script-failure`;
+- invalid output (`invalid-output` without a boundary reason, or a result that fails details
+  validation), stored as `invalid-output`;
+- a host-call budget overrun (`script-failure` or `resource-unavailable` with boundary code
+  `execution-limit`), stored as `execution-limit`. A durable sandbox run reports a failed host call
+  that escapes the script as `script-failure` with its message only, so an over-budget `details`
+  script is currently stored as `script-failure`.
+
+The record is `entity.population_failed_at` and `entity.population_failure`, a closed code set
+enforced by a check constraint; messages, stacks and boundary data are never stored. One short
+transaction rechecks domain write authority (lock order step 2), takes the entity's
+`entity-mutation:` lock (step 6) and updates the row only while `populated_at` is null, so a newer
+successful population wins. If authority no longer holds, nothing is written. After commit the
+workflow publishes `population-failed`, and `populationStatus` reads `failed`. The root stamp clears
+both columns.
+
+Every other failure writes nothing and leaves the entity `pending`, with entity interest reusing the
+stored failed execution ID as before: timeouts, infrastructure and database errors,
+`external-uncertain`, any other `resource-unavailable` failure, any failure with another boundary
+code (such as `missing-artifact-grant` or `unavailable-operation`), authority, pin and
+admission failures before execution, a missing `related` script, and root, relationship or child
+write failures. A failed refresh of a populated entity writes nothing, and the related-pages workflow
+never records failures.
+
+`POST /entities/:entityId/population/retry` with `{ pluginId }` retries a failed population. It
+answers the same `not-found` for missing and invisible entities, then refuses
+`not-provider-backed`, `plugin-mismatch` (the plugin does not own the entity's schema) and
+`provider-unavailable` (the caller cannot run the entity's provider), all before any write. The
+clear runs in one transaction with the caller's account write lock, account admission and the
+entity-mutation lock, and clears the columns only if a failure is still recorded. Without one it
+returns `{ retried: false }`. Otherwise it requests population with the cleared failure time in
+epoch milliseconds as the attempt suffix, `populate-<entityId>-<generation>-<attempt>`, so the
+workflow runs again instead of returning the stored failure, and returns `{ retried: true }`. Each
+recorded failure allows at most one retry run, and a new failure appears only after a full provider
+run, so there is no retry interval.
+
 ### Mutation lock order
 
 Concurrent populations can contain the same related entities and relationships. Every entity

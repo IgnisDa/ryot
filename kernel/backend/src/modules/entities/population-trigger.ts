@@ -12,9 +12,14 @@ import type { DomainLifecycleCommand } from "./write-context";
 export const entityPopulationExecutionId = (
 	entityId: EntityId,
 	accountGeneration: AccountGeneration | null,
-) => `populate-${entityId}${accountGeneration === null ? "" : `-${accountGeneration.token}`}`;
+	attempt?: number,
+) =>
+	`populate-${entityId}${accountGeneration === null ? "" : `-${accountGeneration.token}`}${
+		attempt === undefined ? "" : `-${attempt}`
+	}`;
 
 export type PopulationRequest = {
+	attempt?: number;
 	entityId: EntityId;
 	command: DomainLifecycleCommand;
 	entitySchemaPluginId: string | null;

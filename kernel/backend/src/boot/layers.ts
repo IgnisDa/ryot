@@ -52,6 +52,7 @@ import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/providers
 import {
 	EntityImportServiceLive,
 	EntityImportWorkflowOperationsProvidedLive,
+	EntityPopulationRetryServiceLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderEntitySearchServiceLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
@@ -204,6 +205,7 @@ const ServicesLive = Layer.mergeAll(
 	EntitiesServiceRuntimeLive,
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
+	EntityPopulationRetryServiceLive,
 	EventsServiceLive,
 	EventStreamWorkServiceLive.pipe(
 		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(ScriptExecutionServiceLive))),
