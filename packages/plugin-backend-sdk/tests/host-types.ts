@@ -64,6 +64,7 @@ defineScript({
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
 			const allowNsfw: JsonValue | undefined = settings["allowNsfw"];
+			const saved: { readonly saved: true } = yield* host.updateUserSettings({ allowNsfw: true });
 			void cached;
 			void stored;
 			void pluginConfig;
@@ -72,6 +73,7 @@ defineScript({
 			void unrequestedApiToken;
 			void disableIntegrations;
 			void allowNsfw;
+			void saved;
 			void settings;
 
 			const errorType: Expect<

@@ -227,6 +227,11 @@ export const bindSandboxHostFunctions = <Input>(
 			automationSandboxHostContracts.sendNotification,
 			implementations.sendNotification,
 		),
+		updateUserSettings: bind(
+			"updateUserSettings",
+			coreSandboxHostContracts.updateUserSettings,
+			implementations.updateUserSettings,
+		),
 		getUserPreferences: bind(
 			"getUserPreferences",
 			coreSandboxHostContracts.getUserPreferences,

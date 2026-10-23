@@ -64,6 +64,7 @@ import { type IntegrationRecord, IntegrationsRepository } from "#modules/integra
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import {
@@ -340,6 +341,7 @@ class HostFunctionCalls extends Context.Service<
 		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
 		readonly sourceStateLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly installationLookups: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly userSettingsPatches: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
 		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly oauthTokenInvalidations: Effect.Effect<ReadonlyArray<unknown>>;
@@ -394,6 +396,7 @@ const hostFunctionsLayer = (
 			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
 			const sourceStateLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const installationLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const userSettingsPatches = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const eventMutations = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const lookupOrder = yield* Ref.make<ReadonlyArray<string>>([]);
 			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -453,6 +456,7 @@ const hostFunctionsLayer = (
 					sourceStateLookups: Ref.get(sourceStateLookups),
 					oauthTokenRequests: Ref.get(oauthTokenRequests),
 					installationLookups: Ref.get(installationLookups),
+					userSettingsPatches: Ref.get(userSettingsPatches),
 					pluginConfigLookups: Ref.get(pluginConfigLookups),
 					createdRelationships: Ref.get(createdRelationships),
 					deletedRelationships: Ref.get(deletedRelationships),
@@ -531,6 +535,9 @@ const hostFunctionsLayer = (
 								),
 							),
 						),
+				}),
+				Layer.mock(PluginUserSettingsWriter)({
+					patch: (input) => append(userSettingsPatches, input),
 				}),
 				Layer.mock(EntityUserDataService)({
 					mergeEntityUserDataForCommand: (userId, payload, command) =>
@@ -1477,6 +1484,124 @@ const runGetPluginConfig = (principalFacts: Partial<ScriptExecutionPrincipal>) =
 			),
 		),
 	);
+
+const settingsUserId = UserId.make("user-1");
+const settingsUserSubject = {
+	type: "user",
+	userId: settingsUserId,
+	accountGeneration: testAccountGeneration(settingsUserId),
+} satisfies SandboxExecutionSubject;
+const settingsWriteInput = (
+	subject: SandboxExecutionSubject,
+	principalFacts: Parameters<typeof runInput>[2] = { pluginRevision: systemPluginRevision },
+	capabilities: readonly string[] = ["updateUserSettings"],
+) => runInput(subject, capabilities, principalFacts);
+
+describe("updateUserSettings", () => {
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("patches the calling plugin's installation for the execution user", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalScriptHostFunctions;
+				expect(
+					yield* functions.updateUserSettings(
+						{
+							...settingsWriteInput(settingsUserSubject),
+							context: { userId: "other-user", pluginId: "other-plugin" },
+						},
+						{ timezone: "Europe/Paris" },
+					),
+				).toEqual({ saved: true });
+				expect(yield* (yield* HostFunctionCalls).userSettingsPatches).toEqual([
+					{
+						userId: settingsUserId,
+						pluginId: systemPluginRevision.id,
+						values: { timezone: "Europe/Paris" },
+						pluginRevisionId: systemPluginRevision.revisionId,
+						accountGeneration: testAccountGeneration(settingsUserId),
+					},
+				]);
+			}),
+		);
+	});
+
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects executions that cannot own a user settings write", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalScriptHostFunctions;
+				const unavailable =
+					"Plugin user settings cannot be written by integration, import, or bootstrap executions";
+				const cases = [
+					{
+						message: "updateUserSettings is not declared by this script",
+						input: settingsWriteInput(
+							settingsUserSubject,
+							{ pluginRevision: systemPluginRevision },
+							["getUserSettings"],
+						),
+					},
+					{
+						input: settingsWriteInput(automationSubject({ kind: "api" })),
+						message: "updateUserSettings is available only to user executions",
+					},
+					{
+						input: settingsWriteInput({ type: "system" }),
+						message: "updateUserSettings is not available for system executions",
+					},
+					{
+						input: settingsWriteInput(settingsUserSubject, {}),
+						message: "Plugin user settings require a plugin execution",
+					},
+					{
+						message: unavailable,
+						input: settingsWriteInput({
+							...settingsUserSubject,
+							integrationId: IntegrationId.make("int-1"),
+						}),
+					},
+					{
+						message: unavailable,
+						input: settingsWriteInput({
+							...settingsUserSubject,
+							importRunId: ImportRunId.make("run-1"),
+						}),
+					},
+					{
+						message: unavailable,
+						input: settingsWriteInput({
+							...settingsUserSubject,
+							integrationRunId: ImportRunId.make("run-1"),
+						}),
+					},
+					{
+						message: unavailable,
+						input: settingsWriteInput(settingsUserSubject, {
+							metadata: { kind: "script", capabilities: ["updateUserSettings"] },
+							pluginRevision: { ...systemPluginRevision, userBootstrapScriptSlugs: ["script"] },
+						}),
+					},
+					{
+						message: unavailable,
+						input: settingsWriteInput(settingsUserSubject, {
+							pluginRevision: systemPluginRevision,
+							initialization: { activationId: "activation-1", installationId: "installation-1" },
+						}),
+					},
+				];
+				for (const { input, message } of cases) {
+					const failure = yield* Effect.flip(
+						functions.updateUserSettings(input, { timezone: "UTC" }),
+					);
+					expect(failure.message).toBe(message);
+					expect(failure.data).toEqual({
+						code: "unavailable-operation",
+						operation: "updateUserSettings",
+					});
+				}
+				expect(yield* (yield* HostFunctionCalls).userSettingsPatches).toEqual([]);
+			}),
+		);
+	});
+});
 
 describe("getPluginConfig", () => {
 	layer(hostFunctionsLayer({ pluginConfig: () => Effect.succeed({ apiToken: "pinned-value" }) }))(

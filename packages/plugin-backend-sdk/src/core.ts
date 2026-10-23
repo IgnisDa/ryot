@@ -206,6 +206,9 @@ export {
 	setCachedValueArgsSchema,
 	setCachedValueDataSchema,
 	setCachedValueResultSchema,
+	updateUserSettingsArgsSchema,
+	updateUserSettingsDataSchema,
+	updateUserSettingsResultSchema,
 	userPreferencesSchema,
 } from "./core/state";
 export { submissionOptionsSchema } from "./core/writes";

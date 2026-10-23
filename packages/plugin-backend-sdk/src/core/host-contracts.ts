@@ -103,6 +103,9 @@ import {
 	setCachedValueArgsSchema,
 	setCachedValueDataSchema,
 	setCachedValueResultSchema,
+	updateUserSettingsArgsSchema,
+	updateUserSettingsDataSchema,
+	updateUserSettingsResultSchema,
 	userPreferencesSchema,
 } from "./state";
 import { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./user-commands";
@@ -167,6 +170,11 @@ export const coreSandboxHostContracts = {
 		success: cacheClaimSchema,
 		args: claimPersistentValueArgsSchema,
 		result: claimPersistentValueResultSchema,
+	},
+	updateUserSettings: {
+		args: updateUserSettingsArgsSchema,
+		success: updateUserSettingsDataSchema,
+		result: updateUserSettingsResultSchema,
 	},
 } as const;
 type SandboxHostContract = {

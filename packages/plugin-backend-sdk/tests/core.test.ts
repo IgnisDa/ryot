@@ -9,6 +9,7 @@ import {
 	recoverPartialCreateEvents,
 	spanArgsSchema,
 	updateEventsArgsSchema,
+	updateUserSettingsResultSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
@@ -79,6 +80,21 @@ describe("shared value contracts", () => {
 				data: { claimed: false, value: { owner: "other" } },
 			}),
 		).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
+	});
+
+	test("acknowledges user settings updates without returning settings", () => {
+		expect(
+			decode(updateUserSettingsResultSchema)({ success: true, data: { saved: true } }),
+		).toEqual({ success: true, data: { saved: true } });
+		expect(() =>
+			decode(updateUserSettingsResultSchema)({ success: true, data: { limit: 3 } }),
+		).toThrow();
+		expect(() =>
+			decode(updateUserSettingsResultSchema)({
+				success: true,
+				data: { saved: true, settings: { limit: 3 } },
+			}),
+		).toThrow();
 	});
 
 	test("accepts valid log and span batches", () => {

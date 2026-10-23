@@ -20,9 +20,9 @@ export const SANDBOX_LIMITS = {
 	journalBytes: 100 * MiB,
 	replay: { shortWaitMs: 1_000 },
 	compiler: SANDBOX_COMPILER_LIMITS,
-	hostCalls: { http: 50, total: 1_000 },
 	diagnostics: { messageBytes: 64 * KiB },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
+	hostCalls: { http: 50, total: 1_000, userSettingsWrites: 4 },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	journalReads: { count: 2_048, sliceBytes: MiB, totalBytes: 200 * MiB },
@@ -87,18 +87,27 @@ const executionLimit = (
 	};
 };
 
-export type SandboxHostCallBudget = { http: number; total: number };
+export const sandboxUserSettingsWriteLimitMessage = (limit: number) =>
+	`Sandbox execution exceeds ${limit} updateUserSettings calls`;
+
+export type SandboxHostCallBudget = { http: number; total: number; userSettingsWrites: number };
 
 export const chargeSandboxHostCall = (budget: SandboxHostCallBudget, functionName: string) => {
 	budget.total += 1;
 	if (functionName === "httpCall") {
 		budget.http += 1;
 	}
+	if (functionName === "updateUserSettings") {
+		budget.userSettingsWrites += 1;
+	}
 	if (budget.total > SANDBOX_LIMITS.hostCalls.total) {
 		return sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total);
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
 		return sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http);
+	}
+	if (budget.userSettingsWrites > SANDBOX_LIMITS.hostCalls.userSettingsWrites) {
+		return sandboxUserSettingsWriteLimitMessage(SANDBOX_LIMITS.hostCalls.userSettingsWrites);
 	}
 	return null;
 };

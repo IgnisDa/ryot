@@ -28,6 +28,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
 	updateUserEntity: { bridge: true, subjects: ["user"] as const },
 	commitUserChanges: { bridge: true, subjects: ["user"] as const },
+	updateUserSettings: { bridge: true, subjects: ["user"] as const },
 	mergeUserEntityData: { bridge: true, subjects: ["user"] as const },
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	invalidateOAuthAccessToken: { bridge: true, subjects: ["user"] as const },

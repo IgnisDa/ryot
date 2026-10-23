@@ -233,6 +233,48 @@ layer(gateLayer)((test) => {
 			}),
 		),
 	);
+	test.effect("refuses user settings writes beyond the per-execution cap", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			let writes = 0;
+			const registration = yield* gate.register(
+				makeOptions(
+					makeInput(["updateUserSettings"]),
+					{
+						updateUserSettings: successHostFunction(() => {
+							writes += 1;
+							return { saved: true };
+						}),
+					},
+					makeFiles(),
+					"settings-writes",
+				),
+			);
+			const responses = yield* Effect.forEach(
+				Array.from({ length: SANDBOX_LIMITS.hostCalls.userSettingsWrites + 1 }, (_, seq) => seq),
+				(seq) =>
+					registration.dispatch(
+						makeFrame(seq, "updateUserSettings", [{ enabled: true }], {
+							handle: "settings-writes",
+						}),
+					),
+			);
+			const [rejected] = responses.slice(-1);
+			assert(rejected);
+			expect(writes).toBe(SANDBOX_LIMITS.hostCalls.userSettingsWrites);
+			expect(responses.slice(0, -1).map(frameValue)).toEqual(
+				Array.from({ length: SANDBOX_LIMITS.hostCalls.userSettingsWrites }, () => ({
+					success: true,
+					data: { saved: true },
+				})),
+			);
+			expect(frameValue(rejected)).toMatchObject({
+				success: false,
+				error: "Sandbox execution exceeds 4 updateUserSettings calls",
+				data: { code: "execution-limit", operation: "updateUserSettings" },
+			});
+		}),
+	);
 	test.effect("preserves host call session protections", () =>
 		Effect.gen(function* () {
 			const gate = yield* SandboxHostCallGate;

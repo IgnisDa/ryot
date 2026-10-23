@@ -11,12 +11,14 @@ import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
 } from "#modules/scripts/authorization/capabilities";
+import { isUserBootstrapPrincipal } from "#modules/scripts/authorization/principal";
 import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 
 import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
 import { getPluginConfig } from "./configuration/access";
 import { PluginInstallationRepository } from "./installations/repository";
 import { resolveStoredPluginUserSettings } from "./preferences/user-settings";
+import { PluginUserSettingsWriter } from "./preferences/user-settings-writer";
 
 const normalizeConfigKeys = (
 	rawKeys: ReadonlyArray<string>,
@@ -38,6 +40,7 @@ export const makePluginScriptHost = Effect.gen(function* () {
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const pluginInstallations = yield* PluginInstallationRepository;
 	const loadExecutionState = yield* makeAdmittedExecutionStateLoader;
+	const userSettingsWriter = yield* PluginUserSettingsWriter;
 
 	return {
 		getPluginConfig: (input, rawAccess) =>
@@ -65,6 +68,39 @@ export const makePluginScriptHost = Effect.gen(function* () {
 						context: { config, kind: "installation", configSchema: revision.configSchema },
 					});
 					return yield* encodeConfigValues(values);
+				}),
+			),
+		updateUserSettings: (rawInput, values) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "updateUserSettings");
+					const { principal } = input;
+					const plugin = principal.pluginRevision;
+					if (!plugin) {
+						return yield* sandboxHostFailure("Plugin user settings require a plugin execution", {
+							code: "unavailable-operation",
+							operation: "updateUserSettings",
+						});
+					}
+					if (
+						principal.subject.integrationId !== undefined ||
+						admittedImportRunId(input) !== null ||
+						principal.initialization !== undefined ||
+						isUserBootstrapPrincipal(principal)
+					) {
+						return yield* sandboxHostFailure(
+							"Plugin user settings cannot be written by integration, import, or bootstrap executions",
+							{ code: "unavailable-operation", operation: "updateUserSettings" },
+						);
+					}
+					yield* userSettingsWriter.patch({
+						values,
+						pluginId: plugin.id,
+						userId: principal.subject.userId,
+						pluginRevisionId: plugin.revisionId,
+						accountGeneration: principal.subject.accountGeneration,
+					});
+					return { saved: true as const };
 				}),
 			),
 		getUserSettings: (rawInput) =>
@@ -101,5 +137,8 @@ export const makePluginScriptHost = Effect.gen(function* () {
 					return yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings);
 				}),
 			),
-	} satisfies Pick<AdditionalScriptHostImplementationMap, "getPluginConfig" | "getUserSettings">;
+	} satisfies Pick<
+		AdditionalScriptHostImplementationMap,
+		"getPluginConfig" | "getUserSettings" | "updateUserSettings"
+	>;
 });

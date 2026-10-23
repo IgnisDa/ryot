@@ -13,7 +13,12 @@ import type { Scope, Tracer } from "effect";
 import { Clock, Context, Data, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";
 
-import { consumeSandboxHostCall, KiB, SANDBOX_LIMITS } from "../protocol/limits";
+import {
+	consumeSandboxHostCall,
+	KiB,
+	SANDBOX_LIMITS,
+	type SandboxHostCallBudget,
+} from "../protocol/limits";
 import {
 	artifactReadRangeArgsSchema,
 	base64DecodedLength,
@@ -280,7 +285,7 @@ type RunState = {
 	readonly closed: Deferred.Deferred<void>;
 	readonly drained: Deferred.Deferred<void>;
 	readonly evidence: TransientPermit[];
-	readonly hostCallBudget: { http: number; total: number };
+	readonly hostCallBudget: SandboxHostCallBudget;
 	readonly inlineEncodedEntries: Uint8Array[];
 	readonly journal: SandboxInvocationJournal | undefined;
 	readonly journalSource: SandboxRunInput["replayJournal"];
@@ -352,9 +357,9 @@ const makeRunState = Effect.fnUntraced(function* (
 		pendingEncodedEntries: new Map(),
 		shortWait: makeSandboxShortWait(),
 		gateFunctions: options.apiFunctions,
-		hostCallBudget: { http: 0, total: 0 },
 		pinnedCount: journalSource?.entries.length ?? 0,
 		totalJournalJsonBytes: journalSource?.bytes ?? 2,
+		hostCallBudget: { http: 0, total: 0, userSettingsWrites: 0 },
 		expiresAt: (yield* Clock.currentTimeMillis) + initialExpiryMs,
 	};
 	return state;
