@@ -206,7 +206,8 @@ const creditRelationshipSlugs = relationshipSchemas
 	})
 	.map(({ slug }) => slug);
 
-type ProviderOperation = "details" | "resolve" | "search" | "search-options" | "translate";
+type ProviderOperation =
+	"details" | "related" | "resolve" | "search" | "search-options" | "translate";
 
 const provider = (
 	rootEntitySchemaSlug: string,
@@ -222,6 +223,7 @@ const provider = (
 	information: canonicalLanguage ? { source, canonicalLanguage } : { source },
 	operations: {
 		details: `${slug}.details`,
+		...(operations.includes("related") ? { related: `${slug}.related` } : {}),
 		...(operations.includes("resolve") ? { resolve: `${slug}.resolve` } : {}),
 		...(operations.includes("search") ? { search: `${slug}.search` } : {}),
 		...(operations.includes("search-options") ? { searchOptions: `${slug}.search-options` } : {}),
@@ -265,7 +267,7 @@ const mediaProviders = [
 	provider("company", "company.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
 	provider("company", "company.hardcover", "Hardcover", "hardcover", ["details", "search"]),
 	provider("company", "company.igdb", "IGDB", "igdb", ["details", "search"]),
-	provider("company", "company.tmdb", "TMDB", "tmdb", ["details", "search"]),
+	provider("company", "company.tmdb", "TMDB", "tmdb", ["details", "related", "search"]),
 	provider("company", "company.tvdb", "TVDB", "tvdb", ["details", "search"]),
 	provider(
 		"manga",

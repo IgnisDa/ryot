@@ -185,6 +185,10 @@ and episode number. Unknown order types are dropped; an empty list clears remove
 use only the HTTP budget left after the show/season calls and drop excess orders rather than failing
 population.
 
+TMDB companies return the first discover page of movies and shows from `details` with a
+`{ page, totalPages }` continuation. The company `related` script fetches up to 40 further pages per
+run, five at a time, and ends at the last page or TMDB's page 500.
+
 Provider refresh emits authoritative empty relationship groups where supported so removed links can
 be deleted. TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
 the person-to-media relationship's `character` field, separately from roles. Multiple names for one

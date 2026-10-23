@@ -1,7 +1,9 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
@@ -45,41 +47,31 @@ export const search = defineProvider({
 		),
 });
 
-const discoverCompanyResults = (host: TmdbHost, path: string, externalId: string, token: string) =>
-	Effect.gen(function* () {
-		const firstPage = yield* tmdbGet(
-			host,
-			path,
-			{ page: "1", language: "en-US", with_companies: externalId },
-			token,
-		);
-		const totalPagesValue = numberValue(firstPage["total_pages"]);
-		const totalPages = totalPagesValue === null ? 1 : Math.max(1, Math.trunc(totalPagesValue));
-		const pageNumbers = Array.from(
-			{ length: Math.max(0, totalPages - 1) },
-			(_, index) => index + 2,
-		);
-		const batches = Array.from({ length: Math.ceil(pageNumbers.length / 5) }, (_, index) =>
-			pageNumbers.slice(index * 5, index * 5 + 5),
-		);
-		const pages: UnknownRecord[] = [firstPage];
-		for (const batch of batches) {
-			pages.push(
-				...(yield* Effect.forEach(
-					batch,
-					(page) =>
-						tmdbGet(
-							host,
-							path,
-							{ language: "en-US", page: String(page), with_companies: externalId },
-							token,
-						),
-					{ concurrency: "unbounded" },
-				)),
-			);
-		}
-		return pages.flatMap((page) => recordsValue(page["results"]));
-	});
+const TMDB_DISCOVER_MAX_PAGE = 500;
+const RELATED_PAGES_PER_RUN = 40;
+const RELATED_PAGE_CONCURRENCY = 5;
+
+const productionGroups = {
+	"company-to-show": { nameKey: "name", path: "/discover/tv", providerSlug: "show.tmdb" },
+	"company-to-movie": { nameKey: "title", path: "/discover/movie", providerSlug: "movie.tmdb" },
+} as const;
+
+const discoverPage = (
+	host: TmdbHost,
+	path: string,
+	externalId: string,
+	page: number,
+	token: string,
+) =>
+	tmdbGet(host, path, { language: "en-US", page: String(page), with_companies: externalId }, token);
+
+const lastDiscoverPage = (page: UnknownRecord) => {
+	const totalPages = numberValue(page["total_pages"]);
+	return Math.min(
+		totalPages === null ? 1 : Math.max(1, Math.trunc(totalPages)),
+		TMDB_DISCOVER_MAX_PAGE,
+	);
+};
 
 const productionEntities = (
 	items: readonly UnknownRecord[],
@@ -100,6 +92,18 @@ const productionEntities = (
 		];
 	});
 
+const productionGroup = (slug: keyof typeof productionGroups, firstPage: UnknownRecord) => {
+	const config = productionGroups[slug];
+	const lastPage = lastDiscoverPage(firstPage);
+	return {
+		relationshipSchemaSlug: slug,
+		direction: "outgoing" as const,
+		synchronization: "authoritative" as const,
+		entities: productionEntities(recordsValue(firstPage["results"]), config),
+		...(lastPage > 1 ? { continuation: { page: 2, totalPages: lastPage } } : {}),
+	};
+};
+
 export const details = defineProvider({
 	manifest,
 	operation: "details",
@@ -112,8 +116,20 @@ export const details = defineProvider({
 				Effect.all(
 					[
 						tmdbGet(host, `/company/${input.externalId}`, { language: "en-US" }, token),
-						discoverCompanyResults(host, "/discover/movie", input.externalId, token),
-						discoverCompanyResults(host, "/discover/tv", input.externalId, token),
+						discoverPage(
+							host,
+							productionGroups["company-to-movie"].path,
+							input.externalId,
+							1,
+							token,
+						),
+						discoverPage(
+							host,
+							productionGroups["company-to-show"].path,
+							input.externalId,
+							1,
+							token,
+						),
 					],
 					{ concurrency: "unbounded" },
 				),
@@ -126,6 +142,10 @@ export const details = defineProvider({
 				const logo = getImageUrl(companyData["logo_path"]);
 				return {
 					name,
+					relatedEntityGroups: [
+						productionGroup("company-to-movie", movies),
+						productionGroup("company-to-show", shows),
+					],
 					properties: {
 						alternateNames: [],
 						website: stringValue(companyData["homepage"]),
@@ -136,24 +156,57 @@ export const details = defineProvider({
 							stringValue(companyData["headquarters"]) ??
 							stringValue(companyData["origin_country"]),
 					},
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "company-to-movie",
-							entities: productionEntities(movies, {
-								nameKey: "title",
-								providerSlug: "movie.tmdb",
-							}),
-						},
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "company-to-show",
-							entities: productionEntities(shows, { nameKey: "name", providerSlug: "show.tmdb" }),
-						},
-					],
 				};
+			}),
+		);
+	},
+});
+
+const decodeContinuation = (continuation: unknown) => {
+	const record = asRecord(continuation);
+	const page = record === null ? null : numberValue(record["page"]);
+	const totalPages = record === null ? null : numberValue(record["totalPages"]);
+	return page !== null && totalPages !== null && Number.isInteger(page) && page >= 2
+		? Effect.succeed({ page, totalPages: Math.min(Math.trunc(totalPages), TMDB_DISCOVER_MAX_PAGE) })
+		: Effect.fail(new MediaSandboxError({ message: "Invalid TMDB company continuation" }));
+};
+
+export const related = defineProvider({
+	manifest,
+	operation: "related",
+	run: (input, host) => {
+		if (!/^\d+$/.test(input.externalId)) {
+			throw new Error("externalId must be a numeric TMDB company ID");
+		}
+		const config =
+			input.relationshipSchemaSlug === "company-to-movie" ||
+			input.relationshipSchemaSlug === "company-to-show"
+				? productionGroups[input.relationshipSchemaSlug]
+				: null;
+		if (config === null) {
+			return Effect.fail(
+				new MediaSandboxError({
+					message: `Unsupported TMDB company relationship: ${input.relationshipSchemaSlug}`,
+				}),
+			);
+		}
+		return Effect.all([getTmdbAccessToken(host), decodeContinuation(input.continuation)]).pipe(
+			Effect.flatMap(([token, { page, totalPages }]) => {
+				const lastPage = Math.min(page + RELATED_PAGES_PER_RUN - 1, totalPages);
+				const pageNumbers = Array.from({ length: lastPage - page + 1 }, (_, index) => page + index);
+				return Effect.forEach(
+					pageNumbers,
+					(number) => discoverPage(host, config.path, input.externalId, number, token),
+					{ concurrency: RELATED_PAGE_CONCURRENCY },
+				).pipe(
+					Effect.map((pages) => ({
+						continuation: lastPage < totalPages ? { totalPages, page: lastPage + 1 } : null,
+						entities: productionEntities(
+							pages.flatMap((result) => recordsValue(result["results"])),
+							config,
+						),
+					})),
+				);
 			}),
 		);
 	},
