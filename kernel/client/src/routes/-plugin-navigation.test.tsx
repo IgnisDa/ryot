@@ -98,7 +98,7 @@ const preparedFor = (
 			? {
 					...target,
 					entitySchemaPluginId: pluginId,
-					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					entitySchemaSlug: EntitySchemaSlug.make("unit"),
 				}
 			: target;
 	return {
@@ -551,14 +551,14 @@ describe("client page routes", () => {
 								layouts: ["grid", "list"],
 								subject: {
 									entityAlias: "entity",
-									schemas: [{ slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } }],
+									schemas: [{ slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } }],
 								},
 								addAction: {
 									type: "provider-search",
-									schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+									schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
 									library: {
-										librarySchemaSlug: "media-library",
-										relationshipSlug: "in-media-library",
+										librarySchemaSlug: "fixture-library",
+										relationshipSlug: "in-fixture-library",
 									},
 								},
 							},
@@ -576,8 +576,8 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true")),
@@ -586,8 +586,8 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-2",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -646,7 +646,7 @@ describe("client page routes", () => {
 						return Effect.die("not used");
 					}
 					const prepared = preparedSavedView(SavedViewId.make("internal-id"));
-					const schema = { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } };
+					const schema = { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } };
 					return Effect.succeed({
 						...prepared,
 						context: {
@@ -666,8 +666,8 @@ describe("client page routes", () => {
 									schema,
 									type: "provider-search",
 									library: {
-										librarySchemaSlug: "media-library",
-										relationshipSlug: "in-media-library",
+										librarySchemaSlug: "fixture-library",
+										relationshipSlug: "in-fixture-library",
 									},
 								},
 							},
@@ -683,8 +683,8 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -763,7 +763,7 @@ describe("client page routes", () => {
 								layouts: ["grid", "list"],
 								subject: {
 									entityAlias: "entity",
-									schemas: [{ slug: "book", owner: { kind: "kernel" } }],
+									schemas: [{ slug: "unit", owner: { kind: "kernel" } }],
 								},
 							},
 						},
@@ -794,8 +794,8 @@ describe("client page routes", () => {
 				initialQuery: "dune",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -808,8 +808,8 @@ describe("client page routes", () => {
 				initialQuery: "new query",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-2",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -862,7 +862,7 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const view = mount({
 				entry: "/p/test/plugin-1?tab=home",
-				entries: [{ ...catalog[0], clientEntities: { book: { createRoute: "/books/new" } } }],
+				entries: [{ ...catalog[0], clientEntities: { unit: { createRoute: "/units/new" } } }],
 				loadProviders: () =>
 					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
 			});
@@ -873,8 +873,8 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				initialQuery: "dune part two",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -882,7 +882,7 @@ describe("client page routes", () => {
 
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/books/new");
+					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/units/new");
 					expect(view.router.state.location.searchStr).toBe("?name=dune+part+two");
 				}),
 			);
@@ -909,8 +909,8 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -933,14 +933,14 @@ describe("client page routes", () => {
 					externalId: "external-1",
 					createdAt: "2026-01-01T00:00:00.000Z",
 					updatedAt: "2026-01-01T00:00:00.000Z",
-					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					entitySchemaSlug: EntitySchemaSlug.make("unit"),
 					entitySchemaPluginId: PluginId.make("plugin-1"),
 				},
 			} satisfies ImportEntityRunResult;
 			const providerResponse = {
 				providerId,
 				providerName: "Provider 1",
-				rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+				rootEntitySchemaSlug: EntitySchemaSlug.make("unit"),
 				items: [{ title: "Dune", externalId: "external-1" }],
 			} satisfies SearchProviderEntitiesResponse;
 			const view = mount({
@@ -959,7 +959,7 @@ describe("client page routes", () => {
 									searchOptionsSchema: null,
 									providerName: "Provider 1",
 									providerSlug: "provider-1",
-									rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+									rootEntitySchemaSlug: EntitySchemaSlug.make("unit"),
 								},
 							],
 						}),
@@ -972,8 +972,8 @@ describe("client page routes", () => {
 				initialQuery: "Dune",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Dune" }));
@@ -998,10 +998,10 @@ describe("client page routes", () => {
 		}),
 	);
 
-	const bookSchema = { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } } as const;
+	const unitSchema = { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } } as const;
 	const pickRequest = (initialQuery: string) => ({
 		initialQuery,
-		schema: bookSchema,
+		schema: unitSchema,
 		type: "pick-entity-screen",
 		requestId: "pick-entity-screen-1",
 	});
@@ -1020,7 +1020,7 @@ describe("client page routes", () => {
 				providerAdd: {
 					loadProviders: noProviders,
 					loadSchema: () =>
-						Effect.succeed({ name: "Book", editor: null, propertiesSchema: { fields: {} } }),
+						Effect.succeed({ name: "Unit", editor: null, propertiesSchema: { fields: {} } }),
 					loadEntities: (_client, input) => {
 						queries.push(input.query);
 						return Effect.succeed({
@@ -1035,7 +1035,7 @@ describe("client page routes", () => {
 			);
 			bridge.port.postMessage(pickRequest("Dune"));
 
-			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Choose Book" }));
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Choose Unit" }));
 			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Dune" })));
 
 			yield* Effect.promise(() =>
@@ -1068,7 +1068,7 @@ describe("client page routes", () => {
 						}),
 					loadSchema: () =>
 						Effect.succeed({
-							name: "Book",
+							name: "Unit",
 							propertiesSchema: kindSchema,
 							editor: { relationships: [] },
 						}),
@@ -1088,7 +1088,7 @@ describe("client page routes", () => {
 			fireEvent.click(
 				yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "Rotator"' })),
 			);
-			const form = yield* Effect.promise(() => screen.findByRole("form", { name: "New Book" }));
+			const form = yield* Effect.promise(() => screen.findByRole("form", { name: "New Unit" }));
 			expect(screen.getByRole("textbox", { name: "Name" })).toHaveProperty("value", "Rotator");
 			fireEvent.click(screen.getByRole("button", { name: "Create" }));
 			yield* Effect.promise(() => screen.findByText("Kind is required"));
@@ -1116,7 +1116,7 @@ describe("client page routes", () => {
 			expect(requests[0]?.submission).toEqual({
 				name: "Rotator",
 				relationships: [],
-				entitySchema: bookSchema,
+				entitySchema: unitSchema,
 				target: { kind: "create" },
 				properties: { kind: "muscle" },
 			});
@@ -1131,7 +1131,7 @@ describe("client page routes", () => {
 				const entityId = EntityId.make("entity-created");
 				const view = mount({
 					entry: "/p/test/plugin-1?tab=home",
-					entries: [{ ...catalog[0], clientEntities: { book: { createRoute: "/books/new" } } }],
+					entries: [{ ...catalog[0], clientEntities: { unit: { createRoute: "/units/new" } } }],
 					providerAdd: {
 						loadProviders: noProviders,
 						createEntity: () => Effect.succeed({ entityId, kind: "saved" as const }),
@@ -1142,7 +1142,7 @@ describe("client page routes", () => {
 							}),
 						loadSchema: () =>
 							Effect.succeed({
-								name: "Book",
+								name: "Unit",
 								propertiesSchema: kindSchema,
 								editor: { relationships: [] },
 							}),
@@ -1156,7 +1156,7 @@ describe("client page routes", () => {
 				fireEvent.click(
 					yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "dune"' })),
 				);
-				yield* Effect.promise(() => screen.findByRole("form", { name: "New Book" }));
+				yield* Effect.promise(() => screen.findByRole("form", { name: "New Unit" }));
 				fireEvent.change(screen.getByRole("textbox", { name: "Kind" }), {
 					target: { value: "novel" },
 				});
@@ -1915,7 +1915,7 @@ describe("client page routes", () => {
 					kind: "entity",
 					entityId: "entity-1",
 					search: "tab=activity",
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "unit",
 				},
 			});
 		}),
@@ -1936,7 +1936,7 @@ describe("client page routes", () => {
 				ownerPluginId: "plugin-1",
 				entityId: EntityId.make("missing"),
 				code: "entity-detail-page-not-registered",
-				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaSlug: EntitySchemaSlug.make("unit"),
 			},
 			"Entity page not registered",
 		],
@@ -1990,7 +1990,7 @@ const membershipResponse = (properties: Record<string, unknown>) => ({
 		relationshipSchemaPluginId: null,
 		createdAt: "2026-10-20T00:00:00.000Z",
 		id: RelationshipId.make("membership-1"),
-		sourceEntityId: EntityId.make("book-1"),
+		sourceEntityId: EntityId.make("unit-1"),
 		targetEntityId: EntityId.make("collection-1"),
 		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
 	},
@@ -2177,7 +2177,7 @@ describe("collection host screens", () => {
 			});
 			const { bridge } = yield* openPluginFrame(view);
 			const request = {
-				entityId: "book-1",
+				entityId: "unit-1",
 				collectionId: "collection-1",
 				type: "add-to-collection-screen",
 			};
@@ -2197,7 +2197,7 @@ describe("collection host screens", () => {
 			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Done" })));
 			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
 			expect(saved).toEqual([
-				{ entityId: "book-1", collectionId: "collection-1", properties: { notes: "New" } },
+				{ entityId: "unit-1", collectionId: "collection-1", properties: { notes: "New" } },
 			]);
 
 			bridge.port.postMessage({ ...request, requestId: "screen-2" });
@@ -2220,7 +2220,7 @@ describe("collection host screens", () => {
 					}),
 				),
 			);
-			expect(removed).toEqual([{ entityId: "book-1", collectionId: "collection-1" }]);
+			expect(removed).toEqual([{ entityId: "unit-1", collectionId: "collection-1" }]);
 		}),
 	);
 
@@ -2248,7 +2248,7 @@ describe("collection host screens", () => {
 			});
 			const { bridge } = yield* openPluginFrame(view);
 			bridge.port.postMessage({
-				entityId: "book-1",
+				entityId: "unit-1",
 				requestId: "screen-1",
 				type: "add-to-collection-screen",
 			});
@@ -2257,26 +2257,26 @@ describe("collection host screens", () => {
 			);
 			yield* Effect.promise(() => within(picker).findByText("You have no collections yet."));
 			fireEvent.change(within(picker).getByRole("textbox", { name: "Search collections" }), {
-				target: { value: "Books" },
+				target: { value: "Units" },
 			});
-			fireEvent.click(within(picker).getByRole("button", { name: "Create “Books” and add" }));
+			fireEvent.click(within(picker).getByRole("button", { name: "Create “Units” and add" }));
 			const editor = yield* Effect.promise(() =>
 				screen.findByRole("dialog", { name: "New collection" }),
 			);
 			expect(within(editor).getByRole("textbox", { name: "Name" })).toHaveProperty(
 				"value",
-				"Books",
+				"Units",
 			);
 			fireEvent.click(within(editor).getByRole("button", { name: "Create collection" }));
 			const membership = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Add to Books" }),
+				screen.findByRole("dialog", { name: "Add to Units" }),
 			);
 			fireEvent.click(within(membership).getByRole("button", { name: "Add to collection" }));
 			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Done" })));
 
 			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
 			expect(added).toEqual([
-				{ properties: {}, entityId: "book-1", mode: "add-if-absent", collectionId: "collection-2" },
+				{ properties: {}, entityId: "unit-1", mode: "add-if-absent", collectionId: "collection-2" },
 			]);
 		}),
 	);

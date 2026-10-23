@@ -68,16 +68,16 @@ const makeRun = (overrides: Partial<AutomationHistoryRun> = {}): AutomationHisto
 	skipReason: null,
 	delivery: "async",
 	nextAttemptAt: null,
-	pluginName: "Media",
+	pluginName: "Fixture",
 	executionUserId: null,
-	hookName: "Media Watch Hook",
+	hookName: "Fixture Watch Hook",
+	pluginId: PluginId.make("plugin-a"),
 	queuedAt: "2026-09-16T10:00:00.000Z",
 	startedAt: "2026-09-16T10:00:01.000Z",
 	finishedAt: "2026-09-16T10:00:03.000Z",
-	pluginId: PluginId.make("media-plugin"),
 	artifactsExpireAt: "2026-09-23T10:00:00.000Z",
 	hookSlug: AutomationHookSlug.make("watch-hook"),
-	pluginRevisionId: PluginRevisionId.make("media-revision-4"),
+	pluginRevisionId: PluginRevisionId.make("fixture-revision-4"),
 	triggerKind: { resource: "event", category: "change", operation: "create" },
 	...overrides,
 });
@@ -259,16 +259,16 @@ describe("automation history", () => {
 				}),
 			);
 
-			yield* Effect.promise(() => screen.findByText("Media Watch Hook"));
-			expect(screen.getByText(/Media ·/)).toBeTruthy();
-			expect(screen.getByRole("link", { name: /Open Media Watch Hook run/ }).textContent).toContain(
-				"2 attempts",
-			);
+			yield* Effect.promise(() => screen.findByText("Fixture Watch Hook"));
+			expect(screen.getByText(/Fixture ·/)).toBeTruthy();
+			expect(
+				screen.getByRole("link", { name: /Open Fixture Watch Hook run/ }).textContent,
+			).toContain("2 attempts");
 			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
 			yield* Effect.promise(() => screen.findByText("Library Update Hook"));
 			expect(cursors).toEqual([undefined, "opaque-next"]);
 
-			fireEvent.click(screen.getByRole("link", { name: /Open Media Watch Hook run/ }));
+			fireEvent.click(screen.getByRole("link", { name: /Open Fixture Watch Hook run/ }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(view.router.state.location.pathname).toBe(
@@ -277,7 +277,7 @@ describe("automation history", () => {
 				),
 			);
 			yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Media Watch Hook" }),
+				screen.findByRole("heading", { level: 1, name: "Fixture Watch Hook" }),
 			);
 		}),
 	);

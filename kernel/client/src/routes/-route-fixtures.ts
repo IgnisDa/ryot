@@ -431,7 +431,7 @@ export const preparePluginPage = (
 					? {
 							...target,
 							entitySchemaPluginId: "plugin-1",
-							entitySchemaSlug: EntitySchemaSlug.make("book"),
+							entitySchemaSlug: EntitySchemaSlug.make("item"),
 						}
 					: target,
 			renderer: {

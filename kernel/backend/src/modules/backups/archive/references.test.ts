@@ -129,12 +129,12 @@ it.effect(
 			const key = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
 			const valueField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
 			const sessionEventField = {
-				key: "exercises",
-				label: "Exercises",
+				key: "records",
+				label: "Records",
 				kind: "session-event",
 				event: {
 					slug: "logged",
-					entitySchemaSlug: "exercise",
+					entitySchemaSlug: "record",
 					owner: { kind: "plugin", pluginId: "source-owner" },
 				},
 			};
@@ -194,7 +194,7 @@ it.effect(
 				},
 				{
 					...sessionEventField,
-					event: { pluginKey: key, slug: "logged", entitySchemaSlug: "exercise" },
+					event: { pluginKey: key, slug: "logged", entitySchemaSlug: "record" },
 				},
 			]);
 			const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(

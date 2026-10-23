@@ -38,13 +38,13 @@ const creditChange = (index: number, withPopulation = false) => ({
 		operation: "create",
 		resource: "relationship",
 		after: {
-			targetEntityId: "movie-1",
+			targetEntityId: "record-1",
 			id: `relationship-${index}`,
 			relationshipSchemaPluginId: null,
 			sourceEntityId: `person-${index}`,
 			createdAt: "2026-09-15T00:00:00.000Z",
 			updatedAt: "2026-09-15T00:00:00.000Z",
-			relationshipSchemaSlug: "person-to-movie",
+			relationshipSchemaSlug: "person-to-record",
 			properties: { biography: "x".repeat(1_000) },
 		},
 		...(withPopulation ? { population } : {}),
@@ -75,7 +75,7 @@ describe("lifecycle batch triggers", () => {
 	it("keeps a single-item batch the size of its item trigger when the write carries population", () => {
 		const change = creditChange(0, true);
 		const [trigger] = lifecycleBatchTriggers(
-			{ identity: ["seasons"], resource: "relationship", command: { ...command, population } },
+			{ identity: ["parts"], resource: "relationship", command: { ...command, population } },
 			200,
 			[change],
 		);

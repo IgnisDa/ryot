@@ -103,7 +103,7 @@ const capabilityRequests = {
 		source: new Blob(["data"]),
 	},
 
-	storage: { key: "order", action: "get", pluginId: "media", type: "storage-request" },
+	storage: { key: "order", action: "get", pluginId: "fixture", type: "storage-request" },
 
 	operation: { input: null, operationSlug: "greet", type: "operation-request" },
 
@@ -340,7 +340,7 @@ describe("bridge page screens", () => {
 			pluginPort.postMessage({
 				key: "rest",
 				action: "cancel",
-				pluginId: "fitness",
+				pluginId: "other",
 				requestId: "device-1",
 				type: "device-request",
 			});
@@ -354,7 +354,7 @@ describe("bridge page screens", () => {
 					}),
 				),
 			);
-			expect(calls).toEqual([{ key: "rest", action: "cancel", pluginId: "fitness" }]);
+			expect(calls).toEqual([{ key: "rest", action: "cancel", pluginId: "other" }]);
 		}),
 	);
 
@@ -374,7 +374,7 @@ describe("bridge page screens", () => {
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
 			pluginPort.postMessage({
-				pluginId: "fitness",
+				pluginId: "other",
 				action: "availability",
 				requestId: "ios-live-activity-1",
 				type: "ios-live-activity-request",
@@ -389,7 +389,7 @@ describe("bridge page screens", () => {
 					}),
 				),
 			);
-			expect(calls).toEqual([{ pluginId: "fitness", action: "availability" }]);
+			expect(calls).toEqual([{ pluginId: "other", action: "availability" }]);
 
 			const diagnostics: unknown[] = [];
 			const failed = connect({
@@ -402,7 +402,7 @@ describe("bridge page screens", () => {
 			);
 			failed.pluginPort.postMessage({
 				action: "list",
-				pluginId: "fitness",
+				pluginId: "other",
 				requestId: "ios-live-activity-3",
 				type: "ios-live-activity-request",
 			});
@@ -437,7 +437,7 @@ describe("bridge page screens", () => {
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 			pluginPort.postMessage({
 				action: "list",
-				pluginId: "fitness",
+				pluginId: "other",
 				type: "ios-live-activity-request",
 				requestId: "ios-live-activity-pending",
 			});
@@ -646,8 +646,8 @@ describe("bridge page screens", () => {
 				initialQuery: "Dune",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			yield* Effect.promise(() =>
@@ -670,8 +670,8 @@ describe("bridge page screens", () => {
 					initialQuery: "Dune",
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
-					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 				},
 			]);
 		}),
@@ -696,8 +696,8 @@ describe("bridge page screens", () => {
 				initialQuery: "Dune",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			pluginPort.postMessage({
@@ -820,7 +820,7 @@ describe("bridge page screens", () => {
 			pluginPort.postMessage({
 				requestId: "pick-1",
 				type: "pick-entity-screen",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
 			expect(received.slice(1)).toEqual([
@@ -1927,7 +1927,7 @@ describe("plugin bridge", () => {
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-			const request = { pluginId: "media", type: "user-settings-request" as const };
+			const request = { pluginId: "fixture", type: "user-settings-request" as const };
 			pluginPort.postMessage({ ...request, requestId: "settings-1" });
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 			expect(received[1]).toEqual({
@@ -1945,7 +1945,7 @@ describe("plugin bridge", () => {
 				type: "user-settings-result",
 			});
 			pluginPort.postMessage({ ...request, installationId: "other", requestId: "settings-3" });
-			expect(calls).toEqual([{ pluginId: "media" }, { pluginId: "media" }]);
+			expect(calls).toEqual([{ pluginId: "fixture" }, { pluginId: "fixture" }]);
 		}),
 	);
 
@@ -1967,7 +1967,7 @@ describe("plugin bridge", () => {
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 			const request = {
-				pluginId: "media",
+				pluginId: "fixture",
 				entityId: "entity-1",
 				type: "retry-population-request" as const,
 			};
@@ -1989,8 +1989,8 @@ describe("plugin bridge", () => {
 			});
 			pluginPort.postMessage({ ...request, userId: "other", requestId: "retry-3" });
 			expect(calls).toEqual([
-				{ pluginId: "media", entityId: "entity-1" },
-				{ pluginId: "media", entityId: "entity-1" },
+				{ pluginId: "fixture", entityId: "entity-1" },
+				{ pluginId: "fixture", entityId: "entity-1" },
 			]);
 		}),
 	);
@@ -2014,7 +2014,7 @@ describe("plugin bridge", () => {
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-			const request = { key: "order", pluginId: "media", type: "storage-request" as const };
+			const request = { key: "order", pluginId: "fixture", type: "storage-request" as const };
 			pluginPort.postMessage({ ...request, action: "get", requestId: "storage-1" });
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 			expect(received[1]).toEqual({
@@ -2042,9 +2042,9 @@ describe("plugin bridge", () => {
 				type: "storage-result",
 			});
 			expect(calls).toEqual([
-				{ key: "order", action: "get", pluginId: "media" },
-				{ value: 1, key: "order", action: "set", pluginId: "media" },
-				{ key: "order", action: "remove", pluginId: "media" },
+				{ key: "order", action: "get", pluginId: "fixture" },
+				{ value: 1, key: "order", action: "set", pluginId: "fixture" },
+				{ key: "order", action: "remove", pluginId: "fixture" },
 			]);
 			expect(failures).toEqual([]);
 		}),

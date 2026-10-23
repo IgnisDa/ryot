@@ -42,8 +42,8 @@ it.live("does not cancel alerts when navigation replaces an equivalent scope obj
 			),
 		);
 		const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
-		const pluginId = PluginId.make("fitness");
-		const packageId = PluginPackageId.make("ryot/fitness");
+		const pluginId = PluginId.make("other");
+		const packageId = PluginPackageId.make("ryot/other");
 		const contributors = [
 			{
 				pluginId,
@@ -104,8 +104,8 @@ it.live(
 					),
 				);
 			const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
-			const pluginId = PluginId.make("fitness");
-			const packageId = PluginPackageId.make("ryot/fitness");
+			const pluginId = PluginId.make("other");
+			const packageId = PluginPackageId.make("ryot/other");
 			const contributors = [
 				{
 					pluginId,
@@ -128,7 +128,7 @@ it.live(
 			yield* service.outcome(scope, contributors, "frame", true, {
 				pluginId,
 				action: "return-shortcut",
-				shortcut: { target, label: "Resume workout" },
+				shortcut: { target, label: "Resume session" },
 			});
 			yield* first.disposeEffect;
 			const restored = makeRuntime();
@@ -145,7 +145,7 @@ it.live(
 				/>,
 			);
 			try {
-				expect(view.queryByRole("button", { name: "Resume workout" })).toBeNull();
+				expect(view.queryByRole("button", { name: "Resume session" })).toBeNull();
 				view.rerender(
 					<ReturnShortcutBar
 						scope={scope}
@@ -155,7 +155,7 @@ it.live(
 						isCurrent={(current) => current.kind === "plugin-route" && current.path === "/editor"}
 					/>,
 				);
-				expect(view.queryByRole("button", { name: "Resume workout" })).toBeNull();
+				expect(view.queryByRole("button", { name: "Resume session" })).toBeNull();
 				view.rerender(
 					<ReturnShortcutBar
 						scope={scope}
@@ -166,7 +166,7 @@ it.live(
 					/>,
 				);
 				yield* Effect.promise(() =>
-					userEvent.setup().click(view.getByRole("button", { name: "Resume workout" })),
+					userEvent.setup().click(view.getByRole("button", { name: "Resume session" })),
 				);
 				expect(navigations).toEqual([target]);
 				view.unmount();

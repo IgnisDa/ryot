@@ -27,7 +27,7 @@ const response = {
 		entity: {
 			type: "rows",
 			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-			items: [{ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-1" }],
+			items: [{ entitySchemaSlug: "item", entitySchemaPluginId: "plugin-1" }],
 		},
 	},
 } as const;
@@ -61,7 +61,7 @@ describe("EntitiesService", () => {
 						),
 					),
 				),
-			).toEqual({ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-1" });
+			).toEqual({ entitySchemaSlug: "item", entitySchemaPluginId: "plugin-1" });
 			expect(calls).toHaveLength(1);
 			expect(calls[0]).toMatchObject({
 				payload: {

@@ -56,37 +56,41 @@ const workspace = (
 });
 
 const catalog: PluginClientCatalog = [
-	workspace("media", 2),
+	workspace("fixture", 2),
 	workspace("disabled", 0, true),
-	workspace("fitness", 1),
+	workspace("other", 1),
 ];
 
 const data: NavigationData = {
 	collections: [],
 	savedViews: [
-		view("shows", "media", 2),
-		view("movies", "media", 1, true),
+		view("items", "fixture", 2),
+		view("records", "fixture", 1, true),
 		view("all", null, 1),
 		view("recent", null, 0),
 	],
 };
 
-const draft = initCustomizeDraft({ data, catalog, workspaceInstallationId: "installation-media" });
+const draft = initCustomizeDraft({
+	data,
+	catalog,
+	workspaceInstallationId: "installation-fixture",
+});
 
 describe("initCustomizeDraft", () => {
 	it("initializes all workspaces in catalog order, including hidden ones", () => {
 		expect(draft.workspaces.map((item) => item.installationId)).toEqual([
 			"installation-disabled",
-			"installation-fitness",
-			"installation-media",
+			"installation-other",
+			"installation-fixture",
 		]);
 		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
 		expect(draft.workspaces[0]).toMatchObject({ icon: "plugin", isHidden: true, name: "DISABLED" });
-		expect(draft.views[0]?.pluginInstallationId).toBe("installation-media");
+		expect(draft.views[0]?.pluginInstallationId).toBe("installation-fixture");
 	});
 
 	it("splits workspace views from global saved views and sorts each by sort order", () => {
-		expect(draft.views.map((item) => item.name)).toEqual(["MOVIES", "SHOWS"]);
+		expect(draft.views.map((item) => item.name)).toEqual(["RECORDS", "ITEMS"]);
 		expect(draft.savedViews.map((item) => item.name)).toEqual(["RECENT", "ALL"]);
 	});
 
@@ -105,22 +109,22 @@ describe("moveCustomizeItem", () => {
 	it("moves an item within its own section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
 
-		expect(moved.views.map((item) => item.name)).toEqual(["SHOWS", "MOVIES"]);
+		expect(moved.views.map((item) => item.name)).toEqual(["ITEMS", "RECORDS"]);
 		expect(moved.savedViews).toBe(draft.savedViews);
 	});
 
 	it("clamps an out-of-range target into the section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 9, fromIndex: 0, section: "views" });
 
-		expect(moved.views.map((item) => item.name)).toEqual(["SHOWS", "MOVIES"]);
+		expect(moved.views.map((item) => item.name)).toEqual(["ITEMS", "RECORDS"]);
 	});
 
 	it("moves an item within the workspaces section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 2, fromIndex: 0, section: "workspaces" });
 
 		expect(moved.workspaces.map((item) => item.installationId)).toEqual([
-			"installation-fitness",
-			"installation-media",
+			"installation-other",
+			"installation-fixture",
 			"installation-disabled",
 		]);
 	});
@@ -132,9 +136,9 @@ describe("moveCustomizeItem", () => {
 
 describe("toggleCustomizeItem", () => {
 	it("flips visibility without moving the item", () => {
-		const toggled = toggleCustomizeItem({ draft, section: "views", id: viewId("shows") });
+		const toggled = toggleCustomizeItem({ draft, section: "views", id: viewId("items") });
 
-		expect(toggled.views.map((item) => item.name)).toEqual(["MOVIES", "SHOWS"]);
+		expect(toggled.views.map((item) => item.name)).toEqual(["RECORDS", "ITEMS"]);
 		expect(toggled.views.map((item) => item.isHidden)).toEqual([true, true]);
 	});
 
@@ -146,16 +150,12 @@ describe("toggleCustomizeItem", () => {
 		const onlyEnabled = {
 			...draft,
 			workspaces: draft.workspaces.map((item) =>
-				item.installationId === "installation-fitness" ? item : { ...item, isHidden: true },
+				item.installationId === "installation-other" ? item : { ...item, isHidden: true },
 			),
 		};
 
 		expect(
-			toggleCustomizeItem({
-				draft: onlyEnabled,
-				section: "workspaces",
-				id: "installation-fitness",
-			}),
+			toggleCustomizeItem({ draft: onlyEnabled, section: "workspaces", id: "installation-other" }),
 		).toBe(onlyEnabled);
 	});
 
@@ -170,7 +170,7 @@ describe("toggleCustomizeItem", () => {
 	});
 
 	it("leaves the draft it was given untouched", () => {
-		toggleCustomizeItem({ draft, section: "views", id: viewId("shows") });
+		toggleCustomizeItem({ draft, section: "views", id: viewId("items") });
 
 		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
 	});

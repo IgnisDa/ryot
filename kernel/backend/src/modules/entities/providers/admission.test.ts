@@ -43,7 +43,7 @@ const listedEntity = {
 	id: EntityId.make("entity-1"),
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
 	entitySchemaPluginId: PluginId.make("fixture-result-owner"),
 };
 
@@ -131,7 +131,7 @@ const fixturesLayer = Layer.effect(
 	AdmissionProviders,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
-		const source = revisionPackage("admission", "v1", "book");
+		const source = revisionPackage("admission", "v1", "item");
 		const entries = yield* Effect.forEach([alice, bob], (userId) =>
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(source, userId);
@@ -168,7 +168,7 @@ const submit = (executionId: string, userId: UserId) =>
 				providerId: provider.id,
 				entityScope: { userId, type: "user" },
 				pluginId: PluginId.make(provider.pluginId),
-				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaSlug: EntitySchemaSlug.make("item"),
 				command: {
 					...rootLifecycleCommand({
 						source: "api",

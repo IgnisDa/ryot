@@ -84,7 +84,7 @@ describe("resolveDeepLinkHref", () => {
 	});
 
 	it("keeps the search string", () => {
-		expect(resolveDeepLinkHref("io.ryot.app://v/all-shows?page=2")).toBe("/v/all-shows?page=2");
+		expect(resolveDeepLinkHref("io.ryot.app://v/all-items?page=2")).toBe("/v/all-items?page=2");
 	});
 
 	it("resolves an authority-less custom-scheme link", () => {
@@ -93,8 +93,8 @@ describe("resolveDeepLinkHref", () => {
 	});
 
 	it("accepts the bundle identifier schemes of both build variants", () => {
-		expect(resolveDeepLinkHref("io.ryot.app://media")).toBe("/media");
-		expect(resolveDeepLinkHref("io.ryot.app.dev://media")).toBe("/media");
+		expect(resolveDeepLinkHref("io.ryot.app://fixture")).toBe("/fixture");
+		expect(resolveDeepLinkHref("io.ryot.app.dev://fixture")).toBe("/fixture");
 	});
 
 	it("preserves authority-free OAuth callback queries", () => {
@@ -107,14 +107,12 @@ describe("resolveDeepLinkHref", () => {
 	});
 
 	it("uses the path of an http or https link", () => {
-		expect(resolveDeepLinkHref("https://ryot.io/fitness/workouts/123")).toBe(
-			"/fitness/workouts/123",
-		);
+		expect(resolveDeepLinkHref("https://ryot.io/other/records/123")).toBe("/other/records/123");
 	});
 
 	it("rejects an unknown scheme or an unparseable value", () => {
-		expect(resolveDeepLinkHref("ryot://media")).toBeNull();
-		expect(resolveDeepLinkHref("other://media")).toBeNull();
+		expect(resolveDeepLinkHref("ryot://fixture")).toBeNull();
+		expect(resolveDeepLinkHref("other://fixture")).toBeNull();
 		expect(resolveDeepLinkHref("not a url")).toBeNull();
 		expect(resolveDeepLinkHref("")).toBeNull();
 	});
@@ -127,12 +125,12 @@ describe("createDeepLinkBridge", () => {
 			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
-			harness.openUrl("io.ryot.app.dev://media/search");
+			harness.openUrl("io.ryot.app.dev://fixture/search");
 			bridge.destroy();
 
 			expect(harness.navigated).toEqual([
 				{ replace: true, href: "/e/entity123" },
-				{ replace: false, href: "/media/search" },
+				{ replace: false, href: "/fixture/search" },
 			]);
 		}),
 	);
@@ -143,7 +141,7 @@ describe("createDeepLinkBridge", () => {
 			const bridge = createDeepLinkBridge(harness.source, harness.navigator, harness.claims);
 			yield* Effect.promise(() => Promise.resolve());
 
-			harness.openUrl("other://media");
+			harness.openUrl("other://fixture");
 			bridge.destroy();
 
 			expect(harness.navigated).toEqual([]);
@@ -203,7 +201,7 @@ describe("createDeepLinkBridge", () => {
 
 			bridge.destroy();
 			bridge.destroy();
-			harness.openUrl("io.ryot.app://media");
+			harness.openUrl("io.ryot.app://fixture");
 			harness.pressBack();
 
 			expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);
@@ -221,11 +219,11 @@ describe("createDeepLinkBridge", () => {
 			yield* Effect.promise(() => Promise.resolve());
 
 			harness.openUrl(RETURN_URL);
-			harness.openUrl("io.ryot.app://media");
+			harness.openUrl("io.ryot.app://fixture");
 			bridge.destroy();
 
 			expect(claimed).toEqual([RETURN_URL]);
-			expect(harness.navigated).toEqual([{ replace: false, href: "/media" }]);
+			expect(harness.navigated).toEqual([{ replace: false, href: "/fixture" }]);
 		}),
 	);
 

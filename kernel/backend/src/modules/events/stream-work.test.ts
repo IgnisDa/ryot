@@ -65,11 +65,11 @@ import {
 
 const userId = UserId.make("owner");
 const accountToken = "test-account-generation";
-const entitySchemaSlug = "fixture-exercise";
-const eventSchemaSlug = EventSchemaSlug.make("workout-set");
+const entitySchemaSlug = "fixture-record";
+const eventSchemaSlug = EventSchemaSlug.make("record-set");
 const processorScriptSlug = "stream-fixture-processor";
 const eventSchema: PluginManifest["entitySchemas"][number]["eventSchemas"][number] = {
-	name: "Workout set",
+	name: "Record set",
 	slug: eventSchemaSlug,
 	propertiesSchema: {
 		fields: { rating: { type: "number", label: "Rating", description: "Derived rating" } },
@@ -116,7 +116,7 @@ const fixturePackage = (): NormalizedPlugin => {
 			{
 				...entitySchema,
 				slug: entitySchemaSlug,
-				name: "Fixture exercise",
+				name: "Fixture record",
 				eventSchemas: [eventSchema],
 			},
 		],
@@ -378,7 +378,7 @@ const seedStream = (suffix: string) =>
 		const eventRows = yield* EventsRepository;
 		const session = yield* DatabaseSession;
 		const service = yield* EventStreamWorkService;
-		const entityId = EntityId.make(`stream-${suffix}-exercise`);
+		const entityId = EntityId.make(`stream-${suffix}-record`);
 		const eventId = EventId.make(`stream-${suffix}-set`);
 		yield* session.transaction(
 			session.run((db) =>
@@ -388,7 +388,7 @@ const seedStream = (suffix: string) =>
 						userId,
 						id: entityId,
 						properties: {},
-						name: "Fixture exercise",
+						name: "Fixture record",
 						entitySchemaPluginId: fixture.pluginId,
 						entitySchemaSlug: fixture.entitySchemaSlug,
 					}),
@@ -485,7 +485,7 @@ layer(streamWorkTestLayer)((test) => {
 					processorScriptId: SandboxScriptId.make("foreign-processor"),
 					pluginPin: { ...fixture.pluginPin, id: PluginId.make("foreign-plugin") },
 					command: { ...command("foreign-request"), writeContext: fixture.principal },
-					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-exercise") },
+					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-record") },
 				}),
 			);
 			assertExitFails(
@@ -500,7 +500,7 @@ layer(streamWorkTestLayer)((test) => {
 					pluginPin: fixture.pluginPin,
 					accountGeneration: fixture.accountGeneration,
 					processorScriptId: SandboxScriptId.make("mismatched-processor"),
-					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-exercise") },
+					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-record") },
 					command: { ...command("mismatched-processor-request"), writeContext: fixture.principal },
 				}),
 			);

@@ -11,13 +11,13 @@ import { clientStorageLayer, pluginStorageKey } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
-const media = PluginId.make("plugin-1");
-const fitness = PluginId.make("plugin-2");
+const fixture = PluginId.make("plugin-1");
+const other = PluginId.make("plugin-2");
 
 const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{
 		kind: "plugin",
-		pluginId: media,
+		pluginId: fixture,
 		revisionId: "revision-1",
 		contentHash: "source-hash",
 		installationId: "installation-1",
@@ -37,7 +37,7 @@ const setOrder = (value: string) =>
 		value,
 		key: "order",
 		action: "set",
-		pluginId: media,
+		pluginId: fixture,
 	});
 
 describe("plugin storage outcome", () => {
@@ -49,24 +49,24 @@ describe("plugin storage outcome", () => {
 					yield* pluginStorageOutcome(scope, contributors, {
 						key: "order",
 						action: "set",
-						pluginId: media,
+						pluginId: fixture,
 						value: { order: "aired" },
 					}),
 				).toEqual({ value: null, outcome: "success" });
-				expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
 					'{"order":"aired"}',
 				);
 				expect(
 					yield* pluginStorageOutcome(scope, contributors, {
 						key: "order",
 						action: "get",
-						pluginId: media,
+						pluginId: fixture,
 					}),
 				).toEqual({ outcome: "success", value: { order: "aired" } });
 				yield* pluginStorageOutcome(scope, contributors, {
 					key: "order",
-					pluginId: media,
 					action: "remove",
+					pluginId: fixture,
 				});
 				expect((yield* storage.values).size).toBe(0);
 			});
@@ -79,24 +79,24 @@ describe("plugin storage outcome", () => {
 						...contributors,
 						{
 							kind: "plugin",
-							pluginId: fitness,
+							pluginId: other,
 							revisionId: "revision-1",
 							contentHash: "same-source-name",
 							installationId: "installation-2",
-							packageId: PluginPackageId.make("ryot/fitness"),
+							packageId: PluginPackageId.make("ryot/other"),
 						},
 					];
 					yield* pluginStorageOutcome(scope, composed, {
 						key: "same",
 						action: "set",
 						value: "left",
-						pluginId: media,
+						pluginId: fixture,
 					});
 					yield* pluginStorageOutcome(scope, composed, {
 						key: "same",
 						action: "set",
 						value: "right",
-						pluginId: fitness,
+						pluginId: other,
 					});
 					const upgraded = Array.from(composed, (contributor) =>
 						contributor.kind === "plugin"
@@ -107,14 +107,14 @@ describe("plugin storage outcome", () => {
 						yield* pluginStorageOutcome(scope, upgraded, {
 							key: "same",
 							action: "get",
-							pluginId: media,
+							pluginId: fixture,
 						}),
 					).toEqual({ value: "left", outcome: "success" });
 					expect(
 						yield* pluginStorageOutcome(scope, upgraded, {
 							key: "same",
 							action: "get",
-							pluginId: fitness,
+							pluginId: other,
 						}),
 					).toEqual({ value: "right", outcome: "success" });
 				}),
@@ -130,7 +130,7 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginId: fitness,
+						pluginId: other,
 					}),
 				).toEqual({ outcome: "failure", reason: "invalid-request" });
 				expect((yield* storage.values).size).toBe(0);
@@ -159,7 +159,7 @@ describe("plugin storage outcome", () => {
 
 	layer(
 		pluginStorageLayer({
-			entries: [[pluginStorageKey(scope, media, "order"), '"existing"']],
+			entries: [[pluginStorageKey(scope, fixture, "order"), '"existing"']],
 			setItem: () => {
 				throw new DOMException("full", "QuotaExceededError");
 			},
@@ -173,10 +173,10 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginId: media,
+						pluginId: fixture,
 					}),
 				).toEqual({ reason: "quota", outcome: "failure" });
-				expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
 					'"existing"',
 				);
 			});
@@ -200,7 +200,7 @@ describe("plugin storage outcome", () => {
 						yield* pluginStorageOutcome(scope, contributors, {
 							action,
 							key: "order",
-							pluginId: media,
+							pluginId: fixture,
 						}),
 					).toEqual({ outcome: "failure", reason: "transport" });
 				}
@@ -222,32 +222,32 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginId: media,
+						pluginId: fixture,
 					}),
 				).toEqual({ outcome: "failure", reason: "transport" });
 			}),
 		);
 	});
 
-	layer(pluginStorageLayer({ entries: [[pluginStorageKey(scope, media, "order"), "{not json"]] }))(
-		(test) => {
-			test.effect("reports malformed stored values as transport without deleting them", () =>
-				Effect.gen(function* () {
-					const storage = yield* FakeBrowserStorage;
-					expect(
-						yield* pluginStorageOutcome(scope, contributors, {
-							key: "order",
-							action: "get",
-							pluginId: media,
-						}),
-					).toEqual({ outcome: "failure", reason: "transport" });
-					expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
-						"{not json",
-					);
-				}),
-			);
-		},
-	);
+	layer(
+		pluginStorageLayer({ entries: [[pluginStorageKey(scope, fixture, "order"), "{not json"]] }),
+	)((test) => {
+		test.effect("reports malformed stored values as transport without deleting them", () =>
+			Effect.gen(function* () {
+				const storage = yield* FakeBrowserStorage;
+				expect(
+					yield* pluginStorageOutcome(scope, contributors, {
+						key: "order",
+						action: "get",
+						pluginId: fixture,
+					}),
+				).toEqual({ outcome: "failure", reason: "transport" });
+				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
+					"{not json",
+				);
+			}),
+		);
+	});
 
 	layer(PluginStorage.layer.pipe(Layer.provideMerge(clientStorageLayer(undefined))))((test) => {
 		test.effect("reports unavailable browser storage instead of successful persistence", () =>
@@ -257,7 +257,7 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginId: media,
+						pluginId: fixture,
 					}),
 				).toEqual({ outcome: "failure", reason: "transport" });
 			}),

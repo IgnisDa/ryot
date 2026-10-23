@@ -16,13 +16,13 @@ const request: Extract<PluginDeviceRequest, { action: "schedule" }> = {
 	audible: true,
 	action: "schedule",
 	title: "Rest complete",
-	pluginId: PluginId.make("fitness"),
+	pluginId: PluginId.make("other"),
 	deadline: "2030-01-01T00:00:00.000Z",
 	target: {
 		search: "",
 		path: "/editor",
 		kind: "plugin-route",
-		packageId: PluginPackageId.make("ryot/fitness"),
+		packageId: PluginPackageId.make("ryot/other"),
 	},
 };
 

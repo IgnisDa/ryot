@@ -14,7 +14,7 @@ const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
 		isDesktop: false,
 		hasIframeOverlay: false,
 		hasPluginBackScreen: true,
-		pathname: "/media/search",
+		pathname: "/fixture/search",
 		...input,
 	});
 
@@ -38,7 +38,7 @@ describe("resolveEdge", () => {
 		{
 			name: "cross-plugin navigation without readiness",
 			expected: { compact: true, intent: "back", owner: "kernel" },
-			input: { hasPluginBackScreen: false, pathname: "/fitness/workouts" },
+			input: { hasPluginBackScreen: false, pathname: "/other/records" },
 		},
 		{
 			name: "direct entity entry with no history",
@@ -47,7 +47,7 @@ describe("resolveEdge", () => {
 		},
 		{
 			name: "workspace root",
-			input: { atRoot: true, pathname: "/media" },
+			input: { atRoot: true, pathname: "/fixture" },
 			expected: { compact: true, owner: "kernel", intent: "drawer" },
 		},
 		{
@@ -63,7 +63,7 @@ describe("resolveEdge", () => {
 		{
 			name: "iframe overlay at the root in a compact viewport",
 			expected: { compact: true, intent: "back", owner: "iframe-overlay" },
-			input: { atRoot: true, canGoBack: false, pathname: "/media", hasIframeOverlay: true },
+			input: { atRoot: true, canGoBack: false, pathname: "/fixture", hasIframeOverlay: true },
 		},
 		{
 			name: "iframe overlay at the root on desktop",
@@ -72,7 +72,7 @@ describe("resolveEdge", () => {
 				atRoot: true,
 				isDesktop: true,
 				canGoBack: false,
-				pathname: "/media",
+				pathname: "/fixture",
 				hasIframeOverlay: true,
 			},
 		},
@@ -81,8 +81,8 @@ describe("resolveEdge", () => {
 	});
 
 	it("reports a compact viewport even where the kernel keeps the edge", () => {
-		expect(resolve({ atRoot: true, pathname: "/media" }).compact).toBe(true);
-		expect(resolve({ atRoot: true, isDesktop: true, pathname: "/media" }).compact).toBe(false);
+		expect(resolve({ atRoot: true, pathname: "/fixture" }).compact).toBe(true);
+		expect(resolve({ atRoot: true, isDesktop: true, pathname: "/fixture" }).compact).toBe(false);
 	});
 
 	it("routes edge Back to an iframe overlay and restores ownership after it closes", () => {
@@ -124,7 +124,7 @@ describe("isSettingsPath", () => {
 		expect(isSettingsPath("/settings")).toBe(true);
 		expect(isSettingsPath("/settings/preferences")).toBe(true);
 		expect(isSettingsPath("/settings-workspace")).toBe(false);
-		expect(isSettingsPath("/media")).toBe(false);
+		expect(isSettingsPath("/fixture")).toBe(false);
 	});
 });
 
@@ -133,14 +133,14 @@ describe("isCustomizeSidebarPath", () => {
 		expect(isCustomizeSidebarPath("/customize-sidebar")).toBe(true);
 		expect(isCustomizeSidebarPath("/customize-sidebar/views")).toBe(true);
 		expect(isCustomizeSidebarPath("/customize-sidebars")).toBe(false);
-		expect(isCustomizeSidebarPath("/media")).toBe(false);
+		expect(isCustomizeSidebarPath("/fixture")).toBe(false);
 	});
 });
 
 describe("hasWorkspaceChrome", () => {
 	it("withholds the workspace chrome from every route that owns its own back control", () => {
-		expect(hasWorkspaceChrome("/media")).toBe(true);
-		expect(hasWorkspaceChrome("/v/all-shows")).toBe(true);
+		expect(hasWorkspaceChrome("/fixture")).toBe(true);
+		expect(hasWorkspaceChrome("/v/all-items")).toBe(true);
 		expect(hasWorkspaceChrome("/settings/account")).toBe(false);
 		expect(hasWorkspaceChrome("/customize-sidebar")).toBe(false);
 	});

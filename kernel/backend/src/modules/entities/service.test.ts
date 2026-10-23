@@ -999,25 +999,25 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("deletes workout-session events with item and batch lifecycle plans", () =>
+		test.effect("deletes record-session events with item and batch lifecycle plans", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
 				const events = yield* EventsRepository;
 				const session = yield* DatabaseSession;
-				const workoutSession = yield* service.create({
-					...createInput("workout-session-cascade"),
-					name: "Workout Session",
+				const recordSession = yield* service.create({
+					...createInput("record-session-cascade"),
+					name: "Record Session",
 				});
-				const workout = yield* service.create({
-					...createInput("workout-set-cascade"),
-					name: "Workout Set",
+				const record = yield* service.create({
+					...createInput("record-set-cascade"),
+					name: "Record Set",
 				});
-				const eventIds = [EventId.make("workout-event-1"), EventId.make("workout-event-2")];
+				const eventIds = [EventId.make("record-event-1"), EventId.make("record-event-2")];
 				for (const eventId of eventIds) {
-					yield* createEvent(eventId, owner, workout.entity.id, workoutSession.entity.id);
+					yield* createEvent(eventId, owner, record.entity.id, recordSession.entity.id);
 				}
-				const lifecycle = command("workout-session-delete");
-				const deleted = yield* service.deleteByIds([workoutSession.entity.id], lifecycle);
+				const lifecycle = command("record-session-delete");
+				const deleted = yield* service.deleteByIds([recordSession.entity.id], lifecycle);
 				expect(deleted.deletedCount).toBe(1);
 				expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
 				const triggers = yield* session.run((db) =>
@@ -1059,13 +1059,11 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 				}
 				const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-				expect(yield* service.deleteByIds([workoutSession.entity.id], lifecycle)).toEqual(deleted);
+				expect(yield* service.deleteByIds([recordSession.entity.id], lifecycle)).toEqual(deleted);
 				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
 					receiptCount,
 				);
-				expect(yield* events.listEventIdentitiesForEntities([workoutSession.entity.id])).toEqual(
-					[],
-				);
+				expect(yield* events.listEventIdentitiesForEntities([recordSession.entity.id])).toEqual([]);
 			}),
 		);
 	});
@@ -1076,26 +1074,26 @@ describe("EntitiesService committed lifecycle", () => {
 				const service = yield* EntitiesService;
 				const events = yield* EventsRepository;
 				const session = yield* DatabaseSession;
-				const workoutSession = yield* service.create(createInput("late-event-session"));
-				const workout = yield* service.create(createInput("late-event-workout"));
+				const recordSession = yield* service.create(createInput("late-event-session"));
+				const record = yield* service.create(createInput("late-event-record"));
 				yield* createEvent(
 					EventId.make("initial-cascade-event"),
 					owner,
-					workout.entity.id,
-					workoutSession.entity.id,
+					record.entity.id,
+					recordSession.entity.id,
 				);
 				const failure = yield* service
-					.deleteByIds([workoutSession.entity.id], command("late-event-delete"))
+					.deleteByIds([recordSession.entity.id], command("late-event-delete"))
 					.pipe(Effect.flip);
 				expect(failure).toMatchObject({
 					_tag: "DbError",
 					message: "Entity event references changed while deletion policies ran",
 				});
-				expect(yield* service.getByIdAnyScope(workoutSession.entity.id)).toEqual(
-					workoutSession.entity,
+				expect(yield* service.getByIdAnyScope(recordSession.entity.id)).toEqual(
+					recordSession.entity,
 				);
 				expect(
-					yield* events.listEventIdentitiesForEntities([workoutSession.entity.id]),
+					yield* events.listEventIdentitiesForEntities([recordSession.entity.id]),
 				).toHaveLength(2);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
@@ -1116,13 +1114,13 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
 					const events = yield* EventsRepository;
-					const workout = yield* service.create(createInput("scoped-delete-workout"));
-					const exercise = yield* service.create(createInput("scoped-delete-exercise"));
+					const record = yield* service.create(createInput("scoped-delete-record"));
+					const part = yield* service.create(createInput("scoped-delete-part"));
 					yield* createEvent(
 						EventId.make("scoped-delete-set"),
 						owner,
-						exercise.entity.id,
-						workout.entity.id,
+						part.entity.id,
+						record.entity.id,
 					);
 					for (const [index, target] of [
 						{ entitySchema, userId: UserId.make("another-owner") },
@@ -1137,22 +1135,22 @@ describe("EntitiesService committed lifecycle", () => {
 					].entries()) {
 						expect(
 							yield* service
-								.deleteByIds([workout.entity.id], command(`scoped-denied-${index}`), target)
+								.deleteByIds([record.entity.id], command(`scoped-denied-${index}`), target)
 								.pipe(Effect.flip),
 						).toMatchObject({
 							_tag: "EntityNotFound",
-							reason: { code: "entity-not-found", entityId: workout.entity.id },
+							reason: { code: "entity-not-found", entityId: record.entity.id },
 						});
 					}
 					const lifecycle = command("scoped-delete");
 					const target = { entitySchema, userId: owner };
 					expect(
-						(yield* service.deleteByIds([workout.entity.id], lifecycle, target)).deletedCount,
+						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
 					).toBe(1);
-					expect(yield* events.listEventIdentitiesForEntities([exercise.entity.id])).toEqual([]);
-					expect(yield* service.getByIdAnyScope(exercise.entity.id)).toEqual(exercise.entity);
+					expect(yield* events.listEventIdentitiesForEntities([part.entity.id])).toEqual([]);
+					expect(yield* service.getByIdAnyScope(part.entity.id)).toEqual(part.entity);
 					expect(
-						(yield* service.deleteByIds([workout.entity.id], lifecycle, target)).deletedCount,
+						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
 					).toBe(1);
 				}),
 		);

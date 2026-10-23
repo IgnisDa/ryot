@@ -10,8 +10,8 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { pluginConfigEnvironmentKeySql } from "./catalog";
 
 const cases = [
-	["ryot/media", "tmdbAccessToken"],
-	["acme-labs/movie-db", "api.key"],
+	["ryot/fixture", "accessToken"],
+	["acme-labs/item-db", "api.key"],
 	["a1/b-2-c", "OAuthClientID"],
 	["x/y", "--leading and trailing--"],
 ] as const;

@@ -85,7 +85,7 @@ import { RyotQLService } from "./service";
 const occurredAt = new Date(0);
 const futureExpiry = new Date("2100-01-01T00:00:00Z");
 const systemPluginName = "media-hub";
-const systemPackageId = PluginPackageId.make("ryot/media-hub");
+const systemPackageId = PluginPackageId.make("ryot/fixture-hub");
 
 const trigger = (id: string) => ({
 	id,
@@ -342,15 +342,15 @@ const seedCatalog = Effect.gen(function* () {
 			yield* db.insert(entity).values([
 				{
 					userId: "owner",
-					name: "Owner exercise",
+					name: "Owner record",
 					id: "stream-entity-owner",
-					entitySchemaSlug: "exercise",
+					entitySchemaSlug: "record",
 				},
 				{
 					userId: "other",
-					name: "Other exercise",
+					name: "Other record",
 					id: "stream-entity-other",
-					entitySchemaSlug: "exercise",
+					entitySchemaSlug: "record",
 				},
 			]);
 			yield* db.insert(eventStream).values([
@@ -358,14 +358,14 @@ const seedCatalog = Effect.gen(function* () {
 					revision: 4,
 					userId: "owner",
 					id: "stream-owner",
-					eventSchemaSlug: "workout-set",
+					eventSchemaSlug: "record-set",
 					entityId: "stream-entity-owner",
 				},
 				{
 					revision: 2,
 					userId: "other",
 					id: "stream-other",
-					eventSchemaSlug: "workout-set",
+					eventSchemaSlug: "record-set",
 					entityId: "stream-entity-other",
 				},
 			]);
@@ -1539,7 +1539,7 @@ layer(catalogDatabaseLayer)((test) => {
 						revision: 4,
 						id: "stream-owner",
 						eventSchemaPluginId: null,
-						eventSchemaSlug: "workout-set",
+						eventSchemaSlug: "record-set",
 						entityId: "stream-entity-owner",
 					},
 				]);

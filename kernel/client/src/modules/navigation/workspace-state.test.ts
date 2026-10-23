@@ -18,19 +18,20 @@ const workspace = (
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Media",
+	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
-	contentHash: "source-media",
-	installationId: "installation-media",
+	contentHash: "source-fixture",
+	installationId: "installation-fixture",
 	...overrides,
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
-	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
+	packageId: overrides.packageId ?? PluginPackageId.make("ryot/fixture"),
 	pluginId:
-		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
+		overrides.pluginId ??
+		PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "fixture"}`),
 });
 
 describe("workspace state", () => {
@@ -123,13 +124,13 @@ describe("workspace state", () => {
 
 	it("derives plugin-route workspace context", () => {
 		const catalog = [
-			workspace({ packageId: PluginPackageId.make("test/media") }),
-			workspace({ packageId: PluginPackageId.make("test/fitness") }),
+			workspace({ packageId: PluginPackageId.make("test/fixture") }),
+			workspace({ packageId: PluginPackageId.make("test/other") }),
 			workspace({ isHidden: true, packageId: PluginPackageId.make("test/disabled") }),
 		];
 
-		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/fitness"))?.packageId).toBe(
-			"test/fitness",
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/other"))?.packageId).toBe(
+			"test/other",
 		);
 		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/disabled"))?.packageId).toBe(
 			"test/disabled",
@@ -141,26 +142,26 @@ describe("workspace state", () => {
 		const catalog = [workspace({ isHidden: true })];
 
 		expect(visibleWorkspaces(catalog)).toEqual([]);
-		expect(resolveRememberedWorkspace(catalog, "plugin-media")).toBeNull();
-		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("ryot/media"))?.packageId).toBe(
-			"ryot/media",
+		expect(resolveRememberedWorkspace(catalog, "plugin-fixture")).toBeNull();
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("ryot/fixture"))?.packageId).toBe(
+			"ryot/fixture",
 		);
 	});
 
 	it("recognizes a workspace root with or without a trailing slash", () => {
-		const media = workspace();
+		const fixture = workspace();
 
-		expect(isWorkspaceRoot("/p/ryot/media", media)).toBe(true);
-		expect(isWorkspaceRoot("/p/ryot/media/", media)).toBe(true);
+		expect(isWorkspaceRoot("/p/ryot/fixture", fixture)).toBe(true);
+		expect(isWorkspaceRoot("/p/ryot/fixture/", fixture)).toBe(true);
 	});
 
 	it("rejects child routes, other workspaces, and an absent workspace", () => {
-		const media = workspace();
+		const fixture = workspace();
 
-		expect(isWorkspaceRoot("/p/ryot/media/workouts/1", media)).toBe(false);
-		expect(isWorkspaceRoot("/mediation", media)).toBe(false);
-		expect(isWorkspaceRoot("/p/ryot/fitness", media)).toBe(false);
-		expect(isWorkspaceRoot("/v/k/all-movies", media)).toBe(false);
-		expect(isWorkspaceRoot("/p/ryot/media", null)).toBe(false);
+		expect(isWorkspaceRoot("/p/ryot/fixture/records/1", fixture)).toBe(false);
+		expect(isWorkspaceRoot("/mediation", fixture)).toBe(false);
+		expect(isWorkspaceRoot("/p/ryot/other", fixture)).toBe(false);
+		expect(isWorkspaceRoot("/v/k/all-records", fixture)).toBe(false);
+		expect(isWorkspaceRoot("/p/ryot/fixture", null)).toBe(false);
 	});
 });

@@ -25,10 +25,10 @@ import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 import { ENTITY_CREATE_REFUSED_MESSAGE, ProviderAddService } from "#/modules/provider-add/service";
 
 const ownerPluginId = PluginId.make("stable-plugin-id");
-const entitySchemaSlug = EntitySchemaSlug.make("book");
+const entitySchemaSlug = EntitySchemaSlug.make("unit");
 const providerId = SandboxProviderId.make("provider-1");
-const relationshipSlug = "in-media-library";
-const librarySchemaSlug = "media-library";
+const relationshipSlug = "in-fixture-library";
+const librarySchemaSlug = "fixture-library";
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null } as const;

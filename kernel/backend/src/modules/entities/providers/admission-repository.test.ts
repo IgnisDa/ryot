@@ -23,7 +23,7 @@ const request = (id: string, userId: UserId, externalId = id, backlogLimit = 50)
 				backlogLimit,
 				payload: { id },
 				providerId: "provider",
-				entitySchemaSlug: "book",
+				entitySchemaSlug: "item",
 			}),
 		),
 	);
@@ -91,20 +91,20 @@ describe("provider import admission ledger", () => {
 			"returns the pending job for a repeated request and bounds each user's backlog",
 			() =>
 				Effect.gen(function* () {
-					expect(yield* request("first", alice, "book-1")).toEqual({
+					expect(yield* request("first", alice, "item-1")).toEqual({
 						id: "first",
 						status: "queued",
 					});
-					expect(yield* request("second", alice, "book-1")).toEqual({
+					expect(yield* request("second", alice, "item-1")).toEqual({
 						id: "first",
 						status: "duplicate",
 					});
-					expect(yield* request("third", alice, "book-2", 2)).toEqual({
+					expect(yield* request("third", alice, "item-2", 2)).toEqual({
 						id: "third",
 						status: "queued",
 					});
-					expect(yield* request("fourth", alice, "book-3", 2)).toEqual({ status: "backlog-full" });
-					expect(yield* request("other", bob, "book-3", 2)).toEqual({
+					expect(yield* request("fourth", alice, "item-3", 2)).toEqual({ status: "backlog-full" });
+					expect(yield* request("other", bob, "item-3", 2)).toEqual({
 						id: "other",
 						status: "queued",
 					});

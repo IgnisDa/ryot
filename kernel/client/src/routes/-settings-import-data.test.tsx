@@ -65,13 +65,13 @@ const hevySource: ImportSourceItem = {
 	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
-	installationId: "fitness-installation",
-	pluginId: PluginId.make("fitness-plugin"),
-	packageId: PluginPackageId.make("ryot/fitness"),
-	description: "Import workouts from a Hevy CSV export",
+	pluginId: PluginId.make("plugin-b"),
+	installationId: "other-installation",
+	packageId: PluginPackageId.make("ryot/other"),
+	description: "Import records from a Hevy CSV export",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	exportHelp: { steps: ["Open the Hevy app", "Export your workouts"] },
-	reference: { slug: "hevy", owner: { kind: "plugin", pluginId: PluginId.make("fitness-plugin") } },
+	exportHelp: { steps: ["Open the Hevy app", "Export your records"] },
+	reference: { slug: "hevy", owner: { kind: "plugin", pluginId: PluginId.make("plugin-b") } },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -95,12 +95,12 @@ const traktSource: ImportSourceItem = {
 	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
-	installationId: "media-installation",
-	pluginId: PluginId.make("media-plugin"),
-	packageId: PluginPackageId.make("ryot/media"),
+	pluginId: PluginId.make("plugin-a"),
+	installationId: "fixture-installation",
+	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
 	description: "Import watched history from a Trakt profile",
-	reference: { slug: "trakt", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
+	reference: { slug: "trakt", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -116,12 +116,12 @@ const lockedSource: ImportSourceItem = {
 	isStartable: false,
 	exportHelp: undefined,
 	description: "Import watched history from Plex",
-	missingPluginConfigKeys: ["RYOT_MEDIA_PLEX_TOKEN"],
+	missingPluginConfigKeys: ["RYOT_FIXTURE_TOKEN"],
 	reference: { ...traktSource.reference, slug: "plex" },
 	readiness: {
 		plan: null,
 		ready: false,
-		blockReasons: [{ key: "RYOT_MEDIA_PLEX_TOKEN", code: "configuration-required" }],
+		blockReasons: [{ key: "RYOT_FIXTURE_TOKEN", code: "configuration-required" }],
 	},
 	readinessMetadata: {
 		oauthProviders: [],
@@ -134,7 +134,7 @@ const lockedSource: ImportSourceItem = {
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],
-				requiredPluginConfigKeys: ["RYOT_MEDIA_PLEX_TOKEN"],
+				requiredPluginConfigKeys: ["RYOT_FIXTURE_TOKEN"],
 			},
 		],
 	},
@@ -142,8 +142,8 @@ const lockedSource: ImportSourceItem = {
 
 const outcomeSummary = (created: number, unsuccessful = 0): ImportRunSummary["summary"] => [
 	{
-		unit: "workouts",
-		recordKind: "workout",
+		unit: "records",
+		recordKind: "session",
 		counts: { created, updated: 0, skipped: 0, unsuccessful, unchanged: 0 },
 	},
 ];
@@ -346,8 +346,8 @@ describe("import data list", () => {
 											exactTotal: 12,
 											parentId: null,
 											kind: "reading",
+											unit: "records",
 											state: "running",
-											unit: "workouts",
 											lastAdvancedAt: "2026-08-23T11:01:00.000Z",
 										},
 									],
@@ -360,10 +360,10 @@ describe("import data list", () => {
 			const card = yield* Effect.promise(() =>
 				screen.findByRole("link", { name: "Open the Hevy import in progress" }),
 			);
-			expect(card.textContent).toContain("3 of 12 workouts");
+			expect(card.textContent).toContain("3 of 12 records");
 			expect(card.textContent).toContain("3 created");
 			expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe(
-				"3 of 12 workouts",
+				"3 of 12 records",
 			);
 		}),
 	);
@@ -529,7 +529,7 @@ describe("import data list", () => {
 
 			const option = within(dialog).getByRole("button", { name: "Plex is unavailable" });
 			expect(option.hasAttribute("disabled")).toBe(true);
-			expect(within(dialog).getByText("Set RYOT_MEDIA_PLEX_TOKEN on your server.")).not.toBeNull();
+			expect(within(dialog).getByText("Set RYOT_FIXTURE_TOKEN on your server.")).not.toBeNull();
 		}),
 	);
 
@@ -635,13 +635,13 @@ describe("import run detail", () => {
 		Effect.gen(function* () {
 			const issues: IngestionIssue[] = Array.from({ length: 26 }, (_, index) => ({
 				id: `issue-${index}`,
-				recordKind: "workout",
+				recordKind: "session",
 				operationId: `write-${index}`,
 				severity: index === 0 ? "warning" : "error",
-				reason: { key: "exercise", code: "provider-unavailable" },
+				reason: { key: "part", code: "provider-unavailable" },
 				attribution: {
 					recordId: `row-${index}`,
-					sourceLabel: `Workout ${index}`,
+					sourceLabel: `Session ${index}`,
 					sourceIdentifier: `source-${index}`,
 				},
 			}));
@@ -652,12 +652,12 @@ describe("import run detail", () => {
 				[hevySource],
 				issues,
 			);
-			yield* Effect.promise(() => screen.findByText("Workout 0 · warning"));
+			yield* Effect.promise(() => screen.findByText("Session 0 · warning"));
 			expect(screen.getByText("Record: row-0 · Source: source-0")).not.toBeNull();
-			expect(screen.queryByText("Workout 25 · error")).toBeNull();
+			expect(screen.queryByText("Session 25 · error")).toBeNull();
 			fireEvent.click(screen.getByRole("button", { name: "Show more record issues" }));
-			yield* Effect.promise(() => screen.findByText("Workout 25 · error"));
-			expect(screen.getAllByText("Workout 0 · warning")).toHaveLength(1);
+			yield* Effect.promise(() => screen.findByText("Session 25 · error"));
+			expect(screen.getAllByText("Session 0 · warning")).toHaveLength(1);
 			expect(screen.queryByRole("button", { name: "Show more record issues" })).toBeNull();
 		}),
 	);
@@ -730,8 +730,8 @@ describe("import run detail", () => {
 					{
 						id: "issue-1",
 						severity: "error",
-						recordKind: "workout",
-						operationId: "workout-5",
+						recordKind: "session",
+						operationId: "session-5",
 						reason: { key: null, code: "input-transformation-failed" },
 						attribution: {
 							recordId: "record-5",
@@ -744,9 +744,9 @@ describe("import run detail", () => {
 
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
 			expect(screen.getByText("From a.csv")).not.toBeNull();
-			expect(screen.getByText(/workouts: 11 created/)).not.toBeNull();
+			expect(screen.getByText(/records: 11 created/)).not.toBeNull();
 			yield* Effect.promise(() => screen.findByText("Bench Press · error"));
-			expect(screen.getByText("workout · input-transformation-failed")).not.toBeNull();
+			expect(screen.getByText("session · input-transformation-failed")).not.toBeNull();
 			expect(screen.getByText("Record: record-5 · Source: row-5")).not.toBeNull();
 		}),
 	);
