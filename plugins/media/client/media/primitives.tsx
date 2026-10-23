@@ -134,7 +134,7 @@ export function MediaOverviewSection(props: {
 	readonly sync?: MediaSyncCounts | undefined;
 }) {
 	return (
-		<section className={clsx("grid gap-3", props.className)}>
+		<section className={clsx("grid grid-cols-[minmax(0,1fr)] gap-3", props.className)}>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex min-w-0 items-baseline gap-3">
 					<h2 className="text-heading font-semibold text-text">{props.title}</h2>

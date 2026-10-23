@@ -1,6 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -36,6 +36,11 @@ const movieEventSchemas = (client: Client) =>
 			complete: requireEventSchemaBySlug(eventSchemas, "complete").id,
 		};
 	});
+
+const box = (locator: Playwright.Locator) =>
+	locator
+		.boundingBox()
+		.pipe(Effect.map((value) => Option.getOrThrowWith(value, () => new Error("Missing box"))));
 
 const sectionTitles = (media: Playwright.FrameLocator) =>
 	media.locator("section > div > div > h2").allTextContents();
@@ -324,5 +329,101 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 
 		const complete = yield* waitForEventWithSchema(client, seeded.movie.id, events.complete);
 		expect(complete.eventSchemaSlug).toBe(events.complete);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("fits an untracked Movie detail and its Log activity sheet to a phone width", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const frontendUrl = getFrontendUrl();
+		const suffix = crypto.randomUUID();
+		const movieName = `Phone Tracer Movie ${suffix}`;
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const seeded = yield* seedGlobalMovieWithCollection(client, {
+			movieName,
+			withCredits: true,
+			siblingName: `Phone Tracer Sequel ${suffix}`,
+			collectionName: `Phone Tracer Collection ${suffix}`,
+			movieProperties: {
+				runtime: 104,
+				publishYear: 2006,
+				providerRating: 65.63,
+				productionStatus: "Released",
+				images: [1, 2, 3, 4].map((index) => ({
+					type: "remote",
+					purpose: "backdrop",
+					url: `https://images.test/phone-${index}.svg`,
+				})),
+				description:
+					"In order to avoid a jail sentence, a teenager heads to a new city to live with a relative and gets caught up in an underground racing scene that tests everything he thought he knew.",
+				watchProviders: [
+					{
+						country: "US",
+						link: "https://www.themoviedb.org/movie/9615/watch?locale=US",
+						providers: [
+							"Amazon Prime Video",
+							"Amazon Prime Video with Ads",
+							"Netflix Standard with Ads",
+							"Apple TV Store",
+							"Google Play Movies",
+							"Fandango At Home",
+						].map((name) => ({ name, image: null, offers: ["stream", "rent"] })),
+					},
+				],
+			},
+		});
+		yield* seedGlobalMediaGenres({
+			entityId: seeded.movie.id,
+			entitySchemaSlug: "movie",
+			names: ["Action", "Crime", "Thriller"],
+		});
+
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* page.setViewportSize({ width: 390, height: 844 });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
+		const media = mediaPluginFrame(page).contentFrame();
+		yield* media
+			.getByRole("heading", { level: 1, exact: true, name: movieName })
+			.waitFor({ state: "visible", timeout: 150_000 });
+		yield* media.getByText("TMDB rating", { exact: true }).waitFor({ state: "visible" });
+
+		const overflowing = yield* media.locator("html").evaluate((root) =>
+			[...root.querySelectorAll("main *")]
+				.filter((element) => {
+					for (
+						let node = element.parentElement;
+						node !== null && node.tagName !== "MAIN";
+						node = node.parentElement
+					) {
+						if (getComputedStyle(node).overflowX === "auto") {
+							return false;
+						}
+					}
+					return element.getBoundingClientRect().right > root.clientWidth + 1;
+				})
+				.map((element) => element.tagName),
+		);
+		expect(overflowing).toEqual([]);
+
+		yield* media.getByRole("button", { exact: true, name: "Log activity" }).click();
+		const dialog = media.getByRole("dialog", { name: "Log activity" });
+		yield* dialog.waitFor({ state: "visible" });
+		yield* dialog
+			.getByRole("radiogroup", { name: "What happened" })
+			.getByRole("radio", { name: "Progress" })
+			.click();
+		yield* dialog.getByRole("button", { exact: true, name: "Add an amount" }).click();
+		const sheet = yield* box(dialog);
+		const amount = yield* box(dialog.getByLabel("How far along?"));
+		expect(amount.x).toBeGreaterThanOrEqual(sheet.x);
+		expect(amount.x + amount.width).toBeLessThanOrEqual(sheet.x + sheet.width);
+		const unit = yield* box(dialog.getByRole("radiogroup", { name: "Unit" }));
+		expect(unit.x + unit.width).toBeLessThanOrEqual(sheet.x + sheet.width);
+
+		const cancel = yield* box(dialog.getByRole("button", { exact: true, name: "Cancel" }));
+		const save = yield* box(dialog.getByRole("button", { exact: true, name: "Save progress" }));
+		expect(Math.abs(cancel.width - save.width)).toBeLessThanOrEqual(1);
+		expect(cancel.width + save.width).toBeGreaterThan(sheet.width * 0.8);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
