@@ -158,7 +158,7 @@ const makeLayer = (
 						Effect.succeed({
 							revision,
 							status: "applied" as const,
-							pending: [{ revision, entityId: "entity-2" }],
+							pending: [{ revision, entityId: "entity-2", priority: "visible" as const }],
 						}),
 					replaceInterest: ({ revision }) =>
 						Effect.gen(function* () {
@@ -176,7 +176,7 @@ const makeLayer = (
 							return {
 								revision,
 								status: "applied" as const,
-								pending: [{ revision, entityId: "entity-1" }],
+								pending: [{ revision, entityId: "entity-1", priority: "visible" as const }],
 							};
 						}),
 				}),
@@ -228,14 +228,14 @@ const obsoleteTokenLayer = Layer.unwrap(
 					Effect.succeed({
 						revision: 1,
 						status: "applied" as const,
-						pending: [{ revision: 1, entityId: "entity-1" }],
+						pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
 					}),
 			}),
 			Layer.mock(InterestService)({
 				reconcile: () =>
 					Effect.succeed([
 						{
-							pending: { revision: 1, entityId: "entity-1" },
+							pending: { revision: 1, entityId: "entity-1", priority: "visible" as const },
 							message: {
 								reason: "populated" as const,
 								type: "entity-updated" as const,
@@ -273,6 +273,7 @@ describe("entity interest socket session", () => {
 							encodeEntityWatchClientMessage({
 								revision: 1,
 								type: "replace",
+								foregroundIds: [],
 								entityIds: ["entity-1"],
 							}),
 						);
@@ -283,6 +284,8 @@ describe("entity interest socket session", () => {
 								revision: 2,
 								type: "update",
 								add: ["entity-2"],
+								addForeground: [],
+								removeForeground: [],
 							}),
 						);
 						expect(yield* socket.nextMessage()).toEqual({ revision: 2, type: "applied" });
@@ -412,6 +415,7 @@ describe("entity interest socket session", () => {
 						encodeEntityWatchClientMessage({
 							revision: 1,
 							type: "replace",
+							foregroundIds: [],
 							entityIds: ["entity-1"],
 						}),
 					);
@@ -475,10 +479,17 @@ describe("entity interest socket session", () => {
 							revision: 1,
 							type: "update",
 							add: ["invalid"],
+							addForeground: [],
+							removeForeground: [],
 						}),
 					);
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 1,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 
 					const close = yield* Queue.take(socket.writes);
@@ -503,10 +514,20 @@ describe("entity interest socket session", () => {
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 1,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 1,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 
 					const close = yield* Queue.take(socket.writes);
@@ -530,7 +551,12 @@ describe("entity interest socket session", () => {
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 1,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 
 					expect(yield* socket.nextMessage()).toEqual({
@@ -562,6 +588,7 @@ describe("entity interest socket session", () => {
 						encodeEntityWatchClientMessage({
 							revision: 1,
 							type: "replace",
+							foregroundIds: [],
 							entityIds: ["entity-1"],
 						}),
 					);
@@ -687,11 +714,21 @@ describe("entity interest socket session", () => {
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 1,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 					yield* fake.replaceStarted;
 					yield* socket.send(
-						encodeEntityWatchClientMessage({ revision: 2, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({
+							revision: 2,
+							entityIds: [],
+							type: "replace",
+							foregroundIds: [],
+						}),
 					);
 
 					yield* TestClock.adjust("25 seconds");

@@ -11,15 +11,18 @@ session clears its owners, and changing scope discards declarations for the prev
 
 Selection admits the active client-page frame before retained frames, then deduplicates IDs, orders
 them lexically within each owner group and priority, and chooses foreground before visible up to 500
-IDs. Activation changes refresh selection even when declarations do not change. Additions batch for
-100 ms. Removed IDs remain selected for a two-second grace period but receive no callbacks; new demand
-evicts grace entries when capacity is full.
+IDs. The foreground subset sent with the selection comes only from active owners' foreground
+declarations, sorted and capped at 50 IDs; retained frames contribute visible priority only.
+Activation changes refresh selection even when declarations do not change. Additions batch for
+100 ms. Removed IDs remain selected, with their previous priority, for a two-second grace period but
+receive no callbacks; new demand evicts grace entries when capacity is full.
 
 ## Transport
 
 The authenticated ticket port supplies a fresh ticket for each connection. The WebSocket URL has no
 credentials or query string; its first frame authenticates with the ticket. After `ready`, the client
-sends a full `replace` at revision 1, then sends diffs with at most one unacknowledged command.
+sends a full `replace` (with `foregroundIds`) at revision 1, then sends membership and foreground
+diffs with at most one unacknowledged command.
 Reconnect always restarts at revision 1 with current selection.
 
 All frames use contract decoders. Invalid frames, duplicate readiness, rejected commands, mismatched

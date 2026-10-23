@@ -1,21 +1,19 @@
 import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import {
-	AutomationExecutionId,
-	type EntityId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { entityWatchRecipe, type EntityWatchResult } from "@ryot-app/ryotql-recipes/entities";
-import { Context, DateTime, Effect, Layer, Result } from "effect";
+import { Clock, Context, DateTime, Effect, Layer, Result } from "effect";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { TranslationsService } from "#modules/entities/localization/service";
 import {
-	entityPopulationExecutionId,
 	EntityPopulationTrigger,
+	POPULATION_UPGRADE_BUCKET_MILLISECONDS,
+	type PopulationExecution,
+	userPopulationRequest,
 } from "#modules/entities/population-trigger";
 import { RyotQLService } from "#modules/ryotql/service";
+
+import type { InterestPriority } from "./store";
 
 type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
 
@@ -38,35 +36,52 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
 
-			const handleRow = (principal: InterestPrincipal, row: EntityWatchResult[number]) =>
+			const requestPopulation = (
+				principal: InterestPrincipal,
+				row: EntityWatchResult[number] & { externalId: string; providerId: SandboxProviderId },
+				execution: PopulationExecution,
+			) =>
+				userPopulationRequest({
+					execution,
+					entityId: row.id,
+					userId: row.userId,
+					externalId: row.externalId,
+					providerId: row.providerId,
+					initiator: principal.userId,
+					entitySchemaSlug: row.entitySchemaSlug,
+					entitySchemaPluginId: row.entitySchemaPluginId,
+					accountGeneration: principal.accountGeneration,
+				}).pipe(Effect.flatMap(populationTrigger.request));
+
+			const handleRow = (
+				principal: InterestPrincipal,
+				row: EntityWatchResult[number],
+				priority: InterestPriority,
+			) =>
 				Effect.gen(function* () {
-					if (
-						row.populationStatus === "pending" &&
-						row.externalId !== null &&
-						row.providerId !== null
-					) {
-						const executionId = entityPopulationExecutionId(row.id, principal.accountGeneration);
-						yield* populationTrigger.request({
-							entityId: row.id,
-							userId: row.userId,
-							externalId: row.externalId,
-							providerId: row.providerId,
-							entitySchemaSlug: row.entitySchemaSlug,
-							entitySchemaPluginId: row.entitySchemaPluginId,
-							command: {
-								...rootLifecycleCommand({
-									source: "api",
-									lane: "interactive",
-									itemIdentity: executionId,
-									accountGeneration: principal.accountGeneration,
-									initiator: { kind: "user", id: principal.userId },
-									executionId: AutomationExecutionId.make(executionId),
-									occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-								}),
-								writeContext: null,
-							},
-						});
-						return null;
+					const { externalId, providerId } = row;
+					if (externalId !== null && providerId !== null) {
+						const provided = { ...row, externalId, providerId };
+						if (row.populationStatus === "pending") {
+							yield* requestPopulation(principal, provided, {
+								level: priority === "foreground" ? "full" : "base",
+							});
+							return null;
+						}
+						if (
+							priority === "foreground" &&
+							row.populatedAt !== null &&
+							row.relatedPopulationStatus === "pending"
+						) {
+							const now = yield* Clock.currentTimeMillis;
+							yield* requestPopulation(principal, provided, {
+								level: "full",
+								upgrade: {
+									hourBucket: Math.floor(now / POPULATION_UPGRADE_BUCKET_MILLISECONDS),
+									populatedAtMs: DateTime.toEpochMillis(DateTime.makeUnsafe(row.populatedAt)),
+								},
+							});
+						}
 					}
 
 					if (row.populationStatus === "failed") {
@@ -111,14 +126,17 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 
 			const reconcile = Effect.fn("InterestReconciler.reconcile")(function* (
 				principal: InterestPrincipal,
-				entityIds: readonly string[],
+				interests: readonly { readonly entityId: string; readonly priority: InterestPriority }[],
 			) {
-				const [firstId, ...restIds] = entityIds;
-				if (firstId === undefined) {
+				const [first, ...rest] = interests;
+				if (first === undefined) {
 					return { terminal: [], reconciledEntityIds: [] } satisfies ReconciliationResult;
 				}
+				const priorities = new Map(interests.map(({ entityId, priority }) => [entityId, priority]));
 
-				const recipe = entityWatchRecipe({ entityIds: [firstId, ...restIds] });
+				const recipe = entityWatchRecipe({
+					entityIds: [first.entityId, ...rest.map(({ entityId }) => entityId)],
+				});
 				const response = yield* ryotql.executeForUser(
 					principal.userId,
 					principal.preferredLanguage,
@@ -128,7 +146,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));
 				const terminal: TerminalUpdate[] = [];
 				for (const row of rows) {
-					const result = yield* handleRow(principal, row);
+					const result = yield* handleRow(principal, row, priorities.get(row.id) ?? "visible");
 					if (result) {
 						terminal.push(result);
 					}

@@ -197,12 +197,15 @@ const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(func
 					sessionId,
 					revision: message.revision,
 					entityIds: message.entityIds,
+					foregroundIds: message.foregroundIds,
 				})
 			: yield* store.updateInterest({
 					sessionId,
 					add: message.add,
 					remove: message.remove,
 					revision: message.revision,
+					addForeground: message.addForeground,
+					removeForeground: message.removeForeground,
 				});
 	if (outcome.status === "limit-exceeded") {
 		yield* output.enqueue({

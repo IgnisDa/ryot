@@ -66,9 +66,9 @@ const serviceLayer = (replies: {
 				...(getSessionMetadata && { getSessionMetadata }),
 			});
 			const reconciler = Layer.mock(InterestReconciler)({
-				reconcile: (reconcilePrincipal, entityIds) =>
-					event(`reconcile:${entityIds.length}`).pipe(
-						Effect.andThen(replies.reconcile(reconcilePrincipal, entityIds)),
+				reconcile: (reconcilePrincipal, interests) =>
+					event(`reconcile:${interests.length}`).pipe(
+						Effect.andThen(replies.reconcile(reconcilePrincipal, interests)),
 					),
 			});
 			return InterestService.layer.pipe(
@@ -86,6 +86,7 @@ const serviceLayer = (replies: {
 
 const pending = Array.from({ length: 101 }, (_, index) => ({
 	entityId: `entity-${index}`,
+	priority: "visible" as const,
 	revision: index === 100 ? 2 : 1,
 }));
 
@@ -93,14 +94,17 @@ layer(
 	serviceLayer({
 		removePending: ({ pending: chunk }) => chunk.map(({ entityId }) => entityId),
 		markReconciled: ({ pending: chunk }) => chunk.map(({ entityId }) => entityId),
-		reconcile: (_principal, entityIds: readonly string[]) =>
+		reconcile: (_principal, interests) =>
 			Effect.succeed({
-				reconciledEntityIds: entityIds
-					.filter((entityId) => entityId !== "entity-99")
-					.map((entityId) => EntityId.make(entityId)),
-				terminal: entityIds
-					.filter((entityId) => entityId !== "entity-99")
-					.map((entityId) => ({ reason: "populated" as const, entityId: EntityId.make(entityId) })),
+				reconciledEntityIds: interests
+					.filter(({ entityId }) => entityId !== "entity-99")
+					.map(({ entityId }) => EntityId.make(entityId)),
+				terminal: interests
+					.filter(({ entityId }) => entityId !== "entity-99")
+					.map(({ entityId }) => ({
+						reason: "populated" as const,
+						entityId: EntityId.make(entityId),
+					})),
 			}),
 	}),
 )((test) => {
@@ -120,7 +124,7 @@ layer(
 			expect(result).toHaveLength(100);
 			expect(result.some(({ message }) => message.entityId === "entity-99")).toBe(false);
 			expect(result.at(-1)).toEqual({
-				pending: { revision: 2, entityId: "entity-100" },
+				pending: { revision: 2, priority: "visible", entityId: "entity-100" },
 				message: { reason: "populated", type: "entity-updated", entityId: "entity-100" },
 			});
 		}),
@@ -138,7 +142,7 @@ layer(serviceLayer({ reconcile: () => Effect.fail(reconciliationError) }))((test
 					service.reconcile({
 						principal,
 						sessionId: "session-1",
-						pending: [{ revision: 1, entityId: "entity-1" }],
+						pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
 					}),
 				),
 			).toBe(reconciliationError);
@@ -153,7 +157,7 @@ layer(
 		replaceInterest: () => ({
 			revision: 4,
 			status: "applied" as const,
-			pending: [{ revision: 4, entityId: "entity-1" }],
+			pending: [{ revision: 4, entityId: "entity-1", priority: "visible" as const }],
 		}),
 		getSessionMetadata: () =>
 			Effect.succeed([
@@ -176,9 +180,14 @@ layer(
 			const [replacement] = yield* calls.replacements;
 			expect(reconciled).toEqual({
 				sessionId: "session-1",
-				pending: [{ revision: 4, entityId: "entity-1" }],
+				pending: [{ revision: 4, entityId: "entity-1", priority: "visible" as const }],
 			});
-			expect(replacement).toEqual({ revision: 4, sessionId: "session-1", entityIds: ["entity-1"] });
+			expect(replacement).toEqual({
+				revision: 4,
+				foregroundIds: [],
+				sessionId: "session-1",
+				entityIds: ["entity-1"],
+			});
 		}),
 	);
 });
