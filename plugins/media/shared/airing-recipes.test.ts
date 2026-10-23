@@ -15,6 +15,7 @@ const identity = (id: string, schemaSlug: string) => ({
 	name: `Media ${id}`,
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 });
 
 const page = (items: readonly unknown[]) =>

@@ -24,6 +24,7 @@ export const episodicEpisodeRow = {
 	translationStatus: "none",
 	schemaSlug: "podcast-episode",
 	name: "Episode 1: The Arrest",
+	relatedPopulationStatus: "ready",
 	description: "A thirteen-year-old is arrested at dawn.",
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-1.jpg" }],
 };

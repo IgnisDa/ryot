@@ -139,6 +139,7 @@ const presentationData = (overrides: Record<string, unknown> = {}) => {
 		populationStatus: "ready",
 		translationStatus: "none",
 		productionStatus: "Released",
+		relatedPopulationStatus: "ready",
 		image: { type: "remote", url: "https://images.test/fc.jpg" },
 		...overrides,
 	});
@@ -349,6 +350,54 @@ describe("flat media detail screen", () => {
 });
 
 describe("flat media overview", () => {
+	it("holds the related sections on their loading notice while the related level is pending", () => {
+		const pending = renderBody(readyState({ relatedPopulationStatus: "pending" }));
+		expect(pending.container.textContent).toContain("Loading details...");
+		expect(pending.container.textContent).toContain("Fetching the credits for this item.");
+		expect(pending.container.textContent).not.toContain(flatPersonRow.name);
+		expect(pending.container.textContent).not.toContain(`Part of ${flatGroupRow.name}`);
+		pending.unmount();
+
+		const emptyOverview = overviewOf({ group: [], people: [], companies: [], recommendations: [] });
+		const pendingEmpty = renderBody(readyState({ relatedPopulationStatus: "pending" }), {
+			overview: emptyOverview,
+		});
+		expect(pendingEmpty.container.textContent).toContain("Loading details...");
+		pendingEmpty.unmount();
+
+		const failedBase = renderBody(
+			readyState({ populationStatus: "failed", relatedPopulationStatus: "pending" }),
+		);
+		expect(failedBase.container.textContent).not.toContain("Loading details...");
+		failedBase.unmount();
+	});
+
+	it.live("reports a failed related level and retries it through the kernel", () =>
+		Effect.gen(function* () {
+			const retries: unknown[] = [];
+			const { unmount, container } = renderBody(readyState({ relatedPopulationStatus: "failed" }), {
+				adapter: {
+					...noopAdapter,
+					retryPopulation: (request) =>
+						Effect.sync(() => {
+							retries.push(request);
+							return { retried: true };
+						}),
+				},
+			});
+
+			expect(container.textContent).toContain("Couldn't load");
+			expect(container.textContent).not.toContain(flatPersonRow.name);
+			expect(container.textContent).not.toContain("Couldn't load details from");
+			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(retries).toEqual([{ entityId: "media-1", pluginId: "media-owner" }])),
+			);
+			unmount();
+		}),
+	);
+
 	it("renders the credits, recommendations and the group the item belongs to", () => {
 		const { unmount, container } = renderBody(readyState());
 

@@ -30,6 +30,7 @@ export const showSummaryRow = {
 	translationStatus: "none",
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
+	relatedPopulationStatus: "ready",
 	description: "A four-part limited series.",
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: {

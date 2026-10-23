@@ -22,6 +22,7 @@ export const creatorMovieCreditRow = {
 	character: "The Narrator",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", purpose: "cover", key: "fight-club" }],
 };
 
@@ -32,6 +33,7 @@ export const creatorAlbumCreditRow = {
 	name: "Night Songs",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", purpose: "cover", key: "night-songs" }],
 };
 

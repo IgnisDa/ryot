@@ -214,6 +214,7 @@ describe("episodic media recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"providerName",
 			"description",
 			"images",

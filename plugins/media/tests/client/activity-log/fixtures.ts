@@ -35,6 +35,7 @@ export const contextTarget = (overrides: Row = {}) => ({
 	translationStatus: "none",
 	showNextUp: includeRows([]),
 	podcastNextUp: includeRows([]),
+	relatedPopulationStatus: "ready",
 	...overrides,
 });
 

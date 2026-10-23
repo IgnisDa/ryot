@@ -59,6 +59,7 @@ const SUMMARY_ROW = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Released",
+	relatedPopulationStatus: "ready",
 	genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 };
@@ -81,6 +82,7 @@ describe("media flat recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"providerName",
 			"description",
 			"images",
@@ -399,6 +401,7 @@ describe("media flat recipes", () => {
 			"images",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 		]);
 	});
 
@@ -602,6 +605,7 @@ describe("media flat recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"state",
 			"image",
 			"progressPercent",

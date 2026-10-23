@@ -215,7 +215,10 @@ callbacks, and makes later updates fail with `disposed`. Invalid declarations fa
 `RyotClientError("transport")`.
 
 Declarations may exceed 500 IDs. The runtime normalizes and deduplicates them, gives foreground
-priority, sorts within each priority, and sends at most 500 selected IDs. The strict version 1 state
+priority, sorts within each priority, and sends at most 500 selected IDs, marking at most 50 IDs of
+the active page as foreground. Foreground interest populates an entity with its related groups;
+visible interest populates only its base level, and `relatedPopulationStatus` (`pending`, `ready`,
+`failed`, or `none`) tells pages whether related data has landed. The strict version 1 state
 messages contain no request IDs, acknowledgements, credentials, tickets, user IDs, or server fields.
 The host owns connectivity and reconnection.
 
@@ -227,7 +230,7 @@ and reactivation requests catch-up without discarding cached data.
 ## Population Retry
 
 `ryot.entities.retryPopulation({ packageId, entityId })` asks the kernel to repopulate an entity
-whose `populationStatus` is `failed`. The runtime supplies the plugin ID through `pluginIdentity`,
+whose `populationStatus` or `relatedPopulationStatus` is `failed`. The runtime supplies the plugin ID through `pluginIdentity`,
 refuses a package that does not contribute to the frame with `invalid-request`, and returns
 `{ retried }`: `false` when the entity no longer has a failure to retry. Refusals by the kernel
 (missing or invisible entity, foreign owner, no provider or an unavailable one) also fail with

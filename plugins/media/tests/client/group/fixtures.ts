@@ -23,6 +23,7 @@ export const groupSummaryRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	name: "The Matrix Collection",
+	relatedPopulationStatus: "ready",
 	description: "Humanity against the machines.",
 	sourceUrl: "https://tmdb.test/collection/2344",
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
@@ -65,6 +66,7 @@ export const groupMemberRow = (overrides: Record<string, unknown>) => ({
 	productionStatus: null,
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	...overrides,
 });
 
@@ -91,6 +93,7 @@ export const groupArtistCreditRow = {
 	name: "Nina Simone",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", key: "nina", purpose: "profile" }],
 };
 
@@ -101,6 +104,7 @@ export const groupLabelCreditRow = {
 	roles: ["Label"],
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", key: "verve", purpose: "logo" }],
 };
 
