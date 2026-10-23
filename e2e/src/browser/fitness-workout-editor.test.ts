@@ -124,11 +124,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		const second = `Second ${name}`;
 		for (const exerciseName of [first, second]) {
 			const { exerciseId } = yield* createExerciseEntityFixture(client, { name: exerciseName });
-			yield* updateExerciseOverrides(client, {
-				exerciseId,
-				remove: [],
-				set: { normalRestTime: 0 },
-			});
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } });
 		}
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);

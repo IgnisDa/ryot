@@ -169,8 +169,8 @@ and cancellation contracts belong to [imports](../../kernel/backend/src/modules/
 ## Workout Editor Contracts
 
 `workout-editor-context` returns defaulted installation settings and trusted Pro availability.
-`exercise-override-update` changes only the caller's membership fields; removing one restores
-inheritance.
+`exercise-override-update` changes only the caller's membership fields; setting a field to null
+restores inheritance, while omitted fields stay unchanged.
 
 `workout-editor-save` creates/updates workouts and templates. Baselines and source exercise positions
 preserve occurrence/event identity across reorder. Draft encoding and baseline decoding bound

@@ -1,4 +1,4 @@
-import { type EntityId, EventId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	type WorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
@@ -416,23 +416,49 @@ describe("Workout editor E2E", () => {
 			});
 
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			expect(
+				yield* updateExerciseOverrides(client, {
+					overrides: { normalRestTime: 0 },
+					exerciseId: EntityId.make(crypto.randomUUID()),
+				}),
+			).toEqual({ kind: "missing-exercise" });
 			const membershipWorkout = yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [])] }),
 			);
 			assertCondition(membershipWorkout.kind === "saved", "Expected membership workout save");
 			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					remove: [],
-					set: { normalRestTime: 45 },
-				}),
+				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } }),
 			).toEqual({ kind: "saved" });
 			const membership = yield* executeRyotQLRecipe(
 				client,
 				workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
 			);
 			expect(membership?.properties).toMatchObject({ normalRestTime: 45 });
+			expect(
+				yield* updateExerciseOverrides(client, {
+					exerciseId,
+					overrides: { dropRestTime: 0, defaultDurationUnit: "minutes" },
+				}),
+			).toEqual({ kind: "saved" });
+			expect(
+				(yield* executeRyotQLRecipe(
+					client,
+					workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
+				))?.properties,
+			).toMatchObject({ dropRestTime: 0, normalRestTime: 45, defaultDurationUnit: "minutes" });
+			expect(
+				yield* updateExerciseOverrides(client, {
+					exerciseId,
+					overrides: { normalRestTime: null, defaultDurationUnit: null },
+				}),
+			).toEqual({ kind: "saved" });
+			expect(
+				(yield* executeRyotQLRecipe(
+					client,
+					workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
+				))?.properties,
+			).toMatchObject({ dropRestTime: 0, normalRestTime: null, defaultDurationUnit: null });
 		}),
 	);
 
