@@ -171,19 +171,23 @@ export const makePlannedRelationshipReconciliation = (
 					properties: yield* parseProperties(relationship.properties, definition.propertiesSchema),
 				});
 			}
-			const existing = yield* repository.listRelationshipsForReconciliation(selector);
+			const sweepGeneration = group.generation?.kind === "sweep" ? group.generation.value : null;
+			const existing =
+				sweepGeneration === null
+					? yield* repository.listRelationshipsForReconciliation(selector)
+					: yield* repository.listRelationshipsOutsideGeneration(selector, sweepGeneration);
+			const deletions = group.generation?.kind === "page" ? [] : existing;
+			const upsertMode = group.generation?.preserveExisting
+				? ("ensure" as const)
+				: ("upsert" as const);
 			const mutations: Array<{
 				input: RelationshipIdentityInput;
-				mode: "upsert" | "delete";
+				mode: "upsert" | "ensure" | "delete";
 				command: DomainLifecycleCommand;
 				properties: Record<string, unknown>;
 			}> = [
-				...desired.map((input) => ({
-					input,
-					mode: "upsert" as const,
-					properties: input.properties,
-				})),
-				...existing
+				...desired.map((input) => ({ input, mode: upsertMode, properties: input.properties })),
+				...deletions
 					.filter((input) => !seen.has(relationshipKey(input)))
 					.map((input) => ({ input, properties: {}, mode: "delete" as const })),
 			]
@@ -224,7 +228,7 @@ export const makePlannedRelationshipReconciliation = (
 			const rows = yield* repository.findRelationships(unrecorded.map(({ input }) => input));
 			const prepared: Array<{
 				input: RelationshipIdentityInput;
-				mode: "upsert" | "delete";
+				mode: "upsert" | "ensure" | "delete";
 				command: DomainLifecycleCommand;
 				validated: ValidatedMutation | null;
 				before: AutomationRelationshipSnapshot | null;
@@ -300,6 +304,12 @@ export const makePlannedRelationshipReconciliation = (
 					source,
 				]),
 			);
+			if (group.generation?.kind === "page") {
+				yield* repository.stampRelationshipGeneration(
+					mutations.map(({ input }) => input),
+					group.generation.value,
+				);
+			}
 			for (const [index, item] of prepared.entries()) {
 				const receipt = itemReceipts[index];
 				if (!receipt) {
