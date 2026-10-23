@@ -4,6 +4,7 @@ import type {
 	ProviderDetailsInput,
 	ProviderDetailsResult,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { mediaFailureMessage } from "../../../lib/error-message";
@@ -73,6 +74,13 @@ const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"
 	);
 
 const HTTP_CALL_LIMIT = 50;
+const SEASON_APPEND_LIMIT = 20;
+const FIXED_HTTP_CALLS = 2;
+
+const chunksOf = <A>(items: readonly A[], size: number) =>
+	Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+		items.slice(index * size, index * size + size),
+	);
 
 const loadInBatches = <A, B, Failure>(
 	items: readonly A[],
@@ -150,12 +158,13 @@ const buildDetailsResult = (
 	input: ProviderDetailsInput,
 	showData: UnknownRecord,
 	imagesData: UnknownRecord,
-	creditsData: UnknownRecord,
-	recommendationsData: UnknownRecord,
-	watchProvidersData: UnknownRecord,
 	seasonDataList: readonly UnknownRecord[],
 	episodeOrders: readonly ShowEpisodeOrder[],
 ): ProviderDetailsResult => {
+	const full = input.level !== "base";
+	const creditsData = asRecord(showData["credits"]) ?? {};
+	const recommendationsData = asRecord(showData["recommendations"]) ?? {};
+	const watchProvidersData = asRecord(showData["watch/providers"]) ?? {};
 	const title = stringValue(showData["name"]);
 	if (!title) {
 		throw new Error("TMDB returned no name for this show");
@@ -195,12 +204,16 @@ const buildDetailsResult = (
 			),
 		},
 		relatedEntityGroups: [
-			{
-				entities: people,
-				direction: "incoming",
-				synchronization: "additive",
-				relationshipSchemaSlug: "person-to-show",
-			},
+			...(full
+				? [
+						{
+							entities: people,
+							direction: "incoming" as const,
+							synchronization: "additive" as const,
+							relationshipSchemaSlug: "person-to-show",
+						},
+					]
+				: []),
 			{
 				direction: "incoming",
 				synchronization: "additive",
@@ -210,15 +223,19 @@ const buildDetailsResult = (
 					[showData["production_companies"], "Production Company"],
 				]),
 			},
-			{
-				direction: "outgoing",
-				synchronization: "authoritative",
-				relationshipSchemaSlug: "media-suggestion",
-				entities: collectSuggestions(recommendationsData["results"], {
-					providerSlug: "show.tmdb",
-					nameKeys: ["name", "original_name"],
-				}),
-			},
+			...(full
+				? [
+						{
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "media-suggestion",
+							entities: collectSuggestions(recommendationsData["results"], {
+								providerSlug: "show.tmdb",
+								nameKeys: ["name", "original_name"],
+							}),
+						},
+					]
+				: []),
 			...mediaGenreGroups("show", genres),
 		],
 	};
@@ -236,33 +253,43 @@ export const getTmdbShowDetails = (
 		);
 	}
 	return Effect.gen(function* () {
-		const [
-			showData,
-			imagesData,
-			creditsData,
-			recommendationsData,
-			watchProvidersData,
-			episodeOrderListData,
-		] = yield* Effect.all([
-			tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
+		const appended =
+			input.level === "base"
+				? "watch/providers,episode_groups"
+				: "watch/providers,episode_groups,credits,recommendations";
+		const [showData, imagesData] = yield* Effect.all([
+			tmdbGet(host, `/tv/${input.externalId}`, { language, append_to_response: appended }, token),
 			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
-			tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
-			tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
-			tmdbGet(host, `/tv/${input.externalId}/watch/providers`, {}, token),
-			tmdbGet(host, `/tv/${input.externalId}/episode_groups`, { language }, token),
 		]);
+		const episodeOrderListData = asRecord(showData["episode_groups"]) ?? {};
 		const seasonNumbers = recordsValue(showData["seasons"]).flatMap((season) => {
 			const value = numberValue(season["season_number"]);
 			return value === null ? [] : [Math.trunc(value)];
 		});
-		const seasonDataList = yield* loadInBatches(seasonNumbers, (number) =>
-			tmdbGet(host, `/tv/${input.externalId}/season/${number}`, { language }, token),
-		);
+		const seasonChunks = chunksOf(seasonNumbers, SEASON_APPEND_LIMIT);
+		const seasonDataList = (yield* loadInBatches(seasonChunks, (numbers) =>
+			tmdbGet(
+				host,
+				`/tv/${input.externalId}`,
+				{ language, append_to_response: numbers.map((number) => `season/${number}`).join(",") },
+				token,
+			).pipe(
+				Effect.map((chunkData) =>
+					numbers.flatMap((number) => {
+						const seasonData = asRecord(chunkData[`season/${number}`]);
+						return seasonData ? [seasonData] : [];
+					}),
+				),
+			),
+		)).flat();
 		const episodeOrderHeaders = recordsValue(episodeOrderListData["results"]).flatMap((entry) => {
 			const header = episodeOrderHeader(entry);
 			return header ? [header] : [];
 		});
-		const episodeOrderBudget = Math.max(0, HTTP_CALL_LIMIT - 6 - seasonNumbers.length);
+		const episodeOrderBudget = Math.max(
+			0,
+			HTTP_CALL_LIMIT - FIXED_HTTP_CALLS - seasonChunks.length,
+		);
 		const episodeOrders = yield* loadInBatches(
 			episodeOrderHeaders.slice(0, episodeOrderBudget),
 			(header) =>
@@ -275,17 +302,7 @@ export const getTmdbShowDetails = (
 		);
 		return yield* Effect.try({
 			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
-			try: () =>
-				buildDetailsResult(
-					input,
-					showData,
-					imagesData,
-					creditsData,
-					recommendationsData,
-					watchProvidersData,
-					seasonDataList,
-					episodeOrders,
-				),
+			try: () => buildDetailsResult(input, showData, imagesData, seasonDataList, episodeOrders),
 		});
 	});
 };

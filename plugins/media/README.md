@@ -179,10 +179,16 @@ to the viewer's known region and hides empty results. Country entries contain th
 offers in `stream`, `free`, `ads`, `rent`, `buy` order. The UI credits JustWatch and sorts services by
 name within each offer kind.
 
+TMDB movie and show `details` honour the population `level`. `/movie/{id}` and `/tv/{id}` carry
+`append_to_response` for watch providers (and, for shows, episode groups) at `base`, adding credits
+and recommendations at `full`; `base` returns no credit or recommendation groups. Images stay a
+separate `/images` call without a language. Show seasons are fetched through `/tv/{id}` appends,
+at most 20 seasons per request.
+
 TMDB Show `episodeOrders` contains external IDs, descriptions, and ordered groups of episode IDs.
 Positions belong to the alternate order, so stored episodes join by provider external ID, not season
 and episode number. Unknown order types are dropped; an empty list clears removed orders. Fetches
-use only the HTTP budget left after the show/season calls and drop excess orders rather than failing
+use only the HTTP budget left after the show, images and season-append calls and drop excess orders rather than failing
 population.
 
 TMDB companies return the first discover page of movies and shows from `details` with a

@@ -24,7 +24,34 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
+type MovieFixtures = {
+	movie: Record<string, unknown>;
+	images?: unknown;
+	appended?: Record<string, unknown>;
+};
+const makeMovieHost = (fixtures: MovieFixtures, requests: URL[] = []) =>
+	makeHost((_method, url) => {
+		const requestUrl = new URL(url);
+		requests.push(requestUrl);
+		if (requestUrl.pathname === "/3/movie/1") {
+			const keys = (requestUrl.searchParams.get("append_to_response") ?? "").split(",");
+			return httpSuccess({
+				...fixtures.movie,
+				...Object.fromEntries(
+					keys.flatMap((key) =>
+						fixtures.appended && key in fixtures.appended ? [[key, fixtures.appended[key]]] : [],
+					),
+				),
+			});
+		}
+		return httpSuccess(fixtures.images ?? { posters: [], backdrops: [] });
+	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+const image = (purpose: string, path: string) => ({
+	purpose,
+	type: "remote",
+	url: `https://image.tmdb.org/t/p/original${path}`,
+});
 
 describe("movie.tmdb sandbox script", () => {
 	it("declares a script for each operation", () => {
@@ -50,28 +77,22 @@ describe("movie.tmdb sandbox script", () => {
 	});
 
 	it("keeps TMDB recommendations as related entities", () => {
-		const host = makeHost((_method, url) => {
-			if (url.includes("/movie/1/recommendations")) {
-				return httpSuccess({
+		const host = makeMovieHost({
+			images: {
+				posters: [{ file_path: "/poster-alt.jpg" }, { file_path: "/shared.jpg" }],
+				backdrops: [{ file_path: "/shared.jpg" }, { file_path: "/backdrop-alt.jpg" }],
+			},
+			appended: {
+				credits: { cast: [], crew: [] },
+				"watch/providers": { results: {} },
+				recommendations: {
 					results: [
 						{ id: 2, name: "Pick One", title: "Pick One" },
 						{ id: 3, name: "Pick Two", title: "Pick Two" },
 					],
-				});
-			}
-			if (url.includes("/movie/1/credits")) {
-				return httpSuccess({ cast: [], crew: [] });
-			}
-			if (url.includes("/movie/1/watch/providers")) {
-				return httpSuccess({ results: {} });
-			}
-			if (url.includes("/movie/1/images")) {
-				return httpSuccess({
-					posters: [{ file_path: "/poster-alt.jpg" }, { file_path: "/shared.jpg" }],
-					backdrops: [{ file_path: "/shared.jpg" }, { file_path: "/backdrop-alt.jpg" }],
-				});
-			}
-			return httpSuccess({
+				},
+			},
+			movie: {
 				id: 1,
 				genres: [],
 				adult: false,
@@ -85,7 +106,7 @@ describe("movie.tmdb sandbox script", () => {
 				release_date: "2024-01-01",
 				belongs_to_collection: null,
 				backdrop_path: "/backdrop.jpg",
-			});
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -160,10 +181,113 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
+	it("appends only watch providers to the movie request at base level and omits credit and recommendation groups", () => {
+		const requests: URL[] = [];
+		const host = makeMovieHost(
+			{
+				movie: { id: 1, title: "Source" },
+				appended: {
+					credits: { crew: [], cast: [{ id: 5, name: "Actor" }] },
+					recommendations: { results: [{ id: 2, title: "Pick" }] },
+				},
+			},
+			requests,
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(
+						requests.map(({ pathname, searchParams }) => [
+							pathname,
+							searchParams.get("append_to_response"),
+							searchParams.get("language"),
+						]),
+					).toEqual([
+						["/3/movie/1", "watch/providers", "en"],
+						["/3/movie/1/images", null, null],
+					]);
+					expect(
+						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
+					).toEqual(["company-to-movie", "movie-group-to-movie"]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("appends credits and recommendations to the movie request at full level and by default", () => {
+		const requests: URL[] = [];
+		const host = makeMovieHost({ movie: { id: 1, title: "Source" } }, requests);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.flatMap(() =>
+					runSandboxTestScript(details, { level: "full", externalId: "1" }, host, execution),
+				),
+				Effect.map(() => {
+					expect(
+						requests.map(({ searchParams }) => searchParams.get("append_to_response")),
+					).toEqual([
+						"watch/providers,credits,recommendations",
+						null,
+						"watch/providers,credits,recommendations",
+						null,
+					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("requests movie images without a language and keeps every localized and unlocalized image", () => {
+		const requests: URL[] = [];
+		const host = makeMovieHost(
+			{
+				movie: {
+					id: 1,
+					title: "Source",
+					poster_path: "/poster-main.jpg",
+					backdrop_path: "/backdrop-main.jpg",
+				},
+				images: {
+					backdrops: [
+						{ iso_639_1: null, file_path: "/backdrop-none.jpg" },
+						{ iso_639_1: "de", file_path: "/backdrop-de.jpg" },
+					],
+					posters: [
+						{ iso_639_1: "fr", file_path: "/poster-fr.jpg" },
+						{ iso_639_1: null, file_path: "/poster-none.jpg" },
+						{ iso_639_1: "en", file_path: "/poster-main.jpg" },
+					],
+				},
+			},
+			requests,
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const imagesRequest = requests.find(({ pathname }) => pathname.endsWith("/images"));
+					expect(imagesRequest?.search).toBe("");
+					expect(result.properties).toMatchObject({
+						images: [
+							image("cover", "/poster-main.jpg"),
+							image("cover", "/poster-fr.jpg"),
+							image("cover", "/poster-none.jpg"),
+							image("backdrop", "/backdrop-main.jpg"),
+							image("backdrop", "/backdrop-none.jpg"),
+							image("backdrop", "/backdrop-de.jpg"),
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("groups TMDB watch providers under each country that carries the movie", () => {
-		const host = makeHost((_method, url) => {
-			if (url.includes("/movie/1/watch/providers")) {
-				return httpSuccess({
+		const host = makeMovieHost({
+			movie: { id: 1, title: "Source" },
+			appended: {
+				"watch/providers": {
 					results: {
 						AU: { flatrate: [{ logo_path: "/nameless.jpg" }] },
 						GB: { buy: [{ logo_path: "/apple.jpg", provider_name: "Apple TV" }] },
@@ -173,18 +297,8 @@ describe("movie.tmdb sandbox script", () => {
 							link: "https://www.themoviedb.org/movie/1/watch?locale=US",
 						},
 					},
-				});
-			}
-			if (url.includes("/movie/1/credits")) {
-				return httpSuccess({ cast: [], crew: [] });
-			}
-			if (url.includes("/movie/1/images")) {
-				return httpSuccess({ posters: [], backdrops: [] });
-			}
-			if (url.includes("/movie/1/recommendations")) {
-				return httpSuccess({ results: [] });
-			}
-			return httpSuccess({ id: 1, title: "Source" });
+				},
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(

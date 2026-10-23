@@ -120,14 +120,16 @@ describe("plain provider descriptions", () => {
 		const host = makeHost((_method, url) => {
 			const { pathname } = new URL(url);
 			if (pathname === "/3/tv/1") {
-				return httpSuccess({ name: "Show", overview: "*Show*", seasons: [{ season_number: 1 }] });
-			}
-			if (pathname === "/3/tv/1/season/1") {
 				return httpSuccess({
-					id: 2,
-					name: "Season",
-					overview: "*Season*",
-					episodes: [{ id: 3, name: "Episode", episode_number: 1, overview: "*Episode*" }],
+					name: "Show",
+					overview: "*Show*",
+					seasons: [{ season_number: 1 }],
+					"season/1": {
+						id: 2,
+						name: "Season",
+						overview: "*Season*",
+						episodes: [{ id: 3, name: "Episode", episode_number: 1, overview: "*Episode*" }],
+					},
 				});
 			}
 			return httpSuccess({});

@@ -25,11 +25,12 @@ import {
 const buildDetailsResult = (
 	input: ProviderDetailsInput,
 	movieData: UnknownRecord,
-	creditsData: UnknownRecord,
 	imagesData: UnknownRecord,
-	recommendationsData: UnknownRecord,
-	watchProvidersData: UnknownRecord,
 ): ProviderDetailsResult => {
+	const full = input.level !== "base";
+	const creditsData = asRecord(movieData["credits"]) ?? {};
+	const recommendationsData = asRecord(movieData["recommendations"]) ?? {};
+	const watchProvidersData = asRecord(movieData["watch/providers"]) ?? {};
 	const title = stringValue(movieData["title"]);
 	if (!title) {
 		throw new Error("TMDB returned no title for this movie");
@@ -72,12 +73,16 @@ const buildDetailsResult = (
 			),
 		},
 		relatedEntityGroups: [
-			{
-				entities: people,
-				direction: "incoming",
-				synchronization: "additive",
-				relationshipSchemaSlug: "person-to-movie",
-			},
+			...(full
+				? [
+						{
+							entities: people,
+							direction: "incoming" as const,
+							synchronization: "additive" as const,
+							relationshipSchemaSlug: "person-to-movie",
+						},
+					]
+				: []),
 			{
 				direction: "incoming",
 				synchronization: "additive",
@@ -90,15 +95,19 @@ const buildDetailsResult = (
 				synchronization: "additive",
 				relationshipSchemaSlug: "movie-group-to-movie",
 			},
-			{
-				direction: "outgoing",
-				synchronization: "authoritative",
-				relationshipSchemaSlug: "media-suggestion",
-				entities: collectSuggestions(recommendationsData["results"], {
-					providerSlug: "movie.tmdb",
-					nameKeys: ["title", "original_title"],
-				}),
-			},
+			...(full
+				? [
+						{
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "media-suggestion",
+							entities: collectSuggestions(recommendationsData["results"], {
+								providerSlug: "movie.tmdb",
+								nameKeys: ["title", "original_title"],
+							}),
+						},
+					]
+				: []),
 			...mediaGenreGroups("movie", genres),
 		],
 	};
@@ -115,30 +124,25 @@ export const getTmdbMovieDetails = (
 			new MediaSandboxError({ message: "externalId must be a numeric TMDB movie ID" }),
 		);
 	}
+	const appended =
+		input.level === "base" ? "watch/providers" : "watch/providers,credits,recommendations";
 	return Effect.all(
 		[
-			tmdbGet(host, `/movie/${input.externalId}`, { language }, token),
-			tmdbGet(host, `/movie/${input.externalId}/credits`, { language }, token),
+			tmdbGet(
+				host,
+				`/movie/${input.externalId}`,
+				{ language, append_to_response: appended },
+				token,
+			),
 			tmdbGet(host, `/movie/${input.externalId}/images`, {}, token),
-			tmdbGet(host, `/movie/${input.externalId}/recommendations`, { language }, token),
-			tmdbGet(host, `/movie/${input.externalId}/watch/providers`, {}, token),
 		],
 		{ concurrency: "unbounded" },
 	).pipe(
-		Effect.flatMap(
-			([movieData, creditsData, imagesData, recommendationsData, watchProvidersData]) =>
-				Effect.try({
-					catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
-					try: () =>
-						buildDetailsResult(
-							input,
-							movieData,
-							creditsData,
-							imagesData,
-							recommendationsData,
-							watchProvidersData,
-						),
-				}),
+		Effect.flatMap(([movieData, imagesData]) =>
+			Effect.try({
+				try: () => buildDetailsResult(input, movieData, imagesData),
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+			}),
 		),
 	);
 };
