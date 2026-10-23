@@ -98,6 +98,52 @@ it.live("automatically populates and translates a partial Show in the compiled M
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
+it.live("shows a failed Media population and repopulates it after Try again", () =>
+	Effect.gen(function* () {
+		const id = crypto.randomUUID();
+		const providerName = `Failing Provider ${id}`;
+		const populatedName = `Recovered Show ${id}`;
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const { schema } = yield* findMediaEntitySchema(client, "show");
+		const provider = yield* mediaProviders.attachProvider({
+			name: providerName,
+			rootEntitySchemaSlug: schema.id,
+			detailsFailure: "E2E media details failure",
+			details: fakeProviderDetailsResult({ name: populatedName }),
+		});
+		const show = yield* seedMediaEntity({
+			userId: null,
+			properties: {},
+			externalId: id,
+			name: `Failing Show ${id}`,
+			entitySchemaSlug: schema.id,
+			providerId: provider.providerId,
+		});
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
+		const frame = mediaPluginFrame(page);
+		yield* frame.waitFor({ state: "visible" });
+		const media = frame.contentFrame();
+		const failure = media
+			.getByRole("alert")
+			.filter({ hasText: `Couldn't load details from ${providerName}.` });
+		yield* failure.waitFor({ state: "visible", timeout: 150_000 });
+		expect((yield* getEntity(client, show.id)).populationStatus).toBe("failed");
+
+		yield* mediaProviders.update(provider.providerSlug, { detailsFailure: undefined });
+		yield* page.getByRole("button", { name: "Reload updated page" }).click();
+		yield* failure.waitFor({ state: "visible" });
+		yield* media.getByRole("button", { name: "Try again" }).click();
+		yield* media
+			.getByRole("heading", { level: 1, exact: true, name: populatedName })
+			.waitFor({ state: "visible", timeout: 150_000 });
+		expect(yield* media.getByRole("alert").count).toBe(0);
+		expect((yield* getEntity(client, show.id)).populationStatus).toBe("ready");
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();

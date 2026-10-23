@@ -74,6 +74,8 @@ export type AttachedTestProvider = Pick<
 	| "searchOptionsScriptId"
 >;
 
+type HttpCalls = { readonly url: string; readonly count: number };
+
 type TestProviderSpec = {
 	slug?: string;
 	name?: string;
@@ -83,10 +85,12 @@ type TestProviderSpec = {
 	searchOptionsFailure?: string;
 	details: ProviderDetailsResult;
 	resolve?: ProviderResolveResult;
-	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
 	searchOptionsSchema?: AppSchema;
+	detailsFailure?: string | undefined;
+	detailsHttpCalls?: HttpCalls;
 	information?: PluginProviderInformation;
 	searchOptions?: ProviderSearchOptionsResult;
+	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 };
 
@@ -112,10 +116,19 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 	const providerSlug = input.slug ?? `e2e-provider-${crypto.randomUUID()}`;
 	const operations: Array<{
 		delayMs?: number;
+		httpCalls?: HttpCalls;
 		executionFailure?: string;
 		operation: ProviderOperation;
 		result: ProviderOperationResult;
-	}> = [{ operation: "details", result: input.details, delayMs: input.detailsDelayMs }];
+	}> = [
+		{
+			operation: "details",
+			result: input.details,
+			delayMs: input.detailsDelayMs,
+			...(input.detailsFailure === undefined ? {} : { executionFailure: input.detailsFailure }),
+			...(input.detailsHttpCalls === undefined ? {} : { httpCalls: input.detailsHttpCalls }),
+		},
+	];
 	if (input.search) {
 		operations.push({ operation: "search", result: input.search });
 	}
@@ -135,16 +148,16 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 	if (input.translations) {
 		operations.push({ operation: "translate", result: input.translations });
 	}
-	const scripts = operations.map(({ operation }) => {
+	const scripts = operations.map(({ operation, httpCalls }) => {
 		const slug = `${providerSlug}.${operation}`;
 		return {
 			slug,
 			providerSlug,
-			capabilities: [],
 			kind: "provider" as const,
 			providerOperation: operation,
 			requiredPluginConfigKeys: [],
 			name: `${name} ${operation}`,
+			capabilities: httpCalls === undefined ? [] : ["httpCall" as const],
 			entry: `backend/providers/${providerSlug}/${operation}.sandbox.ts`,
 			...(operation === "search" && input.searchOptionsSchema !== undefined
 				? { searchOptionsSchema: input.searchOptionsSchema }
@@ -163,6 +176,9 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 					slug: script.slug,
 					operation: script.providerOperation,
 					delayMs: operationDefinition?.delayMs,
+					...(operationDefinition?.httpCalls === undefined
+						? {}
+						: { httpCalls: operationDefinition.httpCalls }),
 					result: operationDefinition?.result ?? input.details,
 					...(operationDefinition?.executionFailure !== undefined
 						? { executionFailure: operationDefinition.executionFailure }
@@ -432,6 +448,7 @@ export function providerSandboxSource(input: {
 	readonly slug: string;
 	readonly delayMs?: number;
 	readonly executionFailure?: string;
+	readonly httpCalls?: HttpCalls;
 	readonly operation: ProviderOperation;
 	readonly result: ProviderOperationResult;
 	readonly searchOptionsSchema?: AppSchema;
@@ -462,6 +479,12 @@ export function providerSandboxSource(input: {
 	let run: string;
 	if (input.executionFailure !== undefined) {
 		run = `() => Effect.die(${JSON.stringify(input.executionFailure)})`;
+	} else if (input.httpCalls !== undefined) {
+		run = `(_input, host) => Effect.forEach(
+    Array.from({ length: ${input.httpCalls.count} }),
+    () => host.httpCall("GET", ${JSON.stringify(input.httpCalls.url)}),
+    { discard: true },
+  ).pipe(Effect.as(result))`;
 	} else if (isRelated) {
 		run = `({ continuation }) => {
     const page = pages[JSON.stringify(continuation)];
@@ -506,9 +529,9 @@ export default defineProvider({
 		name: input.name,
 		slug: input.slug,
 		kind: "provider",
-		capabilities: [],
 		requiredPluginConfigKeys: [],
 		providerOperation: input.operation,
+		capabilities: input.httpCalls === undefined ? [] : ["httpCall"],
 		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
 	});
 	return source;
