@@ -36,6 +36,12 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 		yield* add.getByRole("textbox", { exact: true, name: "Note" }).fill("Keep this workout");
 		yield* add.getByRole("button", { exact: true, name: "Add to collection" }).click();
 		yield* add.waitFor({ state: "hidden" });
+		const manager = page.getByRole("dialog", { exact: true, name: `Collections for ${name}` });
+		yield* manager
+			.getByRole("button", { name: new RegExp(`${collection.name}.*Added`) })
+			.waitFor({ state: "visible" });
+		yield* manager.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* manager.waitFor({ state: "hidden" });
 		yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Delete workout" }).click();
 		const deletion = frame.getByRole("dialog", { exact: true, name: "Delete workout?" });

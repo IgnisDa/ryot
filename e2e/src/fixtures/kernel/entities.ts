@@ -173,7 +173,7 @@ export const createPluginSchemaAndEntity = (client: Client) =>
 export const seedEntity = (input: {
 	name: string;
 	client?: Client;
-	externalId: string;
+	externalId?: string;
 	userId?: string | null;
 	entitySchema: EntitySchemaReference;
 	providerId: string | null;
