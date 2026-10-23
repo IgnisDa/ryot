@@ -20,6 +20,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Result, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -54,7 +55,7 @@ import {
 	storedCollectionFields,
 } from "./fields";
 import { CollectionsRepository } from "./repository";
-import { isPlainObject, toCollectionResponse } from "./service-support";
+import { toCollectionResponse } from "./service-support";
 
 export const CollectionMembershipResult = Schema.Struct({
 	entityId: EntityId,
@@ -153,7 +154,7 @@ const collectionProperties = (
 };
 
 const storedMembershipSchema = (properties: unknown) =>
-	isPlainObject(properties) ? properties["membershipPropertiesSchema"] : undefined;
+	isObjectRecord(properties) ? properties["membershipPropertiesSchema"] : undefined;
 
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",

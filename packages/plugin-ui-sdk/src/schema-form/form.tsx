@@ -34,6 +34,7 @@ import {
 	describeSchemaFormFields,
 	initialSchemaFormValues,
 	isFixedEnumProperty,
+	isJsonObjectValue,
 	propertyFormDefault,
 	schemaChoiceLabel,
 	schemaFormInput,
@@ -125,10 +126,8 @@ const textValue = (value: unknown) =>
 	typeof value === "string" || typeof value === "number" || typeof value === "boolean"
 		? String(value)
 		: "";
-const isObjectValue = (value: unknown): value is Readonly<Record<string, JsonValue>> =>
-	value !== null && typeof value === "object" && !Array.isArray(value) && isJsonValue(value);
 const objectValue = (value: unknown): Readonly<Record<string, JsonValue>> =>
-	isObjectValue(value) ? value : {};
+	isJsonObjectValue(value) ? value : {};
 const arrayValue = (value: unknown): readonly JsonValue[] =>
 	Array.isArray(value) ? value.filter(isJsonValue) : [];
 const isAsset = Schema.is(AssetLocator);
