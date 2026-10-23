@@ -383,7 +383,9 @@ describe("Fitness taxonomy E2E", () => {
 			});
 
 			const socket = yield* openInterestWebSocketScoped(auth);
-			expect(yield* socket.replaceInterest([root.id])).toMatchObject({ type: "applied" });
+			expect(yield* socket.replaceInterest([root.id], [root.id])).toMatchObject({
+				type: "applied",
+			});
 			expect(
 				yield* socket.waitForEntityUpdated(root.id, "populated", { timeoutMs: 90_000 }),
 			).toMatchObject({ entityId: root.id, reason: "populated" });

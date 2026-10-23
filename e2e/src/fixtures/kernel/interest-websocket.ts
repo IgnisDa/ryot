@@ -11,6 +11,8 @@ import { Effect, Exit, Result, Semaphore } from "effect";
 import { getApiUrl } from "~/support/harness-target";
 
 import type { ContractSession } from "./contract-client";
+import { getEntity } from "./entities";
+import { pollUntil } from "./polling";
 
 type WaitOptions = { timeoutMs?: number };
 type SocketClose = { readonly code: number; readonly reason: string };
@@ -25,7 +27,10 @@ type InterestWebSocket = {
 	readonly ready: EntityWatchReadyMessage;
 	getEntityUpdatedMessages: () => readonly EntityWatchEntityUpdatedMessage[];
 	waitForClose: (options?: WaitOptions) => Effect.Effect<SocketClose>;
-	replaceInterest: (entityIds: readonly string[]) => Effect.Effect<EntityWatchCommandResult>;
+	replaceInterest: (
+		entityIds: readonly string[],
+		foregroundIds?: readonly string[],
+	) => Effect.Effect<EntityWatchCommandResult>;
 	expectNoEntityUpdated: (
 		entityId: string,
 		options: { windowMs: number; reason?: EntityWatchEntityUpdatedMessage["reason"] },
@@ -33,6 +38,8 @@ type InterestWebSocket = {
 	updateInterest: (input: {
 		readonly add: readonly string[];
 		readonly remove: readonly string[];
+		readonly addForeground?: readonly string[];
+		readonly removeForeground?: readonly string[];
 	}) => Effect.Effect<EntityWatchCommandResult>;
 	waitForEntityUpdated: (
 		entityId: string,
@@ -185,11 +192,17 @@ export const openInterestWebSocket = (
 
 		const sendCommand = (
 			message:
-				| { readonly type: "replace"; readonly entityIds: readonly string[] }
+				| {
+						readonly type: "replace";
+						readonly entityIds: readonly string[];
+						readonly foregroundIds: readonly string[];
+				  }
 				| {
 						readonly type: "update";
 						readonly add: readonly string[];
 						readonly remove: readonly string[];
+						readonly addForeground: readonly string[];
+						readonly removeForeground: readonly string[];
 				  },
 		) =>
 			commands.withPermit(
@@ -322,8 +335,10 @@ export const openInterestWebSocket = (
 			waitForEntityUpdated,
 			expectNoEntityUpdated,
 			getEntityUpdatedMessages: () => messages.slice(),
-			updateInterest: (input) => sendCommand({ type: "update", ...input }),
-			replaceInterest: (entityIds) => sendCommand({ entityIds, type: "replace" }),
+			replaceInterest: (entityIds, foregroundIds = []) =>
+				sendCommand({ entityIds, foregroundIds, type: "replace" }),
+			updateInterest: ({ addForeground = [], removeForeground = [], ...input }) =>
+				sendCommand({ ...input, addForeground, type: "update", removeForeground }),
 			close: () =>
 				Effect.callback<void>((resume) => {
 					if (socket.readyState === WebSocket.CLOSED) {
@@ -350,3 +365,20 @@ export const openInterestWebSocketScoped = (
 	auth: { client: ContractSession },
 	options: WaitOptions = {},
 ) => Effect.acquireRelease(openInterestWebSocket(auth, options), (socket) => socket.close());
+
+export const populateRelatedThroughForegroundInterest = (
+	auth: { client: ContractSession },
+	entityId: string,
+) =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const socket = yield* openInterestWebSocketScoped(auth);
+			yield* socket.replaceInterest([entityId], [entityId]);
+			return yield* pollUntil(
+				`entity '${entityId}' related level populated`,
+				getEntity(auth.client, entityId).pipe(
+					Effect.map((entity) => (entity.relatedPopulationStatus === "ready" ? entity : null)),
+				),
+			);
+		}),
+	);

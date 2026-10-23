@@ -9,6 +9,7 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
 	getEntity,
+	markEntityPopulated,
 	setUserLanguage,
 	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
@@ -141,6 +142,63 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 			.waitFor({ state: "visible", timeout: 150_000 });
 		expect(yield* media.getByRole("alert").count).toBe(0);
 		expect((yield* getEntity(client, show.id)).populationStatus).toBe("ready");
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("opens a base-populated Media Movie and shows its credits once they arrive", () =>
+	Effect.gen(function* () {
+		const id = crypto.randomUUID();
+		const personName = `Credited Person ${id}`;
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+		const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
+		const personProvider = yield* mediaProviders.attachProvider({
+			rootEntitySchemaSlug: personSchema.id,
+			details: fakeProviderDetailsResult({ name: personName }),
+		});
+		const movieProvider = yield* mediaProviders.attachProvider({
+			rootEntitySchemaSlug: movieSchema.id,
+			details: fakeProviderDetailsResult({
+				name: `Base Movie ${id}`,
+				relatedEntityGroups: [
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						relationshipSchemaSlug: "person-to-movie",
+						entities: [
+							{
+								name: personName,
+								externalId: `person-${id}`,
+								providerSlug: personProvider.providerSlug,
+								relationshipProperties: { roles: ["Actor"] },
+							},
+						],
+					},
+				],
+			}),
+		});
+		const movie = yield* seedMediaEntity({
+			userId: null,
+			externalId: id,
+			properties: {},
+			name: `Base Movie ${id}`,
+			entitySchemaSlug: movieSchema.id,
+			providerId: movieProvider.providerId,
+		});
+		yield* markEntityPopulated(movie.id, "base");
+		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toBe("pending");
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${movie.id}`);
+		const frame = mediaPluginFrame(page);
+		yield* frame.waitFor({ state: "visible" });
+		const media = frame.contentFrame();
+		yield* media
+			.getByRole("link", { name: `Open ${personName}` })
+			.waitFor({ state: "visible", timeout: 150_000 });
+		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toBe("ready");
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
