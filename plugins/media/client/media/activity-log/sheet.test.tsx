@@ -134,6 +134,7 @@ const submitted = (mounted: ReturnType<typeof mountLog>, count = 1) =>
 const operation = (entry: unknown, submissionId: unknown = expect.any(String)) => ({
 	packageId: "ryot/media",
 	slug: "media-activity-log",
+	idempotencyKey: submissionId,
 	input: { entry, submissionId, submittedAt: SUBMITTED_AT },
 });
 
