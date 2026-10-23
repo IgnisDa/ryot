@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Effect } from "effect";
 import { useState } from "react";
 import { axe } from "vitest-axe";
@@ -12,14 +12,19 @@ const options = [
 	{ value: "system", label: "System" },
 ] as const;
 
-function ThemeChoice(props: { readonly initial?: "light" | "dark" | "system" }) {
+function ThemeChoice(props: {
+	readonly initial?: "light" | "dark" | "system";
+	readonly disabled?: "light" | "dark" | "system";
+}) {
 	const [value, setValue] = useState<"light" | "dark" | "system" | undefined>(props.initial);
 	return (
 		<RadioGroup
 			value={value}
-			options={options}
 			label="Appearance"
 			onChange={setValue}
+			options={options.map((option) =>
+				Object.assign({}, option, { disabled: option.value === props.disabled }),
+			)}
 			renderOption={(option, selected) => ({
 				content: <span>{option.label}</span>,
 				className: selected ? "border-accent" : "border-transparent",
@@ -99,6 +104,39 @@ describe("RadioGroup", () => {
 		fireEvent.click(screen.getByRole("radio", { name: "System" }));
 
 		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["System"]);
+	});
+
+	it("never selects or focuses a disabled option", () => {
+		render(<ThemeChoice initial="light" disabled="dark" />);
+		const dark = screen.getByRole("radio", { name: "Dark" });
+		expect(dark.getAttribute("aria-disabled")).toBe("true");
+
+		fireEvent.click(dark);
+		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Light"]);
+
+		fireEvent.keyDown(screen.getByRole("radio", { name: "Light" }), { key: "ArrowRight" });
+		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["System"]);
+
+		fireEvent.keyDown(screen.getByRole("radio", { name: "System" }), { key: "ArrowLeft" });
+		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Light"]);
+	});
+
+	it("skips a disabled first or last option on Home and End", () => {
+		render(<ThemeChoice initial="dark" disabled="system" />);
+
+		fireEvent.keyDown(screen.getByRole("radio", { name: "Dark" }), { key: "End" });
+		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Dark"]);
+		cleanup();
+
+		render(<ThemeChoice initial="dark" disabled="light" />);
+		fireEvent.keyDown(screen.getByRole("radio", { name: "Dark" }), { key: "Home" });
+		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Dark"]);
+	});
+
+	it("keeps the tab stop off a disabled selected option", () => {
+		render(<ThemeChoice initial="light" disabled="light" />);
+
+		expect(tabStops().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Dark"]);
 	});
 
 	it.live("passes an axe pass on the rendered group", () =>

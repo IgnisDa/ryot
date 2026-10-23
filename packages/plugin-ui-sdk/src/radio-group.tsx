@@ -1,6 +1,10 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
-export type RadioGroupOption = { readonly value: string; readonly label: string };
+export type RadioGroupOption = {
+	readonly value: string;
+	readonly label: string;
+	readonly disabled?: boolean;
+};
 
 export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
 
@@ -22,20 +26,22 @@ export function RadioGroup<O extends RadioGroupOption>({
 	renderOption,
 }: RadioGroupProps<O>) {
 	const radios = useRef<Array<HTMLButtonElement | null>>([]);
+	const enabled = options.flatMap((option, index) => (option.disabled === true ? [] : [index]));
 	const selectedIndex = options.findIndex((option) => option.value === value);
-	const tabStop = selectedIndex === -1 ? 0 : selectedIndex;
+	const tabStop = enabled.includes(selectedIndex) ? selectedIndex : enabled[0];
 
 	const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-		const count = options.length;
+		const count = enabled.length;
+		const current = enabled.indexOf(index);
 		let target: number | undefined;
 		if (event.key === "Home") {
-			target = 0;
+			target = enabled[0];
 		} else if (event.key === "End") {
-			target = count - 1;
+			target = enabled[count - 1];
 		} else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
-			target = (index - 1 + count) % count;
+			target = enabled[(current - 1 + count) % count];
 		} else if (event.key === "ArrowDown" || event.key === "ArrowRight") {
-			target = (index + 1) % count;
+			target = enabled[(current + 1) % count];
 		}
 		const option = target === undefined ? undefined : options[target];
 		if (target === undefined || option === undefined) {
@@ -50,6 +56,7 @@ export function RadioGroup<O extends RadioGroupOption>({
 		<div role="radiogroup" aria-label={label} className={className}>
 			{options.map((option, index) => {
 				const selected = index === selectedIndex;
+				const disabled = option.disabled === true;
 				const view = renderOption(option, selected);
 				return (
 					<button
@@ -59,11 +66,16 @@ export function RadioGroup<O extends RadioGroupOption>({
 						aria-checked={selected}
 						aria-label={option.label}
 						className={view.className}
+						aria-disabled={disabled || undefined}
 						tabIndex={index === tabStop ? 0 : -1}
-						onClick={() => onChange(option.value)}
 						onKeyDown={(event) => onKeyDown(event, index)}
 						ref={(element) => {
 							radios.current[index] = element;
+						}}
+						onClick={() => {
+							if (!disabled) {
+								onChange(option.value);
+							}
 						}}
 					>
 						{view.content}
