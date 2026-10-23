@@ -585,3 +585,18 @@ export const activityRuntimeHint = (runtime: number | null) =>
 	runtime === null
 		? "Leave empty if you don't know."
 		: `Leave empty to use the runtime (${mediaActivityDurationLabel(runtime)}).`;
+
+export const consumedOnSuggestions = (userList: unknown, history: readonly string[]) => {
+	const own = Array.isArray(userList)
+		? userList.filter((value): value is string => typeof value === "string")
+		: [];
+	const seen = new Set<string>();
+	return [...own, ...history].filter((value) => {
+		const key = value.toLowerCase();
+		if (seen.has(key)) {
+			return false;
+		}
+		seen.add(key);
+		return true;
+	});
+};

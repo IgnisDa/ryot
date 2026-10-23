@@ -93,15 +93,22 @@ const mountLog = (options: {
 	readonly logger: MediaActivityLogger;
 	readonly compact?: boolean;
 	readonly fake?: ActivityLogFake;
+	readonly settings?: (read: number) => Record<string, unknown>;
 	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
 	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
 }) => {
 	const requests: Request[] = [];
 	const queries: string[] = [];
+	let settingsReads = 0;
 	const answer = activityLogQuery({ target: contextTarget(), ...options.fake }, queries);
 	const view = mountRyotClient(
 		{
 			watchEntities,
+			readUserSettings: () =>
+				Effect.sync(() => {
+					settingsReads += 1;
+					return options.settings?.(settingsReads) ?? {};
+				}),
 			invokeOperation: (request) => {
 				requests.push(request);
 				return options.result?.(requests.length) ?? Effect.succeed(SAVED);
@@ -124,7 +131,7 @@ const mountLog = (options: {
 			compact={options.compact ?? true}
 		/>,
 	);
-	return { view, queries, requests };
+	return { view, queries, requests, settingsReads: () => settingsReads };
 };
 
 const openLog = (mounted: ReturnType<typeof mountLog>) =>
@@ -280,6 +287,57 @@ it.live("suggests only previously used sources", () =>
 				.getAllByRole("button", { pressed: false })
 				.map((button) => button.textContent);
 			expect(chips).toEqual(["Plex", "Netflix"]);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("suggests the user's list first, then history, without case-insensitive duplicates", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: movie,
+			fake: { consumedOn: ["Plex", "CINEMA"], recent: ["netflix", "Blu-ray"] },
+			settings: () => ({
+				consumedOnBook: ["Kindle"],
+				consumedOnMovie: ["Netflix", "cinema", "Hulu"],
+			}),
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			yield* eventually(() =>
+				expect(
+					within(dialog)
+						.getAllByRole("button", { pressed: false })
+						.map((button) => button.textContent),
+				).toEqual(["Netflix", "cinema", "Hulu", "Plex", "Blu-ray"]),
+			);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("refreshes the user's list after a successful log", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: movie,
+			settings: (read) => ({
+				consumedOnMovie: read === 1 ? ["Netflix"] : ["Netflix", "Criterion"],
+			}),
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			yield* eventually(() => expect(getByText(dialog, "Netflix")).toBeDefined());
+			expect(queryByText(dialog, "Criterion")).toBeNull();
+			const reads = mounted.settingsReads();
+			press(dialog, "Mark as watched");
+			yield* submitted(mounted);
+			yield* Effect.promise(() => mounted.view.advance(250));
+			yield* eventually(() => expect(mounted.settingsReads()).toBeGreaterThan(reads));
+			press(dialog, "Done");
+			const reopened = yield* openLog(mounted);
+			yield* eventually(() => expect(getByText(reopened, "Criterion")).toBeDefined());
 		} finally {
 			mounted.view.unmount();
 		}
