@@ -6,23 +6,20 @@ import {
 } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
-	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
 	type SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import {
-	entityPopulationExecutionId,
 	EntityPopulationTrigger,
+	userPopulationRequest,
 } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -42,6 +39,8 @@ import { EntityPopulationTriggerLive } from "./population-trigger-live";
 
 const rootSchemaSlug = EntitySchemaSlug.make("record");
 const failedAt = new Date("2026-10-23T00:00:00.000Z");
+const relatedFailedAt = new Date("2026-10-23T01:00:00.000Z");
+const populatedAt = new Date("2026-10-22T00:00:00.000Z");
 
 const currentUser = (id: string): CurrentUserValue => ({
 	image: null,
@@ -58,6 +57,8 @@ const recipient = currentUser("recipient");
 type SeedInput = {
 	readonly externalId: string;
 	readonly failed?: boolean;
+	readonly relatedFailed?: boolean;
+	readonly relatedPopulated?: boolean;
 	readonly userId?: UserId;
 	readonly providerBacked?: boolean;
 };
@@ -73,6 +74,8 @@ class RetryFixture extends Context.Service<
 		) => Effect.Effect<{
 			readonly populationFailure: string | null;
 			readonly populationFailedAt: Date | null;
+			readonly relatedPopulationFailure: string | null;
+			readonly relatedPopulationFailedAt: Date | null;
 		}>;
 		readonly markFailed: (entityId: EntityId) => Effect.Effect<void>;
 		readonly reconcilerRequest: (entityId: EntityId, externalId: string) => Effect.Effect<void>;
@@ -111,6 +114,18 @@ const retryLayer = Layer.unwrap(
 				markFailed,
 				runs: Ref.get(runs),
 				pluginId: PluginId.make(installed.pluginId),
+				reconcilerRequest: (entityId, externalId) =>
+					userPopulationRequest({
+						entityId,
+						providerId,
+						externalId,
+						userId: null,
+						initiator: owner.id,
+						execution: { level: "full" },
+						entitySchemaSlug: rootSchemaSlug,
+						entitySchemaPluginId: installed.pluginId,
+						accountGeneration: owner.accountGeneration,
+					}).pipe(Effect.flatMap(trigger.request), Effect.asVoid),
 				failure: (entityId) =>
 					session
 						.run((db) =>
@@ -118,6 +133,8 @@ const retryLayer = Layer.unwrap(
 								.select({
 									populationFailure: tables.entity.populationFailure,
 									populationFailedAt: tables.entity.populationFailedAt,
+									relatedPopulationFailure: tables.entity.relatedPopulationFailure,
+									relatedPopulationFailedAt: tables.entity.relatedPopulationFailedAt,
 								})
 								.from(tables.entity)
 								.where(eq(tables.entity.id, entityId)),
@@ -126,7 +143,14 @@ const retryLayer = Layer.unwrap(
 							Effect.flatMap(([row]) => (row ? Effect.succeed(row) : Effect.die("missing row"))),
 							Effect.orDie,
 						),
-				seed: ({ userId, externalId, failed = true, providerBacked = true }) =>
+				seed: ({
+					userId,
+					externalId,
+					failed = true,
+					providerBacked = true,
+					relatedFailed = false,
+					relatedPopulated = false,
+				}) =>
 					session
 						.run((db) =>
 							db
@@ -140,6 +164,14 @@ const retryLayer = Layer.unwrap(
 									...(failed
 										? { populationFailedAt: failedAt, populationFailure: "script-failure" }
 										: {}),
+									...(relatedFailed || relatedPopulated ? { populatedAt } : {}),
+									...(relatedPopulated ? { relatedPopulatedAt: populatedAt } : {}),
+									...(relatedFailed
+										? {
+												relatedPopulationFailedAt: relatedFailedAt,
+												relatedPopulationFailure: "invalid-output",
+											}
+										: {}),
 								})
 								.returning({ id: tables.entity.id }),
 						)
@@ -147,29 +179,6 @@ const retryLayer = Layer.unwrap(
 							Effect.map(([row]) => EntityId.make(row?.id ?? "")),
 							Effect.orDie,
 						),
-				reconcilerRequest: (entityId, externalId) => {
-					const executionId = entityPopulationExecutionId(entityId, owner.accountGeneration);
-					return trigger.request({
-						entityId,
-						providerId,
-						externalId,
-						userId: null,
-						entitySchemaSlug: rootSchemaSlug,
-						entitySchemaPluginId: installed.pluginId,
-						command: {
-							...rootLifecycleCommand({
-								source: "api",
-								lane: "interactive",
-								itemIdentity: executionId,
-								initiator: { id: owner.id, kind: "user" },
-								accountGeneration: owner.accountGeneration,
-								executionId: AutomationExecutionId.make(executionId),
-								occurredAt: IsoUtcString.make(failedAt.toISOString()),
-							}),
-							writeContext: null,
-						},
-					});
-				},
 			});
 		const triggerLayer = EntityPopulationTriggerLive.pipe(
 			Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
@@ -209,17 +218,65 @@ layer(retryLayer)((test) => {
 			yield* fixture.reconcilerRequest(entityId, "rerun");
 			yield* fixture.markFailed(entityId);
 			yield* fixture.reconcilerRequest(entityId, "rerun");
-			expect(yield* fixture.runs).toEqual([`populate-${entityId}-test-account-generation`]);
+			expect(yield* fixture.runs).toEqual([`populate-${entityId}-full-test-account-generation`]);
 
 			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
 
 			expect(yield* fixture.runs).toEqual([
-				`populate-${entityId}-test-account-generation`,
-				`populate-${entityId}-test-account-generation-${failedAt.getTime()}`,
+				`populate-${entityId}-full-test-account-generation`,
+				`populate-${entityId}-full-test-account-generation-${failedAt.getTime()}`,
 			]);
 			expect(yield* fixture.failure(entityId)).toEqual({
 				populationFailure: null,
 				populationFailedAt: null,
+				relatedPopulationFailure: null,
+				relatedPopulationFailedAt: null,
+			});
+		}),
+	);
+
+	test.effect("retries a related-level failure at full with the related failure time", () =>
+		Effect.gen(function* () {
+			const fixture = yield* RetryFixture;
+			const entityId = yield* fixture.seed({
+				failed: false,
+				relatedFailed: true,
+				externalId: "related-rerun",
+			});
+
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: true });
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
+
+			expect((yield* fixture.runs).filter((run) => run.includes(entityId))).toEqual([
+				`populate-${entityId}-full-test-account-generation-${relatedFailedAt.getTime()}`,
+			]);
+			expect(yield* fixture.failure(entityId)).toEqual({
+				populationFailure: null,
+				populationFailedAt: null,
+				relatedPopulationFailure: null,
+				relatedPopulationFailedAt: null,
+			});
+		}),
+	);
+
+	test.effect("never clears a related failure once the related level is stamped", () =>
+		Effect.gen(function* () {
+			const fixture = yield* RetryFixture;
+			const entityId = yield* fixture.seed({
+				failed: false,
+				relatedFailed: true,
+				relatedPopulated: true,
+				externalId: "related-stamped",
+			});
+			const before = yield* fixture.runs;
+
+			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({ retried: false });
+			expect(yield* fixture.runs).toEqual(before);
+			expect(yield* fixture.failure(entityId)).toEqual({
+				populationFailure: null,
+				populationFailedAt: null,
+				relatedPopulationFailure: "invalid-output",
+				relatedPopulationFailedAt: relatedFailedAt,
 			});
 		}),
 	);
@@ -324,7 +381,7 @@ layer(retryLayer)((test) => {
 				yield* Effect.exit(retry(recipient, entityId, fixture.pluginId)),
 				refused("provider-unavailable"),
 			);
-			expect(yield* fixture.failure(entityId)).toEqual({
+			expect(yield* fixture.failure(entityId)).toMatchObject({
 				populationFailedAt: failedAt,
 				populationFailure: "script-failure",
 			});

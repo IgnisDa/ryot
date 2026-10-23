@@ -57,6 +57,7 @@ const mockSandbox = Layer.mock(ScriptExecutionService);
 const mockTranslations = Layer.mock(TranslationsRepository);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
@@ -69,6 +70,7 @@ const makeServiceLayer = (
 		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
 		relationshipSchemas?: MockOverrides<typeof mockRelationshipSchemas>;
+		entitiesRepository?: MockOverrides<typeof mockEntitiesRepository>;
 	} = {},
 ) => {
 	return TestSupportService.layer.pipe(
@@ -82,7 +84,7 @@ const makeServiceLayer = (
 					executePolicy: () => Effect.die("unused"),
 					skipQueuedPolicies: () => Effect.die("unused"),
 				}),
-				Layer.mock(EntitiesRepository)({}),
+				mockEntitiesRepository({ ...overrides.entitiesRepository }),
 				mockAuth({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
 				Layer.succeed(RedisService, makeRedisService()),
 				mockEntities({ ...overrides.entities }),
@@ -304,6 +306,10 @@ const unpopulatedEntity = {
 };
 
 const entityUpdates = recordingServiceLayer<unknown>((record) => ({
+	entitiesRepository: {
+		stampRelatedPopulated: (stampedEntityId, relatedPopulatedAt) =>
+			record({ stampedEntityId, relatedPopulatedAt }),
+	},
 	entities: {
 		getByIdAnyScope: () => Effect.succeed(unpopulatedEntity),
 		update: (input) =>
@@ -317,7 +323,7 @@ layer(entityUpdates.layer)((test) => {
 	test.effect("updates populatedAt without changing entity fields", () =>
 		Effect.gen(function* () {
 			const service = yield* TestSupportService;
-			yield* service.setEntityPopulatedAt(entityId, populatedAt);
+			yield* service.setEntityPopulatedAt(entityId, populatedAt, "base");
 			expect((yield* entityUpdates.recorded).at(-1)).toMatchObject({
 				entityId,
 				scope: "global",
@@ -329,6 +335,18 @@ layer(entityUpdates.layer)((test) => {
 					itemIdentity: '["test-support:set-entity-populated-at","entity-id"]',
 					causation: { source: "api", initiator: { id: null, kind: "system" } },
 				},
+			});
+			expect(yield* entityUpdates.recorded).toHaveLength(1);
+		}),
+	);
+
+	test.effect("stamps the related level with populatedAt for a full seed", () =>
+		Effect.gen(function* () {
+			const service = yield* TestSupportService;
+			yield* service.setEntityPopulatedAt(entityId, populatedAt, "full");
+			expect((yield* entityUpdates.recorded).at(-1)).toEqual({
+				stampedEntityId: entityId,
+				relatedPopulatedAt: populatedAtDate,
 			});
 		}),
 	);
@@ -419,6 +437,7 @@ const rootFactEntity = {
 };
 
 const rootFactCommands = recordingServiceLayer<DomainLifecycleCommand>((record) => ({
+	entitiesRepository: { stampRelatedPopulated: () => Effect.void },
 	entities: {
 		createGlobal: (input) =>
 			record(input.lifecycle).pipe(Effect.as({ warnings: [], entity: rootFactEntity })),

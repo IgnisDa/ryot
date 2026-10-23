@@ -277,7 +277,8 @@ const providerWritesLayer = (options: {
 								),
 					}),
 				}),
-				options.entitiesRepository ?? Layer.mock(EntitiesRepository)({}),
+				options.entitiesRepository ??
+					Layer.mock(EntitiesRepository)({ stampChildRelatedPopulated: () => Effect.void }),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpserts: (input) =>
 						Effect.forEach(input.items, (item) =>
@@ -642,7 +643,8 @@ const rootPopulationLayer = Layer.unwrap(
 			}),
 			Layer.mock(EntitiesRepository)({
 				stampRelatedPopulated: () => Effect.void,
-				findEntityByExternalId: () => Effect.succeed(null),
+				stampChildRelatedPopulated: () => Effect.void,
+				findPopulationTarget: () => Effect.succeed(null),
 			}),
 			Layer.mock(EntitiesService)({
 				persistPlannedProviderUpsert: (input) =>

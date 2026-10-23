@@ -32,6 +32,7 @@ import {
 } from "#modules/automations/lifecycle/command";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entities/watches/service";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
@@ -40,6 +41,7 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
 
 type CreateGlobalEntityInput = {
@@ -48,6 +50,7 @@ type CreateGlobalEntityInput = {
 	readonly entitySchema: EntitySchemaReference;
 	readonly properties: Record<string, unknown>;
 	readonly populatedAt?: string | null | undefined;
+	readonly level?: "base" | "full" | undefined;
 	readonly providerId?: SandboxProviderId | undefined;
 };
 
@@ -118,6 +121,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const auth = yield* AuthService;
 			const redis = yield* RedisService;
 			const entities = yield* EntitiesService;
+			const session = yield* DatabaseSession;
+			const entityRepository = yield* EntitiesRepository;
 			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
 			const sandbox = yield* ScriptExecutionService;
@@ -175,6 +180,17 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				});
 				return yield* getPluginOperationResult({ pluginId: updated.pluginId });
 			});
+			const stampSeededRelatedLevel = (
+				entityId: EntityId,
+				populatedAt: Date | null,
+				level: "base" | "full",
+			) =>
+				populatedAt === null || level === "base"
+					? Effect.void
+					: session
+							.transaction(entityRepository.stampRelatedPopulated(entityId, populatedAt))
+							.pipe(Effect.orDie);
+
 			const createGlobalEntity = Effect.fn("TestSupportService.createGlobalEntity")(function* (
 				input: CreateGlobalEntityInput,
 			) {
@@ -192,34 +208,39 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					yield* reportWarnings("create-global-entity", created.warnings);
 					return created.entity;
 				}
+				const populatedAt = input.populatedAt === null ? null : yield* parseDate(input.populatedAt);
 				const updated = yield* entities.update({
+					populatedAt,
 					scope: "global",
 					name: created.entity.name,
 					entityId: created.entity.id,
 					properties: created.entity.properties,
 					lifecycle: childSystemApiCommand(command, "set-populated-at"),
-					populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
 				});
 				yield* reportWarnings("create-global-entity", [...created.warnings, ...updated.warnings]);
+				yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
 				return updated.entity;
 			});
 
 			const setEntityPopulatedAt = Effect.fn("TestSupportService.setEntityPopulatedAt")(function* (
 				entityId: EntityId,
 				populatedAt: string | null,
+				level: "base" | "full",
 			) {
 				const entity = yield* entities.getByIdAnyScope(entityId);
+				const populatedAtDate = populatedAt === null ? null : yield* parseDate(populatedAt);
 				const updated = yield* entities.update({
 					entityId,
 					scope: "global",
 					name: entity.name,
+					populatedAt: populatedAtDate,
 					properties: entity.properties,
-					populatedAt: populatedAt === null ? null : yield* parseDate(populatedAt),
 					lifecycle: yield* systemApiCommand(
 						stableStringify(["test-support:set-entity-populated-at", entityId]),
 					),
 				});
 				yield* reportWarnings("set-entity-populated-at", updated.warnings);
+				yield* stampSeededRelatedLevel(entityId, populatedAtDate, level);
 				return updated.entity;
 			});
 

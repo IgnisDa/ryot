@@ -76,7 +76,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 				name: "ProviderEntityPopulationWorkflow",
 				options: expect.objectContaining({
 					executionId: `${executionId}-provider-population`,
-					payload: expect.objectContaining({ level: "full", mode: "ensure" }),
+					payload: expect.objectContaining({ level: "base", mode: "ensure" }),
 				}),
 			}),
 			{ options: { executionId }, name: "provider-import-completion" },

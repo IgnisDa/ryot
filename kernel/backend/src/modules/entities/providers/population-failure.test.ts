@@ -67,12 +67,18 @@ class FailureFixture extends Context.Service<
 			readonly populationFailure: string | null;
 			readonly populationFailedAt: Date | null;
 			readonly populationStatus: string;
+			readonly relatedPopulatedAt: Date | null;
+			readonly relatedPopulationFailure: string | null;
+			readonly relatedPopulationFailedAt: Date | null;
+			readonly relatedPopulationStatus: string;
 		}>;
 		readonly setSandbox: (sandbox: Sandbox) => Effect.Effect<void>;
 		readonly payload: (
 			externalId: string,
 			mode: "ensure" | "refresh",
+			level: "base" | "full",
 		) => ProviderEntityPopulationPayload;
+		readonly stampRelated: (entityId: EntityId) => Effect.Effect<void>;
 		readonly markPopulated: (entityId: EntityId) => Effect.Effect<void>;
 		readonly stamp: (entityId: EntityId) => Effect.Effect<void>;
 		readonly uninstall: Effect.Effect<void>;
@@ -112,10 +118,10 @@ const assertPopulationFails = (
 	);
 };
 
-const populationStatusSql = () => {
+const statusSql = (name: "populationStatus" | "relatedPopulationStatus") => {
 	const table = getCatalogTable("entity");
 	assert(table);
-	const field = resolveCatalogField(table, "populationStatus", {
+	const field = resolveCatalogField(table, name, {
 		type: "user",
 		audience: "kernel",
 		accessClass: "standard",
@@ -147,11 +153,16 @@ const failureLayer = Layer.unwrap(
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 		const published = yield* Ref.make<ReadonlyArray<string>>([]);
 		const sandbox = yield* Ref.make<Sandbox>(Effect.die("no sandbox result"));
-		const statusSql = populationStatusSql();
+		const populationStatusSql = statusSql("populationStatus");
+		const relatedPopulationStatusSql = statusSql("relatedPopulationStatus");
 		const repository = yield* EntitiesRepository;
 		const fixture = FailureFixture.of({
 			published: Ref.get(published),
 			setSandbox: (result) => Ref.set(sandbox, result),
+			stampRelated: (entityId) =>
+				session
+					.transaction(repository.stampRelatedPopulated(entityId, occurredAtDate))
+					.pipe(Effect.orDie),
 			rotateAccount: session
 				.run((db) =>
 					db
@@ -213,30 +224,13 @@ const failureLayer = Layer.unwrap(
 						Effect.map(([row]) => EntityId.make(row?.id ?? "")),
 						Effect.orDie,
 					),
-			read: (entityId) =>
-				session
-					.run((db) =>
-						db
-							.select({
-								populatedAt: tables.entity.populatedAt,
-								populationStatus: statusSql.mapWith(String),
-								populationFailure: tables.entity.populationFailure,
-								populationFailedAt: tables.entity.populationFailedAt,
-							})
-							.from(tables.entity)
-							.where(eq(tables.entity.id, entityId)),
-					)
-					.pipe(
-						Effect.flatMap(([row]) => (row ? Effect.succeed(row) : Effect.die("missing row"))),
-						Effect.orDie,
-					),
-			payload: (externalId, mode) => {
-				const executionId = `population-${externalId}`;
+			payload: (externalId, mode, level) => {
+				const executionId = `population-${externalId}-${level}`;
 				return {
 					mode,
+					level,
 					externalId,
 					executionId,
-					level: "full" as const,
 					providerId: provider.id,
 					entitySchemaSlug: rootSchemaSlug,
 					entityScope: { userId, type: "global" },
@@ -255,6 +249,27 @@ const failureLayer = Layer.unwrap(
 					},
 				};
 			},
+			read: (entityId) =>
+				session
+					.run((db) =>
+						db
+							.select({
+								populatedAt: tables.entity.populatedAt,
+								populationFailure: tables.entity.populationFailure,
+								populationFailedAt: tables.entity.populationFailedAt,
+								relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+								populationStatus: populationStatusSql.mapWith(String),
+								relatedPopulationFailure: tables.entity.relatedPopulationFailure,
+								relatedPopulationFailedAt: tables.entity.relatedPopulationFailedAt,
+								relatedPopulationStatus: relatedPopulationStatusSql.mapWith(String),
+							})
+							.from(tables.entity)
+							.where(eq(tables.entity.id, entityId)),
+					)
+					.pipe(
+						Effect.flatMap(([row]) => (row ? Effect.succeed(row) : Effect.die("missing row"))),
+						Effect.orDie,
+					),
 		});
 		return Layer.mergeAll(
 			DomainWriteChecksLive,
@@ -282,10 +297,15 @@ const populate = (input: {
 	readonly sandbox: Sandbox;
 	readonly externalId: string;
 	readonly mode?: "ensure" | "refresh";
+	readonly level?: "base" | "full";
 }) =>
 	Effect.gen(function* () {
 		const fixture = yield* FailureFixture;
-		const payload = fixture.payload(input.externalId, input.mode ?? "ensure");
+		const payload = fixture.payload(
+			input.externalId,
+			input.mode ?? "ensure",
+			input.level ?? "full",
+		);
 		const instance = WorkflowInstance.initial(
 			ProviderEntityPopulationWorkflow,
 			payload.executionId,
@@ -455,8 +475,16 @@ layer(failureLayer)((test) => {
 				{ type: "user", audience: "plugin", accessClass: "standard" },
 				{ type: "plugin" },
 			] as const) {
-				expect(resolveCatalogField(table, "populationFailure", access)).toBeUndefined();
-				expect(resolveCatalogField(table, "populationFailedAt", access)).toBeUndefined();
+				for (const field of [
+					"populationFailure",
+					"populationFailedAt",
+					"relatedPopulatedAt",
+					"relatedPopulationFailure",
+					"relatedPopulationFailedAt",
+				]) {
+					expect(resolveCatalogField(table, field, access)).toBeUndefined();
+				}
+				expect(resolveCatalogField(table, "relatedPopulationStatus", access)).toBeDefined();
 			}
 		}),
 	);
@@ -501,5 +529,179 @@ layer(failureLayer)((test) => {
 				});
 				expect(yield* fixture.published).toEqual([]);
 			}),
+	);
+});
+
+const populated = (entityId: EntityId) => encodeEntityUpdatedMessage(entityId, "populated");
+
+const invalidOutput = failed({ kind: "invalid-output", message: "Malformed output" });
+const executionLimit = failed({
+	kind: "resource-unavailable",
+	message: "httpCall limit reached",
+	data: { operation: "httpCall", code: "execution-limit" },
+});
+const rateLimited = failed({ kind: "script-failure", message: "TMDB responded 429" });
+
+layer(failureLayer)((test) => {
+	test.effect(
+		"marks a failed full upgrade only for invalid output or the execution limit and publishes populated",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* FailureFixture;
+				const cases = [
+					{ result: invalidOutput, failure: "invalid-output" },
+					{ failure: "invalid-output", result: completed({ properties: {} }) },
+					{ result: executionLimit, failure: "execution-limit" },
+				] as const;
+				for (const [index, { result, failure }] of cases.entries()) {
+					const externalId = `related-${index}`;
+					const entityId = yield* fixture.seed({ externalId, populatedAt: occurredAtDate });
+					const exit = yield* populate({ externalId, sandbox: Effect.succeed(result) });
+
+					assertPopulationFails(exit, result);
+					const row = yield* fixture.read(entityId);
+					expect(row).toMatchObject({
+						populationFailure: null,
+						populationFailedAt: null,
+						relatedPopulatedAt: null,
+						populationStatus: "ready",
+						populatedAt: occurredAtDate,
+						relatedPopulationFailure: failure,
+						relatedPopulationStatus: "failed",
+					});
+					expect(row.relatedPopulationFailedAt).toBeInstanceOf(Date);
+					const published = yield* fixture.published;
+					expect(published).toContain(populated(entityId));
+					expect(published).not.toContain(publication(entityId));
+				}
+			}),
+	);
+
+	test.effect("never marks a shared entity for a script failure such as an upstream 429", () =>
+		Effect.gen(function* () {
+			const fixture = yield* FailureFixture;
+			const entityId = yield* fixture.seed({
+				populatedAt: occurredAtDate,
+				externalId: "related-rate-limited",
+			});
+			const exit = yield* populate({
+				externalId: "related-rate-limited",
+				sandbox: Effect.succeed(rateLimited),
+			});
+
+			assertPopulationFails(exit, rateLimited);
+			expect(yield* fixture.read(entityId)).toMatchObject({
+				populationFailure: null,
+				relatedPopulationFailure: null,
+				relatedPopulationFailedAt: null,
+				relatedPopulationStatus: "pending",
+			});
+			expect(yield* fixture.published).not.toContain(populated(entityId));
+		}),
+	);
+
+	test.effect("never marks the related level from a refresh or a base population", () =>
+		Effect.gen(function* () {
+			const fixture = yield* FailureFixture;
+			const refreshed = yield* fixture.seed({
+				populatedAt: occurredAtDate,
+				externalId: "related-refresh",
+			});
+			const base = yield* fixture.seed({ externalId: "related-base" });
+
+			assertPopulationFails(
+				yield* populate({
+					mode: "refresh",
+					externalId: "related-refresh",
+					sandbox: Effect.succeed(invalidOutput),
+				}),
+				invalidOutput,
+			);
+			assertPopulationFails(
+				yield* populate({
+					level: "base",
+					externalId: "related-base",
+					sandbox: Effect.succeed(invalidOutput),
+				}),
+				invalidOutput,
+			);
+
+			expect(yield* fixture.read(refreshed)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulationStatus: "pending",
+			});
+			expect(yield* fixture.read(base)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulationStatus: "pending",
+				populationFailure: "invalid-output",
+			});
+			const published = yield* fixture.published;
+			expect(published).not.toContain(populated(refreshed));
+			expect(published).not.toContain(populated(base));
+		}),
+	);
+
+	test.effect("writes nothing when the related level was stamped while the script ran", () =>
+		Effect.gen(function* () {
+			const fixture = yield* FailureFixture;
+			const entityId = yield* fixture.seed({
+				populatedAt: occurredAtDate,
+				externalId: "related-stamped",
+			});
+			const exit = yield* populate({
+				externalId: "related-stamped",
+				sandbox: fixture.stampRelated(entityId).pipe(Effect.as(invalidOutput)),
+			});
+
+			assertPopulationFails(exit, invalidOutput);
+			expect(yield* fixture.read(entityId)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulationStatus: "ready",
+			});
+			expect(yield* fixture.published).not.toContain(populated(entityId));
+		}),
+	);
+
+	test.effect("clears the related failure when a later full population stamps it", () =>
+		Effect.gen(function* () {
+			const fixture = yield* FailureFixture;
+			const entityId = yield* fixture.seed({
+				populatedAt: occurredAtDate,
+				externalId: "related-recovered",
+			});
+			yield* populate({ externalId: "related-recovered", sandbox: Effect.succeed(invalidOutput) });
+			expect((yield* fixture.read(entityId)).relatedPopulationStatus).toBe("failed");
+
+			yield* fixture.stampRelated(entityId);
+
+			expect(yield* fixture.read(entityId)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulationFailedAt: null,
+				relatedPopulationStatus: "ready",
+			});
+		}),
+	);
+});
+
+layer(failureLayer)((test) => {
+	test.effect("does not mark the related level when the caller's account rotated", () =>
+		Effect.gen(function* () {
+			const fixture = yield* FailureFixture;
+			const entityId = yield* fixture.seed({
+				populatedAt: occurredAtDate,
+				externalId: "related-rotated",
+			});
+			const exit = yield* populate({
+				externalId: "related-rotated",
+				sandbox: fixture.rotateAccount.pipe(Effect.as(invalidOutput)),
+			});
+
+			assertPopulationFails(exit, invalidOutput);
+			expect(yield* fixture.read(entityId)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulationStatus: "pending",
+			});
+			expect(yield* fixture.published).toEqual([]);
+		}),
 	);
 });

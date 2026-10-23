@@ -39,17 +39,17 @@ export const EntityPopulationTriggerLive = Layer.effect(
 						provider.pluginId !== input.entitySchemaPluginId ||
 						provider.rootEntitySchemaSlug !== input.entitySchemaSlug
 					) {
-						return;
+						return false;
 					}
 					const executionId = entityPopulationExecutionId(
 						input.entityId,
 						input.command.accountGeneration,
-						input.attempt,
+						input.execution,
 					);
 					let command = input.command;
 					if (input.command.writeContext === null) {
 						if (executingUserId === null || input.command.accountGeneration === null) {
-							return;
+							return false;
 						}
 						const pin = yield* preRegisterProviderDetails(
 							{ sandbox, pluginRuntime },
@@ -82,8 +82,8 @@ export const EntityPopulationTriggerLive = Layer.effect(
 							payload: {
 								command,
 								executionId,
-								level: "full",
 								mode: "ensure",
+								level: input.execution.level,
 								externalId: input.externalId,
 								providerId: input.providerId,
 								entitySchemaSlug: input.entitySchemaSlug,
@@ -103,6 +103,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								),
 							),
 					);
+					return true;
 				}).pipe(Effect.orDie),
 		};
 	}),

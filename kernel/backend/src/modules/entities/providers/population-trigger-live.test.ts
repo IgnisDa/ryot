@@ -12,8 +12,11 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import {
+	entityPopulationExecutionId,
 	EntityPopulationTrigger,
+	type PopulationExecution,
 	type PopulationRequest,
+	userPopulationRequest,
 } from "#modules/entities/population-trigger";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -132,6 +135,7 @@ const triggerLayer = (
 				command,
 				externalId: "record-1",
 				providerId: provider.id,
+				execution: { level: "full" },
 				entityId: EntityId.make("entity-1"),
 				entitySchemaPluginId: installed.pluginId,
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
@@ -158,7 +162,7 @@ layer(triggerLayer("system", { enqueueFails: true, systemSubject: true }))((test
 			const fixture = yield* PopulationFixture;
 			const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
 			expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
-				"populate-entity-1",
+				"populate-entity-1-full",
 			]);
 			expect(Exit.isFailure(exit)).toBe(true);
 		}),
@@ -169,7 +173,7 @@ layer(triggerLayer("system", { unavailable: true }))((test) => {
 	test.effect("does not enqueue population for an unavailable installation", () =>
 		Effect.gen(function* () {
 			const fixture = yield* PopulationFixture;
-			yield* (yield* EntityPopulationTrigger).request(fixture.request);
+			expect(yield* (yield* EntityPopulationTrigger).request(fixture.request)).toBe(false);
 			expect(yield* fixture.executions).toEqual([]);
 		}),
 	);
@@ -243,5 +247,54 @@ layer(triggerLayer("user"))((test) => {
 			);
 			expect(row?.scriptId).toBeDefined();
 		}),
+	);
+});
+
+layer(triggerLayer("system"))((test) => {
+	test.effect(
+		"dispatches the requested level under the shared execution ID used by the request command",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				const trigger = yield* EntityPopulationTrigger;
+				const accountGeneration = { userId, token: "test-account-generation" };
+				const executions: ReadonlyArray<PopulationExecution> = [
+					{ level: "base" },
+					{ level: "full" },
+					{ level: "full", attempt: 1_700_000_000_000 },
+					{ level: "full", upgrade: { hourBucket: 472_222, populatedAtMs: 1_600_000_000_000 } },
+				];
+				for (const [index, execution] of executions.entries()) {
+					const request = yield* userPopulationRequest({
+						execution,
+						accountGeneration,
+						initiator: userId,
+						userId: fixture.request.userId,
+						externalId: fixture.request.externalId,
+						providerId: fixture.request.providerId,
+						entityId: EntityId.make(`entity-${index}`),
+						entitySchemaSlug: fixture.request.entitySchemaSlug,
+						entitySchemaPluginId: fixture.request.entitySchemaPluginId,
+					});
+					expect(yield* trigger.request(request)).toBe(true);
+					const dispatched = (yield* fixture.executions)[index];
+					const expectedId = entityPopulationExecutionId(
+						EntityId.make(`entity-${index}`),
+						accountGeneration,
+						execution,
+					);
+					expect(dispatched?.executionId).toBe(expectedId);
+					expect(dispatched?.payload).toMatchObject({
+						level: execution.level,
+						command: { itemIdentity: expectedId, causation: { executionId: expectedId } },
+					});
+				}
+				expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
+					"populate-entity-0-base-test-account-generation",
+					"populate-entity-1-full-test-account-generation",
+					"populate-entity-2-full-test-account-generation-1700000000000",
+					"populate-entity-3-full-test-account-generation-1600000000000-472222",
+				]);
+			}),
 	);
 });
