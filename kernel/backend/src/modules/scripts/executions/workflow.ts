@@ -1,5 +1,6 @@
 import { SandboxFailureKind, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
 	type SandboxExecutionPayload,
 	sandboxSubjectUserId,
@@ -85,6 +86,7 @@ const ObservedWorkflowReplay = Schema.Union([
 		error: Schema.String,
 		kind: SandboxFailureKind,
 		state: Schema.Literal("failed"),
+		data: Schema.optionalKey(SandboxBoundaryReason),
 	}),
 	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
 	Schema.Struct({
@@ -461,7 +463,12 @@ export const validateWorkflowReplayEnvelope = (
 	return Effect.succeed(
 		envelope.state === "completed"
 			? { output: envelope.output, state: "completed" as const }
-			: { kind: envelope.kind, error: envelope.error, state: "failed" as const },
+			: {
+					kind: envelope.kind,
+					error: envelope.error,
+					state: "failed" as const,
+					...(envelope.data === undefined ? {} : { data: envelope.data }),
+				},
 	);
 };
 
@@ -890,10 +897,11 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 					...(error.data === undefined ? {} : { data: error.data }),
 				});
 			}
-			return yield* sandboxFailure(
-				"script-failure",
-				`Workflow replay ${step} failed: ${description}`,
-			);
+			return yield* new SandboxRunError({
+				kind: "script-failure",
+				message: `Workflow replay ${step} failed: ${description}`,
+				...(error.data === undefined ? {} : { data: error.data }),
+			});
 		});
 		for (let step = 0; journal.entries.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
 			yield* appendWorkflowJournal(executionId, projected, journal.entries.slice(projected));
@@ -976,7 +984,12 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				return yield* failReplay(
 					replay,
 					step,
-					{ phase: "execute", kind: observed.kind, message: observed.error },
+					{
+						phase: "execute",
+						kind: observed.kind,
+						message: observed.error,
+						...(observed.data === undefined ? {} : { data: observed.data }),
+					},
 					observed.error,
 				);
 			}

@@ -701,4 +701,35 @@ describe("workflow definitions", () => {
 				}),
 			),
 	);
+	test.each([
+		{
+			data: { operation: "httpCall", code: "execution-limit" },
+			failure: { message: "limit", data: { operation: "httpCall", code: "execution-limit" } },
+		},
+		{ data: undefined, failure: { message: "limit", data: { code: "not-a-boundary-code" } } },
+		{ data: undefined, failure: new TestWorkflowFailure("no data") },
+	])("carries a decoded boundary reason in a failed envelope: $data", ({ data, failure }) =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const manifest = defineManifest({ name: "Failing", slug: "failing", kind: "workflow" });
+				const workflow = defineWorkflow({
+					manifest,
+					output: Schema.String,
+					input: Schema.Struct({}),
+					run: () => Effect.fail(failure),
+				});
+
+				const envelope = yield* workflow.run({}, makeWorkflowReplayHost([]), {
+					metadata: {},
+					sandboxScriptId: "failing",
+				});
+
+				expect(envelope).toMatchObject({ state: "failed", kind: "script-failure" });
+				expect("data" in envelope).toBe(data !== undefined);
+				if (data !== undefined) {
+					expect(envelope).toMatchObject({ data });
+				}
+			}),
+		),
+	);
 });

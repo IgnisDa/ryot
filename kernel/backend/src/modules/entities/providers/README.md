@@ -98,9 +98,8 @@ provider's `details` run fails deterministically:
 - invalid output (`invalid-output` without a boundary reason, or a result that fails details
   validation), stored as `invalid-output`;
 - a host-call budget overrun (`script-failure` or `resource-unavailable` with boundary code
-  `execution-limit`), stored as `execution-limit`. A durable sandbox run reports a failed host call
-  that escapes the script as `script-failure` with its message only, so an over-budget `details`
-  script is currently stored as `script-failure`.
+  `execution-limit`), stored as `execution-limit`. A durable run carries the boundary reason of an
+  escaped failure in the failed replay envelope's `data`, so it classifies as a non-durable run does.
 
 The record is `entity.population_failed_at` and `entity.population_failure`, a closed code set
 enforced by a check constraint; messages, stacks and boundary data are never stored. One short

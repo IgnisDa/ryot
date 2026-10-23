@@ -14,8 +14,8 @@ script's failure channel rather than erasing it in tests.
 Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-backend-sdk/workflow`.
 `defineWorkflow` accepts a typed failure channel for its body. Durable replay steps can fail with
 schema or journal errors or signal a pending call. The workflow definition converts body failures
-to a failed replay envelope; its host-facing `run` fails with `SandboxHostError` when the replay
-journal cannot be read.
+to a failed replay envelope that carries the escaped error's boundary reason as `data`; its
+host-facing `run` fails with `SandboxHostError` when the replay journal cannot be read.
 
 `replay.sleep` may settle inline with host requests, returning raw null; host results remain typed.
 Longer/exhausted waits use durable replay. Exact allowance and settlement rules belong to the

@@ -1407,6 +1407,89 @@ layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))((test) =
 	);
 });
 
+const failedEnvelopeCases = [
+	{
+		name: "execution-limit",
+		executionKind: "script-failure",
+		data: { operation: "httpCall", code: "execution-limit" },
+	},
+	{
+		name: "installation-unavailable",
+		executionKind: "resource-unavailable",
+		data: {
+			pluginId: pluginRevision.id,
+			code: "installation-unavailable",
+			installationId: "private-installation",
+		},
+	},
+	{ name: "no data", data: undefined, executionKind: "script-failure" },
+] as const;
+
+for (const envelopeCase of failedEnvelopeCases) {
+	for (const mode of ["execution", "workflow"] as const) {
+		const executionId = testExecutionId(`failed-envelope-${envelopeCase.name}-${mode}`);
+		const { data } = envelopeCase;
+		layer(inlineWorkflowLayer(executionId))((test) => {
+			test.effect(`${mode} mode carries a failed envelope's data: ${envelopeCase.name}`, () =>
+				Effect.gen(function* () {
+					const run = runScriptExecutionWorkflowBody(
+						{
+							input: {},
+							executionId,
+							lane: "interactive",
+							resolutionMode: "exact",
+							scriptId: inlineScriptId,
+							subject: { type: "system" },
+							...(mode === "execution" ? { resultMode: "execution" as const } : {}),
+						},
+						executionId,
+						() =>
+							Effect.succeed({
+								...replayBase,
+								inline: [],
+								pendingInline: [],
+								value: {
+									requests: [],
+									journalLength: 0,
+									error: "limit reached",
+									state: "failed" as const,
+									kind: "script-failure" as const,
+									...(data === undefined ? {} : { data }),
+								},
+							}),
+					);
+					const dataField = data === undefined ? {} : { data };
+					if (mode === "execution") {
+						expect(yield* run).toEqual({
+							logs: [],
+							value: null,
+							status: "completed",
+							error: {
+								...dataField,
+								phase: "execute",
+								message: "limit reached",
+								kind: envelopeCase.executionKind,
+							},
+						});
+					} else {
+						assertExitFails(
+							yield* Effect.exit(run),
+							new SandboxRunError({
+								...dataField,
+								kind: "script-failure",
+								message:
+									envelopeCase.name === "installation-unavailable"
+										? "limit reached"
+										: "Workflow replay 0 failed: limit reached",
+							}),
+						);
+					}
+				}),
+			);
+		});
+	}
+}
+
 const inlineIds = {
 	lost: testExecutionId("inline-lost"),
 	race: testExecutionId("inline-race"),

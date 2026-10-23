@@ -1,3 +1,4 @@
+import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -90,6 +91,11 @@ const workflowFailureKind = (error: unknown): (typeof SANDBOX_FAILURE_KINDS)[num
 		data.code === "external-uncertain"
 		? "external-uncertain"
 		: "script-failure";
+};
+
+const boundaryData = (error: unknown) => {
+	const data = boundaryReasonOfError(error);
+	return data ? { data } : {};
 };
 
 const stableJson = (value: unknown): string => {
@@ -233,6 +239,7 @@ export const defineWorkflow = <
 										requests,
 										...replayIdentity,
 										state: "failed" as const,
+										...boundaryData(error),
 										kind: workflowFailureKind(error),
 										error:
 											!(error instanceof Error) &&

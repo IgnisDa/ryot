@@ -1,6 +1,5 @@
-import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "../protocol/limits";
 import {
@@ -55,9 +54,6 @@ const jsonStringify = JSON.stringify.bind(JSON);
 const mathMax = Math.max;
 const mathMin = Math.min;
 const decodeComponent = globalThis.decodeURIComponent;
-const decodeBoundaryReason = Schema.decodeUnknownSync(SandboxBoundaryReason, {
-	onExcessProperty: "error",
-});
 const stackFramePattern = /(?:^|[\s(])([^\s()]+):(\d+):(\d+)\)?$/;
 const diagnosticLimit = SANDBOX_LIMITS.diagnostics.messageBytes;
 
@@ -168,14 +164,6 @@ const safeErrorProperty = (error: unknown, property: string): string | undefined
 	try {
 		const value = isRecord(error) ? error[property] : undefined;
 		return typeof value === "string" ? value : undefined;
-	} catch {
-		return undefined;
-	}
-};
-
-const boundaryErrorData = (error: unknown) => {
-	try {
-		return decodeBoundaryReason(isRecord(error) ? error["data"] : undefined);
 	} catch {
 		return undefined;
 	}
@@ -303,7 +291,7 @@ export const executionError = (
 			rawMessage = "Sandbox execution failed";
 		}
 	}
-	const data = boundaryErrorData(error);
+	const data = boundaryReasonOfError(error);
 	const firstFrame = frames[0];
 	let stack = "";
 	for (const frame of frames) {
