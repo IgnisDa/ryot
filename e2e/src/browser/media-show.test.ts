@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, waitForEventWithSchema } from "~/fixtures/kernel";
-import { logMediaActivity, seedActivityShow } from "~/fixtures/plugins/media";
+import { logMediaActivity, seedShow } from "~/fixtures/plugins/media";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -24,8 +24,11 @@ const openShow = (input: { email: string; password: string; showId: string }) =>
 
 const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
 	const { email, client, password } = yield* createAuthenticatedClient(getApiUrl());
-	const seeded = yield* seedActivityShow(client, {
-		episodes: [1, 2, 3, 4].map((episodeNumber) => ({ episodeNumber, seasonNumber: 1 })),
+	const seeded = yield* seedShow(client, {
+		name: `Activity Log Show ${crypto.randomUUID()}`,
+		seasons: [
+			{ seasonNumber: 1, episodes: [1, 2, 3, 4].map((episodeNumber) => ({ episodeNumber })) },
+		],
 	});
 	yield* logMediaActivity(client, {
 		submittedAt: nowIso(),
@@ -33,7 +36,7 @@ const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
 		entry: {
 			kind: "episodes",
 			when: { kind: "now" },
-			parentEntityId: seeded.showId,
+			parentEntityId: seeded.show.id,
 			episodeEntityIds: [seeded.episodeId(1, 1)],
 		},
 	});
@@ -43,7 +46,7 @@ const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
 it.live("marks the next episode watched from the header without a reload", () =>
 	Effect.gen(function* () {
 		const { email, client, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.showId });
+		const media = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("button", { exact: true, name: "Mark S1·E2 watched" }).click();
 		yield* media
@@ -62,7 +65,7 @@ it.live("marks the next episode watched from the header without a reload", () =>
 it.live("marks an episode watched from its details", () =>
 	Effect.gen(function* () {
 		const { email, client, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.showId });
+		const media = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("tab", { name: "Episodes" }).click();
 		yield* media
@@ -82,7 +85,7 @@ it.live("marks an episode watched from its details", () =>
 it.live("opens the Log activity sheet from episode details with that episode selected", () =>
 	Effect.gen(function* () {
 		const { email, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.showId });
+		const media = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("tab", { name: "Episodes" }).click();
 		yield* media.getByRole("button", { name: /^Open S1E4 / }).click();

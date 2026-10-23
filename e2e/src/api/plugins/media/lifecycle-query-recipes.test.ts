@@ -28,7 +28,6 @@ import {
 	fakeProviderDetailsResult,
 	getEntity,
 	getGlobalEntityByProvenance,
-	insertGlobalRelationship,
 	listAdminGlobalRelationships,
 	listEventSchemas,
 	listEventsForEntity,
@@ -46,6 +45,9 @@ import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	seedMediaEntity,
+	seedPodcast,
+	seedShow,
+	seedShowEpisode,
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
@@ -63,7 +65,6 @@ const lifecycleStates = [
 ] as const;
 
 type LifecycleState = (typeof lifecycleStates)[number];
-type SeededMediaEntity = Effect.Success<ReturnType<typeof seedMediaEntity>>;
 type MediaReference = Parameters<typeof showRecipes.summaryRecipe>[0]["reference"];
 
 const localReferenceForEntity = (client: Client, entityId: string) =>
@@ -139,150 +140,16 @@ const loadLifecycleSchemas = (client: Client) =>
 		};
 	});
 
-type LifecycleSchemas = Effect.Success<ReturnType<typeof loadLifecycleSchemas>>;
-
 const AIRED = "2020-01-01";
 const UNAIRED = "2999-01-01";
 
 type PublishDates = ReadonlyArray<string | null>;
 
-const publishDateAt = (publishDates: PublishDates | undefined, index: number) =>
-	publishDates === undefined ? AIRED : (publishDates[index] ?? AIRED);
-
-const seedShowEpisode = (
-	schemas: LifecycleSchemas,
-	input: {
-		readonly suffix: string;
-		readonly seasonId: string;
-		readonly seasonNumber: number;
-		readonly episodeNumber: number;
-		readonly publishDate: string | null;
-	},
-) =>
-	Effect.gen(function* () {
-		const entity = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			entitySchemaSlug: schemas.showEpisodeSchemaId,
-			name: `S${input.seasonNumber}E${input.episodeNumber} ${input.suffix}`,
-			externalId: `lifecycle-episode-${input.seasonNumber}-${input.episodeNumber}-${input.suffix}`,
-			properties: {
-				publishDate: input.publishDate,
-				seasonNumber: input.seasonNumber,
-				episodeNumber: input.episodeNumber,
-			},
-		});
-		yield* insertGlobalRelationship({
-			targetEntityId: entity.id,
-			sourceEntityId: input.seasonId,
-			relationshipSchema: schemas.seasonToEpisodeRelationship,
-		});
-		return entity;
-	});
-
-const seedShow = (
-	client: Client,
-	schemas: LifecycleSchemas,
-	input: {
-		readonly productionStatus?: string | null;
-		readonly seasons: ReadonlyArray<{
-			readonly episodeCount: number;
-			readonly seasonNumber: number;
-			readonly publishDates?: PublishDates;
-		}>;
-	},
-) =>
-	Effect.gen(function* () {
-		const suffix = crypto.randomUUID();
-		const show = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			name: `Lifecycle Show ${suffix}`,
-			externalId: `lifecycle-show-${suffix}`,
-			entitySchemaSlug: schemas.showSchemaId,
-			properties: {
-				totalSeasons: input.seasons.length,
-				productionStatus: input.productionStatus ?? null,
-				totalEpisodes: input.seasons.reduce((total, season) => total + season.episodeCount, 0),
-			},
-		});
-		yield* insertLibraryMembership(client, { mediaEntityId: show.id });
-		const seasons: SeededMediaEntity[] = [];
-		const episodes: Array<{ entity: SeededMediaEntity; seasonNumber: number }> = [];
-		for (const seasonInput of input.seasons) {
-			const season = yield* seedMediaEntity({
-				userId: null,
-				providerId: null,
-				entitySchemaSlug: schemas.showSeasonSchemaId,
-				name: `Season ${seasonInput.seasonNumber} ${suffix}`,
-				properties: { seasonNumber: seasonInput.seasonNumber },
-				externalId: `lifecycle-season-${seasonInput.seasonNumber}-${suffix}`,
-			});
-			seasons.push(season);
-			yield* insertGlobalRelationship({
-				sourceEntityId: show.id,
-				targetEntityId: season.id,
-				relationshipSchema: schemas.showToSeasonRelationship,
-			});
-			for (let episodeNumber = 1; episodeNumber <= seasonInput.episodeCount; episodeNumber += 1) {
-				const entity = yield* seedShowEpisode(schemas, {
-					suffix,
-					episodeNumber,
-					seasonId: season.id,
-					seasonNumber: seasonInput.seasonNumber,
-					publishDate: publishDateAt(seasonInput.publishDates, episodeNumber - 1),
-				});
-				episodes.push({ entity, seasonNumber: seasonInput.seasonNumber });
-			}
-		}
-		return { show, suffix, seasons, episodes };
-	});
-
-const seedPodcast = (
-	client: Client,
-	schemas: LifecycleSchemas,
-	input: {
-		readonly episodeCount: number;
-		readonly publishDates?: PublishDates;
-		readonly productionStatus?: string | null;
-	},
-) =>
-	Effect.gen(function* () {
-		const suffix = crypto.randomUUID();
-		const podcast = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			name: `Lifecycle Podcast ${suffix}`,
-			externalId: `lifecycle-podcast-${suffix}`,
-			entitySchemaSlug: schemas.podcastSchemaId,
-			properties: {
-				totalEpisodes: input.episodeCount,
-				productionStatus: input.productionStatus ?? null,
-			},
-		});
-		yield* insertLibraryMembership(client, { mediaEntityId: podcast.id });
-		const episodes: SeededMediaEntity[] = [];
-		for (let episodeNumber = 1; episodeNumber <= input.episodeCount; episodeNumber += 1) {
-			const episode = yield* seedMediaEntity({
-				userId: null,
-				providerId: null,
-				entitySchemaSlug: schemas.podcastEpisodeSchemaId,
-				name: `Podcast Episode ${episodeNumber} ${suffix}`,
-				externalId: `lifecycle-podcast-episode-${episodeNumber}-${suffix}`,
-				properties: {
-					episodeNumber,
-					publishDate: publishDateAt(input.publishDates, episodeNumber - 1),
-				},
-			});
-			episodes.push(episode);
-			yield* insertGlobalRelationship({
-				sourceEntityId: podcast.id,
-				targetEntityId: episode.id,
-				relationshipSchema: schemas.podcastToEpisodeRelationship,
-			});
-		}
-		return { podcast, episodes };
-	});
+const episodesOf = (count: number, publishDates?: PublishDates) =>
+	Array.from({ length: count }, (_, index) => ({
+		episodeNumber: index + 1,
+		publishDate: publishDates?.[index] ?? AIRED,
+	}));
 
 const waitForCompletions = (client: Client, entityId: string, expectedCount: number) =>
 	pollUntil(
@@ -436,12 +303,12 @@ describe("Media episodic lifecycle query recipes", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const schemas = yield* loadLifecycleSchemas(client);
-				const { show, episodes } = yield* seedShow(client, schemas, {
-					productionStatus: "Continuing",
-					seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+				const { show, episodes } = yield* seedShow(client, {
+					properties: { productionStatus: "Continuing" },
+					seasons: [{ seasonNumber: 1, episodes: episodesOf(2) }],
 				});
-				const firstEpisode = episodes[0]?.entity;
-				const secondEpisode = episodes[1]?.entity;
+				const firstEpisode = episodes[0];
+				const secondEpisode = episodes[1];
 				assertPresent(firstEpisode, "Expected first show episode");
 				assertPresent(secondEpisode, "Expected second show episode");
 
@@ -530,12 +397,12 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const cycles = yield* seedShow(client, schemas, {
-				productionStatus: "Ended",
-				seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+			const cycles = yield* seedShow(client, {
+				properties: { productionStatus: "Ended" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(2) }],
 			});
-			const firstEpisode = cycles.episodes[0]?.entity;
-			const secondEpisode = cycles.episodes[1]?.entity;
+			const firstEpisode = cycles.episodes[0];
+			const secondEpisode = cycles.episodes[1];
 			assertPresent(firstEpisode, "Expected first cycle show episode");
 			assertPresent(secondEpisode, "Expected second cycle show episode");
 
@@ -572,11 +439,11 @@ describe("Media episodic lifecycle query recipes", () => {
 			expect(parentEvents.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
 			yield* assertShowState(client, cycles.show.id, "complete");
 
-			const detailFixture = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 1 }],
+			const detailFixture = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(1) }],
 			});
-			const detailEpisode = detailFixture.episodes[0]?.entity;
+			const detailEpisode = detailFixture.episodes[0];
 			assertPresent(detailEpisode, "Expected detail show episode");
 			yield* createComplete(
 				client,
@@ -615,10 +482,10 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const fixture = yield* seedShow(client, schemas, {
-				seasons: [{ seasonNumber: 1, episodeCount: 1 }],
+			const fixture = yield* seedShow(client, {
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(1) }],
 			});
-			const episode = fixture.episodes[0]?.entity;
+			const episode = fixture.episodes[0];
 			assertPresent(episode, "Expected chronological show episode");
 
 			yield* createProgress(
@@ -662,21 +529,22 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const noSeasons = yield* seedShow(client, schemas, { seasons: [] });
-			const specialsOnly = yield* seedShow(client, schemas, {
-				seasons: [{ seasonNumber: 0, episodeCount: 1 }],
+			const noSeasons = yield* seedShow(client, { seasons: [] });
+			const specialsOnly = yield* seedShow(client, {
+				properties: { totalSeasons: 1 },
+				seasons: [{ seasonNumber: 0, episodes: episodesOf(1) }],
 			});
-			const emptyRegularSeason = yield* seedShow(client, schemas, {
-				seasons: [{ seasonNumber: 1, episodeCount: 0 }],
+			const emptyRegularSeason = yield* seedShow(client, {
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(0) }],
 			});
-			const mixedRegularSeasons = yield* seedShow(client, schemas, {
+			const mixedRegularSeasons = yield* seedShow(client, {
 				seasons: [
-					{ seasonNumber: 1, episodeCount: 1 },
-					{ seasonNumber: 2, episodeCount: 0 },
+					{ seasonNumber: 1, episodes: episodesOf(1) },
+					{ seasonNumber: 2, episodes: episodesOf(0) },
 				],
 			});
-			const special = specialsOnly.episodes[0]?.entity;
-			const regularEpisode = mixedRegularSeasons.episodes[0]?.entity;
+			const special = specialsOnly.episodes[0];
+			const regularEpisode = mixedRegularSeasons.episodes[0];
 			assertPresent(special, "Expected season zero episode");
 			assertPresent(regularEpisode, "Expected regular episode");
 
@@ -718,9 +586,9 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { podcast, episodes } = yield* seedPodcast(client, schemas, {
-				episodeCount: 2,
-				productionStatus: "Continuing",
+			const { podcast, episodes } = yield* seedPodcast(client, {
+				episodes: episodesOf(2),
+				properties: { productionStatus: "Continuing" },
 			});
 			const firstEpisode = episodes[0];
 			const secondEpisode = episodes[1];
@@ -813,9 +681,9 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { podcast, episodes } = yield* seedPodcast(client, schemas, {
-				episodeCount: 1,
-				productionStatus: "Ended",
+			const { podcast, episodes } = yield* seedPodcast(client, {
+				episodes: episodesOf(1),
+				properties: { productionStatus: "Ended" },
 			});
 			const episode = episodes[0];
 			assertPresent(episode, "Expected terminal podcast episode");
@@ -937,20 +805,20 @@ describe("Media episodic coverage over aired episodes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
+			const { show, episodes } = yield* seedShow(client, {
+				properties: { totalSeasons: 3, productionStatus: "Continuing" },
 				seasons: [
-					{ seasonNumber: 0, episodeCount: 1 },
-					{ seasonNumber: 1, episodeCount: 3, publishDates: [AIRED, AIRED, UNAIRED] },
-					{ seasonNumber: 2, episodeCount: 2, publishDates: [UNAIRED, UNAIRED] },
+					{ seasonNumber: 0, episodes: episodesOf(1) },
+					{ seasonNumber: 1, episodes: episodesOf(3, [AIRED, AIRED, UNAIRED]) },
+					{ seasonNumber: 2, episodes: episodesOf(2, [UNAIRED, UNAIRED]) },
 				],
 			});
 			const aired = episodes.filter(({ seasonNumber }) => seasonNumber === 1).slice(0, 2);
 
-			for (const [index, { entity }] of aired.entries()) {
+			for (const [index, episode] of aired.entries()) {
 				yield* createComplete(
 					client,
-					entity.id,
+					episode.id,
 					schemas.showEpisodeEvents.complete,
 					`2026-05-07T0${index + 1}:00:00.000Z`,
 				);
@@ -972,11 +840,11 @@ describe("Media episodic coverage over aired episodes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const fixture = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 1 }],
+			const fixture = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(1) }],
 			});
-			const episode = fixture.episodes[0]?.entity;
+			const episode = fixture.episodes[0];
 			const season = fixture.seasons[0];
 			assertPresent(episode, "Expected the aired episode");
 			assertPresent(season, "Expected the regular season");
@@ -989,12 +857,11 @@ describe("Media episodic coverage over aired episodes", () => {
 			);
 			yield* assertShowState(client, fixture.show.id, "caught_up");
 
-			const added = yield* seedShowEpisode(schemas, {
+			const added = yield* seedShowEpisode(client, {
 				seasonNumber: 1,
-				episodeNumber: 2,
-				publishDate: AIRED,
 				seasonId: season.id,
 				suffix: fixture.suffix,
+				episode: { episodeNumber: 2, publishDate: AIRED },
 			});
 			yield* assertShowState(client, fixture.show.id, "in_progress");
 			const summary = yield* readShowSummary(client, fixture.show.id);
@@ -1006,11 +873,11 @@ describe("Media episodic coverage over aired episodes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 3, publishDates: [AIRED, null, "not-a-date"] }],
+			const { show, episodes } = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(3, [AIRED, null, "not-a-date"]) }],
 			});
-			const [first, second, third] = episodes.map(({ entity }) => entity);
+			const [first, second, third] = episodes;
 			assertPresent(first, "Expected the dated episode");
 			assertPresent(second, "Expected the undated episode");
 			assertPresent(third, "Expected the malformed episode");
@@ -1049,14 +916,14 @@ describe("Media episodic next up and display state", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
+			const { show, episodes } = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
 				seasons: [
-					{ seasonNumber: 1, episodeCount: 2 },
-					{ seasonNumber: 2, episodeCount: 1 },
+					{ seasonNumber: 1, episodes: episodesOf(2) },
+					{ seasonNumber: 2, episodes: episodesOf(1) },
 				],
 			});
-			const [first, second, third] = episodes.map(({ entity }) => entity);
+			const [first, second, third] = episodes;
 			assertPresent(first, "Expected S1E1");
 			assertPresent(second, "Expected S1E2");
 			assertPresent(third, "Expected S2E1");
@@ -1078,11 +945,11 @@ describe("Media episodic next up and display state", () => {
 			const crossesSeasons = yield* readShowSummary(client, show.id);
 			expect(crossesSeasons.nextUp).toMatchObject({ id: third.id, seasonNumber: 2 });
 
-			const gapped = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+			const gapped = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(2) }],
 			});
-			const gappedLast = gapped.episodes[1]?.entity;
+			const gappedLast = gapped.episodes[1];
 			assertPresent(gappedLast, "Expected the gapped show's last episode");
 			yield* createComplete(
 				client,
@@ -1098,11 +965,11 @@ describe("Media episodic next up and display state", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 3 }],
+			const { show, episodes } = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(3) }],
 			});
-			const [first, , third] = episodes.map(({ entity }) => entity);
+			const [first, , third] = episodes;
 			assertPresent(first, "Expected E1");
 			assertPresent(third, "Expected E3");
 
@@ -1128,11 +995,11 @@ describe("Media episodic next up and display state", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, seasons, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+			const { show, seasons, episodes } = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(2) }],
 			});
-			const [first, second] = episodes.map(({ entity }) => entity);
+			const [first, second] = episodes;
 			const season = seasons[0];
 			assertPresent(first, "Expected E1");
 			assertPresent(second, "Expected E2");
@@ -1188,14 +1055,14 @@ describe("Media episodic next up and display state", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, seasons, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
+			const { show, seasons, episodes } = yield* seedShow(client, {
+				properties: { totalSeasons: 2, productionStatus: "Continuing" },
 				seasons: [
-					{ seasonNumber: 0, episodeCount: 1 },
-					{ seasonNumber: 1, episodeCount: 1 },
+					{ seasonNumber: 0, episodes: episodesOf(1) },
+					{ seasonNumber: 1, episodes: episodesOf(1) },
 				],
 			});
-			const [special, regular] = episodes.map(({ entity }) => entity);
+			const [special, regular] = episodes;
 			const specialSeason = seasons[0];
 			assertPresent(special, "Expected the special");
 			assertPresent(regular, "Expected E1");
@@ -1234,10 +1101,9 @@ describe("Media episodic next up and display state", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { podcast, episodes } = yield* seedPodcast(client, schemas, {
-				episodeCount: 3,
-				productionStatus: "Continuing",
-				publishDates: [AIRED, AIRED, UNAIRED],
+			const { podcast, episodes } = yield* seedPodcast(client, {
+				properties: { productionStatus: "Continuing" },
+				episodes: episodesOf(3, [AIRED, AIRED, UNAIRED]),
 			});
 			const [first, second] = episodes;
 			assertPresent(first, "Expected episode 1");
@@ -1392,16 +1258,16 @@ describe("Media lifecycle list recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { show, episodes } = yield* seedShow(client, schemas, {
-				productionStatus: "Continuing",
-				seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+			const { show, episodes } = yield* seedShow(client, {
+				properties: { productionStatus: "Continuing" },
+				seasons: [{ seasonNumber: 1, episodes: episodesOf(2) }],
 			});
-			const [first, second] = episodes.map(({ entity }) => entity);
+			const [first, second] = episodes;
 			assertPresent(first, "Expected E1");
 			assertPresent(second, "Expected E2");
-			const { podcast, episodes: podcastEpisodes } = yield* seedPodcast(client, schemas, {
-				episodeCount: 2,
-				productionStatus: "Continuing",
+			const { podcast, episodes: podcastEpisodes } = yield* seedPodcast(client, {
+				episodes: episodesOf(2),
+				properties: { productionStatus: "Continuing" },
 			});
 			const [, newest] = podcastEpisodes;
 			assertPresent(newest, "Expected the newest podcast episode");

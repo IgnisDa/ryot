@@ -17,9 +17,9 @@ import {
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
-	seedLibraryPodcastEpisodes,
-	seedLibraryShowEpisodes,
 	seedMediaEntity,
+	seedPodcast,
+	seedShow,
 } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -97,9 +97,9 @@ describe("Media calendar sources", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const complete = yield* eventSlug(client, "show-episode", "complete");
-			const { show, episodes } = yield* seedLibraryShowEpisodes(client, {
-				images: [coverImage("show.jpg")],
+			const { show, episodes } = yield* seedShow(client, {
 				name: `Calendar Show ${crypto.randomUUID()}`,
+				properties: { images: [coverImage("show.jpg")] },
 				seasons: [
 					{ seasonNumber: 0, episodes: [{ episodeNumber: 1, publishDate: "2026-09-20" }] },
 					{
@@ -112,7 +112,7 @@ describe("Media calendar sources", () => {
 					},
 				],
 			});
-			yield* seedLibraryShowEpisodes(client, {
+			yield* seedShow(client, {
 				inLibrary: false,
 				name: `Calendar Outside Show ${crypto.randomUUID()}`,
 				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1, publishDate: "2026-09-08" }] }],
@@ -164,9 +164,9 @@ describe("Media calendar sources", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const complete = yield* eventSlug(client, "podcast-episode", "complete");
-			const { podcast, episodes } = yield* seedLibraryPodcastEpisodes(client, {
-				images: [coverImage("podcast.jpg")],
+			const { podcast, episodes } = yield* seedPodcast(client, {
 				name: `Calendar Podcast ${crypto.randomUUID()}`,
+				properties: { images: [coverImage("podcast.jpg")] },
 				episodes: [
 					{ episodeNumber: 7, publishDate: "2026-09-03", images: [coverImage("pod-ep.jpg")] },
 					{ episodeNumber: 8, publishDate: "2026-09-10" },
