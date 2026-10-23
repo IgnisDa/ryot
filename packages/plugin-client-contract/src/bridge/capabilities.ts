@@ -459,6 +459,60 @@ export const PluginBridgeStorageResult = Schema.Union([
 
 export type PluginBridgeStorageResult = Schema.Schema.Type<typeof PluginBridgeStorageResult>;
 
+export const PluginUserSettingsBridgeErrorReason = Schema.Literals([
+	"invalid-request",
+	"transport",
+]);
+
+export type PluginUserSettingsBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginUserSettingsBridgeErrorReason
+>;
+
+export const PluginUserSettingsRequest = strictStruct({ pluginId: PluginId });
+
+export type PluginUserSettingsRequest = Schema.Schema.Type<typeof PluginUserSettingsRequest>;
+
+export const PluginBridgeUserSettingsRequest = strictStruct({
+	...PluginUserSettingsRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("user-settings-request"),
+});
+
+export type PluginBridgeUserSettingsRequest = Schema.Schema.Type<
+	typeof PluginBridgeUserSettingsRequest
+>;
+
+const pluginUserSettingsSuccessFields = {
+	outcome: Schema.Literal("success"),
+	settings: Schema.Record(Schema.String, JsonValue),
+};
+
+const pluginUserSettingsFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginUserSettingsBridgeErrorReason,
+};
+
+const pluginBridgeUserSettingsResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("user-settings-result"),
+};
+
+export const PluginUserSettingsOutcome = Schema.Union([
+	strictStruct(pluginUserSettingsSuccessFields),
+	strictStruct(pluginUserSettingsFailureFields),
+]);
+
+export type PluginUserSettingsOutcome = Schema.Schema.Type<typeof PluginUserSettingsOutcome>;
+
+export const PluginBridgeUserSettingsResult = Schema.Union([
+	strictStruct({ ...pluginUserSettingsSuccessFields, ...pluginBridgeUserSettingsResultFields }),
+	strictStruct({ ...pluginUserSettingsFailureFields, ...pluginBridgeUserSettingsResultFields }),
+]);
+
+export type PluginBridgeUserSettingsResult = Schema.Schema.Type<
+	typeof PluginBridgeUserSettingsResult
+>;
+
 export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({
 	identifier: "PluginUploadSource",
 });

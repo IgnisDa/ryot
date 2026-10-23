@@ -5,7 +5,7 @@ import {
 	EntitySchemaReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	type AddToCollectionRequest,
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
@@ -45,6 +45,7 @@ import {
 	type PluginBridgeScreenState,
 	type PluginBridgeStorageRequest,
 	type PluginBridgeUploadRequest,
+	type PluginBridgeUserSettingsRequest,
 	type PluginCalendarSourceVisibilityRequest,
 	type PluginDeviceRequest,
 	type PluginIosLiveActivityRequest,
@@ -84,7 +85,8 @@ type RequestType =
 	| "pick-entity-screen"
 	| "ryotql"
 	| "storage"
-	| "upload";
+	| "upload"
+	| "user-settings";
 
 type PendingCall = {
 	readonly type: RequestType;
@@ -388,6 +390,19 @@ export const createPluginRuntime = (
 						({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
 				);
 
+	const readUserSettings = (pluginId: PluginId) =>
+		!pluginContributors().some((contributor) => contributor.pluginId === pluginId)
+			? Effect.fail(new RyotClientError("invalid-request"))
+			: sendRequest(
+					"user-settings",
+					(requestId) =>
+						({
+							pluginId,
+							requestId,
+							type: "user-settings-request",
+						}) satisfies PluginBridgeUserSettingsRequest,
+				);
+
 	const upload = (request: PluginUploadRequest) =>
 		sendRequest(
 			"upload",
@@ -509,6 +524,7 @@ export const createPluginRuntime = (
 		editCollection,
 		addToCollection,
 		invokeOperation,
+		readUserSettings,
 		mutateCollection,
 		navigatePageSearch,
 		setCalendarSourceVisibility,
@@ -769,6 +785,15 @@ export const createPluginRuntime = (
 					return;
 				case "storage-result":
 					settle("storage", message.requestId, message);
+					return;
+				case "user-settings-result":
+					settle(
+						"user-settings",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.settings },
+					);
 					return;
 				case "entity-editor-save-result":
 					settle(

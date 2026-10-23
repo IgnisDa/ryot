@@ -23,6 +23,8 @@ import {
 	PluginBridgeStorageResult,
 	PluginBridgeUploadRequest,
 	PluginBridgeUploadResult,
+	PluginBridgeUserSettingsRequest,
+	PluginBridgeUserSettingsResult,
 } from "./capabilities";
 import {
 	PluginBridgeDeviceRequest,
@@ -88,6 +90,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityWatch,
 	PluginBridgeStorageRequest,
+	PluginBridgeUserSettingsRequest,
 	PluginBridgeOperationRequest,
 	PluginBridgeEntitySaveRequest,
 	PluginBridgeCollectionRequest,
@@ -120,6 +123,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeLifecycleClose,
 	PluginBridgeDismissOverlay,
 	PluginBridgeStorageResult,
+	PluginBridgeUserSettingsResult,
 	PluginBridgeOperationResult,
 	PluginBridgeEntitySaveResult,
 	PluginBridgeCollectionResult,

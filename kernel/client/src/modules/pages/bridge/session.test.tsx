@@ -33,6 +33,7 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
+	type PluginUserSettingsOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
@@ -158,6 +159,7 @@ const connect = (
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
+		readonly onUserSettings?: Parameters<typeof openPluginBridge>[0]["onUserSettings"];
 		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
 		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
 		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
@@ -212,6 +214,7 @@ const connect = (
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
 		onEntitySave: options.onEntitySave ?? (() => Effect.never),
+		onUserSettings: options.onUserSettings ?? (() => Effect.never),
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
@@ -1205,6 +1208,7 @@ describe("plugin bridge", () => {
 				onEntitySave: () => Effect.never,
 				onPageShortcuts: () => undefined,
 				onKernelShortcut: () => undefined,
+				onUserSettings: () => Effect.never,
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				onCalendarSourceVisibility: () => Effect.never,
@@ -1899,6 +1903,45 @@ describe("plugin bridge", () => {
 			});
 			expect(calls).toEqual([save]);
 			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("forwards user settings requests by plugin and sanitizes malformed outcomes", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const outcomes: PluginUserSettingsOutcome[] = [
+				{ outcome: "success", settings: { limit: 3 } },
+				{ outcome: "success", settings: { limit: Number.NaN } },
+			];
+			const { init, received, pluginPort } = connect({
+				onUserSettings: (request) => {
+					calls.push(request);
+					const outcome = outcomes.shift();
+					return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			const request = { pluginId: "media", type: "user-settings-request" as const };
+			pluginPort.postMessage({ ...request, requestId: "settings-1" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "success",
+				settings: { limit: 3 },
+				requestId: "settings-1",
+				type: "user-settings-result",
+			});
+			pluginPort.postMessage({ ...request, requestId: "settings-2" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+			expect(received[2]).toEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "settings-2",
+				type: "user-settings-result",
+			});
+			pluginPort.postMessage({ ...request, installationId: "other", requestId: "settings-3" });
+			expect(calls).toEqual([{ pluginId: "media" }, { pluginId: "media" }]);
 		}),
 	);
 

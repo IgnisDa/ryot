@@ -860,6 +860,44 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("reads user settings only for contributing plugins and decodes the record", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			expect(
+				(yield* Effect.flip(runtime.client.userSettings(PluginId.make("foreign-owner")))).reason,
+			).toBe("invalid-request");
+			expect(sent(messages, "user-settings-request")).toEqual([]);
+
+			const read = yield* Effect.forkChild(runtime.client.userSettings(PluginId.make("fixture")), {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "user-settings-request")).toEqual([
+				{ pluginId: "fixture", requestId: "user-settings-1", type: "user-settings-request" },
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				settings: { limit: 3 },
+				type: "user-settings-result",
+				requestId: "user-settings-1",
+			});
+			expect(yield* Fiber.join(read)).toEqual({ limit: 3 });
+
+			const refused = yield* Effect.forkChild(
+				Effect.flip(runtime.client.userSettings(PluginId.make("fixture"))),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "invalid-request",
+				type: "user-settings-result",
+				requestId: "user-settings-2",
+			});
+			expect((yield* Fiber.join(refused)).reason).toBe("invalid-request");
+		}),
+	);
+
 	it.live("sends entity saves only for contributing owners and settles their output", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

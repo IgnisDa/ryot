@@ -83,6 +83,13 @@ frame's own contributors. Device keys encode `[server, user, localPluginId, key]
 treats an undecodable or unreadable value as `null`, and updates its value before persisting a `set`
 or `remove`. `createTestPluginStorage` from `./testing` supplies a Map-backed adapter capability.
 
+`userSettings(pluginId)` reads the current user's settings for that plugin's own installation, with
+schema defaults applied; a plugin without an installation or settings schema reads `{}`. The ID must
+be a plugin contributing to the frame, as for storage, and the kernel answers `invalid-request`
+otherwise or after the frame's server or user changes. `usePluginUserSettings(pluginId)` is a query
+keyed by local ID that refreshes after mutations, so an operation that calls `updateUserSettings`
+is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
+
 Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
 `null`, while inaccessible or malformed stored JSON fails without removing the original value.
 Register an Effect with `persistence.registerFlush` to make navigation and document replacement wait

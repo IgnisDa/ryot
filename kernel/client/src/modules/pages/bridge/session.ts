@@ -46,6 +46,7 @@ import {
 	type PluginBridgeStorageRequest,
 	type PluginBridgeTheme,
 	type PluginBridgeUploadRequest,
+	type PluginBridgeUserSettingsRequest,
 	type PluginBridgeViewport,
 	type PluginCalendarSourceVisibilityOutcome,
 	type PluginCalendarSourceVisibilityRequest,
@@ -65,6 +66,8 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
+	type PluginUserSettingsOutcome,
+	type PluginUserSettingsRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
@@ -116,7 +119,8 @@ type PendingRequest = {
 		| "operation"
 		| "ryotql"
 		| "storage"
-		| "upload";
+		| "upload"
+		| "user-settings";
 };
 
 const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenType>([
@@ -175,6 +179,9 @@ type PluginBridgeOptions = {
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
+	readonly onUserSettings: (
+		request: PluginUserSettingsRequest,
+	) => Effect.Effect<PluginUserSettingsOutcome>;
 	readonly onDiagnostic?: (diagnostic: {
 		readonly type: PendingRequest["type"];
 		readonly requestId: string;
@@ -454,7 +461,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			let reason: string;
 			if (type === "external-link") {
 				reason = "link-open-failed";
-			} else if (failure || type === "storage" || type === "ryotql") {
+			} else if (failure || type === "storage" || type === "ryotql" || type === "user-settings") {
 				reason = "transport";
 			} else {
 				reason = "malformed-result";
@@ -551,6 +558,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					}
 				: { key: request.key, action: request.action, pluginId: request.pluginId };
 		runRequest(request.requestId, "storage", () => options.onStorage(capabilityRequest));
+	}
+
+	function handleUserSettings(request: PluginBridgeUserSettingsRequest) {
+		runRequest(request.requestId, "user-settings", () =>
+			options.onUserSettings({ pluginId: request.pluginId }),
+		);
 	}
 
 	function handleCollection(request: PluginBridgeCollectionRequest) {
@@ -759,6 +772,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							),
 						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
+						Match.when({ type: "user-settings-request" }, (request) => handleUserSettings(request)),
 						Match.exhaustive,
 					);
 				return;
