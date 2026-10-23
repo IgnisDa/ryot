@@ -8,9 +8,80 @@ import { Clock, Effect, Schema } from "effect";
 
 const phase = "old_user -> plugin user settings";
 
+const WATCH_PROVIDER_VALUE_LIMIT = 100;
+const WATCH_PROVIDER_LIST_LIMIT = 30;
+
+const watchProviderSettingKeys: Readonly<Record<string, string>> = {
+	book: "consumedOnBook",
+	show: "consumedOnShow",
+	anime: "consumedOnAnime",
+	movie: "consumedOnMovie",
+	manga: "consumedOnManga",
+	music: "consumedOnMusic",
+	podcast: "consumedOnPodcast",
+	audio_book: "consumedOnAudiobook",
+	video_game: "consumedOnVideoGame",
+	comic_book: "consumedOnComicBook",
+	visual_novel: "consumedOnVisualNovel",
+};
+
+const LegacyWatchProviders = Schema.Array(
+	Schema.Struct({ lot: Schema.String, values: Schema.Array(Schema.String) }),
+);
+
+const watchProviderOmissionMessages = {
+	empty: "empty or blank V1 watch provider value(s) omitted from consumed-on lists",
+	duplicate: "case-insensitive duplicate V1 watch provider value(s) omitted from consumed-on lists",
+	tooLong: `V1 watch provider value(s) over ${WATCH_PROVIDER_VALUE_LIMIT} characters omitted from consumed-on lists`,
+	overLimit: `V1 watch provider value(s) past the ${WATCH_PROVIDER_LIST_LIMIT}th in a lot omitted from consumed-on lists`,
+} as const;
+
+type WatchProviderOmissions = Record<keyof typeof watchProviderOmissionMessages, number>;
+
+const mapWatchProviders = (userId: string, raw: unknown, omissions: WatchProviderOmissions) => {
+	const lists = new Map<string, string[]>();
+	if (raw === null) {
+		return lists;
+	}
+	const decoded = Schema.decodeUnknownOption(LegacyWatchProviders)(raw);
+	if (decoded._tag === "None") {
+		throw new Error(
+			`Legacy bootstrap: watch providers for user ${userId} are not a list of {lot, values} entries with text values. Mapping them would discard the stored choices. Correct preferences.general.watch_providers in the V1 database, then start again.`,
+		);
+	}
+	for (const { lot, values } of decoded.value) {
+		const key = Object.hasOwn(watchProviderSettingKeys, lot)
+			? watchProviderSettingKeys[lot]
+			: undefined;
+		if (key === undefined) {
+			throw new Error(
+				`Legacy bootstrap: watch providers for user ${userId} name the unknown lot "${lot}". Mapping them would discard the stored choices. Remove or correct that entry in preferences.general.watch_providers in the V1 database, then start again.`,
+			);
+		}
+		const list = lists.get(key) ?? [];
+		lists.set(key, list);
+		for (const value of values) {
+			const trimmed = value.trim();
+			if (trimmed === "") {
+				omissions.empty += 1;
+			} else if (trimmed.length > WATCH_PROVIDER_VALUE_LIMIT) {
+				omissions.tooLong += 1;
+			} else if (list.some((kept) => kept.toLowerCase() === trimmed.toLowerCase())) {
+				omissions.duplicate += 1;
+			} else if (list.length >= WATCH_PROVIDER_LIST_LIMIT) {
+				omissions.overLimit += 1;
+			} else {
+				list.push(trimmed);
+			}
+		}
+	}
+	return lists;
+};
+
 const LegacySettingsRow = Schema.Struct({
 	userId: Schema.String,
 	validFitnessStructure: Schema.Boolean,
+	watchProviders: Schema.NullOr(JsonValue),
 	mediaSettings: Schema.Record(Schema.String, JsonValue),
 	fitnessSettings: Schema.Record(Schema.String, JsonValue),
 });
@@ -27,6 +98,7 @@ const legacySettingsSql = sql`
 			WHERE preferences #> preference_block.path IS NOT NULL
 				AND jsonb_typeof(preferences #> preference_block.path) <> 'object'
 		) AS "validFitnessStructure",
+		preferences #> '{general,watch_providers}' AS "watchProviders",
 		jsonb_build_object(
 			'allowNsfw', COALESCE((preferences #>> '{general,display_nsfw}')::boolean, true)
 		) AS "mediaSettings",
@@ -95,6 +167,12 @@ export const migrateLegacyUserSettings = Effect.fn("migrateLegacyUserSettings")(
 				);
 			}
 			const targets = new Map(input.installations.map((row) => [row.userId, row]));
+			const omissions: WatchProviderOmissions = {
+				empty: 0,
+				tooLong: 0,
+				duplicate: 0,
+				overLimit: 0,
+			};
 			const writes: Array<{
 				userId: string;
 				pluginId: string;
@@ -102,6 +180,10 @@ export const migrateLegacyUserSettings = Effect.fn("migrateLegacyUserSettings")(
 				settings: Schema.Schema.Type<typeof LegacySettingsRow>["fitnessSettings"];
 			}> = [];
 			for (const row of legacySettings) {
+				const mediaSettings = {
+					...row.mediaSettings,
+					...Object.fromEntries(mapWatchProviders(row.userId, row.watchProviders, omissions)),
+				};
 				if (!row.validFitnessStructure) {
 					throw new Error(
 						`Legacy bootstrap: Fitness preferences for user ${row.userId} contain a non-object preference block. Mapping it would discard the stored choices. Correct the fitness preference blocks in the V1 database, then start again.`,
@@ -116,7 +198,7 @@ export const migrateLegacyUserSettings = Effect.fn("migrateLegacyUserSettings")(
 				for (const plugin of [
 					{
 						name: "Media",
-						settings: row.mediaSettings,
+						settings: mediaSettings,
 						pluginId: input.mediaPluginId,
 						schema: input.mediaSettingsSchema,
 						installationId: target.mediaInstallationId,
@@ -166,6 +248,21 @@ export const migrateLegacyUserSettings = Effect.fn("migrateLegacyUserSettings")(
 				if (updated.length !== batch.length) {
 					throw new Error(
 						`Legacy bootstrap: expected ${batch.length} exact Media/Fitness installations for user settings, found ${updated.length}. Preferences cannot be attributed safely. Keep the dump and report this migration defect.`,
+					);
+				}
+			}
+			for (const kind of ["empty", "duplicate", "tooLong", "overLimit"] as const) {
+				const count = omissions[kind];
+				const message = watchProviderOmissionMessages[kind];
+				if (count > 0) {
+					yield* session.run((database) =>
+						database.execute(
+							sql`
+				INSERT INTO "migration_report" (phase, level, message, count)
+				VALUES (${phase}, 'warning', ${message}, ${count})
+			`,
+							"objects",
+						),
 					);
 				}
 			}
