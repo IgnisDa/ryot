@@ -1,7 +1,4 @@
-import type { MetadataLookupQuery } from "@ryot/generated/graphql/backend/graphql";
-
-export type MetadataLookupData =
-	MetadataLookupQuery["metadataLookup"]["response"];
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
 
 export interface RawMediaData {
 	title: string;
@@ -10,7 +7,7 @@ export interface RawMediaData {
 
 export interface ProgressDataWithMetadata {
 	rawData: RawMediaData;
-	metadata: MetadataLookupData;
+	metadata: MetadataLookupResult;
 }
 
 export interface FormState {

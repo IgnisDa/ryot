@@ -1,0 +1,184 @@
+import clsx from "clsx";
+import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
+import {
+	createContext,
+	type ReactNode,
+	type RefObject,
+	useCallback,
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+} from "react";
+import { createPortal } from "react-dom";
+
+import { revealFocusedField } from "./focused-field";
+import { useMotionTransition } from "./motion";
+import {
+	focusableElements,
+	interactiveSelector,
+	useFocusTrap,
+	useInertBackground,
+	useRestoreFocus,
+	useScrollLock,
+} from "./overlay";
+import { OverlayScope } from "./shortcut";
+
+type ModalProps = {
+	readonly label?: string;
+	readonly closeLabel: string;
+	readonly className?: string;
+	readonly children: ReactNode;
+	readonly labelledBy?: string;
+	readonly onClose: () => void;
+	readonly dismissible?: boolean;
+	readonly backEnabled?: boolean;
+	readonly scrimClassName?: string;
+	readonly containerClassName?: string;
+	readonly onInterceptBack?: (() => boolean) | undefined;
+	readonly triggerRef?: RefObject<HTMLElement | null> | undefined;
+	readonly initialFocusRef?: RefObject<HTMLElement | null> | undefined;
+	readonly placement?: "center" | "sheet" | "side";
+};
+
+const ModalClose = createContext<() => boolean>(() => false);
+
+export const useModalClose = () => useContext(ModalClose);
+
+export const shouldDismissSheet = (offset: number, velocity: number, height: number) =>
+	offset >= Math.min(120, height * 0.25) || (offset > 24 && velocity > 600);
+
+export function Modal({
+	label,
+	onClose,
+	children,
+	className,
+	closeLabel,
+	labelledBy,
+	triggerRef,
+	scrimClassName,
+	initialFocusRef,
+	onInterceptBack,
+	backEnabled = true,
+	containerClassName,
+	dismissible = true,
+	placement = "center",
+}: ModalProps) {
+	const panelRef = useRef<HTMLDivElement>(null);
+	const fallbackTriggerRef = useRef<HTMLElement | null>(null);
+	const present = useIsPresent();
+	const reduced = useReducedMotion();
+	const transition = useMotionTransition();
+	const dragControls = useDragControls();
+	const draggable = placement === "sheet" && dismissible && present;
+	const hidden = {
+		opacity: 0,
+		x: reduced || placement !== "side" ? 0 : 24,
+		y: reduced ? 0 : { side: 0, center: 6, sheet: "100%" }[placement],
+	};
+
+	useRestoreFocus(triggerRef ?? fallbackTriggerRef, panelRef);
+	useInertBackground(panelRef);
+	useScrollLock(true);
+	useLayoutEffect(() => {
+		if (document.activeElement instanceof HTMLElement) {
+			fallbackTriggerRef.current = document.activeElement;
+		}
+	}, []);
+
+	useEffect(() => {
+		const initial =
+			initialFocusRef?.current ?? focusableElements(panelRef.current)[0] ?? panelRef.current;
+		initial?.focus();
+	}, [initialFocusRef]);
+
+	const requestClose = useCallback(() => {
+		if (!dismissible || onInterceptBack?.() === true) {
+			return false;
+		}
+		onClose();
+		return true;
+	}, [dismissible, onClose, onInterceptBack]);
+
+	useFocusTrap(panelRef, { enabled: present });
+
+	return createPortal(
+		<OverlayScope
+			enabled={present}
+			onBack={requestClose}
+			onEscape={requestClose}
+			backEnabled={present && dismissible && backEnabled}
+		>
+			<div
+				inert={!present}
+				aria-hidden={!present}
+				className={clsx("fixed inset-0 z-50 flex", containerClassName)}
+			>
+				<motion.button
+					type="button"
+					exit={{ opacity: 0 }}
+					aria-label={closeLabel}
+					transition={transition}
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					onClick={() => requestClose()}
+					className={clsx(
+						"absolute inset-0 motion-reduce:transform-none",
+						scrimClassName ?? "bg-overlay",
+					)}
+				/>
+				<motion.div
+					role="dialog"
+					tabIndex={-1}
+					exit={hidden}
+					ref={panelRef}
+					initial={hidden}
+					dragSnapToOrigin
+					aria-modal="true"
+					aria-label={label}
+					dragListener={false}
+					dragMomentum={false}
+					transition={transition}
+					dragControls={dragControls}
+					aria-labelledby={labelledBy}
+					drag={draggable ? "y" : false}
+					dragElastic={{ top: 0, bottom: 1 }}
+					animate={{ x: 0, y: 0, opacity: 1 }}
+					dragConstraints={{ top: 0, bottom: 0 }}
+					className={clsx("relative motion-reduce:transition-none", className)}
+					onAnimationComplete={() => {
+						if (present) {
+							revealFocusedField();
+						}
+					}}
+					onDragEnd={(_event, info) => {
+						if (
+							shouldDismissSheet(
+								info.offset.y,
+								info.velocity.y,
+								panelRef.current?.getBoundingClientRect().height ?? 0,
+							)
+						) {
+							requestClose();
+						}
+					}}
+					onPointerDownCapture={(event) => {
+						if (
+							draggable &&
+							event.button === 0 &&
+							event.target instanceof HTMLElement &&
+							event.target.closest("[data-sheet-drag-region]") !== null &&
+							event.target.closest(interactiveSelector) === null
+						) {
+							dragControls.start(event);
+							window.getSelection()?.removeAllRanges();
+						}
+					}}
+				>
+					<ModalClose value={requestClose}>{children}</ModalClose>
+				</motion.div>
+			</div>
+		</OverlayScope>,
+		document.body,
+	);
+}

@@ -1,0 +1,69 @@
+name: ryot
+
+services:
+  ryot-db:
+    restart: unless-stopped
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_storage:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  ryot-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      retries: 5
+      timeout: 5s
+      interval: 2s
+      test: ["CMD", "redis-cli", "ping"]
+
+  ryot-s3:
+    image: rustfs/rustfs
+    volumes:
+      - s3_storage:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  ryot-otel-collector:
+    restart: unless-stopped
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4318:4318"
+    depends_on:
+      - ryot-jaeger
+
+  ryot-jaeger:
+    restart: unless-stopped
+    image: cr.jaegertracing.io/jaegertracing/jaeger
+    command: ["--config", "/etc/jaeger/config.yml"]
+    volumes:
+      - ./jaeger.yml:/etc/jaeger/config.yml:ro
+      - jaeger_storage:/tmp
+    ports:
+      - "16686:16686"
+
+  ryot-prometheus:
+    restart: unless-stopped
+    image: prom/prometheus:v3.6.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ryot-otel-collector
+
+volumes:
+  s3_storage:
+  jaeger_storage:
+  postgres_storage:

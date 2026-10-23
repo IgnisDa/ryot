@@ -1,0 +1,27 @@
+[fmt]
+useTabs = true
+printWidth = 100
+sortImports = true
+objectWrap = "collapse"
+ignorePatterns = [
+	"**/tmp/**",
+	"**/out/**",
+	"**/ios/**",
+	"**/dist/**",
+	"**/.wxt/**",
+	"**/build/**",
+	"**/.expo/**",
+	"**/android/**",
+	"**/.vitepress/**",
+	"**/.react-router/**",
+	"kernel/sandbox/native/**",
+	"ci/helm/ryot/templates/**",
+	"apps/frontend/app/styles/*.css",
+	"kernel/client/src/routeTree.gen.ts",
+	"kernel/sandbox/protocol-fixtures/**",
+	"apps/docs/src/includes/app-backend-config-schema.md",
+]
+
+[[fmt.overrides]]
+files = ["*.md", "*.mdx"]
+options = { useTabs = false }

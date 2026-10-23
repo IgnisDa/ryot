@@ -1,0 +1,240 @@
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
+import type {
+	PluginClientCatalog,
+	PluginClientCatalogEntry,
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { describe, expect, it } from "vitest";
+
+import {
+	type CustomizeDraft,
+	customizeSearchSection,
+	customizeSectionCounts,
+	initCustomizeDraft,
+	isCustomizeDraftDirty,
+	moveCustomizeItem,
+	toggleCustomizeItem,
+} from "#/modules/shell/customize/customize-state";
+
+const viewReference = (slug: string) => ({
+	kind: "custom" as const,
+	savedViewId: SavedViewId.make(slug),
+});
+
+const viewId = (slug: string) => identityTupleKey(viewReference(slug));
+
+const view = (slug: string, workspaceName: string | null, sortOrder: number, isHidden = false) => ({
+	slug,
+	isHidden,
+	sortOrder,
+	icon: "list",
+	name: slug.toUpperCase(),
+	reference: viewReference(slug),
+	pluginInstallationId: workspaceName === null ? null : `installation-${workspaceName}`,
+	packageId: workspaceName === null ? null : PluginPackageId.make(`test/${workspaceName}`),
+});
+
+const workspace = (
+	slug: string,
+	sortOrder: number,
+	isHidden = false,
+): PluginClientCatalogEntry => ({
+	isHidden,
+	sortOrder,
+	icon: "plugin",
+	scope: "system",
+	health: "ready",
+	clientApiVersion: 1,
+	homeSavedView: null,
+	clientEntities: null,
+	name: slug.toUpperCase(),
+	contentHash: `source-${slug}`,
+	installationId: `installation-${slug}`,
+	pluginId: PluginId.make(`plugin-${slug}`),
+	packageId: PluginPackageId.make(`test/${slug}`),
+});
+
+const catalog: PluginClientCatalog = [
+	workspace("fixture", 2),
+	workspace("disabled", 0, true),
+	workspace("other", 1),
+];
+
+const data: NavigationData = {
+	collections: [],
+	savedViews: [
+		view("items", "fixture", 2),
+		view("records", "fixture", 1, true),
+		view("all", null, 1),
+		view("recent", null, 0),
+	],
+};
+
+const draft = initCustomizeDraft({
+	data,
+	catalog,
+	workspaceInstallationId: "installation-fixture",
+});
+
+describe("initCustomizeDraft", () => {
+	it("initializes all workspaces in catalog order, including hidden ones", () => {
+		expect(draft.workspaces.map((item) => item.installationId)).toEqual([
+			"installation-disabled",
+			"installation-other",
+			"installation-fixture",
+		]);
+		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
+		expect(draft.workspaces[0]).toMatchObject({ icon: "plugin", isHidden: true, name: "DISABLED" });
+		expect(draft.views[0]?.pluginInstallationId).toBe("installation-fixture");
+	});
+
+	it("splits workspace views from global saved views and sorts each by sort order", () => {
+		expect(draft.views.map((item) => item.name)).toEqual(["RECORDS", "ITEMS"]);
+		expect(draft.savedViews.map((item) => item.name)).toEqual(["RECENT", "ALL"]);
+	});
+
+	it("keeps hidden items so they can be shown again", () => {
+		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
+	});
+
+	it("leaves the views section empty when no workspace is selected", () => {
+		expect(initCustomizeDraft({ data, catalog, workspaceInstallationId: undefined }).views).toEqual(
+			[],
+		);
+	});
+});
+
+describe("moveCustomizeItem", () => {
+	it("moves an item within its own section", () => {
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
+
+		expect(moved.views.map((item) => item.name)).toEqual(["ITEMS", "RECORDS"]);
+		expect(moved.savedViews).toBe(draft.savedViews);
+	});
+
+	it("clamps an out-of-range target into the section", () => {
+		const moved = moveCustomizeItem({ draft, toIndex: 9, fromIndex: 0, section: "views" });
+
+		expect(moved.views.map((item) => item.name)).toEqual(["ITEMS", "RECORDS"]);
+	});
+
+	it("moves an item within the workspaces section", () => {
+		const moved = moveCustomizeItem({ draft, toIndex: 2, fromIndex: 0, section: "workspaces" });
+
+		expect(moved.workspaces.map((item) => item.installationId)).toEqual([
+			"installation-other",
+			"installation-fixture",
+			"installation-disabled",
+		]);
+	});
+
+	it("returns the same draft for a move that changes nothing", () => {
+		expect(moveCustomizeItem({ draft, toIndex: 1, fromIndex: 1, section: "views" })).toBe(draft);
+	});
+});
+
+describe("toggleCustomizeItem", () => {
+	it("flips visibility without moving the item", () => {
+		const toggled = toggleCustomizeItem({ draft, section: "views", id: viewId("items") });
+
+		expect(toggled.views.map((item) => item.name)).toEqual(["RECORDS", "ITEMS"]);
+		expect(toggled.views.map((item) => item.isHidden)).toEqual([true, true]);
+	});
+
+	it("ignores an ID that is not in the section", () => {
+		expect(toggleCustomizeItem({ draft, section: "views", id: viewId("all") })).toBe(draft);
+	});
+
+	it("refuses to hide the final visible workspace", () => {
+		const onlyEnabled = {
+			...draft,
+			workspaces: draft.workspaces.map((item) =>
+				item.installationId === "installation-other" ? item : { ...item, isHidden: true },
+			),
+		};
+
+		expect(
+			toggleCustomizeItem({ draft: onlyEnabled, section: "workspaces", id: "installation-other" }),
+		).toBe(onlyEnabled);
+	});
+
+	it("allows a hidden workspace to be shown", () => {
+		const toggled = toggleCustomizeItem({
+			draft,
+			section: "workspaces",
+			id: "installation-disabled",
+		});
+
+		expect(toggled.workspaces[0]?.isHidden).toBe(false);
+	});
+
+	it("leaves the draft it was given untouched", () => {
+		toggleCustomizeItem({ draft, section: "views", id: viewId("items") });
+
+		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
+	});
+});
+
+describe("isCustomizeDraftDirty", () => {
+	it("reports an order change", () => {
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
+
+		expect(isCustomizeDraftDirty({ draft: moved, initial: draft })).toBe(true);
+	});
+
+	it("reports a visibility change", () => {
+		const toggled = toggleCustomizeItem({ draft, id: viewId("all"), section: "savedViews" });
+
+		expect(isCustomizeDraftDirty({ draft: toggled, initial: draft })).toBe(true);
+	});
+
+	it("reports a workspace change", () => {
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "workspaces" });
+
+		expect(isCustomizeDraftDirty({ draft: moved, initial: draft })).toBe(true);
+	});
+
+	it("reports an untouched draft as clean", () => {
+		expect(isCustomizeDraftDirty({ draft, initial: draft })).toBe(false);
+	});
+});
+
+describe("customizeSectionCounts", () => {
+	it("does not pin an item in the workspaces section", () => {
+		expect(customizeSectionCounts({ draft, section: "workspaces" })).toEqual({
+			shown: 2,
+			total: 3,
+		});
+	});
+
+	it("counts the pinned Home row in the views section", () => {
+		expect(customizeSectionCounts({ draft, section: "views" })).toEqual({ shown: 2, total: 3 });
+	});
+
+	it("counts only the saved views in the saved views section", () => {
+		expect(customizeSectionCounts({ draft, section: "savedViews" })).toEqual({
+			shown: 2,
+			total: 2,
+		});
+	});
+
+	it("counts an empty section as Home alone", () => {
+		const empty: CustomizeDraft = { views: [], workspaces: [], savedViews: [] };
+
+		expect(customizeSectionCounts({ draft: empty, section: "views" })).toEqual({
+			shown: 1,
+			total: 1,
+		});
+	});
+});
+
+describe("customizeSearchSection", () => {
+	it("accepts all section names", () => {
+		expect(customizeSearchSection({ section: "workspaces" })).toBe("workspaces");
+		expect(customizeSearchSection({ section: "views" })).toBe("views");
+		expect(customizeSearchSection({ section: "savedViews" })).toBe("savedViews");
+		expect(customizeSearchSection({ section: "collections" })).toBeUndefined();
+		expect(customizeSearchSection({})).toBeUndefined();
+	});
+});

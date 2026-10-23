@@ -1,5 +1,9 @@
+import { Effect } from "effect";
+
 import { storage } from "#imports";
+
 import { STORAGE_KEYS } from "./constants";
+import { fromPlatform, run } from "./platform";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -26,14 +30,18 @@ class Logger {
 	}
 
 	private loadDebugMode() {
-		storage
-			.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)
-			.then((enabled) => {
-				this.debugMode = enabled ?? false;
-			})
-			.catch(() => {
-				this.debugMode = false;
-			});
+		run(
+			fromPlatform(() => storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)).pipe(
+				Effect.match({
+					onFailure: () => {
+						this.debugMode = false;
+					},
+					onSuccess: (enabled) => {
+						this.debugMode = enabled ?? false;
+					},
+				}),
+			),
+		);
 	}
 
 	private shouldLog(level: LogLevel): boolean {

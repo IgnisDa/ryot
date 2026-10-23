@@ -1,0 +1,50 @@
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
+import { Schema } from "effect";
+
+import { PluginBackendCompilerFailure } from "./compiler-diagnostics";
+
+export const SANDBOX_COMPILED_FORMAT = 1 as const;
+
+export type CompiledSandboxModule = {
+	readonly javascript: string;
+	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
+	readonly format: typeof SANDBOX_COMPILED_FORMAT;
+};
+
+export const CompilerWorkerRequest = Schema.Struct({
+	source: Schema.String,
+	workspaceJobId: Schema.String,
+	workspaceParentPath: Schema.String,
+});
+
+export type CompilerWorkerRequest = Schema.Schema.Type<typeof CompilerWorkerRequest>;
+
+export const CompilerWorkerSuccessValue = Schema.Struct({
+	manifest: Schema.Unknown,
+	javascript: Schema.String,
+	format: Schema.Literal(SANDBOX_COMPILED_FORMAT),
+});
+
+const CompilerWorkerSuccess = Schema.Struct({
+	success: Schema.Literal(true),
+	value: CompilerWorkerSuccessValue,
+});
+
+const CompilerWorkerFailure = Schema.Struct({
+	success: Schema.Literal(false),
+	error: PluginBackendCompilerFailure,
+});
+
+export const CompilerWorkerResponse = Schema.Union([CompilerWorkerSuccess, CompilerWorkerFailure]);
+
+export type CompilerWorkerResponse = Schema.Schema.Type<typeof CompilerWorkerResponse>;
+
+export const compilerWorkerFailure = (
+	error: PluginBackendCompilerFailure,
+): CompilerWorkerResponse => ({ error, success: false });
+
+export const compilerWorkerSuccess = (value: CompiledSandboxModule): CompilerWorkerResponse => ({
+	value,
+	success: true,
+});

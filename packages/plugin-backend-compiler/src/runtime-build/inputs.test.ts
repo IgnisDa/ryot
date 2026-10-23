@@ -1,0 +1,123 @@
+import { BunServices } from "@effect/platform-bun";
+import { expect, it } from "@effect/vitest";
+import { Effect, FileSystem, Path } from "effect";
+import type { PlatformError } from "effect/PlatformError";
+
+import { sandboxRuntimeInputs } from "./inputs";
+
+const runtimeSourceFiles = ["guest/invocation.ts", "guest/bootstrap.ts"];
+
+const limitedPreparation = (
+	fixture: (
+		root: string,
+		runtimeDirectory: string,
+	) => Effect.Effect<void, PlatformError, FileSystem.FileSystem>,
+	limits: Parameters<typeof sandboxRuntimeInputs>[2],
+) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runtime-preparation-" });
+		const packageDirectory = path.join(root, "kernel/sandbox");
+		const runtimeDirectory = path.join(packageDirectory, "src/guest");
+		yield* fs.makeDirectory(runtimeDirectory, { recursive: true });
+		yield* fixture(root, runtimeDirectory);
+		return yield* sandboxRuntimeInputs(packageDirectory, runtimeSourceFiles, limits).pipe(
+			Effect.flip,
+		);
+	});
+
+it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
+	test.effect("covers deterministic sandbox runtime preparation inputs", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const compilerDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
+			const packageDirectory = path.resolve(compilerDirectory, "../../../../kernel/sandbox");
+			const inputs = yield* sandboxRuntimeInputs(packageDirectory, [
+				"guest/invocation.ts",
+				"protocol/messages.ts",
+			]);
+			for (const expected of [
+				"bun.lock",
+				"package.json",
+				"kernel/sandbox/package.json",
+				"kernel/sandbox/tooling/runtime.ts",
+				"packages/plugin-backend-compiler/package.json",
+				"packages/plugin-backend-compiler/src/runtime-build/payload.ts",
+				"packages/plugin-backend-compiler/src/runtime-build/inputs.ts",
+				"packages/plugin-backend-compiler/src/runtime-build/registry.ts",
+				"packages/plugin-backend-compiler/src/runtime-build/source-tree.ts",
+				"kernel/sandbox/src/guest/invocation.ts",
+				"kernel/sandbox/src/protocol/messages.ts",
+				"packages/contract/src/modules/ryotql/language.ts",
+				"packages/ryotql/src/index.ts",
+				"packages/ryotql-recipes/src/codecs.ts",
+				"packages/plugin-backend-sdk/src/runtime-registry.ts",
+				"packages/ts-utils/src/crypto.ts",
+				"packages/typescript-compiler/src/index.ts",
+				"packages/vite-compiler/src/sandbox.ts",
+				"packages/vite-compiler/package.json",
+			]) {
+				expect(inputs, expected).toHaveProperty(expected);
+			}
+			const paths = Object.keys(inputs);
+			expect(paths).toEqual([...paths].sort());
+			expect(paths.some((entry) => entry.includes("node_modules"))).toBe(false);
+			expect(paths.some((entry) => entry.endsWith(".generated.ts"))).toBe(false);
+			expect(paths.some((entry) => entry.endsWith(".test.ts"))).toBe(false);
+		}),
+	);
+
+	test.effect("rejects symbolic links before reading preparation inputs", () =>
+		Effect.gen(function* () {
+			const failure = yield* limitedPreparation(
+				(root, runtimeDirectory) =>
+					Effect.gen(function* () {
+						const fs = yield* FileSystem.FileSystem;
+						const target = `${root}/outside.ts`;
+						yield* fs.writeFileString(target, "export {};");
+						yield* fs.symlink(target, `${runtimeDirectory}/invocation.ts`);
+					}),
+				{},
+			);
+			expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
+			expect(String(failure)).toContain("invocation.ts");
+		}).pipe(Effect.scoped),
+	);
+
+	test.effect.each([
+		{
+			reason: "depth-limit",
+			limits: { maxDepth: 0 },
+			fixture: (_root: string, runtimeDirectory: string) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* fs.makeDirectory(`${runtimeDirectory}/nested`);
+				}),
+		},
+		{
+			reason: "file-limit",
+			limits: { maxFiles: 1 },
+			fixture: (_root: string, runtimeDirectory: string) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* fs.writeFileString(`${runtimeDirectory}/invocation.ts`, "a");
+					yield* fs.writeFileString(`${runtimeDirectory}/bootstrap.ts`, "b");
+				}),
+		},
+		{
+			reason: "size-limit",
+			limits: { maxTotalBytes: 1 },
+			fixture: (_root: string, runtimeDirectory: string) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* fs.writeFileString(`${runtimeDirectory}/invocation.ts`, "ab");
+				}),
+		},
+	] as const)("rejects preparation inputs at the $reason", ({ limits, reason, fixture }) =>
+		Effect.gen(function* () {
+			const failure = yield* limitedPreparation(fixture, limits);
+			expect(failure).toMatchObject({ reason, _tag: "SourceWalkError" });
+		}).pipe(Effect.scoped),
+	);
+});

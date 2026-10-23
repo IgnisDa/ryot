@@ -1,51 +1,35 @@
 # Jellyfin Sink
 
-Automatically add new [Jellyfin](https://jellyfin.org) movie and show plays to Ryot. It
-will work for all the media that have a valid TMDb ID (or TVDB ID, if selected in the
-integration settings) attached to their metadata.
+This sink adds [Jellyfin](https://jellyfin.org) movie and show plays that have a valid TMDB ID, or a
+valid TVDB ID when the integration's metadata provider is `tvdb`. It detects which of these webhook
+plugins sent a request, so either works with the same URL:
 
-Two kinds of webhook plugins are supported and detected automatically:
+- The [official webhook plugin](https://github.com/jellyfin/jellyfin-plugin-webhook), available in
+  the Jellyfin plugin catalog.
+- The [unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks).
 
-- [Official webhook plugin](https://github.com/jellyfin/jellyfin-plugin-webhook)
-  (available in the Jellyfin plugin catalog)
-- [Unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
-
-Generate a slug in the integration settings page and copy the newly generated webhook
-URL. It looks like `https://<instance_url>/_i/<slug>`.
+Under **Settings > Integrations**, create a Jellyfin Sink integration and copy its webhook URL.
 
 ## Official plugin
 
 1. Install the `Webhook` plugin from the Jellyfin plugin catalog and restart Jellyfin.
-2. Go to the plugin settings and add a new `Generic` destination with the following
-   settings:
-    - Webhook URL => `<paste_url_copied>`
-    - Request method => `POST`
-    - Request content type => `application/json` (add a `Content-Type` header if the
-      destination does not set it automatically)
-    - Notification types => `PlaybackStart` and `PlaybackStop` (`PlaybackProgress`
-      is optional, for finer-grained progress)
-    - Item types => Enable `Movies` and `Episodes`
-    - User filter => Optionally restrict to your user
-3. Enable the `Send all properties` option on the destination. Ryot reads the flat
-   payload (`NotificationType`, `ItemType`, `Provider_tmdb`, ticks, ...) directly.
+2. In the plugin settings, add a `Generic` destination with the copied URL, request method `POST`,
+   and request content type `application/json`. Add a `Content-Type` header if the destination does
+   not set one.
+3. Select notification types `Playback Start` and `Playback Stop`, and optionally `Playback Progress`
+   for finer progress. Select item types `Movies` and `Episodes`, and optionally restrict it to your
+   user.
+4. Enable **Send All Properties**.
 
 ## Unofficial plugin
 
-1. In the Jellyfin webhook plugin settings, add a new webhook using the following
-   settings:
-    - Webhook URL => `<paste_url_copied>`
-    - Payload format => `Default`
-    - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
+In the webhook plugin settings, add the copied URL with `Default` payload format, your user, and
+events `Play`, `Pause`, `Resume`, `Stop`, and `Progress`.
 
-## Behavior notes
+## Behavior
 
-- Only `Movie` and `Episode` items are processed, everything else is ignored.
-- A TMDb ID is required by default (or a TVDB ID if `TVDB` is selected as the
-  metadata provider in the integration settings). Supported playback
-  notifications lacking the configured ID fail webhook processing rather than
-  being skipped; this includes items with only an IMDb ID.
-- If `PlayedToCompletion`/`Played` is set, progress is recorded as 100%.
-- `MarkPlayed` events record 100% progress, `MarkUnplayed` events are ignored.
-- If you configured a username in the integration settings, only payloads for that
-  user are processed.
+- Only movies and episodes are processed.
+- Plays without the configured provider ID fail, including items that only have an IMDb ID.
+- Plays marked as played to completion and `MarkPlayed` events record 100% progress. `MarkUnplayed`
+  events are ignored.
+- When the integration has a username, only plays by that user are processed.

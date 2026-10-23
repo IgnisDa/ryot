@@ -1,8 +1,12 @@
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
+import { Effect } from "effect";
+
 import { storage } from "#imports";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "./constants";
-import type { MetadataLookupData } from "./extension-types";
 import { logger } from "./logger";
 import { extractMetadataTitle } from "./metadata-extractor";
+import { fromPlatform } from "./platform";
 
 export class MetadataCache {
 	private getCacheKey(title: string): `local:${string}` {
@@ -13,59 +17,56 @@ export class MetadataCache {
 		return `local:cached-metadata:${cleanTitle}`;
 	}
 
-	async setCurrentPageTitle(title: string) {
-		await storage.setItem(STORAGE_KEYS.CURRENT_PAGE_TITLE, title);
-	}
-
-	async getCurrentPageTitle(): Promise<string | null> {
-		return await storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE);
-	}
-
-	async getMetadataForCurrentPage() {
+	getMetadataForCurrentPage() {
 		const title = extractMetadataTitle();
-
-		if (!title) return null;
-
-		await this.setCurrentPageTitle(title);
-
-		const cacheKey = this.getCacheKey(title);
-		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
-
-		return cachedData || null;
-	}
-
-	async lookupAndCacheMetadata() {
-		const title = extractMetadataTitle();
-
-		if (!title) {
-			logger.debug("No title available yet, skipping metadata lookup");
-			return null;
-		}
-
-		await this.setCurrentPageTitle(title);
-
-		try {
-			const response = await browser.runtime.sendMessage({
-				data: { title },
-				type: MESSAGE_TYPES.METADATA_LOOKUP,
-			});
-
-			if (response.success && response.data) {
-				const cacheKey = this.getCacheKey(title);
-				await storage.setItem(cacheKey, response.data.response);
-				logger.debug("Metadata lookup successful", {
-					title,
-					cacheKey,
-					responseData: response.data,
-				});
-				return response.data.response as MetadataLookupData;
+		const cacheKey = title ? this.getCacheKey(title) : null;
+		return Effect.gen(function* () {
+			if (!title || !cacheKey) {
+				return null;
 			}
 
-			logger.debug("Metadata lookup failed", { error: response.error });
-			return null;
-		} catch (error) {
-			logger.error("Failed to lookup metadata", { error });
-			return null;
-		}
+			yield* fromPlatform(() => storage.setItem(STORAGE_KEYS.CURRENT_PAGE_TITLE, title));
+
+			const cachedData = yield* fromPlatform(() => storage.getItem<MetadataLookupResult>(cacheKey));
+
+			return cachedData ?? null;
+		});
+	}
+
+	lookupAndCacheMetadata() {
+		const title = extractMetadataTitle();
+		const cacheKey = title ? this.getCacheKey(title) : null;
+		return Effect.gen(function* () {
+			if (!title || !cacheKey) {
+				logger.debug("No title available yet, skipping metadata lookup");
+				return null;
+			}
+
+			yield* fromPlatform(() => storage.setItem(STORAGE_KEYS.CURRENT_PAGE_TITLE, title));
+
+			return yield* Effect.gen(function* () {
+				const response = yield* fromPlatform(() =>
+					browser.runtime.sendMessage({ data: { title }, type: MESSAGE_TYPES.METADATA_LOOKUP }),
+				);
+
+				if (response.success && response.data) {
+					yield* fromPlatform(() => storage.setItem(cacheKey, response.data));
+					logger.debug("Metadata lookup successful", {
+						title,
+						cacheKey,
+						responseData: response.data,
+					});
+					return response.data;
+				}
+
+				logger.debug("Metadata lookup failed", { error: response.error });
+				return null;
+			}).pipe(
+				Effect.catch((error) => {
+					logger.error("Failed to lookup metadata", { error });
+					return Effect.succeed(null);
+				}),
+			);
+		});
 	}
 }

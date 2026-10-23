@@ -1,0 +1,9 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/lora";
+@import "tailwindcss";
+@import "@ryot-app/plugin-ui-sdk/theme.css";
+@import "@ryot-app/plugin-ui-sdk/palette.css";
+@import "./base.css";
+@import "./components.css";
+
+@source "../../node_modules/@ryot-app/plugin-ui-sdk/src";

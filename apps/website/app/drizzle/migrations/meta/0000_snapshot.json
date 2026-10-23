@@ -15,12 +15,7 @@
 					"notNull": true,
 					"default": "gen_random_uuid()"
 				},
-				"email": {
-					"name": "email",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
+				"email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
 				"created_on": {
 					"name": "created_on",
 					"type": "timestamp with time zone",
@@ -60,12 +55,7 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"renew_on": {
-					"name": "renew_on",
-					"type": "date",
-					"primaryKey": false,
-					"notNull": false
-				},
+				"renew_on": { "name": "renew_on", "type": "date", "primaryKey": false, "notNull": false },
 				"unkey_key_id": {
 					"name": "unkey_key_id",
 					"type": "text",
@@ -120,9 +110,5 @@
 	},
 	"schemas": {},
 	"sequences": {},
-	"_meta": {
-		"columns": {},
-		"schemas": {},
-		"tables": {}
-	}
+	"_meta": { "columns": {}, "schemas": {}, "tables": {} }
 }

@@ -1,0 +1,232 @@
+import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
+import { Cause, Effect, Exit, Option } from "effect";
+import { useEffect, useRef, useState } from "react";
+
+import { AdminApiError } from "#/api/admin";
+import { FileDownloadError } from "#/modules/downloads/file";
+import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
+import type { InstanceAdminLogs } from "#/modules/instance-admin/service";
+
+const PAGE_SIZE = 25;
+
+type LogFile = InstanceAdminLogs["files"][number];
+type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
+
+const logColumns: ReadonlyArray<DataTableColumn<LogFile>> = [
+	{ id: "file", header: "Log file", headerClassName: "px-3 py-3 font-semibold" },
+	{ id: "type", header: "Type", headerClassName: "px-3 py-3 font-semibold" },
+	{ id: "size", header: "Size", headerClassName: "px-3 py-3 font-semibold" },
+	{ id: "modified", header: "Modified", headerClassName: "px-3 py-3 font-semibold" },
+	{ id: "actions", header: "Actions", headerClassName: "px-3 py-3 text-right font-semibold" },
+];
+
+const downloadMessage = (cause: Cause.Cause<unknown>) => {
+	const error = Option.getOrUndefined(Cause.findErrorOption(cause));
+	return error instanceof AdminApiError &&
+		error.cause instanceof FileDownloadError &&
+		error.cause.status === 404
+		? "The log file is no longer available. Refresh the list and try again."
+		: "Could not download the logs. Check the server and try again.";
+};
+
+export function ServerLogsView(props: {
+	readonly unauthorized: () => void;
+	readonly load: (after: string | undefined, limit: number) => OperationResult<InstanceAdminLogs>;
+	readonly download: (file?: LogFile) => OperationResult<void>;
+}) {
+	const [downloadError, setDownloadError] = useState<string>();
+	const [downloading, setDownloading] = useState<string>();
+	const downloadBusy = useRef(false);
+	const downloadController = useRef(new AbortController());
+	const pagination = usePagination<InstanceAdminLogs, string | undefined>({
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		identity: "instance-admin-server-logs",
+		load: (after) => readAdminResult(props.load(after, PAGE_SIZE), props.unauthorized),
+	});
+	const files = paginationItems(
+		pagination.pages,
+		(page) => page.files,
+		(file) => file.id,
+	);
+	const loading = pagination.isFetching || pagination.isPending;
+	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
+	const refresh = () => {
+		if (downloadBusy.current) {
+			return;
+		}
+		setDownloadError(undefined);
+		pagination.refetch();
+	};
+	const download = (file?: LogFile) => {
+		if (downloadBusy.current || loading) {
+			return;
+		}
+		downloadBusy.current = true;
+		setDownloading(file?.id ?? "all");
+		setDownloadError(undefined);
+		Effect.runFork(
+			props.download(file).pipe(
+				Effect.map((result) => {
+					if (downloadController.current.signal.aborted) {
+						return;
+					}
+					downloadBusy.current = false;
+					setDownloading(undefined);
+					if (Exit.isFailure(result)) {
+						if (isUnauthorizedCause(result.cause)) {
+							props.unauthorized();
+						} else {
+							setDownloadError(downloadMessage(result.cause));
+						}
+					}
+				}),
+			),
+			{ signal: downloadController.current.signal },
+		);
+	};
+	useEffect(() => () => downloadController.current.abort(), []);
+
+	return (
+		<section className="ui-card w-full" aria-labelledby="server-logs-title">
+			<p className="ui-overline">Administration</p>
+			<h1 id="server-logs-title" className="font-display text-3xl font-semibold">
+				Server logs
+			</h1>
+			<p className="ui-subtitle">
+				Download the active log or retained compressed logs from this server.
+			</p>
+			<p className="mt-3 text-sm text-text-muted">
+				The active log includes messages written when the download starts. Recent messages can take
+				about one second to appear.
+			</p>
+			<div className="my-5 flex flex-wrap gap-3">
+				<Button
+					type="button"
+					onClick={refresh}
+					variant="secondary"
+					disabled={loading || downloading !== undefined}
+				>
+					Refresh
+				</Button>
+				<Button
+					type="button"
+					variant="primary"
+					onClick={() => download()}
+					disabled={loading || files.length === 0 || downloading !== undefined}
+				>
+					{downloading === "all" ? "Downloading all logs..." : "Download all logs"}
+				</Button>
+			</div>
+			{!unauthorized && pagination.isPending && <p role="status">Loading server logs...</p>}
+			{!unauthorized &&
+				pagination.errorOperation !== null &&
+				pagination.errorOperation !== "append" && (
+					<p role="alert" className="text-danger">
+						Could not load the server logs. Check the server and try again.
+					</p>
+				)}
+			{downloadError && (
+				<p role="alert" className="text-danger">
+					{downloadError}
+				</p>
+			)}
+			{pagination.pages.length > 0 && files.length === 0 && !loading && (
+				<p className="py-8 text-center text-sm text-text-muted">No server logs available.</p>
+			)}
+			{files.length > 0 && (
+				<div className="mt-5 overflow-x-auto rounded-xl border border-border">
+					<DataTable
+						data={files}
+						columns={logColumns}
+						getRowId={(file) => file.id}
+						className="w-full border-collapse text-left text-sm"
+						headerClassName="border-b border-border bg-surface-2 text-xs text-text-muted"
+						renderRow={(file) => (
+							<LogTableRow
+								file={file}
+								loading={loading}
+								onDownload={download}
+								downloading={downloading}
+							/>
+						)}
+					/>
+				</div>
+			)}
+			{pagination.isFetchingNextPage && (
+				<p role="status" className="mt-4 text-center text-sm text-text-muted">
+					Loading more logs...
+				</p>
+			)}
+			{!unauthorized && pagination.errorOperation === "append" && (
+				<div className="mt-5 grid justify-items-center gap-3">
+					<p role="alert" className="text-sm text-danger">
+						Could not load more server logs. Check the server and try again.
+					</p>
+					<Button type="button" variant="secondary" onClick={pagination.retry}>
+						Retry loading logs
+					</Button>
+				</div>
+			)}
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
+				<div className="mt-5 flex justify-center">
+					<LoadMoreButton
+						type="button"
+						label="Load more logs"
+						onClick={pagination.fetchNextPage}
+						loadingLabel="Loading more logs..."
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={
+							downloading !== undefined || (pagination.isFetching && !pagination.isFetchingNextPage)
+						}
+					/>
+				</div>
+			)}
+		</section>
+	);
+}
+
+function LogTableRow(props: {
+	readonly file: LogFile;
+	readonly loading: boolean;
+	readonly onDownload: (file: LogFile) => void;
+	readonly downloading: string | undefined;
+}) {
+	return (
+		<tr className="border-b border-border last:border-b-0">
+			<td className="min-w-56 px-3 py-4 font-mono text-sm">
+				<span className="break-all">{props.file.name}</span>
+			</td>
+			<td className="px-3 py-4">
+				<span
+					className={
+						props.file.active
+							? "inline-flex rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success"
+							: "inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-muted"
+					}
+				>
+					{props.file.active ? "Active" : "Compressed"}
+				</span>
+			</td>
+			<td className="px-3 py-4 whitespace-nowrap text-text-muted">
+				{props.file.size.toLocaleString()} bytes
+			</td>
+			<td className="px-3 py-4 whitespace-nowrap text-text-muted">
+				{new Date(props.file.modifiedAt).toLocaleString()}
+			</td>
+			<td className="px-3 py-3 text-right">
+				<Button
+					type="button"
+					variant="secondary"
+					aria-label={`Download ${props.file.name}`}
+					onClick={() => props.onDownload(props.file)}
+					disabled={props.loading || props.downloading !== undefined}
+				>
+					{props.downloading === props.file.id ? "Downloading..." : "Download"}
+				</Button>
+			</td>
+		</tr>
+	);
+}
