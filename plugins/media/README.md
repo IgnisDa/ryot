@@ -223,6 +223,14 @@ this plugin. It requires nonblank text, accepts an optional 0–100 rating and a
 protected in demo sessions. The header and empty review activity tab open the same composer;
 successful writes refresh active queries through the client SDK mutation notification.
 
+`media-activity-log` writes one logged activity for a builtin media item: a completion, progress
+(percent for flat media, cumulative position for anime and manga), a backlog/on-hold/dropped status,
+or completions for up to 500 show or podcast episodes of one parent. Dates must satisfy
+`startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Writes are chunked
+by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
+writes nothing twice. It is protected in demo sessions. The header and the empty activity tab open
+the same Log activity sheet.
+
 ## Imports
 
 `workflow.media-import` uses its admitted `source-parser` selection. Generic admission, capture,
