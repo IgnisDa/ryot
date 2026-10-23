@@ -1,4 +1,4 @@
-import { Duration, Effect, Exit } from "effect";
+import { Effect, Exit } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -13,13 +13,13 @@ import {
 	pollUntil,
 	testProviderEntitySchema,
 	uninstallTestProvider,
+	waitOutGraceWindow,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const COMPANY_TO_ANIME = "company-to-anime";
-const GRACE_WINDOW_MS = 3000;
 
 let auth: Effect.Success<ReturnType<typeof createAuthenticatedClient>>;
 let animeProvider: InstalledTestProvider;
@@ -136,7 +136,7 @@ describe("entity population levels", () => {
 			const socket = yield* openInterestWebSocketScoped(auth);
 			yield* socket.replaceInterest([anime.id]);
 			yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
-			yield* Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
+			yield* waitOutGraceWindow;
 
 			expect((yield* getEntity(auth.client, anime.id)).relatedPopulationStatus).toBe("pending");
 			expect(Exit.isFailure(yield* companyRelationship(anime.id))).toBe(true);

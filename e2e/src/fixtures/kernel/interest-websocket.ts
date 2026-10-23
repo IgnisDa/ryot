@@ -6,13 +6,17 @@ import {
 	type EntityWatchReadyMessage,
 	type EntityWatchRejectedMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
-import { Effect, Exit, Result, Semaphore } from "effect";
+import { Duration, Effect, Exit, Result, Semaphore } from "effect";
 
 import { getApiUrl } from "~/support/harness-target";
 
 import type { ContractSession } from "./contract-client";
 import { getEntity } from "./entities";
 import { pollUntil } from "./polling";
+
+export const GRACE_WINDOW_MS = 3000;
+
+export const waitOutGraceWindow = Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
 
 type WaitOptions = { timeoutMs?: number };
 type SocketClose = { readonly code: number; readonly reason: string };
