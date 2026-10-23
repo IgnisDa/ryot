@@ -7,6 +7,11 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 
 import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_LIST_LIMIT,
+	consumedOnSettingKeys,
+} from "../shared/consumed-on-settings";
+import {
 	mediaEntityCreateRoute,
 	mediaEntityEditorRoutes,
 	mediaEntityEditors,
@@ -39,6 +44,66 @@ const entitySchemas = mediaEntitySchemas().map(
 );
 
 const relationshipSchemas = builtinRelationshipSchemas();
+
+const streamingProviders = [
+	"Netflix",
+	"Amazon Prime",
+	"Disney+",
+	"HBO Max",
+	"Apple TV",
+	"Peacock",
+	"Hulu",
+];
+
+const consumedOnSettings = [
+	{
+		slug: "book",
+		label: "Book",
+		defaults: ["Paperback", "Hardcover", "Kindle", "Kobo", "Library"],
+	},
+	{ slug: "comic-book", label: "Comic book", defaults: ["Print", "Kindle"] },
+	{ slug: "anime", label: "Anime", defaults: ["Crunchyroll", "Netflix", "HIDIVE"] },
+	{ slug: "movie", label: "Movie", defaults: [...streamingProviders, "Crunchyroll", "Cinema"] },
+	{ slug: "show", label: "Show", defaults: streamingProviders },
+	{ slug: "manga", label: "Manga", defaults: ["Print", "Kindle", "Manga Plus"] },
+	{ slug: "audiobook", label: "Audiobook", defaults: ["Audible", "Libby", "Spotify"] },
+	{
+		slug: "podcast",
+		label: "Podcast",
+		defaults: ["Spotify", "Apple Podcasts", "Pocket Casts", "YouTube"],
+	},
+	{
+		slug: "video-game",
+		label: "Video game",
+		defaults: ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "Steam Deck"],
+	},
+	{
+		slug: "music",
+		label: "Music",
+		defaults: ["Spotify", "Apple Music", "YouTube Music", "Vinyl", "CD"],
+	},
+	{ slug: "visual-novel", label: "Visual novel", defaults: ["PC", "Nintendo Switch"] },
+] as const;
+
+const consumedOnUserSettingFields = Object.fromEntries(
+	consumedOnSettings.map(({ slug, label, defaults }, index) => [
+		consumedOnSettingKeys[slug],
+		{
+			position: index + 1,
+			type: "array" as const,
+			defaultValue: defaults,
+			label: `Where you consume: ${label}`,
+			validation: { maxItems: CONSUMED_ON_LIST_LIMIT },
+			description: `Sources suggested when you log ${label.toLowerCase()} activity.`,
+			items: {
+				label: "Source",
+				type: "string" as const,
+				description: "Where you consume it.",
+				validation: { maxLength: CONSUMED_ON_ITEM_LIMIT },
+			},
+		},
+	]),
+);
 
 const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
 
@@ -662,6 +727,7 @@ export const mediaPlugin = definePlugin({
 				label: "Show NSFW content",
 				description: "Allow providers to include adult metadata and results.",
 			},
+			...consumedOnUserSettingFields,
 		},
 	},
 	httpRateLimits: [
