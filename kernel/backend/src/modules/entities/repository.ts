@@ -74,6 +74,7 @@ export type UpdateEntityInput = {
 	name: string;
 	entityId: EntityId;
 	populatedAt: Date | null;
+	preservePopulatedAt?: boolean;
 	properties: Record<string, unknown>;
 };
 
@@ -202,6 +203,23 @@ const findEntityByExternalIdWithSession = (
 		return row ? toListedEntity(row) : null;
 	});
 
+const findPopulationTargetWithSession = (
+	session: DatabaseSession["Service"],
+	input: FindEntityByExternalIdInput,
+) =>
+	Effect.gen(function* () {
+		const [row] = yield* session.run((db) =>
+			db
+				.select({ ...entitySelection, relatedPopulatedAt: schema.entity.relatedPopulatedAt })
+				.from(schema.entity)
+				.where(externalIdentityWhere(input))
+				.limit(1),
+		);
+		return row
+			? { entity: toListedEntity(row), relatedPopulated: row.relatedPopulatedAt !== null }
+			: null;
+	});
+
 export const provenanceScopeKey = (input: GlobalEntityProvenanceScopeInput) =>
 	stableStringify([
 		"global-entities",
@@ -248,6 +266,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockSchemaCatalog = pluginRuntime.lockCatalog;
 			const findEntityByExternalId = (input: FindEntityByExternalIdInput) =>
 				findEntityByExternalIdWithSession(session, input);
+			const findPopulationTarget = (input: FindEntityByExternalIdInput) =>
+				findPopulationTargetWithSession(session, input);
 			const findUserEntitySchema = Effect.fn(function* (
 				userId: UserId,
 				reference: EntitySchemaReference,
@@ -926,7 +946,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						.set({
 							name: input.name,
 							properties: input.properties,
-							populatedAt: input.populatedAt,
+							populatedAt: input.preservePopulatedAt
+								? sql`coalesce(${input.populatedAt?.toISOString() ?? null}::timestamptz, ${schema.entity.populatedAt})`
+								: input.populatedAt,
 							...(input.populatedAt === null
 								? {}
 								: { populationFailure: null, populationFailedAt: null }),
@@ -973,44 +995,111 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				},
 			);
 
+			const markRelatedPopulationFailed = Effect.fn(
+				"EntitiesRepository.markRelatedPopulationFailed",
+			)(function* (input: {
+				entityId: EntityId;
+				failedAt: Date;
+				failure: EntityPopulationFailure;
+			}) {
+				yield* session.requireTransaction;
+				const failure = yield* Schema.decodeEffect(EntityPopulationFailure)(input.failure).pipe(
+					Effect.mapError((error) => new DbError({ message: error.message })),
+				);
+				const rows = yield* session.run((db) =>
+					db
+						.update(schema.entity)
+						.set({ relatedPopulationFailure: failure, relatedPopulationFailedAt: input.failedAt })
+						.where(
+							and(
+								eq(schema.entity.id, input.entityId),
+								isNotNull(schema.entity.populatedAt),
+								isNull(schema.entity.relatedPopulatedAt),
+								isNotNull(schema.entity.providerId),
+								isNotNull(schema.entity.externalId),
+							),
+						)
+						.returning({ id: schema.entity.id }),
+				);
+				return rows.length > 0;
+			});
+
 			const stampRelatedPopulated = Effect.fn("EntitiesRepository.stampRelatedPopulated")(
 				function* (entityId: EntityId, relatedPopulatedAt: Date) {
 					yield* session.requireTransaction;
 					yield* session.run((db) =>
 						db
 							.update(schema.entity)
-							.set({ relatedPopulatedAt })
+							.set({
+								relatedPopulatedAt,
+								relatedPopulationFailure: null,
+								relatedPopulationFailedAt: null,
+							})
 							.where(eq(schema.entity.id, entityId)),
 					);
+				},
+			);
+
+			const stampChildRelatedPopulated = Effect.fn("EntitiesRepository.stampChildRelatedPopulated")(
+				function* (entityIds: ReadonlyArray<EntityId>) {
+					yield* session.requireTransaction;
+					for (const ids of chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE)) {
+						yield* session.run((db) =>
+							db
+								.update(schema.entity)
+								.set({ relatedPopulatedAt: sql`${schema.entity.populatedAt}` })
+								.where(
+									and(
+										inArray(schema.entity.id, ids),
+										isNotNull(schema.entity.populatedAt),
+										isNull(schema.entity.relatedPopulatedAt),
+									),
+								),
+						);
+					}
 				},
 			);
 
 			const clearPopulationFailure = Effect.fn("EntitiesRepository.clearPopulationFailure")(
 				function* (entityId: EntityId) {
 					yield* session.requireTransaction;
+					const relatedFailureClearable = and(
+						isNotNull(schema.entity.relatedPopulationFailedAt),
+						isNull(schema.entity.relatedPopulatedAt),
+					);
 					const [row] = yield* session.run((db) =>
 						db
 							.update(schema.entity)
-							.set({ populationFailure: null, populationFailedAt: null })
+							.set({
+								populationFailure: null,
+								populationFailedAt: null,
+								relatedPopulationFailure: sql`case when ${schema.entity.relatedPopulatedAt} is null then null else ${schema.entity.relatedPopulationFailure} end`,
+								relatedPopulationFailedAt: sql`case when ${schema.entity.relatedPopulatedAt} is null then null else ${schema.entity.relatedPopulationFailedAt} end`,
+							})
 							.from(previousEntity)
 							.where(
 								and(
 									eq(schema.entity.id, entityId),
 									eq(previousEntity.id, schema.entity.id),
-									isNotNull(schema.entity.populationFailedAt),
+									or(isNotNull(schema.entity.populationFailedAt), relatedFailureClearable),
 								),
 							)
 							.returning({
 								userId: schema.entity.userId,
 								failedAt: previousEntity.populationFailedAt,
+								relatedPopulatedAt: previousEntity.relatedPopulatedAt,
+								relatedFailedAt: previousEntity.relatedPopulationFailedAt,
 							}),
 					);
-					return row?.failedAt
-						? {
-								failedAt: row.failedAt,
-								userId: row.userId === null ? null : UserId.make(row.userId),
-							}
-						: null;
+					if (row === undefined) {
+						return null;
+					}
+					const relatedFailedAt = row.relatedPopulatedAt === null ? row.relatedFailedAt : null;
+					return {
+						relatedFailedAt,
+						failedAt: row.failedAt,
+						userId: row.userId === null ? null : UserId.make(row.userId),
+					};
 				},
 			);
 
@@ -1092,6 +1181,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockSchemaCatalog,
 				getMutationEntities,
 				markPopulationFailed,
+				findPopulationTarget,
 				findGlobalEntityById,
 				stampRelatedPopulated,
 				getEntityScopeForUser,
@@ -1107,7 +1197,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getClientPageEntityForUser,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
+				stampChildRelatedPopulated,
 				findGlobalEntityForRestore,
+				markRelatedPopulationFailed,
 				lockProviderEntityMutations,
 				listMatchCandidatesBySchema,
 				findUserEntityWithoutProvenance,

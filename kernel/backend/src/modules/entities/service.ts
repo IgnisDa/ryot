@@ -115,6 +115,7 @@ export type UpsertEntityInput = CreateEntityInput & {
 	externalId: string;
 	updateExisting: boolean;
 	populatedAt: Date | null;
+	preservePopulatedAt?: boolean;
 	providerId: SandboxProviderId;
 };
 export type UpsertGlobalEntityItem = {
@@ -1178,6 +1179,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					input: prepared,
 					batchIndex: entry.index,
 					pin: pins(preparedWriteCheck(prepared)),
+					...(entry.item.preservePopulatedAt ? { preservePopulatedAt: true } : {}),
 				});
 			}
 			const saved = yield* persistSnapshots.persistMany(persisted, decision, rows);
