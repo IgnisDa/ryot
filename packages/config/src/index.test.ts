@@ -16,7 +16,7 @@ import {
 	stringField,
 } from "./index";
 
-const packageId = PluginPackageId.make("ryot/media");
+const packageId = PluginPackageId.make("ryot/subject");
 
 const load = <A>(config: Config.Config<A>, values: Record<string, string>) =>
 	Effect.runSync(
@@ -82,9 +82,9 @@ describe("config definitions", () => {
 			}),
 		});
 		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
-			"RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN",
+			"RYOT_PLUGIN__RYOT__SUBJECT__API_TOKEN",
 		);
-		expect(load(definition.config, { RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN: "token" })).toEqual({
+		expect(load(definition.config, { RYOT_PLUGIN__RYOT__SUBJECT__API_TOKEN: "token" })).toEqual({
 			apiToken: "token",
 		});
 	});
@@ -117,7 +117,7 @@ describe("config definitions", () => {
 			}),
 		};
 		const values = {
-			RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN: "first",
+			RYOT_PLUGIN__RYOT__SUBJECT__API_TOKEN: "first",
 			RYOT_PLUGIN__RYOT__FIXTURE__API_TOKEN: "second",
 		};
 		expect(load(definePluginConfig(packageId, fields).config, values)).toEqual({

@@ -73,7 +73,7 @@ describe("Effect-native client capabilities", () => {
 				slug: "context",
 				output: Schema.String,
 				inputSchema: Schema.Null,
-				packageId: PluginPackageId.make("ryot/fitness"),
+				packageId: PluginPackageId.make("ryot/other"),
 			};
 			yield* client.operations.invoke({ ...request, refreshOnSuccess: false });
 			expect(refreshes).toBe(0);
@@ -226,7 +226,7 @@ describe("Effect-native client capabilities", () => {
 			const invalidUpload = {
 				fileName: "x",
 				contentType: "text/plain",
-				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The test feeds a non-Blob to exercise runtime input validation
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The test feeds a non-Blob to trigger runtime input validation
 				source: "not a Blob" as unknown as Blob,
 			};
 			expect(

@@ -65,7 +65,7 @@ const entity = table("entity", "entity");
 const properties = column(entity, "properties");
 const subject = {
 	entityAlias: "entity",
-	schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") }],
+	schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],
 } as const;
 
 const source = requireRowsQuery(
@@ -95,13 +95,13 @@ const valueField = (
 		: { key, type, label: key, field: key, kind: "value" };
 
 const sessionEventField: QueryFilterField = {
-	key: "exercises",
-	label: "Exercises",
+	key: "records",
+	label: "Records",
 	kind: "session-event",
 	event: {
 		owner: { kind: "kernel" },
-		slug: EventSchemaSlug.make("workout-set"),
-		entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+		slug: EventSchemaSlug.make("record-set"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 	},
 };
 
@@ -173,7 +173,7 @@ const logged = (alias: string, entityAlias: string, ids: readonly string[]) => {
 	return exists(event, {
 		joins: [join("inner", logEntity, eq(column(logEntity, "id"), column(event, "entityId")))],
 		where: and(
-			eventSchemaPredicate(event, logEntity, "exercise", "workout-set", { kind: "kernel" }),
+			eventSchemaPredicate(event, logEntity, "record", "record-set", { kind: "kernel" }),
 			eq(column(event, "sessionEntityId"), column(entity, "id")),
 			...(ids.length === 0
 				? []
@@ -340,28 +340,26 @@ describe("filter compiler", () => {
 	});
 
 	it("compiles session-event rules through the joined event entity", () => {
-		expect(compiled({ operator: "anyOf", field: "exercises", values: ["x1", "x2"] })).toEqual(
+		expect(compiled({ field: "records", operator: "anyOf", values: ["x1", "x2"] })).toEqual(
 			logged("event", "eventEntity", ["x1", "x2"]),
 		);
-		expect(compiled({ values: ["x1"], operator: "noneOf", field: "exercises" })).toEqual(
+		expect(compiled({ values: ["x1"], field: "records", operator: "noneOf" })).toEqual(
 			not(logged("event", "eventEntity", ["x1"])),
 		);
-		expect(compiled({ field: "exercises", operator: "notEmpty" })).toEqual(
+		expect(compiled({ field: "records", operator: "notEmpty" })).toEqual(
 			logged("event", "eventEntity", []),
 		);
-		expect(compiled({ operator: "empty", field: "exercises" })).toEqual(
+		expect(compiled({ field: "records", operator: "empty" })).toEqual(
 			not(logged("event", "eventEntity", [])),
 		);
-		expect(compiled({ operator: "allOf", field: "exercises", values: ["x1", "x2"] })).toEqual(
+		expect(compiled({ field: "records", operator: "allOf", values: ["x1", "x2"] })).toEqual(
 			and(logged("event", "eventEntity", ["x1"]), logged("_event", "_eventEntity", ["x2"])),
 		);
+		expect(Result.isFailure(compile({ value: "a", field: "records", operator: "contains" }))).toBe(
+			true,
+		);
 		expect(
-			Result.isFailure(compile({ value: "a", field: "exercises", operator: "contains" })),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				compile({ field: "exercises", operator: "notEmpty" }, { subject: undefined }),
-			),
+			Result.isFailure(compile({ field: "records", operator: "notEmpty" }, { subject: undefined })),
 		).toBe(true);
 	});
 
@@ -535,7 +533,7 @@ describe("filter URL codec", () => {
 		for (const filter of [
 			group,
 			{ field: "done", operator: "isTrue" } satisfies Filter,
-			{ operator: "allOf", field: "exercises", values: ["x1", "x2"] } satisfies Filter,
+			{ field: "records", operator: "allOf", values: ["x1", "x2"] } satisfies Filter,
 		]) {
 			const encoded = encodeFilterParam(filter);
 			expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -694,8 +692,8 @@ describe("linked filter choices recipe", () => {
 		const query = choices(sessionEventField, { searchText: "bench" });
 		expect(JSON.stringify(query.joins)).toContain('"entityId"');
 		const where = JSON.stringify(query.where);
-		expect(where).toContain('"value":"workout-set"');
-		expect(where).toContain('"value":"exercise"');
+		expect(where).toContain('"value":"record-set"');
+		expect(where).toContain('"value":"record"');
 		expect(where).toContain('"value":"bench"');
 		expect(where).toContain("sessionEntityId");
 	});

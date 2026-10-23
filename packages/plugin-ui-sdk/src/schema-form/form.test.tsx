@@ -431,7 +431,7 @@ describe("SchemaForm", () => {
 						level: {
 							type: "enum",
 							label: "Level",
-							description: "Exercise difficulty",
+							description: "Part difficulty",
 							choices: {
 								kind: "static",
 								values: [{ value: "beginner" }, { value: "intermediate" }, { value: "expert" }],

@@ -64,7 +64,7 @@ describe("plugin client file policy", () => {
 				"client/index.tsx",
 				"client/styles.css",
 				"client/logo.svg",
-				"client/workout-editor/sounds/add-set.mp3",
+				"client/record-editor/sounds/add-set.mp3",
 			].every(isPluginSourceFile),
 		).toBe(true);
 		expect(

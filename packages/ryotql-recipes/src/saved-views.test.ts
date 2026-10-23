@@ -33,7 +33,7 @@ const browserSettings = {
 	searchFields: ["nameAlias"],
 	subject: {
 		entityAlias: "entity",
-		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") }],
+		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],
 	},
 	sortChoices: [
 		{
@@ -44,8 +44,8 @@ const browserSettings = {
 	],
 } as const;
 
-const bookSchema = entitySchemaPredicate(entity, "book", { kind: "kernel" });
-const bookPredicate = or(bookSchema);
+const itemSchema = entitySchemaPredicate(entity, "item", { kind: "kernel" });
+const itemPredicate = or(itemSchema);
 
 const browserSource = document({
 	ignored: aggregate(entity, { measures: [{ key: "total", aggregation: { function: "count" } }] }),
@@ -106,7 +106,7 @@ describe("saved-view recipes", () => {
 		}
 
 		expect(query.where).toEqual(
-			and(bookPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
+			and(itemPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
 		);
 		expect(query.output.orderBy).toEqual([
 			descending(column(entity, "name")),
@@ -130,9 +130,9 @@ describe("saved-view recipes", () => {
 			entityBrowserRecipe({ settings: browserSettings, queryDocument: browserSource }),
 		);
 		const row = {
-			__entityBrowserId: "book-1",
+			__entityBrowserId: "item-1",
 			__entityBrowserName: "Piranesi",
-			__entityBrowserSchemaSlug: "book",
+			__entityBrowserSchemaSlug: "item",
 			__entityBrowserOwnerPluginId: null,
 			__entityBrowserPopulationStatus: "ready",
 			__entityBrowserTranslationStatus: "pending",
@@ -147,9 +147,9 @@ describe("saved-view recipes", () => {
 					cells: [],
 					name: "Piranesi",
 					presentation: row,
-					entityId: "book-1",
+					entityId: "item-1",
 					ownerPluginId: null,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "item",
 					sync: { populationStatus: "ready", translationStatus: "pending" },
 				},
 			],
@@ -162,7 +162,7 @@ describe("saved-view recipes", () => {
 			throw new Error("Expected duplicate entity IDs to fail");
 		}
 		expect(String(duplicate.failure)).toContain(
-			"Entity-browser page contains duplicate entity ID 'book-1'",
+			"Entity-browser page contains duplicate entity ID 'item-1'",
 		);
 	});
 
@@ -188,9 +188,9 @@ describe("saved-view recipes", () => {
 							{
 								details: null,
 								nameAlias: "Piranesi",
-								__entityBrowserId: "book-1",
+								__entityBrowserId: "item-1",
 								__entityBrowserName: "Piranesi",
-								__entityBrowserSchemaSlug: "book",
+								__entityBrowserSchemaSlug: "item",
 								__entityBrowserOwnerPluginId: null,
 								__entityBrowserPopulationStatus: "ready",
 								__entityBrowserTranslationStatus: "none",
@@ -214,7 +214,7 @@ describe("saved-view recipes", () => {
 			queries: {
 				entityBrowserCount: {
 					from: entity,
-					where: bookPredicate,
+					where: itemPredicate,
 					output: {
 						type: "aggregate",
 						measures: [
@@ -242,7 +242,7 @@ describe("saved-view recipes", () => {
 		);
 		const query = prepared.document.queries.entityBrowserCount;
 		expect(query?.where).toEqual(
-			and(bookPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
+			and(itemPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
 		);
 	});
 
@@ -252,19 +252,19 @@ describe("saved-view recipes", () => {
 			subject: {
 				entityAlias: "entity",
 				schemas: [
-					{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") },
+					{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") },
 					{
-						slug: EntitySchemaSlug.make("movie"),
-						owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") },
+						slug: EntitySchemaSlug.make("entry"),
+						owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
 					},
 				],
 			},
 		} as const;
 		const expected = or(
-			bookSchema,
-			entitySchemaPredicate(entity, "movie", {
+			itemSchema,
+			entitySchemaPredicate(entity, "entry", {
 				kind: "local",
-				pluginId: PluginId.make("media-plugin"),
+				pluginId: PluginId.make("plugin-a"),
 			}),
 		);
 		const page = Result.getOrThrow(entityBrowserRecipe({ settings, queryDocument: browserSource }))
@@ -323,7 +323,7 @@ describe("saved-view recipes", () => {
 					field("entityId", column(entity, "id")),
 					field("value", column(entity, "name")),
 					field("amount", literal(null)),
-					field("artwork", literal({ type: "local", key: "covers/book.webp" })),
+					field("artwork", literal({ type: "local", key: "covers/item.webp" })),
 				],
 			}),
 		});
@@ -349,7 +349,7 @@ describe("saved-view recipes", () => {
 								amount: null,
 								value: "First",
 								entityId: "same",
-								artwork: { type: "local", key: "covers/book.webp" },
+								artwork: { type: "local", key: "covers/item.webp" },
 							},
 							{
 								variant: 1,
@@ -373,7 +373,7 @@ describe("saved-view recipes", () => {
 		expect(decoded.items[0]?.cells[1]?.value).toEqual({ value: null, displayKind: "number" });
 		expect(decoded.items[0]?.cells[2]?.value).toEqual({
 			displayKind: "managed-asset",
-			value: { type: "local", key: "covers/book.webp" },
+			value: { type: "local", key: "covers/item.webp" },
 		});
 		expect(decoded.items[1]?.cells[2]?.value).toEqual({
 			value: null,

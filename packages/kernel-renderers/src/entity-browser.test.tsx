@@ -39,11 +39,11 @@ const openBrowser = (
 	const page = mountPluginPage(EntityBrowserPage, {
 		bootstrap: options.clock?.bootstrap,
 		entityPresentations: options.entityPresentations,
-		location: routeLocation("/v/all-books", options.search ?? ""),
+		location: routeLocation("/v/all-items", options.search ?? ""),
 		page: savedViewPageContext({
 			rendererName: "entity-browser",
 			dataSources: browserDataSources,
-			view: { icon: "book", name: "All Books" },
+			view: { icon: "book", name: "All Items" },
 			settings: options.settings ?? browserSettings,
 			savedViewId: options.savedViewId ?? `view-${views}`,
 		}),
@@ -135,7 +135,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser();
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("1 result")),
@@ -143,10 +143,10 @@ describe("entity browser", () => {
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("heading", { level: 1, name: "All Books" })).toBeTruthy(),
+					expect(screen.getByRole("heading", { level: 1, name: "All Items" })).toBeTruthy(),
 				),
 			);
-			const search = screen.getByRole("searchbox", { name: "Search All Books" });
+			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 			expect(search.getAttribute("aria-keyshortcuts")).toBe("/");
 			const filters = screen.getByRole("button", { name: /Filters/ });
 			expect(filters.hasAttribute("disabled")).toBe(false);
@@ -200,16 +200,16 @@ describe("entity browser", () => {
 				entityPresentations: [
 					{
 						layout: "grid",
-						ownerPluginId: "media",
-						entitySchemaSlug: "book",
+						ownerPluginId: "fixture",
+						entitySchemaSlug: "item",
 						load: () => Promise.resolve(presentation),
 					},
 				],
 			});
 			const request = yield* browserRequest(page, 0);
 			replyBrowser(page, request.requestId, [
-				browserRow("book-2", "Second"),
-				browserRow("book-1", "First"),
+				browserRow("item-2", "Second"),
+				browserRow("item-1", "First"),
 			]);
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -225,7 +225,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser();
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
 
 			yield* Effect.promise(() =>
@@ -242,7 +242,7 @@ describe("entity browser", () => {
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
 							type: "pick-entity-screen",
-							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),
 					),
 				),
@@ -268,7 +268,7 @@ describe("entity browser", () => {
 			yield* Effect.promise(() => answerBrowser(page, answered, []));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Books" })).toBeTruthy(),
+					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
 				),
 			);
 
@@ -298,7 +298,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser();
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")], true, "cursor-1"),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")], true, "cursor-1"),
 			);
 
 			yield* Effect.promise(() =>
@@ -354,7 +354,7 @@ describe("entity browser", () => {
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Books" })).toBeTruthy(),
+					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
 				),
 			);
 			fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
@@ -364,7 +364,7 @@ describe("entity browser", () => {
 						expect.objectContaining({
 							initialQuery: "piranesi",
 							type: "pick-entity-screen",
-							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),
 					),
 				),
@@ -380,7 +380,7 @@ describe("entity browser", () => {
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "All Books is empty" })).toBeTruthy(),
+					expect(screen.getByRole("heading", { name: "All Items is empty" })).toBeTruthy(),
 				),
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Search online" }));
@@ -389,7 +389,7 @@ describe("entity browser", () => {
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
 							type: "pick-entity-screen",
-							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),
 					),
 				),
@@ -402,7 +402,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ search: "layout=table" });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getAllByRole("columnheader")).toHaveLength(2)),
@@ -418,9 +418,9 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			page.navigate(routeLocation("/v/all-books", ""), { compact: true });
+			page.navigate(routeLocation("/v/all-items", ""), { compact: true });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
 
 			yield* Effect.promise(() =>
@@ -440,7 +440,7 @@ describe("entity browser", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("searchbox", { name: "Search All Books" })).toBeTruthy(),
+					expect(screen.getByRole("searchbox", { name: "Search All Items" })).toBeTruthy(),
 				),
 			);
 			expect(screen.getByRole("button", { name: "Exit search" })).toBeTruthy();
@@ -453,9 +453,9 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ clock, search: "panel=details" });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
-			const search = screen.getByRole("searchbox", { name: "Search All Books" });
+			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 
 			fireEvent.change(search, { target: { value: "p" } });
 			fireEvent.change(search, { target: { value: "pi" } });
@@ -467,7 +467,7 @@ describe("entity browser", () => {
 			yield* Effect.promise(() => clock.advance(1));
 			const request = yield* browserRequest(page, 1);
 			expect(yield* encodeJson(request.document)).toContain("pir");
-			replyBrowser(page, request.requestId, [browserRow("book-2", "Pirate Cinema")]);
+			replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual({
@@ -487,7 +487,7 @@ describe("entity browser", () => {
 			const initial = yield* browserRequest(page, 0);
 			replyBrowser(page, initial.requestId, []);
 			const search = yield* Effect.promise(() =>
-				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Books" }),
+				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
 			);
 			search.focus();
 			fireEvent.change(search, { target: { value: "the" } });
@@ -504,7 +504,7 @@ describe("entity browser", () => {
 					}),
 				),
 			);
-			page.navigate(routeLocation("/v/all-books", "search=the"));
+			page.navigate(routeLocation("/v/all-items", "search=the"));
 			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the office")));
 			expect(document.activeElement).toBe(search);
 			yield* Effect.promise(() => clock.advance(300));
@@ -520,7 +520,7 @@ describe("entity browser", () => {
 			const initial = yield* browserRequest(page, 0);
 			replyBrowser(page, initial.requestId, []);
 			const search = yield* Effect.promise(() =>
-				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Books" }),
+				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
 			);
 			fireEvent.change(search, { target: { value: "the" } });
 			yield* Effect.promise(() => clock.advance(300));
@@ -538,7 +538,7 @@ describe("entity browser", () => {
 			fireEvent.change(search, { target: { value: "the office" } });
 			yield* Effect.promise(() => clock.advance(300));
 			const second = yield* browserRequest(page, 2);
-			page.navigate(routeLocation("/v/all-books", "search=the"));
+			page.navigate(routeLocation("/v/all-items", "search=the"));
 			replyBrowser(page, second.requestId, []);
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -550,8 +550,8 @@ describe("entity browser", () => {
 				),
 			);
 			expect(search.value).toBe("the office");
-			page.navigate(routeLocation("/v/all-books", "search=the+office"));
-			page.navigate(routeLocation("/v/all-books", "search=the"));
+			page.navigate(routeLocation("/v/all-items", "search=the+office"));
+			page.navigate(routeLocation("/v/all-items", "search=the"));
 			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the")));
 		}),
 	);
@@ -562,9 +562,9 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ clock });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
-			const search = screen.getByRole("searchbox", { name: "Search All Books" });
+			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 
 			fireEvent.change(search, { target: { value: "piranesi" } });
 			const form = search.closest("form");
@@ -573,12 +573,12 @@ describe("entity browser", () => {
 			}
 			fireEvent.submit(form);
 			const searched = yield* browserRequest(page, 1);
-			replyBrowser(page, searched.requestId, [browserRow("book-1", "Piranesi")]);
+			replyBrowser(page, searched.requestId, [browserRow("item-1", "Piranesi")]);
 			fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(
-						screen.getByRole("searchbox", { name: "Search All Books" }).getAttribute("value"),
+						screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
 					).toBe(""),
 				),
 			);
@@ -595,16 +595,16 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ clock });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
-			const search = screen.getByRole("searchbox", { name: "Search All Books" });
+			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 			search.focus();
 			fireEvent.change(search, { target: { value: "pir" } });
 
 			yield* Effect.promise(() => clock.advance(300));
 			const request = yield* browserRequest(page, 1);
 			expect(document.activeElement).toBe(search);
-			replyBrowser(page, request.requestId, [browserRow("book-2", "Pirate Cinema")]);
+			replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Pirate Cinema")),
 			);
@@ -617,14 +617,14 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ search: "panel=details" });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "Piranesi")]),
+				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
 			);
 
-			page.navigate(routeLocation("/v/all-books", "panel=details&search=external"));
+			page.navigate(routeLocation("/v/all-items", "panel=details&search=external"));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(
-						screen.getByRole("searchbox", { name: "Search All Books" }).getAttribute("value"),
+						screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
 					).toBe("external"),
 				),
 			);
@@ -637,7 +637,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const page = openBrowser();
 			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("book-1", "One")], true, "cursor-1");
+			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
@@ -651,7 +651,7 @@ describe("entity browser", () => {
 				screen.getByRole("button", { name: "Loading more results" }).getAttribute("aria-busy"),
 			).toBe("true");
 			expect(yield* encodeJson(second.document)).toContain("cursor-1");
-			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
+			replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
 			);
@@ -667,7 +667,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const page = openBrowser();
 			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("book-1", "Original")], true, "cursor-1");
+			replyBrowser(page, first.requestId, [browserRow("item-1", "Original")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Original")),
 			);
@@ -679,7 +679,7 @@ describe("entity browser", () => {
 				screen.getByRole("button", { name: "Load more results" }).getAttribute("aria-busy"),
 			).toBeNull();
 			expect(screen.queryByRole("button", { name: "Loading more results" })).toBeNull();
-			replyBrowser(page, refreshed.requestId, [browserRow("book-2", "Refreshed")], true, "fresh-1");
+			replyBrowser(page, refreshed.requestId, [browserRow("item-2", "Refreshed")], true, "fresh-1");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),
 			);
@@ -691,7 +691,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const page = openBrowser();
 			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("book-1", "One")], true, "cursor-1");
+			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
@@ -699,7 +699,7 @@ describe("entity browser", () => {
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 			const second = yield* browserRequest(page, 1);
-			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
+			replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
 			);
@@ -709,7 +709,7 @@ describe("entity browser", () => {
 			replyBrowser(
 				page,
 				replayFirst.requestId,
-				[browserRow("book-1", "One updated")],
+				[browserRow("item-1", "One updated")],
 				true,
 				"fresh-1",
 			);
@@ -718,7 +718,7 @@ describe("entity browser", () => {
 			replyBrowser(
 				page,
 				replaySecond.requestId,
-				[browserRow("book-2", "Two updated")],
+				[browserRow("item-2", "Two updated")],
 				true,
 				"fresh-2",
 			);
@@ -736,7 +736,7 @@ describe("entity browser", () => {
 			replyBrowser(
 				firstPage,
 				first.requestId,
-				[browserRow("book-old", "Old mount")],
+				[browserRow("item-old", "Old mount")],
 				true,
 				"old-1",
 			);
@@ -747,7 +747,7 @@ describe("entity browser", () => {
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 			const second = yield* browserRequest(firstPage, 1);
-			replyBrowser(firstPage, second.requestId, [browserRow("book-old-2", "Old second page")]);
+			replyBrowser(firstPage, second.requestId, [browserRow("item-old-2", "Old second page")]);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(firstPage.container?.textContent).toContain("Old second page")),
 			);
@@ -759,7 +759,7 @@ describe("entity browser", () => {
 			replyBrowser(
 				secondPage,
 				fresh.requestId,
-				[browserRow("book-new", "New mount")],
+				[browserRow("item-new", "New mount")],
 				true,
 				"new-1",
 			);
@@ -771,7 +771,7 @@ describe("entity browser", () => {
 			replyBrowser(
 				secondPage,
 				refresh.requestId,
-				[browserRow("book-new", "New mount refreshed")],
+				[browserRow("item-new", "New mount refreshed")],
 				true,
 				"newer-1",
 			);
@@ -838,7 +838,7 @@ describe("entity browser filters", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* openFilters();
 			yield* addFilter("Status");
 			fireEvent.click(screen.getByRole("button", { name: "Status values" }));
@@ -850,7 +850,7 @@ describe("entity browser filters", () => {
 			const document = yield* encodeJson(filtered.document);
 			expect(document).toContain('"read"');
 			expect(document).toContain("status");
-			replyBrowser(page, filtered.requestId, [browserRow("book-2", "Two")]);
+			replyBrowser(page, filtered.requestId, [browserRow("item-2", "Two")]);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
 			);
@@ -869,7 +869,7 @@ describe("entity browser filters", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* openFilters();
 			yield* addFilter("Year");
 			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
@@ -884,7 +884,7 @@ describe("entity browser filters", () => {
 			const page = openBrowser({
 				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
 			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
@@ -896,14 +896,14 @@ describe("entity browser filters", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Remove Status filter" }));
 			const single = yield* browserRequest(page, 1);
-			replyBrowser(page, single.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, single.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(yearRule)),
 			);
 
 			fireEvent.click(screen.getByRole("button", { name: "Clear" }));
 			const cleared = yield* browserRequest(page, 2);
-			replyBrowser(page, cleared.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, cleared.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
 			expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
 		}),
@@ -915,11 +915,11 @@ describe("entity browser filters", () => {
 			const page = openBrowser({
 				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
 			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* openFilters();
 			fireEvent.click(screen.getByRole("radio", { name: "Match any" }));
 			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
@@ -942,13 +942,13 @@ describe("entity browser filters", () => {
 			yield* Effect.promise(() => answerBrowser(page, answered, []));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Books" })).toBeTruthy(),
+					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
 				),
 			);
 			expect(page.container?.textContent).toContain("match the current filters");
 			fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
 			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
 		}),
 	);
@@ -958,7 +958,7 @@ describe("entity browser filters", () => {
 			const answered = new Set<string>();
 			const page = openBrowser({ search: filtersParam(statusRule) });
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("book-1", "One")], true, "cursor-1"),
+				answerBrowser(page, answered, [browserRow("item-1", "One")], true, "cursor-1"),
 			);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
@@ -983,14 +983,14 @@ describe("entity browser filters", () => {
 					filters: [statusRule, { type: "or", filters: [yearRule, statusRule] }],
 				}),
 			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getByRole("button", { name: "Custom filter" })).toBeTruthy()),
 			);
 			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
 			fireEvent.click(screen.getByRole("button", { name: "Remove custom filter" }));
 			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
 		}),
 	);
@@ -1001,7 +1001,7 @@ describe("entity browser filters", () => {
 			const page = openBrowser({
 				search: filtersParam({ field: "authors", operator: "anyOf", values: ["p-1", "p-2"] }),
 			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			const lookup = yield* Effect.promise(() =>
 				waitFor(() => {
 					const found = page.queryRequests("choices").at(-1);
@@ -1036,7 +1036,7 @@ describe("entity browser filters", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 			yield* openFilters();
 			yield* addFilter("Authors");
 			fireEvent.click(screen.getByRole("button", { name: /^Authors values/ }));
@@ -1054,7 +1054,7 @@ describe("entity browser filters", () => {
 				yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Ann" }))),
 			);
 			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({

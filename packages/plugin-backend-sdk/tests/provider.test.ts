@@ -73,7 +73,7 @@ describe("provider related pages", () => {
 		entities: [],
 		direction: "outgoing" as const,
 		synchronization: "authoritative" as const,
-		relationshipSchemaSlug: "company-to-movie",
+		relationshipSchemaSlug: "company-to-record",
 	};
 	const details = (continuation: unknown) => ({
 		properties: {},
@@ -95,13 +95,13 @@ describe("provider related pages", () => {
 				direction: "outgoing",
 				externalId: " company-1 ",
 				continuation: { page: 2 },
-				relationshipSchemaSlug: "company-to-movie",
+				relationshipSchemaSlug: "company-to-record",
 			}),
 		).toEqual({
 			direction: "outgoing",
 			externalId: "company-1",
 			continuation: { page: 2 },
-			relationshipSchemaSlug: "company-to-movie",
+			relationshipSchemaSlug: "company-to-record",
 		});
 		expect(decode(providerRelatedResultSchema)({ entities: [], continuation: null })).toEqual({
 			entities: [],
@@ -128,7 +128,7 @@ describe("provider related pages", () => {
 			decode(providerRelatedInputSchema)({
 				direction: "outgoing",
 				externalId: "company-1",
-				relationshipSchemaSlug: "company-to-movie",
+				relationshipSchemaSlug: "company-to-record",
 				continuation: { cursor: "a".repeat(4 * 1024) },
 			}),
 		).toThrow("at most 4096 bytes");
@@ -192,7 +192,7 @@ describe("provider result contracts", () => {
 			decode(providerDetailsResultSchema)({
 				name: "Show",
 				properties: { year: 2024 },
-				expectedChildEntitySchemaSlug: "show-season",
+				expectedChildEntitySchemaSlug: "item-part",
 				relatedEntityGroups: [
 					{
 						direction: "incoming",
@@ -203,17 +203,17 @@ describe("provider result contracts", () => {
 				],
 				childEntities: [
 					{
-						name: "Season 1",
-						externalId: "season-1",
+						name: "Part 1",
+						externalId: "part-1",
 						properties: { number: 1 },
-						entitySchemaSlug: "show-season",
-						expectedChildEntitySchemaSlug: "show-episode",
+						entitySchemaSlug: "item-part",
+						expectedChildEntitySchemaSlug: "item-subpart",
 						childEntities: [
 							{
-								name: "Episode 1",
-								externalId: "episode-1",
+								name: "Subpart 1",
+								externalId: "subpart-1",
 								properties: { number: 1 },
-								entitySchemaSlug: "show-episode",
+								entitySchemaSlug: "item-subpart",
 							},
 						],
 					},
@@ -221,8 +221,8 @@ describe("provider result contracts", () => {
 			}),
 		).toMatchObject({
 			name: "Show",
-			expectedChildEntitySchemaSlug: "show-season",
-			childEntities: [{ expectedChildEntitySchemaSlug: "show-episode" }],
+			expectedChildEntitySchemaSlug: "item-part",
+			childEntities: [{ expectedChildEntitySchemaSlug: "item-subpart" }],
 		});
 		expect(decode(providerResolveResultSchema)({ externalId: null })).toEqual({ externalId: null });
 		expect(

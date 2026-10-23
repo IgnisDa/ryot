@@ -9,13 +9,13 @@ const item = {
 	userId: null,
 	id: "entity-1",
 	externalId: "external-1",
-	entitySchemaSlug: "book",
+	entitySchemaSlug: "unit",
 	providerId: "provider-1",
 	populationStatus: "ready",
 	properties: { pages: 320 },
 	translationStatus: "ready",
 	relatedPopulationStatus: "pending",
-	entitySchemaPluginId: "plugin-media",
+	entitySchemaPluginId: "plugin-fixture",
 	populatedAt: "2026-10-23T10:15:30.123Z",
 };
 const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity", items, pageInfo);
@@ -122,10 +122,12 @@ describe("entity recipes", () => {
 		expect(
 			Result.getOrThrow(
 				recipe.decode(
-					provenanceResponse([{ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-media" }]),
+					provenanceResponse([
+						{ entitySchemaSlug: "unit", entitySchemaPluginId: "plugin-fixture" },
+					]),
 				),
 			),
-		).toEqual({ entitySchemaSlug: "book", entitySchemaPluginId: "plugin-media" });
+		).toEqual({ entitySchemaSlug: "unit", entitySchemaPluginId: "plugin-fixture" });
 	});
 
 	it("decodes kernel-owned route provenance with a null plugin ID", () => {
@@ -134,10 +136,10 @@ describe("entity recipes", () => {
 		expect(
 			Result.getOrThrow(
 				recipe.decode(
-					provenanceResponse([{ entitySchemaSlug: "book", entitySchemaPluginId: null }]),
+					provenanceResponse([{ entitySchemaSlug: "unit", entitySchemaPluginId: null }]),
 				),
 			),
-		).toEqual({ entitySchemaSlug: "book", entitySchemaPluginId: null });
+		).toEqual({ entitySchemaSlug: "unit", entitySchemaPluginId: null });
 	});
 
 	it("maps a missing entity row to null", () => {
@@ -151,7 +153,7 @@ describe("entity recipes", () => {
 
 		expect(
 			Result.isFailure(
-				recipe.decode(provenanceResponse([{ entitySchemaSlug: "book", entitySchemaPluginId: 42 }])),
+				recipe.decode(provenanceResponse([{ entitySchemaSlug: "unit", entitySchemaPluginId: 42 }])),
 			),
 		).toBe(true);
 	});

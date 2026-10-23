@@ -160,7 +160,7 @@ describe("collections recipes", () => {
 	});
 
 	it("reads one membership's member values without the server-owned rank", () => {
-		const recipe = collectionMembershipRecipe({ entityId: "book-1", collectionId: "collection-1" });
+		const recipe = collectionMembershipRecipe({ entityId: "unit-1", collectionId: "collection-1" });
 		const decodeMembership = (items: ReadonlyArray<{ readonly properties: object }>) =>
 			Result.getOrThrow(
 				recipe.decode({
@@ -191,10 +191,10 @@ describe("collections recipes", () => {
 						items: [
 							{
 								name: "Dune",
-								entityId: "book-1",
+								entityId: "unit-1",
 								ownerPluginId: null,
 								ownerPluginName: null,
-								entitySchemaSlug: "book",
+								entitySchemaSlug: "unit",
 								populationStatus: "ready",
 								translationStatus: "none",
 								properties: { notes: "Kept", score: "high" },
@@ -243,12 +243,12 @@ describe("collections recipes", () => {
 						items: [
 							{
 								name: "Dune",
-								entityId: "book-1",
-								ownerPluginId: "media-1",
-								ownerPluginName: "Media",
-								entitySchemaSlug: "book",
+								entityId: "unit-1",
+								entitySchemaSlug: "unit",
 								populationStatus: "ready",
 								translationStatus: "none",
+								ownerPluginId: "fixture-1",
+								ownerPluginName: "Fixture",
 								/* oxlint-disable perfectionist/sort-objects -- wire fixture order is irrelevant */
 								properties: {
 									updatedAt: "2026-09-20T10:30:00Z",
@@ -276,16 +276,16 @@ describe("collections recipes", () => {
 			items: [
 				{
 					name: "Dune",
-					entityId: "book-1",
-					ownerPluginId: "media-1",
-					entitySchemaSlug: "book",
+					entityId: "unit-1",
+					entitySchemaSlug: "unit",
+					ownerPluginId: "fixture-1",
 					sync: { populationStatus: "ready", translationStatus: "none" },
 				},
 			],
 		});
 		expect(result.items[0]?.cells).toEqual([
 			{ key: "name", label: "Name", value: { value: "Dune", displayKind: "text" } },
-			{ key: "type", label: "Type", value: { displayKind: "text", value: "Media / book" } },
+			{ key: "type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
 			{ key: "rank", label: "Rank", value: { value: 2, displayKind: "number" } },
 			{ key: "template", label: "Template", value: { value: true, displayKind: "boolean" } },
 			{ key: "notes", label: "Notes", value: { value: null, displayKind: "text" } },
@@ -362,10 +362,10 @@ describe("collections recipes", () => {
 						items: [
 							{
 								name: "Dune",
-								entityId: "book-1",
-								ownerPluginId: "media-1",
-								ownerPluginName: "Media",
-								entitySchemaSlug: "book",
+								entityId: "unit-1",
+								ownerPluginId: "fixture-1",
+								ownerPluginName: "Fixture",
+								entitySchemaSlug: "unit",
 								populationStatus: "ready",
 								translationStatus: "none",
 								properties: { name: "Custom name", type: true },
@@ -378,7 +378,7 @@ describe("collections recipes", () => {
 		);
 		expect(result.items[0]?.cells).toEqual([
 			{ key: "_name", label: "Name", value: { value: "Dune", displayKind: "text" } },
-			{ key: "_type", label: "Type", value: { displayKind: "text", value: "Media / book" } },
+			{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
 			{ key: "name", label: "Template Name", value: { value: "Custom name", displayKind: "text" } },
 			{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
 		]);
@@ -492,9 +492,9 @@ describe("collections recipes", () => {
 								},
 								{
 									count: 4,
-									entitySchemaSlug: "book",
-									ownerPluginId: "media-1",
-									ownerPluginName: "Media",
+									entitySchemaSlug: "unit",
+									ownerPluginId: "fixture-1",
+									ownerPluginName: "Fixture",
 								},
 							],
 						},
@@ -513,10 +513,10 @@ describe("collections recipes", () => {
 				},
 				{
 					count: 4,
-					entitySchemaSlug: "book",
-					ownerPluginId: "media-1",
-					ownerPluginName: "Media",
-					typeLabel: "Media / book",
+					entitySchemaSlug: "unit",
+					ownerPluginId: "fixture-1",
+					ownerPluginName: "Fixture",
+					typeLabel: "Fixture / unit",
 				},
 			],
 		});
@@ -542,10 +542,10 @@ describe("collections recipes", () => {
 			items: [
 				{
 					count: 2,
-					ownerPluginId: "media",
-					entitySchemaSlug: "book",
-					ownerPluginName: "Media",
-					typeLabel: "Media / book",
+					ownerPluginId: "fixture",
+					entitySchemaSlug: "unit",
+					ownerPluginName: "Fixture",
+					typeLabel: "Fixture / unit",
 				},
 				{
 					count: 1,
@@ -567,7 +567,7 @@ describe("collections recipes", () => {
 		const filter: Filter = {
 			type: "and",
 			filters: [
-				{ field: "type", operator: "anyOf", values: ["media/book"] },
+				{ field: "type", operator: "anyOf", values: ["fixture/unit"] },
 				{ operator: "anyOf", values: ["col-2"], field: "collections" },
 				{ value: "x", operator: "contains", field: "membership.type" },
 				{ value: "y", operator: "is", field: "membership.collections" },
@@ -597,7 +597,7 @@ describe("collections recipes", () => {
 			expect(fields[0]).toMatchObject({
 				field: "memberType",
 				choices: [
-					{ value: "media/book", label: "Media / book" },
+					{ value: "fixture/unit", label: "Fixture / unit" },
 					{ value: "/collection", label: "Collections" },
 				],
 			});

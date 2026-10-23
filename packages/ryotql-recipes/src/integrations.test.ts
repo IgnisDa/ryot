@@ -11,8 +11,8 @@ const item = {
 	maximumProgress: 95,
 	syncOwnership: true,
 	minimumProgress: 2.5,
+	pluginId: "plugin-a",
 	provider: "provider-1",
-	pluginId: "media-plugin",
 	name: "Primary integration",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
@@ -83,7 +83,7 @@ describe("integration recipes", () => {
 					data: { integrations: rows([{ ...item, name: null, lastFinishedAt: null }]) },
 				}),
 			).items[0],
-		).toMatchObject({ name: null, lastFinishedAt: null, pluginId: "media-plugin" });
+		).toMatchObject({ name: null, lastFinishedAt: null, pluginId: "plugin-a" });
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {

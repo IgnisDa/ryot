@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { defineConfig, definePluginConfig, group, stringField } from "./index";
 import { renderConfigReference } from "./reference";
 
-const packageId = PluginPackageId.make("ryot/media");
+const packageId = PluginPackageId.make("ryot/fixture");
 
 describe("config reference", () => {
 	it("renders nested core and plugin metadata while omitting hidden fields", () => {
@@ -35,7 +35,7 @@ describe("config reference", () => {
 				description: "Plugin token",
 			}),
 		});
-		const markdown = renderConfigReference(core, [{ packageId, name: "Media", schema: plugin }]);
+		const markdown = renderConfigReference(core, [{ packageId, schema: plugin, name: "Fixture" }]);
 
 		expect(markdown).toContain("# App Backend Configuration Reference");
 		expect(markdown).toContain("### Server settings");
@@ -43,7 +43,7 @@ describe("config reference", () => {
 			"| `timezone` | `TZ` | Application timezone | No | No | `Etc/GMT` |",
 		);
 		expect(markdown).toContain(
-			"| `ryot/media.token` | `RYOT_PLUGIN__RYOT__MEDIA__TOKEN` | Token | Plugin token | No | Yes | `token` |",
+			"| `ryot/fixture.token` | `RYOT_PLUGIN__RYOT__FIXTURE__TOKEN` | Token | Plugin token | No | Yes | `token` |",
 		);
 		expect(markdown).not.toContain("HIDDEN");
 	});

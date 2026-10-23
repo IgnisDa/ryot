@@ -16,7 +16,7 @@ it("keeps quarantined ownership, workspace association, and initialization separ
 		isInitialized: false,
 		configuredSecrets: [],
 		health: "incompatible",
-		packageId: "ryot/media",
+		packageId: "ryot/fixture",
 		pluginId: "private-owner",
 		contentHash: "private-source",
 		activationId: "private-activation",

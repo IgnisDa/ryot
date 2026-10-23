@@ -156,7 +156,7 @@ describe("shared value contracts", () => {
 						relationshipSchemaSlug: "acted-in",
 						selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
 						relationships: [
-							{ properties: { order: 1 }, targetEntityId: "movie-1", sourceEntityId: "person-1" },
+							{ properties: { order: 1 }, targetEntityId: "entry-1", sourceEntityId: "person-1" },
 						],
 					},
 				],
@@ -230,7 +230,7 @@ describe("shared value contracts", () => {
 	});
 
 	test("validates user entity ensure batches without accepting caller-owned subject", () => {
-		const item = { properties: {}, name: "Library", entitySchemaSlug: "media-library" };
+		const item = { properties: {}, name: "Library", entitySchemaSlug: "fixture-library" };
 		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
 		expect(() =>
 			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),

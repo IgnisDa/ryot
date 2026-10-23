@@ -24,7 +24,7 @@ export const browserSettings = {
 	layouts: ["grid", "list", "table"],
 	subject: {
 		entityAlias: "entity",
-		schemas: [{ slug: "book", owner: { kind: "plugin", pluginId: "media" } }],
+		schemas: [{ slug: "item", owner: { kind: "plugin", pluginId: "fixture" } }],
 	},
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },
@@ -33,8 +33,8 @@ export const browserSettings = {
 	],
 	addAction: {
 		type: "provider-search",
-		schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
-		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+		schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 	},
 	filterFields: [
 		{
@@ -54,7 +54,7 @@ export const browserSettings = {
 			label: "Authors",
 			kind: "relationship",
 			direction: "outgoing",
-			relationship: { slug: "book-to-person", owner: { kind: "plugin", pluginId: "media" } },
+			relationship: { slug: "item-to-person", owner: { kind: "plugin", pluginId: "fixture" } },
 		},
 	],
 };
@@ -65,8 +65,8 @@ export const browserRow = (entityId: string, name: string) => ({
 	image: null,
 	__entityBrowserName: name,
 	__entityBrowserId: entityId,
-	__entityBrowserSchemaSlug: "book",
-	__entityBrowserOwnerPluginId: "media",
+	__entityBrowserSchemaSlug: "item",
+	__entityBrowserOwnerPluginId: "fixture",
 	__entityBrowserPopulationStatus: "ready",
 	__entityBrowserTranslationStatus: "ready",
 });

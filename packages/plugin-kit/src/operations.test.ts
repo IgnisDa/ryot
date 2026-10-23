@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { defineOperationRecipe, invokeOperationRecipe } from "./operations";
 
 const recipe = defineOperationRecipe({
-	operationSlug: "resolve-episodes",
-	packageId: PluginPackageId.make("ryot/media"),
+	operationSlug: "resolve-subparts",
+	packageId: PluginPackageId.make("ryot/fixture"),
 	input: Schema.Struct({ count: Schema.FiniteFromString }),
 	output: Schema.Struct({ entityId: Schema.String, count: Schema.FiniteFromString }),
 });
@@ -22,7 +22,7 @@ describe("invokeOperationRecipe", () => {
 		);
 
 		expect(request).toEqual([
-			{ packageId: "ryot/media", payload: { count: "3" }, operationSlug: "resolve-episodes" },
+			{ payload: { count: "3" }, packageId: "ryot/fixture", operationSlug: "resolve-subparts" },
 		]);
 		expect(result).toEqual({ count: 4, entityId: "entity-1" });
 	});

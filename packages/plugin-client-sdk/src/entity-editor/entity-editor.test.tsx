@@ -59,8 +59,8 @@ const adapterFor = (
 			if (key === "definition") {
 				data[key] = rows([
 					{
+						name: "Part",
 						propertiesSchema,
-						name: "Exercise",
 						editor: options.editor === undefined ? { relationships: ["targets"] } : options.editor,
 					},
 				]);
@@ -117,9 +117,9 @@ const mount = (
 			<RyotProvider runtime={clock.runtime}>
 				<EntityEditor
 					packageId={packageId}
+					entitySchemaSlug="part"
 					onSaved={() => undefined}
 					onCancel={() => undefined}
-					entitySchemaSlug="exercise"
 					{...props}
 				/>
 			</RyotProvider>,
@@ -152,10 +152,10 @@ const recording = (output: EntityEditorSaveOutput) => {
 describe("EntityEditor", () => {
 	it.live("loads an entity for edit, locks immutable fields, and submits the diffed shape", () =>
 		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("exercise-1") });
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
 			const saved: string[] = [];
 			const container = mount(
-				{ onSaved: (id) => saved.push(id), mode: { kind: "edit", entityId: "exercise-1" } },
+				{ onSaved: (id) => saved.push(id), mode: { kind: "edit", entityId: "part-1" } },
 				adapterFor(saves.save),
 			);
 			const view = within(container);
@@ -169,14 +169,14 @@ describe("EntityEditor", () => {
 			fireEvent.change(name, { target: { value: "Hammer curl" } });
 			fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-			yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(["exercise-1"])));
+			yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(["part-1"])));
 			expect(saves.requests).toHaveLength(1);
 			expect(saves.requests[0]?.idempotencyKey).not.toBe("");
 			expect(saves.requests[0]?.submittedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(saves.requests[0]?.submission).toEqual({
 				name: "Hammer curl",
 				properties: { kind: "reps", title: "Curl" },
-				entitySchema: { slug: "exercise", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				relationships: [
 					{
 						relationshipSchemaSlug: "targets",
@@ -185,7 +185,7 @@ describe("EntityEditor", () => {
 				],
 				target: {
 					kind: "update",
-					entityId: "exercise-1",
+					entityId: "part-1",
 					expected: {
 						name: "Curl",
 						updatedAt: "2026-01-01T00:00:00.000Z",
@@ -198,10 +198,10 @@ describe("EntityEditor", () => {
 
 	it.live("seeds a create and adds targets picked through the kernel entity picker", () =>
 		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("exercise-2") });
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-2") });
 			const picks: PickEntityRequest[] = [];
 			const container = mount(
-				{ mode: { kind: "create", seedEntityId: "exercise-1" } },
+				{ mode: { kind: "create", seedEntityId: "part-1" } },
 				adapterFor(saves.save, { picks, picked: ["target-2", "target-1"] }),
 			);
 			const view = within(container);
@@ -229,7 +229,7 @@ describe("EntityEditor", () => {
 		Effect.gen(function* () {
 			const picks: PickEntityRequest[] = [];
 			const container = mount(
-				{ mode: { kind: "edit", entityId: "exercise-1" } },
+				{ mode: { kind: "edit", entityId: "part-1" } },
 				adapterFor(recording({ kind: "stale" }).save, { picks }),
 			);
 			const view = within(container);
@@ -253,7 +253,7 @@ describe("EntityEditor", () => {
 	it.live("shows the stale message and keeps the editor open", () =>
 		Effect.gen(function* () {
 			const container = mount(
-				{ mode: { kind: "edit", entityId: "exercise-1" } },
+				{ mode: { kind: "edit", entityId: "part-1" } },
 				adapterFor(() => Effect.succeed({ kind: "stale" })),
 			);
 			const view = within(container);
@@ -270,7 +270,7 @@ describe("EntityEditor", () => {
 		Effect.gen(function* () {
 			const requests: EntityEditorSaveRequest[] = [];
 			const container = mount(
-				{ mode: { kind: "edit", entityId: "exercise-1" } },
+				{ mode: { kind: "edit", entityId: "part-1" } },
 				adapterFor((request) => {
 					requests.push(request);
 					return Effect.fail(new RyotClientError("entity-save-failed"));

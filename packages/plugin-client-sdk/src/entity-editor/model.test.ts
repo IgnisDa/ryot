@@ -39,14 +39,14 @@ describe("entity editor model", () => {
 	it("finds nested uploads by schema and retains assets referenced by relationships", () => {
 		const nested: AppSchema = {
 			fields: {
-				exercises: {
+				parts: {
 					type: "array",
-					label: "Exercises",
-					description: "Exercises",
+					label: "Parts",
+					description: "Parts",
 					items: {
+						label: "Part",
 						type: "object",
-						label: "Exercise",
-						description: "Exercise",
+						description: "Part",
 						properties: { images: imagesField("Images") },
 					},
 				},
@@ -61,12 +61,9 @@ describe("entity editor model", () => {
 			["local:dropped", dropped],
 		]);
 		expect(
-			unreferencedUploads(
-				uploaded,
-				{ unrelated: [dropped], exercises: [{ images: [kept] }] },
-				nested,
-				[relationship],
-			),
+			unreferencedUploads(uploaded, { unrelated: [dropped], parts: [{ images: [kept] }] }, nested, [
+				relationship,
+			]),
 		).toEqual([dropped]);
 	});
 	it("keeps declared nested values across a save", () => {
@@ -96,9 +93,9 @@ describe("entity editor model", () => {
 			name: "  Curl ",
 			properties: { title: "x" },
 			target: { kind: "create" },
-			relationships: { "exercise-targets": [] },
+			relationships: { "part-targets": [] },
 			entitySchema: {
-				slug: EntitySchemaSlug.make("exercise"),
+				slug: EntitySchemaSlug.make("part"),
 				owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") },
 			},
 		});
@@ -106,8 +103,8 @@ describe("entity editor model", () => {
 		expect(submission).toMatchObject({
 			name: "Curl",
 			target: { kind: "create" },
-			relationships: [{ targets: [], relationshipSchemaSlug: "exercise-targets" }],
-			entitySchema: { slug: "exercise", owner: { kind: "plugin", pluginId: "plugin-1" } },
+			relationships: [{ targets: [], relationshipSchemaSlug: "part-targets" }],
+			entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
 		});
 	});
 });

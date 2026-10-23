@@ -27,15 +27,15 @@ it("decodes generic media write intents without admitting plugin-private event f
 				recordId: "media-1",
 				sourceLabel: "Arrival",
 				sourceIdentifier: "10",
-				subjectEntityAlias: "media",
+				subjectEntityAlias: "item",
 				collectionMemberships: [
-					{ entityAlias: "media", collectionName: "Pinned", operationId: "pinned-membership" },
+					{ entityAlias: "item", collectionName: "Pinned", operationId: "pinned-membership" },
 				],
 				events: [
 					{
 						properties: {},
-						entityAlias: "media",
-						subjectEntityId: "movie-1",
+						entityAlias: "item",
+						subjectEntityId: "record-1",
 						operationId: "completion-1",
 						eventSchemaSlug: "complete",
 						occurredAt: "2026-01-01T00:00:00.000Z",
@@ -43,7 +43,7 @@ it("decodes generic media write intents without admitting plugin-private event f
 				],
 				relationships: [
 					{
-						sourceAlias: "media",
+						sourceAlias: "item",
 						propertiesMode: "merge",
 						targetAlias: "mediaLibrary",
 						operationId: "library-membership",
@@ -53,16 +53,16 @@ it("decodes generic media write intents without admitting plugin-private event f
 				],
 				entities: [
 					{
-						alias: "media",
+						alias: "item",
 						properties: {},
 						name: "Arrival",
-						entityId: "movie-1",
-						operationId: "media",
-						entitySchemaSlug: "movie",
+						operationId: "item",
+						entityId: "record-1",
+						entitySchemaSlug: "record",
 						providerResolution: {
 							value: "tt2543164",
-							providerSlug: "tmdb",
 							identifierType: "imdb",
+							providerSlug: "provider",
 						},
 					},
 					{
@@ -118,11 +118,11 @@ it("rejects chunks whose failures repeat an operation or reuse an intent operati
 		recordId: "record",
 		sourceLabel: "Lost",
 		sourceIdentifier: "20",
-		subjectEntityAlias: "media",
+		subjectEntityAlias: "item",
 		entities: [
 			{
 				name: "Lost",
-				alias: "media",
+				alias: "item",
 				properties: {},
 				operationId: "entity",
 				entitySchemaSlug: "show",

@@ -5,11 +5,11 @@ import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 describe("pluginConfigEnvironmentKey", () => {
 	it("separates publisher, name, and key with double underscores", () => {
-		expect(pluginConfigEnvironmentKey(PluginPackageId.make("ryot/media"), "tmdbAccessToken")).toBe(
-			"RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN",
+		expect(pluginConfigEnvironmentKey(PluginPackageId.make("ryot/fixture"), "accessToken")).toBe(
+			"RYOT_PLUGIN__RYOT__FIXTURE__ACCESS_TOKEN",
 		);
-		expect(pluginConfigEnvironmentKey(PluginPackageId.make("acme-labs/movie-db"), "api.key")).toBe(
-			"RYOT_PLUGIN__ACME_LABS__MOVIE_DB__API_KEY",
+		expect(pluginConfigEnvironmentKey(PluginPackageId.make("acme-labs/record-db"), "api.key")).toBe(
+			"RYOT_PLUGIN__ACME_LABS__RECORD_DB__API_KEY",
 		);
 	});
 

@@ -14,10 +14,10 @@ const entry = {
 	clientApiVersion: 1,
 	homeSavedView: null,
 	pluginId: "plugin-1",
-	packageId: "ryot/fitness",
+	packageId: "ryot/other",
 	contentHash: "source-hash",
 	installationId: "installation-1",
-	clientEntities: { book: { createRoute: "/books/new" } },
+	clientEntities: { item: { createRoute: "/items/new" } },
 };
 
 const response = {

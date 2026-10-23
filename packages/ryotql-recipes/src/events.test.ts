@@ -10,10 +10,10 @@ const event = {
 	id: "event-1",
 	entityId: "entity-1",
 	sessionEntityId: null,
-	entitySchemaSlug: "book",
+	entitySchemaSlug: "item",
 	eventSchemaSlug: "review",
 	properties: { rating: 5 },
-	eventSchemaPluginId: "book-owner",
+	eventSchemaPluginId: "item-owner",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	occurredAt: "2026-01-03T01:00:00+02:00",
@@ -23,7 +23,7 @@ const recipe = eventHistoryRecipe({
 	limit: 25,
 	entityId: "entity-1",
 	owner: { kind: "self" },
-	entitySchemaSlugs: ["book", "movie"],
+	entitySchemaSlugs: ["item", "record"],
 	eventSchemaSlugs: ["review", "progress"],
 });
 

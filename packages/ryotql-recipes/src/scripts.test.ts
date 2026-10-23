@@ -20,16 +20,16 @@ describe("sandbox recipes", () => {
 							type: "rows",
 							items: [
 								{
-									name: "Book",
+									name: "Item",
 									id: "entity-1",
 									externalId: null,
 									providerId: null,
 									populatedAt: null,
-									entitySchemaSlug: "book",
+									entitySchemaSlug: "item",
 									properties: { pages: 320 },
 									createdAt: "2026-01-01T00:00:00Z",
 									updatedAt: "2026-01-02T00:00:00Z",
-									entitySchemaPluginId: "book-owner",
+									entitySchemaPluginId: "item-owner",
 								},
 							],
 						},
@@ -50,7 +50,7 @@ describe("sandbox recipes", () => {
 	it("prepares event reads and rejects malformed entity cardinality", () => {
 		const eventRecipe = eventReadRecipe({
 			owner: { kind: "self" },
-			entitySchemaSlug: "book",
+			entitySchemaSlug: "item",
 			eventSchemaSlug: "progress",
 		});
 		const query = eventRecipe.document.queries.events;

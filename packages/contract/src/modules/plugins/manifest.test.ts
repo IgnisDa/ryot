@@ -384,7 +384,7 @@ describe("definePlugin", () => {
 
 	it("decodes declarative public client exports by kind", () => {
 		const pluginDependencies: NonNullable<PluginClientEntry["pluginDependencies"]> = {
-			media: { scope: "system", packageId: PluginPackageId.make("test/dependency") },
+			fixture: { scope: "system", packageId: PluginPackageId.make("test/dependency") },
 			"private-fixture": { scope: "user", packageId: PluginPackageId.make("test/second") },
 		};
 		const client = {
@@ -444,10 +444,10 @@ describe("definePlugin", () => {
 			{ ...client, exports: { card: { ...client.exports.card, settingsSchema: { fields: {} } } } },
 			{ ...client, exports: { ...client.exports, "../card": client.exports.card } },
 			{ ...client, exports: { card: { ...client.exports.card, entry: "backend/card.tsx" } } },
-			{ ...client, pluginDependencies: { media: { scope: "system", packageId: "media" } } },
+			{ ...client, pluginDependencies: { fixture: { scope: "system", packageId: "fixture" } } },
 			{
 				...client,
-				pluginDependencies: { "Media Alias": { scope: "system", packageId: "ryot/media" } },
+				pluginDependencies: { "Fixture Alias": { scope: "system", packageId: "ryot/fixture" } },
 			},
 			{ ...client, entities: { missing: { gridPresentation: "row" } } },
 			{ ...client, entities: { thing: { gridPresentation: "card" } } },

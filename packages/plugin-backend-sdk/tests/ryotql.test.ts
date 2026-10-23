@@ -22,16 +22,16 @@ const rowsResponse = {
 			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 			items: [
 				{
-					name: "Book",
+					name: "Item",
 					id: "entity-1",
 					externalId: null,
 					providerId: null,
 					populatedAt: null,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "item",
 					properties: { pages: 320 },
 					createdAt: "2026-01-01T00:00:00Z",
 					updatedAt: "2026-01-02T00:00:00Z",
-					entitySchemaPluginId: "book-owner",
+					entitySchemaPluginId: "item-owner",
 				},
 			],
 		},
@@ -49,9 +49,9 @@ describe("RyotQL sandbox SDK", () => {
 		});
 		expect(
 			eventReadRecipe({
-				entitySchemaSlug: "book",
+				entitySchemaSlug: "item",
 				eventSchemaSlug: "progress",
-				owner: { kind: "local", pluginId: PluginId.make("book-owner") },
+				owner: { kind: "local", pluginId: PluginId.make("item-owner") },
 			}).document,
 		).toHaveProperty("queries.events");
 		expect(userMediaLibraryRecipe({ kind: "self" }).document).toHaveProperty(

@@ -285,20 +285,20 @@ describe("composition bootstrap", () => {
 					{
 						layout: "grid",
 						ownerPluginId: "owner",
-						entitySchemaSlug: "book",
+						entitySchemaSlug: "item",
 						stylesheets: ["/a.css", "/b.css"],
-						module: reference("/page.js", "bookGrid"),
+						module: reference("/page.js", "itemGrid"),
 					},
 					{
 						layout: "list",
 						stylesheets: [],
 						ownerPluginId: "owner",
-						entitySchemaSlug: "book",
+						entitySchemaSlug: "item",
 						module: reference("/page.js", "absent"),
 					},
 				],
 			});
-			const { recorded, dependencies } = harness({ "/page.js": { Home, bookGrid: presentation } });
+			const { recorded, dependencies } = harness({ "/page.js": { Home, itemGrid: presentation } });
 			yield* Effect.promise(() => bootstrapComposition(dependencies));
 			expect(recorded.stylesheets).toEqual([]);
 			const options = recorded.pages[0]?.options;
@@ -337,9 +337,9 @@ const registrationsFor = (
 				{
 					layout: "grid",
 					ownerPluginId: "owner",
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "item",
 					stylesheets: ["/grid.css"],
-					module: reference("/presentation.js", "bookGrid"),
+					module: reference("/presentation.js", "itemGrid"),
 				},
 			],
 		});
@@ -362,7 +362,7 @@ describe("composition bootstrap presentations", () => {
 	it.effect("accepts a memo presentation component", () =>
 		Effect.gen(function* () {
 			const definition = { ...presentation, component: memo(presentation.component) };
-			const { load } = yield* registrationsFor({ "/presentation.js": { bookGrid: definition } });
+			const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: definition } });
 			yield* Effect.promise(() => expect(load()).resolves.toBe(definition));
 		}),
 	);
@@ -375,10 +375,10 @@ describe("composition bootstrap presentations", () => {
 	] as const) {
 		it.effect(`rejects a present but invalid presentation export: ${name}`, () =>
 			Effect.gen(function* () {
-				const { load } = yield* registrationsFor({ "/presentation.js": { bookGrid: value } });
+				const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: value } });
 				yield* Effect.promise(() =>
 					expect(load()).rejects.toThrow(
-						"Client composition export is invalid: /presentation.js#bookGrid",
+						"Client composition export is invalid: /presentation.js#itemGrid",
 					),
 				);
 			}),
@@ -388,7 +388,7 @@ describe("composition bootstrap presentations", () => {
 	it.effect("rejects a presentation whose stylesheet fails to load", () =>
 		Effect.gen(function* () {
 			const { load, recorded } = yield* registrationsFor(
-				{ "/presentation.js": { bookGrid: presentation } },
+				{ "/presentation.js": { itemGrid: presentation } },
 				{ stylesheets: ["/grid.css"] },
 			);
 			yield* Effect.promise(() => expect(load()).rejects.toThrow("Stylesheet failed: /grid.css"));
