@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "ca8ef1a9-401b-46b9-80dd-4b6e01f7261b",
+	"id": "82af275c-79f5-4770-b8d9-d7c2a90439d8",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -3376,6 +3376,32 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "population_failed_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "population_failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -16131,6 +16157,13 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "definition_integration_provider"
+		},
+		{
+			"value": "(\"population_failure\" is null) = (\"population_failed_at\" is null) and (\"population_failure\" is null or \"population_failure\" in ('script-failure', 'invalid-output', 'execution-limit'))",
+			"name": "entity_population_failure_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "entity"
 		},
 		{
 			"value": "\"status\" in ('queued', 'running', 'completed', 'failed')",

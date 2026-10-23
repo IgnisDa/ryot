@@ -71,6 +71,21 @@ export class EntityStale extends Schema.TaggedError<
 	reason: strictStruct({ entityId: EntityId, code: Schema.Literal("entity-stale") }),
 }) {}
 
+export class EntityPopulationRetryRefused extends Schema.TaggedError<
+	EntityPopulationRetryRefused,
+	{ readonly brand: unique symbol }
+>()("EntityPopulationRetryRefused", {
+	reason: strictStruct({
+		code: Schema.Literals(["not-provider-backed", "plugin-mismatch", "provider-unavailable"]),
+	}),
+}) {}
+
+export const RetryEntityPopulationBody = strictStruct({ pluginId: PluginId });
+
+export const RetryEntityPopulationResult = Schema.Struct({ retried: Schema.Boolean });
+
+export type RetryEntityPopulationResult = typeof RetryEntityPopulationResult.Type;
+
 export const ListedEntity = Schema.Struct({
 	id: EntityId,
 	name: Schema.String,
@@ -96,7 +111,7 @@ export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
 
 export type TranslationStatus = typeof TranslationStatus.Type;
 
-export const PopulationStatus = Schema.Literals(["pending", "ready", "none"]);
+export const PopulationStatus = Schema.Literals(["pending", "ready", "failed", "none"]);
 
 export type PopulationStatus = typeof PopulationStatus.Type;
 

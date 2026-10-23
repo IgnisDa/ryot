@@ -1,8 +1,12 @@
 import { mapDbErrorToSandbox, SandboxRunError } from "@ryot-app/contract/errors";
 import { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
+import {
+	encodeEntityUpdatedMessage,
+	type EntityUpdatedReason,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import type { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	EntityId,
 	type EntitySchemaSlug,
@@ -21,7 +25,7 @@ import {
 import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
+import { Cause, DateTime, Effect, Result, Schedule, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -32,7 +36,7 @@ import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesRepository, type EntityPopulationFailure } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -427,14 +431,15 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 
 const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function* (
 	entityId: EntityId,
+	reason: Extract<EntityUpdatedReason, "populated" | "population-failed"> = "populated",
 ) {
 	const redis = yield* RedisService;
 
 	yield* makeActivity({
-		name: "publish-primary-entity",
 		error: SandboxRunError satisfies DurableSchema,
+		name: reason === "populated" ? "publish-primary-entity" : "publish-population-failed",
 		execute: redis
-			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entityId, "populated"))
+			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entityId, reason))
 			.pipe(
 				Effect.asVoid,
 				Effect.sandbox,
@@ -445,6 +450,64 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 				Effect.catch((cause) => Effect.failCause(cause)),
 			),
 	});
+});
+
+const populationFailureOf = (error: SandboxExecutionError): EntityPopulationFailure | null => {
+	if (error.data === undefined) {
+		return error.kind === "script-failure" || error.kind === "invalid-output" ? error.kind : null;
+	}
+	return (error.kind === "script-failure" || error.kind === "resource-unavailable") &&
+		error.data.code === "execution-limit"
+		? "execution-limit"
+		: null;
+};
+
+const recordPopulationFailure = Effect.fn("recordProviderPopulationFailure")(function* (
+	payload: EntityImportPayload,
+	existing: ListedEntity | null,
+	failure: EntityPopulationFailure,
+) {
+	if (existing?.populatedAt !== null) {
+		return;
+	}
+	const session = yield* DatabaseSession;
+	const checks = yield* DomainWriteChecks;
+	const repository = yield* EntitiesRepository;
+	const scope = getEntityWriteScope(payload);
+	const marked = yield* makeActivity({
+		name: "mark-population-failed",
+		error: SandboxRunError satisfies DurableSchema,
+		success: Schema.Boolean satisfies DurableSchema,
+		execute: Effect.gen(function* () {
+			const failedAt = yield* DateTime.nowAsDate;
+			return yield* retryOnDeadlock(
+				session.transaction(
+					Effect.gen(function* () {
+						const authority = yield* Effect.result(
+							checks.check(
+								payload.command,
+								definitionOwner(payload.pluginId),
+								scope.scope === "user" ? scope.userId : null,
+								true,
+							),
+						);
+						if (Result.isFailure(authority)) {
+							return false;
+						}
+						yield* repository.lockMutationKeys([existing.id]);
+						return yield* repository.markPopulationFailed({
+							failure,
+							failedAt,
+							entityId: existing.id,
+						});
+					}),
+				),
+			).pipe(mapDbErrorToSandbox);
+		}),
+	});
+	if (marked) {
+		yield* publishPrimaryEntity(existing.id, "population-failed");
+	}
 });
 
 const shouldWriteChildEntitySet = (options: SynchronizeOptions, scope: ChildEntitySetScope) =>
@@ -619,13 +682,24 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		existing?.properties,
 	);
 	if (sandboxResult.error) {
+		const failure = populationFailureOf(sandboxResult.error);
+		if (failure !== null) {
+			yield* recordPopulationFailure(payload, existing, failure);
+		}
 		return yield* new SandboxRunError({
 			kind: sandboxResult.error.kind,
 			message: sandboxResult.error.message,
+			...(sandboxResult.error.data === undefined ? {} : { data: sandboxResult.error.data }),
 		});
 	}
 
-	const details = yield* validateEntityDetails(sandboxResult.value);
+	const details = yield* validateEntityDetails(sandboxResult.value).pipe(
+		Effect.tapError((error) =>
+			error.kind === "invalid-output"
+				? recordPopulationFailure(payload, existing, "invalid-output")
+				: Effect.void,
+		),
+	);
 	if (details.relatedEntityGroups.some(({ continuation }) => continuation !== undefined)) {
 		yield* operations.requireRelatedScript(payload);
 	}

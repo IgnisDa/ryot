@@ -198,9 +198,11 @@ const entityPopulationStatus: CatalogField = {
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
 		const externalId = sql.raw(`${sqlAlias}.external_id`);
 		const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
+		const populationFailedAt = sql.raw(`${sqlAlias}.population_failed_at`);
 		return sql`CASE
 			WHEN ${populatedAt} IS NOT NULL THEN 'ready'
 			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
+			WHEN ${populationFailedAt} IS NOT NULL THEN 'failed'
 			ELSE 'pending'
 		END`;
 	},
