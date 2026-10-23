@@ -110,8 +110,10 @@ right axis. Root theme variables also apply to portaled tooltips.
 
 ## Sync Marks
 
-`fieldSyncState` returns `ready`, `pending`, or `absent` from a selected value and entity sync state.
-Present values are always ready; status matters only when a selected value is missing.
+`fieldSyncState` returns `ready`, `pending`, `failed`, or `absent` from a selected value and entity
+sync state. Present values are always ready; status matters only when a selected value is missing.
+`EntityArtWell` shows a plain monogram, without pip or shimmer, for `failed`, and failed items are not
+counted as populating.
 
 `EntityArtWell` is the product's artwork surface and missing-image placeholder. `SyncPip`,
 `SettleHighlight`, `TranslationChip`, and `SyncCountLine` provide the matching status vocabulary.
