@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -21,9 +22,6 @@ type UnknownRecord = Record<string, unknown>;
 const GENRE_CACHE_KEY = "genres";
 const GENRE_CACHE_TTL_SECONDS = 60 * 60 * 24;
 const BASE_URL = "https://listen-api.listennotes.com/api/v2";
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
 const stringValue = (value: unknown) => {
 	const parsed = trimmedString(value);
 	return parsed.length > 0 ? parsed : null;

@@ -1,8 +1,9 @@
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
+import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	coerceTrimmed,

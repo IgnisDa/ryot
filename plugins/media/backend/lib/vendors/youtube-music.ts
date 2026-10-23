@@ -1,4 +1,5 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
@@ -7,7 +8,7 @@ import {
 
 import { mediaFailureMessage } from "../error-message";
 import { MediaSandboxError } from "../failures";
-import { asRecord, numberValue, stringValue } from "../records";
+import { numberValue, stringValue } from "../records";
 
 const toMediaSandboxError = (error: unknown) =>
 	new MediaSandboxError({ message: mediaFailureMessage(error) });

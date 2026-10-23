@@ -2,13 +2,13 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { fetchEntity } from "../lib/host-reads";
 import {
 	collectionSyncMatches,
-	fetchEntity,
 	type IntegrationPushHost,
 	integrationsDisabledForUser,
-	jsonObject,
 	listActiveIntegrations,
 	logPushFailure,
 	normalizeBaseUrl,
@@ -30,7 +30,7 @@ const pushMovieToRadarr = (
 	integration: IntegrationRecord,
 	tmdbId: string,
 ) => {
-	const specifics = jsonObject(integration.providerSpecifics);
+	const specifics = asRecord(integration.providerSpecifics);
 	const baseUrl = normalizeBaseUrl(specifics?.["baseUrl"]);
 	const apiKey = specifics?.["apiKey"];
 	if (!specifics || !baseUrl || typeof apiKey !== "string") {

@@ -2,7 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -12,17 +12,10 @@ import { normalizeRichDescription } from "../../../lib/rich-description";
 
 type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
-type UnknownRecord = Record<string, unknown>;
-
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1";
 const googleBooksSearchOptionsSchema = strictStruct({
 	passRawQuery: Schema.optional(Schema.Boolean),
 });
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
 
 const stringValue = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value.trim() : null;

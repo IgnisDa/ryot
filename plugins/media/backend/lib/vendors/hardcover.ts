@@ -1,9 +1,10 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
-import { asRecord, decodeJsonResponse, stringValue, type UnknownRecord } from "../records";
+import { decodeJsonResponse, stringValue, type UnknownRecord } from "../records";
 
 export type HardcoverHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 

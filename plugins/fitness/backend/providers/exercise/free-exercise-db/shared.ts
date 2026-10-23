@@ -5,6 +5,7 @@ import type {
 	ProviderResolveInput,
 	ProviderSearchInput,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { exerciseKindSchema } from "../../../../shared/exercise-kinds";
@@ -73,13 +74,6 @@ const validMuscles = new Set<string>(exerciseTargetCatalog.map(({ externalId }) 
 const validEquipment = new Set<string>(
 	exerciseEquipmentCatalog.map(({ externalId }) => externalId),
 );
-
-type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
 
 const categoryToKind = (category: string) => {
 	const lower = category.toLowerCase();

@@ -1,10 +1,11 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
+import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";

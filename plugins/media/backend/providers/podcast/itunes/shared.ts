@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -15,9 +16,6 @@ export const manifest = defineManifest({
 });
 type ItunesHost = Pick<ScriptHost, "httpCall">;
 type UnknownRecord = Record<string, unknown>;
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
 const idString = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {
 		return String(value);

@@ -1,5 +1,6 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { isRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type {
 	ImportEntityRef,
@@ -78,9 +79,6 @@ export const progressPercent = (position?: number, duration?: number) => {
 	return Math.max(0, Math.min(100, Math.round((position / duration) * 10_000) / 100));
 };
 
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 export const jsonRecord = (value: string) => {
 	const parsed: unknown = JSON.parse(value);
 	if (!isRecord(parsed)) {
@@ -152,8 +150,6 @@ export const truthy = (value: unknown) =>
 	value === true ||
 	(typeof value === "number" && value !== 0) ||
 	(typeof value === "string" && ["true", "1", "yes", "y"].includes(value.trim().toLowerCase()));
-
-export const specifics = (value: unknown) => (isRecord(value) ? value : null);
 
 export const requestJson = (
 	host: Pick<ScriptHost, "httpCall">,

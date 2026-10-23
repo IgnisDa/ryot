@@ -1,11 +1,10 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	API_BASE_URL,
-	asRecord,
 	INDEX_LIMIT,
 	integerValue,
 	intersectEntries,

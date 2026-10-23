@@ -2,16 +2,11 @@ import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import {
-	asRecord,
-	numberValue,
-	recordsValue,
-	stringValue,
-	type UnknownRecord,
-} from "../../../lib/records";
+import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	imageUrlValue,

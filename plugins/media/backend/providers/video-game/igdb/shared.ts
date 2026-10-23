@@ -4,12 +4,12 @@ import {
 	defineProvider,
 	type ProviderDetailsRelatedEntity,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
 	buildIgdbImageUrl,

@@ -1,10 +1,10 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderSearchInput } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import {
-	asRecord,
 	decodeJsonResponse,
 	numberValue,
 	recordsValue,

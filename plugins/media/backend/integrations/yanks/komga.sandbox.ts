@@ -2,6 +2,7 @@ import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -10,7 +11,7 @@ import { hardcoverGql } from "../../lib/vendors/hardcover";
 import { captureIntegrationWindow } from "../artifacts";
 import { integrationRecordId } from "../identity";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
-import { baseUrl, executionStartedAt, requestJson, specifics } from "../shared";
+import { baseUrl, executionStartedAt, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -225,7 +226,7 @@ export default defineScript({
 			}
 			const startedAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
-			const settings = specifics(integration.providerSpecifics);
+			const settings = asRecord(integration.providerSpecifics);
 			const apiKey = typeof settings?.["apiKey"] === "string" ? settings["apiKey"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);
 			const headers = {

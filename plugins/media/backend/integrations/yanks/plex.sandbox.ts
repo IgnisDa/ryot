@@ -1,5 +1,6 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -7,7 +8,7 @@ import { movieOrShowImportRef, sourceFetchFailure } from "../../imports/source-h
 import { captureIntegrationWindow } from "../artifacts";
 import { integrationRecordId } from "../identity";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
-import { baseUrl, requestJson, specifics } from "../shared";
+import { baseUrl, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -71,7 +72,7 @@ export default defineScript({
 				return { chunkFiles: [], carryFile: null };
 			}
 			const integration = yield* host.getCurrentIntegration();
-			const settings = specifics(integration.providerSpecifics);
+			const settings = asRecord(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);
 			const headers = { "X-Plex-Token": token, Accept: "application/json" };

@@ -1,9 +1,9 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
-import { asRecord } from "../../lib/records";
 import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
@@ -16,7 +16,6 @@ import {
 	progressResult,
 	showEpisodeRef,
 	SinkInput,
-	specifics,
 	textValue,
 } from "../shared";
 import { searchTmdbShow, type TmdbEpisode } from "./tmdb-episode";
@@ -82,14 +81,14 @@ export default defineScript({
 			const integration = yield* host.getCurrentIntegration();
 			const parsed = yield* Effect.try(() => {
 				const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));
-				const metadata = specifics(payload["Metadata"]);
+				const metadata = asRecord(payload["Metadata"]);
 				if (!metadata) {
 					throw new Error("missing metadata");
 				}
-				const settings = specifics(integration.providerSpecifics);
+				const settings = asRecord(integration.providerSpecifics);
 				const username =
 					typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
-				if (username && specifics(payload["Account"])?.["title"] !== username) {
+				if (username && asRecord(payload["Account"])?.["title"] !== username) {
 					return emptyResult();
 				}
 				const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
@@ -114,7 +113,7 @@ export default defineScript({
 				}
 				const guids = Array.isArray(metadata["Guid"])
 					? metadata["Guid"].flatMap((value) => {
-							const guid = typeof value === "string" ? value : specifics(value)?.["id"];
+							const guid = typeof value === "string" ? value : asRecord(value)?.["id"];
 							return typeof guid === "string" ? [guid] : [];
 						})
 					: [];

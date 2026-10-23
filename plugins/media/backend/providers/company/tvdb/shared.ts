@@ -1,8 +1,9 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import { searchTvdb, tvdbGet } from "../../../lib/vendors/tvdb";
 
 export const manifest = defineManifest({ name: "TVDB", kind: "provider", slug: "company.tvdb" });

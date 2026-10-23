@@ -1,7 +1,8 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, stringValue, type UnknownRecord } from "../../../lib/records";
+import { stringValue, type UnknownRecord } from "../../../lib/records";
 import {
 	type ArtistClient,
 	coerceTrimmed,

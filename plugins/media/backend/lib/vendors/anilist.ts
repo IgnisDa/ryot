@@ -5,16 +5,11 @@ import type {
 	ProviderSearchInput,
 	ProviderTranslateInput,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
-import {
-	asRecord,
-	decodeJsonResponse,
-	numberValue,
-	stringValue,
-	type UnknownRecord,
-} from "../records";
+import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 
 export type AnilistHost = Pick<ScriptHost, "httpCall">;
 

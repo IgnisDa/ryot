@@ -1,9 +1,10 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
-import { asRecord, stringValue } from "../../../lib/records";
+import { stringValue } from "../../../lib/records";
 import { audibleFetchJson } from "../../../lib/vendors/audible";
 
 export const manifest = defineManifest({

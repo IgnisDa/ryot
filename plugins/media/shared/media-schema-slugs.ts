@@ -17,6 +17,16 @@ export const builtinMediaEntitySchemaSlugs = [
 	"visual-novel",
 ] as const;
 
+export const positionalProperties = {
+	anime: { total: "episodes", position: "animeEpisode" },
+	manga: { total: "chapters", position: "mangaChapter" },
+} as const;
+
+export const isPositional = (
+	entitySchemaSlug: string,
+): entitySchemaSlug is keyof typeof positionalProperties =>
+	entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
+
 export const flatMediaSchemaSlugs = builtinMediaEntitySchemaSlugs.filter(
 	(slug) => slug !== "show" && slug !== "podcast",
 );

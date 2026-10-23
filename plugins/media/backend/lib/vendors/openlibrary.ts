@@ -1,7 +1,8 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, decodeJsonResponse } from "../records";
+import { decodeJsonResponse } from "../records";
 
 export type OpenLibraryHost = Pick<ScriptHost, "httpCall">;
 

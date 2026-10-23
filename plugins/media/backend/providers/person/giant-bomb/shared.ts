@@ -1,8 +1,9 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, stringValue } from "../../../lib/records";
+import { stringValue } from "../../../lib/records";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
 	combineDescription,

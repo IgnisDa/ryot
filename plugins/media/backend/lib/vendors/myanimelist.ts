@@ -4,10 +4,11 @@ import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
-import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
+import { decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type MyAnimeListHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 
