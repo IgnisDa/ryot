@@ -1,3 +1,4 @@
+export * from "./activity-log";
 export * from "./media";
 export * from "./media-monitoring";
 export * from "./entity-schemas";
