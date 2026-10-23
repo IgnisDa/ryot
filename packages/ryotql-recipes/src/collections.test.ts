@@ -190,7 +190,7 @@ describe("collections recipes", () => {
 						type: "rows",
 						items: [
 							{
-								name: "Dune",
+								name: "Sample",
 								entityId: "unit-1",
 								ownerPluginId: null,
 								ownerPluginName: null,
@@ -214,7 +214,7 @@ describe("collections recipes", () => {
 		const recipe = collectionMembersRecipe({
 			limit: 7,
 			after: "cursor",
-			searchText: " dune ",
+			searchText: " sample ",
 			membershipPropertiesSchema,
 			collectionId: "collection-1",
 		});
@@ -225,7 +225,7 @@ describe("collections recipes", () => {
 		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: expect.arrayContaining([
-				expect.objectContaining({ type: "contains", right: { value: "dune", type: "literal" } }),
+				expect.objectContaining({ type: "contains", right: { value: "sample", type: "literal" } }),
 			]),
 		});
 		expect(query.output.orderBy).toMatchObject([
@@ -242,7 +242,7 @@ describe("collections recipes", () => {
 						type: "rows",
 						items: [
 							{
-								name: "Dune",
+								name: "Sample",
 								entityId: "unit-1",
 								entitySchemaSlug: "unit",
 								populationStatus: "ready",
@@ -275,7 +275,7 @@ describe("collections recipes", () => {
 			pageInfo,
 			items: [
 				{
-					name: "Dune",
+					name: "Sample",
 					entityId: "unit-1",
 					entitySchemaSlug: "unit",
 					ownerPluginId: "fixture-1",
@@ -284,7 +284,7 @@ describe("collections recipes", () => {
 			],
 		});
 		expect(result.items[0]?.cells).toEqual([
-			{ key: "name", label: "Name", value: { value: "Dune", displayKind: "text" } },
+			{ key: "name", label: "Name", value: { value: "Sample", displayKind: "text" } },
 			{ key: "type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
 			{ key: "rank", label: "Rank", value: { value: 2, displayKind: "number" } },
 			{ key: "template", label: "Template", value: { value: true, displayKind: "boolean" } },
@@ -361,7 +361,7 @@ describe("collections recipes", () => {
 						pageInfo,
 						items: [
 							{
-								name: "Dune",
+								name: "Sample",
 								entityId: "unit-1",
 								ownerPluginId: "fixture-1",
 								ownerPluginName: "Fixture",
@@ -377,7 +377,7 @@ describe("collections recipes", () => {
 			}),
 		);
 		expect(result.items[0]?.cells).toEqual([
-			{ key: "_name", label: "Name", value: { value: "Dune", displayKind: "text" } },
+			{ key: "_name", label: "Name", value: { value: "Sample", displayKind: "text" } },
 			{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
 			{ key: "name", label: "Template Name", value: { value: "Custom name", displayKind: "text" } },
 			{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
@@ -405,7 +405,7 @@ describe("collections recipes", () => {
 
 	it("counts the filtered members before pagination", () => {
 		const recipe = collectionMembersCountRecipe({
-			searchText: "dune",
+			searchText: "sample",
 			collectionId: "collection-1",
 		});
 		const query = recipe.document.queries.count;
@@ -574,7 +574,7 @@ describe("collections recipes", () => {
 			],
 		};
 		const compiled = (applied: Filter | undefined) => {
-			const base = { searchText: "dune", filterFields: fields, collectionId: "collection-1" };
+			const base = { searchText: "sample", filterFields: fields, collectionId: "collection-1" };
 			const input: FilterInput = applied ? { now, filter: applied } : {};
 			const members = collectionMembersRecipe({
 				...base,

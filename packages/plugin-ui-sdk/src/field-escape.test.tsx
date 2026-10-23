@@ -8,7 +8,7 @@ const handled = (event: KeyboardEvent) => event.preventDefault();
 
 function Field(props: { readonly mounted: boolean }) {
 	const input = useRef<HTMLInputElement>(null);
-	const [value, setValue] = useState("dune");
+	const [value, setValue] = useState("sample");
 	useFieldEscape(input, { hasValue: value !== "", onClear: () => setValue("") });
 
 	return (
@@ -63,12 +63,12 @@ describe("useFieldEscape", () => {
 
 		fireEvent.keyDown(input, { key: "Enter" });
 
-		expect(value()).toBe("dune");
+		expect(value()).toBe("sample");
 
 		document.addEventListener("keydown", handled, { capture: true });
 		fireEvent.keyDown(input, { key: "Escape" });
 		document.removeEventListener("keydown", handled, { capture: true });
 
-		expect(value()).toBe("dune");
+		expect(value()).toBe("sample");
 	});
 });

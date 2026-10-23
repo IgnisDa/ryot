@@ -172,7 +172,7 @@ const hostScreenRequest = (
 	);
 
 const itemMember = {
-	name: "Dune",
+	name: "Sample",
 	properties: {},
 	entityId: "item-1",
 	ownerPluginId: null,
@@ -221,7 +221,7 @@ describe("collection detail", () => {
 			yield* answerCollection(page, { name: "Road Trips", members: [itemMember] });
 
 			const details = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Collection details for Dune" }),
+				screen.findByRole("button", { name: "Collection details for Sample" }),
 			);
 			fireEvent.click(details);
 			const add = yield* hostScreenRequest(page, "add-to-collection-screen");
@@ -269,7 +269,7 @@ describe("collection detail", () => {
 					],
 					members: [
 						{
-							name: "Dune",
+							name: "Sample",
 							entityId: "item-1",
 							ownerPluginId: "fixture",
 							entitySchemaSlug: "item",
@@ -348,13 +348,13 @@ describe("collection detail", () => {
 
 	it.live("counts all collection search matches on demand", () =>
 		Effect.gen(function* () {
-			const page = openCollection("col-1", "search=dune");
+			const page = openCollection("col-1", "search=sample");
 			yield* answerCollection(page, {
 				name: "Items",
 				hasMore: true,
 				members: [
 					{
-						name: "Dune",
+						name: "Sample",
 						properties: {},
 						entityId: "item-1",
 						ownerPluginId: "fixture",
@@ -373,7 +373,7 @@ describe("collection detail", () => {
 				waitFor(() => {
 					const found = page
 						.queryRequests("count")
-						.find((candidate) => JSON.stringify(candidate.document).includes("dune"));
+						.find((candidate) => JSON.stringify(candidate.document).includes("sample"));
 					expect(found).toBeDefined();
 					return found;
 				}),
@@ -439,7 +439,7 @@ describe("collection detail", () => {
 					name: "Mixed",
 					members: [
 						{
-							name: "Dune",
+							name: "Sample",
 							properties: {},
 							entityId: "item-1",
 							ownerPluginId: "fixture",

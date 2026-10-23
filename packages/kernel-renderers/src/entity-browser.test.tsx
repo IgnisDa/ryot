@@ -134,9 +134,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("1 result")),
 			);
@@ -224,9 +222,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -298,7 +294,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser();
 			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")], true, "cursor-1"),
+				answerBrowser(page, answered, [browserRow("item-1", "Example")], true, "cursor-1"),
 			);
 
 			yield* Effect.promise(() =>
@@ -349,7 +345,7 @@ describe("entity browser", () => {
 	it.live("offers an online search that seeds the provider query when nothing matches", () =>
 		Effect.gen(function* () {
 			const answered = new Set<string>();
-			const page = openBrowser({ search: "search=piranesi" });
+			const page = openBrowser({ search: "search=example" });
 			yield* Effect.promise(() => answerBrowser(page, answered, []));
 
 			yield* Effect.promise(() =>
@@ -362,7 +358,7 @@ describe("entity browser", () => {
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
-							initialQuery: "piranesi",
+							initialQuery: "example",
 							type: "pick-entity-screen",
 							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),
@@ -401,9 +397,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser({ search: "layout=table" });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getAllByRole("columnheader")).toHaveLength(2)),
 			);
@@ -419,9 +413,7 @@ describe("entity browser", () => {
 			const answered = new Set<string>();
 			const page = openBrowser();
 			page.navigate(routeLocation("/v/all-items", ""), { compact: true });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -452,9 +444,7 @@ describe("entity browser", () => {
 			const clock = testClock();
 			const answered = new Set<string>();
 			const page = openBrowser({ clock, search: "panel=details" });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 
 			fireEvent.change(search, { target: { value: "p" } });
@@ -561,19 +551,17 @@ describe("entity browser", () => {
 			const clock = testClock();
 			const answered = new Set<string>();
 			const page = openBrowser({ clock });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 
-			fireEvent.change(search, { target: { value: "piranesi" } });
+			fireEvent.change(search, { target: { value: "example" } });
 			const form = search.closest("form");
 			if (!form) {
 				throw new Error("Search input is not inside its form");
 			}
 			fireEvent.submit(form);
 			const searched = yield* browserRequest(page, 1);
-			replyBrowser(page, searched.requestId, [browserRow("item-1", "Piranesi")]);
+			replyBrowser(page, searched.requestId, [browserRow("item-1", "Example")]);
 			fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -594,9 +582,7 @@ describe("entity browser", () => {
 			const clock = testClock();
 			const answered = new Set<string>();
 			const page = openBrowser({ clock });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 			const search = screen.getByRole("searchbox", { name: "Search All Items" });
 			search.focus();
 			fireEvent.change(search, { target: { value: "pir" } });
@@ -616,9 +602,7 @@ describe("entity browser", () => {
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser({ search: "panel=details" });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Piranesi")]),
-			);
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
 
 			page.navigate(routeLocation("/v/all-items", "panel=details&search=external"));
 			yield* Effect.promise(() =>

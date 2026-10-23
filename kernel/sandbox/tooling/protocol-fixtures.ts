@@ -33,7 +33,7 @@ const run = {
 	type: "run",
 	tier: "core",
 	lane: "interactive",
-	input: { page: 1, query: "dune", flags: [true, null] },
+	input: { page: 1, query: "sample", flags: [true, null] },
 	module: { sha256, source: "export default (input) => input;" },
 } satisfies SidecarInboundFrame;
 

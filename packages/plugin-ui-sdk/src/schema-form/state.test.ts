@@ -150,7 +150,7 @@ const oauthSchema = {
 			...described("Account"),
 			type: "string",
 			validation: { required: true },
-			format: { provider: "spotify", kind: "oauth-connection" },
+			format: { kind: "oauth-connection", provider: "example-service" },
 		},
 	},
 } satisfies AppSchema;
@@ -164,8 +164,8 @@ describe("schema form state", () => {
 				key: "account",
 				required: true,
 				format: undefined,
-				oauthProvider: "spotify",
 				control: "oauth-connection",
+				oauthProvider: "example-service",
 			},
 		]);
 	});
@@ -336,7 +336,7 @@ describe("schema form state", () => {
 	});
 
 	it("fires conditional required rules only when the condition holds", () => {
-		const base = { title: "Dune", note: undefined };
+		const base = { title: "Sample", note: undefined };
 
 		expect(validateSchemaFormValues(schema, { ...base, region: "us" }).get("note")).toBeUndefined();
 		expect(validateSchemaFormValues(schema, { ...base, region: "uk" }).get("note")).toBe(
@@ -444,7 +444,7 @@ describe("schema form state", () => {
 	});
 
 	it("evaluates existence, membership, and combined rule conditions", () => {
-		const values = { year: 2026, region: "uk", title: "Dune", note: undefined };
+		const values = { year: 2026, region: "uk", title: "Sample", note: undefined };
 		const noteRule = {
 			path: ["note"],
 			kind: "validation",
@@ -549,7 +549,7 @@ describe("schema form state", () => {
 				note: "",
 				year: 2026,
 				adult: false,
-				title: "Dune",
+				title: "Sample",
 				genres: ["epic"],
 				region: undefined,
 			}),
@@ -558,7 +558,7 @@ describe("schema form state", () => {
 			year: 2026,
 			adult: false,
 			region: "us",
-			title: "Dune",
+			title: "Sample",
 			genres: ["epic"],
 		});
 		expect(toSchemaFormPayload(schema, { note: "", region: undefined })).toEqual({

@@ -10,7 +10,7 @@ const headings = {
 
 const initial = createWizardState();
 
-const picked = wizardReducer(initial, { type: "picked", slug: "netflix" });
+const picked = wizardReducer(initial, { type: "picked", slug: "beta-service" });
 
 describe("wizard state", () => {
 	it("starts at the picker with no selected service", () => {
@@ -25,7 +25,7 @@ describe("wizard state", () => {
 	});
 
 	it("advances from a picked service through review", () => {
-		expect(picked).toEqual({ slug: "netflix", step: "configure" });
+		expect(picked).toEqual({ step: "configure", slug: "beta-service" });
 		expect(wizardReducer(picked, { type: "review-requested" }).step).toBe("review");
 	});
 

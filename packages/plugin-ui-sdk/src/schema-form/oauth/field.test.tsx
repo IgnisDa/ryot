@@ -40,8 +40,8 @@ function OAuthFieldHarness(props: {
 			value={value}
 			field="account"
 			label="Account"
-			provider="spotify"
 			connect={props.connect}
+			provider="example-service"
 			disabledReason={props.disabledReason}
 			onChange={(connectionId) => {
 				setValue(connectionId);
@@ -62,7 +62,7 @@ describe("SchemaOAuthField", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Connect Account" }));
 
-			expect(connect.requests).toEqual([{ field: "account", provider: "spotify" }]);
+			expect(connect.requests).toEqual([{ field: "account", provider: "example-service" }]);
 			expect(screen.getByText("Waiting for authorization…")).toBeTruthy();
 			expect(screen.getByLabelText("Connecting Account").getAttribute("aria-busy")).toBe("true");
 

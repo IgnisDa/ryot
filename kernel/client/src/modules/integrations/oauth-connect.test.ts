@@ -141,7 +141,7 @@ const makeHarness = (
 		scope,
 		field: "account",
 		signal: controller.signal,
-		integrationProvider: { slug: "spotify", owner: { kind: "kernel" as const } },
+		integrationProvider: { slug: "example-service", owner: { kind: "kernel" as const } },
 	};
 
 	return {
@@ -239,7 +239,7 @@ describe("OAuth connect on the web", () => {
 				{
 					field: "account",
 					client: { kind: "web" },
-					integrationProvider: { slug: "spotify", owner: { kind: "kernel" } },
+					integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
 				},
 			]);
 			expect(harness.popups.at(0)?.location.href).toBe(AUTHORIZE_URL);
@@ -365,7 +365,7 @@ describe("OAuth connect in the native app", () => {
 				{
 					field: "account",
 					client: { kind: "native", applicationId: "io.ryot.app" },
-					integrationProvider: { slug: "spotify", owner: { kind: "kernel" } },
+					integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
 				},
 			]);
 

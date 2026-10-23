@@ -15,7 +15,7 @@ const sync = (
 
 describe("fieldSyncState", () => {
 	it("reports a present value as ready whatever the population status", () => {
-		expect(fieldSyncState("Piranesi", sync("pending"))).toBe("ready");
+		expect(fieldSyncState("Example", sync("pending"))).toBe("ready");
 		expect(fieldSyncState({ type: "remote" }, sync("pending"))).toBe("ready");
 		expect(fieldSyncState(0, sync("none"))).toBe("ready");
 		expect(fieldSyncState(false, sync("ready"))).toBe("ready");
@@ -30,7 +30,7 @@ describe("fieldSyncState", () => {
 
 	it("reports a missing value as failed after a failed population", () => {
 		expect(fieldSyncState(null, sync("failed"))).toBe("failed");
-		expect(fieldSyncState("Piranesi", sync("failed"))).toBe("ready");
+		expect(fieldSyncState("Example", sync("failed"))).toBe("ready");
 	});
 });
 
@@ -44,7 +44,7 @@ describe("isTitleProvisional", () => {
 
 describe("entityMonogram", () => {
 	it("takes the first uppercased character and tolerates padding and astral names", () => {
-		expect(entityMonogram("  piranesi ")).toBe("P");
+		expect(entityMonogram("  example ")).toBe("E");
 		expect(entityMonogram("Ünsere")).toBe("Ü");
 		expect(entityMonogram("🜁 sigil")).toBe("🜁");
 		expect(entityMonogram("   ")).toBe("");

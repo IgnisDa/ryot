@@ -263,7 +263,7 @@ const makeMergeScope = (overrides: {
 const recordEntityScope = () =>
 	Effect.succeed({
 		isBuiltin: false,
-		entityName: "Dune",
+		entityName: "Sample",
 		entityUserId: user.id,
 		entitySchemaPluginId: null,
 		propertiesSchema: { fields: {} },

@@ -72,7 +72,7 @@ describe("SchemaFileField", () => {
 				<FileFieldHarness
 					uploadFile={upload.uploadFile}
 					onChange={(token) => tokens.push(token)}
-					pickFile={pickingFile(candidate("trakt.zip", 2048))}
+					pickFile={pickingFile(candidate("export.zip", 2048))}
 				/>,
 			);
 
@@ -80,9 +80,9 @@ describe("SchemaFileField", () => {
 
 			const element = yield* Effect.promise(() => screen.findByLabelText("Uploading Archive"));
 			expect(element.getAttribute("aria-busy")).toBe("true");
-			expect(screen.getByText("trakt.zip")).toBeTruthy();
+			expect(screen.getByText("export.zip")).toBeTruthy();
 			expect(screen.getByText("Uploading · 2.0 KB")).toBeTruthy();
-			expect(upload.requests).toEqual([{ fileName: "trakt.zip" }]);
+			expect(upload.requests).toEqual([{ fileName: "export.zip" }]);
 
 			upload.resolve(0, { kind: "uploaded", token: "token-1" });
 
@@ -102,7 +102,7 @@ describe("SchemaFileField", () => {
 				<FileFieldHarness
 					uploadFile={upload.uploadFile}
 					onChange={(token) => tokens.push(token)}
-					pickFile={pickingFile(candidate("trakt.zip", 2048))}
+					pickFile={pickingFile(candidate("export.zip", 2048))}
 				/>,
 			);
 
@@ -144,7 +144,7 @@ describe("SchemaFileField", () => {
 				<FileFieldHarness
 					uploadFile={upload.uploadFile}
 					onChange={(token) => tokens.push(token)}
-					pickFile={pickingFile(candidate("trakt.zip", 2048))}
+					pickFile={pickingFile(candidate("export.zip", 2048))}
 				/>,
 			);
 
@@ -234,7 +234,7 @@ describe("SchemaFileField", () => {
 				<FileFieldHarness
 					uploadFile={upload.uploadFile}
 					onChange={(token) => tokens.push(token)}
-					pickFile={pickingFile(candidate("trakt.zip", 2048))}
+					pickFile={pickingFile(candidate("export.zip", 2048))}
 				/>,
 			);
 

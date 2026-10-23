@@ -11,7 +11,7 @@ import {
 
 describe("upload file extensions", () => {
 	it("accepts allowed extensions regardless of case and surrounding space", () => {
-		expect(isAllowedUploadFileName("  Trakt-Export.ZIP  ", ["zip"])).toBe(true);
+		expect(isAllowedUploadFileName("  Sample-Export.ZIP  ", ["zip"])).toBe(true);
 		expect(isAllowedUploadFileName("history.csv", ["gz", "csv"])).toBe(true);
 		expect(isAllowedUploadFileName("archive.tar.gz", ["tar.gz"])).toBe(true);
 	});

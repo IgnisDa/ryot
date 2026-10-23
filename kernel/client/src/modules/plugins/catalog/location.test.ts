@@ -43,13 +43,13 @@ describe("plugin logical locations", () => {
 			toGlobalHref(
 				{
 					path: "/items",
-					search: "q=dune",
+					search: "q=sample",
 					kind: "plugin-route",
 					packageId: PluginPackageId.make("ryot/fixture"),
 				},
 				catalog,
 			),
-		).toBe("/p/ryot/fixture/items?q=dune");
+		).toBe("/p/ryot/fixture/items?q=sample");
 		expect(toGlobalHref({ kind: "entity", entityId: EntityId.make("entity/1") }, catalog)).toBe(
 			"/e/entity%2F1",
 		);

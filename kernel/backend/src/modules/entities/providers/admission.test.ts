@@ -35,7 +35,7 @@ import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
 import { EntityImportWorkflow } from "./entity-import-workflow";
 
 const listedEntity = {
-	name: "Dune",
+	name: "Sample",
 	properties: {},
 	providerId: null,
 	populatedAt: null,

@@ -11,11 +11,11 @@ const run: ImportRunSummary = {
 	finishedAt: null,
 	inputSummary: {},
 	blockReasons: [],
-	source: "spotify",
 	status: "running",
 	expiryReason: null,
 	failureReason: null,
 	blockDeadline: null,
+	source: "example-service",
 	pluginInstallationId: null,
 	id: ImportRunId.make("run"),
 	createdAt: "2026-10-01T00:00:00.000Z",
@@ -51,7 +51,7 @@ const run: ImportRunSummary = {
 			state: "waiting",
 			unit: "listening events",
 			lastAdvancedAt: "2026-10-01T00:01:00.000Z",
-			wait: { key: "spotify", code: "provider-backoff" },
+			wait: { key: "example-service", code: "provider-backoff" },
 		},
 	],
 };
@@ -64,7 +64,7 @@ describe("ingestion reports", () => {
 		expect(bars[0]?.getAttribute("aria-valuetext")).toBe("2 files");
 		expect(bars[1]?.getAttribute("aria-valuemax")).toBe("12");
 		expect(bars[1]?.getAttribute("aria-valuetext")).toBe("6 of 12 listening events");
-		expect(screen.getByText("Waiting: provider-backoff · spotify")).toBeTruthy();
+		expect(screen.getByText("Waiting: provider-backoff · example-service")).toBeTruthy();
 		expect(screen.getAllByText(/Last advancement:/)).toHaveLength(2);
 		expect(
 			screen.getByText(

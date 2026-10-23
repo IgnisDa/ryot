@@ -49,7 +49,7 @@ describe("SearchField", () => {
 		view.rerender(
 			<SearchField
 				{...icons}
-				value="dune"
+				value="sample"
 				label="Search"
 				onChange={(value) => changes.push(value)}
 			/>,
@@ -64,7 +64,7 @@ describe("SearchField", () => {
 		render(
 			<SearchField
 				{...icons}
-				value="dune"
+				value="sample"
 				label="Search"
 				onChange={() => {}}
 				onSubmit={() => {
@@ -92,7 +92,7 @@ describe("SearchField", () => {
 		render(
 			<SearchField
 				{...icons}
-				value="dune"
+				value="sample"
 				label="Search"
 				onChange={(next) => changes.push(next)}
 			/>,

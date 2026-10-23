@@ -36,8 +36,8 @@ const rowsResult = (items: readonly unknown[]) => ({ items, pageInfo, type: "row
 const providerRow = {
 	providerId,
 	searchOptionsSchema: null,
-	providerSlug: "openlibrary",
 	providerName: "Open Library",
+	providerSlug: "example-provider",
 	rootEntitySchemaSlug: entitySchemaSlug,
 };
 
@@ -189,7 +189,7 @@ describe("ProviderAddService", () => {
 			return Effect.gen(function* () {
 				const service = yield* ProviderAddService;
 				yield* service.loadSearchOptions(scope, providerId);
-				yield* service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" });
+				yield* service.search(scope, { page: 1, providerId, pageSize: 20, query: "sample" });
 				yield* service.startImport(scope, { providerId, externalId: "ext-1" });
 				yield* service.pollImport(scope, "job-1");
 
@@ -197,7 +197,7 @@ describe("ProviderAddService", () => {
 					{ method: "searchOptions", request: { payload: { providerId } } },
 					{
 						method: "search",
-						request: { payload: { page: 1, providerId, pageSize: 20, query: "dune" } },
+						request: { payload: { page: 1, providerId, pageSize: 20, query: "sample" } },
 					},
 					{ method: "import", request: { payload: { providerId, externalId: "ext-1" } } },
 					{ method: "getImportResult", request: { params: { jobId: "job-1" } } },
@@ -230,7 +230,7 @@ describe("ProviderAddService", () => {
 					),
 					yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
 					yield* Effect.flip(
-						service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" }),
+						service.search(scope, { page: 1, providerId, pageSize: 20, query: "sample" }),
 					),
 					yield* Effect.flip(service.startImport(scope, { providerId, externalId: "ext-1" })),
 					yield* Effect.flip(service.pollImport(scope, "job-1")),

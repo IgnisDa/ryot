@@ -131,7 +131,7 @@ describe("saved-view recipes", () => {
 		);
 		const row = {
 			__entityBrowserId: "item-1",
-			__entityBrowserName: "Piranesi",
+			__entityBrowserName: "Example",
 			__entityBrowserSchemaSlug: "item",
 			__entityBrowserOwnerPluginId: null,
 			__entityBrowserPopulationStatus: "ready",
@@ -145,7 +145,7 @@ describe("saved-view recipes", () => {
 			items: [
 				{
 					cells: [],
-					name: "Piranesi",
+					name: "Example",
 					presentation: row,
 					entityId: "item-1",
 					ownerPluginId: null,
@@ -187,9 +187,9 @@ describe("saved-view recipes", () => {
 						items: [
 							{
 								details: null,
-								nameAlias: "Piranesi",
+								nameAlias: "Example",
 								__entityBrowserId: "item-1",
-								__entityBrowserName: "Piranesi",
+								__entityBrowserName: "Example",
 								__entityBrowserSchemaSlug: "item",
 								__entityBrowserOwnerPluginId: null,
 								__entityBrowserPopulationStatus: "ready",
@@ -202,7 +202,7 @@ describe("saved-view recipes", () => {
 		);
 
 		expect(decoded.items[0]?.cells).toEqual([
-			{ label: "Name", key: "nameAlias", value: { value: "Piranesi", displayKind: "text" } },
+			{ label: "Name", key: "nameAlias", value: { value: "Example", displayKind: "text" } },
 			{ key: "details", label: "Details", value: { value: null, displayKind: "json" } },
 		]);
 	});

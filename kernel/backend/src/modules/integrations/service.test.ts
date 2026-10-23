@@ -490,7 +490,7 @@ describe("installation availability", () => {
 	};
 	const sinkIntegration = makeIntegration({
 		lot: "sink",
-		provider: "kodi",
+		provider: "sample-sink",
 		pluginInstallationId: "example-installation-id",
 	});
 
@@ -820,20 +820,20 @@ describe("handleWebhook", () => {
 		);
 	});
 
-	const kodiIntegration = makeIntegration({
+	const sinkIntegration = makeIntegration({
 		lot: "sink",
-		provider: "kodi",
+		provider: "sample-sink",
 		pluginInstallationId: "example-installation-id",
 	});
-	const kodiSink: RegisteredIntegrationProvider = {
+	const sinkProvider: RegisteredIntegrationProvider = {
 		...systemPlugin("example"),
 		lot: "sink",
-		name: "Kodi",
-		slug: "kodi",
-		description: "Kodi",
+		name: "Sample Sink",
+		slug: "sample-sink",
 		requiresProKey: false,
-		scriptSlug: "kodi-webhook",
+		description: "Sample Sink",
 		settingsSchema: { fields: {} },
+		scriptSlug: "sample-sink-webhook",
 	};
 	for (const code of [
 		"integration-disabled",
@@ -847,12 +847,12 @@ describe("handleWebhook", () => {
 					engine: { execute: () => Effect.die("Rejected deliveries must not dispatch") },
 					catalog: {
 						findOwnedForUser: () =>
-							Effect.succeed({ ...kodiSink, requiresProKey: code === "pro-key-required" }),
+							Effect.succeed({ ...sinkProvider, requiresProKey: code === "pro-key-required" }),
 					},
 					repository: {
 						getUserDisableIntegrations: () => Effect.succeed(code === "integrations-disabled"),
 						getByWebhookToken: () =>
-							Effect.succeed({ ...kodiIntegration, isDisabled: code === "integration-disabled" }),
+							Effect.succeed({ ...sinkIntegration, isDisabled: code === "integration-disabled" }),
 					},
 				}),
 			}),
@@ -876,11 +876,11 @@ describe("handleWebhook", () => {
 	layer(
 		makeServiceLayer({
 			dependencies: ({ record }) => ({
-				catalog: { findOwnedForUser: () => Effect.succeed(kodiSink) },
+				catalog: { findOwnedForUser: () => Effect.succeed(sinkProvider) },
 				engine: { execute: (_workflow, options) => Effect.succeed(options.executionId) },
 				repository: {
 					getUserDisableIntegrations: () => Effect.succeed(false),
-					getByWebhookToken: () => Effect.succeed(kodiIntegration),
+					getByWebhookToken: () => Effect.succeed(sinkIntegration),
 				},
 				imports: {
 					createIntegrationRunIfIdle: () => Effect.die("sink runs must not be idle-gated"),
@@ -901,7 +901,7 @@ describe("handleWebhook", () => {
 					}),
 				).toEqual({ runId: makeRun("completed").id });
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					integration: { lot: "sink", provider: "kodi", id: kodiIntegration.id },
+					integration: { lot: "sink", id: sinkIntegration.id, provider: "sample-sink" },
 				});
 			}),
 		);
