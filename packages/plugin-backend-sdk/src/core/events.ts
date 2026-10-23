@@ -8,7 +8,7 @@ import {
 	EventStreamWorkRequest,
 } from "@ryot-app/contract/modules/events/stream-work";
 import { PluginId } from "@ryot-app/contract/schema/brands";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
 import { sandboxEntitySchemaSlugListSchema } from "./entities";
@@ -50,9 +50,17 @@ export const createEventsResultDataSchema = strictStruct({
 	outcomes: CreateEventsResponse.fields.outcomes,
 	count: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
-export const partialCreateEventsResult = Schema.decodeUnknownOption(
+const partialCreateEventsResult = Schema.decodeUnknownOption(
 	Schema.Struct({ ...createEventsResultDataSchema.fields, partial: Schema.Literal(true) }),
 );
+export const recoverPartialCreateEvents = <Error extends { readonly data?: unknown }>(
+	error: Error,
+): Effect.Effect<{ readonly count: number }, Error> => {
+	const partial = partialCreateEventsResult(error.data);
+	return Option.isSome(partial)
+		? Effect.succeed({ count: partial.value.count })
+		: Effect.fail(error);
+};
 const eventUpdatePatchSchema = strictStruct({
 	entityId: Schema.optional(sandboxIdSchema),
 	occurredAt: Schema.optional(Schema.String),

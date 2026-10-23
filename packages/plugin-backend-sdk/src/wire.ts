@@ -8,6 +8,11 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export { jsonValueSchema };
 export type { JsonPrimitive, JsonValue };
 
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+	value !== null && typeof value === "object" && !Array.isArray(value);
+
+export const asRecord = (value: unknown) => (isRecord(value) ? value : null);
+
 export const strictStruct = <Fields extends Schema.Struct.Fields>(
 	fields: Fields,
 ): Schema.Struct<Fields> => {
