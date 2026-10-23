@@ -36,7 +36,7 @@ export const runCancelImportRunWorkflow = Effect.fn("CancelImportRunWorkflow")(f
 		),
 		execute: Effect.gen(function* () {
 			yield* repository.cancelIngestion(payload);
-			const current = yield* repository.getIngestionRun(payload);
+			const current = yield* repository.getIngestionRunControl(payload);
 			return current?.status === "cancelling" ? { executionKind: current.executionKind } : null;
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});

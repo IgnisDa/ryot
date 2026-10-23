@@ -442,7 +442,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							accountGeneration: command.accountGeneration,
 						};
 						const run = yield* imports
-							.getIngestionRun(scope)
+							.getIngestionRunControl(scope)
 							.pipe(
 								Effect.mapError(
 									(error) =>

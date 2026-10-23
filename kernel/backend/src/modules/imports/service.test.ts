@@ -117,7 +117,7 @@ const serviceCase = (
 			Layer.mock(UploadIntentsService)({}),
 			Layer.mock(DataImportAdmission)({}),
 			Layer.mock(ImportsRepository)({
-				getIngestionRun: () =>
+				getIngestionRunControl: () =>
 					Effect.succeed(ingestionTestRun({ plan: null, pins: null, status: "pending" })),
 				createManualRun: (input) =>
 					Effect.sync(() => {

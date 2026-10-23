@@ -93,7 +93,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				scope: IngestionScope,
 				batch: IngestionBatch,
 			) {
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run?.pins || !run.plan || run.pluginInstallationId === null) {
 					return yield* Effect.void;
 				}
@@ -213,7 +213,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				status: "completed" | "failed" | "cancelled",
 				failureReason?: ImportRunFailureReason,
 			) {
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				return yield* execution
 					.settle({
 						scope,
@@ -235,7 +235,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				scope: IngestionScope,
 				integration: IntegrationRecord,
 			) {
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run || !["blocked", "pending"].includes(run.status)) {
 					return false;
 				}
@@ -330,7 +330,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 					});
 					prepared = yield* repository.getPreparedRelease(scope);
 				}
-				const current = yield* repository.getIngestionRun(scope);
+				const current = yield* repository.getIngestionRunControl(scope);
 				if (!prepared || !current?.pins) {
 					return false;
 				}
@@ -420,7 +420,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 					});
 				}
 				yield* captures.recover(scope);
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run?.plan || !run.pins) {
 					return yield* new ImportRunError({ message: "Integration execution plan is not pinned" });
 				}

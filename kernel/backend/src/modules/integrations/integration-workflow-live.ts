@@ -65,7 +65,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const reference = `${executionId}-integration-orchestrator`;
 		const artifacts = yield* ExecutionFileStore;
 		const release = () => artifacts.release(owner, reference);
-		const initial = yield* repository.getIngestionRun(scope);
+		const initial = yield* repository.getIngestionRunControl(scope);
 		if (!initial || ["cancelled", "expired"].includes(initial.status)) {
 			yield* execution.cleanup(scope);
 			yield* release();
@@ -149,7 +149,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 				if (started) {
 					break;
 				}
-				const waiting = yield* repository.getIngestionRun(scope);
+				const waiting = yield* repository.getIngestionRunControl(scope);
 				if (waiting?.status !== "pending") {
 					if (waiting?.status === "cancelling") {
 						yield* settle("cancelled");
@@ -161,7 +161,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					name: `await-integration-application:${attempt}`,
 				});
 			}
-			const run = yield* repository.getIngestionRun(scope);
+			const run = yield* repository.getIngestionRunControl(scope);
 			if (run?.status !== "running") {
 				if (run?.status === "cancelling") {
 					yield* settle("cancelled");
@@ -257,7 +257,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			error: IntegrationRunError,
 			name: "integration-terminal-status",
 			success: Schema.NullOr(ImportRunStatus),
-			execute: repository.getIngestionRun(scope).pipe(
+			execute: repository.getIngestionRunControl(scope).pipe(
 				Effect.map((run) => run?.status ?? null),
 				Effect.mapError(toIntegrationWorkflowError),
 			),

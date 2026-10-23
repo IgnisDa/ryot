@@ -124,7 +124,7 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 		accountGeneration: subject.accountGeneration,
 	};
 	const repository = yield* ImportsRepository;
-	const run = yield* repository.getIngestionRun(scope);
+	const run = yield* repository.getIngestionRunControl(scope);
 	if (run?.status !== "running" || run.pins?.executionId !== grants?.artifactOwnerExecutionId) {
 		return yield* new SandboxRunError({
 			kind: "invalid-input",

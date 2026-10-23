@@ -186,7 +186,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 		Layer.mock(ImportsRepository)({
 			recordIssue: () => Effect.succeed(true),
 			advanceBatch: () => Effect.succeed(true),
-			getIngestionRun: () => Effect.sync(() => run),
+			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 			projectBatch: (_scope, value) =>
 				Effect.sync(() => {
@@ -405,11 +405,11 @@ it.effect(
 					recordIssue: () => Effect.succeed(true),
 					projectBatch: () => Effect.succeed(true),
 					getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
-					getIngestionRun: () => Effect.succeed(ingestionTestRun({ integrationId })),
 					sealCollection: () =>
 						Effect.sync(() => {
 							sealed = true;
 						}),
+					getIngestionRunControl: () => Effect.succeed(ingestionTestRun({ integrationId })),
 					registerBatch: (_scope, _batch, _operations, owner) =>
 						Effect.sync(() => {
 							owners.push(owner);

@@ -71,7 +71,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const release = Effect.fnUntraced(function* () {
 		yield* artifacts.release(owner, reference);
 	});
-	const initial = yield* repository.getIngestionRun(scope).pipe(Effect.mapError(toWorkflowError));
+	const initial = yield* repository
+		.getIngestionRunControl(scope)
+		.pipe(Effect.mapError(toWorkflowError));
 	if (!initial || ["completed", "failed", "cancelled", "expired"].includes(initial.status)) {
 		yield* execution.cleanup(scope).pipe(Effect.mapError(toWorkflowError));
 		return yield* Effect.void;
@@ -84,7 +86,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		),
 	);
 	const process = Effect.gen(function* () {
-		const run = yield* repository.getIngestionRun(scope);
+		const run = yield* repository.getIngestionRunControl(scope);
 		if (run?.status === "cancelling") {
 			yield* settle("cancelled");
 			return yield* Effect.void;
@@ -100,7 +102,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				.startIngestion({ scope, startedAt: yield* DateTime.nowAsDate })
 				.pipe(Effect.mapError(toWorkflowError)),
 		});
-		const started = yield* repository.getIngestionRun(scope);
+		const started = yield* repository.getIngestionRunControl(scope);
 		if (started?.status !== "running") {
 			if (started?.status === "cancelling") {
 				yield* settle("cancelled");
@@ -142,7 +144,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				importRunId: payload.runId,
 			},
 		});
-		const current = yield* repository.getIngestionRun(scope);
+		const current = yield* repository.getIngestionRunControl(scope);
 		if (current?.status === "cancelling") {
 			yield* settle("cancelled");
 		} else if (

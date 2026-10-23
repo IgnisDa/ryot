@@ -70,6 +70,7 @@ const runCase = (
 			Layer.mock(ImportsRepository)({
 				getCapture: () => Effect.succeed(null),
 				getIngestionRun: () => Effect.sync(() => run),
+				getIngestionRunControl: () => Effect.sync(() => run),
 				getPreparedRelease: () => Effect.sync(() => prepared),
 				expireBlocked: (input) => record("expire", input).pipe(Effect.as(options.expired ?? false)),
 				createBlockedRun: (input) =>

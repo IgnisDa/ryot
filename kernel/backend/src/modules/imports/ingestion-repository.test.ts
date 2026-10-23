@@ -8,9 +8,10 @@ import type {
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
-import { DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, type Tracer } from "effect";
 
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -734,6 +735,7 @@ layer(
 				{ ...scope, accountGeneration: { token: "generation", userId: UserId.make("other-user") } },
 			]) {
 				expect(yield* repository.getIngestionRun(denied)).toBeNull();
+				expect(yield* repository.getIngestionRunControl(denied)).toBeNull();
 				expect(
 					yield* repository.releaseBlocked({ plan, pins, scope: denied, now: acceptedAt }),
 				).toBe(false);
@@ -749,12 +751,80 @@ layer(
 			);
 			expect(yield* repository.startIngestion({ scope, startedAt: acceptedAt })).toBe(false);
 			expect(yield* repository.getIngestionRun(scope)).toBeNull();
+			expect(yield* repository.getIngestionRunControl(scope)).toBeNull();
 			yield* session.run((db) =>
 				db
 					.update(tables.user)
 					.set({ accountGeneration: "generation" })
 					.where(eq(tables.user.id, userId)),
 			);
+		}),
+	);
+
+	test.effect("reads live execution control with one statement regardless of report size", () =>
+		Effect.gen(function* () {
+			const scope = yield* runningRun();
+			const repository = yield* ImportsRepository;
+			const session = yield* DatabaseSession;
+			for (const size of [0, 25]) {
+				if (size > 0) {
+					yield* session.transaction(
+						Effect.gen(function* () {
+							yield* repository.publishCapture(scope, capture);
+							for (let ordinal = 0; ordinal < size; ordinal++) {
+								const item = { ...batch, ordinal, id: `control-batch-${ordinal}` };
+								yield* repository.registerBatch(scope, item, [], batchOwner);
+								yield* repository.advanceBatch(scope, item.id, "preparing");
+								yield* repository.advanceBatch(scope, item.id, "applying");
+								yield* repository.projectBatch(scope, { ...item, summary, state: "applied" });
+								yield* repository.putActivity(scope, {
+									wait: null,
+									completed: 1,
+									parentId: null,
+									unit: "records",
+									kind: "writing",
+									exactTotal: null,
+									state: "running",
+									batchId: item.id,
+									id: `control-activity-${ordinal}`,
+									lastAdvancedAt: acceptedAt.toISOString(),
+								});
+							}
+						}),
+					);
+				}
+				const spans: Tracer.Span[] = [];
+				const control = yield* repository
+					.getIngestionRunControl(scope)
+					.pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				const statements = spans.flatMap((span) => {
+					const text = span.attributes.get("db.query.text");
+					return typeof text === "string" ? [text] : [];
+				});
+				expect(statements).toHaveLength(1);
+				expect(statements[0]).toContain('from "import_run"');
+				expect(statements[0]).not.toMatch(/import_batch|import_activity/);
+				expect(control).toMatchObject({
+					plan,
+					pins,
+					id: scope.runId,
+					status: "running",
+					accountGeneration: scope.accountGeneration,
+				});
+				expect(control).not.toHaveProperty("summary");
+				expect(control).not.toHaveProperty("activities");
+			}
+			const report = yield* repository.getIngestionRun(scope);
+			expect(report?.activities).toHaveLength(25);
+			expect(report?.summary).toEqual([
+				{
+					unit: "plays",
+					recordKind: "listening-event",
+					counts: { updated: 0, created: 50, skipped: 75, unchanged: 25, unsuccessful: 25 },
+				},
+			]);
+			yield* repository.cancelIngestion(scope);
+			expect((yield* repository.getIngestionRunControl(scope))?.status).toBe("cancelling");
 		}),
 	);
 

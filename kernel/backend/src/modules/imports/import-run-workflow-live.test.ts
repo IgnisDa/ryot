@@ -66,7 +66,7 @@ const rootCase = (
 			),
 			Layer.mock(ImportsRepository)({
 				listBatches: () => Effect.succeed([]),
-				getIngestionRun: () => Effect.sync(() => run),
+				getIngestionRunControl: () => Effect.sync(() => run),
 				startIngestion: () =>
 					Effect.sync(() => {
 						if (cancelAtStart) {
