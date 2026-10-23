@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "00319914-8a31-461b-9e5e-cb6c881100a5",
+	"id": "a544037f-bdcd-4868-bf85-d6e742826811",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -16080,7 +16080,7 @@
 			"table": "import_run"
 		},
 		{
-			"value": "\"status\" <> 'blocked' or (\"integration_lot\" = 'sink' and \"block_deadline\" = \"created_at\" + interval '7 days')",
+			"value": "\"status\" <> 'blocked' or (\"integration_lot\" = 'sink' and \"block_deadline\" = \"created_at\" + interval '168 hours')",
 			"name": "import_run_block_check",
 			"entityType": "checks",
 			"schema": "public",
