@@ -4,7 +4,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { invokeOperationRecipe, type OperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect, Schema } from "effect";
 
-import type { Client } from "~/fixtures/kernel/auth";
+import type { Client } from "./auth";
 
 export type RecipeInput<Recipe extends { readonly input: { readonly Type: unknown } }> =
 	Recipe["input"]["Type"];
@@ -35,19 +35,14 @@ const operationTransport =
 			)
 			.pipe(Effect.map(({ result }) => result));
 
-export const invokeFitnessOperation = <
-	Input,
-	InputEncoded extends JsonValue,
-	Output,
-	OutputEncoded,
->(
+export const invokeOperation = <Input, InputEncoded extends JsonValue, Output, OutputEncoded>(
 	client: Client,
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
 ) => invokeOperationRecipe(recipe, input, operationTransport(client, options?.idempotencyKey));
 
-export const invokeEncodedFitnessOperation = <
+export const invokeEncodedOperation = <
 	Input,
 	InputEncoded extends JsonValue,
 	Output,
@@ -56,9 +51,11 @@ export const invokeEncodedFitnessOperation = <
 	client: Client,
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	payload: InputEncoded,
+	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
 ) =>
-	operationTransport(client)({
-		payload,
-		packageId: recipe.packageId,
-		operationSlug: recipe.operationSlug,
-	}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(recipe.output)));
+	operationTransport(
+		client,
+		options?.idempotencyKey,
+	)({ payload, packageId: recipe.packageId, operationSlug: recipe.operationSlug }).pipe(
+		Effect.flatMap(Schema.decodeUnknownEffect(recipe.output)),
+	);

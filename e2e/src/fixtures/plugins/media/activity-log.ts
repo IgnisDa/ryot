@@ -4,12 +4,13 @@ import {
 	MediaActivityLogOutput,
 } from "@ryot-app/media-plugin/shared/media-activity-operations";
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/media-plugin/shared/plugin-identity";
-import { defineOperationRecipe, invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
-import { Effect, Schema } from "effect";
+import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { insertGlobalRelationship } from "~/fixtures/kernel/entity-graph";
+import { invokeEncodedOperation, invokeOperation } from "~/fixtures/kernel/operations";
 import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
@@ -18,7 +19,6 @@ import { assertPresent } from "~/support/assertions";
 
 import { findMediaEntitySchema } from "./entity-schemas";
 import { insertLibraryMembership, seedMediaEntity } from "./media";
-import { operationTransport } from "./media-monitoring";
 
 const mediaActivityLogRecipe = defineOperationRecipe({
 	packageId: PLUGIN_PACKAGE_ID,
@@ -28,23 +28,14 @@ const mediaActivityLogRecipe = defineOperationRecipe({
 });
 
 export const logMediaActivity = (client: Client, input: MediaActivityLogInput) =>
-	invokeOperationRecipe(
-		mediaActivityLogRecipe,
-		input,
-		operationTransport(client, input.submissionId),
-	);
+	invokeOperation(client, mediaActivityLogRecipe, input, { idempotencyKey: input.submissionId });
 
 export const logMediaActivityUnchecked = (
 	client: Client,
 	submissionId: string,
 	payload: JsonValue,
 ) =>
-	operationTransport(
-		client,
-		submissionId,
-	)({ payload, packageId: PLUGIN_PACKAGE_ID, operationSlug: "media-activity-log" }).pipe(
-		Effect.flatMap(Schema.decodeUnknownEffect(MediaActivityLogOutput)),
-	);
+	invokeEncodedOperation(client, mediaActivityLogRecipe, payload, { idempotencyKey: submissionId });
 
 export const mediaReferenceForEntity = (client: Client, entityId: string) =>
 	Effect.gen(function* () {

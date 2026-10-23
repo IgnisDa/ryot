@@ -23,10 +23,9 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 const isoOf = (value: string) => DateTime.formatIso(DateTime.makeUnsafe(value));
-
-const nowIso = () => new Date().toISOString();
 
 const readContext = (client: Parameters<typeof mediaReferenceForEntity>[0], entityId: string) =>
 	Effect.gen(function* () {

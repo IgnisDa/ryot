@@ -15,10 +15,10 @@ import { Effect } from "effect";
 
 import { collectRyotQLRecipeItems, executeRyotQLRecipe } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
+import { invokeOperation, type RecipeInput } from "~/fixtures/kernel/operations";
 import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema } from "./exercises";
-import { invokeFitnessOperation, type RecipeInput } from "./operation-transport";
 
 export const workoutEditorTimes = {
 	endedAt: "2026-10-01T11:00:00.000Z",
@@ -30,27 +30,25 @@ export const saveWorkoutEditor = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorSaveRecipe>,
 ) =>
-	invokeFitnessOperation(client, workoutEditorSaveRecipe, input, {
-		idempotencyKey: input.submissionId,
-	});
+	invokeOperation(client, workoutEditorSaveRecipe, input, { idempotencyKey: input.submissionId });
 
 export const loadWorkoutEditorContext = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorContextRecipe>,
-) => invokeFitnessOperation(client, workoutEditorContextRecipe, input);
+) => invokeOperation(client, workoutEditorContextRecipe, input);
 
 export const correctWorkoutTimes = (
 	client: Client,
 	input: RecipeInput<typeof workoutTimeCorrectionRecipe>,
-) => invokeFitnessOperation(client, workoutTimeCorrectionRecipe, input);
+) => invokeOperation(client, workoutTimeCorrectionRecipe, input);
 
 export const deleteWorkout = (client: Client, input: RecipeInput<typeof workoutDeleteRecipe>) =>
-	invokeFitnessOperation(client, workoutDeleteRecipe, input);
+	invokeOperation(client, workoutDeleteRecipe, input);
 
 export const updateExerciseOverrides = (
 	client: Client,
 	input: RecipeInput<typeof exerciseOverrideUpdateRecipe>,
-) => invokeFitnessOperation(client, exerciseOverrideUpdateRecipe, input);
+) => invokeOperation(client, exerciseOverrideUpdateRecipe, input);
 
 export type SaveInput = RecipeInput<typeof workoutEditorSaveRecipe>;
 export type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
