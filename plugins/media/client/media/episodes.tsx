@@ -3,6 +3,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import type { ActivityEpisode, MediaActivityLogger } from "./activity-log/state";
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
@@ -21,12 +22,18 @@ import { ManagedAssetImage } from "./managed-assets";
 
 type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
 
+export type MediaEpisodeLog = {
+	readonly parentEntityId: string;
+	readonly logger: MediaActivityLogger;
+};
+
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly aspect: MediaEpisodeArtworkAspect;
 	readonly purpose: MediaEpisodeImagePurpose;
 	readonly stateLabels: MediaEpisodeStateLabels;
 	readonly numberLabel: (episode: Episode) => string;
 	readonly originLabel: (episode: Episode) => string;
+	readonly activityEpisode: (episode: Episode) => ActivityEpisode;
 };
 
 export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
@@ -49,6 +56,7 @@ const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
 	clsx(mediaAspectClass(aspect), ARTWORK_WIDTH_CLASS[aspect][compact ? "compact" : "regular"]);
 
 function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
+	readonly log: MediaEpisodeLog;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly divided: boolean;
@@ -114,6 +122,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 			</button>
 			{open ? (
 				<MediaEpisodeDetails
+					log={props.log}
 					render={render}
 					episode={episode}
 					compact={props.compact}
@@ -127,6 +136,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 }
 
 function MediaNextUpCard<Episode extends MediaEpisode>(props: {
+	readonly log: MediaEpisodeLog;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly episode: Episode;
@@ -149,6 +159,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 			</div>
 			<MediaEpisodeRow
 				divided={false}
+				log={props.log}
 				render={props.render}
 				episode={props.episode}
 				compact={props.compact}
@@ -159,6 +170,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 }
 
 function MediaEpisodeList<Episode extends MediaEpisode>(props: {
+	readonly log: MediaEpisodeLog;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly leadingDivider: boolean;
@@ -169,6 +181,7 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 		<div>
 			{props.episodes.map((episode, index) => (
 				<MediaEpisodeRow
+					log={props.log}
 					key={episode.id}
 					episode={episode}
 					render={props.render}
@@ -190,6 +203,7 @@ export function MediaEpisodePages<
 	Scope extends object = Record<never, never>,
 >(props: {
 	readonly scope?: Scope;
+	readonly log: MediaEpisodeLog;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly entityId: string;
@@ -214,6 +228,7 @@ export function MediaEpisodePages<
 						{index !== 0 || nextUp === null ? null : (
 							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
 								<MediaNextUpCard
+									log={props.log}
 									render={render}
 									episode={nextUp}
 									compact={props.compact}
@@ -222,6 +237,7 @@ export function MediaEpisodePages<
 							</ManagedAssetProvider>
 						)}
 						<MediaEpisodeList
+							log={props.log}
 							render={render}
 							episodes={episodes}
 							compact={props.compact}

@@ -21,6 +21,7 @@ import {
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "../../shared/show-recipes";
+import type { MediaActivityLogger } from "../media/activity-log/state";
 import { type MediaCursorPage, mediaCursorPageError } from "../media/cursor-page-state";
 import {
 	type MediaEpisodePageInput,
@@ -159,10 +160,19 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
 
+const showActivityEpisode = (episode: ShowEpisode | ShowOrderEpisode) => ({
+	id: episode.id,
+	name: episode.name,
+	state: episode.state,
+	seasonNumber: episode.seasonNumber,
+	episodeNumber: episode.episodeNumber,
+});
+
 const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 	aspect: "still",
 	purpose: "still",
 	originLabel: showEpisodeOriginLabel,
+	activityEpisode: showActivityEpisode,
 	numberLabel: mediaEpisodeNumberLabel,
 	stateLabels: { complete: "Watched", untracked: undefined, in_progress: "In progress" },
 };
@@ -170,6 +180,7 @@ const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 const SHOW_ORDER_EPISODE_RENDER: MediaEpisodeRender<ShowOrderEpisode> = {
 	...SHOW_EPISODE_RENDER,
 	numberLabel: showEpisodeOriginLabel,
+	activityEpisode: showActivityEpisode,
 };
 
 const SHOW_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
@@ -292,6 +303,7 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 
 function ShowSeasonBrowser(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly seasons: ShowSeasonList;
@@ -323,6 +335,7 @@ function ShowSeasonBrowser(props: {
 				copy={SHOW_EPISODE_PAGES_COPY}
 				safeAreaTop={props.safeAreaTop}
 				query={showSeasonEpisodesQuery}
+				log={{ logger: props.logger, parentEntityId: props.entityId }}
 				nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
 			/>
 		</ManagedAssetProvider>
@@ -362,6 +375,7 @@ function ShowOrderGroupHeader(props: {
 /** An episode order's groups in place of seasons; it starts on the first group. */
 function ShowOrderBrowser(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly order: ShowEpisodeOrder;
@@ -402,6 +416,7 @@ function ShowOrderBrowser(props: {
 				copy={SHOW_ORDER_EPISODE_PAGES_COPY}
 				containerId={`${order.externalId}:${index}`}
 				scope={{ episodeExternalIds: group.episodeExternalIds }}
+				log={{ logger: props.logger, parentEntityId: props.entityId }}
 			/>
 		</>
 	);
@@ -409,6 +424,7 @@ function ShowOrderBrowser(props: {
 
 export function ShowEpisodes(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly refresh: () => void;
@@ -448,6 +464,7 @@ export function ShowEpisodes(props: {
 			/>
 			{order === null ? (
 				<ShowSeasonBrowser
+					logger={props.logger}
 					nextUp={props.nextUp}
 					seasons={state.seasons}
 					compact={props.compact}
@@ -459,6 +476,7 @@ export function ShowEpisodes(props: {
 			) : (
 				<ShowOrderBrowser
 					order={order}
+					logger={props.logger}
 					key={order.externalId}
 					compact={props.compact}
 					entityId={props.entityId}
@@ -475,6 +493,7 @@ const persistOrder = (write: Promise<void>) => {
 
 function ShowEpisodesWithOrder(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly nextUp: ShowEpisode | null;
@@ -498,6 +517,7 @@ function ShowEpisodesWithOrder(props: {
 			<MediaRefreshStatus result={result} />
 			<ShowEpisodes
 				state={state}
+				logger={props.logger}
 				nextUp={props.nextUp}
 				selectedId={selectedId}
 				compact={props.compact}
@@ -517,6 +537,7 @@ function ShowEpisodesWithOrder(props: {
 /** Resolves the device's stored episode order before the seasons query runs. */
 export function ShowEpisodesTab(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
@@ -535,6 +556,7 @@ export function ShowEpisodesTab(props: {
 	return (
 		<ShowEpisodesWithOrder
 			storage={storage}
+			logger={props.logger}
 			compact={props.compact}
 			entityId={props.entityId}
 			safeAreaTop={props.safeAreaTop}

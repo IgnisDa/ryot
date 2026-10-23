@@ -397,16 +397,67 @@ export const selectedEpisode = (input: {
 	readonly seasonNumber: number | null;
 	readonly selectedId: string | undefined;
 	readonly choices: readonly ActivityEpisode[];
+	readonly initial: ActivityEpisode | undefined;
 	readonly nextUp: Omit<ActivityEpisode, "state"> | null;
 }): ActivityEpisode | undefined => {
-	const { nextUp, choices } = input;
+	const { nextUp, choices, initial } = input;
 	const nextUpApplies = nextUp !== null && (nextUp.seasonNumber ?? null) === input.seasonNumber;
 	const id = input.selectedId ?? (nextUpApplies ? nextUp.id : choices[0]?.id);
 	const listed = choices.find((choice) => choice.id === id);
-	if (listed !== undefined || nextUp === null || nextUp.id !== id) {
+	if (listed !== undefined) {
 		return listed;
 	}
+	if (initial?.id === id) {
+		return initial;
+	}
+	if (nextUp === null || nextUp.id !== id) {
+		return undefined;
+	}
 	return { ...nextUp, state: "untracked", seasonNumber: nextUp.seasonNumber ?? null };
+};
+
+export type ActivityQuickAction = {
+	readonly text: string;
+	readonly label: string;
+	readonly entry: ActivityEntryDraft;
+};
+
+export const activityQuickAction = (
+	logger: MediaActivityLogger,
+	context: MediaActivityLogContext,
+): ActivityQuickAction | null => {
+	const { participle } = logger.copy;
+	if (logger.family === "show" || logger.family === "podcast") {
+		const { nextUp } = context;
+		if (nextUp === null) {
+			return null;
+		}
+		const code = episodeCode(logger, nextUp);
+		return {
+			text: `${code} ${participle}.`,
+			label: `Mark ${code} ${participle}`,
+			entry: {
+				kind: "episodes",
+				when: { kind: "now" },
+				parentEntityId: context.id,
+				episodeEntityIds: [nextUp.id],
+			},
+		};
+	}
+	if (logger.family === "positional") {
+		const position = (context.position ?? 0) + 1;
+		const total = activityPositionTotal(logger, context);
+		if (context.state === "complete" || (total !== null && position > total)) {
+			return null;
+		}
+		const { singular } = logger.progressUnit;
+		return {
+			label: `Mark ${singular} ${position} ${participle}`,
+			text: `${capitalized(singular)} ${position} ${participle}.`,
+			entry: { position, kind: "progress", entityId: context.id },
+		};
+	}
+	return null;
 };
 
 export const episodeStateLabel = (input: {

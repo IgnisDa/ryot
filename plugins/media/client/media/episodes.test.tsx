@@ -5,6 +5,7 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 
 import {
 	decodeEpisodicEpisodePage,
+	EPISODIC_FIXTURE_LOG,
 	EPISODIC_FIXTURE_RENDER,
 	episodicEpisode,
 	episodicEpisodePageData,
@@ -40,6 +41,7 @@ function Pages(props: { readonly nextUp?: EpisodicFixtureEpisode | null }) {
 			safeAreaTop={12}
 			entityId="parent-1"
 			containerId="parent-1"
+			log={EPISODIC_FIXTURE_LOG}
 			nextUp={props.nextUp ?? null}
 			render={EPISODIC_FIXTURE_RENDER}
 			query={episodicFixtureEpisodesQuery}

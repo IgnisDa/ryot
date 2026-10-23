@@ -11,7 +11,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/dom";
-import { act } from "react";
+import { act, createRef } from "react";
 
 import {
 	type ActivityLogFake,
@@ -34,6 +34,7 @@ import {
 } from "../../../tests/client/test-support";
 import { MediaSummaryHeader } from "../summary-header";
 import { MediaLogActivityButton } from "./button";
+import { MediaActivityLogSheet } from "./sheet";
 import type { MediaActivityLogger } from "./state";
 
 afterEach(() => {
@@ -116,7 +117,10 @@ const mountLog = (options: {
 const openLog = (mounted: ReturnType<typeof mountLog>) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() => mounted.view.setTime(NOW));
-		clickRyotElement(getByRole(mounted.view.container, "button", { name: "Log activity" }));
+		clickRyotElement(
+			queryByRole(mounted.view.container, "button", { name: "Log activity" }) ??
+				getByRole(mounted.view.container, "button", { name: "More logging options" }),
+		);
 		yield* eventually(() =>
 			expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
 		);
@@ -936,6 +940,256 @@ it.live("opens from the empty activity state", () =>
 			yield* eventually(() =>
 				expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
 			);
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);
+
+const manga: MediaActivityLogger = {
+	family: "positional",
+	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
+	progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+};
+
+const quickButton = (mounted: ReturnType<typeof mountLog>, name: string) =>
+	Effect.promise(() => waitFor(() => getByRole(mounted.view.container, "button", { name })));
+
+it.live("keeps the single button for flat media", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({ logger: movie });
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			expect(getByRole(mounted.view.container, "button", { name: "Log activity" })).toBeDefined();
+			expect(
+				queryByRole(mounted.view.container, "button", { name: "More logging options" }),
+			).toBeNull();
+			expect(mounted.queries).toEqual([]);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("keeps the single button when nothing is next up", () =>
+	Effect.gen(function* () {
+		const fake = showFake();
+		const mounted = mountLog({
+			logger: show,
+			fake: {
+				...fake,
+				target: contextTarget({
+					...fake.target,
+					showNextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
+				}),
+			},
+		});
+		try {
+			yield* eventually(() => expect(mounted.queries).toContain("context"));
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			expect(getByRole(mounted.view.container, "button", { name: "Log activity" })).toBeDefined();
+			expect(
+				queryByRole(mounted.view.container, "button", { name: "More logging options" }),
+			).toBeNull();
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("logs the next show episode in one click", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({ logger: show, fake: showFake() });
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			const main = yield* quickButton(mounted, "Mark S2·E5 watched");
+			expect(queryByRole(mounted.view.container, "button", { name: "Log activity" })).toBeNull();
+			clickRyotElement(main);
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({
+					kind: "episodes",
+					when: { kind: "now" },
+					parentEntityId: "entity-1",
+					episodeEntityIds: ["s2e5"],
+				}),
+			]);
+			yield* eventually(() =>
+				expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
+			);
+			expect(queryByRole(document.body, "dialog")).toBeNull();
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("logs the next podcast episode in one click", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: podcast,
+			fake: {
+				target: contextTarget({
+					name: "Serial",
+					schemaSlug: "podcast",
+					podcastNextUp: {
+						pageInfo: { limit: 1, hasMore: false },
+						items: [{ id: "p72", episodeNumber: 72, seasonNumber: null, name: "Seventy-two" }],
+					},
+				}),
+			},
+		});
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			clickRyotElement(yield* quickButton(mounted, "Mark Episode 72 listened"));
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({
+					kind: "episodes",
+					when: { kind: "now" },
+					episodeEntityIds: ["p72"],
+					parentEntityId: "entity-1",
+				}),
+			]);
+			yield* eventually(() =>
+				expect(getByText(mounted.view.container, "Episode 72 listened.")).toBeDefined(),
+			);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+for (const [name, logger, target, label, text, position] of [
+	[
+		"anime",
+		anime,
+		{ position: 12, episodes: 28 },
+		"Mark episode 13 watched",
+		"Episode 13 watched.",
+		13,
+	],
+	[
+		"manga",
+		manga,
+		{ position: 113, chapters: 200 },
+		"Mark chapter 114 read",
+		"Chapter 114 read.",
+		114,
+	],
+] as const) {
+	it.live(`logs the next ${name} position in one click`, () =>
+		Effect.gen(function* () {
+			const mounted = mountLog({ logger, fake: { target: contextTarget(target) } });
+			try {
+				yield* Effect.promise(() => mounted.view.setTime(NOW));
+				clickRyotElement(yield* quickButton(mounted, label));
+				yield* submitted(mounted);
+				expect(mounted.requests).toEqual([
+					operation({ position, kind: "progress", entityId: "entity-1" }),
+				]);
+				yield* eventually(() => expect(getByText(mounted.view.container, text)).toBeDefined());
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	);
+}
+
+it.live("shows Saving while the quick action is in flight", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({ logger: show, fake: showFake(), result: () => Effect.never });
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
+			const saving = yield* quickButton(mounted, "Saving…");
+			expect(saving.hasAttribute("disabled")).toBe(true);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+for (const failure of ["incomplete", "transport"] as const) {
+	it.live(`retries the same quick submission after ${failure}`, () =>
+		Effect.gen(function* () {
+			const mounted = mountLog({
+				logger: show,
+				fake: showFake(),
+				result: (attempt) => {
+					if (attempt > 1) {
+						return Effect.succeed(SAVED);
+					}
+					return failure === "incomplete"
+						? Effect.succeed({ count: 1, status: "incomplete" })
+						: Effect.fail(new RyotClientError("operation-failed"));
+				},
+			});
+			try {
+				yield* Effect.promise(() => mounted.view.setTime(NOW));
+				clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
+				yield* eventually(() =>
+					expect(getByRole(mounted.view.container, "alert").textContent).toBe(
+						"Couldn't save. Try again.",
+					),
+				);
+				press(mounted.view.container, "Retry");
+				yield* submitted(mounted, 2);
+				expect(mounted.requests[1]).toEqual(mounted.requests[0]);
+				yield* eventually(() =>
+					expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
+				);
+				expect(queryByRole(mounted.view.container, "alert")).toBeNull();
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	);
+}
+
+it.live("opens the sheet from the caret without writing", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({ logger: show, fake: showFake() });
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			yield* quickButton(mounted, "Mark S2·E5 watched");
+			press(mounted.view.container, "More logging options");
+			yield* eventually(() =>
+				expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
+			);
+			expect(mounted.requests).toEqual([]);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("opens the sheet on the preselected episode", () =>
+	Effect.gen(function* () {
+		const mounted = mountRyotClient(
+			{ watchEntities, query: activityLogQuery(showFake({ earlier: {} })) },
+			<MediaActivityLogSheet
+				compact
+				logger={show}
+				entityId="entity-1"
+				triggerRef={createRef()}
+				onClose={() => undefined}
+				initialEpisode={{
+					id: "s2e7",
+					name: "Seven",
+					seasonNumber: 2,
+					episodeNumber: 7,
+					state: "untracked",
+				}}
+			/>,
+		);
+		try {
+			yield* Effect.promise(() => mounted.setTime(NOW));
+			yield* eventually(() =>
+				expect(radio(dialogOf(), "S2·E7").getAttribute("aria-checked")).toBe("true"),
+			);
+			expect(getByRole(dialogOf(), "button", { name: "Season: Season 2" })).toBeDefined();
+			expect(getByRole(dialogOf(), "button", { name: "Mark S2·E7 watched" })).toBeDefined();
 		} finally {
 			mounted.unmount();
 		}

@@ -1,50 +1,22 @@
-import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import clsx from "clsx";
 
 import type { MediaSummaryOf } from "../../shared/media-recipes";
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { podcastRecipes } from "../../shared/podcast-recipes";
-import { podcastEpisodesRecipe } from "../../shared/podcast-recipes";
-import { type MediaCursorPage, mediaCursorPageError } from "../media/cursor-page-state";
+import type { MediaActivityLogger } from "../media/activity-log/state";
+import { mediaCursorPageError } from "../media/cursor-page-state";
 import {
-	type MediaEpisodePageInput,
 	MediaEpisodePages,
 	type MediaEpisodePagesCopy,
 	type MediaEpisodeRender,
 } from "../media/episodes";
 import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { mediaCountLabel } from "../media/summary-state";
-
-export const PODCAST_EPISODE_PAGE_LIMIT = 40;
+import { type PodcastEpisode, podcastEpisodesQuery } from "./episodes-query";
 
 type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
 
-export type PodcastEpisode = Recipe.Success<typeof podcastEpisodesRecipe>["items"][number];
-
 export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: number }) =>
 	`Ep ${episode.episodeNumber}`;
-
-export const podcastEpisodesQuery = createRyotQuery<
-	MediaEpisodePageInput,
-	MediaCursorPage<PodcastEpisode>
->(
-	({ input, client }) =>
-		client.data.query(
-			podcastEpisodesRecipe({
-				containerId: input.containerId,
-				limit: PODCAST_EPISODE_PAGE_LIMIT,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				...(input.after === null ? {} : { after: input.after }),
-			}),
-		),
-	{
-		entityWatch: ({ data, input }) => ({
-			foreground: [input.entityId],
-			visible: data?.items.map(({ id }) => id) ?? [],
-		}),
-	},
-);
 
 const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	aspect: "square",
@@ -52,6 +24,13 @@ const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: podcastEpisodeOriginLabel,
 	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
+	activityEpisode: (episode) => ({
+		id: episode.id,
+		seasonNumber: null,
+		name: episode.name,
+		state: episode.state,
+		episodeNumber: episode.episodeNumber,
+	}),
 };
 
 const PODCAST_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
@@ -76,6 +55,7 @@ export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => 
 
 export function PodcastEpisodesTab(props: {
 	readonly compact: boolean;
+	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
 	readonly summary: PodcastSummary | undefined;
@@ -95,6 +75,7 @@ export function PodcastEpisodesTab(props: {
 				render={PODCAST_EPISODE_RENDER}
 				copy={PODCAST_EPISODE_PAGES_COPY}
 				nextUp={props.summary?.nextUp ?? null}
+				log={{ logger: props.logger, parentEntityId: props.entityId }}
 			/>
 		</div>
 	);

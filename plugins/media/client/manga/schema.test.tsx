@@ -23,7 +23,10 @@ import {
 	mangaSummaryFacts,
 } from "./schema";
 
-const noopAdapter = { query: () => Effect.succeed({}) };
+const noopAdapter = {
+	query: () => Effect.succeed({}),
+	watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+};
 
 const PROGRESS_EVENT = {
 	text: null,

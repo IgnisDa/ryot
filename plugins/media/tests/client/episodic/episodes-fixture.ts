@@ -1,8 +1,13 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
+import type { MediaActivityLogger } from "../../../client/media/activity-log/state";
 import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
-import type { MediaEpisodePageInput, MediaEpisodeRender } from "../../../client/media/episodes";
+import type {
+	MediaEpisodeLog,
+	MediaEpisodePageInput,
+	MediaEpisodeRender,
+} from "../../../client/media/episodes";
 import { mediaEpisodeNumberLabel } from "../../../client/media/episodes-state";
 import { rowsResult } from "../query-result-fixture";
 import { type EpisodicFixtureEpisode, episodicFixtureEpisodesRecipe } from "./recipes";
@@ -75,4 +80,21 @@ export const EPISODIC_FIXTURE_RENDER: MediaEpisodeRender<EpisodicFixtureEpisode>
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: (episode) => `Ep ${episode.episodeNumber}`,
 	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
+	activityEpisode: (episode) => ({
+		id: episode.id,
+		seasonNumber: null,
+		name: episode.name,
+		state: episode.state,
+		episodeNumber: episode.episodeNumber,
+	}),
+};
+
+const EPISODIC_FIXTURE_LOGGER: MediaActivityLogger = {
+	family: "podcast",
+	copy: { noun: "podcast", verb: "listen to", gerund: "listening", participle: "listened" },
+};
+
+export const EPISODIC_FIXTURE_LOG: MediaEpisodeLog = {
+	parentEntityId: "parent-1",
+	logger: EPISODIC_FIXTURE_LOGGER,
 };

@@ -12,6 +12,7 @@ import {
 	activityEntryDraft,
 	activityIntents,
 	activityLogInput,
+	activityQuickAction,
 	activityRuntimeHint,
 	activityStatusNote,
 	backfillSummary,
@@ -353,13 +354,37 @@ describe("episodes and copy", () => {
 		];
 		const nextUp = { id: "b", name: "B", seasonNumber: 1, episodeNumber: 2 };
 		const pick = (selectedId: string | undefined, season: number | null, up = nextUp) =>
-			selectedEpisode({ choices, nextUp: up, selectedId, seasonNumber: season })?.id;
+			selectedEpisode({ choices, nextUp: up, selectedId, initial: undefined, seasonNumber: season })
+				?.id;
 		expect(pick("a", 1)).toBe("a");
 		expect(pick(undefined, 1)).toBe("b");
 		expect(pick(undefined, 2)).toBe("a");
 		expect(
-			selectedEpisode({ nextUp, choices: [], seasonNumber: 1, selectedId: undefined }),
+			selectedEpisode({
+				nextUp,
+				choices: [],
+				seasonNumber: 1,
+				initial: undefined,
+				selectedId: undefined,
+			}),
 		).toMatchObject({ id: "b", seasonNumber: 1, state: "untracked" });
+	});
+
+	it("keeps an initial episode selected when it is not among the listed choices", () => {
+		const initial = {
+			id: "z",
+			name: "Z",
+			seasonNumber: 2,
+			episodeNumber: 9,
+			state: "complete" as const,
+		};
+		const nextUp = { id: "b", name: "B", seasonNumber: 1, episodeNumber: 2 };
+		expect(
+			selectedEpisode({ nextUp, initial, choices: [], seasonNumber: 2, selectedId: "z" }),
+		).toEqual(initial);
+		expect(
+			selectedEpisode({ nextUp, initial, choices: [], seasonNumber: 2, selectedId: undefined }),
+		).toBeUndefined();
 	});
 
 	it("summarises earlier episodes with codes and a remainder", () => {
@@ -431,5 +456,81 @@ describe("episodes and copy", () => {
 	it("hints the runtime only when known", () => {
 		expect(activityRuntimeHint(170)).toBe("Leave empty to use the runtime (2h 50m).");
 		expect(activityRuntimeHint(null)).toBe("Leave empty if you don't know.");
+	});
+});
+
+const episodes = (seasonNumber: number | null) => ({
+	pageInfo: { limit: 1, hasMore: false },
+	items: [{ id: "next", name: "Five", seasonNumber, episodeNumber: 5 }],
+});
+
+describe("quick actions", () => {
+	const anime: MediaActivityLogger = positional;
+	const manga: MediaActivityLogger = {
+		family: "positional",
+		progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
+	};
+
+	it("marks the next-up show episode watched now", () => {
+		expect(activityQuickAction(show, loaded({ showNextUp: episodes(2) }))).toEqual({
+			text: "S2·E5 watched.",
+			label: "Mark S2·E5 watched",
+			entry: {
+				kind: "episodes",
+				when: { kind: "now" },
+				parentEntityId: "entity-1",
+				episodeEntityIds: ["next"],
+			},
+		});
+	});
+
+	it("offers nothing for a show with no next-up episode", () => {
+		expect(activityQuickAction(show, loaded())).toBeNull();
+	});
+
+	it("marks the next-up podcast episode listened", () => {
+		const listened = { ...podcast, copy: { ...copy, participle: "listened" } };
+		expect(activityQuickAction(listened, loaded({ podcastNextUp: episodes(null) }))).toMatchObject({
+			text: "Episode 5 listened.",
+			label: "Mark Episode 5 listened",
+			entry: { episodeEntityIds: ["next"] },
+		});
+	});
+
+	it("logs episode 1 for an anime with no position", () => {
+		expect(activityQuickAction(anime, loaded({ episodes: 12 }))).toEqual({
+			text: "Episode 1 watched.",
+			label: "Mark episode 1 watched",
+			entry: { position: 1, kind: "progress", entityId: "entity-1" },
+		});
+	});
+
+	it("advances an anime mid-way and when the total is unknown", () => {
+		expect(activityQuickAction(anime, loaded({ position: 12, episodes: 28 }))).toMatchObject({
+			entry: { position: 13 },
+			label: "Mark episode 13 watched",
+		});
+		expect(activityQuickAction(anime, loaded({ position: 12 }))).toMatchObject({
+			entry: { position: 13 },
+		});
+	});
+
+	it("offers nothing for an anime at its total or marked complete", () => {
+		expect(activityQuickAction(anime, loaded({ position: 28, episodes: 28 }))).toBeNull();
+		expect(
+			activityQuickAction(anime, loaded({ position: 3, episodes: 28, state: "complete" })),
+		).toBeNull();
+	});
+
+	it("labels manga chapters as read", () => {
+		expect(activityQuickAction(manga, loaded({ position: 113, chapters: 200 }))).toMatchObject({
+			text: "Chapter 114 read.",
+			label: "Mark chapter 114 read",
+		});
+	});
+
+	it("never offers a quick action for flat media", () => {
+		expect(activityQuickAction(flat, loaded({ runtime: 120 }))).toBeNull();
 	});
 });
