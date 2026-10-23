@@ -37,4 +37,9 @@ export const audiobookSchema = defineFlatMediaSchema({
 		people: "Authors & narrators",
 		notice: "Authors, narrators and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
+		copy: { verb: "listen to", noun: "audiobook", gerund: "listening", participle: "listened" },
+	},
 });

@@ -114,6 +114,10 @@ export const showSchema = defineEpisodicMediaSchema({
 	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this show.",
 	activityCopy: mediaEpisodicActivityCopy({ noun: "show", verb: "watch", watchedLabel: "Watched" }),
+	logActivity: {
+		family: "show",
+		copy: { noun: "show", verb: "watch", gerund: "watching", participle: "watched" },
+	},
 	creditCopy: {
 		people: "Cast & crew",
 		companies: "Production companies",

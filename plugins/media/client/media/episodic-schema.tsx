@@ -13,6 +13,7 @@ import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
+import type { MediaActivityLogger } from "./activity-log/state";
 import {
 	MediaActivityReviewDetail,
 	type MediaActivityRowRender,
@@ -142,6 +143,7 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly presentationSource: MediaPresentationSource<Presentation>;
 	};
 	readonly aspect: MediaArtworkAspect;
+	readonly logActivity: MediaActivityLogger;
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly heroHeight: (compact: boolean) => number;
@@ -323,7 +325,7 @@ export const defineEpisodicMediaSchema = <
 		copy: activityCopy,
 		query: activityQuery,
 		Record: ActivityRecord,
-		emptyAction: "log-activity",
+		emptyAction: descriptor.logActivity,
 		hasMoreActivities: (result) => result.hasMoreActivities,
 		renderHistory: (events) => (
 			<MediaActivityRows
@@ -342,6 +344,7 @@ export const defineEpisodicMediaSchema = <
 	});
 
 	const header = mediaSummaryHeaderDetail({
+		logActivity: descriptor.logActivity,
 		facts: (summary: Summary) =>
 			[...descriptor.facts(summary), mediaEpisodicAiredFact(summary)].filter(
 				(fact) => fact !== undefined,

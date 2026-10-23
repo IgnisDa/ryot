@@ -39,7 +39,7 @@ it.live(
 						facts: [],
 						links: [],
 						identityDetail: undefined,
-						rail: { logActivity: false },
+						rail: { logActivity: undefined },
 					}}
 				/>,
 			);

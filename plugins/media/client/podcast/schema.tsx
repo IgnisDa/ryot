@@ -85,6 +85,10 @@ export const podcastSchema = defineEpisodicMediaSchema({
 		noun: "podcast",
 		watchedLabel: "Played",
 	}),
+	logActivity: {
+		family: "podcast",
+		copy: { noun: "podcast", verb: "listen to", gerund: "listening", participle: "listened" },
+	},
 	creditCopy: {
 		people: "Hosts & guests",
 		companies: "Networks & publishers",

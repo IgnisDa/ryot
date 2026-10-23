@@ -10,6 +10,7 @@ import type {
 	MediaGenresList,
 	MediaSummarySelection,
 } from "../../shared/media-recipes";
+import type { MediaActivityLogger } from "./activity-log/state";
 import { mediaActivityDurationLabel } from "./activity-timeline";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
@@ -84,7 +85,7 @@ export const mediaSourceLinks = (entity: {
 export type MediaStatusTone = "accent" | "danger" | "neutral" | "success" | "warning";
 
 export type MediaStatusRailConfig = {
-	readonly logActivity: boolean;
+	readonly logActivity: MediaActivityLogger | undefined;
 	readonly ownership?: { readonly owned: boolean | null } | undefined;
 	readonly status?:
 		| {
@@ -318,6 +319,7 @@ export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) 
 /** The media header: rating first and production status last around the descriptor's facts, genres as chips. */
 export const mediaSummaryHeaderDetail =
 	<Summary extends MediaSummaryValue & { readonly state: EpisodicLifecycleState }>(input: {
+		readonly logActivity: MediaActivityLogger;
 		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 		readonly progress?:
 			((summary: Summary) => { readonly percent: number } | undefined) | undefined;
@@ -335,7 +337,7 @@ export const mediaSummaryHeaderDetail =
 			mediaProductionStatusFact(summary),
 		].filter((fact) => fact !== undefined),
 		rail: {
-			logActivity: true,
+			logActivity: input.logActivity,
 			ownership: { owned: summary.owned },
 			status: {
 				progress: input.progress?.(summary),

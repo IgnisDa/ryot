@@ -45,6 +45,10 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	nouns: { plural: "items", title: "Fixture", singular: "item" },
 	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
 	episodeOrigin: (episode: { readonly episodeNumber: number }) => `Ep ${episode.episodeNumber}`,
+	logActivity: {
+		family: "show",
+		copy: { noun: "item", verb: "watch", gerund: "watching", participle: "watched" },
+	},
 	activityCopy: {
 		segmentNoun: "Pass",
 		recordLabel: "Item record",

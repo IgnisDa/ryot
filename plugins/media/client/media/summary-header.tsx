@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { Badge, Button, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -11,6 +11,8 @@ import {
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 
+import { MediaLogActivityButton } from "./activity-log/button";
+import type { MediaActivityLogger } from "./activity-log/state";
 import { MediaCollectionsRow } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
@@ -83,15 +85,20 @@ function MediaDescription(props: { readonly text: string }) {
 	);
 }
 
-function MediaActions(props: { readonly logActivity: boolean; readonly entityId: string }) {
+function MediaActions(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly logActivity: MediaActivityLogger | undefined;
+}) {
 	return (
 		<div className="flex flex-wrap items-center gap-2">
-			{props.logActivity ? (
-				<Button onClick={() => console.log("TODO: open activity form")}>
-					<AppIcon size={15} name="plus" />
-					Log activity
-				</Button>
-			) : null}
+			{props.logActivity === undefined ? null : (
+				<MediaLogActivityButton
+					compact={props.compact}
+					entityId={props.entityId}
+					logger={props.logActivity}
+				/>
+			)}
 			<MediaReviewButton entityId={props.entityId} />
 		</div>
 	);
@@ -234,7 +241,7 @@ export function MediaSummaryHeader(props: {
 					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
 			)}
-			<MediaActions entityId={media.id} logActivity={detail.rail.logActivity} />
+			<MediaActions compact={compact} entityId={media.id} logActivity={detail.rail.logActivity} />
 		</>
 	);
 	const rail = <MediaStatusRail media={media} config={detail.rail} />;

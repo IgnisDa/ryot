@@ -40,7 +40,7 @@ const createReview = createRyotMutation<
 	}),
 );
 
-function MediaReviewForm(props: {
+export function MediaReviewForm(props: {
 	readonly entityId: string;
 	readonly onClose: () => void;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;

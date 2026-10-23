@@ -15,6 +15,7 @@ import type {
 	MediaUnlinkedCreatorsOverview,
 } from "../../shared/media-recipes";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
+import type { MediaActivityLogger } from "./activity-log/state";
 import {
 	MediaActivityReviewDetail,
 	type MediaActivityRowRender,
@@ -157,6 +158,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly presentationSource: MediaPresentationSource<Presentation>;
 	};
 	readonly aspect: MediaArtworkAspect;
+	readonly logActivity: MediaActivityLogger;
 	readonly heroHeight: (compact: boolean) => number;
 	readonly backdropPurposes?: MediaImagePurposes;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
@@ -370,7 +372,7 @@ export const defineFlatMediaSchema = <
 		copy: activityCopy,
 		query: activityQuery,
 		Record: ActivityRecord,
-		emptyAction: "log-activity",
+		emptyAction: descriptor.logActivity,
 		hasMoreActivities: (result) => result.truncated,
 		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
 			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
@@ -383,7 +385,11 @@ export const defineFlatMediaSchema = <
 		),
 	});
 
-	const header = mediaSummaryHeaderDetail({ facts: descriptor.facts, progress: summaryProgress });
+	const header = mediaSummaryHeaderDetail({
+		facts: descriptor.facts,
+		progress: summaryProgress,
+		logActivity: descriptor.logActivity,
+	});
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
