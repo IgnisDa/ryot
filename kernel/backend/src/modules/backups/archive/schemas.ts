@@ -29,6 +29,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(
@@ -45,7 +46,7 @@ const sha256 = Schema.String.pipe(
 export const decodeArchiveJsonObject = Schema.decodeUnknownSync(DataRecordProperties);
 
 export const isArchiveJsonObject = (value: unknown): value is Record<string, JsonValue> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+	isObjectRecord(value);
 
 export const ARCHIVE_SECTION_PATHS = [
 	"profile.json",

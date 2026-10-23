@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Innertube } from "youtubei.js/web";
 
 import type { ScriptHost } from "./core/script-host";
+import { asRecord } from "./wire";
 
 export * from "youtubei.js/web";
 
@@ -18,11 +19,6 @@ type RequestParts = {
 	body: string | undefined;
 	headers: Record<string, string>;
 };
-
-const asRecord = (value: unknown): Record<string, unknown> | undefined =>
-	value !== null && typeof value === "object"
-		? Object.fromEntries(Object.entries(value))
-		: undefined;
 
 const mergeHeaders = (target: Record<string, string>, source: unknown) => {
 	if (source instanceof Headers) {
