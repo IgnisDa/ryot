@@ -7,7 +7,7 @@ import {
 	usePluginStorage,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Chip } from "@ryot-app/plugin-ui-sdk";
+import { ChipRadioGroup } from "@ryot-app/plugin-ui-sdk";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -201,36 +201,6 @@ const SHOW_ORDER_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
 const metaLabel = (parts: readonly (string | undefined)[]) =>
 	parts.filter((part) => part !== undefined).join(" • ");
 
-type ShowChipOption = {
-	readonly key: string;
-	readonly label: string;
-	readonly checked: boolean;
-	readonly select: () => void;
-};
-
-function ShowChipSelector(props: {
-	readonly label: string;
-	readonly options: readonly ShowChipOption[];
-}) {
-	return (
-		<div className="overflow-x-auto">
-			<div role="radiogroup" aria-label={props.label} className="flex w-max gap-2">
-				{props.options.map((option) => (
-					<button
-						role="radio"
-						type="button"
-						key={option.key}
-						onClick={option.select}
-						aria-checked={option.checked}
-					>
-						<Chip label={option.label} checked={option.checked} />
-					</button>
-				))}
-			</div>
-		</div>
-	);
-}
-
 function ShowEpisodeOrderSelector(props: {
 	readonly selected: ShowEpisodeOrder | null;
 	readonly orders: readonly ShowEpisodeOrder[];
@@ -240,21 +210,14 @@ function ShowEpisodeOrderSelector(props: {
 		return null;
 	}
 	return (
-		<ShowChipSelector
+		<ChipRadioGroup
+			overflow="scroll"
 			label="Episode order"
+			value={props.selected?.externalId ?? ""}
+			onChange={(value) => props.onSelect(value === "" ? null : value)}
 			options={[
-				{
-					key: "aired",
-					label: "Aired order",
-					checked: props.selected === null,
-					select: () => props.onSelect(null),
-				},
-				...props.orders.map((order) => ({
-					label: order.name,
-					key: `order:${order.externalId}`,
-					select: () => props.onSelect(order.externalId),
-					checked: order.externalId === props.selected?.externalId,
-				})),
+				{ value: "", label: "Aired order" },
+				...props.orders.map((order) => ({ label: order.name, value: order.externalId })),
 			]}
 		/>
 	);
@@ -316,13 +279,14 @@ function ShowSeasonBrowser(props: {
 	return (
 		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
 			{props.seasons.length === 1 ? null : (
-				<ShowChipSelector
+				<ChipRadioGroup
 					label="Season"
+					value={season.id}
+					overflow="scroll"
+					onChange={props.onSelect}
 					options={props.seasons.map((option) => ({
-						key: option.id,
+						value: option.id,
 						label: showSeasonLabel(option),
-						checked: option.id === season.id,
-						select: () => props.onSelect(option.id),
 					}))}
 				/>
 			)}
@@ -395,13 +359,14 @@ function ShowOrderBrowser(props: {
 	return (
 		<>
 			{order.groups.length === 1 ? null : (
-				<ShowChipSelector
+				<ChipRadioGroup
+					overflow="scroll"
 					label="Episode group"
+					value={String(index)}
+					onChange={(value) => setSelectedIndex(Number(value))}
 					options={order.groups.map((option, optionIndex) => ({
 						label: option.name,
-						key: String(optionIndex),
-						checked: optionIndex === index,
-						select: () => setSelectedIndex(optionIndex),
+						value: String(optionIndex),
 					}))}
 				/>
 			)}

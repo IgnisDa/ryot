@@ -1,4 +1,5 @@
 import {
+	localDay,
 	nextPageCursor,
 	paginationItems,
 	useRyotInfiniteQuery,
@@ -29,7 +30,6 @@ import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "re
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
-import { MediaLinkButton } from "../primitives";
 import {
 	activityLogContextQuery,
 	earlierUnwatchedQuery,
@@ -59,7 +59,6 @@ import {
 	episodeStateLabel,
 	hasActivityErrors,
 	initialActivityDraft,
-	localDay,
 	type MediaActivityLogger,
 	percentFromUnit,
 	seasonLabel,
@@ -88,8 +87,6 @@ type Earlier =
 	  };
 
 type EarlierReport = { readonly episodeId: string; readonly earlier: Earlier };
-
-const OPTION_CLASS = "flex-1 px-3";
 
 const FIRST_PAGE: string | null = null;
 
@@ -247,10 +244,9 @@ function EpisodeList(props: {
 	const { pager, logger } = props;
 	if (pager.isError && pager.choices.length === 0) {
 		return (
-			<div className="flex items-center gap-3">
-				<StatusMessage tone="error">Unable to load episodes.</StatusMessage>
-				<MediaLinkButton label="Try again" onClick={pager.retry} />
-			</div>
+			<StatusMessage tone="error" action={{ label: "Try again", onClick: pager.retry }}>
+				Unable to load episodes.
+			</StatusMessage>
 		);
 	}
 	if (pager.isPending) {
@@ -403,10 +399,10 @@ function WhenField(props: {
 				{episode ? `When did you ${logger.copy.verb} it?` : "When did you finish it?"}
 			</span>
 			<SegmentedControl
+				fill
 				label="When"
 				value={draft.when}
-				className="w-full"
-				optionClassName={OPTION_CLASS}
+				optionClassName="px-3"
 				options={whenOptions(episode)}
 				onChange={(when) => props.onChange({ when })}
 			/>
@@ -657,10 +653,9 @@ function EpisodeStep(props: Body) {
 				</p>
 			) : null}
 			{earlier.status === "error" ? (
-				<div className="flex items-center gap-3">
-					<StatusMessage tone="error">Unable to check earlier episodes.</StatusMessage>
-					<MediaLinkButton label="Try again" onClick={earlier.retry} />
-				</div>
+				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
+					Unable to check earlier episodes.
+				</StatusMessage>
 			) : null}
 			{earlier.status === "loading" ? (
 				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
@@ -756,14 +751,14 @@ function ActivityLogFields(props: Body) {
 			)}
 			{finished && !timePrimary ? (
 				<div className="flex flex-col gap-3">
-					<button
-						type="button"
+					<Button
+						variant="link"
+						className="self-start"
 						aria-expanded={details}
 						onClick={() => setDetails(!details)}
-						className="self-start font-ui text-[13px] font-medium text-accent-text"
 					>
 						{details ? "Hide details" : "More details"}
-					</button>
+					</Button>
 					{details ? (
 						<TimeSpentField
 							draft={draft}
@@ -893,7 +888,9 @@ function ActivityLogDialog(props: {
 						{done?.offerReview === true && props.onReview !== undefined ? (
 							<p className="text-text-muted">
 								Want to say what you thought?{" "}
-								<MediaLinkButton label="Write a review" onClick={props.onReview} />
+								<Button variant="link" onClick={props.onReview}>
+									Write a review
+								</Button>
 							</p>
 						) : null}
 					</div>
@@ -901,10 +898,10 @@ function ActivityLogDialog(props: {
 					<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
 						{activityIntents(logger).length < 2 ? null : (
 							<SegmentedControl
-								className="w-full"
+								fill
 								value={draft.intent}
 								label="What happened"
-								optionClassName={OPTION_CLASS}
+								optionClassName="px-3"
 								options={activityIntents(logger)}
 								onChange={(intent) => patch({ intent })}
 							/>
@@ -988,10 +985,12 @@ export function MediaActivityLogSheet(props: {
 				closeLabel="Close log activity"
 				placement={props.compact ? "sheet" : "center"}
 			>
-				<div className="flex items-center gap-3">
-					<StatusMessage tone={result.isError ? "error" : "pending"}>{message}</StatusMessage>
-					{result.isError ? <MediaLinkButton label="Try again" onClick={result.refetch} /> : null}
-				</div>
+				<StatusMessage
+					tone={result.isError ? "error" : "pending"}
+					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
+				>
+					{message}
+				</StatusMessage>
 			</Dialog>
 		);
 	}

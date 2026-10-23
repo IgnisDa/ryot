@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { Badge, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -17,13 +17,7 @@ import { MediaCollectionsRow } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMonitoringRow } from "./monitoring";
-import {
-	MediaExternalLink,
-	MediaFactRow,
-	MediaLinkButton,
-	MediaMarkdown,
-	MediaProgressBar,
-} from "./primitives";
+import { MediaExternalLink, MediaFactRow, MediaMarkdown, MediaProgressBar } from "./primitives";
 import { MediaReviewButton } from "./review";
 import {
 	type MediaEntitySummaryValue,
@@ -75,11 +69,9 @@ function MediaDescription(props: { readonly text: string }) {
 				</p>
 			)}
 			<div className="flex items-start">
-				<MediaLinkButton
-					tone="plain"
-					label={isExpanded ? "Less" : "More"}
-					onClick={() => setIsExpanded(!isExpanded)}
-				/>
+				<Button variant="linkPlain" onClick={() => setIsExpanded(!isExpanded)}>
+					{isExpanded ? "Less" : "More"}
+				</Button>
 			</div>
 		</div>
 	);

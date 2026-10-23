@@ -379,11 +379,7 @@ function WorkoutsBody() {
 								})}
 							</span>
 							{loaded.hasMore && !showCount ? (
-								<Button
-									variant="ghost"
-									onClick={() => setShowCount(true)}
-									className="text-sm text-accent-text"
-								>
+								<Button variant="link" onClick={() => setShowCount(true)}>
 									Count all
 								</Button>
 							) : null}

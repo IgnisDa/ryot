@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole, getByText, queryByRole, waitFor } from "@testing-library/dom";
+import { Deferred } from "effect";
 
 import {
 	activityLogQuery,
@@ -25,6 +26,10 @@ import {
 import { mediaCursorPageError } from "./cursor-page-state";
 import { MediaEpisodePages, type MediaEpisodePagesCopy } from "./episodes";
 
+const watchEntities = () => ({ update: () => undefined, dispose: () => undefined });
+
+const contextQuery = activityLogQuery({ target: contextTarget() });
+
 const COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes.",
 	loading: { title: "Loading", detail: "Loading episodes." },
@@ -44,7 +49,11 @@ describe("episode details", () => {
 					const documents: unknown[] = [];
 					const view = mountRyotClient(
 						{
+							watchEntities,
 							query: (document) => {
+								if (!JSON.stringify(document).includes("fixtureEpisode")) {
+									return contextQuery(document);
+								}
 								documents.push(document);
 								return Effect.succeed(
 									episodicEpisodePageData({
@@ -114,7 +123,13 @@ describe("episode details", () => {
 				throw new Error("Expected next-up episode");
 			}
 			const view = mountRyotClient(
-				{ query: () => Effect.succeed(episodicEpisodePageData({})) },
+				{
+					watchEntities,
+					query: (document) =>
+						JSON.stringify(document).includes("fixtureEpisode")
+							? Effect.succeed(episodicEpisodePageData({}))
+							: contextQuery(document),
+				},
 				<MediaEpisodePages
 					compact
 					copy={COPY}
@@ -148,11 +163,14 @@ const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, 
 type Operation = { readonly slug: string; readonly input: unknown };
 
 const mountDetails = (options: {
+	readonly state?: string;
 	readonly publishDate?: string | null;
+	readonly refresh?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly podcast?: Parameters<typeof activityLogQuery>[0]["podcast"];
 	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
 }) => {
 	const requests: Operation[] = [];
+	const contexts: number[] = [];
 	const logQuery = activityLogQuery({
 		podcast: options.podcast ?? [],
 		target: contextTarget({
@@ -171,21 +189,27 @@ const mountDetails = (options: {
 				requests.push(request);
 				return options.result?.(requests.length) ?? Effect.succeed({ count: 1, status: "saved" });
 			},
-			query: (document) =>
-				JSON.stringify(document).includes("fixtureEpisode")
-					? Effect.succeed(
-							episodicEpisodePageData({
-								episodes: [
-									episodicEpisode({
-										id: "p1",
-										episodeNumber: 1,
-										name: "The Arrival",
-										publishDate: options.publishDate ?? "2026-10-01",
-									}),
-								],
-							}),
-						)
-					: logQuery(document),
+			query: (document) => {
+				if (JSON.stringify(document).includes("fixtureEpisode")) {
+					return Effect.succeed(
+						episodicEpisodePageData({
+							episodes: [
+								episodicEpisode({
+									id: "p1",
+									episodeNumber: 1,
+									name: "The Arrival",
+									state: options.state ?? "untracked",
+									publishDate: options.publishDate ?? "2026-10-01",
+								}),
+							],
+						}),
+					);
+				}
+				contexts.push(contexts.length);
+				return contexts.length > 1 && options.refresh !== undefined
+					? options.refresh()
+					: logQuery(document);
+			},
 		},
 		<MediaEpisodePages
 			compact
@@ -199,7 +223,7 @@ const mountDetails = (options: {
 			query={episodicFixtureEpisodesQuery}
 		/>,
 	);
-	return { view, requests };
+	return { view, requests, contexts };
 };
 
 const openDetails = (mounted: ReturnType<typeof mountDetails>) =>
@@ -237,6 +261,39 @@ describe("episode details actions", () => {
 			mounted.view.unmount();
 		}),
 	);
+
+	for (const [label, state, refresh] of [
+		["a refresh that succeeds", "untracked", Effect.succeed({})],
+		["a refresh that succeeds for an already complete episode", "complete", Effect.succeed({})],
+		["a refresh that fails", "untracked", Effect.fail(new RyotClientError("operation-failed"))],
+	] as const) {
+		it.live(`keeps Mark disabled until the context settles after ${label}`, () =>
+			Effect.gen(function* () {
+				const release = yield* Deferred.make<void>();
+				const mounted = mountDetails({
+					state,
+					refresh: () => Deferred.await(release).pipe(Effect.andThen(refresh)),
+				});
+				const dialog = yield* openDetails(mounted);
+				const mark = () => getByRole(dialog, "button", { name: "Mark listened" });
+				clickRyotElement(mark());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(getByText(dialog, "Marked listened.")).toBeDefined()),
+				);
+				expect(mark().hasAttribute("disabled")).toBe(true);
+				yield* Effect.promise(() => mounted.view.advance(250));
+				yield* Effect.promise(() => waitFor(() => expect(mounted.contexts).toHaveLength(2)));
+				clickRyotElement(mark());
+				expect(mounted.requests).toHaveLength(1);
+				expect(mark().hasAttribute("disabled")).toBe(true);
+				yield* Deferred.succeed(release, undefined);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mark().hasAttribute("disabled")).toBe(false)),
+				);
+				mounted.view.unmount();
+			}),
+		);
+	}
 
 	it.live("retries the same submission after a failure", () =>
 		Effect.gen(function* () {

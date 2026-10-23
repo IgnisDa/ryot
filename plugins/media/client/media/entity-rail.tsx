@@ -1,4 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
@@ -11,7 +12,7 @@ import {
 } from "./entity-presentation";
 import type { MediaImageAsset } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
-import { MediaLinkButton, MediaOverviewSection, MediaRail } from "./primitives";
+import { MediaOverviewSection, MediaRail } from "./primitives";
 import { mediaPosterAsset } from "./summary-state";
 import { type MediaSyncCounts, mediaSyncCounts } from "./sync-counts";
 
@@ -91,7 +92,9 @@ export function MediaSectionFrame(
 			{status.kind === "error" ? (
 				<div role="alert" className="flex flex-col items-start gap-2">
 					<p className="font-ui text-[13px] text-text-muted">Unable to load this section.</p>
-					<MediaLinkButton label="Try again" onClick={status.retry} />
+					<Button variant="link" onClick={status.retry}>
+						Try again
+					</Button>
 				</div>
 			) : null}
 		</MediaOverviewSection>

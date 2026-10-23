@@ -154,11 +154,11 @@ function TimeForm(props: {
 					<div className="grid gap-1.5">
 						<span className="text-[13px] font-medium">Active duration</span>
 						<SegmentedControl
+							fill
 							value={intent}
-							className="w-full"
 							onChange={setIntent}
+							optionClassName="px-2"
 							label="Active duration"
-							optionClassName="flex-1 px-2"
 							options={[
 								{ content: "Keep", value: "preserve", label: "Keep recorded duration" },
 								{ value: "set", content: "Set", label: "Set duration" },

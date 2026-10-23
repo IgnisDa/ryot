@@ -107,7 +107,7 @@ export function BrowserInlineError({
 		<section className={panel}>
 			<h2 className="text-xl font-semibold">{title}</h2>
 			<p className="text-sm text-text-muted">{message}</p>
-			<Button variant="ghost" onClick={onRetry} className="mt-2 text-sm text-accent-text">
+			<Button variant="link" className="mt-2" onClick={onRetry}>
 				Try again
 			</Button>
 		</section>

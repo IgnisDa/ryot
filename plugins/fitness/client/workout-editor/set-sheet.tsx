@@ -86,10 +86,10 @@ export function SetSheet(props: {
 				<div className="grid gap-1.5">
 					<span className="text-[13px] font-medium">Set type</span>
 					<SegmentedControl
+						fill
 						label="Set type"
 						value={set.setLot}
-						className="w-full"
-						optionClassName="flex-1 px-2"
+						optionClassName="px-2"
 						onChange={(setLot) => onChange((item) => ({ ...item, setLot }))}
 						options={workoutSetLots.map((lot) => ({
 							value: lot,
