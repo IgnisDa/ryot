@@ -368,56 +368,65 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgeCalendarSourceVisibilityRequest,
 		);
 
+	const whenPluginContributor = <A, E, R>(
+		pluginId: PluginId,
+		send: () => Effect.Effect<A, E, R>,
+	) =>
+		pluginContributors().some((contributor) => contributor.pluginId === pluginId)
+			? send()
+			: Effect.fail(new RyotClientError("invalid-request"));
+
 	const saveEntity = (request: EntityEditorSaveRequest) => {
 		const owner = request.submission.entitySchema.owner;
-		return owner.kind !== "plugin" ||
-			!pluginContributors().some((contributor) => contributor.pluginId === owner.pluginId)
+		return owner.kind !== "plugin"
 			? Effect.fail(new RyotClientError("invalid-request"))
-			: sendRequest(
-					"entity-editor-save",
-					(requestId) =>
-						({
-							...request,
-							requestId,
-							type: "entity-editor-save-request",
-						}) satisfies PluginBridgeEntitySaveRequest,
+			: whenPluginContributor(owner.pluginId, () =>
+					sendRequest(
+						"entity-editor-save",
+						(requestId) =>
+							({
+								...request,
+								requestId,
+								type: "entity-editor-save-request",
+							}) satisfies PluginBridgeEntitySaveRequest,
+					),
 				);
 	};
 
 	const accessStorage = (entry: StorageAdapterRequest) =>
-		!pluginContributors().some((contributor) => contributor.pluginId === entry.pluginId)
-			? Effect.fail(new RyotClientError("invalid-request"))
-			: sendRequest(
-					"storage",
-					(requestId) =>
-						({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
-				);
+		whenPluginContributor(entry.pluginId, () =>
+			sendRequest(
+				"storage",
+				(requestId) =>
+					({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
+			),
+		);
 
 	const readUserSettings = (pluginId: PluginId) =>
-		!pluginContributors().some((contributor) => contributor.pluginId === pluginId)
-			? Effect.fail(new RyotClientError("invalid-request"))
-			: sendRequest(
-					"user-settings",
-					(requestId) =>
-						({
-							pluginId,
-							requestId,
-							type: "user-settings-request",
-						}) satisfies PluginBridgeUserSettingsRequest,
-				);
+		whenPluginContributor(pluginId, () =>
+			sendRequest(
+				"user-settings",
+				(requestId) =>
+					({
+						pluginId,
+						requestId,
+						type: "user-settings-request",
+					}) satisfies PluginBridgeUserSettingsRequest,
+			),
+		);
 
 	const retryPopulation = (request: PluginRetryPopulationRequest) =>
-		!pluginContributors().some((contributor) => contributor.pluginId === request.pluginId)
-			? Effect.fail(new RyotClientError("invalid-request"))
-			: sendRequest(
-					"retry-population",
-					(requestId) =>
-						({
-							...request,
-							requestId,
-							type: "retry-population-request",
-						}) satisfies PluginBridgeRetryPopulationRequest,
-				);
+		whenPluginContributor(request.pluginId, () =>
+			sendRequest(
+				"retry-population",
+				(requestId) =>
+					({
+						...request,
+						requestId,
+						type: "retry-population-request",
+					}) satisfies PluginBridgeRetryPopulationRequest,
+			),
+		);
 
 	const upload = (request: PluginUploadRequest) =>
 		sendRequest(

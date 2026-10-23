@@ -7,6 +7,8 @@ import { isDemoOperationProtectedError } from "#/api/authenticated";
 import { EntitiesApi, isDeclaredEntitySaveFailure } from "#/api/entities";
 import type { ApiScope } from "#/api/scope";
 
+import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
+
 export class PluginEntitySaves extends Context.Service<PluginEntitySaves>()("PluginEntitySaves", {
 	make: Effect.gen(function* () {
 		const api = yield* EntitiesApi;
@@ -16,13 +18,8 @@ export class PluginEntitySaves extends Context.Service<PluginEntitySaves>()("Plu
 			request: EntityEditorSaveRequest,
 		): Effect.Effect<PluginEntitySaveOutcome> => {
 			const owner = request.submission.entitySchema.owner;
-			if (
-				owner.kind !== "plugin" ||
-				!contributors.some(
-					(contributor) => contributor.kind === "plugin" && contributor.pluginId === owner.pluginId,
-				)
-			) {
-				return Effect.succeed({ outcome: "failure", reason: "invalid-request" });
+			if (owner.kind !== "plugin" || !hasPluginContributor(contributors, owner.pluginId)) {
+				return Effect.succeed(invalidRequest);
 			}
 			return api
 				.saveEditor(scope, { payload: request })

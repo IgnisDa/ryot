@@ -10,7 +10,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 import type { ApiScope } from "#/api/scope";
 import { ClientStorage } from "#/persistence/storage";
 
-const invalidRequest = { outcome: "failure", reason: "invalid-request" } as const;
+import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
+
 const encodeValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
 
 export class PluginStorage extends Context.Service<PluginStorage>()("PluginStorage", {
@@ -22,12 +23,7 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 			request: PluginStorageRequest,
 		): Effect.Effect<PluginStorageOutcome> =>
 			Effect.gen(function* () {
-				if (
-					!contributors.some(
-						(contributor) =>
-							contributor.kind === "plugin" && contributor.pluginId === request.pluginId,
-					)
-				) {
+				if (!hasPluginContributor(contributors, request.pluginId)) {
 					return invalidRequest;
 				}
 				if (request.action === "get") {

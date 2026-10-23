@@ -8,6 +8,8 @@ import { Context, Effect, Layer } from "effect";
 import { EntitiesApi, isDeclaredPopulationRetryFailure } from "#/api/entities";
 import type { ApiScope } from "#/api/scope";
 
+import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
+
 export class PluginPopulationRetries extends Context.Service<PluginPopulationRetries>()(
 	"PluginPopulationRetries",
 	{
@@ -18,13 +20,8 @@ export class PluginPopulationRetries extends Context.Service<PluginPopulationRet
 				contributors: PreparedClientPage["identity"]["contributors"],
 				request: PluginRetryPopulationRequest,
 			): Effect.Effect<PluginRetryPopulationOutcome> => {
-				if (
-					!contributors.some(
-						(contributor) =>
-							contributor.kind === "plugin" && contributor.pluginId === request.pluginId,
-					)
-				) {
-					return Effect.succeed({ outcome: "failure", reason: "invalid-request" });
+				if (!hasPluginContributor(contributors, request.pluginId)) {
+					return Effect.succeed(invalidRequest);
 				}
 				return api
 					.retryPopulation(scope, {
