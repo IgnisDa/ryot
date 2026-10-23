@@ -1,6 +1,16 @@
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
-import { type SQL, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, type SQL, sql } from "drizzle-orm";
+import { QueryBuilder } from "drizzle-orm/pg-core";
 import { Data, Schema } from "effect";
+
+import {
+	definitionEntitySchema,
+	definitionEventSchema,
+	definitionRelationshipSchema,
+	definitionSignalSchema,
+	plugin,
+	pluginRevision,
+} from "#schema/tables/combined";
 
 export const DefinitionReadContext = Schema.Struct({
 	pluginId: PluginId,
@@ -8,6 +18,76 @@ export const DefinitionReadContext = Schema.Struct({
 });
 
 export type DefinitionReadContext = typeof DefinitionReadContext.Type;
+
+const ownerFields = {
+	pluginId: sql<(typeof plugin.$inferSelect)["id"]>`${plugin.id}`.as("plugin_id"),
+	packageId: sql<(typeof plugin.$inferSelect)["packageId"]>`${plugin.packageId}`.as("package_id"),
+	ownerUserId: sql<(typeof plugin.$inferSelect)["ownerId"]>`${plugin.ownerId}`.as("owner_user_id"),
+};
+
+export const pinnedEntitySchemaRows = (context: DefinitionReadContext) =>
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionEntitySchema), ...ownerFields })
+		.from(definitionEntitySchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionEntitySchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(
+			and(
+				eq(pluginRevision.pluginId, context.pluginId),
+				eq(pluginRevision.id, context.pluginRevisionId),
+			),
+		);
+
+export const pinnedEventSchemaRows = (context: DefinitionReadContext) =>
+	new QueryBuilder()
+		.select({
+			...getTableColumns(definitionEventSchema),
+			...ownerFields,
+			pluginRevisionId: sql<(typeof pluginRevision.$inferSelect)["id"]>`${pluginRevision.id}`.as(
+				"plugin_revision_id",
+			),
+			entitySchemaSlug: sql<(typeof definitionEntitySchema.$inferSelect)["slug"]>`
+				${definitionEntitySchema.slug}`.as("entity_schema_slug"),
+		})
+		.from(definitionEventSchema)
+		.innerJoin(
+			definitionEntitySchema,
+			eq(definitionEntitySchema.id, definitionEventSchema.entitySchemaId),
+		)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionEntitySchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(
+			and(
+				eq(pluginRevision.pluginId, context.pluginId),
+				eq(pluginRevision.id, context.pluginRevisionId),
+			),
+		);
+
+export const pinnedRelationshipSchemaRows = (context: DefinitionReadContext) =>
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionRelationshipSchema), ...ownerFields })
+		.from(definitionRelationshipSchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionRelationshipSchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(
+			and(
+				eq(pluginRevision.pluginId, context.pluginId),
+				eq(pluginRevision.id, context.pluginRevisionId),
+			),
+		);
+
+export const pinnedSignalSchemaRows = (context: DefinitionReadContext) =>
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionSignalSchema), ...ownerFields })
+		.from(definitionSignalSchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionSignalSchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(
+			and(
+				eq(pluginRevision.pluginId, context.pluginId),
+				eq(pluginRevision.id, context.pluginRevisionId),
+			),
+		);
 
 export class DefinitionReadUnavailable extends Data.TaggedError("DefinitionReadUnavailable")<{
 	readonly context: DefinitionReadContext;
@@ -20,28 +100,26 @@ export const pinnedDefinitionSource = (
 	context: DefinitionReadContext,
 	userId: string | null,
 ) => {
-	let columns: SQL;
+	let source: SQL;
 	switch (kind) {
 		case "entity":
-			columns = sql`d.icon, d.user_state, d.editor, d.merge_identity_properties`;
+			source = pinnedEntitySchemaRows(context).getSQL();
 			break;
 		case "event":
-			columns = sql`d.entity_schema_id, parent.slug as entity_schema_slug`;
+			source = pinnedEventSchemaRows(context).getSQL();
 			break;
 		case "relationship":
-			columns = sql`d.source_entity_schema_slug, d.target_entity_schema_slug`;
+			source = pinnedRelationshipSchemaRows(context).getSQL();
 			break;
 		case "signal":
-			columns = sql`d.notification_hook_slug, d.audience_policy, d.catalog_state`;
+			source = pinnedSignalSchemaRows(context).getSQL();
 			break;
 		default:
 			throw new Error(String(kind satisfies never));
 	}
-	const from =
-		kind === "event"
-			? sql`definition_event_schema d join definition_entity_schema parent on parent.id = d.entity_schema_id join plugin_revision r on r.id = parent.plugin_revision_id`
-			: sql`${sql.identifier(`definition_${kind}_schema`)} d join plugin_revision r on r.id = d.plugin_revision_id`;
-	return sql`SELECT d.id, d.slug, d.name, d.position, d.properties_schema, p.id as plugin_id, p.package_id, r.id as plugin_revision_id, ${userId}::text as user_id, true as is_effective, case when p.owner_user_id is null then 'system' else 'user' end as plugin_scope, ${columns}
-		FROM ${from} join plugin p on p.id = r.plugin_id
-		WHERE r.id = ${context.pluginRevisionId} AND r.plugin_id = ${context.pluginId}`;
+	return sql`
+		SELECT definition_read.*, ${userId}::text AS user_id, true AS is_effective,
+			CASE WHEN definition_read.owner_user_id IS NULL THEN 'system' ELSE 'user' END AS plugin_scope
+		FROM (${source}) definition_read
+	`;
 };

@@ -1178,8 +1178,8 @@ layer(makeServiceLayer())((test) => {
 				expect(statement).toContain('FROM "user_entity_schema" definition_read');
 				expect(statement).toContain("definition_read.plugin_id IS DISTINCT FROM");
 				expect(statement).toContain("UNION ALL SELECT");
-				expect(statement).toContain('definition_entity_schema" d join plugin_revision r');
-				expect(statement).toContain("r.plugin_id =");
+				expect(statement).toContain('"definition_entity_schema" inner join "plugin_revision"');
+				expect(statement).toContain('"plugin_revision"."plugin_id" =');
 				expect(statement).toContain("available.is_definition_effective");
 			}),
 	);
