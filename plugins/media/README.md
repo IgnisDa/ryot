@@ -165,7 +165,11 @@ authorized global provider population maintains global links. Custom media uses 
 relationship picker, including catalog import and inline private genre creation. Private genres
 remain separate identities even when their names match catalog genres.
 
-`allowNsfw` is an installation preference; entity language is kernel-owned. Images contain remote
+`allowNsfw` is an installation preference; entity language is kernel-owned. The user settings also
+hold one "Where you consume" list per builtin media type (`consumedOnBook` through
+`consumedOnVisualNovel`, mapped from schema slugs in `shared/consumed-on-settings.ts`): at most 30
+sources of at most 100 characters, seeded with per-type defaults. The Log activity sheet suggests
+the list for the item's type first, then the item's own history and recent sources, ignoring case. Images contain remote
 URLs or managed keys plus a declared purpose. Providers prefer foreground art, preserve order within
 purposes, and deduplicate URLs using their first classification. Translation may replace the entire
 image array; omission preserves canonical images.
@@ -228,7 +232,10 @@ successful writes refresh active queries through the client SDK mutation notific
 or completions for up to 500 show or podcast episodes of one parent. Dates must satisfy
 `startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Writes are chunked
 by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
-writes nothing twice. It is protected in demo sessions. The header and the empty activity tab open
+writes nothing twice. After a `saved` write of an entry with a source, it appends the trimmed source
+to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
+match exists or the list holds 30; status entries never do. A settings read or write failure is
+logged and never changes the result. It is protected in demo sessions. The header and the empty activity tab open
 the same Log activity sheet.
 
 ## Imports

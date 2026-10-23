@@ -23,6 +23,7 @@ import {
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 
+import { CONSUMED_ON_LIST_LIMIT, consumedOnSettingKey } from "../../shared/consumed-on-settings";
 import { entityId } from "../../shared/entity-selections";
 import { episodicEpisodeMembership } from "../../shared/episodic-recipes";
 import {
@@ -129,6 +130,13 @@ const completeEvent = (
 
 type ActivityHost = Pick<ScriptHost, "executeRyotql" | "createEvents">;
 
+type SettingsHost = Pick<ScriptHost, "log" | "getUserSettings" | "updateUserSettings">;
+
+type BuiltEvents = {
+	readonly events: readonly CreateEventItem[];
+	readonly schemaSlug?: string | undefined;
+};
+
 const findTarget = (host: ActivityHost, id: string) =>
 	Effect.gen(function* () {
 		const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe(id));
@@ -141,18 +149,23 @@ const findTarget = (host: ActivityHost, id: string) =>
 const buildEvents = (
 	{ entry, submittedAt }: MediaActivityLogInput,
 	host: ActivityHost,
-): Effect.Effect<readonly CreateEventItem[], unknown> =>
+): Effect.Effect<BuiltEvents, unknown> =>
 	Effect.gen(function* () {
 		if (entry.kind === "status") {
 			yield* findTarget(host, entry.entityId);
-			return [{ properties: {}, entityId: entry.entityId, eventSchemaSlug: entry.status }];
+			return {
+				events: [{ properties: {}, entityId: entry.entityId, eventSchemaSlug: entry.status }],
+			};
 		}
 		if (entry.kind === "complete") {
 			const { schemaSlug } = yield* findTarget(host, entry.entityId);
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
 				return yield* reject("This media type cannot be completed directly");
 			}
-			return [completeEvent(entry.entityId, entry.when, submittedAt, entry)];
+			return {
+				schemaSlug,
+				events: [completeEvent(entry.entityId, entry.when, submittedAt, entry)],
+			};
 		}
 		if (entry.kind === "progress") {
 			const { schemaSlug } = yield* findTarget(host, entry.entityId);
@@ -171,21 +184,24 @@ const buildEvents = (
 			if (positionProperty !== undefined && entry.progressPercent !== undefined) {
 				return yield* reject("This media type tracks progress as a position");
 			}
-			return [
-				{
-					entityId: entry.entityId,
-					eventSchemaSlug: "progress",
-					properties: {
-						...(entry.consumedOn === undefined ? {} : { consumedOn: entry.consumedOn }),
-						...(entry.progressPercent === undefined
-							? {}
-							: { progressPercent: entry.progressPercent }),
-						...(positionProperty === undefined || entry.position === undefined
-							? {}
-							: { [positionProperty]: entry.position }),
+			return {
+				schemaSlug,
+				events: [
+					{
+						entityId: entry.entityId,
+						eventSchemaSlug: "progress",
+						properties: {
+							...(entry.consumedOn === undefined ? {} : { consumedOn: entry.consumedOn }),
+							...(entry.progressPercent === undefined
+								? {}
+								: { progressPercent: entry.progressPercent }),
+							...(positionProperty === undefined || entry.position === undefined
+								? {}
+								: { [positionProperty]: entry.position }),
+						},
 					},
-				},
-			];
+				],
+			};
 		}
 		const { schemaSlug } = yield* findTarget(host, entry.parentEntityId);
 		const config = episodicConfigs[schemaSlug];
@@ -203,10 +219,46 @@ const buildEvents = (
 		if (members !== entry.episodeEntityIds.length) {
 			return yield* reject("Every episode must belong to the selected parent");
 		}
-		return [...entry.episodeEntityIds]
-			.sort()
-			.map((id) => completeEvent(id, entry.when, submittedAt, entry));
+		return {
+			schemaSlug,
+			events: [...entry.episodeEntityIds]
+				.sort()
+				.map((id) => completeEvent(id, entry.when, submittedAt, entry)),
+		};
 	});
+
+const rememberConsumedOn = (host: SettingsHost, schemaSlug: string, consumedOn: string) =>
+	Effect.gen(function* () {
+		const key = consumedOnSettingKey(schemaSlug);
+		if (key === undefined) {
+			return;
+		}
+		const settings = yield* host.getUserSettings();
+		const current = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.String))(settings[key]);
+		const lowered = consumedOn.toLowerCase();
+		if (
+			current.length >= CONSUMED_ON_LIST_LIMIT ||
+			current.some((value) => value.toLowerCase() === lowered)
+		) {
+			return;
+		}
+		yield* host.updateUserSettings({ [key]: [...current, consumedOn] });
+	}).pipe(
+		Effect.catch((error) =>
+			host
+				.log([
+					{
+						level: "warning",
+						message: "Could not add the activity source to the user's settings",
+						attributes: {
+							schemaSlug,
+							reason: error instanceof Error ? error.message : "Unknown failure",
+						},
+					},
+				])
+				.pipe(Effect.ignore),
+		),
+	);
 
 const writeInChunks = (
 	events: readonly CreateEventItem[],
@@ -242,5 +294,18 @@ export default defineOperation({
 	input: MediaActivityLogInput,
 	output: MediaActivityLogOutput,
 	run: (input, host) =>
-		buildEvents(input, host).pipe(Effect.flatMap((events) => writeInChunks(events, input, host))),
+		Effect.gen(function* () {
+			const { events, schemaSlug } = yield* buildEvents(input, host);
+			const result = yield* writeInChunks(events, input, host);
+			const { entry } = input;
+			if (
+				result.status === "saved" &&
+				schemaSlug !== undefined &&
+				entry.kind !== "status" &&
+				entry.consumedOn !== undefined
+			) {
+				yield* rememberConsumedOn(host, schemaSlug, entry.consumedOn);
+			}
+			return result;
+		}),
 });
