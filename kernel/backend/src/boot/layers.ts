@@ -54,6 +54,7 @@ import {
 	EntityImportWorkflowOperationsProvidedLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderEntitySearchServiceLive,
+	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 } from "#modules/entities/providers/layer";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { InterestServicesLive } from "#modules/entities/watches/layer";
@@ -268,6 +269,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	PolicyBatchWorkflowProvidedLive,
 	UserCommandWorkflowDefinitionsProvidedLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
+	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventStreamWorkflowDefinitionsLive,

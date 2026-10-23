@@ -92,6 +92,8 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
+			processRelatedPage: () => Effect.die("unused"),
+			requireRelatedScript: () => Effect.die("unused"),
 			processProviderResolve: () => Effect.die("unused"),
 			preRegisterProviderImport: () => Effect.die("unused"),
 			completeProviderEntityImport: (_payload, _entity, hookExecutionId) =>
@@ -159,6 +161,8 @@ layer(mutationAdmissionTestLayer)((it) => {
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provideService(EntityImportWorkflowOperations, {
 				processSandbox: () => Effect.die("unused"),
+				processRelatedPage: () => Effect.die("unused"),
+				requireRelatedScript: () => Effect.die("unused"),
 				processProviderResolve: () => Effect.die("unused"),
 				preRegisterProviderImport: () => Effect.die("unused"),
 				completeProviderEntityImport: () =>
@@ -209,7 +213,9 @@ layer(mutationAdmissionTestLayer)((it) => {
 					Effect.provideService(WorkflowInstance, instance),
 					Effect.provideService(EntityImportWorkflowOperations, {
 						processSandbox: () => Effect.die("unused"),
+						processRelatedPage: () => Effect.die("unused"),
 						completeProviderEntityImport: () => Effect.void,
+						requireRelatedScript: () => Effect.die("unused"),
 						processProviderResolve: () => Effect.die("unused"),
 						preRegisterProviderImport: () => Effect.die("unused"),
 					}),

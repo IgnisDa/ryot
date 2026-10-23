@@ -4,6 +4,7 @@ import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -36,11 +37,26 @@ type ProviderResolveOperationInput = {
 	readonly writeContext: ScriptExecutionPrincipal | null;
 };
 
+type RelatedPageInput = EntityImportPayload & {
+	readonly group: {
+		readonly relationshipSchemaSlug: string;
+		readonly direction: "incoming" | "outgoing";
+	};
+};
+
 type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
 		existingProperties?: unknown,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	requireRelatedScript: (
+		payload: EntityImportPayload,
+	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	processRelatedPage: (
+		payload: RelatedPageInput,
+		executionId: string,
+		continuation: JsonValue,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	processProviderResolve: (
 		input: ProviderResolveOperationInput,
@@ -82,7 +98,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const resolvePinnedProviderScript = Effect.fnUntraced(function* (input: {
 			userId: UserId | null;
 			providerId: SandboxProviderId;
-			operation: "details" | "resolve";
+			operation: "details" | "related" | "resolve";
 			command: Parameters<typeof writes.check>[0];
 			pluginRevision: { id: string; revisionId: string };
 		}) {
@@ -118,10 +134,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			return script;
 		});
 
-		const processSandboxEntityDetails = (
+		const executePinnedProviderOperation = (
 			payload: EntityImportPayload,
+			operation: "details" | "related",
 			executionId: string,
-			existingProperties?: unknown,
+			input: unknown,
 		) =>
 			Effect.gen(function* () {
 				const accountGeneration = payload.command.accountGeneration;
@@ -135,28 +152,68 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				if (!principal?.pluginRevision || principal.pluginRevision.id !== payload.pluginId) {
 					return yield* new SandboxRunError({
 						kind: "invalid-input",
-						message: "Provider details require the admitted plugin pin",
+						message: `Provider ${operation} requires the admitted plugin pin`,
 					});
 				}
 				const script = yield* resolvePinnedProviderScript({
-					operation: "details",
+					operation,
 					command: payload.command,
 					providerId: payload.providerId,
 					pluginRevision: principal.pluginRevision,
 					userId: payload.entityScope.type === "user" ? payload.entityScope.userId : null,
 				});
 				return yield* sandbox.executeScript({
+					input,
+					executionId,
 					scriptId: script.id,
 					subject: principal.subject,
 					lane: payload.command.causation.lane,
 					pluginRevision: principal.pluginRevision,
-					executionId: `${executionId}-sandbox-details`,
-					input: {
-						externalId: payload.externalId,
-						...(existingProperties === undefined ? {} : { existingProperties }),
-					},
 				});
 			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+
+		const requireRelatedScript = (payload: EntityImportPayload) =>
+			Effect.gen(function* () {
+				const principal = payload.command.writeContext;
+				if (!principal?.pluginRevision || principal.pluginRevision.id !== payload.pluginId) {
+					return yield* new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider related requires the admitted plugin pin",
+					});
+				}
+				return yield* resolvePinnedProviderScript({
+					operation: "related",
+					command: payload.command,
+					providerId: payload.providerId,
+					pluginRevision: principal.pluginRevision,
+					userId: payload.entityScope.type === "user" ? payload.entityScope.userId : null,
+				});
+			}).pipe(
+				Effect.asVoid,
+				Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+			);
+
+		const processSandboxEntityDetails = (
+			payload: EntityImportPayload,
+			executionId: string,
+			existingProperties?: unknown,
+		) =>
+			executePinnedProviderOperation(payload, "details", `${executionId}-sandbox-details`, {
+				externalId: payload.externalId,
+				...(existingProperties === undefined ? {} : { existingProperties }),
+			});
+
+		const processSandboxRelatedPage = (
+			payload: RelatedPageInput,
+			executionId: string,
+			continuation: JsonValue,
+		) =>
+			executePinnedProviderOperation(payload, "related", executionId, {
+				continuation,
+				externalId: payload.externalId,
+				direction: payload.group.direction,
+				relationshipSchemaSlug: payload.group.relationshipSchemaSlug,
+			});
 
 		const processSandboxProviderResolve = (
 			input: ProviderResolveOperationInput,
@@ -323,9 +380,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 
 		return {
+			requireRelatedScript,
 			preRegisterProviderImport,
 			completeProviderEntityImport,
 			processSandbox: processSandboxEntityDetails,
+			processRelatedPage: processSandboxRelatedPage,
 			processProviderResolve: processSandboxProviderResolve,
 		} satisfies EntityImportWorkflowOperationsValue;
 	}),

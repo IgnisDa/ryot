@@ -23,11 +23,169 @@ import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/enti
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 
 import { makeProviderExecutionReads } from "./execution-reads";
-import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
+import {
+	persistPlannedRelationshipPage,
+	persistPlannedRelationshipSynchronization,
+} from "./relationship-synchronization";
+
+type RelatedGroupPaging = { generation: string; groupIndex: number; pageIndex: number };
+
+const pagedItemIdentity = (
+	primaryEntityId: EntityId,
+	group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">,
+	paging: Pick<RelatedGroupPaging, "groupIndex">,
+	step: string,
+) => [
+	"related-group",
+	String(primaryEntityId),
+	group.relationshipSchemaSlug,
+	group.direction,
+	`group:${paging.groupIndex}`,
+	step,
+];
+
+const findRelationshipSchema = (
+	definitions: EntityRelationshipDefinitions,
+	pluginId: PluginId,
+	slug: string,
+) => {
+	const definition =
+		definitions.relationshipSchemas[definitionKey("relationship", definitionOwner(pluginId), slug)];
+	return definition
+		? Effect.succeed({
+				pluginId: definition.pluginId ?? null,
+				propertiesSchema: definition.propertiesSchema,
+				id: RelationshipSchemaSlug.make(definition.slug),
+				sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug
+					? EntitySchemaSlug.make(definition.sourceEntitySchemaSlug)
+					: null,
+				targetEntitySchemaSlug: definition.targetEntitySchemaSlug
+					? EntitySchemaSlug.make(definition.targetEntitySchemaSlug)
+					: null,
+			})
+		: Effect.fail(
+				new SandboxRunError({
+					kind: "script-failure",
+					message: `Relationship schema not found: ${slug}`,
+				}),
+			);
+};
+
+const populationBatch = (population: AutomationPopulationContext, id: string) => ({
+	...population,
+	batch: {
+		id,
+		afterCount: 0,
+		beforeCount: 0,
+		isLeader: true,
+		createdCount: 0,
+		deletedCount: 0,
+		updatedCount: 0,
+	},
+});
+
+export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneration")(
+	function* (input: {
+		generation: string;
+		startedAt: Date;
+		pluginId: PluginId;
+		primaryEntityId: EntityId;
+		definitions: EntityRelationshipDefinitions;
+		group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">;
+	}) {
+		const session = yield* DatabaseSession;
+		const repository = yield* RelationshipsRepository;
+		const relationshipSchema = yield* findRelationshipSchema(
+			input.definitions,
+			input.pluginId,
+			input.group.relationshipSchemaSlug,
+		);
+		yield* session.transaction(
+			repository.claimRelationshipSyncGeneration(
+				{
+					direction: input.group.direction,
+					anchorEntityId: input.primaryEntityId,
+					relationshipSchemaSlug: relationshipSchema.id,
+					relationshipSchemaPluginId: relationshipSchema.pluginId,
+				},
+				input.generation,
+				input.startedAt,
+			),
+		);
+	},
+);
+
+export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (
+	input: {
+		generation: string;
+		groupIndex: number;
+		pluginId: PluginId;
+		command: DomainLifecycleCommand;
+		primaryEntityId: EntityId;
+		population: AutomationPopulationContext;
+		definitions: EntityRelationshipDefinitions;
+		group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">;
+	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+) {
+	const session = yield* DatabaseSession;
+	const repository = yield* RelationshipsRepository;
+	const relationshipSchema = yield* findRelationshipSchema(
+		input.definitions,
+		input.pluginId,
+		input.group.relationshipSchemaSlug,
+	);
+	const scope =
+		input.scope === "user"
+			? ({ scope: "user", userId: input.userId } as const)
+			: ({ scope: "global" } as const);
+	const itemIdentity = pagedItemIdentity(input.primaryEntityId, input.group, input, "sweep");
+	return yield* retryOnDeadlock(
+		session.transaction(
+			Effect.gen(function* () {
+				const holds = yield* repository.holdsRelationshipSyncGeneration(
+					{
+						direction: input.group.direction,
+						anchorEntityId: input.primaryEntityId,
+						relationshipSchemaSlug: relationshipSchema.id,
+						relationshipSchemaPluginId: relationshipSchema.pluginId,
+					},
+					input.generation,
+				);
+				if (!holds) {
+					return { result: [], dispatch: [], superseded: true };
+				}
+				const work = yield* persistPlannedRelationshipPage({
+					...scope,
+					entries: [],
+					kind: "sweep",
+					preserveExisting: false,
+					generation: input.generation,
+					direction: input.group.direction,
+					anchorEntityId: input.primaryEntityId,
+					relationshipSchemaSlug: relationshipSchema.id,
+					relationshipSchemaPluginId: relationshipSchema.pluginId,
+					command: {
+						...populationLifecycleCommand(
+							input.command,
+							itemIdentity,
+							populationBatch(
+								input.population,
+								stableStringify([input.command.causation.executionId, ...itemIdentity]),
+							),
+						),
+						writeContext: input.command.writeContext,
+					},
+				});
+				return { superseded: false, result: work.result, dispatch: work.dispatch };
+			}),
+		),
+	).pipe(mapDbErrorToSandbox);
+});
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
@@ -37,39 +195,21 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		population: AutomationPopulationContext;
 		primaryEntityId: EntityId;
 		primaryEntitySchemaSlug: EntitySchemaSlug;
-		group: ProviderDetailsRelatedEntityGroup;
+		group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">;
+		paging?: RelatedGroupPaging;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const session = yield* DatabaseSession;
 	const reads = makeProviderExecutionReads(session);
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
+	const relationships = yield* RelationshipsRepository;
 	const pluginRuntime = yield* PluginRuntimeResolver;
-	const relationshipDefinition =
-		input.definitions.relationshipSchemas[
-			definitionKey(
-				"relationship",
-				definitionOwner(input.pluginId),
-				input.group.relationshipSchemaSlug,
-			)
-		];
-	if (!relationshipDefinition) {
-		return yield* new SandboxRunError({
-			kind: "script-failure",
-			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
-		});
-	}
-	const relationshipSchema = {
-		pluginId: relationshipDefinition.pluginId ?? null,
-		propertiesSchema: relationshipDefinition.propertiesSchema,
-		id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
-		sourceEntitySchemaSlug: relationshipDefinition.sourceEntitySchemaSlug
-			? EntitySchemaSlug.make(relationshipDefinition.sourceEntitySchemaSlug)
-			: null,
-		targetEntitySchemaSlug: relationshipDefinition.targetEntitySchemaSlug
-			? EntitySchemaSlug.make(relationshipDefinition.targetEntitySchemaSlug)
-			: null,
-	};
+	const relationshipSchema = yield* findRelationshipSchema(
+		input.definitions,
+		input.pluginId,
+		input.group.relationshipSchemaSlug,
+	);
 	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
@@ -204,15 +344,30 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		input.scope === "user"
 			? ({ scope: "user", userId: input.userId } as const)
 			: ({ scope: "global" } as const);
-	const itemIdentity = [
-		"related-group",
-		String(input.primaryEntityId),
-		input.group.relationshipSchemaSlug,
-		input.group.direction,
-	];
+	const paging = input.paging;
+	const itemIdentity = paging
+		? pagedItemIdentity(input.primaryEntityId, input.group, paging, `page:${paging.pageIndex}`)
+		: [
+				"related-group",
+				String(input.primaryEntityId),
+				input.group.relationshipSchemaSlug,
+				input.group.direction,
+			];
+	const groupKey = {
+		direction: input.group.direction,
+		anchorEntityId: input.primaryEntityId,
+		relationshipSchemaSlug: relationshipSchema.id,
+		relationshipSchemaPluginId: relationshipSchema.pluginId,
+	};
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
+				if (
+					paging &&
+					!(yield* relationships.holdsRelationshipSyncGeneration(groupKey, paging.generation))
+				) {
+					return { result: [], superseded: true, entityDispatch: [], relationshipDispatch: [] };
+				}
 				const upserts = yield* entities.persistPlannedProviderUpserts({
 					batch: {
 						identity: [...itemIdentity, "entities"],
@@ -249,34 +404,47 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					}
 					entries.push({ properties, entityId: result.entity.id });
 				}
-				const relationshipWork = yield* persistPlannedRelationshipSynchronization({
-					...scope,
-					entries,
-					direction: input.group.direction,
-					anchorEntityId: input.primaryEntityId,
-					synchronization: input.group.synchronization,
-					relationshipSchemaSlug: relationshipSchema.id,
-					relationshipSchemaPluginId: relationshipSchema.pluginId,
-					onConflict:
-						input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
-					command: {
-						...populationLifecycleCommand(input.command, itemIdentity, {
-							...input.population,
-							batch: {
-								afterCount: 0,
-								beforeCount: 0,
-								isLeader: true,
-								createdCount: 0,
-								deletedCount: 0,
-								updatedCount: 0,
-								id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
-							},
-						}),
-						writeContext: input.command.writeContext,
-					},
-				});
+				const relationshipCommand = {
+					...populationLifecycleCommand(
+						input.command,
+						itemIdentity,
+						populationBatch(
+							input.population,
+							stableStringify([input.command.causation.executionId, ...itemIdentity]),
+						),
+					),
+					writeContext: input.command.writeContext,
+				};
+				const relationshipWork = paging
+					? yield* persistPlannedRelationshipPage({
+							...scope,
+							entries,
+							kind: "page",
+							command: relationshipCommand,
+							generation: paging.generation,
+							direction: input.group.direction,
+							anchorEntityId: input.primaryEntityId,
+							relationshipSchemaSlug: relationshipSchema.id,
+							relationshipSchemaPluginId: relationshipSchema.pluginId,
+							preserveExisting: input.group.synchronization === "additive",
+						})
+					: yield* persistPlannedRelationshipSynchronization({
+							...scope,
+							entries,
+							command: relationshipCommand,
+							direction: input.group.direction,
+							anchorEntityId: input.primaryEntityId,
+							synchronization: input.group.synchronization,
+							relationshipSchemaSlug: relationshipSchema.id,
+							relationshipSchemaPluginId: relationshipSchema.pluginId,
+							onConflict:
+								input.group.synchronization === "additive"
+									? "preserveExisting"
+									: "replaceProperties",
+						});
 				return {
 					entityDispatch,
+					superseded: false,
 					result: relationshipWork.result,
 					relationshipDispatch: relationshipWork.dispatch,
 				};
@@ -285,6 +453,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	).pipe(mapDbErrorToSandbox);
 	return {
 		result: committed.result,
+		superseded: committed.superseded,
 		dispatch: [...committed.entityDispatch, ...committed.relationshipDispatch],
 	};
 });

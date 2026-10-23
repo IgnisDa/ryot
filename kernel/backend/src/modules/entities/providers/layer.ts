@@ -10,7 +10,10 @@ import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { ProviderImportAdmission } from "./admission";
 import { EntityImportWorkflowOperationsLive } from "./operations-workflow";
-import { ProviderEntityPopulationWorkflowDefinitionsLive } from "./provider-entity-population-workflow";
+import {
+	ProviderEntityPopulationWorkflowDefinitionsLive,
+	ProviderRelatedPagesWorkflowDefinitionsLive,
+} from "./provider-entity-population-workflow";
 import { ProviderEntitySearchService } from "./search-service";
 import { EntityImportService } from "./service";
 
@@ -43,6 +46,19 @@ export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOp
 
 export const ProviderEntityPopulationWorkflowDefinitionsProvidedLive =
 	ProviderEntityPopulationWorkflowDefinitionsLive.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				DefinitionRepository.layer,
+				EntitiesRepositoryLive,
+				DomainWriteChecksLive,
+				PluginRuntimeResolverLive,
+				RelationshipsRepository.layer,
+			),
+		),
+	);
+
+export const ProviderRelatedPagesWorkflowDefinitionsProvidedLive =
+	ProviderRelatedPagesWorkflowDefinitionsLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				DefinitionRepository.layer,
