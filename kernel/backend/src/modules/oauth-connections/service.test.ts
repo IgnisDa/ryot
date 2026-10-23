@@ -368,6 +368,23 @@ const connectedIntegration = Effect.fn(function* (tokens: TokenResponse = issued
 	return { connectionId, integrationId, integrationRunId: yield* startRun(integrationId) };
 });
 
+const pausedExpiryService = Effect.gen(function* () {
+	const repository = yield* OAuthConnectionsRepository;
+	const entered = yield* Deferred.make<void>();
+	const release = yield* Deferred.make<void>();
+	const service = yield* OAuthConnectionsService.make.pipe(
+		Effect.provideService(OAuthConnectionsRepository, {
+			...repository,
+			markExpired: (input) =>
+				Deferred.succeed(entered, undefined).pipe(
+					Effect.andThen(Deferred.await(release)),
+					Effect.andThen(repository.markExpired(input)),
+				),
+		}),
+	);
+	return { service, entered, release };
+});
+
 const isolated = <A, E>(
 	name: string,
 	body: () => Effect.Effect<A, E, Layer.Success<ReturnType<typeof serviceLayer>>>,
@@ -946,6 +963,66 @@ describe("OAuth connections", () => {
 			});
 			expect(freshToken.accessToken).toBe("access-2");
 			expect((yield* endpoint.requests).length).toBe(requestsBeforeStaleRun.length);
+		}),
+	);
+
+	isolated("reloads a newer token when rejected refresh loses the expiry transition", () =>
+		Effect.gen(function* () {
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const endpoint = yield* FakeTokenEndpoint;
+			const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
+			const input = { ...run, pluginId: installed.pluginId };
+			const expiry = yield* pausedExpiryService;
+			yield* endpoint.respond(() =>
+				Effect.succeed({ status: 400, body: { error: "invalid_grant" } }),
+			);
+			const stale = yield* Effect.forkChild(
+				accessToken(input).pipe(Effect.provideService(OAuthConnectionsService, expiry.service)),
+			);
+			yield* Deferred.await(expiry.entered);
+			yield* TestClock.adjust("31 seconds");
+			yield* endpoint.respond(() =>
+				Effect.succeed(issuedTokens({ access_token: "access-2", refresh_token: "refresh-2" })),
+			);
+			const fresh = yield* accessToken(input);
+			expect(fresh.accessToken).toBe("access-2");
+			yield* Deferred.succeed(expiry.release, undefined);
+			while (stale.pollUnsafe() === undefined) {
+				yield* TestClock.adjust("250 millis");
+				yield* TestClock.withLive(Effect.sleep("5 millis"));
+			}
+			expect(yield* Fiber.join(stale)).toEqual(fresh);
+			expect((yield* connectionRow(run.connectionId))?.status).toBe("connected");
+			expect((yield* endpoint.requests).length).toBe(3);
+		}),
+	);
+
+	isolated("reports unavailable when a connection is deleted before expiry commits", () =>
+		Effect.gen(function* () {
+			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
+			const endpoint = yield* FakeTokenEndpoint;
+			const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
+			const expiry = yield* pausedExpiryService;
+			yield* endpoint.respond(() =>
+				Effect.succeed({ status: 400, body: { error: "invalid_grant" } }),
+			);
+			const stale = yield* Effect.forkChild(
+				accessToken({ ...run, pluginId: installed.pluginId }).pipe(
+					Effect.provideService(OAuthConnectionsService, expiry.service),
+				),
+			);
+			yield* Deferred.await(expiry.entered);
+			yield* (yield* DatabaseSession).run((db) =>
+				db.delete(tables.oauthConnection).where(eq(tables.oauthConnection.id, run.connectionId)),
+			);
+			yield* Deferred.succeed(expiry.release, undefined);
+			while (stale.pollUnsafe() === undefined) {
+				yield* TestClock.adjust("250 millis");
+				yield* TestClock.withLive(Effect.sleep("5 millis"));
+			}
+			expect((yield* Effect.flip(Fiber.join(stale))).message).toBe(
+				OAUTH_ACCESS_TOKEN_MESSAGES.unavailable,
+			);
 		}),
 	);
 
