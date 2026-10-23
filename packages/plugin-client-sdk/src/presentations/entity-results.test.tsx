@@ -377,7 +377,11 @@ describe("EntityResults", () => {
 		"loads presentation data for %s embedded sources",
 		(source) =>
 			Effect.gen(function* () {
-				let loads = 0;
+				const requests: (readonly EntityReference[])[] = [];
+				const failed = reference("one", {
+					populationStatus: "failed",
+					translationStatus: "failed",
+				});
 				const registration: EntityPresentationRegistration = {
 					layout: "grid",
 					ownerPluginId: "owner",
@@ -388,7 +392,7 @@ describe("EntityResults", () => {
 								component: ({ data }) => <p>{data}</p>,
 								prepare: () => Result.fail(new Error("Embedded source has no presentation fields")),
 								loader: ({ references }) => {
-									loads++;
+									requests.push(references);
 									return Effect.succeed(
 										Object.fromEntries(
 											references.map(({ entityId }) => [entityId, `Loaded ${entityId}`]),
@@ -403,7 +407,7 @@ describe("EntityResults", () => {
 					<EntityResults
 						layout="grid"
 						viewContext={null}
-						references={[reference("one")]}
+						references={[failed]}
 						presentations={
 							source === "missing"
 								? new Map()
@@ -412,9 +416,96 @@ describe("EntityResults", () => {
 					/>,
 				);
 				yield* flush(clock);
-				expect(loads).toBe(1);
+				expect(requests).toEqual([[failed]]);
 				expect(container.textContent).toBe("Loaded one");
 			}),
+	);
+
+	it.live("shares canonical loader batches and reloads changed reference content", () =>
+		Effect.gen(function* () {
+			const requests: (readonly EntityReference[])[] = [];
+			const registration: EntityPresentationRegistration = {
+				layout: "grid",
+				ownerPluginId: "owner",
+				entitySchemaSlug: "item",
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							prepare: () => Result.fail("missing"),
+							component: ({ data }) => <p>{data}</p>,
+							loader: ({ references }) => {
+								requests.push(references);
+								return Effect.succeed(
+									Object.fromEntries(
+										references.map((item) => [item.entityId, item.name ?? "Unnamed"]),
+									),
+								);
+							},
+						}),
+					),
+			};
+			const page = (name = "Entity b") => (
+				<>
+					{gridFor([reference("b", { name }), reference("a")], new Map())}
+					{gridFor([reference("a"), reference("b", { name })], new Map())}
+				</>
+			);
+			const { draw, clock, container } = render([registration], page());
+			yield* flush(clock);
+			expect(requests).toEqual([[reference("a"), reference("b")]]);
+			expect(container.textContent).toBe("Entity bEntity aEntity aEntity b");
+			draw(page());
+			yield* flush(clock);
+			expect(requests).toHaveLength(1);
+			draw(page("Changed"));
+			yield* flush(clock);
+			expect(requests).toEqual([
+				[reference("a"), reference("b")],
+				[reference("a"), reference("b", { name: "Changed" })],
+			]);
+			expect(container.textContent).toBe("ChangedEntity aEntity aChanged");
+		}),
+	);
+
+	it.live("cancels a shared loader only after its final consumer leaves", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			let cancellations = 0;
+			const registration: EntityPresentationRegistration = {
+				layout: "grid",
+				ownerPluginId: "owner",
+				entitySchemaSlug: "item",
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							prepare: () => Result.fail("missing"),
+							component: ({ data }) => <p>{data}</p>,
+							loader: () => {
+								loads++;
+								return Effect.never.pipe(
+									Effect.onInterrupt(() => Effect.sync(() => cancellations++)),
+								);
+							},
+						}),
+					),
+			};
+			const { draw, clock } = render(
+				[registration],
+				<>
+					{gridFor([reference("one")], new Map())}
+					{gridFor([reference("one")], new Map())}
+				</>,
+			);
+			yield* flush(clock);
+			expect(loads).toBe(1);
+			draw(<>{gridFor([reference("one")], new Map())}</>);
+			yield* flush(clock);
+			expect(loads).toBe(1);
+			expect(cancellations).toBe(0);
+			draw(null);
+			yield* flush(clock);
+			expect(cancellations).toBe(1);
+		}),
 	);
 
 	it.live("uses the exact owner, schema, and layout while preserving visible order", () =>
