@@ -40,6 +40,7 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+import { PluginPopulationRetries } from "#/modules/pages/bridge/population-retry";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
@@ -578,6 +579,11 @@ function ClientPageFrame(props: {
 			onEntitySave={(request) =>
 				props.runtime
 					.runSync(PluginEntitySaves)
+					.outcome(props.scope, identity.contributors, request)
+			}
+			onRetryPopulation={(request) =>
+				props.runtime
+					.runSync(PluginPopulationRetries)
 					.outcome(props.scope, identity.contributors, request)
 			}
 			onDevice={(request) =>

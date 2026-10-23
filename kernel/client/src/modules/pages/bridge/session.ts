@@ -41,6 +41,7 @@ import {
 	type PluginBridgePageShortcutPress,
 	type PluginBridgePickEntityScreen,
 	PluginBridgeReady,
+	type PluginBridgeRetryPopulationRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeStorageRequest,
@@ -59,6 +60,8 @@ import {
 	type PluginIosLiveActivityRequest,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginRetryPopulationOutcome,
+	type PluginRetryPopulationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginStorageOutcome,
@@ -120,6 +123,7 @@ type PendingRequest = {
 		| "ryotql"
 		| "storage"
 		| "upload"
+		| "retry-population"
 		| "user-settings";
 };
 
@@ -182,6 +186,9 @@ type PluginBridgeOptions = {
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
+	readonly onRetryPopulation: (
+		request: PluginRetryPopulationRequest,
+	) => Effect.Effect<PluginRetryPopulationOutcome>;
 	readonly onDiagnostic?: (diagnostic: {
 		readonly type: PendingRequest["type"];
 		readonly requestId: string;
@@ -461,7 +468,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			let reason: string;
 			if (type === "external-link") {
 				reason = "link-open-failed";
-			} else if (failure || type === "storage" || type === "ryotql" || type === "user-settings") {
+			} else if (
+				failure ||
+				type === "storage" ||
+				type === "ryotql" ||
+				type === "user-settings" ||
+				type === "retry-population"
+			) {
 				reason = "transport";
 			} else {
 				reason = "malformed-result";
@@ -563,6 +576,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	function handleUserSettings(request: PluginBridgeUserSettingsRequest) {
 		runRequest(request.requestId, "user-settings", () =>
 			options.onUserSettings({ pluginId: request.pluginId }),
+		);
+	}
+
+	function handleRetryPopulation(request: PluginBridgeRetryPopulationRequest) {
+		runRequest(request.requestId, "retry-population", () =>
+			options.onRetryPopulation({ pluginId: request.pluginId, entityId: request.entityId }),
 		);
 	}
 
@@ -773,6 +792,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.when({ type: "user-settings-request" }, (request) => handleUserSettings(request)),
+						Match.when({ type: "retry-population-request" }, (request) =>
+							handleRetryPopulation(request),
+						),
 						Match.exhaustive,
 					);
 				return;

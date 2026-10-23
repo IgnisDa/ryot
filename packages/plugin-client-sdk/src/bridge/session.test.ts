@@ -860,6 +860,69 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("retries population for the package's own plugin and refreshes after the result", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			let refreshes = 0;
+			runtime.client.mutationCompleted.subscribe(() => {
+				refreshes++;
+			});
+			expect(
+				(yield* Effect.flip(
+					runtime.client.entities.retryPopulation({
+						entityId: "entity-1",
+						packageId: PluginPackageId.make("test/foreign"),
+					}),
+				)).reason,
+			).toBe("invalid-request");
+			expect(sent(messages, "retry-population-request")).toEqual([]);
+
+			const retried = yield* Effect.forkChild(
+				runtime.client.entities.retryPopulation({
+					entityId: "entity-1",
+					packageId: PluginPackageId.make("test/fixture"),
+				}),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "retry-population-request")).toEqual([
+				{
+					pluginId: "fixture",
+					entityId: "entity-1",
+					requestId: "retry-population-1",
+					type: "retry-population-request",
+				},
+			]);
+			channel.port1.postMessage({
+				retried: true,
+				outcome: "success",
+				type: "retry-population-result",
+				requestId: "retry-population-1",
+			});
+			expect(yield* Fiber.join(retried)).toEqual({ retried: true });
+			expect(refreshes).toBe(1);
+
+			const refused = yield* Effect.forkChild(
+				Effect.flip(
+					runtime.client.entities.retryPopulation({
+						entityId: "entity-1",
+						packageId: PluginPackageId.make("test/fixture"),
+					}),
+				),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "invalid-request",
+				type: "retry-population-result",
+				requestId: "retry-population-2",
+			});
+			expect((yield* Fiber.join(refused)).reason).toBe("invalid-request");
+			expect(refreshes).toBe(1);
+		}),
+	);
+
 	it.live("reads user settings only for contributing plugins and decodes the record", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

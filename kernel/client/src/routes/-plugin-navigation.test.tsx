@@ -47,6 +47,7 @@ import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import {
 	makePluginCalendarSources,
 	makePluginEntitySaves,
+	makePluginPopulationRetries,
 	makePluginQueries,
 	makePluginStorage,
 } from "#/modules/pages/bridge/services.test-layer";
@@ -290,6 +291,7 @@ function mount(options: {
 			makePluginStorage(),
 			makePluginCalendarSources(),
 			makePluginEntitySaves(),
+			makePluginPopulationRetries(),
 			makeCollectionsApi(options.collections),
 			makeRyotQLApi(options.ryotql === undefined ? {} : { execute: options.ryotql }),
 		).pipe(

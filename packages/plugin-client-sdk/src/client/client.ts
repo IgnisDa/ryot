@@ -15,7 +15,7 @@ import {
 	EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
-import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	AddToCollectionOutcome,
@@ -213,6 +213,31 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Schema.Record(Schema.String, JsonValue),
 				yield* adapterEffect(() => read(pluginId)),
 			);
+		});
+	const retryPopulation = (request: {
+		readonly entityId: string;
+		readonly packageId: PluginPackageId;
+	}): Effect.Effect<{ readonly retried: boolean }, RyotClientError> =>
+		Effect.gen(function* () {
+			const retry = adapter.retryPopulation;
+			const pluginIdentity = adapter.pluginIdentity;
+			if (!retry || !pluginIdentity) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			const entityId = Schema.decodeResult(EntityId)(request.entityId);
+			if (Result.isFailure(entityId)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const { pluginId } = yield* Effect.try({
+				catch: asTransportError,
+				try: () => pluginIdentity(request.packageId),
+			});
+			const result = yield* decodeCapability(
+				Schema.Struct({ retried: Schema.Boolean }),
+				yield* adapterEffect(() => retry({ pluginId, entityId: entityId.success })),
+			);
+			mutationCompleted.hint();
+			return result;
 		});
 	let themeSnapshotInput: unknown;
 	let themeSnapshot: PluginThemeSnapshot | undefined;
@@ -529,6 +554,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 		},
 		entities: {
+			retryPopulation,
 			save: saveEntity,
 			watch: (
 				interest: EntityWatch,

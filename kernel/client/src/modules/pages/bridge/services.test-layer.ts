@@ -4,6 +4,7 @@ import { unused } from "#/api/ports.test-layer";
 import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+import { PluginPopulationRetries } from "#/modules/pages/bridge/population-retry";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
 
@@ -19,6 +20,10 @@ const makePluginOperations = (overrides: Partial<PluginOperationsService["Servic
 export const makePluginEntitySaves = (overrides: Partial<PluginEntitySaves["Service"]> = {}) =>
 	Layer.succeed(PluginEntitySaves, { outcome: unused, ...overrides });
 
+export const makePluginPopulationRetries = (
+	overrides: Partial<PluginPopulationRetries["Service"]> = {},
+) => Layer.succeed(PluginPopulationRetries, { outcome: unused, ...overrides });
+
 export const makePluginCalendarSources = (
 	overrides: Partial<PluginCalendarSources["Service"]> = {},
 ) => Layer.succeed(PluginCalendarSources, { outcome: unused, ...overrides });
@@ -29,4 +34,5 @@ export const pluginBridgeServicesTestLayer = Layer.mergeAll(
 	makePluginStorage(),
 	makePluginOperations(),
 	makePluginEntitySaves(),
+	makePluginPopulationRetries(),
 );

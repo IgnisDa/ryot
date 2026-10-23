@@ -979,6 +979,35 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
+	it("names a plugin and entity in population retry requests and returns a retried flag", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = {
+			pluginId: "media",
+			entityId: "entity-1",
+			requestId: "retry-1",
+			type: "retry-population-request" as const,
+		};
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, userId: "other" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, pluginId: undefined }))).toBe(true);
+		expect(Result.isFailure(decodeHost(request))).toBe(true);
+
+		const result = { requestId: "retry-1", type: "retry-population-result" as const };
+		expect(Result.isSuccess(decodeHost({ ...result, retried: true, outcome: "success" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "invalid-request" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...result, outcome: "success" }))).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeHost({ ...result, outcome: "failure", reason: "provider-unavailable" }),
+			),
+		).toBe(true);
+	});
+
 	it("decodes only the strict RyotQL cancellation message", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
 

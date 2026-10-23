@@ -64,6 +64,7 @@ const createRequest: EntityEditorSaveRequest = {
 const createFailures: unknown[] = [];
 
 const entitiesApi = Layer.succeed(EntitiesApi, {
+	retryPopulation: () => Effect.die("unused"),
 	saveEditor: () => {
 		const failure = createFailures.shift();
 		return failure === undefined
