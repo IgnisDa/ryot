@@ -6,6 +6,7 @@ import { IsoUtcString } from "../../schema/utils";
 export const EntityUpdatedReason = Schema.Literals([
 	"populated",
 	"translated",
+	"population-failed",
 	"projection-updated",
 ]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;

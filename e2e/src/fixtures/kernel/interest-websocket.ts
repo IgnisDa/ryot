@@ -26,7 +26,10 @@ type InterestWebSocket = {
 	getEntityUpdatedMessages: () => readonly EntityWatchEntityUpdatedMessage[];
 	waitForClose: (options?: WaitOptions) => Effect.Effect<SocketClose>;
 	replaceInterest: (entityIds: readonly string[]) => Effect.Effect<EntityWatchCommandResult>;
-	expectNoEntityUpdated: (entityId: string, options: { windowMs: number }) => Effect.Effect<void>;
+	expectNoEntityUpdated: (
+		entityId: string,
+		options: { windowMs: number; reason?: EntityWatchEntityUpdatedMessage["reason"] },
+	) => Effect.Effect<void>;
 	updateInterest: (input: {
 		readonly add: readonly string[];
 		readonly remove: readonly string[];
@@ -263,20 +266,26 @@ export const openInterestWebSocket = (
 				}),
 			);
 
-		const expectNoEntityUpdated = (entityId: string, { windowMs }: { windowMs: number }) =>
+		const expectNoEntityUpdated = (
+			entityId: string,
+			{
+				reason,
+				windowMs,
+			}: { windowMs: number; reason?: EntityWatchEntityUpdatedMessage["reason"] },
+		) =>
 			Effect.callback<void>((resume) => {
 				if (failure) {
 					resume(Effect.die(failure));
 					return Effect.void;
 				}
-				if (messages.some((message) => isEntityUpdatedMatch(message, entityId))) {
+				if (messages.some((message) => isEntityUpdatedMatch(message, entityId, reason))) {
 					resume(Effect.die(new Error(`Unexpected early entity-updated for '${entityId}'`)));
 					return Effect.void;
 				}
 				const waiter: EntityUpdatedWaiter = {
 					reject: (error) => resume(Effect.die(error)),
 					onMessage: (message: EntityWatchEntityUpdatedMessage) => {
-						if (isEntityUpdatedMatch(message, entityId)) {
+						if (isEntityUpdatedMatch(message, entityId, reason)) {
 							listeners.delete(waiter);
 							resume(Effect.die(new Error(`Unexpected entity-updated for '${entityId}'`)));
 						}

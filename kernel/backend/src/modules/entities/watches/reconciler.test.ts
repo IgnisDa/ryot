@@ -23,7 +23,7 @@ type InterestItem = {
 	readonly entitySchemaSlug: string;
 	readonly entitySchemaPluginId: string | null;
 	readonly userId: string | null;
-	readonly populationStatus: "none" | "pending" | "ready";
+	readonly populationStatus: "none" | "pending" | "ready" | "failed";
 	readonly translationStatus: "none" | "pending" | "ready";
 };
 
@@ -126,3 +126,25 @@ layer(reconcilerLayer([row("entity-1"), row("entity-2", { translationStatus: "pe
 		);
 	},
 );
+
+layer(
+	reconcilerLayer([
+		row("entity-1", { translationStatus: "none", populationStatus: "failed" }),
+		row("entity-2", { populationStatus: "failed", translationStatus: "pending" }),
+	]),
+)((test) => {
+	test.effect("completes failed populations without requesting population or translation", () =>
+		Effect.gen(function* () {
+			const reconciler = yield* InterestReconciler;
+			const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
+
+			expect(result.terminal).toEqual([
+				{ entityId: "entity-1", reason: "population-failed" },
+				{ entityId: "entity-2", reason: "population-failed" },
+			]);
+			const followUps = yield* FakeInterestFollowUps;
+			expect(yield* followUps.populationRequests).toEqual([]);
+			expect(yield* followUps.translationRequests).toEqual([]);
+		}),
+	);
+});
