@@ -9,6 +9,7 @@ import {
 	createEventFixture,
 	listEventSchemas,
 	requireEventSchemaBySlug,
+	waitForEventWithSchema,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,
@@ -236,5 +237,59 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: bookName })
 			.waitFor({ state: "visible", timeout: 150_000 });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("logs Book progress from the empty Activity tab without a reload", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const frontendUrl = getFrontendUrl();
+		const suffix = crypto.randomUUID();
+		const bookName = `Logger Tracer Book ${suffix}`;
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const seeded = yield* seedGlobalBookWithSeries(client, {
+			bookName,
+			seriesName: `Logger Tracer Series ${suffix}`,
+			siblingName: `Logger Tracer Sequel ${suffix}`,
+			bookProperties: { pages: 300, publishYear: 2012 },
+		});
+		const events = yield* bookEventSchemas(client);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${seeded.book.id}`);
+		const media = page.locator('iframe[title="Media plugin"]').contentFrame();
+		yield* media
+			.getByRole("heading", { level: 1, exact: true, name: bookName })
+			.waitFor({ state: "visible", timeout: 150_000 });
+
+		yield* media.getByRole("tab", { name: "Activity" }).click();
+		yield* media.getByText("No activity yet", { exact: true }).waitFor({ state: "visible" });
+		yield* media
+			.getByRole("tabpanel", { name: "Activity" })
+			.getByRole("button", { exact: true, name: "Log activity" })
+			.click();
+		const dialog = media.getByRole("dialog", { name: "Log activity" });
+		yield* dialog.waitFor({ state: "visible" });
+		yield* dialog
+			.getByRole("radiogroup", { name: "What happened" })
+			.getByRole("radio", { name: "Progress" })
+			.click();
+		yield* dialog.getByRole("radio", { name: "Set amount" }).click();
+		yield* dialog.getByLabel("Percent").fill("40");
+		yield* dialog.getByRole("button", { exact: true, name: "Save progress" }).click();
+		yield* dialog
+			.getByText("Progress saved at 40%.", { exact: true })
+			.waitFor({ state: "visible" });
+		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* dialog.waitFor({ state: "hidden" });
+
+		const progress = yield* waitForEventWithSchema(client, seeded.book.id, events.progress);
+		expect(progress.properties.progressPercent).toBe(40);
+
+		const body = media.locator("body");
+		yield* body.getByText("40%", { exact: false }).first().waitFor({ state: "visible" });
+		expect(yield* body.getByText("No activity yet", { exact: true }).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
