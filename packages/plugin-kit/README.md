@@ -82,6 +82,13 @@ The path is the provider slug with `/` replacing `.`, and the basename is `detai
 `search-options`, `related`, `resolve`, or `translate`. Other sandbox basenames in a provider directory are
 provider-associated ordinary scripts.
 
+### Population levels
+
+`details` receives `{ externalId, existingProperties?, level? }`. `level` is `"base"` or `"full"`;
+absent means `full`. At `base`, return the entity fields and child entities and skip fetching related
+data: the kernel ignores any `relatedEntityGroups` returned at `base`. At `full`, return related
+groups as well.
+
 ### Paged related groups
 
 A `details` related-entity group may carry a `continuation` (JSON, at most 4 KiB encoded) when more
