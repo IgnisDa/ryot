@@ -82,6 +82,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 							payload: {
 								command,
 								executionId,
+								level: "full",
 								mode: "ensure",
 								externalId: input.externalId,
 								providerId: input.providerId,

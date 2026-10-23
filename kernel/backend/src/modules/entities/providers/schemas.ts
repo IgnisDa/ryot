@@ -21,6 +21,9 @@ export const entityImportPayloadFields = {
 	command: DomainLifecycleCommand,
 } as const;
 
+export const PopulationLevel = Schema.Literals(["base", "full"]);
+export type PopulationLevel = typeof PopulationLevel.Type;
+
 export const EntityImportScope = Schema.Union([
 	Schema.Struct({ userId: Schema.NullOr(UserId), type: Schema.Literal("global") }),
 	Schema.Struct({ userId: UserId, type: Schema.Literal("user") }),

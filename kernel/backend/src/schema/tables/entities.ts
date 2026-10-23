@@ -20,6 +20,7 @@ export const entity = snakeCase.table(
 		populatedAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
 		populationFailedAt: timestamptz(),
+		relatedPopulatedAt: timestamptz(),
 		entitySchemaSlug: text().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		populationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),

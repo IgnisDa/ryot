@@ -182,6 +182,8 @@ layer(triggerLayer("system"))((test) => {
 			yield* (yield* EntityPopulationTrigger).request(fixture.request);
 			const [execution] = yield* fixture.executions;
 			expect(execution?.payload).toMatchObject({
+				level: "full",
+				mode: "ensure",
 				entityScope: { userId, type: "global" },
 				pluginId: fixture.request.entitySchemaPluginId,
 				command: {

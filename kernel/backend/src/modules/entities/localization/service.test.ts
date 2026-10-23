@@ -235,6 +235,7 @@ const makeServiceLayer = (
 				populatedAt: storedAt,
 				populationFailure: null,
 				populationFailedAt: null,
+				relatedPopulatedAt: null,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
 				properties: execution.properties,

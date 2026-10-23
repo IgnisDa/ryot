@@ -973,6 +973,18 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				},
 			);
 
+			const stampRelatedPopulated = Effect.fn("EntitiesRepository.stampRelatedPopulated")(
+				function* (entityId: EntityId, relatedPopulatedAt: Date) {
+					yield* session.requireTransaction;
+					yield* session.run((db) =>
+						db
+							.update(schema.entity)
+							.set({ relatedPopulatedAt })
+							.where(eq(schema.entity.id, entityId)),
+					);
+				},
+			);
+
 			const clearPopulationFailure = Effect.fn("EntitiesRepository.clearPopulationFailure")(
 				function* (entityId: EntityId) {
 					yield* session.requireTransaction;
@@ -1081,6 +1093,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getMutationEntities,
 				markPopulationFailed,
 				findGlobalEntityById,
+				stampRelatedPopulated,
 				getEntityScopeForUser,
 				clearPopulationFailure,
 				hasUserCollectionNamed,
