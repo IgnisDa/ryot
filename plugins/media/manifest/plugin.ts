@@ -24,6 +24,12 @@ import {
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import {
+	DEFAULT_UPCOMING_DAYS_AHEAD,
+	MAX_UPCOMING_DAYS_AHEAD,
+	UPCOMING_DAYS_AHEAD_SETTING,
+	UPCOMING_ONE_PER_TITLE_SETTING,
+} from "../shared/upcoming-settings";
 import { mediaBrowse } from "./browse";
 import { mediaCalendarSources } from "./calendar-sources";
 import { mediaConfigSchema } from "./config";
@@ -119,7 +125,7 @@ const consumedOnUserSettingFields = Object.fromEntries(
 	consumedOnSettings.map(({ slug, label, defaults }, index) => [
 		consumedOnSettingKeys[slug],
 		{
-			position: index + 1,
+			position: index + 3,
 			type: "array" as const,
 			defaultValue: defaults,
 			label: `Where you consume: ${label}`,
@@ -566,19 +572,6 @@ export const mediaPlugin = definePlugin({
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
-	userSettingsSchema: {
-		unknownKeys: "strict",
-		fields: {
-			allowNsfw: {
-				position: 0,
-				type: "boolean",
-				defaultValue: false,
-				label: "Show NSFW content",
-				description: "Allow providers to include adult metadata and results.",
-			},
-			...consumedOnUserSettingFields,
-		},
-	},
 	httpRateLimits: [
 		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
@@ -633,6 +626,34 @@ export const mediaPlugin = definePlugin({
 			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
 	],
+	userSettingsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			allowNsfw: {
+				position: 0,
+				type: "boolean",
+				defaultValue: false,
+				label: "Show NSFW content",
+				description: "Allow providers to include adult metadata and results.",
+			},
+			[UPCOMING_ONE_PER_TITLE_SETTING]: {
+				position: 2,
+				type: "boolean",
+				defaultValue: true,
+				label: "One upcoming entry per title",
+				description: "Show only the next episode or release of each title in Upcoming.",
+			},
+			[UPCOMING_DAYS_AHEAD_SETTING]: {
+				position: 1,
+				type: "integer",
+				label: "Upcoming days ahead",
+				defaultValue: DEFAULT_UPCOMING_DAYS_AHEAD,
+				validation: { minimum: 1, maximum: MAX_UPCOMING_DAYS_AHEAD },
+				description: "How many days ahead the home Upcoming rail looks.",
+			},
+			...consumedOnUserSettingFields,
+		},
+	},
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.media-import" },
 		{ slug: "integration", scriptSlug: "workflow.media-integration" },

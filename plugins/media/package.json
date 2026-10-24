@@ -90,9 +90,9 @@
 			"types": "./shared/discovery-recipes.ts",
 			"default": "./shared/discovery-recipes.ts"
 		},
-		"./shared/airing-recipes": {
-			"types": "./shared/airing-recipes.ts",
-			"default": "./shared/airing-recipes.ts"
+		"./shared/upcoming-recipes": {
+			"types": "./shared/upcoming-recipes.ts",
+			"default": "./shared/upcoming-recipes.ts"
 		},
 		"./shared/activity-log-recipes": {
 			"types": "./shared/activity-log-recipes.ts",
