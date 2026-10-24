@@ -26,7 +26,18 @@ import {
 	type PluginClientArtifact,
 	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
-import { Clock, Data, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
+import {
+	Clock,
+	Data,
+	Effect,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	Random,
+	Schema,
+	Stream,
+} from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -76,8 +87,9 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	const manifestPath = path.resolve(cwd, manifestEntry);
 	const manifestUrl = yield* path.toFileUrl(manifestPath);
 	const cacheBust = yield* Clock.currentTimeMillis;
+	const cacheBustNonce = yield* Random.nextInt;
 	const manifestModule = yield* Effect.tryPromise({
-		try: () => import(`${manifestUrl.href}?cacheBust=${cacheBust}-${Math.random()}`),
+		try: () => import(`${manifestUrl.href}?cacheBust=${cacheBust}-${cacheBustNonce}`),
 		catch: (error) =>
 			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
 	});

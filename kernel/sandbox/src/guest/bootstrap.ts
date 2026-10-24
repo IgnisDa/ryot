@@ -116,7 +116,7 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 	// oxlint-disable-next-line effecttsgo/async-function -- The SDK approved-dependency callback is Promise-native.
 	const withGlobals = async <A>(operation: () => Promise<A>) => {
 		if (!enabled) {
-			return await operation();
+			return operation();
 		}
 		if (active === 0) {
 			globals = makeGlobalReplacements();

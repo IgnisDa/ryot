@@ -183,7 +183,7 @@ describe("workout editor sounds", () => {
 			Effect.gen(function* () {
 				const fake = createFakeContext("suspended", (setRunning, calls) => {
 					if (calls === 1) {
-						return Promise.reject("resume failed");
+						return Promise.reject(new Error("resume failed"));
 					}
 					setRunning();
 					return Promise.resolve();

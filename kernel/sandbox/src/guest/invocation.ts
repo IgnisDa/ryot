@@ -339,6 +339,18 @@ const chargeHostCall = (budget: SandboxHostCallBudget, name: string) => {
 		: createFailure(message, { operation: name, code: "execution-limit" });
 };
 
+const filesystemRejection = (error: unknown) => {
+	const failure = asSandboxHostError(error);
+	const rejection = new nativeError(failure.message);
+	if (failure.data !== undefined) {
+		objectDefineProperty(rejection, "data", { enumerable: true, value: failure.data });
+	}
+	return rejection;
+};
+
+const runFilesystemOperation = <A>(operation: Effect.Effect<A, unknown>) =>
+	Effect.runPromise(Effect.mapError(operation, filesystemRejection));
+
 const missingGrant = (message: string, operation: string): SandboxHostError =>
 	createFailure(message, { operation, code: "missing-artifact-grant" });
 
@@ -624,14 +636,14 @@ const createFilesystemBinding = (
 	});
 
 	return {
-		readArtifact: () => Effect.runPromise(readWholeArtifact()),
-		readNamedArtifact: (key: string) => Effect.runPromise(readWholeArtifact(key)),
+		readArtifact: () => runFilesystemOperation(readWholeArtifact()),
+		readNamedArtifact: (key: string) => runFilesystemOperation(readWholeArtifact(key)),
 		readArtifactRange: (offset: number, length: number, key?: string) =>
-			Effect.runPromise(readRange(offset, length, key)),
+			runFilesystemOperation(readRange(offset, length, key)),
 		writeScratchChunks: (
 			chunks: ReadonlyArray<{ readonly name: string; readonly contents: Uint8Array }>,
 		) =>
-			Effect.runPromise(
+			runFilesystemOperation(
 				Effect.gen(function* () {
 					if (!grants?.scratch) {
 						return yield* Effect.fail(

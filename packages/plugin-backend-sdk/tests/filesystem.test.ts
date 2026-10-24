@@ -78,19 +78,6 @@ test("preserves a structured runner grant reason without adding filesystem paths
 		}),
 	));
 
-test("preserves the typed host failure rejected by the runner Effect boundary", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const failure = {
-				message: "Sandbox artifact grant is unavailable",
-				data: { operation: "readArtifact", code: "missing-artifact-grant" as const },
-			};
-			activeBinding = makeBinding({ readArtifact: () => Promise.reject(failure) });
-			const result = yield* Effect.flip(readArtifact);
-			expect(result).toEqual({ ...failure, _tag: "SandboxFilesystemError" });
-		}),
-	));
-
 test("rejects invalid byte ranges before calling the binding", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {

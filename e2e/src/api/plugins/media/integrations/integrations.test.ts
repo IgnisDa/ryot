@@ -18,6 +18,7 @@ import {
 import {
 	findMediaEntitySchema,
 	mediaFixtureInstallation,
+	randomNumericExternalId,
 	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
@@ -118,7 +119,7 @@ describe("Webhook routes", () => {
 				schema.providers.find((candidate) => candidate.name === "TMDB"),
 				"Expected TMDB movie provider",
 			);
-			const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+			const tmdbId = yield* randomNumericExternalId;
 			const movie = yield* seedMediaEntity({
 				properties: {},
 				externalId: tmdbId,

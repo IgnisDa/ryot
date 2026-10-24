@@ -16,7 +16,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Random } from "effect";
 
 import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -117,6 +117,10 @@ export const queryInMediaLibraryRelationship = (
 };
 
 type SeedEntityInput = Parameters<typeof seedEntity>[0];
+
+export const randomNumericExternalId = Random.nextIntBetween(0, 1_000_000_000, {
+	halfOpen: true,
+}).pipe(Effect.map(String));
 
 export const seedMediaEntity = (
 	input: { entitySchemaSlug: string } & (SeedEntityInput extends infer Variant
@@ -422,7 +426,7 @@ export const seedGlobalShowEpisodeTree = (
 			showSchema.reference.owner,
 		);
 
-		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+		const tmdbId = yield* randomNumericExternalId;
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
@@ -538,7 +542,7 @@ export const seedGlobalMovieWithCollection = (
 			movieSchema.reference.owner,
 		);
 
-		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+		const tmdbId = yield* randomNumericExternalId;
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
@@ -694,7 +698,7 @@ export const seedGlobalMusicWithAlbum = (
 			musicSchema.reference.owner,
 		);
 
-		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
+		const externalId = yield* randomNumericExternalId;
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
@@ -844,7 +848,7 @@ export const seedGlobalBookWithSeries = (
 			bookSchema.reference.owner,
 		);
 
-		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
+		const externalId = yield* randomNumericExternalId;
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
