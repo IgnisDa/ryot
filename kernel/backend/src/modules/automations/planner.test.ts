@@ -16,7 +16,7 @@ import {
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema, type Tracer } from "effect";
 import { assert, describe } from "vitest";
@@ -386,10 +386,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					const planned = yield* nested(
 						planner.plan({ trigger, recipients: [recipient, owner, recipient] }),
 					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
-					const statements = spans.flatMap((span) => {
-						const text = span.attributes.get("db.query.text");
-						return typeof text === "string" ? [text] : [];
-					});
+					const statements = recordedStatements(spans);
 					expect(statements.filter((text) => text.includes('from "sandbox_script"'))).toHaveLength(
 						1,
 					);
@@ -540,9 +537,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						}),
 					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
 					expect(
-						spans.filter((span) =>
-							String(span.attributes.get("db.query.text")).includes('from "sandbox_script"'),
-						),
+						recordedStatements(spans).filter((text) => text.includes('from "sandbox_script"')),
 					).toHaveLength(1);
 					expect(pins).toHaveLength(2);
 					for (const installed of [first, second]) {
@@ -554,11 +549,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						);
 						const script = scripts.find(({ slug }) => slug === "fixture.automation");
 						assert(script);
-						expect(pins.find(({ pluginId }) => pluginId === installed.pluginId)).toMatchObject({
-							sandboxScriptId: script.id,
-							scriptSlug: "fixture.automation",
-							scriptContentHash: script.contentHash,
-							pluginRevisionId: installed.revisionId,
+						expect(
+							pins.find(({ references }) => references.pluginId === installed.pluginId),
+						).toMatchObject({
+							payload: { scriptSlug: "fixture.automation", scriptContentHash: script.contentHash },
+							references: { sandboxScriptId: script.id, pluginRevisionId: installed.revisionId },
 						});
 					}
 					const fresh: Tracer.Span[] = [];
@@ -566,9 +561,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						resolver.resolveBatchCandidates({ userId: owner, source: "api", resource: "entity" }),
 					).pipe(Effect.withTracer(makeRecordingTracer(fresh)));
 					expect(
-						fresh.filter((span) =>
-							String(span.attributes.get("db.query.text")).includes('from "sandbox_script"'),
-						),
+						recordedStatements(fresh).filter((text) => text.includes('from "sandbox_script"')),
 					).toHaveLength(1);
 				}),
 		);

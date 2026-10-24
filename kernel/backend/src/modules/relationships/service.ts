@@ -245,11 +245,9 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			return {
 				createUser,
 				commitSingle,
-				commitBatch: mutations.commitBatch,
 				applyPolicies: mutations.applyPolicies,
 				prepareUserCreate: mutations.prepareUserCreate,
 				prepareUserDelete: mutations.prepareUserDelete,
-				commitReconciliation: mutations.commitReconciliation,
 				persistPreparedUserCreate: mutations.persistPreparedUserCreate,
 				persistPreparedUserDelete: mutations.persistPreparedUserDelete,
 				persistPlannedReconciliation: mutations.persistPlannedReconciliation,

@@ -8,7 +8,7 @@ import type {
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer, type Tracer } from "effect";
@@ -796,10 +796,7 @@ layer(
 				const control = yield* repository
 					.getIngestionRunControl(scope)
 					.pipe(Effect.withTracer(makeRecordingTracer(spans)));
-				const statements = spans.flatMap((span) => {
-					const text = span.attributes.get("db.query.text");
-					return typeof text === "string" ? [text] : [];
-				});
+				const statements = recordedStatements(spans);
 				expect(statements).toHaveLength(1);
 				expect(statements[0]).toContain('from "import_run"');
 				expect(statements[0]).not.toMatch(/import_batch|import_activity/);
@@ -971,10 +968,9 @@ layer(
 					.transaction(repository.startBatch(scope, batch.id))
 					.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 			).toBe(true);
-			const updates = spans.flatMap((span) => {
-				const text = span.attributes.get("db.query.text");
-				return typeof text === "string" && text.startsWith('update "import_batch"') ? [text] : [];
-			});
+			const updates = recordedStatements(spans).filter((text) =>
+				text.startsWith('update "import_batch"'),
+			);
 			expect(updates).toHaveLength(1);
 			expect(yield* repository.listBatches(scope)).toEqual([
 				{ data: { ...batch, state: "applying" } },

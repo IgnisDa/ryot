@@ -36,7 +36,7 @@ import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { type BatchHookPin, BatchHookSnapshot, restoreBatchHookPin } from "./batch-hook-pin";
+import { type BatchHookPin, BatchHookSnapshot } from "./batch-hook-pin";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -238,29 +238,26 @@ export const LifecyclePlannerLive = Layer.effect(
 				input.pinnedBatchCandidates
 					? input.pinnedBatchCandidates
 							.filter(
-								({ hook, pluginId, executionUserId }) =>
-									executionUserId === trigger.scopeUserId &&
-									hook.targets.some((target) =>
-										matchesTarget(definitionOwner(pluginId), target, trigger),
+								({ payload, references }) =>
+									references.scopeUserId === trigger.scopeUserId &&
+									payload.hook.targets.some((target) =>
+										matchesTarget(definitionOwner(references.pluginId), target, trigger),
 									),
 							)
-							.map(
-								({
-									hook,
-									pluginId,
-									scriptSlug,
-									executionUserId,
-									sandboxScriptId,
-									pluginRevisionId,
-									scriptContentHash,
-									pluginConfigRevisionId,
-								}) => ({
-									hook,
-									executionUserId,
-									plugin: { id: pluginId, pluginRevisionId, pluginConfigRevisionId },
-									script: { slug: scriptSlug, id: sandboxScriptId, contentHash: scriptContentHash },
-								}),
-							)
+							.map(({ payload, references }) => ({
+								hook: payload.hook,
+								executionUserId: references.scopeUserId,
+								plugin: {
+									id: references.pluginId,
+									pluginRevisionId: references.pluginRevisionId,
+									pluginConfigRevisionId: references.pluginConfigRevisionId,
+								},
+								script: {
+									id: references.sandboxScriptId,
+									slug: payload.scriptSlug,
+									contentHash: payload.scriptContentHash,
+								},
+							}))
 					: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat()
 			).filter(
 				({ hook, plugin }) =>
@@ -402,19 +399,8 @@ export const LifecyclePlannerLive = Layer.effect(
 					identity,
 					maxItems: limits.batchMaxItems,
 					pins: candidates.map((candidate) => ({
-						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.executionUserId, candidate.pluginId, candidate.hook.slug]))}`,
-						payload: {
-							hook: candidate.hook,
-							scriptSlug: candidate.scriptSlug,
-							scriptContentHash: candidate.scriptContentHash,
-						},
-						references: {
-							pluginId: candidate.pluginId,
-							scopeUserId: candidate.executionUserId,
-							sandboxScriptId: candidate.sandboxScriptId,
-							pluginRevisionId: candidate.pluginRevisionId,
-							pluginConfigRevisionId: candidate.pluginConfigRevisionId,
-						},
+						...candidate,
+						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.references.scopeUserId, candidate.references.pluginId, candidate.payload.hook.slug]))}`,
 					})),
 				})
 				.pipe(Effect.mapError(mapBatchConflict));
@@ -430,7 +416,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			if (contents.sealed) {
 				return contents.dispatch;
 			}
-			const candidates = yield* Effect.forEach(contents.pins, restoreBatchHookPin);
+			const candidates = contents.pins;
 			const changes = contents.evidence.flatMap(({ payload, scopeUserId }) =>
 				payload.resource === input.resource && payload.operation !== "batch"
 					? [{ payload, scopeUserId }]
@@ -440,7 +426,8 @@ export const LifecyclePlannerLive = Layer.effect(
 				scopeUserId,
 				trigger: lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
 			}));
-			const maxItems = candidates.reduce((globalMaxItems, { hook, pluginId, executionUserId }) => {
+			const maxItems = candidates.reduce((globalMaxItems, { payload, references }) => {
+				const { hook } = payload;
 				if (
 					hook.stage !== "after" ||
 					hook.frequency !== "batch" ||
@@ -450,9 +437,9 @@ export const LifecyclePlannerLive = Layer.effect(
 				}
 				const matchesCommittedItem = changeTriggers.some(
 					({ trigger, scopeUserId }) =>
-						scopeUserId === executionUserId &&
+						scopeUserId === references.scopeUserId &&
 						hook.targets.some((target) =>
-							matchesTarget(definitionOwner(pluginId), target, trigger),
+							matchesTarget(definitionOwner(references.pluginId), target, trigger),
 						),
 				);
 				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;

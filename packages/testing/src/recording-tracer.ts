@@ -34,3 +34,12 @@ export const makeRecordingTracer = (spans: Tracer.Span[]) =>
 			return span;
 		},
 	});
+
+export const recordedStatements = (spans: ReadonlyArray<Tracer.Span>) =>
+	spans.flatMap((span) => {
+		const text = span.attributes.get("db.query.text");
+		return typeof text === "string" ? [text] : [];
+	});
+
+export const maxBindParameter = (statement: string) =>
+	Math.max(...[...statement.matchAll(/\$(\d+)/g)].map((match) => Number(match[1])));

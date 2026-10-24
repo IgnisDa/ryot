@@ -150,12 +150,6 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 					expect(yield* replace(2, [...members, "members-500"], foreground)).toEqual({
 						status: "limit-exceeded",
 					});
-					expect(yield* replace(2, members, members.slice(0, 51))).toEqual({
-						status: "limit-exceeded",
-					});
-					expect(yield* replace(2, members.slice(1), ["members-0"])).toEqual({
-						status: "invalid-foreground",
-					});
 					expect(yield* replace(1, [], [])).toEqual({ status: "revision-mismatch" });
 					expect(yield* tokens).toEqual(before);
 					expect(yield* store.listInterestedSessions("members-0")).toContain(sessionId);
@@ -322,57 +316,6 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 
 				expect(yield* tokens).toEqual({ a: "pending:1:f", b: "pending:1:v" });
 				expect(yield* store.listWatchingSessions("a")).toEqual([]);
-			}),
-		),
-	);
-
-	test.effect("enforces the foreground cap and foreground membership", () =>
-		withSession(ids("cap", MAX_FOREGROUND_ENTITY_IDS + 2), ({ store, tokens, sessionId }) =>
-			Effect.gen(function* () {
-				const members = ids("cap", MAX_FOREGROUND_ENTITY_IDS + 2);
-				expect(
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						entityIds: members,
-						foregroundIds: members.slice(0, MAX_FOREGROUND_ENTITY_IDS + 1),
-					}),
-				).toEqual({ status: "limit-exceeded" });
-				expect(
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						entityIds: ["cap-0"],
-						foregroundIds: ["cap-1"],
-					}),
-				).toEqual({ status: "invalid-foreground" });
-				expect(yield* tokens).toEqual({});
-				yield* store.replaceInterest({
-					sessionId,
-					revision: 1,
-					entityIds: members,
-					foregroundIds: members.slice(0, MAX_FOREGROUND_ENTITY_IDS),
-				});
-				const replace = (entityIds: readonly string[], foregroundIds: readonly string[]) =>
-					store.replaceInterest({ sessionId, entityIds, revision: 2, foregroundIds });
-				const extra = `cap-${MAX_FOREGROUND_ENTITY_IDS}`;
-				const before = yield* tokens;
-
-				expect(yield* replace(members, members.slice(0, MAX_FOREGROUND_ENTITY_IDS + 1))).toEqual({
-					status: "limit-exceeded",
-				});
-				expect(yield* replace(members, ["not-a-member"])).toEqual({ status: "invalid-foreground" });
-				expect(
-					yield* replace(
-						members.filter((id) => id !== extra),
-						[extra],
-					),
-				).toEqual({ status: "invalid-foreground" });
-				expect(yield* tokens).toEqual(before);
-				expect(
-					yield* replace(members.slice(1), members.slice(1, MAX_FOREGROUND_ENTITY_IDS + 1)),
-				).toMatchObject({ revision: 2, status: "applied" });
-				expect((yield* tokens)[extra]).toBe("pending:2:f");
 			}),
 		),
 	);

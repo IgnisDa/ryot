@@ -329,9 +329,13 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 							const scripts = yield* db
 								.select({
 									...plannedScriptFields,
-									pluginRevisionId: tables.sandboxScript.pluginRevisionId,
+									pluginRevisionId: tables.pluginRevision.id,
 								})
 								.from(tables.sandboxScript)
+								.innerJoin(
+									tables.pluginRevision,
+									eq(tables.pluginRevision.id, tables.sandboxScript.pluginRevisionId),
+								)
 								.where(
 									or(
 										...[...missing.values()].map(({ slug, pluginRevisionId }) =>
@@ -343,9 +347,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 									),
 								);
 							for (const script of scripts) {
-								if (script.pluginRevisionId !== null) {
-									memo.scripts.set(scriptKey(script.pluginRevisionId, script.slug), script);
-								}
+								memo.scripts.set(scriptKey(script.pluginRevisionId, script.slug), script);
 							}
 						}
 						return yield* Effect.forEach(selected, ({ hook, plugin }) => {
@@ -556,14 +558,14 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					}
 				}
 				return (yield* materialize(selected)).map(({ hook, plugin, script }): BatchHookPin => ({
-					hook,
-					scriptSlug: script.slug,
-					sandboxScriptId: script.id,
-					executionUserId: input.userId,
-					pluginId: PluginId.make(plugin.id),
-					scriptContentHash: script.contentHash,
-					pluginRevisionId: plugin.pluginRevisionId,
-					pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+					payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
+					references: {
+						scopeUserId: input.userId,
+						sandboxScriptId: script.id,
+						pluginId: PluginId.make(plugin.id),
+						pluginRevisionId: plugin.pluginRevisionId,
+						pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+					},
 				}));
 			});
 			return { resolve, lockCatalog, resolveBatchCandidates };

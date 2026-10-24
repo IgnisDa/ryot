@@ -12,8 +12,12 @@ import { AutomationHookSlug, PluginId, UserId } from "@ryot-app/contract/schema/
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
-import { and, eq, getTableColumns } from "drizzle-orm";
+import {
+	makeRecordingTracer,
+	maxBindParameter,
+	recordedStatements,
+} from "@ryot-app/testing/recording-tracer";
+import { and, eq } from "drizzle-orm";
 import { DateTime, Duration, Effect, Layer, Schema, type Tracer } from "effect";
 import { TestClock } from "effect/testing";
 import { assert, describe, it as unit } from "vitest";
@@ -26,6 +30,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt } from "#schema/tables/automations";
@@ -293,7 +298,7 @@ describe("AutomationRunRepository", () => {
 							)
 							.slice(0, count)
 							.toReversed();
-					const boundary = Math.floor(32_767 / Object.keys(getTableColumns(automationRun)).length);
+					const boundary = insertChunkSize(automationRun);
 					for (const { count, expectedInserts } of [
 						{ count: boundary, expectedInserts: 1 },
 						{ expectedInserts: 2, count: boundary + 1 },
@@ -310,19 +315,13 @@ describe("AutomationRunRepository", () => {
 								.transaction(repo.insertQueued({ runs, triggerPayload: trigger.payload }))
 								.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 						).toEqual(runs);
-						const statements = spans.flatMap((span) => {
-							const text = span.attributes.get("db.query.text");
-							return typeof text === "string" ? [text] : [];
-						});
+						const statements = recordedStatements(spans);
 						const inserts = statements.filter((text) =>
 							text.startsWith('insert into "automation_run"'),
 						);
 						expect(inserts).toHaveLength(expectedInserts);
 						for (const statement of inserts) {
-							const parameters = [...statement.matchAll(/\$(\d+)/g)].map((match) =>
-								Number(match[1]),
-							);
-							expect(Math.max(...parameters)).toBeLessThanOrEqual(32_767);
+							expect(maxBindParameter(statement)).toBeLessThanOrEqual(bindParameterLimit);
 						}
 						expect(
 							statements.filter((text) => text.includes('from "plugin_revision"')),
@@ -364,10 +363,7 @@ describe("AutomationRunRepository", () => {
 						failed,
 						new DbError({ message: `Automation run identity conflict: ${last.id}` }),
 					);
-					const statements = spans.flatMap((span) => {
-						const text = span.attributes.get("db.query.text");
-						return typeof text === "string" ? [text] : [];
-					});
+					const statements = recordedStatements(spans);
 					expect(
 						statements.filter((text) => text.startsWith('insert into "automation_run"')),
 					).toHaveLength(3);
@@ -790,10 +786,7 @@ describe("AutomationRunRepository", () => {
 									)
 									.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 							).toEqual([fresh, disabledUserRun, pluginRun]);
-							const statements = spans.flatMap((span) => {
-								const text = span.attributes.get("db.query.text");
-								return typeof text === "string" ? [text] : [];
-							});
+							const statements = recordedStatements(spans);
 							expect(
 								statements.filter((text) => text.includes('from "plugin_revision"')),
 							).toHaveLength(1);

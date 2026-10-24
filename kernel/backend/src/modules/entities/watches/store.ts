@@ -1,6 +1,6 @@
 import { notFound } from "@ryot-app/contract/errors";
 import {
-	MAX_FOREGROUND_ENTITY_IDS,
+	type EntityWatchReplaceMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
@@ -61,10 +61,10 @@ local incomingRevision = tonumber(ARGV[1])
 if not currentRevision or incomingRevision ~= currentRevision + 1 then
   return { 'revision-mismatch' }
 end
-local entityCount = tonumber(ARGV[9])
+local entityCount = tonumber(ARGV[8])
 local requested = {}
 local requestedIds = {}
-for index = 10, 9 + entityCount do
+for index = 9, 8 + entityCount do
   local entityId = ARGV[index]
   if not requested[entityId] then
     requested[entityId] = true
@@ -72,18 +72,10 @@ for index = 10, 9 + entityCount do
   end
 end
 local foreground = {}
-local foregroundCount = 0
-for index = 10 + entityCount, #ARGV do
-  local entityId = ARGV[index]
-  if not requested[entityId] then
-    return { 'invalid-foreground' }
-  end
-  if not foreground[entityId] then
-    foreground[entityId] = true
-    foregroundCount = foregroundCount + 1
-  end
+for index = 9 + entityCount, #ARGV do
+  foreground[ARGV[index]] = true
 end
-if #requestedIds > tonumber(ARGV[5]) or foregroundCount > tonumber(ARGV[8]) then
+if #requestedIds > tonumber(ARGV[5]) then
   return { 'limit-exceeded' }
 end
 local current = redis.call('HKEYS', KEYS[2])
@@ -212,7 +204,6 @@ const pendingArgs = (pending: readonly PendingInterest[]) =>
 	]);
 
 type InterestCommandOutcome =
-	| { readonly status: "invalid-foreground" }
 	| { readonly status: "limit-exceeded" }
 	| { readonly status: "missing-session" }
 	| { readonly status: "revision-mismatch" }
@@ -241,12 +232,7 @@ const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
 		throw new Error("Redis returned an invalid entity interest command outcome");
 	}
 	const [status, rawRevision, ...rawPending] = result;
-	if (
-		status === "missing-session" ||
-		status === "revision-mismatch" ||
-		status === "limit-exceeded" ||
-		status === "invalid-foreground"
-	) {
+	if (status === "missing-session" || status === "revision-mismatch" || status === "limit-exceeded") {
 		return { status };
 	}
 	const revision = Number(rawRevision);
@@ -281,20 +267,6 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			Effect.tryPromise(() => redis.client.eval(script, keys.length, ...keys, ...args)).pipe(
 				Effect.orDie,
 			);
-		const commandArgs = Effect.fn(function* (sessionId: string, revision: number) {
-			const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
-			return [
-				String(revision),
-				sessionId,
-				String(expiresAt),
-				String(ENTITY_WATCH_SESSION_TTL_SECONDS),
-				String(MAX_INTEREST_ENTITY_IDS),
-				REVERSE_KEY_PREFIX,
-				REVERSE_KEY_SUFFIX,
-				String(MAX_FOREGROUND_ENTITY_IDS),
-			];
-		});
-
 		const openSession = Effect.fn("EntityWatchStore.openSession")(function* (input: {
 			readonly userId: UserId;
 			readonly accountGeneration: AccountGeneration;
@@ -317,16 +289,19 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			return undefined;
 		});
 
-		const replaceInterest = Effect.fn("EntityWatchStore.replaceInterest")(function* (input: {
-			readonly revision: number;
-			readonly sessionId: string;
-			readonly entityIds: readonly string[];
-			readonly foregroundIds: readonly string[];
-		}) {
-			const args = yield* commandArgs(input.sessionId, input.revision);
+		const replaceInterest = Effect.fn("EntityWatchStore.replaceInterest")(function* (
+			input: Omit<EntityWatchReplaceMessage, "type"> & { readonly sessionId: string },
+		) {
+			const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
 			return parseCommandOutcome(
 				yield* evaluate(REPLACE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
-					...args,
+					String(input.revision),
+					input.sessionId,
+					String(expiresAt),
+					String(ENTITY_WATCH_SESSION_TTL_SECONDS),
+					String(MAX_INTEREST_ENTITY_IDS),
+					REVERSE_KEY_PREFIX,
+					REVERSE_KEY_SUFFIX,
 					String(input.entityIds.length),
 					...input.entityIds,
 					...input.foregroundIds,

@@ -18,10 +18,13 @@ import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import {
+	type LifecycleDispatchPlan,
+	LifecyclePlannedPolicy,
+	LifecyclePlanner,
+} from "#modules/automations/lifecycle/planning";
 import {
 	type LifecycleCommittedStep,
-	type LifecyclePreparedStep,
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -101,7 +104,6 @@ export const PendingRelationshipMutations = Schema.Struct({
 				kind: Schema.Literal("change-user-batch"),
 			}),
 			Schema.Struct({
-				upserted: Schema.Finite,
 				receipt: MutationReceiptIdentity,
 				kind: Schema.Literal("reconcile-global-group"),
 			}),
@@ -149,10 +151,18 @@ export const RelationshipReconciliationSummary = Schema.Struct(
 );
 export type RelationshipReconciliationSummary = typeof RelationshipReconciliationSummary.Type;
 
-type RelationshipCommitResult =
-	| { readonly kind: "single"; readonly value: RelationshipSingleResult }
-	| { readonly kind: "batch"; readonly value: RelationshipBatchSummary }
-	| { readonly kind: "reconciliation"; readonly value: RelationshipReconciliationSummary };
+type RelationshipCommitShape<Result> = {
+	readonly lookup: (
+		receipt: MutationReceiptIdentity,
+	) => Effect.Effect<
+		{ readonly result: Result; readonly dispatch: ReadonlyArray<LifecycleDispatchPlan> } | null,
+		RelationshipBadRequest | DbError
+	>;
+	readonly summarize: (
+		pending: PendingRelationshipMutations,
+		outcomes: ReadonlyArray<RelationshipSingleResult>,
+	) => Effect.Effect<Result>;
+};
 
 const summarizeRelationshipMutations = (
 	results: ReadonlyArray<RelationshipSingleResult>,
@@ -160,42 +170,6 @@ const summarizeRelationshipMutations = (
 	created: results.filter((row) => row.operation === "create").length,
 	updated: results.filter((row) => row.operation === "update").length,
 	deleted: results.filter((row) => row.operation === "delete").length,
-});
-
-const singleStep = Effect.fnUntraced(function* (
-	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
-) {
-	if (step._tag !== "Committed") {
-		return step;
-	}
-	if (step.result.kind !== "single") {
-		return yield* Effect.die("Expected single relationship result");
-	}
-	return { ...step, result: step.result.value };
-});
-
-const batchStep = Effect.fnUntraced(function* (
-	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
-) {
-	if (step._tag !== "Committed") {
-		return step;
-	}
-	if (step.result.kind !== "batch") {
-		return yield* Effect.die("Expected relationship batch result");
-	}
-	return { ...step, result: step.result.value };
-});
-
-const reconciliationStep = Effect.fnUntraced(function* (
-	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
-) {
-	if (step._tag !== "Committed") {
-		return step;
-	}
-	if (step.result.kind !== "reconciliation") {
-		return yield* Effect.die("Expected relationship reconciliation result");
-	}
-	return { ...step, result: step.result.value };
 });
 
 export class RelationshipMutationPipeline extends Context.Service<RelationshipMutationPipeline>()(
@@ -377,9 +351,48 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				return { ...pending, items } satisfies PendingRelationshipMutations;
 			});
 
+			const singleShape = {
+				lookup: () => Effect.succeed(null),
+				summarize: Effect.fnUntraced(function* (
+					_pending: PendingRelationshipMutations,
+					outcomes: ReadonlyArray<RelationshipSingleResult>,
+				) {
+					const [single] = outcomes;
+					if (!single || outcomes.length !== 1) {
+						return yield* Effect.die("Expected one relationship mutation");
+					}
+					return single;
+				}),
+			} satisfies RelationshipCommitShape<RelationshipSingleResult>;
+			const batchShape = {
+				lookup: (receipt: MutationReceiptIdentity) =>
+					receipts
+						.lookup(receipt, RelationshipBatchSummary)
+						.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
+				summarize: (
+					_pending: PendingRelationshipMutations,
+					outcomes: ReadonlyArray<RelationshipSingleResult>,
+				) => Effect.succeed(summarizeRelationshipMutations(outcomes)),
+			} satisfies RelationshipCommitShape<RelationshipBatchSummary>;
+			const reconciliationShape = {
+				lookup: (receipt: MutationReceiptIdentity) =>
+					receipts
+						.lookup(receipt, RelationshipReconciliationSummary)
+						.pipe(Effect.mapError(classifyRelationshipReceiptConflict)),
+				summarize: (
+					pending: PendingRelationshipMutations,
+					outcomes: ReadonlyArray<RelationshipSingleResult>,
+				) =>
+					Effect.succeed({
+						...summarizeRelationshipMutations(outcomes),
+						upserted: pending.items.filter(({ mutation }) => mutation.mode === "upsert").length,
+					}),
+			} satisfies RelationshipCommitShape<RelationshipReconciliationSummary>;
+
 			const commitMutationsInTransaction = Effect.fn(
 				"RelationshipsService.commitMutationsInTransaction",
-			)(function* (
+			)(function* <Result>(
+				shape: RelationshipCommitShape<Result>,
 				pending: PendingRelationshipMutations,
 				planned?: {
 					readonly pinOf: Effect.Success<ReturnType<typeof primitives.verifyWrites>>;
@@ -392,36 +405,15 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						pending.items.map(({ mutation }) => mutationWriteCheck(mutation)),
 					));
 				if (pending.aggregate) {
-					const aggregate = pending.aggregate;
-					const recorded = yield* aggregate.kind === "change-user-batch"
-						? receipts.lookup(aggregate.receipt, RelationshipBatchSummary).pipe(
-								Effect.mapError(classifyRelationshipReceiptConflict),
-								Effect.map(
-									(receipt) =>
-										receipt && {
-											...receipt,
-											result: { value: receipt.result, kind: "batch" as const },
-										},
-								),
-							)
-						: receipts.lookup(aggregate.receipt, RelationshipReconciliationSummary).pipe(
-								Effect.mapError(classifyRelationshipReceiptConflict),
-								Effect.map(
-									(receipt) =>
-										receipt && {
-											...receipt,
-											result: { value: receipt.result, kind: "reconciliation" as const },
-										},
-								),
-							);
-					if (recorded) {
+					const aggregateReplay = yield* shape.lookup(pending.aggregate.receipt);
+					if (aggregateReplay) {
 						if (pending.rootFinal && pending.rootDecision) {
 							yield* receipts.sealBatch(pending.rootDecision, []);
 						}
 						return {
-							result: recorded.result,
+							result: aggregateReplay.result,
 							_tag: "Committed" as const,
-							dispatch: recorded.dispatch,
+							dispatch: aggregateReplay.dispatch,
 						};
 					}
 				}
@@ -602,31 +594,15 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				yield* insertReceipts(records);
 				const batch = batchScope === null ? [] : yield* planner.planBatch(batchScope);
 				const outcomes = items.map(({ operation, relationship }) => ({ operation, relationship }));
-				let result: RelationshipCommitResult;
-				if (pending.aggregate) {
-					const summary = summarizeRelationshipMutations(outcomes);
-					result =
-						pending.aggregate.kind === "change-user-batch"
-							? { kind: "batch", value: summary }
-							: {
-									kind: "reconciliation",
-									value: { ...summary, upserted: pending.aggregate.upserted },
-								};
-				} else {
-					const [single] = outcomes;
-					if (!single || outcomes.length !== 1) {
-						return yield* Effect.die("Expected one relationship mutation");
-					}
-					result = { value: single, kind: "single" };
-				}
+				const result = yield* shape.summarize(pending, outcomes);
 				const step = {
 					result,
 					_tag: "Committed",
 					dispatch: [...items.flatMap((item) => item.dispatch), ...batch],
-				} satisfies LifecycleCommittedStep<RelationshipCommitResult>;
+				} satisfies LifecycleCommittedStep<Result>;
 				if (pending.aggregate) {
 					yield* receipts.insert({
-						result: result.value,
+						result,
 						dispatch: step.dispatch,
 						identity: pending.aggregate.receipt,
 					});
@@ -636,12 +612,15 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				}
 				return step;
 			});
-			const commitMutations = Effect.fn("RelationshipsService.commitMutations")(
-				(pending: PendingRelationshipMutations) =>
-					transaction(commitMutationsInTransaction(pending)),
-			);
+			const commitMutations = Effect.fn("RelationshipsService.commitMutations")(function* <Result>(
+				shape: RelationshipCommitShape<Result>,
+				pending: PendingRelationshipMutations,
+			) {
+				return yield* transaction(commitMutationsInTransaction(shape, pending));
+			});
 
-			const prepareMutations = Effect.fn("RelationshipsService.prepareMutations")(function* (
+			const prepareMutations = Effect.fn("RelationshipsService.prepareMutations")(function* <Result>(
+				shape: RelationshipCommitShape<Result>,
 				mutations: ReadonlyArray<Mutation>,
 				selector?: GlobalRelationshipListInput,
 				expectedSelection?: ReadonlyArray<{ id: RelationshipId }>,
@@ -666,7 +645,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						if (pending.items.some(({ policies }) => policies.length > 0)) {
 							return { pending, _tag: "PoliciesRequired" as const };
 						}
-						return yield* commitMutationsInTransaction(pending, planned);
+						return yield* commitMutationsInTransaction(shape, pending, planned);
 					}),
 				);
 				if (step._tag === "Blocked") {
@@ -681,13 +660,12 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			});
 
 			const commitSingle = (pending: PendingRelationshipMutations) =>
-				commitMutations(pending).pipe(Effect.flatMap(singleStep));
+				commitMutations(singleShape, pending);
 			const commitBatch = (pending: PendingRelationshipMutations) =>
-				commitMutations(pending).pipe(Effect.flatMap(batchStep));
+				commitMutations(batchShape, pending);
 			const commitReconciliation = (pending: PendingRelationshipMutations) =>
-				commitMutations(pending).pipe(Effect.flatMap(reconciliationStep));
-			const prepareSingle = (mutation: Mutation) =>
-				prepareMutations([mutation]).pipe(Effect.flatMap(singleStep));
+				commitMutations(reconciliationShape, pending);
+			const prepareSingle = (mutation: Mutation) => prepareMutations(singleShape, [mutation]);
 
 			const prepareChangeUserBatch = (
 				userId: UserId,
@@ -776,6 +754,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							}),
 						);
 						return yield* prepareMutations(
+							batchShape,
 							mutations,
 							undefined,
 							undefined,
@@ -783,7 +762,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							rootDecision,
 							rootFinal,
 						);
-					}).pipe(Effect.flatMap(batchStep));
+					});
 				});
 			};
 
@@ -923,18 +902,15 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							};
 						});
 						return yield* prepareMutations(
+							reconciliationShape,
 							mutations,
 							selector,
 							existing,
-							{
-								receipt: aggregate,
-								kind: "reconcile-global-group",
-								upserted: group.relationships.length,
-							},
+							{ receipt: aggregate, kind: "reconcile-global-group" },
 							rootDecision,
 							rootFinal,
 						);
-					}).pipe(Effect.flatMap(reconciliationStep));
+					});
 				});
 			};
 
