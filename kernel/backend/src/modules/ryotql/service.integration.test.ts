@@ -1290,13 +1290,13 @@ layer(catalogDatabaseLayer)((test) => {
 					.values({
 						userId: "owner",
 						id: "projected-link-work",
-						accountToken: "generation",
 						outputSchema: { fields: {} },
 						processorScriptId: "processor",
 						relationshipSchemaSlug: "projected-link",
 						pluginRevisionId: "system-plugin-revision",
 						relationshipSchemaPluginId: "system-plugin",
 						pluginPin: { configRevisionId: "system-env" },
+						accountToken: sql`(select account_generation from "user" where id = 'owner')`,
 					}),
 			);
 			yield* session.run((db) =>
@@ -1309,6 +1309,44 @@ layer(catalogDatabaseLayer)((test) => {
 						workId: "projected-link-work",
 						relationshipId: "projected-link",
 					}),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				id: "projected-link",
+				projection: { score: 4 },
+				projectionStatus: "ready",
+			});
+			yield* session.run((db) =>
+				db
+					.update(relationshipProjectionWork)
+					.set({ accountToken: "retired" })
+					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				projection: null,
+				id: "projected-link",
+				projectionStatus: "none",
+			});
+			yield* session.run((db) =>
+				db
+					.update(relationshipProjectionWork)
+					.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
+					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				id: "projected-link",
+				projection: { score: 4 },
+				projectionStatus: "ready",
+			});
+			yield* session.run((db) =>
+				db.update(user).set({ disabledAt: occurredAt }).where(eq(user.id, "owner")),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				projection: null,
+				id: "projected-link",
+				projectionStatus: "none",
+			});
+			yield* session.run((db) =>
+				db.update(user).set({ disabledAt: null }).where(eq(user.id, "owner")),
 			);
 			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
 				id: "projected-link",

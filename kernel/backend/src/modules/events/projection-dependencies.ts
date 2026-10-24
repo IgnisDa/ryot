@@ -28,51 +28,78 @@ export const projectionDependencyTargets = (sources: ReturnType<typeof sql>) => 
 			and (source.event_schema_slug = input.value->>'eventSchemaSlug'
 				or source.event_schema_slug = input.value->'through'->>'eventSchemaSlug')
 		)
+	), source_selectors as (
+		select distinct plugin_id, dependency from projection_declarations
 	), selected_inputs as (
-		select source.source_index, source.user_id, source.event_schema_slug,
-			declaration.declaration_id, declaration.input_index, declaration.dependency,
+		select distinct source.source_index, source.user_id, source.event_schema_slug,
+			source.event_schema_plugin_id as plugin_id, declaration.dependency,
 			${selectedReference} as entity_reference
 		from sources source
-		join projection_declarations declaration on declaration.plugin_id = source.event_schema_plugin_id
+		join source_selectors declaration on declaration.plugin_id = source.event_schema_plugin_id
 			and source.event_schema_slug = declaration.dependency->>'eventSchemaSlug'
-	), mapping_edges as (
-		select declaration.declaration_id, declaration.input_index, mapping.user_id,
-			mapping.properties->>(dependency->'through'->>'sourceProperty') as source_reference,
-			mapping.properties->>(dependency->'through'->>'targetProperty') as entity_id
-		from projection_declarations declaration
-		join event mapping on mapping.event_schema_plugin_id = declaration.plugin_id
-			and mapping.event_schema_slug = dependency->'through'->>'eventSchemaSlug'
-	), dependency_references as (
-		select source_index, user_id, event_schema_slug, declaration_id, input_index,
-			entity_reference as entity_id
-		from selected_inputs where dependency->'through' is null
-		union all
-		select source.source_index, source.user_id, source.event_schema_slug,
-			source.declaration_id, source.input_index, mapping.entity_id
+	), direct_references as materialized (
+		select source.source_index, source.user_id, source.event_schema_slug, source.plugin_id,
+			source.dependency, target.id as entity_id, target.entity_schema_slug
 		from selected_inputs source
-		join mapping_edges mapping on mapping.declaration_id = source.declaration_id
-			and mapping.input_index = source.input_index and mapping.user_id = source.user_id
-			and mapping.source_reference = source.entity_reference
+		join entity target on target.id = source.entity_reference
+			and target.entity_schema_plugin_id = source.plugin_id
+			and (target.user_id is null or target.user_id = source.user_id)
+		where source.dependency->'through' is null
+	), mapping_schemas as (
+		select distinct plugin_id, dependency->'through'->>'eventSchemaSlug' as event_schema_slug
+		from projection_declarations where dependency->'through'->>'eventSchemaSlug' is not null
+	), mapping_events as materialized (
+		select mapping.user_id, mapping.event_schema_plugin_id, mapping.event_schema_slug, mapping.properties
+		from event mapping
+		join mapping_schemas schema on schema.plugin_id = mapping.event_schema_plugin_id
+			and schema.event_schema_slug = mapping.event_schema_slug
+	), mapping_edges as (
+		select distinct declaration.declaration_id, declaration.input_index, mapping.user_id,
+			mapping.properties->>(declaration.dependency->'through'->>'sourceProperty') as source_reference,
+			mapping.properties->>(declaration.dependency->'through'->>'targetProperty') as entity_id
+		from projection_declarations declaration
+		join mapping_events mapping on mapping.event_schema_plugin_id = declaration.plugin_id
+			and mapping.event_schema_slug = declaration.dependency->'through'->>'eventSchemaSlug'
+	)
+	select distinct "sourceIndex", "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId", restart
+	from (
+		select source.source_index as "sourceIndex", source.user_id as "userId",
+			source.entity_id as "entityId", declaration.event_schema_slug as "eventSchemaSlug",
+			declaration.plugin_id as "eventSchemaPluginId",
+			(declaration.dependency->'through' is not null or declaration.dependency->>'scope' <> 'entity'
+				or source.event_schema_slug <> declaration.event_schema_slug) as restart
+		from direct_references source
+		join projection_declarations declaration on declaration.plugin_id = source.plugin_id
+			and declaration.dependency = source.dependency
+			and declaration.entity_schema_slug = source.entity_schema_slug
 		union all
-		select source.source_index, source.user_id, source.event_schema_slug,
-			declaration.declaration_id, declaration.input_index,
-			source.properties->>(dependency->'through'->>'targetProperty')
+		select source.source_index, source.user_id, target.id, declaration.event_schema_slug,
+			declaration.plugin_id,
+			(declaration.dependency->'through' is not null or declaration.dependency->>'scope' <> 'entity'
+				or source.event_schema_slug <> declaration.event_schema_slug)
+		from selected_inputs source
+		join projection_declarations declaration on declaration.plugin_id = source.plugin_id
+			and declaration.dependency = source.dependency
+		join mapping_edges mapping on mapping.declaration_id = declaration.declaration_id
+			and mapping.input_index = declaration.input_index and mapping.user_id = source.user_id
+			and mapping.source_reference = source.entity_reference
+		join entity target on target.id = mapping.entity_id
+			and target.entity_schema_slug = declaration.entity_schema_slug
+			and target.entity_schema_plugin_id = declaration.plugin_id
+			and (target.user_id is null or target.user_id = source.user_id)
+		union all
+		select source.source_index, source.user_id, target.id, declaration.event_schema_slug,
+			declaration.plugin_id,
+			(declaration.dependency->'through' is not null or declaration.dependency->>'scope' <> 'entity'
+				or source.event_schema_slug <> declaration.event_schema_slug)
 		from sources source
 		join projection_declarations declaration on declaration.plugin_id = source.event_schema_plugin_id
-			and source.event_schema_slug = dependency->'through'->>'eventSchemaSlug'
-	)
-	select distinct reference.source_index as "sourceIndex", reference.user_id as "userId",
-		target.id as "entityId", declaration.event_schema_slug as "eventSchemaSlug",
-		declaration.plugin_id as "eventSchemaPluginId",
-		(dependency->'through' is not null or dependency->>'scope' <> 'entity'
-			or reference.event_schema_slug <> declaration.event_schema_slug) as restart
-	from dependency_references reference
-	join projection_declarations declaration on declaration.declaration_id = reference.declaration_id
-		and declaration.input_index = reference.input_index
-	join entity target on target.id = reference.entity_id
+			and source.event_schema_slug = declaration.dependency->'through'->>'eventSchemaSlug'
+		join entity target on target.id = source.properties->>(declaration.dependency->'through'->>'targetProperty')
 		and target.entity_schema_slug = declaration.entity_schema_slug
 		and target.entity_schema_plugin_id = declaration.plugin_id
-		and (target.user_id is null or target.user_id = reference.user_id)`;
+		and (target.user_id is null or target.user_id = source.user_id)
+	) targets`;
 
 export const projectionSourceReferences = (sources: ReturnType<typeof sql>) => sql`
 	with sources as (${sources}), scope_references as (
