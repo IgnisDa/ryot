@@ -69,6 +69,18 @@ export const workoutDetails = (
 	endedAt: "2024-12-24T04:14:17.000Z",
 	startedAt: "2024-12-24T02:49:09.000Z",
 	schemaSlug: EntitySchemaSlug.make("workout"),
+	taxonomy: (overrides.exercises ?? []).flatMap((exercise) =>
+		[...new Set(exercise.sets.items.map((set) => set.exerciseOrder ?? 0))].map((exerciseOrder) => ({
+			exerciseOrder,
+			exerciseId: exercise.id,
+			targets: exercise.targets,
+			equipment: exercise.equipment,
+			id: `occurrence-${exerciseOrder}`,
+			workoutId: overrides.id ?? "workout-1",
+			setCount: exercise.sets.items.filter((set) => (set.exerciseOrder ?? 0) === exerciseOrder)
+				.length,
+		})),
+	),
 	...overrides,
 	template: page([]),
 	repeatedFrom: page([]),

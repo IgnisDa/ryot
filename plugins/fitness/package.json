@@ -2,6 +2,18 @@
 	"name": "@ryot-app/fitness-plugin",
 	"private": true,
 	"exports": {
+		"./workout-taxonomy": {
+			"types": "./shared/workout-taxonomy.ts",
+			"default": "./shared/workout-taxonomy.ts"
+		},
+		"./workout-taxonomy-recipes": {
+			"types": "./shared/workout-taxonomy-recipes.ts",
+			"default": "./shared/workout-taxonomy-recipes.ts"
+		},
+		"./analytics-recipes": {
+			"types": "./shared/analytics-recipes.ts",
+			"default": "./shared/analytics-recipes.ts"
+		},
 		".": {
 			"types": "./manifest/plugin.ts",
 			"default": "./manifest/plugin.ts"
@@ -9,6 +21,10 @@
 		"./workout-editor-recipes": {
 			"types": "./shared/workout-editor-recipes.ts",
 			"default": "./shared/workout-editor-recipes.ts"
+		},
+		"./workout-editor-operations": {
+			"types": "./shared/workout-editor-operations.ts",
+			"default": "./shared/workout-editor-operations.ts"
 		},
 		"./workout-exercise-recipes": {
 			"types": "./shared/workout-exercise-recipes.ts",
