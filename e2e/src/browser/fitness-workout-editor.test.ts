@@ -111,6 +111,11 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		yield* measurement.getByRole("button", { exact: true, name: "Save" }).click();
 		yield* measurement.waitFor({ state: "hidden" });
 		yield* discardDraft(frame);
+		yield* page
+			.getByRole("region", { name: "Background activity" })
+			.getByRole("article", { name: "Fitness: Logged Weight" })
+			.getByText("Saved", { exact: true })
+			.waitFor({ state: "visible" });
 		const readings = yield* listEventsForEntity(client, metric.entityId, undefined, 100);
 		expect(readings).toMatchObject([{ properties: { value: 0 } }]);
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-measurements`);
