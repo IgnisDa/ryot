@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Cause, Effect } from "effect";
+import { Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { MigrationReportView } from "#/modules/instance-admin/migration-report-view";
@@ -199,9 +199,7 @@ describe("MigrationReportView", () => {
 						relocks += 1;
 					}}
 					load={() =>
-						Effect.failCause(
-							Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-						)
+						Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 					}
 				/>,
 			);

@@ -327,7 +327,7 @@ export const runTmdbTrending = (
 					])
 					.pipe(
 						Effect.orElseSucceed(() => null),
-						Effect.map(() => null),
+						Effect.as(null),
 					),
 			),
 		);

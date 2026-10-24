@@ -539,7 +539,7 @@ const streamWorkTestLayer = Layer.unwrap(
 		const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
 		const beforeDiscovery = yield* Ref.make<Effect.Effect<void>>(Effect.void);
 		const recorder = {
-			beforeDiscovery: Ref.get(beforeDiscovery).pipe(Effect.flatMap((before) => before)),
+			beforeDiscovery: Ref.get(beforeDiscovery).pipe(Effect.flatten),
 			record: (call: StreamWorkCall) => Ref.update(admissionCalls, (calls) => [...calls, call]),
 		};
 		const recorderLayer = Layer.succeed(StreamWorkRecorder, recorder);

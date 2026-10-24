@@ -61,7 +61,7 @@ export default defineOperation({
 					{ submittedAt: input.submittedAt, idempotencyKey: input.submissionId },
 				)
 				.pipe(
-					Effect.map(() => true),
+					Effect.as(true),
 					Effect.catch((error) => {
 						const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
 							error.data,
