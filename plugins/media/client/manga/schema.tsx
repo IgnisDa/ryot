@@ -76,13 +76,22 @@ export const mangaSchema = defineFlatMediaSchema({
 	},
 	logActivity: {
 		family: "positional",
+		itemContextLabel: "Volume context",
 		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
 		progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+		itemUnits: [
+			{ label: "Chapter", value: "chapters" },
+			{ label: "Volume", value: "volumes" },
+		],
 	},
 	activityCopy: mediaFlatActivityCopy<MangaProgressPosition & MangaListStateSnapshot>({
 		verb: "read",
 		noun: "manga",
 		progress: mangaProgressLabel,
 		snapshot: { label: "Synced from AniList", detail: mangaListStateDetail },
+		itemLabel: (item) =>
+			item.unit === "volumes"
+				? `Volume ${item.position} read`
+				: `Chapter ${item.position} read${item.volume === undefined ? "" : ` · Volume ${item.volume}`}`,
 	}),
 });

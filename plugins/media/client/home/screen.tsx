@@ -69,7 +69,7 @@ export function HomeBody(props: {
 				<TrendingRail compact={compact} />
 			</LazySection>
 			<LazySection scrollRootRef={scrollRootRef}>
-				<ActivitySection today={today} compact={compact} />
+				<ActivitySection compact={compact} />
 			</LazySection>
 		</div>
 	);

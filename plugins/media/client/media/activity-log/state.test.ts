@@ -3,7 +3,11 @@ import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { mediaActivityLogContextRecipe } from "../../../shared/activity-log-recipes";
-import { MediaActivityLogInput } from "../../../shared/media-activity-operations";
+import { mediaActivityPatchableKeys } from "../../../shared/media-activity-fields";
+import {
+	MediaActivityLogInput,
+	MediaActivityUpdateInput,
+} from "../../../shared/media-activity-operations";
 import { contextTarget } from "../../../tests/client/activity-log/fixtures";
 import { rowsResult } from "../../../tests/client/query-result-fixture";
 import {
@@ -21,6 +25,7 @@ import {
 	backfillSummary,
 	convertedAmount,
 	defaultSeasonNumber,
+	eventPrecondition,
 	initialActivityDraft,
 	type MediaActivityLogger,
 	parseTimeSpent,
@@ -34,6 +39,11 @@ const flat: MediaActivityLogger = {
 	copy,
 	family: "flat",
 	progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
+};
+const pages: MediaActivityLogger = {
+	family: "flat",
+	progressUnit: { field: "pages", plural: "pages", singular: "page" },
+	copy: { verb: "read", noun: "book", gerund: "reading", participle: "read" },
 };
 const positional: MediaActivityLogger = {
 	copy,
@@ -114,30 +124,46 @@ describe("intents", () => {
 });
 
 describe("picked dates", () => {
-	it("uses the submission instant for today so a morning pick is never in the future", () => {
+	it("preserves today's calendar date without inventing a time", () => {
 		const at = submittedAt(9);
 		expect(
 			resolveActivityWhen({ kind: "date", startedDay: TODAY, finishedDay: TODAY }, at),
-		).toEqual({ kind: "date", startedOn: at, finishedOn: at });
+		).toEqual({
+			kind: "date",
+			calendarDate: TODAY,
+			startedOn: "2026-10-20T00:00:00.000Z",
+			finishedOn: "2026-10-20T00:00:00.000Z",
+		});
 	});
 
-	it("uses local noon for past days and clamps a start to its finish", () => {
+	it("preserves past calendar dates with UTC storage anchors", () => {
 		const at = submittedAt(9);
 		expect(
 			resolveActivityWhen(
 				{ kind: "date", startedDay: "2026-10-17", finishedDay: "2026-10-19" },
 				at,
 			),
-		).toEqual({ kind: "date", startedOn: noon(17), finishedOn: noon(19) });
+		).toEqual({
+			kind: "date",
+			calendarDate: "2026-10-19",
+			startedOn: "2026-10-17T00:00:00.000Z",
+			finishedOn: "2026-10-19T00:00:00.000Z",
+		});
 		expect(
 			resolveActivityWhen(
 				{ kind: "date", startedDay: "2026-10-19", finishedDay: "2026-10-19" },
 				at,
 			),
-		).toEqual({ kind: "date", startedOn: noon(19), finishedOn: noon(19) });
+		).toEqual({
+			kind: "date",
+			calendarDate: "2026-10-19",
+			startedOn: "2026-10-19T00:00:00.000Z",
+			finishedOn: "2026-10-19T00:00:00.000Z",
+		});
 		expect(resolveActivityWhen({ kind: "date", finishedDay: "2026-10-19" }, at)).toEqual({
 			kind: "date",
-			finishedOn: noon(19),
+			calendarDate: "2026-10-19",
+			finishedOn: "2026-10-19T00:00:00.000Z",
 		});
 	});
 
@@ -248,11 +274,27 @@ describe("validation", () => {
 		expect(errors(draft({ intent: "status", consumedOn: "x".repeat(101) }))).toEqual({});
 	});
 
-	it("parses h + m into minutes and treats empty or zero as omitted", () => {
+	it("validates exact page amounts without using the current total as a limit", () => {
+		const exact = draft({ intent: "progress", amountUnit: "unit", progressMode: "amount" });
+		for (const amount of ["0", "12.5", "250"]) {
+			expect(errors({ ...exact, amount }, pages, { pages: null })).toEqual({});
+		}
+		expect(errors({ ...exact, amount: "250" }, pages, { pages: 100 })).toEqual({});
+		for (const amount of ["", "-1", "NaN", "Infinity", "-Infinity"]) {
+			expect(errors({ ...exact, amount }, pages, { pages: null }).percent).toBe(
+				"Enter a nonnegative page amount.",
+			);
+		}
+		expect(
+			errors({ ...exact, amount: "101", amountUnit: "percent" }, pages, { pages: null }).percent,
+		).toBe("Enter a percent above 0 and up to 100.");
+	});
+
+	it("parses h + m into minutes and keeps explicit zero distinct from missing", () => {
 		expect(parseTimeSpent("2", "30")).toBe(150);
 		expect(parseTimeSpent("", "45")).toBe(45);
 		expect(parseTimeSpent("", "")).toBeUndefined();
-		expect(parseTimeSpent("0", "0")).toBeUndefined();
+		expect(parseTimeSpent("0", "0")).toBe(0);
 		expect(parseTimeSpent("a", "")).toBeNull();
 	});
 });
@@ -295,11 +337,40 @@ describe("entries", () => {
 		expect(entry({ intent: "progress", progressMode: "started" })).toEqual({
 			kind: "progress",
 			entityId: "entity-1",
+			when: { kind: "now" },
 		});
 		expect(entry({ amount: "42.5", intent: "progress", progressMode: "amount" })).toEqual({
 			kind: "progress",
 			entityId: "entity-1",
+			when: { kind: "now" },
 			progressPercent: 42.5,
+		});
+	});
+
+	it.each([
+		["2026-10-20T00:15:00+14:00", "2026-10-19T10:15:00.000Z"],
+		["2026-10-20T23:15:00-12:00", "2026-10-20T00:00:00.000Z"],
+	])("keeps a picked progress day across the UTC boundary at %s", (at, finishedOn) => {
+		const input = activityLogInput(
+			entry({
+				when: "date",
+				amount: "42.5",
+				intent: "progress",
+				finishedDay: TODAY,
+				progressMode: "amount",
+				startedDay: "2026-10-01",
+			}),
+			{ submittedAt: at, submissionId: "submission-1" },
+		);
+		expect(input).toEqual({
+			submittedAt: at,
+			submissionId: "submission-1",
+			entry: {
+				kind: "progress",
+				entityId: "entity-1",
+				progressPercent: 42.5,
+				when: { finishedOn, kind: "date", calendarDate: TODAY },
+			},
 		});
 	});
 
@@ -311,13 +382,42 @@ describe("entries", () => {
 				[],
 				{ runtime: 170 },
 			),
-		).toEqual({ kind: "progress", progressPercent: 50, entityId: "entity-1" });
+		).toEqual({
+			kind: "progress",
+			progressPercent: 50,
+			entityId: "entity-1",
+			when: { kind: "now" },
+		});
+	});
+
+	it("sends exact pages, including zero and fractional amounts", () => {
+		for (const amount of ["0", "12.5"]) {
+			expect(
+				entry(
+					{ amount, amountUnit: "unit", intent: "progress", progressMode: "amount" },
+					pages,
+					[],
+					{ pages: null },
+				),
+			).toEqual({
+				kind: "progress",
+				entityId: "entity-1",
+				when: { kind: "now" },
+				progressPages: Number(amount),
+			});
+		}
 	});
 
 	it("builds positional progress with a position and no percent", () => {
 		expect(
 			entry({ position: 13, intent: "progress", consumedOn: "Crunchyroll" }, positional),
-		).toEqual({ position: 13, kind: "progress", entityId: "entity-1", consumedOn: "Crunchyroll" });
+		).toEqual({
+			position: 13,
+			kind: "progress",
+			entityId: "entity-1",
+			when: { kind: "now" },
+			consumedOn: "Crunchyroll",
+		});
 	});
 
 	it("builds status and episodes", () => {
@@ -351,7 +451,12 @@ describe("entries", () => {
 			entry: {
 				kind: "complete",
 				entityId: "entity-1",
-				when: { kind: "date", startedOn: submittedAt(9), finishedOn: submittedAt(9) },
+				when: {
+					kind: "date",
+					calendarDate: TODAY,
+					startedOn: "2026-10-20T00:00:00.000Z",
+					finishedOn: "2026-10-20T00:00:00.000Z",
+				},
 			},
 		});
 	});
@@ -567,7 +672,7 @@ describe("quick actions", () => {
 	});
 });
 
-const stored = (properties: Record<string, string | number | boolean>, entityId = "entity-1") => ({
+const stored = (properties: Record<string, Schema.Json>, entityId = "entity-1") => ({
 	properties,
 	occurredAt: noon(10),
 	sessionEntityId: null,
@@ -602,6 +707,39 @@ const edit = (input: {
 };
 
 describe("activity edits", () => {
+	it("edits independent item identity while retaining fractional time and date precision", () => {
+		const record = stored({
+			timeSpent: 61.25,
+			sourceRun: "original",
+			calendarDate: "2026-10-09",
+			consumedItem: { volume: 2, position: 12.5, unit: "chapters" },
+		});
+		const initial = activityEditDraft({
+			ref: record,
+			today: TODAY,
+			intent: "finished",
+			logger: positional,
+			context: loaded({ schemaSlug: "manga" }),
+		});
+		expect(initial).toMatchObject({
+			hours: "1",
+			minutes: "1.25",
+			finishedDay: "2026-10-09",
+			consumedItem: { volume: 2, position: 12.5, unit: "chapters" },
+		});
+		expect(
+			edit({
+				record,
+				intent: "finished",
+				logger: positional,
+				schemaSlug: "manga",
+				change: { consumedItem: { position: 3.5, unit: "volumes" } },
+			}),
+		).toEqual({ consumedItem: { position: 3.5, unit: "volumes" } });
+		expect(edit({ record, intent: "finished", change: { minutes: "1.75" } })).toEqual({
+			timeSpent: 61.75,
+		});
+	});
 	it("sends nothing when the draft still matches the stored record", () => {
 		expect(
 			edit({
@@ -618,7 +756,9 @@ describe("activity edits", () => {
 		});
 		expect(
 			edit({ intent: "finished", record: stored({}), change: { startedDay: "2026-10-08" } }),
-		).toEqual({ when: { kind: "date", startedOn: noon(8), finishedOn: noon(10) } });
+		).toEqual({
+			when: { kind: "date", finishedOn: noon(10), startedOn: "2026-10-08T00:00:00.000Z" },
+		});
 	});
 
 	it("clears a source and a time spent that were emptied", () => {
@@ -648,5 +788,68 @@ describe("activity edits", () => {
 				record: stored({ animeEpisode: 5 }),
 			}),
 		).toEqual({ position: 7 });
+	});
+
+	it("restores zero-page progress with an unknown total and encodes only a source change", () => {
+		const record = stored({
+			progressPages: 0,
+			consumedOn: "Kindle",
+			calendarDate: "2026-10-10",
+			sourceRun: "import:original",
+			consumptionBasis: { unit: "pages", property: "pages" },
+		});
+		const target = loaded({ pages: null, schemaSlug: "book" });
+		const initial = activityEditDraft({
+			ref: record,
+			today: TODAY,
+			logger: pages,
+			context: target,
+			intent: "progress",
+		});
+		expect(initial).toMatchObject({ amount: "0", amountUnit: "unit", progressMode: "amount" });
+		expect(
+			activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
+		).toEqual({});
+		const patch = activityEditPatch({
+			initial,
+			ref: record,
+			logger: pages,
+			context: target,
+			submittedAt: submittedAt(9),
+			draft: { ...initial, consumedOn: "Libby" },
+		});
+		expect(patch).toEqual({ consumedOn: "Libby" });
+		if (patch === undefined) {
+			throw new Error("Expected a source patch");
+		}
+		const encoded = Schema.encodeSync(MediaActivityUpdateInput)({
+			patch,
+			eventId: record.id,
+			submittedAt: submittedAt(9),
+			submissionId: "submission-1",
+			expected: eventPrecondition(record, mediaActivityPatchableKeys),
+		});
+		expect(encoded.patch).toEqual({ consumedOn: "Libby" });
+		expect(encoded.expected.properties).toEqual(record.properties);
+		expect(encoded.expected.absentProperties).toContain("progressPercent");
+	});
+
+	it("keeps stored pages above the current provider total editable", () => {
+		const record = stored({
+			progressPages: 250,
+			consumptionBasis: { total: 300, unit: "pages", property: "pages" },
+		});
+		const target = loaded({ pages: 100, schemaSlug: "book" });
+		const initial = activityEditDraft({
+			ref: record,
+			today: TODAY,
+			logger: pages,
+			context: target,
+			intent: "progress",
+		});
+		expect(initial).toMatchObject({ amount: "250", amountUnit: "unit", progressMode: "amount" });
+		expect(
+			activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
+		).toEqual({});
 	});
 });

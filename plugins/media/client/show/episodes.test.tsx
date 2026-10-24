@@ -118,17 +118,7 @@ const showAdapter = (input: {
 			}
 			if (serialized.includes('"orderGroupShow"')) {
 				return Effect.succeed({
-					data: {
-						coverage: rows([
-							{
-								episodeTotal: 2,
-								watchedTotal: 1,
-								upcomingTotal: 0,
-								watchedMinutes: 66,
-								watchedUnknownRuntime: 0,
-							},
-						]),
-					},
+					data: { coverage: rows([{ episodeTotal: 2, watchedTotal: 1, upcomingTotal: 0 }]) },
 				});
 			}
 			if (serialized.includes('"orderEpisode"')) {

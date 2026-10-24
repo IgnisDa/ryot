@@ -35,6 +35,31 @@ const labelsOf = (view: MediaFlatSchemaActivityView) =>
 	allRows(view).map(fixtureSchema.activityRowLabel);
 
 describe("flat media activity state", () => {
+	it("keeps repeated item occurrences independent and preserves calendar and unknown dates", () => {
+		const view = viewOf({
+			collectionEvents: [],
+			events: [
+				{
+					...flatProgressEventRow,
+					id: "one",
+					eventSchemaSlug: "item-complete",
+					properties: { calendarDate: "2025-11-02" },
+					consumedItem: { position: 12.5, unit: "chapters" },
+				},
+				{
+					...flatProgressEventRow,
+					id: "two",
+					eventSchemaSlug: "item-complete",
+					properties: { dateUnknown: true },
+					consumedItem: { position: 12.5, unit: "chapters" },
+				},
+			],
+		});
+		const rows = allRows(view);
+		expect(rows).toHaveLength(2);
+		expect(rows.every((row) => row.type === "item")).toBe(true);
+		expect(rows.map(mediaActivityDateLabel).sort()).toEqual(["2025-11-02", "Date unknown"]);
+	});
 	it("reports an empty record when nothing was ever tracked", () => {
 		expect(fixtureSchema.activityView(emptyFlatActivity())).toBeUndefined();
 		expect(fixtureSchema.mapActivity(readyQueryResult(emptyFlatActivity()))).toEqual({

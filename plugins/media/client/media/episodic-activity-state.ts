@@ -29,19 +29,11 @@ import {
 	nonEmpty,
 	optionalText,
 } from "./activity-timeline";
-import { formatLocalDateKey } from "./date";
 
 export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
 
 export type MediaEpisodicActivityEvent<Episode> =
 	MediaEpisodicParentEvent | MediaEpisodicCollectionEvent | MediaEpisodicEpisodeEvent<Episode>;
-
-export type MediaEpisodicEpisodeEvent<Episode> = MediaActivityEventRow & {
-	readonly kind: "episode";
-	readonly episode: Episode;
-	readonly progressPercent: null | number;
-	readonly eventSchemaSlug: "review" | "progress";
-};
 
 export type MediaEpisodicHistoryEvent<Episode> =
 	| MediaEpisodicParentEvent
@@ -64,6 +56,14 @@ export type MediaEpisodicCollectionEvent = {
 	readonly occurredAt: string;
 	readonly eventSchemaSlug: string;
 	readonly collection: { readonly id: string; readonly name: string };
+};
+
+export type MediaEpisodicEpisodeEvent<Episode> = MediaActivityEventRow & {
+	readonly kind: "episode";
+	readonly episode: Episode;
+	readonly progressPercent: null | number;
+	readonly consumptionMinutes: null | number;
+	readonly eventSchemaSlug: "review" | "progress";
 };
 
 type MediaEpisodicEpisodeVocabulary<Episode> = {
@@ -95,7 +95,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 					origin,
 					id: event.episode.id,
 					name: event.episode.name,
-					minutes: event.timeSpent ?? event.episode.runtime ?? undefined,
+					minutes: event.consumptionMinutes ?? undefined,
 				},
 			],
 		};
@@ -136,6 +136,11 @@ export type MediaEpisodicView = {
 	readonly coverage: readonly MediaEpisodicCoverageRow[];
 };
 
+export type MediaEpisodicCoverage = {
+	readonly rows: readonly MediaEpisodicCoverageRow[];
+	readonly headline: { readonly watched: number; readonly total: number | undefined };
+};
+
 export type MediaEpisodicWatchedEpisode = {
 	readonly id: string;
 	readonly name: string;
@@ -150,13 +155,6 @@ export type MediaEpisodicCoverageRow = {
 	readonly watched: number;
 	readonly total: number | undefined;
 	readonly percent: number | undefined;
-};
-
-export type MediaEpisodicActivityResult<Episode, WatchDay> = {
-	readonly truncated: boolean;
-	readonly watchCount: number;
-	readonly watchDays: readonly WatchDay[];
-	readonly events: readonly MediaEpisodicActivityEvent<Episode>[];
 };
 
 export type MediaEpisodicRow =
@@ -178,19 +176,6 @@ export type MediaEpisodicActivityCopy = {
 	};
 };
 
-export type MediaEpisodicCoverage = {
-	readonly rows: readonly MediaEpisodicCoverageRow[];
-	readonly minutes: { readonly total: number; readonly missing: number };
-	readonly headline: { readonly watched: number; readonly total: number | undefined };
-};
-
-export type MediaEpisodicSummary = {
-	readonly watches: number;
-	readonly span: MediaActivitySpan;
-	readonly minutes: { readonly total: number; readonly missing: number };
-	readonly episodes: { readonly watched: number; readonly total: number | undefined };
-};
-
 export type MediaEpisodicWatchDayRow = {
 	readonly day: string;
 	readonly episodeId: string;
@@ -201,16 +186,12 @@ export type MediaEpisodicWatchDayRow = {
 	readonly consumedOn: null | string;
 };
 
-export type MediaEpisodicWatchRow = {
-	readonly key: string;
-	readonly type: "watch";
-	readonly dateKey: string;
-	readonly absorbed?: number;
-	readonly occurredAt: string;
-	readonly source: string | undefined;
-	readonly run?: MediaActivityProgressRun;
-	readonly events: readonly MediaActivityEventRef[];
-	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
+export type MediaEpisodicSummary = {
+	readonly watches: number;
+	readonly span: MediaActivitySpan;
+	readonly processing: "ready" | "failed" | "pending";
+	readonly minutes: { readonly total: number; readonly missing: number };
+	readonly episodes: { readonly watched: number; readonly total: number | undefined };
 };
 
 export type MediaEpisodicProgressRow = {
@@ -223,6 +204,30 @@ export type MediaEpisodicProgressRow = {
 	readonly run?: MediaActivityProgressRun;
 	readonly episode: MediaEpisodicWatchedEpisode;
 	readonly events: readonly MediaActivityEventRef[];
+};
+
+export type MediaEpisodicActivityResult<Episode, WatchDay> = {
+	readonly truncated: boolean;
+	readonly watchCount: number;
+	readonly consumptionMinutes: number;
+	readonly consumptionMissing: number;
+	readonly watchDays: readonly WatchDay[];
+	readonly consumptionProcessing: "ready" | "failed" | "pending";
+	readonly events: readonly MediaEpisodicActivityEvent<Episode>[];
+};
+
+export type MediaEpisodicWatchRow = {
+	readonly key: string;
+	readonly type: "watch";
+	readonly dateKey: string;
+	readonly absorbed?: number;
+	readonly occurredAt: string;
+	readonly calendarDate?: string;
+	readonly dateUnknown?: boolean;
+	readonly source: string | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
 };
 
 export const mediaEpisodicCoveragePercent = (watched: number, total: number) =>
@@ -267,8 +272,19 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 				name: watch.episodeName,
 				order: vocabulary.order(watch),
 				origin: vocabulary.origin(watch),
-				minutes: watch.minutes ?? watch.runtime ?? undefined,
+				minutes: watch.minutes ?? undefined,
 			});
+		} else {
+			const previous = day.episodes.get(watch.episodeId);
+			if (previous !== undefined) {
+				day.episodes.set(watch.episodeId, {
+					...previous,
+					minutes:
+						previous.minutes === undefined || watch.minutes === null
+							? undefined
+							: previous.minutes + watch.minutes,
+				});
+			}
 		}
 		if (watch.lastWatchedAt > day.latest) {
 			day.latest = watch.lastWatchedAt;
@@ -285,11 +301,12 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 						{
 							source,
 							events: [],
+							dateKey: day,
 							type: "watch",
 							episodes: listed,
+							calendarDate: day,
 							occurredAt: latest,
 							key: `watch-${day}`,
-							dateKey: formatLocalDateKey(day),
 						},
 					];
 		},
@@ -328,7 +345,7 @@ const episodeEventRow = (
 			origin,
 			id: event.episode.id,
 			name: event.episode.name,
-			minutes: event.timeSpent ?? event.episode.runtime ?? undefined,
+			minutes: event.consumptionMinutes ?? undefined,
 		},
 	};
 };
@@ -399,9 +416,10 @@ export const mediaEpisodicActivityView = <Origin>(input: {
 		coverage: coverage.rows,
 		summary: {
 			span: view.span,
-			minutes: coverage.minutes,
 			watches: result.watchCount,
+			processing: result.consumptionProcessing,
 			episodes: { total: coverage.headline.total, watched: coverage.headline.watched },
+			minutes: { total: result.consumptionMinutes, missing: result.consumptionMissing },
 		},
 	};
 };
@@ -449,10 +467,18 @@ export const mediaEpisodicActivityFigures = (
 	const current = summary.watches === 0 ? undefined : labels.current;
 	return [
 		{ detail: current, label: labels.episodes, value: mediaEpisodicEpisodesLabel(summary) },
-		...(summary.watches === 0
+		...(summary.watches === 0 || summary.processing !== "ready"
 			? []
 			: [{ detail: undefined, label: labels.watches, value: `${summary.watches}` }]),
-		{ detail: current, label: labels.time, value: mediaActivityTimeLabel(summary.minutes) },
+		...(summary.processing === "ready"
+			? [{ detail: "Lifetime", label: labels.time, value: mediaActivityTimeLabel(summary.minutes) }]
+			: [
+					{
+						detail: undefined,
+						label: "Consumption",
+						value: summary.processing === "failed" ? "Repair failed" : "Updating",
+					},
+				]),
 		{ label: span.label, value: span.value, detail: span.detail },
 	];
 };

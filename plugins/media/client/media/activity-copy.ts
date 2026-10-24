@@ -1,3 +1,4 @@
+import type { ConsumedItem } from "../../shared/consumption";
 import type { ListStateProperties } from "../../shared/list-state";
 import { decimalLabel, type MediaActivityProgressRun } from "./activity-timeline";
 
@@ -84,6 +85,7 @@ const mediaActivityBeats = (verb: MediaActivityVerbCopy, noun: string) => ({
 export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 	readonly noun: string;
 	readonly verb: MediaActivityVerb;
+	readonly itemLabel?: (item: ConsumedItem) => string;
 	readonly progress?: (percent: string | undefined, extra: Extra) => string;
 	readonly snapshot?: {
 		readonly label: string;
@@ -104,6 +106,7 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 		rowLabels: { ...rowLabels, progress },
 		completionsLabel: verb.completionsLabel,
 		beats: mediaActivityBeats(verb, input.noun),
+		itemLabel: input.itemLabel ?? (() => "Item consumed"),
 		snapshot: input.snapshot ?? { label: "Synced", detail: () => undefined },
 	};
 };

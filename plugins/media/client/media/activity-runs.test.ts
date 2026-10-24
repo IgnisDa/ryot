@@ -117,6 +117,7 @@ const historyEvent = (input: {
 	timeSpent: null,
 	isSpoiler: null,
 	sessionEntityId: null,
+	consumptionMinutes: null,
 	eventSchemaSlug: input.slug,
 	createdAt: input.occurredAt,
 	occurredAt: input.occurredAt,
@@ -299,6 +300,7 @@ describe("episodic range summary", () => {
 describe("episodic summary figures", () => {
 	const summary = {
 		watches: 0,
+		processing: "ready",
 		minutes: { total: 90, missing: 0 },
 		episodes: { total: 4, watched: 2 },
 		span: { bound: "partial", latest: "2026-01-05T10:00:00.000Z" },
@@ -316,15 +318,15 @@ describe("episodic summary figures", () => {
 		).toContain("Watches");
 	});
 
-	it("marks episodes and time as this watch's once a watch is completed", () => {
+	it("labels episode coverage as this watch and time as lifetime", () => {
 		expect(mediaEpisodicActivityFigures(summary, labels).map(({ detail }) => detail)).toEqual([
 			undefined,
-			undefined,
+			"Lifetime",
 			undefined,
 		]);
 		expect(
 			mediaEpisodicActivityFigures({ ...summary, watches: 1 }, labels).map(({ detail }) => detail),
-		).toEqual(["This watch", undefined, "This watch", undefined]);
+		).toEqual(["This watch", undefined, "Lifetime", undefined]);
 	});
 });
 

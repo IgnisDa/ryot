@@ -26,12 +26,6 @@ export type MediaActivityEventRef = SelectedRow<ReturnType<typeof mediaEventSnap
 
 export type MediaActivityEventRow = SelectedRow<ReturnType<typeof mediaActivityEventSelection>>;
 
-export type ActivityAnchor = {
-	readonly key: string;
-	readonly dateKey: string;
-	readonly occurredAt: string;
-};
-
 export type MediaActivityProgressRun = {
 	readonly updates: number;
 	readonly fromPercent: number | undefined;
@@ -74,6 +68,14 @@ export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
 	readonly beat: Beat;
 	readonly type: "beat";
 	readonly events: readonly MediaActivityEventRef[];
+};
+
+export type ActivityAnchor = {
+	readonly key: string;
+	readonly dateKey: string;
+	readonly occurredAt: string;
+	readonly calendarDate?: string;
+	readonly dateUnknown?: boolean;
 };
 
 export type MediaActivitySpan =
@@ -139,13 +141,28 @@ export const joinEvents = (
 ) => (current.length === 0 || next.length === 0 ? [] : [...current, ...next]);
 
 export const anchorOf = (
-	event: { readonly id: string; readonly occurredAt: string },
+	event: {
+		readonly id: string;
+		readonly occurredAt: string;
+		readonly properties?: Readonly<Record<string, unknown>>;
+	},
 	prefix: string,
-): ActivityAnchor => ({
-	key: `${prefix}-${event.id}`,
-	occurredAt: event.occurredAt,
-	dateKey: formatLocalDateKey(event.occurredAt),
-});
+): ActivityAnchor => {
+	const calendarDate = event.properties?.["calendarDate"];
+	const dateUnknown = event.properties?.["dateUnknown"] === true;
+	let dateKey =
+		typeof calendarDate === "string" ? calendarDate : formatLocalDateKey(event.occurredAt);
+	if (dateUnknown) {
+		dateKey = "date-unknown";
+	}
+	return {
+		dateKey,
+		...(dateUnknown ? { dateUnknown: true } : {}),
+		key: `${prefix}-${event.id}`,
+		occurredAt: event.occurredAt,
+		...(typeof calendarDate === "string" ? { calendarDate } : {}),
+	};
+};
 
 export const reviewBody = (event: {
 	readonly text: null | string;
@@ -435,7 +452,9 @@ export const mediaTrackLengthLabel = (seconds: number) => {
 };
 
 export const mediaActivityDateLabel = (row: ActivityAnchor & { readonly dateUnknown?: boolean }) =>
-	row.dateUnknown === true ? "Date unknown" : formatLocalDateLabel(row.occurredAt);
+	row.dateUnknown === true
+		? "Date unknown"
+		: (row.calendarDate ?? formatLocalDateLabel(row.occurredAt));
 
 export const mediaActivityRatingLabel = (rating: number) => `${decimalLabel(rating)} / 100`;
 

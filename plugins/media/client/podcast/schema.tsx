@@ -23,15 +23,10 @@ export const podcastActivityCoverage = (
 ): MediaEpisodicCoverage => {
 	const [episodes] = result.coverage;
 	if (episodes === undefined) {
-		return {
-			rows: [],
-			minutes: { total: 0, missing: 0 },
-			headline: { watched: 0, total: undefined },
-		};
+		return { rows: [], headline: { watched: 0, total: undefined } };
 	}
 	return {
 		headline: { total: episodes.episodeTotal, watched: episodes.watchedTotal },
-		minutes: { total: episodes.watchedMinutes ?? 0, missing: episodes.watchedUnknownRuntime },
 		rows: [
 			{
 				key: episodes.id,

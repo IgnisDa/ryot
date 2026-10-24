@@ -153,7 +153,6 @@ describe("podcast schema", () => {
 
 	it("shows one Episodes coverage bar for the whole feed", () => {
 		expect(podcastActivityCoverage(decodePodcastActivity())).toEqual({
-			minutes: { missing: 2, total: 9150 },
 			headline: { total: 400, watched: 183 },
 			rows: [{ total: 400, percent: 46, watched: 183, key: "podcast-1", label: "Episodes" }],
 		});

@@ -29,6 +29,7 @@ export const MediaActivityActionsContext = createContext<undefined | MediaActivi
 );
 
 const EDIT_INTENTS: Partial<Record<string, ActivityEditIntent>> = {
+	item: "finished",
 	watch: "episode",
 	progress: "progress",
 	completion: "finished",

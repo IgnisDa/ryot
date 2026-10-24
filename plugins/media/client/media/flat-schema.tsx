@@ -8,6 +8,8 @@ import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
+import type { ConsumedItem } from "../../shared/consumption";
+import { consumptionProcessingState } from "../../shared/consumption-projection";
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type {
@@ -109,6 +111,8 @@ export type MediaFlatActivityResult<Extra = unknown> = {
 	readonly completionCount: number;
 	readonly unknownAmountCount: number;
 	readonly consumedAmount: null | number;
+	readonly consumptionFailedCount: number;
+	readonly consumptionPendingCount: number;
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 };
 
@@ -143,6 +147,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly progressVerb: string;
 		readonly loadingDetail: string;
 		readonly completionsLabel: string;
+		readonly itemLabel?: (item: ConsumedItem) => string;
 		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
 		readonly snapshot?: {
 			readonly label: string;
@@ -287,9 +292,18 @@ export const defineFlatMediaSchema = <
 			truncated: result.truncated,
 			completions: result.completionCount,
 			amount: { total: result.consumedAmount ?? 0, missing: result.unknownAmountCount },
+			processing: consumptionProcessingState(
+				result.consumptionPendingCount,
+				result.consumptionFailedCount,
+			),
 		});
 
 	const activityRowLabel = (row: MediaFlatSchemaRow<Extra>): string => {
+		if (row.type === "item") {
+			return row.item === null
+				? "Item consumed"
+				: (activityCopy.itemLabel?.(row.item) ?? "Item consumed");
+		}
 		if (row.type === "completion") {
 			return activityCopy.rowLabels.completion;
 		}

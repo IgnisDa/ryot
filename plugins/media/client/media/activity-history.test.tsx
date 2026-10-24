@@ -22,7 +22,15 @@ const activity = (hasMore: boolean) => ({
 	data: {
 		collectionEvents: rows([]),
 		events: rows([flatReviewEventRow], hasMore),
-		totals: rows([{ completionCount: 0, consumedAmount: null, unknownAmountCount: 0 }]),
+		totals: rows([
+			{
+				consumedAmount: 0,
+				completionCount: 0,
+				unknownAmountCount: 0,
+				consumptionFailedCount: 0,
+				consumptionPendingCount: 0,
+			},
+		]),
 	},
 });
 

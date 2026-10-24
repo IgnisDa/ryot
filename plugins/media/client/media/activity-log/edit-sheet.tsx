@@ -6,7 +6,17 @@ import {
 	useRyotQuery,
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
-import { ActionForm, Button, Dialog, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	ActionForm,
+	Button,
+	Dialog,
+	Field,
+	FieldMessage,
+	Select,
+	StatusMessage,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useState } from "react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
@@ -66,67 +76,6 @@ export function MediaActivityEditSheet(props: EditSheetProps & { readonly entity
 		);
 	}
 	return <EditForm {...props} context={result.data} />;
-}
-
-function EditFields(props: {
-	readonly today: string;
-	readonly draft: ActivityDraft;
-	readonly ownProgress: boolean;
-	readonly logger: MediaActivityLogger;
-	readonly suggestions: readonly string[];
-	readonly context: MediaActivityLogContext;
-	readonly onChange: (patch: Partial<ActivityDraft>) => void;
-}) {
-	const { draft, today, logger, context } = props;
-	const errors = activityDraftErrors({ draft, today, logger, context });
-	return (
-		<>
-			{draft.intent === "progress" && logger.family === "positional" && props.ownProgress ? (
-				<PositionProgress
-					draft={draft}
-					logger={logger}
-					context={context}
-					error={errors.position}
-					onChange={props.onChange}
-				/>
-			) : null}
-			{draft.intent === "progress" && !(logger.family === "positional" && props.ownProgress) ? (
-				<FlatProgress
-					draft={draft}
-					logger={logger}
-					context={context}
-					error={errors.percent}
-					onChange={props.onChange}
-				/>
-			) : null}
-			{draft.intent === "progress" ? null : (
-				<WhenField
-					today={today}
-					draft={draft}
-					logger={logger}
-					error={errors.when}
-					onChange={props.onChange}
-					kinds={["date", "unknown"]}
-				/>
-			)}
-			{draft.intent === "finished" ? (
-				<TimeSpentField
-					draft={draft}
-					label="Time spent"
-					error={errors.time}
-					onChange={props.onChange}
-					hint={activityRuntimeHint(context.runtime)}
-				/>
-			) : null}
-			<SourceField
-				logger={logger}
-				value={draft.consumedOn}
-				error={errors.consumedOn}
-				suggestions={props.suggestions}
-				onChange={(consumedOn) => props.onChange({ consumedOn })}
-			/>
-		</>
-	);
 }
 
 function EditForm(props: EditSheetProps & { readonly context: MediaActivityLogContext }) {
@@ -202,5 +151,128 @@ function EditForm(props: EditSheetProps & { readonly context: MediaActivityLogCo
 				)}
 			</ActionForm>
 		</Dialog>
+	);
+}
+
+function EditFields(props: {
+	readonly today: string;
+	readonly draft: ActivityDraft;
+	readonly ownProgress: boolean;
+	readonly logger: MediaActivityLogger;
+	readonly suggestions: readonly string[];
+	readonly context: MediaActivityLogContext;
+	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+}) {
+	const { draft, today, logger, context } = props;
+	const errors = activityDraftErrors({ draft, today, logger, context });
+	const item = draft.consumedItem;
+	return (
+		<>
+			{item !== undefined && logger.family === "positional" ? (
+				<>
+					<Select
+						label="Item unit"
+						value={item.unit}
+						choices={logger.itemUnits ?? []}
+						checkIcon={<AppIcon size={16} name="check" />}
+						chevronIcon={<AppIcon size={16} name="chevron-down" />}
+						onChange={(value) => {
+							const unit = logger.itemUnits?.find((candidate) => candidate.value === value);
+							if (unit !== undefined) {
+								props.onChange({ consumedItem: { unit: unit.value, position: item.position } });
+							}
+						}}
+					/>
+					<Field label="Item number">
+						{(control) => (
+							<TextField
+								min={0}
+								type="number"
+								id={control.id}
+								step={item.unit === "episodes" ? 1 : "any"}
+								value={Number.isFinite(item.position) ? String(item.position) : ""}
+								onChange={(event) =>
+									props.onChange({
+										consumedItem: {
+											...item,
+											position: event.target.value === "" ? Number.NaN : Number(event.target.value),
+										},
+									})
+								}
+							/>
+						)}
+					</Field>
+					{item.unit === "chapters" && logger.itemContextLabel !== undefined ? (
+						<Field label={logger.itemContextLabel}>
+							{(control) => (
+								<TextField
+									min={0}
+									step="any"
+									type="number"
+									id={control.id}
+									value={item.volume === undefined ? "" : String(item.volume)}
+									onChange={(event) =>
+										props.onChange({
+											consumedItem: {
+												unit: item.unit,
+												position: item.position,
+												...(event.target.value === ""
+													? {}
+													: { volume: Number(event.target.value) }),
+											},
+										})
+									}
+								/>
+							)}
+						</Field>
+					) : null}
+					{errors.position === undefined ? null : <FieldMessage>{errors.position}</FieldMessage>}
+				</>
+			) : null}
+			{draft.intent === "progress" && logger.family === "positional" && props.ownProgress ? (
+				<PositionProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.position}
+					onChange={props.onChange}
+				/>
+			) : null}
+			{draft.intent === "progress" && !(logger.family === "positional" && props.ownProgress) ? (
+				<FlatProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.percent}
+					onChange={props.onChange}
+				/>
+			) : null}
+
+			<WhenField
+				today={today}
+				draft={draft}
+				logger={logger}
+				error={errors.when}
+				onChange={props.onChange}
+				kinds={["date", "unknown"]}
+			/>
+
+			{draft.intent === "finished" || draft.intent === "progress" ? (
+				<TimeSpentField
+					draft={draft}
+					error={errors.time}
+					onChange={props.onChange}
+					label="Cumulative time spent"
+					hint={activityRuntimeHint(context.runtime)}
+				/>
+			) : null}
+			<SourceField
+				logger={logger}
+				value={draft.consumedOn}
+				error={errors.consumedOn}
+				suggestions={props.suggestions}
+				onChange={(consumedOn) => props.onChange({ consumedOn })}
+			/>
+		</>
 	);
 }

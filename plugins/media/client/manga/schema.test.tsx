@@ -39,6 +39,7 @@ const PROGRESS_EVENT = {
 	listState: null,
 	mangaChapter: 45,
 	dateUnknown: null,
+	consumedItem: null,
 	progressPercent: 62,
 	entityId: "entity-1",
 	id: "manga-progress",
@@ -69,11 +70,18 @@ const mangaActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EV
 				data: {
 					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
 					collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
-					totals: rowsResult([{ completionCount: 1, consumedAmount: 120, unknownAmountCount: 0 }], {
-						limit: 1,
-						hasMore: false,
-						nextCursor: null,
-					}),
+					totals: rowsResult(
+						[
+							{
+								completionCount: 1,
+								consumedAmount: 120,
+								unknownAmountCount: 0,
+								consumptionFailedCount: 0,
+								consumptionPendingCount: 0,
+							},
+						],
+						{ limit: 1, hasMore: false, nextCursor: null },
+					),
 				},
 			}),
 	);

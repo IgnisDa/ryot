@@ -34,25 +34,27 @@ export type MediaFlatActivityTimeline<Subject, Extra = unknown> = MediaActivityT
 	MediaFlatActivityRow<Subject, Extra>
 >;
 
-export type MediaFlatActivityBeat = Exclude<
-	MediaFlatActivityMediaEvent["eventSchemaSlug"],
-	"review" | "complete" | "progress" | "list-state" | "add-to-media-library"
->;
-
 export type MediaFlatActivityView<Subject, Extra = unknown> = {
 	readonly summary: MediaFlatActivitySummary;
 	readonly timeline: MediaFlatActivityTimeline<Subject, Extra>;
 };
 
+export type MediaFlatActivityBeat = Exclude<
+	MediaFlatActivityMediaEvent["eventSchemaSlug"],
+	"review" | "complete" | "progress" | "list-state" | "item-complete" | "add-to-media-library"
+>;
+
 export type MediaFlatActivitySummary = {
 	readonly completions: number;
 	readonly span: MediaActivitySpan;
 	readonly progress: number | undefined;
+	readonly processing?: "ready" | "failed" | "pending";
 	readonly amount: { readonly total: number; readonly missing: number };
 };
 
 export type MediaFlatActivityRow<Subject, Extra = unknown> =
 	| MediaActivityLibraryRow
+	| MediaFlatActivityItemRow
 	| MediaActivityCollectionRow
 	| MediaActivityCompletionRow
 	| MediaActivityReviewRow<Subject>
@@ -63,6 +65,12 @@ export type MediaFlatActivityRow<Subject, Extra = unknown> =
 type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
 	readonly extra: Extra;
 	readonly type: "snapshot";
+};
+
+type MediaFlatActivityItemRow = ActivityAnchor & {
+	readonly type: "item";
+	readonly events: readonly MediaActivityEventRef[];
+	readonly item: MediaFlatActivityMediaEvent["consumedItem"];
 };
 
 type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
@@ -83,6 +91,14 @@ const parentRow = <Subject, Extra>(
 	}
 	if (event.eventSchemaSlug === "complete") {
 		return mediaCompletionRow(event);
+	}
+	if (event.eventSchemaSlug === "item-complete") {
+		return {
+			...anchorOf(event, "item"),
+			type: "item",
+			item: event.consumedItem,
+			events: [eventRef(event)],
+		};
 	}
 	if (event.eventSchemaSlug === "review") {
 		return mediaReviewRow(event, subject);
@@ -110,8 +126,9 @@ export const mediaFlatActivityRow = <Subject, Extra>(
 	event.kind === "media" ? parentRow<Subject, Extra>(event, subject) : mediaCollectionRow(event);
 
 const mediaFlatActivityPredicates = {
-	isWatching: (row: MediaFlatActivityRow<unknown>) => row.type === "progress",
 	isCompletion: (row: MediaFlatActivityRow<unknown>) => row.type === "completion",
+	isWatching: (row: MediaFlatActivityRow<unknown>) =>
+		row.type === "progress" || row.type === "item",
 };
 
 const latestProgressPercent = (rows: readonly MediaFlatActivityRow<unknown>[]) => {
@@ -141,6 +158,7 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly subject: Subject;
 	readonly truncated: boolean;
 	readonly completions: number;
+	readonly processing?: "ready" | "failed" | "pending";
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 	readonly amount: { readonly total: number; readonly missing: number };
 	readonly merge: MediaActivityRunMerge<MediaFlatActivityRow<Subject, Extra>>;
@@ -158,6 +176,7 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 	return {
 		timeline: view.timeline,
 		summary: {
+			...(input.processing === undefined ? {} : { processing: input.processing }),
 			span: view.span,
 			amount: input.amount,
 			completions: input.completions,
@@ -176,6 +195,15 @@ export const mediaFlatActivityFigures = (
 		};
 	},
 ): readonly MediaActivityFigure[] => {
+	if (summary.processing === "pending" || summary.processing === "failed") {
+		return [
+			{
+				detail: undefined,
+				label: "Consumption",
+				value: summary.processing === "failed" ? "Repair failed" : "Updating",
+			},
+		];
+	}
 	const span = mediaActivitySpanLabel(summary.span);
 	const leading =
 		summary.completions === 0 && summary.progress !== undefined

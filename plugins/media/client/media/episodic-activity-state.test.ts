@@ -14,7 +14,11 @@ import {
 	readyQueryResult,
 	transportErrorQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { mediaEpisodicActivityRow, mediaEpisodicEpisodesLabel } from "./episodic-activity-state";
+import {
+	mediaEpisodicActivityFigures,
+	mediaEpisodicActivityRow,
+	mediaEpisodicEpisodesLabel,
+} from "./episodic-activity-state";
 
 const view = (input: Parameters<typeof decodeEpisodicActivity>[0] = {}) => {
 	const mapped = episodicFixtureSchema.activityView(decodeEpisodicActivity(input));
@@ -23,11 +27,54 @@ const view = (input: Parameters<typeof decodeEpisodicActivity>[0] = {}) => {
 };
 
 describe("episodic activity state", () => {
+	it("uses canonical zero and missing minutes instead of provider or raw-event duration", () => {
+		const episode = decodeEpisodicActivity().events.find((event) => event.kind === "episode");
+		assert(episode?.kind === "episode");
+		for (const minutes of [0, null]) {
+			const row = mediaEpisodicActivityRow(
+				{ ...episode, timeSpent: 90, consumptionMinutes: minutes, eventSchemaSlug: "complete" },
+				{ order: () => [1], origin: () => "E1" },
+			);
+			expect(row).toMatchObject({ type: "watch", episodes: [{ minutes: minutes ?? undefined }] });
+		}
+	});
+	it("hides lifetime figures during repair while retaining current episode coverage", () => {
+		const summary = view({ consumedAmount: 0, consumptionPendingCount: 1 }).summary;
+		expect(summary.processing).toBe("pending");
+		expect(mediaEpisodicEpisodesLabel(summary)).toBe("2 / 4");
+		const figures = mediaEpisodicActivityFigures(summary, {
+			time: "Time",
+			current: "Current",
+			watches: "Watches",
+			episodes: "Episodes",
+		});
+		expect(figures).toContainEqual({ value: "Updating", detail: undefined, label: "Consumption" });
+		expect(figures.some((figure) => figure.label === "Time" || figure.label === "Watches")).toBe(
+			false,
+		);
+	});
+	it("adds independent same-day episode quantities without replacing them with runtime", () => {
+		const result = view({
+			parentEvents: [],
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			watchDays: [
+				episodicFirstWatchDayRow,
+				{ ...episodicFirstWatchDayRow, minutes: 0.25, consumedOn: "Plex" },
+			],
+		});
+		assert(result.timeline.layout === "flat");
+		expect(result.timeline.rows[0]).toMatchObject({
+			type: "watch",
+			episodes: [{ minutes: 66.25 }],
+		});
+	});
 	it("keeps each completion and progress log separate in complete history", () => {
 		const episode = decodeEpisodicActivity().events.find((event) => event.kind === "episode");
 		assert(episode?.kind === "episode");
 		const complete = mediaEpisodicActivityRow(
-			{ ...episode, timeSpent: 25, eventSchemaSlug: "complete" },
+			{ ...episode, timeSpent: 25, consumptionMinutes: 25, eventSchemaSlug: "complete" },
 			{ order: () => [1], origin: () => "E1" },
 		);
 		expect(complete).toMatchObject({
@@ -170,7 +217,7 @@ describe("episodic activity state", () => {
 		]);
 	});
 
-	it("summarises coverage, watches and minutes from the schema's coverage mapping", () => {
+	it("keeps current coverage separate from lifetime watches and minutes", () => {
 		const summary = view().summary;
 
 		expect(summary.watches).toBe(1);

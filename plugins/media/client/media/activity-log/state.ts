@@ -1,6 +1,8 @@
+import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { localDay } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
+import { ConsumedItem, consumptionPropertiesEqual } from "../../../shared/consumption";
 import type { EpisodeLifecycleState } from "../../../shared/lifecycle-expressions";
 import { mediaProgressPositionProperty } from "../../../shared/media-activity-fields";
 import {
@@ -26,20 +28,6 @@ export type ActivityEpisode = {
 	readonly state: EpisodeLifecycleState;
 };
 
-export type MediaActivityLogger =
-	| { readonly family: "show" | "podcast"; readonly copy: MediaActivityLogCopy }
-	| {
-			readonly family: "positional";
-			readonly copy: MediaActivityLogCopy;
-			readonly progressUnit: MediaActivityLogUnit;
-	  }
-	| {
-			readonly family: "flat";
-			readonly timePrimary?: boolean;
-			readonly copy: MediaActivityLogCopy;
-			readonly progressUnit?: MediaActivityLogUnit;
-	  };
-
 export type ActivityDraft = {
 	readonly hours: string;
 	readonly amount: string;
@@ -49,11 +37,31 @@ export type ActivityDraft = {
 	readonly finishedDay: string;
 	readonly intent: ActivityIntent;
 	readonly when: ActivityWhenKind;
+	readonly consumedItem?: ConsumedItem;
 	readonly status: MediaActivityStatus;
 	readonly position: number | undefined;
 	readonly amountUnit: "unit" | "percent";
 	readonly progressMode: "amount" | "started";
 };
+
+export type MediaActivityLogger =
+	| { readonly family: "show" | "podcast"; readonly copy: MediaActivityLogCopy }
+	| {
+			readonly family: "flat";
+			readonly timePrimary?: boolean;
+			readonly copy: MediaActivityLogCopy;
+			readonly progressUnit?: MediaActivityLogUnit;
+	  }
+	| {
+			readonly family: "positional";
+			readonly itemContextLabel?: string;
+			readonly copy: MediaActivityLogCopy;
+			readonly progressUnit: MediaActivityLogUnit;
+			readonly itemUnits?: readonly {
+				readonly label: string;
+				readonly value: ConsumedItem["unit"];
+			}[];
+	  };
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
@@ -72,14 +80,16 @@ type MediaActivityLogUnit = {
 	readonly field: "pages" | "runtime" | "episodes" | "chapters";
 };
 
-type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }
-	? Omit<Entry, "when"> & { readonly when: ActivityWhenDraft }
-	: Entry;
-
 type ActivityWhenDraft =
 	| { readonly kind: "now" }
 	| { readonly kind: "unknown" }
 	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string };
+
+type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }
+	? Omit<Entry, "when"> & { readonly when: ActivityWhenDraft }
+	: "when" extends keyof Entry
+		? Omit<Entry, "when"> & { readonly when?: ActivityWhenDraft }
+		: Entry;
 
 export const EARLIER_PAGE_LIMIT = 100;
 export const EARLIER_MAX_PAGES = 5;
@@ -135,12 +145,18 @@ const isActivityDay = (day: string) => dayParts(day) !== undefined;
 
 export const parseTimeSpent = (hours: string, minutes: string) => {
 	const parts = [hours.trim(), minutes.trim()];
-	if (parts.some((part) => part !== "" && !WHOLE_NUMBER.test(part))) {
+	if (
+		(hours.trim() !== "" && !WHOLE_NUMBER.test(hours.trim())) ||
+		(minutes.trim() !== "" && !/^\d+(?:\.\d+)?$/.test(minutes.trim()))
+	) {
 		return null;
 	}
 	const [h, m] = parts.map((part) => (part === "" ? 0 : Number(part)));
 	const total = (h ?? 0) * 60 + (m ?? 0);
-	return total === 0 ? undefined : total;
+	if (!Number.isFinite(total)) {
+		return null;
+	}
+	return parts.every((part) => part === "") ? undefined : total;
 };
 
 const percentValue = (percent: string) => {
@@ -167,10 +183,12 @@ const unitPercent = (amount: string, total: number) => {
 		: undefined;
 };
 
-export const draftProgressPercent = (draft: ActivityDraft, total: null | number) =>
-	draft.amountUnit === "unit" && total !== null
-		? unitPercent(draft.amount, total)
-		: percentValue(draft.amount);
+export const draftProgressPercent = (draft: ActivityDraft, total: null | number) => {
+	if (draft.amountUnit === "unit") {
+		return total === null ? undefined : unitPercent(draft.amount, total);
+	}
+	return percentValue(draft.amount);
+};
 
 export const convertedAmount = (
 	draft: ActivityDraft,
@@ -260,20 +278,29 @@ export const activityDraftErrors = (input: {
 	if (draft.consumedOn.trim().length > CONSUMED_ON_LIMIT) {
 		errors.consumedOn = `Keep this under ${CONSUMED_ON_LIMIT} characters.`;
 	}
-	if (draft.intent === "finished" || draft.intent === "episode") {
+	{
 		const when = whenError(draft, today);
 		if (when !== undefined) {
 			errors.when = when;
 		}
 	}
-	if (draft.intent === "finished" && parseTimeSpent(draft.hours, draft.minutes) === null) {
-		errors.time = "Enter whole hours and minutes.";
+	if (
+		(draft.intent === "finished" || draft.intent === "progress") &&
+		parseTimeSpent(draft.hours, draft.minutes) === null
+	) {
+		errors.time = "Enter whole hours and nonnegative minutes.";
 	}
 	if (draft.intent === "progress" && logger.family === "flat" && draft.progressMode === "amount") {
 		const total = activityUnitTotal(logger, context);
-		if (draftProgressPercent(draft, total) === undefined) {
+		const pages = logger.progressUnit?.field === "pages" && draft.amountUnit === "unit";
+		if (pages) {
+			const amount = draft.amount.trim() === "" ? Number.NaN : Number(draft.amount);
+			if (!Number.isFinite(amount) || amount < 0) {
+				errors.percent = "Enter a nonnegative page amount.";
+			}
+		} else if (draftProgressPercent(draft, total) === undefined) {
 			errors.percent =
-				draft.amountUnit === "unit" && total !== null && logger.progressUnit !== undefined
+				draft.amountUnit === "unit" && logger.progressUnit !== undefined && total !== null
 					? `Enter ${logger.progressUnit.plural} above 0 and up to ${total}.`
 					: "Enter a percent above 0 and up to 100.";
 		}
@@ -284,6 +311,13 @@ export const activityDraftErrors = (input: {
 		if (position === undefined || position < 1 || (total !== null && position > total)) {
 			errors.position = `Enter a ${logger.progressUnit.singular} number${total === null ? "" : ` from 1 to ${total}`}.`;
 		}
+	}
+	if (
+		draft.consumedItem !== undefined &&
+		(Option.isNone(Schema.decodeOption(ConsumedItem)(draft.consumedItem)) ||
+			(draft.consumedItem.unit === "episodes" && !Number.isInteger(draft.consumedItem.position)))
+	) {
+		errors.position = "Enter a valid item number.";
 	}
 	return errors;
 };
@@ -326,15 +360,29 @@ export const activityEntryDraft = (input: {
 		};
 	}
 	if (draft.intent === "progress") {
-		const percent = draftProgressPercent(draft, activityUnitTotal(input.logger, input.context));
+		const pages =
+			input.logger.family === "flat" &&
+			input.logger.progressUnit?.field === "pages" &&
+			draft.amountUnit === "unit" &&
+			draft.progressMode === "amount";
+		const percent = pages
+			? undefined
+			: draftProgressPercent(draft, activityUnitTotal(input.logger, input.context));
+		const timeSpent = parseTimeSpent(draft.hours, draft.minutes);
 		return {
 			...source,
 			entityId,
 			kind: "progress",
+			when: whenDraft(draft),
+			...(timeSpent === undefined || timeSpent === null ? {} : { timeSpent }),
+			...(pages ? { progressPages: Number(draft.amount) } : {}),
 			...(input.logger.family === "positional" && draft.position !== undefined
 				? { position: draft.position }
 				: {}),
-			...(input.logger.family === "flat" && draft.progressMode === "amount" && percent !== undefined
+			...(!pages &&
+			input.logger.family === "flat" &&
+			draft.progressMode === "amount" &&
+			percent !== undefined
 				? { progressPercent: percent }
 				: {}),
 		};
@@ -349,10 +397,6 @@ export const activityEntryDraft = (input: {
 	};
 };
 
-/**
- * A picked day is local noon, or the submission instant when the day is today so it never lies in
- * the future; a start never lands after its finish.
- */
 export const resolveActivityWhen = (
 	when: ActivityWhenDraft,
 	submittedAt: string,
@@ -360,20 +404,17 @@ export const resolveActivityWhen = (
 	if (when.kind !== "date") {
 		return { kind: when.kind };
 	}
-	const submitted = Date.parse(submittedAt);
-	const instant = (day: string) => {
-		if (day === localDay(submitted)) {
-			return submitted;
-		}
-		return dayParts(day)?.getTime() ?? submitted;
-	};
-	const finished = instant(when.finishedDay);
+	const finished = Math.min(
+		Date.parse(`${when.finishedDay}T00:00:00.000Z`),
+		Date.parse(submittedAt),
+	);
 	const started =
 		when.startedDay === undefined
 			? undefined
-			: Math.min(dayParts(when.startedDay)?.getTime() ?? finished, finished);
+			: Math.min(Date.parse(`${when.startedDay}T00:00:00.000Z`), finished);
 	return {
 		kind: "date",
+		calendarDate: when.finishedDay,
 		finishedOn: new Date(finished).toISOString(),
 		...(started === undefined ? {} : { startedOn: new Date(started).toISOString() }),
 	};
@@ -382,14 +423,18 @@ export const resolveActivityWhen = (
 export const activityLogInput = (
 	entry: ActivityEntryDraft,
 	submission: { readonly submittedAt: string; readonly submissionId: string },
-): MediaActivityLogInput => ({
-	submittedAt: submission.submittedAt,
-	submissionId: submission.submissionId,
-	entry:
-		"when" in entry
-			? { ...entry, when: resolveActivityWhen(entry.when, submission.submittedAt) }
-			: entry,
-});
+): MediaActivityLogInput => {
+	if (entry.kind === "status") {
+		return { ...submission, entry };
+	}
+	return {
+		...submission,
+		entry: {
+			...entry,
+			when: resolveActivityWhen(entry.when ?? { kind: "now" }, submission.submittedAt),
+		},
+	};
+};
 
 export const episodeCode = (
 	logger: MediaActivityLogger,
@@ -533,13 +578,21 @@ export const activityCopyLabels = (input: {
 	}
 	if (draft.intent === "progress") {
 		const started = draft.progressMode === "started";
-		return {
-			offerReview: false,
-			submit: started ? `Start ${gerund}` : "Save progress",
-			success: started
-				? `Marked as ${gerund}.`
-				: `Progress saved at ${draftProgressPercent(draft, activityUnitTotal(logger, input.context)) ?? ""}%.`,
-		};
+		const pageUnit =
+			logger.family === "flat" &&
+			logger.progressUnit?.field === "pages" &&
+			draft.amountUnit === "unit"
+				? logger.progressUnit
+				: undefined;
+		let success: string;
+		if (started) {
+			success = `Marked as ${gerund}.`;
+		} else if (pageUnit !== undefined) {
+			success = `Progress saved at ${draft.amount} ${pageUnit.plural}.`;
+		} else {
+			success = `Progress saved at ${draftProgressPercent(draft, activityUnitTotal(logger, input.context)) ?? ""}%.`;
+		}
+		return { success, offerReview: false, submit: started ? `Start ${gerund}` : "Save progress" };
 	}
 	if (draft.intent === "episode") {
 		const many = input.episodeCount > 1;
@@ -630,20 +683,25 @@ export const activityEditDraft = (input: {
 	const base = initialActivityDraft(input.logger, input.context, input.today);
 	const minutes = numberProperty(ref, "timeSpent");
 	const percent = numberProperty(ref, "progressPercent");
+	const pages = numberProperty(ref, "progressPages");
+	const amount = pages ?? percent;
 	const startedOn = textProperty(ref, "startedOn");
-	const rounded = minutes === undefined ? undefined : Math.round(minutes);
+	const item = Option.getOrUndefined(
+		Schema.decodeUnknownOption(ConsumedItem)(ref.properties["consumedItem"]),
+	);
 	return {
 		...base,
+		...(item === undefined ? {} : { consumedItem: item }),
 		intent: input.intent,
-		amountUnit: "percent",
-		finishedDay: dayOf(ref.occurredAt),
 		consumedOn: textProperty(ref, "consumedOn") ?? "",
-		progressMode: percent === undefined ? "started" : "amount",
-		minutes: rounded === undefined ? "" : String(rounded % 60),
+		amountUnit: pages === undefined ? "percent" : "unit",
+		minutes: minutes === undefined ? "" : String(minutes % 60),
 		startedDay: startedOn === undefined ? "" : dayOf(startedOn),
-		amount: percent === undefined ? base.amount : String(percent),
+		amount: amount === undefined ? base.amount : String(amount),
 		when: ref.properties["dateUnknown"] === true ? "unknown" : "date",
-		hours: rounded === undefined ? "" : String(Math.floor(rounded / 60)),
+		hours: minutes === undefined ? "" : String(Math.floor(minutes / 60)),
+		finishedDay: textProperty(ref, "calendarDate") ?? dayOf(ref.occurredAt),
+		progressMode: percent === undefined && pages === undefined ? "started" : "amount",
 		position:
 			numberProperty(ref, mediaProgressPositionProperty(input.context.schemaSlug)) ?? base.position,
 	};
@@ -680,6 +738,9 @@ const editWhen = (
 		startedDay !== "" && startedDay === initial.startedDay ? storedStart : resolved.startedOn;
 	return {
 		finishedOn,
+		...(keepFinished && textProperty(ref, "calendarDate") === undefined
+			? {}
+			: { calendarDate: draft.finishedDay }),
 		kind: "date",
 		...(startedOn === undefined
 			? {}
@@ -698,28 +759,44 @@ export const activityEditPatch = (input: {
 }): undefined | MediaActivityPatch => {
 	const { ref, draft, initial } = input;
 	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
+	if (
+		draft.consumedItem !== undefined &&
+		!consumptionPropertiesEqual(draft.consumedItem, initial.consumedItem)
+	) {
+		patch.consumedItem = draft.consumedItem;
+	}
 	if (draft.intent === "progress") {
 		if (input.logger.family === "positional" && ref.entityId === input.context.id) {
 			if (draft.position !== undefined && draft.position !== initial.position) {
 				patch.position = draft.position;
 			}
 		} else {
+			const pages =
+				input.logger.family === "flat" &&
+				input.logger.progressUnit?.field === "pages" &&
+				draft.amountUnit === "unit" &&
+				draft.progressMode === "amount";
 			const percent =
-				draft.progressMode === "amount"
+				!pages && draft.progressMode === "amount"
 					? (draftProgressPercent(draft, activityUnitTotal(input.logger, input.context)) ?? null)
 					: null;
 			if (percent !== (numberProperty(ref, "progressPercent") ?? null)) {
 				patch.progressPercent = percent;
 			}
+			const progressPages = pages ? Number(draft.amount) : null;
+			if (progressPages !== (numberProperty(ref, "progressPages") ?? null)) {
+				patch.progressPages = progressPages;
+			}
 		}
-	} else {
+	}
+	{
 		const when = editWhen(draft, initial, ref, input.submittedAt);
 		if (when !== undefined) {
 			patch.when = when;
 		}
 	}
 	if (
-		draft.intent === "finished" &&
+		(draft.intent === "finished" || draft.intent === "progress") &&
 		(draft.hours !== initial.hours || draft.minutes !== initial.minutes)
 	) {
 		patch.timeSpent = parseTimeSpent(draft.hours, draft.minutes) ?? null;

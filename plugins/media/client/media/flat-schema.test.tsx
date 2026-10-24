@@ -868,7 +868,15 @@ describe("flat media query entity interest", () => {
 			data: {
 				events: rows([flatProgressEventRow]),
 				collectionEvents: rows([flatCollectionAddedEventRow]),
-				totals: rows([{ completionCount: 1, consumedAmount: 169, unknownAmountCount: 0 }]),
+				totals: rows([
+					{
+						completionCount: 1,
+						consumedAmount: 169,
+						unknownAmountCount: 0,
+						consumptionFailedCount: 0,
+						consumptionPendingCount: 0,
+					},
+				]),
 			},
 		},
 		["collection-1"],

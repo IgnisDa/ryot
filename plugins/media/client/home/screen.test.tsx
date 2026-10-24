@@ -19,6 +19,14 @@ import {
 import { HomeBody } from "./screen";
 
 const libraryCount = (count: number) => ({ type: "aggregate", items: [{ count }] });
+const activityAggregates = new Set(["days", "dates", "figures", "mediaTypes"]);
+const emptyActivityResult = (name: string) =>
+	name === "figures"
+		? {
+				type: "aggregate",
+				items: [{ failed: 0, minutes: 0, pending: 0, reviews: 0, finished: 0, minutesMissing: 0 }],
+			}
+		: { items: [], type: "aggregate" };
 
 const inProgressMovie = flatRow("movie-1", "Heat", "movie", {
 	progressPercent: 40,
@@ -34,6 +42,7 @@ const homeAdapter = (input: {
 	const requested: string[][] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
+	let reportingPreferenceReads = 0;
 	let gate = input.gate;
 	const adapter = {
 		navigate: (_mode, target) => {
@@ -42,6 +51,11 @@ const homeAdapter = (input: {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		pickEntity: (request) =>
 			Effect.sync(() => entityPicks.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
+		readReportingPreferences: () =>
+			Effect.sync(() => {
+				reportingPreferenceReads += 1;
+				return { timeZone: "UTC" };
+			}),
 		query: (document) => {
 			const names = Object.keys(document.queries);
 			requested.push(names);
@@ -55,7 +69,13 @@ const homeAdapter = (input: {
 				return Effect.succeed({ data: { library: libraryCount(gate) } });
 			}
 			return Effect.succeed({
-				data: Object.fromEntries(names.map((name) => [name, input.responses?.[name] ?? rows([])])),
+				data: Object.fromEntries(
+					names.map((name) => [
+						name,
+						input.responses?.[name] ??
+							(activityAggregates.has(name) ? emptyActivityResult(name) : rows([])),
+					]),
+				),
 			});
 		},
 	} satisfies Partial<RyotClientAdapter>;
@@ -64,6 +84,7 @@ const homeAdapter = (input: {
 		requested,
 		navigations,
 		entityPicks,
+		reportingPreferenceReads: () => reportingPreferenceReads,
 		setGate: (next: typeof input.gate) => {
 			gate = next;
 		},
@@ -199,8 +220,8 @@ describe("home gate", () => {
 						gate,
 						responses: {
 							days: { items: [], type: "aggregate" },
+							dates: { items: [], type: "aggregate" },
 							mediaTypes: { items: [], type: "aggregate" },
-							figures: { type: "aggregate", items: [{ reviews: 0, finished: 1, minutes: 116 }] },
 							"trending.trending": rows([
 								{
 									...mediaIdentity("arrival", "Arrival", "movie"),
@@ -208,6 +229,19 @@ describe("home gate", () => {
 									fetchedAt: "2026-09-24T10:00:00.000Z",
 								},
 							]),
+							figures: {
+								type: "aggregate",
+								items: [
+									{
+										failed: 0,
+										pending: 0,
+										reviews: 0,
+										finished: 1,
+										minutes: 116,
+										minutesMissing: 0,
+									},
+								],
+							},
 						},
 					});
 					const view = mountHome(home.adapter);
@@ -340,9 +374,9 @@ describe("home sections", () => {
 			expect(documents().slice(4)).toEqual([
 				["suggestions.items", "suggestions.source"],
 				["trending.trending"],
-				["days", "figures", "mediaTypes"],
-				["days", "figures", "mediaTypes"],
+				["dates", "days", "figures", "mediaTypes"],
 			]);
+			expect(home.reportingPreferenceReads()).toBe(1);
 			view.unmount();
 		}),
 	);

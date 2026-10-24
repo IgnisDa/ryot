@@ -134,7 +134,6 @@ describe("show schema", () => {
 			{ total: 2, watched: 0, percent: 0, key: "season-0", label: "Specials" },
 		]);
 		expect(coverage.headline).toEqual({ total: 4, watched: 2 });
-		expect(coverage.minutes).toEqual({ total: 116, missing: 0 });
 	});
 
 	it("records watches rather than listens", () => {

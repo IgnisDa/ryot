@@ -37,15 +37,6 @@ const seasonCoverageRow = (season: ShowCoverageRow) => ({
 	percent: mediaEpisodicCoveragePercent(season.watchedTotal, season.episodeTotal),
 });
 
-const watchedMinutes = (seasons: readonly ShowCoverageRow[]) =>
-	seasons.reduce(
-		(totals, season) => ({
-			total: totals.total + (season.watchedMinutes ?? 0),
-			missing: totals.missing + season.watchedUnknownRuntime,
-		}),
-		{ total: 0, missing: 0 },
-	);
-
 export const showActivityCoverage = (result: ShowActivity): MediaEpisodicCoverage => {
 	const ordered = [...result.coverage].sort(
 		(left, right) => seasonOrder(left) - seasonOrder(right),
@@ -53,7 +44,6 @@ export const showActivityCoverage = (result: ShowActivity): MediaEpisodicCoverag
 	const regular = ordered.filter((season) => !isSpecialsSeason(season));
 	return {
 		rows: ordered.map(seasonCoverageRow),
-		minutes: watchedMinutes(result.coverage),
 		headline: {
 			watched: regular.reduce((total, season) => total + season.watchedTotal, 0),
 			total:

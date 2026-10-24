@@ -59,6 +59,7 @@ import {
 	consumedOnSuggestions,
 	convertedAmount,
 	defaultSeasonNumber,
+	draftProgressPercent,
 	EARLIER_MAX_PAGES,
 	episodeCode,
 	episodeStateLabel,
@@ -309,11 +310,16 @@ export function WhenField(props: {
 }) {
 	const { draft, logger } = props;
 	const episode = draft.intent === "episode";
+	let whenLabel = "When did you finish it?";
+	if (episode) {
+		whenLabel = `When did you ${logger.copy.verb} it?`;
+	}
+	if (draft.intent === "progress") {
+		whenLabel = "When did you reach this progress?";
+	}
 	return (
 		<div className="flex flex-col gap-2">
-			<span className="text-[13px] font-medium text-text">
-				{episode ? `When did you ${logger.copy.verb} it?` : "When did you finish it?"}
-			</span>
+			<span className="text-[13px] font-medium text-text">{whenLabel}</span>
 			<SegmentedControl
 				fill
 				label="When"
@@ -372,6 +378,11 @@ export function FlatProgress(props: {
 	const { draft, logger, context } = props;
 	const total = activityUnitTotal(logger, context);
 	const unit = logger.family === "flat" ? logger.progressUnit : undefined;
+	const exactPages = unit?.field === "pages" && draft.amountUnit === "unit";
+	const canConvert =
+		unit !== undefined &&
+		total !== null &&
+		(!exactPages || draftProgressPercent(draft, total) !== undefined);
 	if (draft.progressMode === "started") {
 		return (
 			<div className="flex flex-col items-start gap-2">
@@ -386,10 +397,18 @@ export function FlatProgress(props: {
 	}
 	let hint: string | undefined;
 	if (unit !== undefined && total !== null) {
-		hint =
-			draft.amountUnit === "unit"
-				? `of ${total} ${unit.plural}`
-				: `${total} ${unit.plural} in total`;
+		if (exactPages) {
+			const amount = draft.amount.trim() === "" ? Number.NaN : Number(draft.amount);
+			hint =
+				Number.isFinite(amount) && amount <= total
+					? `of ${total} ${unit.plural}`
+					: `Current provider total: ${total} ${unit.plural}`;
+		} else {
+			hint =
+				draft.amountUnit === "unit"
+					? `of ${total} ${unit.plural}`
+					: `${total} ${unit.plural} in total`;
+		}
 	}
 	return (
 		<div className="flex flex-col items-start gap-2">
@@ -403,8 +422,8 @@ export function FlatProgress(props: {
 							value={draft.amount}
 							onChange={(event) => props.onChange({ amount: event.currentTarget.value })}
 						/>
-						{unit === undefined || total === null ? (
-							<span className="text-text-muted">%</span>
+						{unit === undefined || !canConvert ? (
+							<span className="text-text-muted">{exactPages ? unit.plural : "%"}</span>
 						) : (
 							<SegmentedControl
 								label="Unit"
@@ -703,88 +722,6 @@ function EpisodeList(props: {
 	);
 }
 
-function ActivityLogFields(props: Body) {
-	const { draft, today, logger, context } = props;
-	const errors = activityDraftErrors({ draft, today, logger, context });
-	const [details, setDetails] = useState(false);
-	const finished = draft.intent === "finished";
-	const timePrimary = logger.family === "flat" && logger.timePrimary === true;
-	return (
-		<>
-			{draft.intent === "episode" ? <EpisodeStep {...props} /> : null}
-			{draft.intent === "progress" && logger.family === "positional" ? (
-				<PositionProgress
-					draft={draft}
-					logger={logger}
-					context={context}
-					error={errors.position}
-					onChange={props.onChange}
-				/>
-			) : null}
-			{draft.intent === "progress" && logger.family === "flat" ? (
-				<FlatProgress
-					draft={draft}
-					logger={logger}
-					context={context}
-					error={errors.percent}
-					onChange={props.onChange}
-				/>
-			) : null}
-			{draft.intent === "status" ? (
-				<StatusPicker draft={draft} logger={logger} context={context} onChange={props.onChange} />
-			) : null}
-			{finished || draft.intent === "episode" ? (
-				<WhenField
-					today={today}
-					draft={draft}
-					logger={logger}
-					error={errors.when}
-					onChange={props.onChange}
-				/>
-			) : null}
-			{finished && timePrimary ? (
-				<TimeSpentField
-					draft={draft}
-					error={errors.time}
-					label="Time played"
-					onChange={props.onChange}
-					hint={activityRuntimeHint(null)}
-				/>
-			) : null}
-			{draft.intent === "status" ? null : (
-				<SourceField
-					logger={logger}
-					value={draft.consumedOn}
-					error={errors.consumedOn}
-					suggestions={props.suggestions}
-					onChange={(consumedOn) => props.onChange({ consumedOn })}
-				/>
-			)}
-			{finished && !timePrimary ? (
-				<div className="flex flex-col gap-3">
-					<Button
-						variant="link"
-						className="self-start"
-						aria-expanded={details}
-						onClick={() => setDetails(!details)}
-					>
-						{details ? "Hide details" : "More details"}
-					</Button>
-					{details ? (
-						<TimeSpentField
-							draft={draft}
-							label="Time spent"
-							error={errors.time}
-							onChange={props.onChange}
-							hint={activityRuntimeHint(context.runtime)}
-						/>
-					) : null}
-				</div>
-			) : null}
-		</>
-	);
-}
-
 function EpisodeStep(props: Body) {
 	const { pager, logger, context, earlier, selected } = props;
 	const special = logger.family === "show" && selected?.seasonNumber === 0;
@@ -865,6 +802,97 @@ function EpisodeStep(props: Body) {
 				/>
 			)}
 		</div>
+	);
+}
+
+function ActivityLogFields(props: Body) {
+	const { draft, today, logger, context } = props;
+	const errors = activityDraftErrors({ draft, today, logger, context });
+	const [details, setDetails] = useState(false);
+	const finished = draft.intent === "finished";
+	const timePrimary = logger.family === "flat" && logger.timePrimary === true;
+	return (
+		<>
+			{draft.intent === "episode" ? <EpisodeStep {...props} /> : null}
+			{draft.intent === "progress" && logger.family === "positional" ? (
+				<PositionProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.position}
+					onChange={props.onChange}
+				/>
+			) : null}
+			{draft.intent === "progress" && logger.family === "flat" ? (
+				<FlatProgress
+					draft={draft}
+					logger={logger}
+					context={context}
+					error={errors.percent}
+					onChange={props.onChange}
+				/>
+			) : null}
+			{draft.intent === "status" ? (
+				<StatusPicker draft={draft} logger={logger} context={context} onChange={props.onChange} />
+			) : null}
+			{finished || draft.intent === "episode" || draft.intent === "progress" ? (
+				<WhenField
+					today={today}
+					draft={draft}
+					logger={logger}
+					error={errors.when}
+					onChange={props.onChange}
+				/>
+			) : null}
+			{finished && timePrimary ? (
+				<TimeSpentField
+					draft={draft}
+					error={errors.time}
+					label="Time played"
+					onChange={props.onChange}
+					hint={activityRuntimeHint(null)}
+				/>
+			) : null}
+			{draft.intent === "progress" ? (
+				<TimeSpentField
+					draft={draft}
+					error={errors.time}
+					onChange={props.onChange}
+					label="Cumulative time spent"
+					hint="Total time in this consumption run, not time since the last update."
+				/>
+			) : null}
+			{draft.intent === "status" ? null : (
+				<SourceField
+					logger={logger}
+					value={draft.consumedOn}
+					error={errors.consumedOn}
+					suggestions={props.suggestions}
+					onChange={(consumedOn) => props.onChange({ consumedOn })}
+				/>
+			)}
+			{finished && !timePrimary ? (
+				<div className="flex flex-col gap-3">
+					<Button
+						variant="link"
+						className="self-start"
+						aria-expanded={details}
+						onClick={() => setDetails(!details)}
+					>
+						{details ? "Hide details" : "More details"}
+					</Button>
+					{details ? (
+						<TimeSpentField
+							draft={draft}
+							label="Time spent"
+							error={errors.time}
+							onChange={props.onChange}
+							hint={activityRuntimeHint(context.runtime)}
+						/>
+					) : null}
+				</div>
+			) : null}
+		</>
 	);
 }
 

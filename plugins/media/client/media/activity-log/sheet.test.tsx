@@ -2,6 +2,7 @@ import { afterEach, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import {
 	fireEvent,
 	getByLabelText,
@@ -36,6 +37,7 @@ import {
 } from "../../../tests/client/test-support";
 import { MediaSummaryHeader } from "../summary-header";
 import { MediaLogActivityButton } from "./button";
+import { MediaActivityEditSheet } from "./edit-sheet";
 import { MediaActivityLogSheet } from "./sheet";
 import type { MediaActivityLogger } from "./state";
 
@@ -45,7 +47,6 @@ afterEach(() => {
 
 const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, year: 2026 }));
 const SUBMITTED_AT = new Date(NOW).toISOString();
-const noon = (day: number) => new Date(2026, 9, day, 12).toISOString();
 
 const watchCopy = { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" };
 
@@ -143,6 +144,42 @@ const mountLog = (options: {
 		saved: () =>
 			background.settle(`submission-${background.requests.length}`, { status: "succeeded" }),
 	};
+};
+
+const mountPageEdit = (progressPages: number, pagesTotal: null | number = null) => {
+	const background = createTestBackgroundSubmissions();
+	const properties = {
+		progressPages,
+		consumedOn: "Kindle",
+		calendarDate: "2026-10-10",
+		sourceRun: "import:original",
+		consumptionBasis: { unit: "pages", property: "pages" },
+	};
+	const record = {
+		properties,
+		sessionEntityId: null,
+		id: EventId.make("event-1"),
+		entityId: EntityId.make("entity-1"),
+		occurredAt: "2026-10-10T12:00:00.000Z",
+	};
+	const view = mountRyotClient(
+		{
+			...background.adapter,
+			watchEntities,
+			readUserSettings: () => Effect.succeed({}),
+			query: activityLogQuery({ target: contextTarget({ pages: pagesTotal, schemaSlug: "book" }) }),
+		},
+		<MediaActivityEditSheet
+			compact
+			logger={book}
+			record={record}
+			intent="progress"
+			entityId="entity-1"
+			onClose={() => undefined}
+			triggerRef={createRef<HTMLButtonElement>()}
+		/>,
+	);
+	return { view, record, background, properties };
 };
 
 const openLog = (mounted: ReturnType<typeof mountLog>) =>
@@ -385,7 +422,7 @@ it.live("shows time played inline for a game", () =>
 	}),
 );
 
-it.live("builds picked dates from the one submission instant, even before noon", () =>
+it.live("preserves a picked calendar date before noon", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({ logger: movie });
 		try {
@@ -399,7 +436,12 @@ it.live("builds picked dates from the one submission instant, even before noon",
 				operation({
 					kind: "complete",
 					entityId: "entity-1",
-					when: { kind: "date", startedOn: SUBMITTED_AT, finishedOn: SUBMITTED_AT },
+					when: {
+						kind: "date",
+						calendarDate: "2026-10-20",
+						startedOn: "2026-10-20T00:00:00.000Z",
+						finishedOn: "2026-10-20T00:00:00.000Z",
+					},
 				}),
 			]);
 		} finally {
@@ -408,7 +450,7 @@ it.live("builds picked dates from the one submission instant, even before noon",
 	}),
 );
 
-it.live("builds local noon for past picked days", () =>
+it.live("preserves calendar precision for past picked days", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({ logger: movie });
 		try {
@@ -422,7 +464,12 @@ it.live("builds local noon for past picked days", () =>
 				operation({
 					kind: "complete",
 					entityId: "entity-1",
-					when: { kind: "date", startedOn: noon(17), finishedOn: noon(19) },
+					when: {
+						kind: "date",
+						calendarDate: "2026-10-19",
+						startedOn: "2026-10-17T00:00:00.000Z",
+						finishedOn: "2026-10-19T00:00:00.000Z",
+					},
 				}),
 			]);
 		} finally {
@@ -497,7 +544,9 @@ it.live("records just started and an amount in either unit for flat progress", (
 			expect(getByText(dialog, /Marks it as in progress without an amount/)).toBeDefined();
 			press(dialog, "Start reading");
 			yield* submitted(started);
-			expect(started.requests).toEqual([operation({ kind: "progress", entityId: "entity-1" })]);
+			expect(started.requests).toEqual([
+				operation({ kind: "progress", entityId: "entity-1", when: { kind: "now" } }),
+			]);
 			yield* closedWith(started, "Marked as reading.");
 		} finally {
 			started.view.unmount();
@@ -526,13 +575,109 @@ it.live("records just started and an amount in either unit for flat progress", (
 			expect(amount.requests).toEqual([
 				operation({
 					kind: "progress",
-					progressPercent: 40,
+					progressPages: 120,
 					consumedOn: "Kindle",
 					entityId: "entity-1",
+					when: { kind: "now" },
 				}),
 			]);
 		} finally {
 			amount.view.unmount();
+		}
+	}),
+);
+
+it.live("edits zero-page progress dates and sources without rewriting stored page facts", () =>
+	Effect.gen(function* () {
+		const mounted = mountPageEdit(0);
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			yield* eventually(() =>
+				expect(queryByRole(document.body, "dialog", { name: "Edit activity" })).not.toBeNull(),
+			);
+			const dialog = getByRole(document.body, "dialog", { name: "Edit activity" });
+			expect(getByLabelText(dialog, "How far along?")).toHaveProperty("value", "0");
+			expect(getByText(dialog, "pages")).toBeDefined();
+			expect(queryByText(dialog, "%")).toBeNull();
+			input(getByLabelText(dialog, "Finished"), "2026-10-11");
+			input(getByLabelText(dialog, /Where did you read it/), "Libby");
+			press(dialog, "Save changes");
+			yield* eventually(() => expect(mounted.background.requests).toHaveLength(1));
+			const request = mounted.background.requests[0];
+			expect(request).toMatchObject({
+				packageId: "ryot/media",
+				slug: "media-activity-update",
+				input: {
+					eventId: "event-1",
+					patch: {
+						consumedOn: "Libby",
+						when: {
+							kind: "date",
+							calendarDate: "2026-10-11",
+							finishedOn: "2026-10-11T00:00:00.000Z",
+						},
+					},
+					expected: {
+						entityId: "entity-1",
+						sessionEntityId: null,
+						properties: mounted.properties,
+						occurredAt: mounted.record.occurredAt,
+						absentProperties: expect.arrayContaining(["progressPercent"]),
+					},
+				},
+			});
+			expect(request?.input).toHaveProperty("patch", {
+				consumedOn: "Libby",
+				when: { kind: "date", calendarDate: "2026-10-11", finishedOn: "2026-10-11T00:00:00.000Z" },
+			});
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("keeps a large page fact labeled as pages without a denominator", () =>
+	Effect.gen(function* () {
+		const mounted = mountPageEdit(250);
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			yield* eventually(() =>
+				expect(queryByRole(document.body, "dialog", { name: "Edit activity" })).not.toBeNull(),
+			);
+			const dialog = getByRole(document.body, "dialog", { name: "Edit activity" });
+			expect(getByLabelText(dialog, "How far along?")).toHaveProperty("value", "250");
+			expect(getByText(dialog, "pages")).toBeDefined();
+			expect(queryByText(dialog, "%")).toBeNull();
+			expect(getByRole(dialog, "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+				true,
+			);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("keeps stored pages above the current provider total editable", () =>
+	Effect.gen(function* () {
+		const mounted = mountPageEdit(250, 100);
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			yield* eventually(() =>
+				expect(queryByRole(document.body, "dialog", { name: "Edit activity" })).not.toBeNull(),
+			);
+			const dialog = getByRole(document.body, "dialog", { name: "Edit activity" });
+			expect(getByLabelText(dialog, "How far along?")).toHaveProperty("value", "250");
+			expect(getByText(dialog, "Current provider total: 100 pages")).toBeDefined();
+			expect(queryByText(dialog, "%")).toBeNull();
+			expect(getByRole(dialog, "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+				true,
+			);
+			input(getByLabelText(dialog, /Where did you read it/), "Libby");
+			expect(getByRole(dialog, "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+				false,
+			);
+		} finally {
+			mounted.view.unmount();
 		}
 	}),
 );
@@ -549,7 +694,9 @@ it.live("goes back to just started without sending an amount", () =>
 			press(dialog, "Just started? Skip the amount");
 			press(dialog, "Start playing");
 			yield* submitted(mounted);
-			expect(mounted.requests).toEqual([operation({ kind: "progress", entityId: "entity-1" })]);
+			expect(mounted.requests).toEqual([
+				operation({ kind: "progress", entityId: "entity-1", when: { kind: "now" } }),
+			]);
 		} finally {
 			mounted.view.unmount();
 		}
@@ -599,6 +746,7 @@ it.live("records a positional progress step from the next position", () =>
 					position: 14,
 					kind: "progress",
 					entityId: "entity-1",
+					when: { kind: "now" },
 					consumedOn: "Crunchyroll",
 				}),
 			]);
@@ -760,7 +908,11 @@ it.live("marks only the selected show episode when the earlier toggle is off", (
 					kind: "episodes",
 					parentEntityId: "entity-1",
 					episodeEntityIds: ["s2e5"],
-					when: { kind: "date", finishedOn: noon(18) },
+					when: {
+						kind: "date",
+						calendarDate: "2026-10-18",
+						finishedOn: "2026-10-18T00:00:00.000Z",
+					},
 				}),
 			]);
 		} finally {
@@ -845,7 +997,11 @@ it.live(
 						consumedOn: "Living room",
 						parentEntityId: "entity-1",
 						episodeEntityIds: ["s2e5", "s2e6"],
-						when: { kind: "date", finishedOn: noon(18) },
+						when: {
+							kind: "date",
+							calendarDate: "2026-10-18",
+							finishedOn: "2026-10-18T00:00:00.000Z",
+						},
 					}),
 				]);
 			} finally {
@@ -980,7 +1136,11 @@ it.live("keeps the draft and focus through a failed earlier-episode check and re
 					consumedOn: "Living room",
 					parentEntityId: "entity-1",
 					episodeEntityIds: ["s2e5"],
-					when: { kind: "date", finishedOn: noon(18) },
+					when: {
+						kind: "date",
+						calendarDate: "2026-10-18",
+						finishedOn: "2026-10-18T00:00:00.000Z",
+					},
 				}),
 			]);
 		} finally {
@@ -1514,7 +1674,7 @@ for (const [name, logger, target, label, text, position] of [
 				clickRyotElement(yield* quickButton(mounted, label));
 				yield* submitted(mounted);
 				expect(mounted.requests).toEqual([
-					operation({ position, kind: "progress", entityId: "entity-1" }),
+					operation({ position, kind: "progress", entityId: "entity-1", when: { kind: "now" } }),
 				]);
 				expect(lastLabel(mounted)).toBe(text);
 			} finally {
