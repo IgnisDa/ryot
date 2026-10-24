@@ -127,6 +127,18 @@ request uses a fresh key and does not replay the failed child's cached result. R
 generations cannot admit new work. See [background work](../background-work/README.md) for ownership
 and recovery details.
 
+Trusted kernel admission may set `subject.afterHooks: "skip"` on a user execution. The exact subject,
+including this flag and its account generation, remains in persisted workflow principals and payloads.
+Script input, public enqueue bodies, and `requestUserWork` arguments cannot select this mode.
+Independent user work inherits it from the caller's principal while retaining exact plugin/configuration
+pins; ordinary user work still uses `featureInput: null`. Script and workflow children also retain the
+trusted caller's subject. Such executions cannot call HTTP, signals, notifications, OAuth, bootstrap,
+global-write capabilities, or kernel workflow references, even through a declared child.
+
+Lifecycle writes retain the principal as `command.writeContext`. The planner uses this trusted context
+to suppress after hooks, not source names or authored input. Validation, before policies, ownership,
+receipts, and projection-work admission still use their normal owners.
+
 ## Capabilities
 
 Compiler-derived local metadata constrains every runner, host, durable dispatch, and filesystem grant.

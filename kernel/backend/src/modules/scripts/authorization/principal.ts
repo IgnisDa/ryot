@@ -111,7 +111,12 @@ export const ScriptExecutionPrincipal = Schema.Struct({
 
 export type ScriptExecutionPrincipal = Schema.Schema.Type<typeof ScriptExecutionPrincipal>;
 
+export const skipsAfterHooks = (
+	principal: null | undefined | Pick<ScriptExecutionPrincipal, "subject">,
+) => principal?.subject.type === "user" && principal.subject.afterHooks === "skip";
+
 export const isUserBootstrapPrincipal = (principal: ScriptExecutionPrincipal) =>
+	!skipsAfterHooks(principal) &&
 	principal.metadata.kind === "script" &&
 	principal.pluginRevision?.userBootstrapScriptSlugs.includes(principal.scriptSlug) === true;
 

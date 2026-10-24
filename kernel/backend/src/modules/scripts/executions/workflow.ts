@@ -33,7 +33,11 @@ import type { DurableSchema } from "#boot/workflow-engine";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
-import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import {
+	samePluginPin,
+	ScriptExecutionPrincipal,
+	skipsAfterHooks,
+} from "#modules/scripts/authorization/principal";
 import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 import type {
 	SandboxHttpProgress,
@@ -627,6 +631,12 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	);
 	const artifactOwnerExecutionId = artifactOwnerOf(payload, executionId);
 	const kernel = request.args.workflowSlug.startsWith("kernel:");
+	if (kernel && skipsAfterHooks(callerAuthority)) {
+		return yield* sandboxFailure(
+			"script-failure",
+			"Kernel workflow references are not available when after hooks are skipped",
+		);
+	}
 	if (!kernel && !targetScriptId) {
 		return yield* sandboxFailure("missing-artifact", "Child workflow script was not resolved");
 	}
@@ -675,9 +685,9 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 									payload: {
 										lane: payload.lane,
 										resolutionMode: "exact",
-										subject: payload.subject,
 										input: request.args.input,
 										executionId: childExecutionId,
+										subject: callerAuthority.subject,
 										scriptId: SandboxScriptId.make(targetScriptId),
 										grants: { ...payload.grants, artifactOwnerExecutionId },
 										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),

@@ -10,6 +10,7 @@ import { BackgroundWorkService } from "#modules/background-work/service";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
+import { skipsAfterHooks } from "#modules/scripts/authorization/principal";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -65,6 +66,7 @@ export const makeUserWorkScriptHost = Effect.gen(function* () {
 						type: "user" as const,
 						accountGeneration: account,
 						userId: UserId.make(userId),
+						...(skipsAfterHooks(input.principal) ? { afterHooks: "skip" as const } : {}),
 					},
 				};
 				const command = yield* sandboxLifecycleCommand(input, "api", "requestUserWork");

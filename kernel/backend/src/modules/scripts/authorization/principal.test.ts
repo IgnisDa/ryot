@@ -2,6 +2,7 @@ import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
+import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { isUserBootstrapPrincipal, ScriptExecutionPrincipal } from "./principal";
 
 const principal = {
@@ -51,6 +52,37 @@ const principal = {
 		},
 	},
 };
+
+it("retains trusted after-hook suppression with the exact pins and user generation", () => {
+	const user = {
+		...principal,
+		metadata: { kind: "script", runtimeImports: [] },
+		subject: {
+			type: "user",
+			userId: "user-1",
+			afterHooks: "skip",
+			accountGeneration: principal.subject.accountGeneration,
+		},
+	};
+	const decoded = Schema.decodeUnknownSync(ScriptExecutionPrincipal)(user);
+	expect(
+		Schema.decodeSync(Schema.fromJsonString(ScriptExecutionPrincipal))(JSON.stringify(user)),
+	).toEqual(decoded);
+	const payload = {
+		lane: "background",
+		resolutionMode: "exact",
+		subject: decoded.subject,
+		scriptId: decoded.scriptId,
+		executionId: "repair-script",
+		input: { afterHooks: "normal" },
+		pluginRevision: decoded.pluginRevision,
+	};
+	expect(
+		Schema.decodeSync(Schema.fromJsonString(ScriptExecutionWorkflowPayload))(
+			JSON.stringify(payload),
+		),
+	).toEqual(payload);
+});
 
 it("retains exact revision/config pins in durable principals and rejects conflicting ownership", () => {
 	const decode = Schema.decodeUnknownSync(Schema.fromJsonString(ScriptExecutionPrincipal));
@@ -116,4 +148,19 @@ it("recognizes only a declared user bootstrap script as a bootstrap principal", 
 	expect(bootstrap({ kind: "script" }, ["script"])).toBe(true);
 	expect(bootstrap({ kind: "script" }, ["other"])).toBe(false);
 	expect(bootstrap({ kind: "automation" }, ["script"])).toBe(false);
+	expect(
+		isUserBootstrapPrincipal(
+			decode({
+				...principal,
+				metadata: { kind: "script", runtimeImports: [] },
+				pluginRevision: { ...principal.pluginRevision, userBootstrapScriptSlugs: ["script"] },
+				subject: {
+					type: "user",
+					userId: "user-1",
+					afterHooks: "skip",
+					accountGeneration: principal.subject.accountGeneration,
+				},
+			}),
+		),
+	).toBe(false);
 });

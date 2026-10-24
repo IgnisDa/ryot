@@ -327,6 +327,7 @@ const runBody = (id: string, execute: () => Effect.Effect<unknown, DbError>) => 
 		Effect.provideService(BackgroundWorkProjectionFinalizer, {
 			publish: () => Effect.die("Unexpected projection output"),
 			failed: () => Effect.die("Unexpected projection failure"),
+			settled: () => Effect.die("Ordinary user work must not recover projections"),
 		}),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
@@ -352,6 +353,7 @@ const userWorkWorkflowLayer = () =>
 					Layer.succeed(BackgroundWorkProjectionFinalizer, {
 						publish: () => Effect.die("User-script work must not publish projections"),
 						failed: () => Effect.die("User-script work must not finalize projections"),
+						settled: () => Effect.die("Ordinary user work must not recover projections"),
 					}),
 				),
 			),
@@ -914,6 +916,7 @@ layer(userWorkHostLayer())((test) => {
 							}),
 					}),
 					Effect.provideService(BackgroundWorkProjectionFinalizer, {
+						settled: () => Effect.void,
 						publish: () => Effect.die("Unexpected projection output"),
 						failed: () => Effect.die("Unexpected projection failure"),
 					}),
@@ -932,6 +935,7 @@ layer(userWorkHostLayer())((test) => {
 			yield* runBackgroundWorkWorkflow({ id }).pipe(
 				Effect.provideService(BackgroundWorkExecutor, { execute: () => Effect.succeed(null) }),
 				Effect.provideService(BackgroundWorkProjectionFinalizer, {
+					settled: () => Effect.void,
 					publish: () => Effect.die("Unexpected projection output"),
 					failed: () => Effect.die("Unexpected projection failure"),
 				}),
