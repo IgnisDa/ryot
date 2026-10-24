@@ -15,6 +15,10 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
+import {
+	notificationDeliveriesRecipe,
+	notificationOutcomeRecipe,
+} from "@ryot-app/ryotql-recipes/notification-delivery";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -34,6 +38,7 @@ import {
 	testNotificationChannels,
 	updateNotificationChannel,
 } from "~/fixtures/kernel";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import {
 	findFitnessEntitySchema,
 	operationInput,
@@ -308,7 +313,7 @@ describe("notification delivery", () => {
 				channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 
-			yield* testNotificationChannels(client);
+			const admitted = yield* testNotificationChannels(client);
 
 			const delivered = yield* pollUntil(
 				"background notification deliveries",
@@ -327,6 +332,62 @@ describe("notification delivery", () => {
 			expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(
 				false,
 			);
+			const outcome = yield* pollUntil(
+				"settled notification outcome",
+				executeRyotQLRecipe(client, notificationOutcomeRecipe({ id: admitted.id })).pipe(
+					Effect.map((result) => (result?.state === "settled" ? result : null)),
+				),
+			);
+			expect(outcome.outcome).toBe("partial");
+			const deliveries = yield* executeRyotQLRecipe(
+				client,
+				notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+			);
+			expect(deliveries.items.map((item) => item.status).sort()).toEqual(["accepted", "failed"]);
+			const other = yield* createAuthenticatedClient();
+			expect(
+				yield* executeRyotQLRecipe(other.client, notificationOutcomeRecipe({ id: admitted.id })),
+			).toBeNull();
+			expect(
+				(yield* executeRyotQLRecipe(
+					other.client,
+					notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+				)).items,
+			).toEqual([]);
+		}),
+	);
+
+	it.live("retains channel-test submissions and reports no-channel work as Not sent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const payload: ContractPayload<"notifications", "testChannels"> = {
+				idempotencyKey: crypto.randomUUID(),
+				submittedAt: DateTime.formatIso(yield* DateTime.now),
+			};
+			const first = yield* client.call((c) => c.notifications.testChannels({ payload }));
+			const replay = yield* client.call((c) => c.notifications.testChannels({ payload }));
+			expect(first.id).toBe(replay.id);
+			const outcome = yield* executeRyotQLRecipe(
+				client,
+				notificationOutcomeRecipe({ id: first.id }),
+			);
+			expect(outcome).toMatchObject({
+				state: "settled",
+				outcome: "not-sent",
+				reason: "no-enabled-channels",
+			});
+			const changedSubmittedAt = DateTime.formatIso(
+				DateTime.add(yield* DateTime.now, { seconds: 1 }),
+			);
+			const conflict = yield* client
+				.call((c) =>
+					c.notifications.testChannels({
+						payload: { ...payload, submittedAt: changedSubmittedAt },
+					}),
+				)
+				.pipe(Effect.flip);
+			assertTaggedError(conflict, "NotificationAdmissionConflictError");
+			expect(conflict.reason.code).toBe("source-content-conflict");
 		}),
 	);
 

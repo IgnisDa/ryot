@@ -64,6 +64,7 @@ describe("notification subscription catalog and rules", () => {
 				"media.status.changed",
 				"person.media-group.associated",
 				"person.media.associated",
+				"reminder.due",
 				"review.created",
 				"workout.created",
 			]);

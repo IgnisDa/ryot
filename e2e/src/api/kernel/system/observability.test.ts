@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, pollUntil } from "~/fixtures/kernel";
+import { testNotificationChannels } from "~/fixtures/kernel/notifications";
 import {
 	requireArray,
 	requireObjectRecord,
@@ -197,7 +198,7 @@ describe("API observability", () => {
 	it.live("exports spans with correlatable workflow and request logs", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient(target);
-			yield* client.call((c) => c.notifications.testChannels());
+			yield* testNotificationChannels(client);
 
 			const { span, resource } = yield* pollUntil(
 				"notification delivery workflow OTLP span",

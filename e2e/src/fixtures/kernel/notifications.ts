@@ -8,6 +8,7 @@ import { startFakeHttpServer, startFakeHttpServerScoped } from "~/support/fake-h
 import type { Client } from "./auth";
 import { executeRyotQLRecipe } from "./ryotql";
 
+type TestNotificationChannelsBody = ContractPayload<"notifications", "testChannels">;
 type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
 type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;
 
@@ -37,8 +38,13 @@ export const deleteNotificationChannel = (client: Client, channelId: string) =>
 		c.notifications.deleteChannel({ params: { channelId: NotificationChannelId.make(channelId) } }),
 	);
 
-export const testNotificationChannels = (client: Client) =>
-	client.call((c) => c.notifications.testChannels());
+export const testNotificationChannels = (client: Client) => {
+	const payload: TestNotificationChannelsBody = {
+		idempotencyKey: crypto.randomUUID(),
+		submittedAt: new Date().toISOString(),
+	};
+	return client.call((c) => c.notifications.testChannels({ payload }));
+};
 
 const respondToApprise = (url: URL) =>
 	url.pathname.endsWith("/fail")
