@@ -265,9 +265,7 @@ impl CpuLease {
         }));
         let mut state = self.entry.state();
         state.sync_waiting_since = None;
-        let Some(slot) = slot.filter(|_| {
-            !state.cancelled && state.limit.is_none() && state.terminating_since.is_none()
-        }) else {
+        let Some(slot) = slot.filter(|_| state.stopping.is_none()) else {
             return false;
         };
         drop(state);

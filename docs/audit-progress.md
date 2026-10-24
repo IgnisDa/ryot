@@ -15,7 +15,7 @@
 
 ## Status
 
-**30 implemented, 0 in progress, 53 pending; 3 excluded.**
+**31 implemented, 0 in progress, 52 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -59,7 +59,7 @@
 | A05-R2 | Excluded | Website pricing/checkout offer model. |
 | A05-R1 | Excluded | Website payment agreement and rights transitions. |
 | A03-R1 | Excluded | Browser-extension frame/navigation ownership. |
-| S03-R1 | Pending | One sandbox stop cause and first timestamp. |
+| S03-R1 | Implemented | One optional stopping cause and first timestamp own stop transitions; cleanup and wakeup happen once while cause priority is preserved. See this finding's audit commit. |
 | B03-R1 | Pending | Prepared HTTP hops and explicit phases. |
 | P04-R2 | Pending | One automatic query-refresh owner. |
 | B15-R1 | Pending | One durable paged integration worklist. |
@@ -195,3 +195,4 @@
 - B24-R1: backend type, format, and lint checks passed before 57 tests across seven files; read-only review reported no findings. Definition registration, invalidation, and publication remain intact.
 - M06-R1: media check passed before 222 tests across 25 files; read-only review reported no findings. All locators resolve once; actual headers and the home backdrop remain.
 - F04-R1: fitness check passed before 11 tests; read-only review reported no findings. The persisted numeric plan is used directly, without editor hydration, and validation, units, and pro-media behavior are preserved.
+- S03-R1: sandbox Bun check, including format and clippy, passed; 73 Cargo tests passed with one ignored, and generated-doc validation passed. Read-only review reported no findings. Linux-only confinement was not run on macOS.

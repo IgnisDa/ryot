@@ -31,13 +31,21 @@ impl Meter {
     }
 }
 
+pub enum StopCause {
+    Cancelled,
+    Limit { kind: LimitKind, message: String },
+}
+
+pub struct Stopping {
+    pub since: Instant,
+    pub cause: StopCause,
+}
+
 #[derive(Default)]
 pub struct EntryState {
-    pub cancelled: bool,
-    pub limit: Option<(LimitKind, String)>,
+    pub stopping: Option<Stopping>,
     pub isolate: Option<v8::IsolateHandle>,
     pub meter: Option<Meter>,
-    pub terminating_since: Option<Instant>,
     /// Set while the execution holds a CPU slot and is being polled.
     pub polling_since: Option<Instant>,
     /// Set while synchronous inline settlement or CPU reacquisition blocks the isolate thread.
@@ -83,7 +91,7 @@ impl Entry {
 
     pub fn await_result(&self, seq: u64) -> Option<oneshot::Receiver<HostOutcome>> {
         let state = self.state();
-        if state.cancelled || state.limit.is_some() {
+        if state.stopping.is_some() {
             return None;
         }
         let (sender, receiver) = oneshot::channel();
@@ -114,31 +122,38 @@ impl Entry {
     }
 
     /// Stops the execution: pending host calls fail, an idle event loop is woken, and running
-    /// script code is terminated. Returns false when the execution was already stopping.
-    pub fn stop(&self, state: &mut EntryState) -> bool {
-        if state.terminating_since.is_some() {
-            return false;
+    /// script code is terminated. Cancellation supersedes a limit without restarting termination.
+    pub(crate) fn stop(&self, state: &mut EntryState, cause: StopCause) {
+        if let Some(stopping) = state.stopping.as_mut() {
+            if matches!(cause, StopCause::Cancelled) {
+                stopping.cause = cause;
+            }
+            return;
         }
-        state.terminating_since = Some(Instant::now());
+        state.stopping = Some(Stopping {
+            since: Instant::now(),
+            cause,
+        });
         self.stopping.send_replace(true);
         self.pending.lock().expect("pending calls").clear();
         self.abort.notify_one();
         state.terminate_isolate();
-        true
     }
 
     pub fn cancel(&self) {
         let mut state = self.state();
-        state.cancelled = true;
-        self.stop(&mut state);
+        self.stop(&mut state, StopCause::Cancelled);
     }
 
     pub fn exceed(&self, limit: LimitKind, message: String) {
         let mut state = self.state();
-        if state.limit.is_none() && !state.cancelled {
-            state.limit = Some((limit, message));
-        }
-        self.stop(&mut state);
+        self.stop(
+            &mut state,
+            StopCause::Limit {
+                kind: limit,
+                message,
+            },
+        );
     }
 }
 
@@ -185,5 +200,137 @@ impl Registry {
             .values()
             .cloned()
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use deno_core::futures::FutureExt;
+
+    use super::*;
+
+    #[test]
+    fn cancellation_supersedes_a_limit_without_restarting_termination() {
+        let entry = Entry::new("limit-then-cancel".to_owned(), Limits::minimal());
+        entry.exceed(LimitKind::Cpu, "first limit".to_owned());
+        let since = entry.state().stopping.as_ref().expect("stopping").since;
+
+        entry.cancel();
+
+        let state = entry.state();
+        let stopping = state.stopping.as_ref().expect("stopping");
+        assert!(matches!(stopping.cause, StopCause::Cancelled));
+        assert_eq!(stopping.since, since);
+    }
+
+    #[test]
+    fn cancellation_remains_selected_after_later_limits_and_repeated_cancellation() {
+        let entry = Entry::new("cancel-first".to_owned(), Limits::minimal());
+        entry.cancel();
+        let since = entry.state().stopping.as_ref().expect("stopping").since;
+
+        for kind in [
+            LimitKind::Cpu,
+            LimitKind::Heap,
+            LimitKind::External,
+            LimitKind::Deadline,
+        ] {
+            entry.exceed(kind, "later limit".to_owned());
+            entry.cancel();
+
+            let state = entry.state();
+            let stopping = state.stopping.as_ref().expect("stopping");
+            assert!(matches!(stopping.cause, StopCause::Cancelled));
+            assert_eq!(stopping.since, since);
+        }
+    }
+
+    #[test]
+    fn the_first_limit_message_and_timestamp_win_over_competing_limits() {
+        let kinds = [
+            LimitKind::Cpu,
+            LimitKind::Heap,
+            LimitKind::External,
+            LimitKind::Deadline,
+        ];
+        for first in kinds {
+            let entry = Entry::new("competing-limits".to_owned(), Limits::minimal());
+            entry.exceed(first, "first limit".to_owned());
+            let since = entry.state().stopping.as_ref().expect("stopping").since;
+
+            for later in kinds {
+                entry.exceed(later, "later limit".to_owned());
+
+                let state = entry.state();
+                let stopping = state.stopping.as_ref().expect("stopping");
+                assert!(matches!(
+                    &stopping.cause,
+                    StopCause::Limit { kind, message } if *kind == first && message == "first limit"
+                ));
+                assert_eq!(stopping.since, since);
+            }
+        }
+    }
+
+    #[test]
+    fn stopping_clears_pending_calls_and_signals_waiters_only_once() {
+        for cause in [
+            StopCause::Cancelled,
+            StopCause::Limit {
+                kind: LimitKind::Deadline,
+                message: "deadline".to_owned(),
+            },
+        ] {
+            let entry = Entry::new("pending-stop".to_owned(), Limits::minimal());
+            let mut first = entry.await_result(1).expect("first pending call");
+            let mut second = entry.await_result(2).expect("second pending call");
+            let mut stopping = entry.stop_receiver();
+            assert!(!*stopping.borrow_and_update());
+            assert!(entry.abort.notified().now_or_never().is_none());
+
+            entry.stop(&mut entry.state(), cause);
+
+            assert!(matches!(
+                first.try_recv(),
+                Err(oneshot::error::TryRecvError::Closed)
+            ));
+            assert!(matches!(
+                second.try_recv(),
+                Err(oneshot::error::TryRecvError::Closed)
+            ));
+            assert!(entry.pending.lock().expect("pending calls").is_empty());
+            assert!(entry.await_result(3).is_none());
+            assert!(!entry.deliver(1, HostOutcome::Failure("late result".to_owned())));
+            assert!(stopping.has_changed().expect("stop sender"));
+            assert!(*stopping.borrow_and_update());
+            assert!(*entry.stop_receiver().borrow());
+            assert!(entry.abort.notified().now_or_never().is_some());
+
+            entry.cancel();
+            entry.exceed(LimitKind::Heap, "later limit".to_owned());
+            entry.cancel();
+
+            assert!(!stopping.has_changed().expect("stop sender"));
+            assert!(entry.abort.notified().now_or_never().is_none());
+        }
+    }
+
+    #[test]
+    fn cancellation_after_isolate_disposal_still_supersedes_a_limit() {
+        let entry = Entry::new("late-cancel".to_owned(), Limits::minimal());
+        entry.exceed(LimitKind::External, "external memory".to_owned());
+        let since = {
+            let mut state = entry.state();
+            state.finished = true;
+            state.stopping.as_ref().expect("stopping").since
+        };
+
+        entry.cancel();
+
+        let state = entry.state();
+        let stopping = state.stopping.as_ref().expect("stopping");
+        assert!(state.finished);
+        assert!(matches!(stopping.cause, StopCause::Cancelled));
+        assert_eq!(stopping.since, since);
     }
 }

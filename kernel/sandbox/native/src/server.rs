@@ -17,7 +17,7 @@ use crate::protocol::{
     Assembled, Assembly, ChunkedType, DrainReason, Finished, FramingError, Inbound, Lane, Outbound,
     Outcome, Phase, Run, decode_inbound, inbound_type, read_frame, valid_handle,
 };
-use crate::registry::{Entry, Registry};
+use crate::registry::{Entry, Registry, StopCause};
 use crate::snapshots::Snapshot;
 use crate::watchdog;
 
@@ -147,7 +147,11 @@ fn spawn_workers(
                             format!("execution needs {reserve} bytes, more than the memory budget"),
                         )
                         .without_run(),
-                        Some(_reservation) if entry.state().cancelled => {
+                        Some(_reservation)
+                            if entry.state().stopping.as_ref().is_some_and(|stopping| {
+                                matches!(stopping.cause, StopCause::Cancelled)
+                            }) =>
+                        {
                             Outcome::Cancelled.without_run()
                         }
                         Some(_reservation) => executor.execute(&run, &entry),
