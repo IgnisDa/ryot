@@ -15,7 +15,7 @@
 
 ## Status
 
-**63 implemented, 0 in progress, 20 pending; 3 excluded.**
+**64 implemented, 0 in progress, 19 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -76,7 +76,7 @@
 | S02-R2 | Pending | The writer owns physical chunk creation. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
 | S01-R1 | Implemented | Store validated harvested bytes directly without intermediate temporary-file writes or reads. See this finding's audit commit. |
-| P09-R1 | Pending | Validate archives without a compress/decompress round trip. |
+| P09-R1 | Implemented | Validate writer input once without self-decompression; retain exact manifest bounds and unchanged reader behavior. See this finding's audit commit. |
 | M03-R1 | Implemented | Plex integration uses explicit current-item continuation. See this finding's audit commit. |
 | M04-R1 | Implemented | Reuse existing sorted media runs for collection workflows and retain the checkpointed 64-item window. See this finding's audit commit. |
 | M02-R1 | Implemented | Process already-decoded Trakt records directly without a synthetic ZIP round trip. See this finding's audit commit. |
@@ -229,3 +229,4 @@
 - F02-R1: scoped checks passed before 52 tests; read-only review passed. Each selected workout group is normalized once, using first-valid-row metadata while preserving failures and ordering.
 - A02-R1: server check passed before 15 harness tests; read-only review passed. Event IDs scan in 500-row C-collated pages across distinct streams, with bulk processing, normalized timestamps, and warning multisets. Combined restored normal/larger migration validation is running separately and remains pending.
 - M01-R1: scoped checks passed before 12 tests; read-only review passed. Metron uses the canonical role accumulator without folding or a second set pass.
+- P09-R1: archive check passed before 71 tests; read-only review passed. Writer input validates once without self-decompression; manifest bounds are exact and reader behavior is unchanged. CLI validation was blocked by P08 and is now unblocked; final acceptance remains pending.

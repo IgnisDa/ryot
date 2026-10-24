@@ -193,27 +193,29 @@ const validateCompiledScripts = (
 
 	const compiledEntries = new Set<string>();
 	const compiledFiles = new Map<string, Uint8Array>();
+	const scripts: Array<typeof PluginArchiveCompiledScriptMetadataEntry.Type> = [];
 	const sortedScripts = compiledScripts
 		.slice()
 		.sort((left, right) => compareCodeUnits(left.entry, right.entry));
-	for (const script of sortedScripts) {
-		validateCompiledScriptEntry(script.entry);
-		validateCompiledScriptFormat(script.format);
-		if (!expectedEntries.has(script.entry) || compiledEntries.has(script.entry)) {
+	for (const { entry, format, javascript } of sortedScripts) {
+		validateCompiledScriptEntry(entry);
+		validateCompiledScriptFormat(format);
+		if (!expectedEntries.has(entry) || compiledEntries.has(entry)) {
 			throw failure("compiled-script-invalid");
 		}
-		compiledEntries.add(script.entry);
+		compiledEntries.add(entry);
 
-		const javascriptBytes = encodeCompiledScriptText(script.javascript);
+		const javascriptBytes = encodeCompiledScriptText(javascript);
 		if (javascriptBytes.byteLength > PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes) {
 			throw failure("compiled-script-bytes-exceeded");
 		}
-		const hash = sha256Hex(javascriptBytes);
-		const priorBytes = compiledFiles.get(hash);
+		const metadata = { entry, format, hash: sha256Hex(javascriptBytes) };
+		const priorBytes = compiledFiles.get(metadata.hash);
 		if (priorBytes !== undefined && !bytesEqual(priorBytes, javascriptBytes)) {
 			throw failure("compiled-script-invalid");
 		}
-		compiledFiles.set(hash, javascriptBytes);
+		compiledFiles.set(metadata.hash, javascriptBytes);
+		scripts.push(metadata);
 	}
 	if (compiledEntries.size !== expectedEntries.size) {
 		throw failure("compiled-script-invalid");
@@ -225,7 +227,7 @@ const validateCompiledScripts = (
 			throw failure("compiled-script-bytes-exceeded");
 		}
 	}
-	return { compiledFiles, scripts: sortedScripts };
+	return { scripts, compiledFiles };
 };
 
 const validateCompiledClientFile = (name: string, contentType: string) => {
@@ -397,10 +399,13 @@ const concat = (chunks: ReadonlyArray<Uint8Array>, size?: number) => {
 
 const createPluginArchive = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
 	const output: Uint8Array[] = [];
+	let outputBytes = 0;
 	const zip = new Zip((error, chunk) => {
 		if (error !== null) {
-			throw new Error(error.message, { cause: error });
+			throw normalizeError(error);
 		} else if (chunk.byteLength > 0) {
+			outputBytes += chunk.byteLength;
+			validateCompressedBytes(outputBytes);
 			output.push(chunk.slice());
 		}
 	});
@@ -412,7 +417,7 @@ const createPluginArchive = (entries: ReadonlyArray<readonly [string, Uint8Array
 		file.push(bytes, true);
 	}
 	zip.end();
-	return concat(output);
+	return concat(output, outputBytes);
 };
 
 const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
@@ -803,24 +808,24 @@ const readPluginArchiveBytes = (bytes: Uint8Array) => {
 export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 	try {
 		let manifestBytes: Uint8Array;
+		let manifest: PluginManifest;
 		try {
 			manifestBytes = encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`);
 		} catch {
 			throw failure("manifest-invalid");
 		}
+		validateEntryBytes("manifest.json", manifestBytes.byteLength, manifestBytes.byteLength);
+		try {
+			manifest = Schema.decodeSync(Schema.fromJsonString(PluginManifest))(
+				decoder.decode(manifestBytes),
+			);
+		} catch {
+			throw failure("manifest-invalid");
+		}
 		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", manifestBytes]];
-		const compiledScripts = validateCompiledScripts(
-			pluginPackage.manifest,
-			pluginPackage.compiledScripts ?? [],
-		);
+		const compiledScripts = validateCompiledScripts(manifest, pluginPackage.compiledScripts ?? []);
 		if (compiledScripts.scripts.length > 0) {
-			const metadata = {
-				scripts: compiledScripts.scripts.map(({ entry, format, javascript }) => ({
-					entry,
-					format,
-					hash: sha256Hex(encoder.encode(javascript)),
-				})),
-			};
+			const metadata = { scripts: compiledScripts.scripts };
 			const compiledBackendEntries: Array<readonly [string, Uint8Array]> = [
 				[compiledBackendMetadataPath, encoder.encode(`${JSON.stringify(metadata, null, "\t")}\n`)],
 				...[...compiledScripts.compiledFiles].map(
@@ -831,10 +836,7 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 			entries.push(...compiledBackendEntries);
 		}
 		if (pluginPackage.compiledClient !== undefined) {
-			const artifact = validateCompiledClientArtifact(
-				pluginPackage.compiledClient,
-				pluginPackage.manifest,
-			);
+			const artifact = validateCompiledClientArtifact(pluginPackage.compiledClient, manifest);
 			const metadata = Schema.encodeSync(PluginClientArtifactArchiveMetadata)({
 				...artifact,
 				files: artifact.files
@@ -844,17 +846,14 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 			const compiledClientEntries: Array<readonly [string, Uint8Array]> = [
 				[compiledClientMetadataPath, encoder.encode(`${JSON.stringify(metadata, null, "\t")}\n`)],
 				...artifact.files.map(
-					({ name, contents, contentType }) =>
-						[validateCompiledClientFile(name, contentType), contents] as const,
+					({ name, contents }) => [`${compiledClientFilePrefix}${name}`, contents] as const,
 				),
 			];
 			compiledClientEntries.sort(([left], [right]) => compareCodeUnits(left, right));
 			entries.push(...compiledClientEntries);
 		}
 		validateEntries(entries);
-		const archive = createPluginArchive(entries);
-		readPluginArchiveBytes(archive);
-		return archive;
+		return createPluginArchive(entries);
 	} catch (error) {
 		throw normalizeError(error);
 	}
