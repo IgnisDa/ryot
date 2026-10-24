@@ -400,6 +400,10 @@ const MigrationBootstrapServicesLive = Layer.mergeAll(
 
 export const SchemaMigrationLive = MigrationsComplete.layer;
 
+export const MigrationDatabaseLive = Layer.merge(PgClientLive, DatabaseSession.layer).pipe(
+	Layer.provideMerge(ConfigLive),
+);
+
 export const MigrationInfrastructureLive = Layer.mergeAll(
 	MigrationBootstrapServicesLive,
 	PluginInstallationMigrationLive,

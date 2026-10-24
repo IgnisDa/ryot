@@ -1,5 +1,6 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
+	MigrationDatabaseLive,
 	MigrationInfrastructureLive,
 	ObservabilityProvidedLive,
 	RuntimeServerLive,
@@ -12,9 +13,12 @@ import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
 
-const MigrationSequenceLive = LegacyTableRenameLive.pipe(
+const SchemaReadyLive = LegacyTableRenameLive.pipe(
 	Layer.flatMap(() => SchemaMigrationLive),
-	Layer.flatMap(() => InternalOAuthProvisioningLive),
+	Layer.provide(MigrationDatabaseLive),
+);
+
+const MigrationSequenceLive = InternalOAuthProvisioningLive.pipe(
 	Layer.flatMap(() => SystemPluginIngestionLive),
 	Layer.flatMap(() => LegacyDataMigrationLive),
 );
@@ -27,8 +31,12 @@ const StartupLive = Layer.effectDiscard(
 		const migrationOnly = yield* Config.Boolean("RUN_MIGRATION_ONLY").pipe(
 			Config.withDefault(false),
 		);
-		const layer = (migrationOnly ? MigrationSequenceLive : AppLive).pipe(
-			Layer.provide(MigrationInfrastructureLive),
+		const layer = SchemaReadyLive.pipe(
+			Layer.flatMap(() =>
+				(migrationOnly ? MigrationSequenceLive : AppLive).pipe(
+					Layer.provide(MigrationInfrastructureLive),
+				),
+			),
 			Layer.provide(ObservabilityProvidedLive),
 		);
 		if (migrationOnly) {
