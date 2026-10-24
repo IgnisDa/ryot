@@ -1,4 +1,4 @@
-import { DateTime, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
@@ -7,7 +7,7 @@ import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/work
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
-import { IntegrationRecoveryPage, IntegrationSyncRun } from "./jobs";
+import { IntegrationRecoveryPage, type IntegrationSyncRun } from "./jobs";
 import { IntegrationsService } from "./service";
 import { type IntegrationSyncPayload, IntegrationSyncWorkflow } from "./sync-workflow";
 
@@ -24,25 +24,21 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 			executionId,
 		).pipe(Effect.orDie);
 
-		const before = yield* makeActivity({
+		yield* makeActivity({
 			error: Schema.Never,
-			success: Schema.String,
-			name: "integration-recovery-snapshot",
-			execute: Effect.map(DateTime.nowAsDate, (date) => date.toISOString()),
-		});
-		const admitted = yield* makeActivity({
-			error: Schema.Never,
-			name: "prepare-integration-sync-runs",
-			success: Schema.Array(IntegrationSyncRun),
+			success: Schema.Void,
+			name: "admit-yank-integration-runs",
 			execute: integrations
 				.prepareYankRuns(payload.userId, payload.accountGeneration)
 				.pipe(Effect.orDie),
 		});
-		const dispatched = new Set<string>();
+		const before = yield* makeActivity({
+			error: Schema.Never,
+			success: Schema.String,
+			name: "capture-integration-worklist-cutoff",
+			execute: integrations.captureRecoveryCutoff().pipe(Effect.orDie),
+		});
 		const dispatch = Effect.fnUntraced(function* (run: IntegrationSyncRun) {
-			if (dispatched.has(run.runId)) {
-				return;
-			}
 			const released = yield* integrations
 				.releaseRecoveryRun(run)
 				.pipe(
@@ -78,17 +74,13 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 						),
 					),
 			);
-			dispatched.add(run.runId);
 		});
-		for (const run of admitted) {
-			yield* dispatch(run);
-		}
 		let after: IngestionRecoveryCursor | null = null;
 		for (let page = 0; ; page++) {
 			const recovery: typeof IntegrationRecoveryPage.Type = yield* makeActivity({
 				error: Schema.Never,
 				success: IntegrationRecoveryPage,
-				name: `integration-readiness-recovery:${page}`,
+				name: `integration-worklist-page:${page}`,
 				execute: integrations.prepareRecoveryRuns({ after, before }).pipe(Effect.orDie),
 			});
 			for (const run of recovery.runs) {

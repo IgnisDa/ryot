@@ -540,7 +540,7 @@ describe("installation availability", () => {
 		test.effect("skips scheduled yank runs for an unavailable system installation", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
 			}),
 		);
 	});
@@ -612,14 +612,7 @@ describe("prepareYankRuns", () => {
 		test.effect("admits an idle yank integration as a yank-owned run", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toEqual([
-					{
-						userId: yankIntegration.userId,
-						runId: makeRun("completed").id,
-						integrationId: yankIntegration.id,
-						accountGeneration: { userId: yankIntegration.userId, token: "test-account-generation" },
-					},
-				]);
+				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
 					source: "theta",
 					integrationId: yankIntegration.id,
@@ -633,7 +626,7 @@ describe("prepareYankRuns", () => {
 		test.effect("skips a yank integration the database refused to admit", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
 			}),
 		);
 	});
@@ -642,8 +635,8 @@ describe("prepareYankRuns", () => {
 		test.effect("rechecks missing setup on each tick without creating reports", () =>
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
-				expect(yield* service.prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
 				expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual(
 					Array.from({ length: 2 }, () => ({
 						method: "evaluateIntegration",
@@ -663,7 +656,7 @@ describe("prepareYankRuns", () => {
 	layer(layerFor(true, true, true))((test) => {
 		test.effect("waits without admitting when the executable is unavailable", () =>
 			Effect.gen(function* () {
-				expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toEqual([]);
+				expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toBeUndefined();
 			}),
 		);
 	});
