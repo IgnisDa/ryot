@@ -183,16 +183,15 @@ export class ExecutionFileStore extends Context.Service<ExecutionFileStore>()(
 
 			const materializeOutputs = Effect.fn("ExecutionFileStore.materializeOutputs")(function* (
 				ownerExecutionId: string,
-				sources: ReadonlyArray<string>,
+				outputs: ReadonlyArray<Uint8Array>,
 			) {
-				if (sources.length === 0) {
+				if (outputs.length === 0) {
 					return [];
 				}
 				const directory = outputDirectory(ownerExecutionId);
 				yield* fs.makeDirectory(directory, { recursive: true });
-				return yield* Effect.forEach(sources, (source) =>
+				return yield* Effect.forEach(outputs, (bytes) =>
 					Effect.gen(function* () {
-						const bytes = yield* fs.readFile(source);
 						const contentHash = sha256Hex(bytes);
 						const handle = sha256Base64Url(`${ownerExecutionId}\0${contentHash}`);
 						yield* materializeBytes(bytes, path.join(directory, handle)).pipe(

@@ -1,5 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { layer } from "@effect/vitest";
+import { sha256Base64Url, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { expect } from "vitest";
 
@@ -21,6 +22,33 @@ const artifactStoreLayer = Layer.unwrap(
 ).pipe(Layer.provideMerge(BunServices.layer));
 
 layer(artifactStoreLayer)((test) => {
+	test.effect(
+		"preserves ordered owner-derived handles and immutable bytes for an output batch",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const store = yield* ExecutionFileStore;
+				const first = new Uint8Array([1, 2, 3]);
+				const outputs = [first, new Uint8Array(), new Uint8Array([4, 5]), first];
+				const expected = outputs.map((bytes) =>
+					sha256Base64Url(`batch-owner\0${sha256Hex(bytes)}`),
+				);
+				const handles = yield* store.materializeOutputs("batch-owner", outputs);
+				expect(handles).toEqual(expected);
+				expect(yield* store.materializeOutputs("batch-owner", outputs)).toEqual(expected);
+				first.fill(0);
+				const paths = yield* store.resolveOutputs("batch-owner", handles);
+				expect(
+					yield* Effect.forEach(paths, (target) =>
+						fs.readFile(target).pipe(Effect.map(Array.from)),
+					),
+				).toEqual([[1, 2, 3], [], [4, 5], [1, 2, 3]]);
+				expect((yield* Effect.exit(store.resolveOutputs("other-owner", handles)))._tag).toBe(
+					"Failure",
+				);
+			}),
+	);
+
 	test.effect("materializes immutable content-addressed input grants", () =>
 		Effect.gen(function* () {
 			const root = yield* ArtifactRoot;
@@ -52,16 +80,14 @@ layer(artifactStoreLayer)((test) => {
 	test.effect("keeps opaque output handles while any workflow reference remains", () =>
 		Effect.gen(function* () {
 			const root = yield* ArtifactRoot;
-			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const store = yield* ExecutionFileStore;
-			const source = path.join(root, "chunk.json");
-			yield* fs.writeFileString(source, '{"items":[]}');
+			const bytes = new TextEncoder().encode('{"items":[]}');
 			yield* store.retain("workflow-1", "workflow-1");
 			yield* store.retain("workflow-1", "child-1");
 
-			const first = yield* store.materializeOutputs("workflow-1", [source]);
-			const second = yield* store.materializeOutputs("workflow-1", [source]);
+			const first = yield* store.materializeOutputs("workflow-1", [bytes]);
+			const second = yield* store.materializeOutputs("workflow-1", [bytes]);
 			expect(first).toEqual(second);
 			expect(first[0]).not.toContain(root);
 			const [stored] = yield* store.resolveOutputs("workflow-1", first);

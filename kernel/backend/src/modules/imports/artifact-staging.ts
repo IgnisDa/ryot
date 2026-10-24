@@ -2,7 +2,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 import { decodeScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
@@ -14,7 +14,6 @@ export const IngestionArtifactStagingLive = Layer.effect(
 	Effect.gen(function* () {
 		const repository = yield* ImportsRepository;
 		const captures = yield* IngestionCaptures;
-		const fs = yield* FileSystem.FileSystem;
 		return {
 			prepare: Effect.fn("imports.prepareArtifactStaging")(
 				function* (input) {
@@ -58,11 +57,11 @@ export const IngestionArtifactStagingLive = Layer.effect(
 					};
 					const workflowExecutionId = input.workflowExecutionId;
 					return Effect.fn("imports.stageHarvestedArtifacts")(function* (
-						sources: ReadonlyArray<string>,
+						outputs: ReadonlyArray<Uint8Array>,
 					) {
-						return yield* Effect.forEach(sources, (source, outputIndex) =>
+						return yield* Effect.forEach(outputs, (bytes, outputIndex) =>
 							Effect.gen(function* () {
-								if (Number((yield* fs.stat(source)).size) > 4 * 1024 * 1024) {
+								if (bytes.byteLength > 4 * 1024 * 1024) {
 									return yield* new SandboxRunError({
 										kind: "invalid-input",
 										message: "Staged artifact exceeds its byte limit",
@@ -70,10 +69,10 @@ export const IngestionArtifactStagingLive = Layer.effect(
 								}
 								return yield* captures.stage({
 									scope,
+									bytes,
 									outputIndex,
 									ownerExecutionId,
 									workflowExecutionId,
-									bytes: yield* fs.readFile(source),
 									activityExecutionId: input.executionId,
 								});
 							}),

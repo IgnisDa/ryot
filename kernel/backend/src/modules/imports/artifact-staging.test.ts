@@ -119,8 +119,7 @@ layer(
 							success: Schema.String,
 							execute: Effect.gen(function* () {
 								collections += 1;
-								const source = `${temporary}/collector-output`;
-								yield* fs.writeFile(source, new TextEncoder().encode("collected once"));
+								const bytes = new TextEncoder().encode("collected once");
 								const port = yield* ExecutionFileStaging;
 								const harvest = yield* port.prepare({
 									context: {},
@@ -144,10 +143,13 @@ layer(
 										message: "Collector staging owner was not found",
 									});
 								}
-								const handles = yield* harvest([source]);
-								expect(yield* harvest([source])).toEqual(handles);
-								yield* fs.writeFile(source, new TextEncoder().encode("changed collector output"));
-								expect((yield* Effect.exit(harvest([source])))._tag).toBe("Failure");
+								const handles = yield* harvest([bytes]);
+								expect(yield* harvest([bytes])).toEqual(handles);
+								expect(
+									(yield* Effect.exit(
+										harvest([new TextEncoder().encode("changed collector output")]),
+									))._tag,
+								).toBe("Failure");
 								const result = handles[0];
 								if (!result) {
 									return yield* new ImportRunError({ message: "Collector output was not staged" });

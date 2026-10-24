@@ -15,7 +15,7 @@
 
 ## Status
 
-**45 implemented, 0 in progress, 38 pending; 3 excluded.**
+**46 implemented, 0 in progress, 37 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -75,7 +75,7 @@
 | S03-R2 | Implemented | Borrow result and console data while serializing the done payload. See this finding's audit commit. |
 | S02-R2 | Pending | The writer owns physical chunk creation. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
-| S01-R1 | Pending | Store harvested bytes without an intermediate temp copy. |
+| S01-R1 | Implemented | Store validated harvested bytes directly without intermediate temporary-file writes or reads. See this finding's audit commit. |
 | P09-R1 | Pending | Validate archives without a compress/decompress round trip. |
 | M03-R1 | Implemented | Plex integration uses explicit current-item continuation. See this finding's audit commit. |
 | M04-R1 | Implemented | Reuse existing sorted media runs for collection workflows and retain the checkpointed 64-item window. See this finding's audit commit. |
@@ -210,3 +210,4 @@
 - M04-R1: scoped checks passed before 20 tests across seven files; read-only review passed. Existing sorted media runs are reused with the checkpointed 64-item window.
 - M02-R1: media type, format, and lint checks passed before 28 tests across six files; read-only review passed. Decoded Trakt records are processed directly without a synthetic ZIP round trip.
 - S03-R2: native format/clippy and fixture checks passed; 73 native tests passed with one ignored, plus seven TypeScript tests. Earlier timing-sensitive attempts were followed by a full pass without code changes; read-only review passed. Linux-only validation was not run on macOS.
+- S01-R1: host and backend checks passed before 16 host and 14 backend tests; read-only review passed. Validated bytes are stored directly without temporary-file writes or reads.
