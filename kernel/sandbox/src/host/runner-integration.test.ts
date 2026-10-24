@@ -568,7 +568,7 @@ export default defineWorkflow({
 			expect(controls).toEqual(["inlineBatch"]);
 			expect(response).toMatchObject({
 				success: true,
-				value: { state: "failed", error: "Error: Inline sleep results do not match the batch" },
+				value: { state: "failed", error: "WorkflowJournalMismatchError: Inline sleep results do not match the batch" },
 			});
 		}),
 	);

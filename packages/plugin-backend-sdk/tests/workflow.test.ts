@@ -377,7 +377,7 @@ describe("workflow definitions", () => {
 					journalLength: 0,
 					requests: [request],
 					kind: "script-failure",
-					error: "Error: Inline sleep results do not match the batch",
+					error: "WorkflowJournalMismatchError: Inline sleep results do not match the batch",
 				});
 
 				const nonNullValue = yield* workflow.run(
@@ -554,8 +554,9 @@ describe("workflow definitions", () => {
 					state: "failed",
 					journalLength: 1,
 					kind: "script-failure",
-					error: "Error: Sandbox workflow journal identity mismatch at index 0",
 					requests: [{ index: 0, kind: "sleep", name: "expected", args: { durationMs: 10 } }],
+					error:
+						"WorkflowJournalMismatchError: Sandbox workflow journal identity mismatch at index 0",
 				});
 			}),
 		));
@@ -641,7 +642,7 @@ describe("workflow definitions", () => {
 
 	test.each([
 		{
-			message: "Error: invariant violated",
+			message: "TestWorkflowFailure: invariant violated",
 			failure: new TestWorkflowFailure({ message: "invariant violated" }),
 		},
 		{
