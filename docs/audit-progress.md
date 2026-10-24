@@ -13,7 +13,7 @@
 
 ## Status
 
-**15 implemented, 2 in progress, 66 pending; 3 excluded.**
+**16 implemented, 2 in progress, 65 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -36,7 +36,7 @@
 | C04-R1 | Implemented | Registration scopes release each acquired listener on failure, interruption, stop, or disposal, including late handles. See this finding's `audit:` commit. |
 | C05-R1 | In progress | Keep form edits from reloading remote catalog pages. |
 | F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
-| M05-R2 | Pending | Require one purpose shape across manifests and readers. |
+| M05-R2 | Implemented | Shared images require the canonical purpose; gallery Other and optional badges are removed. See this finding's `audit:` commit. |
 | P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
 | M06-R2 | Pending | Use the current query for backfill eligibility. |
 | C11-R1 | Pending | Authenticated UI owns and disposes its SDK runtime. |
@@ -161,7 +161,7 @@
 - Repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
 - Main-session cleanup removed duplicate operation-target construction and an unused direct-page snapshot field (net one line removed). No suppressions or bypass casts were added. Excluded apps unchanged. No push performed.
 
-### Batch 6: B07-R2, F03-R2, F03-R1, C04-R1, C05-R1, F05-R1 — active
+### Batch 6: B07-R2, F03-R2, F03-R1, C04-R1, C05-R1, F05-R1, M05-R2 — active
 
 - Resumed at the user's request with one implementation subagent per finding. Independent backup, expiry, device, readiness, and home-activity work runs in parallel; F03-R1 follows F03-R2 because they share the workout controller.
 - Each finding retains its own review and `audit:` commit. Affected validation, main-session cleanup, and final repository-wide acceptance are pending.
@@ -169,3 +169,4 @@
 - B07-R2: historical writes and `completeRun` use the captured database transaction. Completed status replaces progress-90 replay logic; ambiguous failures reread completion before retry/failure. Cleanup only deletes the temporary upload best-effort. Backend check passed before 11 backup files / 130 tests, including real PostgreSQL commit/rollback, lost acknowledgement, postcommit cancellation, replay, unavailable cleanup, and deadlock retry. Read-only review reported no findings. Drain active restores before deployment; no compatibility path was added.
 - F05-R1: one ID-keyed aggregate retains visibility, effective-link deduplication, bounds, never-trained targets, and sorting. Set weights remain primary/untyped 1, secondary 0.5, stabilizer 0; recency includes every role. Fitness check passed before all 85 files / 537 tests. E2E check and the new `home-recipes.test.ts` API regression passed against PostgreSQL, covering equal-name targets and generated SQL. Read-only review reported no findings.
 - C04-R1: each DOM/native listener is acquired with an immediate scoped finalizer; partial failure, interruption, stop, and disposal close registration scopes and release late handles. Scoped device type/format/lint checks passed before four files / 33 tests. Read-only review reported no findings. Full client type checking passed; full lint initially encountered concurrent C05-R1 edits and must be rerun for batch acceptance. Physical-device behavior was not tested. Native promises that never settle can still delay cleanup; removal remains best-effort.
+- M05-R2: shared images require one of the seven manifest purposes. Removed gallery Other and the optional badge branch; locator-only presentation assets and artwork order are unchanged. Providers, seed data, and legacy mappings already emit tags; malformed fixtures were corrected directly. Media check passed before 15 focused files / 179 tests, then all 218 files / 1,546 tests passed. Read-only review reported no findings. Existing untagged images now fail decoding as intended; no compatibility decoder was added.

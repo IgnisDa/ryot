@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MediaImage } from "../../shared/media-image";
+import { type MediaImage, mediaImagePurposes } from "../../shared/media-image";
 import {
 	galleryFilterImages,
 	galleryFilters,
@@ -11,14 +11,17 @@ import {
 	galleryTileFit,
 } from "./image-gallery-state";
 
-const remote = (url: string, purpose?: MediaImage["purpose"]): MediaImage =>
-	purpose === undefined ? { url, type: "remote" } : { url, purpose, type: "remote" };
+const remote = (url: string, purpose: MediaImage["purpose"]): MediaImage => ({
+	url,
+	purpose,
+	type: "remote",
+});
 
 const mixed = [
 	remote("https://images.test/one.jpg", "backdrop"),
 	remote("https://images.test/two.jpg", "cover"),
 	remote("https://images.test/three.jpg", "backdrop"),
-	remote("https://images.test/four.jpg"),
+	remote("https://images.test/four.jpg", "artwork"),
 ];
 
 describe("image gallery state", () => {
@@ -27,16 +30,16 @@ describe("image gallery state", () => {
 			"backdrop",
 			"cover",
 			"backdrop",
-			undefined,
+			"artwork",
 		]);
 	});
 
-	it("builds filters in schema order with all first and untagged images under other", () => {
+	it("builds filters in schema order with all first", () => {
 		expect(galleryFilters(galleryImages(mixed))).toEqual([
 			{ count: 4, label: "All", filter: "all" },
 			{ count: 1, filter: "cover", label: "Covers" },
 			{ count: 2, filter: "backdrop", label: "Backdrops" },
-			{ count: 1, label: "Other", filter: "other" },
+			{ count: 1, label: "Artwork", filter: "artwork" },
 		]);
 	});
 
@@ -50,14 +53,36 @@ describe("image gallery state", () => {
 		expect(galleryFilters([])).toEqual([]);
 	});
 
-	it("narrows to one purpose and treats untagged images as other", () => {
+	it("narrows to one purpose", () => {
 		const images = galleryImages(mixed);
 
 		expect(galleryFilterImages(images, "all")).toHaveLength(4);
 		expect(galleryFilterImages(images, "backdrop")).toHaveLength(2);
-		expect(galleryFilterImages(images, "other")).toEqual([
-			{ type: "remote", purpose: undefined, url: "https://images.test/four.jpg" },
+		expect(galleryFilterImages(images, "artwork")).toEqual([
+			{ type: "remote", purpose: "artwork", url: "https://images.test/four.jpg" },
 		]);
+	});
+
+	it("filters all seven canonical purposes", () => {
+		const images = galleryImages(
+			mediaImagePurposes.map((purpose) => remote(`https://images.test/${purpose}.jpg`, purpose)),
+		);
+
+		expect(galleryFilters(images)).toEqual([
+			{ count: 7, label: "All", filter: "all" },
+			{ count: 1, filter: "cover", label: "Covers" },
+			{ count: 1, filter: "backdrop", label: "Backdrops" },
+			{ count: 1, filter: "profile", label: "Profiles" },
+			{ count: 1, filter: "logo", label: "Logos" },
+			{ count: 1, filter: "still", label: "Stills" },
+			{ count: 1, filter: "screenshot", label: "Screenshots" },
+			{ count: 1, label: "Artwork", filter: "artwork" },
+		]);
+		for (const purpose of mediaImagePurposes) {
+			expect(galleryFilterImages(images, purpose)).toEqual([
+				{ purpose, type: "remote", url: `https://images.test/${purpose}.jpg` },
+			]);
+		}
 	});
 
 	it("letterboxes mixed shapes and fills a single purpose", () => {

@@ -156,11 +156,9 @@ function GalleryLightboxBody(props: {
 					<span className="font-ui font-medium text-[13px] text-text tabular-nums">
 						{`${index + 1} / ${images.length}`}
 					</span>
-					{image.purpose === undefined ? null : (
-						<span className="rounded-pill border border-border px-2.5 py-0.5 font-ui text-[11px] text-text-muted">
-							{image.purpose}
-						</span>
-					)}
+					<span className="rounded-pill border border-border px-2.5 py-0.5 font-ui text-[11px] text-text-muted">
+						{image.purpose}
+					</span>
 				</div>
 				<GalleryCloseButton label="Close image" onClick={props.onClose} />
 			</div>

@@ -163,9 +163,10 @@ describe("MediaImageGallery", () => {
 	it("opens the lightbox on the tile that was clicked", () => {
 		const { unmount } = mountGallery(true);
 
-		clickRyotElement(tile(2));
+		clickRyotElement(tile(11));
 
-		expect(dialog("Image 3 of 12").textContent).toContain("3 / 12");
+		expect(dialog("Image 12 of 12").textContent).toContain("12 / 12");
+		expect(dialog("Image 12 of 12").textContent).toContain("logo");
 		unmount();
 	});
 
@@ -180,9 +181,11 @@ describe("MediaImageGallery", () => {
 
 		pressRyotKey("ArrowRight");
 		expect(dialog("Image 2 of 12").textContent).toContain("2 / 12");
+		expect(dialog("Image 2 of 12").textContent).toContain("backdrop");
 
 		pressRyotKey("End");
 		expect(dialog("Image 12 of 12").textContent).toContain("12 / 12");
+		expect(dialog("Image 12 of 12").textContent).toContain("logo");
 
 		pressRyotKey("ArrowRight");
 		expect(dialog("Image 12 of 12").textContent).toContain("12 / 12");
@@ -196,6 +199,14 @@ describe("MediaImageGallery", () => {
 		clickRyotElement(tile(0));
 
 		expect(dialog("Image 1 of 2").textContent).toContain("1 / 2");
+		expect(dialog("Image 1 of 2").textContent).toContain("cover");
+
+		pressRyotKey("ArrowRight");
+		expect(dialog("Image 2 of 2").textContent).toContain("2 / 2");
+		expect(dialog("Image 2 of 2").textContent).toContain("cover");
+
+		pressRyotKey("ArrowRight");
+		expect(dialog("Image 2 of 2").textContent).toContain("2 / 2");
 		unmount();
 	});
 

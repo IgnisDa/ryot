@@ -99,9 +99,14 @@ describe("media overview state", () => {
 
 	it("collects only the managed locators the overview renders", () => {
 		const overview = decodeShowOverview({
-			companies: [{ ...showCompanyRow, images: [{ type: "local", key: "company-logo" }] }],
+			companies: [
+				{ ...showCompanyRow, images: [{ type: "local", purpose: "logo", key: "company-logo" }] },
+			],
 			recommendations: [
-				{ ...showRecommendationRow, images: [{ type: "s3", key: "suggested-cover" }] },
+				{
+					...showRecommendationRow,
+					images: [{ type: "s3", purpose: "cover", key: "suggested-cover" }],
+				},
 			],
 			people: [
 				{
