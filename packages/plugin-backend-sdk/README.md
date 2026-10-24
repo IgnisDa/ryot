@@ -116,6 +116,13 @@ step and returns `{ workId }`; the common kernel background-work owner dispatche
 dispatch a separate event-stream workflow. Processor output and publication rules are described in
 [events and projections](../../kernel/backend/src/modules/events/README.md#stream-work-and-freshness).
 
+An event projection's optional `inputRepairScriptSlug` names a same-revision direct script. Import
+`EventStreamInputRepairInput` from `@ryot-app/plugin-backend-sdk/event-streams`; its fields are
+`entityId` and a stable `requestKey`. Perform the initial correction/reset before returning `null`.
+The kernel coalesces entity streams onto this invocation, gates their first read-only projection
+step on its success, and preserves trusted after-hook suppression in user-work descendants. Success
+starts repair; the processor must still verify current source-revision readiness before finishing.
+
 `requestRelationshipProjections({ relationshipSchemaSlug, sourceEntityIds })` marks the execution
 user's links from those sources for the schema's declared projection processor and returns
 `{ workId }`. The owning plugin's `requestRelationshipProjectionsForAllUsers` takes the same request
