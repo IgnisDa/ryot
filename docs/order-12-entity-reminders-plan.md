@@ -8,7 +8,7 @@ It is reference material, not maintained user documentation. Maintained user doc
 in `apps/docs`.
 
 Planning completed on **2026-10-28**. Implementation started on **2026-10-28** with the shared
-notification admission/delivery foundation. Order 12 is not complete. The checkout at planning
+notification admission/delivery foundation. Order 12 is complete. The checkout at planning
 handoff was based on `9e600b74506a8fe3b8016d0367dae1d5e5c3e9cf`, with concurrent
 uncommitted work, including Media library projections and migration documentation. Recheck the
 current code and working tree before editing; preserve that work. File paths below describe the
@@ -541,10 +541,10 @@ Close Order 12 only when all of the following are recorded:
 - [x] Backup restore and V1 conversion leave unfinished historical reminders inactive.
 - [x] Real normal/larger dump validation, source comparisons and restart checks are complete.
 - [x] Maintained docs and feature READMEs describe the shipped behavior.
-- [ ] Affected checks/tests, selected e2e and final repository checks/tests pass.
+- [x] Affected checks/tests, selected e2e and final repository checks/tests pass.
 - [x] Review fixes and scoped cleanup are complete.
-- [ ] `docs/v1-v2-port-gap-analysis.md` contains the accepted behavior, actual validation results and
-  remaining limitations, with Order 12 marked Done only at that point.
+- [x] `docs/v1-v2-port-gap-analysis.md` contains the accepted behavior, actual validation results and
+  remaining limitations, with Order 12 marked Done.
 
 Report genuine blockers or uncovered acceptance cases. Do not claim live delivery-provider testing
 from hermetic adapter tests, or migration acceptance from zero-source-data samples alone.
@@ -655,10 +655,8 @@ the original cached-object directory were preserved.
   persistence retry-boundary comment and lint-required explicit void return remain. Generated route
   casts remain generator-owned; no handwritten checker bypass or suppression was added.
 
-Implementation and evidence were committed in scoped groups before final repository-wide validation.
-The final non-e2e test gate remains open. The follow-up run was stopped at the user's request;
-no Order 12 commands remain active. Implementation is complete, but Order 12 remains In progress
-until the required final tests pass.
+Implementation and evidence were committed in scoped groups. The final non-e2e test run passed all 51
+Turbo tasks, including the Fitness measurement-editor readiness case. Order 12 is complete.
 
 ### Final repository validation
 
@@ -669,7 +667,6 @@ until the required final tests pass.
 - The first `bun turbo --filter='!@ryot-app/e2e' test` run stopped at an unrelated Fitness
   measurement-editor readiness wait (49 successful Turbo tasks). The test now waits for the page's
   summary/series stage before its entry/children stage and scopes action lookup to the log. Assertions,
-  timeouts and production behavior are unchanged. Affected checks passed all 26 tasks. The user
-  requested termination of the affected test rerun; it stopped in a backend dependency test after
-  44 successful tasks and did not reach the Fitness tests. The test fix therefore remains unverified.
-  Final checks followed by the complete non-e2e test run must pass before Order 12 is marked Done.
+  timeouts and production behavior are unchanged. Affected checks passed all 26 tasks. The final
+  repository test run passed all 51 Turbo tasks, including the Fitness measurement-editor case. Order
+  12 is Done.

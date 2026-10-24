@@ -117,7 +117,7 @@ that cleanup must respect.
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
 | 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
-| 12 | In progress | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
+| 12 | Done | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
 | 13 | Pending | **Add release-day notifications** | 4 and 11; existing monitoring/subscriptions | Notify eligible monitoring users from release dates, not provider episode-discovery signals. Deduplicate each occurrence/recipient, handle date changes and bounded catch-up, and keep display/query refresh separate from delivery. |
 | 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
 
@@ -150,9 +150,8 @@ genre; the original dump was preserved. Full commands, counts, hashes, timings a
 the [acceptance evidence](order-12-entity-reminders-plan.md#11-acceptance-execution-evidence).
 The read-only review, its three fixes and scoped cleanup are complete. Final repository checks passed
 38 Turbo tasks and type checks across 30 projects; server/docs builds passed eight tasks. The final
-non-e2e test run failed in a Fitness measurement-editor readiness wait. Its test-only fix passed
-affected checks, but the user stopped the follow-up tests before Fitness ran. That fix remains
-unverified and the final test gate remains open; Order 12 remains In progress.
+non-e2e test run passed all 51 Turbo tasks, including the Fitness measurement-editor case after its
+readiness fix. Order 12 is Done.
 
 ### Phase 4 — Discovery, analytics and lower-priority account controls
 
