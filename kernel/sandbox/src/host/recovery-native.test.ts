@@ -99,7 +99,7 @@ const assertNativeCrash = Effect.fnUntraced(function* (
 			candidate.instance === located.instance && candidate.generation === fatal.generation,
 	);
 	assert(connection !== undefined);
-	expect(yield* connection.connection.exit).toEqual({ code: 70, signal: null });
+	expect(yield* connection.connection.exit).toBe(70);
 	return fatal;
 });
 
@@ -650,10 +650,9 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							initial.some((run) => run.handle === frame.handle),
 					);
 					expect(doneBeforeKill).toEqual([]);
-					expect(yield* killNativeConnection(connection.connection)).toEqual({
-						code: null,
-						signal: "SIGKILL",
-					});
+					expect(
+						String((yield* Effect.flip(killNativeConnection(connection.connection))).reason.cause),
+					).toContain("SIGKILL");
 					const freshFiber = yield* runSupervisedNative(supervisor, fresh).pipe(Effect.forkScoped);
 					const completed = yield* Effect.forEach(fibers, Fiber.join, { concurrency: "unbounded" });
 					expect(yield* Fiber.join(freshFiber)).toMatchObject({ success: true, value: "healthy" });

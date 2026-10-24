@@ -99,7 +99,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					expect(done.outcome).toEqual({ value, status: "completed" });
 					yield* connection.retire("native-client-1");
 					yield* connection.close;
-					expect((yield* connection.exit).code).toBe(0);
+					expect(yield* connection.exit).toBe(0);
 					const snapshots = yield* Metric.snapshot;
 					expect(
 						snapshots.find(
@@ -222,7 +222,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					"background-running": { value: "running", status: "completed" },
 				});
 				yield* connection.close;
-				expect((yield* connection.exit).code).toBe(0);
+				expect(yield* connection.exit).toBe(0);
 			}),
 		),
 	);
@@ -247,7 +247,6 @@ layer(live, { excludeTestServices: true })((test) => {
 					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
 				});
 				if (process.platform === "linux") {
-					assert(connection.pid !== undefined);
 					expect((yield* fs.readFileString(`/proc/${connection.pid}/oom_score_adj`)).trim()).toBe(
 						"1000",
 					);
@@ -299,7 +298,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					"export default () => new Array(2 ** 32 - 1).fill(0);",
 				);
 				expect(fatal).toMatchObject({ type: "fatal", handle: "diagnostics-crash" });
-				expect(yield* connection.exit).toEqual({ code: 70, signal: null });
+				expect(yield* connection.exit).toBe(70);
 			}),
 		),
 	);

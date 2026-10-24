@@ -242,12 +242,11 @@ const verifyTier = (tier: SnapshotTier, outputs: ReadonlyArray<PluginScriptOutpu
 			yield* connection.close.pipe(
 				Effect.mapError((error) => pluginLoadFailure(tier, errorText(error))),
 			);
-			const exit = yield* connection.exit;
-			if (exit.code !== 0) {
-				return yield* pluginLoadFailure(
-					tier,
-					`Sidecar exited with code ${String(exit.code)} and signal ${String(exit.signal)}`,
-				);
+			const code = yield* connection.exit.pipe(
+				Effect.mapError((error) => pluginLoadFailure(tier, errorText(error))),
+			);
+			if (code !== 0) {
+				return yield* pluginLoadFailure(tier, `Sidecar exited with code ${String(code)}`);
 			}
 			return undefined;
 		}),

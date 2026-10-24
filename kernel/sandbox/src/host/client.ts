@@ -1,10 +1,18 @@
-// TODO: https://github.com/Effect-TS/effect/issues/8902
-// Use ChildProcessSpawner once it can pass one duplex socket.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { spawn } from "node:child_process";
-
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Context, Data, Deferred, Effect, FileSystem, Layer, Path, Queue, Schema } from "effect";
+import type { Exit, PlatformError } from "effect";
+import {
+	Context,
+	Data,
+	Deferred,
+	Effect,
+	Fiber,
+	FileSystem,
+	Layer,
+	Path,
+	Queue,
+	Schema,
+	Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "../protocol/framing";
@@ -67,27 +75,12 @@ class SidecarClientError extends Data.TaggedError("SidecarClientError")<{
 	readonly reason: "exit" | "startup" | "disposal" | "transport";
 }> {}
 
-const exitSchema = Schema.Struct({
-	code: Schema.NullOr(Schema.Int),
-	signal: Schema.NullOr(Schema.String),
-});
-
 const queueFailure = () =>
 	new SidecarClientError({ reason: "transport", message: "Could not queue sidecar frame" });
 const sidecarClientEvent = Schema.Union([
 	SidecarOutboundFrame,
 	Schema.Struct({ handle: Schema.String, message: Schema.String, type: Schema.Literal("invalid") }),
 ]);
-const nativeEvents = Schema.declare<Pick<NodeJS.EventEmitter, "on" | "once">>(
-	(value): value is Pick<NodeJS.EventEmitter, "on" | "once"> =>
-		typeof value === "object" &&
-		value !== null &&
-		"on" in value &&
-		typeof value.on === "function" &&
-		"once" in value &&
-		typeof value.once === "function",
-);
-
 export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>()(
 	"SandboxSidecarClient",
 	{
@@ -189,29 +182,40 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				const frames = yield* Queue.bounded<typeof sidecarClientEvent.Type>(
 					settings.threads * 8 + 8,
 				);
-				const exited = yield* Deferred.make<typeof exitSchema.Type>();
 				const failed = yield* Deferred.make<never, SidecarClientError>();
 				const handles = new Map<string, ExecutionLane>();
 				let closed = false;
+				const child = yield* spawner
+					.spawn(
+						ChildProcess.make(command.executable, [...command.prefix, ...args, ...command.suffix], {
+							env: {},
+							detached: false,
+							stdin: "ignore",
+							stdout: "ignore",
+							stderr: "inherit",
+							additionalFds: { fd3: { type: "duplex" } },
+						}),
+					)
+					.pipe(
+						Effect.mapError(
+							() =>
+								new SidecarClientError({ reason: "startup", message: "Could not spawn sidecar" }),
+						),
+					);
+				const pid = child.pid;
+				const exited =
+					yield* Deferred.make<
+						Exit.Exit<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>
+					>();
+				yield* Deferred.into(Effect.exit(child.exitCode), exited).pipe(Effect.forkScoped);
 				const monitorIsActive = Effect.gen(function* () {
 					if (closed) {
 						return false;
 					}
 					return !(yield* Deferred.isDone(exited));
 				});
-				const child = yield* Effect.try({
-					catch: () =>
-						new SidecarClientError({ reason: "startup", message: "Could not spawn sidecar" }),
-					try: () =>
-						spawn(command.executable, [...command.prefix, ...args, ...command.suffix], {
-							env: {},
-							stdio: ["ignore", "ignore", "inherit", "pipe"],
-						}),
-				});
-				const socket = child.stdio[3];
-				const pid = child.pid;
 				const retireRss = Effect.suspend(() =>
-					pid !== undefined && rss.delete(pid)
+					rss.delete(pid)
 						? publishProcesses(settings).pipe(
 								Effect.andThen(
 									recordSandboxSidecarEvent({ ...settings, event: "stop", reason: "confirmed" }),
@@ -220,62 +224,107 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 							)
 						: Effect.void,
 				);
-				if (pid !== undefined) {
-					rss.set(pid, { bytes: null, tier: settings.tier, trust: settings.trust });
-					yield* recordSandboxSidecarEvent({ ...settings, event: "start", reason: "spawned" });
-					yield* publishProcesses(settings);
-					yield* Effect.addFinalizer(() =>
-						child.exitCode !== null || child.signalCode !== null ? retireRss : Effect.void,
-					);
-					yield* Effect.gen(function* () {
-						while (yield* monitorIsActive) {
-							const bytes = yield* (
-								linux
-									? fs
-											.readFileString(`/proc/${pid}/status`)
-											.pipe(Effect.map(parseProcStatusRssBytes))
-									: spawner.string(ChildProcess.make("ps", ["-o", "rss=", "-p", String(pid)])).pipe(
-											Effect.map((text) => {
-												const value = Number(text.trim());
-												return text.trim() !== "" && Number.isFinite(value) && value >= 0
-													? value * 1024
-													: null;
-											}),
-										)
-							).pipe(Effect.orElseSucceed(() => null));
-							if (yield* monitorIsActive) {
-								rss.set(pid, { bytes, tier: settings.tier, trust: settings.trust });
-								yield* publishRss;
-								yield* publishProcesses(settings);
-							}
-							yield* Effect.sleep("1 second");
+				rss.set(pid, { bytes: null, tier: settings.tier, trust: settings.trust });
+				yield* recordSandboxSidecarEvent({ ...settings, event: "start", reason: "spawned" });
+				yield* publishProcesses(settings);
+				yield* Effect.addFinalizer(() =>
+					Effect.flatMap(Deferred.isDone(exited), (done) => (done ? retireRss : Effect.void)),
+				);
+				yield* Effect.gen(function* () {
+					while (yield* monitorIsActive) {
+						const bytes = yield* (
+							linux
+								? fs.readFileString(`/proc/${pid}/status`).pipe(Effect.map(parseProcStatusRssBytes))
+								: spawner.string(ChildProcess.make("ps", ["-o", "rss=", "-p", String(pid)])).pipe(
+										Effect.map((text) => {
+											const value = Number(text.trim());
+											return text.trim() !== "" && Number.isFinite(value) && value >= 0
+												? value * 1024
+												: null;
+										}),
+									)
+						).pipe(Effect.orElseSucceed(() => null));
+						if (yield* monitorIsActive) {
+							rss.set(pid, { bytes, tier: settings.tier, trust: settings.trust });
+							yield* publishRss;
+							yield* publishProcesses(settings);
 						}
-						yield* retireRss;
-					}).pipe(Effect.forkScoped);
-				}
+						yield* Effect.sleep("1 second");
+					}
+					yield* retireRss;
+				}).pipe(Effect.forkScoped);
 				const fail = (message: string) => {
 					Deferred.doneUnsafe(
 						failed,
 						Effect.fail(new SidecarClientError({ message, reason: "transport" })),
 					);
 				};
-				const events = yield* Schema.decodeUnknownEffect(nativeEvents)(child);
-				events.once("exit", (code: null | number, signal: null | string) => {
-					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
+				const reader = makeSidecarFrameReader({
+					generation: settings.generation,
+					maximumAssemblies: settings.threads * 5,
+					isActive: (handle) => handles.has(handle),
+					maximumBufferedBytes: settings.threads * SANDBOX_LIMITS.sidecar.bufferedBytesPerThread,
+					onFrame: (frame) => {
+						if (!Queue.offerUnsafe(frames, frame)) {
+							fail("Sidecar receive queue overflow");
+						}
+					},
+					onInvalid: (handle, message) => {
+						if (!Queue.offerUnsafe(frames, { handle, message, type: "invalid" })) {
+							fail("Sidecar receive queue overflow");
+						}
+					},
 				});
-				events.once("close", (code: null | number, signal: null | string) => {
-					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
+				const outgoing = yield* Queue.bounded<Uint8Array>(1);
+				const writer = makeSidecarFrameWriter({
+					maximumRunMessages: settings.threads,
+					lane: (handle) => handles.get(handle),
+					maximumControlMessages: settings.threads * 5 + 1,
+					maximumQueuedBytes: settings.threads * SANDBOX_LIMITS.sidecar.queuedBytesPerThread,
+					write: (bytes) => ({
+						blocked: true,
+						written: Queue.offerUnsafe(outgoing, bytes) ? bytes.byteLength : 0,
+					}),
 				});
-				events.on("error", () => {
-					if (!closed) {
-						fail("Sidecar process failed");
+				const guard = (operation: () => void) => {
+					try {
+						operation();
+					} catch {
+						fail("Sidecar protocol connection failed");
 					}
-				});
+				};
+				const writing = yield* Stream.fromQueue(outgoing).pipe(
+					Stream.tap(() => Effect.sync(() => guard(() => writer.flush()))),
+					Stream.run(child.getInputFd(3)),
+					Effect.catch(() =>
+						Effect.sync(() => {
+							if (!closed) {
+								fail("Sidecar socket failed");
+							}
+						}),
+					),
+					Effect.forkScoped,
+				);
+				yield* child.getOutputFd(3).pipe(
+					Stream.runForEach((bytes) => Effect.sync(() => guard(() => reader.feed(bytes)))),
+					Effect.match({
+						onFailure: () => "Sidecar socket failed",
+						onSuccess: () => "Sidecar socket closed",
+					}),
+					Effect.flatMap((message) =>
+						Effect.sync(() => {
+							if (!closed) {
+								fail(message);
+							}
+						}),
+					),
+					Effect.forkScoped,
+				);
 				const dispose = Effect.fnUntraced(function* () {
 					closed = true;
-					socket?.destroy();
+					yield* Fiber.interrupt(writing);
 					handles.clear();
-					if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
+					if (yield* Deferred.isDone(exited)) {
 						yield* retireRss;
 						return undefined;
 					}
@@ -290,7 +339,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 						if (linux) {
 							const killer = yield* spawner
 								.spawn(
-									ChildProcess.make(command.executable, ["terminate", String(child.pid)], {
+									ChildProcess.make(command.executable, ["terminate", String(pid)], {
 										env: {},
 										stdin: "ignore",
 										stdout: "ignore",
@@ -314,14 +363,17 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 								});
 							}
 						} else {
-							yield* Effect.try({
-								try: () => child.kill("SIGKILL"),
-								catch: () =>
-									new SidecarClientError({
-										reason: "disposal",
-										message: "Could not terminate development sidecar",
-									}),
-							});
+							yield* child
+								.kill({ killSignal: "SIGKILL" })
+								.pipe(
+									Effect.mapError(
+										() =>
+											new SidecarClientError({
+												reason: "disposal",
+												message: "Could not terminate development sidecar",
+											}),
+									),
+								);
 						}
 					}
 					yield* Deferred.await(exited).pipe(
@@ -340,54 +392,6 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					return undefined;
 				});
 				yield* Effect.addFinalizer(() => Effect.scoped(dispose()).pipe(Effect.orDie));
-				if (!socket || !("write" in socket) || !("read" in socket)) {
-					return yield* new SidecarClientError({
-						reason: "startup",
-						message: "Sidecar descriptor 3 is not a duplex socket",
-					});
-				}
-				const reader = makeSidecarFrameReader({
-					generation: settings.generation,
-					maximumAssemblies: settings.threads * 5,
-					isActive: (handle) => handles.has(handle),
-					maximumBufferedBytes: settings.threads * SANDBOX_LIMITS.sidecar.bufferedBytesPerThread,
-					onFrame: (frame) => {
-						if (!Queue.offerUnsafe(frames, frame)) {
-							fail("Sidecar receive queue overflow");
-						}
-					},
-					onInvalid: (handle, message) => {
-						if (!Queue.offerUnsafe(frames, { handle, message, type: "invalid" })) {
-							fail("Sidecar receive queue overflow");
-						}
-					},
-				});
-				const writer = makeSidecarFrameWriter({
-					maximumRunMessages: settings.threads,
-					lane: (handle) => handles.get(handle),
-					maximumControlMessages: settings.threads * 5 + 1,
-					write: (bytes) => ({ written: bytes.byteLength, blocked: !socket.write(bytes) }),
-					maximumQueuedBytes: settings.threads * SANDBOX_LIMITS.sidecar.queuedBytesPerThread,
-				});
-				const guard = (operation: () => void) => {
-					try {
-						operation();
-					} catch {
-						fail("Sidecar protocol connection failed");
-					}
-				};
-				socket.on("data", (bytes: Uint8Array) => guard(() => reader.feed(bytes)));
-				socket.on("drain", () => guard(() => writer.flush()));
-				socket.on("error", () => {
-					if (!closed) {
-						fail("Sidecar socket failed");
-					}
-				});
-				socket.on("end", () => {
-					if (!closed) {
-						fail("Sidecar socket closed");
-					}
-				});
 				yield* Effect.addFinalizer(() =>
 					Effect.sync(() => {
 						writer.close();
@@ -395,10 +399,10 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					}),
 				);
 				return {
-					pid: child.pid,
-					exit: Deferred.await(exited),
+					pid,
 					close: Effect.scoped(dispose()),
 					generation: settings.generation,
+					exit: Effect.flatten(Deferred.await(exited)),
 					next: Effect.raceFirst(Queue.take(frames), Deferred.await(failed)),
 					retire: (handle: string) =>
 						Effect.sync(() => {

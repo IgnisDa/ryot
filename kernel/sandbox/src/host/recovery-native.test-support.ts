@@ -49,7 +49,6 @@ type NativeConnectionEvidence = {
 };
 
 export const killNativeConnection = Effect.fnUntraced(function* (connection: Connection) {
-	assert(connection.pid !== undefined);
 	if (process.platform === "linux") {
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const killer = yield* spawner.spawn(

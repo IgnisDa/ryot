@@ -19,6 +19,7 @@ import {
 	Schema,
 	Scope,
 } from "effect";
+import { ChildProcessSpawner } from "effect/process";
 import { TestClock } from "effect/testing";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
@@ -167,7 +168,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 		const connectedAt = yield* Clock.currentTimeMillis;
 		const generation = settings.generation;
 		const instance = `${settings.trust}/${settings.tier}`;
-		const pid = 20_000 + generation;
+		const pid = ChildProcessSpawner.ProcessId(20_000 + generation);
 		const incoming = yield* Queue.unbounded<OutboundFrame>();
 		const nextRun = yield* Queue.unbounded<RunFrame>();
 		const nextHostResult = yield* Queue.unbounded<HostResultFrame>();
@@ -220,7 +221,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 			pid,
 			generation,
 			close: connectionClose,
-			exit: Deferred.await(exitConfirmed).pipe(Effect.as({ code: 0, signal: null })),
+			exit: Deferred.await(exitConfirmed).pipe(Effect.as(ChildProcessSpawner.ExitCode(0))),
 			register: (handle) =>
 				Effect.sync(() => {
 					record.registered.add(handle);
@@ -739,7 +740,7 @@ supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 			expect(data.finalized).toBe(false);
 			yield* TestClock.adjust("1 second");
 			yield* Deferred.await(data.exitConfirmed);
-			expect(yield* clientConnection.exit).toEqual({ code: 0, signal: null });
+			expect(yield* clientConnection.exit).toBe(0);
 			expect(admission.snapshot()).toMatchObject({
 				runs: 0,
 				processes: 2,
