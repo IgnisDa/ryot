@@ -1,4 +1,4 @@
-import { areaY, defineChart, dot, lineY } from "@tanstack/charts";
+import { areaY, barY, defineChart, dot, lineY } from "@tanstack/charts";
 import { decorative } from "@tanstack/charts/mark/decorative";
 import { Chart } from "@tanstack/charts/react/tooltip";
 import { cell } from "@tanstack/charts/rect";
@@ -6,7 +6,11 @@ import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { portal } from "@tanstack/charts/tooltip/portal";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
+
+import { Button } from "./button";
+import { StatusMessage } from "./status-message";
+import { DataTable } from "./table";
 
 const DAY_MS = 86_400_000;
 const LEVELS = [0, 1, 2, 3, 4, 5] as const;
@@ -91,7 +95,8 @@ const monthLabels = (cells: ReadonlyArray<CalendarCell>) => {
 	return labels;
 };
 
-export type TimeSeriesPoint = { readonly at: string; readonly value: number };
+/** A timestamped value; `null` marks a line break, not a known zero. */
+export type TimeSeriesPoint = { readonly at: string; readonly value: null | number };
 
 /** One ranked row; `key` must be unique and stable. */
 export type RankedBarListRow = {
@@ -255,10 +260,12 @@ export type TimeSeriesChartProps = {
 /** A fixed-size trend line with a soft area fill and an emphasised last point; no axes or tooltip. */
 export function Sparkline({ tone, points, ariaLabel }: SparklineProps) {
 	const rows = useMemo(() => chronological(points), [points]);
+	const knownRows = useMemo(() => rows.filter((row) => row.value !== null), [rows]);
 	const definition = useMemo(() => {
 		const color = TONE_COLORS[tone];
-		const last = rows.slice(-1);
-		const floor = Math.min(...rows.map((row) => row.value ?? 0));
+		const last = knownRows.slice(-1);
+		const knownValues = rows.flatMap(({ value }) => (value === null ? [] : [value]));
+		const floor = knownValues.length === 0 ? 0 : Math.min(...knownValues);
 		return defineChart({
 			guides: false,
 			pointer: false,
@@ -272,9 +279,9 @@ export function Sparkline({ tone, points, ariaLabel }: SparklineProps) {
 				dot(last, { r: 2.5, x: "ms", y: "value", fill: color }),
 			],
 		});
-	}, [rows, tone]);
+	}, [knownRows, rows, tone]);
 
-	if (rows.length < 2) {
+	if (knownRows.length < 2) {
 		return (
 			<span
 				role="img"
@@ -360,6 +367,54 @@ const seriesRows = (series: TimeSeriesChartSeries): SeriesRows => ({
 	readings: chronological(series.readings),
 });
 
+export type PeriodTrendPoint = ReportingChartValue & {
+	/** A reporting bucket's ISO instant or YYYY-MM-DD calendar date. */
+	readonly at: string;
+};
+
+export type HourlyHistogramBucket = ReportingChartValue & {
+	/** Local reporting hour, 0–23, already aggregated in timeZone. */
+	readonly hour: number;
+};
+
+export type PeriodTrendBucket = PeriodTrendPoint & {
+	/** Explicitly aligned prior-period bucket, retaining its actual date. */
+	readonly comparison?: PeriodTrendPoint;
+};
+
+export type ReportingChartValue = {
+	/** Quantity coverage, estimate provenance, or other domain-owned context. */
+	readonly detail?: string;
+	readonly value: null | number;
+};
+
+export type HourlyHistogramProps = ReportingChartProps & {
+	/** Actual reporting range and attribution, e.g. “Workout starts · 1–30 Sep 2026”. */
+	readonly periodLabel: string;
+	/** Omitted hours are missing, not zero. Supply explicit zeros for known empty hours. */
+	readonly buckets: ReadonlyArray<HourlyHistogramBucket>;
+	readonly onSelect?: (bucket: HourlyHistogramBucket) => void;
+};
+
+export type PeriodTrendChartProps = ReportingChartProps & {
+	readonly label: string;
+	/** Supply whenever comparison buckets are present; both periods must use the same unit. */
+	readonly comparisonLabel?: string;
+	/** Ordered reporting buckets. Include null buckets to preserve missing-data gaps. */
+	readonly buckets: ReadonlyArray<PeriodTrendBucket>;
+	readonly onSelect?: (point: PeriodTrendPoint, period: "current" | "comparison") => void;
+};
+
+type ReportingChartProps = {
+	readonly compact: boolean;
+	readonly timeZone: string;
+	readonly ariaLabel: string;
+	readonly onRetry?: undefined | (() => void);
+	/** Include units; used for axes, tooltips, and the exact-value alternative. */
+	readonly formatValue: (value: number) => string;
+	readonly state?: "failed" | "pending" | undefined;
+};
+
 /** Readings, a smoothed trend and an optional second series on its own right-hand axis. */
 export function TimeSeriesChart({
 	gapMs,
@@ -403,7 +458,12 @@ export function TimeSeriesChart({
 				}),
 			),
 			decorative(
-				dot(primaryRows.trend.slice(-1), { r: 4, x: "ms", y: "value", fill: ACCENT_COLOR }),
+				dot(primaryRows.trend.filter(({ value }) => value !== null).slice(-1), {
+					r: 4,
+					x: "ms",
+					y: "value",
+					fill: ACCENT_COLOR,
+				}),
 			),
 			dot(primaryRows.readings, {
 				r: 2,
@@ -518,5 +578,400 @@ export function TimeSeriesChart({
 		<div className="text-text">
 			<Chart ariaLabel={ariaLabel} definition={definition} height={compact ? 160 : 240} />
 		</div>
+	);
+}
+
+const reportingDate = (at: string, timeZone: string, full: boolean) =>
+	new Intl.DateTimeFormat(undefined, {
+		timeZone: /^\d{4}-\d{2}-\d{2}$/.test(at) ? "UTC" : timeZone,
+		...(full ? { dateStyle: "medium" } : { day: "numeric", month: "short" }),
+	}).format(new Date(at));
+
+const reportingValue = (point: ReportingChartValue, formatValue: (value: number) => string) =>
+	[point.value === null ? "Not recorded" : formatValue(point.value), point.detail]
+		.filter(Boolean)
+		.join(" · ");
+
+type PeriodChartRow = PeriodTrendPoint & {
+	readonly index: number;
+	readonly period: "current" | "comparison";
+};
+
+type ExactChartRow = {
+	readonly key: string;
+	readonly value: string;
+	readonly period: string;
+	readonly select?: undefined | (() => void);
+};
+
+/** Same-unit period comparison on one axis; buckets align explicitly rather than by elapsed milliseconds. */
+export function PeriodTrendChart({
+	label,
+	state,
+	buckets,
+	compact,
+	onRetry,
+	timeZone,
+	onSelect,
+	ariaLabel,
+	formatValue,
+	comparisonLabel,
+}: PeriodTrendChartProps) {
+	const current = useMemo<ReadonlyArray<PeriodChartRow>>(
+		() => buckets.map((point, index) => ({ ...point, index, period: "current" })),
+		[buckets],
+	);
+	const comparison = useMemo<ReadonlyArray<PeriodChartRow>>(
+		() =>
+			buckets.map((point, index) => ({
+				...(point.comparison ?? { value: null, at: point.at }),
+				index,
+				period: "comparison",
+			})),
+		[buckets],
+	);
+	const definition = useMemo(() => {
+		const all = [...current, ...comparison];
+		const known = all.flatMap(({ value }) => (value === null ? [] : [value]));
+		const tickStep = Math.max(1, Math.ceil((buckets.length - 1) / (compact ? 2 : 5)));
+		return defineChart({
+			focus: "group-x",
+			maxFocusDistance: Number.POSITIVE_INFINITY,
+			marks: [
+				decorative(
+					lineY(current, { x: "index", y: "value", strokeWidth: 2, stroke: ACCENT_COLOR }),
+				),
+				decorative(
+					lineY(comparison, {
+						x: "index",
+						y: "value",
+						strokeWidth: 2,
+						stroke: COMPARE_COLOR,
+						strokeDasharray: "5 4",
+					}),
+				),
+				dot(current, { r: 3, x: "index", y: "value", fill: ACCENT_COLOR }),
+				dot(comparison, {
+					r: 3,
+					x: "index",
+					y: "value",
+					strokeWidth: 2,
+					stroke: COMPARE_COLOR,
+					fill: "var(--surface)",
+				}),
+			],
+			scales: {
+				y: {
+					grid: true,
+					nice: true,
+					axis: { ticks: { format: formatValue, count: compact ? 3 : 5 } },
+					scale: scaleLinear().domain([Math.min(0, ...known), Math.max(1, ...known)]),
+				},
+				x: {
+					scale: scaleLinear().domain(buckets.length <= 1 ? [-0.5, 0.5] : [0, buckets.length - 1]),
+					axis: {
+						ticks: {
+							values: current
+								.filter(({ index }) => index % tickStep === 0)
+								.map(({ index }) => index),
+							format: (index: number) =>
+								buckets[index] ? reportingDate(buckets[index].at, timeZone, false) : "",
+						},
+					},
+				},
+			},
+			tooltip: {
+				portal,
+				use: tooltip,
+				motion: false,
+				anchor: "point",
+				placement: ["top", "bottom"],
+				content: (points) => {
+					const index = points[0]?.datum.index;
+					const bucket = index === undefined ? undefined : buckets[index];
+					return {
+						title: timeZone,
+						rows: bucket
+							? [
+									{
+										color: ACCENT_COLOR,
+										value: reportingValue(bucket, formatValue),
+										label: `${label} · ${reportingDate(bucket.at, timeZone, true)}`,
+									},
+									...(comparisonLabel
+										? [
+												{
+													color: COMPARE_COLOR,
+													value: reportingValue(bucket.comparison ?? { value: null }, formatValue),
+													label: `${comparisonLabel}${bucket.comparison ? ` · ${reportingDate(bucket.comparison.at, timeZone, true)}` : ""}`,
+												},
+											]
+										: []),
+								]
+							: [],
+					};
+				},
+			},
+		});
+	}, [buckets, current, comparison, compact, timeZone, label, comparisonLabel, formatValue]);
+	const exactRows = buckets.flatMap((bucket, index): ReadonlyArray<ExactChartRow> => [
+		{
+			key: `current-${index}`,
+			value: reportingValue(bucket, formatValue),
+			period: `${label} · ${reportingDate(bucket.at, timeZone, true)}`,
+			select: onSelect && bucket.value !== null ? () => onSelect(bucket, "current") : undefined,
+		},
+		...(comparisonLabel
+			? [
+					{
+						key: `comparison-${index}`,
+						value: reportingValue(bucket.comparison ?? { value: null }, formatValue),
+						period: `${comparisonLabel} · ${bucket.comparison ? reportingDate(bucket.comparison.at, timeZone, true) : "No aligned bucket"}`,
+						select:
+							onSelect && bucket.comparison && bucket.comparison.value !== null
+								? () => {
+										if (bucket.comparison) {
+											onSelect(bucket.comparison, "comparison");
+										}
+									}
+								: undefined,
+					},
+				]
+			: []),
+	]);
+	return (
+		<ReportingChartFrame
+			state={state}
+			compact={compact}
+			onRetry={onRetry}
+			values={[...current, ...comparison].map(({ value }) => value)}
+		>
+			<div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-muted">
+				<span className="inline-flex items-center gap-2">
+					<span aria-hidden="true" className="w-6 border-t-2 border-chart-accent" />
+					{label}
+				</span>
+				{comparisonLabel ? (
+					<span className="inline-flex items-center gap-2">
+						<span aria-hidden="true" className="w-6 border-t-2 border-dashed border-info" />
+						{comparisonLabel}
+					</span>
+				) : null}
+				<span>{timeZone}</span>
+			</div>
+			<Chart
+				ariaLabel={ariaLabel}
+				definition={definition}
+				height={compact ? 200 : 280}
+				onSelect={(point) => {
+					if (point && onSelect) {
+						onSelect(point.datum, point.datum.period);
+					}
+				}}
+				ariaDescription="Use left and right arrow keys to inspect buckets. Missing values are gaps. Exact values and record links follow the chart."
+			/>
+			<ExactChartValues rows={exactRows} ariaLabel={ariaLabel} />
+		</ReportingChartFrame>
+	);
+}
+
+function exactChartValue(row: ExactChartRow) {
+	return row.select ? (
+		<Button
+			variant="link"
+			onClick={row.select}
+			aria-label={`View records: ${row.period} · ${row.value}`}
+		>
+			{row.value}
+		</Button>
+	) : (
+		row.value
+	);
+}
+
+function ExactChartValues({
+	rows,
+	ariaLabel,
+}: {
+	readonly ariaLabel: string;
+	readonly rows: ReadonlyArray<ExactChartRow>;
+}) {
+	return (
+		<details className="text-sm">
+			<summary className="w-fit cursor-pointer py-2 text-accent-text pointer-coarse:min-h-11">
+				View exact values
+			</summary>
+			<DataTable
+				data={rows}
+				getRowId={(row) => row.key}
+				rowClassName="border-b border-border"
+				aria-label={`${ariaLabel} exact values`}
+				className="w-full table-fixed text-left"
+				columns={[
+					{
+						id: "period",
+						header: "Period",
+						cell: (row) => row.period,
+						cellClassName: "py-2 pr-3 break-words",
+					},
+					{
+						id: "value",
+						header: "Value",
+						cell: exactChartValue,
+						headerClassName: "text-right",
+						cellClassName: "py-2 text-right tabular-nums break-words",
+					},
+				]}
+			/>
+		</details>
+	);
+}
+
+function ReportingChartFrame({
+	state,
+	values,
+	compact,
+	onRetry,
+	children,
+}: Pick<ReportingChartProps, "state" | "compact" | "onRetry"> & {
+	readonly children: ReactNode;
+	readonly values: ReadonlyArray<null | number>;
+}) {
+	if (state !== undefined) {
+		return (
+			<div style={{ height: compact ? 200 : 280 }} className="flex items-center justify-center">
+				<StatusMessage
+					tone={state === "failed" ? "error" : "pending"}
+					action={state === "failed" && onRetry ? { label: "Retry", onClick: onRetry } : undefined}
+				>
+					{state === "failed" ? "Unable to load chart." : "Preparing chart…"}
+				</StatusMessage>
+			</div>
+		);
+	}
+	if (values.length === 0) {
+		return (
+			<div style={{ height: compact ? 200 : 280 }} className="flex items-center justify-center">
+				<p className="text-sm text-text-muted">No data in this period.</p>
+			</div>
+		);
+	}
+	return (
+		<div className="flex min-w-0 flex-col gap-3 text-text">
+			{values.every((value) => value === null) ? (
+				<p className="text-sm text-text-muted">No recorded values. Missing data is not zero.</p>
+			) : null}
+			{children}
+		</div>
+	);
+}
+
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const hourLabel = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
+
+/** Local hour-of-day aggregates. Repeated DST hours belong to the same supplied hour bucket. */
+export function HourlyHistogram({
+	state,
+	buckets,
+	compact,
+	onRetry,
+	timeZone,
+	onSelect,
+	ariaLabel,
+	periodLabel,
+	formatValue,
+}: HourlyHistogramProps) {
+	const rows = useMemo(() => {
+		const byHour = new Map(buckets.map((bucket) => [bucket.hour, bucket]));
+		return HOURS.map((hour): HourlyHistogramBucket => byHour.get(hour) ?? { hour, value: null });
+	}, [buckets]);
+	const definition = useMemo(
+		() =>
+			defineChart({
+				focus: "group-x",
+				maxFocusDistance: Number.POSITIVE_INFINITY,
+				marks: [
+					barY(rows, { x: "hour", radius: 2, y: "value", inset: 1.5, fill: ACCENT_COLOR }),
+					dot(
+						rows.filter(({ value }) => value === 0),
+						{ r: 2, x: "hour", y: "value", fill: ACCENT_COLOR },
+					),
+				],
+				tooltip: {
+					portal,
+					use: tooltip,
+					motion: false,
+					anchor: "point",
+					placement: ["top", "bottom"],
+					content: (points) => {
+						const bucket = points[0]?.datum;
+						return {
+							title: `${periodLabel} · ${timeZone}`,
+							rows: bucket
+								? [
+										{
+											color: ACCENT_COLOR,
+											value: reportingValue(bucket, formatValue),
+											label: `${hourLabel(bucket.hour)}–${hourLabel(bucket.hour + 1)}`,
+										},
+									]
+								: [],
+						};
+					},
+				},
+				scales: {
+					x: {
+						scale: scaleBand<number>().domain(HOURS),
+						axis: {
+							ticks: {
+								format: hourLabel,
+								values: HOURS.filter((hour) => hour % (compact ? 6 : 3) === 0 || hour === 23),
+							},
+						},
+					},
+					y: {
+						grid: true,
+						nice: true,
+						axis: { ticks: { format: formatValue, count: compact ? 3 : 5 } },
+						scale: scaleLinear().domain([
+							Math.min(0, ...rows.map(({ value }) => value ?? 0)),
+							Math.max(1, ...rows.map(({ value }) => value ?? 0)),
+						]),
+					},
+				},
+			}),
+		[rows, compact, timeZone, periodLabel, formatValue],
+	);
+	return (
+		<ReportingChartFrame
+			state={state}
+			compact={compact}
+			onRetry={onRetry}
+			values={buckets.length === 0 ? [] : rows.map(({ value }) => value)}
+		>
+			<p className="text-sm text-text-muted">
+				{periodLabel} · {timeZone}
+			</p>
+			<Chart
+				ariaLabel={ariaLabel}
+				definition={definition}
+				height={compact ? 200 : 280}
+				onSelect={(point) => {
+					if (point && onSelect) {
+						onSelect(point.datum);
+					}
+				}}
+				ariaDescription="Local hour of day. Use left and right arrow keys to inspect hours. Exact values and record links follow the chart."
+			/>
+			<ExactChartValues
+				ariaLabel={ariaLabel}
+				rows={rows.map((row) => ({
+					key: String(row.hour),
+					value: reportingValue(row, formatValue),
+					period: `${hourLabel(row.hour)}–${hourLabel(row.hour + 1)}`,
+					select: onSelect && row.value !== null ? () => onSelect(row) : undefined,
+				}))}
+			/>
+		</ReportingChartFrame>
 	);
 }

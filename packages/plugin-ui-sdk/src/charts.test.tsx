@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
 	CalendarHeatmap,
 	type CalendarHeatmapDay,
+	HourlyHistogram,
+	PeriodTrendChart,
+	type PeriodTrendChartProps,
 	RankedBarList,
 	Sparkline,
 	TimeSeriesChart,
@@ -165,6 +168,63 @@ describe("Sparkline", () => {
 		);
 		expect(container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
 	});
+
+	it("keeps null values as line breaks and highlights the last known point", () => {
+		const { container } = render(
+			<Sparkline
+				tone="accent"
+				ariaLabel="Weight trend"
+				points={[
+					{ value: 70, at: septemberOn(2) },
+					{ value: null, at: septemberOn(3) },
+					{ value: 74, at: septemberOn(4) },
+					{ value: null, at: septemberOn(5) },
+				]}
+			/>,
+		);
+
+		expect(container.querySelectorAll(".ts-chart__line path")).toHaveLength(2);
+		expect(container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
+	});
+
+	it("draws known zeros on both sides of a gap and keeps missing-only or single-known inputs safe", () => {
+		const zeros = render(
+			<Sparkline
+				tone="accent"
+				ariaLabel="Weight trend"
+				points={[
+					{ value: 0, at: septemberOn(2) },
+					{ value: 0, at: septemberOn(3) },
+					{ value: null, at: septemberOn(4) },
+					{ value: 0, at: septemberOn(5) },
+					{ value: 0, at: septemberOn(6) },
+				]}
+			/>,
+		);
+		expect(zeros.container.querySelectorAll(".ts-chart__line path")).toHaveLength(2);
+		expect(zeros.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
+		expect(zeros.container.innerHTML).not.toMatch(/NaN|Infinity/);
+		zeros.unmount();
+
+		for (const points of [
+			[
+				{ value: null, at: septemberOn(2) },
+				{ value: null, at: septemberOn(3) },
+			],
+			[
+				{ value: null, at: septemberOn(2) },
+				{ value: 80, at: septemberOn(3) },
+			],
+		]) {
+			const placeholder = render(
+				<Sparkline tone="accent" points={points} ariaLabel="Weight trend" />,
+			);
+			expect(screen.getByRole("img", { name: "Weight trend" })).toBeDefined();
+			expect(placeholder.container.querySelector("svg")).toBeNull();
+			expect(placeholder.container.innerHTML).not.toMatch(/NaN|Infinity/);
+			placeholder.unmount();
+		}
+	});
 });
 
 const renderTimeSeries = (overrides: Partial<TimeSeriesChartProps> = {}) =>
@@ -240,5 +300,184 @@ describe("TimeSeriesChart", () => {
 		expect(screen.getByRole("status", { hidden: true }).textContent).toContain(
 			"Body fatnot logged",
 		);
+	});
+
+	it("keeps null readings out of primary and compare tooltips while preserving known zero", () => {
+		const primaryFormatted: number[] = [];
+		const compareFormatted: number[] = [];
+		const { container } = renderTimeSeries({
+			compare: {
+				label: "Body fat",
+				trend: [{ value: null, at: septemberOn(2) }],
+				formatValue: (value) => {
+					compareFormatted.push(value);
+					return `${value}%`;
+				},
+				readings: [
+					{ value: null, at: septemberOn(2) },
+					{ value: null, at: septemberOn(3) },
+					{ value: null, at: septemberOn(4) },
+				],
+			},
+			primary: {
+				label: "Weight",
+				formatValue: (value) => {
+					primaryFormatted.push(value);
+					return `${value} kg`;
+				},
+				readings: [
+					{ value: 0, at: septemberOn(2) },
+					{ value: null, at: septemberOn(3) },
+					{ value: 74, at: septemberOn(4) },
+				],
+				trend: [
+					{ value: 70, at: septemberOn(2) },
+					{ value: null, at: septemberOn(3) },
+					{ value: 74, at: septemberOn(4) },
+					{ value: null, at: septemberOn(5) },
+				],
+			},
+		});
+
+		expect(container.querySelectorAll(".ts-chart__line path")).toHaveLength(2);
+		const dots = [...container.querySelectorAll(".ts-chart__dot circle")];
+		expect(dots).toHaveLength(3);
+		expect(
+			new Set(dots.map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`)).size,
+		).toBe(2);
+
+		fireEvent.focus(screen.getByRole("img", { name: "Weight over time" }));
+		const tooltip = screen.getByRole("status", { hidden: true });
+		expect(tooltip.textContent).toContain("Weight0 kg");
+		expect(tooltip.textContent).toContain("Body fatnot logged");
+		expect(tooltip.textContent).not.toContain("Body fat0%");
+		fireEvent.keyDown(screen.getByRole("img"), { key: "ArrowRight" });
+		expect(tooltip.textContent).toContain("Weight74 kg");
+		expect(tooltip.textContent).toContain("Body fatnot logged");
+		expect(primaryFormatted.every(Number.isFinite)).toBe(true);
+		expect(compareFormatted.every(Number.isFinite)).toBe(true);
+	});
+});
+
+const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps> = {}) =>
+	render(
+		<PeriodTrendChart
+			compact={false}
+			label="Current period"
+			ariaLabel="Recorded activity"
+			timeZone="America/Los_Angeles"
+			comparisonLabel="Previous period"
+			formatValue={(value) => `${value} minutes`}
+			buckets={[
+				{
+					value: 12.25,
+					at: "2026-09-02T01:00:00Z",
+					comparison: { value: 12.25, detail: "Estimated", at: "2026-08-02T01:00:00Z" },
+				},
+				{
+					value: null,
+					at: "2026-09-03T01:00:00Z",
+					detail: "Duration missing",
+					comparison: { value: 0, at: "2026-08-03T01:00:00Z" },
+				},
+				{ value: 0, at: "2026-09-04T01:00:00Z" },
+			]}
+			{...overrides}
+		/>,
+	);
+
+describe("PeriodTrendChart", () => {
+	it("uses one axis for equal values, dashed comparison lines, and gaps for missing values", () => {
+		const { container } = renderPeriodTrend();
+		const lines = [...container.querySelectorAll(".ts-chart__line path")];
+		expect(lines).toHaveLength(3);
+		expect(lines.at(-1)?.getAttribute("stroke-dasharray")).toBe("5 4");
+		const dots = [...container.querySelectorAll(".ts-chart__dot circle")];
+		expect(dots).toHaveLength(4);
+		expect(dots[0]?.getAttribute("cy")).toBe(dots[2]?.getAttribute("cy"));
+	});
+
+	it("shows actual period dates in the reporting timezone and exact provenance on keyboard focus", () => {
+		renderPeriodTrend();
+		fireEvent.focus(screen.getByRole("img", { name: "Recorded activity" }));
+		const tooltip = screen.getByRole("status", { hidden: true });
+		expect(tooltip.textContent).toContain("America/Los_Angeles");
+		expect(tooltip.textContent).toContain("Current period · Sep 1, 202612.25 minutes");
+		expect(tooltip.textContent).toContain("Previous period · Aug 1, 202612.25 minutes · Estimated");
+		fireEvent.keyDown(screen.getByRole("img"), { key: "ArrowRight" });
+		expect(tooltip.textContent).toContain("Not recorded · Duration missing");
+		expect(tooltip.textContent).toContain("0 minutes");
+	});
+
+	it("keeps calendar dates fixed and provides record links for each period in the exact table", () => {
+		const selected: string[] = [];
+		renderPeriodTrend({
+			onSelect: (point, period) => selected.push(`${period}:${point.at}`),
+			buckets: [{ value: 0, at: "2026-09-02", comparison: { value: 2, at: "2026-08-02" } }],
+		});
+		fireEvent.click(screen.getByText("View exact values"));
+		const table = screen.getByRole("table", { name: "Recorded activity exact values" });
+		expect(table.textContent).toContain("Sep 2, 2026");
+		fireEvent.click(within(table).getByRole("button", { name: /Current period/ }));
+		fireEvent.click(within(table).getByRole("button", { name: /Previous period/ }));
+		expect(selected).toEqual(["current:2026-09-02", "comparison:2026-08-02"]);
+	});
+
+	it("draws a single recorded zero and distinguishes missing-only from empty data", () => {
+		const single = renderPeriodTrend({ buckets: [{ value: 0, at: "2026-09-02" }] });
+		expect(single.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
+		single.unmount();
+		const missing = renderPeriodTrend({ buckets: [{ value: null, at: "2026-09-02" }] });
+		expect(screen.getByText("No recorded values. Missing data is not zero.")).toBeDefined();
+		expect(missing.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(0);
+		missing.unmount();
+		renderPeriodTrend({ buckets: [] });
+		expect(screen.getByText("No data in this period.")).toBeDefined();
+	});
+
+	it("hides stale values while pending or failed and supports retry", () => {
+		const pending = renderPeriodTrend({ state: "pending" });
+		expect(screen.getByRole("status").textContent).toBe("Preparing chart…");
+		expect(screen.queryByRole("img")).toBeNull();
+		pending.unmount();
+		const retries: string[] = [];
+		renderPeriodTrend({ state: "failed", onRetry: () => retries.push("retry") });
+		expect(screen.getByRole("alert").textContent).toBe("Unable to load chart.");
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		expect(retries).toEqual(["retry"]);
+	});
+});
+
+describe("HourlyHistogram", () => {
+	it("shows all 24 local hours, preserving missing hours and recorded zeros with accessible selection", () => {
+		const selected: number[] = [];
+		render(
+			<HourlyHistogram
+				compact={true}
+				timeZone="Asia/Kolkata"
+				ariaLabel="Hourly activity"
+				periodLabel="Observations · September 2026"
+				formatValue={(value) => `${value} observations`}
+				onSelect={(bucket) => selected.push(bucket.hour)}
+				buckets={[
+					{ hour: 0, value: 0 },
+					{ hour: 23, value: 8, detail: "Exact instants only" },
+				]}
+			/>,
+		);
+		fireEvent.focus(screen.getByRole("img", { name: "Hourly activity" }));
+		expect(screen.getByRole("status", { hidden: true }).textContent).toContain(
+			"00:00–01:000 observations",
+		);
+		fireEvent.keyDown(screen.getByRole("img"), { key: "ArrowRight" });
+		expect(screen.getByRole("status", { hidden: true }).textContent).toContain(
+			"23:00–24:008 observations · Exact instants only",
+		);
+		fireEvent.click(screen.getByText("View exact values"));
+		const table = screen.getByRole("table");
+		expect(within(table).getAllByRole("row")).toHaveLength(25);
+		expect(within(table).getAllByText("Not recorded")).toHaveLength(22);
+		fireEvent.click(within(table).getByRole("button", { name: /23:00–24:00/ }));
+		expect(selected).toEqual([23]);
 	});
 });

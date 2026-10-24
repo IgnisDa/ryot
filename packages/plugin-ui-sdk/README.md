@@ -19,15 +19,15 @@ Use it in plugin documents, whose iframe sandbox does not grant the `allow-forms
 
 Heavy or optional surfaces remain on subpaths:
 
-| Subpath         | Contents                                              |
-| --------------- | ----------------------------------------------------- |
-| `./schema-form` | `AppSchema` form and its contract/form dependencies   |
-| `./table`       | Generic data table and column contract                |
-| `./charts`      | Heatmap, ranked bars, sparkline and time-series chart |
-| `./icon`        | The complete registered product icon set              |
-| `./sync`        | Entity population and translation marks               |
-| `./tint`        | Best-effort image tint extraction                     |
-| `./markdown`    | Safe Markdown content and spoiler-free plain preview  |
+| Subpath         | Contents                                                          |
+| --------------- | ----------------------------------------------------------------- |
+| `./schema-form` | `AppSchema` form and its contract/form dependencies               |
+| `./table`       | Generic data table and column contract                            |
+| `./charts`      | Heatmap, ranked bars, sparkline, measurement and reporting charts |
+| `./icon`        | The complete registered product icon set                          |
+| `./sync`        | Entity population and translation marks                           |
+| `./tint`        | Best-effort image tint extraction                                 |
+| `./markdown`    | Safe Markdown content and spoiler-free plain preview              |
 
 Do not re-export these from the root barrel. Components accept icons as `ReactNode` and schema forms
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
@@ -129,7 +129,70 @@ portaled tooltips outside its scroller. `RankedBarList` keeps labels/values as w
 
 `TimeSeriesChart` uses epoch milliseconds and calendar ticks. Reading marks own focus/tooltips;
 bands, trends, and comparisons are decorative. Callers compute trends; comparisons use a separate
-right axis. Root theme variables also apply to portaled tooltips.
+right axis for potentially different units. Root theme variables also apply to portaled tooltips.
+`TimeSeriesPoint` uses `{ at, value }`; `value: null` marks a missing-data line break, not zero.
+Points may represent observations or caller-labelled bucket averages.
+
+`PeriodTrendChart` compares the same metric and unit on one shared, zero-inclusive axis. Current
+values use solid lines/filled points; the previous period uses dashed lines/open points. Supply
+ordered `buckets: PeriodTrendBucket[]`, each `{ at, value, detail?, comparison?: { at, value, detail? } }`.
+`value: null` is missing, while `0` is recorded zero. Include missing buckets so lines have visible
+gaps. Each comparison is explicitly aligned to its current bucket; the chart does not infer calendar
+alignment from elapsed milliseconds. Supply `label` and, when comparing, `comparisonLabel` with the
+actual reporting ranges. `at` accepts an ISO instant or `YYYY-MM-DD`; instants display in `timeZone`,
+while calendar dates retain their original day. The x axis uses equally spaced reporting buckets,
+not elapsed time. Do not use this component for irregular raw measurement observations.
+
+`HourlyHistogram` accepts `buckets: HourlyHistogramBucket[]`, each `{ hour, value, detail? }`, and
+`periodLabel` describing both attribution and actual reporting range. Hours are unique integers
+0–23, already aggregated by the query in `timeZone`. The chart always lays out 24 local hours;
+omitted hours are missing, not zero. Supply explicit zeros for known empty hours. Repeated DST hours
+contribute to the same local-hour bucket. Date-only and undated records must be excluded upstream.
+
+Both reporting components require `ariaLabel`, bridged `compact`, validated IANA `timeZone`, and
+`formatValue(number)` including units. They use the installed TanStack 0.18.0 renderer, responsive
+width, compact tick density, shared theme tokens, portaled keyboard/pointer tooltips, and static
+geometry/tooltips without motion. `detail` carries domain-owned estimate and missing-data context.
+The expandable exact-value table preserves all values and context. Optional `onSelect` receives
+`(point, "current" | "comparison")` for trends or `(bucket)` for hours; it handles chart selection
+and exact-table record buttons. Arrow keys inspect buckets; Enter selects. Touch selection uses the
+same callback, so callers can use the exact table when they want to inspect before opening records.
+`state="pending" | "failed"` replaces stale chart values with a fixed-height status; `onRetry` enables
+the failed-state action. Omit `state` for ready data. For background refresh with still-valid values,
+retain ready data and show refresh status in the owning section. Empty, missing-only, single-point,
+and all-zero data remain distinct.
+
+Minimal same-axis prototype:
+
+```tsx
+<PeriodTrendChart
+  compact={compact}
+  ariaLabel="Recorded minutes"
+  timeZone="America/Los_Angeles"
+  label="1–3 September 2026"
+  comparisonLabel="1–3 August 2026"
+  formatValue={(value) => `${value} min`}
+  buckets={[
+    { at: "2026-09-01", value: 12.25, comparison: { at: "2026-08-01", value: 8 } },
+    { at: "2026-09-02", value: null, detail: "Duration missing", comparison: { at: "2026-08-02", value: 0 } },
+    { at: "2026-09-03", value: 0, comparison: { at: "2026-08-03", value: 4, detail: "Estimated" } },
+  ]}
+/>
+<HourlyHistogram
+  compact={compact}
+  ariaLabel="Hourly observations"
+  timeZone="America/Los_Angeles"
+  periodLabel="Exact observations · 1–3 September 2026"
+  formatValue={(value) => `${value} observations`}
+  buckets={Array.from({ length: 24 }, (_, hour) => ({ hour, value: hour === 12 ? 8 : 0 }))}
+/>
+```
+
+DOM tests cover these wrappers' semantics, timezone labels, exact values, keyboard inspection and
+selection. Visual acceptance belongs in the real plugin iframe: use the browser harness described
+in `e2e/README.md`, at compact/desktop widths, in both themes and reduced motion. The existing
+`src/browser/fitness-measurements.test.ts` exercises the measurement host; new reporting wrappers need
+a fixture/contribution using these exports before the orchestrator's focused browser acceptance.
 
 ## Sync Marks
 
