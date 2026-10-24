@@ -1,4 +1,21 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	jsonPath,
+	literal,
+	not,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
 import { videoGameRecipes } from "./video-game-recipes";
@@ -66,14 +83,58 @@ describe("media video game query recipes", () => {
 		});
 	});
 
-	it("measures playtime from recorded time spent and never from the community estimate", () => {
-		const amount = fieldExpr(TOTALS, "totals", "consumedAmount");
-		const unknown = fieldExpr(TOTALS, "totals", "unknownAmountCount");
+	it("reads ready canonical minutes and missing coverage, never raw time or community estimates", () => {
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "videoGameActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const readyProjection = and(
+			eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+			isNotNull(projection),
+			isNotNull(jsonPath(projection, "contribution")),
+		);
+		const ready = and(scope, readyProjection);
 
-		expect(JSON.stringify(amount)).toContain("timeSpent");
-		expect(JSON.stringify(amount)).not.toContain("timeToBeat");
-		expect(JSON.stringify(unknown)).toContain("timeSpent");
-		expect(JSON.stringify(unknown)).not.toContain("timeToBeat");
+		expect(fieldExpr(TOTALS, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(TOTALS, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(
+						castBoolean(jsonPath(projection, "contribution", "minutes", "missing")),
+						literal(true),
+					),
+				),
+			}),
+		);
+		expect(fieldExpr(TOTALS, "totals", "consumptionPendingCount")).toEqual(
+			count(event, { where: and(scope, not(readyProjection)) }),
+		);
+		expect(fieldExpr(TOTALS, "totals", "consumptionFailedCount")).toEqual(
+			count(event, { where: and(scope, eq(column(event, "projectionStatus"), literal("failed"))) }),
+		);
 	});
 
 	it("reads originals from the source side and derivatives from the target side", () => {

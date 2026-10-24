@@ -1,4 +1,3 @@
-import { table } from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
@@ -6,18 +5,21 @@ import {
 	flatFixtureRecipes,
 	flatUngroupedFixtureRecipes,
 } from "../tests/client/flat-media/recipes";
-import { propertyNumber } from "./entity-selections";
-import {
-	mediaEntityCountMeasure,
-	mediaReviewActivityRecipe,
-	mediaTimeSpentMeasure,
-} from "./media-recipes";
+import { mediaReviewActivityRecipe } from "./media-recipes";
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 
 const activityRows = (items: readonly Record<string, unknown>[]) =>
-	rowsResult(items, { limit: 60, hasMore: false, nextCursor: null });
+	rowsResult(
+		items.map((item) => ({
+			consumedItem: null,
+			consumptionFailedCount: 0,
+			consumptionPendingCount: 0,
+			...item,
+		})),
+		{ limit: 60, hasMore: false, nextCursor: null },
+	);
 
 const SUMMARY_RECIPE = flatFixtureRecipes.summaryRecipe({
 	collectionLimit: 6,
@@ -480,6 +482,7 @@ describe("media flat recipes", () => {
 			"dateUnknown",
 			"progressPercent",
 			"eventSchemaSlug",
+			"consumedItem",
 			"fixtureChapter",
 		]);
 		expect(
@@ -532,13 +535,14 @@ describe("media flat recipes", () => {
 				{ value: "dropped" },
 				{ value: "complete" },
 				{ value: "review" },
+				{ value: "item-complete" },
 				{ value: "progress" },
 				{ value: "list-state" },
 			],
 		});
 	});
 
-	it("sums the schema's measure over completions and counts completions it cannot measure", () => {
+	it("reads canonical quantities and missing coverage", () => {
 		const totals = ACTIVITY_RECIPE.document.queries["totals"];
 		if (totals?.output.type !== "rows") {
 			throw new Error("Expected a totals rows query");
@@ -558,17 +562,10 @@ describe("media flat recipes", () => {
 
 		expect(amount.expr).toMatchObject({
 			type: "aggregate",
-			aggregation: {
-				function: "sum",
-				expr: {
-					type: "conditional",
-					whenTrue: { type: "cast", expr: { type: "jsonPath", path: ["timeSpent"] } },
-					condition: { type: "isNotNull", expr: { field: "id", tableAlias: "mediaAmountEvent" } },
-				},
-			},
+			aggregation: { function: "sum", expr: { type: "arithmetic" } },
 		});
 		expect(unknown.expr).toMatchObject({ type: "aggregate", aggregation: { function: "count" } });
-		expect(JSON.stringify(unknown.expr)).toContain("timeSpent");
+		expect(JSON.stringify(unknown.expr)).toContain('"contribution","minutes","missing"');
 	});
 
 	it("merges item and collection events into one descending order", () => {
@@ -638,57 +635,6 @@ describe("media flat recipes", () => {
 			"publishYear",
 			"productionStatus",
 		]);
-	});
-});
-
-const MEASURE_EVENT = table("event", "measureEvent");
-
-const MEASURE_ENTITY = table("entity", "measureEntity");
-
-const propertyRead = (tableAlias: string, property: string) => ({
-	type: "cast",
-	target: "number",
-	expr: { type: "jsonPath", path: [property], expr: { tableAlias, field: "properties" } },
-});
-
-describe("media flat measures", () => {
-	it("measures only the event's time spent when no fallback is given", () => {
-		const timeSpent = propertyRead("measureEvent", "timeSpent");
-
-		expect(mediaTimeSpentMeasure()(MEASURE_EVENT, MEASURE_ENTITY)).toMatchObject({
-			amount: timeSpent,
-			isUnknown: { type: "isNull", expr: timeSpent },
-		});
-	});
-
-	it("falls back to the entity amount and is unknown only when both are missing", () => {
-		const timeSpent = propertyRead("measureEvent", "timeSpent");
-		const runtime = propertyRead("measureEntity", "runtime");
-
-		expect(
-			mediaTimeSpentMeasure((entity) => propertyNumber(entity, "runtime"))(
-				MEASURE_EVENT,
-				MEASURE_ENTITY,
-			),
-		).toMatchObject({
-			amount: { type: "coalesce", values: [timeSpent, runtime] },
-			isUnknown: {
-				type: "and",
-				predicates: [
-					{ type: "isNull", expr: timeSpent },
-					{ expr: runtime, type: "isNull" },
-				],
-			},
-		});
-	});
-
-	it("counts the named entity property", () => {
-		const pages = propertyRead("measureEntity", "pages");
-
-		expect(mediaEntityCountMeasure("pages")(MEASURE_EVENT, MEASURE_ENTITY)).toMatchObject({
-			amount: pages,
-			isUnknown: { expr: pages, type: "isNull" },
-		});
 	});
 });
 

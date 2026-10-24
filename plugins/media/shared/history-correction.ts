@@ -1,5 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+import { ConsumptionBasis, ConsumptionCalendarDate } from "./consumption";
+
 export const CompletionOccurrence = Schema.Struct({
 	total: Schema.Finite,
 	runKey: Schema.String,
@@ -11,10 +13,14 @@ export const CompletionOccurrence = Schema.Struct({
 	sourceEventId: Schema.optionalKey(Schema.String),
 	sessionEntityId: Schema.optionalKey(Schema.String),
 	expectedOrderKey: Schema.optionalKey(Schema.String),
+	expectedTimeSpent: Schema.optionalKey(Schema.Finite),
+	expectedSourceRun: Schema.optionalKey(Schema.String),
 	expectedOccurredAt: Schema.optionalKey(Schema.String),
 	expectedConsumedOn: Schema.optionalKey(Schema.String),
 	expectedDateUnknown: Schema.optionalKey(Schema.Boolean),
 	expectedOrderCreatedAt: Schema.optionalKey(Schema.String),
+	expectedConsumptionBasis: Schema.optionalKey(ConsumptionBasis),
+	expectedCalendarDate: Schema.optionalKey(ConsumptionCalendarDate),
 	status: Schema.Literals(["building", "active", "inactive", "suppressed", "overridden"]),
 });
 export type CompletionOccurrence = typeof CompletionOccurrence.Type;
@@ -54,6 +60,7 @@ export const HistoryCorrection = Schema.Struct({
 	coverageFinished: Schema.optionalKey(Schema.Boolean),
 	liveSourceIds: Schema.Array(Schema.String).check(Schema.isMaxLength(60)),
 	phase: Schema.Literals([
+		"dependencies",
 		"audit",
 		"progress",
 		"prune",

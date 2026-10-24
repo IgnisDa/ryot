@@ -1,4 +1,20 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	jsonPath,
+	literal,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
 import { musicRecipes } from "./music-recipes";
@@ -9,6 +25,14 @@ const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output.fields;
+};
+
+const fieldExpr = (recipe: PreparedRecipe<unknown>, name: string, key: string) => {
+	const field = rowFields(recipe, name).find((entry) => "key" in entry && entry.key === key);
+	if (field === undefined || !("expr" in field)) {
+		throw new Error(`Expected the ${key} field`);
+	}
+	return field.expr;
 };
 
 const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
@@ -30,32 +54,59 @@ describe("media music query recipes", () => {
 		expect(musicRecipes.presentationSource.fields.map(({ key }) => key)).toContain("duration");
 	});
 
-	it("converts the duration to minutes before summing listened time", () => {
-		const amount = rowFields(
-			musicRecipes.activityRecipe({
-				eventLimit: 60,
-				entityId: "music-1",
-				collectionEventLimit: 60,
-				reference: { kind: "self" },
-			}),
-			"totals",
-		).find((field) => "key" in field && field.key === "consumedAmount");
-		if (amount === undefined || !("expr" in amount)) {
-			throw new Error("Expected the consumed amount aggregate");
-		}
-
-		expect(amount.expr).toMatchObject({
-			type: "aggregate",
-			aggregation: {
-				function: "sum",
-				expr: {
-					whenTrue: {
-						type: "coalesce",
-						values: [{}, { type: "arithmetic", operator: "divide", right: { value: 60 } }],
-					},
-				},
-			},
+	it("sums ready canonical minutes and missing coverage without converting live duration again", () => {
+		const activity = musicRecipes.activityRecipe({
+			eventLimit: 60,
+			entityId: "music-1",
+			collectionEventLimit: 60,
+			reference: { kind: "self" },
 		});
-		expect(JSON.stringify(amount.expr)).toContain("duration");
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "musicActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const ready = and(
+			scope,
+			and(
+				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+				isNotNull(projection),
+				isNotNull(jsonPath(projection, "contribution")),
+			),
+		);
+
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(
+						castBoolean(jsonPath(projection, "contribution", "minutes", "missing")),
+						literal(true),
+					),
+				),
+			}),
+		);
 	});
 });

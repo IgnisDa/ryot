@@ -1,4 +1,25 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	descending,
+	eq,
+	first,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	jsonPath,
+	literal,
+	or,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
 import { movieRecipes } from "./movie-recipes";
@@ -54,28 +75,114 @@ describe("media movie query recipes", () => {
 		);
 	});
 
-	it("reports the progress percent only after the entity's own latest completion", () => {
+	it("reports progress only after the entity's own latest completion or list-state boundary", () => {
 		const progress = fieldExpr(SUMMARY_RECIPE, "summary", "progressPercent");
 		if (progress.type !== "conditional" || progress.whenFalse.type !== "conditional") {
 			throw new Error("Expected a boundary-gated progress percent");
 		}
 		const nativeProgress = progress.whenFalse;
-		const serialized = JSON.stringify(nativeProgress.condition);
+		const entity = table("entity", "entity");
+		const boundary = table("event", "movieSummaryLifecycleProgressBoundary");
+		const latestProgress = table("event", "movieSummaryLifecycleProgress");
+		const boundaryField = (field: string) =>
+			first(boundary, {
+				select: column(boundary, field),
+				orderBy: [
+					descending(column(boundary, "occurredAt")),
+					descending(column(boundary, "orderCreatedAt")),
+					descending(column(boundary, "orderKey")),
+				],
+				where: and(
+					eq(column(boundary, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+					eq(column(boundary, "entityId"), column(entity, "id")),
+					inArray(column(boundary, "eventSchemaSlug"), [
+						literal("complete"),
+						literal("list-state"),
+					]),
+				),
+			});
+		const progressField = (field: string) =>
+			first(latestProgress, {
+				select: column(latestProgress, field),
+				orderBy: [
+					descending(column(latestProgress, "occurredAt")),
+					descending(column(latestProgress, "orderCreatedAt")),
+					descending(column(latestProgress, "orderKey")),
+				],
+				where: and(
+					eq(column(latestProgress, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+					eq(column(latestProgress, "entityId"), column(entity, "id")),
+					eq(column(latestProgress, "eventSchemaSlug"), literal("progress")),
+				),
+			});
 
-		expect(serialized).toContain("movieSummaryLifecycleBoundary");
-		expect(serialized).toContain("movieSummaryLifecycleProgress");
+		expect(nativeProgress.condition).toEqual(
+			or(
+				isNull(boundaryField("orderKey")),
+				gt(progressField("occurredAt"), boundaryField("occurredAt")),
+				and(
+					eq(progressField("occurredAt"), boundaryField("occurredAt")),
+					or(
+						gt(progressField("orderCreatedAt"), boundaryField("orderCreatedAt")),
+						and(
+							eq(progressField("orderCreatedAt"), boundaryField("orderCreatedAt")),
+							gt(progressField("orderKey"), boundaryField("orderKey")),
+						),
+					),
+				),
+			),
+		);
 		expect(progress.whenTrue).toEqual({ value: null, type: "literal" });
 		expect(nativeProgress.whenFalse).toEqual({ value: null, type: "literal" });
 	});
 
-	it("falls back to the movie runtime when a completion recorded no time spent", () => {
-		const amount = fieldExpr(TOTALS, "totals", "consumedAmount");
+	it("sums ready canonical minutes and missing coverage without reading the live runtime", () => {
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "movieActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const ready = and(
+			scope,
+			and(
+				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+				isNotNull(projection),
+				isNotNull(jsonPath(projection, "contribution")),
+			),
+		);
 
-		expect(amount).toMatchObject({
-			type: "aggregate",
-			aggregation: { function: "sum", expr: { whenTrue: { type: "coalesce" } } },
-		});
-		expect(JSON.stringify(amount)).toContain("runtime");
-		expect(JSON.stringify(fieldExpr(TOTALS, "totals", "unknownAmountCount"))).toContain("runtime");
+		expect(fieldExpr(TOTALS, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(TOTALS, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(
+						castBoolean(jsonPath(projection, "contribution", "minutes", "missing")),
+						literal(true),
+					),
+				),
+			}),
+		);
 	});
 });

@@ -20,12 +20,7 @@ import {
 } from "./entity-selections";
 import type { ScalarExpression } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
-import {
-	type MediaFlatOverviewInput,
-	mediaFlatRecipes,
-	mediaTimeSpentMeasure,
-	relatedRows,
-} from "./media-recipes";
+import { type MediaFlatOverviewInput, mediaFlatRecipes, relatedRows } from "./media-recipes";
 import {
 	PlatformReleaseListSchema,
 	TimeToBeatValueSchema,
@@ -87,8 +82,8 @@ const videoGameRelatedOverviewQueries = (input: MediaFlatOverviewInput) => {
 export const videoGameRecipes = mediaFlatRecipes({
 	slug: "video-game",
 	alias: "videoGame",
+	consumptionUnit: "minutes",
 	groupSlug: "video-game-group",
-	measure: mediaTimeSpentMeasure(),
 	extraOverviewQueries: videoGameRelatedOverviewQueries,
 	presentationFields: (entity) => ({
 		timeToBeatNormally: selectedField(

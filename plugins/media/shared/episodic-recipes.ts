@@ -1,9 +1,12 @@
-import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { DateTime, Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castBoolean,
+	castText,
 	coalesce,
 	column,
+	conditional,
 	count,
 	dateBucket,
 	defineRecipe,
@@ -12,9 +15,9 @@ import {
 	eq,
 	eventOrderDescending,
 	exists,
-	first,
 	groupAscending,
 	groupDescending,
+	gt,
 	isNull,
 	IsoDateString,
 	join,
@@ -31,12 +34,20 @@ import {
 	type SelectedRow,
 	selectedRows,
 	type SelectedSelection,
-	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { consumptionProcessingState } from "./consumption-projection";
+import {
+	consumptionAmount,
+	consumptionNumber,
+	consumptionReady,
+	consumptionRows,
+	consumptionTotalsSelection,
+	consumptionValue,
+} from "./consumption-recipes";
 import {
 	mediaPresentationImageSelection,
 	selectedPresentationSource,
@@ -141,7 +152,6 @@ export const episodicScopedCoverageSelection = (input: {
 	};
 }) => {
 	const episode = table("entity", `${input.alias}Episode`);
-	const runtime = propertyNumber(episode, "runtime");
 	const scope = input.scope(episode);
 	const joins = scope.joins;
 	const where = and(scope.where, episodeHasAired(episode));
@@ -152,30 +162,12 @@ export const episodicScopedCoverageSelection = (input: {
 			literal("complete"),
 		),
 	);
-	const completion = table("event", `${input.alias}Completion`);
-	const loggedMinutes = first(completion, {
-		orderBy: eventOrderDescending(completion),
-		select: propertyNumber(completion, "timeSpent"),
-		where: and(
-			eq(column(completion, "entityId"), column(episode, "id")),
-			sameSchemaOwner(completion, "eventSchemaPluginId", input.parent),
-			eq(column(completion, "eventSchemaSlug"), literal("complete")),
-		),
-	});
 	return {
 		episodeTotal: selectedField(count(episode, { joins, where }), Schema.Finite),
 		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Finite),
-		watchedUnknownRuntime: selectedField(
-			count(episode, { joins, where: and(isWatched, isNull(runtime)) }),
-			Schema.Finite,
-		),
 		upcomingTotal: selectedField(
 			count(episode, { joins, where: and(scope.where, episodeIsUpcoming(episode)) }),
 			Schema.Finite,
-		),
-		watchedMinutes: selectedField(
-			sum(episode, coalesce(loggedMinutes, runtime), { joins, where: isWatched }),
-			Schema.NullOr(Schema.Finite),
 		),
 	};
 };
@@ -381,6 +373,20 @@ export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedS
 				column(event, "eventSchemaSlug"),
 				Schema.Literals(episodicHistorySlugs),
 			),
+			consumptionMinutes: selectedField(
+				conditional(
+					and(
+						consumptionReady(event),
+						eq(
+							coalesce(castBoolean(consumptionValue(event, "minutes", "missing")), literal(false)),
+							literal(false),
+						),
+					),
+					consumptionAmount(event, "minutes"),
+					literal(null),
+				),
+				Schema.NullOr(Schema.Finite),
+			),
 		},
 	});
 };
@@ -439,6 +445,23 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 						propertyNumber(event, "progressPercent"),
 						Schema.NullOr(Schema.Finite),
 					),
+					consumptionMinutes: selectedField(
+						conditional(
+							and(
+								consumptionReady(event),
+								eq(
+									coalesce(
+										castBoolean(consumptionValue(event, "minutes", "missing")),
+										literal(false),
+									),
+									literal(false),
+								),
+							),
+							consumptionAmount(event, "minutes"),
+							literal(null),
+						),
+						Schema.NullOr(Schema.Finite),
+					),
 				},
 			}),
 		},
@@ -471,7 +494,18 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 				IsoDateString,
 			),
 			minutes: selectedMeasure(
-				{ function: "sum", expr: propertyNumber(event, "timeSpent") },
+				{ function: "sum", expr: consumptionAmount(event, "minutes") },
+				Schema.NullOr(Schema.Finite),
+			),
+			missing: selectedMeasure(
+				{
+					function: "sum",
+					expr: conditional(
+						eq(castBoolean(consumptionValue(event, "minutes", "missing")), literal(true)),
+						literal(1),
+						literal(0),
+					),
+				},
 				Schema.NullOr(Schema.Finite),
 			),
 		},
@@ -479,6 +513,8 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			entitySchemaPredicate(episode, input.config.episodeSchemaSlug, input.reference),
 			schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 			eq(column(event, "eventSchemaSlug"), literal("complete")),
+			consumptionReady(event),
+			gt(consumptionNumber(event, "episodeCompletions"), literal(0)),
 			or(
 				isNull(propertyBoolean(event, "dateUnknown")),
 				eq(propertyBoolean(event, "dateUnknown"), literal(false)),
@@ -493,8 +529,14 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
 			consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
 			day: selectedField(
-				dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
-				IsoDateString,
+				conditional(
+					eq(castText(consumptionValue(event, "attribution", "kind")), literal("date")),
+					castText(consumptionValue(event, "attribution", "value")),
+					castText(
+						dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
+					),
+				),
+				Schema.String,
 			),
 		},
 	});
@@ -731,81 +773,37 @@ export const mediaEpisodicRecipes = <
 	const activityRecipe = defineRecipe((input: EpisodicActivityInput) => {
 		const parent = table("entity", `${config.alias}ActivityEntity`);
 		const watchEvent = table("event", `${config.alias}WatchCountEvent`);
+		const consumptionEpisode = table("entity", `${config.alias}ConsumptionEpisode`);
+		const consumptionScope = and(
+			schemaOwnerPredicate(watchEvent, "eventSchemaPluginId", input.reference),
+			consumptionRows(watchEvent),
+			or(
+				eq(column(watchEvent, "entityId"), column(parent, "id")),
+				eq(column(watchEvent, "sessionEntityId"), column(parent, "id")),
+				and(
+					isNull(column(watchEvent, "sessionEntityId")),
+					exists(consumptionEpisode, {
+						where: and(
+							eq(column(consumptionEpisode, "id"), column(watchEvent, "entityId")),
+							entitySchemaPredicate(
+								consumptionEpisode,
+								config.config.episodeSchemaSlug,
+								input.reference,
+							),
+							episodicEpisodeMembership(
+								config.config,
+								consumptionEpisode,
+								input.entityId,
+								`${config.alias}ConsumptionMember`,
+							),
+						),
+					}),
+				),
+			),
+		);
 		const historyEvent = table("event", `${config.alias}HistoryCountEvent`);
 		const historyEpisode = table("entity", `${config.alias}HistoryCountEpisode`);
 		return {
-			map: ({
-				totals,
-				coverage,
-				watchDays,
-				parentEvents,
-				episodeEvents,
-				episodeProgress,
-				collectionEvents,
-			}) => {
-				const events = [
-					...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
-					...episodeEvents.items.map((row) => ({
-						id: row.id,
-						text: row.text,
-						rating: row.rating,
-						progressPercent: null,
-						entityId: row.entityId,
-						isSpoiler: row.isSpoiler,
-						createdAt: row.createdAt,
-						timeSpent: row.timeSpent,
-						kind: "episode" as const,
-						properties: row.properties,
-						occurredAt: row.occurredAt,
-						consumedOn: row.consumedOn,
-						eventSchemaSlug: "review" as const,
-						sessionEntityId: row.sessionEntityId,
-						episode: config.activityEpisode(row),
-					})),
-					...episodeProgress.items.flatMap((row) =>
-						row.milestone.items.map((milestone) => ({
-							...milestone,
-							text: null,
-							rating: null,
-							timeSpent: null,
-							isSpoiler: null,
-							kind: "episode" as const,
-							eventSchemaSlug: "progress" as const,
-							episode: config.activityEpisode(row),
-						})),
-					),
-					...mediaCollectionActivityEvents(collectionEvents.items),
-				];
-				const displayedWatches = new Set(
-					watchDays.items.map((row) => JSON.stringify([row.day, row.episodeId])),
-				).size;
-				return Result.succeed({
-					coverage: coverage.items,
-					watchDays: watchDays.items,
-					watchCount: totals?.watchCount ?? 0,
-					events: events.sort(compareMediaActivityDescending),
-					truncated:
-						coverage.pageInfo.hasMore ||
-						watchDays.pageInfo?.hasMore === true ||
-						parentEvents.pageInfo.hasMore ||
-						episodeEvents.pageInfo.hasMore ||
-						episodeProgress.pageInfo.hasMore ||
-						collectionEvents.pageInfo.hasMore,
-					hasMoreActivities:
-						(totals?.historyEventCount ?? 0) >
-							episodeEvents.items.length +
-								episodeProgress.items.reduce(
-									(total, row) => total + row.milestone.items.length,
-									0,
-								) +
-								displayedWatches ||
-						watchDays.pageInfo?.hasMore === true ||
-						parentEvents.pageInfo.hasMore ||
-						episodeEvents.pageInfo.hasMore ||
-						episodeProgress.pageInfo.hasMore ||
-						collectionEvents.pageInfo.hasMore,
-				});
-			},
 			queries: {
 				collectionEvents: mediaCollectionEventsQuery({
 					entityId: input.entityId,
@@ -856,6 +854,7 @@ export const mediaEpisodicRecipes = <
 						entityId(parent, input.entityId),
 					),
 					selection: {
+						...consumptionTotalsSelection(watchEvent, consumptionScope, "minutes"),
 						historyEventCount: selectedField(
 							count(
 								historyEvent,
@@ -868,18 +867,97 @@ export const mediaEpisodicRecipes = <
 							),
 							Schema.Finite,
 						),
-						watchCount: selectedField(
-							count(watchEvent, {
-								where: and(
-									eq(column(watchEvent, "entityId"), column(parent, "id")),
-									schemaOwnerPredicate(watchEvent, "eventSchemaPluginId", input.reference),
-									eq(column(watchEvent, "eventSchemaSlug"), literal("complete")),
-								),
-							}),
-							Schema.Finite,
-						),
 					},
 				}),
+			},
+			map: ({
+				totals,
+				coverage,
+				watchDays,
+				parentEvents,
+				episodeEvents,
+				episodeProgress,
+				collectionEvents,
+			}) => {
+				const events = [
+					...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
+					...episodeEvents.items.map((row) => ({
+						id: row.id,
+						text: row.text,
+						rating: row.rating,
+						progressPercent: null,
+						entityId: row.entityId,
+						isSpoiler: row.isSpoiler,
+						createdAt: row.createdAt,
+						timeSpent: row.timeSpent,
+						kind: "episode" as const,
+						properties: row.properties,
+						occurredAt: row.occurredAt,
+						consumedOn: row.consumedOn,
+						eventSchemaSlug: "review" as const,
+						sessionEntityId: row.sessionEntityId,
+						episode: config.activityEpisode(row),
+						consumptionMinutes: row.consumptionMinutes,
+					})),
+					...episodeProgress.items.flatMap((row) =>
+						row.milestone.items.map((milestone) => ({
+							...milestone,
+							text: null,
+							rating: null,
+							timeSpent: null,
+							isSpoiler: null,
+							kind: "episode" as const,
+							eventSchemaSlug: "progress" as const,
+							episode: config.activityEpisode(row),
+						})),
+					),
+					...mediaCollectionActivityEvents(collectionEvents.items),
+				];
+				const days = watchDays.items.map((row) => ({
+					...row,
+					minutes: (row.missing ?? 0) > 0 ? null : row.minutes,
+					day:
+						row.day.length === 10
+							? row.day
+							: DateTime.formatIsoDate(
+									DateTime.makeZonedUnsafe(row.day, { timeZone: input.timeZone }),
+								),
+				}));
+				const displayedWatches = new Set(
+					days.map((row) => JSON.stringify([row.day, row.episodeId])),
+				).size;
+				return Result.succeed({
+					watchDays: days,
+					coverage: coverage.items,
+					watchCount: totals?.completionCount ?? 0,
+					consumptionMinutes: totals?.consumedAmount ?? 0,
+					consumptionMissing: totals?.unknownAmountCount ?? 0,
+					events: events.sort(compareMediaActivityDescending),
+					consumptionProcessing: consumptionProcessingState(
+						totals?.consumptionPendingCount ?? 0,
+						totals?.consumptionFailedCount ?? 0,
+					),
+					truncated:
+						coverage.pageInfo.hasMore ||
+						watchDays.pageInfo?.hasMore === true ||
+						parentEvents.pageInfo.hasMore ||
+						episodeEvents.pageInfo.hasMore ||
+						episodeProgress.pageInfo.hasMore ||
+						collectionEvents.pageInfo.hasMore,
+					hasMoreActivities:
+						(totals?.historyEventCount ?? 0) >
+							episodeEvents.items.length +
+								episodeProgress.items.reduce(
+									(total, row) => total + row.milestone.items.length,
+									0,
+								) +
+								displayedWatches ||
+						watchDays.pageInfo?.hasMore === true ||
+						parentEvents.pageInfo.hasMore ||
+						episodeEvents.pageInfo.hasMore ||
+						episodeProgress.pageInfo.hasMore ||
+						collectionEvents.pageInfo.hasMore,
+				});
 			},
 		};
 	});

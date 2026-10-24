@@ -38,8 +38,17 @@ describe("complete activity history recipes", () => {
 			coverage: rows([], true),
 			episodeProgress: rows([]),
 			collectionEvents: rows([]),
-			totals: rows([{ watchCount: 0, historyEventCount: 0 }]),
 			watchDays: { items: [], type: "aggregate", pageInfo: { limit: 1000, hasMore: false } },
+			totals: rows([
+				{
+					consumedAmount: 0,
+					completionCount: 0,
+					historyEventCount: 0,
+					unknownAmountCount: 0,
+					consumptionFailedCount: 0,
+					consumptionPendingCount: 0,
+				},
+			]),
 		};
 		expect(Result.getOrThrow(recipe.decode({ data }))).toMatchObject({
 			truncated: true,
@@ -48,18 +57,31 @@ describe("complete activity history recipes", () => {
 		expect(
 			Result.getOrThrow(
 				recipe.decode({
-					data: { ...data, totals: rows([{ watchCount: 0, historyEventCount: 1 }]) },
+					data: {
+						...data,
+						totals: rows([
+							{
+								consumedAmount: 0,
+								completionCount: 0,
+								historyEventCount: 1,
+								unknownAmountCount: 0,
+								consumptionFailedCount: 0,
+								consumptionPendingCount: 0,
+							},
+						]),
+					},
 				}),
 			),
 		).toMatchObject({ hasMoreActivities: true });
 		const watchDay = {
+			missing: 0,
 			runtime: 40,
 			minutes: 40,
 			seasonNumber: 1,
 			episodeNumber: 1,
+			day: "2025-11-04",
 			episodeName: "Pilot",
 			episodeId: "episode-1",
-			day: "2025-11-04T00:00:00.000Z",
 			lastWatchedAt: "2025-11-04T21:00:00.000Z",
 		};
 		expect(
@@ -67,7 +89,6 @@ describe("complete activity history recipes", () => {
 				recipe.decode({
 					data: {
 						...data,
-						totals: rows([{ watchCount: 0, historyEventCount: 2 }]),
 						watchDays: {
 							...data.watchDays,
 							items: [
@@ -75,6 +96,16 @@ describe("complete activity history recipes", () => {
 								{ ...watchDay, consumedOn: "Plex" },
 							],
 						},
+						totals: rows([
+							{
+								consumedAmount: 0,
+								completionCount: 0,
+								historyEventCount: 2,
+								unknownAmountCount: 0,
+								consumptionFailedCount: 0,
+								consumptionPendingCount: 0,
+							},
+						]),
 					},
 				}),
 			).hasMoreActivities,
@@ -195,6 +226,7 @@ describe("complete activity history recipes", () => {
 			episodeRuntime: 40,
 			episodeName: "Pilot",
 			episodeId: "episode-1",
+			consumptionMinutes: null,
 		};
 		const page = Result.getOrThrow(
 			recipe.decode({

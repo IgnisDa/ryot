@@ -5,7 +5,6 @@ import {
 	castBoolean,
 	castDate,
 	castText,
-	coalesce,
 	column,
 	conditional,
 	count,
@@ -36,7 +35,6 @@ import {
 	type SelectedRow,
 	selectedRows,
 	type SelectedSelection,
-	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
@@ -46,6 +44,9 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumedItem } from "./consumption";
+import type { ConsumptionMeasureUnit } from "./consumption-allocation";
+import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
 import {
 	mediaPresentationImageSelection,
 	type MediaPresentationSource,
@@ -65,10 +66,10 @@ import {
 import {
 	mediaLifecycleExpressions,
 	MediaLifecycleStateSchema,
-	type Predicate,
 	type ScalarExpression,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema, MediaImageSchema } from "./media-image";
+import { isPositional } from "./media-schema-slugs";
 import { WatchProviderListSchema } from "./watch-provider";
 
 const libraryOwnershipProperty = (entity: Table, key: "owned" | "ownedOn") => {
@@ -558,64 +559,6 @@ const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
 	),
 });
 
-export type MediaFlatMeasure = (event: Table) => {
-	readonly isUnknown: Predicate;
-	readonly amount: ScalarExpression;
-};
-
-export const mediaTimeSpentMeasure =
-	(fallback?: (entity: Table) => ScalarExpression) => (event: Table, entity: Table) => {
-		const timeSpent = propertyNumber(event, "timeSpent");
-		if (fallback === undefined) {
-			return { amount: timeSpent, isUnknown: isNull(timeSpent) };
-		}
-		const amount = fallback(entity);
-		return {
-			amount: coalesce(timeSpent, amount),
-			isUnknown: and(isNull(timeSpent), isNull(amount)),
-		};
-	};
-
-export const mediaEntityCountMeasure = (property: string) => (_event: Table, entity: Table) => ({
-	amount: propertyNumber(entity, property),
-	isUnknown: isNull(propertyNumber(entity, property)),
-});
-
-export const mediaFlatConsumptionTotals = (input: {
-	readonly entity: Table;
-	readonly measure: MediaFlatMeasure;
-}) => {
-	const { entity, measure } = input;
-	const completion = table("event", "mediaCompletionEvent");
-	const amount = table("event", "mediaAmountEvent");
-	const unknown = table("event", "mediaUnknownAmountEvent");
-	const isCompletionOf = (event: Table) =>
-		and(
-			eq(column(event, "entityId"), column(entity, "id")),
-			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
-			eq(column(event, "eventSchemaSlug"), literal("complete")),
-		);
-	return {
-		completionCount: selectedField(
-			count(completion, { where: isCompletionOf(completion) }),
-			Schema.Finite,
-		),
-		unknownAmountCount: selectedField(
-			count(unknown, { where: and(isCompletionOf(unknown), measure(unknown).isUnknown) }),
-			Schema.Finite,
-		),
-		consumedAmount: selectedField(
-			sum(
-				amount,
-				// Referencing the event row keeps the aggregate inside the subquery when a measure reads only the entity.
-				conditional(isNotNull(column(amount, "id")), measure(amount).amount, literal(null)),
-				{ where: isCompletionOf(amount) },
-			),
-			Schema.NullOr(Schema.Finite),
-		),
-	};
-};
-
 export const mediaActivityParentSlugs = [
 	"add-to-media-library",
 	"backlog",
@@ -703,11 +646,12 @@ export const mediaCollectionEventsQuery = (input: {
 
 export const mediaFlatActivityParentSlugs = [
 	...mediaActivityParentSlugs,
+	"item-complete",
 	"progress",
 	"list-state",
 ] as const;
 
-const mediaFlatActivityEventSelection = (event: Table) => ({
+const mediaFlatActivityEventSelection = (event: Table, numberedItems: boolean) => ({
 	...mediaActivityEventSelection(event),
 	startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
 	dateUnknown: selectedField(propertyBoolean(event, "dateUnknown"), Schema.NullOr(Schema.Boolean)),
@@ -718,6 +662,10 @@ const mediaFlatActivityEventSelection = (event: Table) => ({
 	eventSchemaSlug: selectedField(
 		column(event, "eventSchemaSlug"),
 		Schema.Literals(mediaFlatActivityParentSlugs),
+	),
+	consumedItem: selectedField(
+		numberedItems ? propertyJson(event, "consumedItem") : literal(null),
+		Schema.NullOr(ConsumedItem),
 	),
 });
 
@@ -1042,10 +990,10 @@ export const mediaFlatRecipes = <
 	readonly slug: string;
 	readonly alias: string;
 	readonly groupSlug?: string;
+	readonly consumptionUnit: ConsumptionMeasureUnit;
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
 	readonly activityEventFields?: (event: Table) => ActivityEventFields;
-	readonly measure: (event: Table, entity: Table) => ReturnType<MediaFlatMeasure>;
 	readonly extraOverviewQueries?: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
 }) => {
 	const summaryRecipe = defineRecipe(
@@ -1102,7 +1050,7 @@ export const mediaFlatRecipes = <
 	}));
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
 	const activitySelection = (event: Table) => ({
-		...mediaFlatActivityEventSelection(event),
+		...mediaFlatActivityEventSelection(event, isPositional(config.slug)),
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 		...(config.activityEventFields?.(event) ?? ({} as ActivityEventFields)),
 	});
@@ -1126,6 +1074,8 @@ export const mediaFlatRecipes = <
 						completionCount: totals?.completionCount ?? 0,
 						consumedAmount: totals?.consumedAmount ?? null,
 						unknownAmountCount: totals?.unknownAmountCount ?? 0,
+						consumptionFailedCount: totals?.consumptionFailedCount ?? 0,
+						consumptionPendingCount: totals?.consumptionPendingCount ?? 0,
 						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
 						events: mergeMediaActivityEvents({
 							parentEvents: events.items,
@@ -1147,10 +1097,7 @@ export const mediaFlatRecipes = <
 					}),
 					totals: selectedOptionalRow(entity, {
 						orderBy: [ascending(column(entity, "id"))],
-						selection: mediaFlatConsumptionTotals({
-							entity,
-							measure: (event) => config.measure(event, entity),
-						}),
+						selection: mediaConsumptionTotalsSelection(entity, config.consumptionUnit),
 						where: and(
 							entitySchemaPredicate(entity, config.slug, input.reference),
 							entityId(entity, input.entityId),

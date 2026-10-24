@@ -1,4 +1,20 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	jsonPath,
+	literal,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
 import { comicBookRecipes } from "./comic-book-recipes";
@@ -37,7 +53,7 @@ describe("media comic book query recipes", () => {
 		expect(comicBookRecipes.presentationSource.fields.map(({ key }) => key)).toContain("pages");
 	});
 
-	it("sums the comic book's pages over its completions and counts completions without pages", () => {
+	it("reads ready canonical pages, missing coverage and completions without live page metadata", () => {
 		const activity = comicBookRecipes.activityRecipe({
 			eventLimit: 60,
 			entityId: "comic-book-1",
@@ -45,17 +61,58 @@ describe("media comic book query recipes", () => {
 			reference: { kind: "self" },
 		});
 
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
-			type: "aggregate",
-			aggregation: {
-				function: "sum",
-				expr: {
-					type: "conditional",
-					whenTrue: { type: "cast", expr: { path: ["pages"], type: "jsonPath" } },
-				},
-			},
-		});
-		expect(JSON.stringify(fieldExpr(activity, "totals", "unknownAmountCount"))).toContain("pages");
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "comicBookActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const ready = and(
+			scope,
+			and(
+				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+				isNotNull(projection),
+				isNotNull(jsonPath(projection, "contribution")),
+			),
+		);
+
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "pages", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "pages", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(castBoolean(jsonPath(projection, "contribution", "pages", "missing")), literal(true)),
+				),
+			}),
+		);
+		expect(fieldExpr(activity, "totals", "completionCount")).toEqual(
+			coalesce(
+				sum(event, castNumber(jsonPath(projection, "contribution", "titleCompletions")), {
+					where: ready,
+				}),
+				literal(0),
+			),
+		);
 	});
 
 	it("reaches the series from the group side of comic-book-group-to-comic-book", () => {

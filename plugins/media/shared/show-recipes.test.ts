@@ -43,6 +43,7 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 						properties: {},
 						progressPercent,
 						sessionEntityId: null,
+						consumptionMinutes: null,
 						entityId: "episode-entity",
 					},
 				],
@@ -65,6 +66,7 @@ const EPISODE_EVENT_ROW = {
 	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
+	consumptionMinutes: null,
 	episodeName: "The Arrest",
 	eventSchemaSlug: "review",
 	createdAt: "2024-02-01T10:00:00.000Z",
@@ -85,6 +87,7 @@ const EPISODE_PROGRESS_ROW = {
 };
 
 const WATCH_DAY_ROW = {
+	missing: 0,
 	minutes: 45,
 	runtime: 31,
 	seasonNumber: 1,
@@ -108,8 +111,6 @@ const SEASON_ROW = {
 	episodeTotal: 4,
 	watchedTotal: 1,
 	upcomingTotal: 0,
-	watchedMinutes: 66,
-	watchedUnknownRuntime: 0,
 };
 
 const decodeActivity = (
@@ -131,7 +132,16 @@ const decodeActivity = (
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
 			collectionEvents: activityRows(input.collectionEvents ?? []),
-			totals: activityRows([{ historyEventCount: 0, watchCount: input.watchCount ?? 0 }]),
+			totals: activityRows([
+				{
+					consumedAmount: 66,
+					historyEventCount: 0,
+					unknownAmountCount: 0,
+					consumptionFailedCount: 0,
+					consumptionPendingCount: 0,
+					completionCount: input.watchCount ?? 0,
+				},
+			]),
 		},
 	});
 
@@ -300,9 +310,7 @@ describe("media show query recipes", () => {
 			"description",
 			"episodeTotal",
 			"watchedTotal",
-			"watchedUnknownRuntime",
 			"upcomingTotal",
-			"watchedMinutes",
 		]);
 	});
 
@@ -436,9 +444,7 @@ describe("media show query recipes", () => {
 		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"episodeTotal",
 			"watchedTotal",
-			"watchedUnknownRuntime",
 			"upcomingTotal",
-			"watchedMinutes",
 		]);
 		const episodeTotal = show.output.fields[0];
 		if (
@@ -477,13 +483,7 @@ describe("media show query recipes", () => {
 			externalIds: ["1048593"],
 			reference: { kind: "self" },
 		});
-		const coverage = {
-			watchedTotal: 3,
-			episodeTotal: 14,
-			upcomingTotal: 0,
-			watchedMinutes: 132,
-			watchedUnknownRuntime: 0,
-		};
+		const coverage = { watchedTotal: 3, episodeTotal: 14, upcomingTotal: 0 };
 
 		expect(recipe.decode({ data: { coverage: showRows([coverage]) } })).toMatchObject({
 			success: coverage,
@@ -1306,6 +1306,7 @@ describe("media show query recipes", () => {
 				"seasonNumber",
 				"progressPercent",
 				"eventSchemaSlug",
+				"consumptionMinutes",
 			],
 		);
 		expect(
@@ -1325,9 +1326,7 @@ describe("media show query recipes", () => {
 			"seasonNumber",
 			"episodeTotal",
 			"watchedTotal",
-			"watchedUnknownRuntime",
 			"upcomingTotal",
-			"watchedMinutes",
 		]);
 		expect(seasons.where.predicates[1]).toMatchObject({
 			type: "comparison",

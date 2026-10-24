@@ -6,6 +6,7 @@ import {
 
 export const mediaActivityEventSchemaSlugs = [
 	"complete",
+	"item-complete",
 	"progress",
 	"dropped",
 	"on_hold",
@@ -22,7 +23,7 @@ const activityEntities = new Set<string>(mediaActivityEntitySchemaSlugs);
 const episodeEntities = new Set(["show-episode", "podcast-episode"]);
 const episodicParents = new Set(["show", "podcast"]);
 
-const DATE_FIELDS = ["startedOn", "dateUnknown"] as const;
+const DATE_FIELDS = ["startedOn", "dateUnknown", "calendarDate"] as const;
 const DETAIL_FIELDS = ["consumedOn", "timeSpent"] as const;
 
 /** Every property an activity edit can set or clear, for the absent-property precondition. */
@@ -30,11 +31,19 @@ export const mediaActivityPatchableKeys = [
 	...DATE_FIELDS,
 	...DETAIL_FIELDS,
 	"progressPercent",
+	"progressPages",
+	"consumptionBasis",
+	"sourceRun",
+	"sourceProgress",
+	"consumedItem",
 	positionalProperties.anime.position,
 	positionalProperties.manga.position,
 ] as const;
 
 const progressFields = (entitySchemaSlug: string): readonly string[] => {
+	if (entitySchemaSlug === "book" || entitySchemaSlug === "comic-book") {
+		return ["consumedOn", "progressPercent", "progressPages"];
+	}
 	if (entitySchemaSlug === "anime") {
 		return ["consumedOn", "progressPercent", "animeEpisode"];
 	}
@@ -61,7 +70,10 @@ export const mediaActivityDeclaredProperties = (
 				return undefined;
 			}
 			return [
-				"startedOn",
+				...DATE_FIELDS,
+				"consumptionBasis",
+				"sourceRun",
+				"sourceProgress",
 				"timeSpent",
 				...(parent ? ["consumedOn"] : progressFields(entitySchemaSlug)),
 			];
@@ -69,6 +81,10 @@ export const mediaActivityDeclaredProperties = (
 			return episode ? undefined : [];
 		case "complete":
 			return [
+				"sourceProgress",
+				"sourceRun",
+				"consumptionBasis",
+				"calendarDate",
 				"consumedOn",
 				"timeSpent",
 				"startedOn",
@@ -77,7 +93,27 @@ export const mediaActivityDeclaredProperties = (
 				"completionSilent",
 			];
 		case "progress":
-			return parent ? undefined : progressFields(entitySchemaSlug);
+			return parent
+				? undefined
+				: [
+						...progressFields(entitySchemaSlug),
+						...DATE_FIELDS,
+						"timeSpent",
+						"consumptionBasis",
+						"sourceRun",
+						"sourceProgress",
+					];
+		case "item-complete":
+			return isPositional(entitySchemaSlug)
+				? [
+						...DATE_FIELDS,
+						...DETAIL_FIELDS,
+						"consumedItem",
+						"consumptionBasis",
+						"sourceRun",
+						"sourceProgress",
+					]
+				: undefined;
 		default:
 			return undefined;
 	}
@@ -110,7 +146,11 @@ export const mediaActivityPatchableProperties = (
 	const position = mediaProgressPositionProperty(entitySchemaSlug);
 	const progress = position ?? "progressPercent";
 	return (mediaActivityDeclaredProperties(entitySchemaSlug, eventSchemaSlug) ?? []).filter(
-		(key) => key === progress || [...DATE_FIELDS, ...DETAIL_FIELDS].some((field) => field === key),
+		(key) =>
+			key === progress ||
+			key === "progressPages" ||
+			key === "consumedItem" ||
+			[...DATE_FIELDS, ...DETAIL_FIELDS].some((field) => field === key),
 	);
 };
 

@@ -1,4 +1,20 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	jsonPath,
+	literal,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
 import { mangaRecipes } from "./manga-recipes";
@@ -53,19 +69,53 @@ describe("media manga query recipes", () => {
 		});
 	});
 
-	it("sums the manga's chapters over its completions", () => {
-		expect(fieldExpr(ACTIVITY_RECIPE, "totals", "consumedAmount")).toMatchObject({
-			type: "aggregate",
-			aggregation: {
-				function: "sum",
-				expr: {
-					type: "conditional",
-					whenTrue: { type: "cast", expr: { type: "jsonPath", path: ["chapters"] } },
-				},
-			},
-		});
-		expect(JSON.stringify(fieldExpr(ACTIVITY_RECIPE, "totals", "unknownAmountCount"))).toContain(
-			"chapters",
+	it("sums ready canonical chapters and missing coverage, not the live chapter count", () => {
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "mangaActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const ready = and(
+			scope,
+			and(
+				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+				isNotNull(projection),
+				isNotNull(jsonPath(projection, "contribution")),
+			),
+		);
+
+		expect(fieldExpr(ACTIVITY_RECIPE, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "chapters", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "chapters", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(ACTIVITY_RECIPE, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(
+						castBoolean(jsonPath(projection, "contribution", "chapters", "missing")),
+						literal(true),
+					),
+				),
+			}),
 		);
 	});
 

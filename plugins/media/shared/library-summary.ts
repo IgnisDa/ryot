@@ -15,6 +15,7 @@ import {
 	defineRecipe,
 	eq,
 	first,
+	gt,
 	inArray,
 	IsoDateString,
 	join,
@@ -23,12 +24,20 @@ import {
 	lte,
 	maximum,
 	minimum,
+	not,
 	type Recipe,
 	selectedField,
 	selectedRows,
+	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 
+import {
+	consumptionNumber,
+	consumptionReady,
+	consumptionRows,
+	consumptionValue,
+} from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 import {
 	episodicEpisodeQuery,
@@ -50,25 +59,10 @@ export const LIBRARY_SUMMARY_SCRIPT_SLUG = "projection.library-summary";
 export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
-		userRating: {
-			label: "Your rating",
-			type: "number" as const,
-			description: "Average of the user's review ratings, 0-100",
-		},
 		lifecycleState: {
 			label: "Status",
 			type: "string" as const,
 			description: "Lifecycle state computed from the user's history",
-		},
-		lastCompletedAt: {
-			label: "Last completed",
-			type: "datetime" as const,
-			description: "When the user last completed this item",
-		},
-		timesCompleted: {
-			type: "number" as const,
-			label: "Times completed",
-			description: "How many times the user completed this item",
 		},
 		releaseDate: {
 			label: "Release date",
@@ -90,13 +84,10 @@ export const librarySummaryPropertiesSchema = {
 
 const SummaryRowSchema = {
 	id: Schema.String,
-	timesCompleted: Schema.Finite,
 	state: EpisodicLifecycleStateSchema,
-	userRating: Schema.NullOr(Schema.Finite),
 	releaseDate: Schema.NullOr(IsoDateString),
 	nextAiringAt: Schema.NullOr(IsoDateString),
 	lastActivityAt: Schema.NullOr(IsoDateString),
-	lastCompletedAt: Schema.NullOr(IsoDateString),
 };
 
 const property = (entity: Table, name: string) => jsonPath(column(entity, "properties"), name);
@@ -107,38 +98,10 @@ const releaseDate = (entity: Table) =>
 		castDate(concat(castText(property(entity, "publishYear")), literal("-01-01T00:00:00.000Z"))),
 	);
 
-const userEventsOf = (entity: Table, alias: string, slug: string) => {
-	const event = table("event", alias);
-	return {
-		event,
-		where: and(
-			eq(column(event, "entityId"), column(entity, "id")),
-			sameSchemaOwner(event, "eventSchemaPluginId", entity),
-			eq(column(event, "eventSchemaSlug"), literal(slug)),
-		),
-	};
-};
-
 const sharedSummarySelection = (entity: Table) => {
-	const completion = userEventsOf(entity, "summaryCompletion", "complete");
-	const review = userEventsOf(entity, "summaryReview", "review");
 	return {
 		id: selectedField(column(entity, "id"), SummaryRowSchema.id),
 		releaseDate: selectedField(releaseDate(entity), SummaryRowSchema.releaseDate),
-		timesCompleted: selectedField(
-			count(completion.event, { where: completion.where }),
-			SummaryRowSchema.timesCompleted,
-		),
-		userRating: selectedField(
-			average(review.event, castNumber(property(review.event, "rating")), { where: review.where }),
-			SummaryRowSchema.userRating,
-		),
-		lastCompletedAt: selectedField(
-			maximum(completion.event, column(completion.event, "occurredAt"), {
-				where: completion.where,
-			}),
-			SummaryRowSchema.lastCompletedAt,
-		),
 	};
 };
 
@@ -239,12 +202,9 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 	Object.fromEntries(
 		Object.entries({
 			lifecycleState: row.state,
-			userRating: row.userRating,
 			releaseDate: row.releaseDate,
 			nextAiringAt: row.nextAiringAt,
-			timesCompleted: row.timesCompleted,
 			lastActivityAt: row.lastActivityAt,
-			lastCompletedAt: row.lastCompletedAt,
 		}).filter(([, value]) => value !== null),
 	);
 
@@ -271,16 +231,43 @@ export const libraryMembershipJoin = (entity: Table, alias: string) => {
 export const librarySummary = (membership: Table) => {
 	const read = (name: string) => jsonPath(column(membership, "projection"), name);
 	const stored = castText(read("lifecycleState"));
+	const event = table("event", "libraryConsumption");
+	const own = and(
+		eq(column(event, "entityId"), column(membership, "sourceEntityId")),
+		eq(column(event, "eventSchemaPluginId"), column(membership, "relationshipSchemaPluginId")),
+	);
+	const scope = and(own, consumptionRows(event));
+	const ready = and(scope, consumptionReady(event));
+	const pending = gt(count(event, { where: and(scope, not(consumptionReady(event))) }), literal(0));
 	return {
 		releaseDate: castDate(read("releaseDate")),
-		userRating: castNumber(read("userRating")),
 		lastActivityAt: castDate(read("lastActivityAt")),
-		lastCompletedAt: castDate(read("lastCompletedAt")),
-		timesCompleted: castNumber(read("timesCompleted")),
+		userRating: average(event, castNumber(property(event, "rating")), {
+			where: and(own, eq(column(event, "eventSchemaSlug"), literal("review"))),
+		}),
 		lifecycleState: conditional(
 			and(eq(stored, literal("caught_up")), lte(castDate(read("nextAiringAt")), currentDate())),
 			literal("in_progress"),
 			stored,
+		),
+		timesCompleted: conditional(
+			pending,
+			literal(null),
+			coalesce(
+				sum(event, consumptionNumber(event, "titleCompletions"), { where: ready }),
+				literal(0),
+			),
+		),
+		lastCompletedAt: conditional(
+			pending,
+			literal(null),
+			maximum(event, castDate(consumptionValue(event, "attribution", "value")), {
+				where: and(
+					ready,
+					gt(consumptionNumber(event, "titleCompletions"), literal(0)),
+					eq(castText(consumptionValue(event, "attribution", "kind")), literal("instant")),
+				),
+			}),
 		),
 	};
 };

@@ -3,7 +3,6 @@ import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyBoolean } from "./entity-selections";
 import {
-	mediaEntityCountMeasure,
 	mediaFlatRecipes,
 	mediaNumberSelection,
 	mediaUnlinkedCreatorsOverviewQueries,
@@ -13,7 +12,7 @@ export const bookRecipes = mediaFlatRecipes({
 	slug: "book",
 	alias: "book",
 	groupSlug: "book-group",
-	measure: mediaEntityCountMeasure("pages"),
+	consumptionUnit: "pages",
 	presentationFields: mediaNumberSelection("pages"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
 	summaryFields: (entity) => ({

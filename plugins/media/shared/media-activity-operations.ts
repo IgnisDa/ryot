@@ -1,6 +1,8 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumedItem, ConsumptionCalendarDate } from "./consumption";
+
 export const mediaActivityStatuses = ["backlog", "on_hold", "dropped"] as const;
 
 export const MAX_ACTIVITY_EPISODES = 500;
@@ -28,7 +30,7 @@ const ConsumedOnText = Schema.Trim.pipe(
 
 const ConsumedOn = Schema.optional(ConsumedOnText);
 
-const TimeSpent = Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0)));
+const TimeSpent = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
 const ProgressPosition = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)));
 
@@ -46,6 +48,7 @@ export const MediaActivityWhen = Schema.Union([
 		finishedOn: IsoTimestamp,
 		kind: Schema.Literal("date"),
 		startedOn: Schema.optional(IsoTimestamp),
+		calendarDate: Schema.optional(ConsumptionCalendarDate),
 	}),
 ]);
 
@@ -63,8 +66,11 @@ export const MediaActivityEntry = Schema.Union([
 		consumedOn: ConsumedOn,
 		entityId: NonEmptyString,
 		kind: Schema.Literal("progress"),
+		timeSpent: Schema.optional(TimeSpent),
+		when: Schema.optional(MediaActivityWhen),
 		position: Schema.optional(ProgressPosition),
 		progressPercent: Schema.optional(ProgressPercent),
+		progressPages: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
 	}).pipe(
 		Schema.check(
 			Schema.makeFilter(
@@ -113,7 +119,7 @@ export const MediaActivityLogInput = Schema.Struct({
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(({ entry, submittedAt }) =>
-			"when" in entry
+			"when" in entry && entry.when !== undefined
 				? whenIsOrdered(entry.when, Date.parse(submittedAt)) ||
 					"Dates must satisfy started on <= finished on <= now"
 				: true,
@@ -136,6 +142,7 @@ const MediaActivityEditWhen = Schema.Union([
 		finishedOn: IsoTimestamp,
 		kind: Schema.Literal("date"),
 		startedOn: Schema.optional(IsoTimestamp),
+		calendarDate: Schema.optional(ConsumptionCalendarDate),
 	}),
 ]);
 
@@ -157,11 +164,15 @@ export const MediaEventSnapshot = Schema.Struct({
 export type MediaEventSnapshot = typeof MediaEventSnapshot.Type;
 
 export const MediaActivityPatch = Schema.Struct({
+	consumedItem: Schema.optional(ConsumedItem),
 	position: Schema.optional(ProgressPosition),
 	when: Schema.optional(MediaActivityEditWhen),
 	timeSpent: Schema.optional(Schema.NullOr(TimeSpent)),
 	consumedOn: Schema.optional(Schema.NullOr(ConsumedOnText)),
 	progressPercent: Schema.optional(Schema.NullOr(ProgressPercent)),
+	progressPages: Schema.optional(
+		Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+	),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter((patch) => Object.keys(patch).length > 0 || "Expected at least one change"),

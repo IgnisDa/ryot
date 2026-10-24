@@ -1,4 +1,20 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import {
+	add,
+	and,
+	castBoolean,
+	castNumber,
+	coalesce,
+	column,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	jsonPath,
+	literal,
+	type PreparedRecipe,
+	sum,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
@@ -50,7 +66,7 @@ describe("media audiobook query recipes", () => {
 		expect(audiobookRecipes.presentationSource.fields.map(({ key }) => key)).toContain("runtime");
 	});
 
-	it("falls back to the audiobook runtime when a completion recorded no time spent", () => {
+	it("sums ready canonical minutes and missing coverage without reading the live runtime", () => {
 		const activity = audiobookRecipes.activityRecipe({
 			eventLimit: 60,
 			entityId: "audiobook-1",
@@ -58,13 +74,52 @@ describe("media audiobook query recipes", () => {
 			reference: { kind: "self" },
 		});
 
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
-			type: "aggregate",
-			aggregation: { function: "sum", expr: { whenTrue: { type: "coalesce" } } },
-		});
-		expect(JSON.stringify(fieldExpr(activity, "totals", "consumedAmount"))).toContain("runtime");
-		expect(JSON.stringify(fieldExpr(activity, "totals", "unknownAmountCount"))).toContain(
-			"runtime",
+		const event = table("event", "consumptionTotalsEvent");
+		const entity = table("entity", "audiobookActivityEntity");
+		const projection = column(event, "projection");
+		const scope = and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			inArray(
+				column(event, "eventSchemaSlug"),
+				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
+			),
+		);
+		const ready = and(
+			scope,
+			and(
+				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
+				isNotNull(projection),
+				isNotNull(jsonPath(projection, "contribution")),
+			),
+		);
+
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+			sum(
+				event,
+				add(
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "recorded")),
+						literal(0),
+					),
+					coalesce(
+						castNumber(jsonPath(projection, "contribution", "minutes", "estimated")),
+						literal(0),
+					),
+				),
+				{ where: ready },
+			),
+		);
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+			count(event, {
+				where: and(
+					ready,
+					eq(
+						castBoolean(jsonPath(projection, "contribution", "minutes", "missing")),
+						literal(true),
+					),
+				),
+			}),
 		);
 	});
 

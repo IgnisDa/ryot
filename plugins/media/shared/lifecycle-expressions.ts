@@ -217,11 +217,12 @@ export const orderExpressionsAreAfter = (
 	or(
 		isNull(boundary.id),
 		gt(current.occurredAt, boundary.occurredAt),
-		and(eq(current.occurredAt, boundary.occurredAt), gt(current.createdAt, boundary.createdAt)),
 		and(
 			eq(current.occurredAt, boundary.occurredAt),
-			eq(current.createdAt, boundary.createdAt),
-			gt(current.id, boundary.id),
+			or(
+				gt(current.createdAt, boundary.createdAt),
+				and(eq(current.createdAt, boundary.createdAt), gt(current.id, boundary.id)),
+			),
 		),
 	);
 
@@ -301,30 +302,36 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		select: coalesce(progressProperty("animeEpisode"), progressProperty("mangaChapter")),
 	});
 	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
-	const snapshotAlias = `${alias}SnapshotBoundary`;
-	const snapshotEvent = table("event", snapshotAlias);
-	const snapshotWhere = and(
-		sameSchemaOwner(snapshotEvent, "eventSchemaPluginId", entity),
-		eq(column(snapshotEvent, "entityId"), column(entity, "id")),
-		eq(column(snapshotEvent, "eventSchemaSlug"), literal("list-state")),
+	const progressBoundaryAlias = `${alias}ProgressBoundary`;
+	const progressBoundaryEvent = table("event", progressBoundaryAlias);
+	const progressBoundaryWhere = and(
+		sameSchemaOwner(progressBoundaryEvent, "eventSchemaPluginId", entity),
+		eq(column(progressBoundaryEvent, "entityId"), column(entity, "id")),
+		eventSlugIsOneOf(progressBoundaryEvent, ["complete", "list-state"]),
 	);
-	const boundarySnapshotEvent = latestEventOrderExpressions(snapshotWhere, snapshotAlias);
-	const isCurrentProgress = and(
-		orderExpressionsAreAfter(latestProgress, boundaryCompleteEvent),
-		orderExpressionsAreAfter(latestProgress, boundarySnapshotEvent),
+	const latestProgressBoundary = latestEventOrderExpressions(
+		progressBoundaryWhere,
+		progressBoundaryAlias,
 	);
+	const isCurrentProgress = orderExpressionsAreAfter(latestProgress, latestProgressBoundary);
 	return {
 		latestSignal,
 		boundaryCompleteEvent,
-		state: conditional(
-			isNull(latestSignal.id),
-			literal("untracked"),
-			mediaStateFromLatestSignal(latestSignal.eventSchemaSlug, latestSignal.listState),
-		),
 		position: conditional(
 			eq(latestSignal.eventSchemaSlug, literal("list-state")),
 			literal(null),
 			conditional(isCurrentProgress, latestPosition, literal(null)),
+		),
+		state: conditional(
+			isNull(latestSignal.id),
+			literal("untracked"),
+			latestLifecycleField(signalEvent, {
+				where: signalWhere,
+				select: mediaStateFromLatestSignal(
+					column(signalEvent, "eventSchemaSlug"),
+					castText(jsonPath(column(signalEvent, "properties"), "state")),
+				),
+			}),
 		),
 		progressPercent: conditional(
 			eq(latestSignal.eventSchemaSlug, literal("list-state")),

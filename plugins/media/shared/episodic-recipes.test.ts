@@ -76,6 +76,7 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 						properties: {},
 						progressPercent,
 						sessionEntityId: null,
+						consumptionMinutes: null,
 						entityId: "episode-entity",
 					},
 				],
@@ -94,14 +95,7 @@ const ACTIVITY_INPUT = {
 	episodeProgressLimit: 100,
 };
 
-const COVERAGE_ROW = {
-	id: "parent-1",
-	episodeTotal: 6,
-	watchedTotal: 2,
-	upcomingTotal: 0,
-	watchedMinutes: 66,
-	watchedUnknownRuntime: 0,
-};
+const COVERAGE_ROW = { id: "parent-1", episodeTotal: 6, watchedTotal: 2, upcomingTotal: 0 };
 
 const activityRecipe = () =>
 	fixtureRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } });
@@ -137,6 +131,7 @@ const EPISODE_EVENT_ROW = {
 	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
+	consumptionMinutes: null,
 	episodeName: "The Arrest",
 	eventSchemaSlug: "review",
 	createdAt: "2024-02-01T10:00:00.000Z",
@@ -165,6 +160,7 @@ const COLLECTION_EVENT_ROW = {
 };
 
 const WATCH_DAY_ROW = {
+	missing: 0,
 	minutes: 45,
 	runtime: 31,
 	episodeNumber: 1,
@@ -194,7 +190,16 @@ const decodeActivity = (
 			collectionEvents: rows(input.collectionEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
-			totals: rows([{ historyEventCount: 0, watchCount: input.watchCount ?? 0 }]),
+			totals: rows([
+				{
+					consumedAmount: 66,
+					historyEventCount: 0,
+					unknownAmountCount: 0,
+					consumptionFailedCount: 0,
+					consumptionPendingCount: 0,
+					completionCount: input.watchCount ?? 0,
+				},
+			]),
 		},
 	});
 
@@ -366,6 +371,7 @@ describe("episodic media recipes", () => {
 			"createdAt",
 			"consumedOn",
 			"progressPercent",
+			"consumptionMinutes",
 		]);
 	});
 
@@ -514,12 +520,21 @@ describe("episodic media recipes", () => {
 					coverage: rows([COVERAGE_ROW]),
 					episodeProgress: progressRows([]),
 					watchDays: aggregateRows([WATCH_DAY_ROW]),
-					totals: rows([{ watchCount: 1, historyEventCount: 0 }]),
 					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
 						limit: 100,
 						hasMore: true,
 						nextCursor: "episode-cursor",
 					}),
+					totals: rows([
+						{
+							consumedAmount: 66,
+							completionCount: 1,
+							historyEventCount: 0,
+							unknownAmountCount: 0,
+							consumptionFailedCount: 0,
+							consumptionPendingCount: 0,
+						},
+					]),
 				},
 			}),
 		).toMatchObject({ success: { truncated: true } });

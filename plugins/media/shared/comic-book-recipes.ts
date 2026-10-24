@@ -1,10 +1,10 @@
-import { mediaEntityCountMeasure, mediaFlatRecipes, mediaNumberSelection } from "./media-recipes";
+import { mediaFlatRecipes, mediaNumberSelection } from "./media-recipes";
 
 export const comicBookRecipes = mediaFlatRecipes({
 	slug: "comic-book",
 	alias: "comicBook",
+	consumptionUnit: "pages",
 	groupSlug: "comic-book-group",
-	measure: mediaEntityCountMeasure("pages"),
 	summaryFields: mediaNumberSelection("pages"),
 	presentationFields: mediaNumberSelection("pages"),
 });
