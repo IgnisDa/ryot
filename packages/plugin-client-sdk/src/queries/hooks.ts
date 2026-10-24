@@ -7,8 +7,7 @@ import * as AtomRegistry from "effect/reactivity/AtomRegistry";
 import { useContext, useEffect, useMemo } from "react";
 
 import { ActiveScreenContext } from "../active-screen";
-import { useQueryInterest } from "../refresh/query-interest";
-import { useQueryPageRefresh } from "../refresh/query-refresh";
+import { useQueryRefresh } from "../refresh/query-refresh";
 import {
 	type MutationContext,
 	MutationDefinition,
@@ -71,7 +70,14 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
 	const atom = query.atom(registry, client, schedule, hostServices, input);
-	useQueryInterest(client, schedule, atom, input, query.entityWatch);
+	useQueryRefresh(
+		client,
+		schedule,
+		atom,
+		input,
+		query.entityWatch,
+		options?.refreshOnMutation !== false,
+	);
 	const active = useContext(ActiveScreenContext);
 	useEffect(() => {
 		if (!active || !query.refreshWhile) {
@@ -108,7 +114,6 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 	}, [active, atom, registry, schedule, query, input]);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
-	useQueryPageRefresh(atom, options?.refreshOnMutation !== false, query.entityWatch === undefined);
 	const isError = AsyncResult.isFailure(result);
 	const isSuccess = AsyncResult.isSuccess(result);
 	let data: Data | undefined;

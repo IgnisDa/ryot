@@ -10,6 +10,55 @@ const populated = (entityId: string): EntityUpdate => ({ entityId, reason: "popu
 
 describe("createEntityRefresh", () => {
 	layer(RyotScheduleService.layer)((test) => {
+		test.effect("admits already-batched demand with queued updates and accepts later hints", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const batches: EntityUpdate[][] = [];
+				const refresh = createEntityRefresh(schedule, (updates) => {
+					batches.push([...updates]);
+					return Effect.void;
+				});
+
+				refresh.hint(populated("a"));
+				yield* advanceRyotSchedule(100);
+				refresh.hintNow();
+				yield* advanceRyotSchedule(0);
+				expect(batches).toEqual([[populated("a")]]);
+				yield* advanceRyotSchedule(150);
+				expect(batches).toHaveLength(1);
+				refresh.hint(populated("b"));
+				yield* advanceRyotSchedule(250);
+				expect(batches).toEqual([[populated("a")], [populated("b")]]);
+			}),
+		);
+	});
+
+	layer(RyotScheduleService.layer)((test) => {
+		test.effect("retains already-batched demand while blocked without adding another delay", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const batches: EntityUpdate[][] = [];
+				const refresh = createEntityRefresh(schedule, (updates) => {
+					batches.push([...updates]);
+					return Effect.void;
+				});
+
+				refresh.block(true);
+				refresh.hint(populated("a"));
+				refresh.hintNow();
+				refresh.hint(populated("b"));
+				yield* advanceRyotSchedule(1000);
+				expect(batches).toEqual([]);
+				refresh.block(false);
+				yield* advanceRyotSchedule(0);
+				expect(batches).toEqual([[populated("a"), populated("b")]]);
+				yield* advanceRyotSchedule(250);
+				expect(batches).toHaveLength(1);
+			}),
+		);
+	});
+
+	layer(RyotScheduleService.layer)((test) => {
 		test.effect("batches and dedupes the hints that land inside one window", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;

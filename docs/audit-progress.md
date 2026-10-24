@@ -15,7 +15,7 @@
 
 ## Status
 
-**39 implemented, 0 in progress, 44 pending; 3 excluded.**
+**40 implemented, 0 in progress, 43 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -61,7 +61,7 @@
 | A03-R1 | Excluded | Browser-extension frame/navigation ownership. |
 | S03-R1 | Implemented | One optional stopping cause and first timestamp own stop transitions; cleanup and wakeup happen once while cause priority is preserved. See this finding's audit commit. |
 | B03-R1 | Pending | Prepared HTTP hops and explicit phases. |
-| P04-R2 | Pending | One automatic query-refresh owner. |
+| P04-R2 | Implemented | One automatic query-refresh owner manages entity and page refresh atoms. See this finding's audit commit. |
 | B15-R1 | Implemented | Use only a persisted paged worklist, with the database cutoff after admission, creation-time/ID cursor, exact IDs, and release. See this finding's audit commit. |
 | B05-R2 | Pending | Query asset-reference existence in PostgreSQL. |
 | B22-R1 | Pending | Reuse locked reorder facts for set-wise persistence. |
@@ -204,3 +204,4 @@
 - P05-R1: UI check and consumer checks passed before 313 UI, 34 renderer, 35 admin, and one compiler test; read-only review reported no issues.
 - C03-R1: client type, format, and lint checks passed before 124 tests; read-only review passed.
 - B16-R2: scoped backend checks passed before 23 tests; read-only review passed.
+- P04-R2: SDK check passed before 243 tests across 23 files; read-only review passed.

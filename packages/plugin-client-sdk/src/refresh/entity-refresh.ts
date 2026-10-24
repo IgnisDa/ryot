@@ -28,6 +28,7 @@ export const createEntityRefresh = <E>(
 	let cancel: (() => void) | undefined;
 	let interrupt: (() => void) | undefined;
 	let queued: Map<string, EntityUpdate> | undefined;
+	let immediate = false;
 	const requeue = (batch: readonly EntityUpdate[]) => {
 		const restored = new Map(batch.map((update) => [update.entityId, update]));
 		for (const [entityId, update] of queued ?? []) {
@@ -39,13 +40,15 @@ export const createEntityRefresh = <E>(
 		if (disposed || queued === undefined || blocked || running || cancel !== undefined) {
 			return;
 		}
-		cancel = schedule.after(250, () => {
+		const run = () => {
 			cancel = undefined;
 			if (disposed || blocked || running || queued === undefined) {
 				return;
 			}
 			const batch = [...queued.values()];
+			const ready = immediate;
 			queued = undefined;
+			immediate = false;
 			running = true;
 			interrupt = schedule.run(
 				Effect.asVoid(
@@ -56,6 +59,7 @@ export const createEntityRefresh = <E>(
 							}
 							if (blocked) {
 								requeue(batch);
+								immediate ||= ready;
 								return Effect.void;
 							}
 							return refresh(batch);
@@ -68,7 +72,12 @@ export const createEntityRefresh = <E>(
 					arm();
 				},
 			);
-		});
+		};
+		if (immediate) {
+			run();
+		} else {
+			cancel = schedule.after(250, run);
+		}
 	};
 	return {
 		block: (value: boolean) => {
@@ -80,6 +89,13 @@ export const createEntityRefresh = <E>(
 			queued = undefined;
 			cancel?.();
 			interrupt?.();
+		},
+		hintNow: () => {
+			queued ??= new Map();
+			immediate = true;
+			cancel?.();
+			cancel = undefined;
+			arm();
 		},
 		hint: (update?: EntityUpdate) => {
 			queued ??= new Map();
