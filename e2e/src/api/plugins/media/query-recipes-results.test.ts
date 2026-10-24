@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { podcastEpisodicKindConfig } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
 import { episodicByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
@@ -140,13 +141,13 @@ const seedActivityShowFixture = (client: Client) =>
 	});
 
 const ACTIVITY_LIMITS = {
-	timeZone: "UTC",
 	coverageLimit: 100,
 	watchDayLimit: 500,
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
+	timeZone: TimeZone.make("UTC"),
 } as const;
 
 describe("Media RyotQL query recipe results", () => {

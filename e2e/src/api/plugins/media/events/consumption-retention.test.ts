@@ -1,6 +1,7 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	and,
 	ascending,
@@ -74,7 +75,7 @@ const waitForReport = (
 		reference,
 		selection,
 		now: reportNow,
-		timeZone: "UTC",
+		timeZone: TimeZone.make("UTC"),
 		...(entityId === undefined ? {} : { entityId }),
 	});
 

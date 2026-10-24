@@ -1,4 +1,5 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	workoutCardsRecipe,
 	workoutComparisonsRecipe,
@@ -422,8 +423,8 @@ describe("Workouts E2E", () => {
 				workoutWeeksRecipe({
 					reference,
 					search: "",
-					timeZone: "UTC",
 					endAt: "2026-10-19T00:00:00Z",
+					timeZone: TimeZone.make("UTC"),
 					startAt: "2026-09-28T00:00:00Z",
 				}),
 			);
@@ -437,7 +438,7 @@ describe("Workouts E2E", () => {
 				client,
 				workoutSummaryRecipe({
 					reference,
-					timeZone: "UTC",
+					timeZone: TimeZone.make("UTC"),
 					days: { endAt: "2026-10-19T00:00:00Z", startAt: "2026-09-28T00:00:00Z" },
 					current: { endAt: "2026-10-16T00:00:00Z", startAt: "2026-10-09T00:00:00Z" },
 					previous: { endAt: "2026-10-09T00:00:00Z", startAt: "2026-10-02T00:00:00Z" },

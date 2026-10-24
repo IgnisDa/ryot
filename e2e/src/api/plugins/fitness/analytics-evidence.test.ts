@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { historicalFitnessRankingRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import {
 	exerciseEquipmentRecipe,
@@ -86,7 +87,7 @@ const readRankings = (
 				now,
 				kind,
 				reference,
-				timeZone: "UTC",
+				timeZone: TimeZone.make("UTC"),
 				selection: { grouping: "auto", comparison: "none", range: { kind: "all-time" } },
 			}),
 		);

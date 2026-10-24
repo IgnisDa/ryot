@@ -3,6 +3,7 @@ import {
 	reportingSelectionSearch,
 } from "@ryot-app/contract/modules/analytics/reporting";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessMeasurementReadingsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Clock, Effect, Result, Schema } from "effect";
@@ -57,7 +58,7 @@ const openFitnessAnalytics = Effect.gen(function* () {
 	const context = yield* browser.newContext({
 		hasTouch: true,
 		viewport: compactViewport,
-		timezoneId: "America/New_York",
+		timezoneId: TimeZone.make("America/New_York"),
 	});
 	const page = yield* context.newPage;
 	const iframe = analyticsFrame(page);
@@ -67,7 +68,7 @@ const openFitnessAnalytics = Effect.gen(function* () {
 	});
 	yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
 	expect(yield* page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe(
-		"America/New_York",
+		TimeZone.make("America/New_York"),
 	);
 
 	const frame = iframe.contentFrame();
@@ -252,9 +253,9 @@ it.live(
 			const readings = yield* executeRyotQLRecipe(
 				fixture.account.client,
 				fitnessMeasurementReadingsRecipe({
-					timeZone: "UTC",
 					now: readingsNow,
 					reference: fixture.reference,
+					timeZone: TimeZone.make("UTC"),
 					selection: fixture.reportingSelection,
 					metricId: fixture.measurementMetricId,
 				}),

@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details-recipes";
 import { Effect } from "effect";
 
@@ -17,7 +18,7 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const timeZone = "Pacific/Auckland";
+const timeZone = TimeZone.make("Pacific/Auckland");
 type FitnessReference = Parameters<typeof exerciseDetailsRecipe>[0]["reference"];
 
 const exerciseDetails = (client: Client, exerciseId: string) =>

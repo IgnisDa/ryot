@@ -1,5 +1,6 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	fitnessAnalyticsTotalsRecipe,
 	fitnessAnalyticsTrendRecipe,
@@ -112,9 +113,9 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 		);
 		const { client } = account;
 
-		yield* updateUserSettingsPreferences(client, { reportingTimeZone: "UTC" });
+		yield* updateUserSettingsPreferences(client, { reportingTimeZone: UTC });
 		assertCondition(
-			(yield* getUserSettings(client)).preferences.reportingTimeZone === "UTC",
+			(yield* getUserSettings(client)).preferences.reportingTimeZone === TimeZone.make("UTC"),
 			"Expected the analytics fixture account to use UTC reporting time",
 		);
 
@@ -215,8 +216,8 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 				fitnessAnalyticsTotalsRecipe({
 					now,
 					reference,
-					timeZone: "UTC",
 					selection: reportingSelection,
+					timeZone: TimeZone.make("UTC"),
 					filter: { id: exerciseId, kind: "exercises" },
 				}),
 			).pipe(
@@ -262,10 +263,10 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			fitnessAnalyticsTrendRecipe({
 				now,
 				reference,
-				timeZone: "UTC",
 				metric: "workouts",
 				period: "previous",
 				selection: reportingSelection,
+				timeZone: TimeZone.make("UTC"),
 				filter: { id: exerciseId, kind: "exercises" },
 			}),
 		);
@@ -280,9 +281,9 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			fitnessMeasurementReadingsRecipe({
 				now,
 				reference,
-				timeZone: "UTC",
 				metricId: metric.entityId,
 				selection: reportingSelection,
+				timeZone: TimeZone.make("UTC"),
 			}),
 		);
 		assertCondition(

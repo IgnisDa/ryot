@@ -1,4 +1,5 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { ConsumedItem, ConsumptionBasis } from "@ryot-app/media-plugin/shared/consumption";
 import { Effect, Schema } from "effect";
 
@@ -87,9 +88,9 @@ describe("Media consumption projection and reporting", () => {
 				const report = yield* waitForMediaConsumptionReport(client, {
 					reference,
 					now: reportNow,
-					timeZone: "UTC",
 					selection: allTime,
 					entityId: book.entityId,
+					timeZone: TimeZone.make("UTC"),
 				});
 				expect(report.processing).toBe("ready");
 				const allTimeBook = requireMediaConsumptionGroup(report, "book");
@@ -97,7 +98,7 @@ describe("Media consumption projection and reporting", () => {
 				expect(allTimePages.total).toBe(100);
 				expect(allTimeBook.titleCompletions).toBe(1);
 
-				for (const timeZone of ["UTC", "America/New_York"]) {
+				for (const timeZone of [TimeZone.make("UTC"), TimeZone.make("America/New_York")]) {
 					const jan2 = yield* waitForMediaConsumptionReport(client, {
 						timeZone,
 						reference,
@@ -127,15 +128,15 @@ describe("Media consumption projection and reporting", () => {
 				const repaired = yield* waitForMediaConsumptionReport(client, {
 					reference,
 					now: reportNow,
-					timeZone: "UTC",
 					selection: allTime,
 					entityId: book.entityId,
+					timeZone: TimeZone.make("UTC"),
 				});
 				const repairedBook = requireMediaConsumptionGroup(repaired, "book");
 				const repairedPages = yield* mediaConsumptionMeasure(repairedBook, "pages");
 				expect(repairedPages.total).toBe(100);
 				expect(repairedBook.titleCompletions).toBe(1);
-				for (const timeZone of ["UTC", "America/New_York"]) {
+				for (const timeZone of [TimeZone.make("UTC"), TimeZone.make("America/New_York")]) {
 					const jan2 = yield* waitForMediaConsumptionReport(client, {
 						timeZone,
 						reference,
@@ -199,9 +200,9 @@ describe("Media consumption projection and reporting", () => {
 				const initial = yield* waitForMediaConsumptionReport(client, {
 					reference,
 					now: reportNow,
-					timeZone: "UTC",
 					selection: allTime,
 					entityId: movie.entityId,
+					timeZone: TimeZone.make("UTC"),
 				});
 				const initialMovie = requireMediaConsumptionGroup(initial, "movie");
 				const initialMinutes = yield* mediaConsumptionMeasure(initialMovie, "minutes");
@@ -267,9 +268,9 @@ describe("Media consumption projection and reporting", () => {
 				const withUnknown = yield* waitForMediaConsumptionReport(client, {
 					reference,
 					now: reportNow,
-					timeZone: "UTC",
 					selection: allTime,
 					entityId: movie.entityId,
+					timeZone: TimeZone.make("UTC"),
 				});
 				const allTimeMovie = requireMediaConsumptionGroup(withUnknown, "movie");
 				const allTimeMinutes = yield* mediaConsumptionMeasure(allTimeMovie, "minutes");
@@ -280,8 +281,8 @@ describe("Media consumption projection and reporting", () => {
 				const dated = yield* waitForMediaConsumptionReport(client, {
 					reference,
 					now: reportNow,
-					timeZone: "UTC",
 					entityId: movie.entityId,
+					timeZone: TimeZone.make("UTC"),
 					selection: {
 						grouping: "day",
 						comparison: "none",
@@ -293,7 +294,7 @@ describe("Media consumption projection and reporting", () => {
 					"minutes",
 				);
 				expect(datedMinutes.total).toBe(150);
-				for (const timeZone of ["UTC", "America/New_York"]) {
+				for (const timeZone of [TimeZone.make("UTC"), TimeZone.make("America/New_York")]) {
 					const jan2 = yield* waitForMediaConsumptionReport(client, {
 						timeZone,
 						reference,
@@ -345,9 +346,9 @@ describe("Media consumption projection and reporting", () => {
 			const report = yield* waitForMediaConsumptionReport(client, {
 				reference,
 				now: reportNow,
-				timeZone: "UTC",
 				selection: allTime,
 				entityId: manga.entityId,
+				timeZone: TimeZone.make("UTC"),
 			});
 			const mangaGroup = requireMediaConsumptionGroup(report, "manga");
 			const mangaChapters = yield* mediaConsumptionMeasure(mangaGroup, "chapters");
@@ -420,7 +421,12 @@ describe("Media consumption projection and reporting", () => {
 				yield* settledHistoryCorrection(client, userId);
 
 				const reference = yield* mediaReferenceForEntity(client, show.show.id);
-				const reportInput = { reference, now: reportNow, timeZone: "UTC", selection: allTime };
+				const reportInput = {
+					reference,
+					now: reportNow,
+					selection: allTime,
+					timeZone: TimeZone.make("UTC"),
+				};
 				const initial = yield* waitForMediaConsumptionReport(client, reportInput);
 				const parentGroup = requireMediaConsumptionGroup(initial, "show");
 				const episodeGroup = requireMediaConsumptionGroup(initial, "show-episode");

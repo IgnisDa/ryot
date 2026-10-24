@@ -1,5 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import {
 	consumptionRows,
@@ -123,8 +124,8 @@ const logMediaAnalyticsFailureSnapshot = Effect.fn("logMediaAnalyticsFailureSnap
 			client,
 			mediaConsumptionReportRecipe({
 				now,
-				timeZone: "UTC",
 				selection: reportingSelection,
+				timeZone: TimeZone.make("UTC"),
 				reference: diagnosticReference,
 			}),
 		).pipe(
@@ -247,7 +248,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		),
 	);
 	const { client } = account;
-	const timeZone = "UTC";
+	const timeZone = TimeZone.make("UTC");
 	yield* updateUserSettingsPreferences(client, { reportingTimeZone: timeZone });
 	assertCondition(
 		(yield* getUserSettings(client)).preferences.reportingTimeZone === timeZone,

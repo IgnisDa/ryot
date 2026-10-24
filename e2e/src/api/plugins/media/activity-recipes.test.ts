@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-recipes";
 import { Effect } from "effect";
 
@@ -17,9 +18,9 @@ import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media
 import { describe, expect, it } from "~/support/effect-test";
 
 const WINDOW = {
-	timeZone: "America/New_York",
 	from: "2026-01-01T05:00:00.000Z",
 	until: "2026-02-01T05:00:00.000Z",
+	timeZone: TimeZone.make("America/New_York"),
 };
 
 const COMPLETE = {};

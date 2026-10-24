@@ -7,6 +7,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import {
@@ -139,11 +140,11 @@ describe("backup export and restore round trip", () => {
 					const source = yield* createAuthenticatedClient();
 					const target = yield* createAuthenticatedClient();
 					yield* updateUserSettingsPreferences(target.client, {
-						reportingTimeZone: "America/New_York",
+						reportingTimeZone: TimeZone.make("America/New_York"),
 					});
 					if (includeGlobalDependency) {
 						yield* updateUserSettingsPreferences(source.client, {
-							reportingTimeZone: "Asia/Kolkata",
+							reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 						});
 					}
 					const record = yield* createEntity(source.client, {

@@ -1,5 +1,6 @@
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
@@ -41,7 +42,9 @@ for (const testCase of cases) {
 			yield* Effect.addFinalizer(() =>
 				deleteUserAndWait(account.userId, account.client.target).pipe(Effect.ignore),
 			);
-			yield* updateUserSettingsPreferences(account.client, { reportingTimeZone: "UTC" });
+			yield* updateUserSettingsPreferences(account.client, {
+				reportingTimeZone: TimeZone.make("UTC"),
+			});
 			expect((yield* getUserSettings(account.client)).preferences.reportingTimeZone).toBe("UTC");
 			const installed = yield* findBuiltinPluginByPackage(account.client, {
 				scope: "system",

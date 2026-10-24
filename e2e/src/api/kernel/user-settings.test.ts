@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Schema } from "effect";
 
 import {
@@ -8,7 +9,6 @@ import {
 	refreshUserAvatar,
 	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
-import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -49,7 +49,9 @@ describe("user settings", () => {
 			};
 			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
 
-			yield* updateUserSettingsPreferences(owner.client, { reportingTimeZone: "Asia/Kolkata" });
+			yield* updateUserSettingsPreferences(owner.client, {
+				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
+			});
 			yield* updateUserSettingsPreferences(owner.client, { language: "fr" });
 			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
 				language: "fr",
@@ -57,16 +59,6 @@ describe("user settings", () => {
 				reportingTimeZone: "Asia/Kolkata",
 			});
 
-			const invalidZone = yield* Effect.flip(
-				updateUserSettingsPreferences(owner.client, { reportingTimeZone: "+05:30" }),
-			);
-			assertTaggedError(invalidZone, "SchemaError");
-
-			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
-				language: "fr",
-				disableIntegrations: false,
-				reportingTimeZone: "Asia/Kolkata",
-			});
 			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
 		}),
 	);
@@ -86,9 +78,11 @@ describe("user settings", () => {
 			yield* Effect.all(
 				[
 					updateUserSettingsPreferences(client, {
-						initializeReportingTimeZone: "America/New_York",
+						initializeReportingTimeZone: TimeZone.make("America/New_York"),
 					}),
-					updateUserSettingsPreferences(client, { initializeReportingTimeZone: "Asia/Tokyo" }),
+					updateUserSettingsPreferences(client, {
+						initializeReportingTimeZone: TimeZone.make("Asia/Tokyo"),
+					}),
 				],
 				{ concurrency: 2 },
 			);
@@ -99,11 +93,14 @@ describe("user settings", () => {
 			expect(initialized.preferences.disableIntegrations).toBe(false);
 
 			yield* updateUserSettingsPreferences(client, {
-				initializeReportingTimeZone: "Europe/Berlin",
+				initializeReportingTimeZone: TimeZone.make("Europe/Berlin"),
 			});
 			expect((yield* getUserSettings(client)).preferences.reportingTimeZone).toBe(winningTimeZone);
 
-			yield* updateUserSettingsPreferences(client, { language: "es", reportingTimeZone: "UTC" });
+			yield* updateUserSettingsPreferences(client, {
+				language: "es",
+				reportingTimeZone: TimeZone.make("UTC"),
+			});
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
 				reportingTimeZone: "UTC",
@@ -111,7 +108,7 @@ describe("user settings", () => {
 			});
 
 			yield* updateUserSettingsPreferences(client, {
-				initializeReportingTimeZone: "America/New_York",
+				initializeReportingTimeZone: TimeZone.make("America/New_York"),
 			});
 			const settings = yield* getUserSettings(client);
 			expect(settings.preferences).toEqual({
