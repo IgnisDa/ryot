@@ -16,6 +16,13 @@ property references. Provider entities use normal provider resolution; custom en
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
 failed records do not roll back earlier committed records.
 
+A generic record that contains declared event-group schemas resolves external entity dependencies
+first, then commits its user-owned subject, relationships, and complete event group through the existing
+user command. Event preparation can span pages, but the record commits atomically and keeps its
+original per-intent receipt identities. It never uses chunked standalone event creation for that record.
+Independent Data JSON event records still follow standalone event rules; they cannot create an empty
+anchor and rely on a later record to repair it.
+
 Source selection uses `{ owner, slug }`. Kernel Data JSON is
 `{ owner: { kind: "kernel" }, slug: "data-json" }`; a plugin's same local slug selects only that
 plugin. Entity, relationship, and provider references in documents also include their exact owner.

@@ -39,7 +39,7 @@ const user: CurrentUserValue = {
 	email: "user@example.test",
 	id: ingestionTestScope.userId,
 	accountGeneration: ingestionTestScope.accountGeneration,
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 };
 const source: RegisteredImportSource = {
 	slug: "fixture",

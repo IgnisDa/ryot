@@ -7,6 +7,8 @@ import {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
+import type { CommandEntityReference } from "@ryot-app/contract/modules/mutations/user-command";
+import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -68,6 +70,7 @@ import {
 	sameRevisionPin,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
+import { UserCommandWorkflow } from "#modules/user-commands/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -453,6 +456,7 @@ const validateGenericItem = (
 ) =>
 	makeActivity({
 		error: ImportRunError,
+		success: Schema.Boolean,
 		name: `validate-generic-import-item-${index}`,
 		execute: Effect.gen(function* () {
 			const entitiesRepository = yield* EntitiesRepository;
@@ -484,6 +488,7 @@ const validateGenericItem = (
 					),
 				{ discard: true },
 			);
+			let constrained = false;
 			for (const event of item.events) {
 				const subject =
 					event.subjectEntityId !== undefined
@@ -509,6 +514,18 @@ const validateGenericItem = (
 						message: "Import event references an unknown entity alias or subject",
 					});
 				}
+				const entitySchema = definitions.getEntitySchema({
+					owner,
+					slug: EntitySchemaSlug.make(entitySchemaSlug),
+				});
+				constrained ||= Object.values(entitySchema?.eventSchemas ?? {}).some(
+					(schema) =>
+						schema.eventGroup !== undefined &&
+						(schema.slug === event.eventSchemaSlug ||
+							schema.eventGroup.dependents.some(
+								(dependent) => dependent.eventSchemaSlug === event.eventSchemaSlug,
+							)),
+				);
 				yield* definitions.validateEventProperties(
 					{
 						owner,
@@ -556,7 +573,7 @@ const validateGenericItem = (
 					relationship.properties,
 				);
 			}
-			return undefined;
+			return constrained;
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
@@ -581,7 +598,7 @@ export const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(opti
 			options.applyPolicies(pending).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
+export const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	item: GenericImportWriteItem,
 	userId: UserId,
 	index: number,
@@ -592,11 +609,27 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	const entities = yield* EntitiesService;
 	const collections = yield* CollectionsService;
 	const relationships = yield* RelationshipsService;
+	const entityRows = yield* EntitiesRepository;
 	const warnings: AutomationWarningValue[] = [];
 	const writeItem = Effect.fnUntraced(function* () {
-		yield* validateGenericItem(item, userId, index, definitions, pluginRevision);
+		const constrained = yield* validateGenericItem(
+			item,
+			userId,
+			index,
+			definitions,
+			pluginRevision,
+		);
+		const subject = item.entities.find((intent) => intent.alias === item.subjectEntityAlias);
+		if (constrained && (!subject || subject.providerResolution || subject.scope === "global")) {
+			return yield* new ImportRunError({
+				message: "An event-group import requires a user-owned subject entity",
+			});
+		}
 		const aliases = new Map<string, EntityId>();
 		for (const [intentIndex, intent] of item.entities.entries()) {
+			if (constrained && intent.alias === item.subjectEntityAlias) {
+				continue;
+			}
 			if (aliases.has(intent.alias)) {
 				return yield* new ImportRunError({
 					message: `Duplicate import entity alias '${intent.alias}'`,
@@ -650,6 +683,9 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			aliases.set(intent.alias, written.result.entityId);
 		}
 		for (const [relationshipIndex, intent] of item.relationships.entries()) {
+			if (constrained) {
+				break;
+			}
 			const sourceEntityId = aliases.get(intent.sourceAlias);
 			const targetEntityId = aliases.get(intent.targetAlias);
 			if (!sourceEntityId || !targetEntityId) {
@@ -691,6 +727,144 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			});
 			warnings.push(...written.warnings);
 		}
+		if (constrained && subject) {
+			const reference = (alias: string): undefined | typeof CommandEntityReference.Type => {
+				if (alias === item.subjectEntityAlias) {
+					return { kind: "root" };
+				}
+				const entityId = aliases.get(alias);
+				return entityId === undefined ? undefined : { entityId, kind: "existing" };
+			};
+			const atomicInput = yield* makeActivity({
+				success: UserCommand,
+				error: ImportRunError,
+				name: `prepare-generic-import-record-${index}`,
+				execute: Effect.gen(function* () {
+					let existingId =
+						subject.entityId === undefined ? undefined : EntityId.make(subject.entityId);
+					if (!existingId && subject.match) {
+						const candidates = yield* entityRows.listMatchCandidatesBySchema({
+							userId,
+							entitySchema: {
+								owner: definitionOwner(pluginRevision.id),
+								slug: EntitySchemaSlug.make(subject.entitySchemaSlug),
+							},
+						});
+						existingId = candidates.find((candidate) =>
+							matchesImportIntent(candidate, subject),
+						)?.id;
+					}
+					const existing =
+						existingId === undefined
+							? null
+							: yield* entityRows.getByIdForUser({ userId, entityId: existingId });
+					if (
+						existingId !== undefined &&
+						(!existing ||
+							existing.entitySchemaPluginId !== pluginRevision.id ||
+							existing.entitySchemaSlug !== subject.entitySchemaSlug)
+					) {
+						return yield* new ImportRunError({
+							message: "Import subject entity is unavailable or has the wrong schema",
+						});
+					}
+					if (!existing && subject.existingOnly) {
+						return yield* new ImportRunError({
+							message: "Required import subject entity was not found",
+						});
+					}
+					for (const relation of item.relationships) {
+						for (const alias of [relation.sourceAlias, relation.targetAlias]) {
+							if (alias !== item.subjectEntityAlias && !aliases.has(alias)) {
+								return yield* new ImportRunError({
+									message: "Import relationship references an unknown entity alias",
+								});
+							}
+						}
+					}
+					for (const event of item.events) {
+						if (
+							(!event.subjectEntityId &&
+								event.entityAlias !== item.subjectEntityAlias &&
+								!aliases.has(event.entityAlias)) ||
+							(event.sessionEntityAlias &&
+								event.sessionEntityAlias !== item.subjectEntityAlias &&
+								!aliases.has(event.sessionEntityAlias))
+						) {
+							return yield* new ImportRunError({
+								message: "Import event references an unknown entity alias",
+							});
+						}
+					}
+					return yield* Schema.decodeUnknownEffect(UserCommand)({
+						relationships: item.relationships.map((relation) => ({
+							properties: relation.properties,
+							source: reference(relation.sourceAlias),
+							target: reference(relation.targetAlias),
+							propertiesMode: relation.propertiesMode ?? "replace",
+							relationshipSchemaSlug: relation.relationshipSchemaSlug,
+						})),
+						events: {
+							changes: [],
+							creates: item.events.map((event) => ({
+								properties: event.properties,
+								itemIdentity: event.operationId,
+								eventSchemaSlug: event.eventSchemaSlug,
+								entity: event.subjectEntityId
+									? { kind: "existing", entityId: EntityId.make(event.subjectEntityId) }
+									: reference(event.entityAlias),
+								...(event.sessionEntityAlias
+									? { session: reference(event.sessionEntityAlias) }
+									: {}),
+								...(event.occurredAt ? { occurredAt: event.occurredAt } : {}),
+							})),
+						},
+						entity: existing
+							? {
+									name: existing.name,
+									properties: existing.properties,
+									entitySchemaSlug: subject.entitySchemaSlug,
+									target: {
+										kind: "update",
+										entityId: existing.id,
+										expected: {
+											name: existing.name,
+											updatedAt: existing.updatedAt,
+											properties: existing.properties,
+										},
+									},
+								}
+							: {
+									name: subject.name,
+									target: { kind: "create" },
+									properties: subject.properties,
+									entitySchemaSlug: subject.entitySchemaSlug,
+								},
+					}).pipe(Effect.mapError(toWorkflowError));
+				}).pipe(Effect.mapError(toWorkflowError)),
+			});
+			const written = yield* UserCommandWorkflow.execute({
+				userId,
+				input: atomicInput,
+				command: {
+					...command,
+					itemIdentity: stableStringify(["ingestion-record", subject.operationId]),
+				},
+				itemIdentities: {
+					entity: ingestionOperationCommand(command, subject.operationId).itemIdentity,
+					relationships: item.relationships.map(
+						(relation) => ingestionOperationCommand(command, relation.operationId).itemIdentity,
+					),
+					events: Object.fromEntries(
+						item.events.map((event) => [
+							event.operationId,
+							ingestionOperationCommand(command, event.operationId).itemIdentity,
+						]),
+					),
+				},
+			});
+			aliases.set(subject.alias, written.entityId);
+		}
 		const events: CreateEventItem[] = [];
 		const collectionMemberships: Array<{
 			entityId: EntityId;
@@ -698,6 +872,9 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			collectionId: EntityId;
 		}> = [];
 		for (const intent of item.events) {
+			if (constrained) {
+				break;
+			}
 			const entityId =
 				intent.subjectEntityId !== undefined
 					? EntityId.make(intent.subjectEntityId)
