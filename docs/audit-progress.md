@@ -15,7 +15,7 @@
 
 ## Status
 
-**36 implemented, 0 in progress, 47 pending; 3 excluded.**
+**37 implemented, 0 in progress, 46 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -69,7 +69,7 @@
 | B21-R1 | Pending | Validate and expand a query document once. |
 | P10-R1 | Pending | Decode presentation rows without fabricated pages. |
 | P12-R1 | Pending | Pass typed local renderer query values. |
-| P05-R1 | Pending | Render flat tables without the unused table engine. |
+| P05-R1 | Implemented | Render flat tables directly without table-engine boxing or scans; remove the unused engine dependency. See this finding's audit commit. |
 | P05-R2 | Pending | Derive reorder preview from one destination. |
 | B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
 | S03-R2 | Pending | Borrow result/console data during done serialization. |
@@ -201,3 +201,4 @@
 - B05-R1: backend type and scoped format/lint checks passed before 99 tests across five files; read-only review reported no findings. Redis shape changed without a dual decoder or compatibility path. No production data or drain machinery is involved; no reset was performed.
 - B30-R1: scoped type, format, and lint checks passed before five S3 tests; read-only review reported no findings. The full backend check had temporary concurrent errors; final acceptance remains pending. Configuration changes from B30-R2 were not included.
 - C06-R1: client and recipe type checks plus scoped format/lint passed before 229 client tests, 18 recipe tests, and three additional recipe tests; read-only review reported no findings. Active watch recipes and route preparation remain. Development data is disposable; no compatibility path or drain machinery is needed, and no reset was performed.
+- P05-R1: UI check and consumer checks passed before 313 UI, 34 renderer, 35 admin, and one compiler test; read-only review reported no issues.
