@@ -53,13 +53,12 @@ const validateSavedViewSearch = (search: Record<string, unknown>) => ({
 });
 
 export const savedViewRouteOptions = {
-	staleTime: 30_000,
-	shouldReload: true,
+	gcTime: 0,
+	shouldReload: false,
 	errorComponent: SavedViewError,
 	pendingComponent: ClientPagePending,
 	notFoundComponent: SavedViewNotFound,
 	validateSearch: validateSavedViewSearch,
-	loaderDeps: ({ search }: { readonly search: SavedViewSearch }) => search,
 };
 
 export const loadSavedView = Effect.fn("loadSavedView")(function* (

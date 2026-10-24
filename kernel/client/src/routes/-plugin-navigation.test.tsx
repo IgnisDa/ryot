@@ -477,19 +477,27 @@ describe("client page routes", () => {
 			expect(frame.closest('main[aria-hidden="true"]')).toBeNull();
 			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
 			expect(view.getDocumentLoads()).toBe(1);
+			yield* Effect.promise(() => view.router.navigate({ href: "/v/c/first-view" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.targets).toEqual([
+						{ kind: "saved-view", reference: { kind: "custom", savedViewId: "first-view" } },
+						{ kind: "saved-view", reference: { kind: "custom", savedViewId: "second-view" } },
+						{ kind: "saved-view", reference: { kind: "custom", savedViewId: "first-view" } },
+					]),
+				),
+			);
 		}),
 	);
 
-	it.live("keeps pending search updates when another page-search request arrives", () =>
+	it.live("keeps saved-view context stable while merging page-search updates", () =>
 		Effect.gen(function* () {
 			let preparations = 0;
 			const view = mount({
 				entry: "/v/c/fixture-view?keep=1",
 				prepare: () => {
 					preparations++;
-					return preparations === 2
-						? Effect.never
-						: Effect.succeed(preparedSavedView(SavedViewId.make("fixture-view")));
+					return Effect.succeed(preparedSavedView(SavedViewId.make("fixture-view")));
 				},
 			});
 			const bridge = connectFrame(
@@ -501,7 +509,6 @@ describe("client page routes", () => {
 				type: "page-search",
 				update: { sort: "name-desc" },
 			});
-			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(2)));
 			bridge.port.postMessage({ mode: "replace", type: "page-search", update: { layout: "list" } });
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -512,6 +519,8 @@ describe("client page routes", () => {
 					}),
 				),
 			);
+			expect(preparations).toBe(1);
+			expect(bridge.messages).not.toContainEqual(expect.objectContaining({ type: "document" }));
 		}),
 	);
 
