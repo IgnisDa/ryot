@@ -13,7 +13,7 @@
 
 ## Status
 
-**12 implemented, 4 in progress, 67 pending; 3 excluded.**
+**13 implemented, 4 in progress, 66 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -30,9 +30,9 @@
 | C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. `628a6a0b55`. |
 | B04-R1 | Implemented | Account generation is the sole bootstrap identity; reset joins the independent creation/reconciliation workflow root. See this finding's `audit:` commit. |
 | B19-R1 | Implemented | One read-only selection snapshot governs preparation and freshness without materializing during freshness checks. See this finding's `audit:` commit. |
-| B07-R2 | In progress | Commit restore data and completion bookkeeping together. |
+| B07-R2 | Implemented | Restored data and run completion share one transaction; completed status governs replay and ambiguous-commit recovery. See this finding's `audit:` commit. |
 | F03-R2 | Implemented | One pure expiry reconciliation owns completion and feedback; invalid expiry clears execution without confirmation, rest, or progression. See this finding's `audit:` commit. |
-| F03-R1 | Pending | One workout-editor save owner. |
+| F03-R1 | In progress | One workout-editor save owner. |
 | C04-R1 | In progress | Release partially acquired native listeners. |
 | C05-R1 | In progress | Keep form edits from reloading remote catalog pages. |
 | F05-R1 | In progress | Preserve independent activity for equal-name targets and all roles. |
@@ -166,3 +166,4 @@
 - Resumed at the user's request with one implementation subagent per finding. Independent backup, expiry, device, readiness, and home-activity work runs in parallel; F03-R1 follows F03-R2 because they share the workout controller.
 - Each finding retains its own review and `audit:` commit. Affected validation, main-session cleanup, and final repository-wide acceptance are pending.
 - F03-R2: removed the fallback auto-confirm path. Added combined invalid-input, prompt, late-observation, replacement, and independent-rest regressions. Fitness check passed before 16 editor files / 163 tests. Read-only review reported no findings. No persisted shapes, suppressions, or bypass casts changed.
+- B07-R2: historical writes and `completeRun` use the captured database transaction. Completed status replaces progress-90 replay logic; ambiguous failures reread completion before retry/failure. Cleanup only deletes the temporary upload best-effort. Backend check passed before 11 backup files / 130 tests, including real PostgreSQL commit/rollback, lost acknowledgement, postcommit cancellation, replay, unavailable cleanup, and deadlock retry. Read-only review reported no findings. Drain active restores before deployment; no compatibility path was added.
