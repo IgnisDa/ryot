@@ -38,8 +38,6 @@ export const showSeasonRow = {
 	seasonNumber: 1,
 	upcomingTotal: 0,
 	name: "Season 1",
-	watchedMinutes: 66,
-	watchedUnknownRuntime: 0,
 	schemaSlug: "show-season",
 	releaseDate: "2025-03-13",
 	description: "The complete limited series.",

@@ -24,6 +24,7 @@ const emptyEventProperties = {
 	isSpoiler: null,
 	consumedOn: null,
 	dateUnknown: null,
+	consumedItem: null,
 	entityId: "entity-1",
 	sessionEntityId: null,
 	progressPercent: null,
@@ -103,7 +104,10 @@ type ActivityRows = {
 };
 
 const activityRows = (items: readonly Record<string, unknown>[], hasMore: boolean) =>
-	rowsResult(items, { hasMore, limit: 60, nextCursor: hasMore ? "activity-cursor" : null });
+	rowsResult(
+		items.map((item) => ({ consumptionFailedCount: 0, consumptionPendingCount: 0, ...item })),
+		{ hasMore, limit: 60, nextCursor: hasMore ? "activity-cursor" : null },
+	);
 
 export const decodeFlatActivity = (input: ActivityRows = {}) =>
 	Result.getOrThrow(

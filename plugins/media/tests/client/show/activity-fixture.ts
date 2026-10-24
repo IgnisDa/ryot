@@ -24,6 +24,7 @@ const emptyEventProperties = {
 	consumedOn: null,
 	entityId: "entity-1",
 	sessionEntityId: null,
+	consumptionMinutes: null,
 };
 
 const emptyParentProperties = { ...emptyEventProperties, startedOn: null, dateUnknown: null };
@@ -135,6 +136,7 @@ export const showDroppedEventRow = {
 };
 
 export const firstWatchDayRow = {
+	missing: 0,
 	minutes: 66,
 	runtime: 55,
 	seasonNumber: 1,
@@ -147,6 +149,7 @@ export const firstWatchDayRow = {
 };
 
 export const secondWatchDayRow = {
+	missing: 1,
 	runtime: 61,
 	minutes: null,
 	seasonNumber: 1,
@@ -178,8 +181,6 @@ export const regularSeasonRow = {
 	episodeTotal: 4,
 	watchedTotal: 2,
 	upcomingTotal: 0,
-	watchedMinutes: 116,
-	watchedUnknownRuntime: 0,
 };
 
 export const specialsSeasonRow = {
@@ -188,8 +189,6 @@ export const specialsSeasonRow = {
 	episodeTotal: 2,
 	watchedTotal: 0,
 	upcomingTotal: 0,
-	watchedMinutes: null,
-	watchedUnknownRuntime: 0,
 };
 
 export const rewatchCompletionEventRow = {
@@ -229,6 +228,7 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 						properties: {},
 						progressPercent,
 						sessionEntityId: null,
+						consumptionMinutes: null,
 						entityId: "episode-entity",
 					},
 				],
@@ -245,7 +245,6 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodeReviewEventRow], false),
 				coverage: activityRows(input.coverage ?? [specialsSeasonRow, regularSeasonRow], false),
-				totals: activityRows([{ historyEventCount: 0, watchCount: input.watchCount ?? 1 }], false),
 				collectionEvents: activityRows(
 					input.collectionEvents ?? [collectionRemovedEventRow, collectionAddedEventRow],
 					false,
@@ -259,6 +258,19 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 					pageInfo: { limit: 1000, hasMore: hasMore },
 					items: input.watchDays ?? [firstWatchDayRow, secondWatchDayRow],
 				},
+				totals: activityRows(
+					[
+						{
+							consumedAmount: 116,
+							historyEventCount: 0,
+							unknownAmountCount: 0,
+							consumptionFailedCount: 0,
+							consumptionPendingCount: 0,
+							completionCount: input.watchCount ?? 1,
+						},
+					],
+					false,
+				),
 			},
 		}),
 	);

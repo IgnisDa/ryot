@@ -2,6 +2,18 @@
 	"name": "@ryot-app/media-plugin",
 	"private": true,
 	"exports": {
+		"./shared/analytics-recipes": {
+			"types": "./shared/analytics-recipes.ts",
+			"default": "./shared/analytics-recipes.ts"
+		},
+		"./shared/consumption-recipes": {
+			"types": "./shared/consumption-recipes.ts",
+			"default": "./shared/consumption-recipes.ts"
+		},
+		"./shared/consumption": {
+			"types": "./shared/consumption.ts",
+			"default": "./shared/consumption.ts"
+		},
 		"./shared/media-genres": {
 			"types": "./shared/media-genres.ts",
 			"default": "./shared/media-genres.ts"

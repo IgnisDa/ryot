@@ -28,6 +28,7 @@ const emptyEventProperties = {
 	consumedOn: null,
 	entityId: "entity-1",
 	sessionEntityId: null,
+	consumptionMinutes: null,
 };
 
 const emptyParentProperties = { ...emptyEventProperties, startedOn: null, dateUnknown: null };
@@ -37,8 +38,6 @@ export const episodicCoverageRow = {
 	episodeTotal: 4,
 	watchedTotal: 2,
 	upcomingTotal: 0,
-	watchedMinutes: 116,
-	watchedUnknownRuntime: 0,
 };
 
 export const episodicBacklogEventRow = {
@@ -121,6 +120,7 @@ export const episodicCollectionAddedEventRow = {
 };
 
 export const episodicFirstWatchDayRow = {
+	missing: 0,
 	minutes: 66,
 	runtime: 55,
 	episodeNumber: 1,
@@ -132,6 +132,7 @@ export const episodicFirstWatchDayRow = {
 };
 
 export const episodicSecondWatchDayRow = {
+	missing: 1,
 	runtime: 61,
 	minutes: null,
 	episodeNumber: 2,
@@ -167,6 +168,10 @@ export const episodicRewatchCompletionEventRow = {
 type ActivityRows = {
 	readonly truncated?: boolean;
 	readonly watchCount?: number;
+	readonly consumedAmount?: number;
+	readonly unknownAmountCount?: number;
+	readonly consumptionFailedCount?: number;
+	readonly consumptionPendingCount?: number;
 	readonly coverage?: readonly Record<string, unknown>[];
 	readonly watchDays?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
@@ -193,6 +198,7 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 						properties: {},
 						progressPercent,
 						sessionEntityId: null,
+						consumptionMinutes: null,
 						entityId: "episode-entity",
 					},
 				],
@@ -208,7 +214,6 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 			data: {
 				coverage: activityRows(input.coverage ?? [episodicCoverageRow], false),
 				episodeProgress: progressRows(input.episodeProgress ?? [episodicProgressRow]),
-				totals: activityRows([{ historyEventCount: 0, watchCount: input.watchCount ?? 1 }], false),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodicEpisodeReviewEventRow], false),
 				collectionEvents: activityRows(
 					input.collectionEvents ?? [episodicCollectionAddedEventRow],
@@ -227,6 +232,19 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 						episodicReviewEventRow,
 					],
 					hasMore,
+				),
+				totals: activityRows(
+					[
+						{
+							historyEventCount: 0,
+							completionCount: input.watchCount ?? 1,
+							consumedAmount: input.consumedAmount ?? 116,
+							unknownAmountCount: input.unknownAmountCount ?? 0,
+							consumptionFailedCount: input.consumptionFailedCount ?? 0,
+							consumptionPendingCount: input.consumptionPendingCount ?? 0,
+						},
+					],
+					false,
 				),
 			},
 		}),
