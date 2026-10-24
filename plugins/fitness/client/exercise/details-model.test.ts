@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { exerciseRecord } from "../../tests/client/exercise-fixtures";
 import {
@@ -72,7 +73,7 @@ describe("exercise details model", () => {
 		const metric = heaviestWeight();
 		const input = {
 			metric,
-			timeZone: "UTC",
+			timeZone: TimeZone.make("UTC"),
 			now: new Date("2026-10-12T00:00:00.000Z"),
 			months: [month("2023-01-01T00:00:00.000Z", 60), month("2026-08-01T00:00:00.000Z", 80)],
 		};
@@ -96,8 +97,8 @@ describe("exercise details model", () => {
 		const [point] = buildMonthSeries({
 			metric,
 			range: "all",
-			timeZone: "Pacific/Auckland",
 			now: new Date("2026-06-15T00:00:00.000Z"),
+			timeZone: TimeZone.make("Pacific/Auckland"),
 			months: [month("2026-05-31T12:00:00.000Z", 90)],
 		});
 

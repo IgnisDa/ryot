@@ -1,5 +1,6 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { column, eq, literal, table } from "@ryot-app/plugin-kit/ryotql";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,8 +27,8 @@ describe("workoutWeeksRecipe", () => {
 		const recipe = workoutWeeksRecipe({
 			...range,
 			search: "",
-			timeZone: "UTC",
 			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
 		});
 		for (const coverage of [
 			{ failedSets: 0, pendingSets: 1 },
@@ -53,8 +54,8 @@ describe("workoutWeeksRecipe", () => {
 		const recipe = workoutWeeksRecipe({
 			...range,
 			search: "",
-			timeZone: "UTC",
 			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
 		});
 		const decoded = Result.getOrThrow(
 			recipe.decode({
@@ -93,8 +94,8 @@ describe("workoutSummaryRecipe", () => {
 		days: range,
 		current: range,
 		previous: range,
-		timeZone: "UTC",
 		reference: { kind: "self" },
+		timeZone: TimeZone.make("UTC"),
 	});
 
 	it("stays within the document query limit", () => {
@@ -160,7 +161,13 @@ describe("workout filter predicates", () => {
 	});
 
 	it("narrows both the workout and set queries of the week totals", () => {
-		const recipe = workoutWeeksRecipe({ ...range, filter, reference, search: "", timeZone: "UTC" });
+		const recipe = workoutWeeksRecipe({
+			...range,
+			filter,
+			reference,
+			search: "",
+			timeZone: TimeZone.make("UTC"),
+		});
 		for (const query of Object.values(recipe.document.queries)) {
 			expect(serialize(query)).toContain("marker-workout");
 		}
@@ -172,7 +179,7 @@ describe("workout filter predicates", () => {
 			days: range,
 			current: range,
 			previous: range,
-			timeZone: "UTC",
+			timeZone: TimeZone.make("UTC"),
 		});
 		expect(documentText(recipe)).not.toContain("marker-workout");
 	});

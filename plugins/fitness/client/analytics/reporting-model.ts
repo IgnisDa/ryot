@@ -1,7 +1,13 @@
 import {
+	addCalendarDays,
+	addCalendarUnits,
 	type AnalyticsSectionProps,
+	calendarPeriod,
+	localDateOf,
 	type ReportingSelection,
 	resolveReportingSelection,
+	startOfCalendarUnit,
+	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
@@ -157,57 +163,6 @@ export const compareQuantities = (current: null | number, previous: null | numbe
 	};
 };
 
-const DAY_MS = 86_400_000;
-const dateNumber = (date: string) => Date.parse(`${date}T00:00:00Z`);
-export const addCalendarDays = (date: string, days: number) =>
-	new Date(dateNumber(date) + days * DAY_MS).toISOString().slice(0, 10);
-
-const localDate = (at: string | number, timeZone: string) => {
-	if (typeof at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(at)) {
-		return at;
-	}
-	const parts = new Intl.DateTimeFormat("en-CA", {
-		timeZone,
-		day: "2-digit",
-		year: "numeric",
-		month: "2-digit",
-	}).formatToParts(typeof at === "string" ? Date.parse(at) : at);
-	const part = (type: string) => parts.find((item) => item.type === type)?.value;
-	return `${part("year")}-${part("month")}-${part("day")}`;
-};
-const bucketDate = (date: string, grouping: ReportingGrouping) => {
-	if (grouping === "year") {
-		return `${date.slice(0, 4)}-01-01`;
-	}
-	if (grouping === "month") {
-		return `${date.slice(0, 7)}-01`;
-	}
-	return grouping === "week"
-		? addCalendarDays(date, -((new Date(dateNumber(date)).getUTCDay() + 6) % 7))
-		: date;
-};
-const nextBucketDate = (date: string, grouping: ReportingGrouping) => {
-	const next = new Date(dateNumber(date));
-	if (grouping === "year") {
-		next.setUTCFullYear(next.getUTCFullYear() + 1);
-	} else if (grouping === "month") {
-		next.setUTCMonth(next.getUTCMonth() + 1);
-	} else {
-		next.setUTCDate(next.getUTCDate() + (grouping === "week" ? 7 : 1));
-	}
-	return next.toISOString().slice(0, 10);
-};
-const calendarPeriod = (startDate: string, endDate: string, timeZone: string): ReportingPeriod => {
-	const resolved = resolveReportingSelection(
-		{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
-		{ timeZone, now: dateNumber(startDate) },
-	);
-	if (resolved.current === null) {
-		throw new Error("A calendar range must resolve a reporting period");
-	}
-	return resolved.current;
-};
-
 export type TrendGrid<Point> = {
 	readonly partial: boolean;
 	readonly complete: boolean;
@@ -229,11 +184,14 @@ type SparseTrend<Point> = {
 
 export const trendGrid = <Point extends { readonly at: string; readonly value: null | number }>(
 	trend: SparseTrend<Point>,
-	timeZone: string,
+	timeZone: TimeZone,
 	emptyValue: 0 | null = null,
 ): TrendGrid<Point> => {
 	const points = new Map(
-		trend.points.map((point) => [bucketDate(localDate(point.at, timeZone), trend.grouping), point]),
+		trend.points.map((point) => [
+			startOfCalendarUnit(localDateOf(point.at, timeZone), trend.grouping),
+			point,
+		]),
 	);
 	const dates = [...points.keys()].sort();
 	const first = trend.period?.startDate ?? dates[0];
@@ -241,14 +199,14 @@ export const trendGrid = <Point extends { readonly at: string; readonly value: n
 	const sourceEndDate =
 		lastSourceDate === undefined
 			? undefined
-			: addCalendarDays(nextBucketDate(lastSourceDate, trend.grouping), -1);
+			: addCalendarDays(addCalendarUnits(lastSourceDate, trend.grouping, 1), -1);
 	let last = trend.period?.endDate ?? sourceEndDate;
 	if (trend.hasMore) {
 		const lastKnown = dates.at(-1);
 		if (lastKnown === undefined) {
 			last = undefined;
 		} else {
-			const lastKnownEnd = addCalendarDays(nextBucketDate(lastKnown, trend.grouping), -1);
+			const lastKnownEnd = addCalendarDays(addCalendarUnits(lastKnown, trend.grouping, 1), -1);
 			if (last === undefined || lastKnownEnd < last) {
 				last = lastKnownEnd;
 			}
@@ -258,10 +216,10 @@ export const trendGrid = <Point extends { readonly at: string; readonly value: n
 		return { buckets: [], partial: trend.hasMore, complete: !trend.hasMore };
 	}
 	const buckets: TrendBucket<Point>[] = [];
-	let date = bucketDate(first, trend.grouping);
-	for (; date <= last && buckets.length < 1000; date = nextBucketDate(date, trend.grouping)) {
+	let date = startOfCalendarUnit(first, trend.grouping);
+	for (; date <= last && buckets.length < 1000; date = addCalendarUnits(date, trend.grouping, 1)) {
 		const source = points.get(date) ?? null;
-		const next = nextBucketDate(date, trend.grouping);
+		const next = addCalendarUnits(date, trend.grouping, 1);
 		const endDate = addCalendarDays(next, -1);
 		const period = calendarPeriod(
 			first > date ? first : date,
@@ -295,7 +253,7 @@ export const pairTrendBuckets = <Point>(
 export const workoutTrendModel = (
 	current: AnalyticsTrend,
 	previous: null | AnalyticsTrend,
-	timeZone: string,
+	timeZone: TimeZone,
 	preferences: AnalyticsDisplayPreferences,
 ) => {
 	const build = (trend: AnalyticsTrend) => {
@@ -374,7 +332,7 @@ export const smoothMeasurementBuckets = (
 export const measurementTrendModel = (
 	current: MeasurementTrend,
 	previous: null | MeasurementTrend,
-	timeZone: string,
+	timeZone: TimeZone,
 	smooth = false,
 ) => {
 	const build = (trend: MeasurementTrend) => {
@@ -415,7 +373,7 @@ export const measurementTrendModel = (
 
 export const consistencySelection = (input: AnalyticsInput, now: number) => {
 	const resolved = resolveReportingSelection(input.selection, { now, timeZone: input.timeZone });
-	const endDate = resolved.current?.endDate ?? localDate(now, input.timeZone);
+	const endDate = resolved.current?.endDate ?? localDateOf(now, input.timeZone);
 	const earliest = addCalendarDays(endDate, -(26 * 7 - 1));
 	const startDate =
 		resolved.current === null || resolved.current.startDate < earliest
@@ -433,7 +391,7 @@ export const consistencySelection = (input: AnalyticsInput, now: number) => {
 
 export const consistencyModel = (
 	trend: AnalyticsTrend & { readonly clipped?: boolean },
-	timeZone: string,
+	timeZone: TimeZone,
 ) => {
 	const grid = trendGrid(trend, timeZone, 0);
 	const first = grid.buckets[0];

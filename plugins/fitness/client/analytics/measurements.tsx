@@ -1,4 +1,7 @@
-import { useRyotViewport as usePluginViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	type TimeZone,
+	useRyotViewport as usePluginViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	paginationItems,
 	useRyotInfiniteQuery,
@@ -74,7 +77,7 @@ function bucketDetail(bucket: {
 		: `${bucket.detail}; source average ${formatExactValue(bucket.source.value, bucket.source.unit)}`;
 }
 
-function formatReadingTime(occurredAt: string, timeZone: string) {
+function formatReadingTime(occurredAt: string, timeZone: TimeZone) {
 	return new Intl.DateTimeFormat(undefined, {
 		timeZone,
 		day: "numeric",
@@ -342,7 +345,7 @@ function MeasurementTrendPanel(props: {
 function TrendChart(props: {
 	readonly smooth: boolean;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly metric: SelectedMetric;
 	readonly current: Reported<MeasurementTrend>;
 	readonly previous?: undefined | Reported<MeasurementTrend>;
@@ -400,7 +403,7 @@ function TrendChart(props: {
 }
 
 function ReadingsTable(props: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly readings: readonly MeasurementReading[];
 	readonly query: ReturnType<typeof useSelectedReadings>;
 }) {

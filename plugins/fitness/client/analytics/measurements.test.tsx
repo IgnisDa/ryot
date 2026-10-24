@@ -10,6 +10,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { useState } from "react";
 
@@ -78,7 +79,7 @@ const trendPoint = (at: string, value: null | number, readings: number, unit: nu
 
 const scopeFor = (owner = "fitness-owner", selected = selection): AnalyticsScope => ({
 	selection: selected,
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	owner: { kind: "local", pluginId: PluginId.make(owner) },
 });
 

@@ -1,5 +1,10 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginLink, usePageRefresh, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	PluginLink,
+	type TimeZone,
+	usePageRefresh,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button } from "@ryot-app/plugin-ui-sdk";
@@ -30,7 +35,7 @@ export default function FitnessHomePage() {
 	);
 }
 
-function FitnessHomeBody({ timeZone }: { readonly timeZone: string }) {
+function FitnessHomeBody({ timeZone }: { readonly timeZone: TimeZone }) {
 	const client = useRyot();
 	const { compact } = useRyotViewport();
 	const draft = useActiveEditorDraft();

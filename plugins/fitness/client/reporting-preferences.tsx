@@ -1,9 +1,10 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useReportingPreferences } from "@ryot-app/plugin-client-sdk/react";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
 
 export function ReportingPreferences(props: {
-	readonly children: (timeZone: string) => ReactNode;
+	readonly children: (timeZone: TimeZone) => ReactNode;
 }) {
 	const preferences = useReportingPreferences();
 	if (preferences.data !== undefined) {

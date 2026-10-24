@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
@@ -8,13 +9,16 @@ import {
 	buildWorkoutCards,
 	groupByWeek,
 	summaryWindows,
-	weekKey,
 } from "./model";
 
 const now = new Date("2026-10-18T12:00:00.000Z");
 
 it("uses reporting-calendar boundaries across daylight-saving changes", () => {
-	const windows = summaryWindows("7D", new Date("2026-11-01T18:00:00.000Z"), "America/New_York");
+	const windows = summaryWindows(
+		"7D",
+		new Date("2026-11-01T18:00:00.000Z"),
+		TimeZone.make("America/New_York"),
+	);
 	expect(windows.current).toMatchObject({
 		endAt: "2026-11-02T05:00:00.000Z",
 		startAt: "2026-10-26T04:00:00.000Z",
@@ -78,20 +82,12 @@ const cards = (items: readonly WorkoutListItem[], imperial = false) =>
 		items,
 		imperial,
 		targets: [],
-		timeZone: "UTC",
+		timeZone: TimeZone.make("UTC"),
 		comparisons: [
 			{ id: "prior", volume: 800, startedAt: "2026-10-07T17:00:00.000Z" },
 			{ volume: 0, id: "empty-prior", startedAt: "2026-10-03T17:00:00.000Z" },
 		],
 	});
-
-describe("weekKey", () => {
-	it("starts weeks on Monday in the viewer's time zone", () => {
-		const lateSunday = new Date("2026-10-11T22:30:00.000Z");
-		expect(weekKey(lateSunday, "UTC")).toBe("2026-10-05");
-		expect(weekKey(lateSunday, "Pacific/Auckland")).toBe("2026-10-12");
-	});
-});
 
 describe("buildWorkoutCards", () => {
 	it("compares with the workout it repeats, the template's previous session, or nothing", () => {
@@ -172,7 +168,7 @@ describe("groupByWeek", () => {
 		const sections = groupByWeek({
 			now,
 			imperial: false,
-			timeZone: "UTC",
+			timeZone: TimeZone.make("UTC"),
 			totals: [
 				{
 					workouts: 3,
@@ -230,7 +226,7 @@ describe("buildHeatmap", () => {
 				],
 			}),
 			new Date("2026-10-15T12:00:00.000Z"),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(heatmap.streak).toBe(3);
 		expect(heatmap.weeks.at(-1)?.cells.map(({ level }) => level)).toEqual([

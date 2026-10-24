@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
@@ -35,7 +36,7 @@ export function LogMeasurementButton(props: {
 	);
 }
 
-export function MeasurementsCard(props: { readonly now: Date; readonly timeZone: string }) {
+export function MeasurementsCard(props: { readonly now: Date; readonly timeZone: TimeZone }) {
 	const { now, timeZone } = props;
 	const logger = useMeasurementLogger();
 	const summaries = useRyotQuery(summaryQuery, { range: "All" });
@@ -66,7 +67,7 @@ export function MeasurementsCard(props: { readonly now: Date; readonly timeZone:
 
 function PinnedTiles(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly pinned: readonly MeasurementSummary[];
 	readonly summaries: readonly MeasurementSummary[];
 }) {

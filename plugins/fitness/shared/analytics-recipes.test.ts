@@ -1,4 +1,5 @@
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,8 +11,8 @@ import {
 } from "./analytics-recipes";
 
 const recipe = fitnessAnalyticsTotalsRecipe({
-	timeZone: "UTC",
 	reference: { kind: "self" },
+	timeZone: TimeZone.make("UTC"),
 	now: Date.parse("2026-10-01T00:00:00.000Z"),
 	selection: {
 		grouping: "auto",
@@ -87,7 +88,7 @@ describe("fitness analytics totals", () => {
 
 const input = {
 	reference: { kind: "self" },
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	now: Date.parse("2026-11-01T18:00:00.000Z"),
 	selection: {
 		grouping: "day",

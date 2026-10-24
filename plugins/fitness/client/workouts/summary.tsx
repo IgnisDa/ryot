@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { Button, Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
@@ -18,10 +19,10 @@ const headingClass = "text-[13px] font-medium tracking-wider text-text-subtle up
 
 export function WorkoutSummarySection(props: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly isError: boolean;
 	readonly imperial: boolean;
 	readonly period: PeriodKey;
+	readonly timeZone: TimeZone;
 	readonly onRetry: () => void;
 	readonly summary: undefined | WorkoutSummary;
 	readonly onPeriodChange: (period: PeriodKey) => void;
@@ -83,7 +84,7 @@ export function WorkoutSummarySection(props: {
 
 function Heatmap(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly summary: WorkoutSummary;
 }) {
 	const { weeks, streak } = buildHeatmap(props.summary, props.now, props.timeZone);

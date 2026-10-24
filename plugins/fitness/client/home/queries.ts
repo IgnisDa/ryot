@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+import { resolveReportingSelection, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import {
@@ -26,7 +26,7 @@ export const latestWorkoutQuery = createRyotQuery(({ client }) =>
 );
 
 export const muscleActivityQuery = createRyotQuery<
-	{ readonly timeZone: string },
+	{ readonly timeZone: TimeZone },
 	readonly MuscleActivity[]
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {
@@ -47,7 +47,7 @@ export const muscleActivityQuery = createRyotQuery<
 );
 
 export const recentPersonalBestsQuery = createRyotQuery<
-	{ readonly timeZone: string },
+	{ readonly timeZone: TimeZone },
 	{ readonly recentCount: number; readonly items: readonly HomePersonalBest[] }
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {

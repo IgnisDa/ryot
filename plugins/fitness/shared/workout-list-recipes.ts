@@ -36,7 +36,11 @@ import {
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference, ReportingPeriod } from "@ryot-app/plugin-kit/schema";
+import type {
+	PluginIdentityReference,
+	ReportingPeriod,
+	TimeZone,
+} from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -407,7 +411,7 @@ const rangeBuckets = (
 	reference: Reference,
 	range: Range & {
 		readonly search: string;
-		readonly timeZone: string;
+		readonly timeZone: TimeZone;
 		readonly bucket: "day" | "week";
 		readonly filter?: undefined | WorkoutFilterPredicate;
 	},
@@ -468,7 +472,7 @@ export const workoutWeeksRecipe = defineRecipe(
 	(
 		input: Range & {
 			readonly search: string;
-			readonly timeZone: string;
+			readonly timeZone: TimeZone;
 			readonly reference: Reference;
 			readonly filter?: undefined | WorkoutFilterPredicate;
 		},
@@ -512,7 +516,7 @@ export const workoutSummaryRecipe = defineRecipe(
 		readonly days: Range;
 		readonly current: Range;
 		readonly previous: Range;
-		readonly timeZone: string;
+		readonly timeZone: TimeZone;
 		readonly reference: Reference;
 	}) => {
 		const [currentWorkouts, currentSets] = rangeTotals(input.reference, input.current, "current");

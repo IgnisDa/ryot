@@ -1,4 +1,4 @@
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { SegmentedControl } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
@@ -130,7 +130,7 @@ function MonthChart(props: { readonly metric: Metric; readonly points: readonly 
 
 function ProgressChart(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
@@ -264,7 +264,7 @@ export function RecentSessions(props: {
 export function HistorySection(props: {
 	readonly now: Date;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly details: ExerciseDetails;
 	readonly exercise: ExerciseRecord;
 }) {

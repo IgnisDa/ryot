@@ -1,4 +1,4 @@
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -8,7 +8,7 @@ import { buildTemplateCards } from "./model";
 import { homeTemplatesQuery } from "./queries";
 import { Chips, HomeSection, primaryLinkClass, QueryBody, SavedViewLink } from "./section";
 
-export function TemplatesSection(props: { readonly now: Date; readonly timeZone: string }) {
+export function TemplatesSection(props: { readonly now: Date; readonly timeZone: TimeZone }) {
 	const result = useRyotQuery(homeTemplatesQuery);
 	return (
 		<HomeSection

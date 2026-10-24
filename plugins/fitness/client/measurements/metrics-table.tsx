@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -22,7 +23,7 @@ const sortOptions = [
 export function MetricsTable(props: {
 	readonly range: RangeKey;
 	readonly sort: MetricSort;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly pinPending: boolean;
 	readonly selectedId: null | string;
 	readonly rows: readonly MetricRow[];

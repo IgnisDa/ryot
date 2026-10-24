@@ -1,4 +1,10 @@
-import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	addCalendarDays,
+	localDateOf,
+	resolveReportingSelection,
+	startOfCalendarUnit,
+	type TimeZone,
+} from "@ryot-app/plugin-client-sdk/plugin";
 
 import { countMuscleSets, elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
 import type {
@@ -11,7 +17,6 @@ import type { WorkoutTaxonomy } from "../../shared/workout-taxonomy-recipes";
 import { kilogramsToPounds } from "../../shared/workout-units";
 import { formatDuration, formatNumber, formatSetMain, parseDate } from "../workout/format";
 
-const DAY_MS = 86_400_000;
 const CARD_EXERCISES = 3;
 const CARD_MUSCLES = 3;
 
@@ -31,7 +36,7 @@ const periodOf = (key: PeriodKey) =>
 
 const iso = (time: number) => new Date(time).toISOString();
 
-export const summaryWindows = (period: PeriodKey, now: Date, timeZone: string) => {
+export const summaryWindows = (period: PeriodKey, now: Date, timeZone: TimeZone) => {
 	const clock = { timeZone, now: now.getTime() };
 	const { current, previous } = resolveReportingSelection(
 		{
@@ -41,7 +46,7 @@ export const summaryWindows = (period: PeriodKey, now: Date, timeZone: string) =
 		},
 		clock,
 	);
-	const today = dateKey(now, timeZone);
+	const today = localDateOf(now, timeZone);
 	const { current: days } = resolveReportingSelection(
 		{
 			grouping: "day",
@@ -49,7 +54,7 @@ export const summaryWindows = (period: PeriodKey, now: Date, timeZone: string) =
 			range: {
 				kind: "custom",
 				endDate: today,
-				startDate: shiftKey(today, -(HEATMAP_WEEKS * 7 + 1)),
+				startDate: addCalendarDays(today, -(HEATMAP_WEEKS * 7 + 1)),
 			},
 		},
 		clock,
@@ -60,23 +65,7 @@ export const summaryWindows = (period: PeriodKey, now: Date, timeZone: string) =
 	return { days, current, previous };
 };
 
-export const dateKey = (date: Date, timeZone: string) =>
-	new Intl.DateTimeFormat("en-CA", {
-		timeZone,
-		day: "2-digit",
-		year: "numeric",
-		month: "2-digit",
-	}).format(date);
-
 const keyDate = (key: string) => new Date(`${key}T00:00:00.000Z`);
-
-const shiftKey = (key: string, days: number) =>
-	iso(keyDate(key).getTime() + days * DAY_MS).slice(0, 10);
-
-export const weekKey = (date: Date, timeZone: string) => {
-	const key = dateKey(date, timeZone);
-	return shiftKey(key, -((keyDate(key).getUTCDay() + 6) % 7));
-};
 
 const keyFormat = (options: Intl.DateTimeFormatOptions) =>
 	new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" });
@@ -90,7 +79,7 @@ const shortDay = (key: string, currentYear: string) =>
 	keyDayFormat(key, currentYear).format(keyDate(key));
 
 const weekRange = (key: string, currentYear: string) =>
-	keyDayFormat(key, currentYear).formatRange(keyDate(key), keyDate(shiftKey(key, 6)));
+	keyDayFormat(key, currentYear).formatRange(keyDate(key), keyDate(addCalendarDays(key, 6)));
 
 const wholeNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const compactNumber = new Intl.NumberFormat("en-US", {
@@ -173,12 +162,13 @@ const comparisonFor = (
 	item: WorkoutListItem,
 	comparisons: ReadonlyMap<string, WorkoutComparison>,
 	currentYear: string,
-	timeZone: string,
+	timeZone: TimeZone,
 ): Comparison => {
 	const id = item.repeatedFromId ?? item.previousTemplateWorkoutId;
 	const previous = id === null ? undefined : comparisons.get(id);
 	const previousDate = parseDate(previous?.startedAt ?? null);
-	const day = previousDate === null ? null : shortDay(dateKey(previousDate, timeZone), currentYear);
+	const day =
+		previousDate === null ? null : shortDay(localDateOf(previousDate, timeZone), currentYear);
 	const change = percentChange(item.volume, previous?.volume);
 	if (item.repeatedFromId !== null) {
 		return {
@@ -214,14 +204,14 @@ export type WorkoutCard = ReturnType<typeof buildWorkoutCards>[number];
 
 export const buildWorkoutCards = (input: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 	readonly items: readonly WorkoutListItem[];
 	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
 }) => {
 	const { now, imperial, timeZone } = input;
-	const currentYear = dateKey(now, timeZone).slice(0, 4);
+	const currentYear = localDateOf(now, timeZone).slice(0, 4);
 	const comparisons = new Map(input.comparisons.map((comparison) => [comparison.id, comparison]));
 	const dayFormat = (sameYear: boolean) =>
 		new Intl.DateTimeFormat("en-US", {
@@ -243,12 +233,12 @@ export const buildWorkoutCards = (input: {
 		if (started === null) {
 			return { day: null, time: null, week: null, weekday: null, dayOfMonth: null };
 		}
-		const key = dateKey(started, timeZone);
+		const key = localDateOf(started, timeZone);
 		return {
-			week: weekKey(started, timeZone),
 			time: timeFormat.format(started),
 			dayOfMonth: String(Number(key.slice(8))),
 			weekday: weekdayFormat.format(started).toUpperCase(),
+			week: startOfCalendarUnit(localDateOf(started, timeZone), "week"),
 			day: (key.startsWith(currentYear) ? currentYearDay : otherYearDay).format(started),
 		};
 	};
@@ -310,15 +300,15 @@ export type WeekSection = ReturnType<typeof groupByWeek>[number];
 
 export const groupByWeek = (input: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 	readonly cards: readonly WorkoutCard[];
 	readonly totals: readonly WorkoutPeriodTotals[];
 }) => {
 	const { now, imperial, timeZone } = input;
-	const current = weekKey(now, timeZone);
+	const current = startOfCalendarUnit(localDateOf(now, timeZone), "week");
 	const currentYear = current.slice(0, 4);
-	const totals = new Map(input.totals.map((item) => [dateKey(new Date(item.at), timeZone), item]));
+	const totals = new Map(input.totals.map((item) => [localDateOf(item.at, timeZone), item]));
 	const sections: { key: string; cards: WorkoutCard[] }[] = [];
 	for (const card of input.cards) {
 		const key = card.week ?? "";
@@ -334,7 +324,7 @@ export const groupByWeek = (input: {
 		let title = range ?? "Undated";
 		if (key === current) {
 			title = "This week";
-		} else if (key === shiftKey(current, -7)) {
+		} else if (key === addCalendarDays(current, -7)) {
 			title = "Last week";
 		}
 		return {
@@ -354,8 +344,8 @@ export const weeksWindow = (cards: readonly WorkoutCard[]) => {
 	return first === undefined || last === undefined
 		? null
 		: {
-				endAt: iso(keyDate(shiftKey(last, 8)).getTime()),
-				startAt: iso(keyDate(shiftKey(first, -1)).getTime()),
+				endAt: iso(keyDate(addCalendarDays(last, 8)).getTime()),
+				startAt: iso(keyDate(addCalendarDays(first, -1)).getTime()),
 			};
 };
 
@@ -418,19 +408,19 @@ export const buildSummaryTiles = (
 	];
 };
 
-export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: string) => {
-	const days = new Map(summary.days.map((day) => [dateKey(new Date(day.at), timeZone), day]));
+export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: TimeZone) => {
+	const days = new Map(summary.days.map((day) => [localDateOf(day.at, timeZone), day]));
 	const volumes = [...days.values()]
 		.flatMap(({ volume }) => (volume !== null && volume > 0 ? [volume] : []))
 		.sort((left, right) => left - right);
 	const quartile = (fraction: number) => volumes[Math.floor((volumes.length - 1) * fraction)] ?? 0;
 	const thresholds = [quartile(0.25), quartile(0.5), quartile(0.75)];
-	const today = dateKey(now, timeZone);
-	const currentWeek = weekKey(now, timeZone);
+	const today = localDateOf(now, timeZone);
+	const currentWeek = startOfCalendarUnit(localDateOf(now, timeZone), "week");
 	const weeks = Array.from({ length: HEATMAP_WEEKS }, (_week, index) => {
-		const key = shiftKey(currentWeek, (index - HEATMAP_WEEKS + 1) * 7);
+		const key = addCalendarDays(currentWeek, (index - HEATMAP_WEEKS + 1) * 7);
 		const cells = Array.from({ length: 7 }, (_day, offset) => {
-			const day = shiftKey(key, offset);
+			const day = addCalendarDays(key, offset);
 			const entry = days.get(day);
 			if (day > today) {
 				return { key: day, level: null };

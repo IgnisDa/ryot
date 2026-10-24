@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { workoutCardsRecipe, workoutWeeksRecipe } from "../../shared/workout-list-recipes";
 import { compileWorkoutFilter, workoutFilterFields } from "./filters";
@@ -31,7 +31,7 @@ describe("compileWorkoutFilter", () => {
 			const weeks = workoutWeeksRecipe({
 				reference,
 				search: "",
-				timeZone: "UTC",
+				timeZone: TimeZone.make("UTC"),
 				endAt: "2026-10-18T00:00:00.000Z",
 				startAt: "2026-09-18T00:00:00.000Z",
 				filter: yield* compileWorkoutFilter({ filter, reference, target: "weeks" }),

@@ -2,6 +2,7 @@ import { type ManagedAssetLocator, RyotClientError } from "@ryot-app/plugin-clie
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
+	deviceTimeZone,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
@@ -54,7 +55,7 @@ const buildFitnessPresentations = (
 			}),
 		),
 		(rows) => {
-			const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			const timeZone = deviceTimeZone();
 			const batchAssets = managedAssetBatch(
 				rows.map(({ presentationImage }) => presentationImage ?? undefined),
 			);

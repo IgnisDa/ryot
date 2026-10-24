@@ -1,5 +1,5 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { type TimeZone, usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type RyotQueryResult,
 	usePageRefresh,
@@ -35,7 +35,7 @@ export function MeasurementsView(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly series: readonly MeasurementSeries[];
 	readonly window: ReturnType<typeof seriesWindow>;
 	readonly summaries: readonly MeasurementSummary[];
@@ -120,7 +120,7 @@ function MeasurementsBody(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly result: RyotQueryResult<readonly MeasurementSummary[]>;
 }) {
 	const { result } = props;
@@ -154,7 +154,7 @@ function MeasurementsContent(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly summaries: readonly MeasurementSummary[];
 }) {
 	const { now, range, compact, timeZone, summaries } = props;
@@ -195,7 +195,7 @@ function MeasurementsContent(props: {
 	);
 }
 
-function MeasurementsPageBody({ timeZone }: { readonly timeZone: string }) {
+function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 	const { view } = usePageContext();
 	const { compact } = useRyotViewport();
 	const [now, setNow] = useState(() => new Date());

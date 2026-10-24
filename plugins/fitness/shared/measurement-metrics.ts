@@ -1,3 +1,5 @@
+import { addCalendarUnits, localDateOf } from "@ryot-app/plugin-kit/schema";
+
 import type {
 	MeasurementSeries,
 	measurementSeriesRecipe,
@@ -46,31 +48,8 @@ export const smoothMeasurementSeries = (
 	points: readonly TrendPoint[],
 	{ bucket, timeZone }: SeriesCalendar,
 ): readonly TrendPoint[] => {
-	const format = new Intl.DateTimeFormat("en-CA", {
-		timeZone,
-		day: "2-digit",
-		year: "numeric",
-		month: "2-digit",
-	});
-	const calendarDate = (at: string) => {
-		if (/^\d{4}-\d{2}-\d{2}$/.test(at)) {
-			return at;
-		}
-		const parts = format.formatToParts(Date.parse(at));
-		const part = (type: string) => parts.find((item) => item.type === type)?.value;
-		return `${part("year")}-${part("month")}-${part("day")}`;
-	};
-	const adjacent = (previous: string, next: string) => {
-		const date = new Date(`${calendarDate(previous)}T00:00:00Z`);
-		if (bucket === "year") {
-			date.setUTCFullYear(date.getUTCFullYear() + 1);
-		} else if (bucket === "month") {
-			date.setUTCMonth(date.getUTCMonth() + 1);
-		} else {
-			date.setUTCDate(date.getUTCDate() + (bucket === "week" ? 7 : 1));
-		}
-		return date.toISOString().slice(0, 10) === calendarDate(next);
-	};
+	const adjacent = (previous: string, next: string) =>
+		addCalendarUnits(localDateOf(previous, timeZone), bucket, 1) === localDateOf(next, timeZone);
 	const trend: TrendPoint[] = [];
 	let run: MeasurementSeries["points"][number][] = [];
 	const flush = () => {

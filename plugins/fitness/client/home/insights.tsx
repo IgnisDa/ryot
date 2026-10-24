@@ -1,4 +1,4 @@
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -21,7 +21,7 @@ const bandClasses: Readonly<Record<MuscleBand, string>> = {
 	recent: "bg-chart-seq-5 text-accent-ink",
 };
 
-export function MusclesSection(props: { readonly now: Date; readonly timeZone: string }) {
+export function MusclesSection(props: { readonly now: Date; readonly timeZone: TimeZone }) {
 	const { now, timeZone } = props;
 	const result = useRyotQuery(muscleActivityQuery, { timeZone });
 	return (
@@ -75,8 +75,8 @@ export function MusclesSection(props: { readonly now: Date; readonly timeZone: s
 
 export function PersonalBestsSection(props: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 }) {
 	const { now, imperial, timeZone } = props;
 	const result = useRyotQuery(recentPersonalBestsQuery, { timeZone });

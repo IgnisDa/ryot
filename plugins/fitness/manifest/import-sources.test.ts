@@ -1,12 +1,13 @@
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
 import { FitnessCreateImportRunBody } from "./import-sources";
 
 const uploadToken = "upload-1";
-const timezone = "Asia/Kolkata";
+const timezone = TimeZone.make("Asia/Kolkata");
 
 const createFitnessImportRunBody = <const Source extends FitnessCreateImportRunBody["source"]>(
 	body: Extract<FitnessCreateImportRunBody, { readonly source: Source }>,

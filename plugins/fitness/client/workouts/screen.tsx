@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/filters";
 import {
 	type EntityBrowserLayout,
+	type TimeZone,
 	usePageContext,
 	usePageRefresh,
 	usePageShortcut,
@@ -76,8 +77,8 @@ export default function WorkoutsPage() {
 
 function SummaryLoader(props: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 }) {
 	const [period, setPeriod] = useState<PeriodKey>("1M");
 	const summary = useRyotQuery(workoutSummaryQuery, { period, timeZone: props.timeZone });
@@ -118,8 +119,8 @@ function WorkoutCount(props: {
 function WeekResults(props: {
 	readonly now: Date;
 	readonly search: string;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 	readonly layout: "grid" | "list";
 	readonly filter: null | ViewFilter;
 	readonly cards: readonly WorkoutCard[];
@@ -142,8 +143,8 @@ function WeekResults(props: {
 function WorkoutResults(props: {
 	readonly now: Date;
 	readonly search: string;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 	readonly filter: null | ViewFilter;
 	readonly onClearFilters: () => void;
 	readonly layout: EntityBrowserLayout;
@@ -274,7 +275,7 @@ function WorkoutResults(props: {
 	);
 }
 
-function WorkoutsBody({ timeZone }: { readonly timeZone: string }) {
+function WorkoutsBody({ timeZone }: { readonly timeZone: TimeZone }) {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const { view } = usePageContext();

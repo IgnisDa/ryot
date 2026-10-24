@@ -29,7 +29,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -141,7 +141,11 @@ const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => 
 	});
 };
 
-const monthsQuery = (reference: PluginIdentityReference, exerciseId: string, timeZone: string) => {
+const monthsQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: string,
+	timeZone: TimeZone,
+) => {
 	const set = table("event", "monthsSet");
 	const workout = table("entity", "monthsWorkout");
 	return selectedAggregate(set, {
@@ -408,7 +412,7 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 
 export const exerciseDetailsRecipe = defineRecipe(
 	(input: {
-		readonly timeZone: string;
+		readonly timeZone: TimeZone;
 		readonly exerciseId: string;
 		readonly reference: PluginIdentityReference;
 	}) => ({

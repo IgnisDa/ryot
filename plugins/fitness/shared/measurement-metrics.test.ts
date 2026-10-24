@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { buildMetricRows, smoothMeasurementSeries } from "./measurement-metrics";
@@ -23,7 +24,7 @@ describe("measurement calendar smoothing", () => {
 		];
 		const rows = buildMetricRows([summary], [{ points: averages, metricId: summary.id }], {
 			bucket: "day",
-			timeZone: "UTC",
+			timeZone: TimeZone.make("UTC"),
 		});
 		expect(rows[0]?.trend).toEqual([
 			averages[0],
@@ -41,7 +42,9 @@ describe("measurement calendar smoothing", () => {
 			at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
 		}));
 		expect(
-			smoothMeasurementSeries(points, { bucket: "day", timeZone: "UTC" }).map(({ value }) => value),
+			smoothMeasurementSeries(points, { bucket: "day", timeZone: TimeZone.make("UTC") }).map(
+				({ value }) => value,
+			),
 		).toEqual([70, 71, 72, 74]);
 	});
 
@@ -51,7 +54,9 @@ describe("measurement calendar smoothing", () => {
 			at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
 		}));
 		expect(
-			smoothMeasurementSeries(points, { bucket: "day", timeZone: "UTC" }).map(({ value }) => value),
+			smoothMeasurementSeries(points, { bucket: "day", timeZone: TimeZone.make("UTC") }).map(
+				({ value }) => value,
+			),
 		).toEqual([0, 1, null, 8, 4]);
 		expect(points.map(({ value }) => value)).toEqual([0, 2, null, 8, 0]);
 	});
@@ -66,7 +71,7 @@ describe("measurement calendar smoothing", () => {
 					{ at: first, value: 70 },
 					{ value: 74, at: second },
 				],
-				{ bucket: "day", timeZone: "America/New_York" },
+				{ bucket: "day", timeZone: TimeZone.make("America/New_York") },
 			).map(({ value }) => value),
 		).toEqual([70, 72]);
 	});
@@ -82,7 +87,7 @@ describe("measurement calendar smoothing", () => {
 				{ value: 74, at: second },
 				{ value: 80, at: afterGap },
 			],
-			{ bucket, timeZone: "America/New_York" },
+			{ bucket, timeZone: TimeZone.make("America/New_York") },
 		);
 		expect(trend.map(({ value }) => value)).toEqual([70, 72, null, 80]);
 	});
@@ -98,7 +103,7 @@ describe("measurement calendar smoothing", () => {
 				{ value: 8, at: "2026-03-01T00:00:00.000Z" },
 				{ value: 12, at: "2026-03-02T00:00:00.000Z" },
 			],
-			{ bucket: "day", timeZone: "UTC" },
+			{ bucket: "day", timeZone: TimeZone.make("UTC") },
 		);
 		expect(trend[6]?.value).toBe(3);
 		expect(trend[44]?.value).toBe(41);
@@ -111,7 +116,7 @@ describe("measurement calendar smoothing", () => {
 				{ value: 0, at: "1990-01-01" },
 				{ value: 74, at: "2026-01-01" },
 			],
-			{ bucket: "month", timeZone: "America/New_York" },
+			{ bucket: "month", timeZone: TimeZone.make("America/New_York") },
 		);
 		expect(trend.map(({ value }) => value)).toEqual([0, null, 74]);
 	});

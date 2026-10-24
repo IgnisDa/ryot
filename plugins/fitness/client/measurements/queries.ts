@@ -1,5 +1,6 @@
 import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { chunk } from "../../shared/collections";
@@ -36,7 +37,7 @@ type MeasurementSeriesResult = {
 
 export const summaryQuery = createRyotQuery<
 	| { readonly range: "All" }
-	| { readonly timeZone: string; readonly range: Exclude<RangeKey, "All"> },
+	| { readonly timeZone: TimeZone; readonly range: Exclude<RangeKey, "All"> },
 	readonly MeasurementSummary[]
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {
@@ -66,7 +67,7 @@ export const summaryQuery = createRyotQuery<
 export const seriesQuery = createRyotQuery<
 	{
 		readonly range: RangeKey;
-		readonly timeZone: string;
+		readonly timeZone: TimeZone;
 		readonly metricIds: readonly string[];
 		readonly firstReadings: readonly Pick<MeasurementSummary, "firstAt">[];
 	},
@@ -99,7 +100,7 @@ export const seriesQuery = createRyotQuery<
 );
 
 export const readingsQuery = createRyotQuery<
-	{ readonly range: RangeKey; readonly timeZone: string; readonly after: string | undefined },
+	{ readonly range: RangeKey; readonly timeZone: TimeZone; readonly after: string | undefined },
 	MeasurementLogPage
 >(({ input, client, schedule }) =>
 	Effect.gen(function* () {

@@ -34,6 +34,7 @@ import {
 	type ReportingPeriod,
 	type ReportingSelection,
 	resolveReportingSelection,
+	type TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyDate, propertyNumber } from "./entity-selections";
@@ -59,7 +60,7 @@ import {
 
 type Input = {
 	readonly now: number;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 	readonly reference: PluginIdentityReference;
 	readonly filter?: { readonly id: string; readonly kind: "targets" | "exercises" | "equipment" };

@@ -1,11 +1,12 @@
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { MEASUREMENT_SERIES_BATCH_SIZE, measurementSeriesRecipe } from "./measurement-recipes";
 
 const window = {
-	timeZone: "UTC",
 	bucket: "day" as const,
+	timeZone: TimeZone.make("UTC"),
 	endAt: "2026-01-04T00:00:00.000Z",
 	startAt: "2026-01-01T00:00:00.000Z",
 };

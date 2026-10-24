@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
@@ -51,7 +52,7 @@ const draft = (mode: ActiveEditorDraft["mode"]): ActiveEditorDraft => ({
 });
 
 describe("buildWeekProgress", () => {
-	const week = buildWeekProgress({ now, summary, goal: 3, timeZone: "UTC" });
+	const week = buildWeekProgress({ now, summary, goal: 3, timeZone: TimeZone.make("UTC") });
 
 	it("marks trained days and labels today within the current local week", () => {
 		expect(week.days.map(({ label }) => label)).toEqual([
@@ -84,7 +85,9 @@ describe("buildWeekProgress", () => {
 	});
 
 	it("reports no goal-met weeks without a goal", () => {
-		expect(buildWeekProgress({ now, summary, goal: undefined, timeZone: "UTC" }).goalMet).toBe(0);
+		expect(
+			buildWeekProgress({ now, summary, goal: undefined, timeZone: TimeZone.make("UTC") }).goalMet,
+		).toBe(0);
 	});
 });
 
@@ -98,7 +101,7 @@ describe("buildMuscleTiles", () => {
 	];
 
 	it("bands days since the last session and labels weekly sets", () => {
-		expect(buildMuscleTiles(activity, now, "UTC")).toEqual([
+		expect(buildMuscleTiles(activity, now, TimeZone.make("UTC"))).toEqual([
 			{ id: "neck", name: "Neck", band: "cold", days: "Never", sets: "No sets this week" },
 			{ id: "lats", days: "3d", name: "Lats", band: "fresh", sets: "12 sets" },
 			{ days: "0d", id: "chest", name: "Chest", band: "recent", sets: "4.5 sets" },
@@ -120,7 +123,7 @@ describe("buildMuscleTiles", () => {
 					},
 				],
 				now,
-				"UTC",
+				TimeZone.make("UTC"),
 			),
 		).toEqual([
 			{ days: "7d", id: "shared", name: "Chest", band: "stale", sets: "1 set" },
@@ -136,7 +139,7 @@ describe("buildMuscleTiles", () => {
 					{ id: "invalid", weeklySets: 0, name: "Invalid", lastTrainedAt: "invalid" },
 				],
 				now,
-				"America/Los_Angeles",
+				TimeZone.make("America/Los_Angeles"),
 			),
 		).toEqual([
 			{ days: "1d", id: "local", name: "Local", sets: "1 set", band: "recent" },
@@ -149,7 +152,7 @@ describe("buildTemplateCards", () => {
 	it("keeps the recipe order and describes last session, duration and muscles", () => {
 		const cards = buildTemplateCards({
 			now,
-			timeZone: "UTC",
+			timeZone: TimeZone.make("UTC"),
 			templates: [
 				template({ name: "Never done", id: EntityId.make("never") }),
 				template({
@@ -187,7 +190,7 @@ describe("buildTemplateCards", () => {
 
 describe("draftBanner", () => {
 	it("describes a live session with its progress", () => {
-		expect(draftBanner(draft({ kind: "live" }), now, "UTC")).toEqual({
+		expect(draftBanner(draft({ kind: "live" }), now, TimeZone.make("UTC"))).toEqual({
 			title: "Workout in progress",
 			resumeLabel: "Resume workout",
 			detail: "Started 11:26 AM · 34 min elapsed · 12 of 28 sets confirmed",
@@ -199,22 +202,21 @@ describe("draftBanner", () => {
 			draftBanner(
 				draft({ kind: "historical", conflictToken: "c", entityId: EntityId.make("w") }),
 				now,
-				"UTC",
+				TimeZone.make("UTC"),
 			),
 		).toMatchObject({ title: "Editing workout", resumeLabel: "Resume editing" });
-		expect(draftBanner(draft({ kind: "template-create" }), now, "UTC")).toMatchObject({
-			detail: "28 sets",
-			title: "Editing template",
-		});
+		expect(
+			draftBanner(draft({ kind: "template-create" }), now, TimeZone.make("UTC")),
+		).toMatchObject({ detail: "28 sets", title: "Editing template" });
 	});
 });
 
 describe("header copy", () => {
 	it("formats the local date and the age of the last workout", () => {
-		expect(formatHomeDate(now, "UTC")).toBe("Wednesday, 21 October");
-		expect(lastWorkoutPhrase("2026-10-19T09:00:00.000Z", now, "UTC")).toBe(
+		expect(formatHomeDate(now, TimeZone.make("UTC"))).toBe("Wednesday, 21 October");
+		expect(lastWorkoutPhrase("2026-10-19T09:00:00.000Z", now, TimeZone.make("UTC"))).toBe(
 			"last workout 2 days ago",
 		);
-		expect(lastWorkoutPhrase(null, now, "UTC")).toBeNull();
+		expect(lastWorkoutPhrase(null, now, TimeZone.make("UTC"))).toBeNull();
 	});
 });

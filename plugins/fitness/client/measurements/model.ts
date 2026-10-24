@@ -1,4 +1,4 @@
-import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+import { resolveReportingSelection, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import {
@@ -29,7 +29,7 @@ const rangeDays = (range: RangeKey) => rangeOptions.find(({ key }) => key === ra
 export const rangePhrase = (range: RangeKey) =>
 	rangeOptions.find(({ key }) => key === range)?.phrase ?? "";
 
-export const measurementPeriod = (range: RangeKey, now: Date, timeZone: string) => {
+export const measurementPeriod = (range: RangeKey, now: Date, timeZone: TimeZone) => {
 	const days = rangeDays(range);
 	return resolveReportingSelection(
 		{
@@ -45,7 +45,7 @@ export const seriesWindow = (
 	range: RangeKey,
 	now: Date,
 	summaries: readonly Pick<MeasurementSummary, "firstAt">[],
-	timeZone: string,
+	timeZone: TimeZone,
 ) => {
 	const period = measurementPeriod(range, now, timeZone);
 	if (period !== null) {
@@ -99,7 +99,7 @@ export const formatChange = (change: number, unit: null | string) => {
 	return `${change > 0 ? "+" : "−"}${formatValue(Math.abs(change), unit)}`;
 };
 
-const dateFormat = (timeZone: string, withYear: boolean) =>
+const dateFormat = (timeZone: TimeZone, withYear: boolean) =>
 	new Intl.DateTimeFormat("en-GB", {
 		timeZone,
 		day: "numeric",
@@ -107,10 +107,10 @@ const dateFormat = (timeZone: string, withYear: boolean) =>
 		...(withYear ? { year: "numeric" } : {}),
 	});
 
-export const formatDay = (iso: string, timeZone: string, withYear = false) =>
+export const formatDay = (iso: string, timeZone: TimeZone, withYear = false) =>
 	dateFormat(timeZone, withYear).format(Date.parse(iso));
 
-export const formatTime = (iso: string, timeZone: string) =>
+export const formatTime = (iso: string, timeZone: TimeZone) =>
 	new Intl.DateTimeFormat("en-GB", {
 		timeZone,
 		hour12: false,
@@ -118,7 +118,7 @@ export const formatTime = (iso: string, timeZone: string) =>
 		minute: "2-digit",
 	}).format(Date.parse(iso));
 
-const monthFormat = (timeZone: string) =>
+const monthFormat = (timeZone: TimeZone) =>
 	new Intl.DateTimeFormat("en-GB", { timeZone, month: "long", year: "numeric" });
 
 export type ReadingValue = {
@@ -167,7 +167,7 @@ export type MonthSection = { readonly label: string; readonly groups: readonly R
 
 export const groupByMonth = (
 	groups: readonly ReadingGroup[],
-	timeZone: string,
+	timeZone: TimeZone,
 ): readonly MonthSection[] => {
 	const format = monthFormat(timeZone);
 	const sections: Array<{ label: string; groups: ReadingGroup[] }> = [];

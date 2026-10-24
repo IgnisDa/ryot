@@ -1,6 +1,7 @@
 import { DateTime, Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
+	deviceTimeZone,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
 } from "@ryot-app/plugin-client-sdk/plugin";
@@ -32,8 +33,8 @@ export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutCard> = (
 		const cards = buildWorkoutCards({
 			...pages,
 			now: DateTime.toDate(now),
+			timeZone: deviceTimeZone(),
 			imperial: context.settings.unitSystem === "imperial",
-			timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		});
 		return Object.fromEntries(cards.map((card) => [card.id, card]));
 	});

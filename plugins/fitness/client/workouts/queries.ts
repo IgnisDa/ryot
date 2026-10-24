@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { ViewFilter } from "@ryot-app/plugin-client-sdk/filters";
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { chunk } from "../../shared/collections";
@@ -190,7 +191,7 @@ export const workoutWeeksQuery = createRyotQuery<
 );
 
 export const workoutSummaryQuery = createRyotQuery<
-	{ readonly timeZone: string; readonly period: PeriodKey },
+	{ readonly period: PeriodKey; readonly timeZone: TimeZone },
 	WorkoutSummary
 >(({ input, client, schedule }) =>
 	Effect.suspend(() =>

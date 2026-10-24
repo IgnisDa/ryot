@@ -1,5 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -31,7 +32,7 @@ function Overview() {
 	const rows = buildMetricRows(
 		[summary],
 		[{ metricId: summary.id, points: [{ value: 74, at: "2026-01-05T00:00:00.000Z" }] }],
-		{ bucket: "day", timeZone: "UTC" },
+		{ bucket: "day", timeZone: TimeZone.make("UTC") },
 	);
 	const selected = rows[0];
 	assert(selected !== undefined);
@@ -41,19 +42,19 @@ function Overview() {
 				now={now}
 				range="1M"
 				rows={rows}
-				timeZone="UTC"
 				onSelect={() => {}}
 				selectedId={summary.id}
+				timeZone={TimeZone.make("UTC")}
 			/>
 			<ChartCard
 				now={now}
 				range="1M"
 				others={[]}
 				compare={null}
-				timeZone="UTC"
 				compact={false}
 				selected={selected}
 				onCompareChange={() => {}}
+				timeZone={TimeZone.make("UTC")}
 				window={{ endAt: "2026-01-06T00:00:00.000Z", startAt: "2025-12-07T00:00:00.000Z" }}
 			/>
 		</>

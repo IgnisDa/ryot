@@ -1,11 +1,18 @@
+import {
+	calendarDaysBetween,
+	localDateOf,
+	startOfCalendarUnit,
+	type TimeZone,
+} from "@ryot-app/plugin-client-sdk/plugin";
+
 import { countMuscleSets } from "../../shared/fitness-metrics";
 import type { HomePersonalBest, HomeTemplate, MuscleActivity } from "../../shared/home-recipes";
 import type { WorkoutExerciseTargets, WorkoutSummary } from "../../shared/workout-list-recipes";
 import type { ActiveEditorDraft } from "../exercise/active-draft";
 import { describeAgo, personalBestTitles } from "../exercise/details-model";
-import { DAY_MS, formatDay, formatValue } from "../measurements/model";
+import { formatDay, formatValue } from "../measurements/model";
 import { formatSetMain, parseDate } from "../workout/format";
-import { buildHeatmap, dateKey, durationOf, plural, weekKey, yearUnless } from "../workouts/model";
+import { buildHeatmap, durationOf, plural, yearUnless } from "../workouts/model";
 
 const WEEKS_SHOWN = 8;
 const TEMPLATE_CHIPS = 3;
@@ -13,29 +20,27 @@ export const RECENT_DAYS = 30;
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-const dayNumber = (key: string) => Date.parse(`${key}T00:00:00.000Z`) / DAY_MS;
-
-export const daysSince = (iso: string, now: Date, timeZone: string) => {
+export const daysSince = (iso: string, now: Date, timeZone: TimeZone) => {
 	const date = parseDate(iso);
 	return date === null
 		? null
-		: Math.max(0, dayNumber(dateKey(now, timeZone)) - dayNumber(dateKey(date, timeZone)));
+		: Math.max(0, calendarDaysBetween(localDateOf(date, timeZone), localDateOf(now, timeZone)));
 };
 
-export const formatHomeDate = (now: Date, timeZone: string) => {
+export const formatHomeDate = (now: Date, timeZone: TimeZone) => {
 	const part = (options: Intl.DateTimeFormatOptions) =>
 		new Intl.DateTimeFormat("en-GB", { ...options, timeZone }).format(now);
 	return `${part({ weekday: "long" })}, ${part({ month: "long", day: "numeric" })}`;
 };
 
-export const lastWorkoutPhrase = (startedAt: null | string, now: Date, timeZone: string) => {
+export const lastWorkoutPhrase = (startedAt: null | string, now: Date, timeZone: TimeZone) => {
 	const days = startedAt === null ? null : daysSince(startedAt, now, timeZone);
 	return days === null ? null : `last workout ${describeAgo(days)}`;
 };
 
 export const buildWeekProgress = (input: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly summary: WorkoutSummary;
 	readonly goal: number | undefined;
 }) => {
@@ -43,10 +48,10 @@ export const buildWeekProgress = (input: {
 	const { weeks, streak } = buildHeatmap(summary, now, timeZone);
 	const counts = new Map<string, number>();
 	for (const day of summary.days) {
-		const key = weekKey(new Date(day.at), timeZone);
+		const key = startOfCalendarUnit(localDateOf(day.at, timeZone), "week");
 		counts.set(key, (counts.get(key) ?? 0) + day.workouts);
 	}
-	const today = dateKey(now, timeZone);
+	const today = localDateOf(now, timeZone);
 	const current = weeks.at(-1);
 	const recent = weeks.slice(-WEEKS_SHOWN - 1, -1).map(({ key }) => {
 		const count = counts.get(key) ?? 0;
@@ -84,7 +89,7 @@ const bandOf = (days: null | number): MuscleBand => {
 export const buildMuscleTiles = (
 	activity: readonly MuscleActivity[],
 	now: Date,
-	timeZone: string,
+	timeZone: TimeZone,
 ) =>
 	activity.map(({ id, name, weeklySets, lastTrainedAt }) => {
 		const days = lastTrainedAt === null ? null : daysSince(lastTrainedAt, now, timeZone);
@@ -99,7 +104,7 @@ export const buildMuscleTiles = (
 
 export const buildTemplateCards = (input: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly templates: readonly HomeTemplate[];
 	readonly targets: readonly WorkoutExerciseTargets[];
 }) => {
@@ -130,15 +135,15 @@ export const buildTemplateCards = (input: {
 
 export const buildPersonalBests = (input: {
 	readonly now: Date;
-	readonly timeZone: string;
 	readonly imperial: boolean;
+	readonly timeZone: TimeZone;
 	readonly items: readonly HomePersonalBest[];
 }) => {
 	const { now, imperial, timeZone } = input;
-	const currentYear = dateKey(now, timeZone).slice(0, 4);
+	const currentYear = localDateOf(now, timeZone).slice(0, 4);
 	return input.items.map((item) => {
 		const occurred = new Date(item.occurredAt);
-		const sameYear = dateKey(occurred, timeZone).startsWith(currentYear);
+		const sameYear = localDateOf(occurred, timeZone).startsWith(currentYear);
 		return {
 			id: item.id,
 			name: item.exerciseName,
@@ -156,7 +161,7 @@ export const buildPersonalBests = (input: {
 	});
 };
 
-export const draftBanner = (draft: ActiveEditorDraft, now: Date, timeZone: string) => {
+export const draftBanner = (draft: ActiveEditorDraft, now: Date, timeZone: TimeZone) => {
 	const sets = `${draft.confirmedSets} of ${draft.totalSets} sets confirmed`;
 	const started = parseDate(draft.startedAt ?? null);
 	if (draft.mode.kind === "live") {
@@ -220,7 +225,7 @@ export const setupSteps = (input: {
 	},
 ];
 
-export const loggedPhrase = (latestAt: null | string, now: Date, timeZone: string) => {
+export const loggedPhrase = (latestAt: null | string, now: Date, timeZone: TimeZone) => {
 	if (latestAt === null) {
 		return "Not logged yet";
 	}

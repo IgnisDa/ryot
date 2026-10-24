@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { Card, Select } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline, TimeSeriesChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -19,7 +20,7 @@ import {
 
 function LastLogged(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly latestAt: null | string;
 }) {
 	const { now, latestAt, timeZone } = props;
@@ -49,7 +50,7 @@ const pinHint = (pinnedCount: number) => {
 export function MetricTiles(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selectedId: null | string;
 	readonly rows: readonly MetricRow[];
 	readonly onSelect: (metricId: string) => void;
@@ -105,7 +106,7 @@ export function ChartCard(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selected: MetricRow;
 	readonly compare: null | MetricRow;
 	readonly others: readonly MetricRow[];

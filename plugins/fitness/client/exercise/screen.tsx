@@ -1,4 +1,8 @@
-import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	type TimeZone,
+	usePluginLocation,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -22,7 +26,7 @@ import { NotesSection } from "./notes";
 import { ExerciseHeader, ExerciseOverview, Instructions } from "./overview";
 
 const exerciseDetailsQuery = createRyotQuery<
-	{ readonly entityId: string; readonly timeZone: string },
+	{ readonly entityId: string; readonly timeZone: TimeZone },
 	ExerciseDetails
 >(
 	({ input, client }) =>
@@ -48,7 +52,7 @@ export default function ExerciseDetailsPage() {
 export function ExerciseDetailsView(props: {
 	readonly now: Date;
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly onChanged: () => void;
 	readonly details: ExerciseDetails;
 	readonly exercise: ExerciseRecord;
@@ -103,7 +107,7 @@ export function ExerciseDetailsView(props: {
 	);
 }
 
-function ExerciseDetailsScreen(props: { readonly entityId: string; readonly timeZone: string }) {
+function ExerciseDetailsScreen(props: { readonly entityId: string; readonly timeZone: TimeZone }) {
 	const { compact } = useRyotViewport();
 	const { timeZone } = props;
 	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
@@ -118,7 +122,7 @@ function ExerciseDetailsScreen(props: { readonly entityId: string; readonly time
 
 function ExerciseDetailsBody(props: {
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly result: RyotQueryResult<ExerciseDetails>;
 }) {
 	const { result, compact, timeZone } = props;

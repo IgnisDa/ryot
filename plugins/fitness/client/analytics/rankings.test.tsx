@@ -9,6 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
@@ -26,7 +27,7 @@ const selection = {
 
 const makeScope = (
 	owner = "fitness-owner",
-	timeZone = "America/New_York",
+	timeZone = TimeZone.make("America/New_York"),
 	selected: AnalyticsScope["selection"] = selection,
 ): AnalyticsScope => ({
 	timeZone,
@@ -392,7 +393,7 @@ describe("Fitness analytics rankings", () => {
 							type="button"
 							onClick={() =>
 								setScope(
-									makeScope("fitness-next", "Europe/Paris", {
+									makeScope("fitness-next", TimeZone.make("Europe/Paris"), {
 										grouping: "day",
 										comparison: "none",
 										range: { kind: "custom", endDate: "2026-09-03", startDate: "2026-09-01" },

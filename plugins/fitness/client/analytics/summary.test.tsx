@@ -9,6 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -117,7 +118,7 @@ const mountSummary = (
 ) => {
 	const scope: AnalyticsScope = {
 		selection: selectionInput,
-		timeZone: "America/New_York",
+		timeZone: TimeZone.make("America/New_York"),
 		owner: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	};
 	return mountPluginPage(

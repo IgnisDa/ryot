@@ -1,4 +1,4 @@
-import { PluginLink, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -142,7 +142,7 @@ export function AnalyticsWorkoutDrill(props: {
 }
 
 function WorkoutTable(props: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly items: readonly {
 		readonly id: string;
 		readonly name: string;
@@ -194,7 +194,7 @@ function WorkoutTable(props: {
 	);
 }
 
-const formatWorkoutStart = (startedAt: string, timeZone: string) =>
+const formatWorkoutStart = (startedAt: string, timeZone: TimeZone) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, timeStyle: "short", dateStyle: "medium" }).format(
 		new Date(startedAt),
 	);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotInfiniteQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
@@ -70,7 +70,7 @@ const mountSummary = (
 	function Probe() {
 		const query = useRyotQuery(analyticsSummaryQuery, {
 			selection,
-			timeZone: "America/New_York",
+			timeZone: TimeZone.make("America/New_York"),
 			reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 		});
 		let status = "Loading";
@@ -202,7 +202,7 @@ describe("fitness analytics section queries", () => {
 });
 
 const pagedInput = {
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	selection: { grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
 } as const;

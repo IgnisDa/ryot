@@ -1,3 +1,5 @@
+import { localDateOf, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+
 import {
 	bestWeightRepThresholds,
 	type ExerciseDetails,
@@ -202,14 +204,9 @@ export type MonthPoint = {
 	readonly value: null | number;
 };
 
-const monthIndexOf = (date: Date, timeZone: string) => {
-	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		year: "numeric",
-		month: "numeric",
-	}).formatToParts(date);
-	const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value ?? 0);
-	return part("year") * 12 + part("month") - 1;
+const monthIndexOf = (date: Date, timeZone: TimeZone) => {
+	const local = localDateOf(date, timeZone);
+	return Number(local.slice(0, 4)) * 12 + Number(local.slice(5, 7)) - 1;
 };
 
 const monthLabel = (index: number) =>
@@ -220,7 +217,7 @@ const monthLabel = (index: number) =>
 export const buildMonthSeries = (input: {
 	readonly now: Date;
 	readonly metric: Metric;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly range: SeriesRange;
 	readonly months: readonly Month[];
 }): readonly MonthPoint[] => {

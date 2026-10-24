@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { describe, expect, it } from "vitest";
 
 import { buildMetricRows, rollingAverage, sortMetricRows } from "../../shared/measurement-metrics";
@@ -63,8 +64,10 @@ describe("rollingAverage", () => {
 
 describe("measurementPeriod and seriesWindow", () => {
 	it("uses reporting days for fixed ranges and buckets by day", () => {
-		expect(measurementPeriod("1M", now, "UTC")?.startAt).toBe("2026-09-13T00:00:00.000Z");
-		expect(seriesWindow("1Y", now, [], "UTC")).toEqual({
+		expect(measurementPeriod("1M", now, TimeZone.make("UTC"))?.startAt).toBe(
+			"2026-09-13T00:00:00.000Z",
+		);
+		expect(seriesWindow("1Y", now, [], TimeZone.make("UTC"))).toEqual({
 			bucket: "day",
 			endAt: "2026-10-13T00:00:00.000Z",
 			startAt: "2025-10-13T00:00:00.000Z",
@@ -80,7 +83,7 @@ describe("measurementPeriod and seriesWindow", () => {
 				summary("b", { firstAt: "2023-02-01T05:00:00.000Z" }),
 				summary("c"),
 			],
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(window).toEqual({
 			bucket: "week",
@@ -94,7 +97,7 @@ describe("measurementPeriod and seriesWindow", () => {
 			"All",
 			now,
 			[summary("a", { firstAt: "1990-01-01T00:00:00.000Z" })],
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(window).toEqual({
 			bucket: "month",
@@ -112,7 +115,7 @@ describe("buildMetricRows", () => {
 				{ metricId: "weight", points: points([70, 72, 74]) },
 				{ metricId: "waist", points: points([80]) },
 			],
-			{ bucket: "day", timeZone: "UTC" },
+			{ bucket: "day", timeZone: TimeZone.make("UTC") },
 		);
 		expect(rows.map(({ change }) => change)).toEqual([2, null, null]);
 		expect(rows[0]?.relativeChange).toBeCloseTo(2 / 70);
@@ -128,7 +131,7 @@ describe("buildMetricRows", () => {
 	] as const)(
 		"matches Analytics for Home and All Measurements %s buckets",
 		(bucket, first, last) => {
-			const timeZone = "America/New_York";
+			const timeZone = TimeZone.make("America/New_York");
 			const averages = [
 				{ value: 70, at: first },
 				{ at: last, value: 74 },
@@ -183,7 +186,7 @@ describe("sortMetricRows", () => {
 			{ metricId: "Weight", points: points([100, 100, 100, 110]) },
 			{ metricId: "Body fat", points: points([20, 20, 20, 21]) },
 		],
-		{ bucket: "day", timeZone: "UTC" },
+		{ bucket: "day", timeZone: TimeZone.make("UTC") },
 	);
 
 	it.each([
@@ -247,7 +250,7 @@ describe("groupReadings", () => {
 	});
 
 	it("groups consecutive readings into month sections in the given time zone", () => {
-		const sections = groupByMonth(groupReadings(readings), "UTC");
+		const sections = groupByMonth(groupReadings(readings), TimeZone.make("UTC"));
 		expect(sections.map(({ label, groups }) => [label, groups.length])).toEqual([
 			["October 2026", 1],
 			["September 2026", 2],
@@ -255,7 +258,7 @@ describe("groupReadings", () => {
 		expect(
 			groupByMonth(
 				groupReadings([reading("x", "weight", 1, "2026-09-30T20:00:00.000Z")]),
-				"Asia/Kolkata",
+				TimeZone.make("Asia/Kolkata"),
 			)[0]?.label,
 		).toBe("October 2026");
 	});

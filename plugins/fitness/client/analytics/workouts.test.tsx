@@ -9,6 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -56,7 +57,7 @@ const mountWorkouts = (
 ) => {
 	const scope: AnalyticsScope = {
 		selection,
-		timeZone: "UTC",
+		timeZone: TimeZone.make("UTC"),
 		owner: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	};
 	const drillRequests: WorkoutDrillRequest[] = [];

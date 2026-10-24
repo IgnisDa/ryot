@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -63,7 +64,7 @@ const actionButtonClass = "rounded-md border border-border px-2 py-0.5 text-[12p
 
 export function ReadingLog(props: {
 	readonly range: RangeKey;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly columns: readonly LogMetric[];
 	readonly metrics: readonly LogMetric[];
 }) {
@@ -135,7 +136,7 @@ export function ReadingLog(props: {
 }
 
 export function ReadingLogTable(props: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly columns: readonly LogMetric[];
 	readonly metrics: readonly LogMetric[];
 	readonly sections: readonly MonthSection[];
@@ -330,7 +331,7 @@ function EditMeasurementDialog(props: {
 }
 
 function ReadingActions(props: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly group: ReadingGroup;
 	readonly metrics: readonly LogMetric[];
 }) {

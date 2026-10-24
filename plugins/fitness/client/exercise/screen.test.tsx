@@ -1,7 +1,7 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -38,10 +38,10 @@ const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft:
 	const page = mountPluginPage(
 		() => (
 			<ExerciseDetailsView
-				timeZone="UTC"
 				compact={false}
 				details={details}
 				onChanged={() => undefined}
+				timeZone={TimeZone.make("UTC")}
 				now={new Date("2026-10-12T00:00:00.000Z")}
 				exercise={details.exercise ?? exerciseRecord()}
 			/>
@@ -547,10 +547,10 @@ const mountCustomExercise = () => {
 	const page = mountPluginPage(
 		() => (
 			<ExerciseDetailsView
-				timeZone="UTC"
 				compact={false}
 				exercise={exercise}
 				onChanged={() => undefined}
+				timeZone={TimeZone.make("UTC")}
 				details={exerciseDetails({ exercise })}
 				now={new Date("2026-10-12T00:00:00.000Z")}
 			/>

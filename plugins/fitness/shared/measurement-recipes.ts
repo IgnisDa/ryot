@@ -31,7 +31,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyNumber } from "./entity-selections";
 
@@ -163,7 +163,7 @@ const seriesQueries = (input: SeriesInput) => {
 type SeriesInput = {
 	readonly endAt: string;
 	readonly startAt: string;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly metricIds: readonly string[];
 	readonly reference: PluginIdentityReference;
 	readonly bucket: "day" | "week" | "year" | "month";

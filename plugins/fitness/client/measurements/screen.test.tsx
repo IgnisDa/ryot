@@ -1,5 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -96,7 +97,14 @@ const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics)
 const logMetrics = [{ unit: "kg", id: "weight", name: "Weight" }];
 
 function ReadingLogPage() {
-	return <ReadingLog range="All" timeZone="UTC" metrics={logMetrics} columns={logMetrics} />;
+	return (
+		<ReadingLog
+			range="All"
+			metrics={logMetrics}
+			columns={logMetrics}
+			timeZone={TimeZone.make("UTC")}
+		/>
+	);
 }
 
 function MeasurementLoggerPage() {
@@ -638,7 +646,7 @@ describe("measurements page", () => {
 				readingsPage: () => storedReadings,
 			});
 			const body = within(document.body);
-			const rowLabel = `Delete measurement from ${formatDay(readingsAt, "UTC")} ${formatTime(readingsAt, "UTC")}`;
+			const rowLabel = `Delete measurement from ${formatDay(readingsAt, TimeZone.make("UTC"))} ${formatTime(readingsAt, TimeZone.make("UTC"))}`;
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();

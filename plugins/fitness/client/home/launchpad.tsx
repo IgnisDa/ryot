@@ -1,4 +1,4 @@
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -35,7 +35,7 @@ export function SetGoalCard() {
 
 export function WeekGoalSection(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly hasLiveDraft: boolean;
 }) {
 	const { now, timeZone } = props;
@@ -73,7 +73,7 @@ export function WeekGoalSection(props: {
 
 export function ResumeBanner(props: {
 	readonly now: Date;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly draft: ActiveEditorDraft;
 }) {
 	const client = useRyot();
@@ -161,7 +161,7 @@ function Stat(props: { readonly value: string; readonly label: string }) {
 function WeekGoalCard(props: {
 	readonly now: Date;
 	readonly goal: number;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly hasLiveDraft: boolean;
 	readonly summary: WorkoutSummary;
 }) {

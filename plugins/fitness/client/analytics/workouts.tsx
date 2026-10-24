@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card, Notice, Select, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, HourlyHistogram, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
@@ -351,7 +352,7 @@ function ConsistencyRegion(props: { readonly compact: boolean; readonly input: A
 
 function TrendChart(props: {
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly metric: AnalyticsMetric;
 	readonly current: TrendQueryResult;
 	readonly previous?: TrendQueryResult;

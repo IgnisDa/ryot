@@ -1,4 +1,4 @@
-import { PluginId, resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, resolveReportingSelection, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -22,7 +22,7 @@ import {
 } from "./reporting-model";
 
 const input: AnalyticsInput = {
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	selection: {
 		grouping: "day",
@@ -30,7 +30,7 @@ const input: AnalyticsInput = {
 		range: { days: 7, kind: "rolling" },
 	},
 };
-const customPeriod = (startDate: string, endDate: string, timeZone = "UTC") =>
+const customPeriod = (startDate: string, endDate: string, timeZone = TimeZone.make("UTC")) =>
 	resolveReportingSelection(
 		{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
 		{ now: 0, timeZone },
@@ -110,7 +110,10 @@ describe("calendar bucket grids", () => {
 	});
 	it("includes leap days and keeps unknown derived buckets distinct from zero counts", () => {
 		expect(
-			trendGrid(trend(), "UTC", 0).buckets.map(({ value, period }) => [period.startDate, value]),
+			trendGrid(trend(), TimeZone.make("UTC"), 0).buckets.map(({ value, period }) => [
+				period.startDate,
+				value,
+			]),
 		).toEqual([
 			["2024-02-28", 0],
 			["2024-02-29", 0],
@@ -122,7 +125,7 @@ describe("calendar bucket grids", () => {
 				metric: "volume",
 				points: [point("2024-02-29T00:00:00Z", 0), point("2024-03-01T00:00:00Z", null)],
 			}),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(grid.buckets.map(({ value }) => value)).toEqual([null, 0, null, null]);
 		expect(grid.buckets[2]?.source?.value).toBeNull();
@@ -130,7 +133,7 @@ describe("calendar bucket grids", () => {
 	it("keeps unequal month and partial-week boundaries and pairs by ordinal, not date", () => {
 		const current = trendGrid(
 			trend({ grouping: "month", period: customPeriod("2024-02-15", "2024-03-02") }),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(current.buckets.map(({ period }) => [period.startDate, period.endDate])).toEqual([
 			["2024-02-15", "2024-02-29"],
@@ -139,11 +142,11 @@ describe("calendar bucket grids", () => {
 		expect(current.buckets[0]?.at).toBe("2024-02-15T00:00:00.000Z");
 		const currentWeeks = trendGrid(
 			trend({ grouping: "week", period: customPeriod("2026-03-04", "2026-03-10") }),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		const previousWeeks = trendGrid(
 			trend({ grouping: "week", period: customPeriod("2026-02-15", "2026-03-03") }),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		const paired = pairTrendBuckets(currentWeeks.buckets, previousWeeks.buckets);
 		expect(
@@ -163,12 +166,12 @@ describe("calendar bucket grids", () => {
 	it("does not fill an unseen tail or claim a truncated source is complete", () => {
 		const grid = trendGrid(
 			trend({ hasMore: true, points: [point("2024-02-29T00:00:00Z", 1)] }),
-			"UTC",
+			TimeZone.make("UTC"),
 			0,
 		);
 		expect(grid.buckets.map(({ value }) => value)).toEqual([0, 1]);
 		expect(grid).toMatchObject({ partial: true, complete: false });
-		expect(trendGrid(trend({ hasMore: true }), "UTC", 0).buckets).toEqual([]);
+		expect(trendGrid(trend({ hasMore: true }), TimeZone.make("UTC"), 0).buckets).toEqual([]);
 		const weekly = trendGrid(
 			trend({
 				hasMore: true,
@@ -176,28 +179,32 @@ describe("calendar bucket grids", () => {
 				points: [point("2026-03-02T00:00:00Z", 1)],
 				period: customPeriod("2026-03-04", "2026-04-01"),
 			}),
-			"UTC",
+			TimeZone.make("UTC"),
 			0,
 		);
 		expect(weekly.buckets[0]?.period.endDate).toBe("2026-03-08");
 	});
 	it("caps dense grids at 1000 without claiming completion", () => {
-		const grid = trendGrid(trend({ period: customPeriod("2020-01-01", "2026-12-31") }), "UTC", 0);
+		const grid = trendGrid(
+			trend({ period: customPeriod("2020-01-01", "2026-12-31") }),
+			TimeZone.make("UTC"),
+			0,
+		);
 		expect(grid.buckets).toHaveLength(1000);
 		expect(grid).toMatchObject({ partial: true, complete: false });
 	});
 	it("does not invent all-time history before or after the returned buckets", () => {
-		expect(trendGrid(trend({ period: null }), "UTC", 0).buckets).toEqual([]);
+		expect(trendGrid(trend({ period: null }), TimeZone.make("UTC"), 0).buckets).toEqual([]);
 		const grid = trendGrid(
 			trend({ period: null, points: [point("2024-02-29T00:00:00Z", 1)] }),
-			"UTC",
+			TimeZone.make("UTC"),
 			0,
 		);
 		expect(grid.buckets).toHaveLength(1);
 		expect(grid.buckets[0]?.period.startDate).toBe("2024-02-29");
 		const years = trendGrid(
 			trend({ period: null, grouping: "year", points: [point("2024-01-01T00:00:00Z", 1)] }),
-			"UTC",
+			TimeZone.make("UTC"),
 			0,
 		);
 		expect(years.buckets[0]?.period).toMatchObject({
@@ -242,7 +249,7 @@ describe("exact quantities and comparisons", () => {
 				points: [point("2024-02-24T00:00:00Z", 0)],
 				period: customPeriod("2024-02-24", "2024-02-27"),
 			}),
-			"UTC",
+			TimeZone.make("UTC"),
 			{ energyUnit: "kcal", unitSystem: "imperial" },
 		);
 		expect(model.buckets[0]).toMatchObject({
@@ -261,12 +268,12 @@ describe("measurement averages", () => {
 			{ value: 2, unit: "kg", readings: 3, at: "2024-02-29T00:00:00Z" },
 			{ value: 8, unit: "kg", readings: 1, at: "2024-03-02T00:00:00Z" },
 		]);
-		const grid = trendGrid(data, "UTC");
+		const grid = trendGrid(data, TimeZone.make("UTC"));
 		const smooth = smoothMeasurementBuckets(grid.buckets);
 		expect(smooth.map(({ value }) => value)).toEqual([0, 1, null, 8]);
 		expect(smooth[1]?.source).toEqual(data.points[1]);
 		expect(smooth[1]?.smoothing).toBe(3);
-		expect(measurementTrendModel(data, null, "UTC", true).buckets[1]?.detail).toBe(
+		expect(measurementTrendModel(data, null, TimeZone.make("UTC"), true).buckets[1]?.detail).toBe(
 			"3 readings; grouped average; 3-point smoothing",
 		);
 	});
@@ -280,7 +287,7 @@ describe("measurement averages", () => {
 			})),
 			{ period: customPeriod("2024-01-01", "2024-02-14") },
 		);
-		const smooth = smoothMeasurementBuckets(trendGrid(data, "UTC").buckets);
+		const smooth = smoothMeasurementBuckets(trendGrid(data, TimeZone.make("UTC")).buckets);
 		expect(smooth.at(-1)).toMatchObject({ value: 41, smoothing: 7, source: { value: 44 } });
 	});
 	it("does not overlay measurements with different units", () => {
@@ -290,7 +297,7 @@ describe("measurement averages", () => {
 		const previous = measurement([
 			{ value: 2, unit: "lb", readings: 1, at: "2024-02-28T00:00:00Z" },
 		]);
-		const model = measurementTrendModel(current, previous, "UTC");
+		const model = measurementTrendModel(current, previous, TimeZone.make("UTC"));
 		expect(model.mixedUnits).toBe(true);
 		expect(model.buckets[0]?.comparison).toBeUndefined();
 		expect(model.previous?.buckets[0]?.value).toBe(2);
@@ -341,7 +348,7 @@ describe("bounded workout consistency", () => {
 		});
 		const model = consistencyModel(
 			trend({ hasMore: true, points: [point("2024-02-29T00:00:00Z", 2)] }),
-			"UTC",
+			TimeZone.make("UTC"),
 		);
 		expect(model.days).toEqual([
 			{ value: 0, date: "2024-02-28" },

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -112,10 +113,10 @@ const Summary = (props: { readonly value?: WorkoutSummary }) => (
 	<WorkoutSummarySection
 		now={now}
 		period="7D"
-		timeZone="UTC"
 		isError={false}
 		imperial={false}
 		onRetry={() => undefined}
+		timeZone={TimeZone.make("UTC")}
 		summary={props.value ?? summary}
 		onPeriodChange={() => undefined}
 	/>
@@ -180,10 +181,10 @@ const History = (props: { readonly value?: ExerciseDetails }) => {
 		<>
 			<HistorySection
 				now={now}
-				timeZone="UTC"
 				compact={false}
 				details={details}
 				exercise={exerciseRecord()}
+				timeZone={TimeZone.make("UTC")}
 			/>
 			<RecentSessions compact={false} details={details} />
 		</>
