@@ -15,7 +15,7 @@
 
 ## Status
 
-**41 implemented, 0 in progress, 42 pending; 3 excluded.**
+**42 implemented, 0 in progress, 41 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -77,7 +77,7 @@
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
 | S01-R1 | Pending | Store harvested bytes without an intermediate temp copy. |
 | P09-R1 | Pending | Validate archives without a compress/decompress round trip. |
-| M03-R1 | Pending | Explicit Plex current-item continuation. |
+| M03-R1 | Implemented | Plex integration uses explicit current-item continuation. See this finding's audit commit. |
 | M04-R1 | Pending | Use the sorted-run accumulator for collection workflows. |
 | M02-R1 | Pending | Remove the synthetic ZIP round trip for decoded Trakt records. |
 | F02-R1 | Pending | Normalize the already-selected workout group once. |
@@ -206,3 +206,4 @@
 - B16-R2: scoped backend checks passed before 23 tests; read-only review passed.
 - P04-R2: SDK check passed before 243 tests across 23 files; read-only review passed.
 - C07-R2: client type, format, and lint checks passed before 65 tests across three files; read-only review passed. Departure interrupts local waiting and suppresses late callbacks/refresh, without promising server rollback.
+- M03-R1: media check passed before 39 tests across six files; read-only review passed.
