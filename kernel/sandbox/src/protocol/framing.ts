@@ -11,6 +11,7 @@ import {
 	parseSidecarOutboundJson,
 	SIDECAR_PROTOCOL_LIMITS,
 	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 	type SidecarOutboundFrame,
 	SidecarProtocolError,
 } from "./messages";
@@ -374,7 +375,7 @@ type QueuedMessage = {
 	readonly handle: string;
 	readonly lane: ExecutionLane | undefined;
 	readonly queue: "run" | "control" | ExecutionLane;
-	readonly frame: SidecarInboundFrame;
+	readonly frame: SidecarInboundLogicalMessage;
 	readonly payload: Uint8Array;
 	readonly count: number;
 	readonly released: (() => void) | undefined;
@@ -386,38 +387,7 @@ type QueuedMessage = {
 
 type CurrentFrame = { readonly message: QueuedMessage; readonly bytes: Uint8Array; offset: number };
 
-const messageCategory = (frame: SidecarInboundFrame): "run" | "control" => {
-	if (frame.type === "run") {
-		return "run";
-	}
-	if (frame.type === "part") {
-		if (frame.frameType !== "run" && frame.frameType !== "hostResult") {
-			throw protocolError("payload", `inbound part type ${frame.frameType} is not supported`);
-		}
-		const maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes[frame.frameType];
-		const partLength = base64DecodedLength(frame.data);
-		const expectedCount = Math.ceil(frame.byteLength / maximumPartBytes);
-		const expectedPartLength = Math.min(
-			maximumPartBytes,
-			frame.byteLength - frame.index * maximumPartBytes,
-		);
-		if (
-			frame.byteLength > maximumBytes ||
-			frame.count !== expectedCount ||
-			partLength === 0 ||
-			partLength !== expectedPartLength
-		) {
-			throw protocolError("payload", "inbound part metadata does not match its payload");
-		}
-		if (frame.frameType === "run") {
-			return "run";
-		}
-		return "control";
-	}
-	return "control";
-};
-
-const partCount = (frame: SidecarInboundFrame, payload: Uint8Array) =>
+const partCount = (frame: SidecarInboundLogicalMessage, payload: Uint8Array) =>
 	(frame.type === "run" || frame.type === "hostResult") && payload.byteLength > maximumFrameBytes
 		? Math.ceil(payload.byteLength / maximumPartBytes)
 		: 1;
@@ -612,7 +582,7 @@ export const makeSidecarFrameWriter = ({
 				}
 			}
 		},
-		enqueue(frame: SidecarInboundFrame, released?: () => void) {
+		enqueue(frame: SidecarInboundLogicalMessage, released?: () => void) {
 			if (closed) {
 				throw protocolError("framing", "writer is closed");
 			}
@@ -635,7 +605,7 @@ export const makeSidecarFrameWriter = ({
 			if (payload.byteLength > logicalCap) {
 				throw protocolError("payload", `logical ${frame.type} message exceeds ${logicalCap} bytes`);
 			}
-			let queue: QueuedMessage["queue"] = messageCategory(frame);
+			let queue: QueuedMessage["queue"] = frame.type === "run" ? "run" : "control";
 			const handleLane = lane(frame.handle);
 			if (frame.type === "hostResult") {
 				if (handleLane === undefined) {
