@@ -22,6 +22,7 @@ import { Effect, Record } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
+import { sourceLiteral } from "~/support/source-literal";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import { listAdminSystemPlugins } from "./admin-system-plugins";
@@ -489,13 +490,13 @@ export function providerSandboxSource(input: {
 	const isTranslate = input.operation === "translate";
 	const isRelated = input.operation === "related";
 	const decoded = (name: string, schema: string) => `const ${name} = Schema.decodeSync(${schema})(
-  JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
+  JSON.parse(${sourceLiteral(JSON.stringify(input.result))}),
 );`;
 	let declarations = decoded("result", resultSchema);
 	if (isRelated) {
 		declarations = decoded("pages", "Schema.Record(Schema.String, providerRelatedResultSchema)");
 		if (input.relatedPageHttpCalls !== undefined) {
-			declarations += `\nconst pageHttpCalls: Readonly<Record<string, { readonly url: string; readonly count: number }>> = ${JSON.stringify(input.relatedPageHttpCalls)};`;
+			declarations += `\nconst pageHttpCalls: Readonly<Record<string, { readonly url: string; readonly count: number }>> = ${sourceLiteral(input.relatedPageHttpCalls)};`;
 		}
 	} else if (isTranslate) {
 		declarations = decoded(
@@ -505,11 +506,11 @@ export function providerSandboxSource(input: {
 	}
 	let run: string;
 	if (input.executionFailure !== undefined) {
-		run = `() => Effect.die(${JSON.stringify(input.executionFailure)})`;
+		run = `() => Effect.die(${sourceLiteral(input.executionFailure)})`;
 	} else if (input.httpCalls !== undefined) {
 		run = `(_input, host) => Effect.forEach(
     Array.from({ length: ${input.httpCalls.count} }),
-    () => host.httpCall("GET", ${JSON.stringify(input.httpCalls.url)}),
+    () => host.httpCall("GET", ${sourceLiteral(input.httpCalls.url)}),
     { discard: true },
   ).pipe(Effect.as(result))`;
 	} else if (isRelated) {
@@ -538,12 +539,12 @@ export function providerSandboxSource(input: {
 		run =
 			input.delayMs === undefined
 				? "() => Effect.succeed(result)"
-				: `() => Effect.sleep(${JSON.stringify(`${input.delayMs} millis`)}).pipe(Effect.as(result))`;
+				: `() => Effect.sleep(${sourceLiteral(`${input.delayMs} millis`)}).pipe(Effect.as(result))`;
 	}
 	const searchOptionsSchema =
 		input.searchOptionsSchema === undefined
 			? ""
-			: `\n  searchOptionsSchema: ${JSON.stringify(input.searchOptionsSchema)},`;
+			: `\n  searchOptionsSchema: ${sourceLiteral(input.searchOptionsSchema)},`;
 
 	const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
@@ -552,10 +553,10 @@ import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resul
 
 export const manifest = defineManifest({
   kind: "provider",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 ${searchOptionsSchema}
-${input.translationInputs === undefined ? "" : `translationInputs: ${JSON.stringify(input.translationInputs)},`}
+${input.translationInputs === undefined ? "" : `translationInputs: ${sourceLiteral(input.translationInputs)},`}
 });
 
 ${declarations}
@@ -563,7 +564,7 @@ ${declarations}
 export default defineProvider({
   manifest,
   run: ${run},
-  operation: ${JSON.stringify(input.operation)},
+  operation: ${sourceLiteral(input.operation)},
 });
 `;
 	const metadata = {

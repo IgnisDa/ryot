@@ -1,5 +1,7 @@
 import type { JsonPrimitive, JsonValue } from "@ryot-app/contract/schema/json";
 
+import { sourceLiteral } from "~/support/source-literal";
+
 type SandboxSourceIdentity = { readonly name: string; readonly slug: string };
 
 type ScriptModuleSourceInput = SandboxSourceIdentity & {
@@ -37,8 +39,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 });
 
 ${input.declarations ?? ""}
@@ -85,7 +87,7 @@ export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly 
 		...input,
 		outputSchema: "Schema.Unknown",
 		inputSchema: "Schema.Struct({})",
-		run: `() => Effect.sync(() => { throw new Error(${JSON.stringify(input.message)}); })`,
+		run: `() => Effect.sync(() => { throw new Error(${sourceLiteral(input.message)}); })`,
 	});
 }
 
@@ -105,8 +107,8 @@ export function literalSandboxSource(
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		outputSchema: `Schema.Literal(${JSON.stringify(input.value)})`,
-		run: `() => Effect.succeed(${JSON.stringify(input.value)} as const)`,
+		outputSchema: `Schema.Literal(${sourceLiteral(input.value)})`,
+		run: `() => Effect.succeed(${sourceLiteral(input.value)} as const)`,
 	});
 }
 
@@ -165,7 +167,7 @@ export function httpCallSandboxSource(
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["httpCallResultSchema"],
 		outputSchema: "httpCallResultSchema",
-		run: `(_input, host) => host.httpCall(${JSON.stringify(input.method ?? "GET")}, ${JSON.stringify(input.url)}).pipe(
+		run: `(_input, host) => host.httpCall(${sourceLiteral(input.method ?? "GET")}, ${sourceLiteral(input.url)}).pipe(
     Effect.map((data) => ({ data, success: true as const })),
   )`,
 	});
@@ -182,7 +184,7 @@ export function pluginConfigSandboxSource(
 		sdkImports: ["jsonValueSchema"],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
-		run: `(_input, host) => host.getPluginConfig({ required: ${JSON.stringify(input.keys)}, optional: ${JSON.stringify(input.optionalKeys ?? [])} })`,
+		run: `(_input, host) => host.getPluginConfig({ required: ${sourceLiteral(input.keys)}, optional: ${sourceLiteral(input.optionalKeys ?? [])} })`,
 	});
 }
 
@@ -224,7 +226,7 @@ export function deepThrowingSandboxSource(
 	const frames = Array.from({ length: frameCount }, (_, index) => {
 		const frameName = `sandboxFrame${index}`;
 		if (index === frameCount - 1) {
-			return `const ${frameName} = () => { throw new Error(${JSON.stringify(input.message)}); };`;
+			return `const ${frameName} = () => { throw new Error(${sourceLiteral(input.message)}); };`;
 		}
 		return `const ${frameName} = () => sandboxFrame${index + 1}();`;
 	}).join("\n");
@@ -248,7 +250,7 @@ export function httpCallFailureSandboxSource(
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["httpCallResultSchema"],
 		outputSchema: "httpCallResultSchema",
-		run: `(_input, host) => host.httpCall(${JSON.stringify(input.method ?? "GET")}, ${JSON.stringify(input.url)}).pipe(
+		run: `(_input, host) => host.httpCall(${sourceLiteral(input.method ?? "GET")}, ${sourceLiteral(input.url)}).pipe(
     Effect.map((data) => ({ data, success: true as const })),
     Effect.catch((error) => Effect.succeed({
       error: error.message,
@@ -267,8 +269,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 });
 
 export default defineOperation({
@@ -318,7 +320,7 @@ export function observabilitySandboxSource(input: SandboxSourceIdentity) {
 export function pluginConfigOperationSandboxSource(
 	input: SandboxSourceIdentity & { readonly configKey: string; readonly transform?: string },
 ) {
-	const configKey = JSON.stringify(input.configKey);
+	const configKey = sourceLiteral(input.configKey);
 	return `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -326,8 +328,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 });
 
 export default defineOperation({
@@ -354,8 +356,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 });
 
 export default defineOperation({
@@ -367,7 +369,7 @@ export default defineOperation({
   }),
   run: (_input, host) => Effect.gen(function* () {
     const current = yield* host.getCurrentIntegration();
-    const enabled = yield* host.listIntegrations({ provider: ${JSON.stringify(input.providerSlug)}, isDisabled: false });
+    const enabled = yield* host.listIntegrations({ provider: ${sourceLiteral(input.providerSlug)}, isDisabled: false });
     return { current, enabled };
   }),
 });
@@ -382,8 +384,8 @@ export function ryotqlSandboxSource(
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["ryotqlDocumentSchema"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
-		declarations: `const queryName = ${JSON.stringify(input.queryName)};
-const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+		declarations: `const queryName = ${sourceLiteral(input.queryName)};
+const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${sourceLiteral(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql(query);
      const data = result && typeof result === "object" && "data" in result ? result.data : null;
@@ -413,8 +415,8 @@ export function systemRyotqlProbeSandboxSource(
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["ryotqlDocumentSchema"],
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
-		declarations: `const queryName = ${JSON.stringify(input.queryName)};
-const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+		declarations: `const queryName = ${sourceLiteral(input.queryName)};
+const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${sourceLiteral(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql(query);
      const data = result && typeof result === "object" && "data" in result ? result.data : null;
@@ -429,7 +431,7 @@ const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringif
        throw new Error("Expected a rows result");
      }
     yield* host.upsertGlobalEntities([{
-      entitySchemaSlug: ${JSON.stringify(input.entitySchemaSlug)},
+      entitySchemaSlug: ${sourceLiteral(input.entitySchemaSlug)},
       externalId: "system-ryotql-probe",
       name: "RyotQL system probe",
       populatedAt: null,
@@ -451,14 +453,14 @@ import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
 });
 
 const trendingResultSchema = Schema.Struct({
   items: Schema.Array(Schema.Struct({ externalId: Schema.String, name: Schema.String })),
 });
-const trendingResult = Schema.decodeSync(trendingResultSchema)(JSON.parse(${JSON.stringify(
+const trendingResult = Schema.decodeSync(trendingResultSchema)(JSON.parse(${sourceLiteral(
 		JSON.stringify({ items: input.items }),
 	)}));
 
@@ -500,7 +502,7 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 			inputSchema: "Schema.Struct({})",
 			sdkImports: ["claimPersistentValueResultSchema"],
 			outputSchema: "claimPersistentValueResultSchema",
-			run: `(_input, host) => host.claimPersistentValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
+			run: `(_input, host) => host.claimPersistentValue(${sourceLiteral(input.key)}, JSON.parse(${sourceLiteral(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
     Effect.map((data) => ({ data, success: true as const })),
   )`,
 		});
@@ -514,9 +516,9 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 			inputSchema: 'Schema.Struct({ operation: Schema.Literal("get", "set") })',
 			run: `(input, host) => Effect.gen(function* () {
     if (input.operation === "set") {
-      yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), 60);
+      yield* host.setCachedValue(${sourceLiteral(input.key)}, JSON.parse(${sourceLiteral(JSON.stringify(input.value))}), 60);
     }
-    const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
+    const data = yield* host.getCachedValue(${sourceLiteral(input.key)});
     return { data, success: true as const };
   })`,
 		});
@@ -528,7 +530,7 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 			inputSchema: "Schema.Struct({})",
 			sdkImports: ["getCachedValueResultSchema"],
 			outputSchema: "getCachedValueResultSchema",
-			run: `(_input, host) => host.getCachedValue(${JSON.stringify(input.key)}).pipe(
+			run: `(_input, host) => host.getCachedValue(${sourceLiteral(input.key)}).pipe(
     Effect.map((data) => ({ data, success: true as const })),
   )`,
 		});
@@ -540,7 +542,7 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 			inputSchema: "Schema.Struct({})",
 			sdkImports: ["setCachedValueResultSchema"],
 			outputSchema: "setCachedValueResultSchema",
-			run: `(_input, host) => host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
+			run: `(_input, host) => host.setCachedValue(${sourceLiteral(input.key)}, JSON.parse(${sourceLiteral(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
     Effect.map((data) => ({ data, success: true as const })),
   )`,
 		});
@@ -552,8 +554,8 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		outputSchema: "getCachedValueResultSchema",
 		sdkImports: ["getCachedValueResultSchema"],
 		run: `(_input, host) => Effect.gen(function* () {
-    yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds});
-    const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
+    yield* host.setCachedValue(${sourceLiteral(input.key)}, JSON.parse(${sourceLiteral(JSON.stringify(input.value))}), ${input.ttlSeconds});
+    const data = yield* host.getCachedValue(${sourceLiteral(input.key)});
     return { data, success: true as const };
   })`,
 	});
