@@ -18,6 +18,7 @@ import { relationshipEnds } from "../relationships/orientation";
 import { OutputFieldKey } from "../ryotql/language";
 import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
+import { PluginEventGroup } from "./event-groups";
 import {
 	hasReachableExternalEffects,
 	hasValidExecutableDependencies,
@@ -201,6 +202,7 @@ const PluginClientExportFields = {
 
 export const PluginClientExport = Schema.Union([
 	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("component") }),
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("analytics-section") }),
 	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("presentation") }),
 	strictStruct({
 		...PluginClientExportFields,
@@ -243,6 +245,17 @@ export const PluginClientEntry = strictStruct({
 	notFoundPage: Schema.optional(pluginManifestSlug),
 	pluginDependencies: Schema.optional(PluginClientDependencies),
 	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
+	analyticsSections: Schema.optional(
+		Schema.Record(
+			pluginManifestSlug,
+			strictStruct({
+				sortOrder: Schema.Finite,
+				name: Schema.NonEmptyString,
+				icon: Schema.NonEmptyString,
+				exportName: pluginManifestSlug,
+			}),
+		),
+	),
 });
 
 export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
@@ -264,11 +277,35 @@ export const PluginProjection = strictStruct({
 
 export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
 
+export const PluginEventProjection = strictStruct({
+	...PluginProjection.fields,
+	inputRepairScriptSlug: Schema.optional(pluginManifestSlug),
+	inputs: Schema.NonEmptyArray(
+		strictStruct({
+			eventSchemaSlug: pluginManifestSlug,
+			scope: Schema.Union([
+				Schema.Literals(["entity", "session"]),
+				strictStruct({ property: Schema.NonEmptyString }),
+			]),
+			through: Schema.optional(
+				strictStruct({
+					eventSchemaSlug: pluginManifestSlug,
+					sourceProperty: Schema.NonEmptyString,
+					targetProperty: Schema.NonEmptyString,
+				}),
+			),
+		}),
+	),
+});
+
+export type PluginEventProjection = Schema.Schema.Type<typeof PluginEventProjection>;
+
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
-	projection: Schema.optional(PluginProjection),
+	eventGroup: Schema.optional(PluginEventGroup),
+	projection: Schema.optional(PluginEventProjection),
 });
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
@@ -976,6 +1013,11 @@ const hasValidClientManifestReferences = (
 	>,
 ) => {
 	const clientExports = manifest.client?.exports ?? {};
+	for (const section of Object.values(manifest.client?.analyticsSections ?? {})) {
+		if (clientExports[section.exportName]?.kind !== "analytics-section") {
+			return false;
+		}
+	}
 	if (manifest.client !== undefined && Object.keys(clientExports).length === 0) {
 		return false;
 	}

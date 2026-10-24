@@ -23,6 +23,7 @@ export const ClientRendererDefinition = strictStruct({
 	files: Schema.Array(ClientRendererFile),
 	automaticEntityPresentations: Schema.Boolean,
 	pluginDependencies: PluginClientDependencies,
+	analyticsSections: Schema.optional(Schema.Boolean),
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
 
@@ -126,7 +127,7 @@ const ClientPagePublicExportIdentity = strictStruct({
 	entry: Schema.String,
 	settingsSchema: Schema.optional(AppSchema),
 	automaticEntityPresentations: Schema.Boolean,
-	kind: Schema.Literals(["component", "page", "presentation"]),
+	kind: Schema.Literals(["component", "page", "presentation", "analytics-section"]),
 });
 
 export const ClientPageAutomaticRegistryIdentity = strictStruct({
@@ -148,6 +149,25 @@ export const ClientCompositionModuleReference = strictStruct({
 	specifier: Schema.NonEmptyString,
 });
 export type ClientCompositionModuleReference = typeof ClientCompositionModuleReference.Type;
+
+const AnalyticsSectionMetadata = {
+	sortOrder: Schema.Finite,
+	slug: Schema.NonEmptyString,
+	name: Schema.NonEmptyString,
+	icon: Schema.NonEmptyString,
+	ownerPluginId: Schema.String,
+};
+
+export const ClientPageAnalyticsSectionIdentity = strictStruct({
+	...AnalyticsSectionMetadata,
+	artifactClosure: Schema.Array(Schema.String),
+	module: Schema.NullOr(ClientCompositionModuleReference),
+});
+
+const ClientCompositionAnalyticsSection = strictStruct({
+	...ClientPageAnalyticsSectionIdentity.fields,
+	stylesheets: Schema.Array(ClientArtifactFileReference),
+});
 
 export const ClientCompositionPresentationRegistration = strictStruct({
 	ownerPluginId: Schema.String,
@@ -176,6 +196,7 @@ const ClientPageCompositionIdentityBase = {
 	compilerVersion: Schema.Int,
 	runtimeArtifactHash: Schema.String,
 	eagerArtifactHashes: Schema.Array(Schema.String),
+	analyticsSections: Schema.Array(ClientPageAnalyticsSectionIdentity),
 	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
 	kernelAutomaticFallback: Schema.NullOr(
 		strictStruct({
@@ -222,15 +243,20 @@ export const ClientPageCompositionIdentity = Schema.Union([
 ]);
 export type ClientPageCompositionIdentity = typeof ClientPageCompositionIdentity.Type;
 
-const clientCompositionDescriptor = <Registration extends Schema.Top>(registration: Registration) =>
+const clientCompositionDescriptor = <Registration extends Schema.Top, Section extends Schema.Top>(
+	registration: Registration,
+	section: Section,
+) =>
 	Schema.Union([
 		strictStruct({
 			application: Schema.Literal("page"),
 			entry: ClientCompositionModuleReference,
+			analyticsSections: Schema.Array(section),
 			automaticRegistry: Schema.Array(registration),
 		}),
 		strictStruct({
 			routes: ClientCompositionRoutes,
+			analyticsSections: Schema.Array(section),
 			application: Schema.Literal("plugin-route"),
 			automaticRegistry: Schema.Array(registration),
 		}),
@@ -240,7 +266,10 @@ export const ClientPageCompositionManifest = strictStruct({
 	bootstrap: ClientArtifactFileReference,
 	identity: ClientPageCompositionIdentity,
 	imports: Schema.Record(Schema.String, ClientArtifactFileReference),
-	descriptor: clientCompositionDescriptor(ClientCompositionPresentationRegistration),
+	descriptor: clientCompositionDescriptor(
+		ClientCompositionPresentationRegistration,
+		ClientCompositionAnalyticsSection,
+	),
 });
 export type ClientPageCompositionManifest = typeof ClientPageCompositionManifest.Type;
 
@@ -358,6 +387,11 @@ export const ClientCompositionDocument = strictStruct({
 			module: ClientCompositionPresentationRegistration.fields.module,
 			ownerPluginId: ClientCompositionPresentationRegistration.fields.ownerPluginId,
 			entitySchemaSlug: ClientCompositionPresentationRegistration.fields.entitySchemaSlug,
+		}),
+		strictStruct({
+			...AnalyticsSectionMetadata,
+			stylesheets: Schema.Array(Schema.String),
+			module: Schema.NullOr(ClientCompositionModuleReference),
 		}),
 	),
 });

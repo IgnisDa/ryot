@@ -79,6 +79,7 @@ export const SavedViewTableColumn = strictStruct({
 export type SavedViewTableColumn = typeof SavedViewTableColumn.Type;
 
 export const KernelSavedViewRendererName = Schema.Literals([
+	"analytics",
 	"calendar",
 	"collection-browser",
 	"entity-browser",
@@ -87,6 +88,7 @@ export const KernelSavedViewRendererName = Schema.Literals([
 export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Type;
 
 export const CALENDAR_KERNEL_RENDERER_DISPLAY_NAME = "Calendar";
+export const ANALYTICS_KERNEL_RENDERER_DISPLAY_NAME = "Analytics";
 
 export const SavedViewRenderer = Schema.Union([
 	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
