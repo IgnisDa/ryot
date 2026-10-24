@@ -1,10 +1,15 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	addCalendarUnits,
+	type CalendarUnit,
+	localDateOf,
 	PluginLink,
 	type ReportingPeriod,
 	type ReportingSelection,
 	type ResolvedReportingSelection,
 	resolveReportingSelection,
+	startOfCalendarUnit,
+	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -25,8 +30,7 @@ import {
 } from "@ryot-app/ryotql-recipes/collection-analytics";
 
 type TrendBucket = { readonly at: string; readonly value: null | number };
-type CalendarGrouping = Exclude<ResolvedReportingSelection["grouping"], "auto">;
-type Selection = { readonly timeZone: string; readonly selection: ReportingSelection };
+type Selection = { readonly timeZone: TimeZone; readonly selection: ReportingSelection };
 type RecordsPage = CollectionReviewRecords & { readonly period: null | ReportingPeriod };
 
 type RecordsCursor = { readonly after: string; readonly period: null | ReportingPeriod };
@@ -40,53 +44,11 @@ type ReviewTrend = {
 	readonly buckets: ReadonlyArray<TrendBucket>;
 };
 
-const reportingDateKey = (at: string, timeZone: string) => {
-	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		day: "2-digit",
-		year: "numeric",
-		month: "2-digit",
-	}).formatToParts(new Date(at));
-	const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-	const month = parts.find((part) => part.type === "month")?.value ?? "01";
-	const day = parts.find((part) => part.type === "day")?.value ?? "01";
-	return `${year.padStart(4, "0")}-${month}-${day}`;
-};
-
-const calendarBucketStart = (date: string, grouping: CalendarGrouping) => {
-	const [year = 0, month = 1] = date.split("-").map(Number);
-	if (grouping === "year") {
-		return `${String(year).padStart(4, "0")}-01-01`;
-	}
-	if (grouping === "month") {
-		return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
-	}
-	if (grouping === "week") {
-		const monday = new Date(`${date}T00:00:00.000Z`);
-		const mondayOffset = (monday.getUTCDay() + 6) % 7;
-		monday.setUTCDate(monday.getUTCDate() - mondayOffset);
-		return monday.toISOString().slice(0, 10);
-	}
-	return date;
-};
-
-const nextCalendarBucket = (date: string, grouping: CalendarGrouping) => {
-	const next = new Date(`${date}T00:00:00.000Z`);
-	if (grouping === "year") {
-		next.setUTCFullYear(next.getUTCFullYear() + 1);
-	} else if (grouping === "month") {
-		next.setUTCMonth(next.getUTCMonth() + 1);
-	} else {
-		next.setUTCDate(next.getUTCDate() + (grouping === "week" ? 7 : 1));
-	}
-	return next.toISOString().slice(0, 10);
-};
-
 const reviewTrend = (
 	buckets: CollectionReviewAnalytics["buckets"],
 	current: null | ReportingPeriod,
-	grouping: CalendarGrouping,
-	timeZone: string,
+	grouping: CalendarUnit,
+	timeZone: TimeZone,
 ): ReviewTrend => {
 	const truncated = buckets.pageInfo?.hasMore ?? false;
 	const complete = buckets.pageInfo?.hasMore === false;
@@ -100,14 +62,14 @@ const reviewTrend = (
 
 	const counts = new Map<string, number>();
 	for (const bucket of buckets.items) {
-		const date = reportingDateKey(bucket.at, timeZone);
-		const at = calendarBucketStart(date, grouping);
+		const date = localDateOf(bucket.at, timeZone);
+		const at = startOfCalendarUnit(date, grouping);
 		counts.set(at, (counts.get(at) ?? 0) + bucket.count);
 	}
 
 	const limit = buckets.pageInfo?.limit ?? 100;
 	const calendar: string[] = [];
-	let at = calendarBucketStart(current.startDate, grouping);
+	let at = startOfCalendarUnit(current.startDate, grouping);
 	while (at <= current.endDate) {
 		if (calendar.length === limit) {
 			return {
@@ -120,7 +82,7 @@ const reviewTrend = (
 			};
 		}
 		calendar.push(at);
-		at = nextCalendarBucket(at, grouping);
+		at = addCalendarUnits(at, grouping, 1);
 	}
 
 	return {

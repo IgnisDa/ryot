@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from "@effect/vitest";
 import type { ReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -20,7 +21,7 @@ const defaultSelection: ReportingSelection = {
 };
 
 const Fixture = ({ selection }: { readonly selection: ReportingSelection }) => (
-	<CollectionAnalytics selection={selection} timeZone="America/New_York" />
+	<CollectionAnalytics selection={selection} timeZone={TimeZone.make("America/New_York")} />
 );
 
 const mountCollections = (selection = defaultSelection) =>
@@ -91,9 +92,10 @@ const chartRows = () =>
 const displayedDate = (period: string | undefined) => period?.split(" · ").at(-1) ?? "";
 
 const dateLabel = (date: string) =>
-	new Intl.DateTimeFormat(undefined, { timeZone: "UTC", dateStyle: "medium" }).format(
-		new Date(`${date}T00:00:00.000Z`),
-	);
+	new Intl.DateTimeFormat(undefined, {
+		dateStyle: "medium",
+		timeZone: TimeZone.make("UTC"),
+	}).format(new Date(`${date}T00:00:00.000Z`));
 
 const loadChartRows = (
 	selection: ReportingSelection,
@@ -150,7 +152,7 @@ it.effect(
 			expect(screen.getByText("0 reviews", { selector: "dd" })).toBeDefined();
 			expect(screen.getByText(/Trend is truncated/)).toBeDefined();
 			expect(screen.getByText(/Includes rating-only reviews/).textContent).toContain(
-				"America/New_York",
+				TimeZone.make("America/New_York"),
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Load more reviews" }));
 			const next = yield* request(page, "reviews", 1);

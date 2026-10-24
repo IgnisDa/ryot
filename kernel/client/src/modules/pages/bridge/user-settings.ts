@@ -1,5 +1,6 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { effectiveTimeZone } from "@ryot-app/contract/schema/time-zone";
 import type {
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
@@ -48,7 +49,7 @@ export const pluginUserSettingsOutcome = (input: {
 			}
 			return {
 				outcome: "success",
-				settings: { timeZone: decoded.success.preferences.reportingTimeZone ?? "UTC" },
+				settings: { timeZone: effectiveTimeZone(decoded.success.preferences.reportingTimeZone) },
 			} as const;
 		}
 		if (!hasPluginContributor(input.contributors, input.request.pluginId)) {

@@ -1,17 +1,8 @@
-import { isNamedTimeZone } from "@ryot-app/contract/schema/utils";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useRef } from "react";
 
 import { initializeReportingTimeZoneMutation, preferencesQuery } from "./preferences-service";
-
-export const deviceReportingTimeZone = (read: () => string | undefined): string => {
-	try {
-		const zone = read();
-		return zone !== undefined && isNamedTimeZone(zone) ? zone : "UTC";
-	} catch {
-		return "UTC";
-	}
-};
 
 export function ReportingTimeZoneInitialization(props: { readonly disabled: boolean }) {
 	const preferences = useRyotQuery(preferencesQuery);
@@ -22,9 +13,7 @@ export function ReportingTimeZoneInitialization(props: { readonly disabled: bool
 			return;
 		}
 		attempted.current = true;
-		initialize.mutate(
-			deviceReportingTimeZone(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
-		);
+		initialize.mutate(deviceTimeZone());
 	}, [props.disabled, preferences.data, initialize]);
 	return null;
 }

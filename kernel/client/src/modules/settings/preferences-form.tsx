@@ -1,6 +1,6 @@
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
-import { isNamedTimeZone } from "@ryot-app/contract/schema/utils";
 import {
 	Button,
 	Select,

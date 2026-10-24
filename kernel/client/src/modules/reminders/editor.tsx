@@ -4,6 +4,7 @@ import {
 	ReminderInvalid,
 } from "@ryot-app/contract/modules/reminders/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { useRyotMutation, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -44,9 +45,7 @@ export function ReminderEditor(props: {
 	const initial = props.initial;
 	const editing = initial?.state === "scheduled";
 	const original = editing ? initial.dueAt : null;
-	const [timezone, setTimezone] = useState(
-		initial?.timezone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone,
-	);
+	const [timezone, setTimezone] = useState<string>(initial?.timezone ?? deviceTimeZone());
 	const [wallTime, setWallTime] = useState(() =>
 		original === null ? "" : toDateTimeInput(original, timezone, "millisecond"),
 	);

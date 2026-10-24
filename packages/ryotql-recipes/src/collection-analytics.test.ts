@@ -1,4 +1,5 @@
 import type { ResolvedReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -9,7 +10,7 @@ import {
 
 const reporting: ResolvedReportingSelection = {
 	grouping: "day",
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	current: {
 		endDate: "2026-03-08",
 		startDate: "2026-03-08",

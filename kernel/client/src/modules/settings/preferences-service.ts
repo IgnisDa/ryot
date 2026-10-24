@@ -1,3 +1,4 @@
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import type {
 	UserPreferences,
 	UserPreferencesPatch,
@@ -38,7 +39,7 @@ export const updatePreferencesMutation = createRyotMutation<
 );
 
 export const initializeReportingTimeZoneMutation = createRyotMutation<
-	string,
+	TimeZone,
 	void,
 	KernelHostServices
 >(({ input, client, hostServices }) =>

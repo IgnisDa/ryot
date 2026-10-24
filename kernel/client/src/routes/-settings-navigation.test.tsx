@@ -4,6 +4,7 @@ import type {
 	UpdateUserPreferencesBody,
 } from "@ryot-app/contract/modules/account/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { deviceTimeZone, TimeZone } from "@ryot-app/contract/schema/time-zone";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -19,7 +20,6 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
-import { deviceReportingTimeZone } from "#/modules/settings/reporting-time-zone";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
@@ -218,7 +218,7 @@ describe("authenticated route gate", () => {
 	);
 	it.live.each([
 		{ state: "unset", reportingTimeZone: null },
-		{ state: "preset", reportingTimeZone: "Pacific/Auckland" },
+		{ state: "preset", reportingTimeZone: TimeZone.make("Pacific/Auckland") },
 	])("initializes only an unset account reporting time zone ($state)", ({ reportingTimeZone }) =>
 		Effect.gen(function* () {
 			const saved: UpdateUserPreferencesBody[] = [];
@@ -226,9 +226,7 @@ describe("authenticated route gate", () => {
 				...userSettings,
 				preferences: { ...userSettings.preferences, reportingTimeZone },
 			};
-			const expectedTimeZone =
-				reportingTimeZone ??
-				deviceReportingTimeZone(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+			const expectedTimeZone = reportingTimeZone ?? deviceTimeZone();
 			const expectedWrites =
 				reportingTimeZone === null ? [{ initializeReportingTimeZone: expectedTimeZone }] : [];
 			const view = mountView(

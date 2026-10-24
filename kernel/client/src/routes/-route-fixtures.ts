@@ -9,6 +9,7 @@ import {
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -155,7 +156,7 @@ export const userSettings: UserSettingsResult = {
 	name: "Test User",
 	id: UserId.make("user-1"),
 	email: "user@ryot.example",
-	preferences: { language: null, reportingTimeZone: "UTC", disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 
 export const makeUserSettingsStub = (overrides: Partial<AccountApi["Service"]> = {}) =>

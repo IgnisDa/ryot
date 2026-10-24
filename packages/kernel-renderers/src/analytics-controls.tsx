@@ -4,6 +4,7 @@ import {
 	type ReportingSelection,
 	ReportingSelection as ReportingSelectionSchema,
 	resolveReportingSelection,
+	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Select, TextField } from "@ryot-app/plugin-ui-sdk";
@@ -133,7 +134,7 @@ export function AnalyticsControls({
 	onSelectionChange,
 }: {
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly locationSearch: string;
 	readonly selection: ReportingSelection;
 	readonly onSelectionChange: (selection: ReportingSelection) => void;

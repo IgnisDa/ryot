@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { RyotProvider, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
@@ -12,7 +13,7 @@ import { decodeServerOrigin } from "#/api/origin";
 import { makeAccountApi } from "#/api/ports.test-layer";
 
 import { preferencesQuery } from "./preferences-service";
-import { deviceReportingTimeZone, ReportingTimeZoneInitialization } from "./reporting-time-zone";
+import { ReportingTimeZoneInitialization } from "./reporting-time-zone";
 
 function PreferencesProbe() {
 	const preferences = useRyotQuery(preferencesQuery);
@@ -83,13 +84,7 @@ it.live("uses initialization mode only once after enabled, loaded, and unset", (
 			yield* Effect.promise(() => screen.findByRole("button", { name: "unset" }));
 			expect(requests).toEqual([]);
 			view.rerender(tree(false));
-			const expected = [
-				{
-					initializeReportingTimeZone: deviceReportingTimeZone(
-						() => Intl.DateTimeFormat().resolvedOptions().timeZone,
-					),
-				},
-			];
+			const expected = [{ initializeReportingTimeZone: deviceTimeZone() }];
 			yield* Effect.promise(() => waitFor(() => expect(requests).toEqual(expected)));
 			fireEvent.click(screen.getByRole("button"));
 			view.rerender(tree(true));
