@@ -404,22 +404,11 @@ fn youtubei_client_is_constructed_through_http_call_host_calls() {
 }
 
 #[test]
-fn youtubei_adapter_normalizes_requests_and_rejects_unreadable_bodies() {
+fn fetch_normalizes_request_bodies_and_rejects_unreadable_ones() {
     let mut sidecar = support::spawn(Tier::Full, &[]);
     let source = r#"
-        import { Effect } from "effect";
-        import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
-
-        export default async (_input, sidecarHost) => {
-            const host = {
-                httpCall: (...args) => Effect.tryPromise(() => sidecarHost.call("httpCall", args)),
-            };
-            const client = await Effect.runPromise(createYoutubeMusicClient(host, undefined, {
-                retrievePlayer: false,
-                retrieveInnertubeConfig: false,
-            }));
-            const fetch = client.session.http.fetch_function;
-            await fetch(new Request("https://www.youtube.com/resource", {
+        export default async () => {
+            await fetch(new Request("https://example.com/resource", {
                 method: "POST",
                 body: "old body",
                 headers: { "x-old": "remove", "content-type": "old/type" },
@@ -445,7 +434,7 @@ fn youtubei_adapter_normalizes_requests_and_rejects_unreadable_bodies() {
                 try {
                     await fetch(consumed, init);
                 } catch (error) {
-                    failures.push(error.cause?.message ?? error.message);
+                    failures.push(error.message);
                 }
             }
             try {
@@ -456,25 +445,25 @@ fn youtubei_adapter_normalizes_requests_and_rejects_unreadable_bodies() {
                     }),
                 });
             } catch (error) {
-                failures.push(error.cause?.message ?? error.message);
+                failures.push(error.message);
             }
             try {
                 await fetch("https://example.com/malformed", { method: "GET", body: "invalid" });
             } catch (error) {
-                failures.push(error.cause?.message ?? error.message);
+                failures.push(error.message);
             }
             return failures;
         };
     "#;
     sidecar.send(&support::run_frame(
-        "youtubei-requests",
+        "fetch-requests",
         Tier::Full,
         source,
         Value::Null,
         support::limits(),
     ));
     let mut requests = Vec::new();
-    let done = sidecar.finish("youtubei-requests", |name, args| {
+    let done = sidecar.finish("fetch-requests", |name, args| {
         assert_eq!(name, "httpCall");
         requests.push(args);
         json!({ "status": 200, "headers": {}, "body": "{}" })
@@ -482,11 +471,10 @@ fn youtubei_adapter_normalizes_requests_and_rejects_unreadable_bodies() {
     assert_eq!(
         requests,
         vec![
-            json!(["PUT", "https://www.youtube.com/resource", {
+            json!(["PUT", "https://example.com/resource", {
                 "body": "query=a+b",
                 "headers": {
                     "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-                    "origin": "https://www.youtube.com",
                     "x-new": "replacement",
                 },
             }]),
@@ -509,21 +497,10 @@ fn youtubei_adapter_normalizes_requests_and_rejects_unreadable_bodies() {
 }
 
 #[test]
-fn youtubei_adapter_consumes_inherited_bodies_but_not_replaced_bodies() {
+fn request_transfers_inherited_bodies_but_not_replaced_bodies() {
     let mut sidecar = support::spawn(Tier::Full, &[]);
     let source = r#"
-        import { Effect } from "effect";
-        import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
-
-        export default async (_input, sidecarHost) => {
-            const host = {
-                httpCall: (...args) => Effect.tryPromise(() => sidecarHost.call("httpCall", args)),
-            };
-            const client = await Effect.runPromise(createYoutubeMusicClient(host, undefined, {
-                retrievePlayer: false,
-                retrieveInnertubeConfig: false,
-            }));
-            const fetch = client.session.http.fetch_function;
+        export default async () => {
             const states = [];
             for (const [name, body] of [
                 ["bytes", "original"],
@@ -542,31 +519,24 @@ fn youtubei_adapter_consumes_inherited_bodies_but_not_replaced_bodies() {
                 await fetch(input);
                 const afterInherited = input.bodyUsed;
                 let rejected = false;
-                try { await fetch(input); } catch (error) { rejected = error.cause instanceof TypeError; }
+                try { await fetch(input); } catch (error) { rejected = error instanceof TypeError; }
                 let nullRejected = false;
-                try { await fetch(input, { body: null }); } catch (error) { nullRejected = error.cause instanceof TypeError; }
+                try { await fetch(input, { body: null }); } catch (error) { nullRejected = error instanceof TypeError; }
                 await fetch(input, { body: "after consumption" });
                 states.push({ name, afterReplacement, afterInherited, rejected, nullRejected });
             }
-            const input = new Request("https://example.com/clone", { method: "POST", body: "clone body" });
-            const cloned = input.clone();
-            const afterClone = input.bodyUsed;
-            const clonedText = await cloned.text();
-            const originalText = await input.text();
-            let usedCloneRejected = false;
-            try { input.clone(); } catch (error) { usedCloneRejected = error instanceof TypeError; }
-            return { states, afterClone, clonedText, originalText, usedCloneRejected };
+            return states;
         };
     "#;
     sidecar.send(&support::run_frame(
-        "youtubei-body-ownership",
+        "request-body-ownership",
         Tier::Full,
         source,
         Value::Null,
         support::limits(),
     ));
     let mut requests = Vec::new();
-    let done = sidecar.finish("youtubei-body-ownership", |name, args| {
+    let done = sidecar.finish("request-body-ownership", |name, args| {
         assert_eq!(name, "httpCall");
         requests.push(args);
         json!({ "status": 200, "headers": {}, "body": "{}" })
@@ -583,16 +553,47 @@ fn youtubei_adapter_consumes_inherited_bodies_but_not_replaced_bodies() {
     assert_eq!(requests, expected);
     assert_eq!(
         done.value(),
-        json!({
-            "states": [
-                { "name": "bytes", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
-                { "name": "stream", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
-            ],
-            "afterClone": false,
-            "clonedText": "clone body",
-            "originalText": "clone body",
-            "usedCloneRejected": true,
-        })
+        json!([
+            { "name": "bytes", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
+            { "name": "stream", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
+        ])
+    );
+}
+
+#[test]
+fn request_clone_preserves_bytes_and_stream_bodies() {
+    let source = r#"
+        export default async () => {
+            const results = [];
+            for (const [name, body] of [
+                ["bytes", "clone body"],
+                ["stream", new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new TextEncoder().encode("clone "));
+                        controller.enqueue(new TextEncoder().encode("body"));
+                        controller.close();
+                    },
+                })],
+            ]) {
+                const input = new Request(`https://example.com/${name}`, { method: "POST", body });
+                const cloned = input.clone();
+                const afterClone = input.bodyUsed;
+                const clonedText = await cloned.text();
+                const originalText = await input.text();
+                let usedCloneRejected = false;
+                try { input.clone(); } catch (error) { usedCloneRejected = error instanceof TypeError; }
+                results.push({ name, afterClone, clonedText, originalText, usedCloneRejected });
+            }
+            return results;
+        };
+    "#;
+    let done = support::spawn(Tier::Full, &[]).execute(Tier::Full, source, Value::Null);
+    assert_eq!(
+        done.value(),
+        json!([
+            { "name": "bytes", "afterClone": false, "clonedText": "clone body", "originalText": "clone body", "usedCloneRejected": true },
+            { "name": "stream", "afterClone": false, "clonedText": "clone body", "originalText": "clone body", "usedCloneRejected": true },
+        ])
     );
 }
 

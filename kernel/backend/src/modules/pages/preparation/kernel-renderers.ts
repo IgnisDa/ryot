@@ -1,3 +1,4 @@
+import type { ClientCompositionModuleReference } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	kernelCalendarRenderer,
 	kernelCollectionBrowserRenderer,
@@ -14,6 +15,11 @@ const kernelRenderers = new Map<string, KernelClientRenderer>([
 	["entity-browser", kernelEntityBrowserRenderer],
 	["results-table", kernelResultsTableRenderer],
 ]);
+
+export const kernelRendererModule = (name: string): ClientCompositionModuleReference => ({
+	binding: "page",
+	specifier: `@ryot-app/kernel-renderers/${name}`,
+});
 
 export const getKernelClientRenderer = (name: string) => kernelRenderers.get(name);
 

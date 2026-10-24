@@ -45,6 +45,7 @@ import {
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import type { ScriptInlineProgress } from "../host/http-progress";
+import { httpProgressPhases } from "../host/http-progress.test-support";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
@@ -480,24 +481,7 @@ it.effect.each(invalidInlineProgressCases)(
 		}),
 );
 
-const retainedRateLimit = {
-	state: "failure" as const,
-	error: {
-		message: "HTTP 429" as const,
-		data: { body: "slow down", status: 429 as const, headers: { "retry-after": "2" } },
-	},
-};
-const retainedHttpPhases: ReadonlyArray<SandboxHttpProgress["phase"]> = [
-	{ rateLimit: null, _tag: "Admitting" },
-	{ _tag: "Admitting", rateLimit: retainedRateLimit },
-	{
-		delayMs: 2_000,
-		rateLimit: retainedRateLimit,
-		declaration: httpDeclaration,
-		_tag: "ApplyingRateLimitBlock",
-	},
-	{ blockedUntilMs: 2_000, rateLimit: retainedRateLimit, _tag: "WaitingForRateLimitBlock" },
-];
+const retainedHttpPhases = httpProgressPhases(httpDeclaration);
 
 it.effect.each(retainedHttpPhases)(
 	"deferred_inline_http_passes_retained_$_tag_to_durable_dispatch",

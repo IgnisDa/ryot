@@ -181,7 +181,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					},
 				) {
 					yield* session.run((db) =>
-						upsertSavedViewOverride(db, input, {
+						upsertSavedViewOverride(db, [input], {
 							isHidden: input.isHidden,
 							sortOrder: input.sortOrder,
 						}),

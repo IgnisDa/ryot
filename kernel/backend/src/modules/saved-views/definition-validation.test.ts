@@ -85,7 +85,12 @@ it.effect("validates both kernel browser renderers without returning a renderer 
 	Effect.gen(function* () {
 		for (const name of ["entity-browser", "collection-browser"] as const) {
 			expect(
-				yield* validateSavedViewDefinition({ name, kind: "kernel" }, browserSettings, dataSources),
+				yield* validateSavedViewDefinition(
+					{ name, kind: "kernel" },
+					browserSettings,
+					dataSources,
+					null,
+				),
 			).toBeUndefined();
 		}
 	}),
@@ -251,6 +256,7 @@ it.effect("accepts a canonical results-table definition", () =>
 				{ kind: "kernel", name: "results-table" },
 				settings,
 				dataSources,
+				null,
 			),
 		).toBeUndefined();
 	}),
@@ -293,7 +299,9 @@ it.effect("authorizes plugin page renderers and validates their settings", () =>
 it.effect("rejects plugin renderers without an available page export", () =>
 	Effect.gen(function* () {
 		assertExitFails(
-			yield* Effect.exit(validateSavedViewDefinition(pluginRenderer, { title: "Home" }, null)),
+			yield* Effect.exit(
+				validateSavedViewDefinition(pluginRenderer, { title: "Home" }, null, null),
+			),
 			new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
 		);
 	}),
@@ -379,9 +387,12 @@ it.effect("rejects the kernel calendar renderer for user-owned views", () =>
 				message: "Calendar views are kernel built-ins only",
 			},
 		});
-		assertExitFails(yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null)), failure);
 		assertExitFails(
-			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, dataSources)),
+			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null, null)),
+			failure,
+		);
+		assertExitFails(
+			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, dataSources, null)),
 			failure,
 		);
 	}),

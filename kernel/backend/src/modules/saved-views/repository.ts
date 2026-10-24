@@ -16,6 +16,8 @@ import * as schema from "#schema/tables/combined";
 
 import type { SavedViewReorderPlan } from "./reorder";
 
+type OverrideInsert = typeof schema.savedViewOverride.$inferInsert;
+
 type ListedSavedViewRow = typeof schema.userSavedViewEffective.$inferSelect;
 
 type CreateSavedViewInput = {
@@ -79,20 +81,20 @@ const savedViewReference = (
 
 export const upsertSavedViewOverride = (
 	db: EffectPgDatabase,
-	values: typeof schema.savedViewOverride.$inferInsert,
+	values: readonly [OverrideInsert, ...OverrideInsert[]],
 	set: PgUpdateSetSource<typeof schema.savedViewOverride>,
 ) =>
 	db
 		.insert(schema.savedViewOverride)
-		.values(values)
+		.values([...values])
 		.onConflictDoUpdate({
 			set,
 			targetWhere:
-				values.pluginId == null
+				values[0].pluginId == null
 					? isNull(schema.savedViewOverride.pluginId)
 					: isNotNull(schema.savedViewOverride.pluginId),
 			target:
-				values.pluginId == null
+				values[0].pluginId == null
 					? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
 					: [
 							schema.savedViewOverride.userId,
@@ -100,6 +102,26 @@ export const upsertSavedViewOverride = (
 							schema.savedViewOverride.slug,
 						],
 		});
+
+const overriddenFieldsSet = {
+	isHidden: sql`excluded.is_hidden`,
+	sortOrder: sql`excluded.sort_order`,
+	revision: sql`${schema.savedViewOverride.revision} + 1`,
+};
+
+const overrideKeyMatches = (entry: Pick<OverrideInsert, "slug" | "pluginId">) =>
+	and(
+		eq(schema.savedViewOverride.slug, entry.slug),
+		entry.pluginId == null
+			? isNull(schema.savedViewOverride.pluginId)
+			: eq(schema.savedViewOverride.pluginId, entry.pluginId),
+	);
+
+const isDefaultOverride = (entry: {
+	isHidden: boolean;
+	sortOrder: number;
+	defaultSortOrder: number | null;
+}) => !entry.isHidden && entry.sortOrder === entry.defaultSortOrder;
 
 const withSavedViewScope = (pluginInstallationId?: string) =>
 	pluginInstallationId
@@ -334,17 +356,17 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				if (!definition) {
 					return null;
 				}
-				if (!isHidden && sortOrder === definition.sortOrder) {
+				if (isDefaultOverride({ isHidden, sortOrder, defaultSortOrder: definition.sortOrder })) {
 					yield* session.run((db) =>
 						db
 							.delete(schema.savedViewOverride)
 							.where(
 								and(
 									eq(schema.savedViewOverride.userId, userId),
-									eq(schema.savedViewOverride.slug, reference.slug),
-									reference.kind === "kernel"
-										? isNull(schema.savedViewOverride.pluginId)
-										: eq(schema.savedViewOverride.pluginId, reference.pluginId),
+									overrideKeyMatches({
+										slug: reference.slug,
+										pluginId: reference.kind === "kernel" ? null : reference.pluginId,
+									}),
 								),
 							),
 					);
@@ -353,13 +375,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				yield* session.run((db) =>
 					upsertSavedViewOverride(
 						db,
-						{ userId, isHidden, sortOrder, slug: reference.slug, pluginId: current.pluginId },
-						{
-							isHidden,
-							sortOrder,
-							pluginId: current.pluginId,
-							revision: sql`${schema.savedViewOverride.revision} + 1`,
-						},
+						[{ userId, isHidden, sortOrder, slug: reference.slug, pluginId: current.pluginId }],
+						overriddenFieldsSet,
 					),
 				);
 				return yield* findByReference(userId, reference);
@@ -416,8 +433,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				plan: SavedViewReorderPlan,
 			) {
 				const custom: Array<Pick<typeof schema.savedView.$inferSelect, "id" | "sortOrder">> = [];
-				const defaults: Array<typeof schema.savedViewOverride.$inferInsert> = [];
-				const overrides: Array<typeof schema.savedViewOverride.$inferInsert> = [];
+				const defaults: OverrideInsert[] = [];
+				const overrides: OverrideInsert[] = [];
 				for (const entry of plan) {
 					if (entry.currentSortOrder === entry.sortOrder) {
 						continue;
@@ -432,7 +449,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							sortOrder: entry.sortOrder,
 							pluginId: entry.reference.kind === "kernel" ? null : entry.reference.pluginId,
 						};
-						if (!entry.isHidden && entry.sortOrder === entry.defaultSortOrder) {
+						if (isDefaultOverride(entry)) {
 							defaults.push(value);
 						} else {
 							overrides.push(value);
@@ -472,16 +489,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							.where(
 								and(
 									eq(schema.savedViewOverride.userId, userId),
-									or(
-										...defaults.map((entry) =>
-											and(
-												eq(schema.savedViewOverride.slug, entry.slug),
-												entry.pluginId == null
-													? isNull(schema.savedViewOverride.pluginId)
-													: eq(schema.savedViewOverride.pluginId, entry.pluginId),
-											),
-										),
-									),
+									or(...defaults.map(overrideKeyMatches)),
 								),
 							)
 							.returning({ slug: schema.savedViewOverride.slug }),
@@ -489,32 +497,16 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					updated += rows.length;
 				}
 				for (const kernel of [true, false]) {
-					const values = overrides.filter((entry) => (entry.pluginId === null) === kernel);
-					if (values.length === 0) {
+					const [first, ...rest] = overrides.filter(
+						(entry) => (entry.pluginId === null) === kernel,
+					);
+					if (first === undefined) {
 						continue;
 					}
 					const rows = yield* session.run((db) =>
-						db
-							.insert(schema.savedViewOverride)
-							.values(values)
-							.onConflictDoUpdate({
-								targetWhere: kernel
-									? isNull(schema.savedViewOverride.pluginId)
-									: isNotNull(schema.savedViewOverride.pluginId),
-								set: {
-									isHidden: sql`excluded.is_hidden`,
-									sortOrder: sql`excluded.sort_order`,
-									revision: sql`${schema.savedViewOverride.revision} + 1`,
-								},
-								target: kernel
-									? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
-									: [
-											schema.savedViewOverride.userId,
-											schema.savedViewOverride.pluginId,
-											schema.savedViewOverride.slug,
-										],
-							})
-							.returning({ slug: schema.savedViewOverride.slug }),
+						upsertSavedViewOverride(db, [first, ...rest], overriddenFieldsSet).returning({
+							slug: schema.savedViewOverride.slug,
+						}),
 					);
 					updated += rows.length;
 				}

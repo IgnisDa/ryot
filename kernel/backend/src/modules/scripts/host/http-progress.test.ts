@@ -5,6 +5,7 @@ import { Effect, Option, Schema } from "effect";
 import { buildHttpRateLimitLookups } from "#modules/plugins/catalog/http-rate-limits";
 
 import { SandboxHttpPolicy, SandboxHttpProgress, ScriptInlineProgress } from "./http-progress";
+import { httpProgressPhases, rateLimitFailure } from "./http-progress.test-support";
 
 it.effect("round-trips an origin-matched policy through its durable schema", () =>
 	Effect.gen(function* () {
@@ -26,13 +27,6 @@ it.effect("round-trips an origin-matched policy through its durable schema", () 
 );
 
 const declaration = { requests: 1, intervalMs: 1_000, key: "catalog.api", hash: "catalog-hash" };
-const rateLimit = {
-	state: "failure" as const,
-	error: {
-		message: "HTTP 429" as const,
-		data: { body: "slow down", status: 429 as const, headers: { "retry-after": "2" } },
-	},
-};
 const progress = {
 	attempt: 1,
 	networkAttempt: 2,
@@ -53,12 +47,7 @@ const progress = {
 	},
 };
 
-const phases: ReadonlyArray<SandboxHttpProgress["phase"]> = [
-	{ rateLimit: null, _tag: "Admitting" },
-	{ rateLimit, _tag: "Admitting" },
-	{ rateLimit, declaration, delayMs: 2_000, _tag: "ApplyingRateLimitBlock" },
-	{ rateLimit, blockedUntilMs: 2_000, _tag: "WaitingForRateLimitBlock" },
-];
+const phases = httpProgressPhases(declaration);
 
 it.effect.each(phases)(
 	"retains the prepared hop and required $_tag phase data through the inline boundary",
@@ -82,12 +71,12 @@ it.effect.each(phases)(
 
 it.each([
 	{ _tag: "Admitting" },
-	{ rateLimit, delayMs: 1, _tag: "ApplyingRateLimitBlock" },
+	{ delayMs: 1, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
 	{ delayMs: 1, declaration, _tag: "ApplyingRateLimitBlock" },
-	{ rateLimit, declaration, delayMs: -1, _tag: "ApplyingRateLimitBlock" },
-	{ rateLimit, declaration, delayMs: 3_600_001, _tag: "ApplyingRateLimitBlock" },
-	{ rateLimit, _tag: "WaitingForRateLimitBlock" },
-	{ rateLimit, blockedUntilMs: -1, _tag: "WaitingForRateLimitBlock" },
+	{ declaration, delayMs: -1, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
+	{ declaration, delayMs: 3_600_001, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
+	{ rateLimit: rateLimitFailure, _tag: "WaitingForRateLimitBlock" },
+	{ blockedUntilMs: -1, rateLimit: rateLimitFailure, _tag: "WaitingForRateLimitBlock" },
 	{
 		blockedUntilMs: 1,
 		_tag: "WaitingForRateLimitBlock",
@@ -97,8 +86,8 @@ it.each([
 		blockedUntilMs: 1,
 		_tag: "WaitingForRateLimitBlock",
 		rateLimit: {
-			...rateLimit,
-			error: { ...rateLimit.error, data: { ...rateLimit.error.data, status: 500 } },
+			...rateLimitFailure,
+			error: { ...rateLimitFailure.error, data: { ...rateLimitFailure.error.data, status: 500 } },
 		},
 	},
 ])("rejects incomplete or contradictory HTTP phase payloads: %j", (phase) => {

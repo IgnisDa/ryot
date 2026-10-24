@@ -868,6 +868,7 @@ it.effect("rejects unavailable plugin renderers through the canonical rule", () 
 		{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
 		{},
 		provenanceQuery,
+		null,
 	).pipe(
 		Effect.flip,
 		Effect.tap((error) => Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found"))),

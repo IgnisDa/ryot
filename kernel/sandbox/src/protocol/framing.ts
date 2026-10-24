@@ -119,9 +119,7 @@ export const makeSidecarFrameReader = ({
 
 	const reset = () => {
 		closed = true;
-		for (const key of assemblies.keys()) {
-			clearAssembly(key);
-		}
+		assemblies.clear();
 		body = undefined;
 		bufferedBytes = 0;
 		headerBytes = 0;
@@ -219,25 +217,14 @@ export const makeSidecarFrameReader = ({
 		if (bufferedBytes + partLength > maximumBufferedBytes) {
 			fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
 		}
-		let invalidData = false;
-		bufferedBytes += partLength;
-		try {
-			const decoded = Base64.decode(frame.data);
-			if (decoded._tag === "Failure") {
-				invalidData = true;
-			} else {
-				const part = decoded.success;
-				assembly.buffer.set(part, assembly.bytes);
-				assembly.bytes += part.byteLength;
-				assembly.index += 1;
-			}
-		} finally {
-			bufferedBytes -= partLength;
-		}
-		if (invalidData) {
+		const decoded = Base64.decode(frame.data);
+		if (decoded._tag === "Failure") {
 			invalidActive(frame.handle, "part data is not base64", key);
 			return;
 		}
+		assembly.buffer.set(decoded.success, assembly.bytes);
+		assembly.bytes += decoded.success.byteLength;
+		assembly.index += 1;
 		if (assembly.index < assembly.count) {
 			return;
 		}

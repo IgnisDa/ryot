@@ -21,8 +21,23 @@ import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
 import { getCatalogTable, jsonElementsTable } from "#modules/ryotql/catalog";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
-const invalidEntityBrowserDefinition = (message: string) =>
+const settingsIncompatible = (message: string) =>
 	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
+
+const validateStoredDataSources = Effect.fn("validateStoredDataSources")(function* (
+	dataSources: RyotQLDocument,
+) {
+	const { error: semanticError } = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
+	if (semanticError) {
+		return yield* settingsIncompatible(semanticError);
+	}
+	for (const [name, query] of Object.entries(dataSources.queries)) {
+		if (query.output.type === "rows" && "after" in query.output.pagination) {
+			return yield* settingsIncompatible(`Stored data source '${name}' must not contain a cursor`);
+		}
+	}
+	return undefined;
+});
 
 const queryScope = (query: NamedQuery) => {
 	const scope = new Map<string, NonNullable<ReturnType<typeof getCatalogTable>>>();
@@ -58,64 +73,47 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 }) {
 	const decoded = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(input.settings);
 	if (Result.isFailure(decoded)) {
-		return yield* invalidEntityBrowserDefinition("Invalid entity-browser settings");
+		return yield* settingsIncompatible("Invalid entity-browser settings");
 	}
 	const settings = decoded.success;
 	if (new Set(settings.layouts).size !== settings.layouts.length) {
-		return yield* invalidEntityBrowserDefinition(
-			"Entity-browser layouts must not contain duplicates",
-		);
+		return yield* settingsIncompatible("Entity-browser layouts must not contain duplicates");
 	}
 	if (!settings.layouts.includes(settings.defaultLayout)) {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			"Entity-browser defaultLayout must be one of the enabled layouts",
 		);
 	}
 	if (settings.layouts.includes("table") !== (settings.tableColumns !== null)) {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			"Entity-browser table layout requires tableColumns and tableColumns require the table layout",
 		);
 	}
 	if (new Set(settings.searchFields).size !== settings.searchFields.length) {
-		return yield* invalidEntityBrowserDefinition(
-			"Entity-browser searchFields must not contain duplicates",
-		);
+		return yield* settingsIncompatible("Entity-browser searchFields must not contain duplicates");
 	}
 	const sortNames = settings.sortChoices.map(({ name }) => name);
 	if (new Set(sortNames).size !== sortNames.length) {
-		return yield* invalidEntityBrowserDefinition("Entity-browser sort choice names must be unique");
+		return yield* settingsIncompatible("Entity-browser sort choice names must be unique");
 	}
 	if (input.dataSources === null) {
-		return yield* invalidEntityBrowserDefinition("Entity-browser dataSources are required");
+		return yield* settingsIncompatible("Entity-browser dataSources are required");
 	}
-	const { error: semanticError } = validateRyotQLDocument(
-		input.dataSources,
-		savedViewDataSourceAccess,
-	);
-	if (semanticError) {
-		return yield* invalidEntityBrowserDefinition(semanticError);
-	}
-	for (const [name, query] of Object.entries(input.dataSources.queries)) {
-		if (query.output.type === "rows" && "after" in query.output.pagination) {
-			return yield* invalidEntityBrowserDefinition(
-				`Stored data source '${name}' must not contain a cursor`,
-			);
-		}
-	}
+	yield* validateStoredDataSources(input.dataSources);
 	const query = input.dataSources.queries[settings.sourceName];
 	if (!query) {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			`Entity-browser source '${settings.sourceName}' does not exist`,
 		);
 	}
 	if (query.output.type !== "rows") {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			`Entity-browser source '${settings.sourceName}' must produce rows`,
 		);
 	}
 
 	if (queryScope(query).get(settings.subject.entityAlias)?.name !== "entity") {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			`Entity-browser subject alias '${settings.subject.entityAlias}' must be an entity table in the source query`,
 		);
 	}
@@ -123,7 +121,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		definitionKey("entity", owner, slug),
 	);
 	if (new Set(subjectKeys).size !== subjectKeys.length) {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			"Entity-browser subject schemas must not contain duplicates",
 		);
 	}
@@ -133,7 +131,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 			definitionKey("entity", settings.addAction.schema.owner, settings.addAction.schema.slug),
 		)
 	) {
-		return yield* invalidEntityBrowserDefinition(
+		return yield* settingsIncompatible(
 			"Entity-browser addAction schema must be one of the subject schemas",
 		);
 	}
@@ -144,20 +142,17 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	];
 	for (const field of configuredFields) {
 		if (!projectedField(query, field)) {
-			return yield* invalidEntityBrowserDefinition(
+			return yield* settingsIncompatible(
 				`Entity-browser configured field '${field}' must be a projected scalar field`,
 			);
 		}
 	}
 	const filterIssue = filterFieldIssues({ query, settings, renderer: "entity-browser" });
 	if (filterIssue) {
-		return yield* invalidEntityBrowserDefinition(filterIssue);
+		return yield* settingsIncompatible(filterIssue);
 	}
 	return undefined;
 });
-
-const settingsIncompatible = (message: string) =>
-	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
 
 type PluginPageRecord = { readonly settingsSchema: AppSchema };
 
@@ -172,7 +167,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	renderer: SavedViewRenderer,
 	settings: Readonly<Record<string, unknown>>,
 	dataSources: RyotQLDocument | null,
-	pluginPage: PluginPageRecord | null = null,
+	pluginPage: PluginPageRecord | null,
 ) {
 	switch (renderer.kind) {
 		case "kernel":
@@ -187,20 +182,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 			}
 		case "plugin":
 			if (dataSources !== null) {
-				const { error: semanticError } = validateRyotQLDocument(
-					dataSources,
-					savedViewDataSourceAccess,
-				);
-				if (semanticError) {
-					return yield* settingsIncompatible(semanticError);
-				}
-				for (const [name, query] of Object.entries(dataSources.queries)) {
-					if (query.output.type === "rows" && "after" in query.output.pagination) {
-						return yield* settingsIncompatible(
-							`Stored data source '${name}' must not contain a cursor`,
-						);
-					}
-				}
+				yield* validateStoredDataSources(dataSources);
 			}
 			if (!pluginPage) {
 				return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
@@ -238,18 +220,7 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 	if (input.dataSources === null) {
 		return yield* settingsIncompatible("Results-table dataSources are required");
 	}
-	const { error: semanticError } = validateRyotQLDocument(
-		input.dataSources,
-		savedViewDataSourceAccess,
-	);
-	if (semanticError) {
-		return yield* settingsIncompatible(semanticError);
-	}
-	for (const [name, query] of Object.entries(input.dataSources.queries)) {
-		if (query.output.type === "rows" && "after" in query.output.pagination) {
-			return yield* settingsIncompatible(`Stored data source '${name}' must not contain a cursor`);
-		}
-	}
+	yield* validateStoredDataSources(input.dataSources);
 	const query = input.dataSources.queries[settings.sourceName];
 	if (!query) {
 		return yield* settingsIncompatible(

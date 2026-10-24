@@ -27,6 +27,8 @@ import { Effect } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/catalog/runtime-resolver";
 
+import { kernelRendererModule } from "./kernel-renderers";
+
 export type ResolvedClientPageGraph = {
 	readonly compositionKey: string;
 	readonly identity: ClientPageCompositionIdentity;
@@ -200,17 +202,8 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 				)
 			: [];
 	const homeExport = routes.find(([path]) => path === "/")?.[1];
-	let primaryExport: string | null | undefined = null;
-	if (!isKernel) {
-		primaryExport =
-			input.application === "plugin-route"
-				? (homeExport ?? routes[0]?.[1] ?? input.exportName)
-				: input.exportName;
-	}
-	if (!isKernel && input.plugin.manifest.client?.exports?.[primaryExport ?? ""]?.kind !== "page") {
-		return yield* missingExport(
-			pluginExportSpecifier(input.plugin, primaryExport ?? input.exportName),
-		);
+	if (!isKernel && input.application === "plugin-route" && routes.length === 0) {
+		return yield* missingExport(pluginExportSpecifier(input.plugin, input.exportName));
 	}
 	const selectedExportNames = new Set<string>();
 	const selection =
@@ -230,7 +223,7 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			: {
 					application: "page" as const,
 					entry: isKernel
-						? { binding: "page", specifier: `@ryot-app/kernel-renderers/${input.rendererName}` }
+						? kernelRendererModule(input.rendererName)
 						: pluginModule(input.plugin, input.exportName),
 				};
 	if (!isKernel) {

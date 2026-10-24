@@ -192,6 +192,33 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 			}
 			return pending;
 		}
+		tee() {
+			const reader = this.getReader();
+			let first;
+			let second;
+			const branches = [
+				new ReadableStream({ start: (controller) => void (first = controller) }),
+				new ReadableStream({ start: (controller) => void (second = controller) }),
+			];
+			(async () => {
+				try {
+					for (;;) {
+						const { value, done } = await reader.read();
+						if (done) {
+							first.close();
+							second.close();
+							return;
+						}
+						first.enqueue(value);
+						second.enqueue(value);
+					}
+				} catch (reason) {
+					first.error(reason);
+					second.error(reason);
+				}
+			})();
+			return branches;
+		}
 		async cancel(reason) {
 			this.#queue = [];
 			this.closeStream();
@@ -423,6 +450,11 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 			const body = this[kBody];
 			if (body !== null && (this.bodyUsed || (body instanceof ReadableStream && body.locked))) {
 				throw new TypeError_("Request body has already been consumed or is locked");
+			}
+			if (body instanceof ReadableStream) {
+				const [retained, cloned] = body.tee();
+				this[kBody] = retained;
+				return new Request(this, { body: cloned });
 			}
 			return new Request(this, { body });
 		}
