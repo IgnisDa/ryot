@@ -23,6 +23,60 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 `;
 
 it.layer(pluginBackendCompilerPlatformLayer)("execution dependency analysis", (test) => {
+	test.effect.each([
+		{ unrestricted: false, message: "Date.now", statement: "void Date.now();" },
+		{ unrestricted: false, message: "Math.random", statement: "void Math.random();" },
+		{ statement: "", unrestricted: true, message: "@ryot-app/plugin-backend-sdk/workflow" },
+	])(
+		"rejects workflow policy violations through source and package paths: $message",
+		({ message, statement, unrestricted }) =>
+			Effect.gen(function* () {
+				const entry = `
+import { defineManifest, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/${unrestricted ? "effect" : "workflow"}";
+export const manifest = defineManifest({ kind: "workflow", slug: "parity", name: "Parity" });
+export default defineWorkflow({
+  manifest, input: Schema.Struct({}), output: Schema.Null,
+  run: () => { ${statement} return Effect.succeed(null); },
+});
+`;
+				const standalone = yield* compileSandboxSource(entry).pipe(Effect.flip);
+				const packaged = yield* compileSandboxPackageEntries(
+					{ entry: "script.ts", files: { "script.ts": entry } },
+					["script.ts"],
+				).pipe(Effect.flip);
+				expect(standalone.diagnostics).toEqual(packaged.diagnostics);
+				expect(standalone.diagnostics).toEqual([
+					expect.objectContaining({
+						file: "script.ts",
+						code: "RYOT_WORKFLOW_DETERMINISM",
+						message: expect.stringContaining(message),
+					}),
+				]);
+			}),
+	);
+
+	test.effect("accepts deterministic workflow date parsing and metadata through both paths", () =>
+		Effect.gen(function* () {
+			const entry = `
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "workflow", slug: "parity", name: "Parity" });
+export default defineWorkflow({
+  manifest, input: Schema.Struct({ timestamp: Schema.String }), output: Schema.String,
+  run: ({ timestamp }) => Effect.succeed(new Date(Date.parse(timestamp)).toISOString()),
+});
+`;
+			const standalone = yield* compileSandboxSource(entry);
+			const packaged = yield* compileSandboxPackageEntries(
+				{ entry: "script.ts", files: { "script.ts": entry } },
+				["script.ts"],
+			);
+			expect(standalone.manifest.kind).toBe("workflow");
+			expect(packaged[0]?.compiled.manifest).toEqual(standalone.manifest);
+			expect(standalone.javascript).toContain("Date.parse");
+		}),
+	);
+
 	test.effect.each(["policy", "workflow"])(
 		"compiles a pure $0 helper without unused sibling effects through source and package paths",
 		(kind) =>

@@ -26,6 +26,10 @@ The compiler creates a TypeScript 7 no-emit project and reports bounded semantic
 inspects each entry, validates declarations, workflows, and literal manifests, and compiles validated
 entries with bounded concurrency. A semantic or policy failure never reaches the build stage.
 
+Standalone and package adapters use the same validated-entry stage for manifest identity, execution
+metadata, workflow imports and determinism, declaration matching, and capabilities. Standalone entries
+still reject relative imports; package workflows validate their reachable local source graph.
+
 ## Execution Metadata
 
 Each entry is analyzed inside the same bounded TypeScript project used for semantic checks. The
