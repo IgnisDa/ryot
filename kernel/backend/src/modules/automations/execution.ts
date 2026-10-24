@@ -236,11 +236,7 @@ export const LifecycleExecutionLive = Layer.effect(
 			required: ReadonlyArray<RequiredRun>,
 			deadline: number,
 		) {
-			const instance = yield* WorkflowInstance;
-			const deadlineClock = DurableClock.make({
-				name: `hook-wait-${name}`,
-				duration: Duration.millis(Math.max(deadline - (yield* Clock.currentTimeMillis), 1)),
-			});
+			const remaining = Duration.millis(Math.max(deadline - (yield* Clock.currentTimeMillis), 1));
 			yield* DurableDeferred.raceAll({
 				error: Schema.Never,
 				success: Schema.Void,
@@ -259,16 +255,12 @@ export const LifecycleExecutionLive = Layer.effect(
 						{ discard: true, concurrency: "unbounded" },
 					),
 					DurableClock.sleep({
-						name: deadlineClock.name,
+						duration: remaining,
+						name: `hook-wait-${name}`,
 						inMemoryThreshold: Duration.zero,
-						duration: deadlineClock.duration,
 					}),
 				],
 			});
-			// TODO: https://github.com/Effect-TS/effect/issues/8995
-			// Remove this deletion and the WorkflowInstance lookup once the issue is
-			// fixed in the installed effect release.
-			instance.awaitedDeferreds.delete(deadlineClock.deferred.name);
 			return yield* makeActivity({
 				error: DbError,
 				name: `settle-${name}`,
