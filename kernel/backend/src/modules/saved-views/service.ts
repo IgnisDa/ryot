@@ -305,15 +305,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							: null;
 						const views = yield* repository.listReorderScope(user.id, pluginInstallationId);
 						const plan = yield* buildSavedViewReorderPlan(views, payload.references);
-						if (!(yield* repository.persistReorder(user.id, pluginInstallationId, plan))) {
-							return yield* new SavedViewBadRequest({
-								reason: {
-									issue: "update-failed",
-									code: "invalid-reorder",
-									references: payload.references,
-								},
-							});
-						}
+						yield* repository.persistReorder(user.id, pluginInstallationId, plan);
 						return { references: plan.map((entry) => entry.reference) };
 					}),
 				),

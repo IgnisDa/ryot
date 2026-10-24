@@ -38,7 +38,6 @@ type RestoreBackupWorkflowPayload = typeof RestoreBackupWorkflowPayload.Type;
 const ClaimedArchive = Schema.Struct({
 	key: Schema.String,
 	intentId: Schema.String,
-	provider: Schema.Literals(["local", "s3"]),
 });
 type ClaimedArchive = typeof ClaimedArchive.Type;
 
@@ -191,13 +190,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 			asWorkflowError(
 				uploadIntents
 					.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId)
-					.pipe(
-						Effect.map(({ locator, intentId }) => ({
-							intentId,
-							key: locator.key,
-							provider: locator.type,
-						})),
-					),
+					.pipe(Effect.map(({ locator, intentId }) => ({ intentId, key: locator.key }))),
 				{ code: "upload-unavailable" },
 			);
 
@@ -213,7 +206,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					}
 					const source = yield* objectStorage.openObject({
 						key: archive.key,
-						type: archive.provider,
+						type: "local",
 					});
 					const validated = yield* validateArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,

@@ -101,7 +101,6 @@ CREATE TABLE "automation_trigger" (
 	"integration_id" text,
 	"parent_trigger_id" text,
 	"id" text PRIMARY KEY,
-	"event_stream_work_id" text,
 	"depth" integer NOT NULL,
 	"provider_execution_id" text,
 	"execution_id" text NOT NULL,
@@ -618,7 +617,7 @@ CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"platform" text NOT NULL,
+	"platform" text GENERATED ALWAYS AS (platform_specifics->>'kind') STORED NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"platform_specifics" jsonb NOT NULL

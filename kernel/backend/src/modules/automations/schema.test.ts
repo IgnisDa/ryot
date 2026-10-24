@@ -46,7 +46,6 @@ it("defines automation trigger columns and indexes", () => {
 		["integration_id", false],
 		["parent_trigger_id", false],
 		["id", true],
-		["event_stream_work_id", false],
 		["depth", true],
 		["provider_execution_id", false],
 		["execution_id", true],

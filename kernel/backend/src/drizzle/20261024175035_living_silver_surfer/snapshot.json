@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "12eb92fe-7344-4876-b4dc-99b701c6fda6",
+	"id": "6b3dd885-7748-4af2-8f48-30e653de6e4b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -1400,19 +1400,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_trigger"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "event_stream_work_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_trigger"
@@ -5830,7 +5817,7 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "platform_specifics->>'kind'", "type": "stored" },
 			"identity": null,
 			"name": "platform",
 			"entityType": "columns",

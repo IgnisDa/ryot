@@ -96,7 +96,6 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 						.values({
 							userId: input.userId,
 							isDisabled: input.isDisabled,
-							channel: input.channelSpecifics.kind,
 							channelSpecifics: input.channelSpecifics,
 							description: describeNotificationChannel(input.channelSpecifics),
 						})
