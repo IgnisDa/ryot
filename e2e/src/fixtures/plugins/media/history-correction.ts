@@ -6,13 +6,16 @@ import {
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/media-plugin/shared/plugin-identity";
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import {
+	and,
 	ascending,
 	column,
 	defineRecipe,
 	inArray,
 	literal,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
+	startsWith,
 	table,
 } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
@@ -39,12 +42,20 @@ const workRecipe = defineRecipe((input: { statuses: readonly string[] }) => {
 			work: selectedRows(work, {
 				limit: 100,
 				orderBy: [ascending(column(work, "id"))],
-				where: inArray(column(work, "status"), input.statuses.map(literal)),
 				selection: {
 					scope: selectedField(column(work, "scope"), Schema.String),
 					status: selectedField(column(work, "status"), Schema.String),
 					error: selectedField(column(work, "error"), Schema.NullOr(Schema.String)),
 				},
+				where: and(
+					schemaOwnerPredicate(work, "pluginId", {
+						kind: "package",
+						scope: "system",
+						packageId: PLUGIN_PACKAGE_ID,
+					}),
+					startsWith(column(work, "id"), literal("user-work-")),
+					inArray(column(work, "status"), input.statuses.map(literal)),
+				),
 			}),
 		},
 	};

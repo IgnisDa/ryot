@@ -87,7 +87,11 @@ describe("Media activity log operation", () => {
 			assertPresent(nowEvent, "Expected the just-now completion");
 			expect(nowEvent.eventSchemaSlug).toBe("complete");
 			expect(isoOf(nowEvent.occurredAt)).toBe(submittedAt);
-			expect(nowEvent.properties).toEqual({ timeSpent: 95, consumedOn: "Cinema" });
+			expect(nowEvent.properties).toEqual({
+				timeSpent: 95,
+				consumedOn: "Cinema",
+				consumptionBasis: { unit: "minutes", property: "runtime" },
+			});
 
 			yield* logMediaActivity(client, {
 				submittedAt,
@@ -258,10 +262,13 @@ describe("Media activity log operation", () => {
 
 			const events = yield* readEvents(client, entityId, "progress");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.properties)).toContainEqual({});
+			expect(events.map((event) => event.properties)).toContainEqual({
+				consumptionBasis: { total: 300, unit: "pages", property: "pages" },
+			});
 			expect(events.map((event) => event.properties)).toContainEqual({
 				progressPercent: 40,
 				consumedOn: "Kindle",
+				consumptionBasis: { total: 300, unit: "pages", property: "pages" },
 			});
 			const context = yield* readContext(client, entityId);
 			expect(context.progressPercent).toBe(40);
@@ -293,8 +300,14 @@ describe("Media activity log operation", () => {
 			yield* waitForEventWithSchema(client, entityId, "complete");
 			const progressEvents = yield* readEvents(client, entityId, "progress");
 			expect(progressEvents).toHaveLength(2);
-			expect(progressEvents.map((event) => event.properties)).toContainEqual({ animeEpisode: 1 });
-			expect(progressEvents.map((event) => event.properties)).toContainEqual({ animeEpisode: 3 });
+			expect(progressEvents.map((event) => event.properties)).toContainEqual({
+				animeEpisode: 1,
+				consumptionBasis: { total: 3, unit: "episodes", property: "episodes" },
+			});
+			expect(progressEvents.map((event) => event.properties)).toContainEqual({
+				animeEpisode: 3,
+				consumptionBasis: { total: 3, unit: "episodes", property: "episodes" },
+			});
 			expect(yield* readEvents(client, entityId, "complete")).toHaveLength(1);
 			expect((yield* readContext(client, entityId)).state).toBe("complete");
 		}),
@@ -542,7 +555,10 @@ describe("Media activity log operation", () => {
 			const [event] = yield* readEvents(client, first, "complete");
 			assertPresent(event, "Expected the podcast episode completion");
 			expect(event.sessionEntityId).toBe(podcastId);
-			expect(event.properties).toEqual({ consumedOn: "Pocket Casts" });
+			expect(event.properties).toEqual({
+				consumedOn: "Pocket Casts",
+				consumptionBasis: { unit: "minutes", property: "runtime" },
+			});
 			expect((yield* earlier(third)).items.map((item) => item.id)).toEqual([second]);
 			expect((yield* readContext(client, podcastId)).nextUp?.id).toBe(third);
 		}),

@@ -24,6 +24,7 @@ import {
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	createGlobalBookEntityFixture,
 	findMediaEntitySchema,
@@ -964,13 +965,16 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.showEvents.review,
 			});
 
-			const activity = yield* executeRyotQLRecipe(
-				client,
-				showRecipes.activityRecipe({
-					...ACTIVITY_LIMITS,
-					entityId: seeded.show.id,
-					reference: seeded.reference,
-				}),
+			const activity = yield* pollUntil(
+				"show activity canonical consumption ready",
+				executeRyotQLRecipe(
+					client,
+					showRecipes.activityRecipe({
+						...ACTIVITY_LIMITS,
+						entityId: seeded.show.id,
+						reference: seeded.reference,
+					}),
+				).pipe(Effect.map((result) => (result.consumptionProcessing === "ready" ? result : null))),
 			);
 			const identity = activity.events.map((event) => ({
 				kind: event.kind,
@@ -992,6 +996,9 @@ describe("Media RyotQL query recipe results", () => {
 				{ seasonNumber: 1, episodeTotal: 2 },
 			]);
 			expect(activity.watchCount).toBe(1);
+			expect(activity.consumptionProcessing).toBe("ready");
+			expect(activity.consumptionMissing).toBe(0);
+			expect(activity.consumptionMinutes).toBeCloseTo(62.4);
 			expect(
 				activity.watchDays.map((watch) => ({
 					day: watch.day,
@@ -1001,24 +1008,16 @@ describe("Media RyotQL query recipe results", () => {
 					episodeNumber: watch.episodeNumber,
 				})),
 			).toEqual([
-				{
-					minutes: 45,
-					runtime: 31,
-					seasonNumber: 1,
-					episodeNumber: 1,
-					day: "2024-03-05T00:00:00.000Z",
-				},
+				{ minutes: 45, runtime: 31, seasonNumber: 1, episodeNumber: 1, day: "2024-03-05" },
 			]);
 			expect(
 				activity.coverage.map((season) => ({
 					seasonNumber: season.seasonNumber,
 					watchedTotal: season.watchedTotal,
-					watchedMinutes: season.watchedMinutes,
-					watchedUnknownRuntime: season.watchedUnknownRuntime,
 				})),
 			).toEqual([
-				{ seasonNumber: 0, watchedTotal: 0, watchedMinutes: null, watchedUnknownRuntime: 0 },
-				{ seasonNumber: 1, watchedTotal: 1, watchedMinutes: 45, watchedUnknownRuntime: 0 },
+				{ seasonNumber: 0, watchedTotal: 0 },
+				{ seasonNumber: 1, watchedTotal: 1 },
 			]);
 			expect(identity).toEqual([
 				expect.objectContaining({
