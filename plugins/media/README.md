@@ -159,6 +159,21 @@ library through the subject's `in-media-library` link:
 - `releases` lists flat media by `publishDate`, captioned with the schema name; an anime with timed
   airings shows both its release and `Episode 1`.
 
+### Signal Schedules
+
+`manifest/signal-schedules.ts` reuses the Calendar source queries and the stored library summary:
+
+- `show-episode-releases`, `podcast-episode-releases`, `anime-airing-releases`, and `flat-releases`
+  emit `media.released` for monitored library media on the release day. Season-0 specials are
+  skipped, and the root's `providerCheckedAt` must be within 72 hours, otherwise delivery waits for
+  the monitoring sweep.
+- `in-progress-stale` and `on-hold-stale` emit `media.progress-stale` once when the stored lifecycle
+  state has had no activity for 7 or 14 days. The occurrence includes the latest activity, so new
+  activity starts a new period. Both require a validated Pro key.
+- `show-episodes-available` and `podcast-episodes-available` emit `media.episodes-available` when the
+  stored next airing of an unmonitored caught-up series arrives; monitored series already receive
+  `media.released`. Monitoring is never enabled implicitly.
+
 ## Images And Providers
 
 ### Genres

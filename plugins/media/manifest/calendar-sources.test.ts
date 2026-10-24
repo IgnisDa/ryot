@@ -42,30 +42,6 @@ describe("media calendar sources", () => {
 		}
 	});
 
-	it("delivers every source as a monitored release with provider freshness", () => {
-		expect(calendarSources.map(({ slug, delivery }) => [slug, delivery?.properties])).toEqual([
-			[
-				"show-episodes",
-				{
-					seasonNumber: "seasonNumber",
-					episodeNumber: "episodeNumber",
-					entityName: "deliveryEntityName",
-				},
-			],
-			["podcast-episodes", { episodeNumber: "episodeNumber", entityName: "deliveryEntityName" }],
-			["anime-airings", { episodeNumber: "episodeNumber", entityName: "deliveryEntityName" }],
-			["releases", { entityName: "deliveryEntityName" }],
-		]);
-		for (const { delivery } of calendarSources) {
-			expect(delivery).toMatchObject({
-				signal: "media.released",
-				eligible: "deliveryEligible",
-				occurrence: "deliveryOccurrence",
-				freshness: { maxAgeHours: 72, confirmedAt: "deliveryConfirmedAt" },
-			});
-		}
-	});
-
 	it.each(["show-episodes", "podcast-episodes", "anime-airings", "releases"])(
 		"limits %s to the subject's media library",
 		(slug) => {

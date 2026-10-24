@@ -254,6 +254,32 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		},
 		{
 			catalogState: "active",
+			name: "Media Progress Stale",
+			slug: "media.progress-stale",
+			audiencePolicy: { kind: "actor" },
+			notificationHookSlug: "media.notification",
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: {
+					entityName: requiredString("Entity name", "Stale media name"),
+					days: requiredInteger("Days", "Days without lifecycle activity"),
+					lifecycleState: requiredString("Lifecycle state", "Unchanged lifecycle state"),
+				},
+			},
+		},
+		{
+			catalogState: "active",
+			name: "Media Episodes Available",
+			slug: "media.episodes-available",
+			audiencePolicy: { kind: "actor" },
+			notificationHookSlug: "media.notification",
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: { entityName: requiredString("Entity name", "Caught-up series name") },
+			},
+		},
+		{
+			catalogState: "active",
 			slug: "media.episode.discovered",
 			name: "Media Episode Discovered",
 			notificationHookSlug: "media.notification",

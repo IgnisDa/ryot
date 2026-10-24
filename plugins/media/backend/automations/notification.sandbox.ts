@@ -36,6 +36,8 @@ export const manifest = defineManifest({
 				"newDate",
 				"oldName",
 				"newName",
+				"days",
+				"lifecycleState",
 			],
 		},
 	},
@@ -142,6 +144,14 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 		const episode =
 			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
 		return `${episode} of ${entityName} has been released today`;
+	}
+	if (signal.signalSchemaSlug === "media.progress-stale") {
+		const state =
+			stringProperty(signal.properties, "lifecycleState") === "on_hold" ? "on hold" : "in progress";
+		return `${stringProperty(signal.properties, "entityName")} has been ${state} for ${numberProperty(signal.properties, "days")} days without activity`;
+	}
+	if (signal.signalSchemaSlug === "media.episodes-available") {
+		return `New episodes of ${stringProperty(signal.properties, "entityName")} are available`;
 	}
 	throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
 };

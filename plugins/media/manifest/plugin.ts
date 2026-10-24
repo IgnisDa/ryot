@@ -36,6 +36,7 @@ import {
 import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
+import { mediaSignalSchedules } from "./signal-schedules";
 import { mediaUserStatePolicy } from "./user-state";
 
 const entitySchemas = mediaEntitySchemas().map(
@@ -548,6 +549,7 @@ export const mediaPlugin = definePlugin({
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
 	calendarSources: mediaCalendarSources(),
+	signalSchedules: mediaSignalSchedules(),
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	userBootstrap: [
 		{

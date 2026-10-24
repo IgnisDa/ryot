@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { automationContext } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./notification.sandbox";
 
-it.each([
+const cases = [
 	["review.created", { entityName: "Dune" }, "Review posted for Dune"],
 	...(
 		[
@@ -80,7 +80,33 @@ it.each([
 		{ episodeNumber: 12, entityName: "Frieren" },
 		"EP12 of Frieren has been released today",
 	],
-] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
+	[
+		"media.progress-stale",
+		{ days: 7, entityName: "Dune", lifecycleState: "in_progress" },
+		"Dune has been in progress for 7 days without activity",
+	],
+	[
+		"media.progress-stale",
+		{ days: 14, entityName: "Dune", lifecycleState: "on_hold" },
+		"Dune has been on hold for 14 days without activity",
+	],
+	[
+		"media.episodes-available",
+		{ entityName: "Severance" },
+		"New episodes of Severance are available",
+	],
+] as const;
+
+it("projects every property the formatted signals read", () => {
+	const projected = new Set<string>(manifest.inputProjection.signal.properties);
+	for (const [, properties] of cases) {
+		for (const key of Object.keys(properties)) {
+			expect(projected).toContain(key);
+		}
+	}
+});
+
+it.each(cases)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
 	return Effect.runPromise(
 		definition
