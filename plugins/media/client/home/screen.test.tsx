@@ -5,10 +5,11 @@ import {
 	type RyotNavigationTarget,
 } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { usePageRefreshRequest } from "@ryot-app/plugin-client-sdk/react";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
-import { flatRow, rows } from "../../tests/client/home/fixtures";
+import { flatRow, mediaIdentity, rows } from "../../tests/client/home/fixtures";
 import {
 	clickRyotElement,
 	flushRyotClient,
@@ -26,10 +27,6 @@ const inProgressMovie = flatRow("movie-1", "Heat", "movie", {
 
 type Responses = Readonly<Record<string, unknown>>;
 
-/**
- * Answers every query of a document from `responses`, empty rows by default; `gate` replaces the
- * library count response and may be an error or a promise that never settles.
- */
 const homeAdapter = (input: {
 	readonly responses?: Responses;
 	readonly gate: number | "error" | "pending";
@@ -37,7 +34,8 @@ const homeAdapter = (input: {
 	const requested: string[][] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
-	const adapter: Partial<RyotClientAdapter> = {
+	let gate = input.gate;
+	const adapter = {
 		navigate: (_mode, target) => {
 			navigations.push(target);
 		},
@@ -48,24 +46,43 @@ const homeAdapter = (input: {
 			const names = Object.keys(document.queries);
 			requested.push(names);
 			if (names.includes("library")) {
-				if (input.gate === "pending") {
+				if (gate === "pending") {
 					return Effect.never;
 				}
-				if (input.gate === "error") {
+				if (gate === "error") {
 					return Effect.fail(new RyotClientError("transport"));
 				}
-				return Effect.succeed({ data: { library: libraryCount(input.gate) } });
+				return Effect.succeed({ data: { library: libraryCount(gate) } });
 			}
 			return Effect.succeed({
 				data: Object.fromEntries(names.map((name) => [name, input.responses?.[name] ?? rows([])])),
 			});
 		},
+	} satisfies Partial<RyotClientAdapter>;
+	return {
+		adapter,
+		requested,
+		navigations,
+		entityPicks,
+		setGate: (next: typeof input.gate) => {
+			gate = next;
+		},
 	};
-	return { adapter, requested, navigations, entityPicks };
 };
 
+function RefreshHome() {
+	const refresh = usePageRefreshRequest();
+	return <button onClick={refresh}>Refresh home</button>;
+}
+
 const mountHome = (adapter: Partial<RyotClientAdapter>) =>
-	mountRyotClient(adapter, <HomeBody compact scrollRootRef={{ current: null }} />);
+	mountRyotClient(
+		adapter,
+		<>
+			<RefreshHome />
+			<HomeBody compact scrollRootRef={{ current: null }} />
+		</>,
+	);
 
 const observers: RecordingIntersectionObserver[] = [];
 
@@ -172,12 +189,121 @@ describe("home gate", () => {
 		}),
 	);
 
-	it.live("falls back to first run when the count errors and every eager rail is empty", () =>
+	for (const gate of [1, "error"] as const) {
+		it.live(
+			`keeps discovery and activity available with empty eager subsets and count ${gate}`,
+			() =>
+				Effect.gen(function* () {
+					globalThis.IntersectionObserver = RecordingIntersectionObserver;
+					const home = homeAdapter({
+						gate,
+						responses: {
+							days: { items: [], type: "aggregate" },
+							mediaTypes: { items: [], type: "aggregate" },
+							figures: { type: "aggregate", items: [{ reviews: 0, finished: 1, minutes: 116 }] },
+							"trending.trending": rows([
+								{
+									...mediaIdentity("arrival", "Arrival", "movie"),
+									rank: 1,
+									fetchedAt: "2026-09-24T10:00:00.000Z",
+								},
+							]),
+						},
+					});
+					const view = mountHome(home.adapter);
+					yield* Effect.promise(() => flushRyotClient());
+					expect(observers).toHaveLength(3);
+					expect(
+						home.requested
+							.filter((names) => !names.includes("library"))
+							.map((names) => [...names].sort()),
+					).toEqual([
+						["flat.items", "podcast.items", "show.items"],
+						["anime.anime", "shows.shows"],
+						["flat.items", "podcast.items", "show.items"],
+					]);
+					expect(view.container.textContent).not.toContain("Start your media library");
+					expect(view.container.textContent).not.toContain("Continue");
+					expect(view.container.textContent).not.toContain("Airing");
+					expect(view.container.textContent).not.toContain("Backlog");
+
+					act(() => {
+						for (const observer of observers) {
+							observer.intersect();
+						}
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							expect(view.container.textContent).toContain("Arrival");
+							expect(view.container.textContent).toContain("Your activity");
+							expect(view.container.textContent).toContain("Finished");
+						}),
+					);
+					expect(view.container.textContent).not.toContain("Start your media library");
+					expect(view.container.querySelector('[role="alert"]')).toBeNull();
+					view.unmount();
+				}),
+		);
+	}
+
+	it.live("shows first run after a failed count recovers to zero with empty eager subsets", () =>
 		Effect.gen(function* () {
-			const view = mountHome(homeAdapter({ gate: "error" }).adapter);
+			globalThis.IntersectionObserver = RecordingIntersectionObserver;
+			const home = homeAdapter({ gate: "error" });
+			const view = mountHome(home.adapter);
+			yield* Effect.promise(() => flushRyotClient());
+			expect(observers).toHaveLength(3);
+			expect(view.container.textContent).not.toContain("Start your media library");
+
+			home.setGate(0);
+			clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
+			yield* Effect.promise(() => view.advance(250));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
 			);
+			expect(observers.every(({ targets }) => targets.size === 0)).toBe(true);
+			view.unmount();
+		}),
+	);
+
+	it.live("keeps populated rails when a previously nonzero count fails to refresh", () =>
+		Effect.gen(function* () {
+			const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+			const view = mountHome(home.adapter);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Heat")),
+			);
+
+			home.setGate("error");
+			clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
+			yield* Effect.promise(() => view.advance(250));
+			yield* Effect.promise(() => flushRyotClient());
+			expect(home.requested.filter((names) => names.includes("library"))).toHaveLength(2);
+			expect(view.container.textContent).toContain("Heat");
+			expect(view.container.textContent).not.toContain("Start your media library");
+			expect(view.container.querySelector('[aria-label="Loading your media"]')).toBeNull();
+			view.unmount();
+		}),
+	);
+
+	it.live("keeps populated rails available when another eager rail fails", () =>
+		Effect.gen(function* () {
+			globalThis.IntersectionObserver = RecordingIntersectionObserver;
+			const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+			const view = mountHome({
+				...home.adapter,
+				query: (document) =>
+					Object.hasOwn(document.queries, "anime.anime")
+						? Effect.fail(new RyotClientError("transport"))
+						: home.adapter.query(document),
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					expect(view.container.textContent).toContain("Heat");
+					expect(getByRole(view.container, "alert")).toBeDefined();
+				}),
+			);
+			expect(view.container.textContent).not.toContain("Start your media library");
 			view.unmount();
 		}),
 	);
