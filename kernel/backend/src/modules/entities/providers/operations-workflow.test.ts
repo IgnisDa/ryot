@@ -118,7 +118,13 @@ const planner = LifecyclePlanner.of(
 			Effect.sync(() => {
 				expect(inTransaction).toBe(true);
 				planned.push(trigger);
-				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
+				return {
+					trigger,
+					policies: [],
+					wasCreated: true,
+					backgroundJobIds: [],
+					runs: [makeRun(trigger)],
+				};
 			}),
 	}),
 );

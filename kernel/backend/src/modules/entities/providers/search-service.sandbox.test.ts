@@ -20,8 +20,8 @@ const user = {
 	name: "Test User",
 	id: realSandboxUserId,
 	email: "user@example.com",
-	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: realSandboxUserId, token: "test-account-generation" },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const providerSource = (call: string) => `

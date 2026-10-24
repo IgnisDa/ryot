@@ -45,8 +45,8 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		image: null,
 		name: userId,
 		email: `${userId}@example.test`,
-		preferences: { language: null, disableIntegrations: false },
 		accountGeneration: { userId, token: "test-account-generation" },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	},
 });
 

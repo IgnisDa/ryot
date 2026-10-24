@@ -389,8 +389,22 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const assertActiveTransaction = session.requireTransaction.pipe(
 			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 		);
-		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			runRootTransaction(session, repository.lockSchemaCatalog().pipe(Effect.andThen(work))).pipe(
+		const transaction = <A, E, R>(
+			work: Effect.Effect<A, E, R>,
+			accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>> = [],
+		) =>
+			runRootTransaction(
+				session,
+				Effect.gen(function* () {
+					for (const account of [...accounts].sort((left, right) =>
+						left.userId.localeCompare(right.userId),
+					)) {
+						yield* receipts.admitAccount(account);
+					}
+					yield* repository.lockSchemaCatalog();
+					return yield* work;
+				}),
+			).pipe(
 				Effect.mapError((error) =>
 					error instanceof DatabaseSessionStateError ? enclosingTransaction() : error,
 				),
@@ -645,6 +659,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				}
 			}
 			const planned = yield* planner.plan({
+				writeContext: lifecycle.writeContext,
 				trigger: lifecycleTrigger(lifecycle, input.scopeUserId, request),
 			});
 			if (planned.trigger?.blockedReason) {
@@ -1538,9 +1553,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
 			}
 			const preparedEvents: PreparedEventDelete[] = [];
+			const accounts = new Map<
+				UserId,
+				Effect.Success<ReturnType<typeof receipts.currentAccount>>
+			>();
+			if (lifecycle.accountGeneration !== null) {
+				accounts.set(lifecycle.accountGeneration.userId, lifecycle.accountGeneration);
+			}
 			for (const identity of eventIdentities) {
+				let account = accounts.get(identity.userId);
+				if (account === undefined) {
+					account = yield* receipts.currentAccount(identity.userId);
+					accounts.set(identity.userId, account);
+				}
 				const eventCommand = itemCommand(
-					{ ...lifecycle, accountGeneration: yield* receipts.currentAccount(identity.userId) },
+					{ ...lifecycle, accountGeneration: account },
 					`${identity.userId}:${identity.eventId}:cascade-delete`,
 				);
 				const preparedEvent = yield* events.prepareEntityCascadeDelete(
@@ -1654,6 +1681,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 								: error,
 						),
 					);
+					const eventGroupStates = yield* events.captureEventGroupBatch({
+						items: preparedEvents,
+						entityIds: orderedIds,
+					});
 					yield* repository.lockMutationKeys(orderedIds);
 					const rows = yield* repository.getMutationEntities(orderedIds, true);
 					const currentEventIdentities =
@@ -1676,11 +1707,20 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						scopes: settled.map((item) => item.scopeUserId),
 					});
 					const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
-						events.persistPreparedDelete(item, {
-							...eventDecision,
-							index,
-							command: lifecycle,
-							identity: eventBatchScope.identity,
+						Effect.gen(function* () {
+							const eventUserId = eventIdentities[index]?.userId;
+							const groupState =
+								eventUserId === undefined ? undefined : eventGroupStates.get(eventUserId);
+							if (groupState === undefined) {
+								return yield* new DbError({ message: "Event group cascade scope is unavailable" });
+							}
+							return yield* events.persistPreparedDelete(item, {
+								...eventDecision,
+								index,
+								groupState,
+								command: lifecycle,
+								identity: eventBatchScope.identity,
+							});
 						}),
 					);
 					const eventBatch = yield* planner.planBatch({ ...eventBatchScope, resource: "event" });
@@ -1691,6 +1731,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					);
 					yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
 					const written = yield* persistDeletes.persistMany(persisted, decision, rows);
+					for (const groupState of eventGroupStates.values()) {
+						yield* events.validateEventGroups(groupState);
+					}
 					yield* insertReceipts(written.records);
 					const results = new Map<number, CommittedLifecycleWork<null>>();
 					for (const [position, { index }] of pending.entries()) {
@@ -1726,6 +1769,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					});
 					return { dispatch, deletedCount };
 				}),
+				[...accounts.values()],
 			);
 			const warnings = yield* execution
 				.dispatch(committed.dispatch)

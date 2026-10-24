@@ -47,8 +47,8 @@ const currentUser = (id: string): CurrentUserValue => ({
 	name: "Retry User",
 	id: UserId.make(id),
 	email: `${id}@example.test`,
-	preferences: { language: "es", disableIntegrations: false },
 	accountGeneration: { userId: UserId.make(id), token: "test-account-generation" },
+	preferences: { language: "es", reportingTimeZone: null, disableIntegrations: false },
 });
 const owner = currentUser("owner");
 const recipient = currentUser("recipient");

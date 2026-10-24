@@ -18,9 +18,16 @@ export const EntityEnsureResult = Schema.Struct({
 	wasInserted: Schema.Boolean,
 });
 
-export const projectEntityIngestionReceipt = (commandKind: string, result: unknown) =>
-	commandKind === "entity:create" || commandKind === "entity:reference"
-		? Schema.decodeUnknownEffect(EntitySnapshotResult)(result).pipe(
-				Effect.as(commandKind === "entity:create" ? ("created" as const) : ("unchanged" as const)),
-			)
-		: Effect.succeed(null);
+export const projectEntityIngestionReceipt = (commandKind: string, result: unknown) => {
+	if (!["entity:create", "entity:update", "entity:reference"].includes(commandKind)) {
+		return Effect.succeed(null);
+	}
+	let outcome: "created" | "updated" | "unchanged" = "unchanged";
+	if (commandKind === "entity:create") {
+		outcome = "created";
+	}
+	if (commandKind === "entity:update") {
+		outcome = "updated";
+	}
+	return Schema.decodeUnknownEffect(EntitySnapshotResult)(result).pipe(Effect.as(outcome));
+};

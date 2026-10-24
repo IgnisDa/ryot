@@ -69,7 +69,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
@@ -124,7 +124,22 @@ const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsReposito
 const mockEventsService = Layer.mock(EventsService);
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	mockEventsService({ ...overrides });
+	mockEventsService({
+		validateEventGroups: () => Effect.void,
+		captureEventGroups: ({ userId, entityIds }) =>
+			Effect.succeed({
+				userId,
+				before: [],
+				eventIds: [],
+				bindings: [],
+				sessionIds: [],
+				declarations: [],
+				allSessions: false,
+				createdEventIds: [],
+				entityIds: [...(entityIds ?? [])],
+			}),
+		...overrides,
+	});
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
@@ -590,6 +605,7 @@ const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePl
 	runs: [],
 	policies: [],
 	wasCreated: true,
+	backgroundJobIds: [],
 	trigger: Schema.decodeUnknownSync(AutomationTrigger)({
 		...triggerFixture(id),
 		kind: { resource, category: "change", operation: "delete" },
@@ -722,7 +738,13 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					return yield* Effect.forEach(lifecycleBatchTriggers(input, 200, changes), (trigger) =>
 						record({ trigger, kind: "batch" }).pipe(
 							Effect.as(
-								toLifecycleDispatchPlan({ trigger, runs: [], policies: [], wasCreated: true }),
+								toLifecycleDispatchPlan({
+									trigger,
+									runs: [],
+									policies: [],
+									wasCreated: true,
+									backgroundJobIds: [],
+								}),
 							),
 						),
 					);

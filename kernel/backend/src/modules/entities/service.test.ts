@@ -40,6 +40,7 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import {
+	noHooksFixture,
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
@@ -298,13 +299,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 									Effect.gen(function* () {
 										expect(yield* session.isTransactionActive).toBe(true);
 										if (options.noHooks) {
-											return {
-												trigger: null,
-												runs: [] as const,
-												policies: [] as const,
-												_tag: "NoHooks" as const,
-												wasCreated: false as const,
-											};
+											return noHooksFixture();
 										}
 										let blockedReason: null | AutomationBlockedReason = null;
 										if (trigger.kind.category === "request" && options.blocked) {
@@ -372,6 +367,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 											runs: [],
 											wasCreated: true,
 											trigger: persisted,
+											backgroundJobIds: [],
 											policies:
 												trigger.kind.category === "request"
 													? (options.policies ?? []).map((_, index) => ({

@@ -6,6 +6,7 @@ import {
 	EntityUserDataNotFound,
 	type MergeEntityUserDataBody,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
+import type { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
@@ -64,6 +65,18 @@ const itemCommand = (
 
 const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
 	new DbError({ message: `User-state lifecycle persistence failed: ${error.code}` });
+const eventMutationFailure = (error: EventBadRequest) =>
+	new EntityUserDataBadRequest({
+		reason: {
+			code: "state-conflict",
+			message:
+				"message" in error.reason
+					? error.reason.message
+					: "The requested event change is not allowed",
+		},
+	});
+const eventCommandFailure = (error: EventBadRequest) =>
+	error.reason.code === "owner-mismatch" ? error : eventMutationFailure(error);
 const relationshipFailure =
 	(operation: "clear" | "merge") => (error: RelationshipNotFound | RelationshipBadRequest) =>
 		Effect.logWarning(`relationship ${operation} failed`, error).pipe(
@@ -253,12 +266,16 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				);
 			});
 			const commit = Effect.fnUntraced(function* <Result extends object, E, R>(input: {
+				userId: UserId;
 				command: DomainLifecycleCommand;
 				recheck: Effect.Effect<void, E, R>;
 				schema: Schema.Codec<Result, unknown>;
 				identity: ReturnType<typeof mutationReceiptIdentity>;
 				states: ReadonlyArray<Effect.Success<ReturnType<typeof state>>>;
-				write: Effect.Effect<
+				eventMutations: ReadonlyArray<PreparedEventDelete | PreparedEventMoveReferences>;
+				write: (
+					groupState: Effect.Success<ReturnType<EventsService["Service"]["captureEventGroups"]>>,
+				) => Effect.Effect<
 					{
 						result: Result;
 						eventDispatch: ReadonlyArray<LifecycleDispatchPlan>;
@@ -275,6 +292,18 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							return { result: prior.result, dispatch: prior.dispatch };
 						}
 						yield* lockPluginIngestionShared(database);
+						const groupState = yield* events.captureEventGroups({
+							userId: input.userId,
+							items: input.eventMutations,
+							entityIds: input.states.flatMap((value) => [
+								...value.graph.entityIds,
+								...value.graph.evidence.map(({ entityId }) => entityId),
+								...value.relationships.flatMap(({ sourceEntityId, targetEntityId }) => [
+									sourceEntityId,
+									targetEntityId,
+								]),
+							]),
+						});
 						yield* lockState(input.states);
 						yield* input.recheck;
 						for (const resource of ["event", "relationship"] as const) {
@@ -285,7 +314,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								identity: [resource === "event" ? "events" : "relationships"],
 							});
 						}
-						const written = yield* input.write;
+						const written = yield* input.write(groupState);
+						yield* events.validateEventGroups(groupState);
 						const dispatch = [
 							...written.eventDispatch,
 							...written.relationshipDispatch,
@@ -478,44 +508,48 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return yield* commit({
 					command,
 					identity,
+					userId: user.id,
 					states: [captured],
 					schema: ClearResult,
+					eventMutations: preparedEvents,
 					recheck: state(stateInput).pipe(
 						Effect.flatMap((current) => assertState(captured, current)),
 					),
-					write: Effect.gen(function* () {
-						yield* attachments.clear({
-							userId: user.id,
-							ids: captured.attachments.map(({ id }) => id),
-						});
-						const eventDispatch: LifecycleDispatchPlan[] = [];
-						for (const [index, prepared] of preparedEvents.entries()) {
-							eventDispatch.push(
-								...(yield* events.persistPreparedDelete(prepared, {
-									index,
-									command,
-									identity: ["events"],
-								})).dispatch,
-							);
-						}
-						const relationshipDispatch: LifecycleDispatchPlan[] = [];
-						for (const [index, prepared] of preparedRelationships.entries()) {
-							const work = yield* relationships
-								.persistPreparedUserDelete(prepared, {
-									index,
-									command,
-									identity: ["relationships"],
-								})
-								.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
-							relationshipDispatch.push(...work.dispatch);
-						}
-						const result = {
-							entityId,
-							deletedEventsCount: preparedEvents.length,
-							deletedRelationshipsCount: preparedRelationships.length,
-						};
-						return { result, eventDispatch, relationshipDispatch };
-					}),
+					write: (groupState) =>
+						Effect.gen(function* () {
+							yield* attachments.clear({
+								userId: user.id,
+								ids: captured.attachments.map(({ id }) => id),
+							});
+							const eventDispatch: LifecycleDispatchPlan[] = [];
+							for (const [index, prepared] of preparedEvents.entries()) {
+								eventDispatch.push(
+									...(yield* events.persistPreparedDelete(prepared, {
+										index,
+										command,
+										groupState,
+										identity: ["events"],
+									})).dispatch,
+								);
+							}
+							const relationshipDispatch: LifecycleDispatchPlan[] = [];
+							for (const [index, prepared] of preparedRelationships.entries()) {
+								const work = yield* relationships
+									.persistPreparedUserDelete(prepared, {
+										index,
+										command,
+										identity: ["relationships"],
+									})
+									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
+								relationshipDispatch.push(...work.dispatch);
+							}
+							const result = {
+								entityId,
+								deletedEventsCount: preparedEvents.length,
+								deletedRelationshipsCount: preparedRelationships.length,
+							};
+							return { result, eventDispatch, relationshipDispatch };
+						}),
 				});
 			});
 
@@ -771,10 +805,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				}
 
 				return yield* commit({
+					userId,
 					command,
 					identity,
 					schema: MergeResult,
 					states: [sourceState, targetState],
+					eventMutations: [...preparedResets, ...preparedEvents],
 					recheck: Effect.gen(function* () {
 						yield* assertState(
 							fromScope,
@@ -787,66 +823,69 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* assertState(sourceState, yield* state(sourceInput));
 						yield* assertState(targetState, yield* state(targetInput));
 					}),
-					write: Effect.gen(function* () {
-						yield* attachments.move({
-							userId,
-							references: referenceMap,
-							ids: sourceState.attachments.map(({ id }) => id),
-						});
-						const eventDispatch: LifecycleDispatchPlan[] = [];
-						for (const [index, prepared] of preparedResets.entries()) {
-							eventDispatch.push(
-								...(yield* events.persistPreparedDelete(prepared, {
-									index,
-									command,
-									identity: ["events"],
-								})).dispatch,
-							);
-						}
-						for (const [index, prepared] of preparedEvents.entries()) {
-							eventDispatch.push(
-								...(yield* events.persistPreparedMoveReferences(prepared, {
-									command,
-									identity: ["events"],
-									index: index + preparedResets.length,
-								})).dispatch,
-							);
-						}
-						const relationshipDispatch: LifecycleDispatchPlan[] = [];
-						let movedRelationshipsCount = 0;
-						let relationshipIndex = 0;
-						for (const prepared of preparedRelationships) {
-							if (prepared.create) {
-								const work = yield* relationships
-									.persistPreparedUserCreate(prepared.create, {
+					write: (groupState) =>
+						Effect.gen(function* () {
+							yield* attachments.move({
+								userId,
+								references: referenceMap,
+								ids: sourceState.attachments.map(({ id }) => id),
+							});
+							const eventDispatch: LifecycleDispatchPlan[] = [];
+							for (const [index, prepared] of preparedResets.entries()) {
+								eventDispatch.push(
+									...(yield* events.persistPreparedDelete(prepared, {
+										index,
 										command,
-										index: relationshipIndex++,
-										identity: ["relationships"],
-									})
-									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
-								relationshipDispatch.push(...work.dispatch);
+										groupState,
+										identity: ["events"],
+									})).dispatch,
+								);
 							}
-							if (prepared.deletion) {
-								const work = yield* relationships
-									.persistPreparedUserDelete(prepared.deletion, {
+							for (const [index, prepared] of preparedEvents.entries()) {
+								eventDispatch.push(
+									...(yield* events.persistPreparedMoveReferences(prepared, {
 										command,
-										index: relationshipIndex++,
-										identity: ["relationships"],
-									})
-									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
-								relationshipDispatch.push(...work.dispatch);
-								movedRelationshipsCount += 1;
+										groupState,
+										identity: ["events"],
+										index: index + preparedResets.length,
+									})).dispatch,
+								);
 							}
-						}
+							const relationshipDispatch: LifecycleDispatchPlan[] = [];
+							let movedRelationshipsCount = 0;
+							let relationshipIndex = 0;
+							for (const prepared of preparedRelationships) {
+								if (prepared.create) {
+									const work = yield* relationships
+										.persistPreparedUserCreate(prepared.create, {
+											command,
+											index: relationshipIndex++,
+											identity: ["relationships"],
+										})
+										.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+									relationshipDispatch.push(...work.dispatch);
+								}
+								if (prepared.deletion) {
+									const work = yield* relationships
+										.persistPreparedUserDelete(prepared.deletion, {
+											command,
+											index: relationshipIndex++,
+											identity: ["relationships"],
+										})
+										.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+									relationshipDispatch.push(...work.dispatch);
+									movedRelationshipsCount += 1;
+								}
+							}
 
-						const result = {
-							mergeFrom,
-							mergeInto,
-							movedRelationshipsCount,
-							movedEventsCount: preparedEvents.length,
-						};
-						return { result, eventDispatch, relationshipDispatch };
-					}),
+							const result = {
+								mergeFrom,
+								mergeInto,
+								movedRelationshipsCount,
+								movedEventsCount: preparedEvents.length,
+							};
+							return { result, eventDispatch, relationshipDispatch };
+						}),
 				});
 			});
 
@@ -859,6 +898,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					clearEntityUserData(user, entityId, { ...command, writeContext: null }).pipe(
 						Effect.catchTags({
 							EventStale: stateConflict,
+							EventBadRequest: eventMutationFailure,
 							LifecyclePersistenceError: lifecyclePersistenceFailure,
 						}),
 					),
@@ -870,6 +910,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					mergeEntityUserData(user.id, payload, { ...command, writeContext: null }).pipe(
 						Effect.catchTags({
 							EventStale: stateConflict,
+							EventBadRequest: eventMutationFailure,
 							LifecyclePersistenceError: lifecyclePersistenceFailure,
 						}),
 					),
@@ -883,6 +924,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					}).pipe(
 						Effect.catchTags({
 							EventStale: stateConflict,
+							EventBadRequest: eventCommandFailure,
 							LifecyclePersistenceError: lifecyclePersistenceFailure,
 						}),
 					),
@@ -899,6 +941,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					).pipe(
 						Effect.catchTags({
 							EventStale: stateConflict,
+							EventBadRequest: eventCommandFailure,
 							LifecyclePersistenceError: lifecyclePersistenceFailure,
 						}),
 					),
