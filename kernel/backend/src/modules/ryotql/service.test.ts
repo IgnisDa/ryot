@@ -672,7 +672,8 @@ layer(makeServiceLayer(Effect.succeed([{ f0v: new Date("2026-09-25T00:00:00.000Z
 			const today = "(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')";
 			const statements = yield* (yield* RecordedStatements).statements;
 			expect(statements[2]?.split(today).length).toBe(3);
-			expect(statements[2]).toContain(`::timestamp with time zone <= ${today}`);
+			expect(statements[2]).toContain(`::timestamp with time zone FROM (SELECT `);
+			expect(statements[2]).toContain(`cast_operand) <= ${today}`);
 			expect(response.data["entities"]).toEqual({
 				type: "rows",
 				items: [{ today: "2026-09-25T00:00:00.000Z" }],

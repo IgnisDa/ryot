@@ -200,6 +200,12 @@ const safeInputValid = (
 	return valid;
 };
 
+const castOperand = sql.raw("cast_operand.value");
+
+// Casts read their operand several times; OFFSET 0 stops Postgres inlining it back into each read.
+const bindCastOperand = (operand: SqlFragment, cast: SqlFragment) =>
+	sql`(SELECT ${cast} FROM (SELECT ${operand} AS value OFFSET 0) cast_operand)`;
+
 const compileJsonValue = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
 	const compiled = compileExpression(expr, scope);
 	const kind = expressionKind(expr, scope);
@@ -241,10 +247,12 @@ const compileCast = (
 		return source;
 	}
 	if (sourceKind === "json") {
-		const json = compileJsonValue(expr.expr, scope);
-		const text = sql`(${json} #>> '{}')`;
+		const text = sql`(${castOperand} #>> '{}')`;
 		if (expr.target === "text") {
-			return sql`CASE WHEN jsonb_typeof(${json}) = 'string' THEN ${text} END`;
+			return bindCastOperand(
+				compileJsonValue(expr.expr, scope),
+				sql`CASE WHEN jsonb_typeof(${castOperand}) = 'string' THEN ${text} END`,
+			);
 		}
 		let jsonType = "boolean";
 		if (expr.target === "number") {
@@ -254,11 +262,17 @@ const compileCast = (
 		}
 		const sqlType = castSqlType(expr.target);
 		const valid = expr.target === "boolean" ? sql`true` : safeInputValid(text, expr.target);
-		return sql`(CASE WHEN jsonb_typeof(${json}) = ${jsonType} AND ${valid} THEN ${text} END)::${sql.raw(sqlType)}`;
+		return bindCastOperand(
+			compileJsonValue(expr.expr, scope),
+			sql`(CASE WHEN jsonb_typeof(${castOperand}) = ${jsonType} AND ${valid} THEN ${text} END)::${sql.raw(sqlType)}`,
+		);
 	}
 	if (sourceKind === "text" && expr.target !== "text") {
 		const sqlType = castSqlType(expr.target);
-		return sql`(CASE WHEN ${safeInputValid(source, expr.target)} THEN ${source} END)::${sql.raw(sqlType)}`;
+		return bindCastOperand(
+			source,
+			sql`(CASE WHEN ${safeInputValid(castOperand, expr.target)} THEN ${castOperand} END)::${sql.raw(sqlType)}`,
+		);
 	}
 	if (expr.target === "text") {
 		return compileTextValue(expr.expr, scope);

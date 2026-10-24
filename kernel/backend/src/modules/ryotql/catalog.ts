@@ -373,6 +373,15 @@ const event: CatalogTable = {
 	},
 };
 
+// An uncorrelated array runs once per query; the pin is large, so a per-row gate is slow.
+const currentRelationshipProjectionWork = sql`array(select w.id from relationship_projection_work w
+	inner join plugin g on g.id = w.relationship_schema_plugin_id
+	inner join plugin_installation i on i.plugin_id = g.id and i.user_id = w.user_id
+	where w.plugin_revision_id = g.active_revision_id
+	and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
+		then g.environment_config_revision_id else i.active_config_revision_id end
+	and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null)`;
+
 const eventProjection: CatalogTable = {
 	primaryKey: ["eventId"],
 	name: "event_projection",
@@ -482,6 +491,13 @@ const relationship: CatalogTable = {
 		targetEntityId: physicalField("target_entity_id", "text", false),
 		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
 		relationshipSchemaPluginId: physicalField("relationship_schema_plugin_id", "text"),
+		projection: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) => sql`(select p.properties from relationship_projection p
+				where p.relationship_id = ${sql.raw(sqlAlias)}.id and p.projected_revision = p.revision
+				and p.work_id = any(${currentRelationshipProjectionWork}))`,
+		},
 		collectionRank: {
 			kind: "number",
 			nullable: true,
@@ -489,19 +505,6 @@ const relationship: CatalogTable = {
 				sql.raw(
 					`(case when ${sqlAlias}.relationship_schema_slug = 'member-of' and ${sqlAlias}.relationship_schema_plugin_id is null then (${sqlAlias}.properties ->> 'rank')::double precision end)`,
 				),
-		},
-		projection: {
-			kind: "json",
-			nullable: true,
-			resolve: ({ sqlAlias }) => sql`(select p.properties from relationship_projection p
-				inner join relationship_projection_work w on w.id = p.work_id
-				inner join plugin g on g.id = w.relationship_schema_plugin_id
-				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = w.user_id
-				where p.relationship_id = ${sql.raw(sqlAlias)}.id and p.projected_revision = p.revision
-				and w.plugin_revision_id = g.active_revision_id
-				and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
-					then g.environment_config_revision_id else i.active_config_revision_id end
-				and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null)`,
 		},
 		projectionStatus: {
 			kind: "text",
@@ -512,13 +515,9 @@ const relationship: CatalogTable = {
 				else 'pending' end
 				from relationship_projection p
 				inner join relationship_projection_work w on w.id = p.work_id
-				inner join plugin g on g.id = w.relationship_schema_plugin_id
-				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = w.user_id
 				left join background_work j on j.id = w.current_job_id
 				where p.relationship_id = ${sql.raw(sqlAlias)}.id
-				and w.plugin_revision_id = g.active_revision_id
-				and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null then g.environment_config_revision_id else i.active_config_revision_id end
-				and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null),
+				and p.work_id = any(${currentRelationshipProjectionWork})),
 				case when exists (select 1 from user_relationship_schema d
 					where d.user_id = ${sql.raw(sqlAlias)}.user_id
 					and d.plugin_id is not distinct from ${sql.raw(sqlAlias)}.relationship_schema_plugin_id
