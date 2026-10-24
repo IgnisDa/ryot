@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Deferred, Effect, Exit } from "effect";
+import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { FileDownloadError } from "#/modules/downloads/file";
@@ -31,13 +31,126 @@ const logs = {
 } satisfies InstanceAdminLogs;
 
 describe("ServerLogsView", () => {
+	for (const outcome of ["defect", "interruption", "throw"] as const) {
+		it.live(`clears download busy state after ${outcome} and permits retry`, () =>
+			Effect.gen(function* () {
+				let requests = 0;
+				render(
+					<ServerLogsView
+						unauthorized={() => undefined}
+						load={() => Effect.succeed(logs)}
+						download={() => {
+							requests += 1;
+							if (requests > 1) {
+								return Effect.void;
+							}
+							if (outcome === "throw") {
+								throw new Error("download construction failed");
+							}
+							return outcome === "defect" ? Effect.die("download defect") : Effect.interrupt;
+						}}
+					/>,
+				);
+				yield* Effect.promise(() => screen.findByText("server.log"));
+				const download = screen.getByRole<HTMLButtonElement>("button", {
+					name: "Download server.log",
+				});
+				fireEvent.click(download);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(requests).toBe(1);
+						expect(download.disabled).toBe(false);
+					}),
+				);
+				if (outcome === "interruption") {
+					expect(screen.queryByRole("alert")).toBeNull();
+				} else {
+					expect(screen.getByRole("alert").textContent).toBe(
+						"Could not download the logs. Check the server and try again.",
+					);
+				}
+				fireEvent.click(download);
+				yield* Effect.promise(() => waitFor(() => expect(requests).toBe(2)));
+				expect(download.disabled).toBe(false);
+				expect(screen.queryByRole("alert")).toBeNull();
+			}),
+		);
+	}
+
+	it.live("skips a repeated busy download without another request or error", () =>
+		Effect.gen(function* () {
+			const release = yield* Deferred.make<void>();
+			let requests = 0;
+			render(
+				<ServerLogsView
+					unauthorized={() => undefined}
+					load={() => Effect.succeed(logs)}
+					download={() => {
+						requests += 1;
+						return Deferred.await(release);
+					}}
+				/>,
+			);
+			yield* Effect.promise(() => screen.findByText("server.log"));
+			const download = screen.getByRole<HTMLButtonElement>("button", {
+				name: "Download server.log",
+			});
+			act(() => {
+				fireEvent.click(download);
+				fireEvent.click(download);
+			});
+			yield* Effect.promise(() => screen.findByText("Downloading..."));
+			expect(requests).toBe(1);
+			expect(screen.queryByRole("alert")).toBeNull();
+			yield* Deferred.succeed(release, undefined);
+			yield* Effect.promise(() => waitFor(() => expect(download.disabled).toBe(false)));
+			expect(requests).toBe(1);
+			expect(screen.queryByRole("alert")).toBeNull();
+		}),
+	);
+
+	it.live("interrupts a download on unmount and ignores its late unauthorized result", () =>
+		Effect.gen(function* () {
+			let settle: (() => void) | undefined;
+			let interrupted = false;
+			const calls: string[] = [];
+			const view = render(
+				<ServerLogsView
+					load={() => Effect.succeed(logs)}
+					unauthorized={() => {
+						calls.push("unauthorized");
+					}}
+					download={() =>
+						Effect.callback((resolve) => {
+							settle = () =>
+								resolve(
+									Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+								);
+							return Effect.sync(() => {
+								interrupted = true;
+							});
+						})
+					}
+				/>,
+			);
+			yield* Effect.promise(() => screen.findByText("server.log"));
+			fireEvent.click(screen.getByRole("button", { name: "Download server.log" }));
+			yield* Effect.promise(() => waitFor(() => expect(settle).toBeDefined()));
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+			settle?.();
+			yield* Effect.yieldNow;
+			expect(calls).toEqual([]);
+		}),
+	);
+
 	it.live("shows active and compressed log names and sizes", () =>
 		Effect.gen(function* () {
 			render(
 				<ServerLogsView
+					download={() => Effect.void}
 					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(logs))}
-					download={() => Effect.succeed(Exit.succeed(undefined))}
+					load={() => Effect.succeed(logs)}
 				/>,
 			);
 
@@ -58,22 +171,20 @@ describe("ServerLogsView", () => {
 			const requests: Array<{ readonly after: string | undefined; readonly limit: number }> = [];
 			render(
 				<ServerLogsView
+					download={() => Effect.void}
 					unauthorized={() => undefined}
-					download={() => Effect.succeed(Exit.succeed(undefined))}
 					load={(after, limit) => {
 						requests.push({ after, limit });
 						return Effect.succeed(
-							Exit.succeed(
-								after === undefined
-									? {
-											files: [activeFile],
-											pageInfo: { limit, hasMore: true, nextCursor: "cursor-1" },
-										}
-									: {
-											files: [compressedFile],
-											pageInfo: { limit, hasMore: false, nextCursor: null },
-										},
-							),
+							after === undefined
+								? {
+										files: [activeFile],
+										pageInfo: { limit, hasMore: true, nextCursor: "cursor-1" },
+									}
+								: {
+										files: [compressedFile],
+										pageInfo: { limit, hasMore: false, nextCursor: null },
+									},
 						);
 					}}
 				/>,
@@ -101,10 +212,10 @@ describe("ServerLogsView", () => {
 			render(
 				<ServerLogsView
 					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(logs))}
+					load={() => Effect.succeed(logs)}
 					download={(file) => {
 						downloaded.push(file);
-						return Effect.succeed(Exit.succeed(undefined));
+						return Effect.void;
 					}}
 				/>,
 			);
@@ -134,15 +245,10 @@ describe("ServerLogsView", () => {
 		Effect.gen(function* () {
 			render(
 				<ServerLogsView
+					download={() => Effect.void}
 					unauthorized={() => undefined}
-					download={() => Effect.succeed(Exit.succeed(undefined))}
 					load={() =>
-						Effect.succeed(
-							Exit.succeed({
-								files: [],
-								pageInfo: { limit: 25, hasMore: false, nextCursor: null },
-							}),
-						)
+						Effect.succeed({ files: [], pageInfo: { limit: 25, hasMore: false, nextCursor: null } })
 					}
 				/>,
 			);
@@ -160,15 +266,13 @@ describe("ServerLogsView", () => {
 			let attempts = 0;
 			render(
 				<ServerLogsView
+					download={() => Effect.void}
 					unauthorized={() => undefined}
-					download={() => Effect.succeed(Exit.succeed(undefined))}
 					load={() => {
 						attempts += 1;
-						return Effect.succeed(
-							attempts === 1
-								? Exit.fail(new AdminApiError({ cause: "offline" }))
-								: Exit.succeed(logs),
-						);
+						return attempts === 1
+							? Effect.fail(new AdminApiError({ cause: "offline" }))
+							: Effect.succeed(logs);
 					}}
 				/>,
 			);
@@ -188,8 +292,8 @@ describe("ServerLogsView", () => {
 			render(
 				<ServerLogsView
 					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(logs))}
-					download={() => Effect.map(Deferred.await(release), () => Exit.succeed(undefined))}
+					load={() => Effect.succeed(logs)}
+					download={() => Deferred.await(release)}
 				/>,
 			);
 			yield* Effect.promise(() => screen.findByText("server.log"));
@@ -223,12 +327,10 @@ describe("ServerLogsView", () => {
 			const calls: Array<string> = [];
 			render(
 				<ServerLogsView
+					download={() => Effect.void}
 					unauthorized={() => calls.push("unauthorized")}
-					download={() => Effect.succeed(Exit.succeed(undefined))}
 					load={() =>
-						Effect.succeed(
-							Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-						)
+						Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 					}
 				/>,
 			);
@@ -244,12 +346,10 @@ describe("ServerLogsView", () => {
 			const calls: Array<string> = [];
 			render(
 				<ServerLogsView
+					load={() => Effect.succeed(logs)}
 					unauthorized={() => calls.push("unauthorized")}
-					load={() => Effect.succeed(Exit.succeed(logs))}
 					download={() =>
-						Effect.succeed(
-							Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-						)
+						Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 					}
 				/>,
 			);
@@ -268,14 +368,12 @@ describe("ServerLogsView", () => {
 			render(
 				<ServerLogsView
 					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(logs))}
+					load={() => Effect.succeed(logs)}
 					download={() =>
-						Effect.succeed(
-							Exit.fail(
-								new AdminApiError({
-									cause: new FileDownloadError({ status: 404, cause: "missing" }),
-								}),
-							),
+						Effect.fail(
+							new AdminApiError({
+								cause: new FileDownloadError({ status: 404, cause: "missing" }),
+							}),
 						)
 					}
 				/>,

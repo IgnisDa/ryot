@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Effect } from "effect";
 
 import { useInstanceAdmin } from "#/modules/instance-admin/context";
 import { MigrationReportView } from "#/modules/instance-admin/migration-report-view";
@@ -16,7 +15,7 @@ function InstanceAdminMigrationReport() {
 	return (
 		<MigrationReportView
 			unauthorized={unauthorized}
-			load={(after) => Effect.exit(service.getMigrationReport(sessionId, after))}
+			load={(after) => service.getMigrationReport(sessionId, after)}
 		/>
 	);
 }

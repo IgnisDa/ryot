@@ -2,11 +2,10 @@ import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import type { Exit } from "effect";
 import { Effect } from "effect";
 import { useState } from "react";
 
-import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
+import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";
 import { transferMigrationReportDetails } from "#/modules/instance-admin/link-transfer";
 import {
 	buildMigrationReportClipboardText,
@@ -184,13 +183,13 @@ export function MigrationReportView(props: {
 	readonly unauthorized: () => void;
 	readonly load: (
 		after: string | undefined,
-	) => Effect.Effect<Exit.Exit<InstanceAdminMigrationReport, unknown>>;
+	) => Effect.Effect<InstanceAdminMigrationReport, unknown>;
 }) {
 	const pagination = usePagination<InstanceAdminMigrationReport, string | undefined>({
 		initialPageParam: undefined,
 		getNextPageParam: nextPageCursor,
 		identity: "instance-admin-migration-report",
-		load: (after) => readAdminResult(props.load(after), props.unauthorized),
+		load: (after) => withAdminAuthorization(props.load(after), props.unauthorized),
 	});
 	const entries = paginationItems(
 		pagination.pages,

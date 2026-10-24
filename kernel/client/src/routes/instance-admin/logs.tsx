@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Effect } from "effect";
 
 import { useInstanceAdmin } from "#/modules/instance-admin/context";
 import { ServerLogsView } from "#/modules/instance-admin/logs-view";
@@ -14,8 +13,8 @@ function InstanceAdminLogs() {
 	return (
 		<ServerLogsView
 			unauthorized={unauthorized}
-			download={(file) => Effect.exit(service.downloadLogs(sessionId, file))}
-			load={(after, limit) => Effect.exit(service.listLogs(sessionId, after, limit))}
+			download={(file) => service.downloadLogs(sessionId, file)}
+			load={(after, limit) => service.listLogs(sessionId, after, limit)}
 		/>
 	);
 }

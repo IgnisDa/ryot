@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { MigrationReportView } from "#/modules/instance-admin/migration-report-view";
@@ -73,7 +73,7 @@ describe("MigrationReportView", () => {
 					unauthorized={() => undefined}
 					load={(after) => {
 						requests.push(after);
-						return Effect.succeed(Exit.succeed(report));
+						return Effect.succeed(report);
 					}}
 				/>,
 			);
@@ -98,10 +98,7 @@ describe("MigrationReportView", () => {
 	it.live("expands a coded warning to reveal its per-record detail and total", () =>
 		Effect.gen(function* () {
 			render(
-				<MigrationReportView
-					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(report))}
-				/>,
+				<MigrationReportView unauthorized={() => undefined} load={() => Effect.succeed(report)} />,
 			);
 
 			const toggle = yield* Effect.promise(() =>
@@ -122,10 +119,7 @@ describe("MigrationReportView", () => {
 	it.live("gives rows without a code no expand affordance", () =>
 		Effect.gen(function* () {
 			render(
-				<MigrationReportView
-					unauthorized={() => undefined}
-					load={() => Effect.succeed(Exit.succeed(report))}
-				/>,
+				<MigrationReportView unauthorized={() => undefined} load={() => Effect.succeed(report)} />,
 			);
 
 			yield* Effect.promise(() => screen.findByRole("table"));
@@ -147,22 +141,18 @@ describe("MigrationReportView", () => {
 						load={(after) => {
 							requests.push(after);
 							if (after === undefined) {
-								return Effect.succeed(
-									Exit.succeed({
-										...report,
-										pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
-									}),
-								);
+								return Effect.succeed({
+									...report,
+									pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
+								});
 							}
 							nextAttempts += 1;
-							return Effect.succeed(
-								nextAttempts === 1
-									? Exit.fail(new AdminApiError({ cause: "offline" }))
-									: Exit.succeed({
-											pageInfo: { limit: 50, hasMore: false, nextCursor: null },
-											items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
-										}),
-							);
+							return nextAttempts === 1
+								? Effect.fail(new AdminApiError({ cause: "offline" }))
+								: Effect.succeed({
+										pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+										items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
+									});
 						}}
 					/>,
 				);
@@ -187,11 +177,9 @@ describe("MigrationReportView", () => {
 					unauthorized={() => undefined}
 					load={() => {
 						calls += 1;
-						return Effect.succeed(
-							calls === 1
-								? Exit.fail(new AdminApiError({ cause: "offline" }))
-								: Exit.succeed(emptyReport),
-						);
+						return calls === 1
+							? Effect.fail(new AdminApiError({ cause: "offline" }))
+							: Effect.succeed(emptyReport);
 					}}
 				/>,
 			);
@@ -211,10 +199,8 @@ describe("MigrationReportView", () => {
 						relocks += 1;
 					}}
 					load={() =>
-						Effect.succeed(
-							Exit.failCause(
-								Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-							),
+						Effect.failCause(
+							Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
 						)
 					}
 				/>,
