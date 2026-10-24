@@ -96,6 +96,7 @@ import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import { migrateLegacyUserSettings } from "./user-settings-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
+	buildWorkoutCompletedEventMigrationSql,
 	buildWorkoutMigrationSql,
 	buildWorkoutRepeatedFromRelationshipMigrationSql,
 	buildWorkoutSetEventMigrationSql,
@@ -271,6 +272,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"measurement-reading",
 	);
 	const workoutEntitySchema = entitySchema(fitnessPluginId, "workout");
+	const workoutCompletedEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"workout",
+		"workout-completed",
+	);
 	const workoutTemplateEntitySchema = entitySchema(fitnessPluginId, "workout-template");
 	const workoutSetEventSchema = requireEventSchema(
 		resolution,
@@ -556,6 +563,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchema), []);
+			yield* connection.executeRaw(
+				buildWorkoutCompletedEventMigrationSql({
+					workoutEntitySchema,
+					completedEventSchema: workoutCompletedEventSchema,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchema), []);
 			yield* connection.executeRaw(
 				buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchema),

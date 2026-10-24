@@ -73,6 +73,13 @@ Completed seen rows keep their recorded finish date as `occurredAt`; migrated `c
 
 Workout exercise notes live in workout `exerciseNotes`, keyed by zero-based `exerciseOrder` and separate from set `note`; templates keep exercise notes. Workout and template set durations convert legacy minutes to seconds, imperial workout and template weights and distances convert to kilograms and kilometers using each stored exercise's unit system, and rest times remain unchanged in seconds, including zero. Template measurements round to the Fitness schema scales. Missing or unsupported template unit systems and invalid template rest values abort. Each workout set stores its V1 workout exercise `lot` as `exerciseKind`; a missing or unsupported lot aborts. The migration removes copied `pace`, `oneRm`, `volume`, and `personalBests` fields from source events and seeds their event streams. After startup, the declared Fitness processor rebuilds those values in projection storage from normalized measurements, tracking bests per exercise and kind.
 
+Each legacy workout also creates one sessionless `workout-completed` event with its original name
+as `workoutName` and its recorded finish time as both `created_at` and `occurred_at`. Event IDs are
+deterministic per workout. This pass runs independently of the workout entity completion report,
+so restarts backfill missing events without rewriting workouts or duplicating events. Missing or
+empty names and missing or mismatched migrated workout entities abort with a recovery message.
+Templates receive no completion events, and historical events do not replay notification hooks.
+
 Workouts copy nonnegative V1 `duration` directly to `activeDuration` in seconds, without recomputing it
 from timestamps or constraining it to the recorded interval. Negative durations and energy values are
 omitted as unknown and reported with original values, user/workout identity, units, and timestamps.
@@ -169,6 +176,13 @@ one sessionless `add-to-media-library` event of the same user, source entity, an
 Include custom titles, people, companies, and media groups. Verify Fitness and collection rows
 produce no Media library event. An interrupted restart must backfill an absent event for an existing
 relationship, leave existing annotations unchanged, and preserve event counts and IDs on later runs.
+
+For workout completions, compare every legacy workout with exactly one `workout-completed` event
+of the same owner and entity, with its original name, finish time, and Fitness plugin provenance.
+Verify events are sessionless and templates receive none. With legacy tables present and the
+workout entity phase already reported complete, remove a completion event and rerun: only that
+event must be backfilled, with workout data unchanged. Later runs must preserve event counts and
+IDs, and all automation history tables must remain empty.
 
 Use disposable PostgreSQL, Redis, and object storage. `just restore-db` clears its configured database,
 Redis, and S3 bucket; the asset phase also deletes copied legacy keys after commit. Never use production
