@@ -7,8 +7,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
-import { Effect, Layer, MutableRef, Ref, Schema } from "effect";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { Duration, Effect, Fiber, Layer, MutableRef, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
+import { TestClock } from "effect/testing";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
@@ -298,6 +300,24 @@ describe("runtime sandbox host functions", () => {
 				const error = yield* host.httpCall(input, "POST", "http://127.0.0.1:1/").pipe(Effect.flip);
 
 				expect(error).toMatchObject({ data: { code: "external-uncertain" } });
+			}),
+		);
+	});
+
+	layer(runtimeHostLayer)((test) => {
+		test.effect("keeps an HTTP timeout readable and marks its external outcome uncertain", () =>
+			Effect.gen(function* () {
+				const host = yield* hostWith(HttpClient.make(() => Effect.never));
+				const request = yield* host
+					.httpCall(input, "GET", "https://provider.test/library/sections")
+					.pipe(Effect.flip, Effect.forkChild);
+
+				yield* TestClock.adjust(Duration.millis(SANDBOX_LIMITS.http.timeoutMs));
+
+				expect(yield* Fiber.join(request)).toEqual({
+					data: { code: "external-uncertain" },
+					message: `httpCall timed out after ${SANDBOX_LIMITS.http.timeoutMs} ms`,
+				});
 			}),
 		);
 	});

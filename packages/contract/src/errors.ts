@@ -33,7 +33,7 @@ const pgStringField = (cause: unknown, field: keyof PgErrorLike) => {
 };
 
 export const unknownToMessage = (cause: unknown) =>
-	cause instanceof Error ? cause.message : String(cause);
+	cause instanceof Error && typeof cause.message === "string" ? cause.message : String(cause);
 
 export const unknownToDbError = (cause: unknown) =>
 	new DbError({

@@ -302,7 +302,12 @@ export const executeSandboxHttp = (
 	}).pipe(
 		Effect.timeoutOrElse({
 			duration: Duration.millis(SANDBOX_LIMITS.http.timeoutMs),
-			orElse: () => Effect.fail(httpRequestFailure(new Cause.TimeoutError())),
+			orElse: () =>
+				Effect.fail(
+					httpRequestFailure(
+						new Cause.TimeoutError(`httpCall timed out after ${SANDBOX_LIMITS.http.timeoutMs} ms`),
+					),
+				),
 		}),
 	);
 

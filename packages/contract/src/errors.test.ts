@@ -1,7 +1,16 @@
-import { Schema } from "effect";
+import { Cause, Schema } from "effect";
 import { expect, it } from "vitest";
 
-import { DbError, unknownToDbError } from "./errors";
+import { DbError, unknownToDbError, unknownToMessage } from "./errors";
+
+it.each([
+	{ label: "Error message", expected: "Request failed", cause: new Error("Request failed") },
+	{ cause: "Request failed", expected: "Request failed", label: "plain string failure" },
+	{ expected: "TimeoutError", label: "unnamed Effect timeout", cause: new Cause.TimeoutError() },
+	{ cause: undefined, expected: "undefined", label: "undefined failure" },
+])("converts $label to a message", ({ cause, expected }) => {
+	expect(unknownToMessage(cause)).toBe(expected);
+});
 
 it("retains database error details across workflow serialization without stack columns", () => {
 	const codec = Schema.toCodecJson(DbError);
