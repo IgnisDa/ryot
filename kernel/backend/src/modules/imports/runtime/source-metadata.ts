@@ -31,7 +31,7 @@ type UploadProperty = Extract<AppPropertyDefinition, { type: "string" }> & {
 	};
 };
 
-const uploadFields = (source: RegisteredImportSource) =>
+const uploadFields = (source: Pick<RegisteredImportSource, "inputSchema">) =>
 	getOrderedAppSchemaFieldEntries(source.inputSchema.fields).filter(
 		(entry): entry is [string, UploadProperty] =>
 			entry[1].type === "string" && entry[1].format?.kind === "upload",
@@ -40,7 +40,7 @@ const uploadFields = (source: RegisteredImportSource) =>
 const isJsonValue = Schema.is(JsonValue);
 
 export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSourceInput")(
-	function* (source: RegisteredImportSource, body: CreateImportRunBody) {
+	function* (source: Pick<RegisteredImportSource, "inputSchema">, body: CreateImportRunBody) {
 		const declaredUploadFields = new Set(uploadFields(source).map(([field]) => field));
 		const undeclaredTokenField = Object.keys(body).find(
 			(field) => isImportUploadTokenField(field) && !declaredUploadFields.has(field),

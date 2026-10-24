@@ -18,6 +18,7 @@
 		"./modules/imports/execution-service": "./src/modules/imports/execution-service.ts",
 		"./modules/imports/ingestion.test-support": "./src/modules/imports/ingestion.test-support.ts",
 		"./modules/imports/repository": "./src/modules/imports/repository.ts",
+		"./modules/imports/runtime/source-metadata": "./src/modules/imports/runtime/source-metadata.ts",
 		"./modules/imports/runtime/source-state-store": "./src/modules/imports/runtime/source-state-store.ts",
 		"./modules/imports/workflow-pinning": "./src/modules/imports/workflow-pinning.ts",
 		"./modules/integrations/ingestion": "./src/modules/integrations/ingestion.ts",
