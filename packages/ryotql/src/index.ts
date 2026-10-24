@@ -669,31 +669,18 @@ export const selectedRowsSource = <
 	from: TableReference,
 	input: { readonly selection: Selection; readonly include?: Includes | undefined },
 ): SelectedRowsSource<SelectedRow<Selection, Includes>> => {
+	const includes = compileIncludes(input.include);
 	const query = (queryInput: SelectedRowsSourceQueryInput = {}) =>
 		selectedRows(from, {
 			...queryInput,
 			selection: input.selection,
 			...(input.include === undefined ? {} : { include: input.include }),
 		});
-	const source = query({ limit: 1 });
 	return {
 		query,
-		include: source.document.output.include,
-		fields: source.document.output.fields.flatMap((selection) =>
-			"key" in selection ? [selection] : [],
-		),
-		decode: (value: unknown) =>
-			Result.flatMap(
-				source.decodeResult({
-					type: "rows",
-					items: [value],
-					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-				}),
-				({ items }) =>
-					items[0] === undefined
-						? fail("Selected rows source did not decode a row")
-						: Result.succeed(items[0]),
-			),
+		include: isNonEmpty(includes) ? includes : undefined,
+		decode: (value) => decodeSelectedRow(value, input.selection, input.include),
+		fields: Object.entries(input.selection).map(([key, selected]) => field(key, selected.expr)),
 	};
 };
 
