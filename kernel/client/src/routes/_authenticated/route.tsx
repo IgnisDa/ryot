@@ -1,10 +1,10 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect } from "react";
 
 import { PublicApi } from "#/api/public";
+import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -24,13 +24,8 @@ export const Route = createFileRoute("/_authenticated")({
 		context.runtime.runPromise(
 			protectedRouteGuard(location.href).pipe(
 				Effect.map((authenticated) => {
-					const session = context.ryotClients.get(authenticated.scope);
-					return {
-						...authenticated,
-						ryot: session.client,
-						ryotRuntime: session.runtime,
-						hostServices: session.hostServices,
-					};
+					const entry = context.ryotClients.get(authenticated.scope);
+					return { ...authenticated, ryot: entry.client, hostServices: entry.hostServices };
 				}),
 			),
 		),
@@ -73,7 +68,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
 	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
-	const { scope, runtime, ryotRuntime, hostServices } = Route.useRouteContext();
+	const { ryot, scope, runtime, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
 		() =>
@@ -83,7 +78,7 @@ function AuthenticatedLayout() {
 		[runtime, serverUrl, userId],
 	);
 	return (
-		<RyotProvider runtime={ryotRuntime} hostServices={hostServices}>
+		<KernelRyotProvider client={ryot} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				<AuthenticatedShell
 					isPro={isPro}
@@ -91,7 +86,7 @@ function AuthenticatedLayout() {
 					initialRememberedPluginId={rememberedPluginId}
 				/>
 			</PluginCatalogProvider>
-		</RyotProvider>
+		</KernelRyotProvider>
 	);
 }
 
