@@ -72,8 +72,10 @@ export const createYoutubeHistoryClient = (
 	timezone: string,
 ) =>
 	createSdkYoutubeHistoryClient(host, authCookie, timezone).pipe(
-		Effect.map((client): HistoryClient => ({
-			getHistory: () => client.getHistory().pipe(Effect.mapError(toMediaSandboxError)),
-		})),
-		Effect.mapError(toMediaSandboxError),
+		Effect.mapBoth({
+			onFailure: toMediaSandboxError,
+			onSuccess: (client): HistoryClient => ({
+				getHistory: () => client.getHistory().pipe(Effect.mapError(toMediaSandboxError)),
+			}),
+		}),
 	);

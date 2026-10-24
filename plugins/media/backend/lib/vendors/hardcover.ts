@@ -23,11 +23,13 @@ export const idValue = (value: unknown) => {
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
 	host.getPluginConfig({ required: ["hardcoverApiKey"] }).pipe(
-		Effect.map(({ hardcoverApiKey }) => hardcoverApiKey),
-		Effect.mapError((error) => ({
-			...error,
-			message: error.message || "Could not load Hardcover API key",
-		})),
+		Effect.mapBoth({
+			onSuccess: ({ hardcoverApiKey }) => hardcoverApiKey,
+			onFailure: (error) => ({
+				...error,
+				message: error.message || "Could not load Hardcover API key",
+			}),
+		}),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {

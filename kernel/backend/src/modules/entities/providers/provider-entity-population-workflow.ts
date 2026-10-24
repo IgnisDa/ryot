@@ -496,12 +496,12 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function* (
 	entityId: EntityId,
 	reason: Extract<EntityUpdatedReason, "populated" | "enrichment-updated"> = "populated",
-	activityName = "publish-primary-entity",
+	activityName?: string,
 ) {
 	const redis = yield* RedisService;
 
 	yield* makeActivity({
-		name: activityName,
+		name: activityName ?? "publish-primary-entity",
 		error: SandboxRunError satisfies DurableSchema,
 		execute: redis
 			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entityId, reason))
@@ -1054,14 +1054,14 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 				.pipe(
 					Effect.flatMap((row) =>
 						Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(row.payload).pipe(
-							Effect.map((payload) => ({ payload, joinedTo: row.joinedTo })),
-							Effect.mapError(
-								(error) =>
+							Effect.mapBoth({
+								onSuccess: (payload) => ({ payload, joinedTo: row.joinedTo }),
+								onFailure: (error) =>
 									new SandboxRunError({
 										kind: "invalid-input",
 										message: `Invalid persisted population request: ${error.message}`,
 									}),
-							),
+							}),
 						),
 					),
 				),

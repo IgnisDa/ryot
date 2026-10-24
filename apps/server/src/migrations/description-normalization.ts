@@ -138,13 +138,13 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 		}
 		const patches = yield* Effect.forEach(inputs, (input) =>
 			normalizeDescription(input).pipe(
-				Effect.map((description) => ({ description, entityId: input.entityId })),
-				Effect.mapError(
-					(error) =>
+				Effect.mapBoth({
+					onSuccess: (description) => ({ description, entityId: input.entityId }),
+					onFailure: (error) =>
 						new Error(
 							`Legacy description conversion failed for ${input.entityId} (${input.source}/${input.format}): ${String(error)}. Keep the dump and report a migration defect.`,
 						),
-				),
+				}),
 				Effect.orDie,
 			),
 		);

@@ -564,27 +564,26 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 											owner: definitionOwner(callerPlugin.id),
 										})
 										.pipe(
-											Effect.map((provider) =>
-												provider &&
-												provider.pluginId === callerPlugin.id &&
-												callerPlugin.schemaScope.entitySchemaSlugs.includes(
-													provider.rootEntitySchemaSlug,
-												)
-													? {
-															provider,
-															entitySchemaSlug: EntitySchemaSlug.make(
-																provider.rootEntitySchemaSlug,
-															),
-														}
-													: null,
-											),
-											Effect.mapError(
-												(error) =>
+											Effect.mapBoth({
+												onFailure: (error) =>
 													new SandboxRunError({
 														kind: "infrastructure",
 														message: unknownToMessage(error),
 													}),
-											),
+												onSuccess: (provider) =>
+													provider &&
+													provider.pluginId === callerPlugin.id &&
+													callerPlugin.schemaScope.entitySchemaSlugs.includes(
+														provider.rootEntitySchemaSlug,
+													)
+														? {
+																provider,
+																entitySchemaSlug: EntitySchemaSlug.make(
+																	provider.rootEntitySchemaSlug,
+																),
+															}
+														: null,
+											}),
 										)
 								: null;
 						if (typeof providerSlug === "string" && !resolvedProvider) {

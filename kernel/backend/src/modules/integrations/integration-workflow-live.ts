@@ -252,10 +252,14 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			error: IntegrationRunError,
 			name: "integration-terminal-status",
 			success: Schema.NullOr(ImportRunStatus),
-			execute: repository.getIngestionRunControl(scope).pipe(
-				Effect.map((run) => run?.status ?? null),
-				Effect.mapError(toIntegrationWorkflowError),
-			),
+			execute: repository
+				.getIngestionRunControl(scope)
+				.pipe(
+					Effect.mapBoth({
+						onFailure: toIntegrationWorkflowError,
+						onSuccess: (run) => run?.status ?? null,
+					}),
+				),
 		});
 		if (status !== "completed" && status !== "failed") {
 			return;

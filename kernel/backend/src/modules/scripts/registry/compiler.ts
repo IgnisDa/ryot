@@ -132,17 +132,18 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 							return Schema.decodeUnknownEffect(SandboxScriptManifest)(
 								response.value.manifest,
 							).pipe(
-								Effect.mapError(() =>
-									processFailure(
-										"RYOT_COMPILER_PROCESS",
-										"Sandbox compiler process returned an invalid manifest",
-									),
-								),
-								Effect.map((manifest) => ({
-									manifest,
-									format: response.value.format,
-									javascript: response.value.javascript,
-								})),
+								Effect.mapBoth({
+									onSuccess: (manifest) => ({
+										manifest,
+										format: response.value.format,
+										javascript: response.value.javascript,
+									}),
+									onFailure: () =>
+										processFailure(
+											"RYOT_COMPILER_PROCESS",
+											"Sandbox compiler process returned an invalid manifest",
+										),
+								}),
 							);
 						}),
 					),

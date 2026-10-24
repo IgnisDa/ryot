@@ -39,13 +39,13 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 					approvedExternalSpecifiers: externals,
 				}),
 			).pipe(
-				Effect.map(({ javascript: contents }) => ({ contents, path: dependency.runtimeFile })),
-				Effect.mapError(
-					(error) =>
+				Effect.mapBoth({
+					onSuccess: ({ javascript: contents }) => ({ contents, path: dependency.runtimeFile }),
+					onFailure: (error) =>
 						new SandboxRuntimeBuildError({
 							message: `${dependency.name} runtime build failed: ${error.message}`,
 						}),
-				),
+				}),
 			),
 		);
 		const imports = Object.fromEntries(

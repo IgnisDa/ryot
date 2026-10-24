@@ -632,15 +632,17 @@ const resolveOAuthCredential = (
 				}),
 			),
 		),
-		Effect.mapError(authenticationRequired),
-		Effect.map(({ sub, sid, client_id }) => ({
-			userId: sub,
-			credential: {
-				kind: "oauth",
-				clientId: client_id,
-				...(sid === undefined ? {} : { sessionId: sid }),
-			},
-		})),
+		Effect.mapBoth({
+			onFailure: authenticationRequired,
+			onSuccess: ({ sub, sid, client_id }) => ({
+				userId: sub,
+				credential: {
+					kind: "oauth",
+					clientId: client_id,
+					...(sid === undefined ? {} : { sessionId: sid }),
+				},
+			}),
+		}),
 	);
 
 const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (

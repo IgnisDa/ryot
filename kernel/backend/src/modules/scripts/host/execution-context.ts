@@ -94,8 +94,10 @@ export const sandboxLifecycleCommand = (
 					AutomationExecutionId.make(`${subject.runId}-host-${input.hostCallDiscriminator}`),
 				),
 			}).pipe(
-				Effect.mapError(() => toSandboxHostError("Invalid automation lifecycle command")),
-				Effect.map((command) => ({ ...command, writeContext: input.principal })),
+				Effect.mapBoth({
+					onSuccess: (command) => ({ ...command, writeContext: input.principal }),
+					onFailure: () => toSandboxHostError("Invalid automation lifecycle command"),
+				}),
 			);
 		}
 
@@ -119,8 +121,10 @@ export const sandboxLifecycleCommand = (
 					: {}),
 			}),
 		}).pipe(
-			Effect.mapError(() => toSandboxHostError("Invalid root lifecycle command")),
-			Effect.map((command) => ({ ...command, writeContext: input.principal })),
+			Effect.mapBoth({
+				onFailure: () => toSandboxHostError("Invalid root lifecycle command"),
+				onSuccess: (command) => ({ ...command, writeContext: input.principal }),
+			}),
 		);
 	});
 

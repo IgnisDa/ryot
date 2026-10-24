@@ -59,10 +59,11 @@ const populationAuthority = (subject: SandboxExecutionSubject): ScriptExecutionP
 const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) =>
 		Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
-			Effect.map((verified) => verified.pluginRevision?.scope ?? "system"),
-			Effect.mapError(
-				() => new SandboxRunError({ kind: "missing-artifact", message: "Invalid caller pin" }),
-			),
+			Effect.mapBoth({
+				onSuccess: (verified) => verified.pluginRevision?.scope ?? "system",
+				onFailure: () =>
+					new SandboxRunError({ kind: "missing-artifact", message: "Invalid caller pin" }),
+			}),
 		),
 });
 
