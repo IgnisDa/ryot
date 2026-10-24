@@ -48,12 +48,16 @@ expressions fold into one branch, differing ones are conditioned on the declarin
 condition when every schema declares it), and link fields keep each schema's own link. The same key
 from different plugins becomes `key:pluginId`. Enum choices merge in order.
 
-`compileSort` orders by one `${key}-asc` or `${key}-desc` choice, reading null for entities whose
-schema lacks the field (nulls last), then the entity ID. `nameSortTarget` is the generic Name sort.
+Each sortable field contributes one structured sort choice with its neutral label, default direction,
+and human-readable ascending/descending labels; sort-only fields use the same shape. `compileSort` orders
+by the selected field and its `${key}-asc` or `${key}-desc` direction, reading null for entities whose
+schema lacks the field (nulls last), then the entity ID as an ascending tiebreaker. `nameSortTarget`
+is the generic Name sort.
 `entityBrowserControls` and `collectionMemberControls` list the filter fields and sort choices
-renderers offer; the page and count recipes take the same `browse` or member fields, so search,
-count, and every page apply the same filter and sort. Without a sort choice, entity browsers keep
-the source query's order and collections their manual order.
+renderers offer; directions are not separate field choices. The URL sort value remains
+`${key}-asc` or `${key}-desc`. The page and count recipes take the same `browse` or member fields, so
+search, count, and every page apply the same filter and sort. Without a sort choice, entity browsers
+keep the full source query order and collections their manual order.
 
 `compileFilter` turns a nested `Filter` (`and`, `or`, `not`, field rules) into one `Predicate`.
 Operands are cast to the kind of their literals so the RyotQL validator accepts them. Relationship

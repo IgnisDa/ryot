@@ -65,6 +65,10 @@ the canonical URL. The kernel sends each accepted location with its history `ind
 `key`; page-state replacements retain that key, while screen navigation creates a new one. Plugin
 screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
 
+Saved-view search, filters, sort, and layout changes update the active document's location without
+preparing a new page. Leaving the route discards its loader cache, so returning reads the current
+view and device layout. Explicit invalidation still reloads the prepared page.
+
 Document-declared page shortcuts register in the kernel realm alongside iframe registrations and
 are removed when the bridge closes. The desktop sidebar and mobile drawer share the authenticated
 loader's navigation data; consumers do not mutate that snapshot.

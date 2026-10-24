@@ -9,6 +9,16 @@ Open an item's collection controls to add it to a collection, edit its member fi
 New members appear at the start. Editing member fields does not change their position.
 Removing an item from a collection does not remove it from your library or delete its history.
 
+## Sort collection members
+
+1. Open **Filters** (**View options** on a phone), then choose a field from **Sort by**.
+2. Use the direction button beside it to change direction. A newly selected field starts in its
+   default direction; selecting the current field again keeps its direction.
+3. Choose **Collection order** to see the saved manual order.
+
+**Date added to collection** means when the item joined this collection. **Date added to library**
+means when it entered your library.
+
 ## Change collection order
 
 1. Open the collection and select **Reorder**.
@@ -17,8 +27,8 @@ Removing an item from a collection does not remove it from your library or delet
 4. Select **Done** to return to browsing.
 
 Each move saves immediately. Reorder mode shows the collection without search or filters.
-Select **Load more** to reorder additional members. Normal browsing offers the filters and sorts of the collection's item types;
-select **Collection order** to see your saved manual order.
+Select **Load more** to reorder additional members. Normal browsing offers the filters and sorts of
+the collection's item types.
 
 If another tab changes the collection, reload it before making another move. If a move cannot be
 confirmed because of a connection failure, **Retry move** safely retries that same move.

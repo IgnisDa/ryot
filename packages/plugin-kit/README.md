@@ -249,9 +249,14 @@ avoid the reserved `collections` and `name`.
 
 - `kind: "value"`: a typed filter (`text`, `number`, `date`, `boolean`, `enum`, `enum-list`, or
   `text-list`; enum types list unique `choices`) with a RyotQL `expression`. Add
-  `sort: { ascending, descending }` labels to also offer it as a sort; list types cannot sort.
-- `kind: "sort"`: a sort-only `expression` with `sort` labels.
+  `sort: { label, defaultDirection, ascending, descending }` to also offer it as a sort; list types
+  cannot sort.
+- `kind: "sort"`: a sort-only `expression` with the same `sort` metadata.
 - `kind: "relationship"` or `"session-event"`: the existing linked-entity filter shapes.
+
+`label` names the sort field independently of its filter label. `defaultDirection` is `"asc"` or
+`"desc"`; `ascending` and `descending` are human-readable direction labels, such as "Lowest first"
+and "Highest first". Each field contributes one sort choice with a separate direction control.
 
 Expressions read the browsed entity through the table alias `subject` (`BROWSE_SUBJECT_ALIAS`)
 and may use correlated subqueries; their kind must match the field type (lists are JSON).

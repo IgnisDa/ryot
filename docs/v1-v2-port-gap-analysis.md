@@ -422,14 +422,20 @@ Validation on **2026-10-27**:
 ### Phase 1, Order 6 — Everyday library and collection browsing acceptance
 
 Accepted behavior: plugin entity schemas declare their filters and sorts in `browse.fields`;
-entity-browser saved views no longer carry `filterFields` or `sortChoices`. The entity browser and
-collection detail build filters, sorts, search, counts and every page from those declarations.
-Fields with the same plugin and key merge across schemas; keys from different plugins stay separate.
-A member whose schema does not declare a field never matches its filter and sorts last. Sorts offer
-both labelled directions, nulls last, with the entity ID as final tiebreaker. Every browser has a
-Name sort and the Collections filter; collection detail keeps collection order and date-added sorts,
-adds a Date added filter, and its reorder mode stays unfiltered. "Is empty" and "is not empty" read
-"is not set" and "is set". There is no random sort and no V1 filter preset.
+entity-browser saved views no longer carry `filterFields` or `sortChoices`. Each sortable field
+declares a neutral label, default direction, and human-readable labels for both directions. The entity
+browser and collection detail build filters, sorts, search, counts and every page from those
+declarations. The browser shows a **Sort by** field selector and a separate direction button; changing
+fields applies the new field's default direction, while reselecting the current field preserves its
+direction. Fields with the same plugin and key merge across schemas; keys from different plugins stay
+separate. A member whose schema does not declare a field never matches its filter and sorts last.
+Sorts offer both labelled directions, nulls last, with the entity ID as the final ascending tiebreaker.
+Name defaults to ascending; shipped count, rating and date sorts default to descending. The
+**Default order** choice retains the full source query order, and **Collection order** retains
+manual ranks; direction is disabled for both. Every browser has a Name sort and the Collections
+filter; collection detail offers a Date added filter and a Date added to collection sort, distinct
+from the Date added to library browse sort, and its reorder mode stays unfiltered. "Is empty" and "is not empty"
+read "is not set" and "is set". There is no random sort and no V1 filter preset.
 
 Media titles filter by Status (cycle-aware, including Caught up for shows and podcasts), Times
 completed, Your rating, Last completed, Recent activity (the default sort), Release date, Date added

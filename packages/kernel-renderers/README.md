@@ -18,11 +18,11 @@ SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them 
 messages the renderer actually puts on the port.
 
 The browser owns its own screen chrome inside the iframe: the saved view's name and icon, search,
-layout, the Filters dialog (sort and the filter rules), active-filter chips, the
-result and sync count line, and the compact search row, options sheet, and add FAB. Entity-browser
-cards come from registered entity presentations, and the table renders entity art from a
-`managed-asset` table column. Collection-browser reuses the shared controller and renders kernel
-collection cards with batched member counts.
+layout, the Filters dialog (the **Sort by** field selector, separate direction button, and filter
+rules), active-filter chips, the result and sync count line, and the compact search row, options sheet,
+and add FAB. Entity-browser cards come from registered entity presentations, and the table renders
+entity art from a `managed-asset` table column. Collection-browser reuses the shared controller and
+renders kernel collection cards with batched member counts.
 
 `entity-browser-controller.tsx` owns the shared browser controls, URL state, chrome,
 states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;
@@ -55,8 +55,13 @@ pages and require a refresh, so pages from different collection orders are never
 
 Entity browsers load the subject schemas' browse fields through `entitySchemaBrowseRecipe` before
 their first page, then filter and sort through `entityBrowserControls` (those fields, the automatic
-Collections relationship, and a Name sort); the view query's order is the default. The rules panel, the chips row, the
-filters sheet, and the relationship choices queries come from `@ryot-app/plugin-client-sdk/filters`;
+Collections relationship, and a Name sort); the view query's full order is the default. **Sort by**
+selects a field; a separate button shows its current direction label and arrow. Choosing a new field
+uses that field's declared default direction, while reselecting the current field preserves its
+direction. The shipped Name sort defaults to A–Z; shipped count, rating, and date sorts default to
+descending. The **Default order** choice retains the full source query order and disables direction.
+The rules panel, the chips row, the filters sheet, and the relationship choices queries come from
+`@ryot-app/plugin-client-sdk/filters`;
 `entity-browser-controller.tsx` composes them and owns the state. Renderer sources import filter
 helpers only from `@ryot-app/ryotql-recipes/filters`, never from the contract.
 
@@ -78,9 +83,10 @@ Count all, the pages, and the filter-aware empty state all use the applied filte
 reads `now` from the Effect clock for relative-date rules.
 
 Collection detail loads the browse fields of its member types (from the grouped aggregate) and
-builds its controls with `collectionMemberControls`: Type, Also in collection, Date added, the merged
-browse fields, and one `membership.<key>` field per supported membership property; sorts are Name,
-Date added, and browse sorts, with collection order as the default.
+builds its controls with `collectionMemberControls`: Type, Also in collection, Date added,
+the merged browse fields, and one `membership.<key>` field per supported membership
+property; sorts are Name, Date added to collection, and browse sorts. Date added to library remains a
+separate browse field. **Collection order** retains manual ranks and disables direction.
 With no search or filter applied the controller shows the known total instead of offering Count all.
 
 ## Calendar
