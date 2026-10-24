@@ -10,6 +10,7 @@ import {
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import { MeasurementDialogs, useMeasurementLogger } from "./measurement-logger";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
@@ -45,12 +46,10 @@ const metrics = rows([
 ]);
 
 const series = (counts: readonly number[], values: readonly number[]) => ({
-	type: "timeSeries",
-	buckets: counts.map((_, index) => ({
-		value: values[index],
-		endAt: daysAgo(9 - index),
-		startAt: daysAgo(10 - index),
-	})),
+	type: "aggregate",
+	items: counts.flatMap((count, index) =>
+		count === 0 ? [] : [{ value: values[index], at: daysAgo(10 - index) }],
+	),
 });
 
 const reading = (
@@ -88,12 +87,8 @@ const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics)
 			if (key === "entries") {
 				return [key, logRows];
 			}
-			const average = key.startsWith("average");
-			const metric = Number(key.slice(average ? 7 : 5));
-			const weight = [
-				series([1, 1, 1], average ? [0, 73, 74] : [0, 1, 1]),
-				series([1, 1, 1], average ? [82, 0, 0] : [1, 0, 0]),
-			][metric];
+			const metric = Number(key.slice(7));
+			const weight = [series([0, 1, 1], [0, 73, 74]), series([1, 0, 0], [82, 0, 0])][metric];
 			return [key, weight ?? series([0, 0, 0], [0, 0, 0])];
 		}),
 	);
@@ -177,6 +172,7 @@ const openPage = (
 	};
 	rememberEntries(logRows);
 	const answerPending = () => {
+		replyReportingPreferences(page, answered);
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
 				answered.add(request.requestId);

@@ -100,7 +100,7 @@ function PlannedExercise(props: {
 										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
 									) || "Measurements not specified"}
 									<span className="text-[13px] text-text-muted">
-										{set.restTime == null ? "" : ` · Rest ${formatClock(set.restTime)}`}
+										{set.restTime == null ? "" : ` · Planned rest ${formatClock(set.restTime)}`}
 										{set.rpe == null ? "" : ` · RPE ${set.rpe}`}
 									</span>
 								</span>

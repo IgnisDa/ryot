@@ -14,8 +14,6 @@ import {
 	type WorkoutComparison,
 	workoutComparisonsRecipe,
 	workoutCountRecipe,
-	type WorkoutExerciseTargets,
-	workoutExerciseTargetsRecipe,
 	type WorkoutFilterPredicate,
 	type WorkoutListItem,
 	type WorkoutPeriodTotals,
@@ -23,6 +21,7 @@ import {
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
 } from "../../shared/workout-list-recipes";
+import { type WorkoutTaxonomy, workoutTaxonomyRecipe } from "../../shared/workout-taxonomy-recipes";
 import { compileWorkoutFilter } from "./filters";
 import { type PeriodKey, summaryWindows } from "./model";
 
@@ -31,14 +30,14 @@ const LOOKUP_BATCH_SIZE = 100;
 export type WorkoutPages = {
 	readonly hasMore: boolean;
 	readonly items: readonly WorkoutListItem[];
+	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
-	readonly targets: readonly WorkoutExerciseTargets[];
 };
 
 export type WorkoutPage = {
 	readonly items: readonly WorkoutListItem[];
+	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
-	readonly targets: readonly WorkoutExerciseTargets[];
 	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
 
@@ -60,15 +59,25 @@ const enrichWorkoutItems = (client: RyotClient, items: readonly WorkoutListItem[
 				return id === null ? [] : [id];
 			}),
 		);
-		const exerciseIds = new Set(items.flatMap(({ sets }) => sets.map((set) => set.exerciseId)));
 		const [comparisons, targets] = yield* Effect.all(
 			[
 				batched(comparisonIds, (workoutIds) =>
 					client.data.query(workoutComparisonsRecipe({ reference, workoutIds })),
 				),
-				batched(exerciseIds, (ids) =>
-					client.data.query(workoutExerciseTargetsRecipe({ reference, exerciseIds: ids })),
-				),
+				items.length === 0
+					? Effect.succeed([])
+					: Effect.map(
+							readCursorPages((after) =>
+								client.data.query(
+									workoutTaxonomyRecipe({
+										after,
+										reference,
+										workoutIds: items.map(({ id }) => id),
+									}),
+								),
+							),
+							({ items: taxonomy }) => taxonomy,
+						),
 			],
 			{ concurrency: 2 },
 		);
@@ -188,7 +197,11 @@ export const workoutSummaryQuery = createRyotQuery<
 		client.data.query(
 			workoutSummaryRecipe({
 				timeZone: input.timeZone,
-				...summaryWindows(input.period, DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now()))),
+				...summaryWindows(
+					input.period,
+					DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+					input.timeZone,
+				),
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),

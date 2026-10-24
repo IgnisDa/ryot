@@ -84,14 +84,14 @@ describe("workout details view", () => {
 							name: "Upright Barbell Row",
 							previousWorkoutStartedAt: "2023-03-28T03:00:00.000Z",
 							previousSets: [
-								{
+								workoutSet({
 									reps: 30,
 									weight: 15,
 									volume: 450,
 									duration: null,
 									distance: null,
 									exerciseOrder: 0,
-								},
+								}),
 							],
 							sets: [
 								workoutSet({ id: "w", reps: 20, weight: 20, volume: 400, setLot: "warm_up" }),
@@ -129,7 +129,7 @@ describe("workout details view", () => {
 			expect(text).toContain("Superset A");
 			expect(text).toContain("A1");
 			expect(text).toContain("A2");
-			expect(text).toContain("+310 kg vs Mar 28, 2023");
+			expect(text).toContain("+310 kg × reps vs Mar 28, 2023");
 			expect(text).toContain("Updating records…");
 			expect(text).toContain("“Had a spotter.”");
 			const rowCard = page.container?.querySelector('[data-exercise-id="row"]');

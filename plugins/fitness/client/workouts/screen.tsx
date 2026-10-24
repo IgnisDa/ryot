@@ -45,6 +45,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
+import { ReportingPreferences } from "../reporting-preferences";
 import { WorkoutProcessing } from "../workout-processing";
 import { workoutFilterFields } from "./filters";
 import {
@@ -66,7 +67,9 @@ import { WorkoutSummarySection } from "./summary";
 export default function WorkoutsPage() {
 	return (
 		<WorkoutProcessing>
-			<WorkoutsBody />
+			<ReportingPreferences>
+				{(timeZone) => <WorkoutsBody timeZone={timeZone} />}
+			</ReportingPreferences>
 		</WorkoutProcessing>
 	);
 }
@@ -271,7 +274,7 @@ function WorkoutResults(props: {
 	);
 }
 
-function WorkoutsBody() {
+function WorkoutsBody({ timeZone }: { readonly timeZone: string }) {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const { view } = usePageContext();
@@ -293,7 +296,6 @@ function WorkoutsBody() {
 	const [showCount, setShowCount] = useState(false);
 	const [total, setTotal] = useState<number>();
 	const [now, setNow] = useState(() => new Date());
-	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const searchInput = useRef<HTMLInputElement>(null);
 	const name = view?.name ?? "Workouts";
 	usePageRefresh(() =>

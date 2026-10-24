@@ -1,9 +1,12 @@
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import {
+	type HomePersonalBest,
 	type HomeTemplate,
 	homeTemplatesRecipe,
+	type MuscleActivity,
 	muscleActivityRecipe,
 	recentPersonalBestsRecipe,
 } from "../../shared/home-recipes";
@@ -12,7 +15,6 @@ import {
 	type WorkoutExerciseTargets,
 	workoutExerciseTargetsRecipe,
 } from "../../shared/workout-list-recipes";
-import { DAY_MS } from "../measurements/model";
 import { batched, loadWorkoutPages } from "../workouts/queries";
 import { RECENT_DAYS } from "./model";
 
@@ -23,27 +25,47 @@ export const latestWorkoutQuery = createRyotQuery(({ client }) =>
 	loadWorkoutPages(client, { pages: 1, limit: 1, search: "" }),
 );
 
-export const muscleActivityQuery = createRyotQuery(({ client, schedule }) =>
-	Effect.suspend(() =>
-		client.data.query(
+export const muscleActivityQuery = createRyotQuery<
+	{ readonly timeZone: string },
+	readonly MuscleActivity[]
+>(({ input, client, schedule }) =>
+	Effect.suspend(() => {
+		const { current } = resolveReportingSelection(
+			{ grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
+			{ now: schedule.now(), timeZone: input.timeZone },
+		);
+		if (current === null) {
+			return Effect.die(new Error("Muscle activity requires a bounded reporting period"));
+		}
+		return client.data.query(
 			muscleActivityRecipe({
+				weekStartAt: current.startAt,
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				weekStartAt: DateTime.formatIso(DateTime.makeUnsafe(schedule.now() - 7 * DAY_MS)),
 			}),
-		),
-	),
+		);
+	}),
 );
 
-export const recentPersonalBestsQuery = createRyotQuery(({ client, schedule }) =>
-	Effect.suspend(() =>
-		client.data.query(
+export const recentPersonalBestsQuery = createRyotQuery<
+	{ readonly timeZone: string },
+	{ readonly recentCount: number; readonly items: readonly HomePersonalBest[] }
+>(({ input, client, schedule }) =>
+	Effect.suspend(() => {
+		const { current } = resolveReportingSelection(
+			{ grouping: "day", comparison: "none", range: { kind: "rolling", days: RECENT_DAYS } },
+			{ now: schedule.now(), timeZone: input.timeZone },
+		);
+		if (current === null) {
+			return Effect.die(new Error("Recent personal bests require a bounded reporting period"));
+		}
+		return client.data.query(
 			recentPersonalBestsRecipe({
+				since: current.startAt,
 				limit: PERSONAL_BEST_LIMIT,
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				since: DateTime.formatIso(DateTime.makeUnsafe(schedule.now() - RECENT_DAYS * DAY_MS)),
 			}),
-		),
-	),
+		);
+	}),
 );
 
 export const homeTemplatesQuery = createRyotQuery<

@@ -1,10 +1,12 @@
 import { clockFormat } from "@ryot-app/plugin-ui-sdk";
 
 import type { ExerciseKind } from "../../shared/exercise-kinds";
+import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
 import { kilogramsToPounds, kilometersToMiles } from "../../shared/workout-units";
 import type { MeasureUnit, WorkoutSet } from "./details-model";
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const volumeFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 20 });
 
 export const formatNumber = (value: number) => numberFormat.format(value);
 
@@ -35,6 +37,9 @@ export const formatExerciseMeta = (exercise: {
 	].join(" · ");
 
 export const formatMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
+	if (unit === fitnessMetricDefinitions.volume.unit) {
+		return `${volumeFormat.format(imperial ? kilogramsToPounds(value) : value)} ${imperial ? "lb" : "kg"} × reps`;
+	}
 	if (unit === "seconds") {
 		return formatDuration(value);
 	}

@@ -2,6 +2,7 @@ import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
+import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
 import { supersetColor } from "../../shared/superset-colors";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell } from "../asset-urls";
@@ -36,6 +37,9 @@ function ExerciseArtwork(props: { readonly compact: boolean; readonly card: Exer
 }
 
 function RecordBadges(props: { readonly set: WorkoutSet }) {
+	if (props.set.recordStatus !== "ready") {
+		return null;
+	}
 	return (
 		<ComputedResults>
 			<span className="flex flex-wrap gap-1">
@@ -128,6 +132,8 @@ export function ExerciseCardView(props: {
 	readonly workoutStartedAt: null | string;
 }) {
 	const { card, compact } = props;
+	const processing = useComputedResultsStatus();
+	const computedReady = !processing.pending && !processing.failed;
 	const meta = formatExerciseMeta({
 		targets: card.exercise.targets.items,
 		equipment: card.exercise.equipment.items,
@@ -167,15 +173,21 @@ export function ExerciseCardView(props: {
 							<h3 className="font-ui font-semibold text-[16px] text-text">{card.exercise.name}</h3>
 						</PluginLink>
 					</div>
-					{meta === "" ? null : <p className="font-ui text-[13px] text-text-muted">{meta}</p>}
+					{meta === "" || !computedReady || card.recordStatus !== "ready" ? null : (
+						<p className="font-ui text-[13px] text-text-muted">{meta}</p>
+					)}
 				</div>
 				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
-					{card.total === null ? null : (
+					{card.kind === "reps_and_weight" && (card.total === null || !computedReady) ? (
+						<span className="text-[15px] text-text-muted">Unknown</span>
+					) : null}
+					{card.total === null ||
+					(card.total.unit === fitnessMetricDefinitions.volume.unit && !computedReady) ? null : (
 						<span className="font-semibold text-[15px] text-text">
 							{formatMeasure(card.total.value, card.total.unit, props.imperial)}
 						</span>
 					)}
-					{card.comparison === null ? null : (
+					{card.comparison === null || !computedReady ? null : (
 						<span
 							className={clsx(
 								"text-[13px]",
@@ -233,7 +245,11 @@ function SetTable(props: {
 	const processing = useComputedResultsStatus();
 	const labels = setLabels(card.sets.map((set) => set.setLot));
 	const showRpe = card.sets.some((set) => set.rpe !== null);
-	const showOneRm = card.kind === "reps_and_weight" && !processing.pending && !processing.failed;
+	const showOneRm =
+		card.kind === "reps_and_weight" &&
+		!processing.pending &&
+		!processing.failed &&
+		card.sets.some((set) => set.recordStatus === "ready");
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
 	return (
 		<div role="table" className="font-ui" aria-label={`Sets for ${card.exercise.name}`}>
@@ -249,16 +265,19 @@ function SetTable(props: {
 					<span role="columnheader">Performed</span>
 					{showOneRm ? <span role="columnheader">Est. 1RM</span> : null}
 					{showRpe ? <span role="columnheader">RPE</span> : null}
-					<span role="columnheader">Rest</span>
+					<span role="columnheader">Planned rest</span>
 					<span role="columnheader">Records</span>
 				</div>
 			)}
 			{card.sets.map((set, index) => {
 				const hasRecords =
-					(set.personalBests?.length ?? 0) > 0 && !processing.pending && !processing.failed;
+					set.recordStatus === "ready" &&
+					(set.personalBests?.length ?? 0) > 0 &&
+					!processing.pending &&
+					!processing.failed;
 				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
-					showOneRm && set.oneRm !== null
+					showOneRm && set.recordStatus === "ready" && set.oneRm !== null
 						? `${formatMeasure(set.oneRm, "kg", props.imperial)} 1RM`
 						: null,
 					set.rpe === null ? null : `RPE ${formatNumber(set.rpe)}`,
@@ -302,7 +321,9 @@ function SetTable(props: {
 							<>
 								{showOneRm ? (
 									<span role="cell" className="text-text-muted">
-										{set.oneRm === null ? "—" : formatMeasure(set.oneRm, "kg", props.imperial)}
+										{set.recordStatus !== "ready" || set.oneRm === null
+											? "—"
+											: formatMeasure(set.oneRm, "kg", props.imperial)}
 									</span>
 								) : null}
 								{showRpe ? (

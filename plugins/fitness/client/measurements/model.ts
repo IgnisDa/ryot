@@ -1,19 +1,17 @@
-import type { TimeSeriesPoint } from "@ryot-app/plugin-ui-sdk/charts";
+import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
-import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
+import {
+	MEASUREMENT_SERIES_BUCKET_LIMIT,
+	type MeasurementSummary,
+} from "../../shared/measurement-recipes";
 import { formatNumber } from "../workout/format";
 import type { MeasurementLogEntry } from "./queries";
 
 export type RangeKey = "1M" | "3M" | "1Y" | "All";
-export type MetricSort = "az" | "recent" | "changed";
 
 export const DAY_MS = 86_400_000;
 export const STALE_AFTER_DAYS = 45;
-export const CHART_GAP_MS = 90 * DAY_MS;
-
-const WEEK_MS = 7 * DAY_MS;
-const MAX_SERIES_BUCKETS = 900;
 
 export const rangeOptions = [
 	{ days: 30, key: "1M", phrase: "30 days" },
@@ -31,81 +29,42 @@ const rangeDays = (range: RangeKey) => rangeOptions.find(({ key }) => key === ra
 export const rangePhrase = (range: RangeKey) =>
 	rangeOptions.find(({ key }) => key === range)?.phrase ?? "";
 
-export const rangeStartAt = (range: RangeKey, now: Date) => {
+export const measurementPeriod = (range: RangeKey, now: Date, timeZone: string) => {
 	const days = rangeDays(range);
-	return new Date(days === null ? 0 : now.getTime() - days * DAY_MS).toISOString();
+	return resolveReportingSelection(
+		{
+			grouping: "day",
+			comparison: "none",
+			range: days === null ? { kind: "all-time" } : { days, kind: "rolling" },
+		},
+		{ timeZone, now: now.getTime() },
+	).current;
 };
 
 export const seriesWindow = (
 	range: RangeKey,
 	now: Date,
 	summaries: readonly Pick<MeasurementSummary, "firstAt">[],
+	timeZone: string,
 ) => {
-	const endAt = now.toISOString();
-	if (range !== "All") {
-		return { endAt, bucket: "day" as const, startAt: rangeStartAt(range, now) };
+	const period = measurementPeriod(range, now, timeZone);
+	if (period !== null) {
+		return { endAt: period.endAt, bucket: "day" as const, startAt: period.startAt };
 	}
+	const endAt = now.toISOString();
 	const firstTimes = summaries.flatMap(({ firstAt }) =>
 		firstAt === null ? [] : [Date.parse(firstAt)],
 	);
-	const earliest = firstTimes.length === 0 ? now.getTime() - 365 * DAY_MS : Math.min(...firstTimes);
+	const earliest = firstTimes.length === 0 ? now.getTime() - DAY_MS : Math.min(...firstTimes);
+	const spanDays = (now.getTime() - earliest) / DAY_MS;
+	const coarseBucket =
+		spanDays / 28 <= MEASUREMENT_SERIES_BUCKET_LIMIT ? ("month" as const) : ("year" as const);
 	return {
 		endAt,
-		bucket: "week" as const,
-		startAt: new Date(
-			Math.max(earliest, now.getTime() - MAX_SERIES_BUCKETS * WEEK_MS),
-		).toISOString(),
+		startAt: new Date(earliest).toISOString(),
+		bucket: spanDays / 7 <= MEASUREMENT_SERIES_BUCKET_LIMIT ? ("week" as const) : coarseBucket,
 	};
 };
-
-export const trendWindow = (pointCount: number) => (pointCount > 40 ? 7 : 3);
-
-export const rollingAverage = (points: readonly TimeSeriesPoint[]): readonly TimeSeriesPoint[] => {
-	const size = trendWindow(points.length);
-	return points.map(({ at }, index) => {
-		const window = points.slice(Math.max(0, index - size + 1), index + 1);
-		return { at, value: window.reduce((sum, { value }) => sum + value, 0) / window.length };
-	});
-};
-
-export type MetricRow = {
-	readonly change: null | number;
-	readonly relativeChange: number;
-	readonly summary: MeasurementSummary;
-	readonly trend: readonly TimeSeriesPoint[];
-	readonly readings: readonly TimeSeriesPoint[];
-};
-
-export const buildMetricRows = (
-	summaries: readonly MeasurementSummary[],
-	series: readonly MeasurementSeries[],
-): readonly MetricRow[] => {
-	const pointsByMetric = new Map(series.map(({ points, metricId }) => [metricId, points]));
-	return summaries.map((summary) => {
-		const readings = pointsByMetric.get(summary.id) ?? [];
-		const trend = rollingAverage(readings);
-		const first = trend[0];
-		const last = trend.at(-1);
-		const change =
-			first === undefined || last === undefined || trend.length < 2
-				? null
-				: last.value - first.value;
-		return {
-			trend,
-			change,
-			summary,
-			readings,
-			relativeChange:
-				change === null || first === undefined || first.value === 0
-					? -1
-					: Math.abs(change / first.value),
-		};
-	});
-};
-
-const byRecency = (left: MeasurementSummary, right: MeasurementSummary) =>
-	(right.latestAt === null ? -Infinity : Date.parse(right.latestAt)) -
-	(left.latestAt === null ? -Infinity : Date.parse(left.latestAt));
 
 export const selectPinnedMetrics = (summaries: readonly MeasurementSummary[]) =>
 	summaries
@@ -118,19 +77,6 @@ export const selectPinnedMetrics = (summaries: readonly MeasurementSummary[]) =>
 		)
 		.slice(0, MEASUREMENT_PIN_LIMIT)
 		.map(({ summary }) => summary);
-
-export const sortMetricRows = (rows: readonly MetricRow[], sort: MetricSort) =>
-	[...rows].sort((left, right) => {
-		if (sort === "az") {
-			return left.summary.name.localeCompare(right.summary.name);
-		}
-		if (sort === "changed") {
-			return right.relativeChange - left.relativeChange || byRecency(left.summary, right.summary);
-		}
-		return (
-			byRecency(left.summary, right.summary) || right.summary.rangeCount - left.summary.rangeCount
-		);
-	});
 
 export const isStale = (latestAt: string, now: Date) =>
 	now.getTime() - Date.parse(latestAt) > STALE_AFTER_DAYS * DAY_MS;

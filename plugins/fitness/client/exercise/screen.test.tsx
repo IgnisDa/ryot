@@ -135,8 +135,8 @@ describe("exercise details view", () => {
 					exercise: exerciseRecord({
 						instructions: ["Lie back on the bench."],
 						targets: [
-							{ name: "Chest", role: "primary" },
-							{ name: "Triceps", role: "secondary" },
+							{ id: "chest", name: "Chest", role: "primary" },
+							{ id: "triceps", name: "Triceps", role: "secondary" },
 						],
 					}),
 					months: [
@@ -146,8 +146,10 @@ describe("exercise details view", () => {
 							maxReps: 10,
 							volume: 1600,
 							maxOneRm: 93,
+							failedSets: 0,
 							maxPace: null,
 							maxWeight: 80,
+							pendingSets: 0,
 							duration: null,
 							distance: null,
 							maxDuration: null,
@@ -187,6 +189,7 @@ describe("exercise details view", () => {
 										duration: null,
 										distance: null,
 										setLot: "warm_up",
+										exerciseKind: "reps_and_weight",
 									},
 									{
 										reps: 3,
@@ -196,6 +199,7 @@ describe("exercise details view", () => {
 										duration: null,
 										distance: null,
 										setLot: "failure",
+										exerciseKind: "reps",
 									},
 								],
 							},
@@ -216,6 +220,8 @@ describe("exercise details view", () => {
 				"Warm-up",
 			);
 			expect(container?.querySelector('[data-set-lot="failure"]')?.textContent).toContain("Fail");
+			expect(container?.querySelector('[data-set-lot="failure"]')?.textContent).toContain("3 reps");
+			expect(container?.querySelector('[data-set-lot="failure"]')?.textContent).not.toContain("80");
 			expect(container?.querySelector('[aria-label="Rated 4 of 5"]')).not.toBeNull();
 			expect(container?.querySelector("p.whitespace-pre-wrap")?.textContent).toBe(
 				"Keep elbows tucked.\nBreathe out.",
@@ -260,8 +266,8 @@ describe("exercise details view", () => {
 				exerciseDetails({
 					exercise: exerciseRecord({
 						targets: [
-							{ role: null, name: "Lats" },
-							{ role: null, name: "Biceps" },
+							{ id: "lats", role: null, name: "Lats" },
+							{ role: null, id: "biceps", name: "Biceps" },
 						],
 					}),
 				}),

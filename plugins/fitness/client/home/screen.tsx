@@ -1,5 +1,5 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { usePageRefresh, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, usePageRefresh, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button } from "@ryot-app/plugin-ui-sdk";
@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useActiveEditorDraft } from "../exercise/active-draft";
+import { ReportingPreferences } from "../reporting-preferences";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { WorkoutProcessing } from "../workout-processing";
 import { buildWorkoutCards } from "../workouts/model";
@@ -18,17 +19,24 @@ import { LastWorkoutCard, ResumeBanner, WeekGoalSection } from "./launchpad";
 import { MeasurementsCard } from "./measurements-card";
 import { draftBanner, formatHomeDate, lastWorkoutPhrase } from "./model";
 import { latestWorkoutQuery } from "./queries";
-import { QueryBody } from "./section";
+import { QueryBody, secondaryLinkClass } from "./section";
 import { TemplatesSection } from "./templates";
 
 export default function FitnessHomePage() {
+	return (
+		<ReportingPreferences>
+			{(timeZone) => <FitnessHomeBody timeZone={timeZone} />}
+		</ReportingPreferences>
+	);
+}
+
+function FitnessHomeBody({ timeZone }: { readonly timeZone: string }) {
 	const client = useRyot();
 	const { compact } = useRyotViewport();
 	const draft = useActiveEditorDraft();
 	const latest = useRyotQuery(latestWorkoutQuery);
 	const context = useRyotQuery(workoutEditorContextQuery);
 	const [now, setNow] = useState(() => new Date());
-	const [timeZone] = useState(() => Intl.DateTimeFormat("en-US").resolvedOptions().timeZone);
 	usePageRefresh(() =>
 		DateTime.now.pipe(
 			Effect.flatMap((currentTime) => Effect.sync(() => setNow(DateTime.toDate(currentTime)))),
@@ -56,6 +64,12 @@ export default function FitnessHomePage() {
 					{draftBanner(draft, now, timeZone).resumeLabel}
 				</Button>
 			)}
+			<PluginLink
+				className={secondaryLinkClass}
+				to={{ kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } }}
+			>
+				Analytics
+			</PluginLink>
 		</div>
 	);
 	return (

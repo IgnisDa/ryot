@@ -14,6 +14,7 @@ import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
 import { storedEditorDraft } from "../../tests/client/exercise-fixtures";
+import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import FitnessHomePage from "./screen";
 
 afterEach(disposePluginBridges);
@@ -38,8 +39,8 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const aggregate = (items: readonly Record<string, unknown>[]) => ({
-	items,
 	type: "aggregate" as const,
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 
 const dayTotals = {
@@ -53,7 +54,9 @@ const dayTotals = {
 const latestWorkout = {
 	id: "w1",
 	setCount: 21,
+	failedSets: 0,
 	volume: 24600,
+	pendingSets: 0,
 	name: "Legs - 2",
 	exerciseCount: 7,
 	personalBests: 1,
@@ -158,13 +161,31 @@ const respond = (
 	if (names.includes("exercises")) {
 		return {
 			exercises: rows([
-				{ id: "squat", targets: rows([{ role: "primary", name: "Quadriceps" }]) },
-				{ id: "bench", targets: rows([{ name: "Chest", role: "primary" }]) },
+				{ id: "squat", targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]) },
+				{ id: "bench", targets: rows([{ id: "chest", name: "Chest", role: "primary" }]) },
+			]),
+		};
+	}
+	if (names.includes("taxonomy")) {
+		return {
+			taxonomy: rows([
+				{
+					setCount: 1,
+					workoutId: "w1",
+					exerciseOrder: 0,
+					id: "occurrence-0",
+					exerciseId: "squat",
+					equipment: rows([]),
+					targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]),
+				},
 			]),
 		};
 	}
 	return Object.fromEntries(
 		names.map((key) => {
+			if (key.startsWith("average")) {
+				return [key, aggregate([{ value: 73.6, at: hoursAgo(24) }])];
+			}
 			if (key === "latestRecord") {
 				return [key, rows([])];
 			}
@@ -192,6 +213,7 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {
+		replyReportingPreferences(page, answered);
 		for (const message of page.clientMessages()) {
 			if (message.type === "operation-request" && !answered.has(message.requestId)) {
 				answered.add(message.requestId);
@@ -261,7 +283,7 @@ describe("fitness home", () => {
 				);
 				answerCurrent = answerPending;
 				yield* settle(() => {
-					expect(body.getByText("3 in the last 30 days")).toBeTruthy();
+					expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
 					expect(
 						within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
 					).toBeTruthy();
@@ -275,7 +297,7 @@ describe("fitness home", () => {
 				const previous = page
 					.queryRequests()
 					.findLast((request) => "activity" in request.document.queries);
-				yield* Effect.promise(() => clock.advance(HOUR_MS));
+				yield* Effect.promise(() => clock.advance(24 * HOUR_MS));
 				page.send({ type: "page-refresh" });
 				yield* Effect.promise(() => clock.advance(0));
 				yield* Effect.promise(() => clock.advance(250));
@@ -285,7 +307,7 @@ describe("fitness home", () => {
 				expect(
 					body.queryByText(/Loading (weekly goal|muscle activity|personal bests|measurements)/),
 				).toBeNull();
-				expect(body.getByText("3 in the last 30 days")).toBeTruthy();
+				expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
 				expect(
 					within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
 				).toBeTruthy();
@@ -296,7 +318,9 @@ describe("fitness home", () => {
 				expect(refreshed).toHaveLength(1);
 				expect(refreshed[0]?.document).not.toEqual(previous?.document);
 				answerPending();
-				yield* settle(() => expect(body.getByText("3 in the last 30 days")).toBeTruthy());
+				yield* settle(() =>
+					expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy(),
+				);
 			}).pipe(
 				Effect.ensuring(
 					Effect.promise(() => {
@@ -345,7 +369,7 @@ describe("fitness home", () => {
 					within(body.getByRole("region", { name: "Pinned measurements" })).getByText("73.6 kg"),
 				).toBeTruthy();
 				expect(body.getByText("Most reps · ", { exact: false })).toBeTruthy();
-				expect(body.getByText("3 in the last 30 days")).toBeTruthy();
+				expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
 			});
 			expect(body.queryByRole("heading", { name: "Your training starts here" })).toBeNull();
 			fireEvent.click(body.getByRole("link", { name: "Edit goal" }));
@@ -356,6 +380,44 @@ describe("fitness home", () => {
 						type: "navigate",
 						target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
 					},
+				]),
+			);
+		}),
+	);
+
+	it.live("links to the generic Analytics view from desktop and compact home controls", () =>
+		Effect.gen(function* () {
+			const { page, answerPending } = openHome({ workouts: true });
+			answerCurrent = answerPending;
+			const expectedNavigation = {
+				mode: "push",
+				type: "navigate",
+				target: { kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } },
+			};
+
+			yield* settle(() =>
+				expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
+					"/v/k/analytics",
+				),
+			);
+			fireEvent.click(body.getByRole("link", { name: "Analytics" }));
+			yield* settle(() =>
+				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+					expectedNavigation,
+				]),
+			);
+
+			page.navigate(routeLocation("/"), { compact: true });
+			yield* settle(() =>
+				expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
+					"/v/k/analytics",
+				),
+			);
+			fireEvent.click(body.getByRole("link", { name: "Analytics" }));
+			yield* settle(() =>
+				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+					expectedNavigation,
+					expectedNavigation,
 				]),
 			);
 		}),

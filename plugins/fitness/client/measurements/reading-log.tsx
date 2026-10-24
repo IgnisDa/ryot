@@ -70,7 +70,7 @@ export function ReadingLog(props: {
 	const { range, columns, metrics, timeZone } = props;
 	const result = useRyotInfiniteQuery(
 		readingsQuery,
-		{ range },
+		{ range, timeZone },
 		{
 			initialPageParam: undefined,
 			getNextPageParam: nextPageCursor,

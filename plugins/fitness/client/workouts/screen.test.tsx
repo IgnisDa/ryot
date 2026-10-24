@@ -12,6 +12,7 @@ import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
+import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import WorkoutsPage from "./screen";
 
 const serialize = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -27,8 +28,8 @@ const rows = (items: readonly Record<string, unknown>[], nextCursor: null | stri
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 });
 const aggregate = (items: readonly Record<string, number>[]) => ({
-	items,
 	type: "aggregate" as const,
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 const totals = { workouts: 1, timedWorkouts: 1, activeDuration: 3600 };
 
@@ -53,6 +54,8 @@ const listWorkout = (id: string, name: string, startedAt: string) => ({
 	startedAt,
 	setCount: 2,
 	volume: 1000,
+	failedSets: 0,
+	pendingSets: 0,
 	exerciseCount: 2,
 	personalBests: 1,
 	template: rows([]),
@@ -71,6 +74,7 @@ type Answers = {
 	readonly total?: number;
 	readonly deferProcessing?: boolean;
 	readonly processingPending?: boolean;
+	readonly projectionPending?: boolean;
 	readonly list?: (after: string | undefined) => ReturnType<typeof rows>;
 };
 
@@ -83,17 +87,38 @@ const respond = (queries: Queries, answers: Answers) => {
 		return {
 			workouts:
 				answers.list?.(list.output.pagination.after) ??
-				rows([listWorkout("w1", "Legs", hoursAgo(1))]),
+				rows([
+					{
+						...listWorkout("w1", "Legs", hoursAgo(1)),
+						pendingSets: answers.projectionPending ? 1 : 0,
+					},
+				]),
 		};
 	}
 	if (list?.output.type === "rows") {
 		return { workouts: rows([{ id: "prior", volume: 800, startedAt: hoursAgo(24 * 7) }]) };
 	}
-	if ("exercises" in queries) {
+	if ("taxonomy" in queries) {
 		return {
-			exercises: rows([
-				{ id: "squat", targets: rows([{ role: "primary", name: "Quadriceps" }]) },
-				{ id: "press", targets: rows([{ name: "Glutes", role: "secondary" }]) },
+			taxonomy: rows([
+				{
+					setCount: 1,
+					workoutId: "w1",
+					exerciseOrder: 0,
+					id: "occurrence-0",
+					exerciseId: "squat",
+					equipment: rows([]),
+					targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]),
+				},
+				{
+					setCount: 1,
+					workoutId: "w1",
+					exerciseOrder: 1,
+					id: "occurrence-1",
+					exerciseId: "press",
+					equipment: rows([]),
+					targets: rows([{ id: "glutes", name: "Glutes", role: "secondary" }]),
+				},
 			]),
 		};
 	}
@@ -111,7 +136,14 @@ const respond = (queries: Queries, answers: Answers) => {
 			if (key === "sets" || key === "daySets") {
 				return [key, aggregate([])];
 			}
-			return [key, aggregate([key.endsWith("Sets") ? { volume: 1000, personalBests: 1 } : totals])];
+			return [
+				key,
+				aggregate([
+					key.endsWith("Sets")
+						? { volume: 1000, personalBests: 1, pendingSets: answers.projectionPending ? 1 : 0 }
+						: totals,
+				]),
+			];
 		}),
 	);
 };
@@ -138,6 +170,7 @@ const openPage = (answers: Answers = {}, search = "") => {
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {
+		replyReportingPreferences(page, answered);
 		for (const request of page.clientMessages()) {
 			if (request.type === "operation-request" && !answered.has(request.requestId)) {
 				answered.add(request.requestId);
@@ -182,6 +215,21 @@ const settle = (assert: () => void) =>
 let answerCurrent = () => {};
 
 describe("all workouts page", () => {
+	it.live("uses aggregate readiness even when the separate processing poll reports ready", () =>
+		Effect.gen(function* () {
+			answerCurrent = openPage({ projectionPending: true }).answerPending;
+			yield* settle(() => {
+				const card = body.getByRole("article", { name: "Legs" });
+				expect(card.textContent).toContain("100 kg × 5");
+				expect(card.textContent).not.toContain("1,000 kg");
+				expect(card.textContent).not.toContain("1 PR");
+				const summary = body.getByRole("region", { name: "Summary" });
+				expect(summary.textContent).toContain("Recorded active duration");
+				expect(summary.textContent).toContain("avg 1h");
+				expect(summary.textContent).toContain("Calculated awards unavailable");
+			});
+		}),
+	);
 	it.live("hides computed records and volume while workout processing is pending", () =>
 		Effect.gen(function* () {
 			answerCurrent = openPage({ processingPending: true }).answerPending;
@@ -233,7 +281,7 @@ describe("all workouts page", () => {
 				expect(card.textContent).toContain("▲ 25% volume");
 				expect(card.textContent).toContain("100 kg × 5");
 				expect(within(card).getByRole("list", { name: "Muscles" }).textContent).toBe(
-					"GlutesQuadriceps",
+					"QuadricepsGlutes",
 				);
 				expect(body.getByRole("region", { name: "Summary" }).textContent).toContain("Workouts");
 			});

@@ -10,24 +10,24 @@ import { formatNumber } from "../workout/format";
 import { changeTone, formatChange, plural, type WeekSection, type WorkoutCard } from "./model";
 import { toneClasses } from "./styles";
 
-function RecordBadge(props: { readonly count: number }) {
+function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
+	return (
+		<PluginLink to={{ kind: "entity", entityId: props.card.id }}>
+			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
+		</PluginLink>
+	);
+}
+
+function RecordBadge(props: { readonly count: null | number }) {
 	return (
 		<ComputedResults compact>
-			{props.count > 0 ? (
+			{props.count !== null && props.count > 0 ? (
 				<Badge variant="accent">
 					<AppIcon size={12} name="star" />
 					{plural(props.count, "PR")}
 				</Badge>
 			) : null}
 		</ComputedResults>
-	);
-}
-
-function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
-	return (
-		<PluginLink to={{ kind: "entity", entityId: props.card.id }}>
-			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
-		</PluginLink>
 	);
 }
 
@@ -272,17 +272,17 @@ function Stat(props: { readonly label: string; readonly value: ReactNode }) {
 	);
 }
 
-function RecordCount(props: { readonly count: number; readonly className?: string }) {
+function RecordCount(props: { readonly className?: string; readonly count: null | number }) {
 	return (
 		<ComputedResults compact>
 			<span
 				className={clsx(
 					"font-semibold",
-					props.count > 0 ? "text-accent-text" : "text-text-subtle",
+					props.count !== null && props.count > 0 ? "text-accent-text" : "text-text-subtle",
 					props.className,
 				)}
 			>
-				{props.count > 0 ? formatNumber(props.count) : "—"}
+				{props.count !== null && props.count > 0 ? formatNumber(props.count) : "—"}
 			</span>
 		</ComputedResults>
 	);

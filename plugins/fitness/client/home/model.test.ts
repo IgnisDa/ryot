@@ -150,17 +150,6 @@ describe("buildTemplateCards", () => {
 		const cards = buildTemplateCards({
 			now,
 			timeZone: "UTC",
-			targets: [
-				{
-					id: "squat",
-					targets: [
-						{ role: "primary", name: "Quadriceps" },
-						{ name: "Glutes", role: "secondary" },
-						{ name: "Core", role: "stabilizer" },
-					],
-				},
-				{ id: "press", targets: [{ role: null, name: "Shoulders" }] },
-			],
 			templates: [
 				template({ name: "Never done", id: EntityId.make("never") }),
 				template({
@@ -173,6 +162,17 @@ describe("buildTemplateCards", () => {
 					},
 				}),
 			],
+			targets: [
+				{
+					id: "squat",
+					targets: [
+						{ role: "primary", id: "quadriceps", name: "Quadriceps" },
+						{ id: "glutes", name: "Glutes", role: "secondary" },
+						{ id: "core", name: "Core", role: "stabilizer" },
+					],
+				},
+				{ id: "press", targets: [{ role: null, id: "shoulders", name: "Shoulders" }] },
+			],
 		});
 		expect(cards.map(({ id }) => id)).toEqual(["never", "legs"]);
 		expect(cards[0]).toMatchObject({ last: "Never done", meta: "2 exercises" });
@@ -180,7 +180,7 @@ describe("buildTemplateCards", () => {
 			moreChips: 0,
 			last: "6 days ago",
 			meta: "2 exercises · last took 1h 21m",
-			chips: ["Glutes", "Quadriceps", "Shoulders"],
+			chips: ["Quadriceps", "Shoulders", "Glutes"],
 		});
 	});
 });

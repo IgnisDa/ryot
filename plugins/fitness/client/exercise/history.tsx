@@ -4,9 +4,10 @@ import clsx from "clsx";
 import { useState } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
+import { projectionsReady } from "../../shared/fitness-metrics";
 import type { PersonalBest } from "../../shared/workout-records";
 import { setLots } from "../set-lots";
-import { ComputedResults } from "../workout-processing";
+import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
 import {
 	formatDuration,
 	formatMeasure,
@@ -37,6 +38,9 @@ import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 type Session = ExerciseDetails["sessions"][number];
 
 const formatMetric = (value: number, unit: Metric["unit"]) => {
+	if (unit === "kg-reps") {
+		return `${formatNumber(value)} kg × reps`;
+	}
 	if (unit === "kmh") {
 		return `${formatNumber(Math.round(value * 10) / 10)} km/h`;
 	}
@@ -48,7 +52,13 @@ function StatTiles(props: {
 	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
-	const tiles = buildStatTiles(props.kind, props.details.totals, props.details.months);
+	const processing = useComputedResultsStatus();
+	const tiles = buildStatTiles(
+		props.kind,
+		props.details.totals,
+		props.details.months,
+		!processing.pending && !processing.failed,
+	);
 	return (
 		<div
 			className={clsx(
@@ -83,7 +93,7 @@ function MonthChart(props: { readonly metric: Metric; readonly points: readonly 
 	const last = points.at(-1);
 	if (peak === null || first === undefined || last === undefined) {
 		return (
-			<p className="py-10 text-center text-[14px] text-text-muted">No sessions in this range.</p>
+			<p className="py-10 text-center text-[14px] text-text-muted">No results in this range.</p>
 		);
 	}
 	const top = peak.value ?? 1;
@@ -97,7 +107,7 @@ function MonthChart(props: { readonly metric: Metric; readonly points: readonly 
 				{points.map((point) => (
 					<span
 						key={point.index}
-						title={`${point.label}: ${point.value === null ? "no sessions" : formatMetric(point.value, metric.unit)}`}
+						title={`${point.label}: ${point.value === null ? "no recorded value" : formatMetric(point.value, metric.unit)}`}
 						className={clsx(
 							"min-w-px flex-1 rounded-t-sm",
 							point.value === null || point.value <= 0 ? "h-px bg-border" : "bg-accent",
@@ -124,6 +134,7 @@ function ProgressChart(props: {
 	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
+	const processing = useComputedResultsStatus();
 	const metrics = metricsForKind(props.kind);
 	const [metricKey, setMetricKey] = useState(metrics[0]?.key);
 	const [range, setRange] = useState<SeriesRange>("all");
@@ -139,15 +150,19 @@ function ProgressChart(props: {
 		months: props.details.months,
 	});
 	const peak = peakPoint(points);
+	const derived = metric.key === "oneRm" || metric.key === "volume" || metric.key === "pace";
+	const computedReady = !processing.pending && !processing.failed;
+	const peakLabel =
+		peak?.value == null
+			? "No data yet"
+			: `${formatMetric(peak.value, metric.unit)} peak · ${peak.label}`;
 	return (
 		<div className={cardClass}>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="flex flex-col gap-1">
 					<h3 className={cardHeadingClass}>{metric.title}</h3>
 					<span className="text-[13px] text-text-muted">
-						{peak === null || peak.value === null
-							? "No data yet"
-							: `${formatMetric(peak.value, metric.unit)} peak · ${peak.label}`}
+						{derived && !computedReady ? "Calculated results unavailable" : peakLabel}
 					</span>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -177,7 +192,13 @@ function ProgressChart(props: {
 					/>
 				</div>
 			</div>
-			<MonthChart metric={metric} points={points} />
+			{derived ? (
+				<ComputedResults>
+					<MonthChart metric={metric} points={points} />
+				</ComputedResults>
+			) : (
+				<MonthChart metric={metric} points={points} />
+			)}
 		</div>
 	);
 }
@@ -188,7 +209,7 @@ const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) =
 		time: (row) => (row.duration === null ? null : formatDuration(row.duration)),
 		one_rm: (row) => (row.oneRm === null ? null : formatMeasure(row.oneRm, "kg")),
 		weight: (row) => (row.weight === null ? null : formatMeasure(row.weight, "kg")),
-		volume: (row) => (row.volume === null ? null : formatMeasure(row.volume, "kg")),
+		volume: (row) => (row.volume === null ? null : formatMetric(row.volume, "kg-reps")),
 		distance: (row) => (row.distance === null ? null : formatMeasure(row.distance, "km")),
 		pace: (row) =>
 			row.distance === null || row.duration === null || row.duration === 0
@@ -199,7 +220,6 @@ const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) =
 export function RecentSessions(props: {
 	readonly compact: boolean;
 	readonly details: ExerciseDetails;
-	readonly kind: ExerciseRecord["kind"];
 }) {
 	if (props.details.sessions.length === 0) {
 		return null;
@@ -231,7 +251,7 @@ export function RecentSessions(props: {
 						</div>
 						<ul className="flex flex-wrap gap-2" aria-label={`Sets in ${session.name}`}>
 							{session.sets.items.map((set) => (
-								<SessionSet set={set} key={set.id} kind={props.kind} />
+								<SessionSet set={set} key={set.id} />
 							))}
 						</ul>
 					</li>
@@ -252,17 +272,15 @@ export function HistorySection(props: {
 	const { totals } = details;
 	if (totals.sets === 0) {
 		return (
-			<ComputedResults>
-				<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
-					<h2 id="exercise-history" className={sectionHeadingClass}>
-						Your history
-					</h2>
-					<p className={clsx(cardClass, "text-[15px] text-text-muted")}>
-						You haven't logged this exercise yet. Your sessions, personal bests and progress will
-						show up here after your first set.
-					</p>
-				</section>
-			</ComputedResults>
+			<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
+				<h2 id="exercise-history" className={sectionHeadingClass}>
+					Your history
+				</h2>
+				<p className={clsx(cardClass, "text-[15px] text-text-muted")}>
+					You haven't logged this exercise yet. Your sessions, personal bests and progress will show
+					up here after your first set.
+				</p>
+			</section>
 		);
 	}
 	const lapsed = isLapsed(totals.lastAt, now);
@@ -270,44 +288,43 @@ export function HistorySection(props: {
 	const since = totals.firstAt === null ? null : formatShortDate(totals.firstAt, null);
 	const lastDate = totals.lastAt === null ? null : formatShortDate(totals.lastAt, null);
 	return (
-		<ComputedResults>
-			<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
-				<div className="flex flex-wrap items-baseline justify-between gap-2 font-ui">
-					<h2 id="exercise-history" className={sectionHeadingClass}>
-						Your history
-					</h2>
-					<span className="text-[14px] text-text-muted">
-						{since === null ? null : `Since ${since}`}
-						{days === null ? null : ` · last trained ${describeAgo(days)}`}
-					</span>
-				</div>
-				{lapsed ? (
-					<p
-						role="status"
-						className="rounded-xl border border-accent-border bg-accent-soft p-4 font-ui text-[15px] text-text"
-					>
-						<strong>Last done {days === null ? "" : describeAgo(days)}.</strong>
-						{lastDate === null ? null : ` Your last session was on ${lastDate}.`}
-					</p>
-				) : null}
-				<StatTiles compact={compact} details={details} kind={exercise.kind} />
-				<div
-					className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}
+		<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
+			<div className="flex flex-wrap items-baseline justify-between gap-2 font-ui">
+				<h2 id="exercise-history" className={sectionHeadingClass}>
+					Your history
+				</h2>
+				<span className="text-[14px] text-text-muted">
+					{since === null ? null : `Since ${since}`}
+					{days === null ? null : ` · last trained ${describeAgo(days)}`}
+				</span>
+			</div>
+			{lapsed ? (
+				<p
+					role="status"
+					className="rounded-xl border border-accent-border bg-accent-soft p-4 font-ui text-[15px] text-text"
 				>
-					<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
-					<PersonalBests kind={exercise.kind} rows={details.personalBests} />
-				</div>
-				{exercise.kind === "reps_and_weight" ? <BestWeightByReps details={details} /> : null}
-			</section>
-		</ComputedResults>
+					<strong>Last done {days === null ? "" : describeAgo(days)}.</strong>
+					{lastDate === null ? null : ` Your last session was on ${lastDate}.`}
+				</p>
+			) : null}
+			<StatTiles compact={compact} details={details} kind={exercise.kind} />
+			<div className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}>
+				<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
+				<ComputedResults>
+					{projectionsReady(totals) ? <PersonalBests rows={details.personalBests} /> : null}
+				</ComputedResults>
+			</div>
+			{exercise.kind === "reps_and_weight" ? (
+				<ComputedResults>
+					<BestWeightByReps details={details} />
+				</ComputedResults>
+			) : null}
+		</section>
 	);
 }
 
-function SessionSet(props: {
-	readonly kind: ExerciseRecord["kind"];
-	readonly set: Session["sets"]["items"][number];
-}) {
-	const { set, kind } = props;
+function SessionSet(props: { readonly set: Session["sets"]["items"][number] }) {
+	const { set } = props;
 	const lot = setLots[set.setLot ?? "normal"];
 	return (
 		<li
@@ -317,7 +334,7 @@ function SessionSet(props: {
 				lot.pill,
 			)}
 		>
-			{formatSetMain(kind, set)}
+			{formatSetMain(set.exerciseKind, set)}
 			{lot.tag === undefined ? null : (
 				<span className="text-[11px] font-semibold uppercase">{lot.label}</span>
 			)}
@@ -357,10 +374,7 @@ function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
 	);
 }
 
-function PersonalBests(props: {
-	readonly kind: ExerciseRecord["kind"];
-	readonly rows: ExerciseDetails["personalBests"];
-}) {
+function PersonalBests(props: { readonly rows: ExerciseDetails["personalBests"] }) {
 	const entries = latestPersonalBests(props.rows)
 		.map((entry) => ({ entry, value: personalBestValues[entry.type](entry.row) }))
 		.filter(({ value }) => value !== null);
@@ -379,7 +393,7 @@ function PersonalBests(props: {
 								className="truncate text-[13px] text-accent-text"
 								to={{ kind: "entity", entityId: entry.row.workoutId }}
 							>
-								{formatSetMain(props.kind, entry.row)} ·{" "}
+								{formatSetMain(entry.row.exerciseKind, entry.row)} ·{" "}
 								{formatShortDate(entry.row.occurredAt, null)}
 							</PluginLink>
 						</div>

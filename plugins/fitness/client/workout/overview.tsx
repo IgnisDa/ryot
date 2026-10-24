@@ -4,6 +4,7 @@ import { Button, Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
+import { fitnessMetricDefinitions, type MuscleCount } from "../../shared/fitness-metrics";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import {
@@ -15,14 +16,9 @@ import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { FitnessRemindersButton } from "../reminders";
-import { ComputedResults } from "../workout-processing";
+import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
 import { AdjustWorkoutTime } from "./adjust-time";
-import type {
-	MuscleCount,
-	TimelineSegment,
-	WorkoutSummary,
-	WorkoutTimeline,
-} from "./details-model";
+import type { TimelineSegment, WorkoutSummary, WorkoutTimeline } from "./details-model";
 import {
 	formatDuration,
 	formatLongDate,
@@ -192,16 +188,16 @@ const summaryStats = (
 					value: formatDuration(summary.durationSeconds),
 					detail: formatTimeRange(workout.startedAt, workout.endedAt),
 				},
-		summary.volume > 0
+		summary.volume !== null && summary.volume > 0
 			? {
 					label: "Volume",
-					unit: imperial ? "lb" : "kg",
+					unit: imperial ? "lb × repetitions" : "kg × repetitions",
 					value: formatNumber(imperial ? kilogramsToPounds(summary.volume) : summary.volume),
 					tone: summary.volumeDelta !== null && summary.volumeDelta > 0 ? "success" : undefined,
 					detail:
 						summary.volumeDelta === null
 							? null
-							: `${formatSignedMeasure(summary.volumeDelta, "kg", imperial)} vs previous sessions`,
+							: `${formatSignedMeasure(summary.volumeDelta, fitnessMetricDefinitions.volume.unit, imperial)} vs previous sessions`,
 				}
 			: null,
 		{
@@ -211,12 +207,12 @@ const summaryStats = (
 		},
 		summary.reps > 0 ? { label: "Reps", value: formatNumber(summary.reps) } : null,
 		summary.restSeconds > 0
-			? { label: "Configured rest", value: formatDuration(summary.restSeconds) }
+			? { label: "Planned rest", value: formatDuration(summary.restSeconds) }
 			: null,
-		summary.records > 0
+		summary.records !== null && summary.records > 0
 			? {
 					tone: "accent",
-					label: "Records",
+					label: "Personal-best awards",
 					value: formatNumber(summary.records),
 					detail: `Across ${summary.recordSets} ${summary.recordSets === 1 ? "set" : "sets"}`,
 				}
@@ -239,47 +235,49 @@ export function WorkoutSummaryRow(props: {
 	readonly summary: WorkoutSummary;
 	readonly workout: WorkoutDetails;
 }) {
+	const processing = useComputedResultsStatus();
+	const summary =
+		processing.pending || processing.failed
+			? { ...props.summary, volume: null, records: null, recordSets: null, volumeDelta: null }
+			: props.summary;
 	return (
-		<ComputedResults>
-			<section
-				aria-label="Summary"
-				className={clsx(
-					"grid gap-px overflow-hidden rounded-lg border border-border-card bg-border",
-					props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
-				)}
-			>
-				{summaryStats(props.workout, props.summary, props.imperial, props.energyUnit).map(
-					(stat) => (
-						<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
-							<span className="text-[13px] text-text-muted">{stat.label}</span>
-							<span
-								className={clsx(
-									"font-semibold leading-tight text-text tabular-nums",
-									props.compact ? "text-xl" : "text-[28px]",
-								)}
-							>
-								{stat.value}
-								{stat.unit === undefined ? null : (
-									<span className="ml-1 font-medium text-[14px] text-text-muted">{stat.unit}</span>
-								)}
-							</span>
-							{stat.detail === undefined || stat.detail === null || props.compact ? null : (
-								<span
-									className={clsx(
-										"text-[13px]",
-										stat.tone === "success" && "text-success",
-										stat.tone === "accent" && "text-accent-text",
-										stat.tone === undefined && "text-text-muted",
-									)}
-								>
-									{stat.detail}
-								</span>
+		<section
+			aria-label="Summary"
+			className={clsx(
+				"grid gap-px overflow-hidden rounded-lg border border-border-card bg-border",
+				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
+			)}
+		>
+			{summaryStats(props.workout, summary, props.imperial, props.energyUnit).map((stat) => (
+				<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
+					<span className="text-[13px] text-text-muted">{stat.label}</span>
+					<span
+						className={clsx(
+							"font-semibold leading-tight text-text tabular-nums",
+							props.compact ? "text-xl" : "text-[28px]",
+						)}
+					>
+						{stat.value}
+						{stat.unit === undefined ? null : (
+							<span className="ml-1 font-medium text-[14px] text-text-muted">{stat.unit}</span>
+						)}
+					</span>
+					{stat.detail === undefined || stat.detail === null || props.compact ? null : (
+						<span
+							className={clsx(
+								"text-[13px]",
+								stat.tone === "success" && "text-success",
+								stat.tone === "accent" && "text-accent-text",
+								stat.tone === undefined && "text-text-muted",
 							)}
-						</div>
-					),
-				)}
-			</section>
-		</ComputedResults>
+						>
+							{stat.detail}
+						</span>
+					)}
+				</div>
+			))}
+			<ComputedResults>{null}</ComputedResults>
+		</section>
 	);
 }
 
@@ -319,7 +317,9 @@ export function WorkoutSession(props: {
 		>
 			{props.timeline === null ? null : <SessionTimeline timeline={props.timeline} />}
 			{props.muscles.length === 0 ? null : (
-				<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
+				<ComputedResults>
+					<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
+				</ComputedResults>
 			)}
 		</section>
 	);
@@ -332,7 +332,7 @@ function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<h2 className="font-semibold text-[16px] text-text">Session flow</h2>
 				<span className="text-[13px] text-text-muted">
-					{formatDuration(timeline.restSeconds)} configured rest
+					{formatDuration(timeline.restSeconds)} planned rest
 				</span>
 			</div>
 			<ol className="flex h-10 gap-0.75" aria-label="Exercises over time">
@@ -363,12 +363,12 @@ function MusclesWorked(props: {
 		<Card padding="lg" className="flex min-w-0 flex-col gap-3 font-ui">
 			<div className="flex items-baseline justify-between">
 				<h2 className="font-semibold text-[16px] text-text">Muscles worked</h2>
-				<span className="text-[13px] text-text-muted">sets</span>
+				<span className="text-[13px] text-text-muted">weighted sets</span>
 			</div>
 			<ul className="grid gap-2">
 				{props.muscles.map((muscle) => (
 					<li
-						key={muscle.name}
+						key={muscle.id}
 						className="grid grid-cols-[6rem_minmax(0,1fr)_2rem] items-center gap-3 text-[14px]"
 					>
 						<span className="truncate text-text">{muscle.name}</span>
@@ -384,7 +384,12 @@ function MusclesWorked(props: {
 			</ul>
 			{props.equipment.length === 0 ? null : (
 				<p className="border-t border-border pt-3 text-[13px] text-text-muted">
-					{props.equipment.map(({ name, exercises }) => `${name} ${exercises}`).join(" · ")}
+					{props.equipment
+						.map(
+							({ name, exercises }) =>
+								`${name}: ${exercises} exercise ${exercises === 1 ? "occurrence" : "occurrences"}`,
+						)
+						.join(" · ")}
 				</p>
 			)}
 		</Card>

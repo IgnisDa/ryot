@@ -4,16 +4,9 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
+import type { MetricRow, MetricSort } from "../../shared/measurement-metrics";
 import { sectionHeadingClass } from "../exercise/styles";
-import {
-	formatChange,
-	formatDay,
-	formatValue,
-	type MetricRow,
-	type MetricSort,
-	type RangeKey,
-	rangePhrase,
-} from "./model";
+import { formatChange, formatDay, formatValue, type RangeKey, rangePhrase } from "./model";
 import { tableHeaderClass } from "./styles";
 
 const sortOptions = [

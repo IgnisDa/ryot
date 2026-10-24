@@ -120,8 +120,8 @@ describe("fitness presentation loaders", () => {
 					}),
 				query: (document) => {
 					const queries = document.queries;
-					if ("exercises" in queries) {
-						return Effect.succeed({ data: { exercises: rows([]) } });
+					if ("taxonomy" in queries) {
+						return Effect.succeed({ data: { taxonomy: rows([]) } });
 					}
 					lists.push(queries["workouts"]);
 					return Effect.succeed({
@@ -130,6 +130,8 @@ describe("fitness presentation loaders", () => {
 								{
 									setCount: 1,
 									volume: 480,
+									failedSets: 0,
+									pendingSets: 0,
 									id: "workout-1",
 									exerciseCount: 1,
 									name: "Push day",
@@ -180,7 +182,7 @@ describe("fitness presentation loaders", () => {
 				}),
 			]);
 			expect(loaded["workout-1"]).toMatchObject({
-				volume: "1,058 lb",
+				volume: "1,058 lb × reps",
 				duration: { value: "1h", label: "Duration" },
 				top: [expect.objectContaining({ name: "Bench Press", best: "132.28 lb × 8" })],
 			});

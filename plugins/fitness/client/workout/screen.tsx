@@ -9,6 +9,7 @@ import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useMemo } from "react";
 
+import { countEquipmentOccurrences, countMuscleSets } from "../../shared/fitness-metrics";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import { managedAssetBatch } from "../asset-urls";
@@ -19,8 +20,6 @@ import {
 	buildExerciseGroups,
 	buildTimeline,
 	cardMuscleSources,
-	countEquipment,
-	countMuscleSets,
 	summarizeWorkout,
 } from "./details-model";
 import { ExerciseGroups } from "./exercise-card";
@@ -46,9 +45,13 @@ export function WorkoutDetailsView(props: {
 		return {
 			groups,
 			summary,
-			equipment: countEquipment(groups),
-			muscles: countMuscleSets(cardMuscleSources(groups)),
 			timeline: buildTimeline(workout, groups, summary.restSeconds),
+			muscles: countMuscleSets(cardMuscleSources(groups)).slice(0, 6),
+			equipment: countEquipmentOccurrences(
+				workout.taxonomy
+					.filter(({ setCount }) => setCount > 0)
+					.map(({ equipment }) => equipment.items),
+			),
 		};
 	}, [workout]);
 	return (

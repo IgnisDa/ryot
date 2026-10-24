@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
+import { ReportingPreferences } from "../reporting-preferences";
 import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
@@ -37,7 +38,11 @@ const exerciseDetailsQuery = createRyotQuery<
 
 export default function ExerciseDetailsPage() {
 	const location = usePluginLocation();
-	return location.kind === "entity" ? <ExerciseDetailsScreen entityId={location.entityId} /> : null;
+	return location.kind === "entity" ? (
+		<ReportingPreferences>
+			{(timeZone) => <ExerciseDetailsScreen timeZone={timeZone} entityId={location.entityId} />}
+		</ReportingPreferences>
+	) : null;
 }
 
 export function ExerciseDetailsView(props: {
@@ -84,9 +89,7 @@ export function ExerciseDetailsView(props: {
 					exercise={exercise}
 					timeZone={timeZone}
 				/>
-				{performed ? (
-					<RecentSessions compact={compact} details={details} kind={exercise.kind} />
-				) : null}
+				{performed ? <RecentSessions compact={compact} details={details} /> : null}
 				{performed ? (
 					<div className={clsx("grid gap-5", !compact && "lg:grid-cols-2 lg:items-start")}>
 						{instructions}
@@ -100,9 +103,9 @@ export function ExerciseDetailsView(props: {
 	);
 }
 
-function ExerciseDetailsScreen(props: { readonly entityId: string }) {
+function ExerciseDetailsScreen(props: { readonly entityId: string; readonly timeZone: string }) {
 	const { compact } = useRyotViewport();
-	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const { timeZone } = props;
 	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
 	return (
 		<WorkoutProcessing exerciseId={props.entityId}>

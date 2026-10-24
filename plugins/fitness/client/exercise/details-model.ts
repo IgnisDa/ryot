@@ -3,6 +3,7 @@ import {
 	type ExerciseDetails,
 } from "../../shared/exercise-details-recipes";
 import type { ExerciseKind } from "../../shared/exercise-kinds";
+import { projectionsReady } from "../../shared/fitness-metrics";
 import type { PersonalBest } from "../../shared/workout-records";
 import { formatClock, formatDuration, formatNumber, parseDate } from "../workout/format";
 
@@ -80,7 +81,7 @@ export type Metric = {
 	readonly unit: MetricUnit;
 	readonly value: (month: Month) => null | number;
 };
-type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "sessions";
+type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "kg-reps" | "sessions";
 
 type MetricKey =
 	| "pace"
@@ -104,20 +105,6 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		title: "Reps per month",
 		value: (month) => month.reps,
 	},
-	volume: {
-		unit: "kg",
-		key: "volume",
-		label: "Volume",
-		title: "Volume per month",
-		value: (month) => month.volume,
-	},
-	oneRm: {
-		unit: "kg",
-		key: "oneRm",
-		label: "1RM",
-		value: (month) => month.maxOneRm,
-		title: "Est. one-rep max per month",
-	},
 	maxReps: {
 		unit: "reps",
 		key: "maxReps",
@@ -135,7 +122,7 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 	duration: {
 		unit: "seconds",
 		key: "duration",
-		label: "Total time",
+		label: "Set duration",
 		title: "Time per month",
 		value: (month) => month.duration,
 	},
@@ -160,12 +147,27 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		title: "Longest set per month",
 		value: (month) => month.maxDuration,
 	},
+	volume: {
+		key: "volume",
+		unit: "kg-reps",
+		label: "Volume",
+		title: "Volume per month",
+		value: (month) => (projectionsReady(month) ? month.volume : null),
+	},
+	oneRm: {
+		unit: "kg",
+		key: "oneRm",
+		label: "1RM",
+		title: "Est. one-rep max per month",
+		value: (month) => (projectionsReady(month) ? month.maxOneRm : null),
+	},
 	pace: {
 		key: "pace",
 		unit: "kmh",
 		label: "Speed",
 		title: "Best speed per month",
-		value: (month) => (month.maxPace === null ? null : month.maxPace * secondsPerHour),
+		value: (month) =>
+			month.maxPace === null || !projectionsReady(month) ? null : month.maxPace * secondsPerHour,
 	},
 };
 
@@ -262,15 +264,15 @@ export const buildStatTiles = (
 	kind: null | ExerciseKind,
 	totals: Totals,
 	months: readonly Month[],
+	computedReady = true,
 ): readonly StatTile[] => {
 	const sets = totals.sets;
 	const reps = totals.reps ?? 0;
-	const volume = totals.volume ?? 0;
 	const duration = totals.duration ?? 0;
 	const distance = totals.distance ?? 0;
 	const perSession = totals.sessions === 0 ? 0 : sets / totals.sessions;
 	const tiles = {
-		time: { detail: null, label: "Total time", value: formatDuration(duration) },
+		time: { detail: null, label: "Set duration", value: formatDuration(duration) },
 		distance: { detail: null, label: "Distance", value: `${formatNumber(distance)} km` },
 		typicalSet: {
 			detail: null,
@@ -303,9 +305,12 @@ export const buildStatTiles = (
 			detail: perSession === 0 ? null : `${oneDecimal(perSession)} sets per session`,
 		},
 		volume: {
+			detail: null,
 			label: "Total volume",
-			detail: `${formatNumber(volume)} kg lifted`,
-			value: volume >= 1000 ? `${oneDecimal(volume / 1000)} t` : `${formatNumber(volume)} kg`,
+			value:
+				!computedReady || !projectionsReady(totals) || totals.volume === null
+					? "—"
+					: `${formatNumber(totals.volume)} kg × reps`,
 		},
 		sets: {
 			label: "Sets",
@@ -375,6 +380,9 @@ export const latestPersonalBests = (
 };
 
 export const bestWeightByReps = (totals: Totals) => {
+	if (!projectionsReady(totals)) {
+		return [];
+	}
 	const weights = [
 		totals.weightForReps1,
 		totals.weightForReps5,

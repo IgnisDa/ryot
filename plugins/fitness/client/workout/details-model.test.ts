@@ -1,15 +1,43 @@
 import { describe, expect, it } from "vitest";
 
+import { countMuscleSets } from "../../shared/fitness-metrics";
 import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/workout-fixtures";
 import {
 	buildExerciseGroups,
 	buildTimeline,
 	cardMuscleSources,
-	countMuscleSets,
 	summarizeWorkout,
 } from "./details-model";
 
 describe("workout details model", () => {
+	it("uses each occurrence's retained targets after exercise taxonomy changes", () => {
+		const exercise = workoutExercise({
+			id: "curl",
+			targets: [{ id: "current", role: "primary", name: "Current provider target" }],
+			sets: [workoutSet({ exerciseOrder: 0 }), workoutSet({ id: "second", exerciseOrder: 1 })],
+		});
+		const workout = workoutDetails({ exercises: [exercise] });
+		const groups = buildExerciseGroups({
+			...workout,
+			taxonomy: workout.taxonomy.map((item) =>
+				Object.assign({}, item, {
+					targets: {
+						...item.targets,
+						items: [
+							{
+								id: "recorded",
+								name: "Recorded target",
+								role: item.exerciseOrder === 0 ? "primary" : "secondary",
+							},
+						],
+					},
+				}),
+			),
+		});
+		expect(countMuscleSets(cardMuscleSources(groups))).toEqual([
+			{ sets: 1.5, id: "recorded", name: "Recorded target" },
+		]);
+	});
 	it("splits an exercise done twice into ordered cards and groups supersets", () => {
 		const curl = workoutExercise({
 			id: "curl",
@@ -48,20 +76,16 @@ describe("workout details model", () => {
 		const compared = workoutExercise({
 			id: "single",
 			previousWorkoutStartedAt: "2024-12-17T02:53:12.000Z",
+			previousSets: [workoutSet({ reps: 30, weight: 10, volume: 300, exerciseOrder: 2 })],
 			sets: [workoutSet({ volume: 350 }), workoutSet({ id: "set-2", setOrder: 1, volume: 375 })],
-			previousSets: [
-				{ reps: 30, weight: 10, volume: 300, duration: null, distance: null, exerciseOrder: 2 },
-			],
 		});
 		const repeated = workoutExercise({
 			id: "repeated",
 			previousWorkoutStartedAt: "2024-12-17T02:53:12.000Z",
+			previousSets: [workoutSet({ reps: 30, weight: 10, volume: 300 })],
 			sets: [
 				workoutSet({ id: "r-1", exerciseOrder: 1 }),
 				workoutSet({ id: "r-2", exerciseOrder: 2 }),
-			],
-			previousSets: [
-				{ reps: 30, weight: 10, volume: 300, duration: null, distance: null, exerciseOrder: 0 },
 			],
 		});
 		const workout = workoutDetails({ exercises: [compared, repeated] });
@@ -76,6 +100,90 @@ describe("workout details model", () => {
 			["repeated", undefined],
 		]);
 		expect(summarizeWorkout(workout, groups).volumeDelta).toBe(425);
+	});
+
+	it.each(["pending", "failed"] as const)(
+		"leaves a %s weighted occurrence unknown without hiding entered repetitions",
+		(recordStatus) => {
+			const workout = workoutDetails({
+				exercises: [
+					workoutExercise({
+						previousSets: [workoutSet()],
+						previousWorkoutStartedAt: "2024-12-17T02:53:12.000Z",
+						sets: [workoutSet(), workoutSet({ recordStatus, volume: null, id: "pending" })],
+					}),
+				],
+			});
+			const groups = buildExerciseGroups(workout);
+			expect(groups[0]).toMatchObject({ card: { total: null, recordStatus, comparison: null } });
+			expect(summarizeWorkout(workout, groups)).toMatchObject({
+				sets: 2,
+				reps: 20,
+				volume: null,
+				records: null,
+				volumeDelta: null,
+			});
+			expect(cardMuscleSources(groups)).toEqual([]);
+		},
+	);
+
+	it.each([0, 100.000001])("retains known weighted volume %s with its canonical unit", (volume) => {
+		const groups = buildExerciseGroups(
+			workoutDetails({ exercises: [workoutExercise({ sets: [workoutSet({ volume })] })] }),
+		);
+		expect(groups[0]).toMatchObject({
+			card: { total: { value: volume, unit: "kg × repetitions" } },
+		});
+	});
+
+	it("does not turn a missing ready projection into zero volume", () => {
+		const groups = buildExerciseGroups(
+			workoutDetails({ exercises: [workoutExercise({ sets: [workoutSet({ volume: null })] })] }),
+		);
+		expect(groups[0]).toMatchObject({ card: { total: null, comparison: null } });
+	});
+
+	it("does not compare against incomplete previous weighted sets", () => {
+		const missingStatus = {
+			reps: 10,
+			weight: 20,
+			volume: 200,
+			duration: null,
+			distance: null,
+			exerciseOrder: 0,
+		};
+		for (const previous of [
+			missingStatus,
+			workoutSet({ volume: null }),
+			workoutSet({ recordStatus: "pending" }),
+			workoutSet({ recordStatus: "failed" }),
+		]) {
+			const groups = buildExerciseGroups(
+				workoutDetails({
+					exercises: [
+						workoutExercise({
+							sets: [workoutSet({ volume: 600 })],
+							previousSets: [workoutSet(), previous],
+							previousWorkoutStartedAt: "2024-12-17T02:53:12.000Z",
+						}),
+					],
+				}),
+			);
+			expect(groups[0]).toMatchObject({
+				card: { comparison: null, total: { value: 600, unit: "kg × repetitions" } },
+			});
+		}
+	});
+
+	it.each([
+		{ reps: null, exerciseKind: "reps" },
+		{ duration: null, exerciseKind: "duration" },
+		{ distance: null, exerciseKind: "distance_and_duration" },
+	] as const)("keeps missing entered totals unknown for $exerciseKind", (missing) => {
+		const groups = buildExerciseGroups(
+			workoutDetails({ exercises: [workoutExercise({ sets: [workoutSet(missing)] })] }),
+		);
+		expect(groups[0]).toMatchObject({ card: { total: null } });
 	});
 
 	it("summarises totals, records and rest across all sets", () => {
@@ -146,23 +254,23 @@ describe("workout details model", () => {
 				workoutExercise({
 					sets: [workoutSet(), workoutSet({ id: "set-2" })],
 					targets: [
-						{ name: "Biceps", role: "primary" },
-						{ name: "Forearms", role: "stabilizer" },
+						{ id: "biceps", name: "Biceps", role: "primary" },
+						{ id: "forearms", name: "Forearms", role: "stabilizer" },
 					],
 				}),
 				workoutExercise({
 					id: "row",
 					sets: [workoutSet({ exerciseOrder: 1 })],
 					targets: [
-						{ role: null, name: "Lats" },
-						{ name: "Biceps", role: "secondary" },
+						{ id: "lats", role: null, name: "Lats" },
+						{ id: "biceps", name: "Biceps", role: "secondary" },
 					],
 				}),
 			],
 		});
 		expect(countMuscleSets(cardMuscleSources(buildExerciseGroups(workout)))).toEqual([
-			{ sets: 3, name: "Biceps" },
-			{ sets: 1, name: "Lats" },
+			{ sets: 2.5, id: "biceps", name: "Biceps" },
+			{ sets: 1, id: "lats", name: "Lats" },
 		]);
 	});
 });

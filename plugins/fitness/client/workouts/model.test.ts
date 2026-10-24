@@ -2,9 +2,28 @@ import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import type { WorkoutListItem, WorkoutSummary } from "../../shared/workout-list-recipes";
-import { buildHeatmap, buildSummaryTiles, buildWorkoutCards, groupByWeek, weekKey } from "./model";
+import {
+	buildHeatmap,
+	buildSummaryTiles,
+	buildWorkoutCards,
+	groupByWeek,
+	summaryWindows,
+	weekKey,
+} from "./model";
 
 const now = new Date("2026-10-18T12:00:00.000Z");
+
+it("uses reporting-calendar boundaries across daylight-saving changes", () => {
+	const windows = summaryWindows("7D", new Date("2026-11-01T18:00:00.000Z"), "America/New_York");
+	expect(windows.current).toMatchObject({
+		endAt: "2026-11-02T05:00:00.000Z",
+		startAt: "2026-10-26T04:00:00.000Z",
+	});
+	expect(windows.previous).toMatchObject({
+		endAt: "2026-10-26T04:00:00.000Z",
+		startAt: "2026-10-19T04:00:00.000Z",
+	});
+});
 
 const set = (
 	exerciseId: string,
@@ -32,6 +51,8 @@ const workout = (overrides: Partial<WorkoutListItem> = {}): WorkoutListItem => (
 	setCount: 0,
 	name: "Legs",
 	volume: 1000,
+	failedSets: 0,
+	pendingSets: 0,
 	template: null,
 	exerciseCount: 0,
 	personalBests: 0,
@@ -107,6 +128,8 @@ describe("buildWorkoutCards", () => {
 	it("shows each exercise's best set in workout order and marks record exercises", () => {
 		const [card] = cards([
 			workout({
+				setCount: 5,
+				exerciseCount: 4,
 				sets: [
 					set("squat", 0, { reps: 5, oneRm: 116, weight: 100 }),
 					set("squat", 0, {
@@ -139,8 +162,8 @@ describe("buildWorkoutCards", () => {
 	});
 
 	it("shows volume in the display unit system", () => {
-		expect(cards([workout({ volume: 14820 })])[0]?.volume).toBe("14,820 kg");
-		expect(cards([workout({ volume: 100 })], true)[0]?.volume).toBe("220 lb");
+		expect(cards([workout({ volume: 14820 })])[0]?.volume).toBe("14,820 kg × reps");
+		expect(cards([workout({ volume: 100 })], true)[0]?.volume).toBe("220 lb × reps");
 	});
 });
 
@@ -167,7 +190,11 @@ describe("groupByWeek", () => {
 			]),
 		});
 		expect(sections.map(({ title, range, totals }) => ({ title, range, totals }))).toEqual([
-			{ title: "This week", range: "Oct 12 – 18", totals: "3 workouts · 4h 43m · 34.7K kg · 1 PR" },
+			{
+				title: "This week",
+				range: "Oct 12 – 18",
+				totals: "3 workouts · 4h 43m active · 34.7K kg × reps · 1 personal-best award",
+			},
 			{ totals: null, title: "Last week", range: "Oct 5 – 11" },
 			{ range: null, totals: null, title: "Sep 28 – Oct 4" },
 		]);
@@ -223,7 +250,7 @@ describe("buildSummaryTiles", () => {
 		expect(buildSummaryTiles(summary(), "1M", false)[2]).toEqual({
 			tone: "up",
 			label: "Volume",
-			value: "1.1K kg",
+			value: "1.1K kg × reps",
 			detail: "▲ 10% vs previous 30 days",
 		});
 		expect(buildSummaryTiles(summary({ previous: totals(0, 0) }), "1M", false)[2]?.detail).toBe(

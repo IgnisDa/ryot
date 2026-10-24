@@ -194,11 +194,11 @@ it.live("loads distinct enriched exercises once and renders numeric partial plan
 		expect(screen.getByText("No planned sets.")).toBeTruthy();
 		expect(screen.getByText("Keep control")).toBeTruthy();
 		expect(screen.getAllByText("Chest · Barbell")).toHaveLength(2);
-		expect(screen.getByText(/220\.46 lb/).textContent).toContain("Rest 0:00 · RPE 8");
+		expect(screen.getByText(/220\.46 lb/).textContent).toContain("Planned rest 0:00 · RPE 8");
 		expect(screen.getByText("“Slow descent”")).toBeTruthy();
 		const sets = within(screen.getByRole("list", { name: "Planned sets for Bench press" }));
 		expect(sets.getAllByRole("listitem").map(({ textContent }) => textContent)).toEqual([
-			"1220.46 lb · Rest 0:00 · RPE 8“Slow descent”",
+			"1220.46 lb · Planned rest 0:00 · RPE 8“Slow descent”",
 			"WMeasurements not specified",
 		]);
 		expect(screen.getByRole("button", { name: "Edit template (Pro)" })).toBeTruthy();

@@ -9,6 +9,7 @@ import {
 	workoutDetailsRecipe,
 	workoutDetailsSetsRecipe,
 } from "../../shared/workout-details-recipes";
+import { workoutTaxonomyRecipe } from "../../shared/workout-taxonomy-recipes";
 
 const readItems = <A>(read: Parameters<typeof readCursorPages<A>>[0]) =>
 	Effect.map(readCursorPages(read), ({ items }) => items);
@@ -30,6 +31,9 @@ export const workoutDetailsQuery = createRyotQuery<
 			);
 			const sets = yield* readItems((after) =>
 				client.data.query(workoutDetailsSetsRecipe({ after, reference, workoutId })),
+			);
+			const taxonomy = yield* readItems((after) =>
+				client.data.query(workoutTaxonomyRecipe({ after, reference, workoutIds: [workoutId] })),
 			);
 			const loaded = yield* Effect.forEach(
 				exercises,
@@ -57,7 +61,7 @@ export const workoutDetailsQuery = createRyotQuery<
 					}),
 				{ concurrency: 4 },
 			);
-			return { ...workout, exercises: { items: loaded } };
+			return { ...workout, taxonomy, exercises: { items: loaded } };
 		}),
 	{
 		entityWatch: ({ data, input }) => ({

@@ -23,7 +23,7 @@ const bandClasses: Readonly<Record<MuscleBand, string>> = {
 
 export function MusclesSection(props: { readonly now: Date; readonly timeZone: string }) {
 	const { now, timeZone } = props;
-	const result = useRyotQuery(muscleActivityQuery);
+	const result = useRyotQuery(muscleActivityQuery, { timeZone });
 	return (
 		<HomeSection
 			title="Muscles"
@@ -79,7 +79,7 @@ export function PersonalBestsSection(props: {
 	readonly imperial: boolean;
 }) {
 	const { now, imperial, timeZone } = props;
-	const result = useRyotQuery(recentPersonalBestsQuery);
+	const result = useRyotQuery(recentPersonalBestsQuery, { timeZone });
 	return (
 		<ComputedResults>
 			<HomeSection
@@ -88,7 +88,7 @@ export function PersonalBestsSection(props: {
 				hint={
 					result.data === undefined
 						? undefined
-						: `${result.data.recentCount} in the last ${RECENT_DAYS} days`
+						: `${result.data.recentCount} sets with awards in the last ${RECENT_DAYS} days`
 				}
 			>
 				<QueryBody result={result} noun="personal bests">

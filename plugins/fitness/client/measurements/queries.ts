@@ -17,7 +17,7 @@ import {
 	measurementEntryListRecipe,
 	type MeasurementEntryListResult,
 } from "../../shared/query-recipes";
-import { type RangeKey, rangeStartAt, seriesWindow } from "./model";
+import { measurementPeriod, type RangeKey, seriesWindow } from "./model";
 
 const READING_PAGE_SIZE = 100;
 
@@ -29,21 +29,32 @@ type MeasurementLogPage = Omit<MeasurementEntryListResult, "items"> & {
 	readonly items: readonly MeasurementLogEntry[];
 };
 
+type MeasurementSeriesResult = {
+	readonly series: readonly MeasurementSeries[];
+	readonly window: ReturnType<typeof seriesWindow>;
+};
+
 export const summaryQuery = createRyotQuery<
-	{ readonly range: RangeKey },
+	| { readonly range: "All" }
+	| { readonly timeZone: string; readonly range: Exclude<RangeKey, "All"> },
 	readonly MeasurementSummary[]
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {
-		const rangeStart = rangeStartAt(
-			input.range,
-			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
-		);
+		const period =
+			input.range === "All"
+				? null
+				: measurementPeriod(
+						input.range,
+						DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+						input.timeZone,
+					);
 		return Effect.map(
 			readCursorPages((after) =>
 				client.data.query(
 					measurementSummaryRecipe({
 						after,
-						rangeStart,
+						rangeEnd: period?.endAt,
+						rangeStart: period?.startAt,
 						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 					}),
 				),
@@ -55,16 +66,18 @@ export const summaryQuery = createRyotQuery<
 export const seriesQuery = createRyotQuery<
 	{
 		readonly range: RangeKey;
+		readonly timeZone: string;
 		readonly metricIds: readonly string[];
 		readonly firstReadings: readonly Pick<MeasurementSummary, "firstAt">[];
 	},
-	readonly MeasurementSeries[]
+	MeasurementSeriesResult
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {
 		const window = seriesWindow(
 			input.range,
 			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
 			input.firstReadings,
+			input.timeZone,
 		);
 		return Effect.map(
 			Effect.forEach(
@@ -74,31 +87,34 @@ export const seriesQuery = createRyotQuery<
 						measurementSeriesRecipe({
 							...window,
 							metricIds,
+							timeZone: input.timeZone,
 							reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 						}),
 					),
 				{ concurrency: 4 },
 			),
-			(batches) => batches.flat(),
+			(batches) => ({ window, series: batches.flat() }),
 		);
 	}),
 );
 
 export const readingsQuery = createRyotQuery<
-	{ readonly range: RangeKey; readonly after: string | undefined },
+	{ readonly range: RangeKey; readonly timeZone: string; readonly after: string | undefined },
 	MeasurementLogPage
 >(({ input, client, schedule }) =>
 	Effect.gen(function* () {
-		const startAt = rangeStartAt(
+		const period = measurementPeriod(
 			input.range,
 			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+			input.timeZone,
 		);
 		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 		const page = yield* client.data.query(
 			measurementEntryListRecipe({
-				startAt,
 				reference,
 				after: input.after,
+				endAt: period?.endAt,
+				startAt: period?.startAt,
 				limit: READING_PAGE_SIZE,
 			}),
 		);

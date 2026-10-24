@@ -1,12 +1,14 @@
+import { resolveReportingSelection } from "@ryot-app/plugin-client-sdk/plugin";
+
+import { countMuscleSets, elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
 import type {
 	WorkoutComparison,
-	WorkoutExerciseTargets,
 	WorkoutListItem,
 	WorkoutPeriodTotals,
 	WorkoutSummary,
 } from "../../shared/workout-list-recipes";
+import type { WorkoutTaxonomy } from "../../shared/workout-taxonomy-recipes";
 import { kilogramsToPounds } from "../../shared/workout-units";
-import { countMuscleSets } from "../workout/details-model";
 import { formatDuration, formatNumber, formatSetMain, parseDate } from "../workout/format";
 
 const DAY_MS = 86_400_000;
@@ -29,14 +31,33 @@ const periodOf = (key: PeriodKey) =>
 
 const iso = (time: number) => new Date(time).toISOString();
 
-export const summaryWindows = (period: PeriodKey, now: Date) => {
-	const end = now.getTime();
-	const span = periodOf(period).days * DAY_MS;
-	return {
-		current: { endAt: iso(end), startAt: iso(end - span) },
-		previous: { endAt: iso(end - span), startAt: iso(end - 2 * span) },
-		days: { endAt: iso(end + DAY_MS), startAt: iso(end - (HEATMAP_WEEKS * 7 + 1) * DAY_MS) },
-	};
+export const summaryWindows = (period: PeriodKey, now: Date, timeZone: string) => {
+	const clock = { timeZone, now: now.getTime() };
+	const { current, previous } = resolveReportingSelection(
+		{
+			grouping: "day",
+			comparison: "previous-period",
+			range: { kind: "rolling", days: periodOf(period).days },
+		},
+		clock,
+	);
+	const today = dateKey(now, timeZone);
+	const { current: days } = resolveReportingSelection(
+		{
+			grouping: "day",
+			comparison: "none",
+			range: {
+				kind: "custom",
+				endDate: today,
+				startDate: shiftKey(today, -(HEATMAP_WEEKS * 7 + 1)),
+			},
+		},
+		clock,
+	);
+	if (current === null || previous === null || days === null) {
+		throw new Error("Workout summary requires bounded reporting periods");
+	}
+	return { days, current, previous };
 };
 
 export const dateKey = (date: Date, timeZone: string) =>
@@ -79,7 +100,7 @@ const compactNumber = new Intl.NumberFormat("en-US", {
 
 export const formatVolume = (kilograms: number, imperial: boolean, compact = false) => {
 	const value = imperial ? kilogramsToPounds(kilograms) : kilograms;
-	return `${(compact ? compactNumber : wholeNumber).format(value)} ${imperial ? "lb" : "kg"}`;
+	return `${(compact ? compactNumber : wholeNumber).format(value)} ${imperial ? "lb" : "kg"} × reps`;
 };
 
 export const plural = (count: number, noun: string) =>
@@ -185,11 +206,8 @@ export const durationOf = (
 	if (item.activeDuration !== null) {
 		return { label: "Duration", value: formatDuration(item.activeDuration) };
 	}
-	const start = parseDate(item.startedAt);
-	const end = parseDate(item.endedAt);
-	return start === null || end === null || end < start
-		? null
-		: { label: "Elapsed", value: formatDuration((end.getTime() - start.getTime()) / 1000) };
+	const elapsed = elapsedWorkoutSeconds(item.startedAt, item.endedAt);
+	return elapsed === null ? null : { label: "Elapsed", value: formatDuration(elapsed) };
 };
 
 export type WorkoutCard = ReturnType<typeof buildWorkoutCards>[number];
@@ -199,13 +217,12 @@ export const buildWorkoutCards = (input: {
 	readonly timeZone: string;
 	readonly imperial: boolean;
 	readonly items: readonly WorkoutListItem[];
+	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
-	readonly targets: readonly WorkoutExerciseTargets[];
 }) => {
 	const { now, imperial, timeZone } = input;
 	const currentYear = dateKey(now, timeZone).slice(0, 4);
 	const comparisons = new Map(input.comparisons.map((comparison) => [comparison.id, comparison]));
-	const targets = new Map(input.targets.map(({ id, targets: items }) => [id, items]));
 	const dayFormat = (sameYear: boolean) =>
 		new Intl.DateTimeFormat("en-US", {
 			timeZone,
@@ -238,10 +255,9 @@ export const buildWorkoutCards = (input: {
 	return input.items.map((item) => {
 		const groups = exerciseGroups(item.sets);
 		const muscles = countMuscleSets(
-			groups.map(({ sets, first }) => ({
-				sets: sets.length,
-				targets: targets.get(first.exerciseId) ?? [],
-			})),
+			input.targets
+				.filter((recorded) => recorded.workoutId === item.id)
+				.map((recorded) => ({ sets: recorded.setCount, targets: recorded.targets.items })),
 		);
 		const lines = groups.map(({ key, sets, first }) => {
 			const best = sets.reduce((current, set) => (outranks(set, current) ? set : current), first);
@@ -260,10 +276,10 @@ export const buildWorkoutCards = (input: {
 			sets: item.setCount,
 			duration: durationOf(item),
 			exercises: item.exerciseCount,
+			personalBests: item.personalBests,
 			top: lines.slice(0, CARD_EXERCISES),
-			personalBests: item.personalBests ?? 0,
 			moreMuscles: Math.max(0, muscles.length - CARD_MUSCLES),
-			moreExercises: Math.max(0, lines.length - CARD_EXERCISES),
+			moreExercises: Math.max(0, item.exerciseCount - CARD_EXERCISES),
 			muscles: muscles.slice(0, CARD_MUSCLES).map(({ name }) => name),
 			comparison: comparisonFor(item, comparisons, currentYear, timeZone),
 			volume: item.volume === null ? null : formatVolume(item.volume, imperial),
@@ -277,9 +293,15 @@ export const formatTotals = (totals: undefined | WorkoutPeriodTotals, imperial: 
 		? null
 		: [
 				plural(totals.workouts, "workout"),
-				totals.activeDuration > 0 ? formatDuration(totals.activeDuration) : null,
-				totals.volume > 0 ? formatVolume(totals.volume, imperial, true) : null,
-				totals.personalBests > 0 ? plural(totals.personalBests, "PR") : null,
+				totals.activeDuration === null
+					? "Active duration unknown"
+					: `${formatDuration(totals.activeDuration)} active`,
+				totals.volume !== null && totals.volume > 0
+					? formatVolume(totals.volume, imperial, true)
+					: null,
+				totals.personalBests !== null && totals.personalBests > 0
+					? plural(totals.personalBests, "personal-best award")
+					: null,
 			]
 				.filter((part) => part !== null)
 				.join(" · ");
@@ -341,15 +363,30 @@ export const buildSummaryTiles = (
 	summary: WorkoutSummary,
 	period: PeriodKey,
 	imperial: boolean,
+	computedReady = true,
 ): readonly {
 	readonly tone: Tone;
 	readonly label: string;
 	readonly value: string;
 	readonly detail: string;
 }[] => {
-	const { current, previous, latestRecord } = summary;
+	const { current, previous } = summary;
+	const volume = computedReady ? current.volume : null;
+	const awards = computedReady ? current.personalBests : null;
+	const latestRecord = awards === null ? null : summary.latestRecord;
 	const weeks = periodOf(period).days / 7;
-	const volumeChange = percentChange(current.volume, previous.volume);
+	const volumeChange = percentChange(volume, previous.volume);
+	const volumeDetail =
+		volumeChange === null
+			? "Nothing to compare yet"
+			: `${formatChange(volumeChange)} vs previous ${periodOf(period).days} days`;
+	let awardDetail =
+		latestRecord === null
+			? "None in this period"
+			: `latest: ${latestRecord.exerciseName} ${formatSetMain(latestRecord.exerciseKind, latestRecord, imperial)}`;
+	if (awards === null) {
+		awardDetail = "Calculated awards unavailable";
+	}
 	return [
 		{
 			tone: "muted",
@@ -359,30 +396,24 @@ export const buildSummaryTiles = (
 		},
 		{
 			tone: "muted",
-			label: "Time trained",
-			value: formatDuration(current.activeDuration),
+			label: "Recorded active duration",
+			value: current.activeDuration === null ? "Unknown" : formatDuration(current.activeDuration),
 			detail:
-				current.timedWorkouts === 0
+				current.timedWorkouts === 0 || current.activeDuration === null
 					? "No timed workouts"
 					: `avg ${formatDuration(current.activeDuration / current.timedWorkouts)}${current.timedWorkouts < current.workouts ? ` · ${current.timedWorkouts} of ${current.workouts} timed` : ""}`,
 		},
 		{
 			label: "Volume",
 			tone: changeTone(volumeChange),
-			value: formatVolume(current.volume, imperial, true),
-			detail:
-				volumeChange === null
-					? "Nothing to compare yet"
-					: `${formatChange(volumeChange)} vs previous ${periodOf(period).days} days`,
+			value: volume === null ? "—" : formatVolume(volume, imperial, true),
+			detail: volume === null ? "Calculated volume unavailable" : volumeDetail,
 		},
 		{
-			label: "Personal records",
-			value: formatNumber(current.personalBests),
+			detail: awardDetail,
+			label: "Personal-best awards",
 			tone: latestRecord === null ? "muted" : "record",
-			detail:
-				latestRecord === null
-					? "None in this period"
-					: `latest: ${latestRecord.exerciseName} ${formatSetMain(latestRecord.exerciseKind, latestRecord, imperial)}`,
+			value: awards === null ? "—" : formatNumber(awards),
 		},
 	];
 };
@@ -390,8 +421,7 @@ export const buildSummaryTiles = (
 export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: string) => {
 	const days = new Map(summary.days.map((day) => [dateKey(new Date(day.at), timeZone), day]));
 	const volumes = [...days.values()]
-		.map(({ volume }) => volume)
-		.filter((volume) => volume > 0)
+		.flatMap(({ volume }) => (volume !== null && volume > 0 ? [volume] : []))
 		.sort((left, right) => left - right);
 	const quartile = (fraction: number) => volumes[Math.floor((volumes.length - 1) * fraction)] ?? 0;
 	const thresholds = [quartile(0.25), quartile(0.5), quartile(0.75)];
@@ -408,7 +438,11 @@ export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: strin
 			if (entry === undefined || entry.workouts === 0) {
 				return { key: day, level: 0 };
 			}
-			return { key: day, level: 1 + thresholds.filter((value) => entry.volume > value).length };
+			return {
+				key: day,
+				level:
+					1 + thresholds.filter((value) => entry.volume !== null && entry.volume > value).length,
+			};
 		});
 		return {
 			key,

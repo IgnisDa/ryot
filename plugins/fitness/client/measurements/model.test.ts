@@ -1,17 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { buildMetricRows, rollingAverage, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import { measurementTrendModel } from "../analytics/reporting-model";
 import {
-	buildMetricRows,
 	formatChange,
 	formatValue,
 	groupByMonth,
 	groupReadings,
-	rangeStartAt,
-	rollingAverage,
+	measurementPeriod,
 	selectPinnedMetrics,
 	seriesWindow,
-	sortMetricRows,
 } from "./model";
 import type { MeasurementLogEntry } from "./queries";
 
@@ -62,22 +61,27 @@ describe("rollingAverage", () => {
 	});
 });
 
-describe("rangeStartAt and seriesWindow", () => {
-	it("starts fixed ranges that many days before now and buckets by day", () => {
-		expect(rangeStartAt("1M", now)).toBe("2026-09-12T12:00:00.000Z");
-		expect(seriesWindow("1Y", now, [])).toEqual({
+describe("measurementPeriod and seriesWindow", () => {
+	it("uses reporting days for fixed ranges and buckets by day", () => {
+		expect(measurementPeriod("1M", now, "UTC")?.startAt).toBe("2026-09-13T00:00:00.000Z");
+		expect(seriesWindow("1Y", now, [], "UTC")).toEqual({
 			bucket: "day",
-			endAt: now.toISOString(),
-			startAt: "2025-10-12T12:00:00.000Z",
+			endAt: "2026-10-13T00:00:00.000Z",
+			startAt: "2025-10-13T00:00:00.000Z",
 		});
 	});
 
 	it("starts All at the earliest reading and buckets by week", () => {
-		const window = seriesWindow("All", now, [
-			summary("a", { firstAt: "2024-05-01T05:00:00.000Z" }),
-			summary("b", { firstAt: "2023-02-01T05:00:00.000Z" }),
-			summary("c"),
-		]);
+		const window = seriesWindow(
+			"All",
+			now,
+			[
+				summary("a", { firstAt: "2024-05-01T05:00:00.000Z" }),
+				summary("b", { firstAt: "2023-02-01T05:00:00.000Z" }),
+				summary("c"),
+			],
+			"UTC",
+		);
 		expect(window).toEqual({
 			bucket: "week",
 			endAt: now.toISOString(),
@@ -85,12 +89,18 @@ describe("rangeStartAt and seriesWindow", () => {
 		});
 	});
 
-	it("clamps All so a week series never exceeds the bucket limit", () => {
-		const window = seriesWindow("All", now, [
-			summary("a", { firstAt: "1990-01-01T00:00:00.000Z" }),
-		]);
-		const weeks = (Date.parse(window.endAt) - Date.parse(window.startAt)) / (7 * 86_400_000);
-		expect(weeks).toBeLessThanOrEqual(900);
+	it("keeps old observations in All by using coarser buckets", () => {
+		const window = seriesWindow(
+			"All",
+			now,
+			[summary("a", { firstAt: "1990-01-01T00:00:00.000Z" })],
+			"UTC",
+		);
+		expect(window).toEqual({
+			bucket: "month",
+			endAt: now.toISOString(),
+			startAt: "1990-01-01T00:00:00.000Z",
+		});
 	});
 });
 
@@ -102,11 +112,51 @@ describe("buildMetricRows", () => {
 				{ metricId: "weight", points: points([70, 72, 74]) },
 				{ metricId: "waist", points: points([80]) },
 			],
+			{ bucket: "day", timeZone: "UTC" },
 		);
 		expect(rows.map(({ change }) => change)).toEqual([2, null, null]);
 		expect(rows[0]?.relativeChange).toBeCloseTo(2 / 70);
-		expect(rows[1]?.relativeChange).toBe(-1);
+		expect(rows[1]?.relativeChange).toBeNull();
 	});
+
+	it.each([
+		["day", "2026-01-01T05:00:00.000Z", "2026-01-05T05:00:00.000Z"],
+		["day", "2026-03-08T05:00:00.000Z", "2026-03-09T04:00:00.000Z"],
+		["day", "2026-11-01T04:00:00.000Z", "2026-11-02T05:00:00.000Z"],
+		["week", "2026-03-02T05:00:00.000Z", "2026-03-16T04:00:00.000Z"],
+		["month", "2026-01-01T05:00:00.000Z", "2026-03-01T05:00:00.000Z"],
+	] as const)(
+		"matches Analytics for Home and All Measurements %s buckets",
+		(bucket, first, last) => {
+			const timeZone = "America/New_York";
+			const averages = [
+				{ value: 70, at: first },
+				{ at: last, value: 74 },
+			];
+			const rows = buildMetricRows(
+				[summary("weight")],
+				[{ points: averages, metricId: "weight" }],
+				{ bucket, timeZone },
+			);
+			const analytics = measurementTrendModel(
+				{
+					period: null,
+					hasMore: false,
+					grouping: bucket,
+					metricId: "weight",
+					points: averages.map((point) => Object.assign({}, point, { unit: "kg", readings: 1 })),
+				},
+				null,
+				timeZone,
+				true,
+			);
+			expect(
+				rows[0]?.trend.filter(({ value }) => value !== null).map(({ value }) => value),
+			).toEqual(
+				analytics.current.buckets.filter(({ value }) => value !== null).map(({ value }) => value),
+			);
+		},
+	);
 });
 
 describe("selectPinnedMetrics", () => {
@@ -133,6 +183,7 @@ describe("sortMetricRows", () => {
 			{ metricId: "Weight", points: points([100, 100, 100, 110]) },
 			{ metricId: "Body fat", points: points([20, 20, 20, 21]) },
 		],
+		{ bucket: "day", timeZone: "UTC" },
 	);
 
 	it.each([

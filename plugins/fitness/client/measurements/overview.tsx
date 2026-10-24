@@ -5,17 +5,15 @@ import clsx from "clsx";
 import { useMemo } from "react";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
+import type { MetricRow } from "../../shared/measurement-metrics";
 import { sectionHeadingClass } from "../exercise/styles";
 import {
-	CHART_GAP_MS,
 	formatChange,
 	formatDay,
 	formatValue,
 	isStale,
-	type MetricRow,
 	type RangeKey,
 	rangePhrase,
-	trendWindow,
 	unitSuffix,
 } from "./model";
 
@@ -63,11 +61,11 @@ export function MetricTiles(props: {
 			aria-label="Pinned metrics"
 			className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 font-ui"
 		>
-			{rows.map(({ trend, change, summary, readings }) => {
-				const { id, name, unit, latestAt, latestValue } = summary;
+			{rows.map(({ trend, change, summary }) => {
+				const { id, name, unit, latestAt, rangeCount, latestValue } = summary;
 				const delta =
 					change === null
-						? `${readings.length} reading${readings.length === 1 ? "" : "s"} in ${rangePhrase(range)}`
+						? `${rangeCount} reading${rangeCount === 1 ? "" : "s"} in ${rangePhrase(range)}`
 						: `${formatChange(change, unit)} over ${rangePhrase(range)}`;
 				return (
 					<button
@@ -118,12 +116,12 @@ export function ChartCard(props: {
 	const { name, unit, latestAt } = selected.summary;
 	const primary = useMemo(
 		() => ({
-			label: name,
 			trend: selected.trend,
-			readings: selected.readings,
+			readings: selected.averages,
+			label: `${name} grouped average`,
 			formatValue: (value: number) => formatValue(value, unit),
 		}),
-		[name, unit, selected.trend, selected.readings],
+		[name, unit, selected.trend, selected.averages],
 	);
 	const compareSeries = useMemo(
 		() =>
@@ -131,8 +129,8 @@ export function ChartCard(props: {
 				? undefined
 				: {
 						trend: compare.trend,
-						readings: compare.readings,
-						label: compare.summary.name,
+						readings: compare.averages,
+						label: `${compare.summary.name} grouped average`,
 						formatValue: (value: number) => formatValue(value, compare.summary.unit),
 					},
 		[compare],
@@ -167,7 +165,7 @@ export function ChartCard(props: {
 						/>
 					</div>
 				</header>
-				{selected.readings.length === 0 ? (
+				{selected.averages.length === 0 ? (
 					<p className="py-16 text-center text-[14px] text-text-muted">
 						No {name.toLowerCase()} readings in{" "}
 						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}.
@@ -178,8 +176,8 @@ export function ChartCard(props: {
 				) : (
 					<>
 						<p className="text-[12.5px] text-text-muted">
-							Line is the {trendWindow(selected.readings.length)}-reading average, dots are
-							readings, and the shaded band spans low to high.
+							Line uses 3- or 7-bucket smoothing within continuous runs. Dots and the shaded
+							low-to-high band show grouped averages. Smoothing restarts after missing buckets.
 							{compare === null ? "" : ` ${compare.summary.name} uses the right axis.`}
 						</p>
 						<TimeSeriesChart
@@ -187,7 +185,7 @@ export function ChartCard(props: {
 							compact={compact}
 							primary={primary}
 							{...(compareSeries === undefined ? {} : { compare: compareSeries })}
-							gapMs={CHART_GAP_MS}
+							gapMs={Number.POSITIVE_INFINITY}
 							ariaLabel={`${name} over ${rangePhrase(range)}`}
 						/>
 					</>

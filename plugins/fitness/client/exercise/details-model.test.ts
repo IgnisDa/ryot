@@ -21,9 +21,11 @@ const month = (iso: string, maxWeight: null | number) => ({
 	volume: null,
 	maxReps: null,
 	maxPace: null,
+	failedSets: 0,
 	maxOneRm: null,
 	duration: null,
 	distance: null,
+	pendingSets: 0,
 	maxDuration: null,
 });
 
@@ -44,6 +46,7 @@ const personalBest = (
 	workoutId: "w",
 	workoutName: "W",
 	workoutStartedAt: null,
+	exerciseKind: "reps_and_weight",
 });
 
 const keys = (kind: Parameters<typeof metricsForKind>[0]) =>
@@ -175,14 +178,14 @@ describe("exercise details model", () => {
 	it("groups targets by role only when roles exist", () => {
 		expect(
 			groupTargets([
-				{ role: null, name: "Lats" },
-				{ role: null, name: "Biceps" },
+				{ id: "lats", role: null, name: "Lats" },
+				{ role: null, id: "biceps", name: "Biceps" },
 			]),
 		).toEqual([{ label: null, names: ["Lats", "Biceps"] }]);
 		expect(
 			groupTargets([
-				{ name: "Chest", role: "primary" },
-				{ name: "Triceps", role: "secondary" },
+				{ id: "chest", name: "Chest", role: "primary" },
+				{ id: "triceps", name: "Triceps", role: "secondary" },
 			]).map((group) => group.label),
 		).toEqual(["Primary", "Secondary"]);
 	});

@@ -2,9 +2,10 @@ import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 
+import { buildMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { MeasurementDialogs, useMeasurementLogger } from "../measurements/measurement-logger";
-import { buildMetricRows, selectPinnedMetrics } from "../measurements/model";
+import { selectPinnedMetrics } from "../measurements/model";
 import { seriesQuery, summaryQuery } from "../measurements/queries";
 import { loggedPhrase, measurementValue } from "./model";
 import { HomeCard, QueryBody, SavedViewLink } from "./section";
@@ -71,13 +72,20 @@ function PinnedTiles(props: {
 }) {
 	const { now, pinned, timeZone } = props;
 	const series = useRyotQuery(seriesQuery, {
+		timeZone,
 		range: "3M",
 		metricIds: pinned.map(({ id }) => id),
 		firstReadings: props.summaries.map(({ firstAt }) => ({ firstAt })),
 	});
+	const rows = new Map(
+		(series.data === undefined
+			? []
+			: buildMetricRows(pinned, series.data.series, { timeZone, bucket: series.data.window.bucket })
+		).map(({ trend, summary }) => [summary.id, trend]),
+	);
 	return (
 		<div className="flex flex-col gap-2">
-			{buildMetricRows(pinned, series.data ?? []).map(({ trend, summary }) => (
+			{pinned.map((summary) => (
 				<div
 					key={summary.id}
 					className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2.5"
@@ -91,9 +99,13 @@ function PinnedTiles(props: {
 							{loggedPhrase(summary.latestAt, now, timeZone)}
 						</span>
 					</div>
-					{series.data === undefined ? null : (
-						<Sparkline tone="accent" points={trend} ariaLabel={`${summary.name} trend`} />
-					)}
+					{rows.has(summary.id) ? (
+						<Sparkline
+							tone="accent"
+							points={rows.get(summary.id) ?? []}
+							ariaLabel={`${summary.name} trend`}
+						/>
+					) : null}
 				</div>
 			))}
 		</div>
