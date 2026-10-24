@@ -164,7 +164,7 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)
 
 const execute = Effect.fn(function* (
 	query: NamedQuery,
-	userId = "owner",
+	userId?: string,
 	language: null | string = null,
 ) {
 	const service = yield* RyotQLService;
@@ -176,7 +176,7 @@ const execute = Effect.fn(function* (
 		}
 	});
 	const result = (yield* service
-		.executeForUser(userId, language, "plugin", { queries: { rows: query } })
+		.executeForUser(userId ?? "owner", language, "plugin", { queries: { rows: query } })
 		.pipe(
 			Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
 			Effect.provideService(References.MinimumLogLevel, "Trace"),

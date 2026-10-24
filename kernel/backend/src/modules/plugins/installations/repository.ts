@@ -237,7 +237,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				row: StoredInstallationRow,
 				properties: Record<string, unknown>,
 				configuredSecretPaths?: ReadonlyArray<string>,
-				allowMissingRequiredSecrets = false,
+				allowMissingRequiredSecrets?: boolean,
 			) {
 				yield* configs.lock(row.pluginId);
 				const [plugin] = yield* database.run((db) =>
@@ -264,7 +264,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					: configs.createForRestore({
 							...revisionInput,
 							configuredSecretPaths,
-							allowMissingRequiredSecrets,
+							allowMissingRequiredSecrets: allowMissingRequiredSecrets ?? false,
 						});
 				const health = row.health === "needs-configuration" ? "ready" : row.health;
 				yield* database.run((db) =>

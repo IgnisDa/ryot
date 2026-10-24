@@ -196,11 +196,11 @@ const committedDatabaseLayer = seedOwner.pipe(
 	Layer.provideMerge(makeConfigProviderLayer()),
 );
 
-const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
+const waitForLockedTransaction = Effect.fn(function* (attempts?: number) {
 	const session = yield* DatabaseSession;
 	return yield* session.run((db) =>
 		Effect.gen(function* () {
-			for (let attempt = 0; attempt < attempts; attempt += 1) {
+			for (let attempt = 0; attempt < (attempts ?? 2_000); attempt += 1) {
 				const [waiting] = yield* db.execute<{ readonly count: number }>(
 					sql`select count(*)::int as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`,
 					"objects",

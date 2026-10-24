@@ -330,7 +330,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			const createRevision = Effect.fn(function* (
 				input: CreateConfigRevisionInput,
 				configuredSecretPaths?: ReadonlyArray<string>,
-				allowMissingRequiredSecrets = false,
+				allowMissingRequiredSecrets?: boolean,
 			) {
 				const encryption = yield* encryptionKey.load;
 				const [revision] = yield* database.run((db) =>
@@ -403,7 +403,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								input.properties,
 								revision.configSchema,
 								configuredSecretPaths,
-								allowMissingRequiredSecrets,
+								allowMissingRequiredSecrets ?? false,
 							);
 				const properties = restored.properties;
 				yield* assetReferences.lock([

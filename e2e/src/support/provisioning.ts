@@ -116,7 +116,7 @@ export function buildApiEnv(input: {
 	s3BucketName: string;
 	extraEnv?: Record<string, string | undefined>;
 }): NodeJS.ProcessEnv {
-	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+	const safeLabel = input.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
 	const logFile =
 		input.extraEnv?.SERVER_LOG_FILE ??
 		`${tmpdir()}/ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`;
@@ -193,9 +193,9 @@ const waitForHealthCheck = (
 export const startApiProcess = Effect.fn("startApiProcess")(function* (
 	env: NodeJS.ProcessEnv,
 	label: string,
-	cwd = "../apps/server",
+	cwd?: string,
 ) {
-	const apiProcess = yield* spawnApiProcess(env, cwd);
+	const apiProcess = yield* spawnApiProcess(env, cwd ?? "../apps/server");
 	yield* waitForHealthCheck(`http://127.0.0.1:${env.PORT}/api/system/health`, label, apiProcess);
 	return apiProcess;
 });

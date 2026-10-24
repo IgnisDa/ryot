@@ -246,9 +246,10 @@ export const collectMediaCsv = Effect.fn(function* (
 		text: string,
 		eventOffset: number,
 	) => { nextEventOffset?: number } & MediaIntegrationAdapterResult,
-	key = "uploadToken",
+	artifactKey?: string,
 	mapRecord?: (text: string, itemIndex: number) => MediaSourceRecord[],
 ) {
+	const key = artifactKey ?? "uploadToken";
 	let bytes: Uint8Array = input.ingestionArtifacts?.captures["carry"]
 		? yield* readMediaCapture("carry")
 		: new Uint8Array();

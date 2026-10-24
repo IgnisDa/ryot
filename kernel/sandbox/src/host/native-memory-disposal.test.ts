@@ -196,7 +196,7 @@ const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
 const nextCall = Effect.fnUntraced(function* (
 	executionId: string,
 	name: string,
-	minimumOffset = 0,
+	minimumOffset?: number,
 ) {
 	const evidence = yield* NativeMemoryEvidence;
 	for (;;) {
@@ -211,7 +211,7 @@ const nextCall = Effect.fnUntraced(function* (
 		const args = call.args;
 		if (isObjectRecord(args)) {
 			const offset = args["offset"];
-			if (typeof offset === "number" && offset >= minimumOffset) {
+			if (typeof offset === "number" && offset >= (minimumOffset ?? 0)) {
 				return;
 			}
 		}

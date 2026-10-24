@@ -106,13 +106,13 @@ const takeThenComplete = (store: PersistedQueue.PersistedQueueStore["Service"]) 
 
 const holdTake = Effect.fnUntraced(function* (
 	store: PersistedQueue.PersistedQueueStore["Service"],
-	maxAttempts = 5,
+	maxAttempts?: number,
 ) {
 	const received = yield* Deferred.make<Effect.Success<ReturnType<typeof takeThenComplete>>>();
 	const finish = yield* Deferred.make<void, string>();
 	const fiber = yield* Effect.forkChild(
 		Effect.scoped(
-			store.take(takeOptions(maxAttempts)).pipe(
+			store.take(takeOptions(maxAttempts ?? 5)).pipe(
 				Effect.tap((item) => Deferred.succeed(received, item)),
 				Effect.andThen(Deferred.await(finish)),
 			),
@@ -383,7 +383,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 					yield* Fiber.await(doomed.fiber);
 				}
 				const failedRecords = yield* call(() => client.lrange(keys.failed, 0, -1));
-				expect(failedRecords.map((record) => JSON.parse(record))).toMatchObject([
+				expect(failedRecords.map((record): unknown => JSON.parse(record))).toMatchObject([
 					{ element, attempts: 2, id: "doomed" },
 				]);
 				expect(yield* redisSnapshot(client, prefix)).toEqual({

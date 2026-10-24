@@ -241,7 +241,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				expectedSelection: null | ReadonlyArray<{ id: RelationshipId }> = null,
 				aggregate: PendingRelationshipMutations["aggregate"] = null,
 				rootDecision: null | MutationReceiptIdentity = null,
-				rootFinal = false,
+				rootFinal?: boolean,
 			) {
 				const pinOf = yield* primitives.verifyWrites(mutations.map(mutationWriteCheck));
 				if (rootDecision) {
@@ -313,8 +313,8 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				const pending = {
 					...scope,
 					aggregate,
-					rootFinal,
 					rootDecision,
+					rootFinal: rootFinal ?? false,
 					items: planned.map(({ blocked: _blocked, validated: _validated, ...item }) => item),
 				} satisfies PendingRelationshipMutations;
 				return {
@@ -629,7 +629,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				expectedSelection?: ReadonlyArray<{ id: RelationshipId }>,
 				aggregate: PendingRelationshipMutations["aggregate"] = null,
 				rootDecision: null | MutationReceiptIdentity = null,
-				rootFinal = false,
+				rootFinal?: boolean,
 			) {
 				yield* assertRootTransaction;
 				const step = yield* transaction(
@@ -640,7 +640,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							expectedSelection ?? null,
 							aggregate,
 							rootDecision,
-							rootFinal,
+							rootFinal ?? false,
 						);
 						if (blocked) {
 							return { pending, _tag: "Blocked" as const };

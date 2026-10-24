@@ -19,7 +19,7 @@ import { EventCreateWorkflow } from "./event-create-workflow";
 import { eventGroupFixture, eventGroupWorkflowLayer } from "./event-groups.test-support";
 import { EventsService } from "./service";
 
-const compound = Effect.fnUntraced(function* (memberCount = 1) {
+const compound = Effect.fnUntraced(function* (memberCount?: number) {
 	const fixture = yield* eventGroupFixture();
 	const input = yield* Schema.decodeUnknownEffect(UserCommand)({
 		relationships: [],
@@ -39,7 +39,7 @@ const compound = Effect.fnUntraced(function* (memberCount = 1) {
 					entity: { kind: "existing", entityId: fixture.subjectId },
 					properties: { position: 0, kind: "primary", evidence: "recorded" },
 				},
-				...Array.from({ length: memberCount }, (_, index) => ({
+				...Array.from({ length: memberCount ?? 1 }, (_, index) => ({
 					session: { kind: "root" },
 					eventSchemaSlug: "member",
 					itemIdentity: `member-${index}`,

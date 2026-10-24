@@ -126,7 +126,7 @@ const catalogLayer = Layer.unwrap(
 	}),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-const seedEntity = Effect.fnUntraced(function* (id: string, contentGeneration = 1) {
+const seedEntity = Effect.fnUntraced(function* (id: string, contentGeneration?: number) {
 	const fixture = yield* EnrichmentCatalogFixture;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
@@ -135,12 +135,12 @@ const seedEntity = Effect.fnUntraced(function* (id: string, contentGeneration = 
 				id,
 				populatedAt,
 				externalId: id,
-				contentGeneration,
 				name: "Canonical name",
 				entitySchemaSlug: "record",
 				providerId: fixture.providerId,
 				properties: canonicalProperties,
 				entitySchemaPluginId: fixture.pluginId,
+				contentGeneration: contentGeneration ?? 1,
 			}),
 	);
 	return EntityId.make(id);

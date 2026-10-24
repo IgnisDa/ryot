@@ -1494,14 +1494,14 @@ const readRows = Effect.fn(function* (
 	reader: Reader,
 	tableName: string,
 	fieldNames: readonly string[],
-	primaryKey = "id",
+	primaryKey?: string,
 ) {
 	const service = yield* RyotQLService;
 	const source = table(tableName, "source");
 	const document = {
 		queries: {
 			rows: rows(source, {
-				orderBy: [ascending(column(source, primaryKey))],
+				orderBy: [ascending(column(source, primaryKey ?? "id"))],
 				fields: fieldNames.map((name) => field(name, column(source, name))),
 			}),
 		},

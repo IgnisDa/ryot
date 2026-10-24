@@ -122,11 +122,11 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)
 
 const execute = Effect.fn(function* (
 	query: NamedQuery,
-	userId = "owner",
+	userId?: string,
 	language: null | string = null,
 ) {
 	const service = yield* RyotQLService;
-	const result = (yield* service.executeForUser(userId, language, "plugin", {
+	const result = (yield* service.executeForUser(userId ?? "owner", language, "plugin", {
 		queries: { rows: query },
 	})).data["rows"];
 	assert(result?.type === "rows");

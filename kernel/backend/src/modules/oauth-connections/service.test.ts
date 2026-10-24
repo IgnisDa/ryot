@@ -267,9 +267,9 @@ const callback = (state: string, overrides: Record<string, string> = {}) =>
 		});
 	});
 
-const connect = Effect.fn(function* (user: UserId, field = "account") {
+const connect = Effect.fn(function* (user: UserId, field?: string) {
 	const service = yield* OAuthConnectionsService;
-	const { state, connectionId } = yield* authorize(user, { field });
+	const { state, connectionId } = yield* authorize(user, { field: field ?? "account" });
 	const secret = fragmentOf(yield* callback(state)).get("secret");
 	assert(secret);
 	yield* service.complete(currentUser(user), connectionId, secret);

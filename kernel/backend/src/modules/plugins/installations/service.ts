@@ -1081,8 +1081,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					userId: UserId,
 					installationId: string,
 					values: Record<string, JsonValue>,
-					reset = false,
-				) => userSettings.save(userId, installationId, values, reset),
+					reset?: boolean,
+				) => userSettings.save(userId, installationId, values, reset ?? false),
 			);
 
 			return {

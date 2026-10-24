@@ -31,13 +31,13 @@ export const captureIntegrationWindow = Effect.fn(function* (
 	source: string,
 	result: MediaIntegrationAdapterResult,
 	carry: null | string,
-	eventIndexBase = 0,
+	eventIndexBase?: number,
 ) {
 	const chunks = [
 		{
 			name: "records.jsonl",
 			contents: serializeMediaRecords(
-				normalizeMediaRecords(result, 0, source, eventIndexBase, "retain"),
+				normalizeMediaRecords(result, 0, source, eventIndexBase ?? 0, "retain"),
 			),
 		},
 	];
