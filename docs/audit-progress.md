@@ -15,7 +15,7 @@
 
 ## Status
 
-**77 implemented, 0 in progress, 6 pending; 3 excluded.**
+**78 implemented, 0 in progress, 5 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -101,7 +101,7 @@
 | C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
 | M01-R1 | Implemented | Use the canonical Metron role accumulator without folding or a second set pass. See this finding's audit commit. |
-| M04-R2 | Pending | Select only consumed episodic-completion fields. |
+| M04-R2 | Implemented | Select only completion-consumer fields in episodic snapshots; retain aggregate signals inside calculations and preserve completion/TTL boundaries. See this finding's audit commit. |
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
 | M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
 | B11-R2 | Pending | Return the locked event revision once. |
@@ -244,3 +244,4 @@
 - B02-R2: backend type, format, and lint checks passed before 94 tests across 11 files; read-only review passed. Readiness uses exact configured-key metadata and does not decrypt; startup and execution continue to authenticate configuration ciphertext.
 - B10-R2: scoped checks passed before 21 tests across four files; final read-only review reported no findings. Removed unused definition-reader modes and staged only the dead reader fixture hunks from the shared saved-view service test; B22-R2 renderer test changes remain unstaged.
 - B22-R2: backend and contract scoped checks passed before 93 tests across 11 files; read-only review passed. Removed custom-renderer identity/publication branches and made saved-view and backup validation exhaustive for kernel/plugin renderers. The service-test changes are the remaining renderer hunks after B10-R2.
+- M04-R2: full media check passed before 51 tests across three files; read-only review passed. Episodic snapshots select only consumed fields; aggregate calculation dependencies and completion/TTL boundaries remain.

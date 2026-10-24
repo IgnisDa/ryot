@@ -24,7 +24,6 @@ type SnapshotFixture = {
 	readonly coverageComplete?: boolean;
 	readonly state: EpisodicLifecycleState;
 	readonly productionStatus?: string | null;
-	readonly coverageStructureValid?: boolean;
 	readonly boundary?: EventOrderTuple | null;
 	readonly requiredEpisodeIds: readonly string[];
 	readonly events: readonly ChildEvent[];
@@ -80,7 +79,6 @@ const rows = (
 
 const snapshotRow = (fixture: SnapshotFixture) => {
 	const boundary = fixture.boundary ?? null;
-	const latest = fixture.events.at(-1);
 	let coverageComplete = false;
 	let coverageClosingEvent: EventOrderTuple | null = null;
 	let agreedConsumedOn: string | null = null;
@@ -120,21 +118,15 @@ const snapshotRow = (fixture: SnapshotFixture) => {
 		allDatesUnknown,
 		agreedConsumedOn,
 		state: fixture.state,
-		id: latest?.id ?? null,
 		boundaryId: boundary?.id ?? null,
-		entityId: latest?.entityId ?? null,
-		createdAt: latest?.createdAt ?? null,
-		occurredAt: latest?.occurredAt ?? null,
 		closingId: coverageClosingEvent?.id ?? null,
 		boundaryCreatedAt: boundary?.createdAt ?? null,
 		boundaryOccurredAt: boundary?.occurredAt ?? null,
-		eventSchemaSlug: latest?.eventSchemaSlug ?? null,
 		parentEntityId: fixture.parentEntityId ?? "show-1",
 		productionStatus: fixture.productionStatus ?? null,
 		coverageComplete: fixture.coverageComplete ?? false,
 		closingCreatedAt: coverageClosingEvent?.createdAt ?? null,
 		closingOccurredAt: coverageClosingEvent?.occurredAt ?? null,
-		coverageStructureValid: fixture.coverageStructureValid ?? true,
 	};
 };
 
@@ -318,23 +310,11 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				requiredEpisodeIds: [],
 				coverageComplete: false,
 				productionStatus: "Ended",
-				coverageStructureValid: false,
 			};
 			const testHost = createHost([fixture]);
 			yield* run(eventContext(), testHost.host);
 			expect(testHost.claims).toEqual([]);
 			expect(testHost.created).toEqual([]);
-			expect(testHost.documents.at(-1)).toMatchObject({
-				queries: {
-					parent: {
-						output: {
-							fields: expect.arrayContaining([
-								expect.objectContaining({ key: "coverageStructureValid" }),
-							]),
-						},
-					},
-				},
-			});
 		}),
 	);
 
@@ -346,7 +326,6 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				requiredEpisodeIds: [],
 				coverageComplete: false,
 				productionStatus: "Ended",
-				coverageStructureValid: false,
 			};
 			const testHost = createHost([fixture]);
 			yield* run(eventContext(), testHost.host);
