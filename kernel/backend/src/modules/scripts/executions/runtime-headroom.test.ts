@@ -42,6 +42,7 @@ import {
 import { SandboxCompiler } from "#modules/scripts/registry/compiler";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
+import { runWorkflowMessageMigrations } from "#platform/db/workflow-message-fence";
 import { RedisService } from "#platform/redis";
 import { ServerRun } from "#platform/server-run";
 import { implementWorkflow } from "#platform/workflow/scope";
@@ -166,8 +167,9 @@ const makeHeadroomLayer = Layer.unwrap(
 				yield* session.run((db) =>
 					applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
 				);
+				yield* runWorkflowMessageMigrations;
 			}),
-		).pipe(Layer.provideMerge(database));
+		).pipe(Layer.provide(PgClientLive), Layer.provideMerge(database));
 		const infrastructure = Layer.mergeAll(
 			Layer.succeed(SandboxHeadroomControl, controlFactory),
 			Layer.succeed(SandboxHeadroomObserver, observerFactory),

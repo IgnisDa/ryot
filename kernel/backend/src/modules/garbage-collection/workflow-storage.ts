@@ -20,9 +20,7 @@ export const WorkflowGarbageCollectionStorageLive = Layer.effect(
 		const session = yield* DatabaseSession;
 		const repository = yield* WorkflowGarbageCollectionRepository;
 		const notifications = yield* WorkflowExecutionNotifications;
-		// TODO: https://github.com/Effect-TS/effect/issues/9321
-		// makeEncoded always runs Effect's migrator; migrate.ts already ran it, so this run is a no-op.
-		const storage = yield* SqlMessageStorage.makeEncoded();
+		const storage = yield* SqlMessageStorage.makeEncodedStorage();
 		return yield* MessageStorage.makeEncoded({
 			...storage,
 			saveReply: (reply) =>
