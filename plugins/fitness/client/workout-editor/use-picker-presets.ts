@@ -16,7 +16,7 @@ const readPresets = (client: RyotClient, pluginId: PluginId) =>
 			return [];
 		}
 		return yield* Schema.decodeUnknownEffect(PickerPresetsSchema)(stored).pipe(
-			Effect.mapError(() => new RyotClientError("malformed-result")),
+			Effect.mapError(() => new RyotClientError({ reason: "malformed-result" })),
 		);
 	});
 

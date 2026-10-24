@@ -29,7 +29,7 @@ const recordingPlatform = (
 			Effect.suspend(() => {
 				events.push("native", url);
 				return options.failAt === "native"
-					? Effect.fail(new RyotClientError("link-open-failed"))
+					? Effect.fail(new RyotClientError({ reason: "link-open-failed" }))
 					: Effect.void;
 			}),
 		openBlank: () => {

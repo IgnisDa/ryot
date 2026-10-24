@@ -15,7 +15,7 @@ import {
 	type PendingAuthorization,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
-import { Context, Data, Effect, Layer, Result, Schema } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { type Authorization, makeAuthorizationState } from "#/modules/auth/authorization";
@@ -51,17 +51,21 @@ const storedTokenSet = (
 	};
 };
 
-export class OAuthTokenError extends Data.TaggedError("OAuthTokenError")<{
-	readonly cause?: unknown;
-	readonly reason:
-		| "invalid-grant"
-		| "invalid-nonce"
-		| "request-failed"
-		| "storage-failed"
-		| "invalid-callback"
-		| "missing-authorization"
-		| "authorization-rejected";
-}> {}
+export class OAuthTokenError extends Schema.TaggedError<
+	OAuthTokenError,
+	{ readonly brand: unique symbol }
+>()("OAuthTokenError", {
+	cause: Schema.optionalKey(Schema.Unknown),
+	reason: Schema.Literals([
+		"invalid-grant",
+		"invalid-nonce",
+		"request-failed",
+		"storage-failed",
+		"invalid-callback",
+		"missing-authorization",
+		"authorization-rejected",
+	]),
+}) {}
 
 const requestFailed = (cause: unknown) => new OAuthTokenError({ cause, reason: "request-failed" });
 
@@ -195,10 +199,10 @@ const makeTokenService = (
 
 	const access = Effect.fn("OAuthTokenService.access")(function* (
 		origin: ServerOrigin,
-		forceRefresh = false,
+		forceRefresh?: boolean,
 	) {
 		const record = authorization.forServer(origin);
-		let refresh = forceRefresh;
+		let refresh = forceRefresh ?? false;
 		for (;;) {
 			const current = yield* load(origin);
 			const result = yield* accessFor(origin, current, refresh).pipe(Effect.result);

@@ -73,7 +73,7 @@ import type { RyotNavigationTarget } from "./navigation-target";
 const normalizeInterest = (interest: EntityWatch): EntityWatch => {
 	const decoded = Schema.decodeResult(EntityWatch)(interest);
 	if (Result.isFailure(decoded)) {
-		throw new RyotClientError("invalid-input");
+		throw new RyotClientError({ reason: "invalid-input" });
 	}
 	const foreground = [...new Set(decoded.success.foreground)].sort();
 	const roots = new Set(foreground);
@@ -91,7 +91,7 @@ const normalizeBackgroundLabel = (label: string) => {
 		isBackgroundSubmissionLabelCharacterAllowed(character) ? character : " ",
 	)
 		.join("")
-		.replace(/\s+/g, " ")
+		.replaceAll(/\s+/g, " ")
 		.trim();
 	if (cleaned.length <= BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) {
 		return cleaned;
@@ -112,7 +112,7 @@ const decodeCapability = <A>(
 ): Effect.Effect<A, RyotClientError> => {
 	const decoded = Schema.decodeUnknownResult(schema)(value);
 	return Result.isFailure(decoded)
-		? Effect.fail(new RyotClientError("malformed-result"))
+		? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
 		: Effect.succeed(decoded.success);
 };
 
@@ -129,10 +129,10 @@ const openScreen = <Request, Outcome>(
 ): Effect.Effect<Outcome, RyotClientError> => {
 	const decoded = Schema.decodeUnknownResult(requestSchema)(request);
 	if (Result.isFailure(decoded)) {
-		return Effect.fail(new RyotClientError("invalid-input"));
+		return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
 	}
 	if (!open) {
-		return Effect.fail(new RyotClientError("unsupported-capability"));
+		return Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
 	}
 	return adapterEffect(() => open(decoded.success)).pipe(
 		Effect.flatMap((outcome) => decodeCapability(outcomeSchema, outcome)),
@@ -176,11 +176,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeUnknownResult(PluginCollectionRequest)(request);
 			if (Result.isFailure(decodedRequest)) {
-				return yield* new RyotClientError("invalid-input");
+				return yield* new RyotClientError({ reason: "invalid-input" });
 			}
 			const mutate = adapter.mutateCollection;
 			if (!mutate) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			const value = yield* adapterEffect(() => mutate(decodedRequest.success));
 			const decoded = yield* decodeCapability(outputSchema, value);
@@ -193,11 +193,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeResult(PluginCalendarSourceVisibilityRequest)(request);
 			if (Result.isFailure(decodedRequest)) {
-				return yield* new RyotClientError("invalid-input");
+				return yield* new RyotClientError({ reason: "invalid-input" });
 			}
 			const setVisibility = adapter.setCalendarSourceVisibility;
 			if (!setVisibility) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			yield* adapterEffect(() => setVisibility(decodedRequest.success));
 			mutationCompleted.hint();
@@ -209,11 +209,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeResult(EntityEditorSaveRequest)(request);
 			if (Result.isFailure(decodedRequest)) {
-				return yield* new RyotClientError("invalid-input");
+				return yield* new RyotClientError({ reason: "invalid-input" });
 			}
 			const save = adapter.saveEntity;
 			if (!save) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			const output = yield* decodeCapability(
 				EntityEditorSaveOutput,
@@ -228,15 +228,15 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
 			if (Result.isFailure(decodedRequest)) {
-				return yield* new RyotClientError("invalid-input");
+				return yield* new RyotClientError({ reason: "invalid-input" });
 			}
 			const access = adapter.accessStorage;
 			if (!access) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			const value = yield* adapterEffect(() => access(decodedRequest.success));
 			if (value !== null && !isJsonValue(value)) {
-				return yield* new RyotClientError("malformed-result");
+				return yield* new RyotClientError({ reason: "malformed-result" });
 			}
 			return value;
 		});
@@ -246,7 +246,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		Effect.gen(function* () {
 			const read = adapter.readUserSettings;
 			if (!read) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			return yield* decodeCapability(
 				Schema.Record(Schema.String, JsonValue),
@@ -257,7 +257,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		function* () {
 			const read = adapter.readReportingPreferences;
 			if (!read) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			return yield* decodeCapability(ReportingPreferences, yield* adapterEffect(read));
 		},
@@ -272,11 +272,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			const enrich = adapter.requestEnrichment;
 			const pluginIdentity = adapter.pluginIdentity;
 			if (!enrich || !pluginIdentity) {
-				return yield* new RyotClientError("unsupported-capability");
+				return yield* new RyotClientError({ reason: "unsupported-capability" });
 			}
 			const entityId = Schema.decodeResult(EntityId)(request.entityId);
 			if (Result.isFailure(entityId)) {
-				return yield* new RyotClientError("invalid-input");
+				return yield* new RyotClientError({ reason: "invalid-input" });
 			}
 			const { pluginId } = yield* Effect.try({
 				catch: asTransportError,
@@ -305,7 +305,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		}
 		const decoded = Schema.decodeUnknownResult(PluginThemeSnapshot)(value);
 		if (Result.isFailure(decoded)) {
-			throw new RyotClientError("malformed-result");
+			throw new RyotClientError({ reason: "malformed-result" });
 		}
 		themeSnapshot = decoded.success;
 		themeSnapshotInput = value;
@@ -313,7 +313,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 	const getThemeSnapshot = () => {
 		if (!adapter.theme) {
-			throw new RyotClientError("unsupported-capability");
+			throw new RyotClientError({ reason: "unsupported-capability" });
 		}
 		try {
 			return decodeThemeSnapshot(adapter.theme.getSnapshot());
@@ -323,7 +323,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 	const navigate = (mode: "push" | "replace", target: RyotNavigationTarget) => {
 		if (!adapter.navigate) {
-			throw new RyotClientError("unsupported-capability");
+			throw new RyotClientError({ reason: "unsupported-capability" });
 		}
 		try {
 			adapter.navigate(mode, target);
@@ -333,7 +333,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 	const navigatePageSearch = (mode: "push" | "replace", update: RyotPageSearchUpdate) => {
 		if (!adapter.navigatePageSearch) {
-			throw new RyotClientError("unsupported-capability");
+			throw new RyotClientError({ reason: "unsupported-capability" });
 		}
 		try {
 			adapter.navigatePageSearch(mode, update);
@@ -375,18 +375,18 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const uploadFile = (action: "temporary" | "permanent", request: FileUploadRequest) =>
 		request.source instanceof Blob
 			? requestUpload({ ...request, action })
-			: Effect.fail(new RyotClientError("invalid-input"));
+			: Effect.fail(new RyotClientError({ reason: "invalid-input" }));
 	const uploadTemporary = (request: FileUploadRequest) =>
 		Effect.flatMap(uploadFile("temporary", request), (result) =>
 			result.action === "temporary"
 				? Effect.succeed(result.token)
-				: Effect.fail(new RyotClientError("malformed-result")),
+				: Effect.fail(new RyotClientError({ reason: "malformed-result" })),
 		);
 	const uploadPermanent = (request: FileUploadRequest) =>
 		Effect.flatMap(uploadFile("permanent", request), (result) =>
 			result.action === "permanent"
 				? Effect.succeed(result.asset)
-				: Effect.fail(new RyotClientError("malformed-result")),
+				: Effect.fail(new RyotClientError({ reason: "malformed-result" })),
 		);
 	const invokeIosLiveActivity = Effect.fnUntraced(function* <A>(
 		request: PluginIosLiveActivityRequest,
@@ -394,11 +394,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	): Effect.fn.Return<A, RyotClientError> {
 		const decoded = Schema.decodeResult(PluginIosLiveActivityRequest)(request);
 		if (Result.isFailure(decoded)) {
-			return yield* new RyotClientError("invalid-input");
+			return yield* new RyotClientError({ reason: "invalid-input" });
 		}
 		const iosLiveActivity = adapter.iosLiveActivity;
 		if (!iosLiveActivity) {
-			return yield* new RyotClientError("unsupported-capability");
+			return yield* new RyotClientError({ reason: "unsupported-capability" });
 		}
 		return yield* decodeCapability(
 			resultSchema,
@@ -416,14 +416,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		screens: { pickEntity, editCollection, addToCollection, manageReminders },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
-				throw new RyotClientError("invalid-request");
+				throw new RyotClientError({ reason: "invalid-request" });
 			}
 			return adapter.pluginIdentity(packageId);
 		},
 		persistence: {
 			registerFlush: (flush: () => Effect.Effect<void, RyotClientError>) => {
 				if (!adapter.registerFlush) {
-					throw new RyotClientError("unsupported-capability");
+					throw new RyotClientError({ reason: "unsupported-capability" });
 				}
 				return adapter.registerFlush(flush);
 			},
@@ -436,11 +436,18 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				replace: (update: RyotPageSearchUpdate) => navigatePageSearch("replace", update),
 			},
 		},
+		storage: {
+			get: (pluginId: PluginId, key: string) => accessStorage({ key, pluginId, action: "get" }),
+			remove: (pluginId: PluginId, key: string) =>
+				Effect.asVoid(accessStorage({ key, pluginId, action: "remove" })),
+			set: (pluginId: PluginId, key: string, value: JsonValue) =>
+				Effect.asVoid(accessStorage({ key, value, pluginId, action: "set" })),
+		},
 		theme: {
 			getSnapshot: getThemeSnapshot,
 			subscribe: (listener: () => void) => {
 				if (!adapter.theme) {
-					throw new RyotClientError("unsupported-capability");
+					throw new RyotClientError({ reason: "unsupported-capability" });
 				}
 				try {
 					return adapter.theme.subscribe(() => {
@@ -452,23 +459,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 			},
 		},
-		storage: {
-			get: (pluginId: PluginId, key: string) => accessStorage({ key, pluginId, action: "get" }),
-			remove: (pluginId: PluginId, key: string) =>
-				Effect.asVoid(accessStorage({ key, pluginId, action: "remove" })),
-			set: (pluginId: PluginId, key: string, value: JsonValue) =>
-				Effect.asVoid(accessStorage({ key, value, pluginId, action: "set" })),
-		},
 		data: {
 			query: <Success>(recipe: PreparedRecipe<Success>): Effect.Effect<Success, RyotClientError> =>
 				Effect.gen(function* () {
 					const response = yield* adapterEffect(() => adapter.query(recipe.document));
 					const decoded = yield* Effect.try({
 						try: () => recipe.decode(response),
-						catch: () => new RyotClientError("malformed-result"),
+						catch: () => new RyotClientError({ reason: "malformed-result" }),
 					});
 					if (Result.isFailure(decoded)) {
-						return yield* new RyotClientError("malformed-result");
+						return yield* new RyotClientError({ reason: "malformed-result" });
 					}
 					return decoded.success;
 				}),
@@ -477,11 +477,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			Effect.gen(function* () {
 				const decoded = Schema.decodeResult(PluginDeviceRequest)(request);
 				if (Result.isFailure(decoded)) {
-					return yield* new RyotClientError("invalid-input");
+					return yield* new RyotClientError({ reason: "invalid-input" });
 				}
 				const device = adapter.device;
 				if (!device) {
-					return yield* new RyotClientError("unsupported-capability");
+					return yield* new RyotClientError({ reason: "unsupported-capability" });
 				}
 				return yield* decodeCapability(
 					PluginDeviceResult,
@@ -493,11 +493,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Effect.gen(function* () {
 					const decoded = Schema.decodeResult(ExternalLinkRequest)(request);
 					if (Result.isFailure(decoded)) {
-						return yield* new RyotClientError("invalid-request");
+						return yield* new RyotClientError({ reason: "invalid-request" });
 					}
 					const open = adapter.openExternalLink;
 					if (!open) {
-						return yield* new RyotClientError("unsupported-capability");
+						return yield* new RyotClientError({ reason: "unsupported-capability" });
 					}
 					const value = yield* adapterEffect(() => open(decoded.success));
 					return yield* decodeCapability(ExternalLinkSuccess, value);
@@ -545,11 +545,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Effect.gen(function* () {
 					const decodedAssets = Schema.decodeResult(ManagedAssetResolutionBatch)(assets);
 					if (Result.isFailure(decodedAssets)) {
-						return yield* new RyotClientError("invalid-input");
+						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
 					const resolve = adapter.resolveAssets;
 					if (!resolve) {
-						return yield* new RyotClientError("unsupported-capability");
+						return yield* new RyotClientError({ reason: "unsupported-capability" });
 					}
 					const value = yield* adapterEffect(() => resolve(decodedAssets.success));
 					const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
@@ -567,7 +567,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 							);
 						})
 					) {
-						return yield* new RyotClientError("malformed-result");
+						return yield* new RyotClientError({ reason: "malformed-result" });
 					}
 					return decoded.success;
 				}),
@@ -581,7 +581,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			): EntityWatchSubscription => {
 				const normalized = normalizeInterest(interest);
 				if (!adapter.watchEntities) {
-					throw new RyotClientError("unsupported-capability");
+					throw new RyotClientError({ reason: "unsupported-capability" });
 				}
 				let disposed = false;
 				try {
@@ -591,7 +591,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						}
 						const decoded = Schema.decodeResult(EntityUpdatedMessage)(value);
 						if (Result.isFailure(decoded)) {
-							throw new RyotClientError("malformed-result");
+							throw new RyotClientError({ reason: "malformed-result" });
 						}
 						onUpdate({ reason: decoded.success.reason, entityId: decoded.success.entityId });
 					});
@@ -610,7 +610,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						update: (next) => {
 							const normalizedNext = normalizeInterest(next);
 							if (disposed) {
-								throw new RyotClientError("disposed");
+								throw new RyotClientError({ reason: "disposed" });
 							}
 							try {
 								subscription.update(normalizedNext);
@@ -628,7 +628,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {
 				const subscribe = adapter.subscribeBackgroundSettled;
 				if (!subscribe) {
-					throw new RyotClientError("unsupported-capability");
+					throw new RyotClientError({ reason: "unsupported-capability" });
 				}
 				return subscribe((value) => {
 					const decoded = Schema.decodeUnknownResult(BackgroundSettlementMessage)(value);
@@ -643,7 +643,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Effect.gen(function* () {
 					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
 						request.input,
-					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
+					).pipe(Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })));
 					const decoded = Schema.decodeResult(PluginBackgroundOperationRequest)({
 						input,
 						operationSlug: request.slug,
@@ -652,11 +652,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						label: normalizeBackgroundLabel(request.label),
 					});
 					if (Result.isFailure(decoded)) {
-						return yield* new RyotClientError("invalid-input");
+						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
 					const submit = adapter.submitBackground;
 					if (!submit) {
-						return yield* new RyotClientError("unsupported-capability");
+						return yield* new RyotClientError({ reason: "unsupported-capability" });
 					}
 					const { operationSlug, ...submission } = decoded.success;
 					const value = yield* adapterEffect(() => submit({ ...submission, slug: operationSlug }));
@@ -671,10 +671,10 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Effect.gen(function* () {
 					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
 						request.input,
-					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
+					).pipe(Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })));
 					const invoke = adapter.invokeOperation;
 					if (!invoke) {
-						return yield* new RyotClientError("unsupported-capability");
+						return yield* new RyotClientError({ reason: "unsupported-capability" });
 					}
 					const value = yield* adapterEffect(() =>
 						invoke({
@@ -687,7 +687,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						}),
 					);
 					if (!isJsonValue(value)) {
-						return yield* new RyotClientError("malformed-result");
+						return yield* new RyotClientError({ reason: "malformed-result" });
 					}
 					const decoded = yield* decodeCapability(request.output, value);
 					if (request.refreshOnSuccess !== false) {

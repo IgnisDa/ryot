@@ -50,7 +50,7 @@ export const readEditorExercises = Effect.fnUntraced(function* (
 				);
 				const overrides = yield* Schema.decodeEffect(WorkoutExerciseOverridesSchema)(
 					membership?.properties ?? {},
-				).pipe(Effect.mapError(() => new RyotClientError("malformed-result")));
+				).pipe(Effect.mapError(() => new RyotClientError({ reason: "malformed-result" })));
 				const targets = yield* readCursorPages((after) =>
 					client.data.query(
 						exerciseTargetsRecipe({ after, reference, limit: 100, exerciseId: exercise.id }),
@@ -96,7 +96,7 @@ export const loadEditorSource = Effect.fnUntraced(function* (
 		}),
 	);
 	if (entity === null) {
-		return yield* new RyotClientError("invalid-input");
+		return yield* new RyotClientError({ reason: "invalid-input" });
 	}
 	const sets =
 		input.kind === "workout"
@@ -113,8 +113,10 @@ export const loadEditorSource = Effect.fnUntraced(function* (
 			: yield* Schema.decodeUnknownEffect(
 					Schema.Array(Schema.Struct({ exerciseId: Schema.String })),
 				)(templateExerciseProperties).pipe(
-					Effect.map((rows) => rows.map(({ exerciseId }) => exerciseId)),
-					Effect.mapError(() => new RyotClientError("malformed-result")),
+					Effect.mapBoth({
+						onSuccess: (rows) => rows.map(({ exerciseId }) => exerciseId),
+						onFailure: () => new RyotClientError({ reason: "malformed-result" }),
+					}),
 				);
 	const exercises = yield* readEditorExercises(client, [...new Set(sourceIds)]);
 	return hydrateWorkoutEditorSource({ ...input, exercises, baseline: { sets, entity } });

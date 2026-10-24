@@ -2,25 +2,29 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isAppPropertyRequired } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 
-export type SchemaEvolutionIssue = {
-	readonly path: string;
-	readonly code:
-		| "enum_narrowed"
-		| "schema_changed"
-		| "schema_removed"
-		| "property_changed"
-		| "property_removed"
-		| "property_type_changed"
-		| "required_property_added";
-};
+export const SchemaEvolutionIssue = Schema.Struct({
+	path: Schema.String,
+	code: Schema.Literals([
+		"enum_narrowed",
+		"schema_changed",
+		"schema_removed",
+		"property_changed",
+		"property_removed",
+		"property_type_changed",
+		"required_property_added",
+	]),
+});
+
+export type SchemaEvolutionIssue = typeof SchemaEvolutionIssue.Type;
 
 type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
 
-export class SchemaEvolutionError extends Data.TaggedError("SchemaEvolutionError")<{
-	readonly issues: ReadonlyArray<SchemaEvolutionIssue>;
-}> {}
+export class SchemaEvolutionError extends Schema.TaggedError<
+	SchemaEvolutionError,
+	{ readonly brand: unique symbol }
+>()("SchemaEvolutionError", { issues: Schema.Array(SchemaEvolutionIssue) }) {}
 
 const structuralProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {

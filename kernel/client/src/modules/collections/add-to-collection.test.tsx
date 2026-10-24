@@ -32,7 +32,7 @@ const mountManager = (
 			Effect.suspend(() => {
 				requests.push(request);
 				if (options.failFirstSave && attempts++ === 0) {
-					return Effect.fail(new RyotClientError("transport"));
+					return Effect.fail(new RyotClientError({ reason: "transport" }));
 				}
 				if (request.action === "upsert-membership") {
 					properties = request.input.properties;

@@ -2,7 +2,7 @@ import { PgClient } from "@effect/sql-pg";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
-import { Cause, Context, Data, Effect, Layer, Pool } from "effect";
+import { Cause, Context, Effect, Layer, Pool, Schema } from "effect";
 import { ConnectionError, SqlError } from "effect/sql/SqlError";
 
 import { mapDatabaseErrors } from "./errors";
@@ -12,9 +12,12 @@ export const DatabaseConnectionLimit = Context.Reference<
 	undefined | Pool.Pool<PgClient.PgClient, SqlError>
 >("DatabaseSession.ConnectionLimit", { defaultValue: () => undefined });
 
-export class DatabaseSessionStateError extends Data.TaggedError("DatabaseSessionStateError")<{
-	readonly reason: "transaction-required" | "transaction-already-active";
-}> {}
+export class DatabaseSessionStateError extends Schema.TaggedError<
+	DatabaseSessionStateError,
+	{ readonly brand: unique symbol }
+>()("DatabaseSessionStateError", {
+	reason: Schema.Literals(["transaction-required", "transaction-already-active"]),
+}) {}
 
 export const userWriteLockStatement = (userId: UserId) => (db: PgDrizzle.EffectPgDatabase) =>
 	db.execute(sql`select pg_advisory_xact_lock(hashtext(${`user-write:${userId}`}))`);

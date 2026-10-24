@@ -1,4 +1,4 @@
-import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { OperationManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
@@ -19,7 +19,9 @@ export const defineOperation = <
 	"run"
 > => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });
 
-export class OperationRejectedError extends Error {
-	readonly _tag = "OperationRejectedError";
+export class OperationRejectedError extends Schema.TaggedError<
+	OperationRejectedError,
+	{ readonly brand: unique symbol }
+>()("OperationRejectedError", { message: Schema.String }) {
 	readonly data = { code: "operation-rejected" } as const;
 }

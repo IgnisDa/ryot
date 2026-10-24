@@ -19,7 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { CryptoHasher } from "bun";
-import { Context, Data, DateTime, Duration, Effect, Layer, Option, Result, Schema } from "effect";
+import { Context, DateTime, Duration, Effect, Layer, Option, Result, Schema } from "effect";
 
 import {
 	IntegrationProviderCatalog,
@@ -58,13 +58,17 @@ type CipherOwner = { readonly id: string; readonly userId: string };
 type CipherColumn = "code" | "accessToken" | "codeVerifier" | "refreshToken";
 
 type OAuthConfigAuthority = Pick<RegisteredIntegrationProvider, "configContext" | "installationId">;
-class OAuthAccessTokenError extends Data.TaggedError("OAuthAccessTokenError")<{
-	readonly message: (typeof OAUTH_ACCESS_TOKEN_MESSAGES)[keyof typeof OAUTH_ACCESS_TOKEN_MESSAGES];
-}> {}
+class OAuthAccessTokenError extends Schema.TaggedError<
+	OAuthAccessTokenError,
+	{ readonly brand: unique symbol }
+>()("OAuthAccessTokenError", {
+	message: Schema.Literals(Object.values(OAUTH_ACCESS_TOKEN_MESSAGES)),
+}) {}
 
-export class OAuthConnectionBindingError extends Data.TaggedError("OAuthConnectionBindingError")<{
-	readonly field: string;
-}> {}
+export class OAuthConnectionBindingError extends Schema.TaggedError<
+	OAuthConnectionBindingError,
+	{ readonly brand: unique symbol }
+>()("OAuthConnectionBindingError", { field: Schema.String }) {}
 
 const randomToken = () =>
 	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");

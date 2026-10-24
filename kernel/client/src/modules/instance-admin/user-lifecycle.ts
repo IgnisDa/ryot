@@ -1,6 +1,6 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { UserLifecycleOperation } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
-import { Data, Effect, Match, Option, Schedule } from "effect";
+import { Effect, Match, Option, Schedule, Schema } from "effect";
 
 import type { AdminApiError } from "#/api/admin";
 import type { InstanceAdminQueryError } from "#/api/instance-admin";
@@ -21,9 +21,10 @@ class UserLifecycleOperationPending {
 	readonly _tag = "UserLifecycleOperationPending";
 }
 
-export class InstanceAdminOperationNotFound extends Data.TaggedError(
-	"InstanceAdminOperationNotFound",
-)<{ readonly operationId: string }> {}
+export class InstanceAdminOperationNotFound extends Schema.TaggedError<
+	InstanceAdminOperationNotFound,
+	{ readonly brand: unique symbol }
+>()("InstanceAdminOperationNotFound", { operationId: Schema.String }) {}
 
 const operationOutcome = (operation: InstanceAdminUserLifecycleOperation) =>
 	Match.value(operation.status).pipe(

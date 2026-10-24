@@ -1,4 +1,4 @@
-import { Data, Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 
 export type SourceWalkBudget = { files: number; totalBytes: number };
@@ -9,11 +9,14 @@ export interface SourceWalkLimits {
 	readonly maxTotalBytes: number;
 }
 
-export class SourceWalkError extends Data.TaggedError("SourceWalkError")<{
-	readonly path: string;
-	readonly message: string;
-	readonly reason: "file-limit" | "size-limit" | "depth-limit" | "symbolic-link";
-}> {}
+export class SourceWalkError extends Schema.TaggedError<
+	SourceWalkError,
+	{ readonly brand: unique symbol }
+>()("SourceWalkError", {
+	path: Schema.String,
+	message: Schema.String,
+	reason: Schema.Literals(["file-limit", "size-limit", "depth-limit", "symbolic-link"]),
+}) {}
 
 export const createSourceWalkBudget = (): SourceWalkBudget => ({ files: 0, totalBytes: 0 });
 

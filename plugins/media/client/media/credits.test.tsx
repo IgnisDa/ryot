@@ -102,7 +102,7 @@ describe("credit lists", () => {
 					query: () => {
 						requests += 1;
 						return requests === 1
-							? Effect.fail(new RyotClientError("transport"))
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: Effect.succeed({
 									data: { people: rowsResult([], { limit: 30, hasMore: false, nextCursor: null }) },
 								});

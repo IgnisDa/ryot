@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
 import { clientDeclarationHash } from "@ryot-app/plugin-client-contract";
-import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
+import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const decoder = new TextDecoder();
@@ -44,7 +44,10 @@ const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<stri
 	return { stdout, stderr, exitCode };
 });
 
-class CliOutputTimeout extends Data.TaggedError("CliOutputTimeout")<{ readonly message: string }> {}
+class CliOutputTimeout extends Schema.TaggedError<
+	CliOutputTimeout,
+	{ readonly brand: unique symbol }
+>()("CliOutputTimeout", { message: Schema.String }) {}
 
 const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean, E>) {
 	for (let attempt = 0; attempt < 150; attempt++) {

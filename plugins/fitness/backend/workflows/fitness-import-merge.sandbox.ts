@@ -3,6 +3,7 @@ import {
 	defineManifest,
 	defineWorkflow,
 	Effect,
+	Schema,
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
@@ -15,9 +16,10 @@ export const manifest = defineManifest({
 	name: "Merge Fitness import captures",
 });
 
-export class FitnessMergeError extends Error {
-	readonly _tag = "FitnessMergeError";
-}
+export class FitnessMergeError extends Schema.TaggedError<
+	FitnessMergeError,
+	{ readonly brand: unique symbol }
+>()("FitnessMergeError", { message: Schema.String }) {}
 
 export default defineWorkflow({
 	manifest,
@@ -50,7 +52,7 @@ export default defineWorkflow({
 				const handle = result.chunkHandles[0];
 				if (!handle) {
 					return yield* Effect.fail(
-						new FitnessMergeError("Fitness merge did not return a capture"),
+						new FitnessMergeError({ message: "Fitness merge did not return a capture" }),
 					);
 				}
 				yield* replay.child(`capture:${id}`, genericImportCaptureReference, {

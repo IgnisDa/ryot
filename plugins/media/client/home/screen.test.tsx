@@ -68,7 +68,7 @@ const homeAdapter = (input: {
 					return Effect.never;
 				}
 				if (gate === "error") {
-					return Effect.fail(new RyotClientError("transport"));
+					return Effect.fail(new RyotClientError({ reason: "transport" }));
 				}
 				return Effect.succeed({ data: { library: libraryCount(gate) } });
 			}
@@ -333,7 +333,7 @@ describe("home gate", () => {
 				...home.adapter,
 				query: (document) =>
 					Object.hasOwn(document.queries, "titles.anime")
-						? Effect.fail(new RyotClientError("transport"))
+						? Effect.fail(new RyotClientError({ reason: "transport" }))
 						: home.adapter.query(document),
 			});
 			yield* Effect.promise(() =>

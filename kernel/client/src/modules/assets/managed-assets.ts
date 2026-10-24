@@ -10,16 +10,17 @@ import type {
 	PluginAssetOutcome,
 	PluginManagedAssetResolution,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { resolveApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 
-export class ManagedAssetResolutionError extends Data.TaggedError("ManagedAssetResolutionError")<{
-	readonly cause: unknown;
-}> {}
+export class ManagedAssetResolutionError extends Schema.TaggedError<
+	ManagedAssetResolutionError,
+	{ readonly brand: unique symbol }
+>()("ManagedAssetResolutionError", { cause: Schema.Unknown }) {}
 
 const isDeclaredFailure = Schema.is(
 	Schema.Union([AuthRateLimited, AuthUnauthorized, UploadBadRequest, UploadInternalError]),
@@ -53,10 +54,14 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				if (assets.length === 0) {
 					return [];
 				}
-				return yield* api.resolveDownloads(scope, { payload: { assets: [...assets] } }).pipe(
-					Effect.map((response) => mapManagedAssetResolutions(scope, response)),
-					Effect.mapError((error) => new ManagedAssetResolutionError({ cause: error.cause })),
-				);
+				return yield* api
+					.resolveDownloads(scope, { payload: { assets: [...assets] } })
+					.pipe(
+						Effect.mapBoth({
+							onSuccess: (response) => mapManagedAssetResolutions(scope, response),
+							onFailure: (error) => new ManagedAssetResolutionError({ cause: error.cause }),
+						}),
+					);
 			});
 			const outcome = (
 				scope: ApiScope,

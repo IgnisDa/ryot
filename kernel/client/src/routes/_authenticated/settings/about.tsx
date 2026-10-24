@@ -17,8 +17,10 @@ const serverVersionQuery = createRyotQuery<void, string, KernelHostServices>(({ 
 		.runSync(PublicApi)
 		.getSystemConfig(hostServices.scope.serverUrl)
 		.pipe(
-			Effect.map((config) => config.version),
-			Effect.mapError(() => new RyotClientError("transport")),
+			Effect.mapBoth({
+				onSuccess: (config) => config.version,
+				onFailure: () => new RyotClientError({ reason: "transport" }),
+			}),
 		),
 );
 

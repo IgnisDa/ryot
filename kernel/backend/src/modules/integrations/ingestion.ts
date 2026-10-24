@@ -14,7 +14,7 @@ import {
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Data, DateTime, Effect, Exit, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Exit, Layer, Schema } from "effect";
 
 import {
 	genericIngestionBatchResult,
@@ -41,9 +41,10 @@ import { DatabaseSession } from "#platform/db/session";
 import type { IntegrationWebhookDelivery } from "./jobs";
 import type { IntegrationRecord } from "./repository";
 
-export class IntegrationConfirmationError extends Data.TaggedError("IntegrationConfirmationError")<{
-	readonly message: string;
-}> {}
+export class IntegrationConfirmationError extends Schema.TaggedError<
+	IntegrationConfirmationError,
+	{ readonly brand: unique symbol }
+>()("IntegrationConfirmationError", { message: Schema.String }) {}
 
 export class IntegrationIngestion extends Context.Service<IntegrationIngestion>()(
 	"IntegrationIngestion",

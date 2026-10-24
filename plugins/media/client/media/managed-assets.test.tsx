@@ -70,7 +70,7 @@ describe("ManagedAssetImage", () => {
 		Effect.gen(function* () {
 			const adapter: Partial<RyotClientAdapter> = {
 				query: () => Effect.succeed({}),
-				resolveAssets: () => Effect.fail(new RyotClientError("transport")),
+				resolveAssets: () => Effect.fail(new RyotClientError({ reason: "transport" })),
 			};
 			const asset = { type: "s3", key: "cover" } as const;
 			const { unmount, container } = mountRyotClient(

@@ -218,7 +218,7 @@ describe("Effect-native client capabilities", () => {
 			for (const reason of ["activation-required", "link-open-failed"] as const) {
 				const failing = createRyotClient(
 					createTestRyotAdapter({
-						openExternalLink: () => Effect.fail(new RyotClientError(reason)),
+						openExternalLink: () => Effect.fail(new RyotClientError({ reason: reason })),
 					}),
 				);
 				expect(
@@ -332,7 +332,7 @@ describe("Effect-native client capabilities", () => {
 
 	it.live("preserves tagged failures and normalizes unexpected adapter failures", () =>
 		Effect.gen(function* () {
-			const failure = new RyotClientError("asset-failed");
+			const failure = new RyotClientError({ reason: "asset-failed" });
 			const canonical = createRyotClient(
 				createTestRyotAdapter({ resolveAssets: () => Effect.fail(failure) }),
 			);
@@ -377,7 +377,7 @@ describe("Effect-native client capabilities", () => {
 
 			const failed = createRyotClient(
 				createTestRyotAdapter({
-					iosLiveActivity: () => Effect.fail(new RyotClientError("transport")),
+					iosLiveActivity: () => Effect.fail(new RyotClientError({ reason: "transport" })),
 				}),
 			);
 			expect(yield* Effect.flip(failed.iosLiveActivities.availability(request))).toMatchObject({
@@ -566,7 +566,7 @@ describe("Effect-native client capabilities", () => {
 		subscription.dispose();
 		expect(disposed).toBe(1);
 		expect(() => subscription.update({ visible: [], foreground: [] })).toThrow(
-			new RyotClientError("disposed"),
+			new RyotClientError({ reason: "disposed" }),
 		);
 	});
 });

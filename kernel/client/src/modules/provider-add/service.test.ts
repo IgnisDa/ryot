@@ -133,7 +133,9 @@ const dataClient = (queries: unknown[]) =>
 
 const failingDataClient = () =>
 	createRyotClient(
-		createTestRyotAdapter({ query: () => Effect.fail(new RyotClientError("transport")) }),
+		createTestRyotAdapter({
+			query: () => Effect.fail(new RyotClientError({ reason: "transport" })),
+		}),
 	);
 
 describe("ProviderAddService", () => {

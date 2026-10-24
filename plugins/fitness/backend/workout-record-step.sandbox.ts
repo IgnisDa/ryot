@@ -36,9 +36,10 @@ type WorkoutRecordRow = WorkoutRecordRowsResult["items"][number];
 type EventStreamStepResult = Schema.Schema.Type<typeof EventStreamStepOutput>;
 type WorkoutRecordCheckpoint = Schema.Schema.Type<typeof WorkoutRecordCheckpointSchema>;
 
-class WorkoutRecordStepError extends Error {
-	readonly _tag = "WorkoutRecordStepError";
-}
+class WorkoutRecordStepError extends Schema.TaggedError<
+	WorkoutRecordStepError,
+	{ readonly brand: unique symbol }
+>()("WorkoutRecordStepError", { message: Schema.String }) {}
 
 const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 	maxima: {},
@@ -98,9 +99,9 @@ const makeOutput = (
 		)(checkpoint);
 		const checkpointBytes = new TextEncoder().encode(checkpointJson).byteLength;
 		if (checkpointBytes > checkpointLimit) {
-			return yield* Effect.fail(
-				new WorkoutRecordStepError("Workout record checkpoint exceeds 16 KiB"),
-			);
+			return yield* new WorkoutRecordStepError({
+				message: "Workout record checkpoint exceeds 16 KiB",
+			});
 		}
 		const checkpointValue = yield* Schema.encodeEffect(
 			Schema.toCodecJson(WorkoutRecordCheckpointSchema),
@@ -144,7 +145,7 @@ export default defineScript({
 			const processed = recordPage(page.items, checkpoint, input.dirtyFrom);
 			const cursor = nextCursor(page);
 			if (page.pageInfo.hasMore && cursor === null) {
-				return yield* Effect.fail(new WorkoutRecordStepError("Workout record page has no cursor"));
+				return yield* new WorkoutRecordStepError({ message: "Workout record page has no cursor" });
 			}
 			const nextCheckpoint: WorkoutRecordCheckpoint = page.pageInfo.hasMore
 				? {

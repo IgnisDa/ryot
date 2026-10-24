@@ -154,7 +154,7 @@ describe("media episode pages", () => {
 	it.live("keeps a page failure behind stable copy", () =>
 		Effect.gen(function* () {
 			const view = mountRyotClient(
-				{ query: () => Effect.fail(new RyotClientError("transport")) },
+				{ query: () => Effect.fail(new RyotClientError({ reason: "transport" })) },
 				<Pages />,
 			);
 			yield* Effect.promise(() => flushRyotClient());

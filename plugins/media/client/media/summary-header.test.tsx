@@ -79,7 +79,7 @@ it.live(
 					openExternalLink: ({ url }) =>
 						Effect.gen(function* () {
 							opened.push(url);
-							return yield* new RyotClientError("unsupported-capability");
+							return yield* new RyotClientError({ reason: "unsupported-capability" });
 						}),
 				},
 				<MediaExternalLink label="Website" href="https://example.test" />,

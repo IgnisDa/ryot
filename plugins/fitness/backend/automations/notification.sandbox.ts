@@ -12,9 +12,10 @@ export const manifest = defineManifest({
 
 const workoutCreatedPropertiesSchema = Schema.Struct({ workoutName: Schema.String });
 
-class FitnessNotificationError extends Error {
-	readonly _tag = "FitnessNotificationError";
-}
+class FitnessNotificationError extends Schema.TaggedError<
+	FitnessNotificationError,
+	{ readonly brand: unique symbol }
+>()("FitnessNotificationError", { message: Schema.String }) {}
 
 export default defineAutomation({
 	manifest,
@@ -22,20 +23,23 @@ export default defineAutomation({
 		Effect.gen(function* () {
 			const signal = automation.payload;
 			if (signal.resource !== "signal") {
-				return yield* Effect.fail(
-					new FitnessNotificationError("Signal notification requires a signal source"),
-				);
+				return yield* new FitnessNotificationError({
+					message: "Signal notification requires a signal source",
+				});
 			}
 			if (signal.signalSchemaSlug !== "workout.created") {
-				return yield* Effect.fail(
-					new FitnessNotificationError(`Unsupported signal schema: ${signal.signalSchemaSlug}`),
-				);
+				return yield* new FitnessNotificationError({
+					message: `Unsupported signal schema: ${signal.signalSchemaSlug}`,
+				});
 			}
 			const properties = yield* Schema.decodeUnknownEffect(workoutCreatedPropertiesSchema)(
 				signal.properties,
 			).pipe(
 				Effect.mapError(
-					() => new FitnessNotificationError("Signal property workoutName must be a string"),
+					() =>
+						new FitnessNotificationError({
+							message: "Signal property workoutName must be a string",
+						}),
 				),
 			);
 			return yield* host.sendNotification(`Workout ${properties.workoutName} was created`);

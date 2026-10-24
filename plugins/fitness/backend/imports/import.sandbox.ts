@@ -11,6 +11,7 @@ import {
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
+	Schema,
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
@@ -32,9 +33,10 @@ export const manifest = defineManifest({
 	slug: "workflow.import",
 });
 
-export class FitnessWorkflowError extends Error {
-	readonly _tag = "FitnessWorkflowError";
-}
+export class FitnessWorkflowError extends Schema.TaggedError<
+	FitnessWorkflowError,
+	{ readonly brand: unique symbol }
+>()("FitnessWorkflowError", { message: Schema.String }) {}
 
 const applicationReference = defineWorkflowReference({
 	input: FitnessApplicationInput,
@@ -74,7 +76,9 @@ export default defineWorkflow({
 				input.plan.selection["source-parser"] !== expected
 			) {
 				return yield* Effect.fail(
-					new FitnessWorkflowError("Fitness import plan does not match the admitted source"),
+					new FitnessWorkflowError({
+						message: "Fitness import plan does not match the admitted source",
+					}),
 				);
 			}
 			const parser = selectExecutable(fitnessParsers, input.plan.selection["source-parser"]);
@@ -208,7 +212,9 @@ export default defineWorkflow({
 						}
 						const merged = yield* sort([prior, incoming], `${prefix}-${level}`);
 						if (!merged) {
-							return yield* Effect.fail(new FitnessWorkflowError("Fitness merge produced no run"));
+							return yield* Effect.fail(
+								new FitnessWorkflowError({ message: "Fitness merge produced no run" }),
+							);
 						}
 						incoming = merged;
 						runs[level] = undefined;
@@ -234,7 +240,7 @@ export default defineWorkflow({
 				const handle = collected.chunkHandles[0];
 				if (!handle) {
 					return yield* Effect.fail(
-						new FitnessWorkflowError("Fitness collection did not return a capture"),
+						new FitnessWorkflowError({ message: "Fitness collection did not return a capture" }),
 					);
 				}
 				const prefix = `source-${page}`;
@@ -246,7 +252,9 @@ export default defineWorkflow({
 				if (collected.carryFile) {
 					const carryHandle = collected.chunkHandles[1];
 					if (!carryHandle) {
-						return yield* Effect.fail(new FitnessWorkflowError("Fitness source carry is missing"));
+						return yield* Effect.fail(
+							new FitnessWorkflowError({ message: "Fitness source carry is missing" }),
+						);
 					}
 					sourceCarry = `${prefix}-carry`;
 					yield* publish(sourceCarry, carryHandle, "collection", {
@@ -300,7 +308,9 @@ export default defineWorkflow({
 					const handle = result.chunkHandles[0];
 					if (!handle) {
 						return yield* Effect.fail(
-							new FitnessWorkflowError("Fitness normalization did not return a capture"),
+							new FitnessWorkflowError({
+								message: "Fitness normalization did not return a capture",
+							}),
 						);
 					}
 					yield* publish(id, handle, "collection", { stage: "normalized", offset: result.offset });
@@ -309,7 +319,7 @@ export default defineWorkflow({
 						const carryHandle = result.chunkHandles[1];
 						if (!carryHandle) {
 							return yield* Effect.fail(
-								new FitnessWorkflowError("Fitness normalization carry is missing"),
+								new FitnessWorkflowError({ message: "Fitness normalization carry is missing" }),
 							);
 						}
 						carry = `${id}-carry`;

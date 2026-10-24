@@ -179,7 +179,7 @@ it.effect("keeps all prior pages and continuation when a refresh fails part-way"
 		);
 		yield* Effect.yieldNow;
 		expect(requests[3]).toMatchObject({ refresh: true, param: "new-second" });
-		resume(requests, 3, Effect.fail(new RyotClientError("transport")));
+		resume(requests, 3, Effect.fail(new RyotClientError({ reason: "transport" })));
 		yield* Fiber.join(refreshing);
 
 		expect(pagination.snapshot().pages).toEqual(previous.pages);
@@ -203,7 +203,7 @@ it.effect("retries a failed append with its saved continuation and refresh flag"
 			startImmediately: true,
 		});
 		expect(requests[1]).toMatchObject({ param: "next", refresh: false });
-		resume(requests, 1, Effect.fail(new RyotClientError("transport")));
+		resume(requests, 1, Effect.fail(new RyotClientError({ reason: "transport" })));
 		yield* Fiber.join(appending);
 		expect(pagination.snapshot().pages).toEqual(previous.pages);
 		expect(pagination.snapshot().nextPageParam).toBe("next");

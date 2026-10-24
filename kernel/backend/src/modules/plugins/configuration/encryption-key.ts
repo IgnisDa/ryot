@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { isNotNull, sql } from "drizzle-orm";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import { DatabaseSession } from "#platform/db/session";
@@ -8,9 +8,10 @@ import { pluginConfigEncryptionKey, pluginConfigRevision } from "#schema/tables/
 import { importRun } from "#schema/tables/imports";
 import { oauthConnection } from "#schema/tables/oauth-connections";
 
-class PluginConfigEncryptionKeyStateError extends Data.TaggedError(
-	"PluginConfigEncryptionKeyStateError",
-)<{ readonly message: string }> {}
+class PluginConfigEncryptionKeyStateError extends Schema.TaggedError<
+	PluginConfigEncryptionKeyStateError,
+	{ readonly brand: unique symbol }
+>()("PluginConfigEncryptionKeyStateError", { message: Schema.String }) {}
 
 export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginConfigEncryptionKeyRepository>()(
 	"PluginConfigEncryptionKeyRepository",

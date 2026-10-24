@@ -1,4 +1,4 @@
-import { Data, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import {
 	API,
@@ -36,9 +36,10 @@ export type TypeScriptProjectOptions = {
 	readonly configuration: TypeScriptProjectConfiguration;
 };
 
-export class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
-	message: string;
-}> {}
+export class TypeScriptProjectError extends Schema.TaggedError<
+	TypeScriptProjectError,
+	{ readonly brand: unique symbol }
+>()("TypeScriptProjectError", { message: Schema.String }) {}
 
 const diagnosticSeverity = (category: DiagnosticCategory) => {
 	if (category === DiagnosticCategory.Warning) {

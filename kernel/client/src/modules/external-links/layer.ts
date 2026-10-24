@@ -11,7 +11,7 @@ const platform = Layer.sync(ExternalLinkPlatform, () => ({
 	openNative: (url: string) =>
 		Effect.tryPromise({
 			try: () => Browser.open({ url }),
-			catch: () => new RyotClientError("link-open-failed"),
+			catch: () => new RyotClientError({ reason: "link-open-failed" }),
 		}),
 	openBlank: () => {
 		const popup = window.open("about:blank", "_blank");

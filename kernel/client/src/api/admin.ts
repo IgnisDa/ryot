@@ -1,6 +1,6 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
@@ -15,7 +15,10 @@ export type AdminApiService = {
 	) => Effect.Effect<A, AdminApiError>;
 };
 
-export class AdminApiError extends Data.TaggedError("AdminApiError")<{ readonly cause: unknown }> {}
+export class AdminApiError extends Schema.TaggedError<
+	AdminApiError,
+	{ readonly brand: unique symbol }
+>()("AdminApiError", { cause: Schema.Unknown }) {}
 
 export const makeAdminApi = (
 	http: HttpClient.HttpClient,

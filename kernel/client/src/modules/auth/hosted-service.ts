@@ -3,7 +3,7 @@ import { Browser } from "@capacitor/browser";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
-import { Context, Data, Deferred, Effect, Layer, Schema } from "effect";
+import { Context, Deferred, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
@@ -15,10 +15,10 @@ type AuthResponse<A> = {
 	readonly error: null | { readonly code?: string; readonly message?: string };
 };
 
-export class HostedAuthError extends Data.TaggedError("HostedAuthError")<{
-	readonly code?: string;
-	readonly message: string;
-}> {}
+export class HostedAuthError extends Schema.TaggedError<
+	HostedAuthError,
+	{ readonly brand: unique symbol }
+>()("HostedAuthError", { message: Schema.String, code: Schema.optionalKey(Schema.String) }) {}
 
 const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standard"]) });
 const InitializationStatusResponse = strictStruct({

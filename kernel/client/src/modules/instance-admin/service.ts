@@ -8,7 +8,7 @@ import {
 	migrationReportRecipe,
 	userLifecycleOperationRecipe,
 } from "@ryot-app/ryotql-recipes/instance-admin";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { InstanceAdminApi } from "#/api/instance-admin";
 import { InstanceAdminSessionService } from "#/modules/instance-admin/session";
@@ -27,13 +27,15 @@ export type InstanceAdminPasswordResetResult = ContractSuccess<
 	"resetUserPassword"
 >;
 
-export class InstanceAdminSessionNotFound extends Data.TaggedError("InstanceAdminSessionNotFound")<{
-	readonly sessionId: string;
-}> {}
+export class InstanceAdminSessionNotFound extends Schema.TaggedError<
+	InstanceAdminSessionNotFound,
+	{ readonly brand: unique symbol }
+>()("InstanceAdminSessionNotFound", { sessionId: Schema.String }) {}
 
-export class InstanceAdminResetResultMissing extends Data.TaggedError(
-	"InstanceAdminResetResultMissing",
-)<{ readonly operationId: string }> {}
+export class InstanceAdminResetResultMissing extends Schema.TaggedError<
+	InstanceAdminResetResultMissing,
+	{ readonly brand: unique symbol }
+>()("InstanceAdminResetResultMissing", { operationId: Schema.String }) {}
 
 export class InstanceAdminService extends Context.Service<InstanceAdminService>()(
 	"InstanceAdminService",

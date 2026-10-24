@@ -116,7 +116,7 @@ describe("media history correction status", () => {
 					...background.adapter,
 					query: () =>
 						shouldFail
-							? Effect.fail(new RyotClientError("transport"))
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: Effect.succeed(response([{ status: "succeeded" }], [{ phase: "done" }])),
 				},
 				<MediaHistoryCorrectionStatus entityId="media-1" refreshActivity={() => undefined} />,

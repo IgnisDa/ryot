@@ -1,7 +1,7 @@
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { and, eq, getTableColumns, type SQL, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/pg-core";
-import { Data, Schema } from "effect";
+import { Schema } from "effect";
 
 import {
 	definitionEntitySchema,
@@ -77,9 +77,10 @@ export const pinnedSignalSchemaRows = (context: DefinitionReadContext) =>
 
 export type DefinitionReadKind = "event" | "entity" | "signal" | "relationship";
 
-export class DefinitionReadUnavailable extends Data.TaggedError("DefinitionReadUnavailable")<{
-	readonly context: DefinitionReadContext;
-}> {}
+export class DefinitionReadUnavailable extends Schema.TaggedError<
+	DefinitionReadUnavailable,
+	{ readonly brand: unique symbol }
+>()("DefinitionReadUnavailable", { context: DefinitionReadContext }) {}
 
 export const pinnedDefinitionSource = (
 	kind: DefinitionReadKind,

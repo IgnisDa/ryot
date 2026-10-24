@@ -2,7 +2,7 @@ import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watc
 import type { EntityWatchSocketTicketResponse } from "@ryot-app/contract/modules/entity-watches/messages";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
+import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
 import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
@@ -10,7 +10,10 @@ import { redisKeys, RedisService } from "#platform/redis";
 
 export const ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS = 30;
 
-export class EntityWatchInvalidTicket extends Data.TaggedError("EntityWatchInvalidTicket") {}
+export class EntityWatchInvalidTicket extends Schema.TaggedError<
+	EntityWatchInvalidTicket,
+	{ readonly brand: unique symbol }
+>()("EntityWatchInvalidTicket", {}) {}
 
 const invalidTicket = () => new EntityWatchInvalidTicket();
 const storeUnavailable = () =>

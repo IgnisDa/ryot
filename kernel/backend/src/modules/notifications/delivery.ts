@@ -1,5 +1,5 @@
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
-import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import { Context, Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig } from "#platform/config/service";
@@ -10,17 +10,20 @@ const PUSHOVER_DEFAULT_APP_TOKEN = "abd1semr21hv1i5j5kfkm23wf1kd4u";
 const AVATAR_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 
-type NotificationDeliveryOutcome = "failed" | "unknown" | "skipped";
+const NotificationDeliveryOutcome = Schema.Literals(["failed", "unknown", "skipped"]);
 
 type NotificationMailerInput = {
 	credentials: { user: string; server: string; password: string };
 	mail: { to: string; from: string; html: string; text: string; subject: string };
 };
 
-export class NotificationDeliveryError extends Data.TaggedError("NotificationDeliveryError")<{
-	message: string;
-	outcome: NotificationDeliveryOutcome;
-}> {}
+export class NotificationDeliveryError extends Schema.TaggedError<
+	NotificationDeliveryError,
+	{ readonly brand: unique symbol }
+>()("NotificationDeliveryError", {
+	message: Schema.String,
+	outcome: NotificationDeliveryOutcome,
+}) {}
 
 const TelegramResponse = Schema.Struct({ ok: Schema.optional(Schema.Boolean) });
 const PushoverResponse = Schema.Struct({ status: Schema.optional(Schema.Int) });

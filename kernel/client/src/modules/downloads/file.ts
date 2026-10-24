@@ -2,14 +2,14 @@ import { Capacitor } from "@capacitor/core";
 import { type DownloadFileOptions, FileTransfer } from "@capacitor/file-transfer";
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { Context, Data, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 export type FileDownloadRequest = { readonly fileName: string } & Pick<DownloadFileOptions, "url">;
 
-export class FileDownloadError extends Data.TaggedError("FileDownloadError")<{
-	readonly cause: unknown;
-	readonly status?: number;
-}> {}
+export class FileDownloadError extends Schema.TaggedError<
+	FileDownloadError,
+	{ readonly brand: unique symbol }
+>()("FileDownloadError", { cause: Schema.Unknown, status: Schema.optionalKey(Schema.Int) }) {}
 
 const NativeHttpError = Schema.Struct({ data: Schema.Struct({ httpStatus: Schema.Finite }) });
 const nativeError = (cause: unknown) => {
@@ -29,7 +29,7 @@ export const makeNativeFileDownload = (ports: {
 }) =>
 	Effect.fn("NativeFileDownload")(function* (request: FileDownloadRequest) {
 		const directory = `ryot-download-${crypto.randomUUID()}`;
-		const fileName = request.fileName.replace(/[\\/]/g, "_");
+		const fileName = request.fileName.replaceAll(/[\\/]/g, "_");
 		yield* Effect.acquireRelease(ports.create(directory), () => ports.remove(directory));
 		const uri = yield* ports.uri(`${directory}/${fileName}`);
 		// Native plugins cannot abort transfers or share sheets; cleanup must wait for their completion.

@@ -26,22 +26,14 @@ import {
 	type PluginClientArtifact,
 	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
-import {
-	Clock,
-	Data,
-	Effect,
-	FileSystem,
-	Layer,
-	Option,
-	Path,
-	Random,
-	Schema,
-	Stream,
-} from "effect";
+import { Clock, Effect, FileSystem, Layer, Option, Path, Random, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-class BuildError extends Data.TaggedError("BuildError")<{ readonly message: string }> {}
+class BuildError extends Schema.TaggedError<BuildError, { readonly brand: unique symbol }>()(
+	"BuildError",
+	{ message: Schema.String },
+) {}
 
 const PackageJson = Schema.Struct({
 	exports: Schema.optional(
@@ -89,17 +81,20 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	const cacheBust = yield* Clock.currentTimeMillis;
 	const cacheBustNonce = yield* Random.nextInt;
 	const manifestModule = yield* Effect.tryPromise({
-		try: () => import(`${manifestUrl.href}?cacheBust=${cacheBust}-${cacheBustNonce}`),
 		catch: (error) =>
 			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
+		try: (): Promise<unknown> =>
+			import(`${manifestUrl.href}?cacheBust=${cacheBust}-${cacheBustNonce}`),
 	});
 
-	return yield* Schema.decodeUnknownEffect(AuthoredPluginManifestSchema)(
-		manifestModule.default,
-	).pipe(
-		Effect.mapError(
-			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
-		),
+	return yield* Schema.decodeUnknownEffect(
+		Schema.Struct({ default: AuthoredPluginManifestSchema }),
+	)(manifestModule).pipe(
+		Effect.mapBoth({
+			onSuccess: (module) => module.default,
+			onFailure: (error) =>
+				new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
+		}),
 	);
 });
 

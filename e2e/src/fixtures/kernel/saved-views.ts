@@ -37,7 +37,7 @@ import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
-import { Data, Effect, Result, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -47,9 +47,10 @@ import { executeRyotQLRecipe } from "./ryotql";
 
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 
-class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
-	readonly message: string;
-}> {}
+class SavedViewFixtureError extends Schema.TaggedError<
+	SavedViewFixtureError,
+	{ readonly brand: unique symbol }
+>()("SavedViewFixtureError", { message: Schema.String }) {}
 
 const entity = table("entity", "entity");
 const properties = column(entity, "properties");

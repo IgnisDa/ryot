@@ -1078,7 +1078,7 @@ it.live("keeps the draft and focus through a failed earlier-episode check and re
 				attempts += 1;
 				return attempts === 1
 					? Deferred.await(failure).pipe(
-							Effect.andThen(Effect.fail(new RyotClientError("query-failed"))),
+							Effect.andThen(Effect.fail(new RyotClientError({ reason: "query-failed" }))),
 						)
 					: Deferred.await(retry).pipe(Effect.andThen(answer(document)));
 			},
@@ -1396,7 +1396,7 @@ it.live("keeps the form open with its draft when the shell refuses the submissio
 			fake: { target: contextTarget({ pages: 300 }) },
 			accept: (attempt) =>
 				attempt === 1
-					? Effect.fail(new RyotClientError("operation-failed"))
+					? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
 					: Effect.succeed(`submission-${attempt}`),
 		});
 		try {
@@ -1705,7 +1705,7 @@ it.live("shows a refused quick submission and lets the user try again", () =>
 			fake: showFake(),
 			accept: (attempt) =>
 				attempt === 1
-					? Effect.fail(new RyotClientError("operation-failed"))
+					? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
 					: Effect.succeed(`submission-${attempt}`),
 		});
 		try {
@@ -1785,7 +1785,7 @@ it.live("re-enables the quick action when the context refresh fails", () =>
 			fake: showFake(),
 			refresh: () =>
 				Deferred.await(release).pipe(
-					Effect.andThen(Effect.fail(new RyotClientError("operation-failed"))),
+					Effect.andThen(Effect.fail(new RyotClientError({ reason: "operation-failed" }))),
 				),
 		});
 		try {

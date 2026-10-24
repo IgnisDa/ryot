@@ -241,7 +241,7 @@ describe("Effect-native React definitions", () => {
 						Effect.suspend(() => {
 							attempts.push(input);
 							return attempts.length === 1
-								? Effect.fail(new RyotClientError("transport"))
+								? Effect.fail(new RyotClientError({ reason: "transport" }))
 								: Effect.succeed(attempts.length >= 3);
 						}),
 				);
@@ -387,7 +387,7 @@ describe("Effect-native React definitions", () => {
 				expect(requests).toHaveLength(2);
 				expect(container.textContent).toBe("loaded");
 				expect(latest).toMatchObject({ isPending: false, isFetching: true, status: "success" });
-				act(() => requests[1]?.resume(Effect.fail(new RyotClientError("transport"))));
+				act(() => requests[1]?.resume(Effect.fail(new RyotClientError({ reason: "transport" }))));
 				yield* Effect.promise(() => waitFor(() => expect(latest?.isError).toBe(true)));
 				expect(container.textContent).toBe("loaded");
 				expect(latest).toMatchObject({ isPending: false, isFetching: false });
@@ -571,7 +571,7 @@ describe("Effect-native React definitions", () => {
 		Effect.gen(function* () {
 			let latest: undefined | RyotMutationResult<string, string>;
 			const mutation = createRyotMutation<string, string>(() =>
-				Effect.fail(new RyotClientError("quota")),
+				Effect.fail(new RyotClientError({ reason: "quota" })),
 			);
 			const View = () => {
 				const result = useRyotMutation(mutation);

@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { Context, Data, Effect, Layer, Option, Redacted, Ref } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Ref, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { makeAppConfigLayer } from "#testing/effect";
@@ -15,7 +15,10 @@ type ResponseForRequest = (request: CapturedRequest) => Response;
 type CapturedMail = Parameters<NotificationMailer["Service"]["send"]>[0]["mail"];
 type CapturedRequest = { url: string; body: string; headers: Record<string, string> };
 
-class TestFetchFailure extends Data.TaggedError("TestFetchFailure")<{ cause: unknown }> {}
+class TestFetchFailure extends Schema.TaggedError<
+	TestFetchFailure,
+	{ readonly brand: unique symbol }
+>()("TestFetchFailure", { cause: Schema.Unknown }) {}
 
 const apprise = { key: "key", kind: "apprise" as const, baseUrl: "http://apprise" };
 const discord = { kind: "discord" as const, webhookUrl: "http://discord/webhook" };

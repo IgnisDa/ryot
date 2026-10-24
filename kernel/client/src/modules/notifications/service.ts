@@ -11,7 +11,7 @@ import {
 	notificationOutcomeRecipe,
 	type NotificationOutcomeResult,
 } from "@ryot-app/ryotql-recipes/notification-delivery";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { NotificationsApi } from "#/api/notifications";
@@ -23,13 +23,15 @@ export const NOTIFICATION_CHANNELS_PAGE_SIZE = 20;
 
 type NotificationChannelsClient = Pick<KernelRyotClient, "data">;
 
-export class NotificationChannelsLoadError extends Data.TaggedError(
-	"NotificationChannelsLoadError",
-)<{ readonly cause: unknown }> {}
+export class NotificationChannelsLoadError extends Schema.TaggedError<
+	NotificationChannelsLoadError,
+	{ readonly brand: unique symbol }
+>()("NotificationChannelsLoadError", { cause: Schema.Unknown }) {}
 
-export class NotificationDeliveryLoadError extends Data.TaggedError(
-	"NotificationDeliveryLoadError",
-)<{ readonly cause: unknown }> {}
+export class NotificationDeliveryLoadError extends Schema.TaggedError<
+	NotificationDeliveryLoadError,
+	{ readonly brand: unique symbol }
+>()("NotificationDeliveryLoadError", { cause: Schema.Unknown }) {}
 
 export const notificationOutcomeQuery = createRyotQuery<
 	string,

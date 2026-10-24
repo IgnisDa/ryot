@@ -199,7 +199,7 @@ describe("ActivitySectionView", () => {
 	it("retries the query from the error state", () => {
 		let retries = 0;
 		const view = mount({
-			...errorQueryResult<ActivityResult>(new RyotClientError("transport")),
+			...errorQueryResult<ActivityResult>(new RyotClientError({ reason: "transport" })),
 			refetch: () => {
 				retries += 1;
 			},
@@ -215,7 +215,7 @@ describe("ActivitySectionView", () => {
 
 	it("keeps showing the last activity when a refresh fails", () => {
 		const view = mount(
-			errorQueryResult(new RyotClientError("transport"), activityResult(activity)),
+			errorQueryResult(new RyotClientError({ reason: "transport" }), activityResult(activity)),
 		);
 
 		expect(getByRole(view.container, "alert").textContent).toContain("could not be refreshed");

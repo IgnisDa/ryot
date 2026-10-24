@@ -22,7 +22,7 @@ const mergeMutation = createRyotMutation<
 	MergeOutput
 >(({ input, client }) =>
 	Schema.decodeEffect(ExerciseMergeInputSchema)(input).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
+		Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
 		Effect.flatMap((payload) =>
 			client.operations.invoke({
 				input: payload,

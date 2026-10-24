@@ -13,7 +13,7 @@ import {
 	OAUTH_NATIVE_APPLICATION_IDS,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";
 import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
@@ -24,7 +24,10 @@ import { AuthRepository } from "./repository";
 
 const Handoff = Schema.Struct({ userId: UserId, authorization: ImpersonationAuthorization });
 
-export class ImpersonationHandoffInvalid extends Data.TaggedError("ImpersonationHandoffInvalid") {}
+export class ImpersonationHandoffInvalid extends Schema.TaggedError<
+	ImpersonationHandoffInvalid,
+	{ readonly brand: unique symbol }
+>()("ImpersonationHandoffInvalid", {}) {}
 
 export class ImpersonationHandoffs extends Context.Service<ImpersonationHandoffs>()(
 	"ImpersonationHandoffs",

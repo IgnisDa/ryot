@@ -1,9 +1,10 @@
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/plugin-backend-sdk/runtime-registry";
-import { Data, Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Schema } from "effect";
 
-export class SandboxRuntimeBuildError extends Data.TaggedError("SandboxRuntimeBuildError")<{
-	readonly message: string;
-}> {}
+export class SandboxRuntimeBuildError extends Schema.TaggedError<
+	SandboxRuntimeBuildError,
+	{ readonly brand: unique symbol }
+>()("SandboxRuntimeBuildError", { message: Schema.String }) {}
 
 const PackageManifest = Schema.fromJsonString(
 	Schema.Struct({ name: Schema.String, version: Schema.optional(Schema.String) }),

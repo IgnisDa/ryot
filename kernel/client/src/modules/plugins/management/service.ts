@@ -9,7 +9,7 @@ import {
 	type PluginInstallationsPage,
 	pluginInstallationsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-installations";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { loadAllPages } from "#/api/load-all-pages";
@@ -40,9 +40,10 @@ export type PluginManagementAction =
 			readonly installation: ManagedPluginInstallation;
 	  };
 
-export class PluginManagementError extends Data.TaggedError("PluginManagementError")<{
-	readonly detail: string;
-}> {}
+export class PluginManagementError extends Schema.TaggedError<
+	PluginManagementError,
+	{ readonly brand: unique symbol }
+>()("PluginManagementError", { detail: Schema.String }) {}
 
 const DeclaredPluginFailure = Schema.Union([
 	PluginConflictError,

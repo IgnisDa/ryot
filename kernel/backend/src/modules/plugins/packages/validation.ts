@@ -15,10 +15,10 @@ import {
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
 	type SandboxHostCapability,
 } from "@ryot-app/contract/modules/scripts/wire";
-import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Cron, Data, Effect, Result, Schema } from "effect";
+import { Cron, Effect, Result, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
@@ -27,9 +27,10 @@ import {
 } from "#modules/definitions/properties/runtime";
 import type { DefinitionSnapshot } from "#modules/definitions/snapshot";
 
-export class PluginValidationError extends Data.TaggedError("PluginValidationError")<{
-	readonly issues: ReadonlyArray<string>;
-}> {}
+export class PluginValidationError extends Schema.TaggedError<
+	PluginValidationError,
+	{ readonly brand: unique symbol }
+>()("PluginValidationError", { issues: Schema.Array(Schema.String) }) {}
 
 const reservedPluginPublisher = "ryot";
 const inputRepairCapabilities = new Set<SandboxHostCapability>([
@@ -83,13 +84,15 @@ export const validatePluginScriptEntries = (manifest: PluginManifestValue) =>
 		return yield* Effect.void;
 	});
 
-export class PluginSurfaceError extends Data.TaggedError("PluginSurfaceError")<{
-	readonly surfaces: ReadonlyArray<string>;
-}> {}
+export class PluginSurfaceError extends Schema.TaggedError<
+	PluginSurfaceError,
+	{ readonly brand: unique symbol }
+>()("PluginSurfaceError", { surfaces: Schema.Array(Schema.String) }) {}
 
-export class PluginPackageReservedError extends Data.TaggedError("PluginPackageReservedError")<{
-	readonly packageId: PluginPackageId;
-}> {}
+export class PluginPackageReservedError extends Schema.TaggedError<
+	PluginPackageReservedError,
+	{ readonly brand: unique symbol }
+>()("PluginPackageReservedError", { packageId: PluginPackageId }) {}
 
 const userRejectedCollections = [
 	"httpRateLimits",

@@ -1,4 +1,4 @@
-import { Data, Effect, Layer, Option, Result } from "effect";
+import { Effect, Layer, Option, Result, Schema } from "effect";
 import {
 	FetchHttpClient,
 	HttpClient,
@@ -19,9 +19,10 @@ export type EgressPolicy = Readonly<{
 
 type PinnedDestination = Readonly<{ host: string; serverName: string }>;
 
-export class EgressDenied extends Data.TaggedError("EgressDenied")<{
-	readonly reason: "scheme" | "address" | "resolution";
-}> {}
+export class EgressDenied extends Schema.TaggedError<
+	EgressDenied,
+	{ readonly brand: unique symbol }
+>()("EgressDenied", { reason: Schema.Literals(["scheme", "address", "resolution"]) }) {}
 
 const ALLOWED_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
 

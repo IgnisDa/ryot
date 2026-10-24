@@ -7,11 +7,12 @@ import { walkSourceFiles } from "@ryot-app/plugin-backend-compiler/runtime-build
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/plugin-backend-sdk/runtime-registry";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { buildSandboxEsm, ViteBuildService } from "@ryot-app/vite-compiler";
-import { Data, Effect, FileSystem, Layer, Path, Ref } from "effect";
+import { Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
-class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
-	message: string;
-}> {}
+class RunnerGenerationError extends Schema.TaggedError<
+	RunnerGenerationError,
+	{ readonly brand: unique symbol }
+>()("RunnerGenerationError", { message: Schema.String }) {}
 
 const GUEST_SOURCE_FILES = [
 	"guest/invocation.ts",

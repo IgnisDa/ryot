@@ -1,6 +1,6 @@
 import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
 import { sha256Base64Url, sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Data, Effect, FileSystem, Layer, Path, PlatformError, Semaphore } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, PlatformError, Schema, Semaphore } from "effect";
 
 import { SandboxHostConfig } from "./config";
 import { sandboxGrantPathError } from "./filesystem-grants";
@@ -13,10 +13,10 @@ const hasSystemErrorReason = (error: unknown, reason: "NotFound") =>
 	error.reason instanceof PlatformError.SystemError &&
 	error.reason._tag === reason;
 
-export class SandboxArtifactNotFoundError extends Data.TaggedError("SandboxArtifactNotFoundError")<{
-	handle: string;
-	message: string;
-}> {}
+export class SandboxArtifactNotFoundError extends Schema.TaggedError<
+	SandboxArtifactNotFoundError,
+	{ readonly brand: unique symbol }
+>()("SandboxArtifactNotFoundError", { handle: Schema.String, message: Schema.String }) {}
 
 const materializeBytes = Effect.fn("sandbox.materializeArtifactBytes")(function* (
 	bytes: Uint8Array,

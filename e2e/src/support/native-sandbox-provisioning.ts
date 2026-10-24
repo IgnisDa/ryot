@@ -1,5 +1,5 @@
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Data, Effect, FileSystem, Option, Path } from "effect";
+import { Effect, FileSystem, Option, Path, Schema } from "effect";
 
 const artifacts = [
 	"ryot-sandboxd",
@@ -9,10 +9,13 @@ const artifacts = [
 	"snapshots/full.snap",
 ];
 
-class NativeSandboxSetupError extends Data.TaggedError("NativeSandboxSetupError")<{
-	readonly message: string;
-	readonly cause?: unknown;
-}> {}
+class NativeSandboxSetupError extends Schema.TaggedError<
+	NativeSandboxSetupError,
+	{ readonly brand: unique symbol }
+>()("NativeSandboxSetupError", {
+	message: Schema.String,
+	cause: Schema.optionalKey(Schema.Unknown),
+}) {}
 
 const isSymlink = (fs: FileSystem.FileSystem, paths: Path.Path, filePath: string) =>
 	Effect.gen(function* () {

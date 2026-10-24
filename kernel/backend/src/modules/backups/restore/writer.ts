@@ -24,7 +24,7 @@ import {
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -69,15 +69,19 @@ import {
 	type ArchiveInstallation,
 	archivePluginDefinitionContract,
 	type ArchiveRecords,
-	type ArchiveRequiredPlugin,
+	ArchiveRequiredPlugin,
 	decodeArchiveJsonObject,
 	isArchiveJsonObject,
 } from "../archive/schemas";
 import { BackupRestorePersistence } from "./persistence";
 
-export class RequiredBackupPluginUnavailable extends Data.TaggedError(
-	"RequiredBackupPluginUnavailable",
-)<{ readonly requiredVersion: string; readonly packageId: ArchiveRequiredPlugin["packageId"] }> {}
+export class RequiredBackupPluginUnavailable extends Schema.TaggedError<
+	RequiredBackupPluginUnavailable,
+	{ readonly brand: unique symbol }
+>()("RequiredBackupPluginUnavailable", {
+	requiredVersion: Schema.String,
+	packageId: ArchiveRequiredPlugin.fields.packageId,
+}) {}
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);

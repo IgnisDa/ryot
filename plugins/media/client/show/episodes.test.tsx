@@ -389,7 +389,7 @@ describe("show season browser", () => {
 		Effect.gen(function* () {
 			const view = mountRyotClient(
 				{
-					query: () => Effect.fail(new RyotClientError("transport")),
+					query: () => Effect.fail(new RyotClientError({ reason: "transport" })),
 					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 				},
 				<ShowEpisodesTab

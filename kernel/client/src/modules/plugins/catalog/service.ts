@@ -3,15 +3,16 @@ import {
 	type PluginClientCatalog,
 	pluginClientCatalogRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { loadAllPages } from "#/api/load-all-pages";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { KernelHostServices } from "#/host-services";
 
-export class PluginCatalogError extends Data.TaggedError("PluginCatalogError")<{
-	readonly cause: unknown;
-}> {}
+export class PluginCatalogError extends Schema.TaggedError<
+	PluginCatalogError,
+	{ readonly brand: unique symbol }
+>()("PluginCatalogError", { cause: Schema.Unknown }) {}
 
 export class PluginCatalogService extends Context.Service<PluginCatalogService>()(
 	"PluginCatalogService",

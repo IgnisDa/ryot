@@ -2,7 +2,7 @@ import type { IngestionPlan } from "@ryot-app/contract/modules/imports/ingestion
 import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import type { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { OAuthConnectionsRepository } from "#modules/oauth-connections/repository";
@@ -10,9 +10,10 @@ import { OAuthConnectionsRepository } from "#modules/oauth-connections/repositor
 import { ImportSourceCatalog } from "./import-sources";
 import { IntegrationProviderCatalog } from "./integration-providers";
 
-export class IngestionReadinessError extends Data.TaggedError("IngestionReadinessError")<{
-	readonly message: string;
-}> {}
+export class IngestionReadinessError extends Schema.TaggedError<
+	IngestionReadinessError,
+	{ readonly brand: unique symbol }
+>()("IngestionReadinessError", { message: Schema.String }) {}
 
 const parseSettings = Effect.fn("parseIngestionReadinessSettings")(function* (
 	settingsSchema: AppSchema,

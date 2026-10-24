@@ -69,7 +69,7 @@ export default function Home() {
     return () => controller.abort();
   }, [client, pluginId]);
   useEffect(() => client.persistence.registerFlush(() => Effect.gen(function* () {
-    if (blocked.current) { setStatus("quota"); return yield* new RyotClientError("quota"); }
+    if (blocked.current) { setStatus("quota"); return yield* new RyotClientError({ reason: "quota" }); }
     yield* client.storage.set(pluginId, "draft", input.current);
     yield* client.device({ action: "return-shortcut", pluginId, shortcut: { label: "Resume draft", target: { kind: "plugin-route", packageId, path: "/", search: "" } } });
   })), [client, pluginId]);

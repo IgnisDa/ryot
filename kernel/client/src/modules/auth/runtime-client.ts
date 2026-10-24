@@ -11,7 +11,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 	type PendingAuthorization,
 } from "@ryot-app/contract/oauth";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
@@ -28,9 +28,10 @@ type RuntimeOAuthClientSource = {
 	readonly getApplicationId: Effect.Effect<string, RuntimeOAuthClientError>;
 };
 
-export class RuntimeOAuthClientError extends Data.TaggedError("RuntimeOAuthClientError")<{
-	readonly cause: unknown;
-}> {}
+export class RuntimeOAuthClientError extends Schema.TaggedError<
+	RuntimeOAuthClientError,
+	{ readonly brand: unique symbol }
+>()("RuntimeOAuthClientError", { cause: Schema.Unknown }) {}
 
 export const makeRuntimeOAuthClient = Effect.fnUntraced(function* (
 	source: RuntimeOAuthClientSource,

@@ -149,7 +149,7 @@ const CollectionBrowser = ({
 						}),
 					);
 					if (members.stale) {
-						return yield* new RyotClientError("collection-stale");
+						return yield* new RyotClientError({ reason: "collection-stale" });
 					}
 					return { meta: null, result: members };
 				}),

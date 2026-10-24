@@ -130,7 +130,7 @@ export const createMediaPresentationLoader =
 			return Effect.succeed({});
 		}
 		if (selected.ownerPluginId === null) {
-			return Effect.fail(new RyotClientError("invalid-input"));
+			return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
 		}
 		const entitySchemaSlug = references[0]?.entitySchemaSlug ?? "";
 		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];

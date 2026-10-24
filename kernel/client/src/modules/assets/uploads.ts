@@ -5,21 +5,22 @@ import {
 	UploadBadRequest,
 	UploadInternalError,
 } from "@ryot-app/contract/modules/assets/schemas";
-import type {
+import {
 	PluginUploadBridgeErrorReason,
-	PluginUploadOutcome,
-	PluginUploadRequest,
-	PluginUploadResult,
+	type PluginUploadOutcome,
+	type PluginUploadRequest,
+	type PluginUploadResult,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 
-export class UploadsError extends Data.TaggedError("UploadsError")<{
-	readonly reason: PluginUploadBridgeErrorReason;
-}> {}
+export class UploadsError extends Schema.TaggedError<
+	UploadsError,
+	{ readonly brand: unique symbol }
+>()("UploadsError", { reason: PluginUploadBridgeErrorReason }) {}
 
 const isDeclaredUploadFailure = Schema.is(
 	Schema.Union([AuthRateLimited, AuthUnauthorized, UploadBadRequest, UploadInternalError]),

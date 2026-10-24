@@ -146,7 +146,7 @@ describe("automatic query refresh", () => {
 			yield* Effect.promise(() => clock.advance(250));
 			expect(requests).toHaveLength(2);
 			expect(requests[1]?.signal.aborted).toBe(false);
-			act(() => requests[1]?.resume(Effect.fail(new RyotClientError("transport"))));
+			act(() => requests[1]?.resume(Effect.fail(new RyotClientError({ reason: "transport" }))));
 			yield* Effect.promise(() => waitFor(() => expect(results.get("view")?.isError).toBe(true)));
 			expect(results.get("view")?.data).toBe("first");
 			expect(watches[0]?.interests.at(-1)).toEqual({ visible: ["first"], foreground: ["root"] });

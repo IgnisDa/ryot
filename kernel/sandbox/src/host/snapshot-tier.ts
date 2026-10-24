@@ -1,13 +1,14 @@
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/plugin-backend-sdk/runtime-registry";
-import { Data, Result } from "effect";
+import { Result, Schema } from "effect";
 
 import type { SidecarTier } from "../protocol/messages";
 
 type SnapshotTier = typeof SidecarTier.Type;
 
-class UnknownSandboxRuntimeImports extends Data.TaggedError("UnknownSandboxRuntimeImports")<{
-	readonly imports: ReadonlyArray<string>;
-}> {}
+class UnknownSandboxRuntimeImports extends Schema.TaggedError<
+	UnknownSandboxRuntimeImports,
+	{ readonly brand: unique symbol }
+>()("UnknownSandboxRuntimeImports", { imports: Schema.Array(Schema.String) }) {}
 
 const tierByRuntimeName = {
 	effect: "core",

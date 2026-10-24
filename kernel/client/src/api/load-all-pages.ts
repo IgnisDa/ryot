@@ -1,11 +1,14 @@
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 type Page<Item> = {
 	readonly items: readonly Item[];
 	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
 
-class InvalidPageCursorError extends Data.TaggedError("InvalidPageCursorError") {}
+class InvalidPageCursorError extends Schema.TaggedError<
+	InvalidPageCursorError,
+	{ readonly brand: unique symbol }
+>()("InvalidPageCursorError", {}) {}
 
 export const loadAllPages = Effect.fn("loadAllPages")(function* <Item, Error, Requirements>(
 	fetchPage: (after: string | undefined) => Effect.Effect<Page<Item>, Error, Requirements>,

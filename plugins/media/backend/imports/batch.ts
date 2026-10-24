@@ -31,9 +31,10 @@ import {
 	NetflixResolutionOutput,
 } from "./schemas";
 
-export class MediaWorkflowError extends Error {
-	readonly _tag = "MediaWorkflowError";
-}
+export class MediaWorkflowError extends Schema.TaggedError<
+	MediaWorkflowError,
+	{ readonly brand: unique symbol }
+>()("MediaWorkflowError", { message: Schema.String }) {}
 
 const mediaImportResolutionActivitySlugByProvider = {
 	"show.tmdb": "media-import-resolve.show.tmdb",
@@ -278,12 +279,16 @@ export function* runMediaImportBatch(
 		const request = episodeRequests[result.index];
 		if (!request) {
 			return yield* Effect.fail(
-				new MediaWorkflowError(`Episode resolution returned an unexpected index ${result.index}`),
+				new MediaWorkflowError({
+					message: `Episode resolution returned an unexpected index ${result.index}`,
+				}),
 			);
 		}
 		if (answeredRequests.has(result.index)) {
 			return yield* Effect.fail(
-				new MediaWorkflowError(`Episode resolution returned a duplicate index ${result.index}`),
+				new MediaWorkflowError({
+					message: `Episode resolution returned a duplicate index ${result.index}`,
+				}),
 			);
 		}
 		answeredRequests.add(result.index);
@@ -294,7 +299,9 @@ export function* runMediaImportBatch(
 	);
 	if (unansweredRequests.length > 0) {
 		return yield* Effect.fail(
-			new MediaWorkflowError(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`),
+			new MediaWorkflowError({
+				message: `Episode resolution omitted indices ${unansweredRequests.join(", ")}`,
+			}),
 		);
 	}
 	const episodeFailures: MediaImportFailure[] = [];
@@ -312,13 +319,15 @@ export function* runMediaImportBatch(
 				typeof importedSourceRun !== "string"
 			) {
 				return yield* Effect.fail(
-					new MediaWorkflowError("Import source run identity must be a string"),
+					new MediaWorkflowError({ message: "Import source run identity must be a string" }),
 				);
 			}
 			const sourceRun = `${input.runId}:${typeof importedSourceRun === "string" ? importedSourceRun : event.operationId}`;
 			if (manualConsumption && sourceRun.length > 200) {
 				return yield* Effect.fail(
-					new MediaWorkflowError("Import source run identity exceeds its declared size"),
+					new MediaWorkflowError({
+						message: "Import source run identity exceeds its declared size",
+					}),
 				);
 			}
 			const finalized = {

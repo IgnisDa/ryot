@@ -1,6 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 export const INDEX_LIMIT = 10_000;
 export const API_BASE_URL = "https://pokeapi.co/api/v2";
@@ -8,9 +8,10 @@ export const API_BASE_URL = "https://pokeapi.co/api/v2";
 export type PokeApiHost = Pick<ScriptHost, "httpCall">;
 export type PokeApiEntry = { readonly id: number; readonly name: string };
 
-export class PokeApiError extends Error {
-	readonly _tag = "PokeApiError";
-}
+export class PokeApiError extends Schema.TaggedError<
+	PokeApiError,
+	{ readonly brand: unique symbol }
+>()("PokeApiError", { message: Schema.String }) {}
 
 export const stringValue = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value.trim() : null;
@@ -32,7 +33,9 @@ export const loadJson = (host: PokeApiHost, url: string) =>
 		.pipe(
 			Effect.flatMap((response) =>
 				Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(response.body).pipe(
-					Effect.mapError(() => new PokeApiError(`PokeAPI returned invalid JSON: ${url}`)),
+					Effect.mapError(
+						() => new PokeApiError({ message: `PokeAPI returned invalid JSON: ${url}` }),
+					),
 				),
 			),
 		);
@@ -50,7 +53,7 @@ const toEntry = (value: unknown): null | PokeApiEntry => {
 };
 
 export const toEntries = (value: unknown) =>
-	(Array.isArray(value) ? value : []).flatMap((item) => {
+	asArray(value).flatMap((item) => {
 		const entry = toEntry(item);
 		return entry ? [entry] : [];
 	});

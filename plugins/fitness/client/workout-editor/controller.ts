@@ -149,7 +149,7 @@ export const createWorkoutEditorController = (
 	const persistDraft = (draft: WorkoutEditorDraft) =>
 		Effect.try({
 			try: () => encodeWorkoutEditorDraft(draft),
-			catch: () => new RyotClientError("invalid-input"),
+			catch: () => new RyotClientError({ reason: "invalid-input" }),
 		}).pipe(
 			Effect.flatMap(ports.storage.write),
 			Effect.tapError((error) =>
@@ -456,10 +456,10 @@ export const createWorkoutEditorController = (
 						snapshot.draft.submission !== undefined ||
 						targetMedia(snapshot.draft, target) === undefined
 					) {
-						return yield* new RyotClientError("invalid-input");
+						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
 					if (target.kind === "workout" && snapshot.context?.proAvailable !== true) {
-						return yield* new RyotClientError("invalid-input");
+						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
 					const draftId = snapshot.draft.draftId;
 					updateReady((current) => ({ ...current, uploading: true, uploadError: undefined }));

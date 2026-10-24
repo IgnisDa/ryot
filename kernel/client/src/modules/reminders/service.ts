@@ -16,16 +16,17 @@ import {
 	remindersRecipe,
 	type RemindersResult,
 } from "@ryot-app/ryotql-recipes/reminders";
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { AutomationsApi } from "#/api/automations";
 import { RemindersApi } from "#/api/reminders";
 import type { KernelHostServices } from "#/host-services";
 
-export class RemindersLoadError extends Data.TaggedError("RemindersLoadError")<{
-	readonly cause: unknown;
-}> {}
+export class RemindersLoadError extends Schema.TaggedError<
+	RemindersLoadError,
+	{ readonly brand: unique symbol }
+>()("RemindersLoadError", { cause: Schema.Unknown }) {}
 
 export const remindersQuery = createRyotQuery<
 	Parameters<typeof remindersRecipe>[0],

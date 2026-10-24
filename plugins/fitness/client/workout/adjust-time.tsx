@@ -66,7 +66,7 @@ const timeSourceQuery = () =>
 			}
 			const properties = yield* Schema.decodeUnknownEffect(WorkoutPropertiesSchema)(
 				entity.properties,
-			).pipe(Effect.mapError(() => new RyotClientError("malformed-result")));
+			).pipe(Effect.mapError(() => new RyotClientError({ reason: "malformed-result" })));
 			return { entity, properties };
 		}),
 	);

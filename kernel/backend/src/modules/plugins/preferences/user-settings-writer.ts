@@ -9,7 +9,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -22,9 +22,10 @@ import { resolvePluginUserSettings } from "./user-settings";
 
 export const PLUGIN_USER_SETTINGS_MAX_BYTES = 64 * 1024;
 
-export class PluginUserSettingsPatchError extends Data.TaggedError("PluginUserSettingsPatchError")<{
-	readonly message: string;
-}> {}
+export class PluginUserSettingsPatchError extends Schema.TaggedError<
+	PluginUserSettingsPatchError,
+	{ readonly brand: unique symbol }
+>()("PluginUserSettingsPatchError", { message: Schema.String }) {}
 
 const invalidUserSettings = (messages: ReadonlyArray<string>) =>
 	new PluginRequestError({

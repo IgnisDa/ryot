@@ -164,7 +164,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 											return Effect.flatMap(definition.loader({ client, references }), (result) => {
 												for (const entityId of Object.keys(result)) {
 													if (!requested.has(entityId)) {
-														return Effect.fail(new RyotClientError("malformed-result"));
+														return Effect.fail(new RyotClientError({ reason: "malformed-result" }));
 													}
 												}
 												return Effect.succeed(result);

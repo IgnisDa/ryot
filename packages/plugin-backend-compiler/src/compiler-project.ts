@@ -2,7 +2,7 @@ import {
 	type TypeScriptProjectConfiguration,
 	withTypeScriptProject,
 } from "@ryot-app/typescript-compiler";
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 import type * as ts from "typescript/unstable/ast";
 
 import { createSandboxExecutionAnalyzer } from "./compiler-execution";
@@ -46,9 +46,10 @@ type SandboxEntryExecution = Effect.Success<
 	ReturnType<ReturnType<typeof createSandboxExecutionAnalyzer>>
 >;
 
-class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
-	message: string;
-}> {}
+class TypeScriptProjectError extends Schema.TaggedError<
+	TypeScriptProjectError,
+	{ readonly brand: unique symbol }
+>()("TypeScriptProjectError", { message: Schema.String }) {}
 
 export const createTypeScriptSourcesProjectForEntries = (
 	sources: SandboxTypeScriptSources,

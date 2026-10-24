@@ -100,7 +100,7 @@ export const loadPokemonPresentations: EntityPresentationLoader<PokemonPresentat
 		return Effect.succeed({});
 	}
 	if (selected.ownerPluginId === null) {
-		return Effect.fail(new RyotClientError("invalid-input"));
+		return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
 	}
 	const owner = {
 		kind: "local",

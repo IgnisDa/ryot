@@ -218,7 +218,7 @@ export const createPluginRuntime = (
 			return;
 		}
 		if (!post({ visible, foreground, type: "entity-watches" })) {
-			throw new RyotClientError(terminalReason ?? "transport");
+			throw new RyotClientError({ reason: terminalReason ?? "transport" });
 		}
 		postedInterest = serialized;
 	};
@@ -234,7 +234,7 @@ export const createPluginRuntime = (
 		const pendingCalls = [...pending.values()];
 		pending.clear();
 		for (const call of pendingCalls) {
-			call.complete(Effect.fail(new RyotClientError(reason)));
+			call.complete(Effect.fail(new RyotClientError({ reason: reason })));
 		}
 	};
 	const resetDocument = () => {
@@ -293,7 +293,7 @@ export const createPluginRuntime = (
 	const admit = (requestId: string, call: PendingCall) => {
 		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
 			finish("failed", "protocol", true);
-			call.complete(Effect.fail(new RyotClientError("protocol")));
+			call.complete(Effect.fail(new RyotClientError({ reason: "protocol" })));
 			return false;
 		}
 		pending.set(requestId, call);
@@ -307,7 +307,7 @@ export const createPluginRuntime = (
 	): Effect.Effect<unknown, RyotClientError> =>
 		Effect.callback<unknown, RyotClientError>((complete) => {
 			if (state !== "active") {
-				complete(Effect.fail(new RyotClientError(terminalReason ?? "transport")));
+				complete(Effect.fail(new RyotClientError({ reason: terminalReason ?? "transport" })));
 				return Effect.void;
 			}
 			const requestId = `${type}-${++nextRequestId}`;
@@ -401,12 +401,12 @@ export const createPluginRuntime = (
 	) =>
 		pluginContributors().some((contributor) => contributor.pluginId === pluginId)
 			? send()
-			: Effect.fail(new RyotClientError("invalid-request"));
+			: Effect.fail(new RyotClientError({ reason: "invalid-request" }));
 
 	const saveEntity = (request: EntityEditorSaveRequest) => {
 		const owner = request.submission.entitySchema.owner;
 		return owner.kind !== "plugin"
-			? Effect.fail(new RyotClientError("invalid-request"))
+			? Effect.fail(new RyotClientError({ reason: "invalid-request" }))
 			: whenPluginContributor(owner.pluginId, () =>
 					sendRequest(
 						"entity-editor-save",
@@ -488,14 +488,19 @@ export const createPluginRuntime = (
 		}
 		call.complete(
 			outcome.outcome === "failure"
-				? Effect.fail(new RyotClientError(outcome.reason, outcome.message))
+				? Effect.fail(
+						new RyotClientError({
+							reason: outcome.reason,
+							...(outcome.message === undefined ? {} : { message: outcome.message }),
+						}),
+					)
 				: Effect.succeed(outcome.value),
 		);
 	};
 
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		if (state !== "active") {
-			throw new RyotClientError(terminalReason ?? "transport");
+			throw new RyotClientError({ reason: terminalReason ?? "transport" });
 		}
 		const target = Match.value(to).pipe(
 			Match.when({ kind: "plugin-preferences" }, ({ packageId }) => ({
@@ -520,15 +525,15 @@ export const createPluginRuntime = (
 			Match.exhaustive,
 		);
 		if (!post({ mode, target, type: "navigate" } satisfies PluginBridgeNavigate)) {
-			throw new RyotClientError(terminalReason ?? "transport");
+			throw new RyotClientError({ reason: terminalReason ?? "transport" });
 		}
 	};
 	const navigatePageSearch = (mode: "push" | "replace", update: RyotPageSearchUpdate) => {
 		if (state !== "active") {
-			throw new RyotClientError(terminalReason ?? "transport");
+			throw new RyotClientError({ reason: terminalReason ?? "transport" });
 		}
 		if (!post({ mode, update, type: "page-search" } satisfies PluginBridgePageSearch)) {
-			throw new RyotClientError(terminalReason ?? "transport");
+			throw new RyotClientError({ reason: terminalReason ?? "transport" });
 		}
 	};
 	const pickEntity = (request: RyotPickEntityRequest) =>
@@ -653,7 +658,7 @@ export const createPluginRuntime = (
 		},
 		subscribeBackgroundSettled: (listener) => {
 			if (state === "closing" || state === "failed" || state === "disposed") {
-				throw new RyotClientError(terminalReason ?? "transport");
+				throw new RyotClientError({ reason: terminalReason ?? "transport" });
 			}
 			backgroundListeners.add(listener);
 			return () => {
@@ -663,13 +668,13 @@ export const createPluginRuntime = (
 		theme: {
 			getSnapshot: () => {
 				if (state === "closing" || state === "failed" || state === "disposed") {
-					throw new RyotClientError(terminalReason ?? "transport");
+					throw new RyotClientError({ reason: terminalReason ?? "transport" });
 				}
 				return theme;
 			},
 			subscribe: (listener) => {
 				if (state === "closing" || state === "failed" || state === "disposed") {
-					throw new RyotClientError(terminalReason ?? "transport");
+					throw new RyotClientError({ reason: terminalReason ?? "transport" });
 				}
 				themeListeners.add(listener);
 				return () => themeListeners.delete(listener);
@@ -677,20 +682,20 @@ export const createPluginRuntime = (
 		},
 		pluginIdentity: (packageId) => {
 			if (state === "closing" || state === "failed" || state === "disposed") {
-				throw new RyotClientError(terminalReason ?? "disposed");
+				throw new RyotClientError({ reason: terminalReason ?? "disposed" });
 			}
 			const matches = pluginContributors().filter(
 				(contributor) => contributor.packageId === packageId,
 			);
 			const contributor = matches[0];
 			if (matches.length !== 1 || contributor === undefined) {
-				throw new RyotClientError("invalid-request");
+				throw new RyotClientError({ reason: "invalid-request" });
 			}
 			return { kind: "local", pluginId: contributor.pluginId };
 		},
 		watchEntities: (interest, onUpdate) => {
 			if (state !== "active") {
-				throw new RyotClientError(terminalReason ?? "transport");
+				throw new RyotClientError({ reason: terminalReason ?? "transport" });
 			}
 			const owner = { interest, onUpdate };
 			interestOwners.add(owner);
@@ -703,7 +708,7 @@ export const createPluginRuntime = (
 				},
 				update: (next) => {
 					if (state !== "active") {
-						throw new RyotClientError(terminalReason ?? "transport");
+						throw new RyotClientError({ reason: terminalReason ?? "transport" });
 					}
 					owner.interest = next;
 					publishInterest();

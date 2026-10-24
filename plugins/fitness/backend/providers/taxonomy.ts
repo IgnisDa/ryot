@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsInput,
 	ProviderResolveInput,
@@ -10,11 +10,12 @@ import type { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../shar
 type TaxonomyEntry =
 	(typeof exerciseTargetCatalog)[number] | (typeof exerciseEquipmentCatalog)[number];
 
-class FitnessTaxonomyError extends Error {
-	readonly _tag = "FitnessTaxonomyError";
-}
+export class FitnessTaxonomyError extends Schema.TaggedError<
+	FitnessTaxonomyError,
+	{ readonly brand: unique symbol }
+>()("FitnessTaxonomyError", { message: Schema.String }) {}
 
-const normalizeIdentifier = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "_");
+const normalizeIdentifier = (value: string) => value.trim().toLowerCase().replaceAll(/\s+/g, "_");
 
 export const searchTaxonomyCatalog = (
 	input: ProviderSearchInput,
@@ -44,7 +45,9 @@ export const getTaxonomyDetails = (
 	const entry = catalog.find(({ externalId }) => externalId === input.externalId);
 	return entry
 		? Effect.succeed({ name: entry.name, properties: entry.properties })
-		: Effect.fail(new FitnessTaxonomyError(`Taxonomy entry not found: ${input.externalId}`));
+		: Effect.fail(
+				new FitnessTaxonomyError({ message: `Taxonomy entry not found: ${input.externalId}` }),
+			);
 };
 
 export const resolveTaxonomyEntry = (

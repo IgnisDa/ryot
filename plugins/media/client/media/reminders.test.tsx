@@ -46,7 +46,7 @@ it.live("omits the parent ID and reports a reminder screen failure", () =>
 			{
 				manageReminders: (request) =>
 					Effect.sync(() => requests.push(request)).pipe(
-						Effect.andThen(Effect.fail(new RyotClientError("transport"))),
+						Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
 					),
 			},
 			<MediaRemindersControl entityId="media-1" />,

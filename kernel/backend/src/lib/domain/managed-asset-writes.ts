@@ -1,7 +1,7 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, or } from "drizzle-orm";
-import { Context, Data, Effect } from "effect";
+import { Context, Effect, Schema } from "effect";
 
 import {
 	collectManagedAssetLocators,
@@ -16,9 +16,10 @@ export type OwnedManagedAssetPropertyRecord = ManagedAssetPropertyRecord & {
 	readonly ownerUserId: null | UserId;
 };
 
-export class ManagedAssetReferenceRejected extends Data.TaggedError(
-	"ManagedAssetReferenceRejected",
-)<{}> {}
+export class ManagedAssetReferenceRejected extends Schema.TaggedError<
+	ManagedAssetReferenceRejected,
+	{ readonly brand: unique symbol }
+>()("ManagedAssetReferenceRejected", {}) {}
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(managedAsset.provider, locator.type), eq(managedAsset.key, locator.key));

@@ -17,7 +17,6 @@ import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-conn
 import { useRouteContext } from "@tanstack/react-router";
 import {
 	Context,
-	Data,
 	Deferred,
 	Duration,
 	Effect,
@@ -28,6 +27,7 @@ import {
 	Queue,
 	Result,
 	Schedule,
+	Schema,
 } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -80,9 +80,10 @@ type PollOutcome = SchemaOAuthConnectOutcome | { readonly kind: "pending" };
 type NativeReturn =
 	{ readonly kind: "failed" } | { readonly kind: "secret"; readonly secret: string };
 
-class OAuthConnectFailed extends Data.TaggedError("OAuthConnectFailed")<{
-	readonly message: (typeof MESSAGES)[keyof typeof MESSAGES];
-}> {}
+class OAuthConnectFailed extends Schema.TaggedError<
+	OAuthConnectFailed,
+	{ readonly brand: unique symbol }
+>()("OAuthConnectFailed", { message: Schema.Literals(Object.values(MESSAGES)) }) {}
 
 export class OAuthConnectPlatform extends Context.Service<
 	OAuthConnectPlatform,

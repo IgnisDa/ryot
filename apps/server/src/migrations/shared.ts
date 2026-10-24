@@ -6,7 +6,7 @@ import {
 import { mapDatabaseErrors } from "@ryot-app/kernel-backend/platform/db/errors";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";
-import { Data, Effect, Match, Schema } from "effect";
+import { Effect, Match, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
 export type LotEntityMigrationTarget = { lot: string } & EntityMigrationTarget;
@@ -112,9 +112,15 @@ const decodeReportDetails = Schema.decodeUnknownEffect(
 // without silently turning a documented omission into a startup abort.
 const isAllowedWarningCode = Schema.is(AnomalyCode);
 
-class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(
-	"UnexpectedLegacyBootstrapWarning",
-)<{ phase: string; message: string; code: null | string; count: null | number }> {}
+class UnexpectedLegacyBootstrapWarning extends Schema.TaggedError<
+	UnexpectedLegacyBootstrapWarning,
+	{ readonly brand: unique symbol }
+>()("UnexpectedLegacyBootstrapWarning", {
+	phase: Schema.String,
+	message: Schema.String,
+	count: Schema.NullOr(Schema.Int),
+	code: Schema.NullOr(Schema.String),
+}) {}
 
 const reportSequenceSql = `SELECT COALESCE(MAX("seq"), 0) AS "seq" FROM "${reportTable}";`;
 

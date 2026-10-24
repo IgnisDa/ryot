@@ -263,7 +263,7 @@ it.live("retries the same immutable operation after a transport failure", () =>
 					Effect.suspend(() => {
 						requests.push(request);
 						return requests.length === 1
-							? Effect.fail(new RyotClientError("transport"))
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: Effect.succeed({ count: 1, status: "saved" });
 					}),
 			},
@@ -291,7 +291,7 @@ it.live("retries the same immutable operation after a transport failure", () =>
 it.live("explains protected demo-operation failures", () =>
 	Effect.gen(function* () {
 		const mounted = mountRyotClient(
-			{ invokeOperation: () => Effect.fail(new RyotClientError("operation-failed")) },
+			{ invokeOperation: () => Effect.fail(new RyotClientError({ reason: "operation-failed" })) },
 			<MediaUserDataControl media={summary()} />,
 		);
 		try {

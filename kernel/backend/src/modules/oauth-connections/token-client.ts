@@ -1,5 +1,5 @@
 import type { PluginOAuthProvider } from "@ryot-app/contract/modules/plugins/manifest";
-import { Context, Data, Duration, Effect, Layer, Option, Schema } from "effect";
+import { Context, Duration, Effect, Layer, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { readSandboxByteLimitedText } from "#modules/scripts/host/stream-utils";
@@ -19,9 +19,10 @@ type OAuthTokenGrant =
 			readonly grantType: "authorization_code";
 	  };
 
-export class OAuthTokenEndpointError extends Data.TaggedError("OAuthTokenEndpointError")<{
-	readonly reason: "failed" | "invalid-grant";
-}> {}
+export class OAuthTokenEndpointError extends Schema.TaggedError<
+	OAuthTokenEndpointError,
+	{ readonly brand: unique symbol }
+>()("OAuthTokenEndpointError", { reason: Schema.Literals(["failed", "invalid-grant"]) }) {}
 
 const TokenResponse = Schema.Struct({
 	token_type: Schema.String,

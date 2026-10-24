@@ -1,6 +1,6 @@
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
 import { serverApiUrl } from "#/api/origin";
@@ -8,9 +8,10 @@ import type { ApiScope } from "#/api/scope";
 import { decodeOAuthTokenIdentity } from "#/modules/auth/token-identity";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
-export class AuthenticatedApiError extends Data.TaggedError("AuthenticatedApiError")<{
-	readonly cause: unknown;
-}> {}
+export class AuthenticatedApiError extends Schema.TaggedError<
+	AuthenticatedApiError,
+	{ readonly brand: unique symbol }
+>()("AuthenticatedApiError", { cause: Schema.Unknown }) {}
 
 export const isDemoOperationProtectedError = (
 	error: unknown,

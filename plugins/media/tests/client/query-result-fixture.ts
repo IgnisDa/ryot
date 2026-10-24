@@ -46,7 +46,7 @@ export const errorQueryResult = <Data>(error: Error, data?: Data): RyotQueryResu
 });
 
 export const malformedQueryResult = <Data>() =>
-	errorQueryResult<Data>(new RyotClientError("malformed-result"));
+	errorQueryResult<Data>(new RyotClientError({ reason: "malformed-result" }));
 
 export const transportErrorQueryResult = <Data>() =>
-	errorQueryResult<Data>(new RyotClientError("transport"));
+	errorQueryResult<Data>(new RyotClientError({ reason: "transport" }));

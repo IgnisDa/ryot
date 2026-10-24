@@ -26,7 +26,7 @@ export const readCursorPages = <A>(
 			}
 			const next = page.pageInfo.nextCursor;
 			if (next === null || next === "" || cursors.has(next)) {
-				return yield* new RyotClientError("malformed-result");
+				return yield* new RyotClientError({ reason: "malformed-result" });
 			}
 			cursors.add(next);
 			after = next;

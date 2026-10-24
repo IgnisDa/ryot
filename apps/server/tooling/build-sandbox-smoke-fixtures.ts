@@ -1,5 +1,5 @@
 import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
-import { Data, Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Schema } from "effect";
 
 import {
 	SandboxSmokeFixturesJson,
@@ -93,9 +93,10 @@ export default defineScript({
 `;
 };
 
-class SandboxSmokeFixtureError extends Data.TaggedError("SandboxSmokeFixtureError")<{
-	readonly message: string;
-}> {}
+class SandboxSmokeFixtureError extends Schema.TaggedError<
+	SandboxSmokeFixtureError,
+	{ readonly brand: unique symbol }
+>()("SandboxSmokeFixtureError", { message: Schema.String }) {}
 
 export const buildSandboxSmokeFixtures = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;

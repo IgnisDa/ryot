@@ -1,6 +1,12 @@
-import { Data, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
-import { Events, OAuth2Server } from "oauth2-mock-server";
+import {
+	Events,
+	type MutableRedirectUri,
+	type MutableToken,
+	OAuth2Server,
+	type TokenRequestIncomingMessage,
+} from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
 import { acquireInChildScope } from "~/support/resource-scope";
@@ -21,7 +27,10 @@ export type MockOidcServer = {
 	setNextClaims: (claims: Record<string, unknown>) => void;
 };
 
-class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{ readonly cause: unknown }> {}
+class OidcFixtureError extends Schema.TaggedError<
+	OidcFixtureError,
+	{ readonly brand: unique symbol }
+>()("OidcFixtureError", { cause: Schema.Unknown }) {}
 
 const attempt = <A>(run: () => Promise<A>) =>
 	Effect.tryPromise({ try: run, catch: (cause) => new OidcFixtureError({ cause }) });
@@ -40,7 +49,7 @@ export const startMockOidcServer = Effect.gen(function* () {
 	const claimsByCode = new Map<string, Record<string, unknown>>();
 	let nextClaims: undefined | Record<string, unknown>;
 
-	server.service.on(Events.BeforeAuthorizeRedirect, (redirect) => {
+	server.service.on(Events.BeforeAuthorizeRedirect, (redirect: MutableRedirectUri) => {
 		const code = redirect.url.searchParams.get("code");
 		if (code && nextClaims) {
 			claimsByCode.set(code, nextClaims);
@@ -48,13 +57,16 @@ export const startMockOidcServer = Effect.gen(function* () {
 		}
 	});
 
-	server.service.on(Events.BeforeTokenSigning, (token, req) => {
-		const code = req.body.code;
-		const claims = code ? claimsByCode.get(code) : undefined;
-		if (claims) {
-			Object.assign(token.payload, claims);
-		}
-	});
+	server.service.on(
+		Events.BeforeTokenSigning,
+		(token: MutableToken, req: TokenRequestIncomingMessage) => {
+			const code = req.body.code;
+			const claims = code ? claimsByCode.get(code) : undefined;
+			if (claims) {
+				Object.assign(token.payload, claims);
+			}
+		},
+	);
 
 	return {
 		server,

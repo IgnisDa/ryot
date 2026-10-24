@@ -2,7 +2,6 @@ import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifec
 import type { Exit, PlatformError } from "effect";
 import {
 	Context,
-	Data,
 	Deferred,
 	Effect,
 	Fiber,
@@ -70,10 +69,13 @@ const processSettingsSchema = Schema.Struct({
 	memoryBudget: Schema.Int,
 });
 
-class SidecarClientError extends Data.TaggedError("SidecarClientError")<{
-	readonly message: string;
-	readonly reason: "exit" | "startup" | "disposal" | "transport";
-}> {}
+class SidecarClientError extends Schema.TaggedError<
+	SidecarClientError,
+	{ readonly brand: unique symbol }
+>()("SidecarClientError", {
+	message: Schema.String,
+	reason: Schema.Literals(["exit", "startup", "disposal", "transport"]),
+}) {}
 
 const queueFailure = () =>
 	new SidecarClientError({ reason: "transport", message: "Could not queue sidecar frame" });

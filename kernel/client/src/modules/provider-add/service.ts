@@ -16,7 +16,7 @@ import {
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { isDemoOperationProtectedError } from "#/api/authenticated";
 import { EntitiesApi, isDeclaredEntitySaveFailure } from "#/api/entities";
@@ -29,11 +29,22 @@ export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 
 type ProviderAddClient = Pick<KernelRyotClient, "data">;
 
-export class ProviderAddLoadError extends Data.TaggedError("ProviderAddLoadError")<{
-	readonly cause: unknown;
-	readonly stage:
-		"links" | "search" | "import" | "schema" | "create" | "options" | "entities" | "providers";
-}> {}
+export class ProviderAddLoadError extends Schema.TaggedError<
+	ProviderAddLoadError,
+	{ readonly brand: unique symbol }
+>()("ProviderAddLoadError", {
+	cause: Schema.Unknown,
+	stage: Schema.Literals([
+		"links",
+		"search",
+		"import",
+		"schema",
+		"create",
+		"options",
+		"entities",
+		"providers",
+	]),
+}) {}
 
 const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect<A, E>) =>
 	effect.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage })));

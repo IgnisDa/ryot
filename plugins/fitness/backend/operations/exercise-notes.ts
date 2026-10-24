@@ -22,9 +22,10 @@ import type { ExerciseNoteUpdateInput } from "../../shared/exercise-note-operati
 
 type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
 
-export class ExerciseNoteNotFoundError extends Error {
-	readonly _tag = "ExerciseNoteNotFoundError";
-}
+export class ExerciseNoteNotFoundError extends Schema.TaggedError<
+	ExerciseNoteNotFoundError,
+	{ readonly brand: unique symbol }
+>()("ExerciseNoteNotFoundError", { message: Schema.String }) {}
 
 const exerciseNoteExerciseRecipe = defineRecipe((exerciseId: string) => {
 	const exercise = table("entity", "exerciseNoteExercise");
@@ -63,7 +64,9 @@ const exerciseNoteEventRecipe = defineRecipe((noteId: string) => {
 });
 
 const requireFound = (message: string) => (id: string | undefined) =>
-	id === undefined ? Effect.fail(new ExerciseNoteNotFoundError(message)) : Effect.succeed(id);
+	id === undefined
+		? Effect.fail(new ExerciseNoteNotFoundError({ message: message }))
+		: Effect.succeed(id);
 
 export const requireExerciseNoteExercise = (exerciseId: string, executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, exerciseNoteExerciseRecipe(exerciseId)).pipe(

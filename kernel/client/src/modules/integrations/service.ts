@@ -18,7 +18,7 @@ import {
 	integrationRecipe,
 	integrationsRecipe,
 } from "@ryot-app/ryotql-recipes/integrations";
-import { Context, Data, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { IntegrationsApi } from "#/api/integrations";
@@ -42,10 +42,10 @@ export type IntegrationClientDetail = { readonly webhookUrl?: string } & Omit<
 
 type IntegrationsClient = Pick<KernelRyotClient, "data">;
 
-export class IntegrationsLoadError extends Data.TaggedError("IntegrationsLoadError")<{
-	readonly cause: unknown;
-	readonly stage: "list" | "runs";
-}> {}
+export class IntegrationsLoadError extends Schema.TaggedError<
+	IntegrationsLoadError,
+	{ readonly brand: unique symbol }
+>()("IntegrationsLoadError", { cause: Schema.Unknown, stage: Schema.Literals(["list", "runs"]) }) {}
 
 export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	"IntegrationsService",
@@ -180,12 +180,13 @@ export const integrationDetailQuery = createRyotQuery<
 		.runSync(IntegrationsService)
 		.loadIntegration(client, hostServices.scope.serverUrl, input)
 		.pipe(
-			Effect.map(Option.getOrUndefined),
-			Effect.mapError((cause) =>
-				cause instanceof IntegrationsLoadError
-					? cause
-					: new IntegrationsLoadError({ cause, stage: "list" }),
-			),
+			Effect.mapBoth({
+				onSuccess: Option.getOrUndefined,
+				onFailure: (cause) =>
+					cause instanceof IntegrationsLoadError
+						? cause
+						: new IntegrationsLoadError({ cause, stage: "list" }),
+			}),
 		),
 );
 

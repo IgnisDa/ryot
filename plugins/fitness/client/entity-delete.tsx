@@ -45,7 +45,7 @@ const deleteEntity = createRyotMutation<
 		submittedAt: input.submittedAt,
 		submissionId: input.submissionId,
 	}).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
+		Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
 		Effect.flatMap((payload) =>
 			client.operations.invoke({
 				input: payload,

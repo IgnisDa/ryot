@@ -127,7 +127,7 @@ it.live("keeps the dialog open when the shell refuses ownership without a date",
 	Effect.gen(function* () {
 		const background = createTestBackgroundSubmissions((request) =>
 			background.requests.length === 1
-				? Effect.fail(new RyotClientError("operation-failed"))
+				? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
 				: Effect.succeed(`submission-${request.idempotencyKey}`),
 		);
 		const mounted = mountRyotClient(

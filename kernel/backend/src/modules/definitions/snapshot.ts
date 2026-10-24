@@ -15,7 +15,7 @@ import {
 import {
 	type DeclarationReference,
 	definitionKey,
-	type DefinitionOwner,
+	DefinitionOwner,
 	definitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -30,7 +30,7 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
-import { Data, Effect, Result, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
 import {
@@ -176,11 +176,10 @@ export const EntityRelationshipDefinitions = Schema.Struct({
 
 export type EntityRelationshipDefinitions = typeof EntityRelationshipDefinitions.Type;
 
-export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
-	readonly kind: string;
-	readonly slug: string;
-	readonly owner: DefinitionOwner;
-}> {}
+export class DefinitionNotFound extends Schema.TaggedError<
+	DefinitionNotFound,
+	{ readonly brand: unique symbol }
+>()("DefinitionNotFound", { kind: Schema.String, slug: Schema.String, owner: DefinitionOwner }) {}
 
 const deepFreeze = <Value>(value: Value): Value => {
 	if (value === null || typeof value !== "object" || Object.isFrozen(value)) {

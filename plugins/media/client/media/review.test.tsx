@@ -272,7 +272,7 @@ it.live("keeps the draft and allows another try when the shell refuses the revie
 					Effect.gen(function* () {
 						requests.push(request);
 						if (requests.length === 1) {
-							return yield* new RyotClientError("operation-failed");
+							return yield* new RyotClientError({ reason: "operation-failed" });
 						}
 						return "submission-2";
 					}),

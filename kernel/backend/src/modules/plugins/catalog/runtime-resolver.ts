@@ -1,7 +1,7 @@
 import {
 	type PluginConfigSchema,
 	PluginManifest,
-	type PluginProviderOperation,
+	PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
 	DeclarationReference,
@@ -20,7 +20,7 @@ import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { referencesWhere, referenceWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
@@ -34,14 +34,15 @@ import {
 import { storedScriptFields } from "../packages/persisted-projections";
 import { PluginRepository } from "../packages/repository";
 
-export class UnsupportedProviderOperationError extends Data.TaggedError(
-	"UnsupportedProviderOperationError",
-)<{
-	readonly providerSlug: null | string;
-	readonly providerId: SandboxProviderId;
-	readonly operation: PluginProviderOperation;
-	readonly reason: "inactive_provider" | "script_unavailable" | "unsupported_operation";
-}> {}
+export class UnsupportedProviderOperationError extends Schema.TaggedError<
+	UnsupportedProviderOperationError,
+	{ readonly brand: unique symbol }
+>()("UnsupportedProviderOperationError", {
+	providerId: SandboxProviderId,
+	operation: PluginProviderOperation,
+	providerSlug: Schema.NullOr(Schema.String),
+	reason: Schema.Literals(["inactive_provider", "script_unavailable", "unsupported_operation"]),
+}) {}
 
 const AvailablePluginSections = Schema.Struct({
 	client: PluginManifest.fields.client,

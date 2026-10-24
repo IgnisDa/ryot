@@ -155,7 +155,9 @@ const createEditorSession = (
 						.flush()
 						.pipe(
 							Effect.mapError((error) =>
-								error instanceof RyotClientError ? error : new RyotClientError("transport"),
+								error instanceof RyotClientError
+									? error
+									: new RyotClientError({ reason: "transport" }),
 							),
 						),
 				);

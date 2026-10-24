@@ -2,7 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
-import { Context, Data, Deferred, Effect, Layer, Redacted } from "effect";
+import { Context, Deferred, Effect, Layer, Redacted, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import { ARCHIVE_CODECS } from "#modules/backups/archive/schemas";
@@ -22,7 +22,10 @@ import {
 import { PluginConfigEncryptionKey } from "./encryption-key";
 import { PluginConfigRevisions } from "./revisions";
 
-class RollbackKeyTest extends Data.TaggedError("RollbackKeyTest") {}
+class RollbackKeyTest extends Schema.TaggedError<
+	RollbackKeyTest,
+	{ readonly brand: unique symbol }
+>()("RollbackKeyTest", {}) {}
 
 class RestartedConfigRevisions extends Context.Service<
 	RestartedConfigRevisions,

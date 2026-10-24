@@ -47,7 +47,9 @@ export const automationHistoryDetailQuery = createRyotQuery<
 >(({ input, client }) =>
 	client.data
 		.query(automationHistoryRunRecipe({ id: input }))
-		.pipe(Effect.flatMap(Effect.fromOption(() => new RyotClientError("malformed-result")))),
+		.pipe(
+			Effect.flatMap(Effect.fromOption(() => new RyotClientError({ reason: "malformed-result" }))),
+		),
 );
 
 export const retryAutomationRunMutation = createRyotMutation<

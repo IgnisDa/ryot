@@ -14,9 +14,10 @@ import type {
 import { Effect as RuntimeEffect } from "effect";
 import { describe, expect, test } from "vitest";
 
-class TestWorkflowFailure extends Error {
-	readonly _tag = "TestWorkflowFailure";
-}
+class TestWorkflowFailure extends Schema.TaggedError<
+	TestWorkflowFailure,
+	{ readonly brand: unique symbol }
+>()("TestWorkflowFailure", { message: Schema.String }) {}
 
 describe("workflow definitions", () => {
 	test("bootstraps once for value-dependent recorded steps and a pending next step", () =>
@@ -641,7 +642,7 @@ describe("workflow definitions", () => {
 	test.each([
 		{
 			message: "Error: invariant violated",
-			failure: new TestWorkflowFailure("invariant violated"),
+			failure: new TestWorkflowFailure({ message: "invariant violated" }),
 		},
 		{
 			message: "Sandbox artifact grant is unavailable",
@@ -707,7 +708,7 @@ describe("workflow definitions", () => {
 			failure: { message: "limit", data: { operation: "httpCall", code: "execution-limit" } },
 		},
 		{ data: undefined, failure: { message: "limit", data: { code: "not-a-boundary-code" } } },
-		{ data: undefined, failure: new TestWorkflowFailure("no data") },
+		{ data: undefined, failure: new TestWorkflowFailure({ message: "no data" }) },
 	])("carries a decoded boundary reason in a failed envelope: $data", ({ data, failure }) =>
 		RuntimeEffect.runPromise(
 			RuntimeEffect.gen(function* () {

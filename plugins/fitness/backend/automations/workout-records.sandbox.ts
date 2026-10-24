@@ -63,9 +63,10 @@ type EventBatchItem = Extract<
 	AutomationInput["automation"]["payload"],
 	{ resource: "event"; operation: "batch" }
 >["items"][number];
-class WorkoutRecordAutomationError extends Error {
-	readonly _tag = "WorkoutRecordAutomationError";
-}
+class WorkoutRecordAutomationError extends Schema.TaggedError<
+	WorkoutRecordAutomationError,
+	{ readonly brand: unique symbol }
+>()("WorkoutRecordAutomationError", { message: Schema.String }) {}
 
 const snapshotsOf = (item: EventBatchItem): readonly EventSnapshot[] => {
 	if (item.operation === "create") {
@@ -106,9 +107,9 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 			}
 			hasMore = page.pageInfo.hasMore;
 			if (hasMore && page.pageInfo.nextCursor === null) {
-				return yield* Effect.fail(
-					new WorkoutRecordAutomationError("Workout set exercise page is missing its cursor"),
-				);
+				return yield* new WorkoutRecordAutomationError({
+					message: "Workout set exercise page is missing its cursor",
+				});
 			}
 			after = page.pageInfo.nextCursor ?? undefined;
 		} while (hasMore);

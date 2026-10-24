@@ -32,7 +32,7 @@ export const iosLiveActivityHarness = (
 				options.onRequest?.(request);
 				yield* options.beforeRequest?.(request) ?? Effect.void;
 				if (options.fails) {
-					return yield* new RyotClientError("transport");
+					return yield* new RyotClientError({ reason: "transport" });
 				}
 				if (request.action === "availability") {
 					return { status: "available" };

@@ -7,6 +7,7 @@ import {
 	defineManifest,
 	defineWorkflow,
 	Effect,
+	Schema,
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
@@ -19,9 +20,10 @@ export const manifest = defineManifest({
 	name: "Apply Fitness import captures",
 });
 
-export class FitnessApplicationError extends Error {
-	readonly _tag = "FitnessApplicationError";
-}
+export class FitnessApplicationError extends Schema.TaggedError<
+	FitnessApplicationError,
+	{ readonly brand: unique symbol }
+>()("FitnessApplicationError", { message: Schema.String }) {}
 
 export default defineWorkflow({
 	manifest,
@@ -48,7 +50,9 @@ export default defineWorkflow({
 				const handle = prepared.chunkHandles[0];
 				if (!handle) {
 					return yield* Effect.fail(
-						new FitnessApplicationError("Fitness application did not return a capture"),
+						new FitnessApplicationError({
+							message: "Fitness application did not return a capture",
+						}),
 					);
 				}
 				const id = `application-${batch}`;

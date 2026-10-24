@@ -136,7 +136,7 @@ describe("useBackgroundSubmission", () => {
 		Effect.gen(function* () {
 			const background = createTestBackgroundSubmissions((request) =>
 				request.idempotencyKey === "key-1"
-					? Effect.fail(new RyotClientError("operation-failed"))
+					? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
 					: Effect.succeed(`submission-${request.idempotencyKey}`),
 			);
 			const { hook } = mount(background);

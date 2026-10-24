@@ -30,7 +30,7 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 		hostServices.runtime
 			.runSync(AuthService)
 			.settledSession(hostServices.scope.serverUrl)
-			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
+			.pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" }))),
 );
 
 const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostServices>(
@@ -51,7 +51,7 @@ const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>
 				),
 				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 				Effect.as(undefined),
-				Effect.mapError(() => new RyotClientError("transport")),
+				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 			),
 );
 
@@ -59,7 +59,7 @@ const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(({
 	hostServices.runtime
 		.runSync(AuthService)
 		.signOut(hostServices.scope.serverUrl)
-		.pipe(Effect.mapError(() => new RyotClientError("transport"))),
+		.pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" }))),
 );
 
 function AccountRoute() {

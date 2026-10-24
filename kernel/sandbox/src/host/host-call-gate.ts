@@ -10,7 +10,7 @@ import {
 	workflowReplayJournalEntrySchema,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 import type { Scope, Tracer } from "effect";
-import { Clock, Context, Data, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
+import { Clock, Context, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";
 
 import {
@@ -199,7 +199,10 @@ export type SandboxHostCallGateRegistration = {
 	) => Effect.Effect<SidecarHostResultFrameType, GateError>;
 };
 
-class GateError extends Data.TaggedError("SandboxHostCallGateError")<{ readonly reason: string }> {}
+class GateError extends Schema.TaggedError<GateError, { readonly brand: unique symbol }>()(
+	"SandboxHostCallGateError",
+	{ reason: Schema.String },
+) {}
 
 const gateError = (reason: string) => new GateError({ reason });
 

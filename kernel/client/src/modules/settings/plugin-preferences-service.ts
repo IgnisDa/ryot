@@ -23,7 +23,7 @@ type SavePluginUserSettingsInput = {
 const loadPluginUserSettings = (client: Pick<KernelRyotClient, "data">) =>
 	loadAllPages((after) =>
 		client.data.query(pluginUserSettingsRecipe({ after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE })),
-	).pipe(Effect.mapError(() => new RyotClientError("transport")));
+	).pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" })));
 
 export const pluginUserSettingsQuery = createRyotQuery<
 	void,
@@ -54,7 +54,7 @@ export const savePluginUserSettingsMutation = createRyotMutation<
 		})
 		.pipe(
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError("transport")),
+			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 		),
 );
 
@@ -65,6 +65,6 @@ export const resetPluginUserSettingsMutation = createRyotMutation<string, void, 
 			.resetUserSettings(hostServices.scope, { params: { installationId: input } })
 			.pipe(
 				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-				Effect.mapError(() => new RyotClientError("transport")),
+				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 			),
 );

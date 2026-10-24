@@ -9,13 +9,14 @@ import {
 	clientDeclarationHash,
 	type PluginClientArtifact,
 } from "@ryot-app/plugin-client-contract";
-import { Data, Effect, FileSystem, Stream } from "effect";
+import { Effect, FileSystem, Schema, Stream } from "effect";
 
 import type { PluginSource } from "./packages/types";
 
-export class PluginSourceError extends Data.TaggedError("PluginSourceError")<{
-	readonly message: string;
-}> {}
+export class PluginSourceError extends Schema.TaggedError<
+	PluginSourceError,
+	{ readonly brand: unique symbol }
+>()("PluginSourceError", { message: Schema.String }) {}
 
 export const fixtureClientArtifact = (
 	pluginName: string,
@@ -58,10 +59,14 @@ export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(fu
 	const fs = yield* FileSystem.FileSystem;
 	const paths = yield* pluginSourcePaths(packageRoot);
 	const entries = yield* Effect.forEach(paths, (path) =>
-		fs.readFile(`${packageRoot}/${path}`).pipe(
-			Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
-			Effect.map((contents) => [path, contents] as const),
-		),
+		fs
+			.readFile(`${packageRoot}/${path}`)
+			.pipe(
+				Effect.mapBoth({
+					onSuccess: (contents) => [path, contents] as const,
+					onFailure: (error) => new PluginSourceError({ message: String(error) }),
+				}),
+			),
 	);
 	const files = Object.fromEntries(entries);
 	return yield* derivePluginSandboxScripts(

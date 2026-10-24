@@ -1,10 +1,13 @@
-import { Data, Duration, Effect, Schedule } from "effect";
+import { Duration, Effect, Schedule, Schema } from "effect";
 
 class PollIncomplete {
 	readonly _tag = "PollIncomplete";
 }
 
-export class PollTimeout extends Data.TaggedError("PollTimeout")<{ readonly message: string }> {}
+export class PollTimeout extends Schema.TaggedError<
+	PollTimeout,
+	{ readonly brand: unique symbol }
+>()("PollTimeout", { message: Schema.String }) {}
 
 export const pollUntil = <A, E, R>(
 	label: string,

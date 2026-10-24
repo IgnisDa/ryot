@@ -9,7 +9,7 @@ import {
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Context, Data, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
 import { type ApiScope, apiScopeKey } from "#/api/scope";
@@ -36,15 +36,20 @@ export const pluginStorageKey = (scope: ApiScope, pluginId: PluginId, key: strin
 	`${RYOT_STORAGE_PREFIX}plugin-storage:${identityTupleKey(scope.serverUrl, scope.userId, pluginId, key)}`;
 
 export type BrowserStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-export class PluginStorageQuotaError extends Data.TaggedError("PluginStorageQuotaError") {}
+export class PluginStorageQuotaError extends Schema.TaggedError<
+	PluginStorageQuotaError,
+	{ readonly brand: unique symbol }
+>()("PluginStorageQuotaError", {}) {}
 
-export class DeviceStateAccessError extends Data.TaggedError("DeviceStateAccessError")<{
-	readonly cause: unknown;
-}> {}
+export class DeviceStateAccessError extends Schema.TaggedError<
+	DeviceStateAccessError,
+	{ readonly brand: unique symbol }
+>()("DeviceStateAccessError", { cause: Schema.Unknown }) {}
 
-export class PluginStorageAccessError extends Data.TaggedError("PluginStorageAccessError")<{
-	readonly cause: unknown;
-}> {}
+export class PluginStorageAccessError extends Schema.TaggedError<
+	PluginStorageAccessError,
+	{ readonly brand: unique symbol }
+>()("PluginStorageAccessError", { cause: Schema.Unknown }) {}
 
 const browserStorage = () => {
 	try {

@@ -23,7 +23,7 @@ describe("show refresh failures", () => {
 	it.each(["transport", "malformed-result"] as const)(
 		"retains all decoded content after %s failure",
 		(reason) => {
-			const error = new RyotClientError(reason);
+			const error = new RyotClientError({ reason: reason });
 			const summary = errorQueryResult(
 				error,
 				decodeShowSummaryResult({ show: [showSummaryRow], requested: [{ schemaSlug: "show" }] }),
@@ -68,11 +68,13 @@ describe("show refresh failures", () => {
 	);
 
 	it("keeps null data authoritative and reserves initial errors for missing data", () => {
-		const error = new RyotClientError("transport");
+		const error = new RyotClientError({ reason: "transport" });
 		expect(mapShowSeasons(errorQueryResult(error, null)).status).toBe("empty");
 		expect(classifyRyotQueryResult(errorQueryResult(error))).toEqual({ status: "transport-error" });
 		expect(
-			classifyRyotQueryResult(errorQueryResult(new RyotClientError("malformed-result"))),
+			classifyRyotQueryResult(
+				errorQueryResult(new RyotClientError({ reason: "malformed-result" })),
+			),
 		).toEqual({ status: "malformed" });
 		const view = mountRyotClient(
 			{ query: () => Effect.succeed({}) },

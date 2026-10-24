@@ -1,6 +1,7 @@
 import { pluginClientAssetMimeType } from "@ryot-app/plugin-client-contract";
 import { canonicalRelativePosixPathIssue, posixPath } from "@ryot-app/ts-utils/path";
 import { inspectTypeScriptReferences } from "@ryot-app/typescript-compiler/typescript-references";
+import { Schema } from "effect";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 import * as ts from "typescript/unstable/ast";
@@ -151,7 +152,10 @@ const validateScript = (
 	return diagnostics;
 };
 
-class StylePolicyError extends Error {}
+class StylePolicyError extends Schema.TaggedError<
+	StylePolicyError,
+	{ readonly brand: unique symbol }
+>()("StylePolicyError", { message: Schema.String }) {}
 
 const validateStylesheet = (
 	path: string,
@@ -164,7 +168,9 @@ const validateStylesheet = (
 		root.walkAtRules((rule) => {
 			const name = rule.name.toLowerCase();
 			if (name === "plugin" || name === "config" || name === "source") {
-				throw new StylePolicyError(`Tailwind @${name} is compiler-owned and is not allowed`);
+				throw new StylePolicyError({
+					message: `Tailwind @${name} is compiler-owned and is not allowed`,
+				});
 			}
 			if (name === "import") {
 				const parsed = valueParser(rule.params).nodes.find(
@@ -172,9 +178,9 @@ const validateStylesheet = (
 				);
 				const specifier = parsed?.value;
 				if (!specifier || !specifier.startsWith(".")) {
-					throw new StylePolicyError(
-						`Stylesheet import "${specifier ?? rule.params}" is not allowed; client plugins may only import relative CSS files from client sources`,
-					);
+					throw new StylePolicyError({
+						message: `Stylesheet import "${specifier ?? rule.params}" is not allowed; client plugins may only import relative CSS files from client sources`,
+					});
 				}
 				const resolved = resolveRelative(path, specifier);
 				if (
@@ -182,7 +188,9 @@ const validateStylesheet = (
 					!resolved.endsWith(".css") ||
 					files[resolved] === undefined
 				) {
-					throw new StylePolicyError(`Stylesheet import "${specifier}" is not allowed`);
+					throw new StylePolicyError({
+						message: `Stylesheet import "${specifier}" is not allowed`,
+					});
 				}
 			}
 		});
@@ -203,22 +211,24 @@ const validateStylesheet = (
 					return;
 				}
 				if (specifier.startsWith("/")) {
-					throw new StylePolicyError(`CSS asset URL "${specifier}" must not be root-relative`);
+					throw new StylePolicyError({
+						message: `CSS asset URL "${specifier}" must not be root-relative`,
+					});
 				}
 				const source = specifier.split(/[?#]/, 1)[0] ?? "";
 				const resolved = resolveRelative(path, source);
 				if (traversesSourceRoot(path, source) || !allowedRelativeRoot(path, resolved)) {
-					throw new StylePolicyError(
-						`CSS asset URL "${specifier}" traverses outside the plugin client sources`,
-					);
+					throw new StylePolicyError({
+						message: `CSS asset URL "${specifier}" traverses outside the plugin client sources`,
+					});
 				}
 				if (pluginClientAssetMimeType(resolved) === undefined) {
-					throw new StylePolicyError(
-						`CSS asset URL "${specifier}" does not use an allowed client asset extension`,
-					);
+					throw new StylePolicyError({
+						message: `CSS asset URL "${specifier}" does not use an allowed client asset extension`,
+					});
 				}
 				if (files[resolved] === undefined) {
-					throw new StylePolicyError(`CSS asset URL "${specifier}" does not exist`);
+					throw new StylePolicyError({ message: `CSS asset URL "${specifier}" does not exist` });
 				}
 			});
 		});

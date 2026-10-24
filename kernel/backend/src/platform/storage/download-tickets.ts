@@ -1,4 +1,4 @@
-import { Clock, Context, Data, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Effect, Layer, Schema } from "effect";
 
 import { HmacSigner } from "./hmac-signer";
 
@@ -13,7 +13,10 @@ const DownloadTicketClaims = Schema.Struct({
 
 type DownloadTicketClaims = typeof DownloadTicketClaims.Type;
 
-export class DownloadTicketInvalid extends Data.TaggedError("DownloadTicketInvalid")<{}> {}
+export class DownloadTicketInvalid extends Schema.TaggedError<
+	DownloadTicketInvalid,
+	{ readonly brand: unique symbol }
+>()("DownloadTicketInvalid", {}) {}
 
 export class DownloadTickets extends Context.Service<DownloadTickets>()("DownloadTickets", {
 	make: Effect.gen(function* () {

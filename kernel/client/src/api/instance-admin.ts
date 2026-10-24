@@ -1,13 +1,14 @@
 import type { ContractRequest, ContractSuccess } from "@ryot-app/contract/client";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Context, Data, Effect, Layer, Result } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import { resolveApiUrl, type ServerOrigin } from "#/api/origin";
 
-export class InstanceAdminQueryError extends Data.TaggedError("InstanceAdminQueryError")<{
-	readonly cause: unknown;
-}> {}
+export class InstanceAdminQueryError extends Schema.TaggedError<
+	InstanceAdminQueryError,
+	{ readonly brand: unique symbol }
+>()("InstanceAdminQueryError", { cause: Schema.Unknown }) {}
 
 export class InstanceAdminApi extends Context.Service<InstanceAdminApi>()("InstanceAdminApi", {
 	make: Effect.gen(function* () {

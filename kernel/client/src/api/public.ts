@@ -1,13 +1,14 @@
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
 import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 
-export class PublicApiError extends Data.TaggedError("PublicApiError")<{
-	readonly cause: unknown;
-}> {}
+export class PublicApiError extends Schema.TaggedError<
+	PublicApiError,
+	{ readonly brand: unique symbol }
+>()("PublicApiError", { cause: Schema.Unknown }) {}
 
 const makePublicApi = (http: HttpClient.HttpClient) => {
 	const run = <A, E>(origin: ServerOrigin, program: ContractProgram<A, E>) =>

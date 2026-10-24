@@ -25,21 +25,23 @@ export class ExternalLinks extends Context.Service<ExternalLinks>()("ExternalLin
 		const open = Effect.fn("ExternalLinks.open")(function* (request: ExternalLinkRequest) {
 			const decoded = Schema.decodeResult(ExternalLinkRequest)(request);
 			if (Result.isFailure(decoded)) {
-				return yield* new RyotClientError("invalid-request");
+				return yield* new RyotClientError({ reason: "invalid-request" });
 			}
 			if (platform.isNative) {
 				yield* platform.openNative(decoded.success.url);
 			} else {
 				yield* Effect.try({
 					catch: (error) =>
-						error instanceof RyotClientError ? error : new RyotClientError("link-open-failed"),
+						error instanceof RyotClientError
+							? error
+							: new RyotClientError({ reason: "link-open-failed" }),
 					try: () => {
 						if (!platform.isActive()) {
-							throw new RyotClientError("activation-required");
+							throw new RyotClientError({ reason: "activation-required" });
 						}
 						const popup = platform.openBlank();
 						if (popup === null) {
-							throw new RyotClientError("link-open-failed");
+							throw new RyotClientError({ reason: "link-open-failed" });
 						}
 						try {
 							popup.detachOpener();

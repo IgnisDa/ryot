@@ -3,7 +3,7 @@ import {
 	type ClientRuntimeArtifact,
 	ClientRuntimeArtifactFromBase64,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";
 
@@ -24,9 +24,10 @@ export const ClientImageManifestJson = Schema.fromJsonString(
 	}),
 );
 
-export class ImageClientArtifactsValidationError extends Data.TaggedError(
-	"ImageClientArtifactsValidationError",
-)<{ message: string }> {}
+export class ImageClientArtifactsValidationError extends Schema.TaggedError<
+	ImageClientArtifactsValidationError,
+	{ readonly brand: unique symbol }
+>()("ImageClientArtifactsValidationError", { message: Schema.String }) {}
 
 export const equalArtifacts = (left: ClientArtifact, right: ClientArtifact) =>
 	left.hash === right.hash &&

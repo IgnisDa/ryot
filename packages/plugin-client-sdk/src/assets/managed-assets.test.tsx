@@ -171,7 +171,7 @@ describe("ManagedAssetProvider", () => {
 				resolveAssets: (assets) => {
 					calls++;
 					if (calls > 1) {
-						return Effect.fail(new RyotClientError("transport"));
+						return Effect.fail(new RyotClientError({ reason: "transport" }));
 					}
 					return Effect.succeed(
 						assets.map((requested) => ({

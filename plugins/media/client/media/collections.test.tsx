@@ -71,7 +71,7 @@ it.live("keeps the collection count on failure and allows retry", () =>
 					Effect.suspend(() => {
 						attempts++;
 						return attempts === 1
-							? Effect.fail(new RyotClientError("transport"))
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: Effect.succeed({ kind: "cancelled" });
 					}),
 			},

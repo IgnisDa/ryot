@@ -2,7 +2,7 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
-import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
+import { Context, Duration, Effect, Layer, Match, Schedule, Schema } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
@@ -24,9 +24,10 @@ type CatalogStreamResponse = {
 	readonly body: null | ReadableStream<Uint8Array>;
 };
 
-class CatalogStreamClosed extends Data.TaggedError("CatalogStreamClosed")<{
-	readonly cause: unknown;
-}> {}
+class CatalogStreamClosed extends Schema.TaggedError<
+	CatalogStreamClosed,
+	{ readonly brand: unique symbol }
+>()("CatalogStreamClosed", { cause: Schema.Unknown }) {}
 
 const LINE_BREAK = /\r\n|\r|\n/;
 const RECONNECT_CAP = Duration.seconds(30);

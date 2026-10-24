@@ -13,9 +13,10 @@ import { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../../../sha
 
 type ExerciseSourceHost = Pick<ScriptHost, "httpCall" | "getCachedValue" | "setCachedValue">;
 
-class FitnessExerciseError extends Error {
-	readonly _tag = "FitnessExerciseError";
-}
+export class FitnessExerciseError extends Schema.TaggedError<
+	FitnessExerciseError,
+	{ readonly brand: unique symbol }
+>()("FitnessExerciseError", { message: Schema.String }) {}
 
 const exerciseImageSchema = Schema.Struct({ url: Schema.String, type: Schema.Literal("remote") });
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
@@ -63,7 +64,9 @@ const EXERCISES_URL =
 const executionStartedAt = (execution: ExecutionMetadata) =>
 	execution.startedAt
 		? Effect.succeed(execution.startedAt)
-		: Effect.fail(new FitnessExerciseError("Sandbox execution startedAt metadata is required"));
+		: Effect.fail(
+				new FitnessExerciseError({ message: "Sandbox execution startedAt metadata is required" }),
+			);
 
 const equipmentAliases: Record<string, string> = { "e-z curl bar": "ez_curl_bar" };
 
@@ -98,7 +101,7 @@ const normalizeSlugValue = (value: unknown) => {
 	if (typeof value !== "string" || !value.trim()) {
 		return null;
 	}
-	return value.trim().toLowerCase().replace(/\s+/g, "_");
+	return value.trim().toLowerCase().replaceAll(/\s+/g, "_");
 };
 
 const normalizeEquipmentValue = (value: unknown): EnumResult => {
@@ -167,11 +170,11 @@ const getImages = (value: unknown): ExerciseImage[] => {
 const normalizeSearchText = (parts: ReadonlyArray<null | string | readonly string[]>) =>
 	parts
 		.filter((part): part is string | readonly string[] => part !== null)
-		.flatMap((part) => (Array.isArray(part) ? part : [part]))
+		.flatMap((part) => (typeof part === "string" ? [part] : part))
 		.join(" ")
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, " ")
-		.replace(/\s+/g, " ")
+		.replaceAll(/[^a-z0-9]+/g, " ")
+		.replaceAll(/\s+/g, " ")
 		.trim();
 
 const normalizeExercise = (value: unknown): null | NormalizedExercise => {
@@ -289,7 +292,7 @@ const chunkExercises = (rows: readonly NormalizedExercise[]) => {
 			continue;
 		}
 		if (nextBytes > CACHE_CHUNK_BYTE_LIMIT) {
-			throw new FitnessExerciseError(`Exercise cache row is too large: ${row.name}`);
+			throw new FitnessExerciseError({ message: `Exercise cache row is too large: ${row.name}` });
 		}
 		currentChunk = nextChunk;
 	}
@@ -312,7 +315,7 @@ const writeCachedExercises = (
 			catch: (error) =>
 				error instanceof FitnessExerciseError
 					? error
-					: new FitnessExerciseError("Failed to chunk exercise cache"),
+					: new FitnessExerciseError({ message: "Failed to chunk exercise cache" }),
 		});
 		for (const [index, chunk] of chunks.entries()) {
 			yield* writeCachedValue(host, `${CACHE_KEY}:${version}:chunk:${index}`, chunk);
@@ -331,11 +334,14 @@ const loadExercises = (host: ExerciseSourceHost, execution: ExecutionMetadata) =
 		const payload = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
 			response.body,
 		).pipe(
-			Effect.mapError(() => new FitnessExerciseError("Exercise database returned invalid JSON")),
+			Effect.mapError(
+				() => new FitnessExerciseError({ message: "Exercise database returned invalid JSON" }),
+			),
 		);
 		const exercises = yield* Schema.decodeUnknownEffect(exercisePayloadSchema)(payload).pipe(
 			Effect.mapError(
-				() => new FitnessExerciseError("Exercise database returned an unexpected payload"),
+				() =>
+					new FitnessExerciseError({ message: "Exercise database returned an unexpected payload" }),
 			),
 		);
 		const rows = exercises
@@ -432,9 +438,9 @@ export const getExerciseDetails = (
 		const rows = yield* loadExercises(host, execution);
 		const row = rows.find((exercise) => exercise.externalId === input.externalId);
 		if (!row) {
-			return yield* Effect.fail(
-				new FitnessExerciseError(`Exercise not found: ${input.externalId}`),
-			);
+			return yield* new FitnessExerciseError({
+				message: `Exercise not found: ${input.externalId}`,
+			});
 		}
 		return {
 			name: row.name,

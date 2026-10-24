@@ -1,5 +1,5 @@
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Data, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export type SubkeyCiphertext = {
 	readonly keyId: string;
@@ -7,9 +7,10 @@ export type SubkeyCiphertext = {
 	readonly ciphertext: string;
 };
 
-export class PluginConfigCryptoError extends Data.TaggedError("PluginConfigCryptoError")<{
-	readonly message: string;
-}> {}
+export class PluginConfigCryptoError extends Schema.TaggedError<
+	PluginConfigCryptoError,
+	{ readonly brand: unique symbol }
+>()("PluginConfigCryptoError", { message: Schema.String }) {}
 
 const encode = (value: unknown) => new TextEncoder().encode(stableStringify(value));
 

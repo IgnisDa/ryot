@@ -373,7 +373,7 @@ describe("EntityEditor", () => {
 				{ mode: { kind: "edit", entityId: "part-1" } },
 				adapterFor((request) => {
 					requests.push(request);
-					return Effect.fail(new RyotClientError("entity-save-failed"));
+					return Effect.fail(new RyotClientError({ reason: "entity-save-failed" }));
 				}),
 			);
 			const view = within(container);

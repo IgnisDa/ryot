@@ -33,7 +33,7 @@ import {
 	SandboxRecoveryStoreError,
 } from "@ryot-app/sandbox/host/recovery-store";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
-import { ConfigProvider, Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { ConfigProvider, Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { Digest, SecureRandom } from "effect/crypto";
 
 import {
@@ -62,9 +62,10 @@ const SmokeOutput = Schema.Struct({
 	hostValue: Schema.Literal(smokeHostCallValue),
 });
 
-class SandboxSmokeConfigError extends Data.TaggedError("SandboxSmokeConfigError")<{
-	readonly message: string;
-}> {}
+class SandboxSmokeConfigError extends Schema.TaggedError<
+	SandboxSmokeConfigError,
+	{ readonly brand: unique symbol }
+>()("SandboxSmokeConfigError", { message: Schema.String }) {}
 
 const configEnvironmentKey = (field: { readonly envKey?: string | undefined }) =>
 	field.envKey === undefined

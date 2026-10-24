@@ -9,7 +9,7 @@ import {
 	type PluginIosLiveActivityRequest,
 	type PluginIosLiveActivityResult,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Layer, Schema, Semaphore } from "effect";
+import { Context, Effect, Layer, Schema, Semaphore } from "effect";
 
 import { type ApiScope, apiScopeKey } from "#/api/scope";
 
@@ -18,9 +18,10 @@ type Installation = Pick<
 	"pluginId" | "installationId"
 >;
 
-export class IosLiveActivityPlatformError extends Data.TaggedError("IosLiveActivityPlatformError")<{
-	readonly cause: unknown;
-}> {}
+export class IosLiveActivityPlatformError extends Schema.TaggedError<
+	IosLiveActivityPlatformError,
+	{ readonly brand: unique symbol }
+>()("IosLiveActivityPlatformError", { cause: Schema.Unknown }) {}
 
 export class IosLiveActivityPlatform extends Context.Service<
 	IosLiveActivityPlatform,

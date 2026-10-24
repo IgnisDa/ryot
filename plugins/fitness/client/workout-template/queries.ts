@@ -21,7 +21,7 @@ const loadTemplate = Effect.fnUntraced(function* (client: RyotClient, entityId: 
 		}),
 	);
 	if (entity === null) {
-		return yield* new RyotClientError("invalid-input");
+		return yield* new RyotClientError({ reason: "invalid-input" });
 	}
 	const plan = normalizeTemplatePlan(entity.properties);
 	if (plan === undefined) {

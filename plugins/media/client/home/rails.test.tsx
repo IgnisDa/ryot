@@ -225,7 +225,9 @@ describe("library rails", () => {
 	it.each(rails)("$title retries its own section after an error", ({ render }) => {
 		let retries = 0;
 		const failed = {
-			...errorQueryResult<ReturnType<typeof libraryData>>(new RyotClientError("transport")),
+			...errorQueryResult<ReturnType<typeof libraryData>>(
+				new RyotClientError({ reason: "transport" }),
+			),
 			refetch: () => {
 				retries += 1;
 			},
@@ -475,7 +477,7 @@ describe("lazily queried rails", () => {
 	it.live.each(lazyRails)("$title offers a retry after an error", ({ Rail }) =>
 		Effect.gen(function* () {
 			const view = mountRyotClient(
-				respondingAdapter(() => Effect.fail(new RyotClientError("transport"))),
+				respondingAdapter(() => Effect.fail(new RyotClientError({ reason: "transport" }))),
 				<Rail compact />,
 			);
 			yield* Effect.promise(() =>

@@ -620,7 +620,7 @@ describe("bootstrapClientPlugin", () => {
 				page: replacementPage("Music"),
 			});
 			yield* Effect.promise(() => waitFor(() => expect(clients).toHaveLength(2)));
-			yield* Deferred.fail(pending, new RyotClientError("disposed"));
+			yield* Deferred.fail(pending, new RyotClientError({ reason: "disposed" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0:fresh")),
 			);

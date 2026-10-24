@@ -4,7 +4,7 @@ import {
 	StoredTokenSet,
 	type StoredTokenSet as StoredTokenSetValue,
 } from "@ryot-app/contract/oauth";
-import { Clock, Context, Data, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
@@ -21,10 +21,13 @@ export type OAuthStorageAdapter = {
 	readonly setItem: (key: string, value: string) => Effect.Effect<void, OAuthStorageError>;
 };
 
-export class OAuthStorageError extends Data.TaggedError("OAuthStorageError")<{
-	readonly cause?: unknown;
-	readonly reason: "read-failed" | "write-failed";
-}> {}
+export class OAuthStorageError extends Schema.TaggedError<
+	OAuthStorageError,
+	{ readonly brand: unique symbol }
+>()("OAuthStorageError", {
+	cause: Schema.optionalKey(Schema.Unknown),
+	reason: Schema.Literals(["read-failed", "write-failed"]),
+}) {}
 
 export const oauthPendingKey = (origin: string, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
@@ -47,9 +50,10 @@ const browserOAuthStorage = (): OAuthStorageAdapter => {
 	};
 };
 
-class SecureStorageSetupError extends Data.TaggedError("SecureStorageSetupError")<{
-	readonly cause: unknown;
-}> {}
+class SecureStorageSetupError extends Schema.TaggedError<
+	SecureStorageSetupError,
+	{ readonly brand: unique symbol }
+>()("SecureStorageSetupError", { cause: Schema.Unknown }) {}
 
 const attemptSetup = <A>(evaluate: () => Promise<A>) =>
 	Effect.tryPromise({ try: evaluate, catch: (cause) => new SecureStorageSetupError({ cause }) });

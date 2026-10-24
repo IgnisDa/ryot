@@ -1,7 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
-import { Data, DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
 import { describe } from "vitest";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
@@ -11,7 +11,10 @@ import { automationTrigger } from "#schema/tables/automations";
 import { triggerFixture } from "./lifecycle.test-support";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
-class Rollback extends Data.TaggedError("TriggerTestRollback") {}
+class Rollback extends Schema.TaggedError<Rollback, { readonly brand: unique symbol }>()(
+	"TriggerTestRollback",
+	{},
+) {}
 
 describe("AutomationTriggerRepository", () => {
 	layer(AutomationTriggerRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))(

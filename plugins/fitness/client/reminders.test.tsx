@@ -71,7 +71,7 @@ it.live("reports a reminder screen failure", () =>
 			{
 				manageReminders: (request) =>
 					Effect.sync(() => requests.push(request)).pipe(
-						Effect.andThen(Effect.fail(new RyotClientError("transport"))),
+						Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
 					),
 			},
 			<FitnessRemindersButton entityId="workout-1" />,

@@ -1,5 +1,5 @@
 import { getOAuthEndpoint } from "@ryot-app/contract/oauth";
-import { Data, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 
@@ -10,15 +10,19 @@ const OAuthErrorResponse = Schema.Struct({
 
 export type OAuthFetch = typeof fetch;
 
-export class OAuthTransportError extends Data.TaggedError("OAuthTransportError")<{
-	readonly cause: unknown;
-}> {}
+export class OAuthTransportError extends Schema.TaggedError<
+	OAuthTransportError,
+	{ readonly brand: unique symbol }
+>()("OAuthTransportError", { cause: Schema.Unknown }) {}
 
-export class OAuthEndpointError extends Data.TaggedError("OAuthEndpointError")<{
-	readonly code: string;
-	readonly status: number;
-	readonly description?: string;
-}> {}
+export class OAuthEndpointError extends Schema.TaggedError<
+	OAuthEndpointError,
+	{ readonly brand: unique symbol }
+>()("OAuthEndpointError", {
+	status: Schema.Int,
+	code: Schema.String,
+	description: Schema.optionalKey(Schema.String),
+}) {}
 
 const readJson = (response: Response) =>
 	Effect.tryPromise({

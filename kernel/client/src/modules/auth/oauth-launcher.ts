@@ -1,6 +1,6 @@
 import { Browser } from "@capacitor/browser";
 import { buildOAuthAuthorizationUrl, type PendingAuthorization } from "@ryot-app/contract/oauth";
-import { Clock, Context, Data, Effect, Layer } from "effect";
+import { Clock, Context, Effect, Layer, Schema } from "effect";
 
 import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
@@ -26,10 +26,13 @@ export type OAuthLaunchPlan = {
 	readonly client: RuntimeOAuthClientDescriptor;
 };
 
-export class OAuthLauncherError extends Data.TaggedError("OAuthLauncherError")<{
-	readonly cause?: unknown;
-	readonly reason: "launch-failed" | "storage-failed" | "unknown-native-application";
-}> {}
+export class OAuthLauncherError extends Schema.TaggedError<
+	OAuthLauncherError,
+	{ readonly brand: unique symbol }
+>()("OAuthLauncherError", {
+	cause: Schema.optionalKey(Schema.Unknown),
+	reason: Schema.Literals(["launch-failed", "storage-failed", "unknown-native-application"]),
+}) {}
 
 const launch = (plan: OAuthLaunchPlan, authorizationUrl = plan.authorizationUrl) =>
 	plan.client.nativeApplicationId !== null

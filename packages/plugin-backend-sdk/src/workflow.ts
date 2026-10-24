@@ -74,9 +74,10 @@ type WorkflowExecution<
 	) => RuntimeEffect.Effect<Output["Type"], Failure>;
 };
 
-class WorkflowJournalMismatchError extends Error {
-	readonly _tag = "WorkflowJournalMismatchError";
-}
+class WorkflowJournalMismatchError extends Schema.TaggedError<
+	WorkflowJournalMismatchError,
+	{ readonly brand: unique symbol }
+>()("WorkflowJournalMismatchError", { message: Schema.String }) {}
 
 // A host call that may already have reached an external system reports `external-uncertain` so the
 // kernel refuses to auto-retry it unless the hook declared run-ID idempotency.
@@ -135,9 +136,9 @@ const makeWorkflowReplay = (
 						return yield* RuntimeEffect.fail(pending);
 					}
 					if (values.length !== sleeps.length) {
-						return yield* RuntimeEffect.fail(
-							new WorkflowJournalMismatchError("Inline sleep results do not match the batch"),
-						);
+						return yield* new WorkflowJournalMismatchError({
+							message: "Inline sleep results do not match the batch",
+						});
 					}
 					for (const [offset, value] of values.entries()) {
 						inlineValues[settledLength + offset] = value;
@@ -153,9 +154,9 @@ const makeWorkflowReplay = (
 						(entry): RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure> =>
 							stableJson(entry.request) !== stableJson(request)
 								? RuntimeEffect.fail(
-										new WorkflowJournalMismatchError(
-											`Sandbox workflow journal identity mismatch at index ${request.index}`,
-										),
+										new WorkflowJournalMismatchError({
+											message: `Sandbox workflow journal identity mismatch at index ${request.index}`,
+										}),
 									)
 								: Schema.decodeEffect(output)(entry.value),
 					),

@@ -1,14 +1,17 @@
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { SavedViewsApi } from "#/api/saved-views";
 import type { ApiScope } from "#/api/scope";
 import type { CustomizePlan } from "#/modules/shell/customize/customize-plan";
 
-export class CustomizeSaveError extends Data.TaggedError("CustomizeSaveError")<{
-	readonly cause: unknown;
-	readonly stage: "update" | "reorder" | "workspace";
-}> {}
+export class CustomizeSaveError extends Schema.TaggedError<
+	CustomizeSaveError,
+	{ readonly brand: unique symbol }
+>()("CustomizeSaveError", {
+	cause: Schema.Unknown,
+	stage: Schema.Literals(["update", "reorder", "workspace"]),
+}) {}
 
 export class CustomizeSidebarService extends Context.Service<CustomizeSidebarService>()(
 	"CustomizeSidebarService",

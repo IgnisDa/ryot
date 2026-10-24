@@ -34,7 +34,7 @@ export const updatePreferencesMutation = createRyotMutation<
 						),
 			),
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError("transport")),
+			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 		),
 );
 
@@ -48,6 +48,6 @@ export const initializeReportingTimeZoneMutation = createRyotMutation<
 		.updatePreferences(hostServices.scope, { payload: { initializeReportingTimeZone: input } })
 		.pipe(
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError("transport")),
+			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 		),
 );

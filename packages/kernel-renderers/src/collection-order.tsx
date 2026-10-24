@@ -69,7 +69,7 @@ export const CollectionOrder = ({
 					.pipe(
 						Effect.filterOrFail(
 							(page) => !page.stale,
-							() => new RyotClientError("collection-stale"),
+							() => new RyotClientError({ reason: "collection-stale" }),
 						),
 					),
 			{ cancelOnUnmount: true },

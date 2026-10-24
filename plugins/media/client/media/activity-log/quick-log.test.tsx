@@ -112,7 +112,7 @@ describe("useQuickLog", () => {
 		],
 		[
 			"a failed refresh keeps the previous context",
-			(_document: unknown) => Effect.fail(new RyotClientError("operation-failed")),
+			(_document: unknown) => Effect.fail(new RyotClientError({ reason: "operation-failed" })),
 			"Heat",
 		],
 	] as const) {

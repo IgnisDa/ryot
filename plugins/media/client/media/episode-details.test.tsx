@@ -346,7 +346,9 @@ describe("episode details actions", () => {
 					state,
 					refresh: (answer) =>
 						Deferred.await(release).pipe(
-							Effect.andThen(fails ? Effect.fail(new RyotClientError("operation-failed")) : answer),
+							Effect.andThen(
+								fails ? Effect.fail(new RyotClientError({ reason: "operation-failed" })) : answer,
+							),
 						),
 				});
 				const dialog = yield* openDetails(mounted);
@@ -374,7 +376,7 @@ describe("episode details actions", () => {
 			const mounted = mountDetails({
 				accept: (attempt) =>
 					attempt === 1
-						? Effect.fail(new RyotClientError("operation-failed"))
+						? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
 						: Effect.succeed(`submission-${attempt}`),
 			});
 			const dialog = yield* openDetails(mounted);

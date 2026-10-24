@@ -550,7 +550,7 @@ describe("plugin Effect request engine", () => {
 			channel.port1.postMessage({ requestId: "leave-1", type: "flush-request" });
 			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "flush-result")).toEqual([]);
-			yield* Deferred.fail(gate, new RyotClientError("quota"));
+			yield* Deferred.fail(gate, new RyotClientError({ reason: "quota" }));
 			expect(yield* Fiber.join(first)).toBe(false);
 			expect(sent(messages, "flush-result")).toEqual([
 				{ flushed: false, type: "flush-result", requestId: "leave-1" },
@@ -1148,7 +1148,7 @@ describe("plugin Effect request engine", () => {
 				value: { invalid: undefined },
 			});
 			expect(yield* Fiber.join(pending)).toMatchObject({
-				failure: new RyotClientError("protocol"),
+				failure: new RyotClientError({ reason: "protocol" }),
 			});
 		}),
 	);
@@ -1177,10 +1177,10 @@ describe("plugin Effect request engine", () => {
 				message: "Every episode must belong to the selected parent",
 			});
 			expect(yield* Fiber.join(pending)).toMatchObject({
-				failure: new RyotClientError(
-					"operation-rejected",
-					"Every episode must belong to the selected parent",
-				),
+				failure: new RyotClientError({
+					reason: "operation-rejected",
+					message: "Every episode must belong to the selected parent",
+				}),
 			});
 		}),
 	);

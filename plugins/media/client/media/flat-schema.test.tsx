@@ -178,7 +178,7 @@ describe("flat media detail screen", () => {
 								Effect.gen(function* () {
 									requests.push(request);
 									if (requests.length === 1) {
-										return yield* new RyotClientError("transport");
+										return yield* new RyotClientError({ reason: "transport" });
 									}
 									return { enrichmentRequestId: "refresh-job" };
 								}),

@@ -6,7 +6,7 @@ import type {
 	PluginHapticKind,
 	PluginNavigationTarget,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Exit, Layer, Scope, Semaphore } from "effect";
+import { Context, Effect, Exit, Layer, Schema, Scope, Semaphore } from "effect";
 
 import type { ApiScope } from "#/api/scope";
 import { apiScopeKey } from "#/api/scope";
@@ -24,9 +24,10 @@ const MAX_SEARCH_LENGTH = 1024;
 
 type ScheduleRequest = Extract<PluginDeviceRequest, { action: "schedule" }>;
 
-export class DevicePlatformError extends Data.TaggedError("DevicePlatformError")<{
-	readonly cause: unknown;
-}> {}
+export class DevicePlatformError extends Schema.TaggedError<
+	DevicePlatformError,
+	{ readonly brand: unique symbol }
+>()("DevicePlatformError", { cause: Schema.Unknown }) {}
 
 const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 

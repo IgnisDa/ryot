@@ -8,13 +8,13 @@ import {
 	Cause,
 	Clock,
 	Context,
-	Data,
 	Deferred,
 	Effect,
 	Exit,
 	Layer,
 	Result,
 	Schedule,
+	Schema,
 	Scope,
 	Semaphore,
 } from "effect";
@@ -129,17 +129,21 @@ type ActiveRun = {
 	readonly result: Deferred.Deferred<RunResult, SidecarGenerationError>;
 };
 
-export class SidecarRecoverySuspended extends Data.TaggedError("SidecarRecoverySuspended")<{
-	readonly instance: string;
-}> {}
+export class SidecarRecoverySuspended extends Schema.TaggedError<
+	SidecarRecoverySuspended,
+	{ readonly brand: unique symbol }
+>()("SidecarRecoverySuspended", { instance: Schema.String }) {}
 
-export class SidecarGenerationError extends Data.TaggedError("SidecarGenerationError")<{
-	readonly eventId: string;
-	readonly instance: string;
-	readonly generation: number;
-	readonly culprit: string | undefined;
-	readonly reason: "exit" | "backstop" | "shutdown" | "transport";
-}> {}
+export class SidecarGenerationError extends Schema.TaggedError<
+	SidecarGenerationError,
+	{ readonly brand: unique symbol }
+>()("SidecarGenerationError", {
+	eventId: Schema.String,
+	generation: Schema.Int,
+	instance: Schema.String,
+	culprit: Schema.UndefinedOr(Schema.String),
+	reason: Schema.Literals(["exit", "backstop", "shutdown", "transport"]),
+}) {}
 
 const resident = (key: ProcessKey) => isResidentInstance(key.instance);
 

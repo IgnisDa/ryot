@@ -13,7 +13,7 @@ import {
 	type ImportSourcesPage,
 	importSourcesRecipe,
 } from "@ryot-app/ryotql-recipes/import-sources";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { ImportsApi } from "#/api/imports";
@@ -30,10 +30,10 @@ export const importIssuesQuery = createRyotQuery<
 
 type ImportsClient = Pick<KernelRyotClient, "data">;
 
-export class ImportsLoadError extends Data.TaggedError("ImportsLoadError")<{
-	readonly cause: unknown;
-	readonly stage: "run" | "runs";
-}> {}
+export class ImportsLoadError extends Schema.TaggedError<
+	ImportsLoadError,
+	{ readonly brand: unique symbol }
+>()("ImportsLoadError", { cause: Schema.Unknown, stage: Schema.Literals(["run", "runs"]) }) {}
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.sync(() => {

@@ -84,7 +84,7 @@ describe("complete activity history", () => {
 							}
 							const appending = JSON.stringify(document).includes('"operator":"lt"');
 							if (appending && appendAttempts++ === 0) {
-								return Effect.fail(new RyotClientError("transport"));
+								return Effect.fail(new RyotClientError({ reason: "transport" }));
 							}
 							return Effect.succeed({
 								data: {

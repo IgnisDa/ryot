@@ -18,7 +18,7 @@ import {
 	signalSchedulePageRecipe,
 } from "@ryot-app/ryotql-recipes/signal-schedules";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { Context, Data, DateTime, Effect, Layer, Result } from "effect";
+import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -44,11 +44,15 @@ type SignalScheduleTarget = Effect.Success<
 	ReturnType<SignalScheduleRepository["Service"]["listTargets"]>
 >[number];
 
-class SignalScheduleRecorded extends Data.TaggedError("SignalScheduleRecorded") {}
+class SignalScheduleRecorded extends Schema.TaggedError<
+	SignalScheduleRecorded,
+	{ readonly brand: unique symbol }
+>()("SignalScheduleRecorded", {}) {}
 
-class SignalScheduleQueryError extends Data.TaggedError("SignalScheduleQueryError")<{
-	readonly cause: unknown;
-}> {}
+class SignalScheduleQueryError extends Schema.TaggedError<
+	SignalScheduleQueryError,
+	{ readonly brand: unique symbol }
+>()("SignalScheduleQueryError", { cause: Schema.Unknown }) {}
 
 export const signalScheduleBounds = (input: {
 	now: Date;

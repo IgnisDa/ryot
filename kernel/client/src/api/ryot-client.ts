@@ -47,19 +47,26 @@ export const createKernelRyotClient = (
 			runtime
 				.runSync(Uploads)
 				.upload(scope, request)
-				.pipe(Effect.mapError((error) => new RyotClientError(classifyUploadFailure(error)))),
+				.pipe(
+					Effect.mapError((error) => new RyotClientError({ reason: classifyUploadFailure(error) })),
+				),
 		query: (document) =>
 			runtime
 				.runSync(RyotQLApi)
 				.execute(scope, { payload: document })
-				.pipe(Effect.mapError((error) => new RyotClientError(classifyRyotQLFailure(error)))),
+				.pipe(
+					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
+				),
 		resolveAssets: (assets) =>
 			runtime
 				.runSync(UploadsApi)
 				.resolveDownloads(scope, { payload: { assets: [...assets] } })
 				.pipe(
-					Effect.map((response) => mapManagedAssetResolutions(scope, response)),
-					Effect.mapError((error) => new RyotClientError(classifyManagedAssetFailure(error))),
+					Effect.mapBoth({
+						onSuccess: (response) => mapManagedAssetResolutions(scope, response),
+						onFailure: (error) =>
+							new RyotClientError({ reason: classifyManagedAssetFailure(error) }),
+					}),
 				),
 		mutateCollection: (request) => {
 			const api = runtime.runSync(CollectionsApi);
@@ -75,8 +82,10 @@ export const createKernelRyotClient = (
 				}
 				return yield* api.reorderMembership(scope, { payload: request.input });
 			}).pipe(
-				Effect.map((value): unknown => value),
-				Effect.mapError((error) => new RyotClientError(classifyCollectionFailure(error))),
+				Effect.mapBoth({
+					onSuccess: (value): unknown => value,
+					onFailure: (error) => new RyotClientError({ reason: classifyCollectionFailure(error) }),
+				}),
 			);
 		},
 	});
