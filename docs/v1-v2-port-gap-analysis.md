@@ -148,9 +148,11 @@ exact date/text conversion, interruption while legacy tables remained, preservat
 and explicit rescheduling by the migrated owner. `file3.sql` still refuses an unrelated blank legacy
 genre; the original dump was preserved. Full commands, counts, hashes, timings and limitations are in
 the [acceptance evidence](order-12-entity-reminders-plan.md#11-acceptance-execution-evidence).
-The read-only review, its three fixes and scoped cleanup are complete. At the user's request, work
-was committed in scoped groups before final repository-wide checks/tests. Those final commands
-still gate completion; Order 12 remains In progress.
+The read-only review, its three fixes and scoped cleanup are complete. Final repository checks passed
+38 Turbo tasks and type checks across 30 projects; server/docs builds passed eight tasks. The final
+non-e2e test run failed in a Fitness measurement-editor readiness wait. Its test-only fix passed
+affected checks, but the user stopped the follow-up tests before Fitness ran. That fix remains
+unverified and the final test gate remains open; Order 12 remains In progress.
 
 ### Phase 4 — Discovery, analytics and lower-priority account controls
 
@@ -840,7 +842,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `BulkMetadataProgressUpdate`, `HandleOnSeenComplete` | Media activity batches, source writers and required completion hooks; reshaped. No V1 default-collection side effects. |
 | `HandleMetadataEligibleForSmartCollectionMoving` | Live episodic coverage replaces the state correction. No Completed→Watchlist collection move or corresponding notification. |
 | Refresh monitored metadata and people | Media monitoring sweep, provider refresh and semantic detectors; covered. |
-| Reminder notification + removal | Missing producer/schedule and completion/removal behavior. |
+| Reminder notification + removal | Covered/reshaped: independent entity reminders use the frequent scheduler, durable delivery outcomes and explicit cancellation/history removal. Ordinary collection membership is unchanged. |
 | `recalculate_calendar_events` | Replaced by query-time Calendar sources over populated entities and airing arrays; no missing materializer. |
 | Notify users for released media | Missing server release-day notification producer; Calendar display is not delivery. |
 | Outdated seen-entry notifications | Missing 7-day in-progress / 14-day on-hold nudge producer; V1 gated this on Pro. |
@@ -881,7 +883,7 @@ an exact kernel/plugin signal identity, not V1 platform-specific event filters.
 | Person metadata / metadata-group association | Covered; company associations have explicit signals too. |
 | Episode images / episode name / release-date changes | Media detector signals exist; show-date and publish-year paths are explicit. Season-zero special episodes are excluded from these episode-change detectors. |
 | Review posted | Reshaped: author-only `review.created`, no public/cross-user model. |
-| Reminder | Missing. |
+| Reminder | Covered by kernel `reminder.due`, shared subscriptions and durable per-channel delivery. Uncertain sends are not automatically repeated. |
 | Metadata published today | Missing; episode-discovered is a provider-inventory change, not a date-driven release alert. |
 | Stale in-progress/on-hold | Missing. |
 | Completed show moved back to Watchlist | Missing literal move/alert; lifecycle correction is derived. |
@@ -902,12 +904,10 @@ resolved export, genre, Calendar, editor or projection work.
 
 ### Notification producers
 
-1. Entity reminders with persisted due dates, delivery, and post-fire state/removal.
-   Ordinary collection membership fields or native workout timers do not implement this.
-2. Release-day alerts to monitoring users. These can use the current source data; they do
+1. Release-day alerts to monitoring users. These can use the current source data; they do
    **not** depend on rebuilding V1's calendar table.
-3. In-progress/on-hold nudges (V1: 7/14 days, Pro-only).
-4. Decide whether a derived “more episodes to watch” alert replaces the literal
+2. In-progress/on-hold nudges (V1: 7/14 days, Pro-only).
+3. Decide whether a derived “more episodes to watch” alert replaces the literal
    Completed→Watchlist notification. No current producer does so.
 
 ### Retention and metadata freshness

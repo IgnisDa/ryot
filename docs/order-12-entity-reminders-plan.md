@@ -655,6 +655,21 @@ the original cached-object directory were preserved.
   persistence retry-boundary comment and lint-required explicit void return remain. Generated route
   casts remain generator-owned; no handwritten checker bypass or suppression was added.
 
-At the user's request, implementation and evidence were committed in scoped groups before final
-repository-wide validation. `bun run check` and then `bun turbo --filter='!@ryot-app/e2e' test` still
-must pass before Order 12 can be marked Done. No commands remain active at this handoff.
+Implementation and evidence were committed in scoped groups before final repository-wide validation.
+The final non-e2e test gate remains open. The follow-up run was stopped at the user's request;
+no Order 12 commands remain active. Implementation is complete, but Order 12 remains In progress
+until the required final tests pass.
+
+### Final repository validation
+
+- `bun run check` passed: 52 lint-rule tests, 38 Turbo tasks and type checks over 7,733 files
+  across 30 projects.
+- `bun turbo --filter=@ryot-app/server --filter=@ryot-app/docs build` passed all eight tasks,
+  including the shipped Media/Fitness artifact, renderer, sandbox, backend, server and docs builds.
+- The first `bun turbo --filter='!@ryot-app/e2e' test` run stopped at an unrelated Fitness
+  measurement-editor readiness wait (49 successful Turbo tasks). The test now waits for the page's
+  summary/series stage before its entry/children stage and scopes action lookup to the log. Assertions,
+  timeouts and production behavior are unchanged. Affected checks passed all 26 tasks. The user
+  requested termination of the affected test rerun; it stopped in a backend dependency test after
+  44 successful tasks and did not reach the Fitness tests. The test fix therefore remains unverified.
+  Final checks followed by the complete non-e2e test run must pass before Order 12 is marked Done.
