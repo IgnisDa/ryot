@@ -19,6 +19,10 @@ import {
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import {
+	type AnalyticsSectionRegistration,
+	AnalyticsSectionsProvider,
+} from "../analytics/sections";
 import { createPluginRuntime } from "../bridge/session";
 import type { RyotClient } from "../client/client";
 import {
@@ -95,6 +99,7 @@ const KernelShortcutForwarder = ({
 const bootstrapClientApplication = (
 	createResolver: (page: undefined | ClientPageContext) => ResolvePluginScreen,
 	registrations: readonly EntityPresentationRegistration[],
+	analyticsSections: readonly AnalyticsSectionRegistration[],
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => {
 	let root: Root | undefined;
@@ -120,12 +125,14 @@ const bootstrapClientApplication = (
 		}
 		root.render(
 			<RyotProvider key={documentKey} runtime={sdkRuntime}>
-				<EntityPresentationRegistryProvider registrations={registrations}>
-					<PageStoreProvider store={pageStore}>
-						<KernelShortcutForwarder runtime={runtime} />
-						<PluginRouter />
-					</PageStoreProvider>
-				</EntityPresentationRegistryProvider>
+				<AnalyticsSectionsProvider registrations={analyticsSections}>
+					<EntityPresentationRegistryProvider registrations={registrations}>
+						<PageStoreProvider store={pageStore}>
+							<KernelShortcutForwarder runtime={runtime} />
+							<PluginRouter />
+						</PageStoreProvider>
+					</EntityPresentationRegistryProvider>
+				</AnalyticsSectionsProvider>
 			</RyotProvider>,
 		);
 	};
@@ -238,6 +245,7 @@ const bootstrapClientApplication = (
 };
 
 type ClientApplicationOptions = {
+	readonly analyticsSections?: readonly AnalyticsSectionRegistration[];
 	readonly entityPresentations?: readonly EntityPresentationRegistration[];
 };
 
@@ -251,6 +259,7 @@ export const createClientBootstrap = (
 		bootstrapClientApplication(
 			() => createPluginRouteResolver(definition),
 			options.entityPresentations ?? [],
+			options.analyticsSections ?? [],
 			createRuntime,
 		),
 
@@ -261,6 +270,7 @@ export const createClientBootstrap = (
 					? createPluginRouteResolver({ home: { component } })
 					: createClientPageRouteResolver(component, page),
 			options.entityPresentations ?? [],
+			options.analyticsSections ?? [],
 			createRuntime,
 		),
 });

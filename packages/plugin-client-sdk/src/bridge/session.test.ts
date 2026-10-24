@@ -950,6 +950,37 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("reads reporting preferences without a plugin identity and validates the zone", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const read = yield* Effect.forkChild(runtime.client.reportingPreferences, {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "user-settings-request")).toEqual([
+				{ kind: "reporting", requestId: "user-settings-1", type: "user-settings-request" },
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				type: "user-settings-result",
+				requestId: "user-settings-1",
+				settings: { timeZone: "America/New_York" },
+			});
+			expect(yield* Fiber.join(read)).toEqual({ timeZone: "America/New_York" });
+			const invalid = yield* Effect.forkChild(Effect.flip(runtime.client.reportingPreferences), {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "success",
+				type: "user-settings-result",
+				requestId: "user-settings-2",
+				settings: { timeZone: "+01:00" },
+			});
+			expect((yield* Fiber.join(invalid)).reason).toBe("malformed-result");
+		}),
+	);
+
 	it.live("reads user settings only for contributing plugins and decodes the record", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

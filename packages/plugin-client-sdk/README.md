@@ -91,6 +91,16 @@ otherwise or after the frame's server or user changes. `usePluginUserSettings(pl
 keyed by local ID that refreshes after mutations, so an operation that calls `updateUserSettings`
 is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
 
+`client.reportingPreferences` (an Effect) and `useReportingPreferences()` read only the account's effective reporting
+`timeZone`, using UTC while unset. This narrow authenticated capability is available to renderers and
+plugins without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
+Compiled client sources import the shared `ReportingSelection` schema and type, `CalendarDate`,
+`ReportingRange`, `ReportingGrouping`, and selection helpers (`reportingSelectionKey`,
+`parseReportingSelection`, `reportingSelectionSearch`, `defaultReportingSelection`, and
+`resolveReportingSelection`) from `@ryot-app/plugin-client-sdk/plugin`. These use the canonical
+analytics reporting definitions. Resolve the selection's half-open local-calendar boundaries with
+`resolveReportingSelection(selection, { now: schedule.now(), timeZone })` during execution.
+
 Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
 `null`, while inaccessible or malformed stored JSON fails without removing the original value.
 Register an Effect with `persistence.registerFlush` to make navigation and document replacement wait
@@ -300,6 +310,39 @@ screens. `useViewFilter(fields)` reads and replaces the `filters` page-search pa
 `FilterRules`, `FilterChips`, and `ViewFiltersSheet` render the panel, chips, and dialog, and
 `filtersLabel` names the trigger. Fields are `QueryFilterField`s, so a plugin declares relationship
 fields with `client.pluginIdentity(...)` owners.
+
+## Analytics sections
+
+Plugins register named analytics sections in their client declaration. Registration keys are stable
+slugs local to that plugin; display names and icons do not identify an owner. Each registration names
+an `analytics-section` export from the same client declaration:
+
+```ts
+analyticsSections: {
+	activity: { name: "Activity", icon: "chart-column", sortOrder: 0, exportName: "analytics" },
+},
+exports: {
+	analytics: {
+		kind: "analytics-section",
+		entry: "client/analytics.tsx",
+		automaticEntityPresentations: false,
+	},
+},
+```
+
+The entry default-exports a React component accepting `AnalyticsSectionProps`, imported from
+`@ryot-app/plugin-client-sdk/plugin`. Its `selection` is the shared `ReportingSelection`; `timeZone`
+is the authenticated account reporting timezone; `owner` is the exact local plugin identity. Use
+that owner in recipes rather than inferring ownership from display metadata or the selected workspace.
+The compiler rejects sections that require other host props.
+
+The global renderer owns the page title and section navigation. Only the selected section mounts;
+inactive sections do not start queries. Section queries should use `cancelOnUnmount: true`, stable
+selection/timezone cache keys, and execution-time schedule clocks. Plugins own their data loading,
+missing-data, refresh-error and retry states. The host independently handles module, stylesheet, and
+render failures, with Retry for load/render failures and page reload for unavailable dependencies.
+This is shared-realm composition: contributor bindings scope host capabilities, not isolation between
+mutually trusting modules. Page freshness continues to require explicit reload after catalog changes.
 
 ## Entity Presentations
 

@@ -10,6 +10,12 @@ export {
 	createClientBootstrap,
 } from "./bootstrap/application";
 export {
+	AnalyticsSection,
+	analyticsSectionKey,
+	useAnalyticsSections,
+	type AnalyticsSectionProps,
+} from "./analytics/sections";
+export {
 	PluginId,
 	EventSchemaSlug,
 	PluginPackageId,
@@ -24,6 +30,19 @@ export type {
 	PluginIosLiveActivityRequest,
 	PluginIosLiveActivityListResult,
 } from "@ryot-app/plugin-client-contract";
+export {
+	CalendarDate,
+	ReportingRange,
+	ReportingGrouping,
+	ReportingSelection,
+	type ReportingPeriod,
+	reportingSelectionKey,
+	parseReportingSelection,
+	reportingSelectionSearch,
+	defaultReportingSelection,
+	resolveReportingSelection,
+	type ResolvedReportingSelection,
+} from "@ryot-app/contract/modules/analytics/reporting";
 export {
 	PluginLink,
 	usePluginTitle,

@@ -2,7 +2,6 @@ export { localDay } from "./local-day";
 export { ActiveScreenContext } from "./active-screen";
 export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
-export { usePluginUserSettings } from "./queries/user-settings";
 export { useRequestEntityEnrichment } from "./queries/entity-enrichment";
 export { useEntitySettle, useEntityRefresh } from "./refresh/entity-hooks";
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
@@ -10,6 +9,7 @@ export { renderSchemaAsset, useSchemaAssetUpload } from "./assets/schema-form";
 export { usePagination, useRyotInfiniteQuery } from "./queries/pagination-hook";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";
 export { nextPageCursor, paginationItems, PaginationError } from "./queries/pagination";
+export { usePluginUserSettings, useReportingPreferences } from "./queries/user-settings";
 export { useAssetUrl, useManagedAssetUrl, ManagedAssetProvider } from "./assets/provider";
 export {
 	type RyotQuery,

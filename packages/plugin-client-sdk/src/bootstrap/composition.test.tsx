@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
 import { Effect, Result } from "effect";
 import { forwardRef, memo } from "react";
@@ -12,7 +12,14 @@ const mountDescriptor = (descriptor: unknown, type = "application/json") => {
 	const element = document.createElement("script");
 	element.type = type;
 	element.id = CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID;
-	element.textContent = typeof descriptor === "string" ? descriptor : JSON.stringify(descriptor);
+	element.textContent =
+		typeof descriptor === "string"
+			? descriptor
+			: JSON.stringify(
+					typeof descriptor === "object" && descriptor !== null
+						? { analyticsSections: [], ...descriptor }
+						: descriptor,
+				);
 	document.head.append(element);
 };
 
@@ -31,8 +38,11 @@ const presentation = defineEntityPresentation<string>({
 type Recorded = {
 	readonly loaded: string[];
 	readonly stylesheets: string[];
-	readonly pages: { options: unknown; component: unknown }[];
 	readonly plugins: { options: unknown; definition: unknown }[];
+	readonly pages: {
+		component: unknown;
+		options: Parameters<CompositionDependencies["bootstrapPage"]>[1];
+	}[];
 };
 
 const harness = (
@@ -77,6 +87,61 @@ afterEach(() => {
 });
 
 describe("composition bootstrap", () => {
+	it.effect(
+		"loads analytics code and styles on demand and retries failed imports independently",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					application: "page",
+					automaticRegistry: [],
+					entry: reference("/page.js", "Home"),
+					analyticsSections: [
+						{
+							icon: "box",
+							sortOrder: 0,
+							slug: "activity",
+							name: "Activity",
+							ownerPluginId: "private-owner",
+							module: reference("/section.js", "activity"),
+							stylesheets: ["/dependency.css", "/section.css"],
+						},
+						{
+							icon: "box",
+							sortOrder: 1,
+							module: null,
+							stylesheets: [],
+							slug: "unavailable",
+							name: "Unavailable",
+							ownerPluginId: "missing-owner",
+						},
+					],
+				});
+				const failures = ["/section.js"];
+				const { recorded, dependencies } = harness(
+					{ "/page.js": { Home }, "/section.js": { activity: About } },
+					{ modules: failures },
+				);
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.loaded).toEqual(["/page.js"]);
+				expect(recorded.stylesheets).toEqual([]);
+				const registrations = recorded.pages[0]?.options?.analyticsSections;
+				const section = registrations?.[0];
+				assert(section?.load);
+				const load = section.load;
+				expect(section.ownerPluginId).toBe("private-owner");
+				expect(registrations?.[1]?.load).toBeNull();
+				yield* Effect.promise(() => expect(load()).rejects.toThrow("Module failed: /section.js"));
+				failures.splice(0);
+				yield* Effect.promise(() => expect(load()).resolves.toBe(About));
+				expect(recorded.loaded).toEqual(["/page.js", "/section.js", "/section.js"]);
+				expect(recorded.stylesheets).toEqual([
+					"/dependency.css",
+					"/section.css",
+					"/dependency.css",
+					"/section.css",
+				]);
+			}),
+	);
 	it.effect("rejects a missing descriptor element", () =>
 		rejects(
 			"Client composition descriptor is missing or has an invalid type",
@@ -149,7 +214,9 @@ describe("composition bootstrap", () => {
 			});
 			const { recorded, dependencies } = harness({ "/page.js": { Home } });
 			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.pages).toEqual([{ component: Home, options: { entityPresentations: [] } }]);
+			expect(recorded.pages).toEqual([
+				{ component: Home, options: { analyticsSections: [], entityPresentations: [] } },
+			]);
 			expect(recorded.plugins).toEqual([]);
 		}),
 	);
@@ -171,7 +238,7 @@ describe("composition bootstrap", () => {
 			expect(recorded.pages).toEqual([]);
 			expect(recorded.plugins).toEqual([
 				{
-					options: { entityPresentations: [] },
+					options: { analyticsSections: [], entityPresentations: [] },
 					definition: {
 						notFound: Missing,
 						home: { component: Home },
@@ -302,10 +369,7 @@ describe("composition bootstrap", () => {
 			yield* Effect.promise(() => bootstrapComposition(dependencies));
 			expect(recorded.stylesheets).toEqual([]);
 			const options = recorded.pages[0]?.options;
-			const registrations =
-				typeof options === "object" && options !== null && "entityPresentations" in options
-					? options.entityPresentations
-					: undefined;
+			const registrations = options?.entityPresentations;
 			expect(registrations).toHaveLength(2);
 			if (!Array.isArray(registrations)) {
 				return;
@@ -347,10 +411,7 @@ const registrationsFor = (
 		yield* Effect.promise(() => bootstrapComposition(dependencies));
 		const [page] = recorded.pages;
 		const options = page?.options;
-		const registrations =
-			typeof options === "object" && options !== null && "entityPresentations" in options
-				? options.entityPresentations
-				: undefined;
+		const registrations = options?.entityPresentations;
 		if (!Array.isArray(registrations) || registrations.length !== 1) {
 			throw new Error("Expected one presentation registration");
 		}

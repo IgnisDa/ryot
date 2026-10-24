@@ -33,7 +33,7 @@ describe("lazy presentation stylesheets", () => {
 		}),
 	);
 
-	it.live("rejects a broken stylesheet without duplicating its link", () =>
+	it.live("removes a broken stylesheet so the section can retry it", () =>
 		Effect.gen(function* () {
 			const href = "/presentations/broken.css";
 			const loading = loadStylesheet(href);
@@ -41,9 +41,10 @@ describe("lazy presentation stylesheets", () => {
 			yield* Effect.promise(() =>
 				expect(loading).rejects.toThrow("Client stylesheet failed to load"),
 			);
-			yield* Effect.promise(() =>
-				expect(loadStylesheet(href)).rejects.toThrow("Client stylesheet failed to load"),
-			);
+			expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(0);
+			const retry = loadStylesheet(href);
+			document.querySelector(`link[href="${href}"]`)?.dispatchEvent(new Event("load"));
+			yield* Effect.promise(() => expect(retry).resolves.toBeUndefined());
 			expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(1);
 		}),
 	);
@@ -63,7 +64,7 @@ describe("lazy presentation stylesheets", () => {
 			yield* Effect.promise(() =>
 				expect(loading).rejects.toThrow("Client stylesheet failed to load"),
 			);
-			expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(1);
+			expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(0);
 		}),
 	);
 });

@@ -1,3 +1,4 @@
+import { ReportingPreferences } from "@ryot-app/contract/modules/analytics/reporting";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { ManagedAssetResolutionBatch } from "@ryot-app/contract/modules/assets/schemas";
 import {
@@ -252,6 +253,15 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				yield* adapterEffect(() => read(pluginId)),
 			);
 		});
+	const reportingPreferences: Effect.Effect<ReportingPreferences, RyotClientError> = Effect.gen(
+		function* () {
+			const read = adapter.readReportingPreferences;
+			if (!read) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			return yield* decodeCapability(ReportingPreferences, yield* adapterEffect(read));
+		},
+	);
 	const requestEnrichment = (
 		request: Omit<typeof RequestEntityEnrichmentBody.Type, "pluginId"> & {
 			readonly entityId: string;
@@ -399,6 +409,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	return {
 		overlayBack,
 		mutationCompleted,
+		reportingPreferences,
 		userSettings: readUserSettings,
 		uploads: { uploadPermanent, uploadTemporary },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },

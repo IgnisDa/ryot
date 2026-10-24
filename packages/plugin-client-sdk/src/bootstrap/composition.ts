@@ -4,7 +4,9 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
 import { Effect, Schema } from "effect";
+import type { ComponentType } from "react";
 
+import type { AnalyticsSectionProps } from "../analytics/sections";
 import { isComponentType } from "../component-type";
 import { isEntityPresentationDefinition } from "../presentations/entity-results";
 import { loadStylesheet } from "../stylesheets";
@@ -76,22 +78,57 @@ const loadPresentation = (
 		}),
 	);
 
+const loadAnalyticsSection = (
+	registration: ClientCompositionDocument["descriptor"]["analyticsSections"][number],
+	load: (specifier: string) => Promise<ClientModule>,
+	dependencies: CompositionDependencies,
+) =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const reference = registration.module;
+			if (reference === null) {
+				throw new Error("Analytics section unavailable");
+			}
+			yield* Effect.promise(() =>
+				Promise.all(registration.stylesheets.map(dependencies.loadStylesheet)),
+			);
+			const module = yield* Effect.promise(() => load(reference.specifier));
+			return exported(module, reference, (value): value is ComponentType<AnalyticsSectionProps> =>
+				isComponentType(value),
+			);
+		}),
+	);
+
+const createModuleLoader = (dependencies: CompositionDependencies) => {
+	const modules = new Map<string, Promise<ClientModule>>();
+	return (specifier: string) => {
+		const cached = modules.get(specifier);
+		if (cached) {
+			return cached;
+		}
+		const loading = Effect.runPromise(
+			Effect.promise(() => dependencies.loadModule(specifier)).pipe(
+				Effect.onExit((exit) =>
+					exit._tag === "Success"
+						? Effect.void
+						: Effect.sync(() => {
+								modules.delete(specifier);
+							}),
+				),
+			),
+		);
+		modules.set(specifier, loading);
+		return loading;
+	};
+};
+
 export const bootstrapComposition = (
 	dependencies: CompositionDependencies = defaultDependencies,
 ): Promise<void> =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const descriptor = readDescriptor();
-			const modulePromisesBySpecifier = new Map<string, Promise<ClientModule>>();
-			const load = (specifier: string) => {
-				const cached = modulePromisesBySpecifier.get(specifier);
-				if (cached) {
-					return cached;
-				}
-				const loading = dependencies.loadModule(specifier);
-				modulePromisesBySpecifier.set(specifier, loading);
-				return loading;
-			};
+			const load = createModuleLoader(dependencies);
 			const moduleReferences =
 				descriptor.application === "page"
 					? [descriptor.entry]
@@ -118,9 +155,22 @@ export const bootstrapComposition = (
 				entitySchemaSlug: registration.entitySchemaSlug,
 				load: () => loadPresentation(registration, load, dependencies),
 			}));
+			const analyticsSections = descriptor.analyticsSections.map((registration) => ({
+				slug: registration.slug,
+				name: registration.name,
+				icon: registration.icon,
+				ownerPluginId: registration.ownerPluginId,
+				load:
+					registration.module === null
+						? null
+						: () => loadAnalyticsSection(registration, load, dependencies),
+			}));
 
 			if (descriptor.application === "page") {
-				dependencies.bootstrapPage(component(descriptor.entry), { entityPresentations });
+				dependencies.bootstrapPage(component(descriptor.entry), {
+					analyticsSections,
+					entityPresentations,
+				});
 				return;
 			}
 			const { home, routes, notFound } = descriptor.routes;
@@ -130,7 +180,7 @@ export const bootstrapComposition = (
 					routes: routes.map((route) => ({ path: route.path, component: component(route.module) })),
 					...(notFound === undefined ? {} : { notFound: component(notFound) }),
 				},
-				{ entityPresentations },
+				{ analyticsSections, entityPresentations },
 			);
 		}),
 	);

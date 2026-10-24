@@ -31,6 +31,7 @@ import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { act, type ComponentType, createElement, Fragment } from "react";
 
+import type { AnalyticsSectionRegistration } from "./analytics/sections";
 import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
 import type { BackgroundOperationAdapterRequest, RyotClientAdapter } from "./client/adapter";
 import { createRyotClient } from "./client/client";
@@ -302,6 +303,7 @@ export const mountPluginPage = (
 		readonly page?: undefined | ClientPageContext;
 		readonly location?: undefined | PluginLogicalLocation;
 		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
+		readonly analyticsSections?: undefined | readonly AnalyticsSectionRegistration[];
 		readonly entityPresentations?: undefined | readonly EntityPresentationRegistration[];
 		readonly onClientMessage?: undefined | ((message: PluginBridgeClientMessage) => void);
 	} = {},
@@ -313,12 +315,14 @@ export const mountPluginPage = (
 	metadataElement.textContent = JSON.stringify(compositionMetadata);
 	document.head.append(metadataElement);
 
-	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(
-		component,
-		options.entityPresentations === undefined
+	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(component, {
+		...(options.entityPresentations === undefined
 			? {}
-			: { entityPresentations: options.entityPresentations },
-	);
+			: { entityPresentations: options.entityPresentations }),
+		...(options.analyticsSections === undefined
+			? {}
+			: { analyticsSections: options.analyticsSections }),
+	});
 	const channel = new MessageChannel();
 	const messages: unknown[] = [];
 	channel.port1.addEventListener("message", ({ data }) => {

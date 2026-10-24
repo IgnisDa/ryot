@@ -441,6 +441,16 @@ export const createPluginRuntime = (
 					}) satisfies PluginBridgeUserSettingsRequest,
 			),
 		);
+	const readReportingPreferences = () =>
+		sendRequest(
+			"user-settings",
+			(requestId) =>
+				({
+					requestId,
+					kind: "reporting",
+					type: "user-settings-request",
+				}) satisfies PluginBridgeUserSettingsRequest,
+		);
 
 	const requestEnrichment = (request: PluginEnrichmentRequest) =>
 		whenPluginContributor(request.pluginId, () =>
@@ -604,6 +614,7 @@ export const createPluginRuntime = (
 		mutateCollection,
 		requestEnrichment,
 		navigatePageSearch,
+		readReportingPreferences,
 		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
