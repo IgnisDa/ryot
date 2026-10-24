@@ -4,6 +4,7 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { Effect } from "effect";
 import {
@@ -19,7 +20,7 @@ import {
 import { useRyotSchedule } from "../queries/provider";
 
 export type AnalyticsSectionProps = {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 	readonly owner: Extract<PluginIdentityReference, { readonly kind: "local" }>;
 };
@@ -82,8 +83,8 @@ const SectionContent = ({
 	selection,
 	registration,
 }: {
-	readonly timeZone: string;
 	readonly retry: () => void;
+	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 	readonly registration: AnalyticsSectionRegistration;
 }) => {
@@ -132,7 +133,7 @@ export const AnalyticsSection = ({
 	selection,
 	registration,
 }: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 	readonly registration: AnalyticsSectionRegistration;
 }) => {

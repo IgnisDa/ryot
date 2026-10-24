@@ -25,7 +25,8 @@ import {
 	type PropertyValidationIssue,
 } from "./property-schema";
 import { parseErrorToIssues } from "./property-validation";
-import { Email, HttpUrl, isNamedTimeZone } from "./utils";
+import { TimeZone } from "./time-zone";
+import { Email, HttpUrl } from "./utils";
 
 type NumberValueSchema = Schema.Codec<number>;
 type PropertyValueField = PropertyValueSchema;
@@ -255,12 +256,6 @@ const datetimeValueSchema = Schema.String.pipe(
 	),
 );
 
-const timeZoneValueSchema = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((value) => isNamedTimeZone(value) || "Expected an IANA time zone"),
-	),
-);
-
 const applyStringValidation = (
 	schema: StringValueSchema,
 	validation?: AppStringPropertyValidation,
@@ -292,7 +287,7 @@ const createStringValueSchema = (property: Extract<AppPropertyDefinition, { type
 		return applyStringValidation(Email, property.validation);
 	}
 	if (property.format?.kind === "timezone") {
-		return applyStringValidation(timeZoneValueSchema, property.validation);
+		return applyStringValidation(TimeZone, property.validation);
 	}
 	return applyStringValidation(Schema.String, property.validation);
 };

@@ -1,12 +1,9 @@
 import { DateTime, Result, Schema } from "effect";
 
-import { isNamedTimeZone, IsoUtcString, strictStruct } from "../../schema/utils";
+import { TimeZone } from "../../schema/time-zone";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
 
-export const ReportingTimeZone = Schema.String.check(
-	Schema.makeFilter((value) => isNamedTimeZone(value) || "Expected an IANA time zone"),
-);
-
-export const ReportingPreferences = strictStruct({ timeZone: ReportingTimeZone });
+export const ReportingPreferences = strictStruct({ timeZone: TimeZone });
 export type ReportingPreferences = typeof ReportingPreferences.Type;
 
 export const CalendarDate = Schema.String.check(
@@ -88,7 +85,7 @@ const automaticGrouping = (days: number): Exclude<typeof ReportingGrouping.Type,
 
 const calendarStep = { week: { weeks: 1 }, year: { years: 1 }, month: { months: 1 } };
 
-const period = (start: DateTime.Utc, end: DateTime.Utc, timeZone: string): ReportingPeriod => ({
+const period = (start: DateTime.Utc, end: DateTime.Utc, timeZone: TimeZone): ReportingPeriod => ({
 	startDate: DateTime.formatIsoDate(start),
 	endDate: DateTime.formatIsoDate(DateTime.subtract(end, { days: 1 })),
 	endAt: DateTime.formatIso(DateTime.makeZonedUnsafe(end, { timeZone, adjustForTimeZone: true })),
@@ -96,6 +93,13 @@ const period = (start: DateTime.Utc, end: DateTime.Utc, timeZone: string): Repor
 		DateTime.makeZonedUnsafe(start, { timeZone, adjustForTimeZone: true }),
 	),
 });
+
+export const calendarPeriod = (startDate: string, endDate: string, timeZone: TimeZone) =>
+	period(
+		DateTime.makeUnsafe(startDate),
+		DateTime.add(DateTime.makeUnsafe(endDate), { days: 1 }),
+		timeZone,
+	);
 
 const calendarDays = (start: DateTime.Utc, end: DateTime.Utc) =>
 	Math.round(
@@ -105,9 +109,9 @@ const calendarDays = (start: DateTime.Utc, end: DateTime.Utc) =>
 
 export const resolveReportingSelection = (
 	selection: ReportingSelection,
-	input: { readonly now: number; readonly timeZone: string },
+	input: { readonly now: number; readonly timeZone: TimeZone },
 ) => {
-	const timeZone = Schema.decodeSync(ReportingTimeZone)(input.timeZone);
+	const timeZone = input.timeZone;
 	const today = DateTime.makeUnsafe(
 		DateTime.formatIsoDate(DateTime.makeZonedUnsafe(input.now, { timeZone })),
 	);
@@ -152,7 +156,7 @@ export const resolveReportingSelection = (
 
 export type ResolvedReportingSelection = ReturnType<typeof resolveReportingSelection>;
 
-export const reportingSelectionKey = (selection: ReportingSelection, timeZone: string) => ({
+export const reportingSelectionKey = (selection: ReportingSelection, timeZone: TimeZone) => ({
 	timeZone,
 	selection,
 });

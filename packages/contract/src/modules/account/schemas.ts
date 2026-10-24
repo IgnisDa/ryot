@@ -1,12 +1,12 @@
 import { Schema } from "effect";
 
+import { TimeZone } from "../../schema/time-zone";
 import { UserPreferencesPatch } from "../../schema/user-preferences";
 import { strictStruct } from "../../schema/utils";
-import { ReportingTimeZone } from "../analytics/reporting";
 
 export const UpdateUserPreferencesBody = strictStruct({
 	...UserPreferencesPatch.fields,
-	initializeReportingTimeZone: Schema.optional(ReportingTimeZone),
+	initializeReportingTimeZone: Schema.optional(TimeZone),
 }).check(
 	Schema.makeFilter(
 		(body) =>

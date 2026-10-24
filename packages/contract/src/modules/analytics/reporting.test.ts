@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TimeZone } from "../../schema/time-zone";
 import {
 	defaultReportingSelection,
 	parseReportingSelection,
@@ -12,7 +13,7 @@ import {
 const resolve = (
 	range: ReportingRange,
 	now = "2024-03-15T12:00:00Z",
-	timeZone = "America/New_York",
+	timeZone = TimeZone.make("America/New_York"),
 ) =>
 	resolveReportingSelection(
 		{ ...defaultReportingSelection, range },
@@ -42,7 +43,7 @@ describe("reporting ranges", () => {
 		const result = resolve(
 			{ kind: "custom", endDate: "2024-09-08", startDate: "2024-09-08" },
 			"2024-09-08T12:00:00Z",
-			"America/Santiago",
+			TimeZone.make("America/Santiago"),
 		);
 		expect(result.current).toEqual({
 			endDate: "2024-09-08",
@@ -61,7 +62,7 @@ describe("reporting ranges", () => {
 		const result = resolve(
 			{ days: 7, kind: "rolling" },
 			"2024-09-08T04:30:00Z",
-			"America/Santiago",
+			TimeZone.make("America/Santiago"),
 		);
 		expect(result.current).toEqual({
 			endDate: "2024-09-08",
@@ -80,7 +81,7 @@ describe("reporting ranges", () => {
 		const result = resolve(
 			{ offset: 0, unit: "month", kind: "calendar" },
 			"2012-04-15T12:00:00Z",
-			"America/Havana",
+			TimeZone.make("America/Havana"),
 		);
 		expect(result.current).toEqual({
 			endDate: "2012-04-30",
@@ -98,7 +99,7 @@ describe("reporting ranges", () => {
 			resolve(
 				{ offset: -1, unit: "month", kind: "calendar" },
 				"2012-05-15T12:00:00Z",
-				"America/Havana",
+				TimeZone.make("America/Havana"),
 			).current,
 		).toEqual(result.current);
 	});
@@ -131,12 +132,12 @@ describe("reporting ranges", () => {
 	});
 	it("resolves moving ranges from the supplied clock without changing selection keys", () => {
 		const selection = defaultReportingSelection;
-		const key = reportingSelectionKey(selection, "UTC");
-		const first = resolve(selection.range, "2024-03-01T00:00:00Z", "UTC");
-		const next = resolve(selection.range, "2024-03-02T00:00:00Z", "UTC");
+		const key = reportingSelectionKey(selection, TimeZone.make("UTC"));
+		const first = resolve(selection.range, "2024-03-01T00:00:00Z", TimeZone.make("UTC"));
+		const next = resolve(selection.range, "2024-03-02T00:00:00Z", TimeZone.make("UTC"));
 		expect(first.current?.endDate).toBe("2024-03-01");
 		expect(next.current?.endDate).toBe("2024-03-02");
-		expect(reportingSelectionKey(selection, "UTC")).toEqual(key);
+		expect(reportingSelectionKey(selection, TimeZone.make("UTC"))).toEqual(key);
 	});
 	it("coarsens long ranges and does not invent an all-time comparison", () => {
 		expect(resolve({ days: 30, kind: "rolling" }).grouping).toBe("day");
@@ -148,7 +149,7 @@ describe("reporting ranges", () => {
 			current: null,
 			previous: null,
 			grouping: "year",
-			timeZone: "America/New_York",
+			timeZone: TimeZone.make("America/New_York"),
 		});
 	});
 	it("round-trips URL selections and rejects invalid dates and reverse ranges", () => {
