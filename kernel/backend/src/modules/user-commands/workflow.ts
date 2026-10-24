@@ -75,6 +75,13 @@ const Payload = Schema.Struct({
 	userId: UserId,
 	input: UserCommand,
 	command: DomainLifecycleCommand,
+	itemIdentities: Schema.optional(
+		Schema.Struct({
+			entity: Schema.String,
+			relationships: Schema.Array(Schema.String),
+			events: Schema.Record(Schema.String, Schema.String),
+		}),
+	),
 });
 const identity = ({ command }: { command: DomainLifecycleCommand }) =>
 	`${command.causation.executionId}:${command.itemIdentity}`;
@@ -202,11 +209,13 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 				executionId,
 			);
 			const receiptIdentity = mutationReceiptIdentity({
-				input: payload.input,
 				command: payload.command,
 				ownerUserId: payload.userId,
 				scopeUserId: payload.userId,
 				commandKind: "user-command:commit",
+				input: payload.itemIdentities
+					? { input: payload.input, itemIdentities: payload.itemIdentities }
+					: payload.input,
 			});
 			const existing = yield* receipts
 				.peek(receiptIdentity, UserCommandResult)
@@ -224,7 +233,10 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			}
 			const rawEntity = yield* UserEntityPreparationWorkflow.execute({
 				...payload,
-				command: { ...payload.command, itemIdentity: `${payload.command.itemIdentity}:entity` },
+				command: {
+					...payload.command,
+					itemIdentity: payload.itemIdentities?.entity ?? `${payload.command.itemIdentity}:entity`,
+				},
 			});
 			const entity = yield* restoreUserEntitySave(rawEntity);
 			const changes: EventMutationChange[] = [
@@ -265,7 +277,9 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					userId: payload.userId,
 					command: {
 						...payload.command,
-						itemIdentity: `${payload.command.itemIdentity}:relationship:${index}`,
+						itemIdentity:
+							payload.itemIdentities?.relationships[index] ??
+							`${payload.command.itemIdentity}:relationship:${index}`,
 					},
 				});
 				if (prepared) {
@@ -293,6 +307,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								userId: payload.userId,
 								positionOffset: offset,
 								changes: changes.slice(offset, offset + 50),
+								itemIdentities: payload.itemIdentities?.events ?? {},
 								proposedEntities: { [entity.entityId]: rawEntity.mutation.draft },
 							}),
 						)
@@ -384,7 +399,15 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 									]),
 								]),
 							].sort();
-							const lockedReferences = yield* entityRows.getMutationEntities(references, true);
+							const groupState = yield* events.captureGroups({
+								entityIds: references,
+								userId: payload.userId,
+								batches: preparedBatches,
+							});
+							const lockedReferences = yield* entityRows.getMutationEntities(
+								groupState.entityIds,
+								true,
+							);
 							for (const baseline of baselines) {
 								if (!lockedReferences.has(baseline.entityId)) {
 									return yield* new EntityStale({
@@ -429,6 +452,10 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								}
 							}
 							const saved = yield* entities.persistPreparedUserSave(entity);
+							yield* events.lockPreparedChanges({
+								userId: payload.userId,
+								batches: preparedBatches,
+							});
 							const dispatch = [...saved.dispatch];
 							const batch = {
 								command: payload.command,
@@ -456,6 +483,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								const work = yield* events.persist({
 									userId: payload.userId,
 									...prepared,
+									groupState,
 									sealBatch: false,
 									batch: eventBatch,
 									batchIndexOffset: eventOffset,
@@ -464,6 +492,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								written.push(...work.results);
 								dispatch.push(...work.dispatch);
 							}
+							yield* events.validateGroups(groupState);
 							dispatch.push(...(yield* planner.planBatch(eventBatch)));
 							const result = { events: written, entityId: saved.entity.id };
 							yield* receipts.insert({ result, dispatch, identity: receiptIdentity });

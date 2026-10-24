@@ -22,6 +22,10 @@ preparation is chunked at 50 items, while accepted changes are committed togethe
 the command. The result pairs each written event ID with its item identity and returns the root entity
 ID. Repeated event identities or duplicate existing event IDs are rejected.
 
+Declared event-group constraints are captured once for the complete prepared command and checked only
+after all event pages commit within its transaction. The generic import owner uses this same command
+and preserves the original per-intent receipt identities; it does not create a parallel event writer.
+
 ## Replay and optimistic baselines
 
 Plugin callers can pass `idempotencyKey` to `operations.invoke`. Keep the same key and exact immutable
