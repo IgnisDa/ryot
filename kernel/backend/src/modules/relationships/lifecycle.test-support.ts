@@ -110,7 +110,10 @@ export const ownedEndpoints = Effect.fnUntraced(function* (
 	return { sourceEntityId: source.id, targetEntityId: target.id };
 });
 
-export const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
+export const installPolicyFixture = Effect.fn(function* (
+	owner: UserId | null = userId,
+	afterHooks = false,
+) {
 	const fixture = revisionPackage(
 		"relationship-policy-scope",
 		"v1",
@@ -151,6 +154,22 @@ export const installPolicyFixture = Effect.fn(function* (owner: UserId | null = 
 				],
 				hooks: [
 					...fixture.manifest.hooks,
+					...(afterHooks
+						? (["item", "batch"] as const).map((frequency) => ({
+								frequency,
+								stage: "after" as const,
+								scriptSlug: script.slug,
+								delivery: "async" as const,
+								slug: `after-${frequency}`,
+								name: `After ${frequency}`,
+								executionScope: owner === null ? ("global" as const) : ("user" as const),
+								targets: (["create", "update", "delete"] as const).map((operation) => ({
+									operation,
+									resource: "relationship" as const,
+									relationshipSchemaSlug: schema.slug,
+								})),
+							}))
+						: []),
 					...(["create", "update", "delete"] as const).map((operation) => ({
 						scriptSlug: policy.slug,
 						stage: "before" as const,

@@ -28,11 +28,9 @@ import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-comm
 
 import {
 	type PendingRelationshipMutations,
-	reconciliationSummary,
 	RelationshipBatchSummary,
 	RelationshipMutationPipeline,
 	RelationshipReconciliationSummary,
-	summarizeRelationshipMutations,
 } from "./mutation-pipeline";
 
 const toSandboxRelationshipIdentity = <
@@ -92,12 +90,8 @@ export const relationshipLifecycleHostSteps = (
 					items: input.groups,
 					result: RelationshipReconciliationSummary,
 					applyPolicies: applyRelationshipHostPolicies,
-					commit:
-						(group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number]) =>
-						(pending: PendingRelationshipMutations) =>
-							relationships
-								.commitProjected(pending, reconciliationSummary(group.relationships.length))
-								.pipe(Effect.mapError(lifecycleHostFailure)),
+					commit: () => (pending: PendingRelationshipMutations) =>
+						relationships.commitReconciliation(pending).pipe(Effect.mapError(lifecycleHostFailure)),
 					prepare: (
 						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
 						index: number,
@@ -171,9 +165,7 @@ export const relationshipLifecycleHostSteps = (
 					result: RelationshipBatchSummary,
 					applyPolicies: applyRelationshipHostPolicies,
 					commit: () => (pending: PendingRelationshipMutations) =>
-						relationships
-							.commitProjected(pending, summarizeRelationshipMutations)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
+						relationships.commitBatch(pending).pipe(Effect.mapError(lifecycleHostFailure)),
 					prepare: (current: (typeof batches)[number], index: number) =>
 						relationships
 							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)

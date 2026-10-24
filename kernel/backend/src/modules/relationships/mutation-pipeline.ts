@@ -22,7 +22,6 @@ import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/l
 import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
-	mapCommittedResult,
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -123,9 +122,6 @@ export const RelationshipSingleResult = Schema.Struct({
 		Schema.Struct({ ...RelationshipScope.fields, updatedAt: Schema.String }),
 	),
 });
-type RelationshipMutationResults = ReadonlyArray<
-	RelationshipSingleResult & { readonly operation: "create" | "update" | "delete" | "noop" }
->;
 export type RelationshipSingleResult = typeof RelationshipSingleResult.Type;
 
 export const projectRelationshipIngestionReceipt = (commandKind: string, result: unknown) =>
@@ -153,36 +149,54 @@ export const RelationshipReconciliationSummary = Schema.Struct(
 );
 export type RelationshipReconciliationSummary = typeof RelationshipReconciliationSummary.Type;
 
-export const prepareProjectedRelationshipMutations = <Result, E, R>(
-	prepare: Effect.Effect<
-		LifecyclePreparedStep<RelationshipMutationResults, PendingRelationshipMutations>,
-		E,
-		R
-	>,
-	project: (results: RelationshipMutationResults) => Result,
-) => prepare.pipe(Effect.map((step) => mapCommittedResult(step, project)));
+type RelationshipCommitResult =
+	| { readonly kind: "single"; readonly value: RelationshipSingleResult }
+	| { readonly kind: "batch"; readonly value: RelationshipBatchSummary }
+	| { readonly kind: "reconciliation"; readonly value: RelationshipReconciliationSummary };
 
-export const singleRelationshipResult = (
-	results: RelationshipMutationResults,
-): RelationshipSingleResult => ({
-	operation: results[0]?.operation ?? "noop",
-	relationship: results[0]?.relationship ?? null,
-});
-
-export const summarizeRelationshipMutations = (
-	results: RelationshipMutationResults,
+const summarizeRelationshipMutations = (
+	results: ReadonlyArray<RelationshipSingleResult>,
 ): RelationshipBatchSummary => ({
 	created: results.filter((row) => row.operation === "create").length,
 	updated: results.filter((row) => row.operation === "update").length,
 	deleted: results.filter((row) => row.operation === "delete").length,
 });
 
-export const reconciliationSummary =
-	(upserted: number) =>
-	(results: RelationshipMutationResults): RelationshipReconciliationSummary => ({
-		...summarizeRelationshipMutations(results),
-		upserted,
-	});
+const singleStep = Effect.fnUntraced(function* (
+	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
+) {
+	if (step._tag !== "Committed") {
+		return step;
+	}
+	if (step.result.kind !== "single") {
+		return yield* Effect.die("Expected single relationship result");
+	}
+	return { ...step, result: step.result.value };
+});
+
+const batchStep = Effect.fnUntraced(function* (
+	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
+) {
+	if (step._tag !== "Committed") {
+		return step;
+	}
+	if (step.result.kind !== "batch") {
+		return yield* Effect.die("Expected relationship batch result");
+	}
+	return { ...step, result: step.result.value };
+});
+
+const reconciliationStep = Effect.fnUntraced(function* (
+	step: LifecyclePreparedStep<RelationshipCommitResult, PendingRelationshipMutations>,
+) {
+	if (step._tag !== "Committed") {
+		return step;
+	}
+	if (step.result.kind !== "reconciliation") {
+		return yield* Effect.die("Expected relationship reconciliation result");
+	}
+	return { ...step, result: step.result.value };
+});
 
 export class RelationshipMutationPipeline extends Context.Service<RelationshipMutationPipeline>()(
 	"RelationshipMutationPipeline",
@@ -379,34 +393,36 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					));
 				if (pending.aggregate) {
 					const aggregate = pending.aggregate;
-					const recorded = yield* receipts
-						.lookup(
-							aggregate.receipt,
-							aggregate.kind === "change-user-batch"
-								? RelationshipBatchSummary
-								: RelationshipReconciliationSummary,
-						)
-						.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
+					const recorded = yield* aggregate.kind === "change-user-batch"
+						? receipts.lookup(aggregate.receipt, RelationshipBatchSummary).pipe(
+								Effect.mapError(classifyRelationshipReceiptConflict),
+								Effect.map(
+									(receipt) =>
+										receipt && {
+											...receipt,
+											result: { value: receipt.result, kind: "batch" as const },
+										},
+								),
+							)
+						: receipts.lookup(aggregate.receipt, RelationshipReconciliationSummary).pipe(
+								Effect.mapError(classifyRelationshipReceiptConflict),
+								Effect.map(
+									(receipt) =>
+										receipt && {
+											...receipt,
+											result: { value: receipt.result, kind: "reconciliation" as const },
+										},
+								),
+							);
 					if (recorded) {
-						const { created, updated, deleted } = recorded.result;
-						const operations: RelationshipMutationResults = [
-							...Array.from({ length: created }, () => ({
-								relationship: null,
-								operation: "create" as const,
-							})),
-							...Array.from({ length: updated }, () => ({
-								relationship: null,
-								operation: "update" as const,
-							})),
-							...Array.from({ length: deleted }, () => ({
-								relationship: null,
-								operation: "delete" as const,
-							})),
-						];
 						if (pending.rootFinal && pending.rootDecision) {
 							yield* receipts.sealBatch(pending.rootDecision, []);
 						}
-						return { result: operations, _tag: "Committed" as const, dispatch: recorded.dispatch };
+						return {
+							result: recorded.result,
+							_tag: "Committed" as const,
+							dispatch: recorded.dispatch,
+						};
 					}
 				}
 				const recorded = yield* lookupItemReceipts(pending.items.map(({ receipt }) => receipt));
@@ -585,22 +601,32 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				);
 				yield* insertReceipts(records);
 				const batch = batchScope === null ? [] : yield* planner.planBatch(batchScope);
-				const committed = { items, batch };
-				const step = {
-					_tag: "Committed",
-					dispatch: [...committed.items.flatMap((item) => item.dispatch), ...committed.batch],
-					result: committed.items.map(({ operation, relationship }) => ({
-						operation,
-						relationship,
-					})),
-				} satisfies LifecycleCommittedStep<RelationshipMutationResults>;
+				const outcomes = items.map(({ operation, relationship }) => ({ operation, relationship }));
+				let result: RelationshipCommitResult;
 				if (pending.aggregate) {
-					const result =
+					const summary = summarizeRelationshipMutations(outcomes);
+					result =
 						pending.aggregate.kind === "change-user-batch"
-							? summarizeRelationshipMutations(step.result)
-							: reconciliationSummary(pending.aggregate.upserted)(step.result);
+							? { kind: "batch", value: summary }
+							: {
+									kind: "reconciliation",
+									value: { ...summary, upserted: pending.aggregate.upserted },
+								};
+				} else {
+					const [single] = outcomes;
+					if (!single || outcomes.length !== 1) {
+						return yield* Effect.die("Expected one relationship mutation");
+					}
+					result = { value: single, kind: "single" };
+				}
+				const step = {
+					result,
+					_tag: "Committed",
+					dispatch: [...items.flatMap((item) => item.dispatch), ...batch],
+				} satisfies LifecycleCommittedStep<RelationshipCommitResult>;
+				if (pending.aggregate) {
 					yield* receipts.insert({
-						result,
+						result: result.value,
 						dispatch: step.dispatch,
 						identity: pending.aggregate.receipt,
 					});
@@ -654,16 +680,14 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				return step;
 			});
 
-			const commitProjected = <Result>(
-				pending: PendingRelationshipMutations,
-				project: (results: RelationshipMutationResults) => Result,
-			) =>
-				commitMutations(pending).pipe(
-					Effect.map((step): LifecyclePreparedStep<Result, PendingRelationshipMutations> => ({
-						...step,
-						result: project(step.result),
-					})),
-				);
+			const commitSingle = (pending: PendingRelationshipMutations) =>
+				commitMutations(pending).pipe(Effect.flatMap(singleStep));
+			const commitBatch = (pending: PendingRelationshipMutations) =>
+				commitMutations(pending).pipe(Effect.flatMap(batchStep));
+			const commitReconciliation = (pending: PendingRelationshipMutations) =>
+				commitMutations(pending).pipe(Effect.flatMap(reconciliationStep));
+			const prepareSingle = (mutation: Mutation) =>
+				prepareMutations([mutation]).pipe(Effect.flatMap(singleStep));
 
 			const prepareChangeUserBatch = (
 				userId: UserId,
@@ -702,67 +726,64 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					if (replay) {
 						return { result: replay.result, dispatch: replay.dispatch, _tag: "Committed" as const };
 					}
-					return yield* prepareProjectedRelationshipMutations(
-						Effect.gen(function* () {
-							const changes = [
-								...batch.creates.map((input) => ({
+					return yield* Effect.gen(function* () {
+						const changes = [
+							...batch.creates.map((input) => ({
+								input,
+								properties: input.properties,
+								mode: input.propertiesMode === "merge" ? ("merge" as const) : ("upsert" as const),
+							})),
+							...batch.deletes.map((input) => ({
+								input,
+								properties: undefined,
+								mode: "delete" as const,
+							})),
+						];
+						const catalog = yield* definitions.findUserRelationshipSchemas(
+							userId,
+							changes.map(({ input }) => input.relationshipSchema),
+						);
+						const scopes = yield* entities.getEntityScopesForUser(
+							changes.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
+							userId,
+						);
+						const mutations = yield* Effect.forEach(changes, (change) =>
+							Effect.gen(function* () {
+								const reference = change.input.relationshipSchema;
+								const definition =
+									catalog[definitionKey("relationship", reference.owner, reference.slug)];
+								if (!definition) {
+									return yield* new RelationshipNotFound({
+										reason: { schema: reference, code: "relationship-schema-not-found" },
+									});
+								}
+								yield* validateUserRelationshipEntities(scopes, change.input, definition, userId);
+								const input = {
+									...change.input,
+									userId,
+									scope: "user" as const,
+									relationshipSchemaPluginId: definition.pluginId ?? null,
+									relationshipSchemaSlug: change.input.relationshipSchema.slug,
+								};
+								return {
 									input,
-									properties: input.properties,
-									mode: input.propertiesMode === "merge" ? ("merge" as const) : ("upsert" as const),
-								})),
-								...batch.deletes.map((input) => ({
-									input,
-									properties: undefined,
-									mode: "delete" as const,
-								})),
-							];
-							const catalog = yield* definitions.findUserRelationshipSchemas(
-								userId,
-								changes.map(({ input }) => input.relationshipSchema),
-							);
-							const scopes = yield* entities.getEntityScopesForUser(
-								changes.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
-								userId,
-							);
-							const mutations = yield* Effect.forEach(changes, (change) =>
-								Effect.gen(function* () {
-									const reference = change.input.relationshipSchema;
-									const definition =
-										catalog[definitionKey("relationship", reference.owner, reference.slug)];
-									if (!definition) {
-										return yield* new RelationshipNotFound({
-											reason: { schema: reference, code: "relationship-schema-not-found" },
-										});
-									}
-									yield* validateUserRelationshipEntities(scopes, change.input, definition, userId);
-									const input = {
-										...change.input,
-										userId,
-										scope: "user" as const,
-										relationshipSchemaPluginId: definition.pluginId ?? null,
-										relationshipSchemaSlug: change.input.relationshipSchema.slug,
-									};
-									return {
-										input,
-										mode: change.mode,
-										properties: change.properties,
-										propertiesSchema: definition.propertiesSchema,
-										schemaFingerprint: catalogDefinitionFingerprint(definition),
-										command: itemCommand(command, input, `batch:${index}:${change.mode}`),
-									};
-								}),
-							);
-							return yield* prepareMutations(
-								mutations,
-								undefined,
-								undefined,
-								{ receipt: aggregate, kind: "change-user-batch" },
-								rootDecision,
-								rootFinal,
-							);
-						}),
-						summarizeRelationshipMutations,
-					);
+									mode: change.mode,
+									properties: change.properties,
+									propertiesSchema: definition.propertiesSchema,
+									schemaFingerprint: catalogDefinitionFingerprint(definition),
+									command: itemCommand(command, input, `batch:${index}:${change.mode}`),
+								};
+							}),
+						);
+						return yield* prepareMutations(
+							mutations,
+							undefined,
+							undefined,
+							{ receipt: aggregate, kind: "change-user-batch" },
+							rootDecision,
+							rootFinal,
+						);
+					}).pipe(Effect.flatMap(batchStep));
 				});
 			};
 
@@ -796,8 +817,8 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				return yield* Effect.forEach(batches, (batch, index) =>
 					runLifecycleWriteInline(execution, {
 						applyPolicies,
+						commit: commitBatch,
 						prepare: prepareChangeUserBatch(userId, batch, index, command, batches),
-						commit: (pending) => commitProjected(pending, summarizeRelationshipMutations),
 					}).pipe(
 						Effect.map(({ result, warnings }): RelationshipBatchResult => ({
 							...result,
@@ -841,85 +862,79 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					if (replay) {
 						return { result: replay.result, dispatch: replay.dispatch, _tag: "Committed" as const };
 					}
-					return yield* prepareProjectedRelationshipMutations(
-						Effect.gen(function* () {
-							const definition = yield* definitions.findGlobalRelationshipSchema(
-								group.relationshipSchema,
-							);
-							if (!definition) {
-								return yield* new RelationshipNotFound({
-									reason: {
-										schema: group.relationshipSchema,
-										code: "relationship-schema-not-found",
-									},
+					return yield* Effect.gen(function* () {
+						const definition = yield* definitions.findGlobalRelationshipSchema(
+							group.relationshipSchema,
+						);
+						if (!definition) {
+							return yield* new RelationshipNotFound({
+								reason: { schema: group.relationshipSchema, code: "relationship-schema-not-found" },
+							});
+						}
+						const selector = {
+							...group.selector,
+							relationshipSchemaSlug: group.relationshipSchema.slug,
+							relationshipSchemaPluginId: definition.pluginId ?? null,
+						};
+						const seen = new Set<string>();
+						for (const relationship of group.relationships) {
+							let matches = relationship.sourceEntityId === relationship.targetEntityId;
+							if (group.selector.type === "anchored") {
+								matches =
+									group.selector.direction === "outgoing"
+										? relationship.sourceEntityId === group.selector.anchorEntityId
+										: relationship.targetEntityId === group.selector.anchorEntityId;
+							}
+							if (!matches) {
+								return yield* new RelationshipBadRequest({
+									reason: { code: "reconciliation-selector-mismatch" },
 								});
 							}
-							const selector = {
-								...group.selector,
+							const key = relationshipKey(relationship);
+							if (seen.has(key)) {
+								return yield* new RelationshipBadRequest({
+									reason: { code: "duplicate-reconciliation-relationship" },
+								});
+							}
+							seen.add(key);
+						}
+						const existing = yield* session.transaction(
+							repository.listGlobalRelationships(selector),
+						);
+						const mutations = [
+							...group.relationships.map((input) => ({ input, mode: "upsert" as const })),
+							...existing
+								.filter((input) => !seen.has(relationshipKey(input)))
+								.map((input) => ({ input, mode: "delete" as const })),
+						].map((change) => {
+							const input = {
+								...change.input,
+								scope: "global" as const,
 								relationshipSchemaSlug: group.relationshipSchema.slug,
 								relationshipSchemaPluginId: definition.pluginId ?? null,
 							};
-							const seen = new Set<string>();
-							for (const relationship of group.relationships) {
-								let matches = relationship.sourceEntityId === relationship.targetEntityId;
-								if (group.selector.type === "anchored") {
-									matches =
-										group.selector.direction === "outgoing"
-											? relationship.sourceEntityId === group.selector.anchorEntityId
-											: relationship.targetEntityId === group.selector.anchorEntityId;
-								}
-								if (!matches) {
-									return yield* new RelationshipBadRequest({
-										reason: { code: "reconciliation-selector-mismatch" },
-									});
-								}
-								const key = relationshipKey(relationship);
-								if (seen.has(key)) {
-									return yield* new RelationshipBadRequest({
-										reason: { code: "duplicate-reconciliation-relationship" },
-									});
-								}
-								seen.add(key);
-							}
-							const existing = yield* session.transaction(
-								repository.listGlobalRelationships(selector),
-							);
-							const mutations = [
-								...group.relationships.map((input) => ({ input, mode: "upsert" as const })),
-								...existing
-									.filter((input) => !seen.has(relationshipKey(input)))
-									.map((input) => ({ input, mode: "delete" as const })),
-							].map((change) => {
-								const input = {
-									...change.input,
-									scope: "global" as const,
-									relationshipSchemaSlug: group.relationshipSchema.slug,
-									relationshipSchemaPluginId: definition.pluginId ?? null,
-								};
-								return {
-									input,
-									mode: change.mode,
-									properties: change.input.properties,
-									propertiesSchema: definition.propertiesSchema,
-									schemaFingerprint: catalogDefinitionFingerprint(definition),
-									command: itemCommand(command, input, `group:${index}:${change.mode}`),
-								};
-							});
-							return yield* prepareMutations(
-								mutations,
-								selector,
-								existing,
-								{
-									receipt: aggregate,
-									kind: "reconcile-global-group",
-									upserted: group.relationships.length,
-								},
-								rootDecision,
-								rootFinal,
-							);
-						}),
-						reconciliationSummary(group.relationships.length),
-					);
+							return {
+								input,
+								mode: change.mode,
+								properties: change.input.properties,
+								propertiesSchema: definition.propertiesSchema,
+								schemaFingerprint: catalogDefinitionFingerprint(definition),
+								command: itemCommand(command, input, `group:${index}:${change.mode}`),
+							};
+						});
+						return yield* prepareMutations(
+							mutations,
+							selector,
+							existing,
+							{
+								receipt: aggregate,
+								kind: "reconcile-global-group",
+								upserted: group.relationships.length,
+							},
+							rootDecision,
+							rootFinal,
+						);
+					}).pipe(Effect.flatMap(reconciliationStep));
 				});
 			};
 
@@ -953,9 +968,8 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				return yield* Effect.forEach(groups, (group, index) =>
 					runLifecycleWriteInline(execution, {
 						applyPolicies,
+						commit: commitReconciliation,
 						prepare: prepareReconcileGlobalGroup(group, index, command, groups),
-						commit: (pending) =>
-							commitProjected(pending, reconciliationSummary(group.relationships.length)),
 					}).pipe(
 						Effect.map(({ result, warnings }) => ({
 							warnings,
@@ -969,10 +983,12 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			});
 			return {
 				changeUser,
+				commitBatch,
+				commitSingle,
 				applyPolicies,
-				commitProjected,
+				prepareSingle,
 				reconcileGlobal,
-				prepareMutations,
+				commitReconciliation,
 				prepareChangeUserBatch,
 				prepareReconcileGlobalGroup,
 				...makePreparedRelationshipMutations(dependencies),

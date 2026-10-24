@@ -4,6 +4,8 @@
 
 `mutation-pipeline.ts` owns ordinary single/batch operations and global reconciliation. It opens short root transactions around planning and persistence, runs policies between them, and seals resource batches after item persistence. Each user batch or global group retains its own partial-success boundary.
 
+Single commits return the actual item result. Batch and reconciliation commits compute one summary from persisted item outcomes, store it in their aggregate receipt, and return it. Aggregate replay returns that stored summary and dispatch directly; it does not reconstruct item outcomes.
+
 User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Single creates and generic imports keep their existing upsert semantics.
 
 A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped creates, updates,

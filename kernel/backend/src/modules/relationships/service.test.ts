@@ -881,6 +881,7 @@ describe("Relationships lifecycle owner", () => {
 				);
 				assertExitFails(exit, new DbError({ message: "Injected planning failure" }));
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual([]);
 				expect(
 					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 						({ category }) => category,

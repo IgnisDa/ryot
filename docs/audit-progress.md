@@ -15,7 +15,7 @@
 
 ## Status
 
-**72 implemented, 0 in progress, 11 pending; 3 excluded.**
+**73 implemented, 0 in progress, 10 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -65,7 +65,7 @@
 | B15-R1 | Implemented | Use only a persisted paged worklist, with the database cutoff after admission, creation-time/ID cursor, exact IDs, and release. See this finding's audit commit. |
 | B05-R2 | Implemented | Query bounded `EXISTS` checks for owned asset references across all 13 sources, including schema-gated encrypted config locators; avoid loading candidate JSON. See this finding's audit commit. |
 | B22-R1 | Implemented | Persist the validated reorder plan set-wise and atomically from the locked facts. See this finding's audit commit. |
-| B20-R1 | Pending | Return aggregate replay counts without fabricated outcomes. |
+| B20-R1 | Implemented | Persist and replay aggregate summaries and dispatch directly; keep actual item outcomes only in item receipts, without fabricating replay outcomes. See this finding's audit commit. |
 | B21-R1 | Implemented | Validate and expand each query document once; return the expanded document with validation errors and retain bound aliases without re-expansion. See this finding's audit commit. |
 | P10-R1 | Implemented | Decode presentation rows directly, including all selected fields, without fabricating pages. See this finding's audit commit. |
 | P12-R1 | Implemented | Pass typed local query values directly without encode/decode; retain wire, URL-sort, clock, and cancellation behavior. See this finding's audit commit. |
@@ -239,3 +239,4 @@
 - B02-R1: backend type, format, and lint checks passed before 103 tests across seven files; read-only review passed. Deleted the test-only live-environment runtime mode and verified that late host reads retain the execution's exact config pin across environment reactivation. B02-R2 readiness changes were not included.
 - B03-R1: scoped checks passed before 204 tests across 10 files, run serially; read-only review passed. Prepared hops and explicit phases retain retry, redirect, request headers/body, and provider ticket identity. No continuation compatibility or drain mechanism was added.
 - B05-R2: scoped checks passed before 60 tests across four files, including real-PostgreSQL coverage; read-only review passed. Bounded `EXISTS` lookups cover 13 sources, ownership, encryption, nested locators, and schema-declared configuration paths.
+- B20-R1: backend type, format, and lint checks passed before 245 tests across 13 files; read-only review passed. Aggregate replay returns persisted summaries and dispatch without fabricated per-item outcomes; real item receipts remain. The shared lifecycle fixture change adds after-hooks used by this finding's aggregate replay coverage.
