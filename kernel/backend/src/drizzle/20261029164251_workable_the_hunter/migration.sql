@@ -118,7 +118,7 @@ CREATE TABLE "automation_trigger" (
 	"resource_kind" text NOT NULL,
 	"initiator_kind" text NOT NULL,
 	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete', 'batch')) or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
-	CONSTRAINT "automation_trigger_causation_check" CHECK ("depth" >= 0 and "lane" in ('interactive', 'background') and "initiator_kind" in ('user', 'integration', 'system') and "source" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and ("source" <> 'automation' or ("parent_run_id" is not null and "parent_trigger_id" is not null and "depth" > 0))),
+	CONSTRAINT "automation_trigger_causation_check" CHECK ("depth" >= 0 and "lane" in ('interactive', 'background') and "initiator_kind" in ('user', 'integration', 'system') and "source" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'scheduler', 'automation') and ("source" <> 'automation' or ("parent_run_id" is not null and "parent_trigger_id" is not null and "depth" > 0))),
 	CONSTRAINT "automation_trigger_payload_check" CHECK (("payload" is null) = ("payload_pruned_at" is not null)),
 	CONSTRAINT "automation_trigger_parent_check" CHECK ("parent_run_id" is null or "parent_trigger_id" is not null),
 	CONSTRAINT "automation_trigger_initiator_check" CHECK ("initiator_kind" = 'system' or "initiator_id" is not null),
@@ -218,8 +218,8 @@ CREATE TABLE "definition_calendar_source" (
 	"caption" text,
 	"icon" text NOT NULL,
 	"start_at" text NOT NULL,
-	"subject" jsonb NOT NULL,
 	"query" jsonb NOT NULL,
+	"subject" jsonb NOT NULL,
 	"precision" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_calendar_source_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
@@ -245,6 +245,7 @@ CREATE TABLE "definition_event_schema" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
+	"event_group" jsonb,
 	"projection" jsonb,
 	"properties_schema" jsonb NOT NULL,
 	"entity_schema_id" text NOT NULL,
@@ -327,6 +328,24 @@ CREATE TABLE "definition_saved_view" (
 	"renderer" jsonb NOT NULL,
 	"plugin_revision_id" text,
 	CONSTRAINT "definition_saved_view_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
+);
+--> statement-breakpoint
+CREATE TABLE "definition_signal_schedule" (
+	"delay_days" integer,
+	"slug" text NOT NULL,
+	"due_at" text NOT NULL,
+	"signal" text NOT NULL,
+	"occurrence" text NOT NULL,
+	"position" integer NOT NULL,
+	"requires_pro_key" boolean NOT NULL,
+	"query" jsonb NOT NULL,
+	"subject" jsonb NOT NULL,
+	"precision" text NOT NULL,
+	"properties" jsonb NOT NULL,
+	"freshness" jsonb,
+	"id" text PRIMARY KEY,
+	"plugin_revision_id" text NOT NULL,
+	CONSTRAINT "definition_signal_schedule_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "definition_signal_schema" (
@@ -448,6 +467,7 @@ CREATE TABLE "event_stream" (
 	"event_schema_slug" text NOT NULL,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"repair_epoch" text DEFAULT 'initial' NOT NULL,
 	"event_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"entity_id" text NOT NULL
@@ -455,6 +475,7 @@ CREATE TABLE "event_stream" (
 --> statement-breakpoint
 CREATE TABLE "event_stream_work" (
 	"current_job_id" text,
+	"input_repair_job_id" text,
 	"dirty_from" timestamp(3) with time zone,
 	"completed_revision" integer,
 	"account_token" text NOT NULL,
@@ -677,6 +698,25 @@ CREATE TABLE "mutation_receipt" (
 	CONSTRAINT "mutation_receipt_workflow_owner_check" CHECK (("receipt_type" = 'workflow-owner' and "workflow_name" is not null and "owner_user_id" is not null and "account_generation" is not null) or ("receipt_type" <> 'workflow-owner' and "workflow_name" is null))
 );
 --> statement-breakpoint
+CREATE TABLE "notification" (
+	"source_run_id" text,
+	"id" text PRIMARY KEY,
+	"settled_at" timestamp(3) with time zone,
+	"source_key" text NOT NULL,
+	"input_digest" text NOT NULL,
+	"recover_at" timestamp(3) with time zone NOT NULL,
+	"account_generation" text NOT NULL,
+	"outcome" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"reason" text,
+	"state" text NOT NULL,
+	"request" jsonb NOT NULL,
+	"user_id" text NOT NULL,
+	CONSTRAINT "notification_state_check" CHECK (("state" = 'admitted' and "outcome" is null and "settled_at" is null) or ("state" = 'settled' and "outcome" is not null and "outcome" in ('accepted', 'partial', 'failed', 'unknown', 'not-sent') and "settled_at" is not null)),
+	CONSTRAINT "notification_reason_check" CHECK ("reason" is null or ("state" = 'settled' and "outcome" = 'not-sent' and "reason" = 'no-enabled-channels')),
+	CONSTRAINT "notification_request_check" CHECK (jsonb_typeof("request") = 'object' and ("request" = '{"kind":"test"}'::jsonb or ("request" @> '{"kind":"message"}'::jsonb and "request" ? 'message' and jsonb_typeof("request"->'message') = 'string')))
+);
+--> statement-breakpoint
 CREATE TABLE "notification_channel" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"description" text NOT NULL,
@@ -686,6 +726,24 @@ CREATE TABLE "notification_channel" (
 	"id" text PRIMARY KEY,
 	"platform_specifics" jsonb NOT NULL,
 	"platform" text GENERATED ALWAYS AS (platform_specifics->>'kind') STORED NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "notification_delivery" (
+	"attempt_id" text,
+	"diagnostic" text,
+	"id" text PRIMARY KEY,
+	"claimed_at" timestamp(3) with time zone,
+	"settled_at" timestamp(3) with time zone,
+	"channel_id" text NOT NULL,
+	"description" text NOT NULL,
+	"reason" text,
+	"channel" text NOT NULL,
+	"status" text NOT NULL,
+	"notification_id" text NOT NULL,
+	CONSTRAINT "notification_delivery_status_check" CHECK ("status" in ('queued', 'sending', 'accepted', 'failed', 'unknown', 'skipped')),
+	CONSTRAINT "notification_delivery_attempt_check" CHECK (("attempt_id" is null and "claimed_at" is null and "status" not in ('sending', 'accepted', 'unknown')) or ("attempt_id" is not null and "claimed_at" is not null and "status" <> 'queued')),
+	CONSTRAINT "notification_delivery_settlement_check" CHECK (("status" in ('queued', 'sending') and "settled_at" is null) or ("status" not in ('queued', 'sending') and "settled_at" is not null)),
+	CONSTRAINT "notification_delivery_reason_check" CHECK (("status" in ('queued', 'sending', 'accepted') and "reason" is null) or ("reason" is not null and (("status" = 'failed' and "reason" in ('preparation-failed', 'provider-rejected')) or ("status" = 'unknown' and "reason" = 'delivery-unknown') or ("status" = 'skipped' and "reason" in ('server-disabled', 'channel-disabled', 'channel-deleted', 'source-cancelled')))))
 );
 --> statement-breakpoint
 CREATE TABLE "notification_subscription" (
@@ -1014,6 +1072,8 @@ CREATE TABLE "relationship_projection_work" (
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
+	"input_repair_revision" integer DEFAULT 0 NOT NULL,
+	"prepared_input_repair_revision" integer DEFAULT 0 NOT NULL,
 	"user_id" text NOT NULL,
 	"relationship_schema_plugin_id" text NOT NULL
 );
@@ -1026,6 +1086,40 @@ CREATE TABLE "relationship_sync_generation" (
 	"relationship_schema_plugin_id" text,
 	"anchor_entity_id" text NOT NULL,
 	CONSTRAINT "relationship_sync_generation_group_unique" UNIQUE NULLS NOT DISTINCT("anchor_entity_id","relationship_schema_slug","relationship_schema_plugin_id","direction")
+);
+--> statement-breakpoint
+CREATE TABLE "reminder" (
+	"message" text,
+	"timezone" text,
+	"trigger_id" text,
+	"entity_title" text,
+	"due_at" timestamp(3) with time zone,
+	"replacement_id" text,
+	"formatter_run_id" text,
+	"id" text PRIMARY KEY,
+	"removed_at" timestamp(3) with time zone,
+	"settled_at" timestamp(3) with time zone,
+	"reconcile_at" timestamp(3) with time zone,
+	"processing_at" timestamp(3) with time zone,
+	"account_generation" text NOT NULL,
+	"reason" text,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"outcome" text,
+	"state" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"dispatch" jsonb,
+	"original_schedule" jsonb,
+	"entity_id" text,
+	"parent_entity_id" text,
+	"user_id" text NOT NULL,
+	CONSTRAINT "reminder_revision_check" CHECK ("revision" > 0),
+	CONSTRAINT "reminder_state_check" CHECK ("state" in ('needs-scheduling', 'scheduled', 'processing', 'settled', 'cancelled')),
+	CONSTRAINT "reminder_schedule_check" CHECK ("state" not in ('scheduled', 'processing') or ("due_at" is not null and "timezone" is not null and "entity_id" is not null and "reconcile_at" is not null)),
+	CONSTRAINT "reminder_inactive_schedule_check" CHECK ("state" <> 'needs-scheduling' or ("due_at" is null and "timezone" is null and "original_schedule" is not null)),
+	CONSTRAINT "reminder_processing_check" CHECK ("state" <> 'processing' or ("processing_at" is not null and "formatter_run_id" is not null and "trigger_id" is not null and "dispatch" is not null and "reconcile_at" is not null)),
+	CONSTRAINT "reminder_outcome_check" CHECK (("state" = 'settled' and "outcome" in ('accepted', 'partial', 'failed', 'unknown', 'not-sent') and "outcome" is not null and "settled_at" is not null) or ("state" <> 'settled' and "outcome" is null)),
+	CONSTRAINT "reminder_content_check" CHECK (("removed_at" is null and "message" is not null and length(btrim("message")) between 1 and 4000 and "entity_title" is not null) or ("removed_at" is not null and "state" in ('settled', 'cancelled') and "message" is null and "entity_title" is null and "original_schedule" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider" (
@@ -1103,6 +1197,16 @@ CREATE TABLE "session" (
 	"updated_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "signal_schedule_delivery" (
+	"trigger_id" text NOT NULL,
+	"schedule_slug" text,
+	"occurrence_key" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"user_id" text,
+	"plugin_id" text,
+	CONSTRAINT "signal_schedule_delivery_pkey" PRIMARY KEY("user_id","plugin_id","schedule_slug","occurrence_key")
+);
+--> statement-breakpoint
 CREATE TABLE "two_factor" (
 	"id" text PRIMARY KEY,
 	"secret" text NOT NULL,
@@ -1125,12 +1229,18 @@ CREATE TABLE "user" (
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"account_generation" text DEFAULT gen_random_uuid() NOT NULL,
-	"preferences" jsonb DEFAULT '{"language":null,"disableIntegrations":false}' NOT NULL,
+	"preferences" jsonb DEFAULT '{"language":null,"reportingTimeZone":null,"disableIntegrations":false}' NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
-		and "preferences" ?& array['disableIntegrations', 'language']
-		and "preferences" - 'disableIntegrations' - 'language' = '{}'::jsonb
+		and "preferences" ?& array['disableIntegrations', 'language', 'reportingTimeZone']
+		and "preferences" - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb
 		and jsonb_typeof("preferences"->'disableIntegrations') = 'boolean'
+		and (
+			jsonb_typeof("preferences"->'reportingTimeZone') = 'null'
+			or (jsonb_typeof("preferences"->'reportingTimeZone') = 'string'
+				and "preferences"->>'reportingTimeZone' <> ''
+				and btrim("preferences"->>'reportingTimeZone') = "preferences"->>'reportingTimeZone')
+		)
 		and (
 			jsonb_typeof("preferences"->'language') = 'null'
 			or (jsonb_typeof("preferences"->'language') = 'string'
@@ -1268,6 +1378,7 @@ CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
 CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
+CREATE INDEX "event_stream_work_input_repair_job_idx" ON "event_stream_work" ("input_repair_job_id");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1292,8 +1403,15 @@ CREATE INDEX "mutation_receipt_revision_idx" ON "mutation_receipt" ("plugin_revi
 CREATE INDEX "mutation_receipt_config_idx" ON "mutation_receipt" ("plugin_config_revision_id");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_script_idx" ON "mutation_receipt" ("sandbox_script_id");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_recorded_at_idx" ON "mutation_receipt" ("recorded_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "notification_source_idx" ON "notification" ("user_id","account_generation","source_key");--> statement-breakpoint
+CREATE INDEX "notification_recovery_idx" ON "notification" ("state","recover_at","id");--> statement-breakpoint
+CREATE INDEX "notification_owner_idx" ON "notification" ("user_id","created_at" DESC NULLS LAST,"id");--> statement-breakpoint
+CREATE INDEX "notification_source_run_idx" ON "notification" ("source_run_id");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
+CREATE UNIQUE INDEX "notification_delivery_channel_idx" ON "notification_delivery" ("notification_id","channel_id");--> statement-breakpoint
+CREATE INDEX "notification_delivery_claim_idx" ON "notification_delivery" ("status","claimed_at");--> statement-breakpoint
+CREATE INDEX "notification_delivery_retention_idx" ON "notification_delivery" ("settled_at");--> statement-breakpoint
 CREATE INDEX "notification_subscription_user_id_idx" ON "notification_subscription" ("user_id");--> statement-breakpoint
 CREATE INDEX "notification_subscription_signal_schema_plugin_id_idx" ON "notification_subscription" ("signal_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_token_clientId_idx" ON "oauth_access_token" ("client_id");--> statement-breakpoint
@@ -1331,6 +1449,12 @@ CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("propert
 CREATE INDEX "relationship_collection_order_idx" ON "relationship" ("target_entity_id",(case when "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null then ("properties" ->> 'rank')::double precision end),"source_entity_id") WHERE "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null;--> statement-breakpoint
 CREATE INDEX "relationship_projection_dirty_idx" ON "relationship_projection" ("work_id","relationship_id") WHERE "projected_revision" is distinct from "revision";--> statement-breakpoint
 CREATE INDEX "relationship_projection_work_current_job_idx" ON "relationship_projection_work" ("current_job_id");--> statement-breakpoint
+CREATE INDEX "reminder_due_idx" ON "reminder" ("state","due_at","id");--> statement-breakpoint
+CREATE INDEX "reminder_reconcile_idx" ON "reminder" ("state","reconcile_at","id");--> statement-breakpoint
+CREATE INDEX "reminder_owner_idx" ON "reminder" ("user_id","state","created_at","id");--> statement-breakpoint
+CREATE INDEX "reminder_entity_idx" ON "reminder" ("entity_id","user_id");--> statement-breakpoint
+CREATE INDEX "reminder_parent_idx" ON "reminder" ("parent_entity_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "reminder_formatter_idx" ON "reminder" ("formatter_run_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_plugin_id_idx" ON "sandbox_provider" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_root_entity_schema_slug_idx" ON "sandbox_provider" ("root_entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "sandbox_script_provider_id_idx" ON "sandbox_script" ("provider_id");--> statement-breakpoint
@@ -1344,6 +1468,7 @@ CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_in
 CREATE UNIQUE INDEX "saved_view_override_kernel_unique" ON "saved_view_override" ("user_id","slug") WHERE "plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_override_plugin_unique" ON "saved_view_override" ("user_id","plugin_id","slug") WHERE "plugin_id" is not null;--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
+CREATE INDEX "signal_schedule_delivery_created_at_idx" ON "signal_schedule_delivery" ("created_at");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "user_plugin_state_plugin_user_idx" ON "user_plugin_state" ("plugin_id","user_id");--> statement-breakpoint
@@ -1385,6 +1510,7 @@ ALTER TABLE "definition_provider" ADD CONSTRAINT "definition_provider_plugin_rev
 ALTER TABLE "definition_provider_operation" ADD CONSTRAINT "definition_provider_operation_provider_fk" FOREIGN KEY ("plugin_revision_id","provider_slug") REFERENCES "definition_provider"("plugin_revision_id","slug") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_relationship_schema" ADD CONSTRAINT "definition_relationship_schema_F2xV1mUphM5y_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_saved_view" ADD CONSTRAINT "definition_saved_view_bGBIhUsWSMr5_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "definition_signal_schedule" ADD CONSTRAINT "definition_signal_schedule_RGT3p54KQeok_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schema" ADD CONSTRAINT "definition_signal_schema_kHnAff4N3xqs_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1432,7 +1558,9 @@ ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_plugin_id_plugin
 ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_plugin_revision_id_plugin_revision_id_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "mutation_receipt" ADD CONSTRAINT "mutation_receipt_gS9k6vz1aABe_fkey" FOREIGN KEY ("plugin_config_revision_id") REFERENCES "plugin_config_revision"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "notification" ADD CONSTRAINT "notification_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notification_delivery" ADD CONSTRAINT "notification_delivery_notification_id_notification_id_fkey" FOREIGN KEY ("notification_id") REFERENCES "notification"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_uHCTRrCak7Fg_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1475,6 +1603,9 @@ ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projecti
 ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_hez9NpadMCpN_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_anchor_entity_id_entity_id_fkey" FOREIGN KEY ("anchor_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "reminder" ADD CONSTRAINT "reminder_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "reminder" ADD CONSTRAINT "reminder_parent_entity_id_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "reminder" ADD CONSTRAINT "reminder_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_revision_id_plugin_revision_id_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1484,6 +1615,8 @@ ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIG
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "signal_schedule_delivery" ADD CONSTRAINT "signal_schedule_delivery_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "signal_schedule_delivery" ADD CONSTRAINT "signal_schedule_delivery_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1512,7 +1645,7 @@ CREATE VIEW "global_entity_schema" AS (
 			where d.plugin_revision_id is null or g.plugin_id is not null
 		);--> statement-breakpoint
 CREATE VIEW "global_event_schema" AS (
-			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection
+			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection, v.event_group
 			from "global_entity_schema" e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint
@@ -1567,7 +1700,7 @@ CREATE VIEW "user_entity_schema" AS (
 			where p.is_present and p.is_listed
 		);--> statement-breakpoint
 CREATE VIEW "user_event_schema" AS (
-			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection, e.is_effective
+			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection, e.is_effective, v.event_group
 			from "user_entity_schema" e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint
