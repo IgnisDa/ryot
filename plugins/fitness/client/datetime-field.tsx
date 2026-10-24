@@ -1,8 +1,7 @@
 import { Field, Select, TextField } from "@ryot-app/plugin-ui-sdk";
+import type { resolveDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { Ref } from "react";
-
-import type { resolveDateTimeInput } from "./datetime-input";
 
 export function DateTimeField(props: {
 	readonly label: string;

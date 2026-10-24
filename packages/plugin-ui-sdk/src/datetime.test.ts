@@ -1,8 +1,53 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDateTimeInput } from "./datetime-input";
+import { resolveDateTimeInput, toDateTimeInput } from "./datetime";
 
 describe("date-time input resolution", () => {
+	it("retains seconds and fractional input precision in schema forms", () => {
+		expect(toDateTimeInput("2026-10-19T10:30:45.123Z", "Asia/Kolkata", "millisecond")).toBe(
+			"2026-10-19T16:00:45.123",
+		);
+		expect(
+			resolveDateTimeInput("2026-10-19T16:00:45.123", null, undefined, "Asia/Kolkata").iso,
+		).toBe("2026-10-19T10:30:45.123Z");
+		expect(resolveDateTimeInput("2026-10-19T16:00:45.1", null, undefined, "Asia/Kolkata").iso).toBe(
+			"2026-10-19T10:30:45.100Z",
+		);
+		expect(toDateTimeInput("2026-10-19T10:30:00.000Z", "Asia/Kolkata", "millisecond")).toBe(
+			"2026-10-19T16:00:00",
+		);
+	});
+	it("requires an occurrence for repeated times even when seconds are supplied", () => {
+		const result = resolveDateTimeInput(
+			"2026-11-01T01:30:37.456",
+			null,
+			undefined,
+			"America/New_York",
+		);
+		expect(result).toMatchObject({
+			iso: null,
+			choices: [{ value: "2026-11-01T05:30:37.456Z" }, { value: "2026-11-01T06:30:37.456Z" }],
+		});
+		expect(
+			resolveDateTimeInput(
+				"2026-11-01T01:30:37.456",
+				null,
+				"2026-11-01T06:30:37.456Z",
+				"America/New_York",
+			).iso,
+		).toBe("2026-11-01T06:30:37.456Z");
+	});
+	it("uses only the selected timezone when converting the same wall time", () => {
+		expect(resolveDateTimeInput("2026-01-15T12:00", null, undefined, "UTC").iso).toBe(
+			"2026-01-15T12:00:00.000Z",
+		);
+		expect(resolveDateTimeInput("2026-01-15T12:00", null, undefined, "Asia/Kolkata").iso).toBe(
+			"2026-01-15T06:30:00.000Z",
+		);
+		expect(resolveDateTimeInput("2026-07-15T12:00", null, undefined, "America/New_York").iso).toBe(
+			"2026-07-15T16:00:00.000Z",
+		);
+	});
 	it("preserves an unchanged second occurrence and its original seconds", () => {
 		const original = "2026-11-01T06:30:37.456Z";
 

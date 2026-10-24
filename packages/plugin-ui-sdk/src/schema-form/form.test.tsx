@@ -227,8 +227,10 @@ const uploadAsset: SchemaAssetUpload = () =>
 
 function SchemaFormHarness(props: {
 	assets?: boolean;
+	timeZone?: string;
 	schema?: AppSchema;
 	mode?: SchemaFormMode;
+	stored?: SchemaFormValues;
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	const selectedSchema = props.schema ?? schema;
@@ -238,14 +240,16 @@ function SchemaFormHarness(props: {
 		...(props.mode === undefined ? {} : { mode: props.mode }),
 	});
 	useEffect(
-		() => form.reset({ fields: initialSchemaFormValues(selectedSchema) }),
-		[form, selectedSchema],
+		() =>
+			form.reset({ fields: initialSchemaFormValues(selectedSchema, props.timeZone, props.stored) }),
+		[form, selectedSchema, props.timeZone, props.stored],
 	);
 	return (
 		<>
 			<SchemaForm
 				form={form}
 				icons={icons}
+				{...(props.timeZone === undefined ? {} : { timeZone: props.timeZone })}
 				schema={selectedSchema}
 				uploadFile={uploadNothing}
 				onChange={() => undefined}
@@ -679,6 +683,70 @@ describe("SchemaForm", () => {
 		expect(screen.getByLabelText("Start date").getAttribute("type")).toBe("date");
 		expect(screen.getByLabelText("Start at").getAttribute("type")).toBe("datetime-local");
 	});
+	it.live("requires a fold choice before submitting a schema datetime", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness
+					schema={dateSchema}
+					timeZone="America/New_York"
+					onSubmit={(values) => submitted.push(values)}
+				/>,
+			);
+			fireEvent.change(screen.getByLabelText("Start at"), {
+				target: { value: "2026-11-01T01:30:37.456" },
+			});
+			expect(screen.getByText("This local time occurs twice. Choose an occurrence.")).toBeTruthy();
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByLabelText("Start at").closest('[data-invalid="true"]')).not.toBeNull(),
+				),
+			);
+			expect(submitted).toEqual([]);
+			fireEvent.click(
+				screen.getByRole("button", { name: "Start at occurrence: Choose an occurrence" }),
+			);
+			fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
+			);
+		}),
+	);
+	it.live("preserves stored schema datetime precision and rejects a DST gap edit", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness
+					schema={dateSchema}
+					timeZone="America/New_York"
+					onSubmit={(values) => submitted.push(values)}
+					stored={{ startAt: "2026-11-01T06:30:37.456Z" }}
+				/>,
+			);
+			expect(screen.getByLabelText("Start at").getAttribute("value")).toBe(
+				"2026-11-01T01:30:37.456",
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
+			);
+			fireEvent.change(screen.getByLabelText("Start at"), {
+				target: { value: "2026-03-08T02:30" },
+			});
+			expect(
+				screen.getByText("This local date and time does not exist. Choose another time."),
+			).toBeTruthy();
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByLabelText("Start at").closest('[data-invalid="true"]')).not.toBeNull(),
+				),
+			);
+			expect(submitted).toHaveLength(1);
+		}),
+	);
 
 	it("lets an optional object be added and explicitly cleared", () => {
 		render(<SchemaFormHarness schema={objectSchema} onSubmit={() => undefined} />);

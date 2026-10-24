@@ -1,9 +1,20 @@
-import { DateTime, Option } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Option } from "effect";
 
 export const toDateTimeInput = (
 	iso: string,
 	timeZone: string | DateTime.TimeZone = DateTime.zoneMakeLocal(),
-) => DateTime.formatIsoOffset(DateTime.makeZonedUnsafe(iso, { timeZone })).slice(0, 16);
+	precision: "minute" | "millisecond" = "minute",
+) => {
+	const zoned = DateTime.makeZoned(iso, { timeZone });
+	if (Option.isNone(zoned)) {
+		return iso;
+	}
+	const formatted = DateTime.formatIsoOffset(zoned.value);
+	if (precision === "minute") {
+		return formatted.slice(0, 16);
+	}
+	return formatted.slice(0, DateTime.toParts(zoned.value).millisecond === 0 ? 19 : 23);
+};
 
 export const resolveDateTimeInput = (
 	value: string,
@@ -11,7 +22,7 @@ export const resolveDateTimeInput = (
 	occurrence?: string,
 	timeZone: string | DateTime.TimeZone = DateTime.zoneMakeLocal(),
 ) => {
-	const validFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value);
+	const validFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(value);
 	const candidates = new Map<string, DateTime.Zoned>();
 	for (const disambiguation of ["earlier", "later"] as const) {
 		const candidate = validFormat
@@ -19,7 +30,7 @@ export const resolveDateTimeInput = (
 			: Option.none();
 		if (
 			Option.isSome(candidate) &&
-			DateTime.formatIsoOffset(candidate.value).slice(0, 16) === value
+			DateTime.formatIsoOffset(candidate.value).slice(0, value.length) === value
 		) {
 			candidates.set(DateTime.formatIso(candidate.value), candidate.value);
 		}
@@ -31,7 +42,7 @@ export const resolveDateTimeInput = (
 	}));
 	const previous = original == null ? Option.none() : DateTime.makeZoned(original, { timeZone });
 	const previousLocal = Option.isSome(previous)
-		? DateTime.formatIsoOffset(previous.value).slice(0, 16)
+		? DateTime.formatIsoOffset(previous.value).slice(0, value.length)
 		: undefined;
 	const previousOffset = Option.isSome(previous) ? DateTime.zonedOffset(previous.value) : undefined;
 	let selected = choices.find((choice) => choice.value === occurrence);

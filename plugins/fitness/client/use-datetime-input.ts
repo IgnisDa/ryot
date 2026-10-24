@@ -1,6 +1,5 @@
+import { resolveDateTimeInput, toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 import { useState } from "react";
-
-import { resolveDateTimeInput, toDateTimeInput } from "./datetime-input";
 
 export const useDateTimeInput = (original: null | string | undefined) => {
 	const [value, setValue] = useState(() => (original ? toDateTimeInput(original) : ""));

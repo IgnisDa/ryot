@@ -15,6 +15,7 @@ import { type ReactNode, type RefObject, useId, useLayoutEffect, useRef, useStat
 
 import { Button } from "../button";
 import { Chip } from "../chips";
+import { toDateTimeInput } from "../datetime";
 import { MultiSelect } from "../multi-select";
 import { RadioGroup } from "../radio-group";
 import { SegmentedControl } from "../segmented-control";
@@ -23,7 +24,7 @@ import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
 import { SchemaAssetField } from "./asset/field";
 import type { SchemaAssetUpload } from "./asset/upload";
-import { localDateTime, utcDateTime } from "./datetime";
+import { DateTimeControl } from "./datetime-control";
 import { pickBrowserMediaFile, pickBrowserUploadFile } from "./file/browser-file";
 import { SchemaFileField, type SchemaFileIcons } from "./file/field";
 import type { SchemaFileUpload } from "./file/upload";
@@ -646,28 +647,37 @@ function NodeControl(props: NodeProps) {
 		case "text": {
 			const numeric = property.type === "number" || property.type === "integer";
 			const timeZone = context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone;
-			let displayedValue = value;
 			if (field.format === "datetime") {
 				const wallTime = objectValue(props.value).wallTime;
-				displayedValue = typeof wallTime === "string" ? wallTime : localDateTime(value, timeZone);
+				return (
+					<DateTimeControl
+						timeZone={timeZone}
+						icons={context.icons}
+						label={property.label}
+						onChange={props.onChange}
+						original={value === "" ? undefined : value}
+						value={
+							typeof wallTime === "string"
+								? wallTime
+								: toDateTimeInput(value, timeZone, "millisecond")
+						}
+					/>
+				);
 			}
 			let inputType = "text";
 			if (property.secret) {
 				inputType = "password";
-			} else if (field.format === "datetime") {
-				inputType = "datetime-local";
 			} else if (field.format !== undefined) {
 				inputType = field.format;
 			}
 			return (
 				<TextField
+					value={value}
 					type={inputType}
 					density="compact"
-					value={displayedValue}
 					aria-label={property.label}
 					inputMode={numeric ? "decimal" : undefined}
 					autoComplete={property.secret ? "off" : undefined}
-					step={field.format === "datetime" ? "any" : undefined}
 					onChange={(event) => {
 						const text = event.currentTarget.value;
 						if (numeric) {
@@ -676,10 +686,6 @@ function NodeControl(props: NodeProps) {
 								number = Number.isFinite(Number(text)) ? Number(text) : text;
 							}
 							props.onChange(number);
-						} else if (field.format === "datetime") {
-							props.onChange(
-								text === "" ? null : (utcDateTime(text, timeZone) ?? { wallTime: text }),
-							);
 						} else if (field.format === "date") {
 							props.onChange(text === "" ? null : text);
 						} else {

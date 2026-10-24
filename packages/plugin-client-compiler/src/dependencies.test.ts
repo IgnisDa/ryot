@@ -30,6 +30,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/plugin-ui-sdk/table",
 		"@ryot-app/plugin-ui-sdk/charts",
 		"@ryot-app/plugin-ui-sdk/schema-form",
+		"@ryot-app/plugin-ui-sdk/datetime",
 	];
 	const neutral = [
 		"@ryot-app/plugin-kit/compression",

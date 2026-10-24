@@ -33,6 +33,10 @@
 			"types": "./src/tint.tsx",
 			"default": "./src/tint.tsx"
 		},
+		"./datetime": {
+			"types": "./src/datetime.ts",
+			"default": "./src/datetime.ts"
+		},
 		".": {
 			"types": "./src/index.tsx",
 			"default": "./src/index.tsx"
