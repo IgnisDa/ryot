@@ -15,7 +15,7 @@
 
 ## Status
 
-**65 implemented, 0 in progress, 18 pending; 3 excluded.**
+**66 implemented, 0 in progress, 17 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -51,7 +51,7 @@
 | P01-R1 | Implemented | Generated provider tuples are the sole script/operation bindings, scoped to active or retained revisions. See this finding's audit commit. |
 | B09-R1 | Implemented | Persist ordered collection fields canonically, compile them one way, and trim all 25 JavaScript whitespace characters in SQL. See this finding's audit commit. |
 | F04-R2 | Implemented | Use stable measurement-entry IDs, preserve complete child pages and session-linked analytics, and update/delete by entry ID while retaining OpenScale legacy producers. See this finding's audit commit. |
-| B28-R1 | Pending | Derive ingestion identity projections from JSON. |
+| B28-R1 | Implemented | Derive generated identity projections for five ingestion tables from JSON, remove parallel writes, and retain constraints. See this finding's audit commit. |
 | B05-R1 | Implemented | Model five strict upload-intent variants; require a local temp path, separate numeric completion expiry from the lease, preserve single-claim replay, and block cleanup of stale permanent objects. See this finding's audit commit. |
 | B13-R2 | Implemented | Remove the non-durable preparing state; batches transition from pending directly to applying while preserving B13-R1 and B15 behavior. See this finding's audit commit. |
 | B07-R1 | Implemented | Use package keys as the sole portable installation identity while preserving redaction, scope, null, and system-plugin reuse behavior; change no versions or compatibility paths. See this finding's audit commit. |
@@ -231,3 +231,4 @@
 - M01-R1: scoped checks passed before 12 tests; read-only review passed. Metron uses the canonical role accumulator without folding or a second set pass.
 - P09-R1: archive check passed before 71 tests; read-only review passed. Writer input validates once without self-decompression; manifest bounds are exact and reader behavior is unchanged. CLI validation was blocked by P08 and is now unblocked; final acceptance remains pending.
 - P08-R1: all three checks passed before serial runs of 64 Vite, 64 backend, and 79 client tests; read-only review passed. Acquire the complete private mode-0700 workspace before exposing its handle, with collision/replacement cleanup and no incremental API.
+- B28-R1: backend type, all-format, lint, and database-generation checks passed before 38 tests, including three real-PostgreSQL tests; read-only review passed. Generated identity projections for five ingestion tables come from JSON; parallel writes are removed and constraints remain.
