@@ -201,16 +201,27 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				);
 			});
 			const recover = Effect.fn("BackgroundWorkService.recover")(function* () {
-				const keys = new Map<string, BackgroundWorkScopeKey>();
-				for (const key of yield* repository.pending()) {
-					keys.set(backgroundWorkScopeIdentity(key), key);
-				}
-				for (const key of keys.values()) {
-					yield* dispatchScope(key).pipe(
-						Effect.catchTag("DbError", (error) =>
-							Effect.logWarning("Background dispatch failed", error.message),
-						),
-					);
+				let after: string | undefined;
+				for (;;) {
+					const page = yield* repository.pending(100, after);
+					const keys = new Map<string, BackgroundWorkScopeKey>();
+					for (const key of page) {
+						keys.set(backgroundWorkScopeIdentity(key), key);
+					}
+					for (const key of keys.values()) {
+						yield* dispatchScope(key).pipe(
+							Effect.catchTag("DbError", (error) =>
+								Effect.logWarning("Background dispatch failed", error.message),
+							),
+						);
+					}
+					if (page.length < 100) {
+						break;
+					}
+					after = page.at(-1)?.id;
+					if (after === undefined) {
+						break;
+					}
 				}
 			});
 			return {

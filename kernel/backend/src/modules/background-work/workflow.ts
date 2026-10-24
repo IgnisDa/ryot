@@ -29,7 +29,7 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 	const result = yield* Effect.exit(
 		Effect.gen(function* () {
 			const output = yield* executor.execute(job);
-			if (job.purpose !== "user-script") {
+			if (job.purpose !== "user-script" || job.featureInput !== null) {
 				yield* projection.publish(job, output);
 			}
 		}),
@@ -52,8 +52,22 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 			)
 			.pipe(Effect.asVoid),
 	});
-	if (result._tag === "Failure" && job.purpose !== "user-script") {
+	if (result._tag === "Failure" && (job.purpose !== "user-script" || job.featureInput !== null)) {
 		yield* projection.failed(job);
+	}
+	if (
+		job.purpose === "event-projection" ||
+		(job.purpose === "user-script" &&
+			job.execution.subject.type === "user" &&
+			job.execution.subject.afterHooks === "skip")
+	) {
+		yield* projection
+			.settled(job)
+			.pipe(
+				Effect.catchTag("DbError", (error) =>
+					Effect.logWarning("Projection settlement recovery failed", error.message),
+				),
+			);
 	}
 	yield* service
 		.dispatch(id)

@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, inArray, lt, notExists, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, notExists, or, sql } from "drizzle-orm";
 import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer } from "effect";
 
@@ -142,8 +142,12 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 				);
 				return rows.length > 0;
 			});
-			const pending = Effect.fn("BackgroundWorkRepository.pending")(function* (limit = 100) {
+			const pending = Effect.fn("BackgroundWorkRepository.pending")(function* (
+				limit = 100,
+				after?: string,
+			) {
 				const scopeColumns = {
+					id: backgroundWork.id,
 					scope: backgroundWork.scope,
 					userId: backgroundWork.userId,
 					purpose: backgroundWork.purpose,
@@ -151,51 +155,48 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 				};
 				const sibling = alias(backgroundWork, "sibling");
 				const sameKey = sameScope(sibling, scopeColumns);
-				const heads = yield* session.run((db) =>
-					db
-						.select(scopeColumns)
-						.from(backgroundWork)
-						.where(eq(backgroundWork.status, "running"))
-						.orderBy(asc(backgroundWork.updatedAt), asc(backgroundWork.id))
-						.limit(limit),
-				);
-				const waiting = yield* session.run((db) =>
+				return yield* session.run((db) =>
 					db
 						.select(scopeColumns)
 						.from(backgroundWork)
 						.where(
 							and(
-								eq(backgroundWork.status, "queued"),
-								notExists(
-									db
-										.select({ one: sql`1` })
-										.from(sibling)
-										.where(and(sameKey, eq(sibling.status, "running"))),
-								),
-								notExists(
-									db
-										.select({ one: sql`1` })
-										.from(sibling)
-										.where(
-											and(
-												sameKey,
-												eq(sibling.status, "queued"),
-												or(
-													lt(sibling.createdAt, backgroundWork.createdAt),
+								after === undefined ? undefined : gt(backgroundWork.id, after),
+								or(
+									eq(backgroundWork.status, "running"),
+									and(
+										eq(backgroundWork.status, "queued"),
+										notExists(
+											db
+												.select({ one: sql`1` })
+												.from(sibling)
+												.where(and(sameKey, eq(sibling.status, "running"))),
+										),
+										notExists(
+											db
+												.select({ one: sql`1` })
+												.from(sibling)
+												.where(
 													and(
-														eq(sibling.createdAt, backgroundWork.createdAt),
-														lt(sibling.id, backgroundWork.id),
+														sameKey,
+														eq(sibling.status, "queued"),
+														or(
+															lt(sibling.createdAt, backgroundWork.createdAt),
+															and(
+																eq(sibling.createdAt, backgroundWork.createdAt),
+																lt(sibling.id, backgroundWork.id),
+															),
+														),
 													),
 												),
-											),
 										),
+									),
 								),
 							),
 						)
-						.orderBy(asc(backgroundWork.updatedAt), asc(backgroundWork.id))
+						.orderBy(asc(backgroundWork.id))
 						.limit(limit),
 				);
-				return [...heads, ...waiting];
 			});
 			const dispatched = Effect.fn("BackgroundWorkRepository.dispatched")(function* (id: string) {
 				const updatedAt = yield* DateTime.nowAsDate;
@@ -226,7 +227,8 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 										and (newer.created_at, newer.id) > (work.created_at, work.id)
 								)
 								and not exists (
-									select 1 from ${eventStreamWork} stream where stream.current_job_id = work.id
+								select 1 from ${eventStreamWork} stream
+								where stream.current_job_id = work.id or stream.input_repair_job_id = work.id
 								)
 								and not exists (
 									select 1 from ${relationshipProjectionWork} projection

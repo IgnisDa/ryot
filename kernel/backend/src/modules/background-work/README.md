@@ -39,8 +39,8 @@ settlement, and any continuation admission atomically. Dispatch follows the tran
 
 ## Recovery and settlement
 
-Recovery selects at most 100 running rows (oldest update first) and at most 100 scopes whose oldest
-queued row has no running sibling, then dispatches each distinct scope once. Queued rows behind a
+Recovery keyset-pages running rows and scopes whose oldest queued row has no running sibling, at
+most 100 heads per page, then dispatches each distinct scope in that page once. Queued rows behind a
 running head are never selected individually, so they cannot crowd out heads. A wrapper that is
 expired or already failed/succeeded before the job settles is recorded as failed and its scope moves
 on, rather than leaving the job pending. Suspension is
@@ -49,7 +49,19 @@ cannot change a terminal result; settling also releases retained execution refer
 
 The frequent cron deletes succeeded and failed rows 168 hours after settlement in bounded batches.
 It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
-`event_stream_work` or `relationship_projection_work` record still names as its current job.
+`event_stream_work` or `relationship_projection_work` record still names as its current job. An event
+stream's claimed input-repair root is protected by the same retention rule, including after success.
+
+Input-repair roots use the existing user-script purpose and a kernel-owned feature claim. Ordinary
+`requestUserWork` admission continues to store `featureInput: null`. The existing feature finalizer
+requires the repair root's `null` result, settles it, and releases dependent projection admission from
+the workflow body after settlement commits. Root success does not publish projection values.
+
+After settlement commits, the workflow body calls account-scoped relationship recovery for repair
+roots, trusted silent user-script descendants (including `featureInput: null`), and event-projection
+steps. This callback runs outside activities and does not revive failed repair. Startup and post-restore
+recovery close a missed-callback gap by running event reconciliation, common background recovery,
+then relationship reconciliation after workflow registration. Ordinary user work does not call it.
 
 Projection-specific freshness and discovery remain event-owned: reconciliation finds missing or stale
 bindings and dirty streams, and projection values are visible only while their source revision,

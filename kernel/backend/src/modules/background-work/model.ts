@@ -24,21 +24,25 @@ export const BackgroundWorkInput = Schema.Struct({
 });
 export type BackgroundWorkInput = typeof BackgroundWorkInput.Type;
 
+export const projectionInputCoordinationKey = (userId: string) => `projection-inputs:${userId}`;
+
 export class BackgroundWorkExecutor extends Context.Service<
 	BackgroundWorkExecutor,
 	{ execute: (job: BackgroundWorkInput) => Effect.Effect<unknown, DbError> }
 >()("BackgroundWorkExecutor") {}
 
-export class BackgroundWorkProjectionFinalizer extends Context.Service<
-	BackgroundWorkProjectionFinalizer,
+export class ProjectionInputReadiness extends Context.Service<
+	ProjectionInputReadiness,
+	{ ready: (account: AccountGeneration) => Effect.Effect<boolean, DbError> }
+>()("ProjectionInputReadiness") {}
+
+export class ProjectionInputFence extends Context.Service<
+	ProjectionInputFence,
 	{
-		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
-		publish: (
-			job: BackgroundWorkInput,
-			output: unknown,
-		) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
+		lock: (account: AccountGeneration) => Effect.Effect<void, DbError>;
+		advance: (account: AccountGeneration) => Effect.Effect<void, DbError>;
 	}
->()("BackgroundWorkProjectionFinalizer") {}
+>()("ProjectionInputFence") {}
 
 export class ProjectionBindings extends Context.Service<
 	ProjectionBindings,
@@ -57,3 +61,15 @@ export class ProjectionBindings extends Context.Service<
 		>;
 	}
 >()("ProjectionBindings") {}
+
+export class BackgroundWorkProjectionFinalizer extends Context.Service<
+	BackgroundWorkProjectionFinalizer,
+	{
+		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
+		settled: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
+		publish: (
+			job: BackgroundWorkInput,
+			output: unknown,
+		) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
+	}
+>()("BackgroundWorkProjectionFinalizer") {}

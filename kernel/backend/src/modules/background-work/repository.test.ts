@@ -53,6 +53,8 @@ layer(testLayer)((test) => {
 						work("queued-newer", "c", "succeeded", 300),
 						work("stream-job", "d", "failed", 400),
 						work("stream-newer", "d", "succeeded", 300),
+						work("repair-job", "e", "succeeded", 400),
+						work("repair-newer", "e", "succeeded", 300),
 					]),
 			);
 			const [entity] = yield* session.run((db) =>
@@ -78,6 +80,7 @@ layer(testLayer)((test) => {
 						processorScriptId: "script",
 						outputSchema: { fields: {} },
 						pluginRevisionId: "revision",
+						inputRepairJobId: "repair-job",
 					}),
 			);
 
@@ -87,7 +90,16 @@ layer(testLayer)((test) => {
 				db.select({ id: tables.backgroundWork.id }).from(tables.backgroundWork),
 			);
 			expect(new Set(remaining.map(({ id }) => id))).toEqual(
-				new Set(["only", "latest", "queued", "stream-job", "queued-newer", "stream-newer"]),
+				new Set([
+					"only",
+					"latest",
+					"queued",
+					"stream-job",
+					"repair-job",
+					"queued-newer",
+					"stream-newer",
+					"repair-newer",
+				]),
 			);
 		}),
 	);
