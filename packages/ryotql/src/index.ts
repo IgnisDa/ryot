@@ -981,10 +981,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
-	Parameters<typeof aggregate>[1],
-	"groupBy" | "measures"
->;
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
+	readonly measures: Measures;
+	readonly groupBy?: undefined;
+};
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,
