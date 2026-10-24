@@ -51,9 +51,8 @@ export const PreparedEventChange = Schema.Struct({
 	draft: AutomationEventDraft,
 	propertiesSchema: AppSchema,
 	receipt: MutationReceiptIdentity,
-	expectedRevision: Schema.NullOr(Schema.Int),
-	before: Schema.NullOr(AutomationEventSnapshot),
 	schemaFingerprint: CatalogDefinitionFingerprint,
+	source: Schema.NullOr(Schema.Struct({ revision: Schema.Int, snapshot: AutomationEventSnapshot })),
 });
 export const PreparedEventChanges = Schema.Struct({
 	items: Schema.Array(PreparedEventChange),
@@ -82,15 +81,15 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 					},
 				};
 			}
-			if (!item.before) {
+			if (!item.source) {
 				return yield* new DbError({ message: "Prepared event snapshot is unavailable" });
 			}
 			if (item.change.kind === "delete") {
 				return {
 					...common,
 					request: {
-						draft: item.before,
 						resource: "event" as const,
+						draft: item.source.snapshot,
 						category: "request" as const,
 						operation: "delete" as const,
 					},
@@ -100,8 +99,8 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 				...common,
 				request: {
 					draft: item.draft,
-					before: item.before,
 					resource: "event" as const,
+					before: item.source.snapshot,
 					category: "request" as const,
 					operation: "update" as const,
 				},
@@ -172,21 +171,18 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 			const changes = yield* Effect.forEach(input.changes, (change) =>
 				Effect.gen(function* () {
 					if (change.kind === "create") {
-						return { change, before: null, item: change.item, expectedRevision: null };
+						return { change, source: null, item: change.item };
 					}
 					const eventId = change.kind === "delete" ? change.eventId : change.item.eventId;
-					const before = yield* repository.getEventSnapshot({ eventId, userId: input.userId });
-					if (!before) {
+					const source = yield* repository.getEventSnapshot({ eventId, userId: input.userId });
+					if (!source) {
 						return yield* new EventNotFound({ reason: { eventId, code: "event-not-found" } });
 					}
+					const { snapshot: before } = source;
 					const expected = change.kind === "delete" ? change.expected : change.item.expected;
 					if (expected && !sameExpected(before, expected)) {
 						return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 					}
-					const expectedRevision = yield* repository.getEventRevision({
-						eventId,
-						userId: input.userId,
-					});
 					const patch = change.kind === "update" ? change.item.patch : {};
 					const properties = { ...before.properties };
 					for (const key of patch.properties?.remove ?? []) {
@@ -195,8 +191,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					Object.assign(properties, patch.properties?.set);
 					return {
 						change,
-						before,
-						expectedRevision,
+						source,
 						item: {
 							properties,
 							eventSchemaSlug: before.eventSchemaSlug,
@@ -248,8 +243,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					return {
 						draft,
 						change: item.change,
-						before: item.before,
-						expectedRevision: item.expectedRevision,
+						source: item.source,
 						propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 						schemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
 						receipt: mutationReceiptIdentity({
@@ -338,7 +332,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					referencedIds.has(EntityId.make(id)),
 				),
 			);
-			const eventIds = rows.flatMap((row) => (row.before ? [row.before.id] : []));
+			const eventIds = rows.flatMap((row) => (row.source ? [row.source.snapshot.id] : []));
 			yield* entities.lockEntityReferencesByIds(
 				Object.keys(references)
 					.map((id) => EntityId.make(id))
@@ -481,28 +475,24 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 						return yield* new DbError({ message: "Created event disappeared" });
 					}
 					change = {
-						after,
+						after: after.snapshot,
 						resource: "event" as const,
 						category: "change" as const,
 						operation: "create" as const,
 					};
 				} else {
-					if (!row.before || row.expectedRevision === null) {
-						return yield* new DbError({ message: "Prepared event revision is unavailable" });
+					if (!row.source) {
+						return yield* new DbError({ message: "Prepared event snapshot is unavailable" });
 					}
-					eventId = row.before.id;
-					const identity = {
-						eventId,
-						userId: input.userId,
-						expectedRevision: row.expectedRevision,
-					};
+					eventId = row.source.snapshot.id;
+					const identity = { eventId, userId: input.userId, expectedRevision: row.source.revision };
 					if (row.change.kind === "delete") {
 						if (!(yield* repository.deletePreparedEvent(identity))) {
 							return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 						}
 						change = {
-							before: row.before,
 							resource: "event" as const,
+							before: row.source.snapshot,
 							category: "change" as const,
 							operation: "delete" as const,
 						};
@@ -521,9 +511,9 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 							return yield* new DbError({ message: "Updated event disappeared" });
 						}
 						change = {
-							after,
-							before: row.before,
+							after: after.snapshot,
 							resource: "event" as const,
+							before: row.source.snapshot,
 							category: "change" as const,
 							operation: "update" as const,
 						};

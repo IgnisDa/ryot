@@ -822,6 +822,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										: PluginId.make(created.eventSchemaPluginId),
 							}).pipe(
 								Effect.mapError(() => new DbError({ message: "Invalid fixture event snapshot" })),
+								Effect.map((eventSnapshot) => ({ revision: 0, snapshot: eventSnapshot })),
 							);
 						}),
 				}),

@@ -279,7 +279,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						.getEventSnapshot({ userId, eventId: error.reason.eventId })
 						.pipe(
 							Effect.map(
-								(current) => current !== null && matchesEventPrecondition(current, expected),
+								(current) =>
+									current !== null && matchesEventPrecondition(current.snapshot, expected),
 							),
 						);
 				},
@@ -671,12 +672,13 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					if (yield* lookupEditReceipt(input, command, receiptInput)) {
 						return null;
 					}
-					const before = yield* repository.getEventSnapshot(input);
-					if (!before) {
+					const current = yield* repository.getEventSnapshot(input);
+					if (!current) {
 						return yield* new EventNotFound({
 							reason: { code: "event-not-found", eventId: submitted.eventId },
 						});
 					}
+					const { snapshot: before, revision: expectedRevision } = current;
 					if (submitted.expected && !matchesEventPrecondition(before, submitted.expected)) {
 						return yield* new EventStale({
 							reason: { code: "event-stale", eventId: submitted.eventId },
@@ -685,12 +687,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					yield* writeChecks
 						.check(command, definitionOwner(before.eventSchemaPluginId), userId)
 						.pipe(Effect.mapError(eventWriteFailure));
-					const expectedRevision = yield* repository.getEventRevision(input);
-					if (expectedRevision === null) {
-						return yield* new EventNotFound({
-							reason: { code: "event-not-found", eventId: submitted.eventId },
-						});
-					}
 					const initial = yield* resolveEditContext(
 						userId,
 						before,
@@ -902,8 +898,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						yield* recordNoop(input, command, mutation);
 						return { _tag: "Committed" as const, work: { result: null, dispatch: [] } };
 					});
-					const before = yield* repository.getEventSnapshot(input);
-					if (!before) {
+					const current = yield* repository.getEventSnapshot(input);
+					if (!current) {
 						if (input.expected) {
 							return yield* new EventStale({
 								reason: { code: "event-stale", eventId: input.eventId },
@@ -911,6 +907,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						}
 						return inline ? yield* recordNoopWork : null;
 					}
+					const { snapshot: before, revision: expectedRevision } = current;
 					if (input.expected && !matchesEventPrecondition(before, input.expected)) {
 						return yield* new EventStale({
 							reason: { code: "event-stale", eventId: input.eventId },
@@ -919,10 +916,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					const pin = yield* authorizeEventDelete(command, input, before, cascadeEntityIds);
 					if (!move) {
 						yield* validateEventDeleteValue(before, pin);
-					}
-					const expectedRevision = yield* repository.getEventRevision(input);
-					if (expectedRevision === null) {
-						return inline ? yield* recordNoopWork : null;
 					}
 					let request: EventRequest;
 					let draft: AutomationEventDraft | undefined;
@@ -1278,7 +1271,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				);
 				const current = yield* repository.getEventSnapshot(prepared.input);
 				if (current) {
-					yield* validateEventDeleteValue(current, pin);
+					yield* validateEventDeleteValue(current.snapshot, pin);
 				}
 			} else {
 				yield* writeChecks
@@ -1350,10 +1343,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				}
 				eventId = updated;
 				change = {
-					after,
 					resource: "event",
 					category: "change",
 					operation: "update",
+					after: after.snapshot,
 					before: prepared.before,
 				};
 			} else {
