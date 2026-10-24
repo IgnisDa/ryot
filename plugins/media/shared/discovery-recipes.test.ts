@@ -24,7 +24,7 @@ const page = (items: readonly unknown[], limit: number) =>
 describe("latest completion suggestions recipe", () => {
 	it("validates the document", () => {
 		const recipe = latestCompletionSuggestionsRecipe({ limit: 20, reference: { kind: "self" } });
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("resolves the items against the same source the source query reads", () => {
@@ -76,7 +76,7 @@ describe("trending latest media recipe", () => {
 			reference: { kind: "self" },
 			entitySchemaSlugs: ["movie", "show"],
 		});
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("keys the latest batch on each row's schema and interleaves by rank", () => {

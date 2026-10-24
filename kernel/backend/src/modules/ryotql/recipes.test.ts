@@ -73,5 +73,5 @@ const recipes = [
 ] as const;
 
 it.each(recipes)("validates %s against the real catalog in its scope", (_name, document, scope) => {
-	expect(validateRyotQLDocument(document, scope)).toBeNull();
+	expect(validateRyotQLDocument(document, scope).error).toBeNull();
 });

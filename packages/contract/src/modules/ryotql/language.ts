@@ -462,15 +462,42 @@ export const RyotQLDocument = strictStruct({
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
 
+export type IncludeWithSelections<Selection extends RowSelection> = Omit<
+	Include,
+	"fields" | "include"
+> & {
+	readonly fields: readonly Selection[];
+	readonly include?:
+		readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]] | undefined;
+};
+
+export type RowsOutputWithSelections<Selection extends RowSelection> = Omit<
+	RowsOutput,
+	"fields" | "include"
+> & {
+	readonly fields: readonly Selection[];
+	readonly include?:
+		readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]] | undefined;
+};
+
+export type NamedQueryWithSelections<Selection extends RowSelection> = Omit<
+	NamedQuery,
+	"output"
+> & { readonly output: RowsOutputWithSelections<Selection> | AggregateOutput | TimeSeriesOutput };
+
+export type RyotQLDocumentWithSelections<Selection extends RowSelection> = {
+	readonly queries: Readonly<Record<string, NamedQueryWithSelections<Selection>>>;
+};
+
 const mapNonEmpty = <A, B>(
 	values: readonly [A, ...A[]],
 	transform: (value: A) => B,
 ): readonly [B, ...B[]] => [transform(values[0]), ...values.slice(1).map(transform)];
 
-export const mapPluginIdentityReferences = (
-	document: RyotQLDocument,
+export const mapPluginIdentityReferences = <Selection extends RowSelection>(
+	document: RyotQLDocumentWithSelections<Selection>,
 	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
-): RyotQLDocument => {
+): RyotQLDocumentWithSelections<FieldSelection | Selection> => {
 	const aggregation = (value: AggregationSpec): AggregationSpec =>
 		value.function === "count" ? value : { ...value, expr: expression(value.expr) };
 	const ordering = (value: OrderBy): OrderBy => ({ ...value, expr: expression(value.expr) });
@@ -478,7 +505,8 @@ export const mapPluginIdentityReferences = (
 		...value,
 		expr: expression(value.expr),
 	});
-	const selection = (value: RowSelection): RowSelection => ("expr" in value ? field(value) : value);
+	const selection = (value: Selection): FieldSelection | Selection =>
+		"expr" in value ? field(value) : value;
 	const join = (value: Join): Join =>
 		value.type === "jsonElements"
 			? { ...value, expr: expression(value.expr) }
@@ -579,13 +607,17 @@ export const mapPluginIdentityReferences = (
 				throw new Error(`Unknown RyotQL predicate: ${String(value satisfies never)}`);
 		}
 	}
-	const include = (value: Include): Include => ({
+	const include = (
+		value: IncludeWithSelections<Selection>,
+	): IncludeWithSelections<FieldSelection | Selection> => ({
 		...querySet(value),
 		fields: value.fields.map(selection),
 		orderBy: mapNonEmpty(value.orderBy, ordering),
 		...(value.include === undefined ? {} : { include: mapNonEmpty(value.include, include) }),
 	});
-	function query(value: NamedQuery): NamedQuery {
+	function query(
+		value: NamedQueryWithSelections<Selection>,
+	): NamedQueryWithSelections<FieldSelection | Selection> {
 		const output = value.output;
 		switch (output.type) {
 			case "rows":

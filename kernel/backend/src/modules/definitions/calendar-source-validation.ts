@@ -35,7 +35,7 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition): string | 
 	if ("orderBy" in query.output || "pagination" in query.output) {
 		return "ordering and pagination are owned by the kernel";
 	}
-	const queryIssue = validateRyotQLDocument(
+	const { error: queryIssue } = validateRyotQLDocument(
 		calendarSourceDocument(query),
 		savedViewDataSourceAccess,
 	);

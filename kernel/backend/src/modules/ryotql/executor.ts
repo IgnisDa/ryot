@@ -38,11 +38,11 @@ import {
 	type RyotQLExecutionScope,
 } from "./catalog";
 import { type KindResolver, scalarExpressionKind, type ScalarKind } from "./expression-kind";
-import type { NormalizedInclude, NormalizedNamedQuery, NormalizedRowsOutput } from "./normalizer";
+import type { ExpandedInclude, ExpandedNamedQuery, ExpandedRowsOutput } from "./validator";
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
-type RowsQuery = Omit<NormalizedNamedQuery, "output"> & { readonly output: NormalizedRowsOutput };
+type RowsQuery = Omit<ExpandedNamedQuery, "output"> & { readonly output: ExpandedRowsOutput };
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
 type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
@@ -1123,7 +1123,7 @@ const compileAggregation = (
 };
 
 const compileInclude = (
-	include: NormalizedInclude,
+	include: ExpandedInclude,
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 	path: readonly number[],
@@ -1403,7 +1403,7 @@ const reconstructKind = (
 
 const reconstructInclude = (
 	raw: unknown,
-	include: NormalizedInclude,
+	include: ExpandedInclude,
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 ): IncludeResult => {
@@ -1534,7 +1534,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	executionScope: RyotQLExecutionScope,
-	query: NormalizedNamedQuery,
+	query: ExpandedNamedQuery,
 	queryName: string,
 	db: EffectPgDatabase,
 	budget?: RyotQLResultBudget,

@@ -81,7 +81,7 @@ describe("episodic lifecycle list recipe", () => {
 				reference: { kind: "self" },
 				states: ["in_progress", "caught_up"],
 			});
-			expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+			expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 		},
 	);
 
@@ -131,7 +131,7 @@ describe("flat lifecycle list recipe", () => {
 			reference: { kind: "self" },
 			states: ["in_progress", "backlog"],
 		});
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("reads the latest position from events that carry one", () => {
@@ -191,7 +191,7 @@ describe("flat lifecycle list recipe", () => {
 describe("library media count recipe", () => {
 	it("validates the count document and decodes the count", () => {
 		const recipe = libraryMediaCountRecipe({ kind: "self" });
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 		expect(
 			Result.getOrThrow(
 				recipe.decode({ data: { library: { type: "aggregate", items: [{ count: 3 }] } } }),

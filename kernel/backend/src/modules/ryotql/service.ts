@@ -15,7 +15,6 @@ import { userPlugin } from "#schema/tables/definitions";
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
-import { normalizeRyotQLDocument } from "./normalizer";
 import { validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
@@ -29,9 +28,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			document: RyotQLDocument,
 			resultBytes?: number,
 		) {
-			const validationError = validateRyotQLDocument(document, scope);
-			if (validationError) {
-				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
+			const validated = validateRyotQLDocument(document, scope);
+			if (validated.error !== null) {
+				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validated.error });
 				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 			}
 			return yield* session
@@ -45,7 +44,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 								sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
 							);
 							let catalog: ReadonlyArray<PluginBinding> = [];
-							if (pluginIdentityReferences(document).length > 0) {
+							if (pluginIdentityReferences(validated.value).length > 0) {
 								if (scope.type === "user") {
 									catalog = yield* transaction
 										.select({
@@ -77,14 +76,13 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 									}));
 								}
 							}
-							const bound = yield* bindRyotQLDocument(document, scope, catalog);
-							const normalizedDocument = normalizeRyotQLDocument(bound, scope);
+							const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
 							const budget =
 								resultBytes === undefined
 									? undefined
 									: { limitBytes: resultBytes, remainingBytes: resultBytes };
 							const results: Array<readonly [string, RyotQLResult]> = [];
-							for (const [name, query] of Object.entries(normalizedDocument.queries)) {
+							for (const [name, query] of Object.entries(bound.queries)) {
 								results.push([
 									name,
 									yield* executeNamedQuery(scope, query, name, transaction, budget),
@@ -147,7 +145,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 						error instanceof RyotQLBadRequest &&
 						error.reason.code === "invalid-query" &&
 						accessClass === "demo" &&
-						validateRyotQLDocument(document, { ...scope, accessClass: "standard" }) === null,
+						validateRyotQLDocument(document, { ...scope, accessClass: "standard" }).error === null,
 					() => new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 				),
 			);

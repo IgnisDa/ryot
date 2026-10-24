@@ -15,7 +15,7 @@
 
 ## Status
 
-**55 implemented, 0 in progress, 28 pending; 3 excluded.**
+**56 implemented, 0 in progress, 27 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -66,7 +66,7 @@
 | B05-R2 | Pending | Query asset-reference existence in PostgreSQL. |
 | B22-R1 | Implemented | Persist the validated reorder plan set-wise and atomically from the locked facts. See this finding's audit commit. |
 | B20-R1 | Pending | Return aggregate replay counts without fabricated outcomes. |
-| B21-R1 | Pending | Validate and expand a query document once. |
+| B21-R1 | Implemented | Validate and expand each query document once; return the expanded document with validation errors and retain bound aliases without re-expansion. See this finding's audit commit. |
 | P10-R1 | Pending | Decode presentation rows without fabricated pages. |
 | P12-R1 | Pending | Pass typed local renderer query values. |
 | P05-R1 | Implemented | Render flat tables directly without table-engine boxing or scans; remove the unused engine dependency. See this finding's audit commit. |
@@ -221,3 +221,4 @@
 - T02-R1: e2e type, format, and lint checks passed before eight harness tests; read-only review passed. Release finalizers are registered during acquisition, including partial failure/interruption/stop, with API scope closed before infrastructure and capacity unchanged. The T05 seed script was not staged.
 - B11-R1: scoped checks passed before 79 tests across six files; read-only review passed. Removed projection-worker exemption and owner-work-ID threading while retaining locks.
 - B22-R1: scoped checks passed before 50 tests across nine files; SQL validation covered six changed and four unchanged small/large cases; read-only review passed. Reorder persistence is set-wise and atomic from the locked validated plan.
+- B21-R1: four package checks passed before 179 backend, 61 media, 18 contract, and three RyotQL tests; read-only review passed. Validation returns the expanded document and error/value; binding retains aliases without re-expansion. No compatibility/drain machinery or development reset was added.

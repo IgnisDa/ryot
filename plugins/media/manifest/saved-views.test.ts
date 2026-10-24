@@ -61,7 +61,7 @@ describe("media saved views", () => {
 	it("builds valid single-source documents for every media saved view", () => {
 		for (const view of mediaSavedViews()) {
 			expect(Object.keys(view.dataSources.queries)).toEqual(["savedView"]);
-			expect(validateRyotQLDocument(view.dataSources, savedViewDataSourceAccess)).toBeNull();
+			expect(validateRyotQLDocument(view.dataSources, savedViewDataSourceAccess).error).toBeNull();
 		}
 	});
 

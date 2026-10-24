@@ -52,14 +52,14 @@ it("validates collection member and count documents with every filter field", ()
 			validateRyotQLDocument(
 				collectionMembersRecipe({ ...input, membershipPropertiesSchema }).document,
 				savedViewDataSourceAccess,
-			),
+			).error,
 			JSON.stringify(filter),
 		).toBeNull();
 		expect(
 			validateRyotQLDocument(
 				collectionMembersCountRecipe(input).document,
 				savedViewDataSourceAccess,
-			),
+			).error,
 			JSON.stringify(filter),
 		).toBeNull();
 	}
