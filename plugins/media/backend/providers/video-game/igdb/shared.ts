@@ -38,7 +38,7 @@ const extractYear = (unixTimestamp: unknown) => {
 	if (value === null) {
 		return null;
 	}
-	return DateTime.toDateUtc(DateTime.makeUnsafe(value * 1000)).getFullYear();
+	return DateTime.getPartUtc(DateTime.makeUnsafe(value * 1000), "year");
 };
 const unixToIsoDate = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);

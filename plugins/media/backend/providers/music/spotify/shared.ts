@@ -29,7 +29,7 @@ const getPublishYear = (releaseDate: unknown) => {
 	if (Option.isNone(parsed)) {
 		return null;
 	}
-	const year = DateTime.toDateUtc(parsed.value).getFullYear();
+	const year = DateTime.getPartUtc(parsed.value, "year");
 	return year > 0 ? year : null;
 };
 

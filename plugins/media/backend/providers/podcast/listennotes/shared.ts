@@ -42,7 +42,7 @@ const getPublishYearFromTimestamp = (value: unknown) => {
 	if (Option.isNone(parsed)) {
 		return null;
 	}
-	return DateTime.toDateUtc(parsed.value).getFullYear();
+	return DateTime.getPartUtc(parsed.value, "year");
 };
 const getIsoDateFromTimestamp = (value: unknown) => {
 	if (typeof value !== "number" || !Number.isFinite(value)) {

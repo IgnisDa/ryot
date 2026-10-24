@@ -87,7 +87,7 @@ export const details = defineProvider({
 				const foundedYear =
 					startDate === null
 						? null
-						: DateTime.toDateUtc(DateTime.makeUnsafe(startDate * 1000)).getFullYear();
+						: DateTime.getPartUtc(DateTime.makeUnsafe(startDate * 1000), "year");
 
 				const websites = Array.isArray(company?.["websites"]) ? company["websites"] : [];
 				const firstWebsiteUrl = stringValue(asRecord(websites[0])?.["url"]);

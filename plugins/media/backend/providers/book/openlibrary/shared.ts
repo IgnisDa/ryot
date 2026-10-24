@@ -43,7 +43,7 @@ const parseFlexibleDate = (value: unknown) => {
 	}
 	const d = new Date(trimmed);
 	if (!Number.isNaN(d.getTime())) {
-		return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+		return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 	}
 	return null;
 };

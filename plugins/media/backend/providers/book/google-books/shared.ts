@@ -58,7 +58,7 @@ const parsePublishYear = (publishedDate: unknown) => {
 	if (Option.isNone(parsed)) {
 		return null;
 	}
-	return DateTime.toDateUtc(parsed.value).getFullYear();
+	return DateTime.getPartUtc(parsed.value, "year");
 };
 
 const IMAGE_LINK_KEYS = [

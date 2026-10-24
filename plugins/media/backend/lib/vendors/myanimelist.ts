@@ -58,7 +58,7 @@ export const parsePublishYear = (startDate: unknown) => {
 	if (Option.isNone(parsed)) {
 		return null;
 	}
-	return DateTime.toDateUtc(parsed.value).getFullYear();
+	return DateTime.getPartUtc(parsed.value, "year");
 };
 
 export const parsePublishDate = (startDate: unknown) => {

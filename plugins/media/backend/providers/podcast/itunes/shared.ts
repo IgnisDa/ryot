@@ -62,7 +62,7 @@ const getPublishYear = (value: unknown) => {
 	if (Option.isNone(parsedDate)) {
 		return null;
 	}
-	return DateTime.toDateUtc(parsedDate.value).getFullYear();
+	return DateTime.getPartUtc(parsedDate.value, "year");
 };
 const getIsoDate = (value: unknown) => {
 	const parsed = stringValue(value);
