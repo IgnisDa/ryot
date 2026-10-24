@@ -9,7 +9,6 @@ import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "rea
 
 import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
-import { useIngestionCatalogRefresh } from "#/modules/imports/use-catalog-refresh";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
@@ -32,11 +31,13 @@ import {
 	integrationRunsQuery,
 	updateIntegrationMutation,
 } from "#/modules/integrations/service";
+import { useIngestionCatalogRefresh } from "#/modules/plugins/catalog/provider";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
+import { useLatestDefined } from "#/modules/ui/use-latest-defined";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const RUN_LIST_POLL_MS = 10_000;
@@ -128,14 +129,9 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const title = integrationTitle(integration, providerNames);
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
 	const { backInterceptors } = Route.useRouteContext();
-	const currentProvider = findOwnedIntegrationProvider(providers.data ?? [], integration);
-	const [lastProvider, setLastProvider] = useState(currentProvider);
-	if (currentProvider !== undefined && currentProvider !== lastProvider) {
-		setLastProvider(currentProvider);
-	}
-	const provider =
-		currentProvider ??
-		findOwnedIntegrationProvider(lastProvider === undefined ? [] : [lastProvider], integration);
+	const provider = useLatestDefined(
+		findOwnedIntegrationProvider(providers.data ?? [], integration),
+	);
 	const oauth = useOAuthConnect({
 		integrationId: integration.id,
 		integrationProvider: {

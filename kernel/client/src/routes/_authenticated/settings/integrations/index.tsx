@@ -10,7 +10,6 @@ import { useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
-import { useIngestionCatalogRefresh } from "#/modules/imports/use-catalog-refresh";
 import {
 	IntegrationCreateWizard,
 	type IntegrationProviderPickerState,
@@ -27,6 +26,7 @@ import {
 	integrationsQuery,
 	syncIntegrationsMutation,
 } from "#/modules/integrations/service";
+import { useIngestionCatalogRefresh } from "#/modules/plugins/catalog/provider";
 import {
 	preferencesQuery,
 	updatePreferencesMutation,

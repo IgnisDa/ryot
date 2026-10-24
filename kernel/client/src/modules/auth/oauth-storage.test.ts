@@ -1,5 +1,4 @@
 import { describe, expect, layer } from "@effect/vitest";
-import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Clock, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -10,7 +9,12 @@ import {
 	OAuthStorageError,
 	oauthTokenKey,
 } from "#/modules/auth/oauth-storage";
-import { FakeOAuthStorage, fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";
+import {
+	FakeOAuthStorage,
+	fakeOAuthStorageLayer,
+	makePendingAuthorization,
+	makeStoredTokenSet,
+} from "#/modules/auth/oauth-storage.test-support";
 
 const origin = decodeServerOrigin("https://ryot.example");
 const equivalentOrigin = decodeServerOrigin("https://ryot.example/");
@@ -22,25 +26,11 @@ describe("OAuth storage", () => {
 		test.effect("persists validated pending authorizations and token sets", () =>
 			Effect.gen(function* () {
 				const service = yield* OAuthStorage;
-				const pending = {
-					state: "state",
-					nonce: "nonce",
+				const pending = makePendingAuthorization("https://ryot.example", {
 					destination: "/library",
-					codeVerifier: "verifier",
-					clientId: OAUTH_WEB_CLIENT_ID,
-					serverOrigin: "https://ryot.example",
 					createdAt: yield* Clock.currentTimeMillis,
-					redirectUri: "https://ryot.example/auth/callback",
-				} as const;
-				const tokens = {
-					idToken: "id",
-					scope: "openid",
-					tokenType: "Bearer",
-					accessToken: "access",
-					refreshToken: "refresh",
-					accessTokenExpiresAt: 123,
-					clientId: OAUTH_WEB_CLIENT_ID,
-				} as const;
+				});
+				const tokens = makeStoredTokenSet();
 				yield* service.setPending(pending);
 				yield* service.setTokenSet(equivalentOrigin, tokens);
 
@@ -68,16 +58,9 @@ describe("OAuth storage", () => {
 				);
 				yield* storage.seed(
 					oauthPendingKey("https://ryot.example", "expired"),
-					yield* encodeJson({
-						createdAt: 0,
-						nonce: "nonce",
-						state: "expired",
-						destination: "/",
-						codeVerifier: "verifier",
-						clientId: OAUTH_WEB_CLIENT_ID,
-						serverOrigin: "https://ryot.example",
-						redirectUri: "https://ryot.example/auth/callback",
-					}),
+					yield* encodeJson(
+						makePendingAuthorization("https://ryot.example", { createdAt: 0, state: "expired" }),
+					),
 				);
 
 				yield* TestClock.adjust("20 minutes");
@@ -110,16 +93,10 @@ describe("OAuth storage", () => {
 		test.effect("prunes abandoned pending authorizations before creating another", () =>
 			Effect.gen(function* () {
 				const storage = yield* FakeOAuthStorage;
-				const fresh = {
-					nonce: "nonce",
+				const fresh = makePendingAuthorization("https://ryot.example", {
 					state: "fresh",
-					destination: "/",
-					codeVerifier: "verifier",
 					createdAt: 20 * 60 * 1000,
-					clientId: OAUTH_WEB_CLIENT_ID,
-					serverOrigin: "https://ryot.example",
-					redirectUri: "https://ryot.example/auth/callback",
-				} as const;
+				});
 				const otherOrigin = { ...fresh, state: "other", serverOrigin: "https://other.example" };
 				yield* storage.seed(oauthPendingKey(origin, fresh.state), yield* encodeJson(fresh));
 				yield* storage.seed(
@@ -171,17 +148,7 @@ describe("OAuth storage", () => {
 		test.effect("fails when a record cannot be written", () =>
 			Effect.gen(function* () {
 				const service = yield* OAuthStorage;
-				const failure = yield* Effect.flip(
-					service.setTokenSet(origin, {
-						idToken: "id",
-						scope: "openid",
-						tokenType: "Bearer",
-						accessToken: "access",
-						refreshToken: "refresh",
-						accessTokenExpiresAt: 123,
-						clientId: OAUTH_WEB_CLIENT_ID,
-					}),
-				);
+				const failure = yield* Effect.flip(service.setTokenSet(origin, makeStoredTokenSet()));
 				expect(failure.reason).toBe("write-failed");
 			}),
 		);

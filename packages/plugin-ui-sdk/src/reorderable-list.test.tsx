@@ -174,6 +174,35 @@ describe("ReorderableList", () => {
 		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Reorder Parts" }));
 	});
 
+	it("never shifts remaining rows when the dragged row leaves the list", () => {
+		const { rerender } = render(<Harness items={rows} />);
+		const { handle } = captureHandle("Parts");
+		pointer(handle, "pointerdown", 100);
+		pointer(handle, "pointermove", 188);
+		const list = screen.getByRole("list");
+		const seen = new Set<string>();
+		const observer = new MutationObserver((records) => {
+			for (const record of records) {
+				seen.add(record.oldValue ?? "");
+			}
+		});
+		observer.observe(list, {
+			subtree: true,
+			attributes: true,
+			attributeOldValue: true,
+			attributeFilter: ["style"],
+		});
+		rerender(<Harness items={rows.slice(1)} />);
+		for (const record of observer.takeRecords()) {
+			seen.add(record.oldValue ?? "");
+		}
+		observer.disconnect();
+		for (const style of [...seen, ...transforms()]) {
+			expect(style).not.toContain("translateY(-44px)");
+		}
+		expect(transforms()).toEqual(["translateY(0px)", "translateY(44px)"]);
+	});
+
 	it("previews a forward drag continuously and drops once with focus and feedback", () => {
 		const moves: Array<[number, number]> = [];
 		const feedback: string[] = [];

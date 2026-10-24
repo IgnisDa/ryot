@@ -10,13 +10,41 @@ const isUnauthorizedError = (error: unknown): boolean =>
 export const isUnauthorizedCause = (cause: Cause.Cause<unknown>) =>
 	Option.exists(Cause.findErrorOption(cause), isUnauthorizedError);
 
-export const withAdminAuthorization = Effect.fnUntraced(function* <A, E>(
+export const withAdminAuthorization = <A, E>(
 	request: Effect.Effect<A, E>,
 	onUnauthorized: () => void,
-) {
-	return yield* request.pipe(
+) =>
+	request.pipe(
 		Effect.tapCause((cause) =>
 			isUnauthorizedCause(cause) ? Effect.sync(onUnauthorized) : Effect.void,
 		),
 	);
-});
+
+export const runAdminAction = <A>(input: {
+	readonly signal: AbortSignal;
+	readonly onUnauthorized: () => void;
+	readonly onSuccess: (value: A) => void;
+	readonly onSettled: (aborted: boolean) => void;
+	readonly onFailure: (cause: Cause.Cause<unknown>) => void;
+	readonly operation: () => Effect.Effect<A, unknown>;
+}) =>
+	Effect.suspend(input.operation).pipe(
+		Effect.matchCause({
+			onSuccess: (value) => {
+				if (!input.signal.aborted) {
+					input.onSuccess(value);
+				}
+			},
+			onFailure: (cause) => {
+				if (input.signal.aborted || Cause.hasInterruptsOnly(cause)) {
+					return;
+				}
+				if (isUnauthorizedCause(cause)) {
+					input.onUnauthorized();
+				} else {
+					input.onFailure(cause);
+				}
+			},
+		}),
+		Effect.ensuring(Effect.sync(() => input.onSettled(input.signal.aborted))),
+	);

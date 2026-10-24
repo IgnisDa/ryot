@@ -23,11 +23,11 @@ import {
 	makeAuthStub,
 	makeOAuthRouteStubs,
 	makeStorageStubLayer,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	ServerStub,
 	theme,
 } from "#/routes/-route-fixtures";
@@ -78,7 +78,7 @@ const mountTwoFactor = (
 			makeAuthStub(),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
+			ManagedAssetRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: () => Effect.succeed(config),

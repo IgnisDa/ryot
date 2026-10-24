@@ -9,24 +9,15 @@ import {
 	makeAuthenticatedApi,
 } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeAuthorizationState } from "#/modules/auth/authorization";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const unusedHttp = HttpClient.make(() => Effect.die("not used"));
 const bearerToken = (sub: string) =>
 	`header.${btoa(JSON.stringify({ sub })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
-const tokens = (
-	accessToken: OAuthTokenService["Service"]["accessToken"],
-): OAuthTokenService["Service"] => ({
-	accessToken,
-	clear: () => Effect.void,
-	logout: () => Effect.succeed(null),
-	userInfo: () => Effect.succeed(null),
-	authorization: makeAuthorizationState(),
-	rejectAuthorization: () => Effect.die("not used"),
-	completeAuthorization: () => Effect.die("not used"),
-});
+const tokens = (accessToken: OAuthTokenService["Service"]["accessToken"]) =>
+	makeOAuthTokenServiceStub({ accessToken });
 
 describe("authenticated API", () => {
 	it.live("retries one authentication failure after forcing a refresh", () =>

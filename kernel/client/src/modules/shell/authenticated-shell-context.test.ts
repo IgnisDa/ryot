@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	createClientPagePresentationController,
 	emptyClientPagePresentation,
+	matchesEntry,
 } from "#/modules/shell/authenticated-shell-context";
 
 const entry = { index: 2, key: "entry-b" };
@@ -11,7 +12,7 @@ const readiness = { ...entry, hasPreviousScreen: true };
 
 function presentationHarness() {
 	const states = [emptyClientPagePresentation];
-	const controller = createClientPagePresentationController(entry, (state) => {
+	const controller = createClientPagePresentationController((state) => {
 		states.push(state);
 	});
 	return { states, controller, current: () => states.at(-1) };
@@ -64,48 +65,19 @@ describe("active client document presentation", () => {
 	it.each([
 		{ ...entry, index: 3 },
 		{ ...entry, key: "entry-c" },
-	])(
-		"resets entry-scoped fields in a retained frame and rejects stale entry $index/$key",
-		(nextEntry) => {
-			const { states, current, controller } = presentationHarness();
-			controller.activate("retained-frame");
-			controller.publishHeader("retained-frame", header);
-			controller.publishReadiness("retained-frame", readiness);
-			controller.publishOverlayCount("retained-frame", 2);
+	])("matches publications only to their own entry, not $index/$key", (otherEntry) => {
+		expect(matchesEntry(header, entry)).toBe(true);
+		expect(matchesEntry(readiness, { ...entry })).toBe(true);
+		expect(matchesEntry(header, otherEntry)).toBe(false);
+		expect(matchesEntry(readiness, otherEntry)).toBe(false);
+	});
 
-			controller.setEntry(nextEntry);
-			expect(current()).toEqual({
-				header: null,
-				readiness: null,
-				overlayCount: 2,
-				owner: "retained-frame",
-			});
-			const nextHeader = { ...nextEntry, title: "Next screen" };
-			const nextReadiness = { ...nextEntry, hasPreviousScreen: false };
-			controller.publishHeader("retained-frame", nextHeader);
-			controller.publishReadiness("retained-frame", nextReadiness);
-			const beforeStaleWork = states.length;
-			controller.publishHeader("retained-frame", header);
-			controller.publishReadiness("retained-frame", readiness);
-			expect(states.length).toBe(beforeStaleWork);
-			expect(current()).toEqual({
-				overlayCount: 2,
-				header: nextHeader,
-				owner: "retained-frame",
-				readiness: nextReadiness,
-			});
-		},
-	);
-
-	it("retains publications for page-state replacement and clears each publication independently", () => {
-		const { states, current, controller } = presentationHarness();
+	it("clears each publication independently", () => {
+		const { current, controller } = presentationHarness();
 		controller.activate("owner");
 		controller.publishHeader("owner", header);
 		controller.publishReadiness("owner", readiness);
 		controller.publishOverlayCount("owner", 2);
-		const beforeEntry = states.length;
-		controller.setEntry({ ...entry });
-		expect(states.length).toBe(beforeEntry);
 		expect(current()).toEqual({ header, readiness, owner: "owner", overlayCount: 2 });
 
 		controller.publishReadiness("owner", null);

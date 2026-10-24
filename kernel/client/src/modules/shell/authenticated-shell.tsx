@@ -50,6 +50,7 @@ import {
 	type CustomizeController,
 	EdgeContext,
 	emptyClientPagePresentation,
+	matchesEntry,
 	PluginTitleContext,
 	RememberedWorkspaceContext,
 	type ShellChrome,
@@ -167,9 +168,8 @@ export function AuthenticatedShell(props: {
 	);
 	const entry = historyEntry(state);
 	const [presentation] = useState(() =>
-		createClientPagePresentationController(entry, setPresentationState),
+		createClientPagePresentationController(setPresentationState),
 	);
-	presentation.setEntry(entry);
 	const {
 		header: pluginHeader,
 		readiness: pluginScreenState,
@@ -181,9 +181,7 @@ export function AuthenticatedShell(props: {
 		}
 	});
 	const pluginTitle =
-		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
-			? pluginHeader.title
-			: null;
+		pluginHeader !== null && matchesEntry(pluginHeader, entry) ? pluginHeader.title : null;
 	const { session, stopError, stopPending, authSnapshot, impersonation, stopImpersonation } =
 		useAuthenticatedSession(runtime, server);
 	const isDemo = useIsDemoSession(session);
@@ -319,8 +317,8 @@ export function AuthenticatedShell(props: {
 		[drawerId, drawerOpen, goBack, onKernelShortcut, safeAreaInsets],
 	);
 	const hasPluginBackScreen =
-		pluginScreenState?.index === entry.index &&
-		pluginScreenState.key === entry.key &&
+		pluginScreenState !== null &&
+		matchesEntry(pluginScreenState, entry) &&
 		pluginScreenState.hasPreviousScreen;
 
 	const edge = resolveEdge({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { makeStoredTokenSet } from "#/modules/auth/oauth-storage.test-support";
 import {
 	decodeOAuthTokenIdentity,
 	handleOAuthSessionStorageEvent,
@@ -9,15 +10,14 @@ const jwt = (claims: unknown) =>
 	`header.${btoa(JSON.stringify(claims)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
 
 const tokenSet = (accessToken: string) =>
-	JSON.stringify({
-		accessToken,
-		idToken: "id-token",
-		tokenType: "Bearer",
-		clientId: "ryot-web",
-		refreshToken: "refresh",
-		accessTokenExpiresAt: 1,
-		scope: "openid ryot:api",
-	});
+	JSON.stringify(
+		makeStoredTokenSet({
+			accessToken,
+			idToken: "id-token",
+			accessTokenExpiresAt: 1,
+			scope: "openid ryot:api",
+		}),
+	);
 
 describe("OAuth token identity", () => {
 	it("decodes the token subject and session ID with the schema", () => {

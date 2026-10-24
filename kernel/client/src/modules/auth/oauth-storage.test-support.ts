@@ -1,3 +1,8 @@
+import {
+	OAUTH_WEB_CLIENT_ID,
+	type PendingAuthorization,
+	type StoredTokenSet,
+} from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { type OAuthStorageAdapter, oauthStorageLayer } from "#/modules/auth/oauth-storage";
@@ -34,3 +39,29 @@ export const fakeOAuthStorageLayer = (overrides: Partial<OAuthStorageAdapter> = 
 			);
 		}),
 	);
+
+export const makePendingAuthorization = (
+	serverOrigin: string,
+	overrides: Partial<PendingAuthorization> = {},
+): PendingAuthorization => ({
+	serverOrigin,
+	createdAt: 1,
+	state: "state",
+	nonce: "nonce",
+	destination: "/",
+	codeVerifier: "verifier",
+	clientId: OAUTH_WEB_CLIENT_ID,
+	redirectUri: `${serverOrigin}/auth/callback`,
+	...overrides,
+});
+
+export const makeStoredTokenSet = (overrides: Partial<StoredTokenSet> = {}): StoredTokenSet => ({
+	idToken: "id",
+	scope: "openid",
+	tokenType: "Bearer",
+	accessToken: "access",
+	refreshToken: "refresh",
+	accessTokenExpiresAt: 123,
+	clientId: OAUTH_WEB_CLIENT_ID,
+	...overrides,
+});

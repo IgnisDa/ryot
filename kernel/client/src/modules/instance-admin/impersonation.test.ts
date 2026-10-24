@@ -1,9 +1,5 @@
 import { describe, expect, layer } from "@effect/vitest";
-import {
-	OAUTH_WEB_CLIENT_ID,
-	type PendingAuthorization,
-	type StoredTokenSet,
-} from "@ryot-app/contract/oauth";
+import type { StoredTokenSet } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 
@@ -14,20 +10,20 @@ import {
 	type OAuthLaunchPlan,
 } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
+import {
+	makePendingAuthorization,
+	makeStoredTokenSet,
+} from "#/modules/auth/oauth-storage.test-support";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
 
 const origin = decodeServerOrigin("https://ryot.example");
-const pending = {
-	createdAt: 1,
+const pending = makePendingAuthorization(origin, {
 	state: "state-1",
 	nonce: "nonce-1",
-	destination: "/",
-	serverOrigin: origin,
 	codeVerifier: "verifier-secret",
 	clientId: "ryot-impersonation-web",
-	redirectUri: `${origin}/auth/callback`,
-} satisfies PendingAuthorization;
+});
 
 const plan: OAuthLaunchPlan = {
 	pending,
@@ -41,15 +37,13 @@ const plan: OAuthLaunchPlan = {
 	},
 };
 
-const originalTokens: StoredTokenSet = {
-	tokenType: "Bearer",
+const originalTokens = makeStoredTokenSet({
 	scope: "openid ryot:api",
 	idToken: "original-id-token",
-	clientId: OAUTH_WEB_CLIENT_ID,
 	accessTokenExpiresAt: 100_000,
 	accessToken: "original-access-token",
 	refreshToken: "original-refresh-token",
-};
+});
 
 type ImpersonationEvent = { readonly kind: string; readonly [key: string]: unknown };
 

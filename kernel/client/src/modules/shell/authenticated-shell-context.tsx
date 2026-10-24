@@ -25,18 +25,19 @@ export const emptyClientPagePresentation: ClientPagePresentationState = {
 	overlayCount: 0,
 };
 
+export const matchesEntry = (
+	publication: ReturnType<typeof historyEntry>,
+	entry: ReturnType<typeof historyEntry>,
+) => publication.index === entry.index && publication.key === entry.key;
+
 export function createClientPagePresentationController(
-	initialEntry: ReturnType<typeof historyEntry>,
 	setPresentation: (state: ClientPagePresentationState) => void,
 ) {
-	let entry = initialEntry;
 	let state = emptyClientPagePresentation;
 	const publish = (next: ClientPagePresentationState) => {
 		state = next;
 		setPresentation(state);
 	};
-	const matchesEntry = (publication: ReturnType<typeof historyEntry>) =>
-		publication.index === entry.index && publication.key === entry.key;
 	return {
 		activate: (owner: string) => publish({ ...emptyClientPagePresentation, owner }),
 		deactivate: (owner: string) => {
@@ -44,24 +45,18 @@ export function createClientPagePresentationController(
 				publish(emptyClientPagePresentation);
 			}
 		},
+		publishHeader: (owner: string, header: PageHeaderPublication) => {
+			if (state.owner === owner) {
+				publish({ ...state, header });
+			}
+		},
 		publishOverlayCount: (owner: string, overlayCount: number) => {
 			if (state.owner === owner) {
 				publish({ ...state, overlayCount });
 			}
 		},
-		publishHeader: (owner: string, header: PageHeaderPublication) => {
-			if (state.owner === owner && matchesEntry(header)) {
-				publish({ ...state, header });
-			}
-		},
-		setEntry: (next: ReturnType<typeof historyEntry>) => {
-			if (!matchesEntry(next)) {
-				entry = next;
-				publish({ ...state, header: null, readiness: null });
-			}
-		},
 		publishReadiness: (owner: string, readiness: PageScreenReadiness | null) => {
-			if (state.owner === owner && (readiness === null || matchesEntry(readiness))) {
+			if (state.owner === owner) {
 				publish({ ...state, readiness });
 			}
 		},

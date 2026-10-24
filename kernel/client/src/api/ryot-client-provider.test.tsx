@@ -28,12 +28,12 @@ import {
 	makePublicApiStub,
 	makeStorageStubLayer,
 	makeUserSettingsStub,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	server,
 	ServerStub,
 	theme,
@@ -58,7 +58,7 @@ const makeRuntime = () =>
 			NotificationChannelRouteStubs,
 			PagesApiRouteStubs,
 			ProviderAddRouteStubs,
-			SavedViewRouteStubs,
+			ManagedAssetRouteStubs,
 			ServerStub,
 			makePluginCatalog(catalog),
 			makePluginCatalogEventsTestLayer().layer,
@@ -115,16 +115,16 @@ describe("committed kernel SDK runtime", () => {
 			const first = store.get(scope);
 			const probe = makeProbe();
 			const view = render(
-				<KernelRyotProvider {...first}>
+				<KernelRyotProvider store={store} {...first}>
 					<probe.Probe />
 				</KernelRyotProvider>,
 			);
 			const element = yield* Effect.promise(() => screen.findByTestId("runtime-probe"));
 			store.get({ ...scope, userId: "user-2" });
 			const equivalent = store.get({ ...scope });
-			expect(equivalent).not.toBe(first);
+			expect(equivalent.client).toBe(first.client);
 			view.rerender(
-				<KernelRyotProvider {...equivalent}>
+				<KernelRyotProvider store={store} {...equivalent}>
 					<probe.Probe />
 				</KernelRyotProvider>,
 			);
@@ -135,6 +135,7 @@ describe("committed kernel SDK runtime", () => {
 			view.unmount();
 			yield* Effect.promise(() => waitFor(() => expect(probe.exits).toHaveLength(1)));
 			expect(probe.delayed).toEqual([]);
+			expect(store.get({ ...scope }).client).not.toBe(first.client);
 		}).pipe(Effect.ensuring(runtime.disposeEffect));
 	});
 
@@ -147,13 +148,13 @@ describe("committed kernel SDK runtime", () => {
 			const store = createKernelRyotClientStore(runtime, theme);
 			const probe = makeProbe();
 			const view = render(
-				<KernelRyotProvider {...store.get(scope)}>
+				<KernelRyotProvider store={store} {...store.get(scope)}>
 					<probe.Probe />
 				</KernelRyotProvider>,
 			);
 			const element = yield* Effect.promise(() => screen.findByTestId("runtime-probe"));
 			view.rerender(
-				<KernelRyotProvider {...store.get(replacement)}>
+				<KernelRyotProvider store={store} {...store.get(replacement)}>
 					<probe.Probe />
 				</KernelRyotProvider>,
 			);
@@ -174,7 +175,7 @@ describe("committed kernel SDK runtime", () => {
 			const store = createKernelRyotClientStore(runtime, theme);
 			const probe = makeProbe();
 			const view = render(
-				<KernelRyotProvider {...store.get(scope)}>
+				<KernelRyotProvider store={store} {...store.get(scope)}>
 					<probe.Probe />
 				</KernelRyotProvider>,
 			);
@@ -195,7 +196,7 @@ describe("committed kernel SDK runtime", () => {
 				const probe = makeProbe();
 				const view = render(
 					<StrictMode>
-						<KernelRyotProvider {...store.get(scope)}>
+						<KernelRyotProvider store={store} {...store.get(scope)}>
 							<probe.Probe />
 						</KernelRyotProvider>
 					</StrictMode>,

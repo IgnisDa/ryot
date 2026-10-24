@@ -6,7 +6,6 @@ import {
 	OAUTH_PKCE_METHOD,
 	OAUTH_SCOPE,
 	OAUTH_WEB_CLIENT_ID,
-	type PendingAuthorization,
 } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -14,7 +13,10 @@ import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
-import { fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";
+import {
+	fakeOAuthStorageLayer,
+	makePendingAuthorization,
+} from "#/modules/auth/oauth-storage.test-support";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";
@@ -85,16 +87,7 @@ const launcherLayer = (session: SettledAuthSession) =>
 
 describe("OAuth authorization launcher", () => {
 	it("builds an S256 authorization request with the API resource", () => {
-		const pending: PendingAuthorization = {
-			createdAt: 1,
-			state: "state",
-			nonce: "nonce",
-			destination: "/library",
-			codeVerifier: "verifier",
-			clientId: OAUTH_WEB_CLIENT_ID,
-			serverOrigin: "https://ryot.example",
-			redirectUri: "https://ryot.example/auth/callback",
-		};
+		const pending = makePendingAuthorization("https://ryot.example", { destination: "/library" });
 		const url = new URL(
 			buildOAuthAuthorizationUrl(origin, {
 				state: pending.state,

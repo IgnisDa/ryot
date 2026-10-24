@@ -21,7 +21,11 @@ import {
 	useState,
 } from "react";
 
-import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";
+import {
+	isUnauthorizedCause,
+	runAdminAction,
+	withAdminAuthorization,
+} from "#/modules/instance-admin/errors";
 import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
 import type {
 	InstanceAdminPasswordResetResult,
@@ -34,6 +38,7 @@ import type {
 	InstanceAdminUserResetResult,
 } from "#/modules/instance-admin/user-lifecycle";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
+import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
 
@@ -250,7 +255,7 @@ function UserRow(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const pendingRef = useRef<string | null>(null);
-	const actionController = useRef(new AbortController());
+	const unmountSignal = useUnmountSignal();
 	const menuId = useId();
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string>();
@@ -279,16 +284,14 @@ function UserRow(props: {
 		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
 	}
 
-	useEffect(() => {
-		const controller = new AbortController();
-		actionController.current = controller;
-		return () => {
-			controller.abort();
+	useEffect(
+		() => () => {
 			if (copyTimer.current !== undefined) {
 				clearTimeout(copyTimer.current);
 			}
-		};
-	}, []);
+		},
+		[],
+	);
 
 	const run = <A,>(
 		kind: NonNullable<typeof pending>,
@@ -297,41 +300,29 @@ function UserRow(props: {
 		failureMessage: string,
 	) =>
 		Effect.suspend(() => {
-			const { signal } = actionController.current;
+			const signal = unmountSignal();
 			if (pendingRef.current !== null || signal.aborted) {
 				return Effect.void;
 			}
 			pendingRef.current = kind;
 			setPending(kind);
 			setError(undefined);
-			return Effect.suspend(operation).pipe(
-				Effect.matchCause({
-					onSuccess: (value) => {
-						if (!signal.aborted) {
-							onSuccess(value);
-						}
-					},
-					onFailure: (cause) => {
-						if (signal.aborted || Cause.hasInterruptsOnly(cause)) {
-							return;
-						}
-						if (isUnauthorizedCause(cause)) {
-							props.onUnauthorized();
-						} else {
-							logFailure(`instance-admin user ${kind} request failed`, cause);
-							setError(failureMessage);
-						}
-					},
-				}),
-				Effect.ensuring(
-					Effect.sync(() => {
-						pendingRef.current = null;
-						if (!signal.aborted) {
-							setPending(null);
-						}
-					}),
-				),
-			);
+			return runAdminAction({
+				signal,
+				operation,
+				onSuccess,
+				onUnauthorized: props.onUnauthorized,
+				onSettled: (aborted) => {
+					pendingRef.current = null;
+					if (!aborted) {
+						setPending(null);
+					}
+				},
+				onFailure: (cause) => {
+					logFailure(`instance-admin user ${kind} request failed`, cause);
+					setError(failureMessage);
+				},
+			});
 		});
 	const resetPassword = () =>
 		run(
@@ -429,20 +420,14 @@ function UserRow(props: {
 			return;
 		}
 		if (kind === "password") {
-			queueMicrotask(() =>
-				Effect.runFork(resetPassword(), { signal: actionController.current.signal }),
-			);
+			queueMicrotask(() => Effect.runFork(resetPassword(), { signal: unmountSignal() }));
 			return;
 		}
 		if (kind === "disabled") {
-			queueMicrotask(() =>
-				Effect.runFork(toggleDisabled(), { signal: actionController.current.signal }),
-			);
+			queueMicrotask(() => Effect.runFork(toggleDisabled(), { signal: unmountSignal() }));
 			return;
 		}
-		queueMicrotask(() =>
-			Effect.runFork(impersonate(), { signal: actionController.current.signal }),
-		);
+		queueMicrotask(() => Effect.runFork(impersonate(), { signal: unmountSignal() }));
 	};
 	const actionItems: ReadonlyArray<MenuItem> = [
 		{
@@ -598,7 +583,7 @@ function UserRow(props: {
 					triggerRef={triggerRef}
 					pending={pending === confirmation}
 					backInterceptors={props.backInterceptors}
-					onConfirm={() => Effect.runFork(confirm(), { signal: actionController.current.signal })}
+					onConfirm={() => Effect.runFork(confirm(), { signal: unmountSignal() })}
 					onClose={() => {
 						if (pendingRef.current === null) {
 							setError(undefined);

@@ -16,7 +16,7 @@ import {
 } from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
 import { type ImportSourcePickerState, ImportStartWizard } from "#/modules/imports/start-wizard";
-import { useIngestionCatalogRefresh } from "#/modules/imports/use-catalog-refresh";
+import { useIngestionCatalogRefresh } from "#/modules/plugins/catalog/provider";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
