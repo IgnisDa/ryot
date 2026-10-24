@@ -45,7 +45,11 @@ describe("adaptImdbCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.collectionMemberships).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2023-08-15T00:00:00.000Z" },
+			{
+				eventSchemaSlug: "complete",
+				properties: { dateUnknown: true },
+				occurredAt: "2023-08-15T00:00:00.000Z",
+			},
 			{
 				eventSchemaSlug: "review",
 				properties: { rating: 90 },
@@ -79,7 +83,11 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2023-08-15T00:00:00.000Z" },
+			{
+				eventSchemaSlug: "complete",
+				properties: { dateUnknown: true },
+				occurredAt: "2023-08-15T00:00:00.000Z",
+			},
 		]);
 	});
 

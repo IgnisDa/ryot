@@ -27,7 +27,11 @@ describe("adaptMovaryExports", () => {
 					providerSlug: "movie.tmdb",
 				},
 				events: [
-					{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-01-03T00:00:00.000Z" },
+					{
+						eventSchemaSlug: "complete",
+						occurredAt: "2026-01-03T00:00:00.000Z",
+						properties: { calendarDate: "2026-01-03" },
+					},
 					{
 						eventSchemaSlug: "review",
 						occurredAt: "2026-01-03T00:00:00.000Z",

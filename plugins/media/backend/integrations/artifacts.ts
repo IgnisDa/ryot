@@ -15,7 +15,7 @@ export const captureIntegrationRecords = Effect.fn(function* (
 	if ("chunkFiles" in result) {
 		return result;
 	}
-	const records = normalizeMediaRecords(result, 0, source);
+	const records = normalizeMediaRecords(result, 0, source, 0, "retain");
 	if (!records.length) {
 		return { chunkFiles: [], advancedAt: DateTime.formatIso(yield* DateTime.now) };
 	}
@@ -36,7 +36,9 @@ export const captureIntegrationWindow = Effect.fn(function* (
 	const chunks = [
 		{
 			name: "records.jsonl",
-			contents: serializeMediaRecords(normalizeMediaRecords(result, 0, source, eventIndexBase)),
+			contents: serializeMediaRecords(
+				normalizeMediaRecords(result, 0, source, eventIndexBase, "retain"),
+			),
 		},
 	];
 	if (carry !== null) {

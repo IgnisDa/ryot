@@ -77,8 +77,16 @@ it.live.each([undefined, null, "", "   "])(
 					eventSchemaSlug,
 				})),
 			).toEqual([
-				{ occurredAt: importedAt, eventSchemaSlug: "complete", properties: { dateUnknown: true } },
-				{ occurredAt: importedAt, eventSchemaSlug: "complete", properties: { dateUnknown: true } },
+				{
+					occurredAt: importedAt,
+					eventSchemaSlug: "complete",
+					properties: { dateUnknown: true, sourceRun: "[0,0]" },
+				},
+				{
+					occurredAt: importedAt,
+					eventSchemaSlug: "complete",
+					properties: { dateUnknown: true, sourceRun: "[2,0]" },
+				},
 			]);
 			expect(events[1]?.unresolvedEpisode).toEqual({
 				type: "show",
@@ -119,6 +127,30 @@ it.live("keeps played items whose UserData is absent", () =>
 			properties: { dateUnknown: true },
 		});
 	}),
+);
+
+it.live.each([
+	{ date: "2025-02-03", expected: { calendarDate: "2025-02-03" } },
+	{ expected: {}, date: "2025-02-03T00:00:00Z" },
+	{ date: "2025-02-03T00:00:00", expected: { dateUnknown: true } },
+])(
+	"classifies original source precision instead of normalized midnight: $date",
+	({ date, expected }) =>
+		Effect.gen(function* () {
+			const { records } = yield* collect((url) =>
+				url.searchParams.get("IncludeItemTypes") === "Movie"
+					? [
+							{
+								Id: "movie",
+								Name: "Movie",
+								ProviderIds: { Tmdb: "42" },
+								UserData: { LastPlayedDate: date },
+							},
+						]
+					: [],
+			);
+			expect(records[0]?.group?.events[0]?.properties).toEqual({ ...expected, sourceRun: "[0,0]" });
+		}),
 );
 
 it.live("preserves dated movie completion and episode progress timestamps", () =>

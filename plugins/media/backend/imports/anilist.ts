@@ -162,6 +162,7 @@ export const adaptAnilistExport = (jsonText: string, timezone: string, importedA
 				occurredAt,
 				eventSchemaSlug: "progress",
 				properties: {
+					dateUnknown: true,
 					...(item.progress > 0 ? { [target.positionProperty]: item.progress } : {}),
 					...(volumeProgress > 0 ? { mangaVolume: volumeProgress } : {}),
 				},
@@ -173,7 +174,9 @@ export const adaptAnilistExport = (jsonText: string, timezone: string, importedA
 		} else if (lifecycle === "backlog") {
 			group.events.push(createBacklogEvent(occurredAt));
 		} else if (lifecycle === "complete") {
-			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: true }));
+			group.events.push(
+				createCompleteEvent({ occurredAt, dateUnknown: true, sourceRun: "baseline" }),
+			);
 		} else if (lifecycle === "dropped") {
 			group.events.push(createDroppedEvent({ occurredAt }));
 		} else if (lifecycle === "on_hold") {

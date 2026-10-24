@@ -1,6 +1,6 @@
 import type { ScriptHost, UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
 import type { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema as EffectSchema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	castBoolean,
@@ -15,6 +15,7 @@ import {
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumptionBasis, consumptionPropertiesEqual } from "../../shared/consumption";
 import type { HistoryCorrection } from "../../shared/history-correction";
 import {
 	CompletionEpisode,
@@ -29,6 +30,7 @@ import {
 import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
 import type { HistoryCorrectionRequest } from "../contracts/history-correction";
 import {
+	consumptionDependenciesPageRecipe,
 	correctionCoverageRecipe,
 	correctionInventoryFingerprintRecipe,
 	correctionInventoryRecipe,
@@ -56,13 +58,23 @@ type RecordRow<A> = { readonly properties: A } & Pick<
 const propertiesMatch = (
 	actual: Readonly<Record<string, JsonValue>>,
 	expected: Readonly<Record<string, JsonValue>>,
-) =>
-	Object.keys(actual).length === Object.keys(expected).length &&
-	Object.entries(expected).every(([key, value]) => actual[key] === value);
+) => consumptionPropertiesEqual(actual, expected);
 
 const occurrenceProperties = (id: string, occurrence: CompletionOccurrence) => ({
 	completionKey: id,
 	completionSilent: occurrence.silent,
+	...(occurrence.expectedSourceRun === undefined
+		? {}
+		: { sourceRun: occurrence.expectedSourceRun }),
+	...(occurrence.expectedConsumptionBasis === undefined
+		? {}
+		: { consumptionBasis: occurrence.expectedConsumptionBasis }),
+	...(occurrence.expectedCalendarDate === undefined
+		? {}
+		: { calendarDate: occurrence.expectedCalendarDate }),
+	...(occurrence.expectedTimeSpent === undefined
+		? {}
+		: { timeSpent: occurrence.expectedTimeSpent }),
 	...(occurrence.expectedConsumedOn === undefined
 		? {}
 		: { consumedOn: occurrence.expectedConsumedOn }),
@@ -262,6 +274,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 	const restart =
 		previous === undefined ||
 		previous.sourceRevision !== context.sourceRevision ||
+		(previous.phase === "done" && context.target.missingDependencies) ||
 		(input.force && previous.requestKey !== input.requestKey);
 	if (!restart && previous.phase === "done") {
 		return { nextKey: "", pending: false };
@@ -272,13 +285,13 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			: {
 					step: 0,
 					cycle: 0,
-					phase: "audit",
 					workKey: input.workKey,
 					requestKey: input.requestKey,
 					subjectEntityId: input.entityId,
 					liveSourceIds: input.liveSourceIds,
 					sourceRevision: context.sourceRevision,
 					runKey: `${input.requestKey}:${context.sourceRevision}`,
+					phase: context.target.missingDependencies ? "dependencies" : "audit",
 				};
 	const state = { ...next };
 	const write = writer(libraryId, input.entityId);
@@ -360,7 +373,24 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		write.replace(row, { ...row.properties, status: "inactive" });
 	});
 	if (!restart) {
-		if (state.phase === "audit" || state.phase === "prune" || state.phase === "sweep") {
+		if (state.phase === "dependencies") {
+			const page = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				consumptionDependenciesPageRecipe({ after: state.after, subjectEntityId: input.entityId }),
+			);
+			for (const child of page.items) {
+				if (!child.exists) {
+					write.create("consumption-dependency", {
+						subjectEntityId: child.id,
+						correctionSubjectEntityId: input.entityId,
+					});
+				}
+			}
+			advanceCursor(validNext(page));
+			if (state.after === undefined) {
+				changePhase("audit");
+			}
+		} else if (state.phase === "audit" || state.phase === "prune" || state.phase === "sweep") {
 			const phase = state.phase;
 			const page = yield* records(CompletionOccurrence, "completion-occurrence", {
 				after: state.after,
@@ -415,7 +445,10 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				const row = saved.items[0];
 				const positional = isPositional(source.entitySchemaSlug);
 				const position = positional ? positionalProperties[source.entitySchemaSlug] : undefined;
-				let total = position ? positive(context.target.properties[position.total]) : 0;
+				const basis = EffectSchema.decodeUnknownOption(ConsumptionBasis)(
+					source.properties["consumptionBasis"],
+				);
+				let total = basis._tag === "Some" ? (basis.value.total ?? 0) : 0;
 				if (row?.properties.frozen) {
 					total = row.properties.total;
 				}
@@ -430,6 +463,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				);
 				const full =
 					(source.properties["progressPercent"] === 100 ||
+						(total > 0 && positive(source.properties["progressPages"]) >= total) ||
 						(position !== undefined &&
 							total > 0 &&
 							positive(source.properties[position.position]) >= total)) &&
@@ -460,11 +494,30 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						status: preserveDecision(row.properties),
 						expectedOrderCreatedAt: source.orderCreatedAt,
 						expectedOrderKey: `${source.orderKey}~complete`,
+						...(basis._tag === "Some" ? { expectedConsumptionBasis: basis.value } : {}),
 						silent: output
 							? row.properties.silent
 							: row.properties.silent || row.properties.frozen || source.revision !== 0,
 					};
 					const consumedOn = source.properties["consumedOn"];
+					const sourceRun = source.properties["sourceRun"];
+					if (typeof sourceRun === "string") {
+						value.expectedSourceRun = sourceRun;
+					} else {
+						delete value.expectedSourceRun;
+					}
+					const calendarDate = source.properties["calendarDate"];
+					if (typeof calendarDate === "string") {
+						value.expectedCalendarDate = calendarDate;
+					} else {
+						delete value.expectedCalendarDate;
+					}
+					const timeSpent = source.properties["timeSpent"];
+					if (typeof timeSpent === "number") {
+						value.expectedTimeSpent = timeSpent;
+					} else {
+						delete value.expectedTimeSpent;
+					}
 					if (typeof consumedOn === "string") {
 						value.expectedConsumedOn = consumedOn;
 					} else {
@@ -751,6 +804,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						status: preserveDecision(basis.properties),
 						expectedOrderKey: `${closing.orderKey}~parent`,
 						expectedOrderCreatedAt: closing.orderCreatedAt,
+						expectedConsumptionBasis: { unit: "episodes" as const },
 						silent: output
 							? basis.properties.silent
 							: basis.properties.frozen || basis.properties.silent,
@@ -768,6 +822,12 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						value.expectedDateUnknown = true;
 					} else {
 						delete value.expectedDateUnknown;
+					}
+					const calendarDate = closing.properties["calendarDate"];
+					if (typeof calendarDate === "string" && value.expectedDateUnknown !== true) {
+						value.expectedCalendarDate = calendarDate;
+					} else {
+						delete value.expectedCalendarDate;
 					}
 					write.output(basis, value, closing, output);
 					write.replace(basis, value);

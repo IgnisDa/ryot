@@ -123,6 +123,9 @@ const completeEvent = (
 		...(extras.timeSpent === undefined ? {} : { timeSpent: extras.timeSpent }),
 		...(when.kind === "date" && when.startedOn !== undefined ? { startedOn: when.startedOn } : {}),
 		...(when.kind === "unknown" ? { dateUnknown: true } : {}),
+		...(when.kind === "date" && when.calendarDate !== undefined
+			? { calendarDate: when.calendarDate }
+			: {}),
 	},
 });
 
@@ -171,6 +174,16 @@ const buildEvents = (
 				return yield* reject("This media type has no progress");
 			}
 			const positionProperty = mediaProgressPositionProperty(schemaSlug);
+			if (
+				entry.progressPages !== undefined &&
+				(!["book", "comic-book"].includes(schemaSlug) ||
+					entry.progressPercent !== undefined ||
+					entry.position !== undefined)
+			) {
+				return yield* reject(
+					"Pages require a book or comic book and cannot be combined with another progress amount",
+				);
+			}
 			const progressError = mediaProgressRuleError(
 				schemaSlug,
 				{ position: entry.position !== undefined, percent: entry.progressPercent !== undefined },
@@ -185,7 +198,14 @@ const buildEvents = (
 					{
 						entityId: entry.entityId,
 						eventSchemaSlug: "progress",
+						occurredAt: entry.when?.kind === "date" ? entry.when.finishedOn : submittedAt,
 						properties: {
+							...(entry.when?.kind === "unknown" ? { dateUnknown: true } : {}),
+							...(entry.when?.kind === "date" && entry.when.calendarDate !== undefined
+								? { calendarDate: entry.when.calendarDate }
+								: {}),
+							...(entry.timeSpent === undefined ? {} : { timeSpent: entry.timeSpent }),
+							...(entry.progressPages === undefined ? {} : { progressPages: entry.progressPages }),
 							...(entry.consumedOn === undefined ? {} : { consumedOn: entry.consumedOn }),
 							...(entry.progressPercent === undefined
 								? {}

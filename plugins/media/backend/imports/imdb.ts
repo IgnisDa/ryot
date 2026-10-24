@@ -88,7 +88,7 @@ export const adaptImdbCsv = (csvText: string, importedAt = nowIso()) => {
 		);
 		if (rating !== null || completedOn !== null) {
 			const occurredAt = completedOn ?? importedAt;
-			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: completedOn === null }));
+			group.events.push(createCompleteEvent({ occurredAt, dateUnknown: true }));
 			const review = createReviewEvent({
 				occurredAt,
 				rating: rating === null ? null : rating * 10,

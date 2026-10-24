@@ -5,6 +5,20 @@ import { adaptMyanimelistExports } from "./myanimelist";
 const anime = (body: string) => `<myanimelist><anime>${body}</anime></myanimelist>`;
 
 describe("adaptMyanimelistExports", () => {
+	it("retains fractional Manga progress without accepting fractional Anime positions", () => {
+		const mangaXml =
+			"<myanimelist><manga><manga_mangadb_id>202</manga_mangadb_id><my_read_chapters>12.5</my_read_chapters><my_score>0</my_score></manga></myanimelist>";
+		const result = adaptMyanimelistExports({
+			mangaXml,
+			animeXml: anime(
+				"<series_animedb_id>101</series_animedb_id><my_watched_episodes>12.5</my_watched_episodes><my_score>0</my_score>",
+			),
+		});
+		expect(result.entityGroups[0]?.events).toMatchObject([
+			{ eventSchemaSlug: "progress", properties: { dateUnknown: true, mangaChapter: 12.5 } },
+		]);
+		expect(result.failures).toHaveLength(1);
+	});
 	it.each([
 		[1, 10],
 		[4, 40],
@@ -49,6 +63,11 @@ describe("adaptMyanimelistExports", () => {
 					occurredAt: "2026-01-02T00:00:00.000Z",
 				},
 				{
+					eventSchemaSlug: "complete",
+					occurredAt: "2026-01-02T00:00:00.000Z",
+					properties: { sourceRun: "baseline", calendarDate: "2026-01-02" },
+				},
+				{
 					eventSchemaSlug: "review",
 					properties: { rating: 80 },
 					occurredAt: "2026-01-02T00:00:00.000Z",
@@ -77,10 +96,14 @@ describe("adaptMyanimelistExports", () => {
 		expect(result.entityGroups[0]?.events).toEqual([
 			{
 				eventSchemaSlug: "progress",
-				properties: { animeEpisode: 1 },
+				occurredAt: "2026-01-01T00:00:00.000Z",
+				properties: { animeEpisode: 1, dateUnknown: true },
+			},
+			{
+				eventSchemaSlug: "dropped",
+				properties: { dateUnknown: true },
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			},
-			{ properties: {}, eventSchemaSlug: "dropped", occurredAt: "2026-01-01T00:00:00.000Z" },
 		]);
 	});
 
@@ -99,8 +122,8 @@ describe("adaptMyanimelistExports", () => {
 			expect(result.failures).toEqual([]);
 			const events = result.entityGroups.flatMap((group) => group.events);
 			expect(events.map((event) => [event.eventSchemaSlug, event.properties])).toEqual([
-				["progress", { [property]: 800 }],
-				["progress", {}],
+				["progress", { [property]: 800, dateUnknown: true }],
+				["progress", { dateUnknown: true }],
 			]);
 		},
 	);

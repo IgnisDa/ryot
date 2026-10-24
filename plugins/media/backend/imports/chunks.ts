@@ -4,6 +4,8 @@ import type {
 	GenericImportWriteItem,
 } from "@ryot-app/plugin-backend-sdk/imports";
 
+import { consumptionBasisFor } from "../../shared/consumption";
+import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { importEntityRefIdentifier } from "./groups";
 import {
 	mediaCollectionOperationId,
@@ -121,7 +123,6 @@ export const createMediaImportChunk = (
 			events: group.events.map((event) => ({
 				entityAlias: "media",
 				occurredAt: event.occurredAt,
-				properties: event.properties,
 				operationId: event.operationId,
 				eventSchemaSlug: event.eventSchemaSlug,
 				outcome: { unit: "events", recordKind: event.eventSchemaSlug },
@@ -130,6 +131,22 @@ export const createMediaImportChunk = (
 					recordId: mediaSourceRecordId(group.itemIndex),
 					sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 				},
+				properties:
+					consumptionEventSlugs.some((slug) => slug === event.eventSchemaSlug) &&
+					event.properties["consumptionBasis"] === undefined
+						? {
+								...event.properties,
+								consumptionBasis: consumptionBasisFor(
+									event.subjectEntitySchemaSlug ??
+										(event.subjectEntityId !== undefined &&
+										(group.entityRef.entitySchemaSlug === "show" ||
+											group.entityRef.entitySchemaSlug === "podcast")
+											? `${group.entityRef.entitySchemaSlug}-episode`
+											: group.entityRef.entitySchemaSlug),
+									{},
+								),
+							}
+						: event.properties,
 				...(event.subjectEntityId === undefined ? {} : { subjectEntityId: event.subjectEntityId }),
 			})),
 			...(group.collectionMemberships.length > 0

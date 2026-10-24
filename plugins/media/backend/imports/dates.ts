@@ -1,5 +1,7 @@
 import { DateTime, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
+import type { ImportMediaEvent } from "./schemas";
+
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 type CapturedKey = keyof Captured;
@@ -104,7 +106,12 @@ const formatIsoFromUtc = (iso: string) =>
 
 export const parseDateWithFormat = (value: string, format: string) => {
 	const captured = matchFormat(value.trim(), format);
-	return captured ? formatIsoFromUtc(`${captured.year}-${captured.month}-${captured.day}`) : null;
+	if (!captured) {
+		return null;
+	}
+	const date = `${captured.year}-${captured.month}-${captured.day}`;
+	const instant = formatIsoFromUtc(date);
+	return instant?.slice(0, 10) === date ? instant : null;
 };
 
 export const parseDateTime = (value: string, formats: string[]) => {
@@ -182,4 +189,27 @@ export const parseDateInput = (
 			: null;
 	}
 	return typeof value === "string" && value.trim() ? formatIsoFromUtc(value.trim()) : null;
+};
+
+export const consumptionDatePrecision = (
+	value: null | number | string | undefined,
+): ImportMediaEvent["properties"] => {
+	const parsed = parseDateInput(value);
+	if (!parsed) {
+		return { dateUnknown: true };
+	}
+	if (typeof value === "number") {
+		return {};
+	}
+	const raw = typeof value === "string" ? value.trim() : "";
+	if (/^\d{4}-\d{2}-\d{2}$/.test(raw) && parsed.slice(0, 10) === raw) {
+		return { calendarDate: raw };
+	}
+	if (
+		/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) &&
+		parseDateWithFormat(raw.slice(0, 10), "YYYY-MM-DD")
+	) {
+		return {};
+	}
+	return { dateUnknown: true };
 };

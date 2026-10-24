@@ -72,6 +72,7 @@ export const adaptHardcoverCsv = (csvText: string, importedAt = nowIso()) => {
 				createCompleteEvent({
 					startedOn,
 					dateUnknown: !completedOn,
+					...(completedOn ? { calendarDate: completedOn.slice(0, 10) } : {}),
 					occurredAt: completedOn ?? occurredAt,
 				}),
 			);

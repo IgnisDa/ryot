@@ -6,6 +6,7 @@ import {
 	historyCorrectionReference,
 	HistoryCorrectionRequest,
 	historyCorrectionWork,
+	isHistoryCorrectionConflict,
 } from "../contracts/history-correction";
 import { MediaSandboxError } from "../lib/failures";
 import { advanceHistoryCorrection } from "./history-correction";
@@ -17,16 +18,6 @@ export const manifest = defineManifest({
 });
 
 const maxConflictRequeues = 10;
-
-const stale = (error: { readonly data?: unknown }) => {
-	const reason = Schema.decodeUnknownOption(Schema.Struct({ code: Schema.String }))(error.data);
-	return (
-		reason._tag === "Some" &&
-		["event-stale", "entity-stale", "event-not-found", "mutation-conflict"].includes(
-			reason.value.code,
-		)
-	);
-};
 
 export default defineScript({
 	manifest,
@@ -43,9 +34,12 @@ export default defineScript({
 			let conflictAttempt = input.conflictAttempt;
 			for (let step = 0; step < 8; step += 1) {
 				const result = yield* advanceHistoryCorrection(host, input, libraryId).pipe(
-					Effect.retry({ times: 5, while: (error) => stale("data" in error ? error : {}) }),
+					Effect.retry({
+						times: 5,
+						while: (error) => isHistoryCorrectionConflict("data" in error ? error : {}),
+					}),
 					Effect.catchIf(
-						(error) => stale("data" in error ? error : {}),
+						(error) => isHistoryCorrectionConflict("data" in error ? error : {}),
 						() => Effect.succeed(null),
 					),
 				);

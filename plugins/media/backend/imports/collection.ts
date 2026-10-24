@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/fflate";
 import { readArtifactRange, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 
+import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import {
 	MediaNormalizedSourceRecord,
 	MediaRawSourceRecord,
@@ -96,6 +97,7 @@ export const normalizeMediaRecords = (
 	itemIndex: number,
 	source: string,
 	eventIndexBase = 0,
+	sourceRuns: "import" | "retain" = "import",
 ): MediaSourceRecord[] => {
 	const records: MediaSourceRecord[] = [];
 	for (const group of result.entityGroups) {
@@ -142,19 +144,29 @@ export const normalizeMediaRecords = (
 				sourceIdentifier: source === "netflix" ? ref.sourceLabel : importEntityRefIdentifier(ref),
 			};
 			const operationId = event.operationId ?? mediaEventOperationId(originalIndex, eventIndex);
+			const independent =
+				event.eventSchemaSlug === "complete" || event.eventSchemaSlug === "item-complete";
+			const sourceRun = JSON.stringify([
+				originalIndex,
+				event.properties["sourceRun"] ?? (independent ? eventIndex : "baseline"),
+			]);
+			const properties =
+				sourceRuns === "import" &&
+				consumptionEventSlugs.some((slug) => slug === event.eventSchemaSlug)
+					? { ...event.properties, sourceRun }
+					: event.properties;
 			records.push({
 				key,
 				eventIndex,
 				operationId,
 				itemIndex: originalIndex,
-				...(source === "spotify"
-					? { dedupKey: JSON.stringify([importEntityRefIdentifier(ref), event.occurredAt]) }
-					: {}),
 				group: {
 					...group,
 					itemIndex: originalIndex,
 					collectionMemberships: [],
-					events: [{ ...event, attribution, operationId, sourceItemIndex: originalIndex }],
+					events: [
+						{ ...event, properties, attribution, operationId, sourceItemIndex: originalIndex },
+					],
 				},
 			});
 		}

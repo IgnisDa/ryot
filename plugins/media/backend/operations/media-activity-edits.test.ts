@@ -147,6 +147,28 @@ const eventIds = (count: number) =>
 const movieCompletions = (ids: readonly string[]) => ids.map((id) => ({ ...movieCompletion, id }));
 
 describe("media activity update", () => {
+	it.effect("edits an independent item without changing its retained source facts", () =>
+		Effect.gen(function* () {
+			const { host, updates } = recordingHost({
+				events: [
+					{
+						id: "event-1",
+						entitySchemaSlug: "manga",
+						eventSchemaSlug: "item-complete",
+						properties: {
+							sourceRun: "original",
+							consumedItem: { position: 12.5, unit: "chapters" },
+							consumptionBasis: { unit: "chapters", property: "chapters" },
+						},
+					},
+				],
+			});
+			yield* update({ consumedItem: { position: 3.5, unit: "volumes" } }, host);
+			expect(updates[0]?.items[0]?.patch).toEqual({
+				properties: { remove: [], set: { consumedItem: { position: 3.5, unit: "volumes" } } },
+			});
+		}),
+	);
 	it.live("patches dates, source, and time spent under the full precondition and write key", () =>
 		Effect.gen(function* () {
 			const { host, updates } = recordingHost({ events: [movieCompletion] });
@@ -174,7 +196,7 @@ describe("media activity update", () => {
 							patch: {
 								occurredAt: "2026-03-05T12:00:00.000Z",
 								properties: {
-									remove: ["dateUnknown", "consumedOn"],
+									remove: ["calendarDate", "dateUnknown", "consumedOn"],
 									set: { timeSpent: 95, startedOn: "2026-03-04T12:00:00.000Z" },
 								},
 							},
@@ -190,7 +212,7 @@ describe("media activity update", () => {
 			const { host, updates } = recordingHost({ events: [movieCompletion] });
 			yield* update({ when: { kind: "unknown" } }, host);
 			expect(updates[0]?.items[0]?.patch).toEqual({
-				properties: { remove: ["startedOn"], set: { dateUnknown: true } },
+				properties: { set: { dateUnknown: true }, remove: ["calendarDate", "startedOn"] },
 			});
 		}),
 	);
@@ -311,27 +333,6 @@ describe("media activity update", () => {
 
 	it.live.each([
 		{
-			name: "a start date on progress",
-			event: { entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
-			patch: {
-				when: {
-					kind: "date",
-					startedOn: "2026-03-04T12:00:00.000Z",
-					finishedOn: "2026-03-05T12:00:00.000Z",
-				},
-			},
-		},
-		{
-			name: "an unknown date on progress",
-			patch: { when: { kind: "unknown" } },
-			event: { entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
-		},
-		{
-			name: "an unknown date on dropped",
-			patch: { when: { kind: "unknown" } },
-			event: { entitySchemaSlug: "book", eventSchemaSlug: "dropped" },
-		},
-		{
 			name: "a source on backlog",
 			patch: { consumedOn: "Kindle" },
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "backlog" },
@@ -351,11 +352,6 @@ describe("media activity update", () => {
 			name: "a position on percent media",
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "progress" },
 		},
-		{
-			patch: { timeSpent: 20 },
-			name: "time spent on progress",
-			event: { eventSchemaSlug: "progress", entitySchemaSlug: "show-episode" },
-		},
 	] satisfies readonly {
 		readonly name: string;
 		readonly patch: MediaActivityPatch;
@@ -373,6 +369,20 @@ describe("media activity update", () => {
 	it.live("accepts dates and progress fields each schema declares", () =>
 		Effect.gen(function* () {
 			for (const [event, patch] of [
+				[
+					{ entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
+					{
+						when: {
+							kind: "date",
+							calendarDate: "2026-03-05",
+							startedOn: "2026-03-04T00:00:00.000Z",
+							finishedOn: "2026-03-05T00:00:00.000Z",
+						},
+					},
+				],
+				[{ entitySchemaSlug: "movie", eventSchemaSlug: "progress" }, { when: { kind: "unknown" } }],
+				[{ entitySchemaSlug: "book", eventSchemaSlug: "dropped" }, { when: { kind: "unknown" } }],
+				[{ eventSchemaSlug: "progress", entitySchemaSlug: "show-episode" }, { timeSpent: 20 }],
 				[{ entitySchemaSlug: "book", eventSchemaSlug: "dropped" }, { progressPercent: 40 }],
 				[{ entitySchemaSlug: "show", eventSchemaSlug: "on_hold" }, { timeSpent: 20 }],
 				[

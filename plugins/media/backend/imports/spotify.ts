@@ -19,14 +19,13 @@ const StreamingHistoryFile = Schema.Array(
 const decodeStreamingHistoryFile = Schema.decodeUnknownOption(StreamingHistoryFile);
 
 type TrackPlays = { name: string; plays: Play[] };
-type Play = { timeSpent: number; occurredAt: string; occurredAtMs: number };
+type Play = { occurredAt: string; occurredAtMs: number; timeSpent: null | number };
 
 export const adaptSpotifyStreamingHistory = (
 	files: ReadonlyArray<{ name: string; rows: unknown }>,
 ) => {
 	const tracks = new Map<string, TrackPlays>();
-	const seenPlays = new Set<string>();
-	const invalidPlays: Array<{ uri: string; label: string }> = [];
+	const invalidPlays: Array<{ uri: string; label: string; message: string }> = [];
 	for (const file of files) {
 		const rows = decodeStreamingHistoryFile(file.rows);
 		if (Option.isNone(rows)) {
@@ -39,14 +38,13 @@ export const adaptSpotifyStreamingHistory = (
 			}
 			const trackId = uri.slice(TRACK_URI_PREFIX.length);
 			const name = row.master_metadata_track_name?.trim() ?? "";
-			const playKey = JSON.stringify([trackId, row.ts]);
-			if (seenPlays.has(playKey)) {
-				continue;
-			}
-			seenPlays.add(playKey);
 			const playedAt = row.ts ? DateTime.make(row.ts) : Option.none();
 			if (Option.isNone(playedAt)) {
-				invalidPlays.push({ uri, label: name || uri });
+				invalidPlays.push({ uri, label: name || uri, message: "Play has no valid end time" });
+				continue;
+			}
+			if (row.ms_played !== null && row.ms_played !== undefined && row.ms_played < 0) {
+				invalidPlays.push({ uri, label: name || uri, message: "Play has a negative duration" });
 				continue;
 			}
 			const occurredAtMs = DateTime.toEpochMillis(playedAt.value);
@@ -55,7 +53,7 @@ export const adaptSpotifyStreamingHistory = (
 			track.plays.push({
 				occurredAtMs,
 				occurredAt: DateTime.formatIso(playedAt.value),
-				timeSpent: Math.round((row.ms_played ?? 0) / 600) / 100,
+				timeSpent: row.ms_played == null ? null : row.ms_played / 60_000,
 			});
 			tracks.set(trackId, track);
 		}
@@ -80,17 +78,20 @@ export const adaptSpotifyStreamingHistory = (
 					.map((play) => ({
 						occurredAt: play.occurredAt,
 						eventSchemaSlug: "complete",
-						properties: { consumedOn: "Spotify", timeSpent: play.timeSpent },
+						properties: {
+							consumedOn: "Spotify",
+							...(play.timeSpent === null ? {} : { timeSpent: play.timeSpent }),
+						},
 					})),
 			});
 		}
 	}
 	const failures: MediaImportAdapterFailure[] = invalidPlays.map((play, index) => ({
+		message: play.message,
 		sourceLabel: play.label,
 		entitySchemaSlug: "music",
 		sourceIdentifier: play.uri,
 		stage: "input_transformation",
-		message: "Play has no valid end time",
 		itemIndex: entityGroups.length + index,
 	}));
 	return { failures, entityGroups, totalItems: entityGroups.length + failures.length };

@@ -11,7 +11,7 @@ import {
 	writeMediaCapture,
 } from "./collection";
 import type { MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
-import { parseDateInput } from "./dates";
+import { consumptionDatePrecision, parseDateInput } from "./dates";
 import { createCompleteEvent, createReviewEvent, normalizeLifecycleStatus } from "./helpers";
 import { mediaEventOperationId } from "./identity";
 import {
@@ -162,7 +162,11 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 							occurredAt,
 							operationId,
 							eventSchemaSlug: "progress",
-							properties: { progressPercent: 100 },
+							properties: {
+								progressPercent: 100,
+								sourceRun: operationId,
+								...consumptionDatePrecision(seen.date),
+							},
 							unresolvedEpisode: {
 								type: "show",
 								seasonNumber: episode.seasonNumber,
@@ -171,7 +175,10 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 						});
 					}
 				} else {
-					events.push({ ...createCompleteEvent({ occurredAt }), operationId });
+					events.push({
+						...createCompleteEvent({ occurredAt, ...consumptionDatePrecision(seen.date) }),
+						operationId,
+					});
 				}
 			}
 			nextSeenOffset = seenOffset + 64 < details.seenHistory.length ? seenOffset + 64 : 0;

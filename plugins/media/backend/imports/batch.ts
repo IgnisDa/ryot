@@ -10,6 +10,7 @@ import {
 	type WorkflowReplay,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
+import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
 import {
 	MediaImportPopulationWorkflowInput,
@@ -301,13 +302,32 @@ export function* runMediaImportBatch(
 	for (const [groupIndex, group] of resolvedGroups.entries()) {
 		const events: FinalizedEvent[] = [];
 		for (const [eventIndex, event] of group.events.entries()) {
+			const importedSourceRun = event.properties["sourceRun"];
+			const manualConsumption =
+				integrationId === undefined &&
+				consumptionEventSlugs.some((slug) => slug === event.eventSchemaSlug);
+			if (
+				manualConsumption &&
+				importedSourceRun !== undefined &&
+				typeof importedSourceRun !== "string"
+			) {
+				return yield* Effect.fail(
+					new MediaWorkflowError("Import source run identity must be a string"),
+				);
+			}
+			const sourceRun = `${input.runId}:${typeof importedSourceRun === "string" ? importedSourceRun : event.operationId}`;
+			if (manualConsumption && sourceRun.length > 200) {
+				return yield* Effect.fail(
+					new MediaWorkflowError("Import source run identity exceeds its declared size"),
+				);
+			}
 			const finalized = {
 				occurredAt: event.occurredAt,
-				properties: event.properties,
 				attribution: event.attribution,
 				operationId: event.operationId,
 				sourceItemIndex: event.sourceItemIndex,
 				eventSchemaSlug: event.eventSchemaSlug,
+				properties: manualConsumption ? { ...event.properties, sourceRun } : event.properties,
 			};
 			if (!event.unresolvedEpisode) {
 				events.push(finalized);

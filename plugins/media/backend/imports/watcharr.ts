@@ -1,6 +1,6 @@
 import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { getOccurredAtValue, nowIso, parseDateInput } from "./dates";
+import { consumptionDatePrecision, getOccurredAtValue, nowIso, parseDateInput } from "./dates";
 import {
 	createBacklogEvent,
 	createCompleteEvent,
@@ -61,7 +61,10 @@ const latestOccurredAt = (left: string, right: string) =>
 	getOccurredAtValue(left) >= getOccurredAtValue(right) ? left : right;
 
 const episodeWatchDates = (activities: ReadonlyArray<WatcharrActivity>) => {
-	const dates = new Map<string, { usesFallback: boolean; occurredAt: null | string }>();
+	const dates = new Map<
+		string,
+		{ usesFallback: boolean; calendarDate?: string; occurredAt: null | string }
+	>();
 	for (const activity of activities) {
 		const activityData = activity.data;
 		if (!activity.type.includes("EPISODE") || !activityData) {
@@ -80,12 +83,20 @@ const episodeWatchDates = (activities: ReadonlyArray<WatcharrActivity>) => {
 			const key = JSON.stringify([decoded.success.season, decoded.success.episode]);
 			const prior = dates.get(key);
 			const occurredAt = parseDateInput(activity.customDate);
+			const precision = consumptionDatePrecision(activity.customDate);
+			const latest =
+				occurredAt && prior?.occurredAt
+					? latestOccurredAt(prior.occurredAt, occurredAt)
+					: (occurredAt ?? prior?.occurredAt ?? null);
+			let calendarDate = prior?.calendarDate;
+			if (latest === occurredAt) {
+				calendarDate =
+					typeof precision["calendarDate"] === "string" ? precision["calendarDate"] : undefined;
+			}
 			dates.set(key, {
-				usesFallback: (prior?.usesFallback ?? false) || !occurredAt,
-				occurredAt:
-					occurredAt && prior?.occurredAt
-						? latestOccurredAt(prior.occurredAt, occurredAt)
-						: (occurredAt ?? prior?.occurredAt ?? null),
+				...(calendarDate === undefined ? {} : { calendarDate }),
+				occurredAt: latest,
+				usesFallback: (prior?.usesFallback ?? false) || precision["dateUnknown"] === true,
 			});
 		}
 	}
@@ -173,7 +184,9 @@ export const adaptWatcharrExportBatch = (
 				const occurredAt = normalizeOccurredAt(activity.customDate, importedAt);
 				latest = latest ? latestOccurredAt(latest, occurredAt) : occurredAt;
 				hasHistory = true;
-				pushEvent(createCompleteEvent({ occurredAt }));
+				pushEvent(
+					createCompleteEvent({ occurredAt, ...consumptionDatePrecision(activity.customDate) }),
+				);
 			}
 		} else {
 			for (const episode of item.watchedEpisodes ?? []) {
@@ -192,11 +205,17 @@ export const adaptWatcharrExportBatch = (
 				pushEvent({
 					occurredAt,
 					eventSchemaSlug: "progress",
-					properties: { progressPercent: 100 },
 					unresolvedEpisode: {
 						type: "show",
 						seasonNumber: episode.seasonNumber,
 						episodeNumber: episode.episodeNumber,
+					},
+					properties: {
+						progressPercent: 100,
+						...(!date?.occurredAt || date.usesFallback ? { dateUnknown: true } : {}),
+						...(date?.occurredAt && !date.usesFallback && date.calendarDate
+							? { calendarDate: date.calendarDate }
+							: {}),
 					},
 				});
 			}

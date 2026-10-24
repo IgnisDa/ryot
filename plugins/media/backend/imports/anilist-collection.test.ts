@@ -76,6 +76,8 @@ for (const { volumes, chapters } of [
 						? []
 						: [
 								{
+									dateUnknown: true,
+									sourceRun: '[0,"baseline"]',
 									...(chapters > 0 ? { mangaChapter: chapters } : {}),
 									...(volumes > 0 ? { mangaVolume: volumes } : {}),
 								},

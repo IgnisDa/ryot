@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, assert, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import anilist from "./anilist.sandbox";
@@ -42,6 +42,47 @@ const makeRecord = (itemIndex: number): MediaSourceRecord => ({
 			},
 		],
 	},
+});
+it("keeps source baselines linked and repeated items independent across pages", () => {
+	const group = makeRecord(0).group;
+	assert(group);
+	const occurredAt = "2026-01-01T00:00:00.000Z";
+	const records = normalizeMediaRecords(
+		{
+			failures: [],
+			entityGroups: [
+				{
+					...group,
+					events: [
+						{
+							occurredAt,
+							eventSchemaSlug: "progress",
+							properties: { dateUnknown: true, mangaChapter: 12.5 },
+						},
+						{ occurredAt, eventSchemaSlug: "complete", properties: { sourceRun: "baseline" } },
+						{
+							occurredAt,
+							eventSchemaSlug: "item-complete",
+							properties: { consumedItem: { position: 12.5, unit: "chapters" } },
+						},
+						{
+							occurredAt,
+							eventSchemaSlug: "item-complete",
+							properties: { consumedItem: { position: 12.5, unit: "chapters" } },
+						},
+					],
+				},
+			],
+		},
+		27,
+		"anilist",
+		64,
+	);
+	expect(
+		records.flatMap(
+			(record) => record.group?.events.map((event) => event.properties["sourceRun"]) ?? [],
+		),
+	).toEqual(['[27,"baseline"]', '[27,"baseline"]', "[27,66]", "[27,67]"]);
 });
 it.live("frames quoted CSV and UTF-8 across bounded windows without rereading source bytes", () =>
 	Effect.gen(function* () {

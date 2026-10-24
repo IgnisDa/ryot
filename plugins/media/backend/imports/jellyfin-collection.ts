@@ -3,7 +3,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { loadMediaApiState, type MediaApiTask, writeMediaApiState } from "./api-collection";
 import { normalizeMediaRecords } from "./collection";
 import type { MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
-import { parseDateInput } from "./dates";
+import { consumptionDatePrecision, parseDateInput } from "./dates";
 import { createCompleteEvent } from "./helpers";
 import { AuthResponse, headers, ItemsResponse } from "./jellyfin";
 import { ImportEntityRef } from "./schemas";
@@ -162,15 +162,19 @@ export const collectJellyfin = Effect.fn(function* (input: MediaSourceInput, hos
 				task.kind === "episodes"
 					? {
 							...(completedOn
-								? { occurredAt, eventSchemaSlug: "progress", properties: { progressPercent: 100 } }
-								: createCompleteEvent({ occurredAt, dateUnknown: !completedOn })),
+								? {
+										occurredAt,
+										eventSchemaSlug: "progress",
+										properties: { progressPercent: 100, ...consumptionDatePrecision(playedDate) },
+									}
+								: createCompleteEvent({ occurredAt, ...consumptionDatePrecision(playedDate) })),
 							unresolvedEpisode: {
 								type: "show" as const,
 								episodeNumber: item.IndexNumber ?? 0,
 								seasonNumber: item.ParentIndexNumber ?? 0,
 							},
 						}
-					: createCompleteEvent({ occurredAt, dateUnknown: !completedOn });
+					: createCompleteEvent({ occurredAt, ...consumptionDatePrecision(playedDate) });
 			records.push(
 				...normalizeMediaRecords(
 					{

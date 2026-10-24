@@ -189,14 +189,32 @@ describe("adaptAnilistExport", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups.map((group) => group.events)).toEqual([
 			[{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-02T13:00:00.000Z" }],
-			[{ properties: {}, eventSchemaSlug: "progress", occurredAt: "2026-01-02T13:00:00.000Z" }],
-			[{ properties: {}, eventSchemaSlug: "dropped", occurredAt: "2026-01-02T13:00:00.000Z" }],
-			[{ properties: {}, eventSchemaSlug: "on_hold", occurredAt: "2026-01-02T13:00:00.000Z" }],
+			[
+				{
+					eventSchemaSlug: "progress",
+					properties: { dateUnknown: true },
+					occurredAt: "2026-01-02T13:00:00.000Z",
+				},
+			],
+			[
+				{
+					eventSchemaSlug: "dropped",
+					properties: { dateUnknown: true },
+					occurredAt: "2026-01-02T13:00:00.000Z",
+				},
+			],
+			[
+				{
+					eventSchemaSlug: "on_hold",
+					properties: { dateUnknown: true },
+					occurredAt: "2026-01-02T13:00:00.000Z",
+				},
+			],
 			[
 				{
 					eventSchemaSlug: "complete",
-					properties: { dateUnknown: true },
 					occurredAt: "2026-01-02T13:00:00.000Z",
+					properties: { dateUnknown: true, sourceRun: "baseline" },
 				},
 			],
 		]);
@@ -229,13 +247,6 @@ describe("adaptAnilistExport", () => {
 			{
 				itemIndex: 0,
 				collectionMemberships: [],
-				events: [
-					{
-						eventSchemaSlug: "progress",
-						properties: { mangaVolume: 3 },
-						occurredAt: "2026-01-03T09:00:00.000Z",
-					},
-				],
 				entityRef: {
 					kind: "resolved",
 					externalId: "200",
@@ -243,6 +254,13 @@ describe("adaptAnilistExport", () => {
 					entitySchemaSlug: "manga",
 					providerSlug: "manga.anilist",
 				},
+				events: [
+					{
+						eventSchemaSlug: "progress",
+						occurredAt: "2026-01-03T09:00:00.000Z",
+						properties: { mangaVolume: 3, dateUnknown: true },
+					},
+				],
 			},
 		]);
 	});

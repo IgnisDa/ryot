@@ -287,11 +287,19 @@ describe("media activity log", () => {
 				[
 					{
 						entityId: "book-1",
+						occurredAt: submittedAt,
 						eventSchemaSlug: "progress",
 						properties: { progressPercent: 40, consumedOn: "Kindle" },
 					},
 				],
-				[{ properties: {}, entityId: "book-1", eventSchemaSlug: "progress" }],
+				[
+					{
+						properties: {},
+						entityId: "book-1",
+						occurredAt: submittedAt,
+						eventSchemaSlug: "progress",
+					},
+				],
 			]);
 		}),
 	);
@@ -301,12 +309,26 @@ describe("media activity log", () => {
 			const anime = recordingHost({ schemaSlug: "anime" });
 			yield* run({ entry: { position: 7, kind: "progress", entityId: "anime-1" } }, anime.host);
 			expect(anime.creates).toEqual([
-				[{ entityId: "anime-1", eventSchemaSlug: "progress", properties: { animeEpisode: 7 } }],
+				[
+					{
+						entityId: "anime-1",
+						occurredAt: submittedAt,
+						eventSchemaSlug: "progress",
+						properties: { animeEpisode: 7 },
+					},
+				],
 			]);
 			const manga = recordingHost({ schemaSlug: "manga" });
 			yield* run({ entry: { position: 113, kind: "progress", entityId: "manga-1" } }, manga.host);
 			expect(manga.creates).toEqual([
-				[{ entityId: "manga-1", eventSchemaSlug: "progress", properties: { mangaChapter: 113 } }],
+				[
+					{
+						entityId: "manga-1",
+						occurredAt: submittedAt,
+						eventSchemaSlug: "progress",
+						properties: { mangaChapter: 113 },
+					},
+				],
 			]);
 		}),
 	);

@@ -56,7 +56,7 @@ describe("adaptGrouveeCsv", () => {
 					{
 						eventSchemaSlug: "complete",
 						occurredAt: "2026-01-03T00:00:00.000Z",
-						properties: { startedOn: "2026-01-01T00:00:00.000Z" },
+						properties: { calendarDate: "2026-01-03", startedOn: "2026-01-01T00:00:00.000Z" },
 					},
 				],
 			},

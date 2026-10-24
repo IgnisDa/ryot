@@ -38,7 +38,7 @@ export const splitCommaList = (value: string) =>
 export const normalizeBoolean = (value: string) => value.trim().toLowerCase() === "true";
 
 export const normalizeReadCount = (value: string) => {
-	const parsed = Number.parseInt(value.trim(), 10);
+	const parsed = Number(value.trim());
 	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
 };
 
@@ -110,8 +110,8 @@ export const createBacklogEvent = (occurredAt: string): ImportMediaEvent => ({
 
 export const createProgressEvent = (occurredAt: string): ImportMediaEvent => ({
 	occurredAt,
-	properties: {},
 	eventSchemaSlug: "progress",
+	properties: { dateUnknown: true },
 });
 
 export const createDroppedEvent = (input: {
@@ -120,7 +120,7 @@ export const createDroppedEvent = (input: {
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "dropped",
 	occurredAt: input.occurredAt,
-	properties: input.startedOn ? { startedOn: input.startedOn } : {},
+	properties: { dateUnknown: true, ...(input.startedOn ? { startedOn: input.startedOn } : {}) },
 });
 
 export const createOnHoldEvent = (input: {
@@ -129,19 +129,23 @@ export const createOnHoldEvent = (input: {
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "on_hold",
 	occurredAt: input.occurredAt,
-	properties: input.startedOn ? { startedOn: input.startedOn } : {},
+	properties: { dateUnknown: true, ...(input.startedOn ? { startedOn: input.startedOn } : {}) },
 });
 
 export const createCompleteEvent = (input: {
 	occurredAt: string;
+	sourceRun?: string;
 	dateUnknown?: boolean;
+	calendarDate?: string;
 	startedOn?: null | string;
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "complete",
 	occurredAt: input.occurredAt,
 	properties: {
+		...(input.sourceRun === undefined ? {} : { sourceRun: input.sourceRun }),
 		...(input.startedOn ? { startedOn: input.startedOn } : {}),
 		...(input.dateUnknown ? { dateUnknown: true } : {}),
+		...(input.calendarDate === undefined ? {} : { calendarDate: input.calendarDate }),
 	},
 });
 

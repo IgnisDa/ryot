@@ -62,15 +62,28 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 			return yield* reject(progressError);
 		}
 		const properties: PropertiesPatch = { set: {}, remove: [] };
+		if (patch.consumedItem !== undefined) {
+			yield* allow("consumedItem");
+			properties.set["consumedItem"] = patch.consumedItem;
+		}
 		let occurredAt: string | undefined;
 		if (patch.when?.kind === "unknown") {
 			yield* allow("dateUnknown");
 			properties.set["dateUnknown"] = true;
+			properties.remove.push("calendarDate");
 			if (patchable.has("startedOn")) {
 				properties.remove.push("startedOn");
 			}
 		}
 		if (patch.when?.kind === "date") {
+			if (patch.when.calendarDate === undefined) {
+				if (patchable.has("calendarDate")) {
+					properties.remove.push("calendarDate");
+				}
+			} else {
+				yield* allow("calendarDate");
+				properties.set["calendarDate"] = patch.when.calendarDate;
+			}
 			occurredAt = patch.when.finishedOn;
 			if (patch.when.startedOn !== undefined) {
 				yield* allow("startedOn");
@@ -93,6 +106,19 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 		if (patch.progressPercent !== undefined) {
 			yield* allow("progressPercent");
 			assign(properties, "progressPercent", patch.progressPercent);
+			if (patch.progressPercent !== null && patchable.has("progressPages")) {
+				properties.remove.push("progressPages");
+			}
+		}
+		if (patch.progressPages !== undefined) {
+			yield* allow("progressPages");
+			if (patch.progressPages !== null && patch.progressPercent != null) {
+				return yield* reject("Supply pages or percent, not both");
+			}
+			assign(properties, "progressPages", patch.progressPages);
+			if (patch.progressPages !== null) {
+				properties.remove.push("progressPercent");
+			}
 		}
 		const position = mediaProgressPositionProperty(target.entitySchemaSlug);
 		if (patch.position !== undefined && position !== undefined) {

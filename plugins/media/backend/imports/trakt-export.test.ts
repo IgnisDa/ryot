@@ -152,7 +152,11 @@ it.live(
 					{ text: "Great", isSpoiler: true },
 					{ type: "show", seasonNumber: 2, episodeNumber: 4 },
 				],
-				["progress", { progressPercent: 100 }, { type: "show", seasonNumber: 2, episodeNumber: 4 }],
+				[
+					"progress",
+					{ progressPercent: 100, sourceRun: '[4,"baseline"]' },
+					{ type: "show", seasonNumber: 2, episodeNumber: 4 },
+				],
 			]);
 			expect(events.map((event) => event.attribution)).toEqual(
 				[1, 2, 3, 4].map((index) => ({

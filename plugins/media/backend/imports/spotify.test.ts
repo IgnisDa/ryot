@@ -23,6 +23,16 @@ const minutes = (count: number, trackId: string) =>
 	);
 
 describe("adaptSpotifyStreamingHistory", () => {
+	it("preserves exact fractional minutes, recorded zero, and missing duration", () => {
+		const result = adaptSpotifyStreamingHistory([
+			file([1, 0, null].map((ms_played) => play("2020-01-01T00:00:00Z", "a", { ms_played }))),
+		]);
+		expect(result.entityGroups[0]?.events.map((event) => event.properties)).toEqual([
+			{ consumedOn: "Spotify", timeSpent: 1 / 60_000 },
+			{ timeSpent: 0, consumedOn: "Spotify" },
+			{ consumedOn: "Spotify" },
+		]);
+	});
 	it("records only finished track plays and skips episodes and audiobooks without failures", () => {
 		const result = adaptSpotifyStreamingHistory([
 			file([
@@ -45,7 +55,7 @@ describe("adaptSpotifyStreamingHistory", () => {
 		]);
 	});
 
-	it("keeps a play once when the same track and end time repeat across files", () => {
+	it("retains independent records with identical track and end time across files", () => {
 		const duplicate = play("2020-03-01T10:00:00Z", "a");
 		const result = adaptSpotifyStreamingHistory([
 			file([duplicate, duplicate]),
@@ -53,7 +63,7 @@ describe("adaptSpotifyStreamingHistory", () => {
 		]);
 
 		expect(result.entityGroups).toHaveLength(1);
-		expect(result.entityGroups[0]?.events).toHaveLength(1);
+		expect(result.entityGroups[0]?.events).toHaveLength(3);
 	});
 
 	it("splits a track's plays into sorted slices of six with consecutive indices", () => {

@@ -147,7 +147,14 @@ describe("Spotify yank", () => {
 						events: ["2026-01-01T12:00:00.000Z", "2026-01-01T12:10:00.000Z"].map((occurredAt) => ({
 							occurredAt,
 							eventSchemaSlug: "complete",
-							properties: { timeSpent: 3.09, consumedOn: "Spotify" },
+							properties: {
+								consumedOn: "Spotify",
+								consumptionBasis: {
+									unit: "minutes",
+									property: "duration",
+									total: 185_123 / 60_000,
+								},
+							},
 						})),
 					},
 					{
@@ -164,7 +171,10 @@ describe("Spotify yank", () => {
 							{
 								eventSchemaSlug: "complete",
 								occurredAt: "2026-01-01T12:05:00.000Z",
-								properties: { timeSpent: 1, consumedOn: "Spotify" },
+								properties: {
+									consumedOn: "Spotify",
+									consumptionBasis: { total: 1, unit: "minutes", property: "duration" },
+								},
 							},
 						],
 					},

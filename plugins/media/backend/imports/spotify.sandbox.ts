@@ -1,5 +1,5 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	collectMediaJson,
@@ -19,10 +19,6 @@ export const manifest = defineManifest({
 	slug: "import.spotify",
 	name: "Collect Spotify history",
 });
-const Identity = Schema.Struct({
-	ts: Schema.NullishOr(Schema.String),
-	spotify_track_uri: Schema.NullishOr(Schema.String),
-});
 export default defineScript({
 	manifest,
 	input: MediaSourceInput,
@@ -39,17 +35,12 @@ export default defineScript({
 						const result = adaptSpotifyStreamingHistory([
 							{ rows: [raw], name: input.entry?.name ?? "history.json" },
 						]);
-						const identity = Schema.decodeUnknownSync(Identity)(raw);
-						const dedupKey = JSON.stringify([identity.spotify_track_uri, identity.ts]);
-						return normalizeMediaRecords(result, itemIndex, "spotify").map((record) =>
-							Object.assign(record, { dedupKey, key: dedupKey }),
-						);
+						return normalizeMediaRecords(result, itemIndex, "spotify");
 					},
 				);
 			}
 			const read = mediaNormalizedRecordReader();
 			let offset = input.offset;
-			let header = input.header;
 			let itemIndex = input.itemIndex;
 			let done = false;
 			const records: MediaSourceRecord[] = [];
@@ -63,24 +54,8 @@ export default defineScript({
 				offset = next.next;
 				itemIndex++;
 				const record = next.record;
-				if (!record.dedupKey) {
-					throw new Error("Spotify captured record is missing its exact-play identity");
-				}
-				if (record.dedupKey === header) {
-					continue;
-				}
-				header = record.dedupKey;
-				const normalized = normalizeMediaRecords(
-					{
-						entityGroups: record.group ? [{ ...record.group, itemIndex: 0 }] : [],
-						failures: record.failure ? [{ ...record.failure, itemIndex: 0 }] : [],
-					},
-					record.itemIndex,
-					"spotify",
-					record.eventIndex,
-				).map((result) => Object.assign(result, { dedupKey: record.dedupKey }));
-				records.push(...normalized);
-				bytes += new TextEncoder().encode(serializeMediaRecords(normalized)).length;
+				records.push(record);
+				bytes += new TextEncoder().encode(serializeMediaRecords([record])).length;
 				if (bytes >= WINDOW_BYTES) {
 					break;
 				}
@@ -94,8 +69,8 @@ export default defineScript({
 				])),
 				done,
 				offset,
-				header,
 				itemIndex,
+				header: input.header,
 			});
 		}),
 });

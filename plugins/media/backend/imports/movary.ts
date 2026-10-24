@@ -153,7 +153,12 @@ export const adaptMovaryExports = (input: {
 				sourceLabel: label,
 				tmdbId: tmdbId(row),
 			});
-			group.events.push(createCompleteEvent({ occurredAt }));
+			group.events.push(
+				createCompleteEvent({
+					occurredAt,
+					calendarDate: readRequiredCell(row, HISTORY_DATE_ALIASES, "watched_at").slice(0, 10),
+				}),
+			);
 			const comment = readCell(row, COMMENT_ALIASES);
 			const review = createReviewEvent({ occurredAt, ...(comment ? { text: comment } : {}) });
 			if (review) {

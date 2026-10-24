@@ -51,12 +51,20 @@ export default defineAutomation({
 						item.operation === "create" &&
 						typeof event.properties["completionKey"] === "string"
 					) {
+						if (
+							event.entitySchemaSlug === "show-episode" ||
+							event.entitySchemaSlug === "podcast-episode"
+						) {
+							add(event.entityId);
+						}
 						continue;
 					}
 					const id = subject(event);
 					add(id);
+					add(event.entityId);
 					if (item.operation === "update") {
 						add(subject(item.before));
+						add(item.before.entityId);
 					}
 					if (item.operation === "create") {
 						targets.get(id)?.add(event.id);

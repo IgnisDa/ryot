@@ -22,6 +22,16 @@ export const startHistoryCorrection = (
 	input: Omit<HistoryCorrectionRequest, "conflictBase" | "conflictAttempt">,
 ) => historyCorrectionWork({ ...input, conflictAttempt: 0, conflictBase: input.workKey });
 
+export const isHistoryCorrectionConflict = (error: { readonly data?: unknown }) => {
+	const reason = Schema.decodeUnknownOption(Schema.Struct({ code: Schema.String }))(error.data);
+	return (
+		reason._tag === "Some" &&
+		["event-stale", "entity-stale", "event-not-found", "mutation-conflict"].includes(
+			reason.value.code,
+		)
+	);
+};
+
 export const historyCorrectionReference = defineScriptReference({
 	output: Schema.Null,
 	input: HistoryCorrectionRequest,

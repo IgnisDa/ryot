@@ -11,6 +11,7 @@ import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
 	createBacklogEvent,
+	createCompleteEvent,
 	createDroppedEvent,
 	createOnHoldEvent,
 	createProgressEvent,
@@ -101,6 +102,9 @@ const lifecycle = (status: string) => {
 	if (normalized === "dropped") {
 		return "dropped" as const;
 	}
+	if (normalized === "completed") {
+		return "complete" as const;
+	}
 	if (normalized === "on hold") {
 		return "on_hold" as const;
 	}
@@ -122,8 +126,13 @@ const adaptLot = (
 			const doneTag = input.lot === "anime" ? "my_watched_episodes" : "my_read_chapters";
 			const idTag = input.lot === "anime" ? "series_animedb_id" : "manga_mangadb_id";
 			const titleTag = input.lot === "anime" ? "series_title" : "manga_title";
-			const done = Number.parseInt(text(item, doneTag), 10);
-			if (!Number.isSafeInteger(done) || done < 0) {
+			const done = Number(text(item, doneTag));
+			if (
+				!text(item, doneTag).trim() ||
+				!Number.isFinite(done) ||
+				done < 0 ||
+				(input.lot === "anime" && !Number.isSafeInteger(done))
+			) {
 				throw new Error(`${doneTag} is invalid`);
 			}
 			const score = Number.parseInt(text(item, "my_score"), 10);
@@ -158,7 +167,10 @@ const adaptLot = (
 				group.events.push({
 					occurredAt,
 					eventSchemaSlug: "progress",
-					properties: input.lot === "anime" ? { animeEpisode: done } : { mangaChapter: done },
+					properties: {
+						dateUnknown: true,
+						...(input.lot === "anime" ? { animeEpisode: done } : { mangaChapter: done }),
+					},
 				});
 			}
 			const status = lifecycle(text(item, "my_status"));
@@ -170,6 +182,16 @@ const adaptLot = (
 				group.events.push(createDroppedEvent({ occurredAt }));
 			} else if (status === "on_hold") {
 				group.events.push(createOnHoldEvent({ occurredAt }));
+			} else if (status === "complete") {
+				const finished = malDate(text(item, "my_finish_date"));
+				group.events.push(
+					createCompleteEvent({
+						occurredAt,
+						sourceRun: "baseline",
+						dateUnknown: !finished,
+						...(finished ? { calendarDate: finished.slice(0, 10) } : {}),
+					}),
+				);
 			}
 			const review = createReviewEvent({ occurredAt, rating: normalizeRating(String(score), 10) });
 			if (review) {

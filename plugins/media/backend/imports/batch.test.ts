@@ -12,30 +12,36 @@ import { runMediaImportBatch } from "./batch";
 import { mediaImportTestCommand } from "./ingestion.test-support";
 import { MediaImportAdapterBatch } from "./schemas";
 
-const workflow = defineWorkflow({
-	input: MediaImportAdapterBatch,
-	output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }),
-	manifest: defineManifest({
-		kind: "workflow",
-		slug: "test.media-batch",
-		name: "Media batch test",
-	}),
-	run: (batch, replay) =>
-		Effect.gen(function* () {
-			return yield* runMediaImportBatch(replay, {
-				batch,
-				runId: "run",
-				batchIndex: 0,
-				integrationId: "integration",
-				command: mediaImportTestCommand(),
-			});
+const makeWorkflow = (integrationId?: string) =>
+	defineWorkflow({
+		input: MediaImportAdapterBatch,
+		output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }),
+		manifest: defineManifest({
+			kind: "workflow",
+			slug: "test.media-batch",
+			name: "Media batch test",
 		}),
-});
+		run: (batch, replay) =>
+			Effect.gen(function* () {
+				return yield* runMediaImportBatch(replay, {
+					batch,
+					runId: "run",
+					batchIndex: 0,
+					...(integrationId === undefined ? {} : { integrationId }),
+					command: mediaImportTestCommand(),
+				});
+			}),
+	});
 
-it.live.each(["episode-1", null])(
-	"applies a podcast title resolution of %s to its episode only",
-	(entityId) =>
+it.live.each([
+	{ entityId: "episode-1", integrationId: "integration" },
+	{ entityId: null, integrationId: "integration" },
+	{ entityId: "episode-1", integrationId: undefined },
+])(
+	"applies podcast resolution and namespaces manual import identity: %s",
+	({ entityId, integrationId }) =>
 		Effect.gen(function* () {
+			const workflow = makeWorkflow(integrationId);
 			const journal: WorkflowReplayJournalEntry[] = [];
 			const input: typeof MediaImportAdapterBatch.Type = {
 				failures: [],
@@ -117,6 +123,13 @@ it.live.each(["episode-1", null])(
 													subjectEntityId: entityId,
 													operationId: "source-episode",
 													subjectEntitySchemaSlug: "podcast-episode",
+													properties: {
+														progressPercent: 42,
+														consumedOn: "audiobookshelf",
+														...(integrationId === undefined
+															? { sourceRun: "run:source-episode" }
+															: {}),
+													},
 												},
 											],
 										},

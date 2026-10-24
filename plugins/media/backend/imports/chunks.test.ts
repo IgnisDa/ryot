@@ -76,6 +76,7 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 							subjectEntityId: "episode-1",
 							properties: { progressPercent: 100 },
 							occurredAt: "2026-01-01T00:00:00.000Z",
+							subjectEntitySchemaSlug: "show-episode",
 						},
 						{
 							properties: {},
@@ -105,10 +106,6 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 	]);
 	expect(chunk.items).toMatchObject([
 		{
-			events: [
-				{ entityAlias: "media", eventSchemaSlug: "progress", subjectEntityId: "episode-1" },
-				{ entityAlias: "media", eventSchemaSlug: "backlog" },
-			],
 			entities: [
 				{ alias: "media", entityId: "show-1", entitySchemaSlug: "show" },
 				{
@@ -117,6 +114,15 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 					alias: "media-library",
 					entitySchemaSlug: "media-library",
 				},
+			],
+			events: [
+				{
+					entityAlias: "media",
+					eventSchemaSlug: "progress",
+					subjectEntityId: "episode-1",
+					properties: { consumptionBasis: { unit: "minutes", property: "runtime" } },
+				},
+				{ entityAlias: "media", eventSchemaSlug: "backlog" },
 			],
 		},
 	]);

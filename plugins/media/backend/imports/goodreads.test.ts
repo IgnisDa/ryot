@@ -5,6 +5,12 @@ import { adaptGoodreadsCsv } from "./goodreads";
 const GOODREADS_HEADERS = "Title,ISBN13,My Rating,Date Read,Bookshelves,My Review,Read Count";
 
 describe("adaptGoodreadsCsv", () => {
+	it.each(["1/2/26", "2026/02/30"])("keeps ambiguous or invalid read date %s undated", (date) => {
+		const result = adaptGoodreadsCsv(
+			[GOODREADS_HEADERS, `Book,9780140328721,,${date},read,,1`].join("\n"),
+		);
+		expect(result.entityGroups[0]?.events[0]?.properties).toEqual({ dateUnknown: true });
+	});
 	it.each([
 		["1", 20],
 		["3", 60],
@@ -46,8 +52,16 @@ describe("adaptGoodreadsCsv", () => {
 			},
 		});
 		expect(result.entityGroups[0]?.events).toEqual([
-			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-01-02T00:00:00.000Z" },
-			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2026-01-02T00:00:00.000Z" },
+			{
+				eventSchemaSlug: "complete",
+				properties: { dateUnknown: true },
+				occurredAt: "2026-01-02T00:00:00.000Z",
+			},
+			{
+				eventSchemaSlug: "complete",
+				occurredAt: "2026-01-02T00:00:00.000Z",
+				properties: { calendarDate: "2026-01-02" },
+			},
 			{
 				eventSchemaSlug: "review",
 				occurredAt: "2026-01-02T00:00:00.000Z",
@@ -141,8 +155,8 @@ describe("adaptGoodreadsCsv", () => {
 		]);
 	});
 
-	it("parses month-first date formats as a fallback", () => {
-		const csv = [GOODREADS_HEADERS, "US Format,9780140328721,4,1/2/23,read,,1"].join("\n");
+	it("parses month-first dates with an explicit four-digit year", () => {
+		const csv = [GOODREADS_HEADERS, "US Format,9780140328721,4,1/2/2023,read,,1"].join("\n");
 
 		const result = adaptGoodreadsCsv(csv);
 
@@ -151,6 +165,7 @@ describe("adaptGoodreadsCsv", () => {
 		expect(result.entityGroups[0]?.events[0]).toMatchObject({
 			eventSchemaSlug: "complete",
 			occurredAt: "2023-01-02T00:00:00.000Z",
+			properties: { calendarDate: "2023-01-02" },
 		});
 	});
 });

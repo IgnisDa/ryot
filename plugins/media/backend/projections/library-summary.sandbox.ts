@@ -61,9 +61,7 @@ export default defineScript({
 					const row = rows.get(sourceEntityId);
 					return {
 						relationshipId,
-						properties: row
-							? librarySummaryProperties(row)
-							: { timesCompleted: 0, lifecycleState: "untracked" },
+						properties: row ? librarySummaryProperties(row) : { lifecycleState: "untracked" },
 					};
 				}),
 			};

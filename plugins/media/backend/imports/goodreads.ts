@@ -1,5 +1,3 @@
-import { DateTime, Option } from "@ryot-app/plugin-backend-sdk/effect";
-
 import { isValidIsbn, normalizeIsbn } from "../lib/isbn";
 import { parseCsvText } from "./csv";
 import { nowIso, parseDateWithFormat } from "./dates";
@@ -100,15 +98,9 @@ export const adaptGoodreadsCsv = (
 				if (parts.length === 3) {
 					const month = (parts[0] ?? "").padStart(2, "0");
 					const day = (parts[1] ?? "").padStart(2, "0");
-					let year = parts[2] ?? "";
-					if (year.length === 2) {
-						year = `20${year}`;
-					}
+					const year = parts[2] ?? "";
 					if (year.length === 4 && month && day) {
-						completedOn = Option.match(DateTime.make(`${year}-${month}-${day}`), {
-							onNone: () => null,
-							onSome: DateTime.formatIso,
-						});
+						completedOn = parseDateWithFormat(`${year}-${month}-${day}`, "YYYY-MM-DD");
 					}
 				}
 			}
@@ -117,7 +109,13 @@ export const adaptGoodreadsCsv = (
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
 		for (let index = eventStart; index < Math.min(readCount, eventStart + eventLimit); index++) {
 			group.events.push(
-				createCompleteEvent({ occurredAt: fallbackOccurredAt, dateUnknown: completedOn === null }),
+				createCompleteEvent({
+					occurredAt: fallbackOccurredAt,
+					dateUnknown: completedOn === null || index !== readCount - 1,
+					...(completedOn && index === readCount - 1
+						? { calendarDate: completedOn.slice(0, 10) }
+						: {}),
+				}),
 			);
 		}
 		if (eventStart + eventLimit < readCount) {
@@ -125,7 +123,11 @@ export const adaptGoodreadsCsv = (
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
 			group.events.push(
-				createCompleteEvent({ occurredAt: fallbackOccurredAt, dateUnknown: completedOn === null }),
+				createCompleteEvent({
+					occurredAt: fallbackOccurredAt,
+					dateUnknown: completedOn === null,
+					...(completedOn ? { calendarDate: completedOn.slice(0, 10) } : {}),
+				}),
 			);
 		} else if (lifecycleStatus === "progress") {
 			group.events.push(createProgressEvent(fallbackOccurredAt));

@@ -1,7 +1,7 @@
 import { Option, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { parseCsvText } from "./csv";
-import { nowIso, parseDateTime, parseDateWithFormat } from "./dates";
+import { consumptionDatePrecision, nowIso, parseDateTime, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
 import {
 	addCollectionMembership,
@@ -127,7 +127,13 @@ export const adaptGrouveeCsv = (
 			const occurredAt = completedOn ?? startedOn ?? importedAt;
 			hasExplicitCompletion = true;
 			lastOccurredAt = occurredAt;
-			pushEvent(createCompleteEvent({ startedOn, occurredAt, dateUnknown: !completedOn }));
+			pushEvent(
+				createCompleteEvent({
+					startedOn,
+					occurredAt,
+					...consumptionDatePrecision(entry.date_finished),
+				}),
+			);
 		}
 		for (const statusEntry of parseStatusEntries(row["statuses"] ?? "")) {
 			const text = statusEntry.status?.trim();

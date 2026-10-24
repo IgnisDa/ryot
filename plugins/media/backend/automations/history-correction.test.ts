@@ -94,6 +94,7 @@ const harness = (
 		schemaSlug?: string;
 		sourceRevision?: number;
 		state?: HistoryCorrection;
+		missingDependencies?: boolean;
 		inventory?: typeof inventoryRow;
 		responses?: readonly ReturnType<typeof reply>[];
 		properties?: Readonly<Record<string, JsonValue>>;
@@ -117,7 +118,11 @@ const harness = (
 						scope: rows([{ revision: input.sourceRevision ?? 4 }]),
 						library: rows([{ properties: {}, name: "Library", updatedAt: timestamp }]),
 						target: rows([
-							{ properties: input.properties ?? {}, schemaSlug: input.schemaSlug ?? "movie" },
+							{
+								properties: input.properties ?? {},
+								schemaSlug: input.schemaSlug ?? "movie",
+								missingDependencies: input.missingDependencies ?? false,
+							},
 						]),
 					},
 				});
@@ -154,6 +159,32 @@ it.effect("restarts from audit on source drift without publishing stale work", (
 		expect(test.saved()).toMatchObject({ step: 1, phase: "audit", sourceRevision: 5 });
 		expect(test.commands[0]?.events.creates).toEqual([]);
 		expect(test.queries).toHaveLength(1);
+	}),
+);
+
+it.effect("seeds bounded child dependencies before correction and keeps existing pairs", () =>
+	Effect.gen(function* () {
+		const test = harness({
+			missingDependencies: true,
+			state: checkpoint({ phase: "dependencies" }),
+			responses: [
+				reply(
+					"children",
+					Array.from({ length: 50 }, (_, index) => ({ exists: index === 0, id: `child:${index}` })),
+					"next-child",
+				),
+			],
+		});
+		yield* test.run();
+		expect(test.commands[0]?.events.creates).toHaveLength(49);
+		expect(test.commands[0]?.events.creates[0]).toMatchObject({
+			eventSchemaSlug: "consumption-dependency",
+			properties: { subjectEntityId: "child:1", correctionSubjectEntityId: "subject" },
+		});
+		expect(test.saved()).toMatchObject({ after: "next-child", phase: "dependencies" });
+		const restored = harness({ missingDependencies: true, state: checkpoint({ phase: "done" }) });
+		yield* restored.run();
+		expect(restored.saved()).toMatchObject({ phase: "dependencies" });
 	}),
 );
 
@@ -325,6 +356,105 @@ it.effect("uses the retained positional total instead of current provider metada
 			item: { patch: { properties: { set: { total: 12, frozen: true } } } },
 		});
 	}),
+);
+
+it.effect("publishes retained source facts and recorded zero after provider refresh", () =>
+	Effect.gen(function* () {
+		const basis = { total: 80, unit: "minutes", property: "runtime" };
+		const test = harness({
+			properties: { runtime: 999 },
+			responses: [
+				reply("events", [
+					source({
+						properties: {
+							timeSpent: 0,
+							progressPercent: 100,
+							consumptionBasis: basis,
+							sourceRun: "original-run",
+							calendarDate: "2026-01-01",
+						},
+					}),
+				]),
+				reply("records", [record(occurrence())]),
+				reply("blockers", [{ explicit: false, sameTime: false }]),
+				reply("event", []),
+			],
+		});
+		yield* test.run();
+		expect(test.commands[0]?.events.creates).toMatchObject([
+			{
+				properties: {
+					timeSpent: 0,
+					consumptionBasis: basis,
+					sourceRun: "original-run",
+					calendarDate: "2026-01-01",
+				},
+			},
+		]);
+		expect(test.commands[0]?.events.changes[0]).toMatchObject({
+			item: {
+				patch: {
+					properties: {
+						set: {
+							expectedTimeSpent: 0,
+							expectedConsumptionBasis: basis,
+							expectedSourceRun: "original-run",
+							expectedCalendarDate: "2026-01-01",
+						},
+					},
+				},
+			},
+		});
+	}),
+);
+
+it.effect(
+	"accepts restored nested source facts without converting an automatic output to explicit",
+	() =>
+		Effect.gen(function* () {
+			const restored = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
+					occurrence({
+						frozen: true,
+						status: "active",
+						expectedTimeSpent: 0,
+						expectedOccurredAt: timestamp,
+						expectedOrderCreatedAt: timestamp,
+						expectedSourceRun: "original-run",
+						expectedCalendarDate: "2026-01-01",
+						expectedOrderKey: "source~complete",
+						expectedConsumptionBasis: { total: 80, unit: "minutes", property: "runtime" },
+					}),
+				),
+			);
+			const test = harness({
+				state: checkpoint({ phase: "audit" }),
+				responses: [
+					reply("records", [record(restored)]),
+					reply("event", [
+						source({
+							id: "output",
+							orderKey: "source~complete",
+							eventSchemaSlug: "complete",
+							properties: {
+								timeSpent: 0,
+								completionSilent: false,
+								sourceRun: "original-run",
+								calendarDate: "2026-01-01",
+								completionKey: "occurrence",
+								consumptionBasis: { total: 80, unit: "minutes", property: "runtime" },
+							},
+						}),
+					]),
+				],
+			});
+			yield* test.run();
+			expect(test.commands[0]?.events.creates).toEqual([]);
+			expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
+				"replace:checkpoint",
+			]);
+			expect(test.saved().phase).toBe("progress");
+		}),
 );
 
 it.effect("does not publish when an explicit completion blocks the source", () =>
