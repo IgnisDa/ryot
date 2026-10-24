@@ -1,5 +1,4 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import { calendarSourceDocument } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -11,6 +10,7 @@ import {
 	mapPluginIdentityReferences,
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
+import { rowSourceDocument } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	EntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
@@ -225,7 +225,7 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			addQueryPackages(view.dataSources);
 		}
 		for (const source of plugin.manifest.calendarSources ?? []) {
-			addQueryPackages(calendarSourceDocument(source.query));
+			addQueryPackages(rowSourceDocument(source.query));
 		}
 	}
 	for (const installation of records.installations) {

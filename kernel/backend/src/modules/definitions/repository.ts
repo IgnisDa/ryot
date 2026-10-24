@@ -80,7 +80,6 @@ type CalendarSourceRow = Pick<
 	| "startAt"
 	| "subject"
 	| "pluginId"
-	| "delivery"
 	| "precision"
 >;
 
@@ -174,7 +173,6 @@ const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => (
 	startAt: row.startAt,
 	subject: row.subject,
 	pluginId: row.pluginId,
-	delivery: row.delivery,
 	precision: row.precision,
 });
 
@@ -422,8 +420,20 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										caption: definition.caption,
 										startAt: definition.startAt,
 										subject: definition.subject,
-										delivery: definition.delivery,
 										precision: definition.precision,
+									})),
+								),
+						);
+					}
+					if (definitions.signalSchedules.length > 0) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.definitionSignalSchedule)
+								.values(
+									definitions.signalSchedules.map((definition, position) => ({
+										...definition,
+										position,
+										pluginRevisionId,
 									})),
 								),
 						);

@@ -321,6 +321,21 @@ kinds, and that the subject alias is an entity table; `self` references bind to 
 Users can hide individual sources. Hidden state is per user, keyed by the exact plugin and source
 slug, and included in account backups.
 
+### Signal Schedules
+
+`signalSchedules` is optional and emits one of the plugin's actor-audience signals when a dated row
+becomes due for a subscribed user. Each schedule has a local `slug`, the `signal`, a `subject`, and
+a RyotQL `query` body shaped like a Calendar source query; its `where` clause decides eligibility.
+`dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
+text key, and `properties` maps signal properties to projected fields (null values are omitted).
+Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows
+whose `confirmedAt` is older than `maxAgeHours`; optional `requiresProKey` limits delivery to servers
+with a validated Pro key.
+
+The kernel delivers each occurrence at most once per user on the user's reporting-timezone day, with
+two catch-up days; older rows are skipped. See
+[`modules/signal-schedules/README.md`](../../kernel/backend/src/modules/signal-schedules/README.md).
+
 ## Execution Authority
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies

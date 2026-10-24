@@ -1942,3 +1942,77 @@ describe("calendar sources", () => {
 		).toThrow();
 	});
 });
+
+const withSchedules = (signalSchedules: ReadonlyArray<unknown>) => ({
+	...manifest,
+	signalSchedules,
+});
+
+describe("signal schedules", () => {
+	const schedule = {
+		dueAt: "dueAt",
+		precision: "date",
+		slug: "entity-due",
+		signal: "test.signal",
+		occurrence: "occurrence",
+		properties: { entityName: "name" },
+		subject: {
+			entityAlias: "entity",
+			schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("entity.test") }],
+		},
+		query: {
+			from: { alias: "entity", table: "entity" },
+			output: {
+				type: "rows",
+				fields: [
+					{ key: "dueAt", expr: { type: "column", field: "createdAt", tableAlias: "entity" } },
+					{ key: "occurrence", expr: { field: "id", type: "column", tableAlias: "entity" } },
+					{ key: "name", expr: { field: "name", type: "column", tableAlias: "entity" } },
+				],
+			},
+		},
+	} as const;
+
+	it("decodes schedules over projected fields of an actor signal", () => {
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)(
+				withSchedules([{ ...schedule, delayDays: 7, requiresProKey: true }]),
+			).signalSchedules,
+		).toEqual([{ ...schedule, delayDays: 7, requiresProKey: true }]);
+	});
+
+	it("rejects unprojected fields, foreign subjects, unknown signals and bad delays", () => {
+		for (const candidate of [
+			{ ...schedule, dueAt: "missing" },
+			{ ...schedule, occurrence: "missing" },
+			{ ...schedule, properties: { entityName: "missing" } },
+			{ ...schedule, freshness: { maxAgeHours: 1, confirmedAt: "missing" } },
+			{ ...schedule, subject: { ...schedule.subject, entityAlias: "other" } },
+			{ ...schedule, signal: "other.signal" },
+			{ ...schedule, delayDays: 0 },
+		]) {
+			expect(() => Schema.decodeUnknownSync(PluginManifest)(withSchedules([candidate]))).toThrow();
+		}
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)(withSchedules([schedule, schedule])),
+		).toThrow();
+	});
+
+	it("rejects schedules for signals delivered to other audiences", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...withSchedules([schedule]),
+				signalSchemas: [
+					{
+						...manifest.signalSchemas[0],
+						audiencePolicy: {
+							kind: "related_users",
+							subjectSide: "source",
+							relationshipSchemaSlug: "test.relationship",
+						},
+					},
+				],
+			}),
+		).toThrow();
+	});
+});

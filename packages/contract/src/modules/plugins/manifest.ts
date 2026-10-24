@@ -1,7 +1,7 @@
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
-import { PluginPackageId } from "../../schema/brands";
+import { PluginPackageId, SignalSchemaSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { type AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
@@ -12,14 +12,15 @@ import {
 	AutomationRetryPolicy,
 	AutomationSource,
 } from "../automations/lifecycle";
-import {
-	CalendarSourceDelivery,
-	CalendarSourcePrecision,
-	CalendarSourceQuery,
-} from "../calendar-sources/schemas";
 import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
 import { OutputFieldKey } from "../ryotql/language";
+import {
+	rowSourceAliases,
+	RowSourcePrecision,
+	rowSourceProjectedKeys,
+	RowSourceQuery,
+} from "../ryotql/row-source";
 import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
 import { PluginEventGroup } from "./event-groups";
@@ -429,16 +430,35 @@ export const PluginCalendarSource = strictStruct({
 	name: Schema.String,
 	startAt: OutputFieldKey,
 	slug: pluginManifestSlug,
+	precision: RowSourcePrecision,
 	subject: AuthoredSavedViewSubject,
-	precision: CalendarSourcePrecision,
 	art: Schema.optional(OutputFieldKey),
+	query: Schema.toType(RowSourceQuery),
 	done: Schema.optional(OutputFieldKey),
 	caption: Schema.optional(OutputFieldKey),
-	query: Schema.toType(CalendarSourceQuery),
-	delivery: Schema.optional(CalendarSourceDelivery),
 });
 
 export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;
+
+const positiveInt = Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)));
+
+export const PluginSignalSchedule = strictStruct({
+	dueAt: OutputFieldKey,
+	slug: pluginManifestSlug,
+	signal: SignalSchemaSlug,
+	occurrence: OutputFieldKey,
+	precision: RowSourcePrecision,
+	subject: AuthoredSavedViewSubject,
+	query: Schema.toType(RowSourceQuery),
+	delayDays: Schema.optional(positiveInt),
+	requiresProKey: Schema.optional(Schema.Boolean),
+	properties: Schema.Record(Schema.String, OutputFieldKey),
+	freshness: Schema.optional(
+		strictStruct({ maxAgeHours: positiveInt, confirmedAt: OutputFieldKey }),
+	),
+});
+
+export type PluginSignalSchedule = Schema.Schema.Type<typeof PluginSignalSchedule>;
 
 const sandboxManifestString = Schema.String.pipe(
 	Schema.check(
@@ -946,6 +966,7 @@ const PluginManifestAuthoredFields = {
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
 	calendarSources: Schema.optional(Schema.Array(PluginCalendarSource)),
+	signalSchedules: Schema.optional(Schema.Array(PluginSignalSchedule)),
 };
 
 const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);
@@ -1119,23 +1140,32 @@ const hasValidCalendarSource = ({
 	startAt,
 	subject,
 }: PluginCalendarSource) => {
-	const projected = new Set(
-		query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : [])),
-	);
-	const aliases = new Set([
-		query.from.alias,
-		...(query.joins ?? []).map((join) =>
-			join.type === "jsonElements" ? join.alias : join.table.alias,
-		),
-	]);
+	const projected = rowSourceProjectedKeys(query);
 	return (
-		aliases.has(subject.entityAlias) &&
+		rowSourceAliases(query).has(subject.entityAlias) &&
 		[startAt, caption, art, done].every((key) => key === undefined || projected.has(key))
+	);
+};
+
+const hasValidSignalSchedule = (
+	{ query, dueAt, signal, subject, freshness, occurrence, properties }: PluginSignalSchedule,
+	signalSchemas: ReadonlyArray<PluginSignalSchema>,
+) => {
+	const projected = rowSourceProjectedKeys(query);
+	return (
+		rowSourceAliases(query).has(subject.entityAlias) &&
+		signalSchemas.some(
+			({ slug, audiencePolicy }) => slug === signal && audiencePolicy.kind === "actor",
+		) &&
+		[dueAt, occurrence, freshness?.confirmedAt, ...Object.values(properties)].every(
+			(key) => key === undefined || projected.has(key),
+		)
 	);
 };
 
 const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields.Type) => {
 	const calendarSources = manifest.calendarSources ?? [];
+	const signalSchedules = manifest.signalSchedules ?? [];
 	if (
 		![
 			manifest.entitySchemas,
@@ -1143,10 +1173,12 @@ const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields
 			manifest.signalSchemas,
 			manifest.savedViews,
 			calendarSources,
+			signalSchedules,
 			manifest.operations,
 			manifest.crons,
 		].every(uniqueSlugs) ||
-		!calendarSources.every(hasValidCalendarSource)
+		!calendarSources.every(hasValidCalendarSource) ||
+		!signalSchedules.every((schedule) => hasValidSignalSchedule(schedule, manifest.signalSchemas))
 	) {
 		return false;
 	}

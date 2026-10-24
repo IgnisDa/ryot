@@ -1,8 +1,3 @@
-import type {
-	CalendarSourceDelivery,
-	CalendarSourcePrecision,
-	CalendarSourceQuery,
-} from "@ryot-app/contract/modules/calendar-sources/schemas";
 import type { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
 	dataJsonImportInputSchema,
@@ -20,9 +15,14 @@ import type {
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
+	PluginSignalSchedule,
 	PluginSignalSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	RowSourcePrecision,
+	RowSourceQuery,
+} from "@ryot-app/contract/modules/ryotql/row-source";
 import type {
 	SavedViewRenderer,
 	SavedViewSubject,
@@ -172,10 +172,9 @@ export const definitionCalendarSource = snakeCase.table(
 		caption: text(),
 		icon: text().notNull(),
 		startAt: text().notNull(),
-		delivery: jsonb().$type<CalendarSourceDelivery>(),
+		query: jsonb().$type<RowSourceQuery>().notNull(),
 		subject: jsonb().$type<SavedViewSubject>().notNull(),
-		query: jsonb().$type<CalendarSourceQuery>().notNull(),
-		precision: text().$type<CalendarSourcePrecision>().notNull(),
+		precision: text().$type<RowSourcePrecision>().notNull(),
 		pluginRevisionId: text()
 			.notNull()
 			.references(() => pluginRevision.id, { onDelete: "cascade" }),
@@ -186,6 +185,36 @@ export const definitionCalendarSource = snakeCase.table(
 			table.slug,
 		),
 		index("definition_calendar_source_slug_idx").on(table.slug),
+	],
+);
+
+export const definitionSignalSchedule = snakeCase.table(
+	"definition_signal_schedule",
+	{
+		delayDays: integer(),
+		slug: text().notNull(),
+		dueAt: text().notNull(),
+		signal: text().notNull(),
+		occurrence: text().notNull(),
+		position: integer().notNull(),
+		requiresProKey: boolean().notNull(),
+		query: jsonb().$type<RowSourceQuery>().notNull(),
+		subject: jsonb().$type<SavedViewSubject>().notNull(),
+		precision: text().$type<RowSourcePrecision>().notNull(),
+		properties: jsonb().$type<PluginSignalSchedule["properties"]>().notNull(),
+		freshness: jsonb().$type<NonNullable<PluginSignalSchedule["freshness"]>>(),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		pluginRevisionId: text()
+			.notNull()
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		unique("definition_signal_schedule_revision_slug_unique").on(
+			table.pluginRevisionId,
+			table.slug,
+		),
 	],
 );
 
@@ -439,10 +468,9 @@ const calendarSourceColumns = () => ({
 	caption: text(),
 	icon: text().notNull(),
 	startAt: text().notNull(),
-	delivery: jsonb().$type<CalendarSourceDelivery>(),
+	query: jsonb().$type<RowSourceQuery>().notNull(),
 	subject: jsonb().$type<SavedViewSubject>().notNull(),
-	query: jsonb().$type<CalendarSourceQuery>().notNull(),
-	precision: text().$type<CalendarSourcePrecision>().notNull(),
+	precision: text().$type<RowSourcePrecision>().notNull(),
 });
 
 export const globalEntitySchema = snakeCase
@@ -509,7 +537,7 @@ export const globalCalendarSource = snakeCase
 	})
 	.as(
 		sql`
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, d.delivery
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done
 			from definition_calendar_source d
 			join plugin_revision r on r.id = d.plugin_revision_id
 			join (${globalPluginQuery}) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -642,7 +670,7 @@ export const userCalendarSourceEffective = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, d.delivery, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden
 			from ${userPlugin} p
 			join definition_calendar_source d on d.plugin_revision_id = p.active_revision_id
 			left join ${calendarSourceOverride} o on o.user_id = p.user_id and o.plugin_id = p.plugin_id and o.slug = d.slug

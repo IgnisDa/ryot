@@ -585,7 +585,6 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			art: null,
 			done: null,
 			caption: null,
-			delivery: null,
 			icon: "calendar",
 			precision: "date",
 			startAt: "startAt",

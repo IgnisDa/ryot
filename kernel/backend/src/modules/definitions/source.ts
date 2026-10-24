@@ -1,4 +1,3 @@
-import { mapCalendarSourceQueryReferences } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
 	type AuthoredEntitySchemaBrowse,
 	type EntitySchemaBrowse,
@@ -12,6 +11,7 @@ import {
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { mapRowSourceQueryReferences } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	AuthoredEntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
@@ -21,6 +21,7 @@ import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property
 import { Array as Arr, Result, Schema } from "effect";
 
 import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
+import { materializeSignalSchedule } from "#modules/definitions/signal-schedules";
 
 import type { CalendarSourceDefinition, DefinitionSource, SavedViewDefinition } from "./snapshot";
 
@@ -100,8 +101,7 @@ export const materializeCalendarSource = (
 	done: definition.done ?? null,
 	precision: definition.precision,
 	caption: definition.caption ?? null,
-	delivery: definition.delivery ?? null,
-	query: mapCalendarSourceQueryReferences(definition.query, (reference) =>
+	query: mapRowSourceQueryReferences(definition.query, (reference) =>
 		reference.kind === "self" ? { kind: "local", pluginId: PluginId.make(pluginId) } : reference,
 	),
 	subject: {
@@ -151,6 +151,9 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 	),
 	calendarSources: (manifest.calendarSources ?? []).map((definition) =>
 		materializeCalendarSource(definition, pluginId),
+	),
+	signalSchedules: (manifest.signalSchedules ?? []).map((definition) =>
+		materializeSignalSchedule(definition, pluginId),
 	),
 	providerOperations: manifest.scripts.flatMap((script) =>
 		script.kind === "provider"

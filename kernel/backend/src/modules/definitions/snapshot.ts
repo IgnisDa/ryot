@@ -1,8 +1,3 @@
-import {
-	CalendarSourceDelivery,
-	CalendarSourcePrecision,
-	CalendarSourceQuery,
-} from "@ryot-app/contract/modules/calendar-sources/schemas";
 import { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
 	PluginEventGroup,
@@ -26,6 +21,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { RowSourcePrecision, RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
@@ -37,12 +33,12 @@ import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/sche
 import { Data, Effect, Result, Schema } from "effect";
 
 import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
-import { calendarSourceIssue } from "#modules/definitions/calendar-source-validation";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
+import { calendarSourceIssue } from "#modules/definitions/row-source-validation";
 import {
 	entityBrowserConfiguredFields,
 	filterFieldIssues,
@@ -126,15 +122,14 @@ export const CalendarSourceDefinition = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
+	query: RowSourceQuery,
 	startAt: Schema.String,
 	pluginId: Schema.String,
 	subject: SavedViewSubject,
-	query: CalendarSourceQuery,
+	precision: RowSourcePrecision,
 	art: Schema.NullOr(Schema.String),
 	done: Schema.NullOr(Schema.String),
-	precision: CalendarSourcePrecision,
 	caption: Schema.NullOr(Schema.String),
-	delivery: Schema.NullOr(CalendarSourceDelivery),
 });
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
@@ -327,17 +322,6 @@ const validateDefinitionSource = (
 		const issue = calendarSourceIssue(calendarSource);
 		if (issue) {
 			throw new Error(`Invalid calendar source ${calendarSource.slug}: ${issue}`);
-		}
-		const delivery = calendarSource.delivery;
-		const signal =
-			delivery &&
-			source.signalSchemas.find(
-				({ slug, pluginId }) => pluginId === calendarSource.pluginId && slug === delivery.signal,
-			);
-		if (delivery && signal?.audiencePolicy.kind !== "actor") {
-			throw new Error(
-				`Invalid calendar source ${calendarSource.slug}: delivery signal '${delivery.signal}' must be an actor-audience signal of the same plugin`,
-			);
 		}
 	}
 
