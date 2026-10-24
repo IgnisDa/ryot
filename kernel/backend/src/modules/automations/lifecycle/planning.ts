@@ -17,6 +17,25 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, type Effect, Schema, Struct } from "effect";
 
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+
+export const hasLifecycleSourceChange = (trigger: AutomationTrigger) => {
+	const change = trigger.payload;
+	if (
+		change?.category !== "change" ||
+		change.operation === "batch" ||
+		change.resource === "provider-entity-import"
+	) {
+		return false;
+	}
+	if (change.operation !== "update") {
+		return true;
+	}
+	const { updatedAt: _beforeUpdatedAt, ...before } = change.before;
+	const { updatedAt: _afterUpdatedAt, ...after } = change.after;
+	return stableStringify(before) !== stableStringify(after);
+};
+
 export const lifecycleTriggerId = (input: {
 	itemIdentity: string;
 	discriminator: string;
@@ -61,6 +80,7 @@ export type LifecyclePlan = {
 	readonly wasCreated: boolean;
 	readonly trigger: AutomationTrigger;
 	readonly runs: ReadonlyArray<AutomationRun>;
+	readonly backgroundJobIds: ReadonlyArray<string>;
 	readonly policies: ReadonlyArray<LifecyclePlannedPolicy>;
 };
 
@@ -72,6 +92,7 @@ export type LifecyclePlanningResult =
 			readonly wasCreated: false;
 			readonly runs: readonly [];
 			readonly policies: readonly [];
+			readonly backgroundJobIds: readonly [];
 	  };
 
 export const LifecycleDispatchRun = Schema.Struct(
@@ -89,6 +110,7 @@ export type LifecycleDispatchRun = typeof LifecycleDispatchRun.Type;
 export const LifecycleDispatchPlan = Schema.Struct({
 	triggerId: AutomationTrigger.fields.id,
 	runs: Schema.Array(LifecycleDispatchRun),
+	backgroundJobIds: Schema.Array(Schema.String),
 	blockedReason: AutomationTrigger.fields.blockedReason,
 });
 export type LifecycleDispatchPlan = typeof LifecycleDispatchPlan.Type;
@@ -96,7 +118,9 @@ export type LifecycleDispatchPlan = typeof LifecycleDispatchPlan.Type;
 export const toLifecycleDispatchPlan = ({
 	runs,
 	trigger,
+	backgroundJobIds,
 }: LifecyclePlan): LifecycleDispatchPlan => ({
+	backgroundJobIds,
 	triggerId: trigger.id,
 	blockedReason: trigger.blockedReason,
 	runs: runs.flatMap((run) =>
@@ -129,9 +153,11 @@ export type LifecycleBatchChange = {
 
 export type LifecycleBatchInput = {
 	readonly commandInput?: unknown;
-	readonly command: LifecycleCommand;
 	readonly identity: ReadonlyArray<string>;
 	readonly resource: LifecycleBatchResource;
+	readonly command: LifecycleCommand & {
+		readonly writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
+	};
 };
 
 export class LifecyclePersistenceError extends Schema.TaggedError<
@@ -140,6 +166,20 @@ export class LifecyclePersistenceError extends Schema.TaggedError<
 >()("LifecyclePersistenceError", {
 	code: Schema.Literals(["active-transaction-required", "postcommit-requires-root"]),
 }) {}
+
+export class LifecycleWork extends Context.Service<
+	LifecycleWork,
+	{
+		dispatch: (jobIds: ReadonlyArray<string>) => Effect.Effect<void, DbError>;
+		admit: (
+			trigger: AutomationTrigger,
+			context: {
+				fresh: boolean;
+				writeContext: null | undefined | Pick<ScriptExecutionPrincipal, "subject">;
+			},
+		) => Effect.Effect<ReadonlyArray<string>, DbError>;
+	}
+>()("LifecycleWork") {}
 
 export class LifecyclePlanner extends Context.Service<
 	LifecyclePlanner,
@@ -153,6 +193,7 @@ export class LifecyclePlanner extends Context.Service<
 		plan: (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
+			writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 	}

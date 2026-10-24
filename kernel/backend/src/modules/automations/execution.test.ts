@@ -32,7 +32,7 @@ import {
 	LifecycleExecutionLive,
 	OUTSIDE_WORKFLOW_BACKSTOP,
 } from "./execution";
-import { queuedRunFixture, triggerFixture } from "./lifecycle.test-support";
+import { noLifecycleWorkLayer, queuedRunFixture, triggerFixture } from "./lifecycle.test-support";
 import {
 	behave,
 	executionIdOf,
@@ -101,6 +101,7 @@ const parentLive = Layer.unwrap(
 const executionLayer = Layer.mergeAll(parentLive, runWorkflowLive).pipe(
 	Layer.provideMerge(
 		LifecycleExecutionLive.pipe(
+			Layer.provide(noLifecycleWorkLayer),
 			Layer.provide(
 				Layer.unwrap(
 					Effect.map(RunControl, (control) =>
@@ -400,8 +401,18 @@ layer(executionLayer)((test) => {
 					code: "automation-limit-reached" as const,
 				};
 				const plans: ReadonlyArray<LifecycleDispatchPlan> = [
-					{ blockedReason: null, triggerId: trigger.id, runs: [run("first-failed")] },
-					{ blockedReason, triggerId: trigger.id, runs: [run("second-failed")] },
+					{
+						blockedReason: null,
+						backgroundJobIds: [],
+						triggerId: trigger.id,
+						runs: [run("first-failed")],
+					},
+					{
+						blockedReason,
+						backgroundJobIds: [],
+						triggerId: trigger.id,
+						runs: [run("second-failed")],
+					},
 				];
 				const service = yield* LifecycleExecution;
 				expect(yield* outsideRecheck(yield* outside(service.dispatch(plans)))).toEqual(

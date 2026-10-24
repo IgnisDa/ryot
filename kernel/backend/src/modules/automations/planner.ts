@@ -25,6 +25,7 @@ import {
 	LifecyclePlanner,
 	type LifecyclePlanningResult,
 	lifecycleRunId,
+	LifecycleWork,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
@@ -32,6 +33,10 @@ import {
 	mutationReceiptOwner,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
+import {
+	type ScriptExecutionPrincipal,
+	skipsAfterHooks,
+} from "#modules/scripts/authorization/principal";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -83,6 +88,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const triggers = yield* AutomationTriggerRepository;
 		const runs = yield* AutomationRunRepository;
 		const receipts = yield* MutationReceipts.make;
+		const work = yield* LifecycleWork;
 		const { automations: limits } = yield* AppConfig;
 		const orderedRuns = Effect.fn(function* (values: ReadonlyArray<AutomationRun>) {
 			const ids = [
@@ -137,6 +143,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const replayExisting = Effect.fn("LifecyclePlanner.replayExisting")(function* (
 			trigger: AutomationTrigger,
 			stored: AutomationTrigger,
+			writeContext: null | undefined | Pick<ScriptExecutionPrincipal, "subject">,
 		) {
 			const persistedTrigger = yield* triggers.insert({
 				...trigger,
@@ -146,12 +153,20 @@ export const LifecyclePlannerLive = Layer.effect(
 			if (existing.some((run) => run.id !== lifecycleRunId(run))) {
 				return yield* new DbError({ message: `Automation run identity conflict: ${trigger.id}` });
 			}
-			return { wasCreated: false, trigger: persistedTrigger, ...(yield* orderedRuns(existing)) };
+			return {
+				wasCreated: false,
+				trigger: persistedTrigger,
+				backgroundJobIds: yield* work.admit(trigger, { fresh: false, writeContext }),
+				...(yield* orderedRuns(
+					existing.filter((run) => run.stage === "before" || !skipsAfterHooks(writeContext)),
+				)),
+			};
 		});
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
+			writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
@@ -220,7 +235,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
 			if (stored) {
-				return yield* replayExisting(trigger, stored);
+				return yield* replayExisting(trigger, stored, input.writeContext);
 			}
 			if (signal && recipients.length) {
 				const enabled = yield* session.run((db) =>
@@ -261,6 +276,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat()
 			).filter(
 				({ hook, plugin }) =>
+					(hook.stage === "before" || !skipsAfterHooks(input.writeContext)) &&
 					!(
 						eventRequest &&
 						hook.stage === "before" &&
@@ -314,7 +330,20 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const ordered = yield* orderedRuns(planned);
 			if (ordered.runs.length === 0 && trigger.payload.resource !== "signal") {
-				return { runs: [], policies: [], trigger: null, _tag: "NoHooks", wasCreated: false };
+				const backgroundJobIds = yield* work.admit(trigger, {
+					fresh: true,
+					writeContext: input.writeContext,
+				});
+				return backgroundJobIds.length > 0
+					? { trigger, runs: [], policies: [], backgroundJobIds, wasCreated: false }
+					: {
+							runs: [],
+							policies: [],
+							trigger: null,
+							_tag: "NoHooks",
+							wasCreated: false,
+							backgroundJobIds: [],
+						};
 			}
 			yield* session.run((db) =>
 				db.execute(
@@ -323,7 +352,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const raced = yield* triggers.findById(trigger.id);
 			if (raced) {
-				return yield* replayExisting(trigger, raced);
+				return yield* replayExisting(trigger, raced, input.writeContext);
 			}
 			const [accepted] = yield* session.run((db) =>
 				db
@@ -363,10 +392,21 @@ export const LifecyclePlannerLive = Layer.effect(
 					: null,
 			});
 			yield* triggers.insertRecipients(trigger.id, recipients);
+			const backgroundJobIds = yield* work.admit(trigger, {
+				fresh: true,
+				writeContext: input.writeContext,
+			});
 			if (blocked) {
-				return { runs: [], policies: [], wasCreated: true, trigger: persistedTrigger };
+				return {
+					runs: [],
+					policies: [],
+					backgroundJobIds,
+					wasCreated: true,
+					trigger: persistedTrigger,
+				};
 			}
 			return {
+				backgroundJobIds,
 				wasCreated: true,
 				trigger: persistedTrigger,
 				policies: ordered.policies,
@@ -387,13 +427,15 @@ export const LifecyclePlannerLive = Layer.effect(
 			}
 			const scopes = [...new Set(input.scopes)].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
 			yield* resolver.lockCatalog(scopes);
-			const candidates = (yield* Effect.forEach(scopes, (userId) =>
-				resolver.resolveBatchCandidates({
-					userId,
-					resource: input.resource,
-					source: input.command.causation.source,
-				}),
-			)).flat();
+			const candidates = skipsAfterHooks(input.command.writeContext)
+				? []
+				: (yield* Effect.forEach(scopes, (userId) =>
+						resolver.resolveBatchCandidates({
+							userId,
+							resource: input.resource,
+							source: input.command.causation.source,
+						}),
+					)).flat();
 			const decision = yield* receipts
 				.beginBatch({
 					identity,
@@ -447,7 +489,14 @@ export const LifecyclePlannerLive = Layer.effect(
 			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
 				lifecycleBatchTriggers(input, maxItems, changes),
-				(trigger) => plan({ trigger, pinnedBatchCandidates: candidates }),
+				(trigger) =>
+					plan({
+						trigger,
+						pinnedBatchCandidates: candidates,
+						...(input.command.writeContext === undefined
+							? {}
+							: { writeContext: input.command.writeContext }),
+					}),
 			);
 			const dispatch = planned.flatMap((item) =>
 				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],

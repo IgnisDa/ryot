@@ -13,7 +13,7 @@ import { implementWorkflow } from "#platform/workflow/scope";
 import { makeSqlClusterWorkflowEngine } from "#testing/effect";
 
 import { LifecycleExecutionLive } from "./execution";
-import { triggerFixture } from "./lifecycle.test-support";
+import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import {
 	behave,
 	operationsLive,
@@ -60,7 +60,10 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 					const context = yield* Layer.build(
 						Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
 							Layer.provideMerge(
-								LifecycleExecutionLive.pipe(Layer.provide(Layer.mock(DatabaseSession)({}))),
+								LifecycleExecutionLive.pipe(
+									Layer.provide(noLifecycleWorkLayer),
+									Layer.provide(Layer.mock(DatabaseSession)({})),
+								),
 							),
 							Layer.provideMerge(WorkflowExecutionNotifications.layer),
 							Layer.provideMerge(operationsLive),

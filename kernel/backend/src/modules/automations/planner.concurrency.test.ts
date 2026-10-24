@@ -23,7 +23,7 @@ import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { LifecyclePlannerServiceLive } from "./layer";
-import { triggerFixture } from "./lifecycle.test-support";
+import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 
 const pluginId = "fixture-plugin";
 
@@ -58,6 +58,7 @@ class PlannerSchema extends Context.Service<
 const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 	Layer.provideMerge(
 		LifecyclePlannerServiceLive.pipe(
+			Layer.provide(noLifecycleWorkLayer),
 			Layer.provideMerge(
 				Layer.mergeAll(
 					PluginRepository.layer,

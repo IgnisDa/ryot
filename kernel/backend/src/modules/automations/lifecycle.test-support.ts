@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -14,9 +14,25 @@ import {
 	LifecyclePersistenceError,
 	type LifecyclePlan,
 	type LifecyclePlanner,
+	type LifecyclePlanningResult,
+	LifecycleWork,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import type { DatabaseSession } from "#platform/db/session";
+
+export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
+	dispatch: () => Effect.void,
+	admit: () => Effect.succeed([]),
+});
+
+export const noHooksFixture = (): Extract<LifecyclePlanningResult, { _tag: "NoHooks" }> => ({
+	runs: [],
+	policies: [],
+	trigger: null,
+	_tag: "NoHooks",
+	wasCreated: false,
+	backgroundJobIds: [],
+});
 
 export const withLifecycleBatchPlanning = (
 	planner: Pick<LifecyclePlanner["Service"], "plan">,
@@ -125,6 +141,7 @@ export const planFixture = (id: string): LifecyclePlan => ({
 	runs: [],
 	policies: [],
 	wasCreated: true,
+	backgroundJobIds: [],
 	trigger: triggerFixture(id),
 });
 

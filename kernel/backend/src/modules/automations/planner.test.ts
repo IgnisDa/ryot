@@ -42,7 +42,7 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { AutomationRunWorkflowOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
-import { triggerFixture } from "./lifecycle.test-support";
+import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
@@ -57,6 +57,7 @@ const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
 const plannerLayer = (maxRuns = 100, batchMaxItems = 200) =>
 	LifecyclePlannerServiceLive.pipe(
+		Layer.provide(noLifecycleWorkLayer),
 		Layer.provide(
 			makeAppConfigLayer({
 				automations: { maxRuns, maxDepth: 2, batchMaxItems, retryWindowDays: 7 },
@@ -711,6 +712,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 	});
 	layer(
 		LifecyclePlannerLive.pipe(
+			Layer.provide(noLifecycleWorkLayer),
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.succeed(AutomationPlannerResolver, {
@@ -739,6 +741,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					trigger: null,
 					_tag: "NoHooks",
 					wasCreated: false,
+					backgroundJobIds: [],
 				});
 				const session = yield* DatabaseSession;
 				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
@@ -769,6 +772,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					trigger: null,
 					_tag: "NoHooks",
 					wasCreated: false,
+					backgroundJobIds: [],
 				});
 				const [stored] = yield* session.run((db) =>
 					db
@@ -1039,6 +1043,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								trigger: null,
 								_tag: "NoHooks",
 								wasCreated: false,
+								backgroundJobIds: [],
 							});
 						}
 					}
@@ -1227,7 +1232,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						yield* planner.plan({
 							trigger: { ...filtered, causation: { ...filtered.causation, source: "bootstrap" } },
 						}),
-					).toEqual({ runs: [], policies: [], trigger: null, _tag: "NoHooks", wasCreated: false });
+					).toEqual({
+						runs: [],
+						policies: [],
+						trigger: null,
+						_tag: "NoHooks",
+						wasCreated: false,
+						backgroundJobIds: [],
+					});
 					expect(
 						yield* session.run((db) =>
 							db

@@ -34,7 +34,11 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { LifecyclePlannerServiceLive } from "./layer";
-import { withLifecycleBatchPlanning, withLifecycleDispatch } from "./lifecycle.test-support";
+import {
+	noLifecycleWorkLayer,
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "./lifecycle.test-support";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -173,7 +177,10 @@ const dependencies = Layer.mergeAll(
 	RelationshipsRepository.layer,
 	AutomationTriggerRepository.layer,
 );
-const plannerLayer = LifecyclePlannerServiceLive.pipe(Layer.provide(makeAppConfigLayer()));
+const plannerLayer = LifecyclePlannerServiceLive.pipe(
+	Layer.provide(noLifecycleWorkLayer),
+	Layer.provide(makeAppConfigLayer()),
+);
 class StartedTriggers extends Context.Service<
 	StartedTriggers,
 	Effect.Effect<ReadonlyArray<string>>

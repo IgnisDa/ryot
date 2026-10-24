@@ -10,7 +10,7 @@ import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
-import { LifecyclePersistenceError } from "#modules/automations/lifecycle/planning";
+import { LifecyclePersistenceError, LifecycleWork } from "#modules/automations/lifecycle/planning";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
@@ -169,6 +169,7 @@ export const LifecycleExecutionLive = Layer.effect(
 		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
 		const notifications = yield* WorkflowExecutionNotifications;
+		const work = yield* LifecycleWork;
 		const inWorkflow = <A, E>(
 			instance: WorkflowInstance["Service"],
 			effect: Effect.Effect<A, E, WorkflowEngine | WorkflowInstance>,
@@ -358,6 +359,8 @@ export const LifecycleExecutionLive = Layer.effect(
 							() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
 						),
 					);
+					yield* requireWorkflowBody("dispatch");
+					yield* work.dispatch([...new Set(plans.flatMap((plan) => plan.backgroundJobIds))]);
 					const warnings: AutomationWarning[] = [];
 					for (const plan of plans) {
 						if (plan.blockedReason?.hasRequiredHooks) {
