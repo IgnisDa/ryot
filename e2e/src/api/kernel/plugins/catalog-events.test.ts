@@ -24,17 +24,15 @@ import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-plugin-catalog-events-test";
 const API_LABEL = "Plugin Catalog Events API";
 
 let apiPort: number;
-let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+const resources = makeTestResourceScope();
 
 const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 const adminSession = () => makeSession(apiUrl());
@@ -50,48 +48,35 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			const [infrastructure, port] = yield* Effect.all(
-				[
-					startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-					Effect.promise(() => getPort()),
-				],
-				{ concurrency: "unbounded" },
-			);
-			apiPort = port;
-			coreInfrastructure = infrastructure;
-			const apiOrigin = `http://127.0.0.1:${apiPort}`;
-			apiProcess = spawnApiProcess(
-				buildApiEnv({
-					port: apiPort,
-					label: API_LABEL,
-					frontendUrl: apiOrigin,
-					dbUrl: infrastructure.dbUrl,
-					s3BucketName: S3_BUCKET_NAME,
-					redisUrl: infrastructure.redisUrl,
-					s3Endpoint: infrastructure.s3Endpoint,
-				}),
-			);
-			yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
-		}).pipe(
-			Effect.onError(() =>
-				Effect.gen(function* () {
-					yield* stopApiProcess(apiProcess);
-					yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
-				}),
-			),
+		resources.run(
+			Effect.gen(function* () {
+				const [infrastructure, port] = yield* Effect.all(
+					[
+						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				apiPort = port;
+				const apiOrigin = `http://127.0.0.1:${apiPort}`;
+				const apiProcess = yield* spawnApiProcess(
+					buildApiEnv({
+						port: apiPort,
+						label: API_LABEL,
+						frontendUrl: apiOrigin,
+						dbUrl: infrastructure.dbUrl,
+						s3BucketName: S3_BUCKET_NAME,
+						redisUrl: infrastructure.redisUrl,
+						s3Endpoint: infrastructure.s3Endpoint,
+					}),
+				);
+				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
+			}),
 		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* stopApiProcess(apiProcess);
-			yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 describe("plugin catalog events", () => {
 	it.live("streams isolated private changes, reconnect state, and global reconciliation", () =>

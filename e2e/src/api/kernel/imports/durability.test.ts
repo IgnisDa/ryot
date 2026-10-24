@@ -23,7 +23,6 @@ import {
 	spawnApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
 
@@ -204,10 +203,7 @@ const waitForRunningImport = (client: Client, runId: string) =>
 describe("isolated import durability", () => {
 	it.live("pins configuration and preserves cancellation across API restarts", () =>
 		Effect.gen(function* () {
-			const infrastructure = yield* Effect.acquireRelease(
-				startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-				stopCoreTestInfrastructure,
-			);
+			const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 			const port = yield* Effect.promise(() => getPort());
 			const origin = `http://127.0.0.1:${port}`;
 			const baseUrl = `${origin}/api`;
@@ -234,16 +230,11 @@ describe("isolated import durability", () => {
 					extraEnv: { [configEnvironmentKey]: configValue },
 				});
 			const startApi = (label: string, configValue: string) =>
-				Effect.acquireRelease(
-					Effect.gen(function* () {
-						const process = spawnApiProcess(apiEnv(label, configValue));
-						yield* waitForHealthCheck(`${baseUrl}/system/health`, label, process, 90).pipe(
-							Effect.onError(() => stopApiProcess(process)),
-						);
-						return process;
-					}),
-					stopApiProcess,
-				);
+				Effect.gen(function* () {
+					const process = yield* spawnApiProcess(apiEnv(label, configValue));
+					yield* waitForHealthCheck(`${baseUrl}/system/health`, label, process, 90);
+					return process;
+				});
 
 			const processA = yield* startApi("Import Durability API A", OLD_CONFIG_VALUE);
 			const pluginManifest = testPluginManifest({

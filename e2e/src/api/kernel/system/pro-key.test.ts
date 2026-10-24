@@ -4,15 +4,14 @@ import getPort from "get-port";
 import { makeSession } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
+import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-pro-key-test";
 const VALID_KEY_ENV_VALUE = "e2e-pro-key";
@@ -78,12 +77,11 @@ const scenarioNames: ScenarioName[] = [
 
 type ScenarioInstance = {
 	apiUrl: string;
-	fake?: FakeHttpServer;
-	process: ReturnType<typeof spawnApiProcess>;
+	fake?: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
 };
 
 const scenarios = new Map<ScenarioName, ScenarioInstance>();
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+const resources = makeTestResourceScope();
 
 function requireScenario(name: ScenarioName) {
 	return requirePresent(scenarios.get(name), `Pro key scenario '${name}' is not initialised`);
@@ -95,68 +93,47 @@ function requireFake(instance: ScenarioInstance) {
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-			const infrastructure = requirePresent(
-				coreInfrastructure,
-				"Pro key test infrastructure is not initialised",
-			);
+		resources.run(
+			Effect.gen(function* () {
+				const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 
-			// Spawned sequentially, not via Promise.all: each api boot (migrations, plugin catalog,
-			// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
-			// CPU and stall past any reasonable health-check budget. Each instance is registered in
-			// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
-			// partway through still leaves every already-started process reachable for `afterAll` cleanup.
-			for (const name of scenarioNames) {
-				const config = scenarioConfigs[name];
-				const port = yield* Effect.promise(() => getPort());
-				const fake = config.unreachable ? undefined : yield* startFakeHttpServer(config.respond);
-				const verificationUrl = config.unreachable
-					? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
-					: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
-				const apiOrigin = `http://127.0.0.1:${port}`;
-				const process = spawnApiProcess(
-					buildApiEnv({
-						port,
-						frontendUrl: apiOrigin,
-						label: `Pro key ${name}`,
-						dbUrl: infrastructure.dbUrl,
-						s3BucketName: S3_BUCKET_NAME,
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-						extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
-					}),
-				);
-				scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
-				yield* waitForHealthCheck(
-					`${apiOrigin}/api/system/health`,
-					`Pro key ${name} setup`,
-					process,
-					90,
-				);
-			}
-		}),
+				// Sequential boots avoid CPU starvation during migrations and plugin catalog startup.
+				for (const name of scenarioNames) {
+					const config = scenarioConfigs[name];
+					const port = yield* Effect.promise(() => getPort());
+					const fake = config.unreachable
+						? undefined
+						: yield* startFakeHttpServerScoped(config.respond);
+					const verificationUrl = config.unreachable
+						? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
+						: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
+					const apiOrigin = `http://127.0.0.1:${port}`;
+					const process = yield* spawnApiProcess(
+						buildApiEnv({
+							port,
+							frontendUrl: apiOrigin,
+							label: `Pro key ${name}`,
+							dbUrl: infrastructure.dbUrl,
+							s3BucketName: S3_BUCKET_NAME,
+							redisUrl: infrastructure.redisUrl,
+							s3Endpoint: infrastructure.s3Endpoint,
+							extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
+						}),
+					);
+					scenarios.set(name, { fake, apiUrl: `${apiOrigin}/api` });
+					yield* waitForHealthCheck(
+						`${apiOrigin}/api/system/health`,
+						`Pro key ${name} setup`,
+						process,
+						90,
+					);
+				}
+			}),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* Effect.forEach(scenarios.values(), (instance) => stopApiProcess(instance.process), {
-				concurrency: "unbounded",
-			});
-			yield* Effect.forEach(
-				scenarios.values(),
-				(instance) => {
-					const fake = instance.fake;
-					return fake ? Effect.promise(() => fake.stop()) : Effect.void;
-				},
-				{ concurrency: "unbounded" },
-			);
-			yield* stopCoreTestInfrastructure(coreInfrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 describe("GET /system/config without SERVER_PRO_KEY", () => {
 	it.live("reports isServerKeyValidated: false and makes no Unkey request", () =>

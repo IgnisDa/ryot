@@ -19,7 +19,6 @@ import {
 	oidcSignIn,
 	performOidcSignIn,
 	startMockOidcServer,
-	stopMockOidcServer,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -28,9 +27,9 @@ import {
 	spawnApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 
 const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
@@ -59,11 +58,12 @@ const listPluginCount = (apiUrl: string, token: string) =>
 let apiPortA: number;
 let apiPortB: number;
 let apiPortC: number;
-let apiProcessA: ReturnType<typeof spawnApiProcess> | undefined;
-let apiProcessB: ReturnType<typeof spawnApiProcess> | undefined;
-let apiProcessC: ReturnType<typeof spawnApiProcess> | undefined;
+let apiProcessA: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+let apiProcessB: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+let apiProcessC: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
 let mockOidcServer: MockOidcServer | undefined;
 let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+const resources = makeTestResourceScope();
 
 function requireMockOidcServer() {
 	return requirePresent(mockOidcServer, "Mock OIDC server is not initialised");
@@ -107,39 +107,29 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 	);
 };
 
-const waitForApi = (port: number, process: ReturnType<typeof spawnApiProcess>) =>
+const waitForApi = (port: number, process: Effect.Success<ReturnType<typeof spawnApiProcess>>) =>
 	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", process, 90);
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-			mockOidcServer = yield* startMockOidcServer;
-			[apiPortA, apiPortB, apiPortC] = yield* Effect.all(
-				[attempt(() => getPort()), attempt(() => getPort()), attempt(() => getPort())],
-				{ concurrency: "unbounded" },
-			);
-			apiProcessA = startApi("A", apiPortA, { FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL });
-			yield* waitForApi(apiPortA, apiProcessA);
-		}),
-	),
-);
-
-afterAll(() =>
-	runPromise(
-		Effect.all(
-			[stopApiProcess(apiProcessA), stopApiProcess(apiProcessB), stopApiProcess(apiProcessC)],
-			{ discard: true, concurrency: "unbounded" },
-		).pipe(
-			Effect.andThen(
-				Effect.all(
-					[stopCoreTestInfrastructure(coreInfrastructure), stopMockOidcServer(mockOidcServer)],
-					{ discard: true, concurrency: "unbounded" },
-				),
-			),
+		resources.run(
+			Effect.gen(function* () {
+				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+				mockOidcServer = yield* startMockOidcServer;
+				[apiPortA, apiPortB, apiPortC] = yield* Effect.all(
+					[attempt(() => getPort()), attempt(() => getPort()), attempt(() => getPort())],
+					{ concurrency: "unbounded" },
+				);
+				apiProcessA = yield* startApi("A", apiPortA, {
+					FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
+				});
+				yield* waitForApi(apiPortA, apiProcessA);
+			}),
 		),
 	),
 );
+
+afterAll(() => runPromise(resources.close));
 
 describe("GET /system/config with OIDC enabled (API A)", () => {
 	it.live("returns oidcEnabled: true", () =>
@@ -162,12 +152,14 @@ describe("GET /system/config with OIDC enabled (API A)", () => {
 describe("Local auth disabled (API B)", () => {
 	beforeAll(() =>
 		runPromise(
-			stopApiProcess(apiProcessA).pipe(
-				Effect.andThen(
-					Effect.suspend(() => {
-						apiProcessB = startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
-						return waitForApi(apiPortB, apiProcessB);
-					}),
+			resources.run(
+				stopApiProcess(apiProcessA).pipe(
+					Effect.andThen(
+						Effect.gen(function* () {
+							apiProcessB = yield* startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
+							yield* waitForApi(apiPortB, apiProcessB);
+						}),
+					),
 				),
 			),
 		),
@@ -259,14 +251,16 @@ describe("Local auth disabled (API B)", () => {
 
 	afterAll(() =>
 		runPromise(
-			stopApiProcess(apiProcessB).pipe(
-				Effect.andThen(
-					Effect.suspend(() => {
-						apiProcessA = startApi("A", apiPortA, {
-							FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
-						});
-						return waitForApi(apiPortA, apiProcessA);
-					}),
+			resources.run(
+				stopApiProcess(apiProcessB).pipe(
+					Effect.andThen(
+						Effect.gen(function* () {
+							apiProcessA = yield* startApi("A", apiPortA, {
+								FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
+							});
+							yield* waitForApi(apiPortA, apiProcessA);
+						}),
+					),
 				),
 			),
 		),
@@ -373,13 +367,15 @@ describe("OIDC idempotency (API A)", () => {
 describe("Registration gating for OIDC (API C)", () => {
 	beforeAll(() =>
 		runPromise(
-			oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
-				Effect.andThen(stopApiProcess(apiProcessA)),
-				Effect.andThen(
-					Effect.suspend(() => {
-						apiProcessC = startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
-						return waitForApi(apiPortC, apiProcessC);
-					}),
+			resources.run(
+				oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
+					Effect.andThen(stopApiProcess(apiProcessA)),
+					Effect.andThen(
+						Effect.gen(function* () {
+							apiProcessC = yield* startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
+							yield* waitForApi(apiPortC, apiProcessC);
+						}),
+					),
 				),
 			),
 		),

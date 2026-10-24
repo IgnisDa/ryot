@@ -18,15 +18,14 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
+import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-pro-gated-providers-test";
 const PRO_KEY_ENV_VALUE = "e2e-pro-gated-key";
@@ -53,137 +52,108 @@ let keyedApiUrl: string;
 let lapsedApiUrl: string;
 let keylessApiUrl: string;
 
-let keyedProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let lapsedProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let keylessProcess: ReturnType<typeof spawnApiProcess> | undefined;
-
-let validUnkey: FakeHttpServer | undefined;
-let invalidUnkey: FakeHttpServer | undefined;
-
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+const resources = makeTestResourceScope();
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-			const infrastructure = requirePresent(
-				coreInfrastructure,
-				"Pro-gated providers test infrastructure is not initialised",
-			);
+		resources.run(
+			Effect.gen(function* () {
+				const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 
-			[validUnkey, invalidUnkey] = yield* Effect.all(
-				[
-					startFakeHttpServer(() =>
-						unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
-					),
-					startFakeHttpServer(() => unkeyEnvelope({ valid: false, code: "NOT_FOUND" })),
-				],
-				{ concurrency: "unbounded" },
-			);
-
-			const [keyedPort, keylessPort, lapsedPort] = yield* Effect.all(
-				[
-					Effect.promise(() => getPort()),
-					Effect.promise(() => getPort()),
-					Effect.promise(() => getPort()),
-				],
-				{ concurrency: "unbounded" },
-			);
-			keyedApiUrl = `http://127.0.0.1:${keyedPort}/api`;
-			keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
-			lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
-
-			// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
-			// are provisioned from it, as they are for replicas of a single deployment.
-			const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
-			const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
-				spawnApiProcess(
-					buildApiEnv({
-						port,
-						extraEnv,
-						label: `Pro-gated ${label}`,
-						dbUrl: infrastructure.dbUrl,
-						s3BucketName: S3_BUCKET_NAME,
-						frontendUrl: sharedFrontendUrl,
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-					}),
+				const [validUnkey, invalidUnkey] = yield* Effect.all(
+					[
+						startFakeHttpServerScoped(() =>
+							unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
+						),
+						startFakeHttpServerScoped(() => unkeyEnvelope({ valid: false, code: "NOT_FOUND" })),
+					],
+					{ concurrency: "unbounded" },
 				);
 
-			// The keyed api boots first: the plugin catalog is a per-process, boot-time snapshot, so the
-			// provider must be installed against a running API before the other API processes start and read
-			// it from the shared database at their own boot.
-			keyedProcess = startApi("keyed", keyedPort, {
-				SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-				SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing").url,
-			});
-			yield* waitForHealthCheck(
-				`${keyedApiUrl}/system/health`,
-				"Pro-gated keyed setup",
-				keyedProcess,
-				90,
-			);
+				const [keyedPort, keylessPort, lapsedPort] = yield* Effect.all(
+					[
+						Effect.promise(() => getPort()),
+						Effect.promise(() => getPort()),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				keyedApiUrl = `http://127.0.0.1:${keyedPort}/api`;
+				keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
+				lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
 
-			const { plugin, providerSlug: slug } = yield* installTestIntegrationProvider(settingsSchema, {
-				requiresProKey: true,
-				baseUrl: keyedApiUrl,
-			});
-			const { client } = yield* createAuthenticatedClient(keyedApiUrl);
-			providerReference = { slug, owner: { kind: "plugin", pluginId: plugin.pluginId } };
-			const integration = yield* createIntegration(client, {
-				providerSpecifics,
-				provider: providerReference,
-			});
-			providerSlug = slug;
-			keyedClient = client;
-			existingIntegration = integration;
+				// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
+				// are provisioned from it, as they are for replicas of a single deployment.
+				const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
+				const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
+					spawnApiProcess(
+						buildApiEnv({
+							port,
+							extraEnv,
+							label: `Pro-gated ${label}`,
+							dbUrl: infrastructure.dbUrl,
+							s3BucketName: S3_BUCKET_NAME,
+							frontendUrl: sharedFrontendUrl,
+							redisUrl: infrastructure.redisUrl,
+							s3Endpoint: infrastructure.s3Endpoint,
+						}),
+					);
 
-			keylessProcess = startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
-			lapsedProcess = startApi("lapsed", lapsedPort, {
-				SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-				SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(invalidUnkey, "Invalid fake Unkey missing")
-					.url,
-			});
-			yield* waitForHealthCheck(
-				`${keylessApiUrl}/system/health`,
-				"Pro-gated keyless setup",
-				keylessProcess,
-				90,
-			);
-			yield* waitForHealthCheck(
-				`${lapsedApiUrl}/system/health`,
-				"Pro-gated lapsed setup",
-				lapsedProcess,
-				90,
-			);
-		}),
+				// The keyed api boots first: the plugin catalog is a per-process, boot-time snapshot, so the
+				// provider must be installed against a running API before the other API processes start and read
+				// it from the shared database at their own boot.
+				const keyedProcess = yield* startApi("keyed", keyedPort, {
+					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
+					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing")
+						.url,
+				});
+				yield* waitForHealthCheck(
+					`${keyedApiUrl}/system/health`,
+					"Pro-gated keyed setup",
+					keyedProcess,
+					90,
+				);
+
+				const { plugin, providerSlug: slug } = yield* installTestIntegrationProvider(
+					settingsSchema,
+					{ requiresProKey: true, baseUrl: keyedApiUrl },
+				);
+				const { client } = yield* createAuthenticatedClient(keyedApiUrl);
+				providerReference = { slug, owner: { kind: "plugin", pluginId: plugin.pluginId } };
+				const integration = yield* createIntegration(client, {
+					providerSpecifics,
+					provider: providerReference,
+				});
+				providerSlug = slug;
+				keyedClient = client;
+				existingIntegration = integration;
+
+				const keylessProcess = yield* startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
+				const lapsedProcess = yield* startApi("lapsed", lapsedPort, {
+					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
+					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(
+						invalidUnkey,
+						"Invalid fake Unkey missing",
+					).url,
+				});
+				yield* waitForHealthCheck(
+					`${keylessApiUrl}/system/health`,
+					"Pro-gated keyless setup",
+					keylessProcess,
+					90,
+				);
+				yield* waitForHealthCheck(
+					`${lapsedApiUrl}/system/health`,
+					"Pro-gated lapsed setup",
+					lapsedProcess,
+					90,
+				);
+			}),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* Effect.all(
-				[
-					stopApiProcess(keyedProcess),
-					stopApiProcess(keylessProcess),
-					stopApiProcess(lapsedProcess),
-				],
-				{ concurrency: "unbounded" },
-			);
-			const valid = validUnkey;
-			const invalid = invalidUnkey;
-			yield* Effect.all(
-				[
-					valid ? Effect.promise(() => valid.stop()) : Effect.void,
-					invalid ? Effect.promise(() => invalid.stop()) : Effect.void,
-				],
-				{ concurrency: "unbounded" },
-			);
-			yield* stopCoreTestInfrastructure(coreInfrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 describe("Without a valid Pro Key", () => {
 	it.live("lists the pro-gated provider as not creatable", () =>

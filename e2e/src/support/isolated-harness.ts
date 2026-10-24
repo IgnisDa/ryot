@@ -1,4 +1,4 @@
-import { Effect, Exit, Scope } from "effect";
+import { Effect } from "effect";
 import getPort from "get-port";
 
 import { requirePresent } from "./assertions";
@@ -7,10 +7,9 @@ import {
 	harnessApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "./provisioning";
+import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
 
 const harnessTargetKeys = [
 	"E2E_API_URL",
@@ -66,12 +65,7 @@ export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(functi
 }) {
 	const bucketName = `ryot-${input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 	const [infrastructure, port] = yield* Effect.all(
-		[
-			Effect.acquireRelease(startCoreTestInfrastructure({ bucketName }), (started) =>
-				stopCoreTestInfrastructure(started).pipe(Effect.ignore),
-			),
-			Effect.promise(() => getPort()),
-		],
+		[startCoreTestInfrastructure({ bucketName }), Effect.promise(() => getPort())],
 		{ concurrency: "unbounded" },
 	);
 	const origin = `http://127.0.0.1:${port}`;
@@ -85,26 +79,30 @@ export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(functi
 		s3Endpoint: infrastructure.s3Endpoint,
 		extraEnv: { ...harnessApiEnv, ...input.extraEnv },
 	});
-	const apiProcess = yield* Effect.acquireRelease(
-		Effect.sync(() => spawnApiProcess(env)),
-		stopApiProcess,
-	);
+	const apiProcess = yield* spawnApiProcess(env);
 	yield* waitForHealthCheck(`${origin}/api/system/health`, input.label, apiProcess, 90);
 	return { env, origin, pid: apiProcess.pid, apiUrl: `${origin}/api` };
-});
+}, acquireInChildScope);
 
 export const startIsolatedHarness = (label: string) =>
 	Effect.gen(function* () {
-		const scope = Scope.makeUnsafe();
-		const server = yield* startIsolatedApiServer({ label }).pipe(
-			Effect.provideService(Scope.Scope, scope),
-			Effect.onError(() => Scope.close(scope, Exit.void)),
+		const resources = makeTestResourceScope();
+		return yield* resources.run(
+			Effect.gen(function* () {
+				const server = yield* startIsolatedApiServer({ label });
+				yield* Effect.acquireRelease(
+					retargetHarness({
+						serverPid: server.pid,
+						origin: server.origin,
+						serverLogFile: server.env.SERVER_LOG_FILE,
+						adminAccessToken: requirePresent(
+							server.env.SERVER_ADMIN_ACCESS_TOKEN,
+							"Admin token missing",
+						),
+					}),
+					(restore) => restore,
+				).pipe(Effect.asVoid);
+				return { stop: resources.close };
+			}),
 		);
-		const restoreTarget = yield* retargetHarness({
-			serverPid: server.pid,
-			origin: server.origin,
-			serverLogFile: server.env.SERVER_LOG_FILE,
-			adminAccessToken: requirePresent(server.env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
-		});
-		return { stop: restoreTarget.pipe(Effect.andThen(Scope.close(scope, Exit.void))) };
 	});
