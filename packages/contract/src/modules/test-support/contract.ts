@@ -71,6 +71,15 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		),
 	)
 	.add(
+		HttpApiEndpoint.post("runCalendarDeliveryScan", "/test-support/calendar-deliveries/scan", {
+			success: Schema.Void,
+			error: testSupportErrors,
+		}).annotate(
+			OpenApi.Description,
+			"Runs the production calendar delivery and notification recovery owners",
+		),
+	)
+	.add(
 		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue", {
 			error: testSupportErrors,
 			payload: TestSupportEnqueueSandboxBody,

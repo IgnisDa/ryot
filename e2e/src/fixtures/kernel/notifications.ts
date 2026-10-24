@@ -54,3 +54,6 @@ const respondToApprise = (url: URL) =>
 export const startFakeAppriseServer = startFakeHttpServer(respondToApprise);
 
 export const startFakeAppriseServerScoped = startFakeHttpServerScoped(respondToApprise);
+
+export const runCalendarDeliveryScan = (client: Client) =>
+	client.adminCall((c) => c.testSupport.runCalendarDeliveryScan());
