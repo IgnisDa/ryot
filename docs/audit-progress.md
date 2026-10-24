@@ -15,7 +15,7 @@
 
 ## Status
 
-**43 implemented, 0 in progress, 40 pending; 3 excluded.**
+**44 implemented, 0 in progress, 39 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -79,7 +79,7 @@
 | P09-R1 | Pending | Validate archives without a compress/decompress round trip. |
 | M03-R1 | Implemented | Plex integration uses explicit current-item continuation. See this finding's audit commit. |
 | M04-R1 | Implemented | Reuse existing sorted media runs for collection workflows and retain the checkpointed 64-item window. See this finding's audit commit. |
-| M02-R1 | Pending | Remove the synthetic ZIP round trip for decoded Trakt records. |
+| M02-R1 | Implemented | Process already-decoded Trakt records directly without a synthetic ZIP round trip. See this finding's audit commit. |
 | F02-R1 | Pending | Normalize the already-selected workout group once. |
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Pending | One event-ID migration scan. |
@@ -208,3 +208,4 @@
 - C07-R2: client type, format, and lint checks passed before 65 tests across three files; read-only review passed. Departure interrupts local waiting and suppresses late callbacks/refresh, without promising server rollback.
 - M03-R1: media check passed before 39 tests across six files; read-only review passed.
 - M04-R1: scoped checks passed before 20 tests across seven files; read-only review passed. Existing sorted media runs are reused with the checkpointed 64-item window.
+- M02-R1: media type, format, and lint checks passed before 28 tests across six files; read-only review passed. Decoded Trakt records are processed directly without a synthetic ZIP round trip.

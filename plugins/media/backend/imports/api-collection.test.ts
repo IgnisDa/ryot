@@ -1,8 +1,8 @@
 import { afterEach, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
-import { collectTraktApi } from "./api-collection";
+import { collectTraktApi, MediaApiState, recoverMediaApiTask } from "./api-collection";
 import { collectAudiobookshelf } from "./audiobookshelf-collection";
 import type { MediaSourceRecord } from "./collection-schemas";
 import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
@@ -117,4 +117,176 @@ it.live(
 				true,
 			);
 		}),
+);
+
+it.live(
+	"normalizes API task contexts without ZIP semantics and retains skips, attribution, and replay",
+	() =>
+		Effect.gen(function* () {
+			const movie = { title: "Movie", ids: { tmdb: 1, imdb: "tt1" } };
+			const show = { title: "Show", ids: { tmdb: 2 } };
+			const date = "2025-12-01T00:00:00Z";
+			const host = stubHttpHost(({ url }) => {
+				const path = new URL(url).pathname;
+				if (path.endsWith("/history")) {
+					return {
+						body: [
+							{ show, watched_at: date, episode: { ids: {}, season: 1, number: 2 } },
+							{ watched_at: date, movie: { title: "Missing", ids: { trakt: 99 } } },
+						],
+					};
+				}
+				if (path.endsWith("/ratings/movies")) {
+					return { body: [{ movie, rating: 8, rated_at: date }] };
+				}
+				if (path.endsWith("/ratings/shows")) {
+					return { body: [{ show, rating: 9, rated_at: date }] };
+				}
+				if (path.endsWith("/watchlist")) {
+					return { body: [{ movie, listed_at: date }, { movie }] };
+				}
+				if (path.endsWith("/lists")) {
+					return {
+						body: [
+							{ name: "Watchlist", ids: { trakt: 1 } },
+							{ name: "Custom", ids: { trakt: 7 } },
+						],
+					};
+				}
+				if (path.endsWith("/lists/7/items")) {
+					return {
+						body: [{ person: {}, type: "person" }, { type: "movie" }, { show, type: "show" }],
+					};
+				}
+				if (path.endsWith("/collection/movies")) {
+					return { body: [{ movie }] };
+				}
+				return { body: [{ show }] };
+			});
+			const fs = mediaFilesystem({});
+			let input = mediaStageInput({ settings: { mode: "user", username: "alice" } });
+			const records: MediaSourceRecord[] = [];
+			for (let step = 0; ; step++) {
+				const result = yield* collectTraktApi(input, "client", host);
+				const batch = yield* fs.records();
+				const state = fs.scratch.get("state.json")?.slice();
+				const replay = yield* collectTraktApi(input, "client", host);
+				expect(replay.itemIndex).toBe(result.itemIndex);
+				expect(yield* fs.records()).toEqual(batch);
+				expect(fs.scratch.get("state.json")).toEqual(state);
+				records.push(...batch);
+				if (result.done) {
+					expect(result.itemIndex).toBe(11);
+					break;
+				}
+				fs.files.set("carry", state ?? new Uint8Array());
+				Object.assign(input, {
+					itemIndex: result.itemIndex,
+					ingestionArtifacts: { runId: "run", captures: { carry: "carry" } },
+				});
+				expect(step).toBeLessThan(10);
+			}
+			expect(
+				records.map((record) => ("operationId" in record ? record.operationId : undefined)),
+			).toEqual([
+				'["media-event",0,0]',
+				'["media-source",1,0,0]',
+				'["media-event",2,0]',
+				'["media-event",3,0]',
+				'["media-event",4,0]',
+				'["media-event",5,0]',
+				'["media-membership",6,"Owned"]',
+				'["media-membership",7,"Owned"]',
+				'["media-membership",10,"Custom"]',
+			]);
+			expect(records[1]?.failure).toEqual({
+				itemIndex: 1,
+				sourceIdentifier: "99",
+				sourceLabel: "Missing",
+				operationId: '["media-source",1,0,0]',
+				message: "Movie does not have a TMDB or IMDb id",
+			});
+			expect(records[0]?.group?.events[0]?.unresolvedEpisode).toEqual({
+				type: "show",
+				seasonNumber: 1,
+				episodeNumber: 2,
+			});
+			expect(records.slice(2, 4).map((record) => record.group?.events[0]?.properties)).toEqual([
+				{ rating: 80 },
+				{ rating: 90 },
+			]);
+			expect(records.slice(4, 6).map((record) => record.group)).toEqual(
+				[date, input.importedAt].map((occurredAt, index) => ({
+					itemIndex: index + 4,
+					collectionMemberships: [],
+					entityRef: {
+						externalId: "1",
+						kind: "resolved",
+						sourceLabel: "Movie",
+						entitySchemaSlug: "movie",
+						providerSlug: "movie.tmdb",
+					},
+					events: [
+						{
+							occurredAt,
+							properties: {},
+							eventSchemaSlug: "backlog",
+							sourceItemIndex: index + 4,
+							operationId: `["media-event",${index + 4},0]`,
+							attribution: {
+								sourceLabel: "Movie",
+								sourceIdentifier: "1",
+								recordId: `["media-source",${index + 4}]`,
+							},
+						},
+					],
+				})),
+			);
+		}),
+);
+
+it.live("attributes a failed API task to its original source and advances one source record", () =>
+	Effect.gen(function* () {
+		const fs = mediaFilesystem({
+			carry: new TextEncoder().encode(
+				yield* Schema.encodeEffect(Schema.fromJsonString(MediaApiState))({
+					credentials: {},
+					tasks: [
+						{
+							page: 2,
+							context: {},
+							kind: "rating",
+							name: "ratings-movies.json",
+							path: "/users/alice/ratings/movies",
+						},
+						{
+							page: 1,
+							context: {},
+							kind: "collection",
+							name: "collection-movies.json",
+							path: "/users/alice/collection/movies",
+						},
+					],
+				}),
+			),
+		});
+		const result = yield* recoverMediaApiTask(
+			mediaStageInput({
+				itemIndex: 42,
+				ingestionArtifacts: { runId: "run", captures: { carry: "carry" } },
+			}),
+			new Error("upstream"),
+			"Trakt",
+		);
+		expect(result.itemIndex).toBe(43);
+		expect(result.done).toBe(false);
+		expect((yield* fs.records())[0]?.failure).toEqual({
+			itemIndex: 42,
+			stage: "source_fetch",
+			sourceLabel: "ratings-movies.json",
+			operationId: '["media-source",42,0,0]',
+			message: "Failed to fetch Trakt source data",
+			sourceIdentifier: "/users/alice/ratings/movies",
+		});
+	}),
 );
