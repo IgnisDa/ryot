@@ -177,6 +177,29 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 	};
 };
 
+export const librarySummaryEntitiesRecipe = defineRecipe(
+	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
+		const entity = table("entity", "summaryKindEntity");
+		return {
+			map: ({ items }) => Result.succeed(items.items),
+			queries: {
+				items: selectedRows(entity, {
+					limit: input.entityIds.length,
+					orderBy: [ascending(column(entity, "id"))],
+					where: inArray(
+						column(entity, "id"),
+						input.entityIds.map((id) => literal(id)),
+					),
+					selection: {
+						id: selectedField(column(entity, "id"), Schema.String),
+						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					},
+				}),
+			},
+		};
+	},
+);
+
 /**
  * Library summaries computed live from the user's history for `entityIds` of one kind. Only the
  * projection processor runs this; readers use `librarySummary` over the stored projection.

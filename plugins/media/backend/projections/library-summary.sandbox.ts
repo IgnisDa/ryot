@@ -4,9 +4,10 @@ import {
 	RelationshipProjectionStepInput,
 	RelationshipProjectionStepOutput,
 } from "@ryot-app/plugin-backend-sdk/relationship-projections";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
+	librarySummaryEntitiesRecipe,
 	type LibrarySummaryKind,
 	librarySummaryKind,
 	librarySummaryProperties,
@@ -31,9 +32,9 @@ export default defineScript({
 			);
 			const rows = new Map<string, LibrarySummarySourceRow>();
 			if (firstId !== undefined) {
-				const { items: entities } = yield* executeRyotqlRecipe(
+				const entities = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					entityReadRecipe({ entityIds: [firstId, ...otherIds] }),
+					librarySummaryEntitiesRecipe({ entityIds: [firstId, ...otherIds] }),
 				);
 				const idsByKind = new Map<LibrarySummaryKind, [string, ...string[]]>();
 				for (const { id, entitySchemaSlug } of entities) {
