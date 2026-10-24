@@ -17,7 +17,7 @@ import { insertAnomalyReport, insertReportRows } from "./shared";
 const batchSize = 500;
 const reportPhase = "workout sets -> event records";
 
-const WorkoutStreamSchema = Schema.Struct({ userId: Schema.String, entityId: Schema.String });
+const WorkoutStreamSchema = Schema.Struct({ ...StreamKeySchema.fields, id: Schema.String });
 
 const WorkoutRecordRowSchema = Schema.Struct({
 	userId: Schema.String,
@@ -30,7 +30,6 @@ const WorkoutRecordRowSchema = Schema.Struct({
 	exerciseId: Schema.NullOr(Schema.String),
 	confirmedAt: Schema.NullOr(Schema.String),
 	setOrderKey: Schema.NullOr(Schema.Finite),
-	occurredAtKey: Schema.NullOr(Schema.String),
 	workoutUserId: Schema.NullOr(Schema.String),
 	sessionEntityId: Schema.NullOr(Schema.String),
 	exerciseOrderKey: Schema.NullOr(Schema.Finite),
@@ -44,68 +43,7 @@ const WorkoutRecordPropertyPatchSchema = Schema.Struct({
 	setProperties: Schema.Record(Schema.String, Schema.Unknown),
 });
 
-type WorkoutStream = typeof WorkoutStreamSchema.Type;
 type WorkoutRecordRow = typeof WorkoutRecordRowSchema.Type;
-
-const streamRowsSql = `
-SELECT DISTINCT
-	ev."user_id" COLLATE "C" AS "userId",
-	ev."entity_id" COLLATE "C" AS "entityId"
-FROM "event" ev
-WHERE ev."event_schema_slug" = $3
-	AND ev."event_schema_plugin_id" IS NOT DISTINCT FROM $4
-	AND (
-		$1::text IS NULL
-		OR (ev."user_id" COLLATE "C", ev."entity_id" COLLATE "C")
-			> ($1::text COLLATE "C", $2::text COLLATE "C")
-	)
-ORDER BY "userId", "entityId"
-LIMIT $5::int
-`;
-
-const eventOrderKeys = [
-	{ parameterKind: "timestamp", expression: 'ev."occurred_at"' },
-	{ parameterKind: "text", expression: `NULLIF(w."properties" ->> 'startedAt', '') COLLATE "C"` },
-	{ parameterKind: "text", expression: 'ev."session_entity_id" COLLATE "C"' },
-	{
-		parameterKind: "integer",
-		expression: "NULLIF(ev.\"properties\" ->> 'exerciseOrder', '')::int",
-	},
-	{ parameterKind: "integer", expression: "NULLIF(ev.\"properties\" ->> 'setOrder', '')::int" },
-	{ parameterKind: "text", expression: 'ev."id" COLLATE "C"' },
-] satisfies ReadonlyArray<{ expression: string; parameterKind: "integer" | "text" | "timestamp" }>;
-
-const eventOrderBySql = eventOrderKeys
-	.map((key) => `${key.expression} ASC NULLS LAST`)
-	.join(",\n\t");
-
-const eventCursorParameter = (index: number) => {
-	const parameterIndex = index + 9;
-	const kind = eventOrderKeys[index]?.parameterKind;
-	if (kind === "timestamp") {
-		return `($${parameterIndex}::text)::timestamptz`;
-	}
-	if (kind === "integer") {
-		return `$${parameterIndex}::int`;
-	}
-	return `$${parameterIndex}::text COLLATE "C"`;
-};
-
-const eventCursorPredicate = () =>
-	eventOrderKeys
-		.map((key, index) => {
-			const cursor = eventCursorParameter(index);
-			const prefix = eventOrderKeys
-				.slice(0, index)
-				.map(
-					(previousKey, previousIndex) =>
-						`${previousKey.expression} IS NOT DISTINCT FROM ${eventCursorParameter(previousIndex)}`,
-				);
-			const after = `(${cursor} IS NOT NULL AND ${key.expression} IS NULL)
-				OR (${cursor} IS NOT NULL AND ${key.expression} IS NOT NULL AND ${key.expression} > ${cursor})`;
-			return `(${[...prefix, `(${after})`].join(" AND ")})`;
-		})
-		.join(" OR ");
 
 const workoutRecordRowsSql = (hasCursor: boolean) => `
 SELECT
@@ -137,7 +75,6 @@ SELECT
 			)
 		ELSE false
 	END AS "outsideSession",
-	ev."occurred_at"::text AS "occurredAtKey",
 	w."properties" ->> 'startedAt' AS "workoutStartedAtKey",
 	NULLIF(ev."properties" ->> 'exerciseOrder', '')::int AS "exerciseOrderKey",
 	NULLIF(ev."properties" ->> 'setOrder', '')::int AS "setOrderKey",
@@ -145,19 +82,26 @@ SELECT
 FROM "event" ev
 LEFT JOIN "entity" w
 	ON w."id" = ev."session_entity_id"
-	AND w."entity_schema_slug" = $5
-	AND w."entity_schema_plugin_id" IS NOT DISTINCT FROM $6
+	AND w."entity_schema_slug" = $3
+	AND w."entity_schema_plugin_id" IS NOT DISTINCT FROM $4
 LEFT JOIN "entity" ex
 	ON ex."id" = ev."entity_id"
-	AND ex."entity_schema_slug" = $7
-	AND ex."entity_schema_plugin_id" IS NOT DISTINCT FROM $8
-WHERE ev."user_id" = $1
-	AND ev."entity_id" = $2
-	AND ev."event_schema_slug" = $3
-	AND ev."event_schema_plugin_id" IS NOT DISTINCT FROM $4
-${hasCursor ? `\tAND (${eventCursorPredicate()})` : ""}
-ORDER BY ${eventOrderBySql}
-	LIMIT $${hasCursor ? 15 : 9}::int
+	AND ex."entity_schema_slug" = $5
+	AND ex."entity_schema_plugin_id" IS NOT DISTINCT FROM $6
+WHERE ev."event_schema_slug" = $1
+	AND ev."event_schema_plugin_id" IS NOT DISTINCT FROM $2
+${hasCursor ? '\tAND ev."id" COLLATE "C" > $7::text COLLATE "C"' : ""}
+ORDER BY ev."id" COLLATE "C"
+LIMIT $${hasCursor ? 8 : 7}::int
+`;
+
+const insertWorkoutStreamsSql = `
+INSERT INTO "event_stream" ("id", "user_id", "entity_id", "event_schema_slug", "event_schema_plugin_id")
+SELECT stream."id", stream."userId", stream."entityId", stream."eventSchemaSlug", stream."eventSchemaPluginId"
+FROM jsonb_to_recordset($1::jsonb) AS stream(
+	"id" text, "userId" text, "entityId" text, "eventSchemaSlug" text, "eventSchemaPluginId" text
+)
+ON CONFLICT DO NOTHING
 `;
 
 const updateWorkoutRecordPropertiesSql = `
@@ -168,7 +112,6 @@ WHERE event."id" = patch."id"
 RETURNING event."id"
 `;
 
-const decodeStreams = Schema.decodeUnknownEffect(Schema.Array(WorkoutStreamSchema));
 const decodeWorkoutRecords = Schema.decodeUnknownEffect(Schema.Array(WorkoutRecordRowSchema));
 
 const propertyValues = (properties: WorkoutRecordRow["properties"]) => ({
@@ -223,39 +166,6 @@ const invalidWorkoutRecord = (row: WorkoutRecordRow, reason: string) =>
 		`workout sets -> event records: set event ${row.eventId} for user ${row.userId}, exercise ${row.entityId}, and session ${row.sessionEntityId ?? "<missing>"} ${reason}. The record cannot be ordered or recalculated safely. Keep the dump and report this migration defect.`,
 	);
 
-const streamEventRows = (
-	connection: SqlConnection.Connection,
-	stream: WorkoutStream,
-	eventSchema: QualifiedSchema,
-	workoutEntitySchema: QualifiedSchema,
-	exerciseEntitySchema: QualifiedSchema,
-	cursor: WorkoutRecordRow | undefined,
-) => {
-	const query = workoutRecordRowsSql(cursor !== undefined);
-	const parameters: ReadonlyArray<unknown> = [
-		stream.userId,
-		stream.entityId,
-		eventSchema.slug,
-		eventSchema.pluginId,
-		workoutEntitySchema.slug,
-		workoutEntitySchema.pluginId,
-		exerciseEntitySchema.slug,
-		exerciseEntitySchema.pluginId,
-		...(cursor
-			? [
-					cursor.occurredAtKey,
-					cursor.workoutStartedAtKey,
-					cursor.sessionEntityId,
-					cursor.exerciseOrderKey,
-					cursor.setOrderKey,
-					cursor.eventId,
-				]
-			: []),
-		batchSize,
-	];
-	return connection.execute(query, parameters, undefined);
-};
-
 export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function* (
 	connection: SqlConnection.Connection,
 	schemas: {
@@ -266,170 +176,144 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 ) {
 	const startedAt = yield* Clock.currentTimeMillis;
 	const { eventSchema, workoutEntitySchema, exerciseEntitySchema } = schemas;
-	let streamCursor: WorkoutStream | undefined;
+	let eventCursor: string | undefined;
 	let eventsRead = 0;
 	let eventsUpdated = 0;
-	let streamsExhausted = false;
 
-	while (!streamsExhausted) {
-		const streamRows = yield* connection.execute(
-			streamRowsSql,
+	for (;;) {
+		const rawRows = yield* connection.execute(
+			workoutRecordRowsSql(eventCursor !== undefined),
 			[
-				streamCursor?.userId ?? null,
-				streamCursor?.entityId ?? null,
 				eventSchema.slug,
 				eventSchema.pluginId,
+				workoutEntitySchema.slug,
+				workoutEntitySchema.pluginId,
+				exerciseEntitySchema.slug,
+				exerciseEntitySchema.pluginId,
+				...(eventCursor === undefined ? [] : [eventCursor]),
 				batchSize,
 			],
 			undefined,
 		);
-		const streams = yield* Effect.orDie(decodeStreams(streamRows));
-		if (streams.length === 0) {
-			streamsExhausted = true;
-			continue;
+		const rows = yield* Effect.orDie(decodeWorkoutRecords(rawRows));
+		if (rows.length === 0) {
+			break;
 		}
 
-		for (const stream of streams) {
-			let eventCursor: WorkoutRecordRow | undefined;
+		const streams = new Map<string, typeof WorkoutStreamSchema.Type>();
+		for (const row of rows) {
 			const key = yield* Schema.decodeEffect(StreamKeySchema)({
-				...stream,
+				userId: row.userId,
+				entityId: row.entityId,
 				eventSchemaSlug: eventSchema.slug,
 				eventSchemaPluginId: eventSchema.pluginId,
 			}).pipe(Effect.orDie);
-			yield* connection.execute(
-				`insert into "event_stream" ("id", "user_id", "entity_id", "event_schema_slug", "event_schema_plugin_id") values ($1, $2, $3, $4, $5) on conflict do nothing`,
-				[
-					eventStreamId(key),
-					stream.userId,
-					stream.entityId,
-					eventSchema.slug,
-					eventSchema.pluginId,
-				],
+			const id = eventStreamId(key);
+			streams.set(id, { ...key, id });
+		}
+		const streamsJson = yield* Schema.encodeEffect(
+			Schema.fromJsonString(Schema.Array(WorkoutStreamSchema)),
+		)([...streams.values()]).pipe(Effect.orDie);
+		yield* connection.execute(insertWorkoutStreamsSql, [streamsJson], undefined);
+
+		const patches: Array<{
+			id: string;
+			removeKeys: ReadonlyArray<string>;
+			setProperties: Record<string, unknown>;
+		}> = [];
+		const completionWarnings: Array<MigrationReportDetail> = [];
+
+		for (const row of rows) {
+			if (
+				row.sessionEntityId === null ||
+				row.workoutId !== row.sessionEntityId ||
+				row.workoutUserId !== row.userId ||
+				row.exerciseId !== row.entityId ||
+				row.workoutStartedAtKey === null
+			) {
+				return yield* Effect.die(
+					invalidWorkoutRecord(row, "does not match its exercise and workout entities"),
+				);
+			}
+			if (
+				!Number.isFinite(Date.parse(row.workoutStartedAtKey)) ||
+				(row.endedAt !== null && !Number.isFinite(Date.parse(row.endedAt)))
+			) {
+				return yield* Effect.die(invalidWorkoutRecord(row, "has an invalid workout interval"));
+			}
+
+			yield* Schema.decodeUnknownEffect(exerciseKindSchema)(row.kind).pipe(
+				Effect.mapError(() =>
+					invalidWorkoutRecord(row, `has an unsupported exercise kind ${JSON.stringify(row.kind)}`),
+				),
+				Effect.orDie,
+			);
+
+			const measurements = yield* Schema.decodeUnknownEffect(WorkoutSetMeasurementsSchema)(
+				propertyValues(row.properties),
+			).pipe(
+				Effect.mapError(() => invalidWorkoutRecord(row, "has invalid measurements")),
+				Effect.orDie,
+			);
+			const normalized = normalizeWorkoutMeasurements(measurements);
+			const patch = buildPropertyPatch(row, normalized);
+			if (patch) {
+				patches.push(patch);
+			}
+
+			if (row.outsideSession) {
+				const exerciseOrder = row.exerciseOrderKey?.toString() ?? null;
+				const setOrder = row.setOrderKey?.toString() ?? null;
+				completionWarnings.push({
+					key: `${row.sessionEntityId}:${exerciseOrder}:${setOrder}`,
+					label: `Workout ${row.sessionEntityId} — exercise ${exerciseOrder ?? "unknown"}, set ${setOrder ?? "unknown"}`,
+					sentence:
+						"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
+					provenance: [
+						{ key: "Workout", value: row.sessionEntityId },
+						{ key: "User", value: row.userId },
+						{ value: exerciseOrder, key: "Exercise order" },
+						{ value: setOrder, key: "Set order" },
+						{ key: "Confirmed at", value: row.confirmedAt },
+						{ key: "Started at", value: row.workoutStartedAtKey },
+						{ key: "Ended at", value: row.endedAt },
+					],
+				});
+			}
+		}
+
+		if (patches.length > 0) {
+			const patchesJson = yield* Schema.encodeEffect(
+				Schema.fromJsonString(Schema.Array(WorkoutRecordPropertyPatchSchema)),
+			)(patches).pipe(Effect.orDie);
+			const updatedRows = yield* connection.execute(
+				updateWorkoutRecordPropertiesSql,
+				[patchesJson],
 				undefined,
 			);
-			let eventsExhausted = false;
-
-			while (!eventsExhausted) {
-				const rawRows = yield* streamEventRows(
-					connection,
-					stream,
-					eventSchema,
-					workoutEntitySchema,
-					exerciseEntitySchema,
-					eventCursor,
+			if (updatedRows.length !== patches.length) {
+				return yield* Effect.die(
+					new Error(
+						`workout sets -> event records: expected to patch ${patches.length} set event(s) in one bounded batch, but updated ${updatedRows.length}. Keep the dump and report this migration defect.`,
+					),
 				);
-				const rows = yield* Effect.orDie(decodeWorkoutRecords(rawRows));
-				if (rows.length === 0) {
-					eventsExhausted = true;
-					continue;
-				}
-
-				const patches: Array<{
-					id: string;
-					removeKeys: ReadonlyArray<string>;
-					setProperties: Record<string, unknown>;
-				}> = [];
-				const completionWarnings: Array<MigrationReportDetail> = [];
-
-				for (const row of rows) {
-					if (
-						row.userId !== stream.userId ||
-						row.entityId !== stream.entityId ||
-						row.sessionEntityId === null ||
-						row.workoutId !== row.sessionEntityId ||
-						row.workoutUserId !== row.userId ||
-						row.exerciseId !== row.entityId ||
-						row.workoutStartedAtKey === null
-					) {
-						return yield* Effect.die(
-							invalidWorkoutRecord(row, "does not match its exercise and workout entities"),
-						);
-					}
-					if (
-						!Number.isFinite(Date.parse(row.workoutStartedAtKey)) ||
-						(row.endedAt !== null && !Number.isFinite(Date.parse(row.endedAt)))
-					) {
-						return yield* Effect.die(invalidWorkoutRecord(row, "has an invalid workout interval"));
-					}
-
-					yield* Schema.decodeUnknownEffect(exerciseKindSchema)(row.kind).pipe(
-						Effect.mapError(() =>
-							invalidWorkoutRecord(
-								row,
-								`has an unsupported exercise kind ${JSON.stringify(row.kind)}`,
-							),
-						),
-						Effect.orDie,
-					);
-
-					const measurements = yield* Schema.decodeUnknownEffect(WorkoutSetMeasurementsSchema)(
-						propertyValues(row.properties),
-					).pipe(
-						Effect.mapError(() => invalidWorkoutRecord(row, "has invalid measurements")),
-						Effect.orDie,
-					);
-					const normalized = normalizeWorkoutMeasurements(measurements);
-					const patch = buildPropertyPatch(row, normalized);
-					if (patch) {
-						patches.push(patch);
-					}
-
-					if (row.outsideSession) {
-						const exerciseOrder = row.exerciseOrderKey?.toString() ?? null;
-						const setOrder = row.setOrderKey?.toString() ?? null;
-						completionWarnings.push({
-							key: `${row.sessionEntityId}:${exerciseOrder}:${setOrder}`,
-							label: `Workout ${row.sessionEntityId} — exercise ${exerciseOrder ?? "unknown"}, set ${setOrder ?? "unknown"}`,
-							sentence:
-								"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
-							provenance: [
-								{ key: "Workout", value: row.sessionEntityId },
-								{ key: "User", value: row.userId },
-								{ value: exerciseOrder, key: "Exercise order" },
-								{ value: setOrder, key: "Set order" },
-								{ key: "Confirmed at", value: row.confirmedAt },
-								{ key: "Started at", value: row.workoutStartedAtKey },
-								{ key: "Ended at", value: row.endedAt },
-							],
-						});
-					}
-				}
-
-				if (patches.length > 0) {
-					const patchesJson = yield* Schema.encodeEffect(
-						Schema.fromJsonString(Schema.Array(WorkoutRecordPropertyPatchSchema)),
-					)(patches).pipe(Effect.orDie);
-					const updatedRows = yield* connection.execute(
-						updateWorkoutRecordPropertiesSql,
-						[patchesJson],
-						undefined,
-					);
-					if (updatedRows.length !== patches.length) {
-						return yield* Effect.die(
-							new Error(
-								`workout sets -> event records: expected to patch ${patches.length} set event(s) in one bounded batch, but updated ${updatedRows.length}. Keep the dump and report this migration defect.`,
-							),
-						);
-					}
-					eventsUpdated += patches.length;
-				}
-				if (completionWarnings.length > 0) {
-					yield* insertAnomalyReport(connection, {
-						phase: reportPhase,
-						elapsedSeconds: null,
-						details: completionWarnings,
-						count: completionWarnings.length,
-						code: "workout-set-completion-outside-session",
-						message:
-							"Some confirmed workout sets occurred outside the recorded workout interval. The original completion times were kept unchanged.",
-					});
-				}
-
-				eventsRead += rows.length;
-				eventCursor = rows.at(-1);
 			}
-			streamCursor = stream;
+			eventsUpdated += patches.length;
 		}
+		if (completionWarnings.length > 0) {
+			yield* insertAnomalyReport(connection, {
+				phase: reportPhase,
+				elapsedSeconds: null,
+				details: completionWarnings,
+				count: completionWarnings.length,
+				code: "workout-set-completion-outside-session",
+				message:
+					"Some confirmed workout sets occurred outside the recorded workout interval. The original completion times were kept unchanged.",
+			});
+		}
+
+		eventsRead += rows.length;
+		eventCursor = rows.at(-1)?.eventId;
 	}
 
 	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAt) / 1000;
