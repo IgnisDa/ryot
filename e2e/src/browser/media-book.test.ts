@@ -21,7 +21,7 @@ import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const BOOK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#0f766e"/></svg>`;
 
@@ -42,7 +42,6 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 
 it.live("renders a populated Book detail with its series rail and unlinked creators", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const bookName = `Browser Tracer Book ${suffix}`;
@@ -50,7 +49,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		const seriesName = `Browser Tracer Series ${suffix}`;
 		const unlinkedAuthor = `Unlinked Author ${suffix}`;
 		const unlinkedPublisher = `Unlinked Press ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const cover = { type: "remote" as const, url: "https://images.test/book-cover.svg" };
 		const siblingCover = { type: "remote" as const, url: "https://images.test/book-sibling.svg" };
 		const seeded = yield* seedGlobalBookWithSeries(client, {
@@ -197,11 +196,10 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 
 it.live("renders the Book presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const bookName = `Row Tracer Book ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalBookWithSeries(client, {
 			bookName,
 			seriesName: `Row Tracer Series ${suffix}`,
@@ -242,11 +240,10 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 
 it.live("logs Book progress from the empty Activity tab without a reload", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const bookName = `Logger Tracer Book ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalBookWithSeries(client, {
 			bookName,
 			seriesName: `Logger Tracer Series ${suffix}`,

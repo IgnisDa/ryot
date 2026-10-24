@@ -4,7 +4,6 @@ import {
 } from "@ryot-app/ryotql-recipes/instance-admin";
 import { Deferred, Effect, Option, Queue, Schema } from "effect";
 
-import { adminHeaders } from "~/fixtures/kernel/admin";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { executeAdminRyotQLRecipe } from "~/fixtures/kernel/ryotql";
@@ -23,7 +22,6 @@ import {
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
-import { getServerLogFile } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 it.live("joins creation and reset bootstrap for each recreated account generation", () =>
@@ -43,7 +41,7 @@ it.live("joins creation and reset bootstrap for each recreated account generatio
 		});
 		let held: Deferred.Deferred<void> | undefined;
 		let targetUserId = "";
-		yield* Effect.acquireRelease(
+		const { target } = yield* Effect.acquireRelease(
 			startIsolatedHarness("Bootstrap Identity"),
 			(harness) => harness.stop,
 		);
@@ -75,6 +73,7 @@ it.live("joins creation and reset bootstrap for each recreated account generatio
 			step(
 				"install recording plugin",
 				installTestSupportSystemPlugin({
+					target,
 					manifest: testPluginManifest({
 						packageId: testPluginPackageId(),
 						pluginSlug: `bootstrap-identity-${crypto.randomUUID()}`,
@@ -131,18 +130,19 @@ export default defineScript({
 				}),
 			),
 			({ pluginId, activationId }) =>
-				getApiClient()
-					.call(
-						(contract) =>
-							contract.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-						adminHeaders(),
+				getApiClient(target)
+					.adminCall((contract) =>
+						contract.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 					)
 					.pipe(Effect.orDie),
 		);
-		const { email, userId } = yield* step("create authenticated user", createAuthenticatedClient());
+		const { email, userId } = yield* step(
+			"create authenticated user",
+			createAuthenticatedClient(target),
+		);
 		targetUserId = userId;
 		yield* Effect.addFinalizer(() =>
-			deleteUserAndWait(userId).pipe(
+			deleteUserAndWait(userId, target).pipe(
 				Effect.timeout("15 seconds"),
 				Effect.catchCause((cause) =>
 					Effect.logWarning("Bootstrap identity user cleanup failed", cause),
@@ -167,7 +167,7 @@ export default defineScript({
 							stage,
 							userId,
 							operationId,
-							serverLog: getServerLogFile(),
+							serverLog: target.serverLogFile,
 							requests: upstream.requests.map(({ path }) => path),
 						});
 						if (operationId !== undefined) {
@@ -175,6 +175,7 @@ export default defineScript({
 								"Bootstrap identity operation state",
 								yield* executeAdminRyotQLRecipe(
 									userLifecycleOperationRecipe({ id: operationId }),
+									target,
 								).pipe(Effect.timeout("5 seconds"), Effect.result),
 							);
 						}
@@ -182,6 +183,7 @@ export default defineScript({
 							"Bootstrap identity user state",
 							yield* executeAdminRyotQLRecipe(
 								instanceAdminUsersRecipe({ limit: 10, search: email }),
+								target,
 							).pipe(
 								Effect.map(({ items }) => items.map(({ id, disabledAt }) => ({ id, disabledAt }))),
 								Effect.timeout("5 seconds"),
@@ -195,18 +197,22 @@ export default defineScript({
 		for (let reset = 0; reset < 2; reset++) {
 			operationId = undefined;
 			held = yield* Deferred.make<void>();
-			const accepted = yield* step(`request reset ${reset + 1}`, requestUserReset(userId));
+			const accepted = yield* step(`request reset ${reset + 1}`, requestUserReset(userId, target));
 			operationId = accepted.operationId;
 			const markerPath = yield* step(`observe reset ${reset + 1} bootstrap`, nextBootstrap());
 			stage = `assert reset ${reset + 1} is held`;
 			expect(markerPath).not.toBe(executions.at(-1));
 			const pending = Option.getOrThrow(
-				yield* executeAdminRyotQLRecipe(userLifecycleOperationRecipe({ id: accepted.operationId })),
+				yield* executeAdminRyotQLRecipe(
+					userLifecycleOperationRecipe({ id: accepted.operationId }),
+					target,
+				),
 			);
 			expect(pending.status).toBe("running");
 			const user = requirePresent(
 				(yield* executeAdminRyotQLRecipe(
 					instanceAdminUsersRecipe({ limit: 10, search: email }),
+					target,
 				)).items.find((item) => item.id === userId),
 				"Recreated user is missing",
 			);
@@ -214,12 +220,12 @@ export default defineScript({
 			yield* Deferred.succeed(held, undefined);
 			const completed = yield* step(
 				`complete reset ${reset + 1}`,
-				pollUserLifecycleOperation(accepted.operationId),
+				pollUserLifecycleOperation(accepted.operationId, target),
 			);
 			assertCompleted(completed, `Reset operation ${accepted.operationId}`);
 			const enabled = yield* step(
 				`verify reset ${reset + 1} enabled the user`,
-				executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 10, search: email })),
+				executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 10, search: email }), target),
 			);
 			expect(
 				requirePresent(

@@ -3,7 +3,6 @@ import { Effect } from "effect";
 import getPort from "get-port";
 
 import {
-	adminHeaders,
 	createApiKey,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
@@ -32,10 +31,11 @@ const S3_BUCKET_NAME = "ryot-plugin-catalog-events-test";
 const API_LABEL = "Plugin Catalog Events API";
 
 let apiPort: number;
+let target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 const resources = makeTestResourceScope();
 
 const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
-const adminSession = () => makeSession(apiUrl());
+const adminSession = () => makeSession(target);
 
 const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) =>
 	Effect.gen(function* () {
@@ -71,6 +71,7 @@ beforeAll(() =>
 					}),
 				);
 				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
+				target = apiProcess.target;
 			}),
 		),
 	),
@@ -81,8 +82,8 @@ afterAll(() => runPromise(resources.close));
 describe("plugin catalog events", () => {
 	it.live("streams isolated private changes, reconnect state, and global reconciliation", () =>
 		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient(apiUrl());
-			const outsider = yield* createAuthenticatedClient(apiUrl());
+			const owner = yield* createAuthenticatedClient(target);
+			const outsider = yield* createAuthenticatedClient(target);
 			const ownerEvents = yield* openPluginCatalogEventsScoped(owner);
 			const outsiderEvents = yield* openPluginCatalogEventsScoped(outsider);
 			yield* ownerEvents.waitForConnected();
@@ -92,7 +93,6 @@ describe("plugin catalog events", () => {
 			const packageA = yield* fixtureClientPluginPackage("A", variant);
 			const installed = yield* installPrivatePluginPackage({
 				config: {},
-				baseUrl: apiUrl(),
 				client: owner.client,
 				pluginPackage: packageA,
 			});
@@ -108,7 +108,7 @@ describe("plugin catalog events", () => {
 
 			const before = yield* fixtureCatalogEntry(owner.client);
 			expect(before).toMatchObject({ sortOrder: 2, icon: "puzzle", name: "Fixture" });
-			yield* updateFixtureClientPlugin(owner.client, "B", variant, apiUrl());
+			yield* updateFixtureClientPlugin(owner.client, "B", variant);
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();
 			const after = yield* fixtureCatalogEntry(owner.client);
@@ -116,7 +116,7 @@ describe("plugin catalog events", () => {
 
 			yield* ownerEvents.drainQueuedEvents();
 			yield* ownerEvents.close();
-			yield* updateFixtureClientPlugin(owner.client, "B", `${variant}-missed`, apiUrl());
+			yield* updateFixtureClientPlugin(owner.client, "B", `${variant}-missed`);
 			const reconnected = yield* openPluginCatalogEventsScoped(owner);
 			yield* reconnected.waitForConnected();
 			expect((yield* fixtureCatalogEntry(owner.client)).contentHash).not.toBe(after.contentHash);
@@ -140,15 +140,14 @@ describe("plugin catalog events", () => {
 			});
 			const files = { [entry]: literalSandboxSource({ name, value: true, slug: scriptSlug }) };
 			yield* installTestSupportSystemPlugin({
+				target,
 				manifest,
-				baseUrl: apiUrl(),
 				files: encodePluginSourceFiles(files),
 			});
 			yield* reconnected.drainQueuedEvents();
 			yield* outsiderEvents.drainQueuedEvents();
-			yield* adminSession().call(
-				(client) => client.testSupport.reconcilePluginInstallations(),
-				adminHeaders(),
+			yield* adminSession().adminCall((client) =>
+				client.testSupport.reconcilePluginInstallations(),
 			);
 			yield* reconnected.waitForCatalogInvalidated();
 			yield* outsiderEvents.waitForCatalogInvalidated();
@@ -157,7 +156,7 @@ describe("plugin catalog events", () => {
 
 	it.live("rejects an unauthenticated stream", () =>
 		Effect.gen(function* () {
-			const response = yield* makeSession(apiUrl()).call((client) =>
+			const response = yield* makeSession(target).call((client) =>
 				client.plugins.events({ responseMode: "response-only" }),
 			);
 			expect(response.status).toBe(401);
@@ -166,14 +165,14 @@ describe("plugin catalog events", () => {
 
 	it.live("authenticates the event stream with an API key", () =>
 		Effect.gen(function* () {
-			const auth = yield* createAuthenticatedClient(apiUrl());
+			const auth = yield* createAuthenticatedClient(target);
 			const apiKey = yield* createApiKey(
 				auth.sessionCookie,
 				"E2E catalog events API key",
 				apiUrl(),
 			);
 			const events = yield* openPluginCatalogEventsScoped({
-				client: makeSession(apiUrl(), { "X-Api-Key": apiKey }),
+				client: makeSession(target, { "X-Api-Key": apiKey }),
 			});
 			yield* events.waitForConnected();
 		}),

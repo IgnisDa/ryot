@@ -305,7 +305,7 @@ describe("isolated import durability", () => {
 				],
 			});
 			const plugin = yield* installTestSupportSystemPlugin({
-				baseUrl,
+				target: processA.target,
 				manifest: pluginManifest,
 				files: encodePluginSourceFiles({
 					[activityEntry]: configActivitySource(activityScriptSlug),
@@ -318,7 +318,7 @@ describe("isolated import durability", () => {
 				}),
 			});
 
-			const { client } = yield* createAuthenticatedClient(baseUrl);
+			const { client } = yield* createAuthenticatedClient(processA.target);
 			const oldRun = yield* client.call((c) =>
 				c.imports.createRun({
 					payload: {

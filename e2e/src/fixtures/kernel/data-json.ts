@@ -88,7 +88,7 @@ export const submitDataJsonImport = (
 ) =>
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadImportFile(
-			user.token,
+			user.client,
 			encodeDataDocument(document),
 			"data.json",
 			"application/json",

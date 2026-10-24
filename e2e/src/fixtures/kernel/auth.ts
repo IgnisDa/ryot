@@ -16,7 +16,7 @@ import { twoFactorClient } from "better-auth/client/plugins";
 import { Clock, Effect, Schema } from "effect";
 
 import { requirePresent, requireString } from "~/support/assertions";
-import { getApiUrl } from "~/support/harness-target";
+import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import { type ContractSession, makeSession } from "./contract-client";
@@ -451,9 +451,9 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 		return { token, email, userId, password, refreshToken, sessionCookie };
 	});
 
-export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
+export const createAuthenticatedClient = (target = getSharedHarnessTarget()) =>
 	Effect.gen(function* () {
-		const { token, email, userId, password, sessionCookie } = yield* createTestUser(baseUrl);
-		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` }, UserId.make(userId));
+		const { token, email, userId, password, sessionCookie } = yield* createTestUser(target.apiUrl);
+		const client = makeSession(target, { Authorization: `Bearer ${token}` }, UserId.make(userId));
 		return { token, email, client, userId, password, sessionCookie };
 	});

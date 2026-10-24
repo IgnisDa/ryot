@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import type { TestPluginScript } from "~/fixtures/kernel";
 import {
-	adminHeaders,
 	getApiClient,
 	installTestPluginBundle,
 	uninstallTestPlugin,
@@ -45,12 +44,10 @@ describe("sandbox capability authorization", () => {
 				uninstallTestPlugin,
 			);
 
-			const result = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.triggerPluginCron({
-						payload: { pluginId: installed.pluginId, cronSlug: "system-denied-capability" },
-					}),
-				adminHeaders(),
+			const result = yield* getApiClient().adminCall((c) =>
+				c.testSupport.triggerPluginCron({
+					payload: { pluginId: installed.pluginId, cronSlug: "system-denied-capability" },
+				}),
 			);
 			assert(result.status === "failed", "Expected denied capability cron to fail");
 			expect(result.result).toMatchObject({

@@ -15,7 +15,7 @@
 
 ## Status
 
-**82 implemented, 1 in progress, 0 pending; 3 excluded.**
+**83 implemented, 0 in progress, 0 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -84,7 +84,7 @@
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Implemented | Scan event IDs once in 500-row C-collated pages across distinct streams, bulk processing normalized timestamps and warning multisets. See this finding's audit commit. |
 | T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
-| T02-R2 | In progress | Bind sessions and admin authority to one immutable server target. |
+| T02-R2 | Implemented | Bind sessions and admin authority to one immutable target across HTTP, uploads/downloads, and WebSocket, without ambient retargeting or competing overrides; retain the owner target during strict cleanup and require explicit cross-server archive copy. See this finding's audit commit. |
 | T05-R1 | Implemented | Install each of the three seed plugins once with complete definitions instead of seven updates and five definition reads. See this finding's audit commit. |
 | B01-R1 | Implemented | Replace watch deltas with complete membership/foreground sets while preserving caps, coalescing, acknowledgements, and grace tokens. See this finding's audit commit. |
 | B01-R2 | Implemented | Keep provider input/result/receipt order while repositories sort locks; preserve subtree stamps and new-batch lifecycle order, with replay using recorded dispatch. See this finding's audit commit. |
@@ -249,6 +249,8 @@
 - S02-R2: 62 TypeScript tests and five plus one Rust fixture tests passed; backend type and sandbox checks passed again before nine tests across four files for the cross-package logical-message annotation fix. Read-only review passed. Only writer and logical-type hunks were staged from shared `framing.ts`; reader assembly changes remain unstaged.
 - S02-R1: scoped checks passed before 21 tests across two files, including 15 reader tests; read-only review passed. The reader reserves the full declared buffer once, copies decoded parts into it, and releases budgets on completion and all failure, retirement, and reset paths. S02-R2 writer changes were committed separately.
 - B11-R2: backend type, format, and lint passed before 71 tests across five test files, after fixing exact event-snapshot fixture equality; first read-only review reported no findings. Snapshot and revision now travel together from the locked repository read. Production behavior was already correct; the duplicate nullable revision query and public wrapper were removed.
+
+- T02-R2: e2e type, format, and lint checks passed before 11 harness unit tests. First review found four target-propagation gaps; all were fixed in `media-entity.test.ts`, `fixtures/plugins/media/media.ts`, and `fixtures/kernel/entities.ts`, with no further review round. Recheck `bun run check` passed, all 11 harness tests passed again, and browser `media-entity.test.ts` passed five tests. Sessions, HTTP, uploads/downloads, WebSocket, and admin authority bind to the immutable target without ambient retargeting or competing overrides; strict cleanup retains its owner target and cross-server archive copy is explicit. Main cleanup and final repository/e2e acceptance remain pending.
 
 ### Combined acceptance — active
 

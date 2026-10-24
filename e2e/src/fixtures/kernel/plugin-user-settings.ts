@@ -96,7 +96,6 @@ export const listPluginUserSettings = (client: Client) =>
 
 export const installPreferencePrivatePlugin = (input: {
 	readonly client: Client;
-	readonly baseUrl?: string;
 	readonly pluginSlug?: PrivatePluginFactoryInput["pluginSlug"];
 }) =>
 	Effect.gen(function* () {
@@ -105,7 +104,6 @@ export const installPreferencePrivatePlugin = (input: {
 			config: {},
 			pluginPackage,
 			client: input.client,
-			...(input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl }),
 		});
 		const installation = yield* settledPrivateInstallation(input.client, installed.id);
 		const setting = yield* Effect.map(listPluginUserSettings(input.client), (settings) =>

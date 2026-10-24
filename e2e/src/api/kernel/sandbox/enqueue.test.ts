@@ -10,6 +10,7 @@ import {
 	pollSandboxResult,
 	runtimeManifestMismatchSandboxSource,
 } from "~/fixtures/kernel";
+import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { findBuiltinSchemaWithProviders } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -19,8 +20,8 @@ import { webRequest } from "~/support/web-request";
 const postEnqueue = (body: unknown) =>
 	webRequest(`${getApiUrl()}/test-support/sandbox/enqueue`, {
 		method: "POST",
-		headers: { ...adminHeaders(), "Content-Type": "application/json" },
 		body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(body),
+		headers: { ...adminHeaders(getApiClient()), "Content-Type": "application/json" },
 	});
 
 describe("sandbox enqueue by script ID", () => {

@@ -68,7 +68,7 @@ const clientImportUrl = (frame: Playwright.Locator, specifier: string) =>
 
 it.live("retains the document and bridge across same-composition saved views", () =>
 	Effect.gen(function* () {
-		const { email, client, password } = yield* createAuthenticatedClient(getApiUrl());
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client);
 		const first = yield* createEntityBrowserSavedView(client, { name: "Composition first view" }, [
 			exerciseId,
@@ -135,8 +135,8 @@ it.live("retains the document and bridge across same-composition saved views", (
 it.live("renders a saved view from an installed client plugin page", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installation = yield* installFixtureClientPlugin(client);
 		const fixturePluginId = installation.pluginId;
 		const view = yield* createPluginSavedView(
 			client,
@@ -211,8 +211,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 
 it.live("keeps configured entity-browser controls within their declared source", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const schema = yield* createEntitySchema(client, {
 			name: "Browser controls",
 			pluginSlug: `browser-controls-${crypto.randomUUID()}`,
@@ -310,9 +309,8 @@ it.live("keeps configured entity-browser controls within their declared source",
 
 it.live("warms private Pokemon presentation files without evaluating them until pagination", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl, true);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installation = yield* installFixtureClientPlugin(client, "A", "", true);
 		const fallbackSchema = yield* createEntitySchema(client, {
 			name: "Lazy presentation fallback",
 			pluginSlug: `lazy-fallback-${crypto.randomUUID()}`,
@@ -428,8 +426,7 @@ it.live(
 	"renders composite-key results-table rows with ordered nullable cells and entity links",
 	() =>
 		Effect.gen(function* () {
-			const apiUrl = getApiUrl();
-			const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+			const { email, client, password } = yield* createAuthenticatedClient();
 			const schema = yield* createEntitySchema(client, {
 				name: "Results table entity",
 				pluginSlug: `results-table-${crypto.randomUUID()}`,
@@ -522,9 +519,8 @@ it.live(
 
 it.live("keeps one rich mixed entity browser runtime across pagination and layouts", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installation = yield* installFixtureClientPlugin(client);
 		const showArtwork =
 			'<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#7c3aed"/></svg>';
 		const showArtworkUrl = "https://images.test/composed-show.svg";

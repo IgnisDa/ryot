@@ -309,13 +309,13 @@ describe("Episodic lifecycle sessions", () => {
 
 	it.live("assigns the parent show session to import-origin episode progress", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findMediaEntitySchema(client, "show");
 			const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Import Episode Session Show",
 			});
 			const uploadToken = yield* uploadImportFile(
-				token,
+				client,
 				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
 					{
 						rating: 0,

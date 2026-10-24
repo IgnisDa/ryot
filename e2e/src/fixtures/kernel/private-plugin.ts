@@ -120,16 +120,11 @@ export const settledPrivateInstallation = (
 
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
-	readonly baseUrl?: string;
 	readonly pluginPackage: PluginPackageInput | PluginArchivePackage;
 	readonly config: InstallPluginPayload["config"];
 }) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadPrivatePluginPackage(
-			input.client,
-			input.pluginPackage,
-			input.baseUrl,
-		);
+		const uploadToken = yield* uploadPrivatePluginPackage(input.client, input.pluginPackage);
 		return yield* input.client.call((c) =>
 			c.plugins.install({ payload: { uploadToken, config: input.config } }),
 		);
@@ -138,7 +133,6 @@ export const installPrivatePluginPackage = (input: {
 export const installPrivatePlugin = (
 	input: PrivatePluginPackageInput & {
 		readonly client: Client;
-		readonly baseUrl?: string;
 		readonly config: InstallPluginPayload["config"];
 	},
 ) =>
@@ -148,7 +142,6 @@ export const installPrivatePlugin = (
 			client: input.client,
 			config: input.config,
 			pluginPackage: plugin,
-			baseUrl: input.baseUrl,
 		});
 		const installation = yield* settledPrivateInstallation(input.client, installed.id);
 		return {
@@ -239,7 +232,6 @@ export const invokePrivatePluginOperation = (input: {
 
 export const updatePrivatePlugin = (input: {
 	readonly client: Client;
-	readonly baseUrl?: string;
 	readonly installationId: ContractPathParams<"plugins", "update">["installationId"];
 	readonly expectedContentHash: string;
 	readonly payload: Omit<UpdatePluginPayload, "uploadToken" | "contentHash"> &
@@ -247,11 +239,7 @@ export const updatePrivatePlugin = (input: {
 }) =>
 	Effect.gen(function* () {
 		const { config, unsetConfigKeys } = input.payload;
-		const uploadToken = yield* uploadPrivatePluginPackage(
-			input.client,
-			input.payload,
-			input.baseUrl,
-		);
+		const uploadToken = yield* uploadPrivatePluginPackage(input.client, input.payload);
 		return yield* input.client.call((c) =>
 			c.plugins.update({
 				params: { installationId: input.installationId },

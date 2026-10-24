@@ -10,8 +10,8 @@ import { and, column, document, eq, field, isNull, literal, rows, table } from "
 import { DateTime, Effect, Schema } from "effect";
 
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
+import type { HarnessTarget } from "~/support/harness-target";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { createPluginSchema } from "./entity-schemas";
@@ -156,19 +156,22 @@ export const setEntityPopulatedAt = (
 	entityId: string,
 	populatedAt: string | null,
 	level: PopulationSeedLevel = "full",
+	target?: HarnessTarget,
 ) =>
-	getApiClient().call(
-		(c) =>
-			c.testSupport.setEntityPopulatedAt({
-				payload: { level, populatedAt },
-				params: { entityId: EntityId.make(entityId) },
-			}),
-		adminHeaders(),
+	getApiClient(target).adminCall((c) =>
+		c.testSupport.setEntityPopulatedAt({
+			payload: { level, populatedAt },
+			params: { entityId: EntityId.make(entityId) },
+		}),
 	);
 
-export const markEntityPopulated = (entityId: string, level: PopulationSeedLevel = "full") =>
+export const markEntityPopulated = (
+	entityId: string,
+	level: PopulationSeedLevel = "full",
+	target?: HarnessTarget,
+) =>
 	Effect.flatMap(DateTime.now, (now) =>
-		setEntityPopulatedAt(entityId, DateTime.formatIso(now), level),
+		setEntityPopulatedAt(entityId, DateTime.formatIso(now), level, target),
 	);
 
 export const createPluginSchemaAndEntity = (client: Client) =>
@@ -183,6 +186,7 @@ export const createPluginSchemaAndEntity = (client: Client) =>
 	});
 
 export const seedEntity = (input: {
+	target?: HarnessTarget;
 	name: string;
 	client?: Client;
 	externalId?: string;
@@ -209,18 +213,16 @@ export const seedEntity = (input: {
 						},
 					}),
 				)
-			: yield* getApiClient().call(
-					(c) =>
-						c.testSupport.createGlobalEntity({
-							payload: {
-								providerId,
-								entitySchema,
-								name: input.name,
-								properties: input.properties,
-								externalId: input.externalId,
-							},
-						}),
-					adminHeaders(),
+			: yield* getApiClient(input.client?.target ?? input.target).adminCall((c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							providerId,
+							entitySchema,
+							name: input.name,
+							properties: input.properties,
+							externalId: input.externalId,
+						},
+					}),
 				);
 		const entity = "entity" in result ? result.entity : result;
 		const warnings = "warnings" in result ? result.warnings : undefined;
@@ -242,7 +244,7 @@ export const seedPopulatedEntity = (
 ) =>
 	Effect.gen(function* () {
 		const seeded = yield* seedEntity({ ...input, userId: null });
-		yield* markEntityPopulated(seeded.id);
+		yield* markEntityPopulated(seeded.id, "full", input.target);
 		return seeded;
 	});
 

@@ -10,7 +10,6 @@ import getPort from "get-port";
 
 import type { Client } from "~/fixtures/kernel";
 import {
-	adminHeaders,
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
@@ -49,22 +48,20 @@ const privateConfig = {
 };
 
 let apiPort: number;
+let target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 const resources = makeTestResourceScope();
 
-const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
-
-const adminSession = () => makeSession(apiUrl());
+const adminSession = () => makeSession(target);
 
 const listPlugins = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 const reconcilePluginInstallations = () =>
-	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders());
+	adminSession().adminCall((c) => c.testSupport.reconcilePluginInstallations());
 
 const uninstallShippedPlugin = (pluginId: PluginId, activationId: string) =>
-	adminSession().call(
-		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-		adminHeaders(),
+	adminSession().adminCall((c) =>
+		c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 	);
 
 const installShippedPlugin = (
@@ -93,7 +90,7 @@ const installShippedPlugin = (
 		[entry]: literalSandboxSource({ name, slug, value: true }),
 	});
 	return Effect.acquireRelease(
-		installTestSupportSystemPlugin({ files, manifest, baseUrl: apiUrl() }),
+		installTestSupportSystemPlugin({ files, target, manifest }),
 		(installed) =>
 			uninstallShippedPlugin(installed.pluginId, installed.activationId).pipe(
 				Effect.catch((error) =>
@@ -183,6 +180,7 @@ beforeAll(() =>
 					}),
 				);
 				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
+				target = apiProcess.target;
 			}),
 		),
 	),
@@ -193,14 +191,9 @@ afterAll(() => runPromise(resources.close));
 describe("system plugin reconciliation", () => {
 	it.live("keeps a shadowed private installation quarantined until it is explicitly updated", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl());
+			const { client } = yield* createAuthenticatedClient(target);
 			const packageId = testPluginPackageId();
-			const plugin = yield* installPrivatePlugin({
-				client,
-				packageId,
-				baseUrl: apiUrl(),
-				config: privateConfig,
-			});
+			const plugin = yield* installPrivatePlugin({ client, packageId, config: privateConfig });
 			expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 
 			const [owned] = yield* installationRows(client, packageId, "user");
@@ -226,7 +219,6 @@ describe("system plugin reconciliation", () => {
 			expect(quarantined.health).toBe("incompatible");
 			yield* updatePrivatePlugin({
 				client,
-				baseUrl: apiUrl(),
 				installationId: plugin.installationId,
 				expectedContentHash: quarantined.contentHash,
 				payload: { files: plugin.files, manifest: plugin.manifest },
@@ -243,12 +235,11 @@ describe("system plugin reconciliation", () => {
 
 	it.live("uninstalls a private installation shadowed by a shipped plugin", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl());
+			const { client } = yield* createAuthenticatedClient(target);
 			const packageId = testPluginPackageId();
 			const privatePlugin = yield* installPrivatePlugin({
 				client,
 				packageId,
-				baseUrl: apiUrl(),
 				config: privateConfig,
 			});
 			yield* installShippedPlugin(packageId);
@@ -281,7 +272,7 @@ describe("system plugin reconciliation", () => {
 		"keeps a private installation ready when a shipped plugin declares the same view slug",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient(apiUrl());
+				const { client } = yield* createAuthenticatedClient(target);
 				const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
 				const savedViews = [testPluginSavedView({ slug: viewSlug })];
 				const packageId = testPluginPackageId();
@@ -290,7 +281,6 @@ describe("system plugin reconciliation", () => {
 					client,
 					packageId,
 					savedViews,
-					baseUrl: apiUrl(),
 					config: privateConfig,
 				});
 				expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
@@ -315,7 +305,7 @@ describe("system plugin reconciliation", () => {
 
 	it.live("provisions an installation for an existing user when a shipped plugin appears", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl());
+			const { client } = yield* createAuthenticatedClient(target);
 			const packageId = testPluginPackageId();
 			expect(yield* installationRows(client, packageId, "system")).toEqual([]);
 

@@ -8,7 +8,6 @@ import {
 	getSavedView,
 	prepareClientPage,
 } from "~/fixtures/kernel";
-import { adminHeaders } from "~/fixtures/kernel/admin";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { literalSandboxSource } from "~/fixtures/kernel/sandbox-source";
@@ -39,9 +38,8 @@ it.live("installs a system built-in view whose slug matches another user's custo
 			}),
 			({ pluginId, activationId }) =>
 				getApiClient()
-					.call(
-						(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-						adminHeaders(),
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 					)
 					.pipe(Effect.orDie),
 		);
@@ -103,12 +101,10 @@ it.live(
 			yield* Effect.addFinalizer(() =>
 				active
 					? getApiClient()
-							.call(
-								(c) =>
-									c.testSupport.uninstallSystemPlugin({
-										params: { pluginId: installed.pluginId, activationId: installed.activationId },
-									}),
-								adminHeaders(),
+							.adminCall((c) =>
+								c.testSupport.uninstallSystemPlugin({
+									params: { pluginId: installed.pluginId, activationId: installed.activationId },
+								}),
 							)
 							.pipe(Effect.ignore)
 					: Effect.void,
@@ -120,7 +116,7 @@ it.live(
 				throw new Error("Compiled client artifact is missing");
 			}
 			const apiUrl = getApiUrl();
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient();
 			const view = yield* createPluginSavedView(
 				client,
 				{ kind: "plugin", exportName: "fixture-page", pluginId: installed.pluginId },
@@ -146,12 +142,10 @@ it.live(
 				new URL(`/api/page-bundles/${artifactHash}/public/module.js`, `${apiUrl}/`),
 			);
 			expect(publicResponse.status).toBe(404);
-			const removed = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.uninstallSystemPlugin({
-						params: { pluginId: installed.pluginId, activationId: installed.activationId },
-					}),
-				adminHeaders(),
+			const removed = yield* getApiClient().adminCall((c) =>
+				c.testSupport.uninstallSystemPlugin({
+					params: { pluginId: installed.pluginId, activationId: installed.activationId },
+				}),
 			);
 			expect(removed.pluginId).toBe(installed.pluginId);
 			active = false;

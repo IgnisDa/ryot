@@ -16,7 +16,6 @@ import {
 } from "@ryot-app/ryotql";
 import { Duration, Effect, Schema } from "effect";
 
-import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { getEntity } from "~/fixtures/kernel/entities";
@@ -33,14 +32,12 @@ const CRON_TRIGGER_RETRY_DELAY = Duration.millis(5_000);
 export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: string) =>
 	Effect.gen(function* () {
 		const previousPopulatedAt = (yield* getEntity(auth.client, entityId)).populatedAt;
-		const pluginId = (yield* mediaFixtureInstallation).id;
+		const pluginId = (yield* mediaFixtureInstallation(auth.client.target)).id;
 		let lastCron: unknown;
 		let refreshed = false;
 		for (let attempt = 1; attempt <= CRON_TRIGGER_ATTEMPTS; attempt += 1) {
-			const cron = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.triggerPluginCron({ payload: { pluginId, cronSlug: "media-monitoring" } }),
-				adminHeaders(),
+			const cron = yield* getApiClient(auth.client.target).adminCall((c) =>
+				c.testSupport.triggerPluginCron({ payload: { pluginId, cronSlug: "media-monitoring" } }),
 			);
 			lastCron = cron;
 			if (cron.status === "executed") {

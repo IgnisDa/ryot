@@ -283,13 +283,15 @@ const readCreatedOrder = (client: Client, entityId: string, occurredAt: string) 
 	});
 
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			harness = yield* startIsolatedHarness("Media Lifecycle Query Recipes");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 		}),
 	),
 );
@@ -301,7 +303,7 @@ describe("Media episodic lifecycle query recipes", () => {
 		"covers show transitions through interruptions, manual completion, resume, and caught up",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient(target);
 				const schemas = yield* loadLifecycleSchemas(client);
 				const { show, episodes } = yield* seedShow(client, {
 					properties: { productionStatus: "Continuing" },
@@ -395,7 +397,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 	it.live("automatically completes terminal coverage and isolates rewatch cycles", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const cycles = yield* seedShow(client, {
 				properties: { productionStatus: "Ended" },
@@ -480,7 +482,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 	it.live("uses occurredAt before creation order and createdAt for equal occurrence times", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const fixture = yield* seedShow(client, {
 				seasons: [{ seasonNumber: 1, episodes: episodesOf(1) }],
@@ -527,7 +529,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 	it.live("guards empty coverage and isolates season zero episode activity", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const noSeasons = yield* seedShow(client, { seasons: [] });
 			const specialsOnly = yield* seedShow(client, {
@@ -584,7 +586,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 	it.live("applies interruption, manual completion, caught-up, and rewatch rules to podcasts", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { podcast, episodes } = yield* seedPodcast(client, {
 				episodes: episodesOf(2),
@@ -679,7 +681,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 	it.live("automatically completes both terminal podcast consumption cycles", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { podcast, episodes } = yield* seedPodcast(client, {
 				episodes: episodesOf(1),
@@ -713,7 +715,7 @@ describe("Media episodic lifecycle query recipes", () => {
 		"derives caught up after authoritative relationship removal without auto-completing",
 		() =>
 			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
+				const auth = yield* createAuthenticatedClient(target);
 				const schemas = yield* loadLifecycleSchemas(auth.client);
 				const suffix = crypto.randomUUID();
 				const providerName = `Lifecycle Relationship Provider ${suffix}`;
@@ -748,6 +750,7 @@ describe("Media episodic lifecycle query recipes", () => {
 					details: details([firstEpisodeExternalId, secondEpisodeExternalId]),
 				});
 				const show = yield* seedMediaEntity({
+					target,
 					properties: {},
 					externalId: showExternalId,
 					providerId: provider.providerId,
@@ -781,12 +784,15 @@ describe("Media episodic lifecycle query recipes", () => {
 
 				yield* media.update(provider.providerSlug, { details: details([firstEpisodeExternalId]) });
 				yield* triggerCronAndWaitForEntity(auth, show.id);
-				const relationships = yield* listAdminGlobalRelationships({
-					type: "anchored",
-					direction: "outgoing",
-					anchorEntityId: EntityId.make(season.id),
-					relationshipSchemaSlug: schemas.seasonToEpisodeRelationship.slug,
-				});
+				const relationships = yield* listAdminGlobalRelationships(
+					{
+						type: "anchored",
+						direction: "outgoing",
+						anchorEntityId: EntityId.make(season.id),
+						relationshipSchemaSlug: schemas.seasonToEpisodeRelationship.slug,
+					},
+					target,
+				);
 				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual([
 					firstEpisode.id,
 				]);
@@ -803,7 +809,7 @@ describe("Media episodic lifecycle query recipes", () => {
 describe("Media episodic coverage over aired episodes", () => {
 	it.live("reads caught up while the remaining episodes are unaired and counts them upcoming", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, episodes } = yield* seedShow(client, {
 				properties: { totalSeasons: 3, productionStatus: "Continuing" },
@@ -838,7 +844,7 @@ describe("Media episodic coverage over aired episodes", () => {
 
 	it.live("flips a caught-up show back to in progress when a past-dated episode is added", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const fixture = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -871,7 +877,7 @@ describe("Media episodic coverage over aired episodes", () => {
 
 	it.live("counts null and malformed publish dates as aired", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, episodes } = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -914,7 +920,7 @@ describe("Media episodic coverage over aired episodes", () => {
 describe("Media episodic next up and display state", () => {
 	it.live("moves next up forward and ignores untracked gaps before the anchor", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, episodes } = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -963,7 +969,7 @@ describe("Media episodic next up and display state", () => {
 
 	it.live("prefers the in-progress episode over the next untracked one", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, episodes } = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -993,7 +999,7 @@ describe("Media episodic next up and display state", () => {
 
 	it.live("keeps lifetime progress after completion and resets it for a rewatch", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, seasons, episodes } = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -1053,7 +1059,7 @@ describe("Media episodic next up and display state", () => {
 
 	it.live("keeps a watched special's lifetime state through a rewatch", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, seasons, episodes } = yield* seedShow(client, {
 				properties: { totalSeasons: 2, productionStatus: "Continuing" },
@@ -1099,7 +1105,7 @@ describe("Media episodic next up and display state", () => {
 
 	it.live("offers a podcast's newest untracked episode", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { podcast, episodes } = yield* seedPodcast(client, {
 				properties: { productionStatus: "Continuing" },
@@ -1143,6 +1149,7 @@ const loadMovieLifecycleSchemas = (client: Client) =>
 const seedMovie = (movieSchemaId: string) => {
 	const suffix = crypto.randomUUID();
 	return seedMediaEntity({
+		target,
 		userId: null,
 		providerId: null,
 		properties: { runtime: 139 },
@@ -1166,7 +1173,7 @@ const readMovieSummary = (client: Client, entityId: string) =>
 describe("Media flat lifecycle query recipes", () => {
 	it.live("derives movie state from its own latest signal, with no caught up state", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadMovieLifecycleSchemas(client);
 			const movie = yield* seedMovie(schemas.movieSchemaId);
 
@@ -1218,7 +1225,7 @@ describe("Media flat lifecycle query recipes", () => {
 
 	it.live("reports a rewatch percent but drops the one that preceded the completion", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadMovieLifecycleSchemas(client);
 			const movie = yield* seedMovie(schemas.movieSchemaId);
 
@@ -1256,7 +1263,7 @@ describe("Media flat lifecycle query recipes", () => {
 describe("Media lifecycle list recipes", () => {
 	it.live("lists episodic parents with their latest activity and next up", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadLifecycleSchemas(client);
 			const { show, episodes } = yield* seedShow(client, {
 				properties: { productionStatus: "Continuing" },
@@ -1345,11 +1352,12 @@ describe("Media lifecycle list recipes", () => {
 		"derives anime in-progress percent from the cumulative position over total episodes",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient(target);
 				const { pluginId, schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 				const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
 				const suffix = crypto.randomUUID();
 				const anime = yield* seedMediaEntity({
+					target,
 					userId: null,
 					providerId: null,
 					properties: { episodes: 28 },
@@ -1387,13 +1395,14 @@ describe("Media lifecycle list recipes", () => {
 
 	it.live("lists flat media across schemas with their recorded position", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const schemas = yield* loadMovieLifecycleSchemas(client);
 			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 			const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
 			const movie = yield* seedMovie(schemas.movieSchemaId);
 			const suffix = crypto.randomUUID();
 			const anime = yield* seedMediaEntity({
+				target,
 				userId: null,
 				providerId: null,
 				properties: { episodes: 10 },

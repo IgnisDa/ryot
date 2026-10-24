@@ -6,7 +6,7 @@ import { logMediaActivity, seedShow } from "~/fixtures/plugins/media";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 import { nowIso } from "~/support/time";
 
 const openShow = (input: { email: string; password: string; showId: string }) =>
@@ -23,7 +23,7 @@ const openShow = (input: { email: string; password: string; showId: string }) =>
 	});
 
 const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
-	const { email, client, password } = yield* createAuthenticatedClient(getApiUrl());
+	const { email, client, password } = yield* createAuthenticatedClient();
 	const seeded = yield* seedShow(client, {
 		name: `Activity Log Show ${crypto.randomUUID()}`,
 		seasons: [

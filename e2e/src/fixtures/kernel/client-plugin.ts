@@ -115,7 +115,6 @@ export const installFixtureClientPlugin = (
 	client: Client,
 	revision: FixtureClientPluginRevision = "A",
 	variant = "",
-	baseUrl?: string,
 	presentationEvaluationSignal = false,
 ) =>
 	Effect.gen(function* () {
@@ -125,12 +124,7 @@ export const installFixtureClientPlugin = (
 			"fixture",
 			presentationEvaluationSignal,
 		);
-		const installed = yield* installPrivatePluginPackage({
-			client,
-			baseUrl,
-			config: {},
-			pluginPackage,
-		});
+		const installed = yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 		return yield* settledPrivateInstallation(client, installed.id);
 	});
 
@@ -138,7 +132,6 @@ export const updateFixtureClientPlugin = (
 	client: Client,
 	revision: FixtureClientPluginRevision,
 	variant = "",
-	baseUrl?: string,
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
@@ -148,7 +141,6 @@ export const updateFixtureClientPlugin = (
 		});
 		return yield* updatePrivatePlugin({
 			client,
-			baseUrl,
 			payload: pluginPackage,
 			installationId: current.installationId,
 			expectedContentHash: current.contentHash,

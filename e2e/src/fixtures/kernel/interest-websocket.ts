@@ -9,8 +9,6 @@ import {
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Duration, Effect, Exit, Result, Semaphore } from "effect";
 
-import { getApiUrl } from "~/support/harness-target";
-
 import type { ContractSession } from "./contract-client";
 import { getEntity } from "./entities";
 import { pollUntil } from "./polling";
@@ -61,7 +59,7 @@ export const openInterestWebSocket = (
 		const { ticket } = yield* auth.client.call((contract) =>
 			contract["entity-watches"].createSocketTicket(),
 		);
-		const url = `${getApiUrl()}/entity-watches/ws`;
+		const url = `${auth.client.baseUrl}/entity-watches/ws`;
 		const socket = new WebSocket(url);
 		const timeoutMs = options.timeoutMs ?? 10_000;
 

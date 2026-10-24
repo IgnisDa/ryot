@@ -14,8 +14,8 @@ import { requireNonEmptyArray, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
-const listPluginsWithToken = (baseUrl: string, token: string) =>
-	collectRyotQLRecipeItems(makeSession(baseUrl, { Authorization: `Bearer ${token}` }), (after) =>
+const listPluginsWithToken = (token: string) =>
+	collectRyotQLRecipeItems(makeSession(undefined, { Authorization: `Bearer ${token}` }), (after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 
@@ -37,7 +37,7 @@ describe("Two-factor sign-in flow", () => {
 				"Two-factor setup did not return any backup codes",
 			);
 
-			yield* listPluginsWithToken(baseUrl, twoFactorToken);
+			yield* listPluginsWithToken(twoFactorToken);
 
 			const signIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(signIn.error).toBeNull();
@@ -52,7 +52,6 @@ describe("Two-factor sign-in flow", () => {
 			});
 			expect(verification.error).toBeNull();
 			yield* listPluginsWithToken(
-				baseUrl,
 				requirePresent(verification.token, "Missing backup-code access token"),
 			);
 
@@ -99,7 +98,7 @@ describe("Two-factor sign-in flow", () => {
 				verification.token,
 				"TOTP continuation did not return an OAuth access token",
 			);
-			yield* listPluginsWithToken(baseUrl, accessToken);
+			yield* listPluginsWithToken(accessToken);
 		}),
 	);
 });

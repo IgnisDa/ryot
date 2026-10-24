@@ -2,7 +2,6 @@ import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	getApiClient,
 	installTestPluginBundle,
@@ -83,12 +82,10 @@ const installSystemPluginScoped = (input: SystemPluginBundleInput) =>
 	);
 
 const enqueueTrustedSandbox = (userId: string, scriptId: SandboxScriptId) =>
-	getApiClient().call(
-		(client) =>
-			client.testSupport.enqueueSandbox({
-				payload: { scriptId, lane: "interactive", executingUserId: UserId.make(userId) },
-			}),
-		adminHeaders(),
+	getApiClient().adminCall((client) =>
+		client.testSupport.enqueueSandbox({
+			payload: { scriptId, lane: "interactive", executingUserId: UserId.make(userId) },
+		}),
 	);
 
 describe("sandbox short waits and replay", () => {

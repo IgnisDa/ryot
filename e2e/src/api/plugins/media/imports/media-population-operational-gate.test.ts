@@ -22,13 +22,15 @@ const RUN_OPERATIONAL_GATES =
 
 describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () => {
 	let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+	let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 	let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 	beforeAll(() =>
 		runPromise(
 			Effect.gen(function* () {
 				harness = yield* startIsolatedHarness("Media Population Operational Gate");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+				target = harness.target;
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 			}),
 		),
 	);
@@ -37,8 +39,8 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 
 	it.live("completes two concurrent full-size imports through durable infrastructure", () =>
 		Effect.gen(function* () {
-			const firstUser = yield* createAuthenticatedClient();
-			const secondUser = yield* createAuthenticatedClient();
+			const firstUser = yield* createAuthenticatedClient(target);
+			const secondUser = yield* createAuthenticatedClient(target);
 			const { schema } = yield* findMediaEntitySchema(firstUser.client, "book");
 			const provider = yield* media.attachProvider({
 				rootEntitySchemaSlug: schema.id,
@@ -54,9 +56,10 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					name: "Phase 3 Operational Gate Book",
 				}),
 			});
-			const baseline = yield* sampleOperationalPressure([
-				`phase-3-baseline-${crypto.randomUUID()}`,
-			]);
+			const baseline = yield* sampleOperationalPressure(
+				[`phase-3-baseline-${crypto.randomUUID()}`],
+				target,
+			);
 			const startedAt = yield* Clock.currentTimeMillis;
 			const prefix = crypto.randomUUID();
 			const runs = yield* Effect.forEach(
@@ -73,7 +76,10 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					},
 				],
 				(run) =>
-					startMediaPopulationGate({ ...run, itemCount: ITEM_COUNT, entitySchemaSlug: schema.id }),
+					startMediaPopulationGate(
+						{ ...run, itemCount: ITEM_COUNT, entitySchemaSlug: schema.id },
+						target,
+					),
 				{ concurrency: "unbounded" },
 			);
 			const deadline = startedAt + GATE_TIMEOUT_MS;
@@ -82,9 +88,11 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 			let maxWaitingAdvisoryLocks = 0;
 			let maxConcurrentPendingRuns = 0;
 			let maxActiveSandboxExecutions = 0;
-			let finalResults = yield* Effect.forEach(runs, getMediaPopulationGateResult, {
-				concurrency: "unbounded",
-			});
+			let finalResults = yield* Effect.forEach(
+				runs,
+				(run) => getMediaPopulationGateResult(run, target),
+				{ concurrency: "unbounded" },
+			);
 
 			for (;;) {
 				const now = yield* Clock.currentTimeMillis;
@@ -95,8 +103,10 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				}
 				const [pressure, results] = yield* Effect.all(
 					[
-						sampleOperationalPressure(executionIds),
-						Effect.forEach(runs, getMediaPopulationGateResult, { concurrency: "unbounded" }),
+						sampleOperationalPressure(executionIds, target),
+						Effect.forEach(runs, (run) => getMediaPopulationGateResult(run, target), {
+							concurrency: "unbounded",
+						}),
 					],
 					{ concurrency: "unbounded" },
 				);

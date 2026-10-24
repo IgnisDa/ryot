@@ -14,6 +14,8 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+import type { HarnessTarget } from "~/support/harness-target";
+
 import { collectAdminRyotQLRecipeItems } from "./ryotql";
 
 const relationship = table("relationship", "relationship");
@@ -58,5 +60,11 @@ const adminGlobalRelationshipsRecipe = defineRecipe(
 	}),
 );
 
-export const listAdminGlobalRelationships = (filter: GlobalRelationshipFilter) =>
-	collectAdminRyotQLRecipeItems((after) => adminGlobalRelationshipsRecipe({ ...filter, after }));
+export const listAdminGlobalRelationships = (
+	filter: GlobalRelationshipFilter,
+	target?: HarnessTarget,
+) =>
+	collectAdminRyotQLRecipeItems(
+		(after) => adminGlobalRelationshipsRecipe({ ...filter, after }),
+		target,
+	);

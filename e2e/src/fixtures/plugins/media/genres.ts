@@ -8,15 +8,17 @@ import { seedEntity } from "~/fixtures/kernel/entities";
 import { insertGlobalRelationship } from "~/fixtures/kernel/entity-graph";
 import { makeEntitySchemaSlug } from "~/fixtures/kernel/entity-schemas";
 import { requirePresent } from "~/support/assertions";
+import type { HarnessTarget } from "~/support/harness-target";
 
 export const seedGlobalMediaGenres = (input: {
+	target?: HarnessTarget;
 	entityId: string;
 	entitySchemaSlug: string;
 	names: readonly string[];
 }) =>
 	Effect.gen(function* () {
 		const plugin = requirePresent(
-			(yield* listAdminSystemPlugins).find(
+			(yield* listAdminSystemPlugins(input.target)).find(
 				({ packageId }) => packageId === mediaPlugin.metadata.packageId,
 			),
 			"System media plugin missing",
@@ -28,6 +30,7 @@ export const seedGlobalMediaGenres = (input: {
 				userId: null,
 				properties: {},
 				providerId: null,
+				target: input.target,
 				externalId: `media-genre-${crypto.randomUUID()}`,
 				entitySchema: { owner, slug: makeEntitySchemaSlug("genre") },
 			}),
@@ -41,6 +44,7 @@ export const seedGlobalMediaGenres = (input: {
 			(genre) =>
 				insertGlobalRelationship({
 					relationshipSchema,
+					target: input.target,
 					targetEntityId: genre.id,
 					sourceEntityId: input.entityId,
 				}),

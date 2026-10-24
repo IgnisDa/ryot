@@ -2,7 +2,6 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, Result } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	getApiClient,
@@ -113,14 +112,13 @@ describe("entity population via client-declared interest", () => {
 				`interest session '${socket.ready.sessionId}' closed`,
 				Effect.gen(function* () {
 					const result = yield* getApiClient()
-						.adminCall(
-							(c) =>
-								c.testSupport.setEntityWatchMembership({
-									payload: {
-										sessionId: socket.ready.sessionId,
-										entityIds: [EntityId.make(entity.id)],
-									},
-								})
+						.adminCall((c) =>
+							c.testSupport.setEntityWatchMembership({
+								payload: {
+									sessionId: socket.ready.sessionId,
+									entityIds: [EntityId.make(entity.id)],
+								},
+							}),
 						)
 						.pipe(Effect.result);
 					return Result.isFailure(result) ? true : null;

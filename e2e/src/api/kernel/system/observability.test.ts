@@ -22,13 +22,10 @@ const S3_BUCKET_NAME = "ryot-observability-test";
 const WORKFLOW_NAME = "NotificationDeliveryWorkflow";
 
 let apiPort: number;
+let target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 let logFile: string | undefined;
 let otlpServer: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>> | undefined;
 const resources = makeTestResourceScope();
-
-function getApiUrl() {
-	return `http://127.0.0.1:${apiPort}/api`;
-}
 
 function requireLogFile() {
 	return requirePresent(logFile, "Observability api log file is not initialized");
@@ -215,6 +212,7 @@ beforeAll(() =>
 				});
 				logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
 				const apiProcess = yield* spawnApiProcess(env);
+				target = apiProcess.target;
 				yield* waitForHealthCheck(
 					`${apiOrigin}/api/system/health`,
 					"Observability Setup",
@@ -231,7 +229,7 @@ afterAll(() => runPromise(resources.close));
 describe("API observability", () => {
 	it.live("exports spans with correlatable workflow and request logs", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient(getApiUrl());
+			const { client, userId } = yield* createAuthenticatedClient(target);
 			yield* client.call((c) => c.notifications.testChannels());
 
 			const { span, resource } = yield* pollUntil(

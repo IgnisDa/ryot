@@ -1,7 +1,6 @@
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Schema } from "effect";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -69,12 +68,15 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 			],
 		});
 		yield* Effect.acquireRelease(
-			installTestSupportSystemPlugin({ files: {}, manifest: policyManifest }),
+			installTestSupportSystemPlugin({
+				files: {},
+				target: client.target,
+				manifest: policyManifest,
+			}),
 			({ pluginId, activationId }) =>
-				getApiClient()
-					.call(
-						(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-						adminHeaders(),
+				getApiClient(client.target)
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 					)
 					.pipe(Effect.orDie),
 		);

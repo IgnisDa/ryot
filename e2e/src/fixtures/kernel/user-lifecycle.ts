@@ -5,30 +5,31 @@ import { userLifecycleOperationRecipe } from "@ryot-app/ryotql-recipes/instance-
 import { Effect, Option } from "effect";
 
 import { assertCompleted } from "~/support/assertions";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
-import { adminHeaders } from "./admin";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { executeAdminRyotQLRecipe } from "./ryotql";
 
 export type DeleteUserOperation = ContractSuccess<"instanceAdmin", "deleteUser">;
 
-const requestUserDeletion = (userId: string) =>
-	getApiClient().call(
-		(c) => c.instanceAdmin.deleteUser({ params: { userId: UserId.make(userId) } }),
-		adminHeaders(),
+const requestUserDeletion = (userId: string, target = getSharedHarnessTarget()) =>
+	getApiClient(target).adminCall((c) =>
+		c.instanceAdmin.deleteUser({ params: { userId: UserId.make(userId) } }),
 	);
 
-export const requestUserReset = (userId: string) =>
-	getApiClient().call(
-		(c) => c.instanceAdmin.resetUser({ params: { userId: UserId.make(userId) } }),
-		adminHeaders(),
+export const requestUserReset = (userId: string, target = getSharedHarnessTarget()) =>
+	getApiClient(target).adminCall((c) =>
+		c.instanceAdmin.resetUser({ params: { userId: UserId.make(userId) } }),
 	);
 
-export const pollUserLifecycleOperation = (operationId: UserLifecycleOperation["id"]) =>
+export const pollUserLifecycleOperation = (
+	operationId: UserLifecycleOperation["id"],
+	target = getSharedHarnessTarget(),
+) =>
 	pollUntil(
 		`User lifecycle operation '${operationId}' to complete`,
-		executeAdminRyotQLRecipe(userLifecycleOperationRecipe({ id: operationId })).pipe(
+		executeAdminRyotQLRecipe(userLifecycleOperationRecipe({ id: operationId }), target).pipe(
 			Effect.map((detail) => {
 				const operation = Option.getOrNull(detail);
 				return operation?.status === "completed" || operation?.status === "failed"
@@ -38,18 +39,18 @@ export const pollUserLifecycleOperation = (operationId: UserLifecycleOperation["
 		),
 	);
 
-export const deleteUserAndWait = (userId: string) =>
-	requestUserDeletion(userId).pipe(
-		Effect.flatMap(({ operationId }) => pollUserLifecycleOperation(operationId)),
+export const deleteUserAndWait = (userId: string, target = getSharedHarnessTarget()) =>
+	requestUserDeletion(userId, target).pipe(
+		Effect.flatMap(({ operationId }) => pollUserLifecycleOperation(operationId, target)),
 		Effect.map((operation) => {
 			assertCompleted(operation, `User lifecycle operation '${operation.id}'`);
 			return operation;
 		}),
 	);
 
-export const resetUserAndWait = (userId: string) =>
-	requestUserReset(userId).pipe(
-		Effect.flatMap(({ operationId }) => pollUserLifecycleOperation(operationId)),
+export const resetUserAndWait = (userId: string, target = getSharedHarnessTarget()) =>
+	requestUserReset(userId, target).pipe(
+		Effect.flatMap(({ operationId }) => pollUserLifecycleOperation(operationId, target)),
 		Effect.map((operation) => {
 			assertCompleted(operation, `User lifecycle operation '${operation.id}'`);
 			return operation;

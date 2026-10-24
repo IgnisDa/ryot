@@ -118,7 +118,12 @@ describe("notification channel CRUD", () => {
 				{ kind: "push_safer" },
 				{ chatId: "1234", kind: "telegram" },
 			]) {
-				const response = yield* postApiJson("/notifications/channels", { channelSpecifics }, token);
+				const response = yield* postApiJson(
+					client,
+					"/notifications/channels",
+					{ channelSpecifics },
+					token,
+				);
 				expect(response.status).toBe(400);
 			}
 			expect(yield* listNotificationChannels(client)).toEqual([]);

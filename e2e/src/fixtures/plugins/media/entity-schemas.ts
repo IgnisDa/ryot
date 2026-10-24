@@ -6,15 +6,17 @@ import type { Client } from "~/fixtures/kernel/auth";
 import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { findPluginInstallationByPackage } from "~/fixtures/kernel/plugins";
 import { requirePresent } from "~/support/assertions";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
-export const mediaFixtureInstallation = listAdminSystemPlugins.pipe(
-	Effect.map((plugins) =>
-		requirePresent(
-			plugins.find(({ packageId }) => packageId === mediaPlugin.metadata.packageId),
-			"System media fixture installation missing",
+export const mediaFixtureInstallation = (target = getSharedHarnessTarget()) =>
+	listAdminSystemPlugins(target).pipe(
+		Effect.map((plugins) =>
+			requirePresent(
+				plugins.find(({ packageId }) => packageId === mediaPlugin.metadata.packageId),
+				"System media fixture installation missing",
+			),
 		),
-	),
-);
+	);
 
 export const findMediaEntitySchema = (client: Client, slug: string) =>
 	Effect.gen(function* () {

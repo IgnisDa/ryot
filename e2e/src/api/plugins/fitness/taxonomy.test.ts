@@ -9,7 +9,6 @@ import {
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createRelationship,
@@ -31,13 +30,18 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let fitnessProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			harness = yield* startIsolatedHarness("Fitness Taxonomy");
-			fitnessProviders = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId);
+			target = harness.target;
+			fitnessProviders = yield* shippedPluginTestProviders(
+				fitnessPlugin.metadata.packageId,
+				target,
+			);
 		}),
 	),
 );
@@ -47,8 +51,8 @@ afterAll(() => runPromise(harness?.stop ?? Effect.void));
 describe("Fitness taxonomy E2E", () => {
 	it.live("keeps private taxonomy ownership and validates exercise links", () =>
 		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const otherUser = yield* createAuthenticatedClient();
+			const owner = yield* createAuthenticatedClient(target);
+			const otherUser = yield* createAuthenticatedClient(target);
 			const [
 				{ pluginId, schema: exerciseSchema },
 				{ schema: targetSchema },
@@ -324,7 +328,7 @@ describe("Fitness taxonomy E2E", () => {
 	it.live("populates Free Exercise DB taxonomy and preserves user links", () =>
 		Effect.gen(function* () {
 			const provider = yield* attachFitnessTaxonomyProvider(fitnessProviders);
-			const auth = yield* createAuthenticatedClient();
+			const auth = yield* createAuthenticatedClient(target);
 			const { client } = auth;
 			const [
 				{ pluginId, schema: exerciseSchema },
@@ -339,19 +343,17 @@ describe("Fitness taxonomy E2E", () => {
 				findFitnessRelationshipSchema(client, "exercise-targets"),
 				findFitnessRelationshipSchema(client, "exercise-uses-equipment"),
 			]);
-			const seeded = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							populatedAt: null,
-							name: provider.exerciseName,
-							providerId: provider.providerId,
-							externalId: provider.exerciseName,
-							entitySchema: exerciseSchema.reference,
-							properties: { images: [], kind: "reps", instructions: [] },
-						},
-					}),
-				adminHeaders(),
+			const seeded = yield* getApiClient(target).adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						populatedAt: null,
+						name: provider.exerciseName,
+						providerId: provider.providerId,
+						externalId: provider.exerciseName,
+						entitySchema: exerciseSchema.reference,
+						properties: { images: [], kind: "reps", instructions: [] },
+					},
+				}),
 			);
 			const root = yield* getEntity(client, seeded.id);
 			expect(root.id).toBe(seeded.id);
@@ -463,7 +465,7 @@ describe("Fitness taxonomy E2E", () => {
 			expect(barbell.userId).toBeNull();
 			expect(retainedEquipment.userId).toBe(auth.userId);
 
-			const otherUser = yield* createAuthenticatedClient();
+			const otherUser = yield* createAuthenticatedClient(target);
 			const otherUserTargets = yield* executeRyotQLRecipe(
 				otherUser.client,
 				exerciseTargetsRecipe({

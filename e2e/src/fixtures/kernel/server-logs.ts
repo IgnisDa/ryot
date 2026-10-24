@@ -2,12 +2,15 @@ import { gzipSync } from "node:zlib";
 
 import { DateTime, Effect, FileSystem, Path } from "effect";
 
-import { getServerLogFile } from "~/support/harness-target";
+import { requirePresent } from "~/support/assertions";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
-export const seedServerLog = Effect.fn("seedServerLog")(function* () {
+export const seedServerLog = Effect.fn("seedServerLog")(function* (
+	target = getSharedHarnessTarget(),
+) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const activePath = getServerLogFile();
+	const activePath = requirePresent(target.serverLogFile, "Server log path is unavailable");
 	const activeName = path.basename(activePath);
 	const text = `retained-e2e-log-${crypto.randomUUID()}\n`;
 	const bytes = gzipSync(text);

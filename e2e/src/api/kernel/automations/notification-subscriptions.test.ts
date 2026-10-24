@@ -145,6 +145,7 @@ describe("notification subscription catalog and rules", () => {
 			expect(conflict.reason).toEqual({ signalSchema, code: "rule-already-installed" });
 
 			const arbitraryFields = yield* postApiJson(
+				owner.client,
 				"/automations/rules",
 				{ signalSchema, operation: "signal", scriptId: "caller-selected-script" },
 				owner.token,

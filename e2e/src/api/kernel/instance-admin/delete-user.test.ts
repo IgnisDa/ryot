@@ -45,25 +45,26 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
 
 const listPluginsWithHeaders = (headers: Record<string, string>) =>
-	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
+	collectRyotQLRecipeItems(makeSession(target, headers), (after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			harness = yield* startIsolatedHarness("Delete User");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 		}),
 	),
 );
@@ -74,7 +75,7 @@ describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
-				getApiClient().call((c) =>
+				getApiClient(target).call((c) =>
 					c.instanceAdmin.deleteUser({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
@@ -85,7 +86,7 @@ describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion with an incorrect admin token", () =>
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
-				getApiClient().call(
+				getApiClient(target).call(
 					(c) => c.instanceAdmin.deleteUser({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
@@ -99,12 +100,10 @@ describe("Delete user", () => {
 	it.live("returns not found for an unknown user", () =>
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
-				getApiClient().call(
-					(c) =>
-						c.instanceAdmin.deleteUser({
-							params: { userId: UserId.make(`missing-${crypto.randomUUID()}`) },
-						}),
-					adminHeaders(),
+				getApiClient(target).adminCall((c) =>
+					c.instanceAdmin.deleteUser({
+						params: { userId: UserId.make(`missing-${crypto.randomUUID()}`) },
+					}),
 				),
 			);
 			assertTaggedError(error, "InstanceAdminNotFound");
@@ -120,9 +119,9 @@ describe("Delete user", () => {
 				sessionCookie,
 				userId: rawUserId,
 				client: userClient,
-			} = yield* createAuthenticatedClient();
+			} = yield* createAuthenticatedClient(target);
 			const userId = UserId.make(rawUserId);
-			const { client: observerClient } = yield* createAuthenticatedClient();
+			const { client: observerClient } = yield* createAuthenticatedClient(target);
 			const plugin = yield* findBuiltinPluginByPackage(userClient, {
 				scope: "system",
 				packageId: mediaPlugin.metadata.packageId,
@@ -136,15 +135,15 @@ describe("Delete user", () => {
 				packageId: mediaPlugin.metadata.packageId,
 			});
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
-			const apiKey = yield* createApiKey(sessionCookie);
+			const apiKey = yield* createApiKey(sessionCookie, "E2E key", target.apiUrl);
 
 			yield* listPluginsWithHeaders({ Authorization: `Bearer ${token}` });
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
-			const acceptedResponse = yield* webRequest(`${getApiUrl()}/instance-admin/users/${userId}`, {
-				method: "DELETE",
-				headers: adminHeaders(),
-			});
+			const acceptedResponse = yield* webRequest(
+				`${target.apiUrl}/instance-admin/users/${userId}`,
+				{ method: "DELETE", headers: adminHeaders(userClient) },
+			);
 			expect(acceptedResponse.status).toBe(202);
 			const body = yield* Effect.promise(() => acceptedResponse.json());
 			expect(body).toEqual({ operationId: expect.any(String) });
@@ -160,11 +159,12 @@ describe("Delete user", () => {
 			const revokedApiKey = yield* Effect.flip(listPluginsWithHeaders({ "X-Api-Key": apiKey }));
 			assertTaggedError(revokedApiKey, "AuthUnauthorized");
 
-			const deleted = yield* pollUserLifecycleOperation(accepted.operationId);
+			const deleted = yield* pollUserLifecycleOperation(accepted.operationId, target);
 			expect(deleted).toMatchObject({ userId, failure: null, kind: "delete", status: "completed" });
 
 			const listed = yield* executeAdminRyotQLRecipe(
 				instanceAdminUsersRecipe({ limit: 50, search: email }),
+				target,
 			);
 			expect(listed.items).toHaveLength(0);
 
@@ -179,7 +179,7 @@ describe("Delete user", () => {
 describe("Delete user automation data cleanup", () => {
 	it.live("removes a deleted user's private actor-audience signal and subscription run", () =>
 		Effect.gen(function* () {
-			const { userId: rawUserId, client: userClient } = yield* createAuthenticatedClient();
+			const { userId: rawUserId, client: userClient } = yield* createAuthenticatedClient(target);
 			const userId = UserId.make(rawUserId);
 			const { schema } = yield* findFitnessEntitySchema(userClient, "workout");
 			const workoutSignalSchema = {
@@ -198,18 +198,21 @@ describe("Delete user automation data cleanup", () => {
 				eventSchemaSlug: "workout-completed",
 			});
 
-			const { id: triggerId } = yield* pollSignalTrigger({
-				actorUserId: userId,
-				signalSchema: workoutSignalSchema,
-			});
-			yield* pollTerminalAutomationRuns({ triggerId, executionUserId: userId });
+			const { id: triggerId } = yield* pollSignalTrigger(
+				{ actorUserId: userId, signalSchema: workoutSignalSchema },
+				target,
+			);
+			yield* pollTerminalAutomationRuns({ triggerId, executionUserId: userId }, target);
 
-			yield* deleteUserAndWait(userId);
+			yield* deleteUserAndWait(userId, target);
 
 			expect(
-				yield* listSignalTriggers({ actorUserId: userId, signalSchema: workoutSignalSchema }),
+				yield* listSignalTriggers(
+					{ actorUserId: userId, signalSchema: workoutSignalSchema },
+					target,
+				),
 			).toEqual([]);
-			expect(yield* listAutomationRuns({ triggerId, executionUserId: userId })).toEqual([]);
+			expect(yield* listAutomationRuns({ triggerId, executionUserId: userId }, target)).toEqual([]);
 		}),
 	);
 
@@ -222,7 +225,7 @@ describe("Delete user automation data cleanup", () => {
 				const movieExternalId = `delete-user-movie-${crypto.randomUUID()}`;
 				const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
 
-				const { client: compilerClient } = yield* createAuthenticatedClient();
+				const { client: compilerClient } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(compilerClient, "person");
 				const { schema: movieSchema } = yield* findMediaEntitySchema(compilerClient, "movie");
 				const personSchemaId = yield* getBuiltinEntitySchemaSlug(
@@ -264,6 +267,7 @@ describe("Delete user automation data cleanup", () => {
 				});
 
 				const person = yield* seedMediaEntity({
+					target,
 					properties: {},
 					name: personName,
 					externalId: personExternalId,
@@ -272,9 +276,9 @@ describe("Delete user automation data cleanup", () => {
 				});
 
 				const fakeApprise = yield* startFakeAppriseServerScoped;
-				const firstMonitor = yield* createAuthenticatedClient();
-				const secondMonitor = yield* createAuthenticatedClient();
-				const importer = yield* createAuthenticatedClient();
+				const firstMonitor = yield* createAuthenticatedClient(target);
+				const secondMonitor = yield* createAuthenticatedClient(target);
+				const importer = yield* createAuthenticatedClient(target);
 				yield* Effect.all([
 					createNotificationChannel(firstMonitor.client, {
 						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
@@ -306,48 +310,54 @@ describe("Delete user automation data cleanup", () => {
 						},
 					},
 					2,
+					target,
 				);
 				yield* Effect.all([
-					pollTerminalAutomationRuns({
-						triggerId,
-						executionUserId: UserId.make(firstMonitor.userId),
-					}),
-					pollTerminalAutomationRuns({
-						triggerId,
-						executionUserId: UserId.make(secondMonitor.userId),
-					}),
+					pollTerminalAutomationRuns(
+						{ triggerId, executionUserId: UserId.make(firstMonitor.userId) },
+						target,
+					),
+					pollTerminalAutomationRuns(
+						{ triggerId, executionUserId: UserId.make(secondMonitor.userId) },
+						target,
+					),
 				]);
-				const rulesBeforeDeletion = yield* getAutomationRuleCount(secondMonitor.userId);
+				const rulesBeforeDeletion = yield* getAutomationRuleCount(secondMonitor.userId, target);
 				expect(rulesBeforeDeletion).toBeGreaterThan(0);
 
-				yield* deleteUserAndWait(UserId.make(firstMonitor.userId));
+				yield* deleteUserAndWait(UserId.make(firstMonitor.userId), target);
 
-				const [remainingTrigger] = yield* listSignalTriggers({
-					actorUserId: null,
-					subjectEntityId: person.id,
-					signalSchema: {
-						owner: personSchema.reference.owner,
-						slug: SignalSchemaSlug.make("person.media.associated"),
+				const [remainingTrigger] = yield* listSignalTriggers(
+					{
+						actorUserId: null,
+						subjectEntityId: person.id,
+						signalSchema: {
+							owner: personSchema.reference.owner,
+							slug: SignalSchemaSlug.make("person.media.associated"),
+						},
 					},
-				});
+					target,
+				);
 				expect(remainingTrigger?.id).toBe(triggerId);
-				expect(yield* listAutomationTriggerRecipients({ triggerId })).toEqual([
+				expect(yield* listAutomationTriggerRecipients({ triggerId }, target)).toEqual([
 					{ triggerId, userId: UserId.make(secondMonitor.userId) },
 				]);
 				expect(
-					yield* listAutomationRuns({
-						triggerId,
-						executionUserId: UserId.make(firstMonitor.userId),
-					}),
+					yield* listAutomationRuns(
+						{ triggerId, executionUserId: UserId.make(firstMonitor.userId) },
+						target,
+					),
 				).toEqual([]);
 				expect(
-					yield* listAutomationRuns({
-						triggerId,
-						executionUserId: UserId.make(secondMonitor.userId),
-					}),
+					yield* listAutomationRuns(
+						{ triggerId, executionUserId: UserId.make(secondMonitor.userId) },
+						target,
+					),
 				).not.toEqual([]);
-				expect(yield* getAutomationRuleCount(firstMonitor.userId)).toBe(0);
-				expect(yield* getAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);
+				expect(yield* getAutomationRuleCount(firstMonitor.userId, target)).toBe(0);
+				expect(yield* getAutomationRuleCount(secondMonitor.userId, target)).toBe(
+					rulesBeforeDeletion,
+				);
 			}),
 	);
 });

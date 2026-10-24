@@ -18,7 +18,8 @@ import {
 } from "@ryot-app/ryotql-recipes/notification-subscriptions";
 import { Effect, Result, Schema } from "effect";
 
-import { adminHeaders } from "./admin";
+import type { HarnessTarget } from "~/support/harness-target";
+
 import {
 	adminAutomationAttemptsRecipe,
 	adminAutomationRecipientsRecipe,
@@ -88,19 +89,26 @@ const automationFilterLabel = (filter: AutomationTriggerFilter | AutomationRunFi
 		? `${filter.sourceRecord.resource}:${filter.sourceRecord.id}`
 		: "matching filters");
 
-export const listAutomationTriggers = (payload: AutomationTriggerFilter) =>
-	collectAdminRyotQLRecipeItems((after) => adminAutomationTriggersRecipe({ ...payload, after }));
+export const listAutomationTriggers = (payload: AutomationTriggerFilter, target?: HarnessTarget) =>
+	collectAdminRyotQLRecipeItems(
+		(after) => adminAutomationTriggersRecipe({ ...payload, after }),
+		target,
+	);
 
-export const pollAutomationTriggers = (payload: AutomationTriggerFilter, minimumCount = 1) =>
+export const pollAutomationTriggers = (
+	payload: AutomationTriggerFilter,
+	minimumCount = 1,
+	target?: HarnessTarget,
+) =>
 	pollUntil(
 		`at least ${minimumCount} automation trigger(s) for '${automationFilterLabel(payload)}'`,
-		listAutomationTriggers(payload).pipe(
+		listAutomationTriggers(payload, target).pipe(
 			Effect.map((triggers) => (triggers.length >= minimumCount ? triggers : null)),
 		),
 	);
 
-export const pollAutomationTrigger = (payload: AutomationTriggerFilter) =>
-	pollAutomationTriggers(payload).pipe(
+export const pollAutomationTrigger = (payload: AutomationTriggerFilter, target?: HarnessTarget) =>
+	pollAutomationTriggers(payload, 1, target).pipe(
 		Effect.map(([trigger]) => {
 			if (!trigger) {
 				throw new Error("Automation trigger polling completed without a trigger");
@@ -124,8 +132,8 @@ export type SignalTriggerFilter = { signalSchema: SignalSchemaReference } & Pick
 const isSignalTrigger = (trigger: AutomationTrigger): trigger is SignalTrigger =>
 	trigger.payload?.category === "signal";
 
-export const listSignalTriggers = (filter: SignalTriggerFilter) =>
-	listAutomationTriggers({ actorUserId: filter.actorUserId }).pipe(
+export const listSignalTriggers = (filter: SignalTriggerFilter, target?: HarnessTarget) =>
+	listAutomationTriggers({ actorUserId: filter.actorUserId }, target).pipe(
 		Effect.map((triggers) =>
 			triggers.filter(
 				(trigger): trigger is SignalTrigger =>
@@ -142,36 +150,50 @@ export const listSignalTriggers = (filter: SignalTriggerFilter) =>
 		),
 	);
 
-export const listAutomationTriggerRecipients = (payload: AutomationTriggerRecipientFilter) =>
-	collectAdminRyotQLRecipeItems((after) => adminAutomationRecipientsRecipe({ ...payload, after }));
+export const listAutomationTriggerRecipients = (
+	payload: AutomationTriggerRecipientFilter,
+	target?: HarnessTarget,
+) =>
+	collectAdminRyotQLRecipeItems(
+		(after) => adminAutomationRecipientsRecipe({ ...payload, after }),
+		target,
+	);
 
 export const pollAutomationTriggerRecipients = (
 	payload: AutomationTriggerRecipientFilter,
 	minimumCount = 1,
+	target?: HarnessTarget,
 ) =>
 	pollUntil(
 		`at least ${minimumCount} recipient(s) for automation trigger '${payload.triggerId}'`,
-		listAutomationTriggerRecipients(payload).pipe(
+		listAutomationTriggerRecipients(payload, target).pipe(
 			Effect.map((recipients) => (recipients.length >= minimumCount ? recipients : null)),
 		),
 	);
 
-export const pollSignalTrigger = (filter: SignalTriggerFilter) =>
+export const pollSignalTrigger = (filter: SignalTriggerFilter, target?: HarnessTarget) =>
 	pollUntil(
 		`signal trigger for '${filter.signalSchema.slug}'`,
 		Effect.gen(function* () {
-			const [trigger] = yield* listSignalTriggers(filter);
+			const [trigger] = yield* listSignalTriggers(filter, target);
 			return trigger ?? null;
 		}),
 	);
 
-export const pollSignalTriggerWithRecipientCount = (filter: SignalTriggerFilter, count: number) =>
+export const pollSignalTriggerWithRecipientCount = (
+	filter: SignalTriggerFilter,
+	count: number,
+	target?: HarnessTarget,
+) =>
 	pollUntil(
 		`${count} recipient(s) for signal trigger '${filter.signalSchema.slug}'`,
 		Effect.gen(function* () {
-			const triggers = yield* listSignalTriggers(filter);
+			const triggers = yield* listSignalTriggers(filter, target);
 			for (const trigger of triggers) {
-				const recipients = yield* listAutomationTriggerRecipients({ triggerId: trigger.id });
+				const recipients = yield* listAutomationTriggerRecipients(
+					{ triggerId: trigger.id },
+					target,
+				);
 				if (recipients.length === count) {
 					return { ...trigger, recipientUserIds: recipients.map(({ userId }) => userId) };
 				}
@@ -180,41 +202,58 @@ export const pollSignalTriggerWithRecipientCount = (filter: SignalTriggerFilter,
 		}),
 	);
 
-export const listAutomationRuns = (payload: AutomationRunFilter) =>
-	collectAdminRyotQLRecipeItems((after) => adminAutomationRunsRecipe({ ...payload, after }));
+export const listAutomationRuns = (payload: AutomationRunFilter, target?: HarnessTarget) =>
+	collectAdminRyotQLRecipeItems(
+		(after) => adminAutomationRunsRecipe({ ...payload, after }),
+		target,
+	);
 
 export const reconcileAutomations = Effect.suspend(() =>
-	getApiClient().call((c) => c.testSupport.reconcileAutomations({ payload: {} }), adminHeaders()),
+	getApiClient().adminCall((c) => c.testSupport.reconcileAutomations({ payload: {} })),
 );
 
-export const pollAutomationRuns = (payload: AutomationRunFilter, minimumCount = 1) =>
+export const pollAutomationRuns = (
+	payload: AutomationRunFilter,
+	minimumCount = 1,
+	target?: HarnessTarget,
+) =>
 	pollUntil(
 		`at least ${minimumCount} automation run(s) for '${automationFilterLabel(payload)}'`,
-		listAutomationRuns(payload).pipe(
+		listAutomationRuns(payload, target).pipe(
 			Effect.map((runs) => (runs.length >= minimumCount ? runs : null)),
 		),
 	);
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "rejected", "skipped"]);
 
-export const pollTerminalAutomationRuns = (payload: AutomationRunFilter) =>
+export const pollTerminalAutomationRuns = (payload: AutomationRunFilter, target?: HarnessTarget) =>
 	pollUntil(
 		`terminal automation run(s) for '${automationFilterLabel(payload)}'`,
 		Effect.gen(function* () {
-			const runs = yield* listAutomationRuns(payload);
+			const runs = yield* listAutomationRuns(payload, target);
 			return runs.length > 0 && runs.every((run) => terminalRunStatuses.has(run.status))
 				? runs
 				: null;
 		}),
 	);
 
-export const listAutomationRunAttempts = (payload: AutomationRunAttemptFilter) =>
-	collectAdminRyotQLRecipeItems((after) => adminAutomationAttemptsRecipe({ ...payload, after }));
+export const listAutomationRunAttempts = (
+	payload: AutomationRunAttemptFilter,
+	target?: HarnessTarget,
+) =>
+	collectAdminRyotQLRecipeItems(
+		(after) => adminAutomationAttemptsRecipe({ ...payload, after }),
+		target,
+	);
 
-export const pollAutomationRunAttempts = (payload: AutomationRunAttemptFilter, minimumCount = 1) =>
+export const pollAutomationRunAttempts = (
+	payload: AutomationRunAttemptFilter,
+	minimumCount = 1,
+	target?: HarnessTarget,
+) =>
 	pollUntil(
 		`at least ${minimumCount} attempt(s) for automation run '${payload.runId}'`,
-		listAutomationRunAttempts(payload).pipe(
+		listAutomationRunAttempts(payload, target).pipe(
 			Effect.map((attempts) => (attempts.length >= minimumCount ? attempts : null)),
 		),
 	);
@@ -246,5 +285,5 @@ const automationRuleCountRecipe = defineRecipe((userId: string) => ({
 	},
 }));
 
-export const getAutomationRuleCount = (userId: string) =>
-	executeAdminRyotQLRecipe(automationRuleCountRecipe(userId));
+export const getAutomationRuleCount = (userId: string, target?: HarnessTarget) =>
+	executeAdminRyotQLRecipe(automationRuleCountRecipe(userId), target);

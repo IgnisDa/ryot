@@ -23,7 +23,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		"attaches per-episode history to the episode entity and drops unresolvable locators",
 		() =>
 			Effect.gen(function* () {
-				const { token, client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const { pluginId } = yield* findMediaEntitySchema(client, "show");
 
 				// Pre-seed an already-populated show → season → episode tree so the import
@@ -58,7 +58,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					},
 				]);
 				const uploadToken = yield* uploadImportFile(
-					token,
+					client,
 					watcharrExport,
 					"watcharr.json",
 					"application/json",
