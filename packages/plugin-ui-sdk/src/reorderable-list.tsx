@@ -9,12 +9,6 @@ import {
 	useState,
 } from "react";
 
-import {
-	createReorderPositions,
-	moveReorderPosition,
-	type ReorderPositions,
-} from "./reorderable-list-state";
-
 const AUTO_SCROLL_EDGE = 48;
 const AUTO_SCROLL_SPEED = 0.5;
 
@@ -32,7 +26,9 @@ const edgeDelta = (pointer: number, bounds: DOMRect) => {
 
 type Drag = {
 	readonly key: string;
+	readonly keys: readonly string[];
 	readonly pointerId: number;
+	readonly itemHeight: number;
 	readonly startIndex: number;
 	readonly startPointerY: number;
 	readonly startScrollTop: number;
@@ -74,9 +70,10 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	const focusKey = useRef<string | null>(null);
 	const [announcement, setAnnouncement] = useState("");
 	const [dragKey, setDragKey] = useState<string | null>(null);
-	const [positions, setPositions] = useState<ReorderPositions>({});
 	const handles = useRef(new Map<string, HTMLButtonElement | null>());
 	const count = props.items.length;
+	const fromIndex = props.items.findIndex((item) => props.itemKey(item) === dragKey);
+	const destination = clamp(Math.round(offset / props.itemHeight), 0, count - 1);
 
 	const { items, itemKey } = props;
 	useEffect(() => {
@@ -89,6 +86,26 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 			handles.current.get(key)?.focus();
 		}
 	}, [itemKey, items]);
+
+	const { onDrop, itemHeight } = props;
+	useEffect(() => {
+		const active = drag.current;
+		if (
+			active === null ||
+			(active.itemHeight === itemHeight &&
+				active.keys.length === items.length &&
+				items.every((item, index) => itemKey(item) === active.keys[index]))
+		) {
+			return;
+		}
+		drag.current = null;
+		if (frame.current !== null) {
+			cancelAnimationFrame(frame.current);
+			frame.current = null;
+		}
+		setDragKey(null);
+		onDrop();
+	}, [itemHeight, itemKey, items, onDrop]);
 
 	useEffect(
 		() => () => {
@@ -113,13 +130,6 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 			(count - 1) * props.itemHeight,
 		);
 		setOffset(position);
-		const nextIndex = clamp(Math.round(position / props.itemHeight), 0, count - 1);
-		setPositions((current) => {
-			const currentIndex = current[active.key] ?? active.startIndex;
-			return currentIndex === nextIndex
-				? current
-				: moveReorderPosition({ positions: current, toIndex: nextIndex, fromIndex: currentIndex });
-		});
 	};
 
 	const autoScroll = () => {
@@ -137,7 +147,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	};
 
 	const start = (event: PointerEvent<HTMLButtonElement>, key: string, index: number) => {
-		if (event.button !== 0 && event.pointerType === "mouse") {
+		if (drag.current !== null || (event.button !== 0 && event.pointerType === "mouse")) {
 			return;
 		}
 		event.preventDefault();
@@ -148,12 +158,13 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 			key,
 			startIndex: index,
 			pointerId: event.pointerId,
+			itemHeight: props.itemHeight,
 			startPointerY: event.clientY,
+			keys: props.items.map(props.itemKey),
 			startScrollTop: props.scrollRef?.current?.scrollTop ?? 0,
 		};
 		setDragKey(key);
 		setOffset(index * props.itemHeight);
-		setPositions(createReorderPositions(props.items.map(props.itemKey)));
 		props.onPickUp();
 		if (props.scrollRef !== undefined && frame.current === null) {
 			frame.current = requestAnimationFrame(autoScroll);
@@ -173,18 +184,16 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		if (active?.pointerId !== event.pointerId) {
 			return;
 		}
-		const toIndex = positions[active.key] ?? active.startIndex;
 		drag.current = null;
 		if (frame.current !== null) {
 			cancelAnimationFrame(frame.current);
 			frame.current = null;
 		}
 		setDragKey(null);
-		setPositions({});
 		props.onDrop();
-		if (toIndex !== active.startIndex) {
+		if (destination !== active.startIndex) {
 			focusKey.current = active.key;
-			props.onReorder(active.startIndex, toIndex);
+			props.onReorder(active.startIndex, destination);
 		}
 	};
 
@@ -222,7 +231,22 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 				{props.items.map((item, index) => {
 					const key = props.itemKey(item);
 					const isDragging = key === dragKey;
-					const slot = dragKey === null ? index : (positions[key] ?? index);
+					let slot = index;
+					if (
+						dragKey !== null &&
+						fromIndex < destination &&
+						index > fromIndex &&
+						index <= destination
+					) {
+						slot -= 1;
+					} else if (
+						dragKey !== null &&
+						fromIndex > destination &&
+						index >= destination &&
+						index < fromIndex
+					) {
+						slot += 1;
+					}
 					return (
 						<li
 							key={key}
