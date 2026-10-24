@@ -15,7 +15,7 @@
 
 ## Status
 
-**21 implemented, 0 in progress, 62 pending; 3 excluded.**
+**22 implemented, 0 in progress, 61 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -39,7 +39,7 @@
 | C05-R1 | Implemented | Input-free catalogs serve picker and local exact-declaration readiness; explicit catalog/OAuth refresh preserves form input. See this finding's `audit:` commit. |
 | F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
 | M05-R2 | Implemented | Shared images require the canonical purpose; gallery Other and optional badges are removed. See this finding's `audit:` commit. |
-| P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
+| P02-R1 | Implemented | Require a complete activity inventory before lifecycle decisions; other statuses forbid; expose done/unsupported and make malformed inventory a zero-change result. See this finding's audit commit. |
 | M06-R2 | Implemented | Stable activity form consumes enabled pagination directly; no delayed earlier-episode mirror or sentinel query remains. See this finding's `audit:` commit. |
 | C11-R1 | Pending | Authenticated UI owns and disposes its SDK runtime. |
 | M07-R1 | Implemented | Successful count-zero owns first-run; failed counts show sections and retain stale data. See this finding's audit commit. |
@@ -186,3 +186,4 @@
 
 - M07-R1: media check passed before 49 home tests across four files; read-only review reported no findings.
 - M05-R1: media and backend checks passed before 41 admission tests and 14 backend tests; read-only review reported no findings.
+- P02-R1: contract, SDK, and fitness checks plus scoped kernel type, format, and lint checks passed before 47 contract, 234 SDK, 12 fitness, and four kernel tests; read-only review reported no findings.

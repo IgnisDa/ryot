@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
+	PluginIosLiveActivityListResult,
 	type PluginIosLiveActivityRequest,
 	PluginIosLiveActivityResult,
 } from "@ryot-app/plugin-client-contract";
@@ -32,7 +33,13 @@ export const IosLiveActivityPlatformLive = Layer.succeed(IosLiveActivityPlatform
 					catch: platformError,
 					try: () => native.request({ owner, request }),
 				}).pipe(
-					Effect.flatMap(Schema.decodeUnknownEffect(PluginIosLiveActivityResult)),
+					Effect.flatMap(
+						Schema.decodeUnknownEffect(
+							request.action === "list"
+								? PluginIosLiveActivityListResult
+								: PluginIosLiveActivityResult,
+						),
+					),
 					Effect.mapError(platformError),
 				)
 			: Effect.succeed({ status: "unsupported" }),

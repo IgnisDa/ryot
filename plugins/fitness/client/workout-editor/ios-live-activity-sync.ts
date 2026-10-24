@@ -43,7 +43,7 @@ export const createWorkoutIosActivitySynchronizer = (
 			unavailable = true;
 			return;
 		}
-		for (const entry of listed.activities ?? []) {
+		for (const entry of listed.activities) {
 			if (entry.key !== key && (entry.state === "active" || entry.state === "stale")) {
 				yield* api.end({ pluginId, key: entry.key });
 			}
@@ -52,7 +52,7 @@ export const createWorkoutIosActivitySynchronizer = (
 			lastPublished = undefined;
 			return;
 		}
-		const previous = listed.activities?.find((entry) => entry.key === key);
+		const previous = listed.activities.find((entry) => entry.key === key);
 		if (previous?.state === "ended" || previous?.state === "dismissed") {
 			return;
 		}

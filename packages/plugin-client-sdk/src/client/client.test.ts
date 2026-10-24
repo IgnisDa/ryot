@@ -352,6 +352,87 @@ describe("Effect-native client capabilities", () => {
 		}),
 	);
 
+	it.live("accepts complete iOS activity inventories and unsupported listings", () =>
+		Effect.gen(function* () {
+			for (const value of [
+				{ status: "done", activities: [] },
+				{
+					status: "done",
+					activities: [
+						{ key: "one", state: "active" },
+						{ key: "two", state: "stale" },
+						{ key: "three", state: "ended" },
+						{ key: "four", state: "dismissed" },
+					],
+				},
+				{ status: "unsupported" },
+			]) {
+				const client = createRyotClient(
+					createTestRyotAdapter({ iosLiveActivity: () => Effect.succeed(value) }),
+				);
+				expect(
+					yield* client.iosLiveActivities.list({ pluginId: PluginId.make("fixture") }),
+				).toEqual(value);
+			}
+		}),
+	);
+
+	it.live("rejects incomplete inventories and results from other iOS activity actions", () =>
+		Effect.gen(function* () {
+			for (const value of [
+				{ status: "done" },
+				{ status: "done", activities: undefined },
+				{ status: "done", activities: null },
+				{ status: "done", activities: {} },
+				{ status: "done", activities: [{ key: "one", state: "invalid" }] },
+				{ status: "done", activities: [{ state: "active" }] },
+				{ status: "done", activities: [{ key: "one" }] },
+				...[
+					"available",
+					"disabled",
+					"foreground-required",
+					"capacity",
+					"active",
+					"ended",
+					"dismissed",
+				].map((status) => ({ status })),
+			]) {
+				const client = createRyotClient(
+					createTestRyotAdapter({ iosLiveActivity: () => Effect.succeed(value) }),
+				);
+				expect(
+					yield* Effect.flip(client.iosLiveActivities.list({ pluginId: PluginId.make("fixture") })),
+				).toMatchObject({ reason: "malformed-result" });
+			}
+		}),
+	);
+
+	it.live("rejects inventory attached to non-inventory iOS activity results", () =>
+		Effect.gen(function* () {
+			for (const status of [
+				"available",
+				"unsupported",
+				"disabled",
+				"foreground-required",
+				"capacity",
+				"active",
+				"ended",
+				"dismissed",
+			]) {
+				const client = createRyotClient(
+					createTestRyotAdapter({
+						iosLiveActivity: () => Effect.succeed({ status, activities: [] }),
+					}),
+				);
+				expect(
+					yield* Effect.flip(
+						client.iosLiveActivities.availability({ pluginId: PluginId.make("fixture") }),
+					),
+				).toMatchObject({ reason: "malformed-result" });
+			}
+		}),
+	);
+
 	it.live("interrupts a pending adapter Effect without an explicit AbortSignal argument", () =>
 		Effect.gen(function* () {
 			let interrupted = 0;
