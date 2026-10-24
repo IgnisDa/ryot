@@ -45,6 +45,7 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	localDate,
 	lt,
 	lte,
 	maximum,
@@ -126,6 +127,16 @@ describe("RyotQL builders", () => {
 					},
 				},
 			],
+		});
+	});
+
+	it("builds local calendar date expressions", () => {
+		const event = table("event", "event");
+
+		expect(localDate(column(event, "occurredAt"), { timeZone: "America/New_York" })).toEqual({
+			type: "localDate",
+			timeZone: "America/New_York",
+			expr: { type: "column", tableAlias: "event", field: "occurredAt" },
 		});
 	});
 

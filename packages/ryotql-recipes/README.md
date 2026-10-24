@@ -14,6 +14,17 @@ Generic cross-plugin entity reads and browser results remain broad. They carry e
 stored owner so presentation dispatch does not use the current workspace's identity. Kernel
 collections and memberships are selected with explicit kernel predicates.
 
+`collectionReviewAnalyticsRecipe` in `collection-analytics` owns collection review reporting.
+It takes a resolved reporting selection and an optional `bucketLimit`, counts all kernel collection
+review events (including rating-only records), and returns `current`, nullable `previous`, and
+`buckets` with `{ at, count }` items and aggregate `pageInfo`. Periods use the caller's half-open
+instant boundaries; a null current period means all time. Buckets use the selected grouping and
+reporting timezone. Totals remain complete when bucket results have `hasMore`; callers must surface
+that truncation or choose a coarser grouping. Domain plugins report their own reviews separately.
+`collectionReviewRecordsRecipe` reads the contributing kernel review records for a nullable period,
+including rating-only records. Its row cursor follows descending occurrence time, creation time, and
+event ID. Consumers page these records with SDK pagination; aggregate buckets do not have cursors.
+
 Runtime provider search takes an `EntitySchemaReference`.
 Saved-view detail lookups take a tagged `SavedViewReference`; list filters use local plugin IDs, not
 display slugs. Plugin catalogs expose permanent package IDs, local IDs, scope, and typed home views.

@@ -13,15 +13,16 @@ it("reads canonical stored preferences and rejects malformed persisted values", 
 		image: null,
 		id: "user-1",
 		email: "a@example.com",
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	};
 	const recipe = userSettingsRecipe();
 	expect(Result.getOrThrow(recipe.decode({ data: { user: page([user]) } })).preferences).toEqual(
 		user.preferences,
 	);
 	for (const preferences of [
-		{ language: "", disableIntegrations: false },
-		{ language: null, disableIntegrations: "yes" },
+		{ language: "", reportingTimeZone: null, disableIntegrations: false },
+		{ language: null, reportingTimeZone: null, disableIntegrations: "yes" },
+		{ language: null, disableIntegrations: false, reportingTimeZone: "+05:30" },
 		{ language: null },
 	]) {
 		expect(

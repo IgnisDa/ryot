@@ -164,6 +164,16 @@ export const dateBucket = (
 	input: Pick<DateBucketExpression, "bucket" | "timeZone">,
 ): DateBucketExpression => ({ expr, type: "dateBucket", ...input });
 
+export const localDate = (
+	expr: ScalarExpression,
+	input: { readonly timeZone: string },
+): Extract<ScalarExpression, { type: "localDate" }> => ({ expr, type: "localDate", ...input });
+
+export const localHour = (
+	expr: ScalarExpression,
+	input: { readonly timeZone: string },
+): Extract<ScalarExpression, { type: "localHour" }> => ({ expr, type: "localHour", ...input });
+
 export const coalesce = (
 	first: ScalarExpression,
 	...rest: readonly ScalarExpression[]
