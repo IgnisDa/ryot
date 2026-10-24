@@ -15,7 +15,7 @@ import {
 
 import { useEntityRefresh } from "../refresh/entity-hooks";
 import { usePageRefresh } from "../refresh/page-registry";
-import { QueryDefinition, type RyotQuery } from "./definitions";
+import { definitionHostServices, isQueryDefinition, type RyotQuery } from "./definitions";
 import { createPagination, type PaginationOptions } from "./pagination";
 import { RyotContext } from "./provider";
 
@@ -123,7 +123,7 @@ export const useRyotInfiniteQuery = <
 	if (!context) {
 		throw new Error("useRyotInfiniteQuery must be used within RyotProvider");
 	}
-	if (!(query instanceof QueryDefinition)) {
+	if (!isQueryDefinition(query)) {
 		throw new Error("useRyotInfiniteQuery requires createRyotQuery");
 	}
 	const { client, schedule, hostServices } = context;
@@ -153,7 +153,7 @@ export const useRyotInfiniteQuery = <
 					registry,
 					client,
 					schedule,
-					hostServices,
+					definitionHostServices(query, hostServices),
 					options.getPageInput(input, param),
 					true,
 				);

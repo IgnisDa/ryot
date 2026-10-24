@@ -9,9 +9,10 @@ import { useContext, useEffect, useMemo } from "react";
 import { ActiveScreenContext } from "../active-screen";
 import { useQueryRefresh } from "../refresh/query-refresh";
 import {
+	definitionHostServices,
+	isQueryDefinition,
 	type MutationContext,
 	MutationDefinition,
-	QueryDefinition,
 	type RyotMutation,
 	type RyotQuery,
 } from "./definitions";
@@ -66,10 +67,16 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 		throw new Error("useRyotQuery must be used within RyotProvider");
 	}
 	const { client, schedule, hostServices } = context;
-	if (!(query instanceof QueryDefinition)) {
+	if (!isQueryDefinition(query)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
-	const atom = query.atom(registry, client, schedule, hostServices, input);
+	const atom = query.atom(
+		registry,
+		client,
+		schedule,
+		definitionHostServices(query, hostServices),
+		input,
+	);
 	useQueryRefresh(
 		client,
 		schedule,
@@ -149,9 +156,7 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 		throw new Error("useRyotMutation must be used within RyotProvider");
 	}
 	const { client, schedule, hostServices } = context;
-	// The definition declares the host type; React context cannot link that generic to a provider.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const typedHostServices = hostServices as HostServices;
+	const typedHostServices = definitionHostServices(mutation, hostServices);
 	if (!(mutation instanceof MutationDefinition)) {
 		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
 	}

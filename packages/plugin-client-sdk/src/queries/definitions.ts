@@ -121,6 +121,20 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 	) {}
 }
 
+export const isQueryDefinition = <Input, Data, HostServices, Failure extends Error>(
+	query: RyotQuery<Input, Data, HostServices, Failure>,
+): query is QueryDefinition<Input, Data, HostServices, Failure> => query instanceof QueryDefinition;
+
+// The definition declares the host type; React context cannot link that generic to a provider.
+export const definitionHostServices = <HostServices>(
+	_definition:
+		| RyotQuery<unknown, unknown, HostServices, Error>
+		| RyotMutation<unknown, unknown, HostServices, Error>,
+	hostServices: unknown,
+): HostServices =>
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	hostServices as HostServices;
+
 export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
 	mutation: (
 		context: Omit<MutationContext<void, undefined>, "input">,
