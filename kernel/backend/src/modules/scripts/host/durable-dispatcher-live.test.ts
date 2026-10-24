@@ -40,7 +40,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
+import { NotificationsService } from "#modules/notifications/service";
 import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
@@ -185,6 +185,7 @@ const dispatcherLayer = (options: {
 	readonly authority?: SandboxExecutionAuthority["Service"];
 	readonly lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 	readonly implementations?: ScriptHostImplementations["Service"];
+	readonly sendMessage?: NotificationsService["Service"]["sendMessage"];
 	readonly resolve?: PluginHttpRateLimitAuthority["Service"]["resolve"];
 	readonly admission?: Partial<ProviderHttpAdmissionService["Service"]>;
 }) =>
@@ -206,6 +207,13 @@ const dispatcherLayer = (options: {
 				Layer.succeed(WorkflowEngine, options.engine),
 				Layer.mock(SandboxSubmissionCommands)({ commandFor: () => Effect.die("unused") }),
 				Layer.succeed(WorkflowInstance, options.instance),
+				Layer.succeed(NotificationsService, {
+					test: () => Effect.die("unused"),
+					create: () => Effect.die("unused"),
+					update: () => Effect.die("unused"),
+					delete: () => Effect.die("unused"),
+					sendMessage: options.sendMessage ?? (() => Effect.die("unused")),
+				}),
 				options.lifecycleExecution ?? unusedLifecycleExecution,
 				Layer.succeed(ScriptHostImplementations, options.implementations ?? implementations),
 				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(options.script) }),
@@ -217,6 +225,8 @@ const dispatcherLayer = (options: {
 		),
 	);
 
+type NotificationSendMessage = Parameters<NotificationsService["Service"]["sendMessage"]>[0];
+
 type WorkflowExecution = Readonly<{
 	workflow: unknown;
 	options: Parameters<WorkflowEngine["Service"]["execute"]>[1];
@@ -227,11 +237,17 @@ class RecordedWorkflowExecutions extends Context.Service<
 	{ readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>> }
 >()("test/RecordedWorkflowExecutions") {}
 
+class RecordedNotificationMessages extends Context.Service<
+	RecordedNotificationMessages,
+	{ readonly messages: Effect.Effect<ReadonlyArray<NotificationSendMessage>> }
+>()("test/RecordedNotificationMessages") {}
+
 const childOwnerExecutionId = "sandbox-parent";
 
 const childOwnerDispatchLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const executions = yield* Ref.make<ReadonlyArray<WorkflowExecution>>([]);
+		const messages = yield* Ref.make<ReadonlyArray<NotificationSendMessage>>([]);
 		const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, childOwnerExecutionId);
 		const engine = makeWorkflowActivityEngine(instance, {
 			execute: (workflow, options) =>
@@ -243,9 +259,16 @@ const childOwnerDispatchLayer = Layer.unwrap(
 					),
 				),
 		});
-		return Layer.merge(
-			dispatcherLayer({ engine, script, instance }),
+		return Layer.mergeAll(
+			dispatcherLayer({
+				engine,
+				script,
+				instance,
+				sendMessage: (input) =>
+					append(messages, input).pipe(Effect.as({ id: "admitted-notification" })),
+			}),
 			Layer.succeed(RecordedWorkflowExecutions, { executions: Ref.get(executions) }),
+			Layer.succeed(RecordedNotificationMessages, { messages: Ref.get(messages) }),
 		);
 	}),
 );
@@ -315,9 +338,13 @@ layer(childOwnerDispatchLayer)((test) => {
 						workflow: SandboxDurableHostServiceWorkflow,
 						options: { executionId: "sandbox-parent-host-service-0" },
 					},
+				]);
+				expect(yield* (yield* RecordedNotificationMessages).messages).toEqual([
 					{
-						workflow: NotificationDeliveryWorkflow,
-						options: { discard: true, executionId: "automation-run-1-host-1-notification" },
+						message: "Ready",
+						sourceRunId: runId,
+						sourceKey: `${runId}-host-1-notification`,
+						accountGeneration: subject.accountGeneration,
 					},
 				]);
 			}),

@@ -1,5 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
@@ -26,10 +27,7 @@ import {
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import {
-	NotificationDeliveryWorkflow,
-	NotificationDeliveryWorkflowPayload,
-} from "#modules/notifications/notification-delivery-workflow";
+import { NotificationsService } from "#modules/notifications/service";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { infrastructureRunError } from "#modules/scripts/executions/run-error";
 import {
@@ -64,9 +62,10 @@ const PreparedSandboxCreateEvents = Schema.Struct({
 });
 
 const PreparedSandboxSendNotification = Schema.Struct({
-	userId: UserId,
 	message: Schema.String,
-	executionId: Schema.String,
+	sourceKey: Schema.String,
+	sourceRunId: Schema.String,
+	accountGeneration: AccountGeneration,
 });
 
 const lifecycleHostSuccessSchemas = {
@@ -128,6 +127,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const httpDispatcher = yield* SandboxHttpDispatcher;
 		const implementations = yield* ScriptHostImplementations;
 		const lifecycleExecution = yield* LifecycleExecution;
+		const notifications = yield* NotificationsService;
 
 		const writeLifecycleItems = Effect.fnUntraced(function* <Item, Result>(
 			options: LifecycleItemWrite<Item, Result> & {
@@ -341,28 +341,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					execute: prepareSandboxSendNotification(request, scope),
 					name: `prepare-sandbox-send-notification-${request.index}`,
 				});
-				const notificationPayload = yield* Schema.decodeEffect(NotificationDeliveryWorkflowPayload)(
-					{
-						userId: prepared.userId,
-						executionId: prepared.executionId,
-						request: { kind: "message", message: prepared.message },
-					},
-				).pipe(
-					Effect.mapError(
-						(error) =>
-							new SandboxRunError({
-								kind: "invalid-input",
-								message: `Invalid sendNotification payload: ${unknownToMessage(error)}`,
-							}),
-					),
-				);
-				const result = yield* Effect.exit(
-					engine.execute(NotificationDeliveryWorkflow, {
-						discard: true,
-						payload: notificationPayload,
-						executionId: notificationPayload.executionId,
-					}),
-				);
+				const result = yield* Effect.exit(notifications.sendMessage(prepared));
 				if (result._tag === "Failure") {
 					return yield* failureOrRethrow(result.cause);
 				}

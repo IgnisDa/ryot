@@ -1,37 +1,18 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
-import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
-import { generateId } from "better-auth";
+import { NotificationDeliveryResult } from "@ryot-app/contract/modules/notifications/delivery";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 
-export const NotificationDeliveryRequest = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("test") }),
-	Schema.Struct({ message: Schema.String, kind: Schema.Literal("message") }),
-]);
-
-export const NotificationDeliveryResult = Schema.Struct({
-	channel: NotificationChannelKind,
-	channelId: NotificationChannelId,
-	status: Schema.Literals(["sent", "failed"]),
-});
-
-export type NotificationDeliveryResult = typeof NotificationDeliveryResult.Type;
-
 export const NotificationDeliveryWorkflowPayload = Schema.Struct({
-	userId: UserId,
 	executionId: Schema.String,
-	request: NotificationDeliveryRequest,
+	notificationId: Schema.String,
+	accountGeneration: AccountGeneration,
 });
 
 export type NotificationDeliveryWorkflowPayload = typeof NotificationDeliveryWorkflowPayload.Type;
-
-type NotificationDeliveryWorkflowInput = { executionId?: string | undefined } & Omit<
-	NotificationDeliveryWorkflowPayload,
-	"executionId"
->;
 
 export const NotificationDeliveryWorkflow = Workflow.make("NotificationDeliveryWorkflow", {
 	error: DbError satisfies DurableSchema,
@@ -39,11 +20,3 @@ export const NotificationDeliveryWorkflow = Workflow.make("NotificationDeliveryW
 	payload: NotificationDeliveryWorkflowPayload satisfies DurableSchema,
 	success: Schema.Array(NotificationDeliveryResult) satisfies DurableSchema,
 });
-
-const withExecutionId = (input: NotificationDeliveryWorkflowInput) => ({
-	...input,
-	executionId: input.executionId ?? generateId(),
-});
-
-export const enqueueNotificationDelivery = (input: NotificationDeliveryWorkflowInput) =>
-	NotificationDeliveryWorkflow.execute(withExecutionId(input), { discard: true });

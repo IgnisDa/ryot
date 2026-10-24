@@ -133,7 +133,9 @@ const automationHostLayer = Layer.unwrap(
 			}),
 			Layer.mock(NotificationsService, {
 				sendMessage: (input) =>
-					Ref.update(notificationDeliveries, (all) => [...all, input]).pipe(Effect.as(undefined)),
+					Ref.update(notificationDeliveries, (all) => [...all, input]).pipe(
+						Effect.as({ id: "admitted-notification" }),
+					),
 			}),
 		);
 	}),
@@ -257,8 +259,18 @@ layer(automationHostLayer)((test) => {
 			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
 			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
 			expect(yield* (yield* AutomationHostCalls).notificationDeliveries).toEqual([
-				{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
-				{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
+				{
+					message: "Ready",
+					sourceRunId: runId,
+					sourceKey: "run-1-host-4-notification",
+					accountGeneration: { userId, token: "test-account-generation" },
+				},
+				{
+					message: "Ready",
+					sourceRunId: runId,
+					sourceKey: "run-1-host-4-notification",
+					accountGeneration: { userId, token: "test-account-generation" },
+				},
 			]);
 		}),
 	);

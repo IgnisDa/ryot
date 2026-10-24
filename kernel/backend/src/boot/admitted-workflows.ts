@@ -26,6 +26,7 @@ import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -38,6 +39,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
 	Object.freeze([
 		EventCreateWorkflow,
+		NotificationDeliveryWorkflow,
 		EntityImportWorkflow,
 		ProviderEntityPopulationWorkflow,
 		ProviderEntityPopulationAttemptWorkflow,

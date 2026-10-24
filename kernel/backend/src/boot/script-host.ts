@@ -157,6 +157,7 @@ export const SandboxDurableHostServicesLive = Layer.mergeAll(
 		Layer.provide(
 			Layer.mergeAll(
 				ScriptHostImplementationsLive,
+				NotificationsServiceLive,
 				SandboxSubmissionCommands.layer,
 				PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
 				ProviderHttpAdmissionService.layer,

@@ -85,6 +85,15 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				);
 				return row !== undefined;
 			});
+			const findForUser = Effect.fn("NotificationsRepository.findForUser")(function* (input: {
+				userId: UserId;
+				channelId: NotificationChannelId;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db.select().from(schema.notificationChannel).where(ownedChannelWhere(input)),
+				);
+				return row ? toRecord(row) : null;
+			});
 			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
 				userId: UserId;
 				isDisabled: boolean;
@@ -151,9 +160,9 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 			});
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
-				function* (input: { userId: UserId }) {
-					const rows = yield* database.run((db) =>
-						db
+				function* (input: { userId: UserId; limit?: number }) {
+					const rows = yield* database.run((db) => {
+						const query = db
 							.select()
 							.from(schema.notificationChannel)
 							.where(
@@ -162,13 +171,21 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 									eq(schema.notificationChannel.isDisabled, false),
 								),
 							)
-							.orderBy(desc(schema.notificationChannel.createdAt)),
-					);
+							.orderBy(desc(schema.notificationChannel.createdAt));
+						return input.limit === undefined ? query : query.limit(input.limit);
+					});
 					return rows.map(toRecord);
 				},
 			);
 
-			return { hasAnyForUser, createForUser, deleteForUser, updateForUser, listEnabledForUser };
+			return {
+				findForUser,
+				hasAnyForUser,
+				createForUser,
+				deleteForUser,
+				updateForUser,
+				listEnabledForUser,
+			};
 		}),
 	},
 ) {

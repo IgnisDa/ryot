@@ -342,7 +342,12 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 					}),
 			),
 		);
-		if (principal.subject.type !== "automation-run" || principal.subject.executionUserId === null) {
+		if (
+			principal.subject.type !== "automation-run" ||
+			principal.subject.executionUserId === null ||
+			principal.subject.accountGeneration === null ||
+			principal.subject.accountGeneration.userId !== principal.subject.executionUserId
+		) {
 			return yield* new SandboxRunError({
 				kind: "script-failure",
 				message: "sendNotification requires a user automation run",
@@ -350,8 +355,9 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		}
 		return {
 			message: args[0],
-			userId: principal.subject.executionUserId,
-			executionId: `${principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
+			sourceRunId: principal.subject.runId,
+			accountGeneration: principal.subject.accountGeneration,
+			sourceKey: `${principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
 		};
 	},
 );

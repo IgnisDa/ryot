@@ -1,95 +1,87 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
-import { databaseLayer, makeWorkflowEngine } from "#testing/effect";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 
-import { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
+import { NotificationAdmissions } from "./admission";
+import type { NotificationAdmission } from "./ledger";
 import { NotificationsRepository } from "./repository";
 import { NotificationsService } from "./service";
 
 const user = {
 	image: null,
 	name: "Test User",
+	id: UserId.make("owner"),
 	email: "user@example.com",
-	id: UserId.make("user-1"),
 	preferences: { language: null, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+	accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
-const repositoryLayer = Layer.succeed(
-	NotificationsRepository,
-	Object.assign(Object.create(null), {}),
-);
+class RecordedAdmissions extends Context.Service<
+	RecordedAdmissions,
+	{ readonly inputs: Effect.Effect<ReadonlyArray<NotificationAdmission>> }
+>()("test/RecordedAdmissions") {}
 
-type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
-
-class RecordedWorkflowExecutions extends Context.Service<
-	RecordedWorkflowExecutions,
-	{ readonly options: Effect.Effect<ReadonlyArray<ExecuteOptions>> }
->()("test/RecordedWorkflowExecutions") {}
-
-const recordingWorkflowEngineLayer = Layer.effectContext(
+const admissions = Layer.effectContext(
 	Effect.gen(function* () {
-		const options = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
-		return Context.make(
-			WorkflowEngine,
-			makeWorkflowEngine({
-				execute: (_workflow, executeOptions) =>
-					Ref.update(options, (all) => [...all, executeOptions]).pipe(
-						Effect.as(executeOptions.executionId),
-					),
-			}),
-		).pipe(Context.add(RecordedWorkflowExecutions, { options: Ref.get(options) }));
+		const inputs = yield* Ref.make<ReadonlyArray<NotificationAdmission>>([]);
+		return Context.make(NotificationAdmissions, {
+			recover: () => Effect.void,
+			admit: (input) =>
+				Ref.update(inputs, (all) => [...all, input]).pipe(
+					Effect.as({ id: "admitted-notification" }),
+				),
+		}).pipe(Context.add(RecordedAdmissions, { inputs: Ref.get(inputs) }));
 	}),
 );
 
-const serviceLayer = NotificationsService.layer.pipe(
-	Layer.provideMerge(Layer.mergeAll(databaseLayer, repositoryLayer, recordingWorkflowEngineLayer)),
-);
-
-const lastExecuteOptions = Effect.gen(function* () {
-	return (yield* (yield* RecordedWorkflowExecutions).options).at(-1);
-});
-
-layer(serviceLayer)((test) => {
-	test.effect("enqueues a fire-and-forget test delivery without delivering synchronously", () =>
+layer(
+	NotificationsService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				admissions,
+				NotificationsRepository.layer.pipe(Layer.provide(revisionDatabaseLayer)),
+			),
+		),
+	),
+)((test) => {
+	test.effect("retains a channel test submission and returns its admitted notification", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationsService;
-			yield* service.test(user);
-
-			const capturedOptions = yield* lastExecuteOptions;
-			expect(capturedOptions).toMatchObject({
-				discard: true,
-				payload: { userId: user.id, request: { kind: "test" } },
+			const submittedAt = (yield* DateTime.nowAsDate).toISOString();
+			expect(yield* service.test(user, { submittedAt, idempotencyKey: "test-1" })).toEqual({
+				id: "admitted-notification",
 			});
-			expect(
-				Schema.is(NotificationDeliveryWorkflowPayload)(capturedOptions?.payload) &&
-					typeof capturedOptions.payload.executionId,
-			).toBe("string");
+			expect(yield* (yield* RecordedAdmissions).inputs).toEqual([
+				{
+					userId: user.id,
+					sourceRunId: null,
+					request: { kind: "test" },
+					sourceSubmittedAt: submittedAt,
+					sourceKey: "channel-test:test-1",
+					accountGeneration: user.accountGeneration,
+				},
+			]);
 		}),
 	);
-});
-
-layer(serviceLayer)((test) => {
-	test.effect("enqueues a message delivery with a caller-supplied execution ID", () =>
+	test.effect("forwards trusted run and call authority, normalizing message content", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationsService;
 			yield* service.sendMessage({
-				userId: user.id,
-				message: "Subscription run completed",
-				executionId: "subscription-run-1-notification",
+				sourceRunId: "run-1",
+				sourceKey: "run-1-host-3-notification",
+				message: "  Subscription run completed  ",
+				accountGeneration: user.accountGeneration,
 			});
-
-			expect(yield* lastExecuteOptions).toMatchObject({
-				discard: true,
-				payload: {
-					userId: user.id,
-					executionId: "subscription-run-1-notification",
-					request: { kind: "message", message: "Subscription run completed" },
-				},
+			expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
+				userId: user.id,
+				sourceRunId: "run-1",
+				sourceSubmittedAt: null,
+				sourceKey: "run-1-host-3-notification",
+				accountGeneration: user.accountGeneration,
+				request: { kind: "message", message: "Subscription run completed" },
 			});
 		}),
 	);

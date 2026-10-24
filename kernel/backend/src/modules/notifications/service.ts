@@ -2,24 +2,24 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type CreateNotificationChannelBody,
 	NotificationNotFoundError,
+	type TestNotificationChannelsBody,
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
-import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import type { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
+
+import { NotificationAdmissions } from "./admission";
 import { NotificationsRepository } from "./repository";
 
 export class NotificationsService extends Context.Service<NotificationsService>()(
 	"NotificationsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
+			const admissions = yield* NotificationAdmissions;
 			const repository = yield* NotificationsRepository;
-
-			const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
 			const create = Effect.fn("NotificationsService.create")(function* (
 				user: CurrentUserValue,
@@ -60,26 +60,35 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				return { id: channelId };
 			});
 
-			const test = Effect.fn("NotificationsService.test")(function* (user: CurrentUserValue) {
-				yield* provideWorkflowEngine(
-					enqueueNotificationDelivery({ userId: user.id, request: { kind: "test" } }),
-				);
-				return undefined;
+			const test = Effect.fn("NotificationsService.test")(function* (
+				user: CurrentUserValue,
+				body: TestNotificationChannelsBody,
+			) {
+				yield* requireOpenSubmission(body.submittedAt);
+				return yield* admissions.admit({
+					userId: user.id,
+					sourceRunId: null,
+					request: { kind: "test" },
+					sourceSubmittedAt: body.submittedAt,
+					accountGeneration: user.accountGeneration,
+					sourceKey: `channel-test:${body.idempotencyKey}`,
+				});
 			});
 
 			const sendMessage = Effect.fn("NotificationsService.sendMessage")(function* (input: {
-				userId: UserId;
 				message: string;
-				executionId?: string | undefined;
+				sourceKey: string;
+				sourceRunId: string;
+				accountGeneration: AccountGeneration;
 			}) {
-				yield* provideWorkflowEngine(
-					enqueueNotificationDelivery({
-						userId: input.userId,
-						executionId: input.executionId,
-						request: { kind: "message", message: input.message },
-					}),
-				);
-				return undefined;
+				return yield* admissions.admit({
+					sourceSubmittedAt: null,
+					sourceKey: input.sourceKey,
+					sourceRunId: input.sourceRunId,
+					userId: input.accountGeneration.userId,
+					accountGeneration: input.accountGeneration,
+					request: { kind: "message", message: input.message.trim() },
+				});
 			});
 
 			return { test, create, update, sendMessage, delete: remove };
