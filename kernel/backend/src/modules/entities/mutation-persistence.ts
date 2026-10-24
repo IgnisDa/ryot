@@ -92,7 +92,7 @@ export type PersistItem = {
 };
 
 const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
-	item.preservePopulatedAt && item.input.draft.populatedAt === null
+	item.preservePopulatedAt && before.populatedAt !== null
 		? { ...item.input.draft, populatedAt: before.populatedAt }
 		: item.input.draft;
 export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];

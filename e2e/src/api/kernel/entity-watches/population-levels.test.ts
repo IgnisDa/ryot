@@ -115,6 +115,9 @@ describe("entity population levels", () => {
 				const socket = yield* openInterestWebSocketScoped(auth);
 				expect(yield* socket.replaceInterest([anime.id])).toEqual({ revision: 1, type: "applied" });
 				yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
+				const visible = yield* getEntity(auth.client, anime.id);
+				expect(visible.populatedAt).toBe(imported.populatedAt);
+				expect(visible.relatedPopulationStatus).toBe("pending");
 				expect(yield* socket.replaceInterest([anime.id], [anime.id])).toEqual({
 					revision: 2,
 					type: "applied",

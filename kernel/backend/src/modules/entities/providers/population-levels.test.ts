@@ -6,7 +6,7 @@ import {
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
-import { Effect, Exit, Schema } from "effect";
+import { DateTime, Effect, Exit, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -132,12 +132,15 @@ const setup = Effect.gen(function* () {
 	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 	const session = yield* DatabaseSession;
 
-	const command = (executionId: string): DomainLifecycleCommand => ({
+	const command = (
+		executionId: string,
+		occurredAt: DomainLifecycleCommand["occurredAt"],
+	): DomainLifecycleCommand => ({
 		...rootLifecycleCommand({
+			occurredAt,
 			source: "api",
 			lane: "interactive",
 			itemIdentity: executionId,
-			occurredAt: "2026-10-23T00:00:00.000Z",
 			initiator: { id: owner, kind: "user" },
 			accountGeneration: subject.accountGeneration,
 			executionId: AutomationExecutionId.make(executionId),
@@ -149,6 +152,7 @@ const setup = Effect.gen(function* () {
 		readonly executionId: string;
 		readonly level: PopulationLevel;
 		readonly mode?: "ensure" | "refresh";
+		readonly occurredAt?: DomainLifecycleCommand["occurredAt"];
 		readonly details: Effect.Effect<unknown>;
 	}) => {
 		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, input.executionId);
@@ -160,9 +164,9 @@ const setup = Effect.gen(function* () {
 				entitySchemaSlug: bottle,
 				mode: input.mode ?? "ensure",
 				executionId: input.executionId,
-				command: command(input.executionId),
 				pluginId: PluginId.make(installed.pluginId),
 				entityScope: { type: "user", userId: owner },
+				command: command(input.executionId, input.occurredAt ?? "2026-10-23T00:00:00.000Z"),
 			},
 			input.executionId,
 		).pipe(
@@ -338,8 +342,10 @@ layer(relationshipDatabaseLayer())((test) => {
 				});
 
 				const populatedDuringUpgrade: Array<Date | null> = [];
-				yield* populate({
+				const upgradeAt = "2026-10-23T01:00:00.000Z";
+				const upgraded = yield* populate({
 					level: "full",
+					occurredAt: upgradeAt,
 					executionId: "levels-full",
 					details: entity("root").pipe(
 						Effect.orDie,
@@ -353,8 +359,9 @@ layer(relationshipDatabaseLayer())((test) => {
 				const full = yield* entity("root");
 				assert(full);
 				expect(populatedDuringUpgrade).toEqual([base.populatedAt]);
-				expect(full.populatedAt).not.toBeNull();
-				expect(full.relatedPopulatedAt).toEqual(full.populatedAt);
+				expect(upgraded.populatedAt).toBe(base.populatedAt.toISOString());
+				expect(full.populatedAt).toEqual(base.populatedAt);
+				expect(full.relatedPopulatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(upgradeAt)));
 				expect(full.properties).toEqual({ title: "Full" });
 				expect((yield* entity("part"))?.properties).toEqual({ title: "Base part" });
 				expect(yield* relationships("credits")).toHaveLength(1);
@@ -364,6 +371,55 @@ layer(relationshipDatabaseLayer())((test) => {
 					executionId: "levels-full-again",
 					details: Effect.die("a fully populated entity must not run again"),
 				});
+				const refreshAt = "2026-10-23T02:00:00.000Z";
+				yield* populate({
+					level: "full",
+					mode: "refresh",
+					occurredAt: refreshAt,
+					executionId: "levels-refresh",
+					details: given(details({ title: "Refreshed", partTitle: "Refreshed part" })),
+				});
+				const refreshed = yield* entity("root");
+				expect(refreshed?.populatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(refreshAt)));
+				expect(refreshed?.relatedPopulatedAt).toEqual(
+					DateTime.toDateUtc(DateTime.makeUnsafe(refreshAt)),
+				);
+				expect((yield* entity("part"))?.properties).toEqual({ title: "Refreshed part" });
+			}),
+	);
+});
+
+layer(relationshipDatabaseLayer())((test) => {
+	test.effect(
+		"keeps a base stamp committed after a successful full run read its target unpopulated",
+		() =>
+			Effect.gen(function* () {
+				const { entity, populate, seedUnpopulated } = yield* setup;
+				yield* seedUnpopulated;
+				const baseAt = "2026-10-23T01:00:00.000Z";
+				const fullAt = "2026-10-23T02:00:00.000Z";
+				const overlappingBase = populate({
+					level: "base",
+					occurredAt: baseAt,
+					executionId: "successful-overlap-base",
+					details: given(details({ title: "Base", partTitle: "Base part" })),
+				});
+				const context = yield* Effect.context<Effect.Services<typeof overlappingBase>>();
+				const full = yield* populate({
+					level: "full",
+					occurredAt: fullAt,
+					executionId: "successful-overlap-full",
+					details: overlappingBase.pipe(
+						Effect.provide(context),
+						Effect.orDie,
+						Effect.as(details({ title: "Full", partTitle: "Changed part" })),
+					),
+				});
+				expect(full.populatedAt).toBe(baseAt);
+				const stored = yield* entity("root");
+				expect(stored?.populatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(baseAt)));
+				expect(stored?.relatedPopulatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(fullAt)));
+				expect((yield* entity("part"))?.properties).toEqual({ title: "Base part" });
 			}),
 	);
 });

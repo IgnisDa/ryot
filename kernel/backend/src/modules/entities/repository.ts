@@ -947,7 +947,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							name: input.name,
 							properties: input.properties,
 							populatedAt: input.preservePopulatedAt
-								? sql`coalesce(${input.populatedAt?.toISOString() ?? null}::timestamptz, ${schema.entity.populatedAt})`
+								? sql`coalesce(${schema.entity.populatedAt}, ${input.populatedAt?.toISOString() ?? null}::timestamptz)`
 								: input.populatedAt,
 							...(input.populatedAt === null
 								? {}

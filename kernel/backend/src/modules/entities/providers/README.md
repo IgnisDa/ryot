@@ -52,10 +52,13 @@ with the child's `populated_at` when it is still null.
 
 `ensure` at `base` runs only while `populated_at` is null; `ensure` at `full` also runs while
 `related_populated_at` is null, upgrading a base-populated entity. `refresh` always requests `full`.
-An `ensure` run upserts the root with `preservePopulatedAt`, so the entity update keeps a non-null
-`populated_at` in SQL (`coalesce`) instead of clearing it, even when an overlapping base run stamped
-the entity after this run read it; every other entity update writes `populated_at` as given. Child
-sets keep their initial (non-refresh) semantics during an upgrade.
+An `ensure` run preserves an existing root `populated_at` during both the initial upsert and final
+stamp. Persistence selects the stored non-null timestamp first in SQL (`coalesce`), even when an
+overlapping base run stamped the entity after this run read it. The final stamp fills an unset base
+timestamp and stamps the related level with the current command's timestamp. Mutation comparison
+uses the preserved base timestamp, so a timestamp-only ensure does not emit an entity change.
+Refresh and other entity updates write `populated_at` as given. Child sets keep their initial
+(non-refresh) semantics during an upgrade.
 
 `EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. Entity interest requests
 `base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
