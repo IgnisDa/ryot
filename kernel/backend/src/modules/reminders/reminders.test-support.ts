@@ -17,7 +17,7 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		name: "Owner",
 		email: `${id}@example.test`,
 		accountGeneration: { userId: id, token: "generation" },
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	} satisfies CurrentUserValue;
 	const entityId = EntityId.make(crypto.randomUUID());
 	yield* session.transaction(

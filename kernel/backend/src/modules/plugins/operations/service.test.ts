@@ -250,10 +250,14 @@ const makeLayer = (input: {
 										name: "User",
 										id: input.currentUserId,
 										email: "user@example.com",
-										preferences: { language: null, disableIntegrations: false },
 										accountGeneration: {
 											userId: input.currentUserId,
 											token: "test-account-generation",
+										},
+										preferences: {
+											language: null,
+											reportingTimeZone: null,
+											disableIntegrations: false,
 										},
 									},
 								})

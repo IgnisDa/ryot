@@ -3,6 +3,7 @@ import {
 	isImportUploadTokenField,
 } from "@ryot-app/contract/modules/imports/schemas";
 import { integrationCommonPropertyNames } from "@ryot-app/contract/modules/integrations/schemas";
+import { pluginEventGroupIssue } from "@ryot-app/contract/modules/plugins/event-groups";
 import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
@@ -10,7 +11,10 @@ import {
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
+import {
+	POLICY_SAFE_SANDBOX_CAPABILITIES,
+	type SandboxHostCapability,
+} from "@ryot-app/contract/modules/scripts/wire";
 import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
@@ -28,6 +32,22 @@ export class PluginValidationError extends Data.TaggedError("PluginValidationErr
 }> {}
 
 const reservedPluginPublisher = "ryot";
+const inputRepairCapabilities = new Set<SandboxHostCapability>([
+	"log",
+	"span",
+	"createEvents",
+	"updateEvents",
+	"deleteEvents",
+	"executeRyotql",
+	"getPluginConfig",
+	"getUserSettings",
+	"requestUserWork",
+	"getEntitySchemas",
+	"listEventSchemas",
+	"commitUserChanges",
+	"getUserPreferences",
+	"verifyManagedAssets",
+]);
 const fail = (issue: string) => new PluginValidationError({ issues: [issue] });
 
 const assertSlug = (kind: string, slug: string) =>
@@ -155,6 +175,10 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 		const userBootstrapSlugs = new Set<string>();
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
+			const groupIssue = pluginEventGroupIssue(definition.eventSchemas);
+			if (groupIssue !== undefined) {
+				return yield* fail(groupIssue);
+			}
 			const events = new Set<string>();
 			for (const eventSchema of definition.eventSchemas) {
 				if (events.has(eventSchema.slug)) {
@@ -312,10 +336,115 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 			}
 			return undefined;
 		});
+		const assertInputRepair = Effect.fnUntraced(function* (scriptSlug: string) {
+			const visited = new Set<string>();
+			const pending = [scriptSlug];
+			while (pending.length > 0) {
+				const slug = pending.pop();
+				if (slug === undefined || visited.has(slug)) {
+					continue;
+				}
+				visited.add(slug);
+				yield* assertReference("Event projection input repair", slug, scriptSlugs);
+				const script = manifest.scripts.find((candidate) => candidate.slug === slug);
+				if (script?.kind !== "script") {
+					return yield* fail("Event projection input repair must use direct scripts only");
+				}
+				if (
+					manifest.userBootstrap.some((entry) => entry.scriptSlug === slug) ||
+					script.capabilities.some((capability) => !inputRepairCapabilities.has(capability)) ||
+					script.executableDependencies.some((dependency) => dependency.kind !== "script")
+				) {
+					return yield* fail(
+						"Event projection input repair must use only user-work, user-data writes, and read capabilities",
+					);
+				}
+				pending.push(...script.executableDependencies.map((dependency) => dependency.slug));
+			}
+			return undefined;
+		});
 		for (const entity of manifest.entitySchemas) {
 			for (const event of entity.eventSchemas) {
 				if (event.projection) {
 					yield* assertProjection("Event projection", event.projection, event.propertiesSchema);
+					if (event.projection.inputRepairScriptSlug !== undefined) {
+						yield* assertInputRepair(event.projection.inputRepairScriptSlug);
+					}
+					if (
+						!event.projection.inputs.some(
+							(input) =>
+								input.eventSchemaSlug === event.slug &&
+								input.scope === "entity" &&
+								input.through === undefined,
+						)
+					) {
+						return yield* fail(
+							"Event projection inputs must include its source schema in entity scope",
+						);
+					}
+					const paths = new Set<string>();
+					for (const input of event.projection.inputs) {
+						const path = identityTupleKey(
+							input.eventSchemaSlug,
+							typeof input.scope === "string"
+								? input.scope
+								: identityTupleKey("property", input.scope.property),
+							input.through?.eventSchemaSlug ?? "",
+							input.through?.sourceProperty ?? "",
+							input.through?.targetProperty ?? "",
+						);
+						if (paths.has(path)) {
+							return yield* fail("Event projection input paths must be unique");
+						}
+						paths.add(path);
+						const sources = manifest.entitySchemas.flatMap((schema) =>
+							schema.eventSchemas.filter((source) => source.slug === input.eventSchemaSlug),
+						);
+						if (sources.length === 0) {
+							return yield* fail(
+								`Event projection input schema ${input.eventSchemaSlug} is not declared`,
+							);
+						}
+						if (typeof input.scope !== "string") {
+							const property = input.scope.property;
+							if (
+								sources.some((source) => {
+									const field = source.propertiesSchema.fields[property];
+									return field?.type !== "string" || field.reference?.kind !== "entity-id";
+								})
+							) {
+								return yield* fail(
+									`Event projection input scope ${property} must be a declared entity reference`,
+								);
+							}
+						}
+						if (input.through) {
+							const mapping = input.through;
+							const evidence = manifest.entitySchemas.flatMap((schema) =>
+								schema.eventSchemas.filter((source) => source.slug === mapping.eventSchemaSlug),
+							);
+							if (evidence.length === 0) {
+								return yield* fail(
+									`Event projection mapping schema ${mapping.eventSchemaSlug} is not declared`,
+								);
+							}
+							if (mapping.sourceProperty === mapping.targetProperty) {
+								return yield* fail("Event projection mapping properties must be distinct");
+							}
+							for (const property of [mapping.sourceProperty, mapping.targetProperty]) {
+								if (
+									evidence.some((source) => {
+										const field = source.propertiesSchema.fields[property];
+										return field?.type !== "string" || field.reference?.kind !== "entity-id";
+									})
+								) {
+									return yield* fail(
+										`Event projection mapping property ${property} must be a declared entity reference`,
+									);
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -434,6 +563,20 @@ export const validatePluginExecutableScripts = (plugin: {
 	}>;
 }) =>
 	Effect.gen(function* () {
+		for (const entity of plugin.manifest.entitySchemas) {
+			for (const event of entity.eventSchemas) {
+				const slug = event.projection?.inputRepairScriptSlug;
+				if (slug === undefined) {
+					continue;
+				}
+				const script = plugin.scripts.find((candidate) => candidate.slug === slug);
+				if (script?.metadata.kind !== "script") {
+					return yield* fail(
+						`Event projection input repair references missing compiled direct script: ${slug}`,
+					);
+				}
+			}
+		}
 		for (const entry of plugin.manifest.userBootstrap) {
 			const script = plugin.scripts.find(({ slug }) => slug === entry.scriptSlug);
 			if (!script) {

@@ -69,8 +69,8 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	name: "User",
 	email: `${id}@example.test`,
-	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: id, token: "test-account-generation" },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 });
 
 type TokenResponse = { readonly body: unknown; readonly status: number };

@@ -10,17 +10,22 @@ import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	noLifecycleWorkLayer,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { manifest as notificationManifest } from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -34,6 +39,7 @@ import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.te
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
@@ -99,7 +105,7 @@ const repositories = Layer.mergeAll(
 	EventsRepository.layer,
 );
 const dependencies = SignalEmissionService.layer.pipe(
-	Layer.provideMerge(LifecyclePlannerServiceLive),
+	Layer.provideMerge(LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer))),
 	Layer.provideMerge(execution),
 	Layer.provideMerge(repositories),
 	Layer.provideMerge(makeRevisionDatabaseLayer(4)),
@@ -113,7 +119,18 @@ const services = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provide(
-		Layer.mergeAll(Layer.mock(EventsService)({}), Layer.mock(RelationshipsService)({})),
+		Layer.mergeAll(
+			EventsService.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						EventSchemaReader.layer,
+						DomainWriteChecksLive,
+						WorkflowExecutionNotifications.layer,
+					),
+				),
+			),
+			Layer.mock(RelationshipsService)({}),
+		),
 	),
 	Layer.provideMerge(ReminderNotificationSourcePolicyLive),
 	Layer.provideMerge(dependencies),

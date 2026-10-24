@@ -29,6 +29,55 @@ const manifest = () => ({
 });
 
 layer(pluginBackendCompilerPlatformLayer)((test) => {
+	test.effect(
+		"ingests generic analytics registrations and rejects exports outside their owner",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: {
+						apiVersion: 1,
+						homeView: null,
+						exports: {
+							activity: {
+								kind: "analytics-section",
+								entry: "client/activity.tsx",
+								automaticEntityPresentations: false,
+							},
+						},
+						analyticsSections: {
+							activity: {
+								sortOrder: 0,
+								name: "Activity",
+								icon: "chart-column",
+								exportName: "activity",
+							},
+						},
+					},
+				} satisfies PluginManifest;
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const normalized = yield* normalizePluginSource(source);
+				expect(normalized.manifest.client?.analyticsSections).toEqual(
+					pluginManifest.client.analyticsSections,
+				);
+				const invalid = yield* normalizePluginSource({
+					...source,
+					manifest: {
+						...source.manifest,
+						client: {
+							...pluginManifest.client,
+							analyticsSections: {
+								activity: {
+									...pluginManifest.client.analyticsSections.activity,
+									exportName: "foreign",
+								},
+							},
+						},
+					},
+				}).pipe(Effect.flip);
+				expect(invalid.issues.length).toBeGreaterThan(0);
+			}),
+	);
 	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
 		Effect.gen(function* () {
 			const pluginManifest = {

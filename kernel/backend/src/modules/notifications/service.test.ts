@@ -15,7 +15,7 @@ const user = {
 	name: "Test User",
 	id: UserId.make("owner"),
 	email: "user@example.com",
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 

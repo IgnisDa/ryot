@@ -1,9 +1,19 @@
 import { expect, it } from "@effect/vitest";
+import type {
+	PluginEventProjection,
+	PluginManifest,
+	PluginScript,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
-import { PluginValidationError, validatePluginManifestReferences } from "./validation";
+import {
+	PluginValidationError,
+	validatePluginExecutableScripts,
+	validatePluginManifestReferences,
+} from "./validation";
 
 const manifestWithRelationshipProjection = (
 	capabilities: ReadonlyArray<"createEvents" | "executeRyotql">,
@@ -47,6 +57,141 @@ const issuesOf = (exit: Exit.Exit<unknown, unknown>) => {
 	return failure.issues;
 };
 
+const manifestWithInputRepair = (
+	capabilities: ReadonlyArray<SandboxHostCapability>,
+	dependencies: PluginScript["executableDependencies"] = [],
+): PluginManifest => {
+	const fixture = manifestWithRelationshipProjection(["executeRyotql"], {
+		score: { label: "Score", type: "number", description: "Score" },
+	});
+	const processor = fixture.scripts.at(-1);
+	const entity = fixture.entitySchemas[0];
+	const projection = fixture.relationshipSchemas[0]?.projection;
+	assert(entity);
+	assert(processor);
+	assert(processor.kind === "script");
+	assert(projection);
+	return {
+		...fixture,
+		scripts: [
+			...fixture.scripts,
+			{ ...processor, capabilities, slug: "fixture.repair", executableDependencies: dependencies },
+		],
+		entitySchemas: [
+			{
+				...entity,
+				eventSchemas: [
+					{
+						name: "Projected",
+						slug: "projected",
+						propertiesSchema: { fields: {} },
+						projection: {
+							...projection,
+							inputRepairScriptSlug: "fixture.repair",
+							inputs: [{ scope: "entity", eventSchemaSlug: "projected" }],
+						},
+					},
+				],
+			},
+		],
+	};
+};
+
+it.effect("validates direct input repair scripts and their complete dependency closure", () =>
+	Effect.gen(function* () {
+		const fixture = manifestWithInputRepair([
+			"executeRyotql",
+			"commitUserChanges",
+			"requestUserWork",
+		]);
+		yield* validatePluginManifestReferences(fixture);
+		const repair = fixture.scripts.at(-1);
+		assert(repair);
+		assert(repair.kind === "script");
+		const withChild = (capabilities: ReadonlyArray<SandboxHostCapability>) => ({
+			...fixture,
+			scripts: [
+				...fixture.scripts.slice(0, -1),
+				{ ...repair, executableDependencies: [{ slug: "fixture.child", kind: "script" as const }] },
+				{
+					...repair,
+					capabilities,
+					slug: "fixture.child",
+					executableDependencies: [{ slug: repair.slug, kind: "script" as const }],
+				},
+			],
+		});
+		yield* validatePluginManifestReferences(
+			withChild(["createEvents", "updateEvents", "deleteEvents"]),
+		);
+		for (const capability of [
+			"httpCall",
+			"emitSignal",
+			"sendNotification",
+			"upsertGlobalEntities",
+			"upsertGlobalRelationships",
+			"listIntegrations",
+			"getOAuthAccessToken",
+			"scratch",
+			"artifact-read",
+			"setCachedValue",
+			"claimPersistentValue",
+		] as const) {
+			expect(
+				issuesOf(yield* Effect.exit(validatePluginManifestReferences(withChild([capability])))),
+			).toEqual([
+				"Event projection input repair must use only user-work, user-data writes, and read capabilities",
+			]);
+		}
+		expect(
+			issuesOf(
+				yield* Effect.exit(
+					validatePluginManifestReferences({
+						...fixture,
+						scripts: fixture.scripts.filter(({ slug }) => slug !== repair.slug),
+					}),
+				),
+			),
+		).toEqual(["Event projection input repair references missing definition: fixture.repair"]);
+		expect(
+			issuesOf(
+				yield* Effect.exit(
+					validatePluginManifestReferences(
+						manifestWithInputRepair([], [{ kind: "script", slug: "missing" }]),
+					),
+				),
+			),
+		).toEqual(["Event projection input repair references missing definition: missing"]);
+		expect(
+			issuesOf(
+				yield* Effect.exit(
+					validatePluginManifestReferences({
+						...fixture,
+						userBootstrap: [
+							{
+								scriptSlug: repair.slug,
+								slug: "repair-bootstrap",
+								description: "Fixture bootstrap",
+							},
+						],
+					}),
+				),
+			),
+		).toEqual([
+			"Event projection input repair must use only user-work, user-data writes, and read capabilities",
+		]);
+		for (const scripts of [[], [{ slug: repair.slug, metadata: { kind: "workflow" as const } }]]) {
+			expect(
+				issuesOf(
+					yield* Effect.exit(validatePluginExecutableScripts({ scripts, manifest: fixture })),
+				),
+			).toEqual([
+				"Event projection input repair references missing compiled direct script: fixture.repair",
+			]);
+		}
+	}),
+);
+
 it.effect("validates relationship projection processors and output schemas", () =>
 	Effect.gen(function* () {
 		const score = { label: "Score", description: "Score", type: "number" as const };
@@ -76,4 +221,168 @@ it.effect("validates relationship projection processors and output schemas", () 
 			"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
 		]);
 	}),
+);
+
+it.effect(
+	"rejects event projection dependencies that cannot be invalidated through declared source references",
+	() =>
+		Effect.gen(function* () {
+			const fixture = manifestWithRelationshipProjection(["executeRyotql"], {
+				score: { label: "Score", type: "number", description: "Score" },
+			});
+			const entity = fixture.entitySchemas[0];
+			const projection = fixture.relationshipSchemas[0]?.projection;
+			assert(entity);
+			assert(projection);
+			const withInputs = (inputs: PluginEventProjection["inputs"]) => ({
+				...fixture,
+				entitySchemas: [
+					{
+						...entity,
+						eventSchemas: [
+							...entity.eventSchemas,
+							{
+								name: "Projected",
+								slug: "projected",
+								propertiesSchema: { fields: {} },
+								projection: { ...projection, inputs },
+							},
+							{
+								name: "Evidence",
+								slug: "evidence",
+								propertiesSchema: {
+									fields: {
+										note: { label: "Note", description: "Note", type: "string" as const },
+										target: {
+											label: "Target",
+											description: "Target",
+											type: "string" as const,
+											reference: { kind: "entity-id" as const },
+										},
+										subject: {
+											label: "Subject",
+											description: "Subject",
+											type: "string" as const,
+											reference: { kind: "entity-id" as const },
+										},
+									},
+								},
+							},
+						],
+					},
+					...fixture.entitySchemas.slice(1),
+				],
+			});
+			yield* validatePluginManifestReferences(
+				withInputs([
+					{ scope: "entity", eventSchemaSlug: "projected" },
+					{ eventSchemaSlug: "evidence", scope: { property: "subject" } },
+				]),
+			);
+			const mapping = {
+				targetProperty: "target",
+				sourceProperty: "subject",
+				eventSchemaSlug: "evidence",
+			};
+			yield* validatePluginManifestReferences(
+				withInputs([
+					{ scope: "entity", eventSchemaSlug: "projected" },
+					{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
+				]),
+			);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{
+									scope: "session",
+									eventSchemaSlug: "projected",
+									through: { ...mapping, targetProperty: "note" },
+								},
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection mapping property note must be a declared entity reference"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{
+									scope: "session",
+									eventSchemaSlug: "projected",
+									through: { ...mapping, eventSchemaSlug: "missing" },
+								},
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection mapping schema missing is not declared"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{
+									scope: "session",
+									eventSchemaSlug: "projected",
+									through: { ...mapping, targetProperty: "subject" },
+								},
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection mapping properties must be distinct"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
+								{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection input paths must be unique"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{ eventSchemaSlug: "evidence", scope: { property: "note" } },
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection input scope note must be a declared entity reference"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([
+								{ scope: "entity", eventSchemaSlug: "projected" },
+								{ scope: "entity", eventSchemaSlug: "missing" },
+							]),
+						),
+					),
+				),
+			).toEqual(["Event projection input schema missing is not declared"]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							withInputs([{ scope: "session", eventSchemaSlug: "evidence" }]),
+						),
+					),
+				),
+			).toEqual(["Event projection inputs must include its source schema in entity scope"]);
+		}),
 );

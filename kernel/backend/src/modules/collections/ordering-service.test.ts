@@ -46,8 +46,8 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	email: `${id}@example.test`,
 	name: id === ownerId ? "Owner" : "Recipient",
-	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: id, token: "test-account-generation" },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 });
 
 const lifecycleCommand = (id: string, userId = ownerId) => ({
