@@ -12,8 +12,6 @@ type CountdownKey = "executionCountdown" | "restCountdown";
 
 type TimerTransition = { readonly changed: boolean; readonly draft: WorkoutEditorDraft };
 
-type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
-
 const unchanged = (draft: WorkoutEditorDraft): TimerTransition => ({ draft, changed: false });
 
 const changed = (draft: WorkoutEditorDraft): TimerTransition => ({ draft, changed: true });
@@ -406,48 +404,3 @@ export const toggleStopwatch = (draft: WorkoutEditorDraft, now: number) =>
 
 export const toggleWorkoutPause = (draft: WorkoutEditorDraft, now: number) =>
 	(draft.activeDurationStartedAt === undefined ? resumeWorkout : pauseWorkout)(draft, now);
-
-export const reconcileWorkoutTimers = (
-	draft: WorkoutEditorDraft,
-	now: number,
-	expected?: ExpectedCountdowns,
-): TimerTransition => {
-	const invalidated = invalidateWorkoutCountdowns(draft);
-	let next = invalidated.draft;
-	let wasChanged = invalidated.changed;
-	if (next.mode.kind !== "live" || !Number.isFinite(now)) {
-		return invalidated;
-	}
-	const execution = next.executionCountdown;
-	if (
-		execution !== undefined &&
-		(expected === undefined || execution.clientId === expected.executionClientId) &&
-		execution.pausedRemainingSeconds === undefined &&
-		Date.parse(execution.deadline) <= now
-	) {
-		const confirmed = confirmSet(
-			next,
-			execution.occurrenceId,
-			execution.setId,
-			Date.parse(execution.deadline),
-		);
-		if (confirmed.changed) {
-			next = confirmed.draft;
-			wasChanged = true;
-		} else {
-			next = { ...next, executionCountdown: undefined };
-			wasChanged = true;
-		}
-	}
-	const rest = next.restCountdown;
-	if (
-		rest !== undefined &&
-		(expected === undefined || rest.clientId === expected.restClientId) &&
-		rest.pausedRemainingSeconds === undefined &&
-		Date.parse(rest.deadline) <= now
-	) {
-		next = { ...next, restCountdown: undefined };
-		wasChanged = true;
-	}
-	return wasChanged ? changed(next) : unchanged(next);
-};

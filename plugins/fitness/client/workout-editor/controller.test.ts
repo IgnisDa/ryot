@@ -12,7 +12,10 @@ import { Layer } from "effect";
 import * as Deferred from "effect/Deferred";
 import { TestClock } from "effect/testing";
 
-import { decodeWorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import {
+	decodeWorkoutEditorDraft,
+	type WorkoutEditorDraft,
+} from "../../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { controllerHarness } from "../../tests/client/controller-harness";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
@@ -450,6 +453,74 @@ describe("workout editor controller", () => {
 			const writes = harness.writes.length;
 			yield* harness.controller.reconcile();
 			expect(harness.writes).toHaveLength(writes);
+		}),
+	);
+
+	it.live("persists invalid expiry without confirmation, progression, or prompted rest", () =>
+		Effect.gen(function* () {
+			for (const prompt of [false, true]) {
+				let now = Date.parse(startTime);
+				const harness = createController({ now: Effect.sync(() => now) });
+				const running: WorkoutEditorDraft = {
+					...timerDraft(),
+					activeSetId: "set-1",
+					activeOccurrenceId: "occurrence-1",
+					localPreferences: { promptForRestTimer: prompt },
+					occurrences: [
+						exerciseOccurrence("duration", {
+							duration: "20",
+							restChoice: { kind: "explicit", seconds: "invalid" },
+						}),
+						exerciseOccurrence(
+							"duration",
+							{ duration: "20", clientId: "next-set" },
+							{ isCollapsed: true, clientId: "next-occurrence" },
+						),
+					],
+				};
+				yield* harness.controller.load();
+				yield* harness.controller.start(running);
+				now += 20_500;
+				yield* harness.controller.reconcile({ executionClientId: "execution-1" });
+				const persisted = decodeWorkoutEditorDraft(harness.stored);
+				expect(persisted._tag).toBe("Success");
+				if (persisted._tag === "Success") {
+					expect({
+						rest: persisted.success.restCountdown,
+						activeSetId: persisted.success.activeSetId,
+						pendingRest: persisted.success.pendingRest,
+						execution: persisted.success.executionCountdown,
+						activeOccurrenceId: persisted.success.activeOccurrenceId,
+						occurrences: persisted.success.occurrences.map(({ sets, isCollapsed }) => ({
+							isCollapsed,
+							sets: sets.map(({ included, confirmedAt, restTimerStartedAt }) => ({
+								included,
+								confirmedAt,
+								restTimerStartedAt,
+							})),
+						})),
+					}).toEqual({
+						rest: undefined,
+						activeSetId: "set-1",
+						execution: undefined,
+						pendingRest: undefined,
+						activeOccurrenceId: "occurrence-1",
+						occurrences: [
+							{
+								isCollapsed: false,
+								sets: [{ included: false, confirmedAt: undefined, restTimerStartedAt: undefined }],
+							},
+							{
+								isCollapsed: true,
+								sets: [{ included: false, confirmedAt: undefined, restTimerStartedAt: undefined }],
+							},
+						],
+					});
+				}
+				const writes = harness.writes.length;
+				yield* harness.controller.reconcile();
+				expect(harness.writes).toHaveLength(writes);
+			}
 		}),
 	);
 });

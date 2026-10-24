@@ -10,7 +10,7 @@ import type {
 	WorkoutEditorSaveInput,
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
-import { completeWorkoutSet } from "./actions";
+import { reconcileWorkoutTimers } from "./actions";
 import { createAlertSynchronizer } from "./controller-alerts";
 import type {
 	ReadySnapshot,
@@ -26,7 +26,7 @@ import {
 	type WorkoutMediaKind,
 	type WorkoutMediaTarget,
 } from "./media-state";
-import { invalidateWorkoutCountdowns, reconcileWorkoutTimers } from "./timers";
+import { invalidateWorkoutCountdowns } from "./timers";
 
 type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
@@ -347,45 +347,19 @@ export const createWorkoutEditorController = (
 			if (now === undefined) {
 				return;
 			}
-			let draft = snapshot.draft;
-			const rest = draft.restCountdown;
-			const execution = draft.executionCountdown;
-			let completed = false;
-			if (
-				execution !== undefined &&
-				execution.pausedRemainingSeconds === undefined &&
-				Date.parse(execution.deadline) <= now &&
-				(expected === undefined || execution.clientId === expected.executionClientId)
-			) {
-				const next = completeWorkoutSet(draft, {
-					overrides: {},
-					observedAt: now,
-					setId: execution.setId,
-					now: Date.parse(execution.deadline),
-					occurrenceId: execution.occurrenceId,
-					timerId: `${execution.clientId}:rest`,
-					settings: snapshot.context?.settings ?? {},
-					prompt:
-						draft.localPreferences?.promptForRestTimer ??
-						snapshot.context?.settings.promptForRestTimer ??
-						false,
-				});
-				completed = next !== draft;
-				draft = next;
-			}
-			const result = reconcileWorkoutTimers(draft, now, expected);
-			if (result.changed || completed) {
+			const result = reconcileWorkoutTimers(snapshot.draft, now, {
+				expected,
+				settings: snapshot.context?.settings ?? {},
+				prompt:
+					snapshot.draft.localPreferences?.promptForRestTimer ??
+					snapshot.context?.settings.promptForRestTimer ??
+					false,
+			});
+			if (result.changed) {
 				setDraft(result.draft);
 			}
 			yield* flush();
-			if (
-				(completed && execution !== undefined && now - Date.parse(execution.deadline) < 1500) ||
-				(rest !== undefined &&
-					rest.pausedRemainingSeconds === undefined &&
-					Date.parse(rest.deadline) <= now &&
-					now - Date.parse(rest.deadline) < 1500 &&
-					result.draft.restCountdown?.clientId !== rest.clientId)
-			) {
+			if (result.feedback) {
 				yield* ports.feedback();
 			}
 		});
