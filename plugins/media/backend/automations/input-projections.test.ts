@@ -101,6 +101,8 @@ it("declares the media automation input projections", () => {
 					"newDate",
 					"oldName",
 					"newName",
+					"days",
+					"lifecycleState",
 				],
 			},
 		},
