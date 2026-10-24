@@ -7,11 +7,7 @@ import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { posixPath } from "@ryot-app/ts-utils/path";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
-import {
-	acquireCompilerWorkspace,
-	buildWithVite,
-	stageGeneratedFiles,
-} from "@ryot-app/vite-compiler";
+import { acquireCompilerWorkspace, buildWithVite } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
 import { Effect, Path } from "effect";
 
@@ -136,22 +132,22 @@ const validateOutputReferences = (
 export const buildClientRuntime = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const dependencies = yield* resolveClientPluginCompilerDependencies;
-	const workspace = yield* acquireCompilerWorkspace({ parentPath: dependencies.compilerRoot }).pipe(
-		Effect.mapError((error) => failure(error.message)),
-	);
+	const workspace = yield* acquireCompilerWorkspace({
+		parentPath: dependencies.compilerRoot,
+		generated: [
+			...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => ({
+				path: `entries/entry-${index}.ts`,
+				contents: generatedEntry(specifier),
+			})),
+			{ path: "bootstrap.ts", contents: generatedBootstrapSource },
+			{ path: RUNTIME_STYLESHEET, contents: runtimeStylesheet },
+		],
+	}).pipe(Effect.mapError((error) => failure(error.message)));
 	const bootstrapFileName = "entry-bootstrap.js";
 	const entries: Record<string, string> = Object.fromEntries([
 		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => [specifier, `entry-${index}.js`]),
 		["bootstrap", bootstrapFileName],
 	]);
-	yield* stageGeneratedFiles(workspace, [
-		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => ({
-			path: `entries/entry-${index}.ts`,
-			contents: generatedEntry(specifier),
-		})),
-		{ path: "bootstrap.ts", contents: generatedBootstrapSource },
-		{ path: RUNTIME_STYLESHEET, contents: runtimeStylesheet },
-	]).pipe(Effect.mapError((error) => failure(error.message)));
 
 	const bundled = yield* buildWithVite({
 		workspace,

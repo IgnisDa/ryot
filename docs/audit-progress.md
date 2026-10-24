@@ -15,7 +15,7 @@
 
 ## Status
 
-**64 implemented, 0 in progress, 19 pending; 3 excluded.**
+**65 implemented, 0 in progress, 18 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -106,7 +106,7 @@
 | M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
 | B11-R2 | Pending | Return the locked event revision once. |
 | B22-R2 | Pending | Remove unreachable custom-renderer publication. |
-| P08-R1 | Pending | Acquire a complete private workspace before exposing its handle. |
+| P08-R1 | Implemented | Acquire a complete private mode-0700 workspace and expose its handle only after staging; clean up collisions and replacements across the workspace lifetime, with no incremental API. See this finding's audit commit. |
 
 ## Decisions to preserve
 
@@ -230,3 +230,4 @@
 - A02-R1: server check passed before 15 harness tests; read-only review passed. Event IDs scan in 500-row C-collated pages across distinct streams, with bulk processing, normalized timestamps, and warning multisets. Combined restored normal/larger migration validation is running separately and remains pending.
 - M01-R1: scoped checks passed before 12 tests; read-only review passed. Metron uses the canonical role accumulator without folding or a second set pass.
 - P09-R1: archive check passed before 71 tests; read-only review passed. Writer input validates once without self-decompression; manifest bounds are exact and reader behavior is unchanged. CLI validation was blocked by P08 and is now unblocked; final acceptance remains pending.
+- P08-R1: all three checks passed before serial runs of 64 Vite, 64 backend, and 79 client tests; read-only review passed. Acquire the complete private mode-0700 workspace before exposing its handle, with collision/replacement cleanup and no incremental API.

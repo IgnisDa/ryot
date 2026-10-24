@@ -11,7 +11,7 @@ import type { InlineConfig } from "vite";
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError, ViteDiagnostic } from "./error";
 import { buildWithVite } from "./vite";
-import { acquireCompilerWorkspace, stageSourceFiles, validateRelativePath } from "./workspace";
+import { acquireCompilerWorkspace, validateRelativePath } from "./workspace";
 import type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
 
 export interface SandboxEsmAlias {
@@ -291,11 +291,13 @@ export const buildSandboxEsm = Effect.fn("buildSandboxEsm")(function* (
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
-			const workspace = yield* acquireCompilerWorkspace(options.workspaceOptions);
+			const workspace = yield* acquireCompilerWorkspace({
+				...options.workspaceOptions,
+				sources: options.sources ?? [],
+			});
 			let entry: string;
 			if (options.sources !== undefined) {
 				const stagedEntry = yield* Effect.fromResult(validateRelativePath(options.entry));
-				yield* stageSourceFiles(workspace, options.sources);
 				entry = path.resolve(workspace.sourcePath, stagedEntry);
 			} else {
 				entry = options.entry;
@@ -311,11 +313,13 @@ export const buildSandboxEsmPackage = Effect.fn("buildSandboxEsmPackage")(functi
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
-			const workspace = yield* acquireCompilerWorkspace(options.workspaceOptions);
+			const workspace = yield* acquireCompilerWorkspace({
+				...options.workspaceOptions,
+				sources: options.sources,
+			});
 			const stagedEntries = yield* Effect.forEach(options.entries, (entry) =>
 				Effect.fromResult(validateRelativePath(entry)),
 			);
-			yield* stageSourceFiles(workspace, options.sources);
 			return yield* Effect.forEach(
 				stagedEntries,
 				(entry) =>

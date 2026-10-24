@@ -5,8 +5,7 @@ export type ViteCompilerErrorReason =
 	| "invalid-output"
 	| "vite-build"
 	| "workspace-collision"
-	| "workspace-filesystem"
-	| "workspace-symlink";
+	| "workspace-filesystem";
 
 export interface ViteDiagnosticLocation {
 	readonly line: number;
