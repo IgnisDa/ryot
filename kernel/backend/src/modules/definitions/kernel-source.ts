@@ -209,6 +209,16 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			dataSources: null,
 			renderer: { kind: "kernel", name: "calendar" },
 		},
+		{
+			sortOrder: 2,
+			settings: {},
+			pluginId: null,
+			slug: "analytics",
+			name: "Analytics",
+			dataSources: null,
+			icon: "chart-column",
+			renderer: { kind: "kernel", name: "analytics" },
+		},
 	],
 
 	signalSchemas: [

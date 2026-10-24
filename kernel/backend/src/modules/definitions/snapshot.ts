@@ -4,8 +4,13 @@ import {
 } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
+	PluginEventGroup,
+	pluginEventGroupIssue,
+} from "@ryot-app/contract/modules/plugins/event-groups";
+import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
+	PluginEventProjection,
 	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
@@ -52,7 +57,8 @@ export const EventSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
-	projection: Schema.optional(PluginProjection),
+	eventGroup: Schema.optional(PluginEventGroup),
+	projection: Schema.optional(PluginEventProjection),
 });
 
 export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
@@ -260,10 +266,10 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	if (savedView.renderer.kind !== "kernel") {
 		return;
 	}
-	if (savedView.renderer.name === "calendar") {
+	if (savedView.renderer.name === "calendar" || savedView.renderer.name === "analytics") {
 		if (savedView.dataSources !== null || Object.keys(savedView.settings).length > 0) {
 			throw new Error(
-				`Invalid saved view ${savedView.slug}: calendar views take no settings or data sources`,
+				`Invalid saved view ${savedView.slug}: ${savedView.renderer.name} views take no settings or data sources`,
 			);
 		}
 		return;
@@ -413,6 +419,10 @@ const validateDefinitionSource = (
 			}
 		}
 		assertUniqueEventSlugs(entitySchema.slug, entitySchema.eventSchemas);
+		const groupIssue = pluginEventGroupIssue(entitySchema.eventSchemas);
+		if (groupIssue !== undefined) {
+			throw new Error(groupIssue);
+		}
 		for (const eventSchema of entitySchema.eventSchemas) {
 			if (eventSchema.pluginId !== entitySchema.pluginId) {
 				throw new Error(`Event schema ${eventSchema.slug} owner does not match its entity schema`);

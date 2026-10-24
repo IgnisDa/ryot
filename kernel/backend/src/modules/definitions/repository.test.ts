@@ -678,6 +678,7 @@ describe("definition views", () => {
 					savedViews: [
 						{ pluginId: null, slug: "collections" },
 						{ pluginId: null, slug: "calendar" },
+						{ pluginId: null, slug: "analytics" },
 					],
 				});
 			}),

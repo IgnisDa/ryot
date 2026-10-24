@@ -19,6 +19,7 @@ const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	id: EventSchemaSlug.make(event.slug),
 	propertiesSchema: event.propertiesSchema,
 	...(event.projection === undefined ? {} : { projection: event.projection }),
+	...(event.eventGroup === undefined ? {} : { eventGroup: event.eventGroup }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });
 
