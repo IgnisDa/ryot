@@ -55,5 +55,5 @@ export const startFakeAppriseServer = startFakeHttpServer(respondToApprise);
 
 export const startFakeAppriseServerScoped = startFakeHttpServerScoped(respondToApprise);
 
-export const runCalendarDeliveryScan = (client: Client) =>
-	client.adminCall((c) => c.testSupport.runCalendarDeliveryScan());
+export const runSignalScheduleScan = (client: Client) =>
+	client.adminCall((c) => c.testSupport.runSignalScheduleScan());
