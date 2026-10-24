@@ -8,13 +8,7 @@ import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { RYOT_VERSION } from "#platform/build-info";
-import {
-	AppConfig,
-	type AppConfigValue,
-	isOidcEnabled,
-	isS3Configured,
-	isSmtpEnabled,
-} from "#platform/config/service";
+import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
@@ -40,13 +34,13 @@ export const publicSystemConfig = (config: AppConfigValue, isServerKeyValidated:
 		pro: { isServerKeyValidated },
 		frontendOrigin: config.frontendUrl,
 		analytics: { umami: umamiAnalytics(config) },
-		notifications: { smtpEnabled: isSmtpEnabled(config) },
+		notifications: { smtpEnabled: Option.isSome(config.server.smtp) },
 		fileStorage: {
 			temporaryUploadProvider: "local",
-			preferredPermanentUploadProvider: isS3Configured(config) ? "s3" : "local",
+			preferredPermanentUploadProvider: Option.isSome(config.fileStorage.s3) ? "s3" : "local",
 		},
 		auth: {
-			oidcEnabled: isOidcEnabled(config),
+			oidcEnabled: Option.isSome(config.server.oidc),
 			localAuthDisabled: config.users.disableLocalAuth,
 			signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
 			oidcButtonLabel: Option.getOrUndefined(nonEmpty(config.frontend.oidcButtonLabel)),

@@ -9,7 +9,9 @@ import {
 	Logger,
 	type LogLevel,
 	MutableRef,
+	Option,
 	Path,
+	Redacted,
 	Ref,
 	References,
 } from "effect";
@@ -74,6 +76,52 @@ layer(filteredRecordingLoggerLayer("Info"))((test) => {
 });
 
 layer(BunServices.layer)((test) => {
+	test.effect("exports telemetry with normalized redacted headers", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-otlp-headers-" });
+			const requests = yield* Ref.make<
+				ReadonlyArray<{ path: string; authorization: string | null }>
+			>([]);
+			const server = yield* Effect.acquireRelease(
+				Effect.sync(() =>
+					Bun.serve({
+						port: 0,
+						hostname: "127.0.0.1",
+						fetch(request) {
+							MutableRef.update(requests.ref, (all) => [
+								...all,
+								{
+									path: new URL(request.url).pathname,
+									authorization: request.headers.get("authorization"),
+								},
+							]);
+							return new Response("{}", { headers: { "content-type": "application/json" } });
+						},
+					}),
+				),
+				(running) => Effect.promise(() => running.stop(true)),
+			);
+			yield* runObservabilityLifecycle(
+				{
+					observability: {
+						logging: { file: { path: `${root}/ryot.log` } },
+						otlp: {
+							endpoint: Option.some(server.url.origin),
+							headers: Option.some(Redacted.make({ authorization: "Bearer normalized-token" })),
+						},
+					},
+				},
+				Effect.logInfo("exported-entry"),
+			);
+			const exported = yield* Ref.get(requests);
+			expect(exported.some((request) => request.path === "/v1/logs")).toBe(true);
+			expect(exported.every((request) => request.authorization === "Bearer normalized-token")).toBe(
+				true,
+			);
+		}),
+	);
+
 	test.effect("writes only configured levels and flushes on shutdown", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

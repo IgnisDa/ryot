@@ -15,7 +15,7 @@
 
 ## Status
 
-**25 implemented, 0 in progress, 58 pending; 3 excluded.**
+**26 implemented, 0 in progress, 57 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -55,7 +55,7 @@
 | B05-R1 | Pending | Model upload intent states without contradictory fields. |
 | B13-R2 | Pending | Remove the non-durable preparing state. |
 | B07-R1 | Pending | Use portable package keys in backups. |
-| B30-R2 | Pending | Preserve parsed configuration and complete credential invariants. |
+| B30-R2 | Implemented | Preserve parsed configuration and complete credential invariants; remove consumer reparse/reconstruction and keep partial-startup semantics unchanged. See this finding's audit commit. |
 | A05-R2 | Excluded | Website pricing/checkout offer model. |
 | A05-R1 | Excluded | Website payment agreement and rights transitions. |
 | A03-R1 | Excluded | Browser-extension frame/navigation ownership. |
@@ -190,3 +190,4 @@
 - C11-R1: client check passed before 130 tests across four files; read-only review reported no findings.
 - P01-R2: contract, backend, client, and e2e checks passed before two contract, 10 backend, and 25 client tests; read-only review reported no findings.
 - B16-R1: backend check passed before 69 tests across five files; read-only review reported no findings. Pending candidate JSON must be rewritten or drained before rollout; no reset was performed and no dual decoder was added.
+- B30-R2: backend check passed before 170 tests across nine files; read-only review reported no findings. Parsed configuration retains complete optional OIDC, SMTP, and S3 values, CIDRs, and OTLP headers without consumer reparsing or reconstruction; partial-startup semantics are unchanged.

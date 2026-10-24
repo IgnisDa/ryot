@@ -1,7 +1,8 @@
 import { expect, layer } from "@effect/vitest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { Cause, Context, Effect, Layer, Option, Ref } from "effect";
+import { Cause, Context, Effect, Layer, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http";
+import { IpNetwork } from "effect/net";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -81,17 +82,10 @@ const recordingLayer = Layer.effectContext(
 	}),
 );
 
-const egressLayer = (allowedNetworks?: string) =>
+const egressLayer = (allowedNetworks: ReadonlyArray<IpNetwork.IpNetwork> = []) =>
 	egressHttpClientLayer.pipe(
 		Layer.provideMerge(recordingLayer),
-		Layer.provide(
-			makeAppConfigLayer({
-				server: {
-					egressAllowedNetworks:
-						allowedNetworks === undefined ? Option.none() : Option.some(allowedNetworks),
-				},
-			}),
-		),
+		Layer.provide(makeAppConfigLayer({ server: { egressAllowedNetworks: allowedNetworks } })),
 	);
 
 const denialReason = (request: HttpClientRequest.HttpClientRequest) =>
@@ -255,7 +249,9 @@ layer(egressLayer())((test) => {
 	);
 });
 
-layer(egressLayer("127.0.0.1/32,::1/128"))((test) => {
+layer(
+	egressLayer([IpNetwork.fromStringUnsafe("127.0.0.1/32"), IpNetwork.fromStringUnsafe("::1/128")]),
+)((test) => {
 	test.effect("pins a loopback hostname when every resolved address is allowlisted", () =>
 		Effect.gen(function* () {
 			const client = yield* HttpClient.HttpClient;
@@ -271,7 +267,7 @@ layer(egressLayer("127.0.0.1/32,::1/128"))((test) => {
 	);
 });
 
-layer(egressLayer("127.0.0.1/32"))((test) => {
+layer(egressLayer([IpNetwork.fromStringUnsafe("127.0.0.1/32")]))((test) => {
 	test.effect("denies a hostname when any resolved address is outside the allowlist", () =>
 		Effect.gen(function* () {
 			expect(yield* denialReason(HttpClientRequest.get("http://loopback.test/"))).toBe("address");

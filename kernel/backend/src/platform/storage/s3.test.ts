@@ -57,11 +57,13 @@ const fakeS3Layer = Layer.unwrap(
 				Layer.provide(
 					makeAppConfigLayer({
 						fileStorage: {
-							region: Option.some("us-east-1"),
-							url: Option.some(server.url.origin),
-							bucketName: Option.some(bucketName),
-							accessKeyId: Option.some(Redacted.make("access-key")),
-							secretAccessKey: Option.some(Redacted.make("secret-key")),
+							s3: Option.some({
+								bucketName,
+								url: server.url.origin,
+								region: Option.some("us-east-1"),
+								accessKeyId: Redacted.make("access-key"),
+								secretAccessKey: Redacted.make("secret-key"),
+							}),
 						},
 					}),
 				),

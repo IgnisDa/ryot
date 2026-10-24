@@ -9,7 +9,7 @@ import {
 import { type IpNetwork, NetAddress } from "effect/net";
 
 import { AppConfig } from "../config/service";
-import { classifyAddress, parseEgressAllowedNetworks } from "./address-policy";
+import { classifyAddress } from "./address-policy";
 import { EgressResolver } from "./resolver";
 
 export class EgressDenied extends Data.TaggedError("EgressDenied")<{
@@ -125,13 +125,9 @@ export const egressHttpClientLayer = Layer.effect(
 	HttpClient.HttpClient,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const allowedNetworks = Option.match(config.server.egressAllowedNetworks, {
-			onNone: () => [],
-			onSome: (value) => Result.getOrThrow(parseEgressAllowedNetworks(value)),
-		});
 		return withEgressPolicy(yield* HttpClient.HttpClient, {
-			allowedNetworks,
 			resolver: yield* EgressResolver,
+			allowedNetworks: config.server.egressAllowedNetworks,
 		});
 	}),
 ).pipe(Layer.provide(FetchHttpClient.layer));

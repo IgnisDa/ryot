@@ -3,7 +3,7 @@ import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
-import { AppConfig, isS3Configured } from "../config/service";
+import { AppConfig } from "../config/service";
 
 const isMissingObjectError = (error: unknown) => {
 	if (typeof error !== "object" || error === null) {
@@ -28,19 +28,17 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const httpClient = yield* HttpClient.HttpClient;
-		const { url, region, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
-
-		const s3Region = Option.isSome(region) ? region.value : null;
-
-		const client: S3Client | null = isS3Configured(config)
-			? new S3Client({
-					endpoint: Option.getOrThrow(url),
-					bucket: Option.getOrThrow(bucketName),
-					...(s3Region && s3Region.length > 0 ? { region: s3Region } : {}),
-					accessKeyId: Redacted.value(Option.getOrThrow(accessKeyId)),
-					secretAccessKey: Redacted.value(Option.getOrThrow(secretAccessKey)),
-				})
-			: null;
+		const client = Option.match(config.fileStorage.s3, {
+			onNone: () => null,
+			onSome: ({ url, region, bucketName, accessKeyId, secretAccessKey }) =>
+				new S3Client({
+					endpoint: url,
+					bucket: bucketName,
+					...Option.match(region, { onNone: () => ({}), onSome: (value) => ({ region: value }) }),
+					accessKeyId: Redacted.value(accessKeyId),
+					secretAccessKey: Redacted.value(secretAccessKey),
+				}),
+		});
 
 		const isConfigured = client !== null;
 		const requireConfigured: Effect.Effect<S3Client, BadRequest> = Effect.suspend(() =>

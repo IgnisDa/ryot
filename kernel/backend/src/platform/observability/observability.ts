@@ -9,7 +9,6 @@ import {
 	Path,
 	Redacted,
 	References,
-	Result,
 	Schema,
 	Tracer,
 } from "effect";
@@ -23,7 +22,7 @@ import {
 } from "effect/observability";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 
-import { AppConfig, type AppConfigValue, parseOtlpHeaders } from "../config/service";
+import { AppConfig, type AppConfigValue } from "../config/service";
 
 const stdoutLogfmtLogger = Logger.formatLogFmt.pipe(
 	Logger.map((line) => globalThis.console.log(line)),
@@ -178,19 +177,13 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Context.Context<never>) 
 		},
 	});
 
-const otlpHeaders = (headers: Option.Option<Redacted.Redacted>) =>
-	Option.match(headers, {
-		onNone: () => undefined,
-		onSome: (value) => Result.getOrUndefined(parseOtlpHeaders(Redacted.value(value))),
-	});
-
 const makeOtlpLayer = (config: AppConfigValue) => {
 	const { otlp, logging } = config.observability;
 	const inner = Option.match(otlp.endpoint, {
 		onNone: () => Layer.empty,
 		onSome: (endpoint) => {
 			const baseUrl = endpoint.replace(/\/+$/, "");
-			const headers = otlpHeaders(otlp.headers);
+			const headers = Option.getOrUndefined(Option.map(otlp.headers, Redacted.value));
 			const resource = {
 				serviceName: "ryot-backend",
 				attributes: { "deployment.environment": config.nodeEnv },

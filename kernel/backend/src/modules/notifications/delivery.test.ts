@@ -104,11 +104,12 @@ layer(
 				FetchHttpClient.layer,
 				makeAppConfigLayer({
 					server: {
-						smtp: {
-							server: Option.some("smtp.example.com"),
-							user: Option.some(Redacted.make("user")),
-							password: Option.some(Redacted.make("password")),
-						},
+						smtp: Option.some({
+							server: "smtp.example.com",
+							user: Redacted.make("user"),
+							mailbox: "Ryot <no-reply@ryot.io>",
+							password: Redacted.make("password"),
+						}),
 					},
 				}),
 				recordingMailerLayer,
