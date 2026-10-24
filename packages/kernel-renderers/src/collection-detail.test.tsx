@@ -1,4 +1,5 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	disposePluginBridges,
@@ -39,7 +40,7 @@ type CollectionAnswer = {
 	readonly name: string;
 	readonly hasMore?: boolean | undefined;
 	readonly groupsHaveMore?: boolean | undefined;
-	readonly membershipPropertiesSchema?: Record<string, unknown> | undefined;
+	readonly membershipFields?: ReadonlyArray<KeyedCollectionField> | undefined;
 	readonly description?: string | undefined;
 	readonly total?: number | undefined;
 };
@@ -77,9 +78,9 @@ const headerResponse = (input: CollectionAnswer) => ({
 					entityId: "col-1",
 					properties: {
 						...(input.description === undefined ? {} : { description: input.description }),
-						...(input.membershipPropertiesSchema === undefined
+						...(input.membershipFields === undefined
 							? {}
-							: { membershipPropertiesSchema: input.membershipPropertiesSchema }),
+							: { membershipFields: input.membershipFields }),
 					},
 				},
 			],
@@ -152,12 +153,9 @@ const itemGroup = {
 	ownerPluginName: "Fixture",
 };
 
-const notesSchema = {
-	unknownKeys: "strict",
-	fields: {
-		notes: { position: 0, type: "string", label: "Notes", description: "Membership notes" },
-	},
-};
+const notesFields = [
+	{ key: "notes", type: "text", label: "Notes", required: false, description: "Membership notes" },
+] as const;
 
 const hostScreenRequest = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -242,17 +240,15 @@ describe("collection detail", () => {
 					total: 5,
 					name: "Road Trips",
 					groupsHaveMore: true,
-					membershipPropertiesSchema: {
-						unknownKeys: "strict",
-						fields: {
-							template: {
-								position: 0,
-								type: "boolean",
-								label: "Template",
-								description: "Uses the collection template",
-							},
+					membershipFields: [
+						{
+							key: "template",
+							type: "boolean",
+							required: false,
+							label: "Template",
+							description: "Uses the collection template",
 						},
-					},
+					],
 					groups: [
 						{
 							count: 1,
@@ -323,15 +319,7 @@ describe("collection detail", () => {
 	it.live("keeps schema-driven table configuration when the collection has zero members", () =>
 		Effect.gen(function* () {
 			const page = openCollection("col-empty", "layout=table");
-			yield* answerCollection(page, {
-				name: "Empty",
-				membershipPropertiesSchema: {
-					unknownKeys: "strict",
-					fields: {
-						notes: { position: 0, type: "string", label: "Notes", description: "Membership notes" },
-					},
-				},
-			});
+			yield* answerCollection(page, { name: "Empty", membershipFields: notesFields });
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("heading", { level: 1, name: "Empty" })).toBeTruthy(),
@@ -547,7 +535,7 @@ describe("collection detail", () => {
 				"col-1",
 				filtersParam({ value: "road", operator: "contains", field: "membership.notes" }),
 			);
-			yield* answerChrome(page, { name: "Trips", membershipPropertiesSchema: notesSchema });
+			yield* answerChrome(page, { name: "Trips", membershipFields: notesFields });
 			const first = yield* request(page, "members");
 			const document = yield* encodeJson(first.document);
 			expect(document).toContain('"road"');
@@ -572,7 +560,7 @@ describe("collection detail", () => {
 				name: "Items",
 				groups: [itemGroup],
 				members: [itemMember],
-				membershipPropertiesSchema: notesSchema,
+				membershipFields: notesFields,
 			});
 			yield* Effect.promise(() => screen.findByRole("button", { name: /^Filters/ }));
 			fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
@@ -625,7 +613,7 @@ describe("collection detail", () => {
 				name: "Trips",
 				groups: [itemGroup],
 				members: [itemMember],
-				membershipPropertiesSchema: notesSchema,
+				membershipFields: notesFields,
 			});
 			const answered = new Set(page.queryRequests("members").map(({ requestId }) => requestId));
 			const answerPending = () => {
@@ -640,19 +628,12 @@ describe("collection detail", () => {
 				waitFor(() => expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0)),
 			);
 
-			const grown = {
-				unknownKeys: "strict",
-				fields: {
-					...notesSchema.fields,
-					score: { position: 1, type: "number", label: "Score", description: "Score" },
-				},
-			};
+			const grown = [
+				...notesFields,
+				{ key: "score", type: "number", label: "Score", required: false },
+			] as const;
 			page.send({ type: "page-refresh" });
-			yield* answerChrome(
-				page,
-				{ name: "Trips", groups: [itemGroup], membershipPropertiesSchema: grown },
-				1,
-			);
+			yield* answerChrome(page, { name: "Trips", groups: [itemGroup], membershipFields: grown }, 1);
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();

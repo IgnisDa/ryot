@@ -1,6 +1,6 @@
 import {
-	appSchemaToCollectionFields,
 	collectionFieldsToAppSchema,
+	decodeCollectionFields,
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
@@ -410,15 +410,12 @@ export const collectionPickerRecipe = defineRecipe(
 export type CollectionPickerResult = Recipe.Success<typeof collectionPickerRecipe>;
 
 const collectionHeaderFields = (
-	rawSchema: JsonValue | undefined,
+	rawFields: JsonValue | undefined,
 ): {
 	readonly fields: ReadonlyArray<KeyedCollectionField> | null;
 	readonly membershipPropertiesSchema: AppSchemaValue | null;
 } => {
-	if (rawSchema === undefined || rawSchema === null) {
-		return { fields: [], membershipPropertiesSchema: null };
-	}
-	const fields = appSchemaToCollectionFields(rawSchema);
+	const fields = decodeCollectionFields(rawFields === undefined ? [] : rawFields);
 	if (Result.isFailure(fields)) {
 		return { fields: null, membershipPropertiesSchema: null };
 	}
@@ -440,7 +437,7 @@ export const collectionHeaderRecipe = defineRecipe((input: { readonly collection
 			return Result.succeed({
 				name: header.name,
 				entityId: header.entityId,
-				...collectionHeaderFields(header.properties["membershipPropertiesSchema"]),
+				...collectionHeaderFields(header.properties["membershipFields"]),
 				description: typeof description === "string" && description !== "" ? description : null,
 			});
 		},

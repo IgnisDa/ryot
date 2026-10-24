@@ -59,13 +59,17 @@ const collectionSchema = {
 				type: "string" as const,
 				description: "A short summary or description of this collection",
 			},
-			membershipPropertiesSchema: {
-				properties: {},
-				type: "object" as const,
-				unknownKeys: "passthrough" as const,
-				label: "Membership Properties Schema",
-				description:
-					"JSON object schema defining extra properties attached to each collection member",
+			membershipFields: {
+				type: "array" as const,
+				label: "Membership Fields",
+				description: "Ordered field declarations for collection members",
+				items: {
+					properties: {},
+					label: "Field",
+					type: "object" as const,
+					unknownKeys: "passthrough" as const,
+					description: "Collection member field declaration",
+				},
 			},
 		},
 	},

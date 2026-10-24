@@ -68,7 +68,7 @@ const postJson = (token: string, path: string, body: unknown) =>
 	});
 
 describe("POST /collections", () => {
-	it.live("compiles member fields into a strict membership schema with generated keys", () =>
+	it.live("persists ordered member declarations with generated keys", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
@@ -81,26 +81,17 @@ describe("POST /collections", () => {
 			expect(collection.name).toBe("Recommended to me");
 			expect(collection.properties).toEqual({
 				description: "Movies and books recommended by friends",
-				membershipPropertiesSchema: {
-					unknownKeys: "strict",
-					fields: {
-						"owned-on": {
-							position: 0,
-							type: "date",
-							label: "Owned On",
-							description: "Owned On",
-							validation: { required: true },
-						},
-						format: {
-							position: 1,
-							type: "enum",
-							label: "Format",
-							description: "Format",
-							defaultValue: "Vinyl",
-							choices: { kind: "static", values: [{ value: "Vinyl" }, { value: "CD" }] },
-						},
+				membershipFields: [
+					{ type: "date", required: true, key: "owned-on", label: "Owned On" },
+					{
+						key: "format",
+						type: "choice",
+						label: "Format",
+						required: false,
+						defaultValue: "Vinyl",
+						choices: ["Vinyl", "CD"],
 					},
-				},
+				],
 			});
 		}),
 	);
@@ -114,7 +105,10 @@ describe("POST /collections", () => {
 				description: "My favorite items",
 			});
 
-			expect(collection.properties).toEqual({ description: "My favorite items" });
+			expect(collection.properties).toEqual({
+				membershipFields: [],
+				description: "My favorite items",
+			});
 		}),
 	);
 
@@ -303,13 +297,10 @@ describe("PATCH /collections", () => {
 			expect(updated.name).toBe("Records Renamed");
 			expect(updated.properties).toEqual({
 				description: "Updated",
-				membershipPropertiesSchema: {
-					unknownKeys: "strict",
-					fields: {
-						"note-2": { position: 1, label: "Note", type: "boolean", description: "Note" },
-						note: { position: 0, type: "string", label: "Comment", description: "Comment" },
-					},
-				},
+				membershipFields: [
+					{ key: "note", type: "text", required: false, label: "Comment" },
+					{ key: "note-2", label: "Note", type: "boolean", required: false },
+				],
 			});
 			const removed = yield* client.call((c) =>
 				c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
