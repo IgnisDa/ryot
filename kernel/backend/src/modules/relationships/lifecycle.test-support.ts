@@ -14,7 +14,10 @@ import { assert } from "vitest";
 
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	noLifecycleWorkLayer,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
@@ -359,7 +362,7 @@ export const relationshipDatabaseLayer = (
 			const ownerDependencies = Layer.mergeAll(
 				EntitiesRepository.layer,
 				DomainWriteChecksLive,
-				LifecyclePlannerServiceLive,
+				LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer)),
 			).pipe(
 				Layer.provideMerge(runtime),
 				Layer.provideMerge(
@@ -447,6 +450,7 @@ export const relationshipDatabaseLayer = (
 			).pipe(
 				Layer.provide(
 					Layer.fresh(LifecyclePlannerServiceLive).pipe(
+						Layer.provide(noLifecycleWorkLayer),
 						Layer.provide(makeAppConfigLayer({ database, automations: { maxRuns: 1 } })),
 					),
 				),

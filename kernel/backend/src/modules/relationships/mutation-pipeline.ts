@@ -290,6 +290,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							return { ...unplanned, before, validated };
 						}
 						const plan = yield* planner.plan({
+							writeContext: command.writeContext,
 							trigger: lifecycleTrigger(
 								command,
 								input.scope === "user" ? input.userId : null,

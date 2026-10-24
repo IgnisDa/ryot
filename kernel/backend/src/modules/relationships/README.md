@@ -33,7 +33,7 @@ output schema of at most 20 fields disjoint from the relationship properties, an
 script limited to read-only capabilities without workflow dependencies.
 
 `relationship_projection_work` holds one row per user and relationship schema: processor binding,
-plugin pin, account token, step, and current job. Each note keeps `revision` and
+plugin pin, account token, step, current job, and current/prepared input-repair revisions. Each note keeps `revision` and
 `projectedRevision`. A request upserts notes for the named source entities and advances their
 revision; the processor result is visible only while both are equal.
 
@@ -47,16 +47,44 @@ time.
 A step claims at most 100 dirty notes with their revisions and passes their relationship and
 endpoint IDs to the processor, which must return exactly one update per claimed relationship.
 Publication requires the canonical job to be running and still current, rechecks the declaration and
-processor binding, and writes only notes whose revision still matches the claim. It releases the
+processor binding, and requires the claim's input-repair revision to equal both work revisions. It writes only notes whose revision still matches the claim. It releases the
 work, settles the job, and admits the next step while dirty notes remain, all in one transaction.
 A changed binding is rebound instead: every note of the work advances its revision and the step is
 re-admitted. After publication the service emits a `projection-updated` hint for each changed source
 entity; a failed step emits hints for its claimed sources.
 
-RyotQL exposes `relationship.projection` only when the note is current and the work's plugin
+RyotQL exposes `relationship.projection` only when the note is current, the current and prepared
+input-repair revisions match, the account generation is current and enabled, and the work's plugin
 revision and configuration pin match an active plugin with a ready installation.
 `projectionStatus` is ready, pending, failed (the current job failed), or none when the schema
 declares no projection. Reconciliation on the frequent cron finds user schemas whose links lack
 notes or whose binding is stale, fills missing notes, rebinds, and requests work; this covers
 imports, backup restore, and plugin upgrades. Deleting a relationship, user, or plugin cascades to
 its notes and work.
+
+Input repair uses an account-wide fence because processors can read user-scoped data across plugins.
+The first durable admission of a deduplicated event input-repair root, each fresh committed source
+change from trusted `afterHooks: "skip"` work (including descendants), and historical restore advance
+work revisions without updating notes. Replays, no-ops, ordinary writes, and rolled-back work do not
+advance this fence. Sharing an existing root does not advance it again.
+Schema migration opens a generation for existing work, including work whose repair root was already
+durable. New work starts with matching revisions.
+
+Preparation takes the account's transaction-scoped coordination lock before its work lock. The
+events-owned required-target relation covers retained inputs, mapping-only targets, existing streams,
+and missing or unbound streams across the account. Preparation requires current processor bindings,
+completed source revisions, exact current successful repair claims, and no queued/running silent user
+scripts, including descendants without feature claims. A processor's `waitingForInputs` result remains
+pending. Failed or unavailable repair fails closed; relationship recovery does not retry it.
+
+Once the complete wave is ready, preparation advances all existing notes once, fills missing notes,
+detaches the old job, records the prepared revision, and admits a bounded step in one transaction.
+Repeated callbacks and recovery do not invalidate the notes again. Publication uses the same lock and
+readiness checks, so a late silent write cannot publish an older claim. These paths only read event
+readiness: they never reconcile events or acquire event-stream locks under the coordination lock.
+
+Startup and post-restore recovery run event reconciliation, common background recovery, then
+relationship reconciliation after workflow registration. Repair-root, silent-descendant, and event-step
+settlement also trigger account-scoped relationship recovery outside activities after settlement commits.
+Startup closes a crash gap before this callback. Recovery keyset-pages open generations as well as
+ordinary missing/stale work; it does not depend on cron, integrations, notifications, or after hooks.

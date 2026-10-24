@@ -256,6 +256,7 @@ export const makePreparedRelationshipMutations = (
 					return null;
 				}
 				const plan = yield* planner.plan({
+					writeContext: command.writeContext,
 					trigger: lifecycleTrigger(command, input.userId, request),
 				});
 				return { plan, before, request };

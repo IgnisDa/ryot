@@ -21,7 +21,11 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import { type BackgroundWorkInput, ProjectionBindings } from "#modules/background-work/model";
+import {
+	type BackgroundWorkInput,
+	ProjectionBindings,
+	ProjectionInputReadiness,
+} from "#modules/background-work/model";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -39,6 +43,7 @@ const RelationshipProjectionClaim = Schema.Struct({
 	id: Schema.String,
 	jobId: Schema.String,
 	outputSchema: AppSchema,
+	inputRepairRevision: Schema.Int,
 	pluginPin: ScriptPluginRevision,
 	processorScriptId: SandboxScriptId,
 	accountGeneration: AccountGeneration,
@@ -56,6 +61,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const relationshipSchemas = yield* RelationshipSchemaReader;
 			const background = yield* BackgroundWorkService;
 			const bindings = yield* ProjectionBindings;
+			const inputs = yield* ProjectionInputReadiness;
 			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 
@@ -115,6 +121,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const arrange = Effect.fn("RelationshipProjectionService.arrange")(function* (
 				id: string,
 				retry = false,
+				fillMissing = false,
 			) {
 				const candidate = yield* repository.get(id);
 				if (!candidate) {
@@ -122,7 +129,43 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				}
 				const account = { token: candidate.accountToken, userId: UserId.make(candidate.userId) };
 				yield* background.lockAccount(account);
-				const work = yield* repository.prepare(id);
+				yield* repository.lockInputs(account.userId);
+				let work = yield* repository.prepare(id);
+				if (!work) {
+					return null;
+				}
+				const key = {
+					userId: work.userId,
+					relationshipSchemaSlug: work.relationshipSchemaSlug,
+					relationshipSchemaPluginId: work.relationshipSchemaPluginId,
+				};
+				const binding = yield* currentBinding(key);
+				if (
+					!binding ||
+					binding.accountGeneration.token !== account.token ||
+					!(yield* inputs.ready(account))
+				) {
+					return null;
+				}
+				if (
+					work.processorScriptId !== binding.persisted.processorScriptId ||
+					stableStringify(work.pluginPin) !== stableStringify(binding.persisted.pluginPin) ||
+					stableStringify(work.outputSchema) !== stableStringify(binding.persisted.outputSchema)
+				) {
+					yield* repository.bind(key, binding.persisted);
+					work = yield* repository.get(id);
+					if (!work) {
+						return null;
+					}
+				}
+				const openInputs = work.inputRepairRevision !== work.preparedInputRepairRevision;
+				if (openInputs) {
+					yield* repository.prepareInputs(id);
+					work = yield* repository.get(id);
+				}
+				if (work && (fillMissing || openInputs)) {
+					yield* repository.fillMissing(key);
+				}
 				if (
 					!work ||
 					(work.currentJobId !== null &&
@@ -148,6 +191,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 					accountGeneration: account,
 					outputSchema: work.outputSchema,
 					processorScriptId: work.processorScriptId,
+					inputRepairRevision: work.inputRepairRevision,
 					revisions: Object.fromEntries(
 						claimed.map((item) => [item.relationshipId, item.revision]),
 					),
@@ -205,13 +249,12 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 					Effect.gen(function* () {
 						yield* background.lockAccount(binding.accountGeneration);
 						yield* authorize;
+						yield* repository.lockInputs(key.userId);
 						const id = yield* repository.bind(key, binding.persisted);
-						if (sourceEntityIds === null) {
-							yield* repository.fill(key);
-						} else {
+						if (sourceEntityIds !== null) {
 							yield* repository.mark(key, sourceEntityIds);
 						}
-						return { id, jobId: yield* arrange(id, true) };
+						return { id, jobId: yield* arrange(id, true, sourceEntityIds === null) };
 					}),
 				);
 				if (admitted.jobId) {
@@ -353,7 +396,16 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						.transaction(
 							Effect.gen(function* () {
 								yield* background.lockAccount(claim.accountGeneration);
-								if (!(yield* repository.currentClaim(claim.id, claim.jobId))) {
+								yield* repository.lockInputs(claim.accountGeneration.userId);
+								if (
+									!(yield* repository.currentClaim(
+										claim.id,
+										claim.jobId,
+										claim.inputRepairRevision,
+									)) ||
+									!(yield* inputs.ready(claim.accountGeneration))
+								) {
+									yield* repository.release(claim.id, claim.jobId);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
 									return [];
@@ -414,11 +466,14 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				);
 			});
 
-			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* () {
+			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* (
+				userId?: string,
+			) {
 				let after: undefined | RelationshipProjectionKey;
 				for (;;) {
 					const candidates = yield* repository.bindingCandidates({
 						limit: 100,
+						...(userId === undefined ? {} : { userId }),
 						...(after === undefined ? {} : { after }),
 					});
 					for (const candidate of candidates) {
@@ -437,37 +492,48 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						break;
 					}
 				}
-				for (const work of yield* repository.listCandidates()) {
-					const jobId = yield* session
-						.transaction(arrange(work.id))
-						.pipe(
-							Effect.catchTags({
-								DatabaseSessionStateError: Effect.die,
-								DbError: (error) =>
-									repository
-										.postponeCandidate(work.id)
-										.pipe(
-											Effect.andThen(
-												Effect.logWarning("Relationship projection admission failed", {
-													workId: work.id,
-													reason: error.message,
-												}),
-											),
-											Effect.as(null),
-										),
-							}),
-						);
-					if (jobId) {
-						yield* background
-							.dispatch(jobId)
+				let afterWork: string | undefined;
+				for (;;) {
+					const candidates = yield* repository.listCandidates(100, afterWork, userId);
+					for (const work of candidates) {
+						const jobId = yield* session
+							.transaction(arrange(work.id))
 							.pipe(
-								Effect.catchTag("DbError", (error) =>
-									Effect.logWarning("Relationship projection dispatch failed", {
-										jobId,
-										reason: error.message,
-									}),
-								),
+								Effect.catchTags({
+									DatabaseSessionStateError: Effect.die,
+									DbError: (error) =>
+										repository
+											.postponeCandidate(work.id)
+											.pipe(
+												Effect.andThen(
+													Effect.logWarning("Relationship projection admission failed", {
+														workId: work.id,
+														reason: error.message,
+													}),
+												),
+												Effect.as(null),
+											),
+								}),
 							);
+						if (jobId) {
+							yield* background
+								.dispatch(jobId)
+								.pipe(
+									Effect.catchTag("DbError", (error) =>
+										Effect.logWarning("Relationship projection dispatch failed", {
+											jobId,
+											reason: error.message,
+										}),
+									),
+								);
+						}
+					}
+					if (candidates.length < 100) {
+						break;
+					}
+					afterWork = candidates.at(-1)?.id;
+					if (afterWork === undefined) {
+						break;
 					}
 				}
 			});

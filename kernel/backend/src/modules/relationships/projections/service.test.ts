@@ -12,7 +12,7 @@ import {
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -20,10 +20,11 @@ import { ProjectionBindings } from "#modules/background-work/model";
 import { BackgroundWorkService, BackgroundWorkWorkflow } from "#modules/background-work/service";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EventProjectionInputReadinessLive } from "#modules/events/projection-readiness";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
-	revisionDatabaseLayer,
+	makeRevisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -150,7 +151,7 @@ const fixtureLayer = Layer.effect(
 			accountGeneration: { userId, token: accountToken },
 		};
 	}),
-).pipe(Layer.provideMerge(revisionDatabaseLayer));
+).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(2)));
 
 const testLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -191,6 +192,7 @@ const testLayer = Layer.unwrap(
 			bindingsLayer,
 			redisLayer,
 			RelationshipProjectionRepository.layer.pipe(Layer.provide(shared)),
+			EventProjectionInputReadinessLive.pipe(Layer.provide(shared)),
 			BackgroundWorkService.layer.pipe(Layer.provide(shared)),
 			DomainWriteChecksLive.pipe(Layer.provide(shared)),
 			RelationshipSchemaReaderLive.pipe(Layer.provide(shared)),
@@ -503,6 +505,51 @@ layer(testLayer)((test) => {
 					request: { relationshipSchemaSlug, sourceEntityIds: [EntityId.make("unlinked")] },
 				}),
 			).toBe(0);
+		}),
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect("serializes late input fences with publication and discards the old claim", () =>
+		Effect.gen(function* () {
+			const { sources, fixture } = yield* seedLinks("input-fence-race", 1);
+			const workId = yield* request("input-fence-race", sources);
+			const { job, input } = yield* startCurrent(workId);
+			const repository = yield* RelationshipProjectionRepository;
+			const session = yield* DatabaseSession;
+			const entered = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const publishing = yield* Deferred.make<void>();
+			const writer = yield* session
+				.transaction(
+					Effect.gen(function* () {
+						yield* repository.advanceInputs(fixture.accountGeneration);
+						yield* Deferred.succeed(entered, undefined);
+						yield* Deferred.await(release);
+					}),
+				)
+				.pipe(Effect.forkChild);
+			yield* Effect.gen(function* () {
+				yield* Deferred.await(entered);
+				const publication = yield* Deferred.succeed(publishing, undefined).pipe(
+					Effect.andThen(publish(job, scoreAll(input, 99))),
+					Effect.forkChild,
+				);
+				yield* Deferred.await(publishing);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(writer);
+				yield* Fiber.join(publication);
+				expect(yield* jobStatus(job.id)).toBe("succeeded");
+				const [note] = yield* notes(workId);
+				expect(note).toMatchObject({ revision: 2, properties: null, projectedRevision: null });
+				const current = yield* repository.get(workId);
+				expect(current?.inputRepairRevision).toBe(1);
+				expect(current?.preparedInputRepairRevision).toBe(1);
+				expect(current?.currentJobId).not.toBe(job.id);
+			}).pipe(
+				Effect.ensuring(Deferred.succeed(release, undefined)),
+				Effect.ensuring(Fiber.interrupt(writer)),
+			);
 		}),
 	);
 });
