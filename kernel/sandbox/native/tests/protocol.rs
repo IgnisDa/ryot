@@ -320,7 +320,7 @@ fn bounded_queues_apply_backpressure() {
     while done < 20 {
         if let Outbound::Done { outcome, .. } = sidecar.recv() {
             assert!(
-                matches!(outcome, ryot_sandboxd::protocol::Outcome::Completed(_)),
+                matches!(outcome, ryot_sandboxd::protocol::Outcome::Completed { .. }),
                 "{outcome:?}"
             );
             done += 1;
@@ -417,7 +417,7 @@ fn interleaved_executions_are_attributed_correctly() {
     }
     for index in 0..8 {
         let handle = format!("principal-{index}");
-        let ryot_sandboxd::protocol::Outcome::Completed(value) = &results[&handle] else {
+        let ryot_sandboxd::protocol::Outcome::Completed { value } = &results[&handle] else {
             panic!("{handle} failed: {:?}", results[&handle]);
         };
         let expected: Vec<String> = (0..5).map(|i| format!("{handle}:{i}")).collect();

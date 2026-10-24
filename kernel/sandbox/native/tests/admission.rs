@@ -129,7 +129,7 @@ fn cpu_admission_preserves_lane_priority_on_resume() {
         match sidecar.recv() {
             Outbound::Done {
                 handle,
-                outcome: Outcome::Completed(_),
+                outcome: Outcome::Completed { .. },
                 usage,
                 ..
             } => finished.push((handle, usage.cpu_wait_ms)),

@@ -15,7 +15,7 @@
 
 ## Status
 
-**44 implemented, 0 in progress, 39 pending; 3 excluded.**
+**45 implemented, 0 in progress, 38 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -72,7 +72,7 @@
 | P05-R1 | Implemented | Render flat tables directly without table-engine boxing or scans; remove the unused engine dependency. See this finding's audit commit. |
 | P05-R2 | Pending | Derive reorder preview from one destination. |
 | B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
-| S03-R2 | Pending | Borrow result/console data during done serialization. |
+| S03-R2 | Implemented | Borrow result and console data while serializing the done payload. See this finding's audit commit. |
 | S02-R2 | Pending | The writer owns physical chunk creation. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
 | S01-R1 | Pending | Store harvested bytes without an intermediate temp copy. |
@@ -209,3 +209,4 @@
 - M03-R1: media check passed before 39 tests across six files; read-only review passed.
 - M04-R1: scoped checks passed before 20 tests across seven files; read-only review passed. Existing sorted media runs are reused with the checkpointed 64-item window.
 - M02-R1: media type, format, and lint checks passed before 28 tests across six files; read-only review passed. Decoded Trakt records are processed directly without a synthetic ZIP round trip.
+- S03-R2: native format/clippy and fixture checks passed; 73 native tests passed with one ignored, plus seven TypeScript tests. Earlier timing-sensitive attempts were followed by a full pass without code changes; read-only review passed. Linux-only validation was not run on macOS.
