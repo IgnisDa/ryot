@@ -7,6 +7,7 @@ import {
 	parseClientImageManifest,
 } from "@ryot-app/kernel-backend/modules/pages/bundles/image-artifacts";
 import {
+	kernelAnalyticsRenderer,
 	kernelCalendarRenderer,
 	kernelCollectionBrowserRenderer,
 	kernelCollectionDetailRenderer,
@@ -75,6 +76,7 @@ export const assemble = Effect.gen(function* () {
 	const clientRuntime = yield* buildClientRuntime;
 
 	const kernelRenderers = [
+		kernelAnalyticsRenderer,
 		kernelCalendarRenderer,
 		kernelCollectionBrowserRenderer,
 		kernelEntityBrowserRenderer,

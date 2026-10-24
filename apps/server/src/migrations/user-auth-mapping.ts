@@ -154,6 +154,7 @@ BEGIN
 				(legacy_users.preferences -> 'general' ->> 'disable_integrations')::boolean,
 				false
 			),
+			'reportingTimeZone', NULL,
 			'language', NULL
 		),
 		true,

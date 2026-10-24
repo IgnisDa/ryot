@@ -106,6 +106,7 @@ import {
 	buildWorkoutToTemplateRelationshipMigrationSql,
 } from "./workout-mapping";
 import { migrateWorkoutRecords } from "./workout-records";
+import { buildWorkoutTaxonomyMigrationSql } from "./workout-taxonomy-mapping";
 import { migrateYoutubeMusicCache } from "./youtube-music-cache-mapping";
 
 const abortSampleLimit = 20;
@@ -219,6 +220,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		return entitySchema(mediaPluginId, slug).slug;
 	});
 	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
+	for (const slug of ["anime", "manga"]) {
+		requireEventSchema(resolution, mediaPluginId, slug, "item-complete");
+	}
+	for (const slug of ["completion-occurrence", "completion-episode"]) {
+		requireEventSchema(resolution, mediaPluginId, libraryEntitySchema.slug, slug);
+	}
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
 	const fitnessLibraryEntitySchema = entitySchema(fitnessPluginId, "fitness-library");
@@ -286,6 +293,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		fitnessPluginId,
 		"exercise",
 		"workout-set",
+	);
+	const workoutExerciseEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"exercise",
+		"workout-exercise",
 	);
 	const workoutToWorkoutTemplateRelationshipSchema = relationshipSchema(
 		fitnessPluginId,
@@ -573,6 +586,19 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchema), []);
+			yield* connection.executeRaw(
+				buildWorkoutTaxonomyMigrationSql({
+					workoutEntitySchema,
+					exerciseEntitySchema,
+					setEventSchema: workoutSetEventSchema,
+					targetProviderId: exerciseTargetProviderId,
+					targetEntitySchema: exerciseTargetEntitySchema,
+					equipmentProviderId: exerciseEquipmentProviderId,
+					occurrenceEventSchema: workoutExerciseEventSchema,
+					equipmentEntitySchema: exerciseEquipmentEntitySchema,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(
 				buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchema),
 				[],

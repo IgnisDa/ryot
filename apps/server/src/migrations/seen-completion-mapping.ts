@@ -1,6 +1,3 @@
-// Backfills whole-entity `complete` events for episodic media. Show and podcast coverage replays
-// child progress/completion in lifecycle order; anime and manga replay runtime auto-completion: a
-// progress event whose position reaches the entity total, or whose progressPercent is 100, completes it.
 import { buildAbortOnRowsSql, buildReportSql, quoteSqlString } from "./shared";
 
 export const buildSeenEpisodicCompletionMigrationSql = (mediaPluginId: string) => `
@@ -10,14 +7,23 @@ DECLARE
 	event_rec record;
 	covered_keys text[];
 	covered_consumed_on jsonb;
+	covered_sources jsonb;
+	occurrence_id text;
 	agreed_consumed_on text;
-	batch_count int;
 	show_podcast_complete_inserted int := 0;
-	flat_complete_inserted int := 0;
 	invalid_rows int := 0;
 	invalid_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
+	IF EXISTS (SELECT 1 FROM "migration_report" WHERE phase = 'seen parent completion evidence') THEN
+		RETURN;
+	END IF;
+	CREATE TEMP TABLE _seen_completion_outputs ON COMMIT DROP AS
+	SELECT id, user_id, entity_id, event_schema_slug, event_schema_plugin_id, session_entity_id,
+		properties, created_at, occurred_at, order_created_at, order_key
+	FROM "event" WITH NO DATA;
+	CREATE UNIQUE INDEX ON _seen_completion_outputs (id);
+
 	CREATE TEMP TABLE _seen_required_coverage ON COMMIT DROP AS
 	WITH show_keys AS (
 		SELECT DISTINCT
@@ -132,7 +138,8 @@ BEGIN
 		ev.session_entity_id AS entity_id,
 		ev.entity_id AS coverage_key,
 		ev.event_schema_slug,
-		ev.created_at,
+		COALESCE(ev.order_created_at, ev.created_at) AS created_at,
+		COALESCE(ev.order_key, ev.id) AS order_key,
 		ev.occurred_at,
 		NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on
 	FROM "event" ev
@@ -154,32 +161,51 @@ BEGIN
 	ANALYZE _seen_required_counts;
 	ANALYZE _seen_child_lifecycle;
 
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_rows",
+		sampleVariable: "invalid_sample",
+		message:
+			"seen parent completion evidence: % history owner(s) have no unique Media Library: %. Frozen completion evidence must be user-owned on that library. Keep the dump and report this migration identity conflict.",
+		source: `SELECT child.user_id AS label
+			FROM (SELECT DISTINCT user_id FROM _seen_child_lifecycle) child
+			LEFT JOIN "entity" library ON library.user_id = child.user_id
+				AND library.entity_schema_slug = 'media-library'
+				AND library.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
+			GROUP BY child.user_id HAVING count(library.id) <> 1`,
+	})}
+
 	FOR entity_rec IN
 		SELECT DISTINCT
 			child.user_id,
 			child.entity_id,
+			library.id AS library_id,
 			required.required_count
 		FROM _seen_child_lifecycle child
 		INNER JOIN _seen_required_counts required
 			ON  required.entity_id = child.entity_id
 			AND required.entity_schema_slug IN ('show', 'podcast')
 		INNER JOIN "metadata" legacy_metadata ON legacy_metadata.id = child.entity_id
+		INNER JOIN "entity" library ON library.user_id = child.user_id
+			AND library.entity_schema_slug = 'media-library'
+			AND library.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE lower(trim(legacy_metadata.production_status)) IN ('ended', 'canceled', 'cancelled')
 		ORDER BY child.user_id, child.entity_id
 	LOOP
 		covered_keys := ARRAY[]::text[];
 		covered_consumed_on := '{}'::jsonb;
+		covered_sources := '{}'::jsonb;
 
 		FOR event_rec IN
-			SELECT event_id, coverage_key, event_schema_slug, created_at, occurred_at, consumed_on
+			SELECT event_id, coverage_key, event_schema_slug, created_at, occurred_at, order_key, consumed_on
 			FROM _seen_child_lifecycle
 			WHERE user_id = entity_rec.user_id
 			  AND entity_id = entity_rec.entity_id
-			ORDER BY occurred_at, created_at, event_id
+			ORDER BY occurred_at, created_at, order_key
 		LOOP
 			IF event_rec.event_schema_slug = 'progress' THEN
 				covered_keys := array_remove(covered_keys, event_rec.coverage_key);
 				covered_consumed_on := covered_consumed_on - event_rec.coverage_key;
+				covered_sources := covered_sources - event_rec.coverage_key;
 			ELSE
 				IF NOT (event_rec.coverage_key = ANY(covered_keys)) THEN
 					covered_keys := covered_keys || event_rec.coverage_key;
@@ -190,6 +216,7 @@ BEGIN
 					COALESCE(to_jsonb(event_rec.consumed_on), 'null'::jsonb),
 					true
 				);
+				covered_sources := jsonb_set(covered_sources, ARRAY[event_rec.coverage_key], to_jsonb(event_rec.event_id), true);
 			END IF;
 
 			IF COALESCE(array_length(covered_keys, 1), 0) = entity_rec.required_count THEN
@@ -200,9 +227,8 @@ BEGIN
 			INTO agreed_consumed_on
 			FROM jsonb_each_text(covered_consumed_on);
 
-				-- The suffix places the boundary directly after its closing child when timestamps tie,
-				-- without moving it past the next child event in the total event order.
-				INSERT INTO "event" (
+				occurrence_id := md5(event_rec.event_id || ':parent-occurrence');
+				INSERT INTO _seen_completion_outputs (
 					"id",
 					"user_id",
 					"entity_id",
@@ -211,7 +237,7 @@ BEGIN
 					"session_entity_id",
 					"properties",
 					"created_at",
-					"occurred_at"
+					"occurred_at", "order_created_at", "order_key"
 				)
 				VALUES (
 					event_rec.event_id || ':parent-complete',
@@ -221,81 +247,79 @@ BEGIN
 					${quoteSqlString(mediaPluginId)},
 					entity_rec.entity_id,
 					jsonb_strip_nulls(jsonb_build_object(
-						'consumedOn', agreed_consumed_on
+						'consumedOn', agreed_consumed_on,
+						'consumptionBasis', jsonb_build_object('unit', 'episodes'),
+						'dateUnknown', true,
+						'completionKey', occurrence_id,
+						'completionSilent', true
 					)),
 					event_rec.created_at,
-					event_rec.occurred_at
+					event_rec.occurred_at,
+					event_rec.created_at,
+					event_rec.order_key || '~parent'
+				);
+				show_podcast_complete_inserted := show_podcast_complete_inserted + 1;
+
+				INSERT INTO _seen_completion_outputs (
+					id, user_id, entity_id, event_schema_slug, event_schema_plugin_id,
+					properties, created_at, occurred_at
+				) VALUES (
+					occurrence_id, entity_rec.user_id, entity_rec.library_id,
+					'completion-occurrence', ${quoteSqlString(mediaPluginId)},
+					jsonb_strip_nulls(jsonb_build_object(
+						'total', 0, 'runKey', 'legacy-seen', 'frozen', true, 'silent', true,
+						'entityId', entity_rec.entity_id, 'subjectEntityId', entity_rec.entity_id,
+						'sessionEntityId', entity_rec.entity_id, 'sourceEventId', event_rec.event_id,
+						'rule', 'coverage', 'status', 'active',
+						'expectedOccurredAt', to_char(event_rec.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+						'expectedOrderCreatedAt', to_char(event_rec.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+						'expectedOrderKey', event_rec.order_key || '~parent',
+						'expectedDateUnknown', true, 'expectedConsumedOn', agreed_consumed_on,
+						'expectedConsumptionBasis', jsonb_build_object('unit', 'episodes')
+					)), event_rec.created_at, event_rec.occurred_at
+				);
+				INSERT INTO _seen_completion_outputs (
+					id, user_id, entity_id, event_schema_slug, event_schema_plugin_id,
+					properties, created_at, occurred_at
 				)
-				ON CONFLICT DO NOTHING;
-				GET DIAGNOSTICS batch_count = ROW_COUNT;
-				show_podcast_complete_inserted := show_podcast_complete_inserted + batch_count;
+				SELECT md5(occurrence_id || ':episode:' || support.key), entity_rec.user_id,
+					entity_rec.library_id, 'completion-episode', ${quoteSqlString(mediaPluginId)},
+					jsonb_build_object('occurrenceId', occurrence_id, 'episodeId', support.key,
+						'subjectEntityId', entity_rec.entity_id, 'sourceEventId', support.value),
+					event_rec.created_at, event_rec.occurred_at
+				FROM jsonb_each_text(covered_sources) support;
 				covered_keys := ARRAY[]::text[];
 				covered_consumed_on := '{}'::jsonb;
+				covered_sources := '{}'::jsonb;
 			END IF;
 		END LOOP;
 	END LOOP;
 
 	INSERT INTO "event" (
-		"id",
-		"user_id",
-		"entity_id",
-		"event_schema_slug",
-		"event_schema_plugin_id",
-		"properties",
-		"created_at",
-		"occurred_at"
+		id, user_id, entity_id, event_schema_slug, event_schema_plugin_id, session_entity_id,
+		properties, created_at, occurred_at, order_created_at, order_key
 	)
-	SELECT
-		ev.id || ':episodic-complete',
-		ev.user_id,
-		ev.entity_id,
-		'complete',
-		${quoteSqlString(mediaPluginId)},
-		jsonb_strip_nulls(jsonb_build_object(
-			'consumedOn', NULLIF(ev.properties ->> 'consumedOn', '')
-		)),
-		ev.created_at,
-		ev.occurred_at
-	FROM "event" ev
-	INNER JOIN "entity" e ON e.id = ev.entity_id
-	WHERE ev.event_schema_slug = 'progress'
-	  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
-	  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
-	  AND e.entity_schema_slug IN ('anime', 'manga')
-	  AND (
-		(ev.properties ->> 'progressPercent')::numeric = 100
-		OR CASE e.entity_schema_slug
-			WHEN 'anime' THEN
-				CASE
-					WHEN (e.properties ->> 'episodes') ~ '^[0-9]+$'
-						AND (ev.properties ->> 'animeEpisode') ~ '^[0-9]+$'
-					THEN (e.properties ->> 'episodes')::int > 0
-						AND (ev.properties ->> 'animeEpisode')::int >= (e.properties ->> 'episodes')::int
-					ELSE false
-				END
-			WHEN 'manga' THEN
-				CASE
-					WHEN (e.properties ->> 'chapters') ~ '^[0-9]+(\\.[0-9]+)?$'
-						AND (ev.properties ->> 'mangaChapter') ~ '^[0-9]+(\\.[0-9]+)?$'
-					THEN (e.properties ->> 'chapters')::numeric > 0
-						AND (ev.properties ->> 'mangaChapter')::numeric >= (e.properties ->> 'chapters')::numeric
-					ELSE false
-				END
-		END
-	  )
-	  AND NOT EXISTS (
-		SELECT 1
-		FROM "event" later
-		WHERE later.user_id = ev.user_id
-		  AND later.entity_id = ev.entity_id
-		  AND later.event_schema_slug = 'complete'
-		  AND later.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
-		  AND later.id <> ev.id || ':episodic-complete'
-		  AND (later.occurred_at, later.created_at) >= (ev.occurred_at, ev.created_at)
-	  )
+	SELECT * FROM _seen_completion_outputs
 	ON CONFLICT DO NOTHING;
-	GET DIAGNOSTICS batch_count = ROW_COUNT;
-	flat_complete_inserted := flat_complete_inserted + batch_count;
+
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_rows",
+		sampleVariable: "invalid_sample",
+		message:
+			"seen parent completion evidence: % inferred output/evidence row(s) have conflicting deterministic identity or content: %. The phase has been rolled back. Keep the dump and report the migration conflict; do not discard explicit history to bypass it.",
+		source: `SELECT intended.id AS label FROM _seen_completion_outputs intended
+			LEFT JOIN "event" actual ON actual.id = intended.id
+			WHERE actual.id IS NULL OR actual.user_id IS DISTINCT FROM intended.user_id
+				OR actual.entity_id IS DISTINCT FROM intended.entity_id
+				OR actual.event_schema_slug IS DISTINCT FROM intended.event_schema_slug
+				OR actual.event_schema_plugin_id IS DISTINCT FROM intended.event_schema_plugin_id
+				OR actual.session_entity_id IS DISTINCT FROM intended.session_entity_id
+				OR actual.properties IS DISTINCT FROM intended.properties
+				OR actual.created_at IS DISTINCT FROM intended.created_at
+				OR actual.occurred_at IS DISTINCT FROM intended.occurred_at
+				OR actual.order_created_at IS DISTINCT FROM intended.order_created_at
+				OR actual.order_key IS DISTINCT FROM intended.order_key`,
+	})}
 
 	${buildAbortOnRowsSql({
 		countVariable: "invalid_rows",
@@ -378,12 +402,11 @@ BEGIN
 		RAISE EXCEPTION 'seen -> event: a migrated podcast episode event belongs to a watch session other than its own podcast. This is a defect in this migration''s session assignment rather than in the legacy data. Keep the dump and report it; retrying will not change the result.';
 	END IF;
 
-	${buildReportSql("seen -> event", [
+	${buildReportSql("seen parent completion evidence", [
 		{
 			count: "show_podcast_complete_inserted",
 			message: "show/podcast parent complete events backfilled",
 		},
-		{ count: "flat_complete_inserted", message: "anime/manga complete events backfilled" },
 	])}
 END $$;
 `;
