@@ -15,7 +15,7 @@
 
 ## Status
 
-**40 implemented, 0 in progress, 43 pending; 3 excluded.**
+**41 implemented, 0 in progress, 42 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -97,7 +97,7 @@
 | C03-R1 | Implemented | One shell owner controls presentation activation and deactivation, with stale-entry guards and overlays. See this finding's audit commit. |
 | C06-R1 | Implemented | Delete the unused entity/provenance facade while retaining the active watch recipe and route preparation. See this finding's audit commit. |
 | C07-R1 | Pending | Delete the unused saved-view facade. |
-| C07-R2 | Pending | Use shared collection-editor mutation ownership. |
+| C07-R2 | Implemented | Shared collection-editor mutation ownership interrupts departure and suppresses late callbacks and refresh; it does not imply server rollback. See this finding's audit commit. |
 | C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
 | M01-R1 | Pending | Use the canonical Metron role accumulator. |
@@ -205,3 +205,4 @@
 - C03-R1: client type, format, and lint checks passed before 124 tests; read-only review passed.
 - B16-R2: scoped backend checks passed before 23 tests; read-only review passed.
 - P04-R2: SDK check passed before 243 tests across 23 files; read-only review passed.
+- C07-R2: client type, format, and lint checks passed before 65 tests across three files; read-only review passed. Departure interrupts local waiting and suppresses late callbacks/refresh, without promising server rollback.
