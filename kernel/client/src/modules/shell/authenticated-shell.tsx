@@ -44,15 +44,12 @@ import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
 import { effectiveCatalogPlugin, toNavigationRequest } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import {
-	ClientPageOverlayContext,
-	ClientPageScreenContext,
-	type ClientPageScreenState,
-	createClientDocumentControllers,
+	ClientPagePresentationContext,
+	createClientPagePresentationController,
 	CustomizeContext,
 	type CustomizeController,
 	EdgeContext,
-	PluginHeaderContext,
-	type PluginHeaderState,
+	emptyClientPagePresentation,
 	PluginTitleContext,
 	RememberedWorkspaceContext,
 	type ShellChrome,
@@ -138,9 +135,7 @@ export function AuthenticatedShell(props: {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [creatingCollection, setCreatingCollection] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
-	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
-	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
-	const [pluginOverlayCount, setPluginOverlayCount] = useState(0);
+	const [presentationState, setPresentationState] = useState(emptyClientPagePresentation);
 	const [discarding, setDiscarding] = useState(false);
 	const [rememberedPluginId, setRememberedPluginId] = useState(props.initialRememberedPluginId);
 	const settingsActive = isSettingsPath(pathname);
@@ -171,23 +166,20 @@ export function AuthenticatedShell(props: {
 		[current?.installationId, props.navigation],
 	);
 	const entry = historyEntry(state);
+	const [presentation] = useState(() =>
+		createClientPagePresentationController(entry, setPresentationState),
+	);
+	presentation.setEntry(entry);
+	const {
+		header: pluginHeader,
+		readiness: pluginScreenState,
+		overlayCount: pluginOverlayCount,
+	} = presentationState;
 	useValueChange(workspaceChrome, (chrome) => {
 		if (!chrome) {
 			setDrawerOpen(false);
 		}
 	});
-	const [documentEntry, setDocumentEntry] = useState(entry);
-	if (documentEntry.index !== entry.index || documentEntry.key !== entry.key) {
-		setDocumentEntry(entry);
-		setPluginScreenState(null);
-		setPluginHeader((currentHeader) =>
-			currentHeader !== null &&
-			currentHeader.index === entry.index &&
-			currentHeader.key === entry.key
-				? currentHeader
-				: null,
-		);
-	}
 	const pluginTitle =
 		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
 			? pluginHeader.title
@@ -314,14 +306,6 @@ export function AuthenticatedShell(props: {
 		() => ({ customize, readOnly: isDemo, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
 		[customize, isDemo, requestLeaveCustomize, saveCustomize],
 	);
-	const [{ header, screen: pageScreen, overlay: pageOverlay }] = useState(() =>
-		createClientDocumentControllers(
-			{ current: null },
-			setPluginHeader,
-			setPluginScreenState,
-			setPluginOverlayCount,
-		),
-	);
 	const shellChrome = useMemo<ShellChrome>(
 		() => ({
 			drawerId,
@@ -447,50 +431,46 @@ export function AuthenticatedShell(props: {
 				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />
 				<IosLiveActivityScope scope={scope} runtime={runtime} catalog={catalog} />
 				<CustomizeContext value={customizeController}>
-					<PluginHeaderContext value={header}>
+					<ClientPagePresentationContext value={presentation}>
 						<PluginTitleContext value={pluginTitle}>
 							<EdgeContext value={edge}>
 								<ShellChromeContext value={shellChrome}>
-									<ClientPageScreenContext value={pageScreen}>
-										<ClientPageOverlayContext value={pageOverlay}>
-											<motion.div
-												inert={drawerOpen}
-												style={{ x: contentShift }}
-												data-testid="shell-content"
-												className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-											>
-												{impersonation && authSnapshot.status === "authenticated" && (
-													<ImpersonationBanner
-														error={stopError}
-														pending={stopPending}
-														user={authSnapshot.user}
-														onStop={stopImpersonation}
-														expiresAt={impersonation.expiresAt}
-													/>
-												)}
-												<div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-													<ClientPageDocumentProvider>
-														<ClientPageDocumentHost />
-														<Outlet />
-													</ClientPageDocumentProvider>
-												</div>
-												<ReturnShortcutBar
-													scope={scope}
-													runtime={runtime}
-													onNavigate={navigateDeviceTarget}
-													safeAreaBottom={safeAreaInsets.safeAreaBottom}
-													isCurrent={(target) =>
-														toNavigationRequest({ target, mode: "push", type: "navigate" }, catalog)
-															?.href === `${pathname}${searchStr}`
-													}
-												/>
-											</motion.div>
-										</ClientPageOverlayContext>
-									</ClientPageScreenContext>
+									<motion.div
+										inert={drawerOpen}
+										style={{ x: contentShift }}
+										data-testid="shell-content"
+										className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+									>
+										{impersonation && authSnapshot.status === "authenticated" && (
+											<ImpersonationBanner
+												error={stopError}
+												pending={stopPending}
+												user={authSnapshot.user}
+												onStop={stopImpersonation}
+												expiresAt={impersonation.expiresAt}
+											/>
+										)}
+										<div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+											<ClientPageDocumentProvider>
+												<ClientPageDocumentHost />
+												<Outlet />
+											</ClientPageDocumentProvider>
+										</div>
+										<ReturnShortcutBar
+											scope={scope}
+											runtime={runtime}
+											onNavigate={navigateDeviceTarget}
+											safeAreaBottom={safeAreaInsets.safeAreaBottom}
+											isCurrent={(target) =>
+												toNavigationRequest({ target, mode: "push", type: "navigate" }, catalog)
+													?.href === `${pathname}${searchStr}`
+											}
+										/>
+									</motion.div>
 								</ShellChromeContext>
 							</EdgeContext>
 						</PluginTitleContext>
-					</PluginHeaderContext>
+					</ClientPagePresentationContext>
 				</CustomizeContext>
 			</RememberedWorkspaceContext>
 			{discarding && (

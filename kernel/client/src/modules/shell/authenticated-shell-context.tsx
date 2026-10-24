@@ -2,102 +2,79 @@ import type { KernelShortcut } from "@ryot-app/plugin-client-contract";
 import { createContext, type RefObject, useContext } from "react";
 
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
+import type { historyEntry } from "#/modules/navigation/history-entry";
 import type { CustomizeDraftState } from "#/modules/shell/customize/use-customize-draft";
 import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";
 import type { SafeAreaInsets } from "#/modules/shell/safe-area";
 
 export const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
 
-export type PluginHeaderState = PageHeaderPublication & { readonly owner: string };
-
-export type PluginHeaderController = {
-	readonly clear: (owner: string) => void;
-	readonly activate: (owner: string) => void;
-	readonly publish: (owner: string, header: PageHeaderPublication) => void;
-};
-
-export const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
-
 export const PluginTitleContext = createContext<string | null | undefined>(undefined);
 
-export type ClientPageScreenState = PageScreenReadiness & { readonly owner: string };
-
-export type ClientPageScreenController = {
-	readonly clear: (owner: string) => void;
-	readonly activate: (owner: string) => void;
-	readonly publish: (owner: string, state: PageScreenReadiness | null) => void;
+export type ClientPagePresentationState = {
+	readonly owner: string | null;
+	readonly header: PageHeaderPublication | null;
+	readonly readiness: PageScreenReadiness | null;
+	readonly overlayCount: number;
 };
 
-export type ClientPageOverlayController = {
-	readonly clear: (owner: string) => void;
-	readonly publish: (owner: string, count: number) => void;
+export const emptyClientPagePresentation: ClientPagePresentationState = {
+	owner: null,
+	header: null,
+	readiness: null,
+	overlayCount: 0,
 };
 
-export function createClientDocumentControllers(
-	activeOwner: RefObject<string | null>,
-	setHeader: (state: PluginHeaderState | null) => void,
-	setScreen: (state: ClientPageScreenState | null) => void,
-	setOverlayCount: (count: number) => void,
+export function createClientPagePresentationController(
+	initialEntry: ReturnType<typeof historyEntry>,
+	setPresentation: (state: ClientPagePresentationState) => void,
 ) {
-	const header: PluginHeaderController = {
-		clear: (owner) => {
-			if (activeOwner.current === owner) {
-				activeOwner.current = null;
-				setHeader(null);
-			}
-		},
-		publish: (owner, publication) => {
-			if (activeOwner.current === owner) {
-				setHeader({ owner, ...publication });
-			}
-		},
-		activate: (owner) => {
-			if (activeOwner.current !== owner) {
-				setHeader(null);
-				setOverlayCount(0);
-			}
-			activeOwner.current = owner;
-		},
+	let entry = initialEntry;
+	let state = emptyClientPagePresentation;
+	const publish = (next: ClientPagePresentationState) => {
+		state = next;
+		setPresentation(state);
 	};
-	const screen: ClientPageScreenController = {
-		clear: (owner) => {
-			if (activeOwner.current === owner) {
-				setScreen(null);
+	const matchesEntry = (publication: ReturnType<typeof historyEntry>) =>
+		publication.index === entry.index && publication.key === entry.key;
+	return {
+		activate: (owner: string) => publish({ ...emptyClientPagePresentation, owner }),
+		deactivate: (owner: string) => {
+			if (state.owner === owner) {
+				publish(emptyClientPagePresentation);
 			}
 		},
-		activate: (owner) => {
-			if (activeOwner.current !== owner) {
-				activeOwner.current = owner;
-			}
-			setScreen(null);
-		},
-		publish: (owner, publication) => {
-			if (activeOwner.current === owner) {
-				setScreen(publication === null ? null : { ...publication, owner });
+		publishOverlayCount: (owner: string, overlayCount: number) => {
+			if (state.owner === owner) {
+				publish({ ...state, overlayCount });
 			}
 		},
-	};
-	const overlay: ClientPageOverlayController = {
-		clear: (owner) => {
-			if (activeOwner.current === owner) {
-				setOverlayCount(0);
+		publishHeader: (owner: string, header: PageHeaderPublication) => {
+			if (state.owner === owner && matchesEntry(header)) {
+				publish({ ...state, header });
 			}
 		},
-		publish: (owner, count) => {
-			if (activeOwner.current === owner) {
-				setOverlayCount(count);
+		setEntry: (next: ReturnType<typeof historyEntry>) => {
+			if (!matchesEntry(next)) {
+				entry = next;
+				publish({ ...state, header: null, readiness: null });
+			}
+		},
+		publishReadiness: (owner: string, readiness: PageScreenReadiness | null) => {
+			if (state.owner === owner && (readiness === null || matchesEntry(readiness))) {
+				publish({ ...state, readiness });
 			}
 		},
 	};
-	return { header, screen, overlay };
 }
 
-export const ClientPageScreenContext = createContext<ClientPageScreenController | undefined>(
-	undefined,
-);
-export const ClientPageOverlayContext = createContext<ClientPageOverlayController | undefined>(
-	undefined,
-);
+export type ClientPagePresentationController = ReturnType<
+	typeof createClientPagePresentationController
+>;
+
+export const ClientPagePresentationContext = createContext<
+	ClientPagePresentationController | undefined
+>(undefined);
 
 export const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
 
@@ -161,26 +138,10 @@ export const usePluginTitle = () => {
 	return title;
 };
 
-export const usePluginHeader = () => {
-	const header = useContext(PluginHeaderContext);
-	if (header === undefined) {
-		throw new Error("usePluginHeader must be used inside AuthenticatedShell");
+export const useClientPagePresentation = () => {
+	const presentation = useContext(ClientPagePresentationContext);
+	if (presentation === undefined) {
+		throw new Error("useClientPagePresentation must be used inside AuthenticatedShell");
 	}
-	return header;
-};
-
-export const useClientPageScreen = () => {
-	const screen = useContext(ClientPageScreenContext);
-	if (screen === undefined) {
-		throw new Error("useClientPageScreen must be used inside AuthenticatedShell");
-	}
-	return screen;
-};
-
-export const useClientPageOverlay = () => {
-	const overlay = useContext(ClientPageOverlayContext);
-	if (overlay === undefined) {
-		throw new Error("useClientPageOverlay must be used inside AuthenticatedShell");
-	}
-	return overlay;
+	return presentation;
 };

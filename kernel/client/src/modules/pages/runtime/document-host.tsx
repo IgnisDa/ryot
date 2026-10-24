@@ -56,14 +56,10 @@ import { toPluginLocation } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { useScreenLeadingControl } from "#/modules/shell/app-screen";
 import {
-	type ClientPageOverlayController,
-	type ClientPageScreenController,
-	type PluginHeaderController,
+	type ClientPagePresentationController,
 	type ShellChrome,
-	useClientPageOverlay,
-	useClientPageScreen,
+	useClientPagePresentation,
 	useEdge,
-	usePluginHeader,
 	usePluginTitle,
 	useShellChrome,
 } from "#/modules/shell/authenticated-shell-context";
@@ -151,9 +147,7 @@ export function ClientPageDocumentHost() {
 	const edge = useEdge();
 	const router = useRouter();
 	const chrome = useShellChrome();
-	const header = usePluginHeader();
-	const screen = useClientPageScreen();
-	const overlay = useClientPageOverlay();
+	const presentation = useClientPagePresentation();
 	const publishedTitle = usePluginTitle();
 	const chromeLeading = useScreenLeadingControl();
 	const document = usePublishedClientPageDocument();
@@ -341,14 +335,9 @@ export function ClientPageDocumentHost() {
 		if (displayedKey === null || activeDocument === undefined) {
 			return undefined;
 		}
-		header.activate(displayedKey);
-		screen.activate(displayedKey);
-		return () => {
-			overlay.clear(displayedKey);
-			screen.clear(displayedKey);
-			header.clear(displayedKey);
-		};
-	}, [displayedKey, activeDocument, header, overlay, screen]);
+		presentation.activate(displayedKey);
+		return () => presentation.deactivate(displayedKey);
+	}, [displayedKey, activeDocument, presentation]);
 
 	const reloadCurrent = useCallback(
 		(key: string) => {
@@ -406,11 +395,9 @@ export function ClientPageDocumentHost() {
 							scope={scope}
 							active={active}
 							chrome={chrome}
-							header={header}
-							screen={screen}
 							runtime={runtime}
-							overlay={overlay}
 							owner={frameEntry.key}
+							presentation={presentation}
 							edgeLeading={chromeLeading}
 							document={frameEntry.document}
 							backInterceptors={backInterceptors}
@@ -441,11 +428,9 @@ function ClientPageFrame(props: {
 	readonly edgeLeading: ReactNode;
 	readonly onReloadCurrent: () => void;
 	readonly document: ClientPageDocument;
-	readonly header: PluginHeaderController;
+	readonly presentation: ClientPagePresentationController;
 	readonly freshnessCheckRevision: number;
 	readonly backInterceptors: BackInterceptors;
-	readonly screen: ClientPageScreenController;
-	readonly overlay: ClientPageOverlayController;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 }) {
@@ -549,11 +534,11 @@ function ClientPageFrame(props: {
 			onFlushReady={(handler) => {
 				flush.current = handler;
 			}}
-			onScreenState={(state) => props.screen.publish(props.owner, state)}
-			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
-			onHeader={(publication) => props.header.publish(props.owner, publication)}
+			onScreenState={(state) => props.presentation.publishReadiness(props.owner, state)}
 			onExternalLink={(request) => props.runtime.runSync(ExternalLinks).outcome(request)}
 			onUpload={(request) => props.runtime.runSync(Uploads).outcome(props.scope, request)}
+			onOverlayState={(count) => props.presentation.publishOverlayCount(props.owner, count)}
+			onHeader={(publication) => props.presentation.publishHeader(props.owner, publication)}
 			onAssets={(request) =>
 				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)
 			}

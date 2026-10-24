@@ -1,55 +1,134 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	type ClientPageScreenState,
-	createClientDocumentControllers,
-	type PluginHeaderState,
+	createClientPagePresentationController,
+	emptyClientPagePresentation,
 } from "#/modules/shell/authenticated-shell-context";
 
-describe("active client document owner", () => {
-	it("rejects title and readiness publications from the replaced document owner", () => {
-		const ownerA = "plugin-page:build-1:graph-1:artifact-1";
-		const ownerB = "plugin-page:build-2:graph-2:artifact-2";
-		const activeOwner = { current: null as string | null };
-		let title: PluginHeaderState | null = null;
-		let readiness: ClientPageScreenState | null = null;
-		let overlays = 0;
-		const { header, screen, overlay } = createClientDocumentControllers(
-			activeOwner,
-			(state) => {
-				title = state;
-			},
-			(state) => {
-				readiness = state;
-			},
-			(count) => {
-				overlays = count;
-			},
-		);
-		const publication = { index: 2, key: "entry-b", title: "Owner B" };
-		const ready = { index: 2, key: "entry-b", hasPreviousScreen: true };
+const entry = { index: 2, key: "entry-b" };
+const header = { ...entry, title: "Owner B" };
+const readiness = { ...entry, hasPreviousScreen: true };
 
-		header.activate(ownerB);
-		screen.activate(ownerB);
-		header.publish(ownerB, publication);
-		screen.publish(ownerB, ready);
-		overlay.publish(ownerB, 2);
-		header.publish(ownerA, { ...publication, title: "Owner A" });
-		screen.publish(ownerA, { ...ready, hasPreviousScreen: false });
-		overlay.publish(ownerA, 1);
-		screen.clear(ownerA);
-		header.clear(ownerA);
+function presentationHarness() {
+	const states = [emptyClientPagePresentation];
+	const controller = createClientPagePresentationController(entry, (state) => {
+		states.push(state);
+	});
+	return { states, controller, current: () => states.at(-1) };
+}
 
-		expect(title).toEqual({ owner: ownerB, ...publication });
-		expect(readiness).toEqual({ owner: ownerB, ...ready });
-		expect(overlays).toBe(2);
+describe("active client document presentation", () => {
+	it("resets every field together on activation and rejects departing-owner work", () => {
+		const { states, current, controller } = presentationHarness();
+		controller.activate("owner-a");
+		controller.publishHeader("owner-a", header);
+		controller.publishReadiness("owner-a", readiness);
+		controller.publishOverlayCount("owner-a", 2);
 
-		screen.clear(ownerB);
-		overlay.clear(ownerB);
-		header.clear(ownerB);
+		const beforeActivation = states.length;
+		controller.activate("owner-b");
+		expect(states.length).toBe(beforeActivation + 1);
+		expect(current()).toEqual({ ...emptyClientPagePresentation, owner: "owner-b" });
 
-		expect(title).toBeNull();
-		expect(readiness).toBeNull();
-		expect(overlays).toBe(0);
+		controller.publishHeader("owner-b", header);
+		controller.publishReadiness("owner-b", readiness);
+		controller.publishOverlayCount("owner-b", 3);
+		const beforeStaleWork = states.length;
+		controller.publishHeader("owner-a", { ...header, title: "Owner A" });
+		controller.publishReadiness("owner-a", null);
+		controller.publishReadiness("owner-a", { ...readiness, hasPreviousScreen: false });
+		controller.publishOverlayCount("owner-a", 1);
+		controller.deactivate("owner-a");
+		expect(states.length).toBe(beforeStaleWork);
+		expect(current()).toEqual({ header, readiness, overlayCount: 3, owner: "owner-b" });
+	});
+
+	it("deactivates all fields together and immediately rejects further publications", () => {
+		const { states, current, controller } = presentationHarness();
+		controller.activate("owner");
+		controller.publishHeader("owner", header);
+		controller.publishReadiness("owner", readiness);
+		controller.publishOverlayCount("owner", 2);
+		const beforeDeactivation = states.length;
+		controller.deactivate("owner");
+		expect(states.length).toBe(beforeDeactivation + 1);
+		expect(current()).toEqual(emptyClientPagePresentation);
+
+		controller.publishHeader("owner", header);
+		controller.publishReadiness("owner", readiness);
+		controller.publishOverlayCount("owner", 1);
+		controller.deactivate("owner");
+		expect(states.length).toBe(beforeDeactivation + 1);
+	});
+
+	it.each([
+		{ ...entry, index: 3 },
+		{ ...entry, key: "entry-c" },
+	])(
+		"resets entry-scoped fields in a retained frame and rejects stale entry $index/$key",
+		(nextEntry) => {
+			const { states, current, controller } = presentationHarness();
+			controller.activate("retained-frame");
+			controller.publishHeader("retained-frame", header);
+			controller.publishReadiness("retained-frame", readiness);
+			controller.publishOverlayCount("retained-frame", 2);
+
+			controller.setEntry(nextEntry);
+			expect(current()).toEqual({
+				header: null,
+				readiness: null,
+				overlayCount: 2,
+				owner: "retained-frame",
+			});
+			const nextHeader = { ...nextEntry, title: "Next screen" };
+			const nextReadiness = { ...nextEntry, hasPreviousScreen: false };
+			controller.publishHeader("retained-frame", nextHeader);
+			controller.publishReadiness("retained-frame", nextReadiness);
+			const beforeStaleWork = states.length;
+			controller.publishHeader("retained-frame", header);
+			controller.publishReadiness("retained-frame", readiness);
+			expect(states.length).toBe(beforeStaleWork);
+			expect(current()).toEqual({
+				overlayCount: 2,
+				header: nextHeader,
+				owner: "retained-frame",
+				readiness: nextReadiness,
+			});
+		},
+	);
+
+	it("retains publications for page-state replacement and clears each publication independently", () => {
+		const { states, current, controller } = presentationHarness();
+		controller.activate("owner");
+		controller.publishHeader("owner", header);
+		controller.publishReadiness("owner", readiness);
+		controller.publishOverlayCount("owner", 2);
+		const beforeEntry = states.length;
+		controller.setEntry({ ...entry });
+		expect(states.length).toBe(beforeEntry);
+		expect(current()).toEqual({ header, readiness, owner: "owner", overlayCount: 2 });
+
+		controller.publishReadiness("owner", null);
+		expect(current()).toEqual({ header, owner: "owner", readiness: null, overlayCount: 2 });
+		controller.publishHeader("owner", { ...header, title: null });
+		expect(current()).toEqual({
+			owner: "owner",
+			readiness: null,
+			overlayCount: 2,
+			header: { ...header, title: null },
+		});
+		controller.publishOverlayCount("owner", 0);
+		expect(current()?.overlayCount).toBe(0);
+	});
+
+	it("starts a fresh presentation when a frame is reactivated", () => {
+		const { current, controller } = presentationHarness();
+		controller.activate("retained-frame");
+		controller.publishHeader("retained-frame", header);
+		controller.publishReadiness("retained-frame", readiness);
+		controller.publishOverlayCount("retained-frame", 2);
+		controller.deactivate("retained-frame");
+		controller.activate("retained-frame");
+		expect(current()).toEqual({ ...emptyClientPagePresentation, owner: "retained-frame" });
 	});
 });
