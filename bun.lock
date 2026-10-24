@@ -23,7 +23,7 @@
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "lucide-react": "0.563.0",
         "react": "19.2.4",
         "react-dom": "19.2.4",
@@ -49,7 +49,7 @@
         "@ryot-app/media-plugin": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "bun-types": "1.4.4",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "vitepress": "2.0.0-alpha.15",
       },
     },
@@ -57,8 +57,8 @@
       "name": "@ryot-app/server",
       "dependencies": {
         "@better-auth/core": "1.7.2",
-        "@effect/platform-bun": "4.0.5",
-        "@effect/sql-pg": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/sql-pg": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
@@ -67,7 +67,7 @@
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "drizzle-orm": "1.0.0-rc.5-169397b",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@ryot-app/kernel-renderers": "workspace:*",
@@ -83,7 +83,7 @@
       "name": "@ryot-app/website",
       "dependencies": {
         "@conform-to/zod": "1.19.3",
-        "@effect/platform-bun": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
         "@isaacs/ttlcache": "2.1.5",
         "@marsidev/react-turnstile": "1.5.2",
         "@paddle/paddle-js": "1.6.4",
@@ -106,7 +106,7 @@
         "clsx": "2.1.1",
         "dayjs": "1.11.21",
         "drizzle-orm": "0.45.2",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "embla-carousel-autoplay": "8.6.0",
         "embla-carousel-react": "8.6.0",
         "humanize-duration-ts": "2.1.1",
@@ -150,8 +150,8 @@
       "devDependencies": {
         "@aws-sdk/client-s3": "3.1032.0",
         "@better-auth/api-key": "1.7.2",
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@faker-js/faker": "10.4.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
@@ -171,7 +171,7 @@
         "@testcontainers/postgresql": "11.14.0",
         "better-auth": "1.7.2",
         "dotenv": "17.3.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "effect-playwright": "0.8.0",
         "fflate": "^0.8.3",
         "get-port": "7.2.0",
@@ -191,8 +191,8 @@
         "@better-auth/redis-storage": "1.7.2",
         "@dicebear/core": "10.6.0",
         "@dicebear/styles": "10.5.0",
-        "@effect/platform-bun": "4.0.5",
-        "@effect/sql-pg": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/sql-pg": "4.1.0",
         "@react-email/components": "1.0.7",
         "@ryot-app/config": "workspace:*",
         "@ryot-app/contract": "workspace:*",
@@ -210,7 +210,7 @@
         "@unkey/api": "2.3.5",
         "better-auth": "1.7.2",
         "drizzle-orm": "1.0.0-rc.5-169397b",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "fflate": "0.8.3",
         "ioredis": "5.11.1",
         "nodemailer": "8.0.10",
@@ -220,7 +220,7 @@
         "rotating-file-stream": "3.2.10",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/testing": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
@@ -266,7 +266,7 @@
         "@tanstack/react-router": "latest",
         "better-auth": "1.7.2",
         "clsx": "2.1.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "motion": "^13.1.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -276,8 +276,8 @@
       "devDependencies": {
         "@capacitor/assets": "^3.0.5",
         "@capacitor/cli": "^8.5.0",
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/testing": "workspace:*",
         "@tanstack/devtools-vite": "latest",
@@ -301,17 +301,17 @@
     "kernel/sandbox": {
       "name": "@ryot-app/sandbox",
       "dependencies": {
-        "@effect/platform-bun": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/vite-compiler": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "ioredis": "5.11.1",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "@types/ioredis": "5.0.0",
         "bun-types": "1.4.4",
@@ -325,16 +325,16 @@
         "ryot": "./src/index.ts",
       },
       "dependencies": {
-        "@effect/platform-bun": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
@@ -345,10 +345,10 @@
       "name": "@ryot-app/config",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -358,7 +358,7 @@
       "name": "@ryot-app/contract",
       "dependencies": {
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@ryot-app/testing": "workspace:*",
@@ -384,7 +384,7 @@
         "@ryot-app/ts-utils": "workspace:*",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
@@ -397,7 +397,7 @@
         "@types/react-dom": "^19.2.0",
         "bun-types": "1.4.4",
         "clsx": "2.1.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "jsdom": "^30.0.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -411,11 +411,11 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "fflate": "0.8.3",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -424,18 +424,18 @@
     "packages/plugin-backend-compiler": {
       "name": "@ryot-app/plugin-backend-compiler",
       "dependencies": {
-        "@effect/platform-bun": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/typescript-compiler": "workspace:*",
         "@ryot-app/vite-compiler": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "typescript": "7.0.2",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -453,7 +453,7 @@
         "@types/mdast": "4.0.4",
         "@types/papaparse": "5.5.2",
         "cheerio": "1.2.0",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "fast-xml-parser": "5.8.0",
         "fflate": "0.8.3",
         "hast-util-raw": "9.1.0",
@@ -467,7 +467,7 @@
         "youtubei.js": "17.2.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "vitest": "4.1.9",
       },
@@ -475,7 +475,7 @@
     "packages/plugin-client-compiler": {
       "name": "@ryot-app/plugin-client-compiler",
       "dependencies": {
-        "@effect/platform-bun": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
         "@fontsource-variable/geist": "5.3.0",
         "@fontsource-variable/lora": "5.3.0",
         "@ryot-app/contract": "workspace:*",
@@ -494,7 +494,7 @@
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "clsx": "2.1.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "lucide-react": "^1.37.0",
         "postcss": "^8.5.26",
         "postcss-value-parser": "^4.2.0",
@@ -505,7 +505,7 @@
         "vite": "8.0.14",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "@testing-library/dom": "^10.4.1",
         "@types/jsdom": "^30.0.0",
@@ -519,7 +519,7 @@
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@ryot-app/testing": "workspace:*",
@@ -530,18 +530,18 @@
     "packages/plugin-client-sdk": {
       "name": "@ryot-app/plugin-client-sdk",
       "dependencies": {
-        "@effect/atom-react": "4.0.5",
+        "@effect/atom-react": "4.1.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "@testing-library/dom": "^10.4.1",
         "@types/react": "^19.2.0",
@@ -558,7 +558,7 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "fflate": "0.8.3",
       },
       "devDependencies": {
@@ -578,7 +578,7 @@
         "@types/hast": "3.0.4",
         "@types/mdast": "4.0.4",
         "clsx": "2.1.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "lucide-react": "^1.37.0",
         "mdast-util-directive": "3.1.1",
         "mdast-util-from-markdown": "2.1.0",
@@ -590,8 +590,8 @@
         "remark-directive": "4.0.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "@testing-library/react": "^16.3.3",
         "@types/react": "^19.2.0",
@@ -606,7 +606,7 @@
       "name": "@ryot-app/ryotql",
       "dependencies": {
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@ryot-app/contract": "workspace:*",
@@ -623,7 +623,7 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
         "@ryot-app/testing": "workspace:*",
@@ -633,8 +633,8 @@
     "packages/testing": {
       "name": "@ryot-app/testing",
       "dependencies": {
-        "@effect/platform-bun": "4.0.5",
-        "effect": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "effect": "4.1.0",
         "vitest": "4.1.9",
       },
       "devDependencies": {
@@ -654,7 +654,7 @@
     "packages/ts-utils": {
       "name": "@ryot-app/ts-utils",
       "dependencies": {
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "lodash": "4.18.1",
         "slugify": "1.6.9",
       },
@@ -666,12 +666,12 @@
       "name": "@ryot-app/typescript-compiler",
       "dependencies": {
         "@oxc-project/types": "0.132.0",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "rolldown": "1.0.2",
         "typescript": "7.0.2",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -682,12 +682,12 @@
       "dependencies": {
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/typescript-compiler": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "vite": "8.0.14",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -702,11 +702,11 @@
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/cli": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
@@ -738,7 +738,7 @@
         "@ryot-app/ryotql-recipes": "workspace:*",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.5",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/cli": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
@@ -747,7 +747,7 @@
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "clsx": "2.1.1",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
         "jsdom": "^30.0.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -764,11 +764,11 @@
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
-        "effect": "4.0.5",
+        "effect": "4.1.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.5",
-        "@effect/vitest": "4.0.5",
+        "@effect/platform-bun": "4.1.0",
+        "@effect/vitest": "4.1.0",
         "@ryot-app/cli": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
@@ -1037,13 +1037,13 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.12.0", "", {}, "sha512-mlUE+rZ8CatQekLhnaiN91Iemdd+e2gFKooGlnRB3oPTL3VghLfX24dx7HrzMNeC1JrIB/0kpsfyty3f5HNfxQ=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.5", "", { "peerDependencies": { "effect": "^4.0.5", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-tqTSiy0rWBitej7kPfvTSw29q4ipof52+txDg6bIBJx0ksHVzVXaFTsssDa+AZBeImafK0xmjm9m1XzPfE6k2A=="],
+    "@effect/atom-react": ["@effect/atom-react@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-PeaBDmwqG9BPQfaPHeWCB2NF4NQaFlI6poKxjlBHMrMjKqV+LVBdryhpDNqSZOhqGgT+qnh9gV+19MYjNOQ+bg=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.5", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.5" }, "peerDependencies": { "effect": "^4.0.5" } }, "sha512-tB/GapZ/bVoCbwRgnojGP4TwopvkMoFoSCipXT1sf0guvG/2oRVhWzJW/1vkrYFEdLM7XyRnVVLrSJyqdok7DA=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.1.0", "", { "dependencies": { "@effect/platform-node-shared": "^4.1.0" }, "peerDependencies": { "effect": "^4.1.0" } }, "sha512-ZgIV+tV2utcbiopbWSoJuGn3FZuyqhLWIYITFCR8vlwnKicO1q0WgP4BBjDUYUTMRPEU/N1+BcZourAgpiDI/w=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.5", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.0" }, "peerDependencies": { "effect": "^4.0.5" } }, "sha512-a8rCdEkfZBGe9C6bsIjxVZuRp73svIyK5IHwHdDAVsvZXjrbkxusfI+rZ8WlX31RP1mKizwI/E72GQTNfdMWHw=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.0", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.0" }, "peerDependencies": { "effect": "^4.1.0" } }, "sha512-uYQfFRoxWLo8fIhiSeBcmz/R1ooOfE3HF3cWHFgxz82tZMk2Wn02BGABcdLmaAch9VpDLbtWnuhSxNyBsGMUFg=="],
 
-    "@effect/sql-pg": ["@effect/sql-pg@4.0.5", "", { "peerDependencies": { "effect": "^4.0.5" } }, "sha512-F9tG76H+aryhYcp5pvgd+MwWrNltv3XAuLcZSBsOOX6q+PEl+IM4zkQKzx0TF9OsEMH/SQ+3gZRdYWOsDF+vJQ=="],
+    "@effect/sql-pg": ["@effect/sql-pg@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0" } }, "sha512-/Q1M2PEuk8eSLEmgjfvix1/WZTuRBxu75ZENbKkIh2J3c50dQb8NMFOGMPocMFlPFh5k4WUOUKZQcgXzBljTFA=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.53.1", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.53.1", "@effect/tsgo-darwin-x64": "0.53.1", "@effect/tsgo-linux-arm": "0.53.1", "@effect/tsgo-linux-arm64": "0.53.1", "@effect/tsgo-linux-x64": "0.53.1", "@effect/tsgo-win32-arm64": "0.53.1", "@effect/tsgo-win32-x64": "0.53.1" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-0LW8VI1+HvC+S5KOpReuAneN4T93ipcd8aKNXpy2DubBfm6ShWhBtWxtxPSaQ9M25gAtQs6w/D9NEmXqgd8uGg=="],
 
@@ -1061,7 +1061,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.53.1", "", { "os": "win32", "cpu": "x64" }, "sha512-XTKMzsK3I78oApuTTcOx6orxGOqkGeDZBDHYiJQ6vIlwiKaeyZqCWm2fUtAgkvyxDyY5g4JXm8Qd23RVRSoxmg=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.5", "", { "peerDependencies": { "effect": "^4.0.5", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-q64paZ/i4V2NiRhTyqCmT2KiDbFjlxc2EZrZca8GGt+Nf8844946HyJM5bPk/q+YeRkFSxIrlCs+J+LSfky/wA=="],
+    "@effect/vitest": ["@effect/vitest@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-+APF69oTYgGj5WCewowk1/udepH74xz4ONyH7d+UfcK0SrF3osiSwsWEyODUpJvWd6MIk5F5PcFJiE4evMuG2A=="],
 
     "@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 
@@ -2479,7 +2479,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.5", "", {}, "sha512-BY4/28NlpOd99yzmV741xbVGmp+1U7tks4oB7F/Png64bTa5tm5eCA6W0RiXsnuLDDoJpjfVSo4Dnq4BZb/89Q=="],
+    "effect": ["effect@4.1.0", "", {}, "sha512-lGx2MJJyrXA8RZb2UpQ/0Nkb5Utaimby7oD92+18noBxLPE85IFOvptdzau8dvcxAOwfwHo9iqapbKeFzqQM/Q=="],
 
     "effect-playwright": ["effect-playwright@0.8.0", "", { "dependencies": { "playwright-core": "^1.63.0" }, "peerDependencies": { "@playwright/test": "^1.63.0", "effect": "^4.0.0" }, "optionalPeers": ["@playwright/test"], "bin": { "effect-playwright": "./bin/cli.mjs" } }, "sha512-jsOYm4jPlyIT37uaHoznUXYaHCrCItKRY41Vg4Oa2/nvhEyeKoxynL5Zh8Pzr+ACLegM4mXvL7susvU/qDUGYA=="],
 

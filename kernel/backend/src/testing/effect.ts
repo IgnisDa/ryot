@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
@@ -106,7 +106,7 @@ export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
 				startupParameters: { search_path: schemaName },
 			}),
 		),
-		Layer.provide(BunServices.layer),
+		Layer.provide(Layer.merge(BunServices.layer, BunCrypto.layerDigest)),
 	);
 });
 

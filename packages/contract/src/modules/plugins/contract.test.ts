@@ -71,7 +71,7 @@ describe("PluginsGroup", () => {
 				(schema) =>
 					schema.ast.annotations?.identifier ===
 						DemoOperationProtected.ast.annotations?.identifier &&
-					schema.ast.annotations?.httpApiStatus === 403,
+					schema.ast.context?.annotations?.httpApiStatus === 403,
 			),
 		).toBe(true);
 	});

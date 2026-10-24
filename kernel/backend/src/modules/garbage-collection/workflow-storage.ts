@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect, Layer } from "effect";
 import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/cluster";
@@ -79,4 +80,5 @@ export const WorkflowGarbageCollectionStorageLive = Layer.effect(
 ).pipe(
 	Layer.provide(WorkflowGarbageCollectionRepository.layer),
 	Layer.provide(Snowflake.layerGenerator),
+	Layer.provide(BunCrypto.layerDigest),
 );

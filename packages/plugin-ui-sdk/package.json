@@ -55,7 +55,7 @@
 		"@types/hast": "3.0.4",
 		"@types/mdast": "4.0.4",
 		"clsx": "2.1.1",
-		"effect": "4.0.5",
+		"effect": "4.1.0",
 		"lucide-react": "^1.37.0",
 		"mdast-util-directive": "3.1.1",
 		"mdast-util-from-markdown": "2.1.0",
@@ -67,8 +67,8 @@
 		"remark-directive": "4.0.0"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.5",
-		"@effect/vitest": "4.0.5",
+		"@effect/platform-bun": "4.1.0",
+		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/react": "^16.3.3",
 		"@types/react": "^19.2.0",

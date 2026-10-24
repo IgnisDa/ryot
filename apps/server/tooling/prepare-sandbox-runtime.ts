@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunRuntime, BunServices } from "@effect/platform-bun";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	PluginConfigRevisionId,
@@ -33,18 +33,8 @@ import {
 	SandboxRecoveryStoreError,
 } from "@ryot-app/sandbox/host/recovery-store";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
-import {
-	ConfigProvider,
-	Context,
-	Crypto,
-	Data,
-	Effect,
-	FileSystem,
-	Layer,
-	Path,
-	Schema,
-} from "effect";
-import { Hex } from "effect/encoding";
+import { ConfigProvider, Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Digest, SecureRandom } from "effect/crypto";
 
 import {
 	SandboxSmokeFixturesJson,
@@ -197,6 +187,8 @@ const RuntimeSmokeLive = SandboxExecutorSmokeLive.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			BunServices.layer,
+			BunCrypto.layerDigest,
+			BunCrypto.layerSecureRandom,
 			Layer.succeed(SandboxHostCallScope, { bound: (effect) => effect }),
 			SandboxHostConfigLive.pipe(
 				Layer.provide(Layer.merge(AppConfigSmokeLive, ServerRunSmokeLive)),
@@ -244,7 +236,8 @@ const verifyConfinedSidecars = Effect.gen(function* () {
 });
 
 const smoke = Effect.gen(function* () {
-	const crypto = yield* Crypto.Crypto;
+	const digest = yield* Digest.Digest;
+	const secureRandom = yield* SecureRandom.SecureRandom;
 	const service = yield* SandboxExecutor;
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -273,8 +266,9 @@ const smoke = Effect.gen(function* () {
 	for (const trust of trusts) {
 		for (const tier of smokeTiers) {
 			const compiled = compiledByTier[tier];
-			const contentHash = Hex.encode(
-				yield* crypto.digest("SHA-256", new TextEncoder().encode(compiled.javascript)),
+			const contentHash = yield* digest.digestHex(
+				Digest.sha256,
+				new TextEncoder().encode(compiled.javascript),
 			);
 			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 				scriptId,
@@ -341,7 +335,7 @@ const smoke = Effect.gen(function* () {
 			});
 		}
 
-		const executionId = `production-runtime-smoke-${yield* crypto.randomUUIDv4()}`;
+		const executionId = `production-runtime-smoke-${yield* secureRandom.uuidV4()}`;
 		const input: SandboxRunInput = {
 			startedAt,
 			executionId,
