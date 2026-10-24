@@ -4,7 +4,6 @@ import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
-import { animeAiringSoonRecipe, showsAiringSoonRecipe } from "../../shared/airing-recipes";
 import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
@@ -13,6 +12,7 @@ import {
 	episodicByLifecycleStateRecipe,
 	flatByLifecycleStateRecipe,
 } from "../../shared/lifecycle-list-recipes";
+import { upcomingRecipe } from "../../shared/upcoming-recipes";
 import {
 	decodeRecipe,
 	episodicRow,
@@ -28,11 +28,11 @@ import {
 	readyQueryResult,
 } from "../../tests/client/query-result-fixture";
 import { flushRyotClient, localDateTime, mountRyotClient } from "../../tests/client/test-support";
-import { AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail } from "./continue-rail";
 import { SuggestionsRail } from "./suggestions-rail";
 import { TrendingRail } from "./trending-rail";
+import { UpcomingRail } from "./upcoming-rail";
 import { useLocalToday } from "./use-local-today";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -69,23 +69,28 @@ const libraryData = (input: {
 	),
 });
 
-const airingData = (input: {
+const upcomingData = (input: {
 	readonly shows?: readonly unknown[];
 	readonly anime?: readonly unknown[];
+	readonly podcasts?: readonly unknown[];
+	readonly releases?: readonly unknown[];
 }) => ({
-	shows: decodeRecipe(
-		showsAiringSoonRecipe({ from: "", until: "", limit: 20, reference: { kind: "self" } }),
-		{ shows: rows(input.shows ?? []) },
-	),
-	anime: decodeRecipe(
-		animeAiringSoonRecipe({
-			now: "",
-			until: "",
+	titles: decodeRecipe(
+		upcomingRecipe({
+			limit: 20,
 			fromDate: "",
 			untilDate: "",
+			fromInstant: "",
+			untilInstant: "",
+			onePerTitle: true,
 			reference: { kind: "self" },
 		}),
-		{ anime: rows(input.anime ?? []) },
+		{
+			shows: rows(input.shows ?? []),
+			anime: rows(input.anime ?? []),
+			podcasts: rows(input.podcasts ?? []),
+			releases: rows(input.releases ?? []),
+		},
 	),
 });
 
@@ -240,48 +245,63 @@ describe("library rails", () => {
 	});
 });
 
-const airingShow = (publishDate: string, sameDayCount: number, still = true) => ({
-	...mediaIdentity("show-1", "Severance", "show"),
-	episode: includeResult([
-		{
-			...mediaIdentity("episode-1", "Cold Harbor", "show-episode"),
-			publishDate,
-			sameDayCount,
-			seasonNumber: 2,
-			episodeNumber: 10,
-			images: still
-				? [{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" }]
-				: [],
-		},
-	]),
-});
-
-const airingAnime = (id: string, name: string, airingAt: string, publishDate: null | string) => ({
-	...mediaIdentity(id, name, "anime"),
+const upcomingEpisode = (
+	id: string,
+	publishDate: string,
+	seasonNumber: null | number,
+	episodeNumber: number,
+	still = true,
+) => ({
+	id,
 	publishDate,
-	nextEpisode: 4,
-	nextAiringAt: airingAt,
-	airingSchedule: [{ airingAt, episode: 4 }],
+	seasonNumber,
+	episodeNumber,
+	images: still ? [{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" }] : [],
 });
 
-function AiringToday(props: { readonly data: ReturnType<typeof airingData> }) {
-	return <AiringRail compact today={useLocalToday()} result={readyQueryResult(props.data)} />;
+const upcomingShow = (total: number, episodes: readonly ReturnType<typeof upcomingEpisode>[]) => ({
+	...mediaIdentity("show-1", "Severance", "show"),
+	total,
+	occurrences: includeResult(episodes),
+});
+
+const upcomingAnime = (id: string, name: string, airings: readonly string[]) => ({
+	...mediaIdentity(id, name, "anime"),
+	total: airings.length,
+	occurrences: includeResult(
+		airings.map((airingAt, index) => ({ airingAt, episodeNumber: index + 4 })),
+	),
+});
+
+function UpcomingToday(props: {
+	readonly onePerTitle: boolean;
+	readonly data: ReturnType<typeof upcomingData>;
+}) {
+	return (
+		<UpcomingRail
+			compact
+			today={useLocalToday()}
+			onePerTitle={props.onePerTitle}
+			result={readyQueryResult(props.data)}
+		/>
+	);
 }
 
-describe("AiringRail", () => {
+describe("UpcomingRail", () => {
 	it.each([
 		{ still: true, backdrop: true, expected: "still" },
 		{ still: false, backdrop: true, expected: "backdrop" },
-		{ still: false, backdrop: false, expected: "cover" },
+		{ still: false, backdrop: false, expected: "show-1" },
 	])(
 		"uses $expected artwork with still=$still and backdrop=$backdrop",
 		({ still, backdrop, expected }) => {
-			const data = airingData({
+			const show = upcomingShow(1, [upcomingEpisode("episode-1", "2026-09-26", 2, 10, still)]);
+			const data = upcomingData({
 				shows: [
 					{
-						...airingShow("2026-09-26", 1, still),
+						...show,
 						images: [
-							{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
+							...show.images,
 							...(backdrop
 								? [{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" }]
 								: []),
@@ -291,7 +311,7 @@ describe("AiringRail", () => {
 			});
 			const view = mountRyotClient(
 				noopAdapter,
-				<AiringRail compact today="2026-09-25" result={readyQueryResult(data)} />,
+				<UpcomingRail compact onePerTitle today="2026-09-25" result={readyQueryResult(data)} />,
 			);
 
 			expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
@@ -301,16 +321,21 @@ describe("AiringRail", () => {
 		},
 	);
 
-	it.live("merges shows and anime by local day and recaptions them at local midnight", () =>
+	it.live("merges every source by local day and recaptions them at local midnight", () =>
 		Effect.gen(function* () {
 			const mondayMorning = DateTime.formatIso(
 				localDateTime({ day: 28, hour: 10, month: 9, year: 2026 }),
 			);
-			const data = airingData({
-				shows: [airingShow("2026-09-26", 3)],
-				anime: [
-					airingAnime("anime-1", "Frieren", mondayMorning, null),
-					airingAnime("anime-2", "Dandadan", "2026-10-05T00:00:00.000Z", "2026-10-05"),
+			const data = upcomingData({
+				anime: [upcomingAnime("anime-1", "Frieren", [mondayMorning])],
+				shows: [upcomingShow(3, [upcomingEpisode("episode-1", "2026-09-26", 2, 10)])],
+				releases: [{ ...mediaIdentity("movie-1", "Dune", "movie"), publishDate: "2026-10-05" }],
+				podcasts: [
+					{
+						...mediaIdentity("podcast-1", "Hardcore History", "podcast"),
+						total: 1,
+						occurrences: includeResult([upcomingEpisode("podcast-ep", "2026-09-28", null, 71)]),
+					},
 				],
 			});
 			const view = mountRyotClient(noopAdapter, null);
@@ -321,21 +346,20 @@ describe("AiringRail", () => {
 					),
 				),
 			);
-			view.rerender(<AiringToday data={data} />);
+			view.rerender(<UpcomingToday onePerTitle data={data} />);
 
 			expect(tileLines(view.container)).toEqual([
 				["Open Severance", "Severance", "S2 E10", "Tomorrow · +2 more"],
-				["Open Frieren", "Frieren", "Episode 4", "Monday"],
-				["Open Dandadan", "Dandadan", "Episode 4", "Oct 5"],
+				["Open Hardcore History", "Hardcore History", "Ep 71", "Monday"],
+				["Open Frieren", "Frieren", "Ep 4", "Monday"],
+				["Open Dune", "Dune", "Oct 5"],
 			]);
-			expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
-				"https://images.test/still.jpg",
-			);
 
 			yield* Effect.promise(() => view.advance("30 minutes"));
 
 			expect(tileLines(view.container).map((tile) => tile.at(-1))).toEqual([
 				"Today · +2 more",
+				"Monday",
 				"Monday",
 				"Oct 5",
 			]);
@@ -343,10 +367,55 @@ describe("AiringRail", () => {
 		}),
 	);
 
-	it("hides itself when nothing airs in the window", () => {
+	it("keeps each title's soonest entry across sources and counts the rest", () => {
+		const data = upcomingData({
+			anime: [upcomingAnime("anime-1", "Frieren", ["2026-09-30T12:00:00.000Z"])],
+			releases: [{ ...mediaIdentity("anime-1", "Frieren", "anime"), publishDate: "2026-09-27" }],
+		});
 		const view = mountRyotClient(
 			noopAdapter,
-			<AiringRail compact today="2026-09-25" result={readyQueryResult(airingData({}))} />,
+			<UpcomingRail compact onePerTitle today="2026-09-25" result={readyQueryResult(data)} />,
+		);
+
+		expect(tileLines(view.container)).toEqual([["Open Frieren", "Frieren", "Sunday · +1 more"]]);
+		view.unmount();
+	});
+
+	it("lists every occurrence when one entry per title is off", () => {
+		const data = upcomingData({
+			shows: [
+				upcomingShow(2, [
+					upcomingEpisode("episode-1", "2026-09-26", 2, 10),
+					upcomingEpisode("episode-2", "2026-10-03", 2, 11),
+				]),
+			],
+		});
+		const view = mountRyotClient(
+			noopAdapter,
+			<UpcomingRail
+				compact
+				today="2026-09-25"
+				onePerTitle={false}
+				result={readyQueryResult(data)}
+			/>,
+		);
+
+		expect(tileLines(view.container)).toEqual([
+			["Open Severance", "Severance", "S2 E10", "Tomorrow"],
+			["Open Severance", "Severance", "S2 E11", "Oct 3"],
+		]);
+		view.unmount();
+	});
+
+	it("hides itself when nothing is upcoming in the window", () => {
+		const view = mountRyotClient(
+			noopAdapter,
+			<UpcomingRail
+				compact
+				onePerTitle
+				today="2026-09-25"
+				result={readyQueryResult(upcomingData({}))}
+			/>,
 		);
 		expect(view.container.textContent).toBe("");
 		view.unmount();

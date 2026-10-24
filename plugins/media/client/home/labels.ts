@@ -77,5 +77,5 @@ export const airingDayCaption = (day: string, today: string) => {
 	);
 };
 
-export const sameDayLabel = (caption: string, sameDayCount: number) =>
-	sameDayCount > 1 ? `${caption} · +${sameDayCount - 1} more` : caption;
+export const moreLabel = (caption: string, more: number) =>
+	more > 0 ? `${caption} · +${more} more` : caption;

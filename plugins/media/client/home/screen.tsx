@@ -8,13 +8,13 @@ import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ActivitySection } from "./activity-section";
 import { AddTitleMenu } from "./add-title";
-import { airingQuery, AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail, libraryStateQuery } from "./continue-rail";
 import { FirstRun } from "./first-run";
 import { LazySection } from "./lazy-section";
 import { SuggestionsRail } from "./suggestions-rail";
 import { TrendingRail } from "./trending-rail";
+import { UpcomingSection } from "./upcoming-rail";
 import { useLocalToday } from "./use-local-today";
 
 const libraryCountQuery = createRyotQuery(({ client }) =>
@@ -49,7 +49,6 @@ export function HomeBody(props: {
 	const today = useLocalToday();
 	const gate = useRyotQuery(libraryCountQuery);
 	const continuing = useRyotQuery(libraryStateQuery, CONTINUE);
-	const airing = useRyotQuery(airingQuery, { today });
 	const backlog = useRyotQuery(libraryStateQuery, BACKLOG);
 	if (gate.data === undefined && gate.status !== "error") {
 		return <HomeSkeleton />;
@@ -60,7 +59,7 @@ export function HomeBody(props: {
 	return (
 		<div className={compact ? "flex flex-col gap-6" : "flex flex-col gap-8"}>
 			<ContinueRail today={today} compact={compact} result={continuing} />
-			<AiringRail today={today} result={airing} compact={compact} />
+			<UpcomingSection today={today} compact={compact} />
 			<BacklogRail result={backlog} compact={compact} />
 			<LazySection scrollRootRef={scrollRootRef}>
 				<SuggestionsRail compact={compact} />

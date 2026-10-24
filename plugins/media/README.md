@@ -129,8 +129,17 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
   canonical episodic next-up and flat progress.
 - `discovery-recipes.ts` selects suggestions from the latest completion that still has suggestions
   and interleaves the latest per-schema trending ranks. Both exclude known NSFW entries.
-- `airing-recipes.ts` selects library shows/anime that are progressing or monitored, using the
-  caller's date/instant window.
+- `upcoming-recipes.ts` feeds the home Upcoming rail from four sources: unwatched regular show and
+  podcast episodes of in-progress, caught-up or monitored titles; anime airings after the latest
+  watched episode for in-progress or monitored anime; and monitored, incomplete flat releases
+  (anime premieres included). States come from the stored library summary. Dates use the client's
+  local `fromDate`..`untilDate`; anime airings use the local-midnight instant window, excluding the
+  provider's UTC-midnight premiere entry that the release source already lists. Undated items
+  never appear, and stored dates are shown without waiting on provider freshness. Each source
+  returns per-title `total` counts and its soonest occurrences, one per title when `onePerTitle`.
+  The rail merges sources by local day and, per title, keeps the soonest entry with "+N more".
+  User settings `upcomingDaysAhead` (default 14, 1–365) and `upcomingOnePerTitle` (default on)
+  control the window and deduplication.
 - `activity-recipes.ts` reads canonical title completions, minutes, and active observations over
   52 local Monday-start weeks, with source reviews in the same period. Episode activity counts toward
   its parent. Date-only and timed observations combine on their calendar day; unknown dates do not

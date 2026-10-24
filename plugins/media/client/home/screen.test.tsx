@@ -4,7 +4,7 @@ import {
 	RyotClientError,
 	type RyotNavigationTarget,
 } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageRefreshRequest } from "@ryot-app/plugin-client-sdk/react";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
@@ -36,15 +36,18 @@ const inProgressMovie = flatRow("movie-1", "Heat", "movie", {
 type Responses = Readonly<Record<string, unknown>>;
 
 const homeAdapter = (input: {
+	readonly settings?: Responses;
 	readonly responses?: Responses;
 	readonly gate: number | "error" | "pending";
 }) => {
 	const requested: string[][] = [];
+	const documents: unknown[] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
 	let reportingPreferenceReads = 0;
 	let gate = input.gate;
 	const adapter = {
+		readUserSettings: () => Effect.succeed(input.settings ?? {}),
 		navigate: (_mode, target) => {
 			navigations.push(target);
 		},
@@ -59,6 +62,7 @@ const homeAdapter = (input: {
 		query: (document) => {
 			const names = Object.keys(document.queries);
 			requested.push(names);
+			documents.push(document);
 			if (names.includes("library")) {
 				if (gate === "pending") {
 					return Effect.never;
@@ -82,6 +86,7 @@ const homeAdapter = (input: {
 	return {
 		adapter,
 		requested,
+		documents,
 		navigations,
 		entityPicks,
 		reportingPreferenceReads: () => reportingPreferenceReads,
@@ -253,12 +258,12 @@ describe("home gate", () => {
 							.map((names) => [...names].sort()),
 					).toEqual([
 						["flat.items", "podcast.items", "show.items"],
-						["anime.anime", "shows.shows"],
 						["flat.items", "podcast.items", "show.items"],
+						["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
 					]);
 					expect(view.container.textContent).not.toContain("Start your media library");
 					expect(view.container.textContent).not.toContain("Continue");
-					expect(view.container.textContent).not.toContain("Airing");
+					expect(view.container.textContent).not.toContain("Upcoming");
 					expect(view.container.textContent).not.toContain("Backlog");
 
 					act(() => {
@@ -327,7 +332,7 @@ describe("home gate", () => {
 			const view = mountHome({
 				...home.adapter,
 				query: (document) =>
-					Object.hasOwn(document.queries, "anime.anime")
+					Object.hasOwn(document.queries, "titles.anime")
 						? Effect.fail(new RyotClientError("transport"))
 						: home.adapter.query(document),
 			});
@@ -355,8 +360,8 @@ describe("home sections", () => {
 			expect(documents()).toEqual([
 				["library"],
 				["flat.items", "podcast.items", "show.items"],
-				["anime.anime", "shows.shows"],
 				["flat.items", "podcast.items", "show.items"],
+				["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
 			]);
 			expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
 				"600px 0px",
@@ -380,6 +385,29 @@ describe("home sections", () => {
 			view.unmount();
 		}),
 	);
+	it.live("windows Upcoming by the saved days-ahead setting", () =>
+		Effect.gen(function* () {
+			const home = homeAdapter({ gate: 1, settings: { upcomingDaysAhead: 3 } });
+			const view = mountRyotClient(home.adapter, null);
+			yield* Effect.promise(() =>
+				view.setTime(
+					DateTime.toEpochMillis(localDateTime({ day: 25, hour: 9, month: 9, year: 2026 })),
+				),
+			);
+			view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
+			yield* Effect.promise(() => flushRyotClient());
+			const upcoming = home.documents
+				.map((document) =>
+					Schema.encodeUnknownSync(Schema.fromJsonString(Schema.Unknown))(document),
+				)
+				.find((document) => document.includes("upcomingAnime"));
+
+			expect(upcoming).toContain('"2026-09-28"');
+			expect(upcoming).not.toContain('"2026-10-09"');
+			view.unmount();
+		}),
+	);
+
 	it.live("refreshes every section at local midnight", () =>
 		Effect.gen(function* () {
 			const home = homeAdapter({ gate: 1 });
