@@ -1360,7 +1360,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const advanceBatch = Effect.fn("ImportsRepository.advanceBatch")(function* (
 			scope: IngestionScope,
 			batchId: string,
-			state: "preparing" | "applying",
+			state: "applying",
 		) {
 			yield* lockProjection(scope);
 			const rows = yield* database.run((db) =>
@@ -1373,7 +1373,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						and(
 							eq(schema.importBatch.runId, scope.runId),
 							eq(schema.importBatch.id, batchId),
-							sql`${schema.importBatch.data}->>'state' = ${state === "preparing" ? "pending" : "preparing"}`,
+							sql`${schema.importBatch.data}->>'state' = 'pending'`,
 						),
 					)
 					.returning({ id: schema.importBatch.id }),

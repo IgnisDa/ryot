@@ -102,6 +102,13 @@ workflow that loses a terminal transition preserves the winning state instead of
 The transient `cancelling` state also prevents late progress and normal finalization from changing
 the run while interruption and cleanup are in progress.
 
+Record batches use `pending -> applying -> applied`. One conditional update starts a pending
+batch; replay leaves applying and applied batches unchanged. Generic batch registration and start
+share a transaction. Data segment preparation registers a pending batch before child admission;
+the child starts the batch before writing records. Cancellation prevents new starts.
+Interruption selects only started batch owners, then reconciliation projects committed receipts
+into immutable applied summaries. Pending batches remain distinct from started work.
+
 ## Partial results
 
 Cancellation is not a transaction-wide rollback. Generic chunks commit incrementally, so entities,

@@ -92,7 +92,7 @@ export const IngestionBatch = Schema.Struct({
 	summary: IngestionSummary,
 	captureId: Schema.NonEmptyString,
 	inputFingerprint: Schema.NonEmptyString,
-	state: Schema.Literals(["pending", "preparing", "applying", "applied"]),
+	state: Schema.Literals(["pending", "applying", "applied"]),
 });
 export type IngestionBatch = typeof IngestionBatch.Type;
 
