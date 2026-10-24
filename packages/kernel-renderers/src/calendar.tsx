@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ViewFiltersSheet } from "@ryot-app/plugin-client-sdk/filters";
 import {
 	PluginLink,
@@ -140,11 +140,6 @@ const compareEntries = (left: Entry, right: Entry) =>
 	left.occurrence.subject.name.localeCompare(right.occurrence.subject.name) ||
 	(left.occurrence.caption ?? "").localeCompare(right.occurrence.caption ?? "");
 
-const WindowInput = Schema.fromJsonString(
-	Schema.Struct({ month: Schema.String, localEnd: Schema.String, localStart: Schema.String }),
-);
-const decodeWindow = Schema.decodeUnknownSync(WindowInput);
-
 const sourcesQuery = createRyotQuery(({ client }) => client.data.query(calendarSourcesRecipe()), {
 	cancelOnUnmount: true,
 });
@@ -159,17 +154,13 @@ function SourceFeed({
 	readonly onState: (sourceKey: string, state: FeedState | undefined) => void;
 }) {
 	const [query] = useState(() =>
-		createRyotQuery<string, SourceFeedData, undefined, Error>(
+		createRyotQuery<CalendarWindow, SourceFeedData, undefined, Error>(
 			({ input, client }) =>
 				Effect.gen(function* () {
 					const items: CalendarOccurrence[] = [];
 					let after: string | undefined;
 					for (;;) {
-						const recipe = calendarOccurrencesPageRecipe({
-							after,
-							source,
-							window: decodeWindow(input),
-						});
+						const recipe = calendarOccurrencesPageRecipe({ after, source, window: input });
 						if (Result.isFailure(recipe)) {
 							return yield* Effect.fail(recipe.failure);
 						}
@@ -189,7 +180,7 @@ function SourceFeed({
 		),
 	);
 	const windowKey = JSON.stringify(window);
-	const result = useRyotQuery(query, windowKey);
+	const result = useRyotQuery(query, window);
 	const { data, refetch, isError, isPending } = result;
 	useEffect(() => {
 		onState(source.sourceKey, {

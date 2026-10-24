@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/filters";
+import { effectiveFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
 	entityBrowserCountRecipe,
 	EntityBrowserPageInput,
@@ -18,21 +18,11 @@ import { useEffect, useEffectEvent, useState } from "react";
 
 import {
 	type AddAction,
+	type BrowserQueryInput,
 	type BrowserQueryPage,
 	type BrowserResultsRenderer,
 	EntityBrowserController,
 } from "./entity-browser-controller";
-
-const QueryInput = Schema.Struct({
-	filter: NullableFilter,
-	searchText: Schema.String,
-	sortChoice: Schema.String,
-	cursor: Schema.NullOr(Schema.String),
-});
-const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
-
-const CountInput = Schema.Struct({ filter: NullableFilter, searchText: Schema.String });
-const decodeCountInput = Schema.decodeUnknownSync(Schema.fromJsonString(CountInput));
 
 const BrowserCount = ({
 	input,
@@ -41,27 +31,27 @@ const BrowserCount = ({
 	searchText,
 }: {
 	readonly searchText: string;
-	readonly filter: typeof NullableFilter.Type;
+	readonly filter: BrowserQueryInput["filter"];
 	readonly input: typeof EntityBrowserPageInput.Type;
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, input: serialized }) =>
-			Effect.gen(function* () {
-				const { filter: applied, searchText: search } = decodeCountInput(serialized);
-				const now = yield* DateTime.now;
-				return yield* client.data.query(
-					Result.getOrThrow(
-						entityBrowserCountRecipe(input.dataSources, input.settings, {
-							...(search === "" ? {} : { searchText: search }),
-							...(applied === null ? {} : { now, filter: applied }),
-						}),
-					),
-				);
-			}),
+		createRyotQuery<Pick<BrowserQueryInput, "filter" | "searchText">, number>(
+			({ client, input: { filter: applied, searchText: search } }) =>
+				Effect.gen(function* () {
+					const now = yield* DateTime.now;
+					return yield* client.data.query(
+						Result.getOrThrow(
+							entityBrowserCountRecipe(input.dataSources, input.settings, {
+								...(search === "" ? {} : { searchText: search }),
+								...(applied === null ? {} : { now, filter: applied }),
+							}),
+						),
+					);
+				}),
 		),
 	);
-	const result = useRyotQuery(query, JSON.stringify({ filter, searchText }));
+	const result = useRyotQuery(query, { filter, searchText });
 	const report = useEffectEvent((total: number | undefined) => onTotal(total));
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
@@ -94,10 +84,9 @@ const Browser = ({
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
-		createRyotQuery<string, BrowserQueryPage<null>>(
-			({ client, input: serialized }) =>
+		createRyotQuery<BrowserQueryInput, BrowserQueryPage<null>>(
+			({ client, input: { filter, cursor, searchText, sortChoice } }) =>
 				Effect.gen(function* () {
-					const { filter, cursor, searchText, sortChoice } = decodeQueryInput(serialized);
 					const now = yield* DateTime.now;
 					const result = yield* client.data.query(
 						Result.getOrThrow(

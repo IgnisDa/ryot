@@ -4,6 +4,7 @@ import {
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
+	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
@@ -72,6 +73,31 @@ const nextRequest = (page: ReturnType<typeof mountPluginPage>, count: number) =>
 
 describe("results table", () => {
 	afterEach(disposePluginBridges);
+
+	it.live("shares the filtered request across unrelated location and viewport updates", () =>
+		Effect.gen(function* () {
+			const search = `filters=${Buffer.from(encodeJson(noteRule)).toString("base64url")}`;
+			const page = mountFiltered(search);
+			const first = yield* nextRequest(page, 1);
+			page.navigate(routeLocation("/v/reading-log", `${search}&panel=details`), { compact: true });
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Filters, 1 active filter" }),
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(page.queryRequests("resultsTable")).toHaveLength(1);
+			expect(encodeJson(first.document)).toContain("Fin");
+			answerRows(page, first.requestId, [{ note: "Finished" }]);
+			yield* Effect.promise(() => screen.findByText("Finished"));
+
+			page.navigate(routeLocation("/v/reading-log", search), { compact: false });
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Filters, 1 active filter" }),
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(page.queryRequests("resultsTable")).toHaveLength(1);
+			expect(screen.getByText("1 result")).toBeTruthy();
+		}),
+	);
 
 	it.live("applies a rule to the URL and the next query, then clears it from its chip", () =>
 		Effect.gen(function* () {

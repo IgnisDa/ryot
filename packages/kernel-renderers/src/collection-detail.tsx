@@ -15,23 +15,17 @@ import {
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
 } from "@ryot-app/ryotql-recipes/collections";
-import { NullableFilter } from "@ryot-app/ryotql-recipes/filters";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { BrowserInlineError } from "./browser-states";
-import { type BrowserQueryPage, EntityBrowserController } from "./entity-browser-controller";
+import {
+	type BrowserQueryInput,
+	type BrowserQueryPage,
+	EntityBrowserController,
+} from "./entity-browser-controller";
 import { useHostScreen } from "./host-screen";
 
-const QueryInput = Schema.Struct({
-	filter: NullableFilter,
-	searchText: Schema.String,
-	cursor: Schema.NullOr(Schema.String),
-	sortChoice: Schema.Union([Schema.Literal(""), CollectionMemberSort]),
-});
-const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
-
-const CountInput = Schema.Struct({ filter: NullableFilter, searchText: Schema.String });
-const decodeCountInput = Schema.decodeUnknownSync(Schema.fromJsonString(CountInput));
+const decodeMemberSort = Schema.decodeUnknownSync(CollectionMemberSort);
 
 const headerQuery = createRyotQuery<string, CollectionHeaderResult>(({ input, client }) =>
 	client.data.query(collectionHeaderRecipe({ collectionId: input })),
@@ -54,27 +48,27 @@ const CollectionCount = ({
 }: {
 	readonly collectionId: string;
 	readonly searchText: string;
-	readonly filter: typeof NullableFilter.Type;
+	readonly filter: BrowserQueryInput["filter"];
 	readonly filterFields: CollectionFilterFields;
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, input: serialized }) =>
-			Effect.gen(function* () {
-				const { filter: applied, searchText: search } = decodeCountInput(serialized);
-				const now = yield* DateTime.now;
-				return yield* client.data.query(
-					collectionMembersCountRecipe({
-						collectionId,
-						filterFields,
-						...(search === "" ? {} : { searchText: search }),
-						...(applied === null ? {} : { now, filter: applied }),
-					}),
-				);
-			}),
+		createRyotQuery<Pick<BrowserQueryInput, "filter" | "searchText">, number>(
+			({ client, input: { filter: applied, searchText: search } }) =>
+				Effect.gen(function* () {
+					const now = yield* DateTime.now;
+					return yield* client.data.query(
+						collectionMembersCountRecipe({
+							collectionId,
+							filterFields,
+							...(search === "" ? {} : { searchText: search }),
+							...(applied === null ? {} : { now, filter: applied }),
+						}),
+					);
+				}),
 		),
 	);
-	const result = useRyotQuery(query, JSON.stringify({ filter, searchText }));
+	const result = useRyotQuery(query, { filter, searchText });
 	const report = useEffectEvent((total: number | undefined) => onTotal(total));
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
@@ -123,10 +117,9 @@ const CollectionBrowser = ({
 	const membershipPropertiesSchema = header?.membershipPropertiesSchema ?? null;
 	const filterFields = collectionMemberFilterFields({ groups, membershipPropertiesSchema });
 	const [query] = useState(() =>
-		createRyotQuery<string, BrowserQueryPage<null>>(
-			({ input, client }) =>
+		createRyotQuery<BrowserQueryInput, BrowserQueryPage<null>>(
+			({ client, input: { filter, searchText, sortChoice, cursor: after } }) =>
 				Effect.gen(function* () {
-					const { filter, searchText, sortChoice, cursor: after } = decodeQueryInput(input);
 					const now = yield* DateTime.now;
 					const members = yield* client.data.query(
 						collectionMembersRecipe({
@@ -134,7 +127,7 @@ const CollectionBrowser = ({
 							filterFields,
 							membershipPropertiesSchema,
 							...(searchText === "" ? {} : { searchText }),
-							...(sortChoice === "" ? {} : { sort: sortChoice }),
+							...(sortChoice === "" ? {} : { sort: decodeMemberSort(sortChoice) }),
 							...(after === null ? {} : { after }),
 							...(filter === null ? {} : { now, filter }),
 						}),

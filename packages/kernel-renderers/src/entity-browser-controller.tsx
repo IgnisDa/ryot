@@ -73,6 +73,12 @@ import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
 export type BrowserQueryPage<Meta> = { readonly result: BrowserResult; readonly meta: Meta };
+export type BrowserQueryInput = {
+	readonly filter: ViewFilter | null;
+	readonly searchText: string;
+	readonly sortChoice: string;
+	readonly cursor: string | null;
+};
 
 type BrowserControls = {
 	readonly sort: string;
@@ -116,7 +122,7 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly knownTotal?: number | undefined;
 	readonly layouts: readonly EntityBrowserLayout[];
 	readonly name: (meta: Meta | undefined) => string;
-	readonly query: RyotQuery<string, BrowserQueryPage<Meta>>;
+	readonly query: RyotQuery<BrowserQueryInput, BrowserQueryPage<Meta>>;
 	readonly renderResults?: BrowserResultsRenderer | undefined;
 	readonly renderSummary?: ((meta: Meta, loaded: number) => ReactNode) | undefined;
 	readonly sortChoices: readonly BrowserSortChoice[];
@@ -212,13 +218,12 @@ export function EntityBrowserController<Meta>({
 		{
 			initialPageParam: null,
 			getNextPageParam: (page) => nextPageCursor(page.result),
-			getPageInput: (selection, cursor: string | null) =>
-				JSON.stringify({
-					cursor,
-					filter: selection.filter,
-					searchText: selection.searchText,
-					sortChoice: selection.sortChoice,
-				}),
+			getPageInput: (selection, cursor: string | null) => ({
+				cursor,
+				filter: selection.filter,
+				searchText: selection.searchText,
+				sortChoice: selection.sortChoice,
+			}),
 		},
 	);
 	const state = useMemo(
