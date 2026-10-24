@@ -53,7 +53,7 @@ const records: ArchiveRecords = {
 	profile: {
 		image: null,
 		name: "Test User",
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, disableIntegrations: false, reportingTimeZone: "Asia/Tokyo" },
 	},
 	installations: [
 		{

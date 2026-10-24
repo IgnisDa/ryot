@@ -60,8 +60,8 @@ const currentUser: CurrentUserValue = {
 	image: null,
 	name: "Owner",
 	email: "owner@example.test",
-	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: owner, token: "test-account-generation" },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 };
 
 const tokenEndpointLayer = Layer.succeed(

@@ -9,7 +9,7 @@ import {
 	savedViewReferenceKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
@@ -71,7 +71,7 @@ import {
 } from "../archive/schemas";
 import { encodeNdjson, IncrementalSha256 } from "../archive/streaming";
 import { isDefaultSystemInstallation } from "../installation-state";
-import { BackupExportRepository } from "./repository";
+import { type BackupEventEntityReferenceDeclaration, BackupExportRepository } from "./repository";
 
 type BackupPropertyRecord = {
 	readonly propertiesSchema: AppSchema;
@@ -80,6 +80,29 @@ type BackupPropertyRecord = {
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
+
+const propertyEntityReferencePaths = (
+	property: AppPropertyDefinition,
+	path: string,
+): Array<string> => {
+	if (property.type === "string" && property.reference?.kind === "entity-id") {
+		return [path];
+	}
+	if (property.type === "object") {
+		return Object.entries(property.properties).flatMap(([field, child]) =>
+			propertyEntityReferencePaths(child, `${path}.${JSON.stringify(field)}`),
+		);
+	}
+	if (property.type === "array") {
+		return propertyEntityReferencePaths(property.items, `${path}[*]`);
+	}
+	return [];
+};
+
+export const eventEntityReferencePaths = (propertiesSchema: AppSchema) =>
+	Object.entries(propertiesSchema.fields).flatMap(([field, property]) =>
+		propertyEntityReferencePaths(property, `lax $.${JSON.stringify(field)}`),
+	);
 
 type BackupEventPage = {
 	readonly nextAfterId: null | EventId;
@@ -333,13 +356,52 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const userEntities = yield* entities.listUserEntitiesForBackup(userId);
 				const referencedDependencies =
 					yield* entities.listReferencedGlobalEntitiesForBackup(userId);
+				type ApplicableEntitySchema = NonNullable<ReturnType<typeof getEntitySchema>>;
+				const applicableEntitySchemas = new Map<string, ApplicableEntitySchema>();
+				for (const entity of [...userEntities, ...referencedDependencies]) {
+					const entitySchema = getEntitySchema(entity);
+					if (entitySchema) {
+						applicableEntitySchemas.set(
+							definitionKey(
+								"entity",
+								definitionOwner(entity.entitySchemaPluginId),
+								entity.entitySchemaSlug,
+							),
+							entitySchema,
+						);
+					}
+				}
+				const eventReferenceDeclarations: BackupEventEntityReferenceDeclaration[] = [];
+				for (const entitySchema of applicableEntitySchemas.values()) {
+					for (const eventSchema of Object.values(entitySchema.eventSchemas)) {
+						const paths = eventEntityReferencePaths(eventSchema.propertiesSchema);
+						if (paths.length === 0) {
+							continue;
+						}
+						eventReferenceDeclarations.push({
+							paths,
+							eventSchemaSlug: eventSchema.slug,
+							entitySchemaSlug: entitySchema.slug,
+							eventSchemaPluginId: eventSchema.pluginId,
+							entitySchemaPluginId: entitySchema.pluginId,
+						});
+					}
+				}
+				const eventReferencedEntityIds =
+					yield* exportRepository.listGlobalEntityIdsReferencedByUserEvents(
+						userId,
+						eventReferenceDeclarations,
+					);
+				const embeddedEntityIds = collectEmbeddedEntityIds(
+					userEntities.flatMap((entity) => {
+						const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
+						return propertiesSchema ? [{ propertiesSchema, properties: entity.properties }] : [];
+					}),
+				);
 				const embeddedDependencies = yield* entities.listGlobalEntitiesByIdsForBackup(
-					collectEmbeddedEntityIds(
-						userEntities.flatMap((entity) => {
-							const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
-							return propertiesSchema ? [{ propertiesSchema, properties: entity.properties }] : [];
-						}),
-					).map((id) => EntityId.make(id)),
+					[...new Set([...embeddedEntityIds, ...eventReferencedEntityIds])].map((id) =>
+						EntityId.make(id),
+					),
 				);
 				const dependencies = [
 					...new Map(

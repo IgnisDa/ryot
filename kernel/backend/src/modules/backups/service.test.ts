@@ -17,7 +17,7 @@ const user: CurrentUserValue = {
 	name: "Backup User",
 	id: UserId.make("user-1"),
 	email: "backup@example.com",
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 const timestamp = "2026-08-23T12:00:00.000Z";

@@ -15,6 +15,8 @@ import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
+import { entity } from "#schema/tables/entities";
+import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
 import { reminder } from "#schema/tables/reminders";
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -50,7 +52,7 @@ class RestoreDatabaseHarness extends Context.Service<
 const profile = {
 	image: null,
 	name: "Restored profile",
-	preferences: { language: null, disableIntegrations: true },
+	preferences: { language: null, disableIntegrations: true, reportingTimeZone: "America/New_York" },
 };
 const restoredReminderDate = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 const archiveLocator = { intentId: "restore-intent", key: "temporary/restore.zip" };
@@ -133,6 +135,7 @@ const dependencies = Layer.unwrap(
 			Layer.mock(BackupRestoreWriter)({
 				preflight: preflightProvenance,
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
+				fenceEventStreamInputs: persistence.fenceEventStreamInputs,
 				restoreRecords: (userId, records) =>
 					Effect.gen(function* () {
 						yield* record("restore");
@@ -240,10 +243,66 @@ const prepare = Effect.fnUntraced(function* (scenario: Scenario) {
 	const repository = yield* BackupsRepository;
 	const run = yield* repository.createRun({ userId, kind: "restore" });
 	const payload = { userId, runId: run.id, uploadToken: "upload-token" };
+	yield* database.run((db) =>
+		db
+			.insert(entity)
+			.values({
+				userId,
+				name: "Bootstrap record",
+				id: `${userId}-bootstrap`,
+				entitySchemaSlug: "fixture",
+			}),
+	);
+	yield* database.run((db) =>
+		db
+			.insert(eventStream)
+			.values({
+				userId,
+				id: `${userId}-stream`,
+				eventSchemaSlug: "fixture",
+				entityId: `${userId}-bootstrap`,
+			}),
+	);
+	yield* database.run((db) =>
+		db
+			.insert(eventStreamWork)
+			.values({
+				pluginPin: {},
+				completedRevision: 0,
+				id: `${userId}-stream`,
+				pluginRevisionId: "retained",
+				outputSchema: { fields: {} },
+				processorScriptId: "retained",
+				checkpoint: { cursor: "old" },
+				currentJobId: "old-projection",
+				inputRepairJobId: "old-success",
+				accountToken: "test-account-generation",
+			}),
+	);
 	yield* repository.markRunRunning({ ...payload, progress: 5 });
 	yield* (yield* RestoreDatabaseHarness).configure(scenario);
 	return payload;
 });
+
+const streamState = (userId: UserId) =>
+	Effect.gen(function* () {
+		const database = yield* DatabaseSession;
+		const [stream] = yield* database.run((db) =>
+			db
+				.select({
+					revision: eventStream.revision,
+					repairEpoch: eventStream.repairEpoch,
+					checkpoint: eventStreamWork.checkpoint,
+					currentJobId: eventStreamWork.currentJobId,
+					inputRepairJobId: eventStreamWork.inputRepairJobId,
+					completedRevision: eventStreamWork.completedRevision,
+				})
+				.from(eventStream)
+				.innerJoin(eventStreamWork, eq(eventStreamWork.id, eventStream.id))
+				.where(eq(eventStream.userId, userId)),
+		);
+		return stream;
+	});
 
 layer(operationsLayer)((test) => {
 	test.effect("commits historical data and completion before unavailable cleanup or replay", () =>
@@ -258,12 +317,21 @@ layer(operationsLayer)((test) => {
 				db.select().from(user).where(eq(user.id, payload.userId)),
 			);
 			expect(restored).toMatchObject(profile);
+			expect(yield* streamState(payload.userId)).toEqual({
+				revision: 1,
+				checkpoint: null,
+				currentJobId: null,
+				inputRepairJobId: null,
+				completedRevision: null,
+				repairEpoch: `restore:${payload.runId}`,
+			});
 			const completed = yield* repository.getRunById(payload);
 			expect(completed).toMatchObject({ progress: 100, failure: null, status: "completed" });
 			expect(completed?.finishedAt).toEqual(expect.any(String));
 			yield* operations.cleanup(payload, archiveLocator);
 			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
+			expect((yield* streamState(payload.userId))?.revision).toBe(1);
 			const restoredReminders = yield* database.run((db) =>
 				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
 			);
@@ -312,6 +380,14 @@ layer(operationsLayer)((test) => {
 					db.select().from(user).where(eq(user.id, payload.userId)),
 				);
 				expect(unchanged?.name).toBe("Before restore");
+				expect(yield* streamState(payload.userId)).toEqual({
+					revision: 0,
+					completedRevision: 0,
+					repairEpoch: "initial",
+					checkpoint: { cursor: "old" },
+					currentJobId: "old-projection",
+					inputRepairJobId: "old-success",
+				});
 				expect(
 					yield* database.run((db) =>
 						db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
@@ -339,6 +415,11 @@ layer(operationsLayer)((test) => {
 			Effect.gen(function* () {
 				const payload = yield* prepare(scenario);
 				yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+				expect(yield* streamState(payload.userId)).toMatchObject({
+					revision: 1,
+					inputRepairJobId: null,
+					repairEpoch: `restore:${payload.runId}`,
+				});
 				expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
 					progress: 100,
 					status: "completed",
@@ -392,6 +473,11 @@ layer(operationsLayer)((test) => {
 			});
 			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
+			expect(yield* streamState(payload.userId)).toMatchObject({
+				revision: 1,
+				inputRepairJobId: null,
+				repairEpoch: `restore:${payload.runId}`,
+			});
 			const database = yield* DatabaseSession;
 			const restoredReminders = yield* database.run((db) =>
 				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),

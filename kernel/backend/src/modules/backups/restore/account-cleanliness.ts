@@ -89,7 +89,16 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 export const classifyAccountCleanliness = (
 	state: AccountCleanlinessState,
 ): null | BackupAccountDataCategory => {
-	if (!state.profile || !isEqual(state.profile.preferences, state.defaultPreferences)) {
+	if (
+		!state.profile ||
+		!isEqual(
+			{
+				...state.profile.preferences,
+				reportingTimeZone: state.defaultPreferences["reportingTimeZone"],
+			},
+			state.defaultPreferences,
+		)
+	) {
 		return "preferences";
 	}
 	if (state.hasEvents) {

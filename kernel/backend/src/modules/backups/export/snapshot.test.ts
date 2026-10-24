@@ -42,17 +42,20 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { PluginRepository } from "#modules/plugins/packages/repository";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
 
 import { BackupExportRepository } from "./repository";
 import {
 	BackupExportSnapshot,
 	definitionForPlugin,
+	eventEntityReferencePaths,
 	requireNotificationMetadataSchema,
 	requirePluginKey,
 } from "./snapshot";
@@ -569,6 +572,7 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 				Layer.mergeAll(
 					Layer.mock(BackupExportRepository, {
 						listReminders: () => Effect.succeed([]),
+						listGlobalEntityIdsReferencedByUserEvents: () => Effect.succeed([]),
 						listSavedViewOverrides: () =>
 							Effect.succeed([
 								{
@@ -605,7 +609,11 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 							Effect.succeed({
 								image: null,
 								name: "Owner",
-								preferences: { language: null, disableIntegrations: false },
+								preferences: {
+									language: null,
+									reportingTimeZone: null,
+									disableIntegrations: false,
+								},
 							}),
 					}),
 					Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
@@ -938,6 +946,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 					listReminders: () => Effect.succeed([]),
 					listSavedViewOverrides: () => Effect.succeed([]),
 					listCalendarSourceOverrides: () => Effect.succeed([]),
+					listGlobalEntityIdsReferencedByUserEvents: () => Effect.succeed([]),
 				}),
 				databaseLayer,
 				BunFileSystem.layer,
@@ -963,7 +972,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						Effect.succeed({
 							image: null,
 							name: "Owner",
-							preferences: { language: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 						}),
 				}),
 				Layer.mock(EventsRepository, {
@@ -1089,5 +1098,231 @@ layer(eventPagesExportLayer)((test) => {
 				{ note: "second", poster: { type: "local", key: "sha-permanent/event-2.bin" } },
 			]);
 		}),
+	);
+});
+
+const eventEntityReferenceSchema: AppSchema = {
+	fields: {
+		target: {
+			type: "string",
+			label: "Target",
+			reference: { kind: "entity-id" },
+			description: "Top-level reference",
+		},
+		matrix: {
+			type: "array",
+			label: "Groups",
+			description: "Nested reference arrays",
+			items: {
+				type: "array",
+				label: "Group",
+				description: "Reference group",
+				items: {
+					type: "string",
+					label: "Reference",
+					description: "Retained entity",
+					reference: { kind: "entity-id" },
+				},
+			},
+		},
+		details: {
+			type: "object",
+			label: "Details",
+			description: "Nested event details",
+			properties: {
+				note: { label: "Note", type: "string", description: "Ordinary text" },
+				items: {
+					type: "array",
+					label: "Items",
+					description: "Nested references",
+					items: {
+						label: "Item",
+						type: "object",
+						description: "Nested reference",
+						properties: {
+							"target.id": {
+								type: "string",
+								label: "Target",
+								description: "Entity reference",
+								reference: { kind: "entity-id" },
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+};
+
+layer(BackupExportRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+	test.effect(
+		"finds nested event entity references within the exact account and schema owners",
+		() =>
+			Effect.gen(function* () {
+				const ownerId = UserId.make("owner");
+				const recipientId = UserId.make("recipient");
+				const session = yield* DatabaseSession;
+				const repository = yield* BackupExportRepository;
+				const schemaOwnerA = "backup-schema-owner-a";
+				const schemaOwnerB = "backup-schema-owner-b";
+				const paths = eventEntityReferencePaths(eventEntityReferenceSchema);
+				expect(paths).toEqual([
+					'lax $."target"',
+					'lax $."matrix"[*][*]',
+					'lax $."details"."items"[*]."target.id"',
+				]);
+				yield* session.run((db) =>
+					db.insert(tables.plugin).values([
+						{ id: schemaOwnerA, status: "inactive", packageId: testPluginPackageId() },
+						{ id: schemaOwnerB, status: "inactive", packageId: testPluginPackageId() },
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values([
+							{
+								userId: ownerId,
+								name: "Source A",
+								entitySchemaSlug: "record",
+								id: "backup-event-source-a",
+								entitySchemaPluginId: schemaOwnerA,
+							},
+							{
+								userId: ownerId,
+								name: "Source B",
+								entitySchemaSlug: "record",
+								id: "backup-event-source-b",
+								entitySchemaPluginId: schemaOwnerB,
+							},
+							{
+								userId: recipientId,
+								name: "Recipient source",
+								entitySchemaSlug: "record",
+								entitySchemaPluginId: schemaOwnerA,
+								id: "backup-event-source-recipient",
+							},
+							{
+								userId: ownerId,
+								name: "Kernel source",
+								entitySchemaSlug: "record",
+								id: "backup-event-source-kernel",
+							},
+							...[
+								"backup-event-target-root",
+								"backup-event-target-matrix",
+								"backup-event-target-nested",
+								"backup-event-target-kernel",
+								"backup-event-target-ordinary",
+								"backup-event-target-other-schema-owner",
+								"backup-event-target-other-event-owner",
+								"backup-event-target-other-account",
+							].map((id) => ({ id, name: id, entitySchemaSlug: "target" })),
+							{
+								userId: ownerId,
+								name: "User target",
+								entitySchemaSlug: "target",
+								id: "backup-event-target-user-owned",
+							},
+						]),
+				);
+				const properties = {
+					target: "backup-event-target-root",
+					matrix: [[], ["backup-event-target-matrix", "backup-event-target-matrix"]],
+					details: {
+						note: "backup-event-target-ordinary",
+						items: [
+							{},
+							{ "target.id": "backup-event-target-nested" },
+							{ "target.id": "backup-event-target-nested" },
+							{ "target.id": "backup-event-target-user-owned" },
+						],
+					},
+				};
+				yield* session.run((db) =>
+					db.insert(tables.event).values([
+						{
+							properties,
+							userId: ownerId,
+							eventSchemaSlug: "evidence",
+							id: "backup-event-owner-match",
+							occurredAt: eventPagesTimestamp,
+							entityId: "backup-event-source-a",
+							eventSchemaPluginId: schemaOwnerA,
+						},
+						{
+							userId: ownerId,
+							eventSchemaSlug: "evidence",
+							occurredAt: eventPagesTimestamp,
+							entityId: "backup-event-source-b",
+							eventSchemaPluginId: schemaOwnerA,
+							id: "backup-event-other-schema-owner",
+							properties: {
+								details: { items: [{ "target.id": "backup-event-target-other-schema-owner" }] },
+							},
+						},
+						{
+							userId: ownerId,
+							eventSchemaSlug: "evidence",
+							occurredAt: eventPagesTimestamp,
+							entityId: "backup-event-source-a",
+							eventSchemaPluginId: schemaOwnerB,
+							id: "backup-event-other-event-owner",
+							properties: {
+								details: { items: [{ "target.id": "backup-event-target-other-event-owner" }] },
+							},
+						},
+						{
+							userId: ownerId,
+							eventSchemaSlug: "evidence",
+							occurredAt: eventPagesTimestamp,
+							id: "backup-event-kernel-owner-match",
+							entityId: "backup-event-source-kernel",
+							properties: { target: "backup-event-target-kernel" },
+						},
+						{
+							userId: recipientId,
+							eventSchemaSlug: "evidence",
+							occurredAt: eventPagesTimestamp,
+							id: "backup-event-other-account",
+							eventSchemaPluginId: schemaOwnerA,
+							entityId: "backup-event-source-recipient",
+							properties: {
+								details: { items: [{ "target.id": "backup-event-target-other-account" }] },
+							},
+						},
+					]),
+				);
+
+				expect(
+					yield* repository.listGlobalEntityIdsReferencedByUserEvents(ownerId, [
+						{
+							paths,
+							entitySchemaSlug: "record",
+							eventSchemaSlug: "evidence",
+							eventSchemaPluginId: schemaOwnerA,
+							entitySchemaPluginId: schemaOwnerA,
+						},
+					]),
+				).toEqual([
+					"backup-event-target-matrix",
+					"backup-event-target-nested",
+					"backup-event-target-root",
+				]);
+				expect(
+					yield* repository.listGlobalEntityIdsReferencedByUserEvents(ownerId, [
+						{
+							paths,
+							eventSchemaPluginId: null,
+							entitySchemaSlug: "record",
+							entitySchemaPluginId: null,
+							eventSchemaSlug: "evidence",
+						},
+					]),
+				).toEqual(["backup-event-target-kernel"]);
+				expect(yield* repository.listGlobalEntityIdsReferencedByUserEvents(ownerId, [])).toEqual(
+					[],
+				);
+			}),
 	);
 });

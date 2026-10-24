@@ -15,6 +15,7 @@ import {
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	SavedViewId,
 	SignalSchemaSlug,
@@ -40,6 +41,7 @@ import {
 } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
+import { EventGroupConstraints } from "#modules/events/event-group-constraints";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -680,6 +682,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
+			const groups = yield* EventGroupConstraints.make;
 			const automations = yield* AutomationsRepository;
 			const installations = yield* PluginInstallationRepository;
 			const receipts = yield* MutationReceipts.make;
@@ -1316,6 +1319,37 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}),
 				);
 				yield* restoreEventBatch(eventBatch.splice(0));
+				yield* groups
+					.validateHistorical(
+						userId,
+						Object.values(definitions.entitySchemas).flatMap((entity) =>
+							Object.values(entity.eventSchemas).flatMap((event) =>
+								event.eventGroup === undefined
+									? []
+									: [
+											{
+												eventGroup: event.eventGroup,
+												eventSchemaSlug: EventSchemaSlug.make(event.slug),
+												entitySchemaSlug: EntitySchemaSlug.make(entity.slug),
+												pluginId: event.pluginId === null ? null : PluginId.make(event.pluginId),
+											},
+										],
+							),
+						),
+					)
+					.pipe(
+						Effect.mapError((error) =>
+							error._tag === "EventBadRequest"
+								? archiveError(
+										"invalid_entry",
+										"message" in error.reason
+											? error.reason.message
+											: "Event group constraints are invalid",
+										"events.ndjson",
+									)
+								: error,
+						),
+					);
 
 				if (!(yield* persistence.restorePortableProfile(userId, records.profile))) {
 					return yield* badRequest("Backup user does not exist");
@@ -1503,7 +1537,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				return undefined;
 			});
 
-			return { preflight, restoreRecords, assertRequiredPlugins };
+			return {
+				preflight,
+				restoreRecords,
+				assertRequiredPlugins,
+				fenceEventStreamInputs: persistence.fenceEventStreamInputs,
+			};
 		}),
 	},
 ) {

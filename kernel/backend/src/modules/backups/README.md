@@ -14,10 +14,15 @@ The manifest contains `format: "ryot-backup"`, version 1, archive/application id
 
 `profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
 
+The nullable reporting timezone is preserved exactly. Device initialization of this preference does
+not make a restore target unclean; the archived preference replaces it. Other non-default account
+preferences still make the target unclean.
+
 ## Streaming
 
 `events.ndjson` is the only usage-sized section and is a leaf: manifest construction, plugin resolution, and ID-remapping maps never depend on reading all events. Therefore:
 
+- Export discovers global dependencies referenced by schema-declared event entity-ID properties, including nested object and array paths, with a set-based database query. Absent optional fields do not stop discovery. Account, entity-schema owner and event-schema owner bind exactly; ordinary string fields are not references. It does not read all events into application memory.
 - Export pages events into a temp file while incrementally counting and hashing; restore spools and inserts them in `RESTORE_EVENT_BATCH_SIZE` batches.
 - No export or restore structure may be O(n) in event count. Duplicate event IDs are rejected by the database and mapped to `duplicate_record_id`, not tracked in memory.
 - All bounded sections are encoded once in memory and reused for the ZIP entry.
@@ -45,6 +50,28 @@ User-owned entity records may carry provider provenance only from a private plug
 entities belong in global entity dependencies; preflight rejects them in the user-owned section.
 
 Historical writes and run completion occur in the same database transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Replay uses completed status, not display progress. A transaction failure rereads that status before retrying or reporting failure, so a lost commit acknowledgement does not repeat committed writes. Temporary upload deletion is best effort after completion; deletion failure is logged and swallowed.
+
+Event archives contain source rows and their schema-backed evidence, not derived events or projection
+checkpoints. Restore remaps typed evidence references and marks affected streams for normal
+reconciliation instead of trusting archived calculations.
+
+The restore transaction also sets a deterministic repair epoch on event streams and clears their
+runtime projection and input-repair claims, including streams on reused bootstrap entities. Data,
+this durable repair intent, and run completion commit together; completed restore does not mean
+completed analytics. After the activity commits, the workflow body drains normal stream
+reconciliation and background recovery. Startup performs the same recovery for missed dispatch or
+release. Unavailable plugins, configuration, artifacts, and disabled account generations do not gain
+authority or become ready through restore. Repair epochs and jobs are not part of the archive.
+
+The same historical transaction advances relationship work's account-wide input-repair revision under
+the normal coordination lock. Old ready notes become hidden at commit without per-note updates.
+After event reconciliation and background recovery, automatic relationship reconciliation waits for
+the complete input-repair wave, invalidates notes once, and admits normal work. Settlement callbacks
+continue this recovery without cron or replaying integrations, notifications, or ordinary after hooks.
+
+After the complete event stream is inserted, restore checks declared event-group consistency with
+set-based SQL. It does not load account history into memory or recapture immutable recording evidence
+from current metadata. An inconsistent group rolls back the restore as an invalid event archive entry.
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
 

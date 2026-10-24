@@ -31,7 +31,7 @@ import {
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
-import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
+import { Context, DateTime, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -431,7 +431,7 @@ const provenanceRecords = (
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	},
 	calendarSourceOverrides:
 		input.calendarSourceKey === undefined
@@ -883,11 +883,15 @@ it.effect("rejects unavailable plugin renderers through the canonical rule", () 
 );
 
 type RestoreEntityInput = Parameters<BackupRestorePersistence["Service"]["restoreEntity"]>[0];
+type RestoreEventInput = Parameters<
+	BackupRestorePersistence["Service"]["restoreEvents"]
+>[0][number];
 
 class FakeRestorePersistence extends Context.Service<
 	FakeRestorePersistence,
 	{
 		readonly eventBatchSizes: Effect.Effect<ReadonlyArray<number>>;
+		readonly restoredEvents: Effect.Effect<ReadonlyArray<RestoreEventInput>>;
 		readonly restoredEntities: Effect.Effect<ReadonlyArray<RestoreEntityInput>>;
 	}
 >()("test/FakeRestorePersistence") {}
@@ -922,55 +926,65 @@ const archivedEvent = (id: string): ArchiveEvent => ({
 	orderCreatedAt: "2026-08-23T12:00:00.000Z",
 });
 
-const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
+const restoreArchivedEvents = (
+	events: ReadonlyArray<ArchiveEvent>,
+	propertiesSchema: AppSchema = eventSchema.propertiesSchema,
+) =>
 	Effect.gen(function* () {
 		const writer = yield* BackupRestoreWriter;
-		return yield* writer.restoreRecords(
-			UserId.make("user-id"),
-			{
-				reminders: [],
-				savedViews: [],
-				integrations: [],
-				installations: [],
-				relationships: [],
-				privatePlugins: [],
-				entityDependencies: [],
-				calendarSourceOverrides: [],
-				notificationSubscriptions: [],
-				profile: {
-					image: null,
-					name: "User",
-					preferences: { language: null, disableIntegrations: false },
-				},
-				entities: [
+		const database = yield* DatabaseSession;
+		return yield* database
+			.transaction(
+				writer.restoreRecords(
+					UserId.make("user-id"),
 					{
-						properties: {},
-						provider: null,
-						externalId: null,
-						populatedAt: null,
-						id: "archived-bootstrap",
-						name: "Bootstrap entity",
-						entitySchemaPluginKey: null,
-						entitySchemaSlug: "bootstrap-entity",
-						createdAt: "2026-08-23T12:00:00.000Z",
-						updatedAt: "2026-08-23T12:00:00.000Z",
+						reminders: [],
+						savedViews: [],
+						integrations: [],
+						installations: [],
+						relationships: [],
+						privatePlugins: [],
+						entityDependencies: [],
+						calendarSourceOverrides: [],
+						notificationSubscriptions: [],
+						profile: {
+							image: null,
+							name: "User",
+							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+						},
+						entities: [
+							{
+								properties: {},
+								provider: null,
+								externalId: null,
+								populatedAt: null,
+								id: "archived-bootstrap",
+								name: "Bootstrap entity",
+								entitySchemaPluginKey: null,
+								entitySchemaSlug: "bootstrap-entity",
+								createdAt: "2026-08-23T12:00:00.000Z",
+								updatedAt: "2026-08-23T12:00:00.000Z",
+							},
+						],
 					},
-				],
-			},
-			new Map(),
-			{ sha256: "", count: events.length, read: () => Stream.fromIterable(events) },
-			new Map(),
-			{
-				savedViews: {},
-				signalSchemas: {},
-				calendarSources: {},
-				relationshipSchemas: {},
-				entitySchemas: {
-					[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]:
-						bootstrapEntitySchema,
-				},
-			},
-		);
+					new Map(),
+					{ sha256: "", count: events.length, read: () => Stream.fromIterable(events) },
+					new Map(),
+					{
+						savedViews: {},
+						signalSchemas: {},
+						calendarSources: {},
+						relationshipSchemas: {},
+						entitySchemas: {
+							[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]: {
+								...bootstrapEntitySchema,
+								eventSchemas: { review: { ...eventSchema, propertiesSchema } },
+							},
+						},
+					},
+				),
+			)
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 	});
 
 const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {}) =>
@@ -986,9 +1000,11 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const eventBatchSizes = yield* Ref.make<ReadonlyArray<number>>([]);
+						const restoredEvents = yield* Ref.make<ReadonlyArray<RestoreEventInput>>([]);
 						const restoredEntities = yield* Ref.make<ReadonlyArray<RestoreEntityInput>>([]);
 						return Layer.merge(
 							Layer.succeed(FakeRestorePersistence, {
+								restoredEvents: Ref.get(restoredEvents),
 								eventBatchSizes: Ref.get(eventBatchSizes),
 								restoredEntities: Ref.get(restoredEntities),
 							}),
@@ -1001,7 +1017,9 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 								restoreEvents: (batch) =>
 									options.eventInsertFails
 										? Effect.fail(new DbError({ code: "23505", message: "duplicate key value" }))
-										: Ref.update(eventBatchSizes, (all) => [...all, batch.length]),
+										: Ref.update(eventBatchSizes, (all) => [...all, batch.length]).pipe(
+												Effect.andThen(Ref.update(restoredEvents, (all) => [...all, ...batch])),
+											),
 							}),
 						);
 					}),
@@ -1115,6 +1133,124 @@ layer(restoreWriterLayer())((test) => {
 });
 
 layer(restoreWriterLayer())((test) => {
+	test.effect("restores nested source facts while remapping required occurrence references", () =>
+		Effect.gen(function* () {
+			const propertiesSchema: AppSchema = {
+				fields: {
+					sourceRun: { type: "string", label: "Source run", description: "Source identity" },
+					calendarDate: { type: "date", label: "Date", description: "Recorded calendar date" },
+					basis: {
+						type: "object",
+						label: "Basis",
+						description: "Frozen source quantity",
+						properties: {
+							unit: { label: "Unit", type: "string", description: "Recorded unit" },
+							total: { type: "number", label: "Total", description: "Recorded total" },
+						},
+					},
+					groups: {
+						type: "array",
+						label: "Groups",
+						description: "Ordered occurrence evidence",
+						items: {
+							type: "object",
+							label: "Group",
+							description: "Retained group",
+							properties: {
+								note: { label: "Note", type: "string", description: "Opaque source text" },
+								entityIds: {
+									type: "array",
+									label: "References",
+									description: "Retained identities",
+									items: {
+										type: "string",
+										label: "Reference",
+										description: "Retained entity",
+										reference: { required: true, kind: "entity-id" },
+									},
+								},
+							},
+						},
+					},
+				},
+			};
+			const properties = {
+				calendarDate: "2026-02-03",
+				sourceRun: "source-run-untouched",
+				basis: { total: 12.5, unit: "units" },
+				groups: [
+					{ note: "archived-bootstrap", entityIds: ["archived-bootstrap", "archived-bootstrap"] },
+					{ note: "empty", entityIds: [] },
+				],
+			};
+			yield* restoreArchivedEvents(
+				[{ ...archivedEvent("source-event"), properties, sessionEntityId: "archived-bootstrap" }],
+				propertiesSchema,
+			);
+			const persistence = yield* FakeRestorePersistence;
+			const [entity] = yield* persistence.restoredEntities;
+			assert(entity?.id);
+			const [event] = yield* persistence.restoredEvents;
+			const timestamp = DateTime.toDate(DateTime.makeUnsafe("2026-08-23T12:00:00.000Z"));
+			expect(event).toEqual({
+				userId: "user-id",
+				entityId: entity.id,
+				createdAt: timestamp,
+				updatedAt: timestamp,
+				occurredAt: timestamp,
+				id: expect.any(String),
+				orderKey: "source-event",
+				eventSchemaSlug: "review",
+				eventSchemaPluginId: null,
+				orderCreatedAt: timestamp,
+				sessionEntityId: entity.id,
+				properties: {
+					calendarDate: "2026-02-03",
+					sourceRun: "source-run-untouched",
+					basis: { total: 12.5, unit: "units" },
+					groups: [
+						{ note: "archived-bootstrap", entityIds: [entity.id, entity.id] },
+						{ note: "empty", entityIds: [] },
+					],
+				},
+			});
+			expect(event?.id).not.toBe("source-event");
+			expect(entity.id).not.toBe("archived-bootstrap");
+		}),
+	);
+});
+
+layer(restoreWriterLayer())((test) => {
+	test.effect("rejects an unmapped required nested entity before inserting archived events", () =>
+		Effect.gen(function* () {
+			const error = yield* restoreArchivedEvents(
+				[{ ...archivedEvent("source-event"), properties: { references: ["missing-entity"] } }],
+				{
+					fields: {
+						references: {
+							type: "array",
+							label: "References",
+							description: "Retained entity identities",
+							items: {
+								type: "string",
+								label: "Reference",
+								description: "Retained entity",
+								reference: { required: true, kind: "entity-id" },
+							},
+						},
+					},
+				},
+			).pipe(Effect.flip);
+			expect(error).toMatchObject({
+				_tag: "BackupArchiveError",
+				reason: "missing_reference_mapping",
+			});
+			expect(yield* (yield* FakeRestorePersistence).restoredEvents).toEqual([]);
+		}),
+	);
+});
+
+layer(restoreWriterLayer())((test) => {
 	test.effect("restores archived events in bounded batches", () =>
 		Effect.gen(function* () {
 			const events = Array.from({ length: RESTORE_EVENT_BATCH_SIZE + 3 }, (_, index) =>
@@ -1163,7 +1299,11 @@ describe("account backup restore in PostgreSQL", () => {
 								yield* persistence.restorePortableProfile(userId, {
 									image: null,
 									name: "Archived",
-									preferences: { language: null, disableIntegrations: false },
+									preferences: {
+										language: null,
+										reportingTimeZone: null,
+										disableIntegrations: false,
+									},
 								}),
 							).toBe(true);
 							expect(
@@ -1319,7 +1459,7 @@ describe("account backup restore in PostgreSQL", () => {
 						profile: {
 							image: null,
 							name: "Restored",
-							preferences: { language: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 						},
 						notificationSubscriptions: [
 							{
@@ -2253,7 +2393,7 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	},
 	...overrides,
 });

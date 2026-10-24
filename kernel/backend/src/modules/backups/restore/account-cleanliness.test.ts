@@ -175,10 +175,11 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer))
 				Object.values(global.savedViews)
 					.map(({ slug }) => slug)
 					.sort(),
-			).toEqual(["calendar", "catalog", "collections"]);
+			).toEqual(["analytics", "calendar", "catalog", "collections"]);
 			expect(actual.map(({ reference }) => reference)).toEqual([
 				{ kind: "kernel", slug: "collections" },
 				{ kind: "kernel", slug: "calendar" },
+				{ kind: "kernel", slug: "analytics" },
 			]);
 			expect(yield* installations.listHydratedForUser(userId)).toEqual([]);
 			expect(
@@ -316,6 +317,20 @@ describe("classifyAccountCleanliness", () => {
 						systemInstallation(),
 						systemInstallation({ id: "second-state", pluginId: "second-owner" }),
 					],
+				}),
+			),
+		).toBeNull();
+	});
+
+	it("allows device reporting-zone initialization before restore", () => {
+		expect(
+			classifyAccountCleanliness(
+				cleanState({
+					profile: {
+						image: null,
+						name: "User",
+						preferences: { ...defaultUserPreferences, reportingTimeZone: "America/New_York" },
+					},
 				}),
 			),
 		).toBeNull();

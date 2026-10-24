@@ -141,6 +141,11 @@ type RestoreBackupWorkflowOperationsValue = {
 	) => Effect.Effect<void, BackupWorkflowError>;
 };
 
+export class BackupRestoreAfterCommit extends Context.Service<
+	BackupRestoreAfterCommit,
+	{ readonly run: Effect.Effect<void> }
+>()("BackupRestoreAfterCommit") {}
+
 export class RestoreBackupWorkflowOperations extends Context.Service<
 	RestoreBackupWorkflowOperations,
 	RestoreBackupWorkflowOperationsValue
@@ -286,6 +291,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 								pluginIdByKey,
 								definitions,
 							);
+							yield* writer.fenceEventStreamInputs(payload.userId, payload.runId);
 							if (!(yield* repository.completeRun(payload))) {
 								return yield* internalError("Backup restore could not be completed");
 							}
@@ -387,6 +393,7 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 			return;
 		}
 		if (!started.success) {
+			yield* Effect.flatMap(BackupRestoreAfterCommit, (afterCommit) => afterCommit.run);
 			return;
 		}
 		const claimed = yield* makeActivity({
@@ -419,6 +426,7 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 			});
 			return;
 		}
+		yield* Effect.flatMap(BackupRestoreAfterCommit, (afterCommit) => afterCommit.run);
 		yield* makeActivity({
 			name: "cleanup-backup-restore",
 			success: Schema.Void satisfies DurableSchema,

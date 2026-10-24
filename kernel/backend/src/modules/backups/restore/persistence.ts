@@ -20,6 +20,7 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { PortableUserProfile } from "#modules/accounts/auth/repository";
+import { projectionInputCoordinationKey } from "#modules/background-work/model";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
@@ -101,6 +102,36 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
 			const streams = yield* EventStreamRepository.make;
+			const fenceEventStreamInputs = Effect.fn("BackupRestorePersistence.fenceEventStreamInputs")(
+				function* (userId: UserId, runId: string) {
+					yield* session.requireTransaction;
+					const repairEpoch = `restore:${runId}`;
+					yield* session.run((db) =>
+						db.execute(sql`
+						with fenced as (
+							update ${schema.eventStream} set repair_epoch = ${repairEpoch}, revision = revision + 1
+							where user_id = ${userId} and repair_epoch is distinct from ${repairEpoch}
+							returning id
+						)
+						update ${schema.eventStreamWork} set current_job_id = null, input_repair_job_id = null,
+							checkpoint = null, dirty_from = null, completed_revision = null
+						where id in (select id from fenced)
+					`),
+					);
+					yield* session.run((db) =>
+						db.execute(sql`
+						select pg_advisory_xact_lock(hashtextextended(${projectionInputCoordinationKey(userId)}, 0))`),
+					);
+					yield* session.run((db) =>
+						db
+							.update(schema.relationshipProjectionWork)
+							.set({
+								inputRepairRevision: sql`${schema.relationshipProjectionWork.inputRepairRevision} + 1`,
+							})
+							.where(eq(schema.relationshipProjectionWork.userId, userId)),
+					);
+				},
+			);
 			const restoreReminder = Effect.fn("BackupRestorePersistence.restoreReminder")(function* (
 				input: typeof schema.reminder.$inferInsert,
 			) {
@@ -134,11 +165,24 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				if (inputs.length === 0) {
 					return;
 				}
+				yield* streams.lockSourceReferences(
+					inputs.map((input) => ({
+						properties: input.properties,
+						userId: UserId.make(input.userId),
+						sessionEntityId: input.sessionEntityId,
+						entityId: EntityId.make(input.entityId),
+						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
+						eventSchemaPluginId:
+							input.eventSchemaPluginId == null ? null : PluginId.make(input.eventSchemaPluginId),
+					})),
+				);
 				yield* session.run((db) => db.insert(schema.event).values([...inputs]));
 				yield* streams.touch(
 					inputs.map((input) => ({
+						properties: input.properties,
 						occurredAt: input.occurredAt,
 						userId: UserId.make(input.userId),
+						sessionEntityId: input.sessionEntityId,
 						entityId: EntityId.make(input.entityId),
 						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
 						eventSchemaPluginId:
@@ -513,6 +557,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreTranslation,
 				restoreInstallation,
 				restoreRelationship,
+				fenceEventStreamInputs,
 				restoreBuiltinOverride,
 				restorePortableProfile,
 				restoreCalendarSourceOverride,

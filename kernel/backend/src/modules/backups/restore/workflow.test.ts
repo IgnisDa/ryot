@@ -14,6 +14,7 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { ActivityBody } from "#platform/workflow/scope";
 import {
 	databaseLayer,
 	makeAppConfigLayer,
@@ -26,6 +27,7 @@ import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
+	BackupRestoreAfterCommit,
 	BackupWorkflowError,
 	RestoreBackupWorkflow,
 	RestoreBackupWorkflowOperations,
@@ -116,7 +118,11 @@ const makeLayer = (
 								stagedObjects: Ref.get(objects),
 							}),
 							mockRepository(input.repository ?? {}),
-							mockWriter({ preflight: preflightProvenance, ...input.writer }),
+							mockWriter({
+								preflight: preflightProvenance,
+								fenceEventStreamInputs: () => Ref.update(calls, (all) => [...all, "fence"]),
+								...input.writer,
+							}),
 							mockCleanliness(input.cleanliness ?? {}),
 							mockUploadIntents(input.uploadIntents ?? {}),
 							mockManagedAssets(input.managedAssets ?? {}),
@@ -158,7 +164,7 @@ const emptyRecords = {
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	},
 };
 
@@ -410,7 +416,11 @@ layer(
 	test.effect("retries a deadlocked restore transaction", () =>
 		Effect.gen(function* () {
 			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
+				"restore",
+				"restore",
+				"fence",
+			]);
 		}),
 	);
 });
@@ -636,8 +646,14 @@ const recordingOperationsLayer = Layer.mergeAll(
 		Effect.gen(function* () {
 			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
 			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
-			return Layer.merge(
+			return Layer.mergeAll(
 				Layer.succeed(FakeRestoreOperations, { calls: Ref.get(calls) }),
+				Layer.succeed(BackupRestoreAfterCommit, {
+					run: Effect.gen(function* () {
+						expect(yield* ActivityBody).toBe(false);
+						yield* record("reconcile");
+					}),
+				}),
 				Layer.mock(RestoreBackupWorkflowOperations, {
 					fail: () => record("fail"),
 					restore: () => record("restore"),
@@ -659,6 +675,7 @@ layer(recordingOperationsLayer)((test) => {
 				"begin",
 				"claim",
 				"restore",
+				"reconcile",
 				"cleanup",
 			]);
 		}),
