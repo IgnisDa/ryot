@@ -37,6 +37,8 @@ export const controllerHarness = (
 		readonly foreground?: () => boolean;
 		readonly onRead?: () => unknown;
 		readonly onRemove?: () => void;
+		readonly remove?: Effect.Effect<void, unknown>;
+		readonly save?: WorkoutEditorControllerPorts["save"];
 		readonly pluginId?: PluginId;
 		readonly schedule?: Pick<RyotSchedule, "after" | "run">;
 		readonly target?: PluginNavigationTarget;
@@ -51,6 +53,7 @@ export const controllerHarness = (
 	let removals = 0;
 	const writes: string[] = [];
 	const cleaned: ManagedAssetLocator[] = [];
+	const submissions: Parameters<WorkoutEditorControllerPorts["save"]>[0][] = [];
 	const controller = createWorkoutEditorController({
 		feedback: () => Effect.void,
 		target: options.target ?? defaultTarget,
@@ -64,6 +67,11 @@ export const controllerHarness = (
 			settings: preferenceSettings,
 			proAvailable: options.pro ?? true,
 		}),
+		save: (input) =>
+			Effect.gen(function* () {
+				submissions.push(input);
+				return yield* options.save?.(input) ?? Effect.fail("save unavailable");
+			}),
 		iosLiveActivities: options.iosLiveActivities ?? {
 			end: unsupportedIosActivity,
 			list: unsupportedIosActivity,
@@ -86,8 +94,11 @@ export const controllerHarness = (
 				reads += 1;
 				return options.onRead?.() ?? stored;
 			}),
-			remove: Effect.sync(() => {
+			remove: Effect.gen(function* () {
 				removals += 1;
+				if (options.remove !== undefined) {
+					yield* options.remove;
+				}
 				options.onRemove?.();
 				stored = null;
 			}),
@@ -106,6 +117,7 @@ export const controllerHarness = (
 		writes,
 		cleaned,
 		controller,
+		submissions,
 		read: () => stored,
 		get reads() {
 			return reads;

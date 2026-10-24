@@ -12,10 +12,12 @@ import type {
 } from "../../shared/workout-editor-operations";
 import { reconcileWorkoutTimers } from "./actions";
 import { createAlertSynchronizer } from "./controller-alerts";
-import type {
-	ReadySnapshot,
-	WorkoutEditorControllerPorts,
-	WorkoutEditorControllerSnapshot,
+import {
+	isWorkoutEditorSaving,
+	type ReadySnapshot,
+	type WorkoutEditorContext,
+	type WorkoutEditorControllerPorts,
+	type WorkoutEditorControllerSnapshot,
 } from "./controller-types";
 import { createWorkoutIosActivityPublisher } from "./ios-live-activity-sync";
 import {
@@ -39,20 +41,22 @@ type WorkoutEditorController = {
 		kind: WorkoutMediaKind,
 		file: File,
 	) => Effect.Effect<void, unknown>;
-	readonly beginSubmission: (
-		input: WorkoutEditorSaveInput,
-	) => Effect.Effect<WorkoutEditorSaveInput, unknown>;
+	readonly save: (
+		prepare: (
+			current: ReadySnapshot & { readonly context: WorkoutEditorContext },
+		) => Effect.Effect<
+			{ readonly draft: WorkoutEditorDraft; readonly input: WorkoutEditorSaveInput } | undefined,
+			unknown
+		>,
+	) => Effect.Effect<WorkoutEditorSaveOutput | undefined, unknown>;
 	readonly change: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => boolean;
 	readonly discard: () => Effect.Effect<boolean, unknown>;
 	readonly dispose: () => void;
-	readonly finish: () => Effect.Effect<boolean, unknown>;
 	readonly flush: () => Effect.Effect<void, unknown>;
 	readonly getSnapshot: () => WorkoutEditorControllerSnapshot;
 	readonly load: () => Effect.Effect<void, unknown>;
 	readonly reconcile: (expected?: ExpectedCountdowns) => Effect.Effect<void, unknown>;
 	readonly refreshContext: () => Effect.Effect<void, unknown>;
-	readonly rejectSubmission: (result: WorkoutEditorSaveOutput) => Effect.Effect<boolean, unknown>;
-	readonly setSaving: (saving: boolean) => void;
 	readonly start: (draft: WorkoutEditorDraft) => Effect.Effect<boolean, unknown>;
 	readonly subscribe: (listener: () => void) => () => void;
 };
@@ -61,6 +65,7 @@ const initialSnapshot: WorkoutEditorControllerSnapshot = {
 	status: "loading",
 	context: undefined,
 	contextError: undefined,
+	saveState: { phase: "idle" },
 };
 
 const isReady = (snapshot: WorkoutEditorControllerSnapshot): snapshot is ReadySnapshot =>
@@ -106,12 +111,15 @@ export const createWorkoutEditorController = (
 		}
 	};
 
-	const contextState = () => ({ context: snapshot.context, contextError: snapshot.contextError });
+	const contextState = () => ({
+		context: snapshot.context,
+		saveState: snapshot.saveState,
+		contextError: snapshot.contextError,
+	});
 
 	const readySnapshot = (draft: WorkoutEditorDraft, dirty: boolean): ReadySnapshot => ({
 		dirty,
 		draft,
-		saving: false,
 		alertStatus: {},
 		status: "ready",
 		uploading: false,
@@ -189,7 +197,7 @@ export const createWorkoutEditorController = (
 			if (
 				disposed ||
 				!isReady(snapshot) ||
-				snapshot.saving ||
+				isWorkoutEditorSaving(snapshot) ||
 				snapshot.draft.submission !== undefined
 			) {
 				return;
@@ -365,57 +373,66 @@ export const createWorkoutEditorController = (
 		});
 
 	const removeDraft = (requiresSubmission: boolean) =>
-		persistenceSemaphore.withPermit(
-			Effect.gen(function* () {
-				if (discarding || (isReady(snapshot) && (snapshot.saving || snapshot.uploading))) {
-					return false;
-				}
-				if (requiresSubmission) {
-					if (!isReady(snapshot) || snapshot.draft.submission === undefined) {
+		Effect.suspend(() => {
+			if (!requiresSubmission && isWorkoutEditorSaving(snapshot)) {
+				return Effect.succeed(false);
+			}
+			return persistenceSemaphore.withPermit(
+				Effect.gen(function* () {
+					if (
+						discarding ||
+						(!requiresSubmission && isWorkoutEditorSaving(snapshot)) ||
+						(isReady(snapshot) && snapshot.uploading)
+					) {
 						return false;
 					}
-				} else if (!canDiscard()) {
-					return false;
-				}
-				if (!requiresSubmission && isReady(snapshot) && snapshot.draft.submission !== undefined) {
-					return false;
-				}
-				discarding = true;
-				const removedDraftId = isReady(snapshot) ? snapshot.draft.draftId : undefined;
-				const removedDraft = isReady(snapshot) ? snapshot.draft : undefined;
-				const uploadedAssets = isReady(snapshot) ? (snapshot.draft.uploadedAssets ?? []) : [];
-				const removed = yield* Effect.match(ports.storage.remove, {
-					onSuccess: () => ({ kind: "success" as const }),
-					onFailure: (error) => ({ error, kind: "failure" as const }),
-				});
-				discarding = false;
-				if (removed.kind === "failure") {
-					if (isReady(snapshot)) {
-						updateReady((current) => ({ ...current, persistenceError: removed.error }));
-					} else if (isRecoveryError(snapshot)) {
-						publish({ ...snapshot, error: removed.error });
+					if (requiresSubmission) {
+						if (!isReady(snapshot) || snapshot.draft.submission === undefined) {
+							return false;
+						}
+					} else if (!canDiscard()) {
+						return false;
 					}
-					return yield* Effect.fail(removed.error);
-				}
-				revision = 0;
-				persistedRevision = 0;
-				loadFailed = false;
-				loaded = true;
-				publish({ status: "empty", ...contextState() });
-				yield* alerts.synchronize(undefined, removedDraftId);
-				iosActivity.finish(
-					removedDraft,
-					exerciseNames,
-					requiresSubmission,
-					snapshot.context?.settings.unitSystem === "imperial",
-				);
-				if (removedDraft === undefined) {
-					iosActivity.synchronize(undefined, exerciseNames);
-				}
-				yield* cleanupAssets(uploadedAssets);
-				return true;
-			}).pipe(Effect.uninterruptible),
-		);
+					if (!requiresSubmission && isReady(snapshot) && snapshot.draft.submission !== undefined) {
+						return false;
+					}
+					discarding = true;
+					const removedDraftId = isReady(snapshot) ? snapshot.draft.draftId : undefined;
+					const removedDraft = isReady(snapshot) ? snapshot.draft : undefined;
+					const uploadedAssets = isReady(snapshot) ? (snapshot.draft.uploadedAssets ?? []) : [];
+					const removed = yield* Effect.match(ports.storage.remove, {
+						onSuccess: () => ({ kind: "success" as const }),
+						onFailure: (error) => ({ error, kind: "failure" as const }),
+					});
+					discarding = false;
+					if (removed.kind === "failure") {
+						if (isReady(snapshot)) {
+							updateReady((current) => ({ ...current, persistenceError: removed.error }));
+						} else if (isRecoveryError(snapshot)) {
+							publish({ ...snapshot, error: removed.error });
+						}
+						return yield* Effect.fail(removed.error);
+					}
+					revision = 0;
+					persistedRevision = 0;
+					loadFailed = false;
+					loaded = true;
+					publish({ status: "empty", ...contextState() });
+					yield* alerts.synchronize(undefined, removedDraftId);
+					iosActivity.finish(
+						removedDraft,
+						exerciseNames,
+						requiresSubmission,
+						snapshot.context?.settings.unitSystem === "imperial",
+					);
+					if (removedDraft === undefined) {
+						iosActivity.synchronize(undefined, exerciseNames);
+					}
+					yield* cleanupAssets(uploadedAssets);
+					return true;
+				}).pipe(Effect.uninterruptible),
+			);
+		});
 
 	return {
 		load,
@@ -423,45 +440,20 @@ export const createWorkoutEditorController = (
 		reconcile,
 		getSnapshot,
 		refreshContext,
-		finish: () => removeDraft(true),
 		discard: () => removeDraft(false),
 		dispose: () => {
 			disposed = true;
 			alerts.dispose();
 		},
-		setSaving: (saving) => {
-			updateReady((current) => ({ ...current, saving }));
-		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		rejectSubmission: (result) =>
-			Effect.gen(function* () {
-				if (!isReady(snapshot) || snapshot.saving || result.kind === "saved") {
-					return false;
-				}
-				setDraft({ ...snapshot.draft, submission: undefined }, true);
-				yield* flush();
-				return true;
-			}),
-		start: (draft) =>
-			Effect.gen(function* () {
-				if (snapshot.status !== "empty" || discarding) {
-					return false;
-				}
-				loaded = true;
-				loadFailed = false;
-				revision += 1;
-				publish(readySnapshot(draft, true));
-				yield* flush();
-				return true;
-			}),
 		change: (transform) => {
 			if (
 				disposed ||
 				!isReady(snapshot) ||
-				snapshot.saving ||
+				isWorkoutEditorSaving(snapshot) ||
 				discarding ||
 				snapshot.draft.submission !== undefined
 			) {
@@ -473,6 +465,18 @@ export const createWorkoutEditorController = (
 			}
 			return setDraft(next);
 		},
+		start: (draft) =>
+			Effect.gen(function* () {
+				if (snapshot.status !== "empty" || discarding || isWorkoutEditorSaving(snapshot)) {
+					return false;
+				}
+				loaded = true;
+				loadFailed = false;
+				revision += 1;
+				publish({ ...readySnapshot(draft, true), saveState: { phase: "idle" } });
+				yield* flush();
+				return true;
+			}),
 		setExerciseNames: (exercises) => {
 			const next = new Map(exercises.map(({ id, name }) => [id, name]));
 			if (
@@ -484,25 +488,6 @@ export const createWorkoutEditorController = (
 			exerciseNames = next;
 			ports.schedule.run(flushDraft().pipe(Effect.ignore), () => undefined);
 		},
-		beginSubmission: (input) =>
-			Effect.gen(function* () {
-				if (!isReady(snapshot) || snapshot.saving || snapshot.uploading || discarding) {
-					return yield* new RyotClientError("invalid-input");
-				}
-				const submission = snapshot.draft.submission ?? input;
-				setDraft(
-					{
-						...snapshot.draft,
-						submission,
-						pendingRest: undefined,
-						restCountdown: undefined,
-						executionCountdown: undefined,
-					},
-					true,
-				);
-				yield* flush();
-				return submission;
-			}),
 		uploadMedia: (target, kind, file) =>
 			mediaSemaphore.withPermit(
 				Effect.gen(function* () {
@@ -510,7 +495,7 @@ export const createWorkoutEditorController = (
 						disposed ||
 						discarding ||
 						!isReady(snapshot) ||
-						snapshot.saving ||
+						isWorkoutEditorSaving(snapshot) ||
 						snapshot.draft.submission !== undefined ||
 						targetMedia(snapshot.draft, target) === undefined
 					) {
@@ -550,5 +535,82 @@ export const createWorkoutEditorController = (
 					return undefined;
 				}),
 			),
+		save: (prepare) =>
+			Effect.gen(function* () {
+				if (
+					disposed ||
+					isWorkoutEditorSaving(snapshot) ||
+					discarding ||
+					!isReady(snapshot) ||
+					snapshot.uploading
+				) {
+					return undefined;
+				}
+				const acknowledged = snapshot.saveState;
+				publish({
+					...snapshot,
+					saveState:
+						acknowledged.phase === "acknowledged-awaiting-cleanup"
+							? { ...acknowledged, cleaning: true }
+							: { phase: "in-flight" },
+				});
+				return yield* Effect.gen(function* () {
+					if (acknowledged.phase === "acknowledged-awaiting-cleanup") {
+						yield* removeDraft(true);
+						return acknowledged.result;
+					}
+					yield* reconcile();
+					if (!isReady(snapshot)) {
+						return undefined;
+					}
+					let submission = snapshot.draft.submission;
+					if (submission === undefined) {
+						const context = snapshot.context;
+						if (context === undefined) {
+							return undefined;
+						}
+						const prepared = yield* prepare({ ...snapshot, context });
+						if (prepared === undefined) {
+							return undefined;
+						}
+						submission = prepared.input;
+						setDraft(
+							{
+								...prepared.draft,
+								submission,
+								pendingRest: undefined,
+								restCountdown: undefined,
+								executionCountdown: undefined,
+							},
+							true,
+						);
+					}
+					yield* flush();
+					const result = yield* ports.save(submission);
+					if (result.kind === "saved") {
+						publish({
+							...snapshot,
+							saveState: { result, cleaning: true, phase: "acknowledged-awaiting-cleanup" },
+						});
+						yield* removeDraft(true);
+					} else if (isReady(snapshot)) {
+						setDraft({ ...snapshot.draft, submission: undefined }, true);
+						yield* flush();
+					}
+					return result;
+				}).pipe(
+					Effect.ensuring(
+						Effect.sync(() =>
+							publish({
+								...snapshot,
+								saveState:
+									snapshot.saveState.phase === "acknowledged-awaiting-cleanup"
+										? { ...snapshot.saveState, cleaning: false }
+										: { phase: "idle" },
+							}),
+						),
+					),
+				);
+			}).pipe(Effect.uninterruptible),
 	};
 };

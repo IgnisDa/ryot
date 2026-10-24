@@ -171,8 +171,11 @@ describe("workout media lifecycle", () => {
 						activeDuration: { seconds: 0, kind: "set" },
 					},
 				});
-				const rejected = yield* state.controller.beginSubmission(submission).pipe(Effect.result);
-				expect(rejected._tag).toBe("Failure");
+				const rejected = yield* state.controller.save((current) =>
+					Effect.succeed({ input: submission, draft: current.draft }),
+				);
+				expect(rejected).toBeUndefined();
+				expect(state.submissions).toHaveLength(0);
 				state.controller.change((draft) => ({ ...draft, occurrences: [] }));
 				yield* Deferred.succeed(result, asset);
 				yield* Fiber.join(uploading);
