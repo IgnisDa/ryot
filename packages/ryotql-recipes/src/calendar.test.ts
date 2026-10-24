@@ -1,4 +1,9 @@
-import { CalendarSourceSlug, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	CalendarSourceSlug,
+	EntitySchemaSlug,
+	PluginId,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	castDate,
 	castJson,
@@ -7,9 +12,11 @@ import {
 	eq,
 	field,
 	gte,
+	isNull,
 	jsonPath,
 	literal,
 	lt,
+	or,
 	pluginId,
 	table,
 } from "@ryot-app/ryotql";
@@ -17,6 +24,7 @@ import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
+	calendarDeliveryPageRecipe,
 	calendarOccurrencesPageRecipe,
 	type CalendarSource,
 	calendarSourcesRecipe,
@@ -232,6 +240,99 @@ describe("calendar recipes", () => {
 		expect(
 			Result.isFailure(
 				calendarOccurrencesPageRecipe({ window, source: { ...source, startAt: "x" } }),
+			),
+		).toBe(true);
+	});
+});
+
+describe("calendar delivery recipe", () => {
+	const confirmedAt = column(entity, "updatedAt");
+	const deliverySource = {
+		...source,
+		query: {
+			...source.query,
+			output: {
+				...source.query.output,
+				fields: [
+					...source.query.output.fields,
+					field("confirmedAt", confirmedAt),
+					field("occurrence", column(entity, "id")),
+				],
+			},
+		},
+		delivery: {
+			eligible: "done",
+			occurrence: "occurrence",
+			signal: SignalSchemaSlug.make("tasks.due"),
+			properties: { name: "unused", label: "caption" },
+			freshness: { maxAgeHours: 24, confirmedAt: "confirmedAt" },
+		},
+	};
+	const bounds = {
+		end: "2026-03-15T00:00:00.000Z",
+		start: "2026-03-12T00:00:00.000Z",
+		confirmedAfter: "2026-03-13T00:00:00.000Z",
+	};
+	const deliveries = (input: Partial<Parameters<typeof calendarDeliveryPageRecipe>[0]> = {}) =>
+		Result.getOrThrow(
+			calendarDeliveryPageRecipe({ bounds, limit: 10, source: deliverySource, ...input }),
+		);
+
+	it("selects eligible, fresh occurrences inside the window in a stable order", () => {
+		const query = requireRowsQuery(deliveries().document.queries["calendarDeliveries"]);
+		expect(query.where).toEqual({
+			type: "and",
+			predicates: [
+				source.query.where,
+				expect.objectContaining({ type: "or" }),
+				eq(literal(true), literal(true)),
+				gte(startsAt, castDate(literal(bounds.start))),
+				lt(startsAt, castDate(literal(bounds.end))),
+				or(isNull(confirmedAt), gte(confirmedAt, castDate(literal(bounds.confirmedAfter)))),
+			],
+		});
+		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual([startsAt, column(entity, "id")]);
+		expect(query.output.pagination).toEqual({ limit: 10 });
+		const unbounded = requireRowsQuery(
+			deliveries({ bounds: { ...bounds, confirmedAfter: null } }).document.queries[
+				"calendarDeliveries"
+			],
+		);
+		expect(unbounded.where).toMatchObject({ predicates: { length: 5 } });
+	});
+
+	it("decodes declared properties and omits null values", () => {
+		const decoded = Result.getOrThrow(
+			deliveries().decode({
+				data: {
+					calendarDeliveries: rowsResult(
+						[
+							{
+								unused: null,
+								caption: "Step 2",
+								__calendarSubjectId: "record-1",
+								__calendarOccurrence: "record-1",
+							},
+						],
+						pageInfo,
+					),
+				},
+			}),
+		);
+		expect(decoded).toEqual({
+			pageInfo: { hasMore: true, nextCursor: "next" },
+			items: [{ subjectId: "record-1", occurrence: "record-1", properties: { label: "Step 2" } }],
+		});
+	});
+
+	it("rejects sources that do not project their delivery fields", () => {
+		expect(
+			Result.isFailure(
+				calendarDeliveryPageRecipe({
+					bounds,
+					limit: 10,
+					source: { ...deliverySource, delivery: { ...deliverySource.delivery, eligible: "x" } },
+				}),
 			),
 		).toBe(true);
 	});

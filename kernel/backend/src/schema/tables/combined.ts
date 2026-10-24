@@ -21,5 +21,6 @@ export * from "./provider-imports";
 export * from "./event-projections";
 export * from "./migration-reports";
 export * from "./oauth-connections";
+export * from "./calendar-deliveries";
 export * from "./workflow-executions";
 export * from "./relationship-projections";

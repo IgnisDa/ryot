@@ -1,5 +1,6 @@
 import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
+	type CalendarSourceDelivery,
 	CalendarSourcePrecision,
 	CalendarSourceQuery,
 } from "@ryot-app/contract/modules/calendar-sources/schemas";
@@ -17,9 +18,11 @@ import {
 	eq,
 	field,
 	gte,
+	isNull,
 	join,
 	literal,
 	lt,
+	or,
 	type PreparedRecipe,
 	type Recipe,
 	selectedField,
@@ -33,6 +36,8 @@ import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 const CALENDAR_OCCURRENCE_PAGE_SIZE = 100;
 
 const OCCURRENCES_QUERY = "calendarOccurrences";
+
+const DELIVERIES_QUERY = "calendarDeliveries";
 
 const calendarSource = table("calendarSource", "calendarSource");
 const plugin = table("plugin", "calendarSourcePlugin");
@@ -218,6 +223,119 @@ export const calendarOccurrencesPageRecipe = (input: {
 							field(schemaKey, column(subject, "entitySchemaSlug")),
 						],
 					},
+				},
+			},
+		},
+	}));
+	return Result.succeed(recipe());
+};
+
+export type CalendarDeliveryBounds = {
+	readonly end: string;
+	readonly start: string;
+	readonly confirmedAfter: null | string;
+};
+
+export type CalendarDeliveryCandidate = {
+	readonly subjectId: string;
+	readonly occurrence: string;
+	readonly properties: Readonly<Record<string, JsonValue>>;
+};
+
+export type CalendarDeliverySource = {
+	readonly slug: string;
+	readonly startAt: string;
+	readonly subject: SavedViewSubject;
+	readonly query: CalendarSourceQuery;
+	readonly delivery: CalendarSourceDelivery;
+};
+
+type CalendarDeliveryPage = {
+	readonly items: readonly CalendarDeliveryCandidate[];
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
+};
+
+export const calendarDeliveryPageRecipe = (input: {
+	readonly limit: number;
+	readonly after?: string | undefined;
+	readonly source: CalendarDeliverySource;
+	readonly bounds: CalendarDeliveryBounds;
+}): Result.Result<PreparedRecipe<CalendarDeliveryPage>, Error> => {
+	const { source } = input;
+	const { delivery } = source;
+	const fields = source.query.output.fields.flatMap((selection) =>
+		"key" in selection ? [selection] : [],
+	);
+	const expression = (key: string) => fields.find((selection) => selection.key === key)?.expr;
+	const startAt = expression(source.startAt);
+	const occurrence = expression(delivery.occurrence);
+	const eligible = expression(delivery.eligible);
+	const confirmedAt = delivery.freshness ? expression(delivery.freshness.confirmedAt) : null;
+	if (!startAt || !occurrence || !eligible || confirmedAt === undefined) {
+		return Result.fail(new Error(`Calendar source '${source.slug}' does not project its delivery`));
+	}
+	const subject = table("entity", source.subject.entityAlias);
+	const idKey = unusedFieldKey(fields, "__calendarSubjectId");
+	const occurrenceKey = unusedFieldKey(fields, "__calendarOccurrence");
+	const propertyKeys = new Set(Object.values(delivery.properties));
+	const decodeRow = (row: OccurrenceRow) =>
+		Result.gen(function* () {
+			const properties: Record<string, JsonValue> = {};
+			for (const [property, key] of Object.entries(delivery.properties)) {
+				const value = row[key];
+				if (value !== undefined && value !== null) {
+					properties[property] = value;
+				}
+			}
+			return {
+				properties,
+				subjectId: yield* textValue(row, idKey),
+				occurrence: yield* textValue(row, occurrenceKey),
+			} satisfies CalendarDeliveryCandidate;
+		});
+	const recipe = defineRecipe(() => ({
+		map: (results) => Result.succeed(results[DELIVERIES_QUERY]),
+		queries: {
+			[DELIVERIES_QUERY]: {
+				decodeResult: (result: unknown) =>
+					Result.flatMap(
+						Schema.decodeUnknownResult(occurrenceRows)(result),
+						({ items, pageInfo }) =>
+							Result.map(Result.all(items.map(decodeRow)), (decoded) => ({
+								items: decoded,
+								pageInfo: { hasMore: pageInfo.hasMore, nextCursor: pageInfo.nextCursor },
+							})),
+					),
+				document: {
+					...source.query,
+					output: {
+						...source.query.output,
+						orderBy: [ascending(startAt), ascending(occurrence)],
+						pagination: {
+							limit: input.limit,
+							...(input.after === undefined ? {} : { after: input.after }),
+						},
+						fields: [
+							...fields.filter(({ key }) => propertyKeys.has(key)),
+							field(idKey, column(subject, "id")),
+							field(occurrenceKey, occurrence),
+						],
+					},
+					where: and(
+						...(source.query.where === undefined ? [] : [source.query.where]),
+						subjectSchemaPredicate(source.subject, subject),
+						eq(eligible, literal(true)),
+						gte(startAt, castDate(literal(input.bounds.start))),
+						lt(startAt, castDate(literal(input.bounds.end))),
+						...(confirmedAt === null || input.bounds.confirmedAfter === null
+							? []
+							: [
+									or(
+										isNull(confirmedAt),
+										gte(confirmedAt, castDate(literal(input.bounds.confirmedAfter))),
+									),
+								]),
+					),
 				},
 			},
 		},

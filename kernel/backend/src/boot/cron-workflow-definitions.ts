@@ -13,6 +13,7 @@ import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackupsService } from "#modules/backups/service";
+import { CalendarDeliveryWorker } from "#modules/calendar-sources/delivery-worker";
 import type { EntityGraphCollector } from "#modules/entities/retention/collector";
 import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
 import { EventStreamWorkService } from "#modules/events/stream-work";
@@ -54,6 +55,7 @@ const frequentCronTasks: ReadonlyArray<
 		| EntityGraphCollector
 		| ManagedAssetCollector
 		| BackgroundWorkService
+		| CalendarDeliveryWorker
 		| NotificationAdmissions
 		| EventStreamWorkService
 		| OAuthConnectionsService
@@ -93,6 +95,13 @@ const frequentCronTasks: ReadonlyArray<
 		run: () =>
 			Effect.flatMap(ReminderWorker, (worker) => worker.run()).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("Reminder scan failed", cause)),
+			),
+	},
+	{
+		name: "calendar-deliveries",
+		run: () =>
+			Effect.flatMap(CalendarDeliveryWorker, (worker) => worker.run()).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("Calendar delivery scan failed", cause)),
 			),
 	},
 	{

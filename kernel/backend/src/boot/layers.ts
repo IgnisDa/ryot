@@ -45,7 +45,10 @@ import {
 	BackupWorkflowOperationsLive,
 	RestoreBackupWorkflowDefinitionsProvidedLive,
 } from "#modules/backups/layer";
-import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
+import {
+	CalendarDeliveryWorkerLive,
+	CalendarSourcesServiceLive,
+} from "#modules/calendar-sources/layer";
 import {
 	CollectionMembershipWorkflowDefinitionsLive,
 	CollectionMembershipWorkflowOperationsLive,
@@ -268,6 +271,7 @@ const ServicesLive = Layer.mergeAll(
 	ScriptExecutionServiceLive,
 	SavedViewsServiceLive,
 	CalendarSourcesServiceLive,
+	CalendarDeliveryWorkerLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
