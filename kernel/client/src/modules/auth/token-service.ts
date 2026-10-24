@@ -78,30 +78,39 @@ const makeTokenService = (
 	now: () => number,
 ): OAuthTokenService["Service"] => {
 	const authorization = makeAuthorizationState();
+	const refreshCleared = new WeakMap<Authorization, Authorization>();
 	const load = Effect.fnUntraced(function* (origin: ServerOrigin) {
 		const record = authorization.forServer(origin);
 		return yield* record.mutex.withPermit(
 			Effect.gen(function* () {
 				const before = record.current;
-				const stored = yield* fromStorage(storage.getTokenSet(origin));
+				const stored = yield* storage.getTokenSet(origin);
 				return record.isCurrent(before) ? record.observe(stored) : record.current;
 			}),
 		);
 	});
-	const clearTokens = Effect.fnUntraced(function* (origin: ServerOrigin, current?: Authorization) {
+	const removeTokens = (origin: ServerOrigin, cleared: Authorization) => {
 		const record = authorization.forServer(origin);
-		if (current && !record.isCurrent(current)) {
-			return;
-		}
-		const cleared = record.replace(null);
-		yield* record.mutex.withPermit(
+		return record.mutex.withPermit(
 			Effect.gen(function* () {
 				if (record.isCurrent(cleared)) {
 					yield* fromStorage(storage.removeTokenSet(origin));
 				}
 			}),
 		);
+	};
+	const clearTokens = Effect.fnUntraced(function* (origin: ServerOrigin, current?: Authorization) {
+		const record = authorization.forServer(origin);
+		if (current && !record.isCurrent(current)) {
+			return;
+		}
+		yield* removeTokens(origin, record.replace(null));
 	});
+	const clearFromRefresh = (origin: ServerOrigin, originating: Authorization) => {
+		const cleared = authorization.forServer(origin).replace(null);
+		refreshCleared.set(originating, cleared);
+		return cleared;
+	};
 
 	const rotate = Effect.fnUntraced(function* (canonical: ServerOrigin, originating: Authorization) {
 		const record = authorization.forServer(canonical);
@@ -130,7 +139,9 @@ const makeTokenService = (
 				OAuthEndpointError: (cause) =>
 					cause.code === "invalid_grant"
 						? Effect.gen(function* () {
-								yield* clearTokens(canonical, originating);
+								if (record.isCurrent(originating)) {
+									yield* removeTokens(canonical, clearFromRefresh(canonical, originating));
+								}
 								return yield* new OAuthTokenError({ cause, reason: "invalid-grant" });
 							})
 						: Effect.fail(requestFailed(cause)),
@@ -153,7 +164,7 @@ const makeTokenService = (
 					Effect.tapError(() =>
 						Effect.sync(() => {
 							if (record.isCurrent(originating)) {
-								record.replace(null);
+								clearFromRefresh(canonical, originating);
 							}
 						}),
 					),
@@ -182,7 +193,7 @@ const makeTokenService = (
 		return refreshed?.accessToken ?? null;
 	});
 
-	const accessToken = Effect.fn("OAuthTokenService.accessToken")(function* (
+	const access = Effect.fn("OAuthTokenService.access")(function* (
 		origin: ServerOrigin,
 		forceRefresh = false,
 	) {
@@ -191,18 +202,14 @@ const makeTokenService = (
 		for (;;) {
 			const current = yield* load(origin);
 			const result = yield* accessFor(origin, current, refresh).pipe(Effect.result);
-			if (!record.isCurrent(current)) {
-				if (
-					Result.isFailure(result) &&
-					record.current.tokens === null &&
-					(result.failure.reason === "storage-failed" || result.failure.reason === "invalid-grant")
-				) {
-					return yield* result.failure;
-				}
-				refresh = false;
-				continue;
+			if (record.isCurrent(current)) {
+				return { result, authorization: current };
 			}
-			return Result.isFailure(result) ? yield* result.failure : result.success;
+			const cleared = refreshCleared.get(current);
+			if (Result.isFailure(result) && cleared !== undefined && record.isCurrent(cleared)) {
+				return { result, authorization: cleared };
+			}
+			refresh = false;
 		}
 	});
 
@@ -305,10 +312,9 @@ const makeTokenService = (
 		if (nonce !== pending.nonce) {
 			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-nonce" }));
 		}
-		if (!(yield* storage.getPending(origin, state))) {
+		if (!(yield* storage.takePending(origin, state))) {
 			return yield* new OAuthTokenError({ reason: "missing-authorization" });
 		}
-		yield* storage.removePending(origin, state);
 		const record = authorization.forServer(origin);
 		yield* Effect.uninterruptible(
 			record.mutex.withPermit(
@@ -392,9 +398,11 @@ const makeTokenService = (
 	});
 
 	return {
+		access,
 		logout,
 		userInfo,
-		accessToken,
+		accessToken: (origin, forceRefresh) =>
+			Effect.flatMap(access(origin, forceRefresh), ({ result }) => Effect.fromResult(result)),
 		authorization,
 		rejectAuthorization,
 		completeAuthorization,
@@ -414,6 +422,13 @@ export class OAuthTokenService extends Context.Service<
 			postLogoutRedirectUri: string,
 		) => Effect.Effect<string | null, OAuthTokenError>;
 		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
+		readonly access: (
+			origin: ServerOrigin,
+			forceRefresh?: boolean,
+		) => Effect.Effect<{
+			readonly authorization: Authorization;
+			readonly result: Result.Result<string | null, OAuthTokenError>;
+		}>;
 		readonly accessToken: (
 			origin: ServerOrigin,
 			forceRefresh?: boolean,

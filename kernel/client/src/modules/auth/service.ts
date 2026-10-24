@@ -1,6 +1,6 @@
 import { Browser } from "@capacitor/browser";
 import type { AccessClass, ImpersonationSession } from "@ryot-app/contract/oauth";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { Authorization } from "#/modules/auth/authorization";
@@ -30,11 +30,6 @@ export type AuthSessionStore = {
 	readonly getSnapshot: () => AuthSessionSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
 };
-
-type AuthorizationProbe =
-	| { readonly kind: "authorized" }
-	| { readonly kind: "unauthorized" }
-	| { readonly kind: "indeterminate"; readonly fallback: SettledAuthSession };
 
 export const toAuthSessionState = (session: SettledAuthSession) =>
 	session.status === "authenticated"
@@ -83,40 +78,21 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			const session = tokens.authorization.forServer(origin);
 			let refresh = forceRefresh;
 			for (;;) {
-				const authorization = session.current;
+				const { result, authorization } = yield* tokens.access(origin);
 				const cached = session.store.getSnapshot();
-				const probeResult = yield* tokens.accessToken(origin).pipe(
-					Effect.map((token): AuthorizationProbe => ({
-						kind: token === null ? "unauthorized" : "authorized",
-					})),
-					Effect.catchTag("OAuthTokenError", (error) => {
-						if (isLostAuthorization(error)) {
-							return Effect.succeed<AuthorizationProbe>({ kind: "unauthorized" });
-						}
-						if (cached.status === "pending") {
-							return Effect.fail(error);
-						}
-						return Effect.succeed<AuthorizationProbe>({ fallback: cached, kind: "indeterminate" });
-					}),
-					Effect.result,
-				);
+				if (
+					Result.isFailure(result) ? isLostAuthorization(result.failure) : result.success === null
+				) {
+					const snapshot: SettledAuthSession = { status: "missing" };
+					session.publish(authorization, snapshot);
+					return snapshot;
+				}
 				if (!session.isCurrent(authorization)) {
 					refresh = false;
 					continue;
 				}
-				if (probeResult._tag === "Failure") {
-					return yield* probeResult.failure;
-				}
-				const probe = probeResult.success;
-				if (probe.kind === "indeterminate") {
-					return probe.fallback;
-				}
-				if (probe.kind === "unauthorized") {
-					const snapshot: SettledAuthSession = { status: "missing" };
-					if (cached.status !== "missing") {
-						session.publish(authorization, snapshot);
-					}
-					return snapshot;
+				if (Result.isFailure(result)) {
+					return cached.status === "pending" ? yield* result.failure : cached;
 				}
 				if (!refresh && cached.status === "authenticated") {
 					return cached;
