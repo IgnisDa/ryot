@@ -15,7 +15,7 @@
 
 ## Status
 
-**66 implemented, 0 in progress, 17 pending; 3 excluded.**
+**67 implemented, 0 in progress, 16 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -85,7 +85,7 @@
 | A02-R1 | Implemented | Scan event IDs once in 500-row C-collated pages across distinct streams, bulk processing normalized timestamps and warning multisets. See this finding's audit commit. |
 | T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
 | T02-R2 | Pending | Bind sessions and admin authority to one server target. |
-| T05-R1 | Pending | Three complete seed installs replace seven updates and catalog rereads. |
+| T05-R1 | Implemented | Install each of the three seed plugins once with complete definitions instead of seven updates and five definition reads. See this finding's audit commit. |
 | B01-R1 | Pending | Replace watch deltas with complete membership/foreground sets. |
 | B01-R2 | Pending | Persistence owns lock sorting. |
 | B02-R1 | Pending | Delete the test-only live-environment runtime mode. |
@@ -232,3 +232,4 @@
 - P09-R1: archive check passed before 71 tests; read-only review passed. Writer input validates once without self-decompression; manifest bounds are exact and reader behavior is unchanged. CLI validation was blocked by P08 and is now unblocked; final acceptance remains pending.
 - P08-R1: all three checks passed before serial runs of 64 Vite, 64 backend, and 79 client tests; read-only review passed. Acquire the complete private mode-0700 workspace before exposing its handle, with collision/replacement cleanup and no incremental API.
 - B28-R1: backend type, all-format, lint, and database-generation checks passed before 38 tests, including three real-PostgreSQL tests; read-only review passed. Generated identity projections for five ingestion tables come from JSON; parallel writes are removed and constraints remain.
+- T05-R1: e2e checks and offline comparison passed; 450 entity and 540 event writes, five entity and five event definitions, order and ownership were preserved; read-only review passed. Seed installs three complete plugins once instead of seven updates and five definition reads.
