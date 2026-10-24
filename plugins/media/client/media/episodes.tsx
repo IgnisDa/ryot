@@ -30,7 +30,7 @@ export type MediaEpisodeLog = {
 	readonly logger: MediaActivityLogger;
 };
 
-export type MediaEpisodePageInput<Scope extends object = Record<never, never>> = Scope & {
+export type MediaEpisodePageInput<Scope extends object = object> = Scope & {
 	readonly entityId: string;
 	readonly containerId: string;
 	readonly after: null | string;
@@ -65,7 +65,7 @@ const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
  */
 export function MediaEpisodePages<
 	Episode extends MediaEpisode,
-	Scope extends object = Record<never, never>,
+	Scope extends object = object,
 >(props: {
 	readonly scope?: Scope;
 	readonly compact: boolean;

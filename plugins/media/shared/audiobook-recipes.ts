@@ -9,6 +9,7 @@ export const audiobookRecipes = mediaFlatRecipes({
 	alias: "audiobook",
 	consumptionUnit: "minutes",
 	groupSlug: "audiobook-group",
+	activityEventFields: () => ({}),
 	summaryFields: mediaNumberSelection("runtime"),
 	presentationFields: mediaNumberSelection("runtime"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,

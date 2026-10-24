@@ -109,6 +109,7 @@ export const showRecipes = mediaEpisodicRecipes({
 	alias: "show",
 	config: showEpisodicKindConfig,
 	episodeFields: showSeasonNumber,
+	extraOverviewQueries: () => ({}),
 	orderProperties: ["seasonNumber"],
 	coverageQuery: showSeasonCoverageQuery,
 	presentationFields: (entity) => ({

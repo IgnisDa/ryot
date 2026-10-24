@@ -9,6 +9,8 @@ export const movieRecipes = mediaFlatRecipes({
 	alias: "movie",
 	groupSlug: "movie-group",
 	consumptionUnit: "minutes",
+	activityEventFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	presentationFields: mediaNumberSelection("runtime"),
 	summaryFields: (entity) => ({
 		...mediaWatchProviderSelection(entity),

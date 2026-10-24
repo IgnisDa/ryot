@@ -117,12 +117,12 @@ export type MediaCreatorCredit = SelectedRow<ReturnType<typeof creditSelection>>
 
 export const mediaCreatorRecipes = <
 	const SummaryFields extends SelectedSelection,
-	const CreditFields extends SelectedSelection = Record<never, never>,
+	const CreditFields extends SelectedSelection,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
 	readonly summaryFields: (entity: Table) => SummaryFields;
-	readonly creditFields?: (relationship: Table) => CreditFields;
+	readonly creditFields: (relationship: Table) => CreditFields;
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: {
@@ -146,10 +146,6 @@ export const mediaCreatorRecipes = <
 			}),
 		}),
 	);
-
-	const creditFields = (relationship: Table) =>
-		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-		config.creditFields?.(relationship) ?? ({} as CreditFields);
 
 	type CreditIncludes = {
 		readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude>;
@@ -177,7 +173,7 @@ export const mediaCreatorRecipes = <
 						target,
 						isGroupTarget(target)
 							? groupCreditInclude(credit)
-							: mediaCreditInclude(credit, creditFields),
+							: mediaCreditInclude(credit, config.creditFields),
 					] as const;
 				}),
 			);
@@ -246,7 +242,7 @@ export const mediaCreatorRecipes = <
 						...(input.after === undefined ? {} : { after: input.after }),
 						selection: {
 							...creditSelection(credit, relationship),
-							...(isGroupTarget(input.target) ? {} : creditFields(relationship)),
+							...(isGroupTarget(input.target) ? {} : config.creditFields(relationship)),
 						},
 					}),
 				},

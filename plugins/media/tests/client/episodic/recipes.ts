@@ -17,6 +17,7 @@ export const episodicFixtureRecipes = mediaEpisodicRecipes({
 	summaryFields: () => ({}),
 	episodeFields: () => ({}),
 	presentationFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	config: podcastEpisodicKindConfig,
 	activityEpisode: (row) => ({
 		id: row.episodeId,

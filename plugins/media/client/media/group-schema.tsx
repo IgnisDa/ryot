@@ -96,9 +96,9 @@ export type MediaGroupSchemaDescriptor<
 	  }
 );
 
-type GroupTabKey = "members" | "overview" | "activity";
+type GroupOverview<Overview> = Overview | undefined;
 
-type GroupOverview<Overview> = Overview | Record<never, never>;
+type GroupTabKey = "members" | "overview" | "activity";
 
 type GroupPresentation = GroupProgress & MediaSavedViewPresentationSubject;
 
@@ -172,7 +172,7 @@ const memberAssets = (items: readonly MediaSavedViewPresentationSubject[]) =>
 	collectManagedAssetLocators(items.map(({ image }) => image ?? undefined));
 
 const groupCreditsAreEmpty = <Overview extends GroupCredits>(overview: GroupOverview<Overview>) =>
-	!("people" in overview) ||
+	overview === undefined ||
 	(overview.people.items.length === 0 && overview.companies.items.length === 0);
 
 export const defineGroupMediaSchema = <
@@ -312,7 +312,7 @@ export const defineGroupMediaSchema = <
 		overview,
 		safeAreaTop,
 	}) =>
-		creditCopy === undefined || !("people" in overview) ? null : (
+		creditCopy === undefined || overview === undefined ? null : (
 			<MediaCreditColumns
 				copy={creditCopy}
 				compact={compact}

@@ -239,7 +239,7 @@ function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntity
 	);
 }
 
-const NO_OVERVIEW: MediaOverviewState<Record<never, never>> = { overview: {}, status: "ready" };
+const NO_OVERVIEW: MediaOverviewState<undefined> = { status: "ready", overview: undefined };
 
 const refreshNothing = () => undefined;
 
@@ -254,7 +254,7 @@ export function MediaDetailScreen<
 			| {
 					readonly overviewQuery?: undefined;
 					readonly overviewAssets?: undefined;
-					readonly Body: MediaDetailBodyRender<Summary, Record<never, never>>;
+					readonly Body: MediaDetailBodyRender<Summary, undefined>;
 			  }
 			| {
 					readonly Body: MediaDetailBodyRender<Summary, OverviewData>;

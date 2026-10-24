@@ -30,6 +30,7 @@ import {
 	selectedField,
 	selectedInclude,
 	type SelectedIncludes,
+	type SelectedIncludeValue,
 	selectedOptionalRow,
 	type SelectedQuery,
 	type SelectedRow,
@@ -147,10 +148,7 @@ export const mediaGenresInclude = (
 	});
 };
 
-export type MediaGenresList = SelectedRow<
-	Record<never, never>,
-	{ readonly genres: ReturnType<typeof mediaGenresInclude> }
->["genres"];
+export type MediaGenresList = SelectedIncludeValue<ReturnType<typeof mediaGenresInclude>>;
 
 export const requestedSchemaQuery = (id: string) => {
 	const requested = table("entity", "requested");
@@ -944,22 +942,14 @@ export const mediaUnlinkedCreatorsOverviewQueries = (input: {
 
 export type MediaExtraQueries = Readonly<Record<string, SelectedQuery<unknown>>>;
 
+export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }> = Recipe.Success<
+	Recipes["activityRecipe"]
+>;
+
 export type MediaUnlinkedCreatorsOverview = {
 	readonly creators?:
 		undefined | SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>>;
 };
-
-/** A recipe factory's own overview queries, absent when it declares none. */
-export const extraOverviewQueries = <const Extra extends MediaExtraQueries, Input>(
-	build: undefined | ((input: Input) => Extra),
-	input: Input,
-): Extra =>
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	build === undefined ? ({} as Extra) : build(input);
-
-export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }> = Recipe.Success<
-	Recipes["activityRecipe"]
->;
 
 export type MediaActivityEventOf<Recipes extends { readonly activityRecipe: unknown }> =
 	MediaActivityOf<Recipes> extends { readonly events: readonly (infer Event)[] } ? Event : never;
@@ -984,8 +974,8 @@ export type MediaFlatOverviewInput = {
 export const mediaFlatRecipes = <
 	const SummaryFields extends SelectedSelection,
 	const PresentationFields extends SelectedSelection,
-	const ActivityEventFields extends SelectedSelection = Record<never, never>,
-	const ExtraOverviewQueries extends MediaExtraQueries = Record<never, never>,
+	const ActivityEventFields extends SelectedSelection,
+	const ExtraOverviewQueries extends MediaExtraQueries,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -993,8 +983,8 @@ export const mediaFlatRecipes = <
 	readonly consumptionUnit: ConsumptionMeasureUnit;
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
-	readonly activityEventFields?: (event: Table) => ActivityEventFields;
-	readonly extraOverviewQueries?: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
+	readonly activityEventFields: (event: Table) => ActivityEventFields;
+	readonly extraOverviewQueries: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: {
@@ -1024,7 +1014,7 @@ export const mediaFlatRecipes = <
 		const { groupSlug } = config;
 		const credits = {
 			...mediaOverviewQueries({ ...input, slug: config.slug }),
-			...extraOverviewQueries(config.extraOverviewQueries, input),
+			...config.extraOverviewQueries(input),
 		};
 		return groupSlug === undefined
 			? credits
@@ -1051,8 +1041,7 @@ export const mediaFlatRecipes = <
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
 	const activitySelection = (event: Table) => ({
 		...mediaFlatActivityEventSelection(event, isPositional(config.slug)),
-		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-		...(config.activityEventFields?.(event) ?? ({} as ActivityEventFields)),
+		...config.activityEventFields(event),
 	});
 	const historyRecipe = mediaEntityHistoryRecipe({
 		alias: config.alias,

@@ -16,6 +16,7 @@ const fixtureRecipes = mediaEpisodicRecipes({
 	summaryFields: () => ({}),
 	episodeFields: () => ({}),
 	presentationFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	config: podcastEpisodicKindConfig,
 	activityEpisode: (row) => ({
 		id: row.episodeId,
@@ -38,6 +39,7 @@ const nestedRecipes = mediaEpisodicRecipes({
 	episodeFields: () => ({}),
 	presentationFields: () => ({}),
 	config: showEpisodicKindConfig,
+	extraOverviewQueries: () => ({}),
 	orderProperties: ["seasonNumber"],
 	activityEpisode: (row) => ({
 		id: row.episodeId,

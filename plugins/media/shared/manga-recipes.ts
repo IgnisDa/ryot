@@ -5,6 +5,7 @@ export const mangaRecipes = mediaFlatRecipes({
 	slug: "manga",
 	alias: "manga",
 	consumptionUnit: "chapters",
+	extraOverviewQueries: () => ({}),
 	presentationFields: mediaNumberSelection("chapters"),
 	summaryFields: mediaNumberSelection("volumes", "chapters"),
 	activityEventFields: (event) => ({

@@ -36,7 +36,7 @@ const renderBody = (summary = decodeGroupSummary()) =>
 			members={<p>Member rows</p>}
 			refreshOverview={() => undefined}
 			state={{ summary, status: "ready" }}
-			overview={mapMediaOverview(readyQueryResult({}))}
+			overview={{ status: "ready", overview: undefined }}
 		/>,
 	);
 

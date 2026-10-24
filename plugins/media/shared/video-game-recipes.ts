@@ -84,6 +84,7 @@ export const videoGameRecipes = mediaFlatRecipes({
 	alias: "videoGame",
 	consumptionUnit: "minutes",
 	groupSlug: "video-game-group",
+	activityEventFields: () => ({}),
 	extraOverviewQueries: videoGameRelatedOverviewQueries,
 	presentationFields: (entity) => ({
 		timeToBeatNormally: selectedField(

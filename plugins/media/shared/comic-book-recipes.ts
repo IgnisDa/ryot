@@ -5,6 +5,8 @@ export const comicBookRecipes = mediaFlatRecipes({
 	alias: "comicBook",
 	consumptionUnit: "pages",
 	groupSlug: "comic-book-group",
+	activityEventFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	summaryFields: mediaNumberSelection("pages"),
 	presentationFields: mediaNumberSelection("pages"),
 });

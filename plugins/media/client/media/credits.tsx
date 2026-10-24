@@ -15,7 +15,7 @@ import { ManagedAssetImage } from "./managed-assets";
 import { mediaCharacterLabel, mediaRolesLabel, type MediaUnlinkedCreator } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
-export type MediaCreditsRecipe<Scope extends object = Record<never, never>> = (
+export type MediaCreditsRecipe<Scope extends object = object> = (
 	input: Scope & {
 		readonly limit: number;
 		readonly entityId: string;

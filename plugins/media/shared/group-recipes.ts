@@ -264,18 +264,11 @@ export const mediaGroupRecipes = <
 			readonly companyLimit: number;
 			readonly reference: PluginIdentityReference;
 		}) => ({
-			queries: mediaCreditQueries({
-				...input,
-				slug: config.slug,
-				personFields: (): Record<never, never> => ({}),
-			}),
+			queries: mediaCreditQueries({ ...input, slug: config.slug, personFields: () => ({}) }),
 		}),
 	);
 
-	const peopleRecipe = mediaPeopleRecipe({
-		...config,
-		personFields: (): Record<never, never> => ({}),
-	});
+	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: () => ({}) });
 	const recipes = {
 		peopleRecipe,
 		summaryRecipe,
@@ -287,7 +280,7 @@ export const mediaGroupRecipes = <
 
 	type Credits = Slug extends CreditGroupSlug
 		? { readonly overviewRecipe: typeof overviewRecipe }
-		: Record<never, never>;
+		: { readonly overviewRecipe?: undefined };
 	const creditEntries = isCreditGroup(config.slug) ? { overviewRecipe } : {};
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	const credits = creditEntries as Credits;

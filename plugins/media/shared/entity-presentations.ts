@@ -41,7 +41,7 @@ export type MediaPresentationSource<Data> = SelectedRowsSource<Data>;
 
 export const selectedPresentationSource = <
 	const Selection extends SelectedSelection,
-	const Includes extends SelectedIncludes = Record<never, never>,
+	const Includes extends undefined | SelectedIncludes = undefined,
 >(input: {
 	readonly table: Table;
 	readonly selection: Selection;

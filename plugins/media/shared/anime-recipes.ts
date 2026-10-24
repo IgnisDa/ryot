@@ -9,6 +9,7 @@ export const animeRecipes = mediaFlatRecipes({
 	slug: "anime",
 	alias: "anime",
 	consumptionUnit: "episodes",
+	extraOverviewQueries: () => ({}),
 	presentationFields: mediaNumberSelection("episodes"),
 	activityEventFields: (event) => ({
 		listState: listStateActivityPropertiesField(event),

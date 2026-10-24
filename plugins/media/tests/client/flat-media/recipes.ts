@@ -14,6 +14,7 @@ export const flatFixtureRecipes = mediaFlatRecipes({
 	groupSlug: "fixture-group",
 	consumptionUnit: "minutes",
 	presentationFields: () => ({}),
+	activityEventFields: () => ({}),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
 });
 
@@ -23,6 +24,7 @@ export const flatUngroupedFixtureRecipes = mediaFlatRecipes({
 	summaryFields: () => ({}),
 	consumptionUnit: "minutes",
 	presentationFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	activityEventFields: (event) => ({
 		fixtureChapter: selectedField(
 			propertyNumber(event, "fixtureChapter"),

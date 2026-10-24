@@ -13,6 +13,7 @@ export const bookRecipes = mediaFlatRecipes({
 	alias: "book",
 	groupSlug: "book-group",
 	consumptionUnit: "pages",
+	activityEventFields: () => ({}),
 	presentationFields: mediaNumberSelection("pages"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
 	summaryFields: (entity) => ({

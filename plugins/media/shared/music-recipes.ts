@@ -9,6 +9,8 @@ export const musicRecipes = mediaFlatRecipes({
 	alias: "music",
 	groupSlug: "music-group",
 	consumptionUnit: "minutes",
+	activityEventFields: () => ({}),
+	extraOverviewQueries: () => ({}),
 	presentationFields: mediaNumberSelection("duration"),
 	summaryFields: (entity) => ({
 		...mediaNumberSelection("duration")(entity),

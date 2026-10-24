@@ -80,7 +80,6 @@ import {
 	compareMediaActivityDescending,
 	creditCharacterSelection,
 	eventSchemaIsOneOf,
-	extraOverviewQueries,
 	mediaActivityEventSelection,
 	mediaActivityParentSlugs,
 	mediaCollectionActivityEvents,
@@ -702,7 +701,7 @@ export const mediaEpisodicRecipes = <
 	const EpisodeFields extends SelectedSelection,
 	CoverageRow extends { readonly id: string },
 	Episode,
-	const ExtraOverviewQueries extends MediaExtraQueries = Record<never, never>,
+	const ExtraOverviewQueries extends MediaExtraQueries,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -711,7 +710,7 @@ export const mediaEpisodicRecipes = <
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly episodeFields: (episode: Table) => EpisodeFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
-	readonly extraOverviewQueries?: (input: EpisodicOverviewInput) => ExtraOverviewQueries;
+	readonly extraOverviewQueries: (input: EpisodicOverviewInput) => ExtraOverviewQueries;
 	readonly activityEpisode: (
 		row: SelectedRow<EpisodeFields & EpisodicActivityEpisodeSelection>,
 	) => Episode;
@@ -766,7 +765,7 @@ export const mediaEpisodicRecipes = <
 	const overviewRecipe = defineRecipe((input: EpisodicOverviewInput) => ({
 		queries: {
 			...mediaOverviewQueries({ ...input, slug: config.slug }),
-			...extraOverviewQueries(config.extraOverviewQueries, input),
+			...config.extraOverviewQueries(input),
 		},
 	}));
 

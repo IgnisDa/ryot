@@ -11,5 +11,6 @@ export const creatorFixtureRecipes = mediaCreatorRecipes({
 export const creatorPlainFixtureRecipes = mediaCreatorRecipes({
 	slug: "plain",
 	alias: "plain",
+	creditFields: () => ({}),
 	summaryFields: () => ({}),
 });
