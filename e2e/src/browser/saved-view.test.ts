@@ -151,7 +151,6 @@ beforeAll(() =>
 			const ownerPluginId = provider.pluginId;
 			const settings = {
 				pageSize: 10,
-				sortChoices: [],
 				tableColumns: null,
 				sourceName: "entities",
 				searchFields: ["name"],

@@ -13,6 +13,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import type { BrowseSchema } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import {
 	entityBrowserCountRecipe,
@@ -45,6 +46,8 @@ import {
 import { assertPresent, requirePresent, resultToEffect } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+const subject = table("entity", "subject");
+
 const countSavedView = Effect.fn(function* (
 	client: Parameters<typeof executeRyotQLRecipe>[0],
 	view: {
@@ -54,7 +57,9 @@ const countSavedView = Effect.fn(function* (
 ) {
 	const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(view.settings);
 	const dataSources = requirePresent(view.dataSources, "Saved view has no data sources");
-	const recipe = yield* resultToEffect(entityBrowserCountRecipe(dataSources, settings));
+	const recipe = yield* resultToEffect(
+		entityBrowserCountRecipe(dataSources, settings, { browse: [] }),
+	);
 	return yield* executeRyotQLRecipe(client, recipe);
 });
 
@@ -225,6 +230,46 @@ describe("saved views execution", () => {
 					],
 				}),
 			});
+			const browse: readonly BrowseSchema[] = [
+				{
+					pluginId,
+					slug: schemaId,
+					browse: {
+						fields: [
+							{
+								key: "reps",
+								label: "Reps",
+								kind: "value" as const,
+								type: "number" as const,
+								expression: jsonPath(column(subject, "properties"), "reps"),
+							},
+							{
+								key: "level",
+								label: "Level",
+								type: "enum" as const,
+								kind: "value" as const,
+								expression: jsonPath(column(subject, "properties"), "level"),
+								choices: [
+									{ value: "beginner", label: "Beginner" },
+									{ value: "advanced", label: "Advanced" },
+								],
+							},
+							{
+								key: "muscles",
+								label: "Muscles",
+								kind: "value" as const,
+								type: "enum-list" as const,
+								expression: jsonPath(column(subject, "properties"), "muscles"),
+								choices: [
+									{ value: "chest", label: "Chest" },
+									{ value: "back", label: "Back" },
+									{ value: "legs", label: "Legs" },
+								],
+							},
+						],
+					},
+				},
+			];
 			const settings: EntityBrowserSavedViewSettings = {
 				...entityBrowserSettings(pluginId),
 				pageSize: 50,
@@ -232,38 +277,6 @@ describe("saved views execution", () => {
 					entityAlias: "entity",
 					schemas: [{ slug: schemaId, owner: { pluginId, kind: "plugin" as const } }],
 				},
-				filterFields: [
-					{
-						key: "reps",
-						label: "Reps",
-						field: "reps",
-						kind: "value" as const,
-						type: "number" as const,
-					},
-					{
-						key: "level",
-						label: "Level",
-						field: "level",
-						type: "enum" as const,
-						kind: "value" as const,
-						choices: [
-							{ value: "beginner", label: "Beginner" },
-							{ value: "advanced", label: "Advanced" },
-						],
-					},
-					{
-						key: "muscles",
-						label: "Muscles",
-						field: "muscles",
-						kind: "value" as const,
-						type: "enum-list" as const,
-						choices: [
-							{ value: "chest", label: "Chest" },
-							{ value: "back", label: "Back" },
-							{ value: "legs", label: "Legs" },
-						],
-					},
-				],
 			};
 			const created = yield* createSavedView(client, {
 				settings,
@@ -285,13 +298,14 @@ describe("saved views execution", () => {
 				const page = yield* resultToEffect(
 					entityBrowserRecipe({
 						now,
+						browse,
 						filter,
 						settings: persistedSettings,
 						queryDocument: persistedSources,
 					}),
 				);
 				const count = yield* resultToEffect(
-					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, filter }),
+					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
 				);
 				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
 					({ entityId }) => entityId,
@@ -402,6 +416,17 @@ describe("saved views execution", () => {
 				owner: { pluginId, kind: "plugin" as const },
 				entitySchemaSlug: EntitySchemaSlug.make(exerciseSchema.slug),
 			};
+			const browse: readonly BrowseSchema[] = [
+				{
+					pluginId,
+					slug: workoutSchema.schemaId,
+					browse: {
+						fields: [
+							{ event, key: "exercises", label: "Exercises", kind: "session-event" as const },
+						],
+					},
+				},
+			];
 			const entity = table("entity", "entity");
 			const base = buildSavedViewDataSources([workoutSchema.schemaId], { pluginId, kind: "local" });
 			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
@@ -420,9 +445,6 @@ describe("saved views execution", () => {
 				settings: {
 					...entityBrowserSettings(pluginId),
 					pageSize: 50,
-					filterFields: [
-						{ event, key: "exercises", label: "Exercises", kind: "session-event" as const },
-					],
 					subject: {
 						entityAlias: "entity",
 						schemas: [
@@ -445,13 +467,14 @@ describe("saved views execution", () => {
 				const page = yield* resultToEffect(
 					entityBrowserRecipe({
 						now,
+						browse,
 						filter,
 						settings: persistedSettings,
 						queryDocument: persistedSources,
 					}),
 				);
 				const count = yield* resultToEffect(
-					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, filter }),
+					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
 				);
 				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
 					({ entityId }) => entityId,

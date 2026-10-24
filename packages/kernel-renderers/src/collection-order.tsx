@@ -64,11 +64,7 @@ export const CollectionOrder = ({
 			({ input, client }) =>
 				client.data
 					.query(
-						collectionMembersRecipe({
-							collectionId,
-							membershipPropertiesSchema: null,
-							...(input === null ? {} : { after: input }),
-						}),
+						collectionMembersRecipe({ collectionId, ...(input === null ? {} : { after: input }) }),
 					)
 					.pipe(
 						Effect.filterOrFail(

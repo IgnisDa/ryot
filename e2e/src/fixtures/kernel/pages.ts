@@ -127,7 +127,6 @@ export const buildEntityBrowserSavedViewPayload = (
 		settings: {
 			pageSize: 2,
 			addAction: null,
-			sortChoices: [],
 			searchFields: [],
 			tableColumns: null,
 			defaultLayout: "grid",

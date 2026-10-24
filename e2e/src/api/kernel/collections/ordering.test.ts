@@ -43,7 +43,6 @@ describe("collection member ordering", () => {
 					collectionMembersRecipe({
 						limit: 2,
 						collectionId: collection.id,
-						membershipPropertiesSchema: null,
 						...(after === undefined ? {} : { after }),
 					}),
 				);
@@ -134,7 +133,7 @@ describe("collection member ordering", () => {
 			}
 			const page = yield* executeRyotQLRecipe(
 				client,
-				collectionMembersRecipe({ collectionId: collection.id, membershipPropertiesSchema: null }),
+				collectionMembersRecipe({ collectionId: collection.id }),
 			);
 			const submittedAt = (yield* DateTime.nowAsDate).toISOString();
 			const requests = members

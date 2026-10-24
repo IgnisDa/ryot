@@ -490,7 +490,6 @@ function buildSeedLayouts(
 		settings: {
 			pageSize: 20,
 			addAction: null,
-			sortChoices: [],
 			searchFields: [],
 			summary: { image: null, subtitle: null },
 			defaultLayout: "grid",

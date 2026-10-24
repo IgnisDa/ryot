@@ -16,9 +16,9 @@ import {
 	draftFromRule,
 	draftRule,
 	editableGroup,
-	type effectiveFilterFields,
 	encodeFilterParam,
 	type FilterDraft,
+	type FilterFieldSpec,
 	filterOperatorsFor,
 	groupFilter,
 	type LinkedFilterChoices,
@@ -35,8 +35,8 @@ import { createRyotQuery } from "./queries/definitions";
 import { useRyotQuery } from "./queries/hooks";
 import { useRyot } from "./queries/provider";
 
+export type ViewFilterField = FilterFieldSpec;
 export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
-export type ViewFilterField = ReturnType<typeof effectiveFilterFields>[number];
 type RuleGroup = NonNullable<ReturnType<typeof editableGroup>>;
 type ViewFilterRule = NonNullable<ReturnType<typeof draftRule>>;
 type FilterOperator = ReturnType<typeof filterOperatorsFor>[number];
@@ -112,16 +112,16 @@ const operatorLabels: Readonly<Record<FilterOperator, string>> = {
 	eq: "equals",
 	isTrue: "is yes",
 	isFalse: "is no",
-	empty: "is empty",
 	lte: "is at most",
 	after: "is after",
 	gte: "is at least",
 	anyOf: "is any of",
+	notEmpty: "is set",
+	empty: "is not set",
 	before: "is before",
 	contains: "contains",
 	noneOf: "is none of",
 	between: "is between",
-	notEmpty: "is not empty",
 	allOf: "includes all of",
 	betweenDates: "is between",
 	notContains: "does not contain",

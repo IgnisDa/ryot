@@ -45,13 +45,6 @@ const browserSettings = {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],
 	},
-	sortChoices: [
-		{
-			name: "name-desc",
-			label: "Name descending",
-			orderBy: [{ direction: "desc", field: "nameAlias" }],
-		},
-	],
 } as const;
 
 const itemSchema = entitySchemaPredicate(entity, "item", { kind: "kernel" });
@@ -68,7 +61,12 @@ const browserSource = document({
 
 const pageLimit = (pageSize?: number) => {
 	const prepared = Result.getOrThrow(
-		entityBrowserRecipe({ pageSize, settings: browserSettings, queryDocument: browserSource }),
+		entityBrowserRecipe({
+			pageSize,
+			browse: [],
+			settings: browserSettings,
+			queryDocument: browserSource,
+		}),
 	);
 	const output = prepared.document.queries.entityBrowser?.output;
 	return output?.type === "rows" ? output.pagination.limit : undefined;
@@ -175,6 +173,7 @@ describe("saved-view recipes", () => {
 	it("prepares the named entity selection with runtime pagination and canonical fields", () => {
 		const prepared = Result.getOrThrow(
 			entityBrowserRecipe({
+				browse: [],
 				after: "next-page",
 				settings: browserSettings,
 				queryDocument: browserSource,
@@ -208,6 +207,7 @@ describe("saved-view recipes", () => {
 		const before = structuredClone(browserSource);
 		const prepared = Result.getOrThrow(
 			entityBrowserRecipe({
+				browse: [],
 				searchText: "iran",
 				after: "runtime-cursor",
 				sortChoice: "name-desc",
@@ -232,6 +232,7 @@ describe("saved-view recipes", () => {
 		expect(
 			Result.isFailure(
 				entityBrowserRecipe({
+					browse: [],
 					sortChoice: "undeclared",
 					settings: browserSettings,
 					queryDocument: browserSource,
@@ -247,7 +248,7 @@ describe("saved-view recipes", () => {
 
 	it("decodes canonical entity references and rejects duplicate IDs within a page", () => {
 		const prepared = Result.getOrThrow(
-			entityBrowserRecipe({ settings: browserSettings, queryDocument: browserSource }),
+			entityBrowserRecipe({ browse: [], settings: browserSettings, queryDocument: browserSource }),
 		);
 		const row = {
 			__entityBrowserId: "item-1",
@@ -299,7 +300,7 @@ describe("saved-view recipes", () => {
 			],
 		} as const;
 		const prepared = Result.getOrThrow(
-			entityBrowserRecipe({ settings, queryDocument: browserSource }),
+			entityBrowserRecipe({ settings, browse: [], queryDocument: browserSource }),
 		);
 		const decoded = Result.getOrThrow(
 			prepared.decode({
@@ -331,7 +332,9 @@ describe("saved-view recipes", () => {
 	});
 
 	it("counts distinct selected IDs without selection pagination", () => {
-		const prepared = Result.getOrThrow(entityBrowserCountRecipe(browserSource, browserSettings));
+		const prepared = Result.getOrThrow(
+			entityBrowserCountRecipe(browserSource, browserSettings, { browse: [] }),
+		);
 
 		expect(prepared.document).toEqual({
 			queries: {
@@ -361,7 +364,7 @@ describe("saved-view recipes", () => {
 
 	it("keeps browser count search meaning aligned with selection", () => {
 		const prepared = Result.getOrThrow(
-			entityBrowserCountRecipe(browserSource, browserSettings, { searchText: "iran" }),
+			entityBrowserCountRecipe(browserSource, browserSettings, { browse: [], searchText: "iran" }),
 		);
 		const query = prepared.document.queries.entityBrowserCount;
 		expect(query?.where).toEqual(
@@ -390,10 +393,12 @@ describe("saved-view recipes", () => {
 				pluginId: PluginId.make("plugin-a"),
 			}),
 		);
-		const page = Result.getOrThrow(entityBrowserRecipe({ settings, queryDocument: browserSource }))
-			.document.queries.entityBrowser;
-		const count = Result.getOrThrow(entityBrowserCountRecipe(browserSource, settings)).document
-			.queries.entityBrowserCount;
+		const page = Result.getOrThrow(
+			entityBrowserRecipe({ settings, browse: [], queryDocument: browserSource }),
+		).document.queries.entityBrowser;
+		const count = Result.getOrThrow(
+			entityBrowserCountRecipe(browserSource, settings, { browse: [] }),
+		).document.queries.entityBrowserCount;
 
 		expect(page?.where).toEqual(expected);
 		expect(count?.where).toEqual(expected);
@@ -407,7 +412,7 @@ describe("saved-view recipes", () => {
 			}),
 		});
 		const query = Result.getOrThrow(
-			entityBrowserRecipe({ queryDocument: taken, settings: browserSettings }),
+			entityBrowserRecipe({ browse: [], queryDocument: taken, settings: browserSettings }),
 		).document.queries.entityBrowser;
 
 		expect(

@@ -1,3 +1,4 @@
+import { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import { ascending, column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";
 
 const entity = table("entity", "entity");
@@ -17,7 +18,6 @@ export const browserDataSources = document({
 
 export const browserSettings = {
 	pageSize: 2,
-	sortChoices: [],
 	defaultLayout: "grid",
 	searchFields: ["name"],
 	sourceName: "savedView",
@@ -37,27 +37,68 @@ export const browserSettings = {
 		schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 	},
-	filterFields: [
-		{
-			type: "enum",
-			key: "status",
-			kind: "value",
-			label: "Status",
-			field: "status",
-			choices: [
-				{ value: "read", label: "Read" },
-				{ value: "unread", label: "Unread" },
-			],
+};
+
+const subject = table("entity", "subject");
+
+export const browserBrowse = {
+	slug: "item",
+	pluginId: "fixture",
+	browse: {
+		fields: [
+			{
+				type: "enum",
+				key: "status",
+				kind: "value",
+				label: "Status",
+				expression: jsonPath(column(subject, "properties"), "status"),
+				choices: [
+					{ value: "read", label: "Read" },
+					{ value: "unread", label: "Unread" },
+				],
+			},
+			{
+				key: "year",
+				kind: "value",
+				label: "Year",
+				type: "number",
+				expression: jsonPath(column(subject, "properties"), "publishYear"),
+			},
+			{
+				key: "authors",
+				label: "Authors",
+				kind: "relationship",
+				direction: "outgoing",
+				relationship: { slug: "item-to-person", owner: { kind: "plugin", pluginId: "fixture" } },
+			},
+		],
+	},
+};
+
+export const browsePage = (items: readonly Record<string, unknown>[]) => ({
+	data: {
+		schemas: {
+			items,
+			type: "rows" as const,
+			pageInfo: { hasMore: false, nextCursor: null, limit: items.length },
 		},
-		{ key: "year", kind: "value", label: "Year", field: "year", type: "number" },
-		{
-			key: "authors",
-			label: "Authors",
-			kind: "relationship",
-			direction: "outgoing",
-			relationship: { slug: "item-to-person", owner: { kind: "plugin", pluginId: "fixture" } },
+	},
+});
+
+export const mountBrowsingPage = (
+	component: Parameters<typeof mountPluginPage>[0],
+	options: Parameters<typeof mountPluginPage>[1],
+	browse: readonly Record<string, unknown>[] = [browserBrowse],
+) => {
+	const page: ReturnType<typeof mountPluginPage> = mountPluginPage(component, {
+		...options,
+		onClientMessage: (message) => {
+			if (message.type === "ryotql-request" && "schemas" in message.document.queries) {
+				page.replyQuery(message.requestId, { outcome: "success", response: browsePage(browse) });
+			}
 		},
-	],
+	});
+	return page;
 };
 
 export const browserRow = (entityId: string, name: string) => ({

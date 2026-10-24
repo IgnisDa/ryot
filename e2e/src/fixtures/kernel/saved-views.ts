@@ -92,7 +92,6 @@ export const rowsDataSources = buildSavedViewDataSources(["book"], mediaPluginOw
 const entityBrowserSettingsBase = {
 	pageSize: 2,
 	addAction: null,
-	sortChoices: [],
 	defaultLayout: "grid",
 	searchFields: ["name"],
 	sourceName: "savedView",

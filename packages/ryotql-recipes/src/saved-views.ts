@@ -4,7 +4,6 @@ import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/sche
 import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type FieldSelection,
-	type OrderBy,
 	type Predicate,
 	rowsResultSchema,
 	RyotQLDocument,
@@ -29,7 +28,6 @@ import {
 	conditional,
 	contains,
 	defineRecipe,
-	descending,
 	entitySchemaPredicate,
 	field,
 	literal,
@@ -44,9 +42,19 @@ import {
 import { DateTime, Option, Result, Schema } from "effect";
 
 import {
+	type BrowseSchema,
+	browseTargets,
+	compileSort,
+	nameSortTarget,
+	sortChoices,
+} from "./browse";
+import {
+	collectionsFilterTarget,
 	compileOptionalFilter,
-	effectiveFilterFields,
 	type FilterInput,
+	outputFilterTargets,
+	queryAliases,
+	queryFilterFields,
 	type RowsQuery,
 } from "./filters";
 
@@ -150,6 +158,7 @@ type EntityBrowserRecipeInput = FilterInput & {
 	readonly queryDocument: RyotQLDocument;
 	readonly searchText?: string | undefined;
 	readonly sortChoice?: string | undefined;
+	readonly browse: readonly BrowseSchema[];
 	readonly settings: EntityBrowserSavedViewSettingsValue;
 };
 
@@ -226,33 +235,25 @@ const combineWhere = (fixed: Predicate | undefined, runtime: Predicate | undefin
 	return fixed ? and(fixed, runtime) : runtime;
 };
 
-const browserOrderBy = (
-	source: RowsQuery,
-	settings: EntityBrowserSavedViewSettingsValue,
-	sortChoice: string | undefined,
-	entityId: ScalarExpression,
-): Result.Result<readonly OrderBy[], Error> => {
-	const fields = selectedFields(source);
-	const choice =
-		sortChoice === undefined
-			? undefined
-			: settings.sortChoices.find((candidate) => candidate.name === sortChoice);
-	if (sortChoice !== undefined && !choice) {
-		return Result.fail(new Error(`Entity-browser sort choice '${sortChoice}' is not declared`));
-	}
-	const configured: OrderBy[] = [];
-	for (const ordering of choice ? choice.orderBy : []) {
-		const selection = fields.find((candidate) => candidate.key === ordering.field);
-		if (!selection) {
-			return Result.fail(
-				new Error(`Entity-browser sort field '${ordering.field}' is missing or unusable`),
-			);
-		}
-		configured.push(
-			ordering.direction === "asc" ? ascending(selection.expr) : descending(selection.expr),
-		);
-	}
-	return Result.succeed([...(choice ? configured : source.output.orderBy), ascending(entityId)]);
+const browserTargets = (
+	entityAlias: string,
+	usedAliases: ReadonlySet<string>,
+	browse: readonly BrowseSchema[],
+) => {
+	const entity = table("entity", entityAlias);
+	const targets = browseTargets(browse, entity, usedAliases);
+	return {
+		sorts: [nameSortTarget(entity), ...targets.sorts],
+		filters: [...targets.filters, collectionsFilterTarget],
+	};
+};
+
+export const entityBrowserControls = (browse: readonly BrowseSchema[]) => {
+	const targets = browserTargets("subject", new Set(), browse);
+	return {
+		sortChoices: sortChoices(targets.sorts),
+		filterFields: targets.filters.map(({ spec }) => spec),
+	};
 };
 
 export const subjectSchemaPredicate = (subject: SavedViewSubject, entity: TableReference) =>
@@ -272,19 +273,18 @@ export const entityBrowserRecipe = (
 		if (Result.isFailure(searchResult)) {
 			return Result.fail(searchResult.failure);
 		}
-		const orderByResult = browserOrderBy(
-			source,
-			input.settings,
-			input.sortChoice,
-			column(entity, "id"),
-		);
+		const targets = browserTargets(entity.alias, new Set(queryAliases(source)), input.browse);
+		const orderByResult =
+			input.sortChoice === undefined
+				? Result.succeed([...source.output.orderBy, ascending(column(entity, "id"))])
+				: compileSort(targets.sorts, input.sortChoice, column(entity, "id"));
 		if (Result.isFailure(orderByResult)) {
 			return Result.fail(orderByResult.failure);
 		}
 		const filterResult = compileOptionalFilter(input, {
 			source,
+			targets: targets.filters,
 			subject: input.settings.subject,
-			fields: effectiveFilterFields("entity-browser", input.settings),
 		});
 		if (Result.isFailure(filterResult)) {
 			return Result.fail(filterResult.failure);
@@ -383,11 +383,11 @@ export const entityBrowserRecipe = (
 
 export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
-	settings: Pick<
-		EntityBrowserSavedViewSettingsValue,
-		"subject" | "sourceName" | "searchFields" | "filterFields"
-	>,
-	input: FilterInput & { readonly searchText?: string | undefined } = {},
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "subject" | "sourceName" | "searchFields">,
+	input: FilterInput & {
+		readonly searchText?: string | undefined;
+		readonly browse: readonly BrowseSchema[];
+	},
 ): Result.Result<PreparedRecipe<number>, Error> =>
 	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
 		const entity = table("entity", settings.subject.entityAlias);
@@ -398,7 +398,7 @@ export const entityBrowserCountRecipe = (
 		const filterResult = compileOptionalFilter(input, {
 			source: query,
 			subject: settings.subject,
-			fields: effectiveFilterFields("entity-browser", settings),
+			targets: browserTargets(entity.alias, new Set(queryAliases(query)), input.browse).filters,
 		});
 		if (Result.isFailure(filterResult)) {
 			return Result.fail(filterResult.failure);
@@ -632,15 +632,17 @@ const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewS
 		return { cells, entityId, key: JSON.stringify(keyParts) };
 	});
 
+export const resultsTableFilterFields = (settings: ResultsTableSavedViewSettingsValue) =>
+	queryFilterFields(settings.filterFields ?? []);
+
 export const resultsTableRecipe = (
 	input: ResultsTableRecipeInput,
 ): Result.Result<PreparedRecipe<ResultsTableResult>, Error> =>
 	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
-		const filterResult = compileOptionalFilter(input, {
-			source,
-			subject: undefined,
-			fields: effectiveFilterFields("results-table", input.settings),
-		});
+		const filterResult = Result.flatMap(
+			outputFilterTargets(source, resultsTableFilterFields(input.settings)),
+			(targets) => compileOptionalFilter(input, { source, targets, subject: undefined }),
+		);
 		if (Result.isFailure(filterResult)) {
 			return Result.fail(filterResult.failure);
 		}

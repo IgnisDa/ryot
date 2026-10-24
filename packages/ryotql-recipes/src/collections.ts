@@ -4,7 +4,6 @@ import {
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
-import type { QueryFilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	SavedViewDisplayValue,
@@ -27,7 +26,6 @@ import {
 	concat,
 	contains,
 	defineRecipe,
-	descending,
 	entitySchemaPredicate,
 	eq,
 	exists,
@@ -39,7 +37,6 @@ import {
 	jsonPath,
 	literal,
 	relationshipSchemaPredicate,
-	rows,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
@@ -50,22 +47,23 @@ import {
 import { Result, Schema } from "effect";
 
 import {
+	type BrowseSchema,
+	browseTargets,
+	compileSort,
+	nameSortTarget,
+	sortChoices,
+	type SortTarget,
+} from "./browse";
+import {
 	compileOptionalFilter,
 	type FilterInput,
+	type FilterTarget,
+	queryAliases,
 	type QueryRelationshipFilterField,
 } from "./filters";
 import { propertyFilterFields } from "./property-filter-fields";
 
 const MembershipProperties = Schema.Record(Schema.String, JsonValue);
-
-export const CollectionMemberSort = Schema.Literals([
-	"collection-order",
-	"name-asc",
-	"name-desc",
-	"recently-added",
-	"oldest-added",
-]);
-export type CollectionMemberSort = typeof CollectionMemberSort.Type;
 
 const collectionMembershipTables = () => {
 	const membership = table("relationship", "collectionMembership");
@@ -104,7 +102,6 @@ const collectionMembershipWhere = (
 	);
 };
 
-const memberTypeField = "memberType";
 const membershipFieldPrefix = "membership.";
 
 const collectionMemberTypeValue = (group: {
@@ -120,29 +117,57 @@ const alsoInCollectionField: QueryRelationshipFilterField = {
 	relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("member-of") },
 };
 
-export const collectionMemberFilterFields = (input: {
+export type CollectionMemberFields = {
+	readonly schemas: readonly BrowseSchema[];
 	readonly groups: CollectionMembersAggregateResult;
 	readonly membershipPropertiesSchema: null | AppSchemaValue;
-}): readonly QueryFilterField[] => {
-	const [firstType, ...otherTypes] = input.groups.items.map((group) => ({
+};
+
+const collectionMemberTargets = (
+	tables: ReturnType<typeof collectionMembershipTables>,
+	input: undefined | CollectionMemberFields,
+) => {
+	const { entity, membership, entityJoin, ownerPluginJoin } = tables;
+	const browse = browseTargets(
+		input?.schemas ?? [],
+		entity,
+		new Set(queryAliases({ from: membership, joins: [entityJoin, ownerPluginJoin] })),
+	);
+	const [firstType, ...otherTypes] = (input?.groups.items ?? []).map((group) => ({
 		label: group.typeLabel,
 		value: collectionMemberTypeValue(group),
 	}));
-	const schema = input.membershipPropertiesSchema;
-	return [
+	const schema = input?.membershipPropertiesSchema ?? null;
+	const addedAt = column(membership, "createdAt");
+	const filters: readonly FilterTarget[] = [
 		...(firstType === undefined
 			? []
 			: [
 					{
-						key: "type",
-						type: "enum",
-						label: "Type",
-						kind: "value",
-						field: memberTypeField,
-						choices: [firstType, ...otherTypes],
+						spec: {
+							type: "enum",
+							label: "Type",
+							kind: "value",
+							key: "member-type",
+							choices: [firstType, ...otherTypes],
+						},
+						branches: [
+							{
+								value: concat(
+									coalesce(castText(column(entity, "entitySchemaPluginId")), literal("")),
+									literal("/"),
+									column(entity, "entitySchemaSlug"),
+								),
+							},
+						],
 					} as const,
 				]),
-		alsoInCollectionField,
+		{
+			branches: [{ value: addedAt }],
+			spec: { type: "date", kind: "value", key: "date-added", label: "Date added" },
+		},
+		{ branches: [{}], spec: alsoInCollectionField },
+		...browse.filters,
 		...(schema === null
 			? []
 			: getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([property, definition]) => {
@@ -150,45 +175,55 @@ export const collectionMemberFilterFields = (input: {
 					const result = propertyFilterFields(schema, [{ property, field: key }]);
 					return definition.secret === true || Result.isFailure(result)
 						? []
-						: result.success.map((valueField) => Object.assign({}, valueField, { key }));
+						: result.success.map((valueField) => ({
+								spec: { ...valueField, key },
+								branches: [
+									{ value: jsonPath(column(membership, "properties"), property) },
+								] as const,
+							}));
 				})),
 	];
+	const sorts: readonly SortTarget[] = [
+		nameSortTarget(entity),
+		{
+			key: "date-added",
+			branches: [{ value: addedAt }],
+			labels: { ascending: "Oldest added", descending: "Recently added" },
+		},
+		...browse.sorts,
+	];
+	return { sorts, filters };
 };
 
-const collectionMemberFilter = (
+export const collectionMemberControls = (input: CollectionMemberFields) => {
+	const targets = collectionMemberTargets(collectionMembershipTables(), input);
+	return {
+		sortChoices: sortChoices(targets.sorts),
+		filterFields: targets.filters.map(({ spec }) => spec),
+	};
+};
+
+const collectionMemberQuery = (
 	tables: ReturnType<typeof collectionMembershipTables>,
-	fields: readonly QueryFilterField[],
-	input: FilterInput,
+	input: FilterInput & {
+		readonly sort?: string | undefined;
+		readonly fields?: undefined | CollectionMemberFields;
+	},
 ) => {
 	const { entity, membership, entityJoin, ownerPluginJoin } = tables;
-	const projections = fields.flatMap((filterField) =>
-		filterField.kind !== "value"
-			? []
-			: [
-					{
-						key: filterField.field,
-						expr:
-							filterField.field === memberTypeField
-								? concat(
-										coalesce(castText(column(entity, "entitySchemaPluginId")), literal("")),
-										literal("/"),
-										column(entity, "entitySchemaSlug"),
-									)
-								: jsonPath(
-										column(membership, "properties"),
-										filterField.field.slice(membershipFieldPrefix.length),
-									),
-					},
-				],
-	);
+	const targets = collectionMemberTargets(tables, input.fields);
 	const predicate = Result.getOrThrow(
 		compileOptionalFilter(input, {
-			fields,
+			targets: targets.filters,
 			subject: { entityAlias: entity.alias },
-			source: rows(membership, { fields: projections, joins: [entityJoin, ownerPluginJoin] }),
+			source: { from: membership, joins: [entityJoin, ownerPluginJoin] },
 		}),
 	);
-	return { predicate, projections };
+	const orderBy =
+		input.sort === undefined
+			? [ascending(column(membership, "collectionRank")), ascending(column(entity, "id"))]
+			: Result.getOrThrow(compileSort(targets.sorts, input.sort, column(entity, "id")));
+	return { orderBy, predicate };
 };
 
 const collectionTypeLabel = (input: {
@@ -301,28 +336,6 @@ const collectionMemberCells = (
 			};
 		},
 	);
-};
-
-const collectionMemberOrder = (
-	sort: CollectionMemberSort,
-	membership: ReturnType<typeof table>,
-	entity: ReturnType<typeof table>,
-) => {
-	const name = column(entity, "name");
-	const entityId = column(entity, "id");
-	if (sort === "collection-order") {
-		return [ascending(column(membership, "collectionRank")), ascending(entityId)];
-	}
-	if (sort === "name-desc") {
-		return [descending(name), ascending(entityId)];
-	}
-	if (sort === "recently-added") {
-		return [descending(column(membership, "createdAt")), ascending(entityId)];
-	}
-	if (sort === "oldest-added") {
-		return [ascending(column(membership, "createdAt")), ascending(entityId)];
-	}
-	return [ascending(name), ascending(entityId)];
 };
 
 export const allCollectionsRecipe = defineRecipe(
@@ -496,28 +509,23 @@ export const collectionMembersRecipe = defineRecipe(
 	(
 		input: FilterInput & {
 			readonly collectionId: string;
+			readonly sort?: string | undefined;
 			readonly after?: string | undefined;
 			readonly limit?: number | undefined;
 			readonly searchText?: string | undefined;
-			readonly sort?: undefined | CollectionMemberSort;
-			readonly membershipPropertiesSchema: null | AppSchemaValue;
-			readonly filterFields?: undefined | readonly QueryFilterField[];
+			readonly fields?: undefined | CollectionMemberFields;
 		},
 	) => {
 		const cursor = input.after === undefined ? undefined : decodeCollectionCursor(input.after);
 		const collection = table("entity", "collectionOrder");
 		const tables = collectionMembershipTables();
 		const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } = tables;
-		const { predicate, projections } = collectionMemberFilter(
-			tables,
-			input.filterFields ?? [],
-			input,
-		);
+		const { orderBy, predicate } = collectionMemberQuery(tables, input);
 		const members = selectedRows(membership, {
+			orderBy,
 			limit: input.limit,
 			after: cursor?.cursor,
 			joins: [entityJoin, ownerPluginJoin],
-			orderBy: collectionMemberOrder(input.sort ?? "collection-order", membership, entity),
 			where: collectionMembershipWhere(
 				membership,
 				entity,
@@ -541,16 +549,7 @@ export const collectionMembersRecipe = defineRecipe(
 		});
 		return {
 			queries: {
-				members: {
-					...members,
-					document: {
-						...members.document,
-						output: {
-							...members.document.output,
-							fields: [...members.document.output.fields, ...projections],
-						},
-					},
-				},
+				members,
 				order: selectedOptionalRow(collection, {
 					orderBy: [ascending(column(collection, "id"))],
 					selection: {
@@ -586,7 +585,7 @@ export const collectionMembersRecipe = defineRecipe(
 						entityId: member.entityId,
 						ownerPluginId: member.ownerPluginId,
 						entitySchemaSlug: member.entitySchemaSlug,
-						cells: collectionMemberCells(member, input.membershipPropertiesSchema),
+						cells: collectionMemberCells(member, input.fields?.membershipPropertiesSchema ?? null),
 						sync: {
 							populationStatus: member.populationStatus,
 							translationStatus: member.translationStatus,
@@ -604,12 +603,12 @@ export const collectionMembersCountRecipe = defineRecipe(
 		input: FilterInput & {
 			readonly collectionId: string;
 			readonly searchText?: string | undefined;
-			readonly filterFields?: undefined | readonly QueryFilterField[];
+			readonly fields?: undefined | CollectionMemberFields;
 		},
 	) => {
 		const tables = collectionMembershipTables();
 		const { entity, membership, entityJoin } = tables;
-		const { predicate } = collectionMemberFilter(tables, input.filterFields ?? [], input);
+		const { predicate } = collectionMemberQuery(tables, input);
 		return {
 			map: ({ count }) => Result.succeed(count.total),
 			queries: {

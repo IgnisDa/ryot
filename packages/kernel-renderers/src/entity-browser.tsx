@@ -8,14 +8,20 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { effectiveFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
+	type BrowseSchema,
+	entitySchemaBrowseRecipe,
+	type EntitySchemaBrowseResult,
+} from "@ryot-app/ryotql-recipes/browse";
+import {
+	entityBrowserControls,
 	entityBrowserCountRecipe,
 	EntityBrowserPageInput,
 	entityBrowserRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useEffect, useEffectEvent, useState } from "react";
 
+import { BrowserInlineError } from "./browser-states";
 import {
 	type AddAction,
 	type BrowserQueryInput,
@@ -24,13 +30,28 @@ import {
 	EntityBrowserController,
 } from "./entity-browser-controller";
 
+const browseQuery = createRyotQuery<
+	typeof EntityBrowserPageInput.Type.settings.subject.schemas,
+	EntitySchemaBrowseResult
+>(({ input, client }) => {
+	const [first, ...rest] = input.map(({ slug, owner }) => ({
+		slug,
+		pluginId: owner.kind === "plugin" ? owner.pluginId : null,
+	}));
+	return first === undefined
+		? Effect.succeed([])
+		: client.data.query(entitySchemaBrowseRecipe({ schemas: [first, ...rest] }));
+});
+
 const BrowserCount = ({
 	input,
+	browse,
 	filter,
 	onTotal,
 	searchText,
 }: {
 	readonly searchText: string;
+	readonly browse: readonly BrowseSchema[];
 	readonly filter: BrowserQueryInput["filter"];
 	readonly input: typeof EntityBrowserPageInput.Type;
 	readonly onTotal: (total: number | undefined) => void;
@@ -43,6 +64,7 @@ const BrowserCount = ({
 					return yield* client.data.query(
 						Result.getOrThrow(
 							entityBrowserCountRecipe(input.dataSources, input.settings, {
+								browse,
 								...(search === "" ? {} : { searchText: search }),
 								...(applied === null ? {} : { now, filter: applied }),
 							}),
@@ -79,8 +101,13 @@ type EntityBrowserPageProps = {
 const Browser = ({
 	add,
 	input,
+	browse,
 	renderResults,
-}: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
+}: EntityBrowserPageProps & {
+	readonly browse: readonly BrowseSchema[];
+	readonly input: typeof EntityBrowserPageInput.Type;
+}) => {
+	const controls = entityBrowserControls(browse);
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
@@ -91,6 +118,7 @@ const Browser = ({
 					const result = yield* client.data.query(
 						Result.getOrThrow(
 							entityBrowserRecipe({
+								browse,
 								settings: input.settings,
 								queryDocument: input.dataSources,
 								...(searchText === "" ? {} : { searchText }),
@@ -113,15 +141,15 @@ const Browser = ({
 			name={() => viewName}
 			renderResults={renderResults}
 			layouts={input.settings.layouts}
+			sortChoices={controls.sortChoices}
 			errorTitle="Saved view unavailable"
 			icon={input.view?.icon ?? "library"}
+			filterFields={controls.filterFields}
 			tableColumns={input.settings.tableColumns}
 			canSearch={input.settings.searchFields.length > 0}
 			viewContext={{ savedView: input.target.reference }}
 			identityKey={JSON.stringify(input.target.reference)}
 			errorMessage="The saved view results could not be loaded."
-			filterFields={effectiveFilterFields("entity-browser", input.settings)}
-			sortChoices={input.settings.sortChoices.map(({ name, label }) => ({ label, value: name }))}
 			defaultLayout={
 				input.settings.layouts.includes(input.settings.defaultLayout)
 					? input.settings.defaultLayout
@@ -131,6 +159,7 @@ const Browser = ({
 			count={({ filter, onTotal, searchText }) => (
 				<BrowserCount
 					input={input}
+					browse={browse}
 					onTotal={onTotal}
 					filter={filter ?? null}
 					searchText={searchText}
@@ -172,6 +201,36 @@ const Browser = ({
 	);
 };
 
+const BrowseDefinitions = ({
+	add,
+	input,
+	renderResults,
+}: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
+	const browse = useRyotQuery(browseQuery, input.settings.subject.schemas);
+	if (browse.data === undefined) {
+		return (
+			<PluginScreenFrame title={input.view?.name ?? "Entity browser"}>
+				{browse.isError ? (
+					<BrowserInlineError
+						onRetry={browse.refetch}
+						title="Saved view unavailable"
+						message="The saved view filters could not be loaded."
+					/>
+				) : null}
+			</PluginScreenFrame>
+		);
+	}
+	return (
+		<Browser
+			add={add}
+			input={input}
+			browse={browse.data}
+			renderResults={renderResults}
+			key={JSON.stringify(browse.data)}
+		/>
+	);
+};
+
 export default function EntityBrowserPage({ add, renderResults }: EntityBrowserPageProps = {}) {
 	const page = Schema.decodeUnknownResult(EntityBrowserPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
@@ -179,6 +238,6 @@ export default function EntityBrowserPage({ add, renderResults }: EntityBrowserP
 			<StatusMessage tone="error">This entity browser configuration is invalid.</StatusMessage>
 		</PluginScreenFrame>
 	) : (
-		<Browser add={add} input={page.success} renderResults={renderResults} />
+		<BrowseDefinitions add={add} input={page.success} renderResults={renderResults} />
 	);
 }

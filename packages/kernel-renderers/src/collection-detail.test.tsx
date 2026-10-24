@@ -2,26 +2,31 @@ import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	disposePluginBridges,
 	entityLocation,
 	kernelEntityPageContext,
-	mountPluginPage,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
 import CollectionDetailPage from "./collection-detail";
+import { mountBrowsingPage } from "./fixtures/saved-view";
 
 const openCollection = (collectionId = "col-1", search = "") =>
-	mountPluginPage(CollectionDetailPage, {
-		location: entityLocation(collectionId, "collection", search),
-		page: kernelEntityPageContext({
-			entityId: collectionId,
-			entitySchemaSlug: "collection",
-			rendererName: "Collection detail",
-		}),
-	});
+	mountBrowsingPage(
+		CollectionDetailPage,
+		{
+			location: entityLocation(collectionId, "collection", search),
+			page: kernelEntityPageContext({
+				entityId: collectionId,
+				entitySchemaSlug: "collection",
+				rendererName: "Collection detail",
+			}),
+		},
+		[],
+	);
 
 const request = (page: ReturnType<typeof mountPluginPage>, name: string, index = 0) =>
 	Effect.gen(function* () {
@@ -635,7 +640,7 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection(
 				"col-1",
-				filtersParam({ field: "type", operator: "anyOf", values: ["fixture/item"] }),
+				filtersParam({ operator: "anyOf", field: "member-type", values: ["fixture/item"] }),
 			);
 			yield* answerCollection(page, {
 				total: 5,
@@ -688,7 +693,7 @@ describe("collection detail", () => {
 			const first = yield* request(page, "members");
 			const document = yield* encodeJson(first.document);
 			expect(document).toContain('"road"');
-			expect(document).toContain("membership.notes");
+			expect(document).toContain(`"path":["notes"]`);
 			replyMembers(page, first.requestId, { members: [itemMember] });
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -813,7 +818,7 @@ describe("collection detail", () => {
 				}),
 			);
 			const document = yield* encodeJson(filtered.document);
-			expect(document).toContain("membership.score");
+			expect(document).toContain(`"path":["score"]`);
 			expect(document).toContain('"gte"');
 			answerPending();
 			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));

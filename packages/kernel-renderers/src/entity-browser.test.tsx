@@ -4,10 +4,10 @@ import {
 	defineEntityPresentation,
 	type EntityPresentationRegistration,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
-	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
@@ -22,6 +22,7 @@ import {
 	browserPage,
 	browserRow,
 	browserSettings,
+	mountBrowsingPage,
 } from "./fixtures/saved-view";
 
 let views = 0;
@@ -37,7 +38,7 @@ const openBrowser = (
 	} = {},
 ) => {
 	views += 1;
-	const page = mountPluginPage(EntityBrowserPage, {
+	const page = mountBrowsingPage(EntityBrowserPage, {
 		bootstrap: options.clock?.bootstrap,
 		entityPresentations: options.entityPresentations,
 		location: routeLocation("/v/all-items", options.search ?? ""),
@@ -54,7 +55,7 @@ const openBrowser = (
 
 const openCollectionBrowser = () => {
 	views += 1;
-	return mountPluginPage(CollectionBrowserPage, {
+	return mountBrowsingPage(CollectionBrowserPage, {
 		location: routeLocation("/v/collections"),
 		page: savedViewPageContext({
 			settings: browserSettings,
@@ -160,7 +161,7 @@ describe("entity browser", () => {
 				waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
 			);
 			expect(dialog.textContent).toContain("Add filter");
-			expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
+			expect(screen.getByRole("button", { name: /^Sort results/ })).toBeTruthy();
 			expect(dialog.textContent).not.toContain("View as");
 		}),
 	);
@@ -215,7 +216,7 @@ describe("entity browser", () => {
 					expect(page.container?.textContent).toContain("Presented SecondPresented First"),
 				),
 			);
-			expect(page.queryRequests()).toHaveLength(1);
+			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
 		}),
 	);
 
@@ -339,7 +340,7 @@ describe("entity browser", () => {
 					).toContain("0 items");
 				}),
 			);
-			expect(page.queryRequests()).toHaveLength(1);
+			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
 		}),
 	);
 

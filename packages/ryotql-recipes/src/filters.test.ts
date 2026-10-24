@@ -45,18 +45,20 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
 	activeRuleCount,
+	collectionsFilterField,
 	compileFilter,
 	decodeFilterParam,
 	draftFromRule,
 	draftRule,
 	editableGroup,
-	effectiveFilterFields,
 	encodeFilterParam,
 	filterOperatorsFor,
 	groupFilter,
 	linkedFilterChoicesInput,
 	linkedFilterChoicesRecipe,
 	newFilterDraft,
+	outputFilterTargets,
+	queryFilterFields,
 } from "./filters";
 import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
 import { requireRowsQuery } from "./test-utils";
@@ -114,7 +116,7 @@ const fields: readonly QueryFilterField[] = [
 	valueField("done", "boolean"),
 	valueField("added", "date"),
 	sessionEventField,
-	...effectiveFilterFields("entity-browser", {}),
+	collectionsFilterField,
 ];
 
 let now: DateTime.Utc;
@@ -131,20 +133,17 @@ beforeAll(() =>
 	),
 );
 
-const compile = (filter: Filter, override: Partial<Parameters<typeof compileFilter>[0]> = {}) =>
-	compileFilter({ now, source, fields, filter, subject, ...override });
+const compile = (
+	filter: Filter,
+	override: { readonly fields?: readonly QueryFilterField[] } & Partial<
+		Omit<Parameters<typeof compileFilter>[0], "targets">
+	> = {},
+) =>
+	Result.flatMap(outputFilterTargets(source, override.fields ?? fields), (targets) =>
+		compileFilter({ now, source, filter, subject, targets, ...override }),
+	);
 
 const compiled = (filter: Filter) => Result.getOrThrow(compile(filter));
-
-const effectiveCollections = () => {
-	const collections = effectiveFilterFields("entity-browser", {}).find(
-		({ key }) => key === "collections",
-	);
-	if (collections?.kind !== "relationship") {
-		throw new Error("Expected the kernel collections field");
-	}
-	return collections;
-};
 
 const element = castText(jsonElement());
 const text = (key: string) => castText(jsonPath(properties, key));
@@ -317,7 +316,7 @@ describe("filter compiler", () => {
 			label: "Parents",
 			kind: "relationship",
 			direction: "incoming",
-			relationship: effectiveCollections().relationship,
+			relationship: collectionsFilterField.relationship,
 		};
 		const result = Result.getOrThrow(
 			compile({ field: "parents", operator: "notEmpty" }, { fields: [incoming] }),
@@ -383,32 +382,21 @@ describe("filter compiler", () => {
 	});
 });
 
-describe("effective filter fields", () => {
-	it("adds the kernel Collections field to entity and collection browsers only", () => {
-		const authored = [valueField("level", "enum")];
-		expect(effectiveFilterFields("entity-browser", { filterFields: authored })).toEqual([
-			...authored,
-			effectiveCollections(),
-		]);
-		expect(effectiveFilterFields("collection-browser", {}).map(({ key }) => key)).toEqual([
-			"collections",
-		]);
-		expect(effectiveFilterFields("results-table", { filterFields: authored })).toEqual(authored);
+describe("filter targets", () => {
+	it("maps authored references to query owners", () => {
 		expect(
-			effectiveFilterFields("results-table", {
-				filterFields: [
-					{
-						key: "related",
-						label: "Related",
-						kind: "relationship",
-						direction: "outgoing",
-						relationship: {
-							slug: RelationshipSchemaSlug.make("related-to"),
-							owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") },
-						},
+			queryFilterFields([
+				{
+					key: "related",
+					label: "Related",
+					kind: "relationship",
+					direction: "outgoing",
+					relationship: {
+						slug: RelationshipSchemaSlug.make("related-to"),
+						owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") },
 					},
-				],
-			}),
+				},
+			]),
 		).toEqual([
 			{
 				key: "related",
@@ -418,10 +406,58 @@ describe("effective filter fields", () => {
 				relationship: { slug: "related-to", owner: { kind: "local", pluginId: "plugin-1" } },
 			},
 		]);
-		expect(effectiveCollections().relationship).toEqual({
-			slug: "member-of",
-			owner: { kind: "kernel" },
-		});
+	});
+
+	it("reads value fields from source output and rejects missing outputs", () => {
+		expect(Result.getOrThrow(outputFilterTargets(source, [valueField("reps", "number")]))).toEqual([
+			{ spec: valueField("reps", "number"), branches: [{ value: jsonPath(properties, "reps") }] },
+		]);
+		expect(
+			Result.isFailure(
+				outputFilterTargets(source, [{ ...valueField("reps", "number"), field: "missing" }]),
+			),
+		).toBe(true);
+	});
+
+	it("applies merged branches only to rows matching their condition", () => {
+		const movie = eq(column(entity, "entitySchemaSlug"), literal("movie"));
+		const show = eq(column(entity, "entitySchemaSlug"), literal("show"));
+		const spec = { key: "rating", kind: "value", type: "number", label: "Rating" } as const;
+		expect(
+			Result.getOrThrow(
+				compileFilter({
+					now,
+					source,
+					subject,
+					filter: { field: "rating", operator: "empty" },
+					targets: [
+						{
+							spec,
+							branches: [
+								{ when: movie, value: jsonPath(properties, "a") },
+								{ when: show, value: jsonPath(properties, "b") },
+							],
+						},
+					],
+				}),
+			),
+		).toEqual(
+			or(
+				and(movie, isNull(jsonPath(properties, "a"))),
+				and(show, isNull(jsonPath(properties, "b"))),
+			),
+		);
+		expect(
+			Result.isFailure(
+				compileFilter({
+					now,
+					source,
+					subject,
+					targets: [{ spec, branches: [{}] }],
+					filter: { field: "rating", operator: "empty" },
+				}),
+			),
+		).toBe(true);
 	});
 });
 
@@ -430,15 +466,31 @@ describe("filtered recipes", () => {
 		subject,
 		pageSize: 5,
 		addAction: null,
-		sortChoices: [],
 		layouts: ["grid"],
 		tableColumns: null,
 		defaultLayout: "grid",
 		searchFields: ["name"],
 		sourceName: "selection",
 		summary: { image: null, subtitle: null },
-		filterFields: [valueField("level", "enum")],
 	} as const;
+	const browse = [
+		{
+			slug: "item",
+			pluginId: null,
+			browse: {
+				fields: [
+					{
+						key: "level",
+						type: "enum",
+						kind: "value",
+						label: "Level",
+						choices: [{ value: "a", label: "A" }],
+						expression: jsonPath(column(table("entity", "subject"), "properties"), "level"),
+					},
+				],
+			},
+		},
+	] as const;
 	const queryDocument = document({
 		selection: rows(entity, {
 			limit: 40,
@@ -458,16 +510,17 @@ describe("filtered recipes", () => {
 	};
 
 	it("applies the same predicate to pages and counts", () => {
-		const input = { now, filter, settings, queryDocument, searchText: "x" };
+		const input = { now, filter, browse, settings, queryDocument, searchText: "x" };
 		const page = Result.getOrThrow(entityBrowserRecipe(input)).document.queries.entityBrowser;
 		const count = Result.getOrThrow(
-			entityBrowserCountRecipe(queryDocument, settings, { now, filter, searchText: "x" }),
+			entityBrowserCountRecipe(queryDocument, settings, { now, filter, browse, searchText: "x" }),
 		).document.queries.entityBrowserCount;
 		if (page?.output.type !== "rows" || count?.output.type !== "aggregate") {
 			throw new Error("Expected rows and aggregate queries");
 		}
 		expect(count.where).toEqual(page.where);
 		expect(JSON.stringify(page.where)).toContain('"type":"exists"');
+		expect(JSON.stringify(page.where)).toContain('"path":["level"]');
 	});
 
 	it("rejects unknown filter fields for the browser and results-table recipes", () => {
@@ -475,6 +528,7 @@ describe("filtered recipes", () => {
 			Result.isFailure(
 				entityBrowserRecipe({
 					now,
+					browse,
 					settings,
 					queryDocument,
 					filter: { field: "missing", operator: "empty" },
@@ -486,7 +540,7 @@ describe("filtered recipes", () => {
 			entityLink: null,
 			rowKeyFields: ["name"],
 			sourceName: "selection",
-			filterFields: settings.filterFields,
+			filterFields: [valueField("level", "enum")],
 			columns: [{ label: "Name", field: "name", displayKind: "text" }],
 		} as const;
 		const filtered = Result.getOrThrow(
@@ -657,7 +711,7 @@ const choices = (
 };
 
 describe("linked filter choices recipe", () => {
-	const relationship = effectiveCollections().relationship;
+	const relationship = collectionsFilterField.relationship;
 	const collections = (direction: "outgoing" | "incoming" = "outgoing") =>
 		({
 			direction,

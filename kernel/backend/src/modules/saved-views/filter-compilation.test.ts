@@ -59,11 +59,36 @@ const selection = (extraJoins: readonly ReturnType<typeof join>[] = []) =>
 		}),
 	});
 
+const subject = table("entity", "subject");
+
+const browseExpression = (key: string) => {
+	if (key === "name") {
+		return column(subject, "name");
+	}
+	return key === "added"
+		? column(subject, "createdAt")
+		: jsonPath(column(subject, "properties"), key);
+};
+
+const browse = [
+	{
+		slug: "item",
+		pluginId: null,
+		browse: {
+			fields: filterFields.map((filterField) => {
+				if (filterField.kind !== "value") {
+					return filterField;
+				}
+				const { field: key, ...rest } = filterField;
+				return { ...rest, expression: browseExpression(key) };
+			}),
+		},
+	},
+];
+
 const settings = {
-	filterFields,
 	pageSize: 10,
 	addAction: null,
-	sortChoices: [],
 	searchFields: [],
 	layouts: ["grid"],
 	tableColumns: null,
@@ -78,7 +103,8 @@ const settings = {
 
 const issue = (filter: Filter, queryDocument = selection()) =>
 	validateRyotQLDocument(
-		Result.getOrThrow(entityBrowserRecipe({ now, filter, settings, queryDocument })).document,
+		Result.getOrThrow(entityBrowserRecipe({ now, filter, browse, settings, queryDocument }))
+			.document,
 		savedViewDataSourceAccess,
 	).error;
 

@@ -9,7 +9,6 @@ import {
 	linkFilterOperators,
 	mapFilterFieldReference,
 	type QueryFilterField,
-	type ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	type DefinitionOwner,
@@ -20,13 +19,13 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import type {
+	CorrelatedQuerySet,
 	FieldSelection,
 	NamedQuery,
 	Predicate,
 	RowsOutput,
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
-import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
@@ -65,12 +64,36 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Result, Schema } from "effect";
 import { Base64Url } from "effect/encoding";
 
+const failure = (message: string) => Result.fail(new Error(message));
+
+export type FilterFieldSpec = WithoutOutputField<QueryFilterField>;
+
 export type RowsQuery = NamedQuery & { readonly output: RowsOutput };
 
 export type QueryRelationshipFilterField = Extract<
 	QueryFilterField,
 	{ readonly kind: "relationship" }
 >;
+
+/** A filter field and how it compiles; rows matching no branch never match its rules. */
+export type FilterTarget = {
+	readonly spec: FilterFieldSpec;
+	readonly branches: readonly [FilterBranch, ...FilterBranch[]];
+};
+
+export type FilterBranch = {
+	readonly when?: Predicate | undefined;
+	readonly value?: undefined | ScalarExpression;
+	readonly link?: undefined | LinkFilterFieldSpec;
+};
+
+type LinkFilterFieldSpec = Exclude<FilterFieldSpec, { readonly kind: "value" }>;
+
+type ValueFilterFieldSpec = Extract<FilterFieldSpec, { readonly kind: "value" }>;
+
+type WithoutOutputField<Field> = Field extends { readonly kind: "value" }
+	? Omit<Field, "field">
+	: Field;
 
 export const collectionsFilterField: QueryRelationshipFilterField = {
 	key: "collections",
@@ -80,19 +103,45 @@ export const collectionsFilterField: QueryRelationshipFilterField = {
 	relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("member-of") },
 };
 
-export const reservedFilterFieldKeys: readonly string[] = [collectionsFilterField.key];
+export const collectionsFilterTarget: FilterTarget = {
+	branches: [{}],
+	spec: collectionsFilterField,
+};
 
-export const effectiveFilterFields = (
-	renderer: KernelSavedViewRendererName,
-	settings: { readonly filterFields?: undefined | readonly FilterField[] },
-): readonly QueryFilterField[] => [
-	...(settings.filterFields ?? []).map((field) =>
+export const queryFilterFields = (fields: readonly FilterField[]): readonly QueryFilterField[] =>
+	fields.map((field) =>
 		mapFilterFieldReference<
 			{ readonly owner: DefinitionOwner },
 			{ readonly owner: QueryOwnerReference }
 		>(field, ({ slug, owner }) => ({ slug, owner: ownerIdentityReference(owner) })),
+	);
+
+const selectedExpression = (source: RowsQuery, key: string) =>
+	source.output.fields.find(
+		(selection): selection is FieldSelection => "key" in selection && selection.key === key,
+	)?.expr;
+
+export const outputFilterTargets = (
+	source: RowsQuery,
+	fields: readonly QueryFilterField[],
+): Result.Result<readonly FilterTarget[], Error> =>
+	Result.all(
+		fields.map((field): Result.Result<FilterTarget, Error> => {
+			if (field.kind !== "value") {
+				return Result.succeed({ spec: field, branches: [{}] });
+			}
+			const value = selectedExpression(source, field.field);
+			return value === undefined
+				? failure(`Filter field '${field.key}' references missing output field '${field.field}'`)
+				: Result.succeed({ spec: field, branches: [{ value }] });
+		}),
+	);
+
+export const queryAliases = (source: Pick<CorrelatedQuerySet, "from" | "joins">) => [
+	source.from.alias,
+	...(source.joins ?? []).map((joined) =>
+		joined.type === "jsonElements" ? joined.alias : joined.table.alias,
 	),
-	...(renderer === "results-table" ? [] : [collectionsFilterField]),
 ];
 
 export type FilterInput =
@@ -104,12 +153,10 @@ type CompileContext = Omit<CompileInput, "filter"> & { readonly aliases: Set<str
 type CompileInput = {
 	readonly filter: Filter;
 	readonly now: DateTime.Utc;
-	readonly source: RowsQuery;
-	readonly fields: readonly QueryFilterField[];
+	readonly targets: readonly FilterTarget[];
+	readonly source: Pick<CorrelatedQuerySet, "from" | "joins">;
 	readonly subject: undefined | { readonly entityAlias: string };
 };
-
-const failure = (message: string) => Result.fail(new Error(message));
 
 const unavailable = (rule: FilterRule, key: string) =>
 	failure(`Operator '${rule.operator}' is not available for field '${key}'`);
@@ -241,7 +288,7 @@ const compileSessionEvent = (
 const compileList = (
 	expr: ScalarExpression,
 	rule: FilterRule,
-	spec: ValueFilterField,
+	spec: ValueFilterFieldSpec,
 ): Result.Result<Predicate, Error> => {
 	switch (rule.operator) {
 		case "is":
@@ -281,7 +328,7 @@ const compileScalar = (
 	now: DateTime.Utc,
 	expr: ScalarExpression,
 	rule: FilterRule,
-	spec: ValueFilterField,
+	spec: ValueFilterFieldSpec,
 ): Result.Result<Predicate, Error> => {
 	const text = castText(expr);
 	const number = castNumber(expr);
@@ -331,36 +378,48 @@ const compileScalar = (
 	return unavailable(rule, spec.key);
 };
 
-const selectedExpression = (source: RowsQuery, key: string) =>
-	source.output.fields.find(
-		(selection): selection is FieldSelection => "key" in selection && selection.key === key,
-	)?.expr;
+const compileBranch = (
+	context: CompileContext,
+	rule: FilterRule,
+	spec: FilterFieldSpec,
+	branch: FilterBranch,
+): Result.Result<Predicate, Error> => {
+	const link = spec.kind === "value" ? undefined : (branch.link ?? spec);
+	if (link?.kind === "relationship") {
+		return compileRelationship(context, rule, link);
+	}
+	if (link?.kind === "session-event") {
+		return compileSessionEvent(context, rule, link);
+	}
+	if (spec.kind !== "value" || branch.value === undefined) {
+		return failure(`Filter field '${spec.key}' has no value expression`);
+	}
+	return spec.type === "enum-list" || spec.type === "text-list"
+		? compileList(branch.value, rule, spec)
+		: compileScalar(context.now, branch.value, rule, spec);
+};
 
 const compileRule = (
 	context: CompileContext,
 	rule: FilterRule,
 ): Result.Result<Predicate, Error> => {
-	const spec = context.fields.find(({ key }) => key === rule.field);
-	if (!spec) {
+	const target = context.targets.find(({ spec }) => spec.key === rule.field);
+	if (!target) {
 		return failure(`Unknown filter field '${rule.field}'`);
 	}
-	if (spec.kind === "relationship") {
-		return compileRelationship(context, rule, spec);
+	if (!filterOperatorsFor(target.spec).includes(rule.operator)) {
+		return unavailable(rule, target.spec.key);
 	}
-	if (spec.kind === "session-event") {
-		return compileSessionEvent(context, rule, spec);
-	}
-	const operators: readonly string[] = filterOperators[spec.type];
-	if (!operators.includes(rule.operator)) {
-		return unavailable(rule, spec.key);
-	}
-	const expr = selectedExpression(context.source, spec.field);
-	if (!expr) {
-		return failure(`Filter field '${spec.key}' references missing output field '${spec.field}'`);
-	}
-	return spec.type === "enum-list" || spec.type === "text-list"
-		? compileList(expr, rule, spec)
-		: compileScalar(context.now, expr, rule, spec);
+	return Result.map(
+		Result.all(
+			target.branches.map((branch) =>
+				Result.map(compileBranch(context, rule, target.spec, branch), (predicate) =>
+					branch.when === undefined ? predicate : and(branch.when, predicate),
+				),
+			),
+		),
+		(predicates) => (predicates.length === 1 && predicates[0] ? predicates[0] : or(...predicates)),
+	);
 };
 
 const compileNode = (
@@ -397,27 +456,16 @@ export const compileFilter = ({
 	filter,
 	...input
 }: CompileInput): Result.Result<Predicate | undefined, Error> =>
-	compileNode(
-		{
-			...input,
-			aliases: new Set([
-				input.source.from.alias,
-				...(input.source.joins ?? []).map((joined) =>
-					joined.type === "jsonElements" ? joined.alias : joined.table.alias,
-				),
-			]),
-		},
-		filter,
-	);
+	compileNode({ ...input, aliases: new Set(queryAliases(input.source)) }, filter);
 
 export const NullableFilter = Schema.NullOr(FilterSchema);
 
-export const filterOperatorsFor = (field: QueryFilterField): readonly FilterOperator[] =>
+export const filterOperatorsFor = (field: FilterFieldSpec): readonly FilterOperator[] =>
 	field.kind === "value" ? filterOperators[field.type] : linkFilterOperators;
 
 const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
 
-const leniently = (node: unknown, fields: readonly QueryFilterField[]): Filter | undefined => {
+const leniently = (node: unknown, fields: readonly FilterFieldSpec[]): Filter | undefined => {
 	if (!isObjectRecord(node)) {
 		return undefined;
 	}
@@ -447,7 +495,7 @@ const leniently = (node: unknown, fields: readonly QueryFilterField[]): Filter |
 
 export const decodeFilterParam = (
 	raw: null | string | undefined,
-	fields: readonly QueryFilterField[],
+	fields: readonly FilterFieldSpec[],
 ): Filter | undefined => {
 	if (raw === null || raw === undefined || raw === "") {
 		return undefined;
@@ -507,7 +555,7 @@ export type FilterDraft = {
 	readonly values: readonly string[];
 };
 
-export const newFilterDraft = (field: QueryFilterField): FilterDraft => ({
+export const newFilterDraft = (field: FilterFieldSpec): FilterDraft => ({
 	text: "",
 	second: "",
 	values: [],
@@ -595,7 +643,7 @@ export const LinkedFilterChoicesInput = Schema.Struct({
 });
 
 export const linkedFilterChoicesInput = (
-	field: Exclude<QueryFilterField, { readonly kind: "value" }>,
+	field: Exclude<FilterFieldSpec, { readonly kind: "value" }>,
 	input: { readonly searchText?: string; readonly ids?: readonly string[] },
 ): typeof LinkedFilterChoicesInput.Type => ({
 	...input,

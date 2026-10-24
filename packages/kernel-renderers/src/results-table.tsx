@@ -19,8 +19,8 @@ import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sd
 import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
-import { effectiveFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
+	resultsTableFilterFields,
 	ResultsTablePageInput,
 	resultsTableRecipe,
 	type ResultsTableResult,
@@ -64,7 +64,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
-	const filterFields = effectiveFilterFields("results-table", input.settings);
+	const filterFields = resultsTableFilterFields(input.settings);
 	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
 	const [query] = useState(() =>
 		createRyotQuery<QueryInput, ResultsTableResult>(

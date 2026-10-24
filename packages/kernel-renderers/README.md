@@ -53,8 +53,9 @@ pages and require a refresh, so pages from different collection orders are never
 
 ## Filters
 
-Entity and collection browsers filter through the effective filter fields of their settings (the
-view's `filterFields` plus the automatic Collections relationship). The rules panel, the chips row, the
+Entity browsers load the subject schemas' browse fields through `entitySchemaBrowseRecipe` before
+their first page, then filter and sort through `entityBrowserControls` (those fields, the automatic
+Collections relationship, and a Name sort); the view query's order is the default. The rules panel, the chips row, the
 filters sheet, and the relationship choices queries come from `@ryot-app/plugin-client-sdk/filters`;
 `entity-browser-controller.tsx` composes them and owns the state. Renderer sources import filter
 helpers only from `@ryot-app/ryotql-recipes/filters`, never from the contract.
@@ -76,8 +77,10 @@ longer exist, a chip shows the count form (for example "<Field>: 2 selected") in
 Count all, the pages, and the filter-aware empty state all use the applied filter; the query Effect
 reads `now` from the Effect clock for relative-date rules.
 
-Collection detail builds its fields in `collectionMemberFilterFields`: Type (from the loaded member
-groups), Also in collection, and one `membership.<key>` field per supported membership property.
+Collection detail loads the browse fields of its member types (from the grouped aggregate) and
+builds its controls with `collectionMemberControls`: Type, Also in collection, Date added, the merged
+browse fields, and one `membership.<key>` field per supported membership property; sorts are Name,
+Date added, and browse sorts, with collection order as the default.
 With no search or filter applied the controller shows the known total instead of offering Count all.
 
 ## Calendar

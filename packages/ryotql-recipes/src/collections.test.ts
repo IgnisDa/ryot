@@ -7,17 +7,41 @@ import { assert, describe, expect, it } from "vitest";
 import {
 	allCollectionsRecipe,
 	collectionHeaderRecipe,
-	collectionMemberFilterFields,
+	collectionMemberControls,
+	type CollectionMemberFields,
 	collectionMembersAggregateRecipe,
 	collectionMembersCountRecipe,
 	collectionMembersCountsRecipe,
 	collectionMembershipRecipe,
 	collectionMembershipTargetRecipe,
-	type CollectionMemberSort,
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
 } from "./collections";
 import type { FilterInput } from "./filters";
+
+const memberFields = (
+	schema: CollectionMemberFields["membershipPropertiesSchema"],
+	overrides: Partial<CollectionMemberFields> = {},
+): CollectionMemberFields => ({
+	schemas: [],
+	groups: { items: [] },
+	membershipPropertiesSchema: schema,
+	...overrides,
+});
+
+const rating = (path: string) =>
+	({
+		kind: "value",
+		key: "rating",
+		type: "number",
+		label: "Rating",
+		sort: { ascending: "Lowest rated", descending: "Highest rated" },
+		expression: {
+			path: [path],
+			type: "jsonPath",
+			expr: { type: "column", field: "properties", tableAlias: "subject" },
+		},
+	}) as const;
 
 const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 const order = { type: "rows", items: [{ revision: 3 }], pageInfo: { ...pageInfo, limit: 2 } };
@@ -173,10 +197,12 @@ describe("collections recipes", () => {
 	it("renders member values that no longer match their field as empty cells", () => {
 		const recipe = collectionMembersRecipe({
 			collectionId: "collection-1",
-			membershipPropertiesSchema: collectionFieldsToAppSchema([
-				{ key: "score", label: "Score", type: "number", required: false },
-				{ key: "notes", type: "text", label: "Notes", required: false },
-			]),
+			fields: memberFields(
+				collectionFieldsToAppSchema([
+					{ key: "score", label: "Score", type: "number", required: false },
+					{ key: "notes", type: "text", label: "Notes", required: false },
+				]),
+			),
 		});
 		const result = Result.getOrThrow(
 			recipe.decode({
@@ -211,8 +237,8 @@ describe("collections recipes", () => {
 		const recipe = collectionMembersRecipe({
 			limit: 7,
 			searchText: " sample ",
-			membershipPropertiesSchema,
 			collectionId: "collection-1",
+			fields: memberFields(membershipPropertiesSchema),
 			after: JSON.stringify({ revision: 3, cursor: "cursor" }),
 		});
 		const query = recipe.document.queries.members;
@@ -304,10 +330,7 @@ describe("collections recipes", () => {
 	});
 
 	it("returns stable columns for an empty page and excludes secret schema fields", () => {
-		const emptyRecipe = collectionMembersRecipe({
-			collectionId: "collection-1",
-			membershipPropertiesSchema: null,
-		});
+		const emptyRecipe = collectionMembersRecipe({ collectionId: "collection-1" });
 		expect(
 			Result.getOrThrow(
 				emptyRecipe.decode({ data: { order, members: { pageInfo, items: [], type: "rows" } } }),
@@ -352,7 +375,7 @@ describe("collections recipes", () => {
 
 		const recipe = collectionMembersRecipe({
 			collectionId: "collection-1",
-			membershipPropertiesSchema: collisionSchema,
+			fields: memberFields(collisionSchema),
 		});
 		const result = Result.getOrThrow(
 			recipe.decode({
@@ -386,17 +409,14 @@ describe("collections recipes", () => {
 	});
 	/* oxlint-enable perfectionist/sort-objects */
 
-	it.each<[CollectionMemberSort, string, string]>([
+	it.each([
 		["name-asc", "asc", "name"],
 		["name-desc", "desc", "name"],
-		["recently-added", "desc", "createdAt"],
-		["oldest-added", "asc", "createdAt"],
+		["date-added-desc", "desc", "createdAt"],
+		["date-added-asc", "asc", "createdAt"],
 	])("builds the %s server-side sort", (sort, direction, field) => {
-		const query = collectionMembersRecipe({
-			sort,
-			collectionId: "collection-1",
-			membershipPropertiesSchema: null,
-		}).document.queries.members;
+		const query = collectionMembersRecipe({ sort, collectionId: "collection-1" }).document.queries
+			.members;
 		assert(query?.output.type === "rows");
 		expect(query.output.orderBy).toMatchObject([
 			{ direction, expr: { field } },
@@ -405,10 +425,7 @@ describe("collections recipes", () => {
 	});
 
 	it("binds continuation pages to their collection order and refuses changed pages", () => {
-		const first = collectionMembersRecipe({
-			collectionId: "shelf",
-			membershipPropertiesSchema: null,
-		});
+		const first = collectionMembersRecipe({ collectionId: "shelf" });
 		const firstPage = Result.getOrThrow(
 			first.decode({
 				data: {
@@ -424,7 +441,6 @@ describe("collections recipes", () => {
 		assert(firstPage.pageInfo.nextCursor);
 		const next = collectionMembersRecipe({
 			collectionId: "shelf",
-			membershipPropertiesSchema: null,
 			after: firstPage.pageInfo.nextCursor,
 		});
 		expect(next.document.queries.members?.output).toMatchObject({ pagination: { after: "next" } });
@@ -600,89 +616,98 @@ describe("collections recipes", () => {
 			{ key: "type", type: "text", label: "Type", required: false },
 			{ type: "text", required: false, key: "collections", label: "Collections" },
 		]);
-		const fields = collectionMemberFilterFields({
-			groups,
-			membershipPropertiesSchema: filterSchema,
-		});
+		const schemas = [
+			{ slug: "unit", pluginId: "fixture", browse: { fields: [rating("score")] } },
+			{ browse: null, pluginId: null, slug: "collection" },
+		];
+		const fields = memberFields(filterSchema, { groups, schemas });
+		const controls = collectionMemberControls(fields);
 		const filter: Filter = {
 			type: "and",
 			filters: [
-				{ field: "type", operator: "anyOf", values: ["fixture/unit"] },
+				{ operator: "anyOf", field: "member-type", values: ["fixture/unit"] },
 				{ operator: "anyOf", values: ["col-2"], field: "collections" },
 				{ value: "x", operator: "contains", field: "membership.type" },
 				{ value: "y", operator: "is", field: "membership.collections" },
 			],
 		};
 		const compiled = (applied: Filter | undefined) => {
-			const base = { searchText: "sample", filterFields: fields, collectionId: "collection-1" };
+			const base = { fields, searchText: "sample", collectionId: "collection-1" };
 			const input: FilterInput = applied ? { now, filter: applied } : {};
-			const members = collectionMembersRecipe({
-				...base,
-				...input,
-				membershipPropertiesSchema: filterSchema,
-			}).document.queries.members;
+			const members = collectionMembersRecipe({ ...base, ...input }).document.queries.members;
 			const count = collectionMembersCountRecipe({ ...base, ...input }).document.queries.count;
 			assert(members?.output.type === "rows");
 			assert(count);
-			return { count, members, projected: members.output.fields };
+			return { count, members };
 		};
 
-		it("builds the type, also-in-collection and membership property fields with unique keys", () => {
-			expect(fields.map(({ key }) => key)).toEqual([
-				"type",
+		it("offers type, date added, also-in-collection, browse and membership fields", () => {
+			expect(controls.filterFields.map(({ key }) => key)).toEqual([
+				"member-type",
+				"date-added",
 				"collections",
+				"rating",
 				"membership.type",
 				"membership.collections",
 			]);
-			expect(fields[0]).toMatchObject({
-				field: "memberType",
+			expect(controls.filterFields[0]).toMatchObject({
 				choices: [
 					{ value: "fixture/unit", label: "Fixture / unit" },
 					{ value: "/collection", label: "Collections" },
 				],
 			});
-			expect(fields[1]).toMatchObject({
+			expect(controls.filterFields[2]).toMatchObject({
 				kind: "relationship",
 				direction: "outgoing",
 				label: "Also in collection",
 				relationship: { slug: "member-of", owner: { kind: "kernel" } },
 			});
-			expect(fields.slice(2)).toMatchObject([
-				{ type: "text", field: "membership.type" },
-				{ type: "text", field: "membership.collections" },
+			expect(controls.sortChoices.map(({ value }) => value)).toEqual([
+				"name-asc",
+				"name-desc",
+				"date-added-asc",
+				"date-added-desc",
+				"rating-asc",
+				"rating-desc",
 			]);
 		});
 
 		it("derives property fields from supported, non-secret membership properties", () => {
-			const keys = collectionMemberFilterFields({
-				membershipPropertiesSchema,
-				groups: { ...groups, items: [] },
-			}).map(({ key }) => key);
+			const keys = collectionMemberControls(
+				memberFields(membershipPropertiesSchema),
+			).filterFields.map(({ key }) => key);
 			expect(keys).toEqual(
 				expect.arrayContaining(["collections", "membership.notes", "membership.status"]),
 			);
-			expect(keys).not.toContain("type");
+			expect(keys).not.toContain("member-type");
 			expect(keys).not.toContain("membership.secret");
 			expect(keys).not.toContain("membership.metadata");
 		});
 
 		it("compiles each field against its own expression, identically for members and count", () => {
-			const { count, members, projected } = compiled(filter);
+			const { count, members } = compiled(filter);
 			const where = JSON.stringify(members.where);
 			expect(where).toContain('"concat"');
 			expect(where).toContain('"exists"');
 			expect(where).toContain('"collectionMember"');
-			expect(JSON.stringify(projected)).toContain('"key":"memberType"');
-			expect(projected).toContainEqual({
-				key: "membership.type",
-				expr: expect.objectContaining({ path: ["type"], type: "jsonPath" }),
-			});
-			expect(projected).toContainEqual({
-				key: "membership.collections",
-				expr: expect.objectContaining({ type: "jsonPath", path: ["collections"] }),
-			});
+			expect(where).toContain('"path":["type"]');
+			expect(where).toContain('"path":["collections"]');
 			expect(members.where).toEqual(count.where);
 			expect(members.where).not.toEqual(compiled(undefined).members.where);
+		});
+
+		it("matches and sorts browse fields only for members whose schema declares them", () => {
+			const { members } = compiled({ field: "rating", operator: "empty" });
+			const where = JSON.stringify(members.where);
+			expect(where).toContain('"value":"unit"');
+			expect(where).toContain('"field":"properties","tableAlias":"collectionMember"');
+			const sorted = collectionMembersRecipe({ fields, collectionId: "c", sort: "rating-desc" })
+				.document.queries.members;
+			assert(sorted?.output.type === "rows");
+			expect(sorted.output.orderBy[0]).toMatchObject({
+				direction: "desc",
+				expr: { type: "conditional", whenFalse: { value: null, type: "literal" } },
+			});
 		});
 	});
 });

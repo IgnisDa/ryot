@@ -249,13 +249,6 @@ it.live("keeps configured entity-browser controls within their declared source",
 					entityAlias: "browserEntity",
 					schemas: [{ slug: schema.reference.slug, owner: schema.reference.owner }],
 				},
-				sortChoices: [
-					{
-						name: "name-desc",
-						label: "Name descending",
-						orderBy: [{ field: "name", direction: "desc" }],
-					},
-				],
 				tableColumns: [
 					{ label: "Schema", displayKind: "text", field: "entitySchemaSlug" },
 					{ field: "name", label: "Name", displayKind: "text" },
@@ -290,7 +283,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 
 		yield* runtime.getByRole("button", { name: /Filters/ }).click();
 		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
-		yield* runtime.getByRole("radio", { name: "Name descending" }).click();
+		yield* runtime.getByRole("radio", { name: "Name Z-A" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* page.keyboard.press("Escape");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");

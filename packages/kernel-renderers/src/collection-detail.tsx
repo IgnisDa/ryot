@@ -1,18 +1,23 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
+	type BrowseSchema,
+	entitySchemaBrowseRecipe,
+	type EntitySchemaBrowseResult,
+} from "@ryot-app/ryotql-recipes/browse";
+import {
 	collectionHeaderRecipe,
 	type CollectionHeaderResult,
-	collectionMemberFilterFields,
+	collectionMemberControls,
+	type CollectionMemberFields,
 	collectionMembersAggregateRecipe,
 	type CollectionMembersAggregateResult,
 	collectionMembersCountRecipe,
-	CollectionMemberSort,
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
 } from "@ryot-app/ryotql-recipes/collections";
@@ -27,31 +32,36 @@ import {
 } from "./entity-browser-controller";
 import { useHostScreen } from "./host-screen";
 
-const decodeMemberSort = Schema.decodeUnknownSync(CollectionMemberSort);
-
 const headerQuery = createRyotQuery<string, CollectionHeaderResult>(({ input, client }) =>
 	client.data.query(collectionHeaderRecipe({ collectionId: input })),
 );
 const groupsQuery = createRyotQuery<string, CollectionMembersAggregateResult>(({ input, client }) =>
 	client.data.query(collectionMembersAggregateRecipe({ collectionId: input })),
 );
+const browseQuery = createRyotQuery<
+	readonly Pick<BrowseSchema, "slug" | "pluginId">[],
+	EntitySchemaBrowseResult
+>(({ input, client }) => {
+	const [first, ...rest] = input;
+	return first === undefined
+		? Effect.succeed([])
+		: client.data.query(entitySchemaBrowseRecipe({ schemas: [first, ...rest] }));
+});
 const totalQuery = createRyotQuery<string, number>(({ input, client }) =>
 	client.data.query(collectionMembersCountRecipe({ collectionId: input })),
 );
 
-type CollectionFilterFields = ReturnType<typeof collectionMemberFilterFields>;
-
 const CollectionCount = ({
 	filter,
+	fields,
 	onTotal,
 	searchText,
 	collectionId,
-	filterFields,
 }: {
 	readonly searchText: string;
 	readonly collectionId: string;
+	readonly fields: CollectionMemberFields;
 	readonly filter: BrowserQueryInput["filter"];
-	readonly filterFields: CollectionFilterFields;
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
@@ -61,8 +71,8 @@ const CollectionCount = ({
 					const now = yield* DateTime.now;
 					return yield* client.data.query(
 						collectionMembersCountRecipe({
+							fields,
 							collectionId,
-							filterFields,
 							...(search === "" ? {} : { searchText: search }),
 							...(applied === null ? {} : { now, filter: applied }),
 						}),
@@ -94,6 +104,7 @@ const CollectionBrowser = ({
 	total,
 	groups,
 	header,
+	schemas,
 	onReorder,
 	identityKey,
 	collectionId,
@@ -103,6 +114,7 @@ const CollectionBrowser = ({
 	readonly collectionId: string;
 	readonly onReorder: () => void;
 	readonly header: CollectionHeaderResult;
+	readonly schemas: readonly BrowseSchema[];
 	readonly groups: CollectionMembersAggregateResult;
 }) => {
 	const ryot = useRyot();
@@ -119,7 +131,8 @@ const CollectionBrowser = ({
 	const memberDetails = (entityId: string) =>
 		openScreen(ryot.screens.addToCollection({ entityId, collectionId }));
 	const membershipPropertiesSchema = header?.membershipPropertiesSchema ?? null;
-	const filterFields = collectionMemberFilterFields({ groups, membershipPropertiesSchema });
+	const fields = { groups, schemas, membershipPropertiesSchema };
+	const { sortChoices, filterFields } = collectionMemberControls(fields);
 	const [query] = useState(() =>
 		createRyotQuery<BrowserQueryInput, BrowserQueryPage<null>>(
 			({ client, input: { filter, searchText, sortChoice, cursor: after } }) =>
@@ -127,11 +140,10 @@ const CollectionBrowser = ({
 					const now = yield* DateTime.now;
 					const members = yield* client.data.query(
 						collectionMembersRecipe({
+							fields,
 							collectionId,
-							filterFields,
-							membershipPropertiesSchema,
 							...(searchText === "" ? {} : { searchText }),
-							...(sortChoice === "" ? {} : { sort: decodeMemberSort(sortChoice) }),
+							...(sortChoice === "" ? {} : { sort: sortChoice }),
 							...(after === null ? {} : { after }),
 							...(filter === null ? {} : { now, filter }),
 						}),
@@ -151,6 +163,7 @@ const CollectionBrowser = ({
 			knownTotal={total}
 			defaultLayout="grid"
 			identityKey={identityKey}
+			sortChoices={sortChoices}
 			filterFields={filterFields}
 			viewContext={{ collectionId }}
 			layouts={["grid", "list", "table"]}
@@ -164,12 +177,6 @@ const CollectionBrowser = ({
 				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
 				{ icon: "pencil", run: editCollection, label: "Edit collection" },
 			]}
-			sortChoices={[
-				{ label: "Name A-Z", value: "name-asc" },
-				{ label: "Name Z-A", value: "name-desc" },
-				{ label: "Recently added", value: "recently-added" },
-				{ label: "Oldest added", value: "oldest-added" },
-			]}
 			renderItemActions={(item) => (
 				<IconButton
 					size="sm"
@@ -182,11 +189,11 @@ const CollectionBrowser = ({
 			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this collection ID.
 			count={({ filter, onTotal, searchText: search }) => (
 				<CollectionCount
+					fields={fields}
 					onTotal={onTotal}
 					searchText={search}
 					filter={filter ?? null}
 					collectionId={collectionId}
-					filterFields={filterFields}
 					key={JSON.stringify([collectionId, search, filter])}
 				/>
 			)}
@@ -221,8 +228,20 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 	const header = useRyotQuery(headerQuery, collectionId);
 	const groups = useRyotQuery(groupsQuery, collectionId);
 	const total = useRyotQuery(totalQuery, collectionId);
-	if (header.data === undefined || groups.data === undefined || total.data === undefined) {
-		const failed = [header, groups, total].filter(({ isError }) => isError);
+	const schemas = useRyotQuery(
+		browseQuery,
+		(groups.data?.items ?? []).map(({ ownerPluginId, entitySchemaSlug }) => ({
+			slug: entitySchemaSlug,
+			pluginId: ownerPluginId,
+		})),
+	);
+	if (
+		header.data === undefined ||
+		groups.data === undefined ||
+		total.data === undefined ||
+		schemas.data === undefined
+	) {
+		const failed = [header, groups, total, schemas].filter(({ isError }) => isError);
 		return (
 			<PluginScreenFrame title="Collection">
 				{failed.length === 0 ? null : (
@@ -238,6 +257,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 	const schemaKey = JSON.stringify([
 		header.data?.membershipPropertiesSchema ?? null,
 		groups.data.items.length > 0,
+		schemas.data,
 	]);
 	const identityKey = JSON.stringify([collectionId, schemaKey]);
 	if (reordering) {
@@ -255,6 +275,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 			total={total.data}
 			header={header.data}
 			groups={groups.data}
+			schemas={schemas.data}
 			identityKey={identityKey}
 			collectionId={collectionId}
 			onReorder={() => setReordering(true)}
