@@ -11,7 +11,7 @@ import {
 } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import type { InferSelectViewModel } from "drizzle-orm";
+import type { InferViewSelectModel } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { userPlugin } from "#schema/tables/definitions";
@@ -19,7 +19,7 @@ import type { userPlugin } from "#schema/tables/definitions";
 import type { RyotQLExecutionScope } from "./catalog";
 
 export type PluginBinding = Pick<
-	InferSelectViewModel<typeof userPlugin>,
+	InferViewSelectModel<typeof userPlugin>,
 	"scope" | "pluginId" | "packageId"
 >;
 

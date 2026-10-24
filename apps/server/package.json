@@ -19,7 +19,7 @@
 		"@ryot-app/plugin-backend-compiler": "workspace:*",
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
-		"drizzle-orm": "1.0.0-rc.5-169397b",
+		"drizzle-orm": "1.0.0-rc.5",
 		"effect": "4.1.0"
 	},
 	"devDependencies": {

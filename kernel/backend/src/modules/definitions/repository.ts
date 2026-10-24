@@ -13,7 +13,7 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
-	type InferSelectViewModel,
+	type InferViewSelectModel,
 	isNull,
 	notInArray,
 	type SQL,
@@ -50,11 +50,11 @@ import {
 import type { RevisionDefinitions } from "./source";
 
 type ListedOption = { readonly listed: boolean };
-type SavedViewRow = InferSelectViewModel<typeof schema.globalSavedView>;
-type EventSchemaRow = InferSelectViewModel<typeof schema.globalEventSchema>;
-type EntitySchemaRow = InferSelectViewModel<typeof schema.globalEntitySchema>;
-type SignalSchemaRow = InferSelectViewModel<typeof schema.globalSignalSchema>;
-type RelationshipSchemaRow = InferSelectViewModel<typeof schema.globalRelationshipSchema>;
+type SavedViewRow = InferViewSelectModel<typeof schema.globalSavedView>;
+type EventSchemaRow = InferViewSelectModel<typeof schema.globalEventSchema>;
+type EntitySchemaRow = InferViewSelectModel<typeof schema.globalEntitySchema>;
+type SignalSchemaRow = InferViewSelectModel<typeof schema.globalSignalSchema>;
+type RelationshipSchemaRow = InferViewSelectModel<typeof schema.globalRelationshipSchema>;
 
 type EventSchemaFields = Pick<
 	EventSchemaRow,
@@ -69,7 +69,7 @@ type RevisionDeclarationQuery<K extends keyof RevisionDeclarations> = {
 };
 
 type CalendarSourceRow = Pick<
-	InferSelectViewModel<typeof schema.globalCalendarSource>,
+	InferViewSelectModel<typeof schema.globalCalendarSource>,
 	| "art"
 	| "done"
 	| "icon"
