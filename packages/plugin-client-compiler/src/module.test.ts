@@ -240,9 +240,7 @@ it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
 				{ name: "timer-completed", contents: new Uint8Array([0x80, 0x00, 0xfe, 0x49]) },
 			];
 			const references = sounds
-				.map(
-					({ name }) => `new URL(${JSON.stringify(`./sounds/${name}.mp3`)}, import.meta.url).href`,
-				)
+				.map(({ name }) => `new URL(\`./sounds/${name}.mp3\`, import.meta.url).href`)
 				.join(", ");
 			const { artifact } = yield* compileClientPluginModule({
 				...pluginIdentity,
@@ -296,6 +294,102 @@ export default function Home() { return createElement("span", null, value + othe
 			expect(text(requiredFile(artifact, "module.js").contents)).toContain("nested-region");
 			expect(text(requiredFile(artifact, "module.css").contents)).toContain(".nested-region");
 		}),
+	);
+});
+
+it.layer(emittedLayer("export default {};"))("authored AST import policy", (test) => {
+	test.effect.each([
+		{
+			path: "shared/value.ts",
+			source: 'import {\n createElement\n} from "react"; export { createElement };',
+		},
+		{ path: "shared/value.ts", source: 'export {\n useState\n} from "react";' },
+		{
+			path: "shared/value.ts",
+			source: 'import type {\n ReactNode\n} from "react"; export type Value = ReactNode;',
+		},
+		{ path: "shared/value.ts", source: 'export type Value = import("react").ReactNode;' },
+		{
+			path: "shared/value.ts",
+			source:
+				'import {\n PluginId\n} from "@ryot-app/plugin-client-sdk/plugin"; export { PluginId };',
+		},
+		{
+			path: "client/value.ts",
+			source: 'import type {\n Effect\n} from "effect"; export type Value = Effect.Effect<void>;',
+		},
+		{ path: "client/value.ts", source: 'export type Value = import("effect").Effect<void>;' },
+		{ path: "client/value.ts", source: 'export const value = import /* gap */ ("react");' },
+		{ path: "client/value.ts", source: "export const value = import(`react`);" },
+		{ path: "client/value.ts", source: 'export const value = import.meta.glob("./*.ts");' },
+		{ path: "client/value.ts", source: 'export const value = import.meta["globEager"]("./*.ts");' },
+		{
+			path: "client/value.ts",
+			source: 'export const value = new URL("../../outside.svg", import.meta.url);',
+		},
+		{
+			path: "client/value.ts",
+			source: "export const value = new URL(`./missing.svg`, import.meta.url);",
+		},
+		{
+			path: "client/value.ts",
+			source:
+				'const name = "dynamic"; export const value = new URL(`./${name}.svg`, import.meta.url);',
+		},
+	])("rejects $source in $path before Vite", ({ path, source }) =>
+		Effect.gen(function* () {
+			const failure = yield* compileClientPluginModule({
+				...emittedInput,
+				files: { ...emittedInput.files, [path]: bytes(source) },
+			}).pipe(
+				Effect.provideService(
+					ViteBuildService,
+					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
+				),
+				Effect.flip,
+			);
+			expect(failure.diagnostics).toEqual([
+				expect.objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
+			]);
+		}),
+	);
+});
+
+it.layer(pluginClientCompilerPlatformLayer)("authored AST syntax", (test) => {
+	test.effect(
+		"accepts multiline approved imports and inert import text with stable artifacts",
+		() =>
+			Effect.gen(function* () {
+				const input = {
+					...emittedInput,
+					files: {
+						"shared/value.ts": bytes(`
+import {
+ Option
+} from "@ryot-app/plugin-kit/effect";
+export const value = Option.getOrElse(Option.some("ast-policy"), () => "");
+`),
+						"client/home.tsx": bytes(`
+import {
+ createElement
+} from "react";
+import {
+ PluginId
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { value } from "../shared/value";
+// import("not-a-module") and import.meta.glob("./*.ts") are inert.
+const text = 'import("also-inert") new URL("../../outside.svg", import.meta.url)';
+export default function Home() {
+ return createElement("span", null, value + text + PluginId.make("sdk-import"));
+}
+`),
+					},
+				};
+				const first = yield* compileClientPluginModule(input);
+				const second = yield* compileClientPluginModule(input);
+				expect(first.artifact).toEqual(second.artifact);
+				expect(text(requiredFile(first.artifact, "module.js").contents)).toContain("ast-policy");
+			}),
 	);
 });
 
