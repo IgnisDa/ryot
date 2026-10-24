@@ -13,7 +13,6 @@ import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackupsService } from "#modules/backups/service";
-import { CalendarDeliveryWorker } from "#modules/calendar-sources/delivery-worker";
 import type { EntityGraphCollector } from "#modules/entities/retention/collector";
 import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
 import { EventStreamWorkService } from "#modules/events/stream-work";
@@ -37,6 +36,7 @@ import {
 	runTasks,
 } from "#modules/scheduler/cron-workflow";
 import type { CronTask } from "#modules/scheduler/types";
+import { SignalScheduleWorker } from "#modules/signal-schedules/worker";
 import type { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow } from "#platform/workflow/scope";
 
@@ -53,9 +53,9 @@ const frequentCronTasks: ReadonlyArray<
 		| UploadIntentsService
 		| UserLifecycleService
 		| EntityGraphCollector
+		| SignalScheduleWorker
 		| ManagedAssetCollector
 		| BackgroundWorkService
-		| CalendarDeliveryWorker
 		| NotificationAdmissions
 		| EventStreamWorkService
 		| OAuthConnectionsService
@@ -98,10 +98,10 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	{
-		name: "calendar-deliveries",
+		name: "signal-schedules",
 		run: () =>
-			Effect.flatMap(CalendarDeliveryWorker, (worker) => worker.run()).pipe(
-				Effect.catchCause((cause) => Effect.logWarning("Calendar delivery scan failed", cause)),
+			Effect.flatMap(SignalScheduleWorker, (worker) => worker.run()).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("Signal schedule scan failed", cause)),
 			),
 	},
 	{

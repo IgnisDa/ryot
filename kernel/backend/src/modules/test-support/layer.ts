@@ -16,15 +16,15 @@ import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
-import { CalendarDeliveryTestSupport } from "./calendar-deliveries";
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
 import { ReminderTestSupport } from "./reminders";
 import { TestSupportService } from "./service";
+import { SignalScheduleTestSupport } from "./signal-schedules";
 
 export const TestSupportServicesLive = Layer.mergeAll(
 	ReminderTestSupport.layer,
-	CalendarDeliveryTestSupport.layer,
+	SignalScheduleTestSupport.layer,
 	TestSupportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(

@@ -1,21 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { calendarDeliveryBounds } from "./delivery-worker";
+import { signalScheduleBounds } from "./worker";
 
 const now = new Date("2026-10-29T02:30:00.000Z");
 
-describe("calendar delivery bounds", () => {
-	it("covers the recipient's local day and two catch-up days for dated releases", () => {
+describe("signal schedule bounds", () => {
+	it("covers the recipient's local day and two catch-up days for dates", () => {
 		expect(
-			calendarDeliveryBounds({ now, timeZone: "UTC", precision: "date", maxAgeHours: null }),
+			signalScheduleBounds({
+				now,
+				delayDays: null,
+				timeZone: "UTC",
+				precision: "date",
+				maxAgeHours: null,
+			}),
 		).toEqual({
 			confirmedAfter: null,
 			end: "2026-10-30T00:00:00.000Z",
 			start: "2026-10-27T00:00:00.000Z",
 		});
 		expect(
-			calendarDeliveryBounds({
+			signalScheduleBounds({
 				now,
+				delayDays: null,
 				maxAgeHours: 72,
 				precision: "date",
 				timeZone: "America/Los_Angeles",
@@ -29,8 +36,9 @@ describe("calendar delivery bounds", () => {
 
 	it("bounds instants by local midnight two days back and the current instant", () => {
 		expect(
-			calendarDeliveryBounds({
+			signalScheduleBounds({
 				now,
+				delayDays: null,
 				maxAgeHours: null,
 				precision: "instant",
 				timeZone: "Asia/Kolkata",
@@ -39,6 +47,22 @@ describe("calendar delivery bounds", () => {
 			confirmedAfter: null,
 			end: "2026-10-29T02:30:00.001Z",
 			start: "2026-10-26T18:30:00.000Z",
+		});
+	});
+
+	it("shifts the window back by the declared delay", () => {
+		expect(
+			signalScheduleBounds({
+				now,
+				delayDays: 7,
+				timeZone: "UTC",
+				maxAgeHours: null,
+				precision: "instant",
+			}),
+		).toEqual({
+			confirmedAfter: null,
+			end: "2026-10-22T02:30:00.001Z",
+			start: "2026-10-20T00:00:00.000Z",
 		});
 	});
 });

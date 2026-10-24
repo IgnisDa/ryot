@@ -8,9 +8,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
-	type CalendarDeliveryCandidate,
-	calendarDeliveryPageRecipe,
-} from "@ryot-app/ryotql-recipes/calendar";
+	type SignalScheduleCandidate,
+	signalSchedulePageRecipe,
+} from "@ryot-app/ryotql-recipes/signal-schedules";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { Context, Data, DateTime, Effect, Layer, Result } from "effect";
 
@@ -22,8 +22,9 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
 
-import { type CalendarDeliveryCursor, CalendarDeliveryRepository } from "./delivery-repository";
+import { type SignalScheduleCursor, SignalScheduleRepository } from "./repository";
 
 const CATCH_UP_DAYS = 2;
 const RETENTION_DAYS = 30;
@@ -33,19 +34,20 @@ const TARGET_PAGE_LIMIT = 10;
 const OCCURRENCE_PAGE_SIZE = 100;
 const OCCURRENCE_PAGE_LIMIT = 5;
 
-type CalendarDeliveryTarget = Effect.Success<
-	ReturnType<CalendarDeliveryRepository["Service"]["listTargets"]>
+type SignalScheduleTarget = Effect.Success<
+	ReturnType<SignalScheduleRepository["Service"]["listTargets"]>
 >[number];
 
-class CalendarDeliveryRecorded extends Data.TaggedError("CalendarDeliveryRecorded") {}
+class SignalScheduleRecorded extends Data.TaggedError("SignalScheduleRecorded") {}
 
-class CalendarDeliveryQueryError extends Data.TaggedError("CalendarDeliveryQueryError")<{
+class SignalScheduleQueryError extends Data.TaggedError("SignalScheduleQueryError")<{
 	readonly cause: unknown;
 }> {}
 
-export const calendarDeliveryBounds = (input: {
+export const signalScheduleBounds = (input: {
 	now: Date;
 	timeZone: string;
+	delayDays: null | number;
 	maxAgeHours: null | number;
 	precision: "date" | "instant";
 }) => {
@@ -54,50 +56,47 @@ export const calendarDeliveryBounds = (input: {
 		DateTime.formatIsoDate(DateTime.makeZonedUnsafe(now, { timeZone: input.timeZone })),
 	);
 	const first = DateTime.subtract(today, { days: CATCH_UP_DAYS });
+	const [start, end] =
+		input.precision === "date"
+			? [first, DateTime.add(today, { days: 1 })]
+			: [
+					DateTime.toUtc(
+						DateTime.makeZonedUnsafe(first, { adjustForTimeZone: true, timeZone: input.timeZone }),
+					),
+					DateTime.add(now, { milliseconds: 1 }),
+				];
+	const delay = { days: input.delayDays ?? 0 };
 	return {
+		end: DateTime.formatIso(DateTime.subtract(end, delay)),
+		start: DateTime.formatIso(DateTime.subtract(start, delay)),
 		confirmedAfter:
 			input.maxAgeHours === null
 				? null
 				: DateTime.formatIso(DateTime.subtract(now, { hours: input.maxAgeHours })),
-		...(input.precision === "date"
-			? {
-					start: DateTime.formatIso(first),
-					end: DateTime.formatIso(DateTime.add(today, { days: 1 })),
-				}
-			: {
-					end: DateTime.formatIso(DateTime.add(now, { milliseconds: 1 })),
-					start: DateTime.formatIso(
-						DateTime.toUtc(
-							DateTime.makeZonedUnsafe(first, {
-								adjustForTimeZone: true,
-								timeZone: input.timeZone,
-							}),
-						),
-					),
-				}),
 	};
 };
 
-export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWorker>()(
-	"CalendarDeliveryWorker",
+export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>()(
+	"SignalScheduleWorker",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
+			const proKey = yield* ProKeyService;
 			const session = yield* DatabaseSession;
 			const ryotql = yield* RyotQLService;
 			const receipts = yield* MutationReceipts;
 			const signals = yield* SignalEmissionService;
 			const execution = yield* LifecycleExecution;
-			const repository = yield* CalendarDeliveryRepository;
+			const repository = yield* SignalScheduleRepository;
 
-			const admit = Effect.fn("CalendarDeliveryWorker.admit")(function* (
-				target: CalendarDeliveryTarget,
-				candidate: CalendarDeliveryCandidate,
+			const admit = Effect.fn("SignalScheduleWorker.admit")(function* (
+				target: SignalScheduleTarget,
+				candidate: SignalScheduleCandidate,
 				now: Date,
 			) {
 				const userId = UserId.make(target.userId);
 				const executionId = AutomationExecutionId.make(
-					`calendar-delivery:${sha256Base64Url(
+					`signal-schedule:${sha256Base64Url(
 						identityTupleKey(target.userId, target.pluginId, target.slug, candidate.occurrence),
 					)}`,
 				);
@@ -120,22 +119,22 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 								command: { ...command, writeContext: null },
 								subjectEntityId: EntityId.make(candidate.subjectId),
 								reference: {
-									slug: SignalSchemaSlug.make(target.delivery.signal),
+									slug: SignalSchemaSlug.make(target.signal),
 									owner: { kind: "plugin", pluginId: PluginId.make(target.pluginId) },
 								},
 							});
 							if (plan.trigger.blockedReason !== null) {
-								return yield* new DbError({ message: "Calendar delivery signal was blocked" });
+								return yield* new DbError({ message: "Scheduled signal was blocked" });
 							}
 							const recorded = yield* repository.record({
 								userId,
-								sourceSlug: target.slug,
+								scheduleSlug: target.slug,
 								pluginId: target.pluginId,
 								triggerId: plan.trigger.id,
 								occurrenceKey: candidate.occurrence,
 							});
 							if (!recorded) {
-								return yield* new CalendarDeliveryRecorded();
+								return yield* new SignalScheduleRecorded();
 							}
 							return toLifecycleDispatchPlan(plan);
 						}),
@@ -143,23 +142,24 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 					.pipe(
 						Effect.catchTags({
 							DatabaseSessionStateError: Effect.die,
-							CalendarDeliveryRecorded: () => Effect.succeed(null),
+							SignalScheduleRecorded: () => Effect.succeed(null),
 						}),
 					);
 			});
 
-			const deliverTarget = Effect.fn("CalendarDeliveryWorker.deliverTarget")(function* (
-				target: CalendarDeliveryTarget,
+			const deliverTarget = Effect.fn("SignalScheduleWorker.deliverTarget")(function* (
+				target: SignalScheduleTarget,
 				now: Date,
 			) {
-				const bounds = calendarDeliveryBounds({
+				const bounds = signalScheduleBounds({
 					now,
+					delayDays: target.delayDays,
 					precision: target.precision,
+					maxAgeHours: target.freshness?.maxAgeHours ?? null,
 					timeZone: target.preferences.reportingTimeZone ?? "UTC",
-					maxAgeHours: target.delivery.freshness?.maxAgeHours ?? null,
 				});
 				const ledger = {
-					sourceSlug: target.slug,
+					scheduleSlug: target.slug,
 					pluginId: target.pluginId,
 					userId: UserId.make(target.userId),
 				};
@@ -167,13 +167,13 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 				for (let page = 0; page < OCCURRENCE_PAGE_LIMIT; page++) {
 					const recipe = yield* Effect.fromResult(
 						Result.mapError(
-							calendarDeliveryPageRecipe({
+							signalSchedulePageRecipe({
 								after,
 								bounds,
-								source: target,
+								schedule: target,
 								limit: OCCURRENCE_PAGE_SIZE,
 							}),
-							(cause) => new CalendarDeliveryQueryError({ cause }),
+							(cause) => new SignalScheduleQueryError({ cause }),
 						),
 					);
 					const response = yield* ryotql.executeForUser(
@@ -185,7 +185,7 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 					const result = yield* Effect.fromResult(
 						Result.mapError(
 							recipe.decode(response),
-							(cause) => new CalendarDeliveryQueryError({ cause }),
+							(cause) => new SignalScheduleQueryError({ cause }),
 						),
 					);
 					const delivered = yield* repository.listDelivered(
@@ -208,7 +208,7 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 				}
 			});
 
-			const run = Effect.fn("CalendarDeliveryWorker.run")(function* () {
+			const run = Effect.fn("SignalScheduleWorker.run")(function* () {
 				if (config.scheduler.disableDispatchers) {
 					return;
 				}
@@ -220,22 +220,26 @@ export class CalendarDeliveryWorker extends Context.Service<CalendarDeliveryWork
 					)
 					.pipe(
 						Effect.catchCause((cause) =>
-							Effect.logWarning("Calendar delivery pruning failed", cause),
+							Effect.logWarning("Signal schedule delivery pruning failed", cause),
 						),
 					);
-				let after: null | CalendarDeliveryCursor = null;
+				const isPro = yield* proKey.isValidated;
+				let after: null | SignalScheduleCursor = null;
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
-					const targets: ReadonlyArray<CalendarDeliveryTarget> = yield* repository.listTargets(
+					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets(
 						after,
 						TARGET_PAGE_SIZE,
 					);
 					for (const target of targets) {
+						if (target.requiresProKey && !isPro) {
+							continue;
+						}
 						yield* deliverTarget(target, now).pipe(
 							Effect.catchCause((cause) =>
-								Effect.logWarning("Calendar delivery deferred", cause).pipe(
+								Effect.logWarning("Signal schedule delivery deferred", cause).pipe(
 									Effect.annotateLogs({
 										userId: target.userId,
-										sourceSlug: target.slug,
+										scheduleSlug: target.slug,
 										pluginId: target.pluginId,
 									}),
 								),

@@ -45,10 +45,7 @@ import {
 	BackupWorkflowOperationsLive,
 	RestoreBackupWorkflowDefinitionsProvidedLive,
 } from "#modules/backups/layer";
-import {
-	CalendarDeliveryWorkerLive,
-	CalendarSourcesServiceLive,
-} from "#modules/calendar-sources/layer";
+import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import {
 	CollectionMembershipWorkflowDefinitionsLive,
 	CollectionMembershipWorkflowOperationsLive,
@@ -162,6 +159,7 @@ import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxWorkflowPinningLive, ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { SignalScheduleWorkerLive } from "#modules/signal-schedules/layer";
 import { TestSupportServicesLive } from "#modules/test-support/layer";
 import { UserCommandWorkflowDefinitionsProvidedLive } from "#modules/user-commands/layer";
 import { AppConfig } from "#platform/config/service";
@@ -271,7 +269,7 @@ const ServicesLive = Layer.mergeAll(
 	ScriptExecutionServiceLive,
 	SavedViewsServiceLive,
 	CalendarSourcesServiceLive,
-	CalendarDeliveryWorkerLive,
+	SignalScheduleWorkerLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,

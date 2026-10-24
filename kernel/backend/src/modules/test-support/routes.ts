@@ -11,10 +11,10 @@ import { HttpApiBuilder } from "effect/http-api";
 
 import { AutomationReconciliation } from "#modules/automations/reconciliation";
 
-import { CalendarDeliveryTestSupport } from "./calendar-deliveries";
 import { OperationalGateService } from "./operational-gate-service";
 import { ReminderTestSupport } from "./reminders";
 import { TestSupportService } from "./service";
+import { SignalScheduleTestSupport } from "./signal-schedules";
 
 const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(
@@ -54,8 +54,8 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("runReminderScan", () =>
 			Effect.flatMap(ReminderTestSupport, (service) => service.scan()).pipe(mapTestSupportFailure),
 		)
-		.handle("runCalendarDeliveryScan", () =>
-			Effect.flatMap(CalendarDeliveryTestSupport, (service) => service.scan()).pipe(
+		.handle("runSignalScheduleScan", () =>
+			Effect.flatMap(SignalScheduleTestSupport, (service) => service.scan()).pipe(
 				mapTestSupportFailure,
 			),
 		)
