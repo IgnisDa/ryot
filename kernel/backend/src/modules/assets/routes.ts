@@ -2,7 +2,7 @@ import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest, UploadInternalError } from "@ryot-app/contract/modules/assets/schemas";
-import { Effect, FileSystem } from "effect";
+import { DateTime, Effect, FileSystem } from "effect";
 import { HttpServerResponse } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 
@@ -101,7 +101,15 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* UploadIntentsService;
-				return yield* service.completeUploadIntent(user, params.intentId).pipe(mapUploadError);
+				const completion = yield* service
+					.completeUploadIntent(user, params.intentId)
+					.pipe(mapUploadError);
+				return "token" in completion
+					? {
+							token: completion.token,
+							expiresAt: DateTime.formatIso(DateTime.makeUnsafe(completion.expiresAt * 1000)),
+						}
+					: completion;
 			}),
 		)
 		.handle("resolveDownloads", ({ payload }) =>

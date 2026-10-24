@@ -15,7 +15,7 @@
 
 ## Status
 
-**33 implemented, 0 in progress, 50 pending; 3 excluded.**
+**34 implemented, 0 in progress, 49 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -52,7 +52,7 @@
 | B09-R1 | Pending | Persist collection fields in authored order. |
 | F04-R2 | Pending | Address complete measurement entries for edits and deletes. |
 | B28-R1 | Pending | Derive ingestion identity projections from JSON. |
-| B05-R1 | Pending | Model upload intent states without contradictory fields. |
+| B05-R1 | Implemented | Model five strict upload-intent variants; require a local temp path, separate numeric completion expiry from the lease, preserve single-claim replay, and block cleanup of stale permanent objects. See this finding's audit commit. |
 | B13-R2 | Pending | Remove the non-durable preparing state. |
 | B07-R1 | Pending | Use portable package keys in backups. |
 | B30-R2 | Implemented | Preserve parsed configuration and complete credential invariants; remove consumer reparse/reconstruction and keep partial-startup semantics unchanged. See this finding's audit commit. |
@@ -198,3 +198,4 @@
 - S03-R1: sandbox Bun check, including format and clippy, passed; 73 Cargo tests passed with one ignored, and generated-doc validation passed. Read-only review reported no findings. Linux-only confinement was not run on macOS.
 - C08-R1: client type, format, and lint checks passed before 55 tests; read-only review reported no findings.
 - B15-R1: scoped type, format, and lint checks passed before 98 tests across 12 files; read-only review reported no findings. The full check was blocked by concurrent B05 work, now fixed. Existing development histories are disposable; no production data or drain machinery is needed. No compatibility path was added and no reset was performed.
+- B05-R1: backend type and scoped format/lint checks passed before 99 tests across five files; read-only review reported no findings. Redis shape changed without a dual decoder or compatibility path. No production data or drain machinery is involved; no reset was performed.

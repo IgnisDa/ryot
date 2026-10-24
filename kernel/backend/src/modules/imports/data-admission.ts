@@ -237,11 +237,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 									}),
 							),
 						);
-						if (!claim.resolvedPath || claim.locator.type !== "local") {
-							return yield* new ImportRequestError({
-								reason: { field: "uploadToken", code: "upload-unavailable" },
-							});
-						}
 						const stat = yield* fs
 							.stat(claim.resolvedPath)
 							.pipe(
