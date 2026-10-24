@@ -1,6 +1,9 @@
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 
-export class ExtensionError extends Data.TaggedError("ExtensionError")<{ cause: unknown }> {}
+export class ExtensionError extends Schema.TaggedError<
+	ExtensionError,
+	{ readonly brand: unique symbol }
+>()("ExtensionError", { cause: Schema.Unknown }) {}
 
 export const fromPlatform = <A>(run: () => Promise<A>) =>
 	Effect.tryPromise({ try: run, catch: (cause) => new ExtensionError({ cause }) });

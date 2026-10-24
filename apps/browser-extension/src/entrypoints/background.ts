@@ -1,14 +1,13 @@
-import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Option, Schema } from "effect";
 import { FetchHttpClient, type HttpClient } from "effect/http";
 
 import { storage } from "#imports";
 
-import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
+import { STORAGE_KEYS } from "../lib/constants";
 import { lookupMetadata, postIntegrationWebhook } from "../lib/contract-client";
-import type { ProgressDataWithMetadata } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
+import { ExtensionMessage } from "../lib/messages";
 import { errorMessage, fromPlatform } from "../lib/platform";
 
 const handleMetadataLookup = Effect.fn("handleMetadataLookup")(function* (data: { title: string }) {
@@ -29,7 +28,10 @@ const handleMetadataLookup = Effect.fn("handleMetadataLookup")(function* (data: 
 	return result;
 });
 
-const handleProgressData = (progressData: ProgressDataWithMetadata, tabUrl?: string) =>
+const handleProgressData = (
+	progressData: Extract<ExtensionMessage, { type: "SEND_PROGRESS_DATA" }>["data"],
+	tabUrl?: string,
+) =>
 	Effect.gen(function* () {
 		const integrationUrl = yield* fromPlatform(() =>
 			storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
@@ -41,8 +43,8 @@ const handleProgressData = (progressData: ProgressDataWithMetadata, tabUrl?: str
 
 		const { rawData, metadata } = progressData;
 
-		if (!isFiniteNumber(rawData.progress) || !tabUrl || metadata.status === "notFound") {
-			return undefined;
+		if (!tabUrl || metadata.status === "notFound") {
+			return null;
 		}
 
 		const mediaSeen = {
@@ -65,12 +67,11 @@ const handleProgressData = (progressData: ProgressDataWithMetadata, tabUrl?: str
 
 		logger.info("Integration data sent successfully");
 
-		return { success: true };
+		return null;
 	}).pipe(
-		Effect.catchCause((cause) => {
-			logger.error("Integration data request failed", { error: cause });
-			return Effect.succeed({ success: false, error: errorMessage(cause) });
-		}),
+		Effect.tapCause((cause) =>
+			Effect.sync(() => logger.error("Integration data request failed", { error: cause })),
+		),
 	);
 
 const getCurrentStatus = () =>
@@ -90,18 +91,18 @@ export default defineBackground(() => {
 		logger.cleanup();
 	});
 
-	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-		const respond = <A, E>(
-			program: Effect.Effect<A, E, HttpClient.HttpClient>,
-			label: string,
-			makeResponse: (result: A) => unknown,
-		) => {
+	browser.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
+		const message = Schema.decodeUnknownOption(ExtensionMessage)(rawMessage);
+		if (Option.isNone(message)) {
+			return undefined;
+		}
+		const respond = <A, E>(program: Effect.Effect<A, E, HttpClient.HttpClient>, label: string) => {
 			void Effect.runPromise(
 				program.pipe(
 					// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Each runtime message is a background entrypoint
 					Effect.provide(FetchHttpClient.layer),
 					Effect.matchCause({
-						onSuccess: (result) => sendResponse(makeResponse(result)),
+						onSuccess: (data) => sendResponse({ data, success: true }),
 						onFailure: (cause) => {
 							const error = Cause.squash(cause);
 							logger.debug(label, { error });
@@ -110,37 +111,24 @@ export default defineBackground(() => {
 					}),
 				),
 			);
-			return true;
 		};
-		if (message.type === MESSAGE_TYPES.GET_STATUS) {
-			return respond(getCurrentStatus(), "Failed to get status", (status) => ({
-				data: status,
-				success: true,
-			}));
+		switch (message.value.type) {
+			case "GET_STATUS":
+				respond(getCurrentStatus(), "Failed to get status");
+				break;
+			case "METADATA_LOOKUP":
+				respond(handleMetadataLookup(message.value.data), "Metadata lookup failed");
+				break;
+			case "GET_CACHED_TITLE":
+				respond(getCurrentCachedTitle(), "Failed to get cached title");
+				break;
+			case "SEND_PROGRESS_DATA":
+				respond(
+					handleProgressData(message.value.data, sender.tab?.url),
+					"Progress data request failed",
+				);
+				break;
 		}
-
-		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
-			return respond(
-				handleProgressData(message.data, sender.tab?.url),
-				"Progress data request failed",
-				(result) => ({ result, success: true }),
-			);
-		}
-
-		if (message.type === MESSAGE_TYPES.METADATA_LOOKUP) {
-			return respond(handleMetadataLookup(message.data), "Metadata lookup failed", (result) => ({
-				data: result,
-				success: true,
-			}));
-		}
-
-		if (message.type === MESSAGE_TYPES.GET_CACHED_TITLE) {
-			return respond(getCurrentCachedTitle(), "Failed to get cached title", (title) => ({
-				data: title,
-				success: true,
-			}));
-		}
-
-		return undefined;
+		return true;
 	});
 });

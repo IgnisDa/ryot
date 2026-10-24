@@ -3,8 +3,9 @@ import { Effect } from "effect";
 
 import { storage } from "#imports";
 
-import { MESSAGE_TYPES, STORAGE_KEYS } from "./constants";
+import { STORAGE_KEYS } from "./constants";
 import { logger } from "./logger";
+import { sendExtensionMessage } from "./messages";
 import { extractMetadataTitle } from "./metadata-extractor";
 import { fromPlatform } from "./platform";
 
@@ -37,11 +38,9 @@ export class MetadataCache {
 			yield* fromPlatform(() => storage.setItem(STORAGE_KEYS.CURRENT_PAGE_TITLE, title));
 
 			return yield* Effect.gen(function* () {
-				const response = yield* fromPlatform(() =>
-					browser.runtime.sendMessage({ data: { title }, type: MESSAGE_TYPES.METADATA_LOOKUP }),
-				);
+				const response = yield* sendExtensionMessage({ data: { title }, type: "METADATA_LOOKUP" });
 
-				if (response.success && response.data) {
+				if (response.success) {
 					yield* fromPlatform(() => storage.setItem(cacheKey, response.data));
 					logger.debug("Metadata lookup successful", {
 						title,
@@ -66,7 +65,7 @@ export class MetadataCache {
 		const cleanTitle = title
 			.trim()
 			.toLowerCase()
-			.replace(/[^a-z0-9]/g, "_");
+			.replaceAll(/[^a-z0-9]/g, "_");
 		return `local:cached-metadata:${cleanTitle}`;
 	}
 }

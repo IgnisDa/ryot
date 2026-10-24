@@ -4,10 +4,10 @@ import { Effect, Fiber } from "effect";
 
 import { storage } from "#imports";
 
-import { MESSAGE_TYPES, MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
-import type { RawMediaData } from "../lib/extension-types";
+import { MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
+import { type RawMediaData, sendExtensionMessage } from "../lib/messages";
 import { MetadataCache } from "../lib/metadata-cache";
 import { extractMetadataTitle } from "../lib/metadata-extractor";
 import { fromPlatform, run } from "../lib/platform";
@@ -63,12 +63,10 @@ function findBestVideo(): null | HTMLVideoElement {
 }
 
 const sendProgressUpdate = (progressData: RawMediaData, metadata: MetadataLookupResult) =>
-	fromPlatform(() =>
-		browser.runtime.sendMessage({
-			type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
-			data: { metadata, rawData: progressData },
-		}),
-	).pipe(
+	sendExtensionMessage({
+		type: "SEND_PROGRESS_DATA",
+		data: { metadata, rawData: progressData },
+	}).pipe(
 		Effect.catch((error) =>
 			Effect.sync(() => {
 				logger.error("Failed to send progress update", { error });

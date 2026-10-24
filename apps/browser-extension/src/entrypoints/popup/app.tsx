@@ -6,9 +6,10 @@ import { match } from "ts-pattern";
 import { storage } from "#imports";
 import logo from "~/assets/icon.png";
 
-import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
+import { STORAGE_KEYS } from "../../lib/constants";
 import { ExtensionStatus, type FormState } from "../../lib/extension-types";
 import { logger } from "../../lib/logger";
+import { sendExtensionMessage } from "../../lib/messages";
 import { fromPlatform, run } from "../../lib/platform";
 
 const getStatusMessage = (status: ExtensionStatus): string => {
@@ -74,7 +75,7 @@ const App = () => {
 			});
 
 		const loadExtensionStatus = () =>
-			fromPlatform(() => browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS })).pipe(
+			sendExtensionMessage({ type: "GET_STATUS" }).pipe(
 				Effect.map((response) => {
 					if (response.success) {
 						setExtensionStatus(response.data);
@@ -88,9 +89,7 @@ const App = () => {
 			);
 
 		const loadCurrentVideoTitle = () =>
-			fromPlatform(() =>
-				browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_CACHED_TITLE }),
-			).pipe(
+			sendExtensionMessage({ type: "GET_CACHED_TITLE" }).pipe(
 				Effect.map((response) => {
 					if (response.success) {
 						setCurrentVideoTitle(response.data);
