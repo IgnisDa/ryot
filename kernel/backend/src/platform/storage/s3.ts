@@ -132,18 +132,18 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			contentLength: number,
 		) {
 			const configuredClient = yield* requireConfigured;
-			const chunks = yield* Stream.runCollect(stream).pipe(
-				Effect.mapError(() => badRequest("S3 object write failed")),
-			);
 			const body = new Uint8Array(contentLength);
 			let offset = 0;
-			for (const chunk of chunks) {
-				if (offset + chunk.byteLength > body.byteLength) {
-					return yield* badRequest("S3 object write failed");
-				}
-				body.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
+			yield* Stream.runForEach(stream, (chunk) =>
+				Effect.suspend(() => {
+					if (offset + chunk.byteLength > body.byteLength) {
+						return Effect.fail(badRequest("S3 object write failed"));
+					}
+					body.set(chunk, offset);
+					offset += chunk.byteLength;
+					return Effect.void;
+				}),
+			).pipe(Effect.mapError(() => badRequest("S3 object write failed")));
 			if (offset !== body.byteLength) {
 				return yield* badRequest("S3 object write failed");
 			}

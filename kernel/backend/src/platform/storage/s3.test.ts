@@ -12,12 +12,16 @@ const bucketName = "test-bucket";
 
 class FakeS3Server extends Context.Service<
 	FakeS3Server,
-	{ readonly objects: Effect.Effect<ReadonlyMap<string, Uint8Array>> }
+	{
+		readonly objects: Effect.Effect<ReadonlyMap<string, Uint8Array>>;
+		readonly requests: Effect.Effect<number>;
+	}
 >()("test/FakeS3Server") {}
 
 const fakeS3Layer = Layer.unwrap(
 	Effect.gen(function* () {
 		const objects = yield* Ref.make<ReadonlyMap<string, Uint8Array>>(new Map());
+		const requests = yield* Ref.make(0);
 		const run = Effect.runPromiseWith(yield* Effect.context());
 		const server = yield* Effect.acquireRelease(
 			Effect.sync(() =>
@@ -28,10 +32,12 @@ const fakeS3Layer = Layer.unwrap(
 						const path = new URL(request.url).pathname;
 						return run(
 							Effect.gen(function* () {
+								yield* Ref.update(requests, (count) => count + 1);
 								const body = new Uint8Array(yield* Effect.promise(() => request.arrayBuffer()));
 								if (
 									request.method !== "PUT" ||
 									request.headers.get("if-none-match") !== "*" ||
+									request.headers.get("content-type") !== "text/plain" ||
 									request.headers.get("content-length") !== String(body.byteLength)
 								) {
 									return new Response(null, { status: 400 });
@@ -52,7 +58,7 @@ const fakeS3Layer = Layer.unwrap(
 			(runningServer) => Effect.promise(() => runningServer.stop(true)),
 		);
 		return Layer.merge(
-			Layer.succeed(FakeS3Server, { objects: Ref.get(objects) }),
+			Layer.succeed(FakeS3Server, { objects: Ref.get(objects), requests: Ref.get(requests) }),
 			S3Service.layer.pipe(
 				Layer.provide(
 					makeAppConfigLayer({
@@ -104,5 +110,76 @@ layer(fakeS3Layer)((test) => {
 				);
 				assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
 			}),
+	);
+
+	test.effect("uploads an empty body with zero content length", () =>
+		Effect.gen(function* () {
+			const s3 = yield* S3Service;
+			expect(yield* s3.writeObjectIfAbsent("empty.txt", Stream.empty, "text/plain", 0)).toBe(true);
+			const objects = yield* (yield* FakeS3Server).objects;
+			expect(objects.get(`/${bucketName}/empty.txt`)).toEqual(new Uint8Array(0));
+		}),
+	);
+
+	test.effect("releases an underflowing stream without sending a request", () =>
+		Effect.gen(function* () {
+			const s3 = yield* S3Service;
+			const server = yield* FakeS3Server;
+			const requestsBefore = yield* server.requests;
+			const released = yield* Ref.make(false);
+			const stream = Stream.make(new Uint8Array([1, 2])).pipe(
+				Stream.ensuring(Ref.set(released, true)),
+			);
+			const failure = yield* Effect.exit(
+				s3.writeObjectIfAbsent("underflow.txt", stream, "text/plain", 3),
+			);
+			assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+			expect(yield* Ref.get(released)).toBe(true);
+			expect(yield* server.requests).toBe(requestsBefore);
+		}),
+	);
+
+	test.effect("stops and releases an overflowing stream without sending a request", () =>
+		Effect.gen(function* () {
+			const s3 = yield* S3Service;
+			const server = yield* FakeS3Server;
+			const requestsBefore = yield* server.requests;
+			for (const contentLength of [0, 3]) {
+				const released = yield* Ref.make(false);
+				const tailConsumed = yield* Ref.make(false);
+				const stream = Stream.make(new Uint8Array([1, 2]), new Uint8Array([3, 4])).pipe(
+					Stream.concat(
+						Stream.fromEffect(Ref.set(tailConsumed, true).pipe(Effect.as(new Uint8Array([5])))),
+					),
+					Stream.ensuring(Ref.set(released, true)),
+				);
+				const failure = yield* Effect.exit(
+					s3.writeObjectIfAbsent("overflow.txt", stream, "text/plain", contentLength),
+				);
+				assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+				expect(yield* Ref.get(tailConsumed)).toBe(false);
+				expect(yield* Ref.get(released)).toBe(true);
+			}
+			expect(yield* server.requests).toBe(requestsBefore);
+		}),
+	);
+
+	test.effect("maps upstream failures and releases the stream without sending a request", () =>
+		Effect.gen(function* () {
+			const s3 = yield* S3Service;
+			const server = yield* FakeS3Server;
+			const requestsBefore = yield* server.requests;
+			const released = yield* Ref.make(false);
+			const stream = Stream.make(new Uint8Array([1, 2])).pipe(
+				Stream.concat(Stream.fail("upstream failed")),
+				Stream.ensuring(Ref.set(released, true)),
+			);
+			const failure = yield* Effect.exit(
+				s3.writeObjectIfAbsent("upstream-failure.txt", stream, "text/plain", 2),
+			);
+			assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+			expect(yield* Ref.get(released)).toBe(true);
+			expect(yield* server.requests).toBe(requestsBefore);
+		}),
 	);
 });
