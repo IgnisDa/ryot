@@ -1,9 +1,16 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import type { CreateNotificationChannelBody } from "@ryot-app/contract/modules/notifications/schemas";
+import type {
+	CreateNotificationChannelBody,
+	TestNotificationChannelsBody,
+} from "@ryot-app/contract/modules/notifications/schemas";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
+import {
+	notificationOutcomeRecipe,
+	type NotificationOutcomeResult,
+} from "@ryot-app/ryotql-recipes/notification-delivery";
 import { Context, Data, Effect, Layer } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
@@ -19,6 +26,23 @@ type NotificationChannelsClient = Pick<KernelRyotClient, "data">;
 export class NotificationChannelsLoadError extends Data.TaggedError(
 	"NotificationChannelsLoadError",
 )<{ readonly cause: unknown }> {}
+
+export class NotificationDeliveryLoadError extends Data.TaggedError(
+	"NotificationDeliveryLoadError",
+)<{ readonly cause: unknown }> {}
+
+export const notificationOutcomeQuery = createRyotQuery<
+	string,
+	NotificationOutcomeResult,
+	KernelHostServices,
+	NotificationDeliveryLoadError
+>(
+	({ input, client }) =>
+		client.data
+			.query(notificationOutcomeRecipe({ id: input }))
+			.pipe(Effect.mapError((cause) => new NotificationDeliveryLoadError({ cause }))),
+	{ cancelOnUnmount: true },
+);
 
 export class NotificationChannelsService extends Context.Service<NotificationChannelsService>()(
 	"NotificationChannelsService",
@@ -68,14 +92,14 @@ export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, Kerne
 );
 
 export const testNotificationChannelsMutation = createRyotMutation<
-	void,
-	void,
+	TestNotificationChannelsBody,
+	ContractSuccess<"notifications", "testChannels">,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ client, hostServices }) =>
+>(({ input, client, hostServices }) =>
 	hostServices.runtime
 		.runSync(NotificationsApi)
-		.testChannels(hostServices.scope)
+		.testChannels(hostServices.scope, { payload: input })
 		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );
 

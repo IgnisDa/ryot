@@ -4,17 +4,20 @@ import { useCollectionScreens } from "#/modules/collections/screens";
 import { type ClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
+import { useReminderScreen } from "#/modules/reminders/screens";
 
 export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">) {
 	const navigate = useNavigate();
 	const { open, session } = useEntityPickerSession();
 	const collections = useCollectionScreens();
+	const reminders = useReminderScreen();
 	useClientPageDocument({
 		...props,
 		onPickEntity: open,
-		inert: session !== null || collections.open,
+		onManageReminders: reminders.onManageReminders,
 		onEditCollection: collections.onEditCollection,
 		onAddToCollection: collections.onAddToCollection,
+		inert: session !== null || collections.open || reminders.open,
 	});
 	return (
 		<>
@@ -29,6 +32,7 @@ export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">
 				/>
 			)}
 			{collections.screen}
+			{reminders.screen}
 		</>
 	);
 }

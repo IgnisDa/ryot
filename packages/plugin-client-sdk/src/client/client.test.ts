@@ -24,7 +24,7 @@ const resolution = {
 };
 
 describe("Effect-native client capabilities", () => {
-	it.effect("refreshes collection screens only after saved changes", () =>
+	it.effect("refreshes host screens only after changes", () =>
 		Effect.gen(function* () {
 			let refreshes = 0;
 			for (const outcome of [
@@ -57,6 +57,17 @@ describe("Effect-native client capabilities", () => {
 				unsubscribe();
 			}
 			expect(refreshes).toBe(4);
+			for (const outcome of [{ kind: "changed" }, { kind: "cancelled" }] as const) {
+				const client = createRyotClient(
+					createTestRyotAdapter({ manageReminders: () => Effect.succeed(outcome) }),
+				);
+				const unsubscribe = client.mutationCompleted.subscribe(() => {
+					refreshes++;
+				});
+				yield* client.screens.manageReminders({ entityId: "entity-1" });
+				unsubscribe();
+			}
+			expect(refreshes).toBe(5);
 		}),
 	);
 	it.effect("does not publish mutation refresh for read-only context operations", () =>
@@ -92,6 +103,11 @@ describe("Effect-native client capabilities", () => {
 							calls.push(request);
 							return { kind: "removed" };
 						}),
+					manageReminders: (request) =>
+						Effect.sync(() => {
+							calls.push(request);
+							return { kind: "changed" };
+						}),
 					editCollection: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
@@ -107,16 +123,27 @@ describe("Effect-native client capabilities", () => {
 			expect(
 				yield* client.screens.addToCollection({ collectionId: "c-1", entityId: "entity-1" }),
 			).toEqual({ kind: "removed" });
-			expect(calls).toEqual([{}, { collectionId: "c-1", entityId: "entity-1" }]);
+			expect(
+				yield* client.screens.manageReminders({ entityId: "entity-1", parentEntityId: "parent-1" }),
+			).toEqual({ kind: "changed" });
+			expect(calls).toEqual([
+				{},
+				{ collectionId: "c-1", entityId: "entity-1" },
+				{ entityId: "entity-1", parentEntityId: "parent-1" },
+			]);
 			const renamed = { name: "Renamed", collectionId: "c-1" };
 			const withProperties = { properties: {}, entityId: "entity-1" };
+			const withReminderDetails = { note: "not allowed", entityId: "entity-1" };
 			expect(yield* Effect.flip(client.screens.editCollection(renamed))).toMatchObject({
 				reason: "invalid-input",
 			});
 			expect(yield* Effect.flip(client.screens.addToCollection(withProperties))).toMatchObject({
 				reason: "invalid-input",
 			});
-			expect(calls).toHaveLength(2);
+			expect(yield* Effect.flip(client.screens.manageReminders(withReminderDetails))).toMatchObject(
+				{ reason: "invalid-input" },
+			);
+			expect(calls).toHaveLength(3);
 
 			const missing = createRyotClient(createTestRyotAdapter());
 			expect(yield* Effect.flip(missing.screens.editCollection({}))).toMatchObject({
@@ -125,8 +152,12 @@ describe("Effect-native client capabilities", () => {
 			expect(
 				yield* Effect.flip(missing.screens.addToCollection({ entityId: "entity-1" })),
 			).toMatchObject({ reason: "unsupported-capability" });
+			expect(
+				yield* Effect.flip(missing.screens.manageReminders({ entityId: "entity-1" })),
+			).toMatchObject({ reason: "unsupported-capability" });
 			const malformed = createRyotClient(
 				createTestRyotAdapter({
+					manageReminders: () => Effect.succeed({ kind: "saved" }),
 					addToCollection: () => Effect.succeed({ kind: "deleted" }),
 					editCollection: () => Effect.succeed({ kind: "saved", name: "Renamed" }),
 				}),
@@ -136,6 +167,9 @@ describe("Effect-native client capabilities", () => {
 			});
 			expect(
 				yield* Effect.flip(malformed.screens.addToCollection({ entityId: "entity-1" })),
+			).toMatchObject({ reason: "malformed-result" });
+			expect(
+				yield* Effect.flip(malformed.screens.manageReminders({ entityId: "entity-1" })),
 			).toMatchObject({ reason: "malformed-result" });
 		}),
 	);

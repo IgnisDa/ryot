@@ -1,6 +1,9 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
-import type { PluginPageSearchUpdate } from "@ryot-app/plugin-client-contract";
+import type {
+	ManageRemindersOutcome,
+	PluginPageSearchUpdate,
+} from "@ryot-app/plugin-client-contract";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -571,6 +574,10 @@ function ClientPageFrame(props: {
 				props.runtime
 					.runSync(PluginEntitySaves)
 					.outcome(props.scope, identity.contributors, request)
+			}
+			onManageReminders={(request) =>
+				props.document.onManageReminders?.(request) ??
+				Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" })
 			}
 			onDevice={(request) =>
 				props.runtime

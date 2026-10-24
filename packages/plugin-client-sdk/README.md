@@ -143,6 +143,10 @@ or `{ kind: "cancelled" }` when unchanged. Both screens hint a page refresh afte
 outcomes. Both accept IDs only;
 collection update and delete are not otherwise exposed to plugins.
 
+`screens.manageReminders({ entityId, parentEntityId? })` opens the host reminder-management screen
+for an entity, optionally scoped to a parent entity. It returns `{ kind: "changed" }` or
+`{ kind: "cancelled" }`; only `changed` hints a page refresh.
+
 `calendarSources.setVisibility({ pluginId, slug, isHidden })` hides or shows one calendar source for
 the current user and hints a page refresh on success. Only the kernel calendar renderer is allowed to
 call it; other documents receive `invalid-request`.

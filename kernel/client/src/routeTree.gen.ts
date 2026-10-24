@@ -38,6 +38,7 @@ import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from '.
 import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
 import { Route as AuthenticatedSettingsPluginsRouteImport } from './routes/_authenticated/settings/plugins'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
+import { Route as AuthenticatedSettingsRemindersRouteImport } from './routes/_authenticated/settings/reminders'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
 import { Route as AuthenticatedPPublisherNameRouteRouteImport } from './routes/_authenticated/p/$publisher/$name/route'
 import { Route as AuthenticatedSettingsAutomationHistoryIndexRouteImport } from './routes/_authenticated/settings/automation-history/index'
@@ -211,6 +212,12 @@ const AuthenticatedSettingsPreferencesRoute =
     path: '/preferences',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsRemindersRoute =
+  AuthenticatedSettingsRemindersRouteImport.update({
+    id: '/reminders',
+    path: '/reminders',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
   id: '/auth_/logout/callback',
   path: '/auth/logout/callback',
@@ -328,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
@@ -371,6 +379,7 @@ export interface FileRoutesByTo {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/_authenticated/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/_authenticated/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
+    | '/settings/reminders'
     | '/auth/logout/callback'
     | '/settings/'
     | '/p/$publisher/$name'
@@ -507,6 +518,7 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
+    | '/settings/reminders'
     | '/auth/logout/callback'
     | '/settings'
     | '/settings/automation-history/$runId'
@@ -552,6 +564,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/oauth-return'
     | '/_authenticated/settings/plugins'
     | '/_authenticated/settings/preferences'
+    | '/_authenticated/settings/reminders'
     | '/auth_/logout/callback'
     | '/_authenticated/settings/'
     | '/_authenticated/p/$publisher/$name'
@@ -790,6 +803,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/reminders': {
+      id: '/_authenticated/settings/reminders'
+      path: '/reminders'
+      fullPath: '/settings/reminders'
+      preLoaderRoute: typeof AuthenticatedSettingsRemindersRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/auth_/logout/callback': {
       id: '/auth_/logout/callback'
       path: '/auth/logout/callback'
@@ -908,6 +928,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
   AuthenticatedSettingsPluginsRoute: typeof AuthenticatedSettingsPluginsRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
+  AuthenticatedSettingsRemindersRoute: typeof AuthenticatedSettingsRemindersRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedSettingsAutomationHistoryRunIdRoute: typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   AuthenticatedSettingsImportDataRunIdRoute: typeof AuthenticatedSettingsImportDataRunIdRoute
@@ -934,6 +955,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsPluginsRoute: AuthenticatedSettingsPluginsRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
+    AuthenticatedSettingsRemindersRoute: AuthenticatedSettingsRemindersRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
     AuthenticatedSettingsAutomationHistoryRunIdRoute:
       AuthenticatedSettingsAutomationHistoryRunIdRoute,

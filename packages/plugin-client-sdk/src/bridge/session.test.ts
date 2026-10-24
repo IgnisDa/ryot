@@ -414,6 +414,54 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("cancels reminder screens and ignores stale replies", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const interrupted = yield* Effect.forkChild(
+				runtime.client.screens.manageReminders({
+					entityId: "entity-1",
+					parentEntityId: "parent-1",
+				}),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "manage-reminders-screen")).toEqual([
+				{
+					entityId: "entity-1",
+					parentEntityId: "parent-1",
+					type: "manage-reminders-screen",
+					requestId: "manage-reminders-screen-1",
+				},
+			]);
+			yield* Fiber.interrupt(interrupted);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "manage-reminders-screen-cancel")).toEqual([
+				{ requestId: "manage-reminders-screen-1", type: "manage-reminders-screen-cancel" },
+			]);
+
+			const pending = yield* Effect.forkChild(
+				runtime.client.screens.manageReminders({ entityId: "entity-2" }),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "cancelled" },
+				requestId: "manage-reminders-screen-1",
+				type: "manage-reminders-screen-result",
+			});
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "changed" },
+				requestId: "manage-reminders-screen-2",
+				type: "manage-reminders-screen-result",
+			});
+			expect(yield* Fiber.join(pending)).toEqual({ kind: "changed" });
+			expect(sent(messages, "lifecycle-close")).toEqual([]);
+		}),
+	);
+
 	it.live("cancels interrupted collection screens and rejects them on document change", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

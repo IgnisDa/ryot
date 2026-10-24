@@ -14,6 +14,7 @@ import {
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
+import { FitnessRemindersButton } from "../reminders";
 import { ComputedResults } from "../workout-processing";
 import { AdjustWorkoutTime } from "./adjust-time";
 import type {
@@ -135,6 +136,7 @@ function WorkoutActions(props: {
 			<Button variant="secondary" onClick={openEditor("edit")}>
 				Edit
 			</Button>
+			<FitnessRemindersButton entityId={props.entityId} />
 			<HeaderActionsMenu
 				label="More workout actions"
 				items={[

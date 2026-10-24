@@ -5,6 +5,7 @@ import { AccountApi } from "#/api/account";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { AutomationHistoryApi } from "#/api/automation-history";
+import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
@@ -19,6 +20,7 @@ import { PagesApi } from "#/api/pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { PublicApi } from "#/api/public";
+import { RemindersApi } from "#/api/reminders";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
@@ -37,6 +39,7 @@ export const TransportLive = Layer.mergeAll(
 );
 
 export const ApiLive = Layer.mergeAll(
+	AutomationsApi.layer,
 	PublicApi.layer,
 	AutomationHistoryApi.layer,
 	EntityWatchApi.layer,
@@ -53,6 +56,7 @@ export const ApiLive = Layer.mergeAll(
 	AccountApi.layer,
 	IntegrationsApi.layer,
 	NotificationsApi.layer,
+	RemindersApi.layer,
 	OAuthConnectionsApi.layer,
 	EntityProvidersApi.layer,
 	PluginInstallationsApi.layer,

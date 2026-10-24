@@ -23,6 +23,7 @@ import { MediaMonitoringControl } from "./monitoring";
 import { MediaOwnershipControl } from "./ownership";
 import { MediaExternalLink, MediaFactRow, MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
+import { MediaRemindersControl } from "./reminders";
 import { MediaReviewButton } from "./review";
 import {
 	type MediaEntitySummaryValue,
@@ -168,6 +169,7 @@ function MediaActions(props: {
 					logger={props.logActivity}
 				/>
 			)}
+			<MediaRemindersControl entityId={props.media.id} />
 			<MediaReviewButton entityId={props.media.id} />
 			<MediaEntityEditAction
 				entityId={props.media.id}

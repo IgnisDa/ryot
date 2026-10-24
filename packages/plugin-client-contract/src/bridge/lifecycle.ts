@@ -285,6 +285,48 @@ export type PluginBridgeAddToCollectionScreenResult = Schema.Schema.Type<
 	typeof PluginBridgeAddToCollectionScreenResult
 >;
 
+export const ManageRemindersRequest = strictStruct({
+	entityId: EntityId,
+	parentEntityId: Schema.optional(EntityId),
+});
+
+export type ManageRemindersRequest = Schema.Schema.Type<typeof ManageRemindersRequest>;
+
+export const PluginBridgeManageRemindersScreen = strictStruct({
+	...ManageRemindersRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("manage-reminders-screen"),
+});
+
+export type PluginBridgeManageRemindersScreen = Schema.Schema.Type<
+	typeof PluginBridgeManageRemindersScreen
+>;
+
+export const ManageRemindersOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("changed") }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type ManageRemindersOutcome = Schema.Schema.Type<typeof ManageRemindersOutcome>;
+
+export const PluginBridgeManageRemindersScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("manage-reminders-screen-cancel"),
+});
+
+export type PluginBridgeManageRemindersScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeManageRemindersScreenCancel
+>;
+
+export const PluginBridgeManageRemindersScreenResult = hostScreenResult(
+	"manage-reminders-screen-result",
+	ManageRemindersOutcome,
+);
+
+export type PluginBridgeManageRemindersScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeManageRemindersScreenResult
+>;
+
 export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });
 
 export type PluginBridgePageRefresh = Schema.Schema.Type<typeof PluginBridgePageRefresh>;

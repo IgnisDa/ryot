@@ -169,8 +169,9 @@ only real transport failures show the connection message.
 Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
 stored locally, with explicit URL state taking precedence. Plugin routes host the entity picker
 screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor
-and add-to-collection screens (`modules/collections`). The bridge allows one pending host screen per
-frame across types, and the document is inert while any screen is open.
+and add-to-collection screens (`modules/collections`) and reminder management (`modules/reminders`).
+The bridge allows one pending host screen per frame across types, and the document is inert while any
+screen is open.
 The collection membership screen stays open after adds, detail edits, and removals, returning to its
 searchable collection list. Closing it reports the last membership change, or cancellation if none
 was made. Collection-specific requests open that membership first; Back returns to the list.

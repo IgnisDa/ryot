@@ -9,6 +9,8 @@ import type {
 	ExternalLinkOutcome,
 	ExternalLinkRequest,
 	KernelShortcut,
+	ManageRemindersOutcome,
+	ManageRemindersRequest,
 	PageShortcutKey,
 	PickEntityOutcome,
 	PluginAssetOutcome,
@@ -143,6 +145,9 @@ export function PageIframeHost(props: {
 	readonly onAddToCollection: (
 		request: AddToCollectionRequest,
 	) => Effect.Effect<AddToCollectionOutcome>;
+	readonly onManageReminders: (
+		request: ManageRemindersRequest,
+	) => Effect.Effect<ManageRemindersOutcome>;
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
@@ -487,6 +492,20 @@ export function PageIframeHost(props: {
 						return { outcome: "failure", reason: "operation-failed" };
 					}),
 				),
+			onManageReminders: (request) => {
+				const acceptedDocumentKey = latest.current.documentKey;
+				return latest.current
+					.onManageReminders(request)
+					.pipe(
+						Effect.tap((outcome) =>
+							outcome.kind === "changed" &&
+							latest.current.documentKey === acceptedDocumentKey &&
+							bridge.current === connection.session
+								? Effect.sync(() => latest.current.mutationCompleted.hint())
+								: Effect.void,
+						),
+					);
+			},
 		});
 		if (!connection.failed) {
 			connection.session = nextBridge;

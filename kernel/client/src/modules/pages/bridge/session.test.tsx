@@ -9,7 +9,10 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	type ClientPageContext,
 	type KernelShortcut,
+	type ManageRemindersOutcome,
+	type ManageRemindersRequest,
 	type PageShortcutKey,
 	type PluginAssetBridgeErrorReason,
 	type PluginAssetOutcome,
@@ -163,6 +166,7 @@ const connect = (
 		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
 		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
 		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
+		readonly onManageReminders?: Parameters<typeof openPluginBridge>[0]["onManageReminders"];
 		readonly onBackgroundOperation?: Parameters<
 			typeof openPluginBridge
 		>[0]["onBackgroundOperation"];
@@ -185,6 +189,7 @@ const connect = (
 	const entityPicks: unknown[] = [];
 	const collectionEdits: unknown[] = [];
 	const collectionAdds: unknown[] = [];
+	const reminderScreens: ManageRemindersRequest[] = [];
 	let pluginPort: undefined | MessagePort;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PageScreenReadiness[] = [];
@@ -247,6 +252,13 @@ const connect = (
 					outcome: "success",
 					value: { status: "unsupported" },
 				})),
+		onManageReminders: (request) => {
+			reminderScreens.push(request);
+			return (
+				options.onManageReminders?.(request) ??
+				Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" })
+			);
+		},
 		onOperation:
 			options.onOperation ??
 			((request) => {
@@ -314,6 +326,7 @@ const connect = (
 		overlayStates,
 		collectionAdds,
 		operationCalls,
+		reminderScreens,
 		collectionEdits,
 		pluginPort: testPort,
 	};
@@ -803,6 +816,52 @@ describe("bridge page screens", () => {
 		}),
 	);
 
+	it.live("returns changed and cancelled reminder screen outcomes", () =>
+		Effect.gen(function* () {
+			const { init, received, pluginPort, reminderScreens } = connect({
+				onManageReminders: ({ entityId }) =>
+					Effect.succeed<ManageRemindersOutcome>({
+						kind: entityId === "entity-1" ? "changed" : "cancelled",
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				parentEntityId: "parent-1",
+				requestId: "reminders-changed",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			pluginPort.postMessage({
+				entityId: "entity-2",
+				type: "manage-reminders-screen",
+				requestId: "reminders-cancelled",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+
+			expect(reminderScreens).toEqual([
+				{ entityId: "entity-1", parentEntityId: "parent-1" },
+				{ entityId: "entity-2" },
+			]);
+			expect(received.slice(1)).toEqual([
+				{
+					outcome: "success",
+					value: { kind: "changed" },
+					requestId: "reminders-changed",
+					type: "manage-reminders-screen-result",
+				},
+				{
+					outcome: "success",
+					value: { kind: "cancelled" },
+					requestId: "reminders-cancelled",
+					type: "manage-reminders-screen-result",
+				},
+			]);
+		}),
+	);
+
 	it.live("fails the document before dispatching a collection screen with extra fields", () =>
 		Effect.gen(function* () {
 			for (const request of [
@@ -826,7 +885,15 @@ describe("bridge page screens", () => {
 	it.live("keeps one pending host screen per frame across screen types", () =>
 		Effect.gen(function* () {
 			const release = yield* Deferred.make<void>();
-			const { init, received, pluginPort, entityPicks, collectionAdds, collectionEdits } = connect({
+			const {
+				init,
+				received,
+				pluginPort,
+				entityPicks,
+				collectionAdds,
+				collectionEdits,
+				reminderScreens,
+			} = connect({
 				onEditCollection: () =>
 					Deferred.await(release).pipe(Effect.as({ kind: "deleted" as const })),
 			});
@@ -846,7 +913,12 @@ describe("bridge page screens", () => {
 				type: "pick-entity-screen",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
 			});
-			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				requestId: "reminders-1",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(5)));
 			expect(received.slice(1)).toEqual([
 				{
 					outcome: "success",
@@ -866,14 +938,21 @@ describe("bridge page screens", () => {
 					value: { kind: "cancelled" },
 					type: "pick-entity-screen-result",
 				},
+				{
+					outcome: "success",
+					requestId: "reminders-1",
+					value: { kind: "cancelled" },
+					type: "manage-reminders-screen-result",
+				},
 			]);
 			expect(collectionEdits).toHaveLength(1);
 			expect(collectionAdds).toEqual([]);
 			expect(entityPicks).toEqual([]);
+			expect(reminderScreens).toEqual([]);
 
 			yield* Deferred.succeed(release, undefined);
-			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(5)));
-			expect(received[4]).toEqual({
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(6)));
+			expect(received[5]).toEqual({
 				outcome: "success",
 				requestId: "edit-1",
 				value: { kind: "deleted" },
@@ -885,6 +964,76 @@ describe("bridge page screens", () => {
 				type: "add-to-collection-screen",
 			});
 			yield* Effect.promise(() => waitFor(() => expect(collectionAdds).toHaveLength(1)));
+		}),
+	);
+
+	it.live("interrupts a reminder screen only on its matching cancel message", () =>
+		Effect.gen(function* () {
+			const interrupted: null[] = [];
+			const { init, received, pluginPort, reminderScreens } = connect({
+				onManageReminders: () =>
+					Effect.never.pipe(
+						Effect.onInterrupt(() =>
+							Effect.sync(() => {
+								interrupted.push(null);
+							}),
+						),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				requestId: "reminders-1",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(reminderScreens).toHaveLength(1)));
+			pluginPort.postMessage({ requestId: "reminders-1", type: "manage-reminders-screen-cancel" });
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toHaveLength(1)));
+			yield* Effect.promise(() => delay(20));
+			expect(received).toEqual([at()]);
+		}),
+	);
+
+	it.live("suppresses a stale reminder screen reply after document replacement", () =>
+		Effect.gen(function* () {
+			const release = yield* Deferred.make<ManageRemindersOutcome>();
+			const { init, session, received, pluginPort, reminderScreens } = connect({
+				onManageReminders: () => Effect.uninterruptible(Deferred.await(release)),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				requestId: "reminders-1",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(reminderScreens).toHaveLength(1)));
+			const page: ClientPageContext = {
+				view: null,
+				settings: {},
+				contributors: [],
+				dataSources: null,
+				route: { params: {} },
+				renderer: { kind: "kernel", name: "fixture" },
+				target: {
+					search: "",
+					path: "/other",
+					kind: "plugin-route",
+					packageId: PluginPackageId.make("test/fixture"),
+				},
+			};
+			session.sendDocument("page-2", page, nav());
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			const changed: ManageRemindersOutcome = { kind: "changed" };
+			yield* Deferred.succeed(release, changed);
+			yield* Effect.promise(() => delay(20));
+			expect(received).toEqual([
+				at(),
+				{ page, type: "document", navigation: at(), documentKey: "page-2" },
+			]);
 		}),
 	);
 
@@ -1247,6 +1396,7 @@ describe("plugin bridge", () => {
 				onPickEntity: () => Effect.succeed({ kind: "cancelled" as const }),
 				onEditCollection: () => Effect.succeed({ kind: "cancelled" as const }),
 				onAddToCollection: () => Effect.succeed({ kind: "cancelled" as const }),
+				onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
 				target: {
 					postMessage: () => {
 						throw new Error("transfer failed");

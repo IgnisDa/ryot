@@ -31,6 +31,8 @@ import {
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
 	isBackgroundSubmissionLabelCharacterAllowed,
+	ManageRemindersOutcome,
+	ManageRemindersRequest,
 	PickEntityOutcome,
 	PickEntityRequest,
 	PluginBackgroundOperationRequest,
@@ -60,6 +62,7 @@ import type {
 	RyotAddToCollectionRequest,
 	RyotClientAdapter,
 	RyotEditCollectionRequest,
+	RyotManageRemindersRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
 } from "./adapter";
@@ -330,8 +333,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 	const pickEntity = (request: RyotPickEntityRequest) =>
 		openScreen(PickEntityRequest, PickEntityOutcome, adapter.pickEntity, request);
-	const refreshAfterCollectionScreen = Effect.fnUntraced(function* (
-		outcome: EditCollectionOutcome | AddToCollectionOutcome,
+	const refreshAfterHostScreen = Effect.fnUntraced(function* (
+		outcome: EditCollectionOutcome | AddToCollectionOutcome | ManageRemindersOutcome,
 	) {
 		if (outcome.kind !== "cancelled") {
 			yield* Effect.sync(() => mutationCompleted.hint());
@@ -339,7 +342,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	});
 	const editCollection = (request: RyotEditCollectionRequest) =>
 		openScreen(EditCollectionRequest, EditCollectionOutcome, adapter.editCollection, request).pipe(
-			Effect.tap(refreshAfterCollectionScreen),
+			Effect.tap(refreshAfterHostScreen),
 		);
 	const addToCollection = (request: RyotAddToCollectionRequest) =>
 		openScreen(
@@ -347,7 +350,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			AddToCollectionOutcome,
 			adapter.addToCollection,
 			request,
-		).pipe(Effect.tap(refreshAfterCollectionScreen));
+		).pipe(Effect.tap(refreshAfterHostScreen));
+	const manageReminders = (request: RyotManageRemindersRequest) =>
+		openScreen(
+			ManageRemindersRequest,
+			ManageRemindersOutcome,
+			adapter.manageReminders,
+			request,
+		).pipe(Effect.tap(refreshAfterHostScreen));
 	const requestUpload = (request: PluginUploadRequest) =>
 		adapterEffect(() => adapter.upload(request)).pipe(
 			Effect.flatMap((value) => decodeCapability(PluginUploadResult, value)),
@@ -391,8 +401,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		mutationCompleted,
 		userSettings: readUserSettings,
 		uploads: { uploadPermanent, uploadTemporary },
-		screens: { pickEntity, editCollection, addToCollection },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },
+		screens: { pickEntity, editCollection, addToCollection, manageReminders },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
 				throw new RyotClientError("invalid-request");

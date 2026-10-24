@@ -1,3 +1,4 @@
+import type { TestNotificationChannelsBody } from "@ryot-app/contract/modules/notifications/schemas";
 import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
@@ -6,7 +7,7 @@ import {
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -25,6 +26,7 @@ import {
 	testNotificationChannelsMutation,
 	updateNotificationChannelMutation,
 } from "#/modules/notifications/service";
+import { NotificationTestOutcome } from "#/modules/notifications/test-outcome";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
@@ -45,11 +47,6 @@ const queryListState = (
 	}
 	return pending ? undefined : { status: "failed" };
 };
-
-const testedChannelsDetail = (enabledCount: number) =>
-	enabledCount === 1
-		? "Test notification queued for 1 enabled channel."
-		: `Test notification queued for ${enabledCount} enabled channels.`;
 
 export const Route = createFileRoute("/_authenticated/settings/notification-channels")({
 	component: NotificationChannelsRoute,
@@ -93,6 +90,8 @@ function NotificationChannelsRoute() {
 	const { create } = Route.useSearch();
 	const [testDetail, setTestDetail] = useState<string | undefined>();
 	const [testSucceeded, setTestSucceeded] = useState(false);
+	const [testNotificationId, setTestNotificationId] = useState<string>();
+	const testSubmission = useRef<undefined | TestNotificationChannelsBody>(undefined);
 	const [deleteFailedId, setDeleteFailedId] = useState<string | undefined>();
 	const [pendingChannelId, setPendingChannelId] = useState<string | undefined>();
 	const listed = useRyotInfiniteQuery(notificationChannelsQuery, undefined, {
@@ -112,20 +111,29 @@ function NotificationChannelsRoute() {
 	const enabledCount =
 		state?.status === "ready" ? enabledNotificationChannelCount(state.channels) : 0;
 
-	/** Delivery is enqueued and the endpoint returns at once, so "queued" is all that can be said. */
 	const sendTest = () => {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
+		setTestNotificationId(undefined);
+		const submission = testSubmission.current ?? {
+			idempotencyKey: crypto.randomUUID(),
+			submittedAt: new Date().toISOString(),
+		};
+		testSubmission.current = submission;
 		return Effect.runPromise(
 			Effect.gen(function* () {
-				const queued = yield* sendTestMutation.mutateEffect().pipe(
+				const queued = yield* sendTestMutation.mutateEffect(submission).pipe(
+					Effect.tap((result) => Effect.sync(() => setTestNotificationId(result.id))),
 					Effect.as(true),
 					Effect.catchCause(() => Effect.succeed(false)),
 				);
 				setTestSucceeded(queued);
+				if (queued) {
+					testSubmission.current = undefined;
+				}
 				setTestDetail(
 					queued
-						? testedChannelsDetail(enabledCount)
+						? "Test notification queued. Delivery results are shown separately."
 						: "The test notification could not be sent. Try again.",
 				);
 			}),
@@ -182,6 +190,7 @@ function NotificationChannelsRoute() {
 
 	return (
 		<NotificationChannelsFrame>
+			{testNotificationId ? <NotificationTestOutcome id={testNotificationId} /> : null}
 			<NotificationChannelsView
 				state={state}
 				nowMs={nowMs}

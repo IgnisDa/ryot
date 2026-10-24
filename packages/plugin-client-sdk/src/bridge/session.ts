@@ -33,6 +33,8 @@ import {
 	type PluginBridgeInit,
 	type PluginBridgeKernelShortcut,
 	type PluginBridgeLocation,
+	type PluginBridgeManageRemindersScreen,
+	type PluginBridgeManageRemindersScreenCancel,
 	type PluginBridgeNavigate,
 	type PluginBridgeNavigateBack,
 	type PluginBridgeOpenDrawer,
@@ -65,6 +67,7 @@ import type {
 	CollectionAdapterRequest,
 	EntityUpdate,
 	OperationAdapterRequest,
+	RyotManageRemindersRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
 	StorageAdapterRequest,
@@ -99,6 +102,7 @@ type RequestType =
 	| "pick-entity-screen"
 	| "background-operation"
 	| "edit-collection-screen"
+	| "manage-reminders-screen"
 	| "add-to-collection-screen"
 	| "calendar-source-visibility";
 
@@ -564,6 +568,24 @@ export const createPluginRuntime = (
 					type: "add-to-collection-screen-cancel",
 				}) satisfies PluginBridgeAddToCollectionScreenCancel,
 		);
+	const manageReminders = (request: RyotManageRemindersRequest) =>
+		sendRequest(
+			"manage-reminders-screen",
+			(requestId) =>
+				({
+					requestId,
+					type: "manage-reminders-screen",
+					entityId: EntityId.make(request.entityId),
+					...(request.parentEntityId === undefined
+						? {}
+						: { parentEntityId: EntityId.make(request.parentEntityId) }),
+				}) satisfies PluginBridgeManageRemindersScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "manage-reminders-screen-cancel",
+				}) satisfies PluginBridgeManageRemindersScreenCancel,
+		);
 
 	const client = createRyotClient({
 		query,
@@ -575,6 +597,7 @@ export const createPluginRuntime = (
 		accessStorage,
 		editCollection,
 		addToCollection,
+		manageReminders,
 		invokeOperation,
 		submitBackground,
 		readUserSettings,
@@ -920,6 +943,9 @@ export const createPluginRuntime = (
 					return;
 				case "edit-collection-screen-result":
 					settle("edit-collection-screen", message.requestId, message);
+					return;
+				case "manage-reminders-screen-result":
+					settle("manage-reminders-screen", message.requestId, message);
 					return;
 				case "add-to-collection-screen-result":
 					settle("add-to-collection-screen", message.requestId, message);

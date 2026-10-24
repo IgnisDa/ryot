@@ -8,8 +8,8 @@ export class NotificationsApi extends Context.Service<NotificationsApi>()("Notif
 	make: Effect.gen(function* () {
 		const api = yield* AuthenticatedApi;
 		return {
-			testChannels: (scope: ApiScope) =>
-				api.run(scope, (client) => client.notifications.testChannels()),
+			testChannels: (scope: ApiScope, request: ContractRequest<"notifications", "testChannels">) =>
+				api.run(scope, (client) => client.notifications.testChannels(request)),
 			createChannel: (
 				scope: ApiScope,
 				request: ContractRequest<"notifications", "createChannel">,

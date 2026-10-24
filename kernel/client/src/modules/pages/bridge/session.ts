@@ -16,6 +16,8 @@ import {
 	type ExternalLinkRequest,
 	isPageShortcut,
 	type KernelShortcut,
+	type ManageRemindersOutcome,
+	type ManageRemindersRequest,
 	type PageShortcutKey,
 	type PickEntityOutcome,
 	type PluginAssetOutcome,
@@ -111,11 +113,15 @@ export type PluginBridgeSession = {
 
 type PluginBridgeState = "ready" | "active" | "failed" | "closing" | "disposed";
 
-type HostScreenType = "pick-entity-screen" | "edit-collection-screen" | "add-to-collection-screen";
-
 type PluginBridgeTarget = {
 	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
 };
+
+type HostScreenType =
+	| "pick-entity-screen"
+	| "edit-collection-screen"
+	| "manage-reminders-screen"
+	| "add-to-collection-screen";
 
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
@@ -140,6 +146,7 @@ type PendingRequest = {
 const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenType>([
 	"pick-entity-screen",
 	"edit-collection-screen",
+	"manage-reminders-screen",
 	"add-to-collection-screen",
 ]);
 
@@ -194,6 +201,9 @@ type PluginBridgeOptions = {
 	readonly onAddToCollection: (
 		request: AddToCollectionRequest,
 	) => Effect.Effect<AddToCollectionOutcome>;
+	readonly onManageReminders: (
+		request: ManageRemindersRequest,
+	) => Effect.Effect<ManageRemindersOutcome>;
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
@@ -812,6 +822,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "add-to-collection-screen-cancel" }, ({ requestId }) =>
 							handleHostScreenCancel("add-to-collection-screen", requestId),
 						),
+						Match.when({ type: "manage-reminders-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("manage-reminders-screen", requestId),
+						),
 						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 						Match.when({ type: "navigate-back" }, () => {
 							if (!requestOverlayDismiss()) {
@@ -858,6 +871,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 									options.onAddToCollection(request),
 								),
 						),
+						Match.when(
+							{ type: "manage-reminders-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "manage-reminders-screen", () =>
+									options.onManageReminders(request),
+								),
+						),
 						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 						Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 						Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
@@ -873,6 +893,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							handleEntitySave(request),
 						),
 						Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
+					)
+					.pipe(
 						Match.when({ type: "external-link-request" }, (request) =>
 							runRequest(request.requestId, "external-link", () =>
 								options.onExternalLink({ url: request.url }),

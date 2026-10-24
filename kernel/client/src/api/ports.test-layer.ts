@@ -2,6 +2,7 @@ import { Effect, Layer } from "effect";
 
 import { AccountApi } from "#/api/account";
 import { AutomationHistoryApi } from "#/api/automation-history";
+import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
@@ -14,6 +15,7 @@ import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
+import { RemindersApi } from "#/api/reminders";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
@@ -140,6 +142,24 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["Service"]> = {}) =>
 	Layer.succeed(OAuthConnectionsApi, { create: unused, complete: unused, ...overrides });
 
+export const makeRemindersApi = (overrides: Partial<RemindersApi["Service"]> = {}) =>
+	Layer.succeed(RemindersApi, {
+		edit: unused,
+		create: unused,
+		cancel: unused,
+		remove: unused,
+		deliveryConfiguration: unused,
+		...overrides,
+	});
+
+export const makeAutomationsApi = (overrides: Partial<AutomationsApi["Service"]> = {}) =>
+	Layer.succeed(AutomationsApi, {
+		installRule: unused,
+		activateRule: unused,
+		deactivateRule: unused,
+		...overrides,
+	});
+
 export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
 	Layer.succeed(AccountApi, { refreshAvatar: unused, updatePreferences: unused, ...overrides });
 
@@ -157,6 +177,8 @@ export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Servic
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	makeRemindersApi(),
+	makeAutomationsApi(),
 	Layer.succeed(PluginManagementService, { load: unused, execute: unused }),
 	Layer.succeed(ExternalLinks, {
 		open: () => Effect.die("Unused external link"),

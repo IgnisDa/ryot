@@ -4,6 +4,8 @@ import type {
 	AddToCollectionRequest,
 	EditCollectionOutcome,
 	EditCollectionRequest,
+	ManageRemindersOutcome,
+	ManageRemindersRequest,
 	PickEntityOutcome,
 	PluginBridgePickEntityScreen,
 } from "@ryot-app/plugin-client-contract";
@@ -32,6 +34,9 @@ export type ClientPageDocument = {
 	readonly onAddToCollection?: (
 		request: AddToCollectionRequest,
 	) => Effect.Effect<AddToCollectionOutcome>;
+	readonly onManageReminders?: (
+		request: ManageRemindersRequest,
+	) => Effect.Effect<ManageRemindersOutcome>;
 };
 
 const cancelled = Effect.succeed({ kind: "cancelled" as const });
@@ -81,6 +86,7 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			onPickEntity: (request) => latest.current.onPickEntity?.(request) ?? cancelled,
 			onEditCollection: (request) => latest.current.onEditCollection?.(request) ?? cancelled,
 			onAddToCollection: (request) => latest.current.onAddToCollection?.(request) ?? cancelled,
+			onManageReminders: (request) => latest.current.onManageReminders?.(request) ?? cancelled,
 		}),
 		[document.inert, document.prepared, document.title],
 	);

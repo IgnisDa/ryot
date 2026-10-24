@@ -62,6 +62,15 @@ const OperationalPressureBody = Schema.Struct({
 export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.annotate(OpenApi.Description, "Provides administrative operations used by integration tests")
 	.add(
+		HttpApiEndpoint.post("runReminderScan", "/test-support/reminders/scan", {
+			success: Schema.Void,
+			error: testSupportErrors,
+		}).annotate(
+			OpenApi.Description,
+			"Runs the production reminder and notification recovery owners",
+		),
+	)
+	.add(
 		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue", {
 			error: testSupportErrors,
 			payload: TestSupportEnqueueSandboxBody,

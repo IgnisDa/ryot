@@ -1,4 +1,5 @@
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { ManageRemindersOutcome } from "@ryot-app/plugin-client-contract";
 import { render } from "@testing-library/react";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
@@ -53,25 +54,31 @@ function mount(screens: RouteScreens) {
 }
 
 describe("client page document host screens", () => {
-	it("cancels collection screens when the route does not wire them", () => {
+	it("cancels host screens when the route does not wire them", () => {
 		const page = mount({});
 		const edit = page.current().onEditCollection;
 		const add = page.current().onAddToCollection;
+		const reminders = page.current().onManageReminders;
 		expect(edit && Effect.runSync(edit({}))).toEqual({ kind: "cancelled" });
 		expect(add && Effect.runSync(add({ entityId: EntityId.make("entity-1") }))).toEqual({
 			kind: "cancelled",
 		});
+		expect(reminders && Effect.runSync(reminders({ entityId: EntityId.make("entity-1") }))).toEqual(
+			{ kind: "cancelled" },
+		);
 		expect(page.current().inert).toBeUndefined();
 	});
 
-	it("routes collection screens to the latest route callbacks and carries inert", () => {
+	it("routes host screens to the latest route callbacks and carries inert", () => {
 		const edits: unknown[] = [];
 		const page = mount({});
 		const edit = page.current().onEditCollection;
 		const add = page.current().onAddToCollection;
+		const reminders = page.current().onManageReminders;
 		page.rerender({
 			inert: true,
 			onAddToCollection: () => Effect.succeed({ kind: "removed" as const }),
+			onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "changed" }),
 			onEditCollection: (request) =>
 				Effect.sync(() => edits.push(request)).pipe(Effect.as({ kind: "deleted" as const })),
 		});
@@ -80,6 +87,9 @@ describe("client page document host screens", () => {
 		expect(add && Effect.runSync(add({ entityId: EntityId.make("entity-1") }))).toEqual({
 			kind: "removed",
 		});
+		expect(reminders && Effect.runSync(reminders({ entityId: EntityId.make("entity-1") }))).toEqual(
+			{ kind: "changed" },
+		);
 		expect(edits).toEqual([{ collectionId }]);
 		expect(page.current().inert).toBe(true);
 	});

@@ -7,6 +7,8 @@ import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	type EditCollectionOutcome,
 	type EditCollectionRequest,
+	type ManageRemindersOutcome,
+	type ManageRemindersRequest,
 	type PickEntityOutcome,
 	PluginBridgeInit,
 	type PluginBridgePickEntityScreen,
@@ -88,6 +90,9 @@ function mount(
 		readonly onAddToCollection?: (
 			request: AddToCollectionRequest,
 		) => Effect.Effect<AddToCollectionOutcome>;
+		readonly onManageReminders?: (
+			request: ManageRemindersRequest,
+		) => Effect.Effect<ManageRemindersOutcome>;
 	} = {};
 	const operations: PluginOperationRequest[] = [];
 	const backgroundRequests: string[] = [];
@@ -175,6 +180,9 @@ function mount(
 				outcome: "success",
 				value: { status: "unsupported" },
 			} satisfies PluginIosLiveActivityOutcome),
+		onManageReminders: (request: ManageRemindersRequest) =>
+			screens.onManageReminders?.(request) ??
+			Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
 		navigation: {
 			index,
 			location,
@@ -440,6 +448,116 @@ describe("PageIframeHost", () => {
 			host.setScreens({});
 			expect(frame.hasAttribute("inert")).toBe(false);
 			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		}),
+	);
+
+	it.live("refreshes the plugin after changed reminders, but not after cancellation", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			const changedRequests: ManageRemindersRequest[] = [];
+			host.setScreens({
+				onManageReminders: (request) =>
+					Effect.sync(() => changedRequests.push(request)).pipe(
+						Effect.map((): ManageRemindersOutcome => ({ kind: "changed" })),
+					),
+			});
+			bridge.port.postMessage({
+				entityId: "entity-1",
+				parentEntityId: "parent-1",
+				requestId: "reminders-changed",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							requestId: "reminders-changed",
+							type: "manage-reminders-screen-result",
+						}),
+					),
+				),
+			);
+			expect(bridge.messages).toContainEqual({ type: "page-refresh" });
+			expect(changedRequests).toEqual([{ entityId: "entity-1", parentEntityId: "parent-1" }]);
+
+			host.setScreens({
+				onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
+			});
+			bridge.port.postMessage({
+				entityId: "entity-2",
+				type: "manage-reminders-screen",
+				requestId: "reminders-cancelled",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							requestId: "reminders-cancelled",
+							type: "manage-reminders-screen-result",
+						}),
+					),
+				),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"type" in message &&
+						message.type === "page-refresh",
+				),
+			).toHaveLength(1);
+		}),
+	);
+
+	it.live("suppresses reminder replies and refreshes after document replacement", () =>
+		Effect.gen(function* () {
+			const release = yield* Deferred.make<ManageRemindersOutcome>();
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const requests: ManageRemindersRequest[] = [];
+			host.setScreens({
+				onManageReminders: (request) =>
+					Effect.sync(() => requests.push(request)).pipe(
+						Effect.flatMap(() => Effect.uninterruptible(Deferred.await(release))),
+					),
+			});
+			bridge.port.postMessage({
+				entityId: "entity-1",
+				requestId: "reminders-stale",
+				type: "manage-reminders-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+			host.replace("page-2");
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({ type: "document", documentKey: "page-2" }),
+					),
+				),
+			);
+			const changed: ManageRemindersOutcome = { kind: "changed" };
+			yield* Deferred.succeed(release, changed);
+			yield* Effect.promise(() => flush());
+
+			expect(bridge.messages).not.toContainEqual(
+				expect.objectContaining({ requestId: "reminders-stale" }),
+			);
+			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
 		}),
 	);
 

@@ -26,6 +26,7 @@ import { ClientPagePending } from "#/modules/pages/loading";
 import { mergePageSearch } from "#/modules/pages/runtime/document-host";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
+import { useReminderScreen } from "#/modules/reminders/screens";
 import { ClientStorage } from "#/persistence/storage";
 
 const entityBrowserRendererNames = new Set(["Entity browser", "Collection browser"]);
@@ -154,12 +155,14 @@ export function SavedViewPage({
 		);
 	}, [layout, loaded.prepared, loaded.viewPath, runtime, scope]);
 	const collections = useCollectionScreens();
+	const reminders = useReminderScreen();
 	useClientPageDocument({
 		onPickEntity: openAdd,
 		prepared: loaded.prepared,
-		inert: addOpen || collections.open,
 		onEditCollection: collections.onEditCollection,
+		onManageReminders: reminders.onManageReminders,
 		onAddToCollection: collections.onAddToCollection,
+		inert: addOpen || collections.open || reminders.open,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
 	});
 
@@ -176,6 +179,7 @@ export function SavedViewPage({
 				/>
 			) : null}
 			{collections.screen}
+			{reminders.screen}
 		</>
 	);
 }

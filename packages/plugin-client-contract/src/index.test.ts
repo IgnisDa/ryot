@@ -28,6 +28,8 @@ import {
 	PluginBridgeEditCollectionScreenResult,
 	PluginBridgeHostMessage,
 	PluginBridgeInit,
+	PluginBridgeManageRemindersScreen,
+	PluginBridgeManageRemindersScreenResult,
 	PluginBridgeOperationResult,
 	type PluginBridgeOverlayState,
 	PluginBridgePageRefresh,
@@ -813,6 +815,65 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 		expect(
 			Result.isFailure(decodeEdit({ ...failure, outcome: "failure", reason: "name-taken" })),
+		).toBe(true);
+	});
+
+	it("admits only strict ID-carrying reminder screen requests and outcomes", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeManageRemindersScreen);
+		const request = {
+			entityId: "entity-1",
+			parentEntityId: "parent-1",
+			type: "manage-reminders-screen",
+			requestId: "manage-reminders-screen-1",
+		};
+
+		expect(Result.isSuccess(decodeRequest(request))).toBe(true);
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeHost(request))).toBe(true);
+		const { parentEntityId: _parentEntityId, ...withoutParent } = request;
+		expect(Result.isSuccess(decodeRequest(withoutParent))).toBe(true);
+		for (const extra of [{ name: "Reminder" }, { reminderId: "reminder-1" }]) {
+			expect(Result.isFailure(decodeRequest({ ...request, ...extra }))).toBe(true);
+			expect(Result.isFailure(decodeClient({ ...request, ...extra }))).toBe(true);
+		}
+		expect(Result.isFailure(decodeRequest({ ...request, entityId: undefined }))).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeClient({ requestId: request.requestId, type: "manage-reminders-screen-cancel" }),
+			),
+		).toBe(true);
+
+		const result = {
+			outcome: "success",
+			requestId: request.requestId,
+			type: "manage-reminders-screen-result",
+		};
+		expect(
+			Result.isSuccess(
+				Schema.decodeUnknownResult(PluginBridgeManageRemindersScreenResult)({
+					...result,
+					value: { kind: "changed" },
+				}),
+			),
+		).toBe(true);
+		expect(Result.isSuccess(decodeHost({ ...result, value: { kind: "cancelled" } }))).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(PluginBridgeManageRemindersScreenResult)({
+					...result,
+					value: { kind: "changed", reminderId: "reminder-1" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(PluginBridgeManageRemindersScreenResult)({
+					...result,
+					value: { kind: "saved" },
+				}),
+			),
 		).toBe(true);
 	});
 

@@ -9,6 +9,7 @@ import type {
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
+	ManageRemindersRequest,
 	PickEntityRequest,
 	PluginBackgroundOperationRequest,
 	PluginCalendarSourceVisibilityRequest,
@@ -42,6 +43,7 @@ export type RyotPickEntityRequest = Schema.Codec.Encoded<typeof PickEntityReques
 export type RyotEditCollectionRequest = Schema.Codec.Encoded<typeof EditCollectionRequest>;
 
 export type RyotAddToCollectionRequest = Schema.Codec.Encoded<typeof AddToCollectionRequest>;
+export type RyotManageRemindersRequest = Schema.Codec.Encoded<typeof ManageRemindersRequest>;
 
 export type FileUploadRequest = Omit<
 	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
@@ -103,6 +105,9 @@ export type RyotClientAdapter = {
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly addToCollection?: (
 		request: AddToCollectionRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly manageReminders?: (
+		request: ManageRemindersRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,

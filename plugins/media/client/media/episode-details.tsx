@@ -18,6 +18,7 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMarkdown } from "./primitives";
+import { MediaRemindersControl } from "./reminders";
 
 export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly episode: Episode;
@@ -77,7 +78,13 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 							</Badge>
 						</div>
 					)}
-					<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+					<div className="flex flex-wrap items-center gap-2">
+						<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+						<MediaRemindersControl
+							entityId={episode.id}
+							parentEntityId={props.log.parentEntityId}
+						/>
+					</div>
 					{props.editable ? (
 						<div className="flex">
 							<MediaEntityEditAction

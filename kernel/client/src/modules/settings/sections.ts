@@ -16,6 +16,7 @@ export const settingsGroups = [
 				path: "/settings/plugin-preferences",
 			},
 			{ icon: "user", slug: "account", label: "Account", path: "/settings/account" },
+			{ icon: "clock", slug: "reminders", label: "Reminders", path: "/settings/reminders" },
 		],
 	},
 	{

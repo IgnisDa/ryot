@@ -100,6 +100,7 @@ export const AutomationSource = Schema.Literals([
 	"bootstrap",
 	"provider-refresh",
 	"automation",
+	"scheduler",
 ]);
 export type AutomationSource = typeof AutomationSource.Type;
 export const ExecutionLane = Schema.Literals(["interactive", "background"]);

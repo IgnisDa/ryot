@@ -144,3 +144,7 @@ export type Slug = typeof Slug.Type;
 export const RemoteImageUrl = HttpUrl.pipe(Schema.brand("RemoteImageUrl"));
 
 export type RemoteImageUrl = typeof RemoteImageUrl.Type;
+
+export const ReminderId = Schema.String.pipe(Schema.brand("ReminderId"));
+
+export type ReminderId = typeof ReminderId.Type;
