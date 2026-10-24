@@ -82,10 +82,10 @@ describe("ViewFiltersButton", () => {
 		[0, "Filters, 0 active filters"],
 		[1, "Filters, 1 active filter"],
 		[3, "Filters, 3 active filters"],
-	])("shows %i active filters in its badge and accessible name", (count, label) => {
+	])("hides the count badge while describing %i active filters accessibly", (count, label) => {
 		renderButton(count);
 		const button = screen.getByRole("button", { name: label });
-		expect(button.textContent).toBe(`Filters${count}F`);
+		expect(button.textContent).toBe("FiltersF");
 		expect(button.getAttribute("aria-keyshortcuts")).toBe("F");
 	});
 

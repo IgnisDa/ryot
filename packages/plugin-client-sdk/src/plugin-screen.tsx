@@ -1,5 +1,5 @@
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
-import { Badge, ScreenBarButton, ScreenFrame, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
+import { ScreenBarButton, ScreenFrame, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Match } from "effect";
 import type { ComponentProps, ReactNode, Ref } from "react";
@@ -143,7 +143,6 @@ export function ViewFiltersButton({
 		>
 			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 			<span className="text-[13px] text-text">Filters</span>
-			<Badge aria-hidden="true">{activeCount}</Badge>
 			<ShortcutHint shortcut="F" />
 		</button>
 	);
