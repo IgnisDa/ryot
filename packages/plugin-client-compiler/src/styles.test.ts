@@ -53,3 +53,44 @@ it("keeps stylesheet imports inside the client source root", () => {
 	}
 	expect(diagnose({ "client/nested/styles.css": '@import "..//x.css";' })).toEqual([]);
 });
+
+it.each(["client/shared", "client/client", "shared/client", "shared/shared"])(
+	"uses the top-level source region for imports and assets under %s",
+	(directory) => {
+		const shared = directory.startsWith("shared/");
+		const script = `${directory}/card.tsx`;
+		const stylesheet = `${directory}/styles.css`;
+		const region = shared ? "shared" : "client";
+		expect(diagnose({ [script]: 'import "../value";' })).toEqual([]);
+		expect(diagnose({ [script]: 'import "../../shared/value";' })).toEqual(
+			shared ? [["RYOT_CLIENT_IMPORT", script]] : [],
+		);
+		expect(diagnose({ [script]: 'import "react";' })).toEqual(
+			shared ? [["RYOT_CLIENT_IMPORT", script]] : [],
+		);
+		expect(diagnose({ [script]: 'import "@ryot-app/plugin-kit/effect";' })).toEqual(
+			shared ? [] : [["RYOT_CLIENT_IMPORT", script]],
+		);
+		expect(diagnose({ [script]: 'import "../../client/value";' })).toEqual(
+			shared ? [["RYOT_CLIENT_IMPORT", script]] : [],
+		);
+		expect(diagnose({ [script]: 'import "../../../client/value";' })).toEqual([
+			["RYOT_CLIENT_IMPORT", script],
+		]);
+		expect(diagnose({ [`${region}/x.css`]: "", [stylesheet]: '@import "../x.css";' })).toEqual([]);
+		expect(diagnose({ [stylesheet]: '@import "../../../x.css";' })).toEqual([
+			["RYOT_CLIENT_STYLES", stylesheet],
+		]);
+		for (const path of [script, stylesheet]) {
+			const asset = (url: string) =>
+				path === script
+					? `export const image = new URL("${url}", import.meta.url);`
+					: `.image { background: url("${url}"); }`;
+			const files = { [`${region}/image.svg`]: "<svg/>" };
+			expect(diagnose({ ...files, [path]: asset("../image.svg") })).toEqual([]);
+			expect(diagnose({ ...files, [path]: asset(`../../../${region}/image.svg`) })).toEqual([
+				[path === script ? "RYOT_CLIENT_IMPORT" : "RYOT_CLIENT_STYLES", path],
+			]);
+		}
+	},
+);

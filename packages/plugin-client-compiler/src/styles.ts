@@ -12,29 +12,18 @@ const DYNAMIC_IMPORT = /\bimport\s*\(/;
 const VITE_SPECIAL_IMPORT = /\bimport\.meta\.(?:glob|globEager)\s*\(/;
 const NEW_URL = /\bnew\s+URL\s*\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)/g;
 
-const sourceRoot = (path: string) => {
-	const client = path.lastIndexOf("/client/");
-	const shared = path.lastIndexOf("/shared/");
-	const boundary = Math.max(client, shared);
-	return boundary === -1 ? "" : path.slice(0, boundary + 1);
-};
-
-const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
+const isSharedSource = (path: string) => path.startsWith("shared/");
 
 const resolveRelative = (importer: string, specifier: string) =>
 	posixPath.join(posixPath.dirname(importer), specifier);
 
-const allowedRelativeRoot = (importer: string, resolved: string) => {
-	const root = sourceRoot(importer);
-	return isSharedSource(importer)
-		? resolved.startsWith(`${root}shared/`)
-		: resolved.startsWith(`${root}client/`) || resolved.startsWith(`${root}shared/`);
-};
+const allowedRelativeRoot = (importer: string, resolved: string) =>
+	isSharedSource(importer)
+		? resolved.startsWith("shared/")
+		: resolved.startsWith("client/") || resolved.startsWith("shared/");
 
 const traversesSourceRoot = (importer: string, specifier: string) => {
-	const rootDepth =
-		sourceRoot(importer).split("/").filter(Boolean).length +
-		(isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0);
+	const rootDepth = isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0;
 	let depth = posixPath.dirname(importer).split("/").filter(Boolean).length;
 	for (const part of specifier.split("/")) {
 		if (part === "..") {

@@ -269,6 +269,36 @@ it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
 	);
 });
 
+it.layer(pluginClientCompilerPlatformLayer)("nested source region names", (test) => {
+	test.effect("compiles client and shared imports using their canonical top-level region", () =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileClientPluginModule({
+				...emittedInput,
+				files: {
+					"client/base.css": bytes(".nested-region { color: red; }"),
+					"client/shared/styles.css": bytes('@import "../base.css";'),
+					"shared/value.ts": bytes('export const value = "nested-region";'),
+					"client/home.tsx": bytes('export { default } from "./shared/card";'),
+					"shared/client/helper.ts": bytes('export { value } from "../value";'),
+					"shared/shared/helper.ts": bytes('export { value } from "../value";'),
+					"client/client/helper.ts": bytes(
+						'export { value as other } from "../../shared/shared/helper";',
+					),
+					"client/shared/card.tsx": bytes(`
+import { createElement } from "react";
+import { value } from "../../shared/client/helper";
+import { other } from "../client/helper";
+import "./styles.css";
+export default function Home() { return createElement("span", null, value + other); }
+`),
+				},
+			});
+			expect(text(requiredFile(artifact, "module.js").contents)).toContain("nested-region");
+			expect(text(requiredFile(artifact, "module.css").contents)).toContain(".nested-region");
+		}),
+	);
+});
+
 it.layer(
 	emittedLayer(
 		"export default 1;",
