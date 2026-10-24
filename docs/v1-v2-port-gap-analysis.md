@@ -136,6 +136,10 @@ shared notification admission and delivery-outcome path for all callers.
 | 16 | Pending | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | Inventory each missing media/fitness metric and ship in slices: consumption totals by type, workout/measurement totals, period comparisons and grouping, then hourly timelines and frequency breakdowns. Define units, unknown dates/durations, rewatches, episodic counts, timezone and exclusions before implementing queries. Reuse current recipes/projections; introduce precomputation only for demonstrated query/scale limits. A complete screen, not a generic aggregate API, closes the gap. |
 | 17 | Pending | **Add account rename controls** | Existing hosted auth and admin authorization | Ship self-service rename, then admin-on-behalf rename if required. Keep server-token administration; do not reintroduce V1 roles or the onboarding-tour flag. This is independent work and may move earlier without delaying the main feature sequence. |
 
+The approved [Order 16 implementation plan](order-16-analytics-plan.md) records the unified Analytics
+destination, partial-consumption and historical-snapshot rules, reporting timezone, Fitness semantics,
+chart design, implementation gates and validation requirements. Implementation has not started.
+
 ### Differences that need a decision, not an automatic implementation slot
 
 Keeping V2's redesigns does not settle every individual behavior. Before adding any of the
