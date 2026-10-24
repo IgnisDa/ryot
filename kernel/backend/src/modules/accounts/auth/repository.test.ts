@@ -35,10 +35,16 @@ layer(testLayer)((test) => {
 				db.insert(user).values({ id, name: "Reader", email: "read@example.test" }),
 			);
 			yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
+			yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
+			expect(
+				(yield* Effect.flip(repository.patchUserPreferences(id, { reportingTimeZone: "+05:30" })))
+					.message,
+			).toContain("Invalid user preference patch");
 			expect(yield* repository.getUserPreferences(id)).toEqual({
 				...defaultUserPreferences,
 				language: "fr",
 				disableIntegrations: true,
+				reportingTimeZone: "America/New_York",
 			});
 			expect(yield* translations.findUserLanguage(id)).toBe("fr");
 			expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
@@ -69,6 +75,129 @@ layer(testLayer)((test) => {
 				),
 			);
 			assertExitFails(exit, new DbError({ message: "roll back malformed preferences" }));
+		}),
+	);
+	test.effect("initializes valid zones only while unset and keeps explicit settings writable", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* AuthRepository;
+			for (const reportingTimeZone of ["UTC", "Asia/Kolkata"]) {
+				const id = UserId.make(`initialize-${reportingTimeZone}`);
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
+				);
+				expect(yield* repository.initializeReportingTimeZone(id, reportingTimeZone)).toBe(true);
+				expect(yield* repository.getUserPreferences(id)).toEqual({
+					...defaultUserPreferences,
+					reportingTimeZone,
+				});
+				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(false);
+				yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
+				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(false);
+				expect(yield* repository.getUserPreferences(id)).toEqual({
+					...defaultUserPreferences,
+					reportingTimeZone: "America/New_York",
+				});
+				yield* repository.patchUserPreferences(id, { reportingTimeZone: null });
+				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(true);
+			}
+		}),
+	);
+
+	test.effect("rejects invalid initialization zones without changing preferences", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* AuthRepository;
+			const id = UserId.make("invalid-initialization");
+			yield* session.run((db) =>
+				db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
+			);
+			for (const zone of ["+05:30", "Not/AZone", ""]) {
+				expect(
+					(yield* Effect.flip(repository.initializeReportingTimeZone(id, zone))).message,
+				).toContain("Invalid reporting time zone");
+			}
+			expect(yield* repository.getUserPreferences(id)).toEqual(defaultUserPreferences);
+		}),
+	);
+
+	test.effect("allows exactly one concurrent initializer and merges unrelated patches", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* AuthRepository;
+			const id = UserId.make("concurrent-initializers");
+			yield* session.run((db) =>
+				db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
+			);
+			expect(yield* repository.getUserPreferences(id)).toEqual(defaultUserPreferences);
+			expect(yield* repository.getUserPreferences(id)).toEqual(defaultUserPreferences);
+			const locked = yield* Deferred.make<void>();
+			const secondStarted = yield* Deferred.make<void>();
+			const results = yield* Effect.all(
+				[
+					session.transaction(
+						Effect.gen(function* () {
+							const initialized = yield* repository.initializeReportingTimeZone(id, "Asia/Kolkata");
+							yield* Deferred.succeed(locked, undefined);
+							yield* Deferred.await(secondStarted);
+							return initialized;
+						}),
+					),
+					Effect.gen(function* () {
+						yield* Deferred.await(locked);
+						yield* Deferred.succeed(secondStarted, undefined);
+						return yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland");
+					}),
+					Effect.gen(function* () {
+						yield* Deferred.await(locked);
+						yield* repository.patchUserPreferences(id, {
+							language: "fr",
+							disableIntegrations: true,
+						});
+					}),
+				],
+				{ concurrency: 3 },
+			);
+			expect(results.slice(0, 2)).toEqual([true, false]);
+			expect(yield* repository.getUserPreferences(id)).toEqual({
+				language: "fr",
+				disableIntegrations: true,
+				reportingTimeZone: "Asia/Kolkata",
+			});
+		}),
+	);
+
+	test.effect("retains an explicit zone committed after a late initializer read", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* AuthRepository;
+			const id = UserId.make("late-initializer");
+			yield* session.run((db) =>
+				db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
+			);
+			const read = yield* Deferred.make<void>();
+			const selected = yield* Deferred.make<void>();
+			const results = yield* Effect.all(
+				[
+					Effect.gen(function* () {
+						expect((yield* repository.getUserPreferences(id))?.reportingTimeZone).toBeNull();
+						yield* Deferred.succeed(read, undefined);
+						yield* Deferred.await(selected);
+						return yield* repository.initializeReportingTimeZone(id, "Asia/Kolkata");
+					}),
+					Effect.gen(function* () {
+						yield* Deferred.await(read);
+						yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
+						yield* Deferred.succeed(selected, undefined);
+					}),
+				],
+				{ concurrency: 2 },
+			);
+			expect(results[0]).toBe(false);
+			expect(yield* repository.getUserPreferences(id)).toEqual({
+				...defaultUserPreferences,
+				reportingTimeZone: "America/New_York",
+			});
 		}),
 	);
 

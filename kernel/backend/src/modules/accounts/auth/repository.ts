@@ -1,9 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
+import { ReportingTimeZone } from "@ryot-app/contract/modules/analytics/reporting";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import {
-	UserPreferences,
-	type UserPreferencesPatch,
-} from "@ryot-app/contract/schema/user-preferences";
+import { UserPreferences, UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -181,6 +179,11 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			userId: UserId,
 			patch: UserPreferencesPatch,
 		) {
+			yield* Schema.decodeEffect(UserPreferencesPatch)(patch).pipe(
+				Effect.mapError(
+					(error) => new DbError({ message: `Invalid user preference patch: ${error.message}` }),
+				),
+			);
 			const [row] = yield* database.run((db) =>
 				Object.keys(patch).length === 0
 					? db
@@ -206,6 +209,31 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 				),
 			);
 		});
+		const initializeReportingTimeZone = Effect.fn("AuthRepository.initializeReportingTimeZone")(
+			function* (userId: UserId, reportingTimeZone: string) {
+				yield* Schema.decodeEffect(ReportingTimeZone)(reportingTimeZone).pipe(
+					Effect.mapError(
+						(error) => new DbError({ message: `Invalid reporting time zone: ${error.message}` }),
+					),
+				);
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.user)
+						.set({
+							updatedAt: sql`CURRENT_TIMESTAMP`,
+							preferences: sql`${schema.user.preferences} || ${JSON.stringify({ reportingTimeZone })}::jsonb`,
+						})
+						.where(
+							and(
+								eq(schema.user.id, userId),
+								sql`${schema.user.preferences}->'reportingTimeZone' = 'null'::jsonb`,
+							),
+						)
+						.returning({ id: schema.user.id }),
+				);
+				return row !== undefined;
+			},
+		);
 
 		const revokeOAuthTokens = Effect.fn("AuthRepository.revokeOAuthTokens")(function* (
 			field: "userId" | "sessionId",
@@ -361,6 +389,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			listIncompleteBootstraps,
 			revokeSessionOAuthTokens,
 			upsertInternalOAuthClient,
+			initializeReportingTimeZone,
 			upsertInternalOAuthResource,
 			upsertInternalOAuthClientResource,
 			deleteInternalOAuthClientResources,

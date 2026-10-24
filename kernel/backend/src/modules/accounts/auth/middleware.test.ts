@@ -39,7 +39,7 @@ const userRecord = {
 	accountGeneration: "test-account-generation",
 	createdAt: new Date("2026-08-30T00:00:00.000Z"),
 	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 };
 
 const resolvedOAuth = {

@@ -33,7 +33,7 @@ const targetUser: HandoffTarget = {
 	email: "target@example.com",
 	accountGeneration: "test-account-generation",
 	bootstrapCompletedAt: new Date("2026-09-01T00:00:00.000Z"),
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 };
 
 const authorization = (

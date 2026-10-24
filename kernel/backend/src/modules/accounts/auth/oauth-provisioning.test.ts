@@ -177,6 +177,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 				revokeUserOAuthTokens: () => Effect.die("unused"),
 				listIncompleteBootstraps: () => Effect.die("unused"),
 				revokeSessionOAuthTokens: () => Effect.die("unused"),
+				initializeReportingTimeZone: () => Effect.die("unused"),
 				upsertInternalOAuthClient: (client) =>
 					Ref.update(clients, (all) => new Map(all).set(client.clientId, client)),
 				upsertInternalOAuthResource: (resource) =>

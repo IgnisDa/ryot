@@ -873,6 +873,8 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
 				).pipe(Effect.orDie),
+			initializeReportingTimeZone: (userId: UserId, reportingTimeZone: string) =>
+				repository.initializeReportingTimeZone(userId, reportingTimeZone).pipe(Effect.asVoid),
 			updateUserImage: (userId: UserId, image: string) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { image }),

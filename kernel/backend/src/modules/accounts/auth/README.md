@@ -22,6 +22,13 @@ Access tokens expire after 15 minutes and refresh tokens after 30 days. API midd
 
 User preferences are application data on the user row, not Better Auth user fields or session claims. Authenticated application reads decode the full canonical JSONB value. Preference commands validate a partial body, normalize language at the write boundary, and merge supplied fields in one row update; omitted fields remain unchanged. The database supplies complete defaults and rejects malformed stored values.
 
+`reportingTimeZone` is a validated IANA zone or `null` when unset. The authenticated client initializes
+an unset value from the device through `PATCH /account/preferences` with only
+`initializeReportingTimeZone`, falling back to UTC. The repository updates the zone only while its
+persisted value is still `null`. This request control is never stored in preferences. Explicit
+`reportingTimeZone` patches can replace a selected zone. Reporting uses UTC until initialization
+succeeds. Later device travel does not change the stored preference.
+
 Preference-only consumers capture `AuthRepository` at construction and call `getUserPreferences`, which returns decoded preferences or `null` for a missing user. Its Layer requires only `DatabaseSession`; it does not load the auth runtime. Consumers retain their own missing-user behavior. Reads that already need user columns decode preferences from that same row.
 
 Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches, and password reset deletes the user's API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
