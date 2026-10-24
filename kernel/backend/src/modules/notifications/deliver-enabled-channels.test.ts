@@ -70,7 +70,9 @@ const recordingTransports = Layer.effectContext(
 	Effect.gen(function* () {
 		const sent = yield* Ref.make<ReadonlyArray<string>>([]);
 		const dispatches = yield* Ref.make<ReadonlyArray<string>>([]);
-		const send: NotificationDeliveryService["Service"]["send"] = ({ channelSpecifics }) =>
+		const send = ({
+			channelSpecifics,
+		}: Parameters<NotificationDeliveryService["Service"]["prepare"]>[0]) =>
 			Effect.gen(function* () {
 				yield* Ref.update(sent, (all) => [...all, channelSpecifics.kind]);
 				if (channelSpecifics.kind === "telegram") {
@@ -79,7 +81,6 @@ const recordingTransports = Layer.effectContext(
 				return yield* Effect.void;
 			});
 		return Context.make(NotificationDeliveryService, {
-			send,
 			prepare: (input) => Effect.succeed({ execute: send(input) }),
 		}).pipe(
 			Context.add(
@@ -187,7 +188,6 @@ layer(services)((test) => {
 				accountGeneration: submission.accountGeneration,
 			}).pipe(
 				Effect.provideService(NotificationDeliveryService, {
-					send: () => Effect.die("Unprepared transport must not execute"),
 					prepare: () =>
 						Effect.fail(
 							new NotificationDeliveryError({

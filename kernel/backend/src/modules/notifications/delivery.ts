@@ -368,12 +368,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 					),
 				};
 			});
-
-			const send = Effect.fn("NotificationDeliveryService.send")(
-				(input: Parameters<typeof prepare>[0]) =>
-					prepare(input).pipe(Effect.flatMap((prepared) => prepared.execute)),
-			);
-			return { send, prepare };
+			return { prepare };
 		}),
 	},
 ) {

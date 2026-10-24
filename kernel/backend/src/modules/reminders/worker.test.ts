@@ -80,7 +80,6 @@ const execution = Layer.effectContext(
 		).pipe(
 			Context.add(WorkerEvidence, { sends: Ref.get(sends), dispatches: Ref.get(dispatches) }),
 			Context.add(NotificationDeliveryService, {
-				send: () => Ref.update(sends, (count) => count + 1),
 				prepare: () => Effect.succeed({ execute: Ref.update(sends, (count) => count + 1) }),
 			}),
 		);
@@ -268,7 +267,6 @@ layer(services)((test) => {
 					accountGeneration: input.user.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryService, {
-						send: () => Effect.die("Unexpected direct send"),
 						prepare: () =>
 							Effect.gen(function* () {
 								yield* Deferred.succeed(preparing, undefined);
@@ -307,7 +305,6 @@ layer(services)((test) => {
 					accountGeneration: input.user.accountGeneration,
 				};
 				const transport = {
-					send: () => Effect.die("Unexpected direct send"),
 					prepare: () =>
 						Effect.succeed({
 							execute: Effect.gen(function* () {

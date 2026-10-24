@@ -136,7 +136,9 @@ layer(deliveryTestLayer())((test) => {
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			for (const channelSpecifics of specifics) {
-				expect(yield* service.send({ message: "hello", channelSpecifics })).toBeUndefined();
+				expect(
+					yield* (yield* service.prepare({ message: "hello", channelSpecifics })).execute,
+				).toBeUndefined();
 			}
 
 			const captured = yield* (yield* RecordedFetches).requests;
@@ -155,7 +157,9 @@ layer(deliveryTestLayer())((test) => {
 	test.effect("accepts an empty-body 2xx acknowledgement", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
-			expect(yield* service.send({ message: "hello", channelSpecifics: discord })).toBeUndefined();
+			expect(
+				yield* (yield* service.prepare({ message: "hello", channelSpecifics: discord })).execute,
+			).toBeUndefined();
 		}),
 	);
 });
@@ -164,7 +168,8 @@ layer(deliveryTestLayer())((test) => {
 	test.effect("sends Telegram text without a parse mode", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
-			yield* service.send({ message: "hello *world*", channelSpecifics: telegram });
+			yield* (yield* service.prepare({ message: "hello *world*", channelSpecifics: telegram }))
+				.execute;
 
 			const captured = yield* (yield* RecordedFetches).requests;
 			expect(captured[0]?.body).toBe('{"text":"hello *world*","chat_id":"chat"}');
@@ -181,7 +186,11 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
-				yield* Effect.exit(service.send({ message: "hello", channelSpecifics: discord })),
+				yield* Effect.exit(
+					service
+						.prepare({ message: "hello", channelSpecifics: discord })
+						.pipe(Effect.flatMap(({ execute }) => execute)),
+				),
 				new NotificationDeliveryError({
 					outcome: "failed",
 					message: "Discord rejected request with status 503",
@@ -214,7 +223,11 @@ layer(
 			];
 			for (const { message, channelSpecifics } of structuredCases) {
 				assertExitFails(
-					yield* Effect.exit(service.send({ message: "hello", channelSpecifics })),
+					yield* Effect.exit(
+						service
+							.prepare({ message: "hello", channelSpecifics })
+							.pipe(Effect.flatMap(({ execute }) => execute)),
+					),
 					new NotificationDeliveryError({ message, outcome: "failed" }),
 				);
 			}
@@ -245,7 +258,11 @@ layer(
 			];
 			for (const { message, channelSpecifics } of cases) {
 				assertExitFails(
-					yield* Effect.exit(service.send({ message: "hello", channelSpecifics })),
+					yield* Effect.exit(
+						service
+							.prepare({ message: "hello", channelSpecifics })
+							.pipe(Effect.flatMap(({ execute }) => execute)),
+					),
 					new NotificationDeliveryError({ message, outcome: "unknown" }),
 				);
 			}
@@ -258,7 +275,11 @@ layer(deliveryTestLayer({ respond: () => new Response("not-json", { status: 200 
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
-				yield* Effect.exit(service.send({ message: "hello", channelSpecifics: telegram })),
+				yield* Effect.exit(
+					service
+						.prepare({ message: "hello", channelSpecifics: telegram })
+						.pipe(Effect.flatMap(({ execute }) => execute)),
+				),
 				new NotificationDeliveryError({
 					outcome: "unknown",
 					message: "Telegram response could not be confirmed",
@@ -279,7 +300,11 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
-				yield* Effect.exit(service.send({ message: "hello", channelSpecifics: discord })),
+				yield* Effect.exit(
+					service
+						.prepare({ message: "hello", channelSpecifics: discord })
+						.pipe(Effect.flatMap(({ execute }) => execute)),
+				),
 				new NotificationDeliveryError({
 					outcome: "unknown",
 					message: "Discord response could not be confirmed",
@@ -306,7 +331,11 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
-				yield* Effect.exit(service.send({ message: "hello", channelSpecifics: discord })),
+				yield* Effect.exit(
+					service
+						.prepare({ message: "hello", channelSpecifics: discord })
+						.pipe(Effect.flatMap(({ execute }) => execute)),
+				),
 				new NotificationDeliveryError({
 					outcome: "unknown",
 					message: "Discord response could not be confirmed",
@@ -321,7 +350,7 @@ layer(deliveryTestLayer({ config: { server: { disableNotifications: true } } }))
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
-				yield* Effect.exit(service.send({ message: "hello", channelSpecifics: discord })),
+				yield* Effect.exit(service.prepare({ message: "hello", channelSpecifics: discord })),
 				new NotificationDeliveryError({
 					outcome: "skipped",
 					message: "Notification delivery is disabled",
@@ -338,7 +367,7 @@ layer(deliveryTestLayer())((test) => {
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
 				yield* Effect.exit(
-					service.send({
+					service.prepare({
 						message: "hello",
 						channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
 					}),
@@ -355,10 +384,12 @@ layer(deliveryTestLayer({ config: smtpConfig, mailer: { accepted: [] } }))((test
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
 				yield* Effect.exit(
-					service.send({
-						message: "hello",
-						channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
-					}),
+					service
+						.prepare({
+							message: "hello",
+							channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
+						})
+						.pipe(Effect.flatMap(({ execute }) => execute)),
 				),
 				new NotificationDeliveryError({
 					outcome: "failed",
@@ -385,10 +416,12 @@ layer(
 			const service = yield* NotificationDeliveryService;
 			assertExitFails(
 				yield* Effect.exit(
-					service.send({
-						message: "hello",
-						channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
-					}),
+					service
+						.prepare({
+							message: "hello",
+							channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
+						})
+						.pipe(Effect.flatMap(({ execute }) => execute)),
 				),
 				new NotificationDeliveryError({
 					outcome: "unknown",
@@ -403,10 +436,10 @@ layer(deliveryTestLayer({ config: smtpConfig }))((test) => {
 	test.effect("renders the generic transactional email", () =>
 		Effect.gen(function* () {
 			const service = yield* NotificationDeliveryService;
-			yield* service.send({
+			yield* (yield* service.prepare({
 				message: "hello <world> & friends",
 				channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
-			});
+			})).execute;
 
 			const sentMessages = yield* (yield* RecordedMail).sent;
 			expect(sentMessages).toHaveLength(1);
