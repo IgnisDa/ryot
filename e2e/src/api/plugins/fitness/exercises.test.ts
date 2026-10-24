@@ -14,17 +14,17 @@ import {
 	listEventsForEntity,
 	listSavedViews,
 	mergeEntityUserData,
-	pollUntil,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
-	createWorkoutEntityFixture,
 	findFitnessEntitySchema,
-	findWorkoutSetEventSchema,
+	saveWorkoutData,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import {
 	assertCondition,
@@ -244,54 +244,58 @@ describe("Exercises E2E", () => {
 			const { exerciseId: zuluExerciseId } = yield* createExerciseEntityFixture(client, {
 				name: "Zulu",
 			});
-			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutId: zuluFirstWorkoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutId: zuluSecondWorkoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const createResult = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: alphaExerciseId,
-							sessionEntityId: alphaWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
-						},
-						{
-							entityId: alphaExerciseId,
-							sessionEntityId: alphaWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 8, setOrder: 1, exerciseOrder: 0 },
-						},
-						{
-							entityId: alphaExerciseId,
-							sessionEntityId: alphaWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 6, setOrder: 2, exerciseOrder: 0 },
-						},
-						{
-							entityId: betaExerciseId,
-							sessionEntityId: betaWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
-						},
-						{
-							entityId: zuluExerciseId,
-							sessionEntityId: zuluFirstWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, setOrder: 0, exerciseOrder: 0 },
-						},
-						{
-							entityId: zuluExerciseId,
-							sessionEntityId: zuluSecondWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 8, setOrder: 0, exerciseOrder: 0 },
-						},
+			const alphaWorkout = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(
+							alphaExerciseId,
+							[10, 8, 6].map((reps) => workoutSet({ measurements: { reps, weight: 50 } })),
+						),
 					],
 				}),
 			);
-			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(6);
+			assertCondition(alphaWorkout.kind === "saved", "Expected the Alpha workout to save");
+			expect(alphaWorkout.sets).toHaveLength(3);
+			const betaWorkout = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(betaExerciseId, [
+							workoutSet({ measurements: { reps: 10, weight: 50 } }),
+						]),
+					],
+				}),
+			);
+			assertCondition(betaWorkout.kind === "saved", "Expected the Beta workout to save");
+			expect(betaWorkout.sets).toHaveLength(1);
+			const zuluFirstWorkout = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(zuluExerciseId, [
+							workoutSet({ measurements: { reps: 10, weight: 50 } }),
+						]),
+					],
+				}),
+			);
+			assertCondition(zuluFirstWorkout.kind === "saved", "Expected the first Zulu workout to save");
+			expect(zuluFirstWorkout.sets).toHaveLength(1);
+			const zuluSecondWorkout = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(zuluExerciseId, [
+							workoutSet({ measurements: { reps: 8, weight: 50 } }),
+						]),
+					],
+				}),
+			);
+			assertCondition(
+				zuluSecondWorkout.kind === "saved",
+				"Expected the second Zulu workout to save",
+			);
+			expect(zuluSecondWorkout.sets).toHaveLength(1);
 
 			const savedView = yield* getSavedView(client, {
 				pluginId,
@@ -320,51 +324,54 @@ describe("Exercises E2E", () => {
 	it.live("merges workout-set events between exercises with the same kind", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
-			const { workoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const source = yield* createEntity(client, {
+			const { exerciseId: sourceId } = yield* createExerciseEntityFixture(client, {
+				kind: "reps",
 				name: "Source Exercise",
-				properties: { kind: "reps" },
-				entitySchema: exerciseSchema.reference,
 			});
-			const target = yield* createEntity(client, {
+			const { exerciseId: targetId } = yield* createExerciseEntityFixture(client, {
+				kind: "reps",
 				name: "Target Exercise",
-				properties: { kind: "reps" },
-				entitySchema: exerciseSchema.reference,
 			});
-
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: source.id,
-							sessionEntityId: workoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { setOrder: 0, exerciseOrder: 0 },
-						},
+			const workout = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(sourceId, [
+							workoutSet({ exerciseKind: "reps", measurements: { reps: 5 } }),
+						]),
 					],
 				}),
 			);
-			yield* pollUntil(
-				"source workout set event",
-				Effect.gen(function* () {
-					const events = yield* listEventsForEntity(client, source.id, undefined, 100);
-					return events.length === 1 ? events : null;
-				}),
-			);
+
+			assertCondition(workout.kind === "saved", "Expected the source workout to save");
+			expect(workout.sets).toHaveLength(1);
 
 			const result = yield* mergeEntityUserData(client, {
-				mergeFrom: source.id,
-				mergeInto: target.id,
+				mergeFrom: sourceId,
+				mergeInto: targetId,
 			});
-			const sourceEvents = yield* listEventsForEntity(client, source.id, undefined, 100);
-			const targetEvents = yield* listEventsForEntity(client, target.id, undefined, 100);
+			const sourceEvents = yield* listEventsForEntity(client, sourceId, undefined, 100);
+			const targetEvents = yield* listEventsForEntity(client, targetId, undefined, 100);
 
-			expect(result.movedEventsCount).toBe(1);
+			expect(result.movedEventsCount).toBe(2);
 			expect(sourceEvents).toHaveLength(0);
-			expect(targetEvents).toHaveLength(1);
-			expect(targetEvents[0]?.sessionEntityId).toBe(workoutId);
+			expect(targetEvents).toHaveLength(2);
+			const targetOccurrence = requirePresent(
+				targetEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === "workout-exercise"),
+				"Expected the merged workout exercise anchor",
+			);
+			const targetSet = requirePresent(
+				targetEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === "workout-set"),
+				"Expected the merged workout set",
+			);
+			expect(targetOccurrence).toMatchObject({
+				sessionEntityId: workout.entityId,
+				properties: { exerciseOrder: 0, exerciseKind: "reps" },
+			});
+			expect(targetSet).toMatchObject({
+				sessionEntityId: workout.entityId,
+				properties: { reps: 5, setOrder: 0, exerciseOrder: 0, exerciseKind: "reps" },
+			});
 		}),
 	);
 

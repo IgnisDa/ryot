@@ -6,7 +6,18 @@ import {
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
 } from "@ryot-app/fitness-plugin/workout-list-recipes";
-import { Effect } from "effect";
+import {
+	and,
+	column,
+	defineRecipe,
+	eq,
+	literal,
+	schemaOwnerPredicate,
+	selectedField,
+	selectedRows,
+	table,
+} from "@ryot-app/ryotql";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -14,11 +25,12 @@ import {
 	executeRyotQLRecipe,
 	getEntity,
 	insertRelationshipRow,
+	listEventsForEntity,
 	listSavedViews,
+	pollUntil,
 	uploadPermanentAsset,
-	waitForCreateEvents,
-	waitForEventCount,
 } from "~/fixtures/kernel";
+import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
 	createWorkoutEntityFixture,
@@ -26,10 +38,77 @@ import {
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
 	findWorkoutSetEventSchema,
-	waitForSessionEventCount,
+	saveWorkoutData,
+	workoutData,
+	workoutOccurrence,
+	type WorkoutOccurrenceInput,
+	workoutReference,
+	workoutSet,
+	type WorkoutSetInput,
 } from "~/fixtures/plugins/fitness";
-import { assertTaggedError } from "~/support/assertions";
+import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const workoutSessionSetsRecipe = defineRecipe(
+	(input: {
+		readonly workoutId: string;
+		readonly reference: Parameters<typeof workoutCardsRecipe>[0]["reference"];
+	}) => {
+		const set = table("event", "workoutSessionSet");
+		return {
+			map: ({ sets }) => Result.succeed(sets.items),
+			queries: {
+				sets: selectedRows(set, {
+					limit: 100,
+					orderBy: [],
+					where: and(
+						schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
+						eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+						eq(column(set, "sessionEntityId"), literal(input.workoutId)),
+					),
+					selection: {
+						entityId: selectedField(column(set, "entityId"), Schema.String),
+						eventSchemaSlug: selectedField(column(set, "eventSchemaSlug"), Schema.String),
+						sessionEntityId: selectedField(column(set, "sessionEntityId"), Schema.String),
+						properties: selectedField(
+							column(set, "properties"),
+							Schema.Record(Schema.String, Schema.Unknown),
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+const saveWorkoutMeasurements = (
+	client: Client,
+	exerciseId: WorkoutOccurrenceInput["exerciseId"],
+	sets: ReadonlyArray<WorkoutSetInput["measurements"]>,
+) =>
+	Effect.gen(function* () {
+		const saved = yield* saveWorkoutData(
+			client,
+			workoutData({
+				endedAt: "2026-04-27T11:00:00Z",
+				startedAt: "2026-04-27T10:00:00Z",
+				occurrences: [
+					workoutOccurrence(
+						exerciseId,
+						sets.map((measurements) =>
+							workoutSet({
+								measurements,
+								occurredAt: "2026-04-27T10:15:00Z",
+								confirmedAt: "2026-04-27T10:15:00Z",
+							}),
+						),
+					),
+				],
+			}),
+		);
+		assertCondition(saved.kind === "saved", "Expected the workout to save");
+		return saved;
+	});
 
 describe("Workouts E2E", () => {
 	it.live("links the built-in workout schema to the fitness plugin", () =>
@@ -211,31 +290,36 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const reference = { pluginId, kind: "local" as const };
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const { exerciseId } = yield* createExerciseEntityFixture(client, {
 				kind: "reps_and_weight",
 			});
 			const workout = (name: string, day: string, weights: readonly number[]) =>
 				Effect.gen(function* () {
-					const { workoutId } = yield* createWorkoutEntityFixture(client, {
-						name,
-						endedAt: `${day}T11:00:00Z`,
-						startedAt: `${day}T10:00:00Z`,
-					});
-					if (weights.length > 0) {
-						yield* client.call((c) =>
-							c.events.create({
-								payload: weights.map((weight, setOrder) => ({
-									entityId: exerciseId,
-									sessionEntityId: workoutId,
-									eventSchemaSlug: workoutSetEventSchema.id,
-									properties: { weight, reps: 5, setOrder, setLot: "normal", exerciseOrder: 0 },
-								})),
-							}),
-						);
-						yield* waitForSessionEventCount(client, workoutId, weights.length);
-					}
-					return workoutId;
+					const saved = yield* saveWorkoutData(
+						client,
+						workoutData({
+							name,
+							endedAt: `${day}T11:00:00Z`,
+							startedAt: `${day}T10:00:00Z`,
+							occurrences:
+								weights.length === 0
+									? []
+									: [
+											workoutOccurrence(
+												exerciseId,
+												weights.map((weight) =>
+													workoutSet({
+														occurredAt: `${day}T10:15:00Z`,
+														confirmedAt: `${day}T10:15:00Z`,
+														measurements: { weight, reps: 5 },
+													}),
+												),
+											),
+										],
+						}),
+					);
+					assertCondition(saved.kind === "saved", "Expected the workout to save");
+					return saved.entityId;
 				});
 			const firstPull = yield* workout("Pull", "2026-10-01", [80]);
 			const legs = yield* workout("Legs", "2026-10-07", [100]);
@@ -262,10 +346,21 @@ describe("Workouts E2E", () => {
 				});
 			}
 
-			const page = yield* executeRyotQLRecipe(
-				client,
-				workoutCardsRecipe({ reference, search: "" }),
-			);
+			const readReadyCards = Effect.gen(function* () {
+				const cards = yield* executeRyotQLRecipe(
+					client,
+					workoutCardsRecipe({ reference, search: "" }),
+				);
+				assertCondition(
+					cards.items.every(({ failedSets }) => (failedSets ?? 0) === 0),
+					"Workout record processing failed",
+				);
+				return cards.items.length === 4 &&
+					cards.items.every(({ pendingSets }) => (pendingSets ?? 0) === 0)
+					? cards
+					: null;
+			});
+			const page = yield* pollUntil("ready workout card projections", readReadyCards);
 			expect(
 				page.items.map(({ id, volume, setCount, repeatedFromId, previousTemplateWorkoutId }) => ({
 					id,
@@ -371,26 +466,19 @@ describe("Workouts E2E", () => {
 	it.live("logs a workout set linked to a workout via sessionEntityId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { workoutId } = yield* createWorkoutEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			const created = yield* saveWorkoutMeasurements(client, exerciseId, [
+				{ reps: 10, weight: 60 },
+			]);
+			const workoutId = created.entityId;
+			expect(created.sets).toHaveLength(1);
 
-			const createResult = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, weight: 60, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-						},
-					],
-				}),
+			const reference = yield* workoutReference(client);
+			const events = yield* executeRyotQLRecipe(
+				client,
+				workoutSessionSetsRecipe({ reference, workoutId }),
 			);
-
-			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(1);
-
-			const events = yield* waitForSessionEventCount(client, workoutId, 1);
+			expect(events).toHaveLength(1);
 			expect(events[0]?.sessionEntityId).toBe(workoutId);
 			expect(events[0]?.entityId).toBe(exerciseId);
 			expect(events[0]?.properties).toMatchObject({ exerciseOrder: 0 });
@@ -402,37 +490,18 @@ describe("Workouts E2E", () => {
 	it.live("listing events by sessionEntityId returns only sets for that workout", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
-			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			const { entityId: workoutOneId } = yield* saveWorkoutMeasurements(client, exerciseId, [
+				{ reps: 10 },
+				{ reps: 8 },
+			]);
+			yield* saveWorkoutMeasurements(client, exerciseId, [{ reps: 6 }]);
 
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 8, setOrder: 1, setLot: "normal", exerciseOrder: 0 },
-						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutTwoId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 6, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-						},
-					],
-				}),
+			const reference = yield* workoutReference(client);
+			const workoutOneEvents = yield* executeRyotQLRecipe(
+				client,
+				workoutSessionSetsRecipe({ reference, workoutId: workoutOneId }),
 			);
-
-			const workoutOneEvents = yield* waitForSessionEventCount(client, workoutOneId, 2);
 			expect(workoutOneEvents).toHaveLength(2);
 			expect(workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId)).toBe(true);
 		}),
@@ -441,31 +510,18 @@ describe("Workouts E2E", () => {
 	it.live("listing events by entityId spans multiple workouts for the same exercise", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
-			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			const { entityId: workoutOneId } = yield* saveWorkoutMeasurements(client, exerciseId, [
+				{ reps: 10 },
+			]);
+			const { entityId: workoutTwoId } = yield* saveWorkoutMeasurements(client, exerciseId, [
+				{ reps: 8 },
+			]);
 
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutTwoId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 8, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-						},
-					],
-				}),
-			);
-
-			const exerciseEvents = yield* waitForEventCount(client, exerciseId, 2);
+			const exerciseEvents = yield* listEventsForEntity(client, exerciseId, undefined, 100, {
+				eventSchemaSlug: workoutSetEventSchema.id,
+			});
 			expect(exerciseEvents).toHaveLength(2);
 			expect(new Set(exerciseEvents.map((event) => event.sessionEntityId))).toEqual(
 				new Set([workoutOneId, workoutTwoId]),

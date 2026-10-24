@@ -7,19 +7,21 @@ import {
 	listEventSchemas,
 	listEventsForEntity,
 	requireEventSchemaBySlug,
-	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	createExerciseNote,
-	createWorkoutEntityFixture,
 	deleteExerciseNote,
 	findWorkoutSetEventSchema,
+	saveWorkoutData,
 	updateExerciseNote,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const listReviews = (client: Client, entityId: string) =>
@@ -117,34 +119,25 @@ describe("Fitness exercise notes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const { workoutId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			yield* waitForCreateEvents(
+			const workout = yield* saveWorkoutData(
 				client,
-				yield* client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								entityId: exerciseId,
-								sessionEntityId: workoutId,
-								eventSchemaSlug: workoutSetEventSchema.id,
-								properties: {
-									reps: 5,
-									weight: 50,
-									setOrder: 0,
-									setLot: "normal",
-									exerciseOrder: 0,
-								},
-							},
-						],
-					}),
-				),
+				workoutData({
+					occurrences: [
+						workoutOccurrence(exerciseId, [workoutSet({ measurements: { reps: 5, weight: 50 } })]),
+					],
+				}),
 			);
-			const [set] = yield* waitForEventCount(client, exerciseId, 1);
-			const workoutSet = requirePresent(set, "Expected a workout set");
+			assertCondition(workout.kind === "saved", "Expected the note fixture workout to save");
+			expect(workout.sets).toHaveLength(1);
+			const workoutEvents = yield* listEventsForEntity(client, exerciseId, undefined, 100);
+			const workoutSetEvent = requirePresent(
+				workoutEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === workoutSetEventSchema.id),
+				"Expected a workout set",
+			);
 			const { movieId, reviewEvent } = yield* seedMovieWithReview(client);
 
-			for (const noteId of [workoutSet.id, reviewEvent.id]) {
+			for (const noteId of [workoutSetEvent.id, reviewEvent.id]) {
 				yield* expectRejected(
 					updateExerciseNote(client, { noteId, rating: null, text: "Hijacked" }),
 					"Exercise note not found",
@@ -152,10 +145,15 @@ describe("Fitness exercise notes", () => {
 				yield* expectRejected(deleteExerciseNote(client, { noteId }), "Exercise note not found");
 			}
 
-			const [storedSet] = yield* listEventsForEntity(client, exerciseId, undefined, 100);
-			expect(storedSet?.id).toBe(workoutSet.id);
-			expect(storedSet?.properties).toMatchObject({ reps: 5, weight: 50 });
-			expect(storedSet?.properties).not.toHaveProperty("text");
+			const storedWorkoutSet = requirePresent(
+				(yield* listEventsForEntity(client, exerciseId, undefined, 100)).find(
+					({ eventSchemaSlug }) => eventSchemaSlug === workoutSetEventSchema.id,
+				),
+				"Expected the workout set to remain unchanged",
+			);
+			expect(storedWorkoutSet.id).toBe(workoutSetEvent.id);
+			expect(storedWorkoutSet.properties).toMatchObject({ reps: 5, weight: 50 });
+			expect(storedWorkoutSet.properties).not.toHaveProperty("text");
 			expect(yield* listReviews(client, movieId)).toEqual([reviewEvent]);
 		}),
 	);

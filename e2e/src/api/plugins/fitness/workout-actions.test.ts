@@ -8,7 +8,6 @@ import {
 	getEntity,
 	listEventsForEntity,
 	pollUntil,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
@@ -16,7 +15,6 @@ import {
 	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
 	deleteWorkout,
-	findWorkoutSetEventSchema,
 	LARGE_WORKOUT_BUDGET,
 	readWorkoutDetails,
 	seedExerciseWorkout,
@@ -34,32 +32,19 @@ it.live(
 			const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client);
 			const { metricId } = yield* createMeasurementReadingFixture(client);
 			const measurements = yield* listEventsForEntity(client, metricId, undefined, 100);
-			const older = yield* createWorkoutEntityFixture(client, {
+			const older = yield* seedExerciseWorkout(client, {
+				exerciseId,
 				name: "Historical record workout",
 				endedAt: "2026-06-01T11:00:00.000Z",
 				startedAt: "2026-06-01T10:00:00.000Z",
+				timeoutMs: LARGE_WORKOUT_BUDGET.eventsMs,
+				sets: Array.from({ length: 101 }, () => ({
+					occurredAt: "2026-06-01T10:05:00.000Z",
+					properties: { reps: 20, weight: 100, confirmedAt: "2026-06-01T10:05:00.000Z" },
+				})),
 			});
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const response = yield* client.call((c) =>
-				c.events.create({
-					payload: Array.from({ length: 101 }, (_, setOrder) => ({
-						entityId: exerciseId,
-						sessionEntityId: older.workoutId,
-						occurredAt: "2026-06-01T10:05:00.000Z",
-						eventSchemaSlug: workoutSetEventSchema.id,
-						properties: {
-							setOrder,
-							reps: 20,
-							weight: 100,
-							exerciseOrder: 0,
-							confirmedAt: "2026-06-01T10:05:00.000Z",
-						},
-					})),
-				}),
-			);
-			expect(
-				(yield* waitForCreateEvents(client, response, LARGE_WORKOUT_BUDGET.eventsMs)).count,
-			).toBe(101);
+			expect(older.created.count).toBe(101);
+			const olderWorkoutId = older.workoutId;
 			const newer = yield* seedExerciseWorkout(client, {
 				exerciseId,
 				name: "Surviving workout",
@@ -73,7 +58,7 @@ it.live(
 				],
 			});
 			expect(
-				(yield* readWorkoutDetails(client, older.workoutId)).exercises.items.flatMap(
+				(yield* readWorkoutDetails(client, olderWorkoutId)).exercises.items.flatMap(
 					({ sets }) => sets.items,
 				),
 			).toHaveLength(101);
@@ -82,34 +67,30 @@ it.live(
 			);
 			yield* client.call((c) =>
 				c.collections.createMembership({
-					payload: {
-						mode: "add-if-absent",
-						entityId: older.workoutId,
-						collectionId: collection.id,
-					},
+					payload: { mode: "add-if-absent", entityId: olderWorkoutId, collectionId: collection.id },
 				}),
 			);
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					collectionPickerRecipe({ entityId: older.workoutId, search: "Workout archive" }),
+					collectionPickerRecipe({ entityId: olderWorkoutId, search: "Workout archive" }),
 				)).items,
 			).toContainEqual({ added: true, id: collection.id, name: collection.name });
-			const entity = yield* getEntity(client, older.workoutId);
+			const entity = yield* getEntity(client, olderWorkoutId);
 			const pluginId = requirePresent(entity.entitySchemaPluginId, "Expected workout plugin");
 			const submission = {
 				submittedAt: nowIso(),
-				entityId: older.workoutId,
+				entityId: olderWorkoutId,
 				submissionId: crypto.randomUUID(),
 			};
-			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: older.workoutId });
-			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: older.workoutId });
+			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
+			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
 			expect(
 				yield* executeRyotQLRecipe(
 					client,
 					workoutEditorEntityRecipe({
 						kind: "workout",
-						entityId: older.workoutId,
+						entityId: olderWorkoutId,
 						reference: { pluginId, kind: "local" },
 					}),
 				),
@@ -119,7 +100,7 @@ it.live(
 			expect((yield* getEntity(client, collection.id)).id).toBe(collection.id);
 			expect(yield* listEventsForEntity(client, metricId, undefined, 100)).toEqual(measurements);
 			const events = yield* listEventsForEntity(client, exerciseId, undefined, 100);
-			expect(events.filter(({ sessionEntityId }) => sessionEntityId === older.workoutId)).toEqual(
+			expect(events.filter(({ sessionEntityId }) => sessionEntityId === olderWorkoutId)).toEqual(
 				[],
 			);
 			const recomputed = yield* pollUntil(
@@ -137,7 +118,7 @@ it.live(
 			expect(recomputed.personalBests).toEqual(["reps", "one_rm", "volume", "weight"]);
 			const options = yield* executeRyotQLRecipe(
 				client,
-				collectionPickerRecipe({ entityId: older.workoutId, search: "Workout archive" }),
+				collectionPickerRecipe({ entityId: olderWorkoutId, search: "Workout archive" }),
 			);
 			expect(options.items).toContainEqual({
 				added: false,

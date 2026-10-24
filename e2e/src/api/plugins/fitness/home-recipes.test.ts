@@ -1,22 +1,26 @@
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { muscleActivityRecipe } from "@ryot-app/fitness-plugin/home-recipes";
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createEntity,
-	createEventFixture,
 	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	insertRelationshipRow,
 	seedEntity,
 } from "~/fixtures/kernel";
+import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
-	createWorkoutEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
-	findWorkoutSetEventSchema,
+	saveWorkoutData,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
+import { assertCondition } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Home muscle activity recipe", () => {
@@ -32,7 +36,6 @@ describe("Home muscle activity recipe", () => {
 				);
 				const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 				const targetLink = yield* findFitnessRelationshipSchema(client, "exercise-targets");
-				const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 				const suffix = crypto.randomUUID();
 				const name = `Activity target ${suffix}`;
 				const shared = yield* seedEntity({
@@ -91,34 +94,35 @@ describe("Home muscle activity recipe", () => {
 				const oldAt = "2026-10-13T23:59:59.999Z";
 				const secondaryAt = "2026-10-15T09:00:00.000Z";
 				const stabilizerAt = "2026-10-20T09:00:00.000Z";
-				const { workoutId } = yield* createWorkoutEntityFixture(client, {
-					startedAt: oldAt,
-					endedAt: stabilizerAt,
-				});
-				const log = (exerciseId: string, occurredAt: string) =>
-					createEventFixture(client, {
-						occurredAt,
-						entityId: exerciseId,
-						sessionEntityId: workoutId,
-						eventSchemaSlug: workoutSetEventSchema.id,
-						properties: { reps: 5, weight: 10, setOrder: 0, exerciseOrder: 0 },
+				const log = (recordingClient: Client, exerciseId: EntityId, occurredAt: string) =>
+					Effect.gen(function* () {
+						const saved = yield* saveWorkoutData(
+							recordingClient,
+							workoutData({
+								startedAt: occurredAt,
+								name: `Activity workout ${suffix} ${crypto.randomUUID()}`,
+								endedAt: DateTime.formatIso(
+									DateTime.add(DateTime.makeUnsafe(occurredAt), { hours: 1 }),
+								),
+								occurrences: [
+									workoutOccurrence(exerciseId, [
+										workoutSet({
+											occurredAt,
+											confirmedAt: occurredAt,
+											measurements: { reps: 5, weight: 10 },
+										}),
+									]),
+								],
+							}),
+						);
+						assertCondition(saved.kind === "saved", "Expected the activity workout to save");
 					});
-				yield* log(primary.id, oldAt);
-				yield* log(primary.id, weekStartAt);
-				yield* log(secondary.exerciseId, secondaryAt);
-				yield* log(untyped.exerciseId, weekStartAt);
-				yield* log(stabilizer.exerciseId, stabilizerAt);
-				const { workoutId: otherWorkout } = yield* createWorkoutEntityFixture(other.client, {
-					endedAt: "2026-10-21T10:00:00.000Z",
-					startedAt: "2026-10-21T09:00:00.000Z",
-				});
-				yield* createEventFixture(other.client, {
-					entityId: primary.id,
-					sessionEntityId: otherWorkout,
-					occurredAt: "2026-10-21T09:00:00.000Z",
-					eventSchemaSlug: workoutSetEventSchema.id,
-					properties: { reps: 5, weight: 10, setOrder: 0, exerciseOrder: 0 },
-				});
+				yield* log(client, primary.id, oldAt);
+				yield* log(client, primary.id, weekStartAt);
+				yield* log(client, secondary.exerciseId, secondaryAt);
+				yield* log(client, untyped.exerciseId, weekStartAt);
+				yield* log(client, stabilizer.exerciseId, stabilizerAt);
+				yield* log(other.client, primary.id, "2026-10-21T09:00:00.000Z");
 				const recipe = muscleActivityRecipe({
 					weekStartAt,
 					reference: { pluginId, kind: "local" },

@@ -4,6 +4,7 @@ import {
 	workoutDetailsRecipe,
 	workoutDetailsSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-details-recipes";
+import { workoutTaxonomyRecipe } from "@ryot-app/fitness-plugin/workout-taxonomy-recipes";
 import { Effect } from "effect";
 
 import { collectRyotQLRecipeItems, executeRyotQLRecipe, getEntity } from "~/fixtures/kernel";
@@ -31,6 +32,9 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 		const sets = yield* collectRyotQLRecipeItems(client, (after) =>
 			workoutDetailsSetsRecipe({ after, reference, workoutId }),
 		);
+		const taxonomy = yield* collectRyotQLRecipeItems(client, (after) =>
+			workoutTaxonomyRecipe({ after, reference, workoutIds: [workoutId] }),
+		);
 		const detailsExercises = yield* Effect.forEach(exercises, (exercise) =>
 			Effect.gen(function* () {
 				const previousWorkoutId = exercise.previousWorkoutId;
@@ -54,6 +58,10 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 			}),
 		);
 
-		const details: WorkoutDetails = { ...workout, exercises: { items: detailsExercises } };
+		const details: WorkoutDetails = {
+			...workout,
+			taxonomy,
+			exercises: { items: detailsExercises },
+		};
 		return details;
 	});

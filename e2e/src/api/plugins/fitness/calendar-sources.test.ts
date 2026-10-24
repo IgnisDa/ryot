@@ -12,11 +12,13 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
-	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
-	findWorkoutSetEventSchema,
-	waitForSessionEventCount,
+	saveWorkoutData,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
+import { assertCondition } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const window = {
@@ -39,25 +41,31 @@ const occurrences = (client: Client) =>
 
 const seedWorkout = (client: Client, startedAt: string, exerciseCount: number) =>
 	Effect.gen(function* () {
-		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-		const { workoutId } = yield* createWorkoutEntityFixture(client, {
-			startedAt,
-			endedAt: startedAt,
-		});
 		const exercises = yield* Effect.all(
 			Array.from({ length: exerciseCount }, () => createExerciseEntityFixture(client)),
 		);
-		const payload = exercises.flatMap(({ exerciseId }, exerciseOrder) =>
-			[0, 1].map((setOrder) => ({
-				entityId: exerciseId,
-				sessionEntityId: workoutId,
-				eventSchemaSlug: workoutSetEventSchema.id,
-				properties: { reps: 5, setOrder, weight: 50, exerciseOrder, setLot: "normal" },
-			})),
+		const created = yield* saveWorkoutData(
+			client,
+			workoutData({
+				startedAt,
+				endedAt: startedAt,
+				occurrences: exercises.map(({ exerciseId }) =>
+					workoutOccurrence(
+						exerciseId,
+						[0, 1].map(() =>
+							workoutSet({
+								occurredAt: startedAt,
+								confirmedAt: startedAt,
+								measurements: { reps: 5, weight: 50 },
+							}),
+						),
+					),
+				),
+			}),
 		);
-		yield* client.call((c) => c.events.create({ payload }));
-		yield* waitForSessionEventCount(client, workoutId, payload.length);
-		return workoutId;
+		assertCondition(created.kind === "saved", "Expected the calendar workout to save");
+		expect(created.sets).toHaveLength(exerciseCount * 2);
+		return created.entityId;
 	});
 
 describe("Fitness calendar sources", () => {

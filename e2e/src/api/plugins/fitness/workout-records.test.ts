@@ -8,7 +8,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
-import { Effect, Result, Schema } from "effect";
+import { Effect, Result, Schema, Struct } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -20,11 +20,21 @@ import {
 import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
-	createWorkoutEntityFixture,
+	editTarget,
 	findWorkoutSetEventSchema,
 	LARGE_WORKOUT_BUDGET,
+	loadWorkoutBaseline,
 	readWorkoutDetails,
+	saveWorkoutData,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
+import { readWorkoutExerciseEvidence } from "~/fixtures/plugins/fitness/analytics-evidence";
+import {
+	createKindChangingExerciseFixture,
+	saveHistoricalWorkoutData,
+} from "~/fixtures/plugins/fitness/workout-records";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -99,31 +109,32 @@ describe("Workout records E2E", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const workoutStartedAt = "2026-06-02T10:00:00.000Z";
-				const { workoutId } = yield* createWorkoutEntityFixture(client, {
-					startedAt: workoutStartedAt,
-					endedAt: "2026-06-02T11:00:00.000Z",
-				});
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
-				const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-
-				const createResponse = yield* client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								entityId: exerciseId,
-								sessionEntityId: workoutId,
-								occurredAt: workoutStartedAt,
-								eventSchemaSlug: workoutSetEventSchema.id,
-								properties: { reps: 10, weight: 10, setOrder: 0, exerciseOrder: 0 },
-							},
+				const created = yield* saveHistoricalWorkoutData(
+					client,
+					workoutData({
+						startedAt: workoutStartedAt,
+						endedAt: "2026-06-02T11:00:00.000Z",
+						occurrences: [
+							workoutOccurrence(exerciseId, [
+								Struct.omit(
+									workoutSet({
+										occurredAt: workoutStartedAt,
+										measurements: { reps: 10, weight: 10 },
+									}),
+									["confirmedAt"],
+								),
+							]),
 						],
 					}),
 				);
-				const createResult = yield* waitForCreateEvents(client, createResponse);
-				expect(createResult.count).toBe(1);
-				const eventId = requireWorkoutSetEventId(createResult);
+				assertCondition(created.kind === "saved", "Expected the workout to save");
+				expect(created.sets).toHaveLength(1);
+				const workoutId = created.entityId;
+				const eventId = requirePresent(created.sets[0]?.eventId, "Expected the workout set event");
 
-				yield* waitForReadyWorkoutSets(client, workoutId, 1);
+				const { items: initialItems } = yield* waitForReadyWorkoutSets(client, workoutId, 1);
+				expect(initialItems[0]?.confirmedAt).toBeNull();
 
 				const rejected = yield* Effect.flip(
 					client.call((c) =>
@@ -158,8 +169,10 @@ describe("Workout records E2E", () => {
 				const { items: updatedItems } = yield* waitForReadyWorkoutSets(client, workoutId, 1);
 				const updatedSet = requirePresent(updatedItems[0], "Expected the updated workout set");
 				expect(updatedSet.weight).toBe(100.000001);
-				expect(updatedSet.distance).toBe(1);
+				expect(updatedSet.distance).toBeNull();
 				const storedSet = yield* storedWorkoutSet(client, exerciseId, eventId);
+				expect(storedSet.properties["weight"]).toBe(100.000001);
+				expect(storedSet.properties["distance"]).toBe(1);
 				expect(storedSet.properties).not.toHaveProperty("unitSystem");
 			}),
 	);
@@ -170,40 +183,31 @@ describe("Workout records E2E", () => {
 			const newerStartedAt = "2026-06-02T10:00:00.000Z";
 			const newerConfirmedAt = "2026-06-02T10:05:00.000Z";
 			const olderStartedAt = "2026-06-01T10:00:00.000Z";
-			const { workoutId: newerWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: newerStartedAt,
-				endedAt: "2026-06-02T11:00:00.000Z",
-			});
-			const { workoutId: olderWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: olderStartedAt,
-				endedAt: "2026-06-01T11:00:00.000Z",
-			});
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-
-			const newerCreate = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							occurredAt: newerStartedAt,
-							sessionEntityId: newerWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 25,
-								weight: 10,
-								setOrder: 0,
+			const newerCreate = yield* saveWorkoutData(
+				client,
+				workoutData({
+					startedAt: newerStartedAt,
+					endedAt: "2026-06-02T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							workoutSet({
 								restTime: 45,
-								exerciseOrder: 0,
+								occurredAt: newerStartedAt,
 								confirmedAt: newerConfirmedAt,
-							},
-						},
+								measurements: { reps: 25, weight: 10 },
+							}),
+						]),
 					],
 				}),
 			);
-			const newerCreateResult = yield* waitForCreateEvents(client, newerCreate);
-			expect(newerCreateResult.count).toBe(1);
-			const newerEventId = requireWorkoutSetEventId(newerCreateResult);
+			assertCondition(newerCreate.kind === "saved", "Expected the newer workout to save");
+			expect(newerCreate.sets).toHaveLength(1);
+			const newerWorkoutId = newerCreate.entityId;
+			const newerEventId = requirePresent(
+				newerCreate.sets[0]?.eventId,
+				"Expected the newer workout set event",
+			);
 
 			const { items: initialNewerItems } = yield* waitForReadyWorkoutSets(
 				client,
@@ -225,22 +229,28 @@ describe("Workout records E2E", () => {
 			const storedNewerSet = yield* storedWorkoutSet(client, exerciseId, newerEventId);
 			expect(isoString(storedNewerSet.occurredAt)).toBe(newerConfirmedAt);
 
-			const olderCreate = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							occurredAt: olderStartedAt,
-							sessionEntityId: olderWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 25, weight: 10, setOrder: 0, exerciseOrder: 0 },
-						},
+			const olderCreate = yield* saveHistoricalWorkoutData(
+				client,
+				workoutData({
+					startedAt: olderStartedAt,
+					endedAt: "2026-06-01T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							Struct.omit(
+								workoutSet({ occurredAt: olderStartedAt, measurements: { reps: 25, weight: 10 } }),
+								["confirmedAt"],
+							),
+						]),
 					],
 				}),
 			);
-			const olderCreateResult = yield* waitForCreateEvents(client, olderCreate);
-			expect(olderCreateResult.count).toBe(1);
-			const olderEventId = requireWorkoutSetEventId(olderCreateResult);
+			assertCondition(olderCreate.kind === "saved", "Expected the older workout to save");
+			expect(olderCreate.sets).toHaveLength(1);
+			const olderWorkoutId = olderCreate.entityId;
+			const olderEventId = requirePresent(
+				olderCreate.sets[0]?.eventId,
+				"Expected the older workout set event",
+			);
 
 			const { items: olderItems } = yield* waitForReadyWorkoutSets(client, olderWorkoutId, 1);
 			const olderSet = requirePresent(olderItems[0], "Expected the older workout set");
@@ -294,7 +304,20 @@ describe("Workout records E2E", () => {
 			);
 			expect(editedNewerSet.personalBests).not.toContain("weight");
 
-			yield* client.call((c) => c.events.delete({ params: { eventId: olderEventId } }));
+			const olderBaseline = yield* loadWorkoutBaseline(client, olderWorkoutId);
+			const deletedOlder = yield* saveWorkoutData(
+				client,
+				workoutData({
+					occurrences: [],
+					startedAt: olderStartedAt,
+					target: editTarget(olderBaseline),
+					endedAt: "2026-06-01T11:00:00.000Z",
+					name: olderBaseline.baseline.entity.name,
+				}),
+			);
+			assertCondition(deletedOlder.kind === "saved", "Expected the older set to be removed");
+			expect(deletedOlder.sets).toHaveLength(0);
+			yield* waitForReadyWorkoutSets(client, olderWorkoutId, 0);
 			const { items: deletedNewerItems } = yield* waitForReadyWorkoutSets(
 				client,
 				newerWorkoutId,
@@ -313,65 +336,98 @@ describe("Workout records E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const previousStartedAt = "2026-06-01T10:00:00.000Z";
 			const currentStartedAt = "2026-06-02T10:00:00.000Z";
-			const { workoutId: previousWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: previousStartedAt,
-				endedAt: "2026-06-01T11:00:00.000Z",
-			});
-			const { workoutId: currentWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: currentStartedAt,
-				endedAt: "2026-06-02T11:00:00.000Z",
-			});
-			const { workoutId: equalStartWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: currentStartedAt,
-				endedAt: "2026-06-02T12:00:00.000Z",
-			});
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-
-			const createResult = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: previousWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 8,
-								setOrder: 0,
-								exerciseOrder: 0,
+			const previousCreated = yield* saveWorkoutData(
+				client,
+				workoutData({
+					startedAt: previousStartedAt,
+					endedAt: "2026-06-01T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							workoutSet({
+								occurredAt: previousStartedAt,
+								exerciseKind: "reps_and_weight",
+								measurements: { reps: 8, weight: 10 },
 								confirmedAt: "2026-06-02T10:01:00.000Z",
-							},
-						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: equalStartWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 9,
-								setOrder: 0,
-								exerciseOrder: 0,
-								confirmedAt: "2026-06-02T10:03:00.000Z",
-							},
-						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: currentWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								setOrder: 0,
-								exerciseOrder: 0,
-								confirmedAt: "2026-06-02T10:05:00.000Z",
-							},
-						},
+							}),
+						]),
 					],
 				}),
 			);
-			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(3);
+			assertCondition(previousCreated.kind === "saved", "Expected the previous workout to save");
+			expect(previousCreated.sets).toHaveLength(1);
+			const equalStartCreated = yield* saveWorkoutData(
+				client,
+				workoutData({
+					startedAt: currentStartedAt,
+					endedAt: "2026-06-02T12:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							workoutSet({
+								occurredAt: currentStartedAt,
+								exerciseKind: "reps_and_weight",
+								measurements: { reps: 9, weight: 10 },
+								confirmedAt: "2026-06-02T10:03:00.000Z",
+							}),
+						]),
+					],
+				}),
+			);
+			assertCondition(
+				equalStartCreated.kind === "saved",
+				"Expected the equal-start workout to save",
+			);
+			expect(equalStartCreated.sets).toHaveLength(1);
+			const currentCreated = yield* saveWorkoutData(
+				client,
+				workoutData({
+					startedAt: currentStartedAt,
+					endedAt: "2026-06-02T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							workoutSet({
+								occurredAt: currentStartedAt,
+								exerciseKind: "reps_and_weight",
+								measurements: { reps: 10, weight: 10 },
+								confirmedAt: "2026-06-02T10:05:00.000Z",
+							}),
+						]),
+					],
+				}),
+			);
+			assertCondition(currentCreated.kind === "saved", "Expected the current workout to save");
+			expect(currentCreated.sets).toHaveLength(1);
+			expect(
+				previousCreated.sets.length + equalStartCreated.sets.length + currentCreated.sets.length,
+			).toBe(3);
+			const previousWorkoutId = previousCreated.entityId;
+			const equalStartWorkoutId = equalStartCreated.entityId;
+			const currentWorkoutId = currentCreated.entityId;
+			for (const created of [previousCreated, equalStartCreated, currentCreated]) {
+				const { eventId } = requirePresent(created.sets[0], "Expected the recorded weighted set");
+				yield* client.call((c) =>
+					c.events.update({
+						params: { eventId },
+						payload: { properties: { set: {}, remove: ["weight"] } },
+					}),
+				);
+				const stored = yield* storedWorkoutSet(client, exerciseId, eventId);
+				expect(stored.properties).not.toHaveProperty("weight");
+			}
 
-			yield* waitForReadyWorkoutSets(client, previousWorkoutId, 1);
-			yield* waitForReadyWorkoutSets(client, equalStartWorkoutId, 1);
+			const previous = yield* waitForReadyWorkoutSets(client, previousWorkoutId, 1);
+			const equalStart = yield* waitForReadyWorkoutSets(client, equalStartWorkoutId, 1);
 			const current = yield* waitForReadyWorkoutSets(client, currentWorkoutId, 1);
+			for (const workout of [previous, equalStart, current]) {
+				expect(workout.items[0]).toMatchObject({
+					oneRm: null,
+					weight: null,
+					volume: null,
+					recordStatus: "ready",
+					personalBests: ["reps"],
+					exerciseKind: "reps_and_weight",
+				});
+			}
 			const currentExercise = requirePresent(
 				current.workout.exercises.items[0],
 				"Expected the current workout exercise",
@@ -382,6 +438,27 @@ describe("Workout records E2E", () => {
 				),
 			).toBe(previousStartedAt);
 			expect(currentExercise.previousSets.items.map((set) => set.reps)).toEqual([8]);
+			const currentEventId = requirePresent(
+				currentCreated.sets[0]?.eventId,
+				"Expected current set",
+			);
+			yield* client.call((c) =>
+				c.events.update({
+					params: { eventId: currentEventId },
+					payload: { properties: { remove: [], set: { weight: 10 } } },
+				}),
+			);
+			const repaired = yield* waitForReadyWorkoutSets(client, currentWorkoutId, 1);
+			expect(repaired.items[0]).toMatchObject({
+				weight: 10,
+				volume: 100,
+				oneRm: 13.333333,
+				recordStatus: "ready",
+				personalBests: ["reps", "one_rm", "volume", "weight"],
+			});
+			expect(
+				repaired.workout.exercises.items[0]?.previousSets.items.map((set) => set.reps),
+			).toEqual([8]);
 		}),
 	);
 
@@ -392,16 +469,52 @@ describe("Workout records E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const earlierStartedAt = "2026-06-01T10:00:00.000Z";
 				const laterStartedAt = "2026-06-02T10:00:00.000Z";
-				const { workoutId: earlierWorkoutId } = yield* createWorkoutEntityFixture(client, {
-					startedAt: earlierStartedAt,
-					endedAt: "2026-06-01T11:00:00.000Z",
-				});
-				const { workoutId: laterWorkoutId } = yield* createWorkoutEntityFixture(client, {
-					startedAt: laterStartedAt,
-					endedAt: "2026-06-02T11:00:00.000Z",
-				});
 				const { exerciseId } = yield* createExerciseEntityFixture(client, { kind: "reps" });
 				const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+				const earlierCreated = yield* saveHistoricalWorkoutData(
+					client,
+					workoutData({
+						startedAt: earlierStartedAt,
+						endedAt: "2026-06-01T11:00:00.000Z",
+						occurrences: [
+							workoutOccurrence(exerciseId, [
+								Struct.omit(
+									workoutSet({
+										exerciseKind: "reps",
+										measurements: { reps: 0 },
+										occurredAt: earlierStartedAt,
+									}),
+									["confirmedAt"],
+								),
+							]),
+						],
+					}),
+				);
+				assertCondition(earlierCreated.kind === "saved", "Expected the earlier workout to save");
+				expect(earlierCreated.sets).toHaveLength(1);
+				const laterCreated = yield* saveHistoricalWorkoutData(
+					client,
+					workoutData({
+						startedAt: laterStartedAt,
+						endedAt: "2026-06-02T11:00:00.000Z",
+						occurrences: [
+							workoutOccurrence(exerciseId, [
+								Struct.omit(
+									workoutSet({
+										exerciseKind: "reps",
+										occurredAt: laterStartedAt,
+										measurements: { reps: 51 },
+									}),
+									["confirmedAt"],
+								),
+							]),
+						],
+					}),
+				);
+				assertCondition(laterCreated.kind === "saved", "Expected the later workout to save");
+				expect(laterCreated.sets).toHaveLength(1);
+				const earlierWorkoutId = earlierCreated.entityId;
+				const laterWorkoutId = laterCreated.entityId;
 
 				const createResult = yield* client.call((c) =>
 					c.events.create({
@@ -411,7 +524,7 @@ describe("Workout records E2E", () => {
 							occurredAt: reps < 51 ? earlierStartedAt : laterStartedAt,
 							sessionEntityId: reps < 51 ? earlierWorkoutId : laterWorkoutId,
 							properties: { reps, exerciseOrder: 0, setOrder: reps < 51 ? reps : reps - 51 },
-						})),
+						})).filter((_, reps) => reps !== 0 && reps !== 51),
 					}),
 				);
 				const created = yield* waitForCreateEvents(
@@ -419,8 +532,9 @@ describe("Workout records E2E", () => {
 					createResult,
 					LARGE_WORKOUT_BUDGET.eventsMs,
 				);
-				expect(created).toMatchObject({ count: 101, failure: null });
-				const lastEventId = requireWorkoutSetEventId(created, 100);
+				expect(created).toMatchObject({ count: 99, failure: null });
+				expect(created.count + earlierCreated.sets.length + laterCreated.sets.length).toBe(101);
+				const lastEventId = requireWorkoutSetEventId(created, 98);
 				const sourceBefore = yield* storedWorkoutSource(client, lastEventId);
 
 				const earlier = yield* waitForReadyWorkoutSets(
@@ -441,6 +555,7 @@ describe("Workout records E2E", () => {
 				];
 				expect(allSets).toHaveLength(101);
 				expect(allSets.reduce((total, set) => total + (set.reps ?? 0), 0)).toBe(5050);
+				expect(allSets.every((set) => set.confirmedAt === null)).toBe(true);
 				const sourceAfter = yield* storedWorkoutSource(client, lastEventId);
 				expect(sourceAfter.updatedAt).toBe(sourceBefore.updatedAt);
 				expect(sourceAfter.properties).toEqual(sourceBefore.properties);
@@ -477,49 +592,91 @@ describe("Workout records E2E", () => {
 
 	it.live("keeps each set's recorded kind and tracks personal bests per kind", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const fixture = yield* createKindChangingExerciseFixture();
+			const { client, exerciseId } = fixture;
 			const earlierStartedAt = "2026-06-01T10:00:00.000Z";
 			const laterStartedAt = "2026-06-02T10:00:00.000Z";
-			const { workoutId: earlierWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: earlierStartedAt,
-				endedAt: "2026-06-01T11:00:00.000Z",
+			expect(fixture.exercise).toMatchObject({
+				id: exerciseId,
+				externalId: fixture.externalId,
+				providerId: fixture.providerId,
+				properties: { kind: "reps_and_weight" },
 			});
-			const { workoutId: laterWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				startedAt: laterStartedAt,
-				endedAt: "2026-06-02T11:00:00.000Z",
-			});
-			const { exerciseId } = yield* createExerciseEntityFixture(client, {
-				kind: "reps_and_weight",
-			});
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-
-			const createResponse = yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							occurredAt: earlierStartedAt,
-							sessionEntityId: earlierWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 10, weight: 20, setOrder: 0, exerciseOrder: 0 },
-						},
-						{
-							entityId: exerciseId,
-							occurredAt: laterStartedAt,
-							sessionEntityId: laterWorkoutId,
-							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: { reps: 6, setOrder: 0, exerciseOrder: 0, exerciseKind: "reps" },
-						},
+			const earlierCreated = yield* saveHistoricalWorkoutData(
+				client,
+				workoutData({
+					startedAt: earlierStartedAt,
+					endedAt: "2026-06-01T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							Struct.omit(
+								workoutSet({
+									occurredAt: earlierStartedAt,
+									exerciseKind: "reps_and_weight",
+									measurements: { reps: 10, weight: 20 },
+								}),
+								["confirmedAt"],
+							),
+						]),
 					],
 				}),
 			);
-			const created = yield* waitForCreateEvents(client, createResponse);
-			expect(created.count).toBe(2);
-			const weightedEventId = requireWorkoutSetEventId(created, 0);
+			assertCondition(earlierCreated.kind === "saved", "Expected the weighted workout to save");
+			expect(earlierCreated.sets).toHaveLength(1);
+			const weightedEventId = requirePresent(
+				earlierCreated.sets[0]?.eventId,
+				"Expected the weighted workout set event",
+			);
+			yield* waitForReadyWorkoutSets(client, earlierCreated.entityId, 1);
+			const weightedSourceBefore = yield* storedWorkoutSource(client, weightedEventId);
+			const weightedEvidenceBefore = yield* readWorkoutExerciseEvidence(
+				client,
+				exerciseId,
+				earlierCreated.entityId,
+			);
+			expect(weightedEvidenceBefore).toHaveLength(1);
+			expect(weightedEvidenceBefore[0]?.properties.exerciseKind).toBe("reps_and_weight");
+			const changedExercise = yield* fixture.changeKind("reps");
+			expect(changedExercise).toMatchObject({
+				id: exerciseId,
+				properties: { kind: "reps" },
+				externalId: fixture.externalId,
+				providerId: fixture.providerId,
+			});
+			expect(yield* storedWorkoutSource(client, weightedEventId)).toEqual(weightedSourceBefore);
+			expect(
+				yield* readWorkoutExerciseEvidence(client, exerciseId, earlierCreated.entityId),
+			).toEqual(weightedEvidenceBefore);
+			const laterCreated = yield* saveHistoricalWorkoutData(
+				client,
+				workoutData({
+					startedAt: laterStartedAt,
+					endedAt: "2026-06-02T11:00:00.000Z",
+					occurrences: [
+						workoutOccurrence(exerciseId, [
+							Struct.omit(
+								workoutSet({
+									exerciseKind: "reps",
+									measurements: { reps: 6 },
+									occurredAt: laterStartedAt,
+								}),
+								["confirmedAt"],
+							),
+						]),
+					],
+				}),
+			);
+			assertCondition(laterCreated.kind === "saved", "Expected the repetitions workout to save");
+			expect(laterCreated.sets).toHaveLength(1);
+			expect(earlierCreated.sets.length + laterCreated.sets.length).toBe(2);
+			const earlierWorkoutId = earlierCreated.entityId;
+			const laterWorkoutId = laterCreated.entityId;
 
 			const earlier = yield* waitForReadyWorkoutSets(client, earlierWorkoutId, 1);
 			const later = yield* waitForReadyWorkoutSets(client, laterWorkoutId, 1);
 			expect(earlier.items[0]).toMatchObject({
+				volume: 200,
+				oneRm: 26.666667,
 				exerciseKind: "reps_and_weight",
 				personalBests: ["reps", "one_rm", "volume", "weight"],
 			});
@@ -529,6 +686,15 @@ describe("Workout records E2E", () => {
 				exerciseKind: "reps",
 				personalBests: ["reps"],
 			});
+			expect(earlier.items[0]?.confirmedAt).toBeNull();
+			expect(later.items[0]?.confirmedAt).toBeNull();
+			expect(yield* storedWorkoutSource(client, weightedEventId)).toEqual(weightedSourceBefore);
+			expect(yield* readWorkoutExerciseEvidence(client, exerciseId, earlierWorkoutId)).toEqual(
+				weightedEvidenceBefore,
+			);
+			const laterEvidence = yield* readWorkoutExerciseEvidence(client, exerciseId, laterWorkoutId);
+			expect(laterEvidence).toHaveLength(1);
+			expect(laterEvidence[0]?.properties.exerciseKind).toBe("reps");
 
 			yield* client.call((c) =>
 				c.events.update({
@@ -540,6 +706,9 @@ describe("Workout records E2E", () => {
 			expect(edited.items[0]).toMatchObject({ reps: 12, exerciseKind: "reps_and_weight" });
 			const storedSet = yield* storedWorkoutSet(client, exerciseId, weightedEventId);
 			expect(storedSet.properties["exerciseKind"]).toBe("reps_and_weight");
+			expect(yield* readWorkoutExerciseEvidence(client, exerciseId, earlierWorkoutId)).toEqual(
+				weightedEvidenceBefore,
+			);
 		}),
 	);
 
