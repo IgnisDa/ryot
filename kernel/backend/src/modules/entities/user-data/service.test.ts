@@ -60,6 +60,7 @@ import { DatabaseSession } from "#platform/db/session";
 import type { MockOverrides } from "#testing/effect";
 import { databaseLayer } from "#testing/effect";
 
+import { emptyEntityUserDataAttachments } from "./attachments.test-support";
 import { EntityUserDataGraphRepository } from "./graph-repository";
 import { EntityUserDataService } from "./service";
 
@@ -225,6 +226,7 @@ const makeServiceLayer = (
 				options.eventsService ?? makeEventsService(),
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
 				options.relationshipsService ?? makeRelationshipsService(),
+				emptyEntityUserDataAttachments,
 				Layer.mock(MutationReceipts)({
 					insert: () => Effect.void,
 					peek: () => Effect.succeed(null),

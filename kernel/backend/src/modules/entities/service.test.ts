@@ -79,6 +79,7 @@ import {
 	recordingDatabaseLayer,
 	StatementLog,
 } from "./statement-recording.test-support";
+import { emptyEntityUserDataAttachments } from "./user-data/attachments.test-support";
 import { DomainWriteChecksLive } from "./write-context";
 
 const owner = UserId.make("owner");
@@ -482,7 +483,15 @@ const entitiesLayer = (options: TestOptions = {}) =>
 			const services = Layer.mergeAll(
 				repositories,
 				EntitiesService.layer.pipe(
-					Layer.provide(Layer.mergeAll(repositories, ports, execution, eventsService)),
+					Layer.provide(
+						Layer.mergeAll(
+							repositories,
+							ports,
+							execution,
+							eventsService,
+							emptyEntityUserDataAttachments,
+						),
+					),
 				),
 			).pipe(
 				Layer.provideMerge(

@@ -36,6 +36,7 @@ import {
 	MutationReceiptIdentityConflict,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
+import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import type {
 	PreparedUserRelationshipCreate,
 	PreparedUserRelationshipDelete,
@@ -45,6 +46,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
 import { trimToNull } from "#platform/validation";
 
+import { EntityUserDataAttachments } from "./attachments";
 import { EntityUserDataGraphRepository } from "./graph-repository";
 import {
 	embeddedEntityReferences,
@@ -140,6 +142,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			const entitiesRepository = yield* EntitiesRepository;
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const graphRepository = yield* EntityUserDataGraphRepository;
+			const attachments = yield* EntityUserDataAttachments;
 			const state = Effect.fnUntraced(function* (input: {
 				userId: UserId;
 				entityId: EntityId;
@@ -147,13 +150,20 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				policy: undefined | PluginEntityUserStatePolicy;
 			}) {
 				const graph = yield* userStateGraph(graphRepository, input);
+				const attached = yield* attachments.list({
+					userId: input.userId,
+					entityIds: graph.entityIds,
+				});
 				const eventReferences = yield* eventsRepository.listUserDataEventReferences({
 					userId: input.userId,
 					entityIds: graph.entityIds,
 				});
 				if ((input.policy?.children?.length ?? 0) > 0) {
 					const schemas = yield* evidenceSchemas(definitions, input.userId, input.pluginId, graph);
-					const references = new Set(eventReferences.map(({ entityId }) => entityId));
+					const references = new Set([
+						...eventReferences.map(({ entityId }) => entityId),
+						...attached.flatMap(({ entityId }) => (entityId === null ? [] : [entityId])),
+					]);
 					for (const evidence of graph.evidence) {
 						const schema = schemas.get(evidence.id);
 						if (schema) {
@@ -213,6 +223,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				);
 				return {
 					graph,
+					attachments: attached,
 					relationships: selectedRelationships.sort((left, right) =>
 						left.id.localeCompare(right.id),
 					),
@@ -263,6 +274,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						if (prior) {
 							return { result: prior.result, dispatch: prior.dispatch };
 						}
+						yield* lockPluginIngestionShared(database);
 						yield* lockState(input.states);
 						yield* input.recheck;
 						for (const resource of ["event", "relationship"] as const) {
@@ -472,6 +484,10 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						Effect.flatMap((current) => assertState(captured, current)),
 					),
 					write: Effect.gen(function* () {
+						yield* attachments.clear({
+							userId: user.id,
+							ids: captured.attachments.map(({ id }) => id),
+						});
 						const eventDispatch: LifecycleDispatchPlan[] = [];
 						for (const [index, prepared] of preparedEvents.entries()) {
 							eventDispatch.push(
@@ -635,6 +651,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				const sourceEntityIds = new Set(sourceState.graph.entityIds);
 				const requiredIds = new Set<string>(
 					[
+						...sourceState.attachments.flatMap(({ entityId }) =>
+							entityId === null ? [] : [entityId],
+						),
 						...sourceState.eventReferences.flatMap(({ entityId, sessionEntityId }) =>
 							sessionEntityId === null ? [entityId] : [entityId, sessionEntityId],
 						),
@@ -769,6 +788,11 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* assertState(targetState, yield* state(targetInput));
 					}),
 					write: Effect.gen(function* () {
+						yield* attachments.move({
+							userId,
+							references: referenceMap,
+							ids: sourceState.attachments.map(({ id }) => id),
+						});
 						const eventDispatch: LifecycleDispatchPlan[] = [];
 						for (const [index, prepared] of preparedResets.entries()) {
 							eventDispatch.push(

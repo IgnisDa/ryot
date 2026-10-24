@@ -247,8 +247,75 @@ describe("user lifecycle persistence cleanup", () => {
 								},
 							]);
 
+							const reminderEntity = {
+								userId: owner,
+								name: "Reminder target",
+								entitySchemaPluginId: null,
+								id: "owner-reminder-entity",
+								entitySchemaSlug: "collection",
+							} satisfies typeof tables.entity.$inferInsert;
+							yield* db.insert(tables.entity).values(reminderEntity);
+							yield* db
+								.insert(tables.reminder)
+								.values({
+									userId: owner,
+									id: "owner-reminder",
+									state: "needs-scheduling",
+									entityId: reminderEntity.id,
+									message: "Reminder message",
+									entityTitle: "Reminder target",
+									accountGeneration: "test-account-generation",
+									originalSchedule: {
+										dueAt: null,
+										timezone: null,
+										date: "2025-01-01",
+										mayHaveSent: false,
+									},
+								} satisfies typeof tables.reminder.$inferInsert);
+
+							const ownerNotificationId = "owner-notification";
+							yield* db
+								.insert(tables.notification)
+								.values({
+									userId: owner,
+									recoverAt: now,
+									state: "admitted",
+									id: ownerNotificationId,
+									sourceKey: "lifecycle-cleanup",
+									inputDigest: "lifecycle-cleanup-digest",
+									accountGeneration: "test-account-generation",
+									request: { kind: "message", message: "Notification message" },
+								} satisfies typeof tables.notification.$inferInsert);
+							yield* db
+								.insert(tables.notificationDelivery)
+								.values({
+									claimedAt: now,
+									channel: "email",
+									status: "sending",
+									description: "Email",
+									channelId: "owner-email-channel",
+									id: "owner-notification-delivery",
+									notificationId: ownerNotificationId,
+									attemptId: "owner-notification-attempt",
+								} satisfies typeof tables.notificationDelivery.$inferInsert);
+
 							yield* repository.deleteUserData(owner);
 							expect(yield* db.select().from(tables.mutationReceipt)).toEqual([]);
+							expect(
+								yield* db.select().from(tables.reminder).where(eq(tables.reminder.userId, owner)),
+							).toEqual([]);
+							expect(
+								yield* db
+									.select()
+									.from(tables.notification)
+									.where(eq(tables.notification.userId, owner)),
+							).toEqual([]);
+							expect(
+								yield* db
+									.select()
+									.from(tables.notificationDelivery)
+									.where(eq(tables.notificationDelivery.notificationId, ownerNotificationId)),
+							).toEqual([]);
 
 							expect(yield* db.select().from(tables.user)).toEqual([
 								expect.objectContaining({ id: "recipient" }),

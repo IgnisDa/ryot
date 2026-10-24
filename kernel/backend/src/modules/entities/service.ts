@@ -48,6 +48,7 @@ import {
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";
 import {
@@ -360,14 +361,15 @@ const batchRepresentatives = Effect.fnUntraced(function* <T>(
 
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
+		const events = yield* EventsService;
 		const session = yield* DatabaseSession;
-		const assetReferences = yield* ManagedAssetReferenceLocker.make;
-		const writeChecks = yield* DomainWriteChecks;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
-		const eventsRepository = yield* EventsRepository;
-		const events = yield* EventsService;
+		const writeChecks = yield* DomainWriteChecks;
 		const receipts = yield* MutationReceipts.make;
+		const eventsRepository = yield* EventsRepository;
+		const attachments = yield* EntityUserDataAttachments;
+		const assetReferences = yield* ManagedAssetReferenceLocker.make;
 		const lookupEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
 			receipts.lookup(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
 		const peekEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
@@ -1687,6 +1689,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							? []
 							: [{ input, batchIndex: index, pin: pins(preparedWriteCheck(input)) }],
 					);
+					yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
 					const written = yield* persistDeletes.persistMany(persisted, decision, rows);
 					yield* insertReceipts(written.records);
 					const results = new Map<number, CommittedLifecycleWork<null>>();

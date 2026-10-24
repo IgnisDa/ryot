@@ -223,6 +223,7 @@ export class EntityRetentionRepository extends Context.Service<EntityRetentionRe
 					sql`entity.check_after > now()`,
 					sql`exists (select 1 from ${tables.event} e where e.entity_id = ${id})`,
 					sql`exists (select 1 from ${tables.event} e where e.session_entity_id = ${id})`,
+					sql`exists (select 1 from ${tables.reminder} r where r.removed_at is null and r.state in ('needs-scheduling', 'scheduled', 'processing') and (r.entity_id = ${id} or r.parent_entity_id = ${id}))`,
 					touching(sql`r.user_id is not null`),
 					touching(schemaIn(sql`r`, catalog.root)),
 					sql`exists (select 1 from ${tables.entityEnrichmentRequest} q where q.entity_id = ${id} and q.state in ('queued', 'running', 'retrying'))`,

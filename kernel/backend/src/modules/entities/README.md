@@ -84,6 +84,7 @@ revision) join entities into units that are kept or deleted together. A unit is 
 - is an event's entity or session entity;
 - has a user-scoped relationship or a link whose schema declares `retention: root`;
 - has a queued, running or retrying enrichment request, or a pending provider-import admission;
+- is the target or parent scope of a Scheduled, Processing or Needs scheduling reminder;
 - is named by an `entity-id` property of an event, a relationship, or an entity without a provider;
 - appears in the payload of queued or running background work or automation runs, or in a saved view.
 

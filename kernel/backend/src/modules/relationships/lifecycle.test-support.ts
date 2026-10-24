@@ -25,6 +25,7 @@ import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";
+import { emptyEntityUserDataAttachments } from "#modules/entities/user-data/attachments.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -400,6 +401,7 @@ export const relationshipDatabaseLayer = (
 				),
 			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
+				Layer.provideMerge(emptyEntityUserDataAttachments),
 				Layer.provideMerge(RelationshipMutationPipeline.layer),
 				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventsService)),
 				Layer.provideMerge(
