@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	API_BASE_URL,
@@ -52,12 +52,14 @@ const loadMove = (host: PokeApiHost, externalId: string) =>
 			const move = asRecord(payload);
 			return move
 				? Effect.succeed(move)
-				: Effect.fail(new PokeApiError(`PokeAPI returned no move for '${externalId}'`));
+				: Effect.fail(
+						new PokeApiError({ message: `PokeAPI returned no move for '${externalId}'` }),
+					);
 		}),
 	);
 
 const englishEffect = (move: Record<string, unknown>) =>
-	(Array.isArray(move["effect_entries"]) ? move["effect_entries"] : [])
+	asArray(move["effect_entries"])
 		.map((item: unknown) => asRecord(item))
 		.filter((record) => namedValue(record?.["language"]) === "en")
 		.flatMap((record) => {
@@ -145,14 +147,14 @@ export const details = defineProvider({
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
 			return Effect.fail(
-				new PokeApiError("externalId must be a numeric PokeAPI move ID (e.g. '85')"),
+				new PokeApiError({ message: "externalId must be a numeric PokeAPI move ID (e.g. '85')" }),
 			);
 		}
 		return loadMove(host, input.externalId).pipe(
 			Effect.flatMap((move) => {
 				const name = stringValue(move["name"]);
 				if (!name) {
-					return Effect.fail(new PokeApiError("PokeAPI move payload is missing name"));
+					return Effect.fail(new PokeApiError({ message: "PokeAPI move payload is missing name" }));
 				}
 				const target = namedValue(move["target"]);
 				const typeName = namedValue(move["type"]);

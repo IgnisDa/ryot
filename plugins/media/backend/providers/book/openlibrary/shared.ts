@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -68,7 +68,7 @@ export const search = defineProvider({
 				const payload = asRecord(payloadValue);
 				const totalItems = numberValue(payload?.["num_found"]) ?? 0;
 				const docs = payload?.["docs"];
-				const items = (Array.isArray(docs) ? docs : []).flatMap((doc) => {
+				const items = asArray(docs).flatMap((doc) => {
 					const record = asRecord(doc);
 					const externalId = getKeySegment(record?.["key"]);
 					const title = stringValue(record?.["title"]);
@@ -137,7 +137,7 @@ const collectAuthors = (host: OpenLibraryHost, workPayload: null | UnknownRecord
 	const authorNameCache = new Map<string, string>();
 	const authors = workPayload?.["authors"];
 	return Effect.gen(function* () {
-		for (const authorEntry of Array.isArray(authors) ? authors : []) {
+		for (const authorEntry of asArray(authors)) {
 			const record = asRecord(authorEntry);
 			if (!record) {
 				continue;
@@ -190,7 +190,7 @@ export const details = defineProvider({
 			const externalId = getKeySegment(workPayload?.["key"]) || requestedIdentifier;
 
 			const entries = asRecord(editionsValue)?.["entries"];
-			const editions = Array.isArray(entries) ? entries : [];
+			const editions = asArray(entries);
 
 			let pages: null | number = null;
 			let earliestDate: Date | null = null;
@@ -295,7 +295,7 @@ export const resolve = defineProvider({
 			const payloadValue = yield* decodeJsonResponse(response.body, "OpenLibrary");
 			const payload = asRecord(payloadValue);
 			const works = payload?.["works"];
-			const workKey = (Array.isArray(works) ? works : [])
+			const workKey = asArray(works)
 				.map((work) => asRecord(work)?.["key"])
 				.find(Boolean);
 			const fromWorks = getKeySegment(workKey);

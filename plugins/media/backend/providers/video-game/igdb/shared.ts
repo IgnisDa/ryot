@@ -4,7 +4,7 @@ import {
 	defineProvider,
 	type ProviderDetailsRelatedEntity,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -80,7 +80,7 @@ const buildPlatformReleases = (releaseDates: unknown) => {
 };
 const collectCompanies = (involvedCompanies: unknown) => {
 	const accumulator = createRoleAccumulator();
-	for (const ic of Array.isArray(involvedCompanies) ? involvedCompanies : []) {
+	for (const ic of asArray(involvedCompanies)) {
 		const record = asRecord(ic);
 		const company = asRecord(record?.["company"]);
 		if (!company) {
@@ -112,7 +112,7 @@ const collectCompanies = (involvedCompanies: unknown) => {
 };
 const collectGroups = (collections: unknown) => {
 	const groupByKey = new Map<string, RoleRelatedEntity>();
-	for (const collection of Array.isArray(collections) ? collections : []) {
+	for (const collection of asArray(collections)) {
 		const id = numberValue(asRecord(collection)?.["id"]);
 		if (id === null) {
 			continue;
@@ -132,7 +132,7 @@ const collectGroups = (collections: unknown) => {
 	return [...groupByKey.values()];
 };
 const collectSuggestions = (similarGames: unknown) =>
-	(Array.isArray(similarGames) ? similarGames : []).flatMap((game) => {
+	asArray(similarGames).flatMap((game) => {
 		const record = asRecord(game);
 		const id = numberValue(record?.["id"]);
 		const name = stringValue(record?.["name"]);
@@ -220,11 +220,6 @@ const loadChildren = (host: IgdbHost, externalId: string) =>
 				`offset ${page * CHILD_PAGE_SIZE};`,
 			].join("\n");
 			const { data } = yield* makeIgdbRequest(host, "games", body);
-			if (!Array.isArray(data)) {
-				return yield* new MediaSandboxError({
-					message: "IGDB game children returned unexpected response format",
-				});
-			}
 			rows.push(...data);
 			if (data.length < CHILD_PAGE_SIZE) {
 				return { rows, complete: true };
@@ -287,11 +282,6 @@ const loadSearchOptions = (
 				`offset ${offset};`,
 			].join("\n");
 			const { data } = yield* makeIgdbRequest(host, source.path, body);
-			if (!Array.isArray(data)) {
-				return yield* new MediaSandboxError({
-					message: `IGDB ${source.path} returned unexpected response format`,
-				});
-			}
 			for (const item of data) {
 				const record = asRecord(item);
 				const id = numberValue(record?.["id"]);
@@ -342,11 +332,6 @@ export const search = defineProvider({
 			].join("\n");
 			return yield* makeIgdbRequest(host, "games", body).pipe(
 				Effect.flatMap(({ headers, data: results }) => {
-					if (!Array.isArray(results)) {
-						return Effect.fail(
-							new MediaSandboxError({ message: "IGDB search returned unexpected response format" }),
-						);
-					}
 					const totalItems = readTotalItems(headers, results.length, offset);
 					const items = results.flatMap((game) => {
 						const record = asRecord(game);
@@ -427,7 +412,7 @@ export const details = defineProvider({
 			Effect.flatMap(([gameResult, ttbResult, children]) =>
 				Effect.gen(function* () {
 					const gameList = gameResult.data;
-					if (!Array.isArray(gameList) || gameList.length === 0) {
+					if (gameList.length === 0) {
 						return yield* new MediaSandboxError({
 							message: "IGDB returned no game data for this externalId",
 						});
@@ -446,7 +431,7 @@ export const details = defineProvider({
 							url: getImageUrl(coverImageId),
 						});
 					}
-					for (const artwork of Array.isArray(game?.["artworks"]) ? game["artworks"] : []) {
+					for (const artwork of asArray(game?.["artworks"])) {
 						const artworkImageId = stringValue(asRecord(artwork)?.["image_id"]);
 						if (artworkImageId) {
 							images.push({

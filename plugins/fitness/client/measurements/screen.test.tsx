@@ -1,4 +1,9 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import type {
+	AggregateResult,
+	RowsResult,
+	RyotQLResult,
+} from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -8,6 +13,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -23,12 +29,12 @@ const DAY_MS = 86_400_000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS).toISOString();
 
 const rows = (
-	items: readonly Record<string, unknown>[],
+	items: RowsResult["items"],
 	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string } = {
 		hasMore: false,
 		nextCursor: null,
 	},
-) => ({ items, type: "rows", pageInfo: { limit: 100, ...pageInfo } });
+): RowsResult => ({ items, type: "rows", pageInfo: { limit: 100, ...pageInfo } });
 
 const summary = (
 	id: string,
@@ -46,11 +52,12 @@ const metrics = rows([
 	summary("sugar", "Sugar level", "mg/dL", 0, 130, daysAgo(400)),
 ]);
 
-const series = (counts: readonly number[], values: readonly number[]) => ({
+const series = (counts: readonly number[], values: readonly number[]): AggregateResult => ({
 	type: "aggregate",
-	items: counts.flatMap((count, index) =>
-		count === 0 ? [] : [{ value: values[index], at: daysAgo(10 - index) }],
-	),
+	items: counts.flatMap((count, index) => {
+		const value = values[index];
+		return count === 0 || value === undefined ? [] : [{ value, at: daysAgo(10 - index) }];
+	}),
 });
 
 const reading = (
@@ -81,7 +88,7 @@ const logRows = rows([
 
 const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics) =>
 	Object.fromEntries(
-		Object.keys(queries).map((key) => {
+		Object.keys(queries).map((key): [string, RyotQLResult] => {
 			if (key === "metrics") {
 				return [key, metricRows];
 			}
@@ -171,7 +178,7 @@ const openPage = (
 	const rememberEntries = (entries: ReturnType<typeof rows>) => {
 		for (const entry of entries.items) {
 			assert(typeof entry.id === "string");
-			assert(Array.isArray(entry.readings));
+			assert(isUnknownArray(entry.readings));
 			entryReadings.set(
 				entry.id,
 				entry.readings.map((child) => Object.assign({}, child, { entryId: entry.id })),

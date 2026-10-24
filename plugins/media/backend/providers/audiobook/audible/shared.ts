@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -67,7 +67,7 @@ const fetchSuggestions = (host: AudibleHost, externalId: string) => {
 		).pipe(
 			Effect.flatMap((payloadValue) => {
 				const products = asRecord(payloadValue)?.["similar_products"];
-				for (const product of Array.isArray(products) ? products : []) {
+				for (const product of asArray(products)) {
 					const record = asRecord(product);
 					const relatedExternalId = stringValue(record?.["asin"]);
 					const name = stringValue(record?.["title"]);
@@ -108,7 +108,7 @@ export const search = defineProvider({
 				const payload = asRecord(payloadValue);
 				const totalItems = numberValue(payload?.["total_results"]) ?? 0;
 				const products = payload?.["products"];
-				const items = (Array.isArray(products) ? products : []).flatMap((product) => {
+				const items = asArray(products).flatMap((product) => {
 					const record = asRecord(product);
 					const externalId = trimmedString(record?.["asin"]);
 					const title = stringValue(record?.["title"]);
@@ -153,7 +153,7 @@ const collectGenres = Effect.fnUntraced(function* (categoryLadders: unknown) {
 				message: "Audible category ladder steps must be an array",
 			});
 		}
-		for (const step of Array.isArray(steps) ? steps : []) {
+		for (const step of asArray(steps)) {
 			const name = trimmedString(asRecord(step)?.["name"]);
 			if (name) {
 				candidates.push(name);
@@ -169,7 +169,7 @@ const collectContributors = (
 	contributors: unknown,
 	role: string,
 ) => {
-	for (const contributor of Array.isArray(contributors) ? contributors : []) {
+	for (const contributor of asArray(contributors)) {
 		const record = asRecord(contributor);
 		if (!record) {
 			continue;
@@ -244,7 +244,7 @@ export const details = defineProvider({
 			collectContributors(accumulator, unlinkedCreators, product["authors"], "Author");
 			collectContributors(accumulator, unlinkedCreators, product["narrators"], "Narrator");
 
-			for (const series of Array.isArray(product["series"]) ? product["series"] : []) {
+			for (const series of asArray(product["series"])) {
 				const record = asRecord(series);
 				const seriesExternalId = stringValue(record?.["asin"]);
 				if (!seriesExternalId) {

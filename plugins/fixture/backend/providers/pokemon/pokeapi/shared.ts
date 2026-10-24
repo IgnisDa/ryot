@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	API_BASE_URL,
@@ -39,9 +39,7 @@ const loadTypeEntries = (host: PokeApiHost, typeName: string) =>
 	loadJson(host, `${API_BASE_URL}/type/${encodeURIComponent(typeName)}`).pipe(
 		Effect.map((payload) => {
 			const slots = asRecord(payload)?.["pokemon"];
-			return toEntries(
-				(Array.isArray(slots) ? slots : []).map((slot: unknown) => asRecord(slot)?.["pokemon"]),
-			);
+			return toEntries(asArray(slots).map((slot: unknown) => asRecord(slot)?.["pokemon"]));
 		}),
 	);
 
@@ -51,12 +49,14 @@ const loadPokemon = (host: PokeApiHost, externalId: string) =>
 			const pokemon = asRecord(payload);
 			return pokemon
 				? Effect.succeed(pokemon)
-				: Effect.fail(new PokeApiError(`PokeAPI returned no Pokémon for '${externalId}'`));
+				: Effect.fail(
+						new PokeApiError({ message: `PokeAPI returned no Pokémon for '${externalId}'` }),
+					);
 		}),
 	);
 
 const namesFrom = (value: unknown, key: string) =>
-	(Array.isArray(value) ? value : []).flatMap((item) => {
+	asArray(value).flatMap((item) => {
 		const name = stringValue(asRecord(asRecord(item)?.[key])?.["name"]);
 		return name ? [name] : [];
 	});
@@ -127,14 +127,18 @@ export const details = defineProvider({
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
 			return Effect.fail(
-				new PokeApiError("externalId must be a numeric PokeAPI Pokémon ID (e.g. '25')"),
+				new PokeApiError({
+					message: "externalId must be a numeric PokeAPI Pokémon ID (e.g. '25')",
+				}),
 			);
 		}
 		return loadPokemon(host, input.externalId).pipe(
 			Effect.flatMap((pokemon) => {
 				const name = stringValue(pokemon["name"]);
 				if (!name) {
-					return Effect.fail(new PokeApiError("PokeAPI Pokémon payload is missing name"));
+					return Effect.fail(
+						new PokeApiError({ message: "PokeAPI Pokémon payload is missing name" }),
+					);
 				}
 				const imageUrl = artworkUrl(pokemon);
 				return Effect.succeed({

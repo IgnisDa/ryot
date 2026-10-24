@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
@@ -60,7 +60,7 @@ export const details = defineProvider({
 
 					const links = authorPayload?.["links"];
 					const website =
-						(Array.isArray(links) ? links : [])
+						asArray(links)
 							.map((link) => stringValue(asRecord(link)?.["url"]))
 							.find((url) => url) ?? null;
 

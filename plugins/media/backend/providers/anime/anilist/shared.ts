@@ -4,7 +4,7 @@ import {
 	defineProvider,
 	type ProviderDetailsRelatedEntity,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
@@ -77,7 +77,7 @@ const parseAiringSchedule = (airingSchedule: unknown, nextAiringEpisode: unknown
 	const scheduleByEpisode = new Map<number, string>();
 
 	const nodes = asRecord(airingSchedule)?.["nodes"];
-	for (const node of Array.isArray(nodes) ? nodes : []) {
+	for (const node of asArray(nodes)) {
 		const record = asRecord(node);
 		if (!record) {
 			continue;
@@ -113,7 +113,7 @@ const collectStudios = (studios: unknown) => {
 	const entities: ProviderDetailsRelatedEntity[] = [];
 	const seenStudios = new Set<number>();
 	const nodes = asRecord(studios)?.["nodes"];
-	for (const studio of Array.isArray(nodes) ? nodes : []) {
+	for (const studio of asArray(nodes)) {
 		const record = asRecord(studio);
 		if (!record) {
 			continue;

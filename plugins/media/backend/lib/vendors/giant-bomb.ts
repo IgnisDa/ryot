@@ -1,6 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { normalizePlainDescription } from "../plain-description";
@@ -14,11 +14,13 @@ export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
 	host.getPluginConfig({ required: ["giantBombApiKey"] }).pipe(
-		Effect.map(({ giantBombApiKey }) => giantBombApiKey),
-		Effect.mapError((error) => ({
-			...error,
-			message: error.message || "Failed to retrieve GiantBomb API key",
-		})),
+		Effect.mapBoth({
+			onSuccess: ({ giantBombApiKey }) => giantBombApiKey,
+			onFailure: (error) => ({
+				...error,
+				message: error.message || "Failed to retrieve GiantBomb API key",
+			}),
+		}),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
@@ -127,8 +129,7 @@ export const readTotalItems = (payload: null | UnknownRecord) => {
 };
 
 export const readResults = (payload: null | UnknownRecord) => {
-	const results = payload?.["results"];
-	return Array.isArray(results) ? results : [];
+	return asArray(payload?.["results"]);
 };
 
 export const paginate = (page: number, pageSize: number, totalItems: number) => ({

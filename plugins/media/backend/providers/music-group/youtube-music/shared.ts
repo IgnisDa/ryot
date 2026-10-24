@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { stringValue, type UnknownRecord } from "../../../lib/records";
@@ -21,9 +21,9 @@ export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageS
 	tryYoutubeMusic(() => client.music.search(query, { type: "album" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
-			const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
+			const allItems = asArray(shelves).flatMap((shelf) => {
 				const albums = asRecord(shelf)?.["contents"];
-				return (Array.isArray(albums) ? albums : []).flatMap((album) => {
+				return asArray(albums).flatMap((album) => {
 					const record = asRecord(album);
 					const id = record?.["id"];
 					if (!id) {
@@ -65,7 +65,7 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 		);
 
 		const rawTracks = albumRecord?.["contents"];
-		const tracks = Array.isArray(rawTracks) ? rawTracks : [];
+		const tracks = asArray(rawTracks);
 		const parts = tracks.length > 0 ? tracks.length : null;
 		const relatedEntities = tracks.flatMap((track, index) => {
 			const trackRecord = asRecord(track);

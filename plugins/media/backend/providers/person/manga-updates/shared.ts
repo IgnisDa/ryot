@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { numberValue, stringValue } from "../../../lib/records";
 import {
@@ -31,7 +31,7 @@ export const search = defineProvider({
 				const payload = asRecord(payloadValue);
 				const totalItems = searchTotalItems(payload);
 				const results = payload?.["results"];
-				const items = (Array.isArray(results) ? results : []).flatMap((item) => {
+				const items = asArray(results).flatMap((item) => {
 					const itemRecord = asRecord(item);
 					const record = asRecord(itemRecord?.["record"]);
 					if (!record) {
@@ -106,23 +106,21 @@ export const details = defineProvider({
 					Effect.map((seriesPayloadValue) => {
 						const seriesPayload = asRecord(seriesPayloadValue);
 						const seriesList = seriesPayload?.["series_list"];
-						const mediaEntities = (Array.isArray(seriesList) ? seriesList : []).flatMap(
-							(series) => {
-								const record = asRecord(series);
-								const idValue = numberValue(record?.["series_id"]);
-								if (idValue === null) {
-									return [];
-								}
-								return [
-									{
-										providerSlug: "manga.manga-updates",
-										externalId: String(Math.trunc(idValue)),
-										relationshipProperties: { roles: ["Author"] },
-										name: stringValue(record?.["title"]) ?? "Loading...",
-									},
-								];
-							},
-						);
+						const mediaEntities = asArray(seriesList).flatMap((series) => {
+							const record = asRecord(series);
+							const idValue = numberValue(record?.["series_id"]);
+							if (idValue === null) {
+								return [];
+							}
+							return [
+								{
+									providerSlug: "manga.manga-updates",
+									externalId: String(Math.trunc(idValue)),
+									relationshipProperties: { roles: ["Author"] },
+									name: stringValue(record?.["title"]) ?? "Loading...",
+								},
+							];
+						});
 						return {
 							name,
 							relatedEntityGroups: [

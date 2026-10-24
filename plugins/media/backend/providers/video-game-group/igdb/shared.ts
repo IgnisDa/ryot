@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -39,11 +39,6 @@ export const search = defineProvider({
 				`offset: ${offset};`,
 			].join("\n");
 			const { headers, data: results } = yield* makeIgdbRequest(host, "collections", body);
-			if (!Array.isArray(results)) {
-				return yield* new MediaSandboxError({
-					message: "IGDB search returned unexpected response format",
-				});
-			}
 			const totalItems = readTotalItems(headers, results.length, offset);
 			const items = results.flatMap((collection) => {
 				const record = asRecord(collection);
@@ -52,7 +47,7 @@ export const search = defineProvider({
 				if (id === null || !name) {
 					return [];
 				}
-				const games = Array.isArray(record?.["games"]) ? record["games"] : [];
+				const games = asArray(record?.["games"]);
 				const parts = games.length > 0 ? games.length : null;
 				const firstCover = games
 					.map((game) => stringValue(asRecord(asRecord(game)?.["cover"])?.["image_id"]))
@@ -83,7 +78,7 @@ export const details = defineProvider({
 			}
 			const body = [COLLECTION_FIELDS, `where id = ${input.externalId};`].join("\n");
 			const { data: results } = yield* makeIgdbRequest(host, "collections", body);
-			if (!Array.isArray(results) || results.length === 0) {
+			if (results.length === 0) {
 				return yield* new MediaSandboxError({
 					message: "IGDB returned no collection data for this externalId",
 				});
@@ -94,16 +89,14 @@ export const details = defineProvider({
 				return yield* new MediaSandboxError({ message: "IGDB collection payload is missing name" });
 			}
 
-			const games = (Array.isArray(collection?.["games"]) ? collection["games"] : []).filter(
-				(game) => {
-					const record = asRecord(game);
-					if (!record) {
-						return false;
-					}
-					const versionParent = record["version_parent"];
-					return versionParent === null || versionParent === undefined;
-				},
-			);
+			const games = asArray(collection?.["games"]).filter((game) => {
+				const record = asRecord(game);
+				if (!record) {
+					return false;
+				}
+				const versionParent = record["version_parent"];
+				return versionParent === null || versionParent === undefined;
+			});
 			const parts = games.length;
 
 			const relatedEntities = games.flatMap((game, index) => {

@@ -1,6 +1,6 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type {
 	ImportEntityRef,
@@ -91,22 +91,21 @@ const nested = (input: unknown, keys: string[]) => {
 	const pending = [input];
 	while (pending.length) {
 		const current = pending.shift();
-		if (!current || typeof current !== "object") {
+		const record = asRecord(current);
+		if (record === null) {
+			pending.push(...asArray(current));
 			continue;
 		}
-		const record = asRecord(current);
-		if (record !== null) {
-			const entries = Object.entries(record);
-			for (const key of keys) {
-				const match = entries.find(
-					([name, value]) => value != null && name.toLowerCase() === key.toLowerCase(),
-				);
-				if (match) {
-					return match[1];
-				}
+		const entries = Object.entries(record);
+		for (const key of keys) {
+			const match = entries.find(
+				([name, value]) => value != null && name.toLowerCase() === key.toLowerCase(),
+			);
+			if (match) {
+				return match[1];
 			}
 		}
-		pending.push(...Object.values(current));
+		pending.push(...Object.values(record));
 	}
 	return undefined;
 };

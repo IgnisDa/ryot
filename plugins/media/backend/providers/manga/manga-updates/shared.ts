@@ -2,7 +2,7 @@ import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -55,7 +55,7 @@ export const search = defineProvider({
 				const payload = asRecord(payloadValue);
 				const totalItems = searchTotalItems(payload);
 				const results = payload?.["results"];
-				const items = (Array.isArray(results) ? results : []).flatMap((item) => {
+				const items = asArray(results).flatMap((item) => {
 					const itemRecord = asRecord(item);
 					const record = asRecord(itemRecord?.["record"]);
 					if (!record) {

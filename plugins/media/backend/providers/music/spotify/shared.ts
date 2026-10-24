@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -55,7 +55,7 @@ export const search = defineProvider({
 			Effect.map((dataValue) => {
 				const tracks = asRecord(asRecord(dataValue)?.["tracks"]);
 				const totalItems = numberValue(tracks?.["total"]) ?? 0;
-				const trackItems = Array.isArray(tracks?.["items"]) ? tracks["items"] : [];
+				const trackItems = asArray(tracks?.["items"]);
 				const items = trackItems.flatMap((track) => {
 					const record = asRecord(track);
 					const externalId = stringValue(record?.["id"]);
@@ -99,7 +99,7 @@ export const details = defineProvider({
 				return yield* new MediaSandboxError({ message: "Spotify track is missing name" });
 			}
 
-			const artists = Array.isArray(track?.["artists"]) ? track["artists"] : [];
+			const artists = asArray(track?.["artists"]);
 			const byVariousArtists = artists.length === 0 ? null : artists.length > 1;
 
 			const accumulator = createRoleAccumulator();

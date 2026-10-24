@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -148,7 +148,7 @@ export const details = defineProvider({
 			addCompanies(game["publishers"], "Publisher");
 
 			const groupAccumulator = createRoleAccumulator();
-			for (const franchise of Array.isArray(game["franchises"]) ? game["franchises"] : []) {
+			for (const franchise of asArray(game["franchises"])) {
 				const record = asRecord(franchise);
 				const externalId = extractGiantBombGuid(record?.["api_detail_url"]);
 				if (!externalId) {
@@ -166,7 +166,7 @@ export const details = defineProvider({
 				string,
 				{ name: string; externalId: string; providerSlug: string }
 			>();
-			for (const similar of Array.isArray(game["similar_games"]) ? game["similar_games"] : []) {
+			for (const similar of asArray(game["similar_games"])) {
 				const record = asRecord(similar);
 				const externalId = extractGiantBombGuid(record?.["api_detail_url"]);
 				if (!externalId) {

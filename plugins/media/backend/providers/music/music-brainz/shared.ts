@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -39,7 +39,7 @@ export const search = defineProvider({
 				}
 				const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
 				const recordings = data["recordings"];
-				const items = (Array.isArray(recordings) ? recordings : []).flatMap((recording) => {
+				const items = asArray(recordings).flatMap((recording) => {
 					const record = asRecord(recording);
 					const id = stringValue(record?.["id"]);
 					if (!id) {
@@ -87,7 +87,7 @@ export const details = defineProvider({
 			}
 
 			const publishYear = getPublishYear(data["first-release-date"]);
-			const artistCredit = Array.isArray(data["artist-credit"]) ? data["artist-credit"] : [];
+			const artistCredit = asArray(data["artist-credit"]);
 			const byVariousArtists = artistCredit.length === 0 ? null : artistCredit.length > 1;
 
 			const accumulator = createRoleAccumulator();
@@ -105,7 +105,7 @@ export const details = defineProvider({
 				});
 			}
 
-			const releases = Array.isArray(data["releases"]) ? data["releases"] : [];
+			const releases = asArray(data["releases"]);
 			const seenGroups = new Set<string>();
 			for (const release of releases) {
 				const releaseGroup = asRecord(asRecord(release)?.["release-group"]);

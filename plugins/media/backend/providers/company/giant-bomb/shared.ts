@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
@@ -136,7 +136,7 @@ export const details = defineProvider({
 
 					const accumulator = createRoleAccumulator();
 					const addGames = (games: unknown, role: string) => {
-						for (const game of Array.isArray(games) ? games : []) {
+						for (const game of asArray(games)) {
 							const record = asRecord(game);
 							const externalId = getGameGuid(record);
 							const gameName = stringValue(record?.["name"]);

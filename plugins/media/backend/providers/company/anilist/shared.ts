@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import {
@@ -46,7 +46,7 @@ export const search = defineProvider({
 				}
 				const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
 				const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
-				const studios = Array.isArray(pageData["studios"]) ? pageData["studios"] : [];
+				const studios = asArray(pageData["studios"]);
 				const items = studios.flatMap((studio) => {
 					const record = asRecord(studio);
 					if (!record) {
@@ -112,8 +112,7 @@ const collectStudioPages = (
 		Effect.flatMap((studioPage) => {
 			const studio = collected.studio ?? studioPage;
 			const media = asRecord(studioPage["media"]);
-			const pageEdges = media?.["edges"];
-			collected.mediaEdges.push(...(Array.isArray(pageEdges) ? pageEdges : []));
+			collected.mediaEdges.push(...asArray(media?.["edges"]));
 			if (asRecord(media?.["pageInfo"])?.["hasNextPage"] === true) {
 				return collectStudioPages(host, studioId, page + 1, { ...collected, studio });
 			}

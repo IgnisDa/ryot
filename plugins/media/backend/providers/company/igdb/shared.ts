@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -32,9 +32,6 @@ export const search = defineProvider({
 		].join("\n");
 		return makeIgdbRequest(host, "companies", body).pipe(
 			Effect.map(({ headers, data: results }) => {
-				if (!Array.isArray(results)) {
-					throw new Error("IGDB company search returned unexpected response format");
-				}
 				const totalItems = readTotalItems(headers, results.length, offset);
 				const items = results.flatMap((company) => {
 					const record = asRecord(company);
@@ -68,7 +65,7 @@ export const details = defineProvider({
 		const body = [DETAIL_FIELDS, `where id = ${input.externalId};`].join("\n");
 		return makeIgdbRequest(host, "companies", body).pipe(
 			Effect.map(({ data: results }) => {
-				if (!Array.isArray(results) || results.length === 0) {
+				if (results.length === 0) {
 					throw new Error("IGDB returned no company data for this externalId");
 				}
 				const company = asRecord(results[0]);
@@ -89,13 +86,13 @@ export const details = defineProvider({
 						? null
 						: DateTime.getPartUtc(DateTime.makeUnsafe(startDate * 1000), "year");
 
-				const websites = Array.isArray(company?.["websites"]) ? company["websites"] : [];
+				const websites = asArray(company?.["websites"]);
 				const firstWebsiteUrl = stringValue(asRecord(websites[0])?.["url"]);
 				const website = firstWebsiteUrl ?? stringValue(company?.["url"]);
 
 				const accumulator = createRoleAccumulator();
 				const addGames = (games: unknown, role: string) => {
-					for (const game of Array.isArray(games) ? games : []) {
+					for (const game of asArray(games)) {
 						const record = asRecord(game);
 						const id = numberValue(record?.["id"]);
 						const gameName = stringValue(record?.["name"]);

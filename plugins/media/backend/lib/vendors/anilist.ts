@@ -5,7 +5,7 @@ import type {
 	ProviderSearchInput,
 	ProviderTranslateInput,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
@@ -145,7 +145,7 @@ export const mediaScriptSlug = (type: unknown) => {
 export const collectSuggestions = (recommendations: unknown, titleLanguage: unknown) => {
 	const suggestionByKey = new Map<string, ProviderDetailsRelatedEntity>();
 	const nodes = asRecord(recommendations)?.["nodes"];
-	for (const node of Array.isArray(nodes) ? nodes : []) {
+	for (const node of asArray(nodes)) {
 		const media = asRecord(asRecord(node)?.["mediaRecommendation"]);
 		if (!media) {
 			continue;
@@ -258,7 +258,7 @@ export const searchAnilistMedia = (
 			}
 			const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
 			const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
-			const mediaItems = Array.isArray(pageData["media"]) ? pageData["media"] : [];
+			const mediaItems = asArray(pageData["media"]);
 			const items = mediaItems.flatMap((item) => {
 				const media = asRecord(item);
 				if (!media) {

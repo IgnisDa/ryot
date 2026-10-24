@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue } from "../../../lib/records";
@@ -27,7 +27,7 @@ export const search = defineProvider({
 			"Audnex",
 		).pipe(
 			Effect.map((payloadValue) => {
-				const allItems = Array.isArray(payloadValue) ? payloadValue : [];
+				const allItems = asArray(payloadValue);
 				const totalItems = allItems.length;
 				const startIndex = (input.page - 1) * input.pageSize;
 				const endIndex = Math.min(startIndex + input.pageSize, totalItems);

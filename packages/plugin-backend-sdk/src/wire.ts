@@ -4,12 +4,14 @@ import {
 	JsonValue as jsonValueSchema,
 } from "@ryot-app/contract/schema/json";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 
 export { jsonValueSchema };
 export type { JsonValue, JsonPrimitive };
 
 export const asRecord = (value: unknown) => (isObjectRecord(value) ? value : null);
+
+export const asArray = (value: unknown) => (isUnknownArray(value) ? value : []);
 
 export const strictStruct = <Fields extends Schema.Struct.Fields>(
 	fields: Fields,

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -48,7 +48,7 @@ query SearchHardcover($query: String!) {
 			const found = numberValue(resultsData["found"]);
 			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
 			const hits = resultsData["hits"];
-			const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
+			const items = asArray(hits).flatMap((hit) => {
 				const doc = asRecord(asRecord(hit)?.["document"]);
 				const externalId = idValue(doc?.["id"]);
 				const name = stringValue(doc?.["name"]);
@@ -119,23 +119,21 @@ export const details = defineProvider({
 				return yield* new MediaSandboxError({ message: "Hardcover series is missing name" });
 			}
 			const bookSeries = data["book_series"];
-			const relatedEntities = (Array.isArray(bookSeries) ? bookSeries : []).flatMap(
-				(entry, idx) => {
-					const book = asRecord(asRecord(entry)?.["book"]);
-					const memberId = idValue(book?.["id"]);
-					if (!memberId) {
-						return [];
-					}
-					return [
-						{
-							externalId: memberId,
-							providerSlug: "book.hardcover",
-							relationshipProperties: { order: idx + 1 },
-							name: stringValue(book?.["title"]) ?? "Loading...",
-						},
-					];
-				},
-			);
+			const relatedEntities = asArray(bookSeries).flatMap((entry, idx) => {
+				const book = asRecord(asRecord(entry)?.["book"]);
+				const memberId = idValue(book?.["id"]);
+				if (!memberId) {
+					return [];
+				}
+				return [
+					{
+						externalId: memberId,
+						providerSlug: "book.hardcover",
+						relationshipProperties: { order: idx + 1 },
+						name: stringValue(book?.["title"]) ?? "Loading...",
+					},
+				];
+			});
 			const slug = stringValue(data["slug"]);
 			return {
 				name: title,

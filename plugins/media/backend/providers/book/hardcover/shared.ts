@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -123,7 +123,7 @@ query SearchHardcover($query: String!) {
 			const found = numberValue(resultsData["found"]);
 			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
 			const hits = resultsData["hits"];
-			const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
+			const items = asArray(hits).flatMap((hit) => {
 				const doc = asRecord(asRecord(hit)?.["document"]);
 				const externalId = idValue(doc?.["id"]);
 				const title = stringValue(doc?.["title"]);

@@ -2,7 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -235,7 +235,7 @@ const fetchRecommendations = (host: ListennotesHost, externalId: string) =>
 	listennotesGet(host, `/podcasts/${encodeURIComponent(externalId)}/recommendations`).pipe(
 		Effect.map((payload) => {
 			const items = asRecord(payload)?.["recommendations"];
-			return (Array.isArray(items) ? items : []).flatMap((item) => {
+			return asArray(items).flatMap((item) => {
 				const mapped = mapRecommendation(item);
 				return mapped ? [mapped] : [];
 			});
@@ -255,7 +255,7 @@ export const search = defineProvider({
 				const payload = asRecord(payloadValue);
 				const totalItems = positiveInt(payload?.["total"]) ?? 0;
 				const results = payload?.["results"];
-				const items = (Array.isArray(results) ? results : []).flatMap((raw) => {
+				const items = asArray(results).flatMap((raw) => {
 					const item = mapSearchItem(raw);
 					return item ? [item] : [];
 				});
@@ -294,7 +294,7 @@ export const details = defineProvider({
 			> => {
 				const pageEpisodes: MappedEpisode[] = [];
 				const rawEpisodesValue = currentPodcast?.["episodes"];
-				const rawEpisodes = Array.isArray(rawEpisodesValue) ? rawEpisodesValue : [];
+				const rawEpisodes = asArray(rawEpisodesValue);
 				for (const rawEpisode of rawEpisodes) {
 					const episode = mapEpisode(rawEpisode, episodeNumberOffset, pageEpisodes.length);
 					if (!episode || seenEpisodeIds.has(episode.id)) {

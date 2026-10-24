@@ -4,7 +4,7 @@ import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
 } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
@@ -16,11 +16,13 @@ const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
 	host.getPluginConfig({ required: ["malClientId"] }).pipe(
-		Effect.map(({ malClientId }) => malClientId),
-		Effect.mapError((error) => ({
-			...error,
-			message: error.message || "Could not load MyAnimeList client ID",
-		})),
+		Effect.mapBoth({
+			onSuccess: ({ malClientId }) => malClientId,
+			onFailure: (error) => ({
+				...error,
+				message: error.message || "Could not load MyAnimeList client ID",
+			}),
+		}),
 		Effect.flatMap((value) => {
 			const clientId = typeof value === "string" ? value.trim() : "";
 			if (!clientId) {
@@ -156,7 +158,7 @@ export const searchMal = (
 					const payload = asRecord(payloadValue);
 					const hasNextPage = stringValue(asRecord(payload?.["paging"])?.["next"]) !== null;
 					const data = payload?.["data"];
-					const items = (Array.isArray(data) ? data : []).flatMap((entry) => {
+					const items = asArray(data).flatMap((entry) => {
 						const node = asRecord(asRecord(entry)?.["node"]);
 						if (!node) {
 							return [];

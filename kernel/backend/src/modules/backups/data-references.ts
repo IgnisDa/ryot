@@ -1,6 +1,7 @@
 import { type AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import { managedAssetLocatorKey } from "#lib/domain/managed-asset-locators";
@@ -56,7 +57,7 @@ const collectPropertyReferenceIds = (
 		}
 		return;
 	}
-	if (definition.type === "array" && Array.isArray(value)) {
+	if (definition.type === "array" && isUnknownArray(value)) {
 		for (const item of value) {
 			collectPropertyReferenceIds(definition.items, item, ids, kind);
 		}
@@ -126,7 +127,7 @@ const rewritePropertyValueReferences = (
 			}
 			return rewritten;
 		}
-		if (definition.type === "array" && Array.isArray(value)) {
+		if (definition.type === "array" && isUnknownArray(value)) {
 			const rewritten: JsonValue[] = [];
 			for (const item of value) {
 				rewritten.push(
@@ -220,7 +221,7 @@ const rewritePropertyAssets = (
 			}
 			return rewritten;
 		}
-		if (definition.type === "array" && Array.isArray(value)) {
+		if (definition.type === "array" && isUnknownArray(value)) {
 			const rewritten: JsonValue[] = [];
 			for (const item of value) {
 				rewritten.push(yield* rewritePropertyAssets(definition.items, item, locators));

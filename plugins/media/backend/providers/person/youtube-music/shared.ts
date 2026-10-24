@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue, type UnknownRecord } from "../../../lib/records";
@@ -28,7 +28,7 @@ const collectArtistEntities = (artist: null | UnknownRecord) => {
 	const media: ArtistRelatedEntity[] = [];
 	const groups: ArtistRelatedEntity[] = [];
 	const sections = artist?.["sections"];
-	for (const section of Array.isArray(sections) ? sections : []) {
+	for (const section of asArray(sections)) {
 		const record = asRecord(section);
 		const rawSectionTitle =
 			asRecord(record?.["title"])?.["text"] ??
@@ -38,7 +38,7 @@ const collectArtistEntities = (artist: null | UnknownRecord) => {
 		const sectionTitle = coerceTrimmed(rawSectionTitle).toLowerCase();
 		const isTrackSection = /song|track|video/.test(sectionTitle);
 		const contents = record?.["contents"];
-		for (const item of Array.isArray(contents) ? contents : []) {
+		for (const item of asArray(contents)) {
 			const itemRecord = asRecord(item);
 			const videoId = stringValue(itemRecord?.["video_id"]);
 			const id = videoId ?? stringValue(itemRecord?.["id"]);
@@ -70,9 +70,9 @@ export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
 	tryYoutubeMusic(() => client.music.search(query, { type: "artist" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
-			const items = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
+			const items = asArray(shelves).flatMap((shelf) => {
 				const artists = asRecord(shelf)?.["contents"];
-				return (Array.isArray(artists) ? artists : []).flatMap((artist) => {
+				return asArray(artists).flatMap((artist) => {
 					const record = asRecord(artist);
 					const id = record?.["id"];
 					if (!id) {

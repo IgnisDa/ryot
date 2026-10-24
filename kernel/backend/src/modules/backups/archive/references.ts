@@ -19,6 +19,7 @@ import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Array as Arr, Effect, Schema } from "effect";
 
 import {
@@ -335,7 +336,7 @@ const redactProperty = (
 	if (definition.type === "object" && isArchiveJsonObject(value)) {
 		return redactFields(definition.properties, value, path, paths);
 	}
-	if (definition.type === "array" && Array.isArray(value)) {
+	if (definition.type === "array" && isUnknownArray(value)) {
 		if (definition.items.secret === true) {
 			for (let index = 0; index < value.length; index += 1) {
 				paths.push(`${path}/${index}`);

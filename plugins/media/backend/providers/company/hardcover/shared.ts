@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { stringValue } from "../../../lib/records";
 import {
@@ -40,7 +40,7 @@ query SearchHardcoverPublishers($name: String!) {
 					host,
 					{
 						query: graphqlQuery,
-						variables: { name: `%${input.query.replace(/[\\%_]/g, "\\$&")}%` },
+						variables: { name: `%${input.query.replaceAll(/[\\%_]/g, "\\$&")}%` },
 					},
 					apiKey,
 					"Hardcover publisher search request failed",
@@ -52,7 +52,7 @@ query SearchHardcoverPublishers($name: String!) {
 							throw new Error(`Hardcover GraphQL error: ${errorMessage}`);
 						}
 						const publishers = asRecord(payload?.["data"])?.["publishers"];
-						const items = (Array.isArray(publishers) ? publishers : []).flatMap((publisher) => {
+						const items = asArray(publishers).flatMap((publisher) => {
 							const record = asRecord(publisher);
 							const externalId = idValue(record?.["id"]);
 							const name = stringValue(record?.["name"]);
@@ -119,7 +119,7 @@ query GetHardcoverPublisherDetails($id: Int!) {
 					throw new Error("Hardcover publisher data is missing name");
 				}
 				const editions = publisherData["editions"];
-				const mediaEntities = (Array.isArray(editions) ? editions : []).flatMap((edition) => {
+				const mediaEntities = asArray(editions).flatMap((edition) => {
 					const book = asRecord(asRecord(edition)?.["book"]);
 					const bookId = idValue(book?.["id"]);
 					if (!bookId) {

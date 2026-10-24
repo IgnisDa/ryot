@@ -16,6 +16,7 @@ import {
 	toValidationError,
 } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Result, Schema } from "effect";
 
 type AppSchemaDefinitionValidationOptions = { readonly allowUpload?: boolean };
@@ -80,7 +81,7 @@ const collectConditionDefinitionIssues = (
 			},
 		];
 	}
-	const values = Array.isArray(condition.value) ? condition.value : [condition.value];
+	const values = isUnknownArray(condition.value) ? condition.value : [condition.value];
 	return values.every((value) => isCompatibleRuleValue(comparableType, value))
 		? []
 		: [

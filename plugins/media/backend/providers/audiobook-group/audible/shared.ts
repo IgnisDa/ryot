@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { stringValue } from "../../../lib/records";
@@ -53,7 +53,7 @@ export const details = defineProvider({
 			}
 
 			const rawRelationships = product["relationships"];
-			const sortedAsins = (Array.isArray(rawRelationships) ? rawRelationships : [])
+			const sortedAsins = asArray(rawRelationships)
 				.filter((relationship) => typeof asRecord(relationship)?.["asin"] === "string")
 				.sort((first, second) => sortValue(first) - sortValue(second))
 				.flatMap((relationship) => {

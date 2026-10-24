@@ -29,14 +29,18 @@ import {
 	table,
 	timeSeries,
 } from "@ryot-app/ryotql";
+import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect } from "effect";
 
 import { bindRyotQLDocument, pluginIdentityReferences } from "./binding";
 import { validateRyotQLDocument } from "./validator";
 
 const countMatchingValues = (value: unknown, key: string, expected: string): number => {
-	if (Array.isArray(value)) {
-		return value.reduce((count, item) => count + countMatchingValues(item, key, expected), 0);
+	if (isUnknownArray(value)) {
+		return value.reduce<number>(
+			(count, item) => count + countMatchingValues(item, key, expected),
+			0,
+		);
 	}
 	if (typeof value !== "object" || value === null) {
 		return 0;

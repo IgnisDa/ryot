@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { stringValue } from "../../../lib/records";
 import { readNextPage, readResults, readTotalItems, vndbPost } from "../../../lib/vendors/vndb";
@@ -73,9 +73,7 @@ export const details = defineProvider({
 						throw new Error("VNDB producer payload is missing name");
 					}
 
-					const alternateNames = (
-						Array.isArray(producer["aliases"]) ? producer["aliases"] : []
-					).flatMap((alias) => {
+					const alternateNames = asArray(producer["aliases"]).flatMap((alias) => {
 						const value = stringValue(alias);
 						return value ? [value] : [];
 					});

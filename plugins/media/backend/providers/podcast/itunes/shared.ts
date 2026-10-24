@@ -2,7 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -33,8 +33,7 @@ const positiveInt = (value: unknown) => {
 	return parsed !== null && parsed > 0 ? parsed : null;
 };
 const resultsArray = (payload: unknown) => {
-	const results = asRecord(payload)?.["results"];
-	return Array.isArray(results) ? results : [];
+	return asArray(asRecord(payload)?.["results"]);
 };
 const ITUNES_LANGUAGE_MAP: Record<string, string> = {
 	en: "en_us",
@@ -111,7 +110,7 @@ const collectGenres = Effect.fnUntraced(function* (item: UnknownRecord) {
 	return [...values];
 });
 const buildSourceUrl = (externalId: string, title: string) => {
-	const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
+	const slug = encodeURIComponent(title.toLowerCase().replaceAll(/\s+/g, "-"));
 	return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
 };
 const itunesGet = (

@@ -1,7 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderSearchInput } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import {
@@ -31,11 +31,13 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 
 const getTvdbApiKey = (host: TvdbHost) =>
 	host.getPluginConfig({ required: ["tvdbApiKey"] }).pipe(
-		Effect.map(({ tvdbApiKey }) => tvdbApiKey),
-		Effect.mapError((error) => ({
-			...error,
-			message: error.message || "Failed to retrieve TVDB API key",
-		})),
+		Effect.mapBoth({
+			onSuccess: ({ tvdbApiKey }) => tvdbApiKey,
+			onFailure: (error) => ({
+				...error,
+				message: error.message || "Failed to retrieve TVDB API key",
+			}),
+		}),
 		Effect.flatMap((value) => {
 			const key = stringValue(value);
 			if (!key) {
@@ -355,7 +357,7 @@ export const collectCompanies = (
 
 export const collectPeople = (characters: unknown) => {
 	const related = createRoleAccumulator();
-	const characterRecords = Array.isArray(characters) ? recordsValue(characters.slice(0, 20)) : [];
+	const characterRecords = recordsValue(asArray(characters).slice(0, 20));
 	for (const character of characterRecords) {
 		const name = stringValue(character["personName"]) ?? "Loading...";
 		const role = stringValue(character["peopleType"]) ?? "Cast";

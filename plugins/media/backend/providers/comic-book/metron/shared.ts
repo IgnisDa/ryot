@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -79,10 +79,12 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 };
 
 const collectSuggestions = (host: MetronHost, sourceExternalId: string, arcs: unknown) => {
-	const arcIds = (Array.isArray(arcs) ? arcs.slice(0, 3) : []).flatMap((arc) => {
-		const arcId = getIdentifier(asRecord(arc)?.["id"]);
-		return arcId ? [arcId] : [];
-	});
+	const arcIds = asArray(arcs)
+		.slice(0, 3)
+		.flatMap((arc) => {
+			const arcId = getIdentifier(asRecord(arc)?.["id"]);
+			return arcId ? [arcId] : [];
+		});
 	return Effect.forEach(arcIds, (arcId) =>
 		loadMetronJson(
 			host,
@@ -94,7 +96,7 @@ const collectSuggestions = (host: MetronHost, sourceExternalId: string, arcs: un
 			const suggestionByKey = new Map<string, SuggestionEntity>();
 			for (const payload of payloads) {
 				const results = asRecord(payload)?.["results"];
-				for (const issue of Array.isArray(results) ? results : []) {
+				for (const issue of asArray(results)) {
 					const record = asRecord(issue);
 					const externalId = getIdentifier(record?.["id"]);
 					if (!externalId || externalId === sourceExternalId) {
@@ -131,7 +133,7 @@ export const search = defineProvider({
 				const count = numberValue(payload?.["count"]);
 				const totalItems = count === null ? 0 : Math.max(0, Math.trunc(count));
 				const results = payload?.["results"];
-				const items = (Array.isArray(results) ? results : [])
+				const items = asArray(results)
 					.flatMap((issue) => {
 						const record = asRecord(issue);
 						const externalId = getIdentifier(record?.["id"]);

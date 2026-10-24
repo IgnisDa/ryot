@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
@@ -50,7 +50,7 @@ export const search = defineProvider({
 				}
 				const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
 				const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
-				const staffItems = Array.isArray(pageData["staff"]) ? pageData["staff"] : [];
+				const staffItems = asArray(pageData["staff"]);
 				const items = staffItems.flatMap((item) => {
 					const staff = asRecord(item);
 					if (!staff) {
@@ -158,12 +158,8 @@ const collectStaffPages = (
 			const staffData = collected.staffData ?? staffPage;
 			const staffMedia = asRecord(staffPage["staffMedia"]);
 			const characterMedia = asRecord(staffPage["characterMedia"]);
-			const pageStaffEdges = staffMedia?.["edges"];
-			const pageCharacterEdges = characterMedia?.["edges"];
-			collected.staffEdges.push(...(Array.isArray(pageStaffEdges) ? pageStaffEdges : []));
-			collected.characterEdges.push(
-				...(Array.isArray(pageCharacterEdges) ? pageCharacterEdges : []),
-			);
+			collected.staffEdges.push(...asArray(staffMedia?.["edges"]));
+			collected.characterEdges.push(...asArray(characterMedia?.["edges"]));
 			const hasNextPage =
 				asRecord(characterMedia?.["pageInfo"])?.["hasNextPage"] === true ||
 				asRecord(staffMedia?.["pageInfo"])?.["hasNextPage"] === true;
@@ -221,14 +217,10 @@ export const details = defineProvider({
 					for (const edge of characterEdges) {
 						const record = asRecord(edge);
 						const characters = record?.["characters"];
-						const characterNames = (Array.isArray(characters) ? characters : []).flatMap(
-							(character) => {
-								const characterName = stringValue(
-									asRecord(asRecord(character)?.["name"])?.["full"],
-								);
-								return characterName ? [characterName] : [];
-							},
-						);
+						const characterNames = asArray(characters).flatMap((character) => {
+							const characterName = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
+							return characterName ? [characterName] : [];
+						});
 						for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
 							addMedia(record?.["node"], "Voicing", characterName);
 						}

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { stringValue } from "../../../lib/records";
@@ -42,7 +42,7 @@ export const search = defineProvider({
 			Effect.map((dataValue) => {
 				const data = asRecord(dataValue);
 				const resultsValue = data?.["results"];
-				const results = Array.isArray(resultsValue) ? resultsValue : [];
+				const results = asArray(resultsValue);
 				const countValue = data?.["count"];
 				const totalItems = typeof countValue === "number" ? countValue : results.length;
 				const items = results.flatMap((series) => {
@@ -93,7 +93,7 @@ export const details = defineProvider({
 				`/series/${input.externalId}/issue_list/?limit=100`,
 			);
 			const issueListResults = asRecord(issueListValue)?.["results"];
-			const issueList = Array.isArray(issueListResults) ? issueListResults : [];
+			const issueList = asArray(issueListResults);
 			const relatedEntities = issueList.flatMap((issue, idx): OrderedRelatedEntity[] => {
 				const record = asRecord(issue);
 				const memberId = numericIdString(record?.["id"]);

@@ -1,5 +1,5 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "./failures";
 
@@ -16,12 +16,10 @@ export const eventTimestamp = (value: string) => {
 };
 
 export const recordsValue = (value: unknown) =>
-	Array.isArray(value)
-		? value.flatMap((item) => {
-				const record = asRecord(item);
-				return record ? [record] : [];
-			})
-		: [];
+	asArray(value).flatMap((item) => {
+		const record = asRecord(item);
+		return record ? [record] : [];
+	});
 
 export const stringValue = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value.trim() : null;

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -46,7 +46,7 @@ type Developer = { id: string; name: string };
 const collectDevelopers = (developers: unknown): Developer[] => {
 	const seen = new Set<string>();
 	const result: Developer[] = [];
-	for (const dev of Array.isArray(developers) ? developers : []) {
+	for (const dev of asArray(developers)) {
 		const record = asRecord(dev);
 		const id = stringValue(record?.["id"]);
 		const name = stringValue(record?.["name"]);
@@ -140,7 +140,7 @@ export const details = defineProvider({
 			if (cover) {
 				images.push({ url: cover, type: "remote", purpose: "cover" as const });
 			}
-			for (const shot of Array.isArray(vn["screenshots"]) ? vn["screenshots"] : []) {
+			for (const shot of asArray(vn["screenshots"])) {
 				const url = imageUrl(shot);
 				if (url && !images.some((image) => image.url === url)) {
 					images.push({ url, type: "remote", purpose: "screenshot" as const });

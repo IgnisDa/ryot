@@ -1,7 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import type { MediaTrendingProviderOutput } from "../../contracts/workflows";
@@ -287,10 +287,7 @@ const fetchTrendingItems = (
 		const results: unknown[] = [];
 		for (const page of [1, 2, 3]) {
 			const data = yield* tmdbGet(host, path, { language, page: String(page) }, token);
-			const pageResults = data["results"];
-			if (Array.isArray(pageResults)) {
-				results.push(...pageResults);
-			}
+			results.push(...asArray(data["results"]));
 		}
 		return collectSuggestions(results, options).map(({ name, externalId }) => ({
 			name,

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
@@ -53,7 +53,7 @@ query SearchHardcover($query: String!) {
 						const found = numberValue(resultsData["found"]);
 						const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
 						const hits = resultsData["hits"];
-						const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
+						const items = asArray(hits).flatMap((hit) => {
 							const doc = asRecord(asRecord(hit)?.["document"]);
 							const externalId = idValue(doc?.["id"]);
 							const name = stringValue(doc?.["name"]);
@@ -131,34 +131,32 @@ query GetHardcoverAuthorDetails($id: Int!) {
 					const slug = stringValue(authorData["slug"]);
 					const links = authorData["links"];
 					const website =
-						(Array.isArray(links) ? links : [])
+						asArray(links)
 							.map((link) => stringValue(asRecord(link)?.["url"]))
 							.find((url) => url) ?? null;
 					const alternateNamesValue = authorData["alternate_names"];
-					const alternateNames = (
-						Array.isArray(alternateNamesValue) ? alternateNamesValue : []
-					).flatMap((value) => (typeof value === "string" && value.trim() ? [value] : []));
-					const contributions = authorData["contributions"];
-					const mediaEntities = (Array.isArray(contributions) ? contributions : []).flatMap(
-						(contribution) => {
-							const contrib = asRecord(contribution);
-							const book = asRecord(contrib?.["book"]);
-							const bookId = idValue(book?.["id"]);
-							if (!bookId) {
-								return [];
-							}
-							return [
-								{
-									externalId: bookId,
-									providerSlug: "book.hardcover",
-									name: stringValue(book?.["title"]) ?? "Loading...",
-									relationshipProperties: {
-										roles: [stringValue(contrib?.["contribution"]) ?? "Author"],
-									},
-								},
-							];
-						},
+					const alternateNames = asArray(alternateNamesValue).flatMap((value) =>
+						typeof value === "string" && value.trim() ? [value] : [],
 					);
+					const contributions = authorData["contributions"];
+					const mediaEntities = asArray(contributions).flatMap((contribution) => {
+						const contrib = asRecord(contribution);
+						const book = asRecord(contrib?.["book"]);
+						const bookId = idValue(book?.["id"]);
+						if (!bookId) {
+							return [];
+						}
+						return [
+							{
+								externalId: bookId,
+								providerSlug: "book.hardcover",
+								name: stringValue(book?.["title"]) ?? "Loading...",
+								relationshipProperties: {
+									roles: [stringValue(contrib?.["contribution"]) ?? "Author"],
+								},
+							},
+						];
+					});
 					return {
 						name,
 						relatedEntityGroups: [

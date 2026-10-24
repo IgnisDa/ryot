@@ -12,6 +12,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { eventHistoryRecipe } from "@ryot-app/ryotql-recipes/events";
+import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -36,9 +37,9 @@ const aggregateCount = (result: { data: Record<string, unknown> }, key: string) 
 	if (!value || typeof value !== "object" || !("type" in value) || value.type !== "aggregate") {
 		return 0;
 	}
-	const items = "items" in value && Array.isArray(value.items) ? value.items : [];
+	const items = "items" in value && isUnknownArray(value.items) ? value.items : [];
 	const item = items[0];
-	return item ? Number(requireRyotQLValue(item, "count")) : 0;
+	return isObjectRecord(item) ? Number(requireRyotQLValue(item, "count")) : 0;
 };
 
 export const mergeEntityUserData = (

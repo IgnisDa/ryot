@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -32,7 +32,7 @@ export const search = defineProvider({
 			Effect.map((dataValue) => {
 				const albums = asRecord(asRecord(dataValue)?.["albums"]);
 				const totalItems = numberValue(albums?.["total"]) ?? 0;
-				const albumItems = Array.isArray(albums?.["items"]) ? albums["items"] : [];
+				const albumItems = asArray(albums?.["items"]);
 				const items = albumItems.flatMap((album) => {
 					const record = asRecord(album);
 					const id = stringValue(record?.["id"]);
@@ -81,7 +81,7 @@ export const details = defineProvider({
 				"https://open.spotify.com",
 			);
 			const tracksRecord = asRecord(album?.["tracks"]);
-			const trackItems = Array.isArray(tracksRecord?.["items"]) ? tracksRecord["items"] : [];
+			const trackItems = asArray(tracksRecord?.["items"]);
 			const relatedEntities = trackItems.flatMap((item, index) => {
 				const record = asRecord(item);
 				const track = asRecord(record?.["track"]) ?? record;

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
@@ -107,7 +107,7 @@ export const search = defineProvider({
 				}
 				const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
 				const groups = data["release-groups"];
-				const items = (Array.isArray(groups) ? groups : []).flatMap((group) => {
+				const items = asArray(groups).flatMap((group) => {
 					const record = asRecord(group);
 					const id = stringValue(record?.["id"]);
 					if (!id) {
@@ -131,9 +131,9 @@ export const search = defineProvider({
 const collectTrackEntities = (media: unknown): OrderedRelatedEntity[] => {
 	const entities: OrderedRelatedEntity[] = [];
 	let trackIdx = 0;
-	for (const medium of Array.isArray(media) ? media : []) {
+	for (const medium of asArray(media)) {
 		const tracks = asRecord(medium)?.["tracks"];
-		for (const track of Array.isArray(tracks) ? tracks : []) {
+		for (const track of asArray(tracks)) {
 			const trackRecord = asRecord(track);
 			const recording = asRecord(trackRecord?.["recording"]) ?? trackRecord;
 			const memberId = stringValue(recording?.["id"]);
@@ -155,7 +155,7 @@ const collectTrackEntities = (media: unknown): OrderedRelatedEntity[] => {
 
 const countTracks = (media: unknown) => {
 	let trackCount = 0;
-	for (const medium of Array.isArray(media) ? media : []) {
+	for (const medium of asArray(media)) {
 		const tracks = asRecord(medium)?.["tracks"];
 		if (Array.isArray(tracks)) {
 			trackCount += tracks.length;
@@ -191,7 +191,7 @@ export const details = defineProvider({
 				"release-group": input.externalId,
 			});
 			const releases = asRecord(browseValue)?.["releases"];
-			const bestRelease = chooseRelease(Array.isArray(releases) ? releases : []);
+			const bestRelease = chooseRelease(asArray(releases));
 			const bestReleaseId = bestRelease ? stringValue(bestRelease["id"]) : null;
 
 			const [releaseCover, releaseDetailsValue] = yield* bestReleaseId

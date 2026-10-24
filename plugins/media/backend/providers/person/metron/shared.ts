@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
@@ -40,7 +40,7 @@ export const search = defineProvider({
 				const count = numberValue(payload?.["count"]);
 				const totalItems = count === null ? 0 : Math.max(0, Math.trunc(count));
 				const results = payload?.["results"];
-				const items = (Array.isArray(results) ? results : []).flatMap((creator) => {
+				const items = asArray(results).flatMap((creator) => {
 					const record = asRecord(creator);
 					const externalId = getIdentifier(record?.["id"]);
 					const name = stringValue(record?.["name"]);

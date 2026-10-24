@@ -2,7 +2,7 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { fetchEntity } from "../lib/host-reads";
 import {
@@ -40,10 +40,10 @@ const pushShowToSonarr = (
 	const requestBody = {
 		monitored: true,
 		tvdbId: Number(tvdbId),
+		tags: asArray(specifics["tagIds"]),
 		rootFolderPath: specifics["rootFolderPath"],
 		addOptions: { searchForMissingEpisodes: true },
 		qualityProfileId: Number(specifics["profileId"]),
-		tags: Array.isArray(specifics["tagIds"]) ? specifics["tagIds"] : [],
 	};
 
 	return host

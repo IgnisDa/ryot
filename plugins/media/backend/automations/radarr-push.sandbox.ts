@@ -2,7 +2,7 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { fetchEntity } from "../lib/host-reads";
 import {
@@ -40,10 +40,10 @@ const pushMovieToRadarr = (
 	const requestBody = {
 		monitored: true,
 		tmdbId: Number(tmdbId),
+		tags: asArray(specifics["tagIds"]),
 		addOptions: { searchForMovie: true },
 		rootFolderPath: specifics["rootFolderPath"],
 		qualityProfileId: Number(specifics["profileId"]),
-		tags: Array.isArray(specifics["tagIds"]) ? specifics["tagIds"] : [],
 	};
 
 	return host

@@ -1,5 +1,5 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { isNamedTimeZone } from "@ryot-app/plugin-kit/schema";
 
 import { MediaSandboxError } from "../../../lib/failures";
@@ -29,7 +29,7 @@ const nodeTitle = (value: unknown) => {
 	}
 	const runs = record?.["runs"];
 	return (
-		(Array.isArray(runs) ? runs : [])
+		asArray(runs)
 			.map((run) => stringValue(asRecord(run)?.["text"]) ?? "")
 			.join("")
 			.trim() || "N/A"
@@ -66,9 +66,9 @@ export const buildTrackSearch = (client: MusicSearchClient, query: string, pageS
 	tryYoutubeMusic(() => client.music.search(query, { type: "song" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
-			const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
+			const allItems = asArray(shelves).flatMap((shelf) => {
 				const tracks = asRecord(shelf)?.["contents"];
-				return (Array.isArray(tracks) ? tracks : []).flatMap((track) => {
+				return asArray(tracks).flatMap((track) => {
 					const record = asRecord(track);
 					const id = record?.["id"];
 					if (!id) {
@@ -97,7 +97,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 		Effect.flatMap((queue) =>
 			Effect.gen(function* () {
 				const rawContents = asRecord(queue)?.["contents"];
-				const contents = Array.isArray(rawContents) ? rawContents : [];
+				const contents = asArray(rawContents);
 				const trackItem =
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId) ?? contents[0];
 				const trackRecord = asRecord(trackItem);
@@ -118,7 +118,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					: null;
 				const accumulator = createRoleAccumulator();
 				const artists = trackRecord["artists"];
-				for (const artist of Array.isArray(artists) ? artists : []) {
+				for (const artist of asArray(artists)) {
 					const artistRecord = asRecord(artist);
 					const artistId = stringValue(artistRecord?.["channel_id"]);
 					if (!artistId) {
@@ -192,7 +192,7 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 		Effect.flatMap((queue) =>
 			Effect.gen(function* () {
 				const rawContents = asRecord(queue)?.["contents"];
-				const contents = Array.isArray(rawContents) ? rawContents : [];
+				const contents = asArray(rawContents);
 				const trackRecord = asRecord(
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId),
 				);
@@ -253,7 +253,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 				const shelf = asRecord(asRecord(section)?.["musicShelfRenderer"]);
 				if (!shelf) {
 					const items = asRecord(asRecord(section)?.["itemSectionRenderer"])?.["contents"];
-					for (const item of Array.isArray(items) ? items : []) {
+					for (const item of asArray(items)) {
 						const message = asRecord(asRecord(item)?.["messageRenderer"]);
 						const button = asRecord(asRecord(message?.["button"])?.["buttonRenderer"]);
 						if (asRecord(button?.["navigationEndpoint"])?.["signInEndpoint"]) {
@@ -272,7 +272,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 					continue;
 				}
 				const contents = shelf["contents"];
-				for (const node of Array.isArray(contents) ? contents : []) {
+				for (const node of asArray(contents)) {
 					const item = asRecord(asRecord(node)?.["musicResponsiveListItemRenderer"]);
 					if (!item) {
 						continue;

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue, trimmedString } from "../../../lib/records";
@@ -65,7 +65,7 @@ export const search = defineProvider({
 				}
 				const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
 				const artists = data["artists"];
-				const items = (Array.isArray(artists) ? artists : []).flatMap((artist) => {
+				const items = asArray(artists).flatMap((artist) => {
 					const record = asRecord(artist);
 					const id = stringValue(record?.["id"]);
 					if (!id) {
@@ -117,7 +117,7 @@ export const details = defineProvider({
 
 				const description = normalizePlainDescription(buildArtistDescription(artist));
 
-				const aliases = Array.isArray(artist["aliases"]) ? artist["aliases"] : [];
+				const aliases = asArray(artist["aliases"]);
 				const alternateNames = aliases.flatMap((alias) => {
 					const aliasName = stringValue(asRecord(alias)?.["name"]);
 					return aliasName !== null && aliasName !== name ? [aliasName] : [];
@@ -138,7 +138,7 @@ export const details = defineProvider({
 				});
 
 				const recordings = asRecord(recordingsValue)?.["recordings"];
-				const mediaEntities = (Array.isArray(recordings) ? recordings : []).flatMap((recording) => {
+				const mediaEntities = asArray(recordings).flatMap((recording) => {
 					const record = asRecord(recording);
 					const recordingId = stringValue(record?.["id"]);
 					if (!recordingId) {

@@ -1,6 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 
@@ -46,8 +46,7 @@ export const vndbPost = (
 		);
 
 export const readResults = (payload: unknown) => {
-	const results = asRecord(payload)?.["results"];
-	return Array.isArray(results) ? results : [];
+	return asArray(asRecord(payload)?.["results"]);
 };
 
 export const readTotalItems = (payload: unknown) => {

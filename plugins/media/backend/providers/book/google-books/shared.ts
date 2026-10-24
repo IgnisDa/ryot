@@ -2,7 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -102,7 +102,7 @@ const pickImage = (imageLinks: unknown) => {
 const collectUnlinkedCreators = (authors: unknown, publisher: unknown) => {
 	const unlinkedCreators: Array<{ role: string; name: string }> = [];
 	const seen = new Set<string>();
-	for (const author of Array.isArray(authors) ? authors : []) {
+	for (const author of asArray(authors)) {
 		const name = stringValue(author);
 		if (!name) {
 			continue;
@@ -136,7 +136,7 @@ const collectGenres = Effect.fnUntraced(function* (categories: unknown, mainCate
 		return yield* new MediaSandboxError({ message: "Google Books categories must be an array" });
 	}
 	const candidates: string[] = [];
-	for (const category of Array.isArray(categories) ? categories : []) {
+	for (const category of asArray(categories)) {
 		if (typeof category !== "string") {
 			continue;
 		}
@@ -180,7 +180,7 @@ export const search = defineProvider({
 			const totalItemsValue = numberValue(payload?.["totalItems"]);
 			const totalItems = totalItemsValue === null ? 0 : Math.max(0, Math.trunc(totalItemsValue));
 			const volumes = payload?.["items"];
-			const items = (Array.isArray(volumes) ? volumes : []).flatMap((volume) => {
+			const items = asArray(volumes).flatMap((volume) => {
 				const record = asRecord(volume);
 				const externalId = stringValue(record?.["id"]);
 				const volumeInfo = asRecord(record?.["volumeInfo"]);

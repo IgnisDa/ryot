@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue, trimmedString } from "../../../lib/records";
@@ -36,7 +36,7 @@ export const search = defineProvider({
 			Effect.map((dataValue) => {
 				const artists = asRecord(asRecord(dataValue)?.["artists"]);
 				const totalItems = numberValue(artists?.["total"]) ?? 0;
-				const artistItems = Array.isArray(artists?.["items"]) ? artists["items"] : [];
+				const artistItems = asArray(artists?.["items"]);
 				const items = artistItems.flatMap((artist) => {
 					const record = asRecord(artist);
 					const externalId = stringValue(record?.["id"]);
@@ -72,7 +72,7 @@ const fetchArtistAlbums = (
 	}).pipe(
 		Effect.flatMap((dataValue) => {
 			const data = asRecord(dataValue);
-			const items = Array.isArray(data?.["items"]) ? data["items"] : [];
+			const items = asArray(data?.["items"]);
 			if (items.length === 0) {
 				return Effect.succeed(collected);
 			}
@@ -127,7 +127,7 @@ export const details = defineProvider({
 						).pipe(
 							Effect.map((topTracksValue) => {
 								const tracks = asRecord(topTracksValue)?.["tracks"];
-								const mediaEntities = (Array.isArray(tracks) ? tracks : []).flatMap((track) => {
+								const mediaEntities = asArray(tracks).flatMap((track) => {
 									const record = asRecord(track);
 									const trackId = trimmedString(record?.["id"]);
 									if (!trackId) {

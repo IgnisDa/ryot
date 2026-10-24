@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { stringValue } from "../../../lib/records";
@@ -92,7 +92,7 @@ export const details = defineProvider({
 			}
 
 			const primaryImage = getPrioritizedImage(franchise["image"]);
-			const franchiseGames = Array.isArray(franchise["games"]) ? franchise["games"] : [];
+			const franchiseGames = asArray(franchise["games"]);
 			const relatedEntities = franchiseGames.flatMap((game, index) => {
 				const record = asRecord(game);
 				const memberId = extractGiantBombGuid(record?.["api_detail_url"]);

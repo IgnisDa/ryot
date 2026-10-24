@@ -2,7 +2,7 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { fetchEntity } from "../lib/host-reads";
 import {
@@ -79,7 +79,7 @@ const findJellyfinItemId = (
 		.pipe(
 			Effect.map((result) => {
 				const payload = asRecord(parseJsonBody(result));
-				const items = Array.isArray(payload?.["Items"]) ? payload["Items"] : [];
+				const items = asArray(payload?.["Items"]);
 				if (item.tmdbId) {
 					const matched = items.find((value) => {
 						const entry = asRecord(value);
