@@ -564,9 +564,14 @@ describe("collection detail", () => {
 				waitFor(() => screen.getByRole("dialog", { name: "View options" })),
 			);
 			expect(dialog.textContent).toContain("Collection order");
-			fireEvent.click(screen.getByRole("button", { name: "Sort results: Collection order" }));
+			expect(
+				screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
+			).toBe(true);
+			fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy()),
+				waitFor(() =>
+					expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+				),
 			);
 			expect(dialog.textContent).toContain("Add filter");
 		}),
@@ -597,7 +602,7 @@ describe("collection detail", () => {
 						expect(screen.getByRole("heading", { level: 1, name: "Mixed" })).toBeTruthy(),
 					),
 				);
-				expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
+				expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
 				fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
 				const dialog = yield* Effect.promise(() =>
 					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
@@ -605,9 +610,11 @@ describe("collection detail", () => {
 				expect(dialog.textContent).toContain("Collection order");
 				expect(dialog.textContent).toContain("Add filter");
 				expect(dialog.textContent).not.toContain("View as");
-				fireEvent.click(screen.getByRole("button", { name: "Sort results: Collection order" }));
+				fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy()),
+					waitFor(() =>
+						expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+					),
 				);
 			}),
 	);

@@ -22,6 +22,7 @@ import {
 	compileSort,
 	entitySchemaBrowseRecipe,
 	nameSortTarget,
+	sortChoices,
 } from "./browse";
 
 const subject = table("entity", "subject");
@@ -35,7 +36,12 @@ const rating = (name: string): BrowseField => ({
 	type: "number",
 	label: "Rating",
 	expression: property(subject, name),
-	sort: { ascending: "Lowest rated", descending: "Highest rated" },
+	sort: {
+		label: "Rating",
+		defaultDirection: "desc",
+		ascending: "Lowest first",
+		descending: "Highest first",
+	},
 });
 
 const schema = (
@@ -146,8 +152,13 @@ describe("browse targets", () => {
 		const played: BrowseField = {
 			kind: "sort",
 			key: "plays",
-			sort: { descending: "Most plays", ascending: "Fewest plays" },
 			expression: count(event, { where: eq(column(event, "entityId"), column(subject, "id")) }),
+			sort: {
+				label: "Plays",
+				defaultDirection: "desc",
+				descending: "Most first",
+				ascending: "Fewest first",
+			},
 		};
 		const [target] = browseTargets(
 			[schema("song", "music", [played])],
@@ -170,7 +181,10 @@ describe("sort compilation", () => {
 			nameSortTarget(entity),
 			{
 				key: "rating",
-				labels: { ascending: "Lowest", descending: "Highest" },
+				label: "Rating",
+				defaultDirection: "desc",
+				ascending: "Lowest first",
+				descending: "Highest first",
 				branches: [{ when: movie, value: property(entity, "score") }],
 			} as const,
 		];
@@ -183,6 +197,20 @@ describe("sort compilation", () => {
 			ascending(id),
 		]);
 		expect(Result.isFailure(compileSort(sorts, "rating", id))).toBe(true);
+	});
+
+	it("offers one neutral choice per field with its directions and preferred direction", () => {
+		const targets = browseTargets([schema("movie", "media", [rating("score")])], entity, new Set());
+		expect(sortChoices([nameSortTarget(entity), ...targets.sorts])).toEqual([
+			{ key: "name", label: "Name", ascending: "A–Z", descending: "Z–A", defaultDirection: "asc" },
+			{
+				key: "rating",
+				label: "Rating",
+				defaultDirection: "desc",
+				ascending: "Lowest first",
+				descending: "Highest first",
+			},
+		]);
 	});
 });
 

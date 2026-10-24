@@ -35,7 +35,12 @@ const rating = (path: string) =>
 		key: "rating",
 		type: "number",
 		label: "Rating",
-		sort: { ascending: "Lowest rated", descending: "Highest rated" },
+		sort: {
+			label: "Rating",
+			defaultDirection: "desc",
+			ascending: "Lowest rated",
+			descending: "Highest rated",
+		},
 		expression: {
 			path: [path],
 			type: "jsonPath",
@@ -662,13 +667,22 @@ describe("collections recipes", () => {
 				label: "Also in collection",
 				relationship: { slug: "member-of", owner: { kind: "kernel" } },
 			});
-			expect(controls.sortChoices.map(({ value }) => value)).toEqual([
-				"name-asc",
-				"name-desc",
-				"date-added-asc",
-				"date-added-desc",
-				"rating-asc",
-				"rating-desc",
+			expect(controls.sortChoices).toEqual([
+				{
+					key: "name",
+					label: "Name",
+					ascending: "A–Z",
+					descending: "Z–A",
+					defaultDirection: "asc",
+				},
+				{
+					key: "date-added",
+					defaultDirection: "desc",
+					ascending: "Oldest first",
+					descending: "Newest first",
+					label: "Date added to collection",
+				},
+				{ key: "rating", ...rating("score").sort },
 			]);
 		});
 

@@ -63,6 +63,12 @@ export const browserBrowse = {
 				label: "Year",
 				type: "number",
 				expression: jsonPath(column(subject, "properties"), "publishYear"),
+				sort: {
+					label: "Release year",
+					defaultDirection: "desc",
+					ascending: "Oldest first",
+					descending: "Newest first",
+				},
 			},
 			{
 				key: "authors",

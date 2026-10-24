@@ -20,8 +20,10 @@ import {
 export const BROWSE_SUBJECT_ALIAS = "subject";
 
 export const BrowseSort = strictStruct({
+	label: Schema.NonEmptyString,
 	ascending: Schema.NonEmptyString,
 	descending: Schema.NonEmptyString,
+	defaultDirection: Schema.Literals(["asc", "desc"]),
 });
 export type BrowseSort = typeof BrowseSort.Type;
 

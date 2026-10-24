@@ -187,8 +187,11 @@ const collectionMemberTargets = (
 		nameSortTarget(entity),
 		{
 			key: "date-added",
+			defaultDirection: "desc",
+			ascending: "Oldest first",
+			descending: "Newest first",
 			branches: [{ value: addedAt }],
-			labels: { ascending: "Oldest added", descending: "Recently added" },
+			label: "Date added to collection",
 		},
 		...browse.sorts,
 	];

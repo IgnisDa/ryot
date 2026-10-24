@@ -20,8 +20,13 @@ const rating = (property: string): BrowseField => ({
 	kind: "value",
 	type: "number",
 	label: "Rating",
-	sort: { ascending: "Lowest rated", descending: "Highest rated" },
 	expression: castNumber(jsonPath(column(subject, "properties"), property)),
+	sort: {
+		label: "Rating",
+		defaultDirection: "desc",
+		ascending: "Lowest rated",
+		descending: "Highest rated",
+	},
 });
 
 const links: BrowseField = {
@@ -29,8 +34,13 @@ const links: BrowseField = {
 	kind: "value",
 	type: "number",
 	label: "Links",
-	sort: { descending: "Most links", ascending: "Fewest links" },
 	expression: count(linked, { where: eq(column(linked, "sourceEntityId"), column(subject, "id")) }),
+	sort: {
+		label: "Links",
+		defaultDirection: "desc",
+		descending: "Most links",
+		ascending: "Fewest links",
+	},
 };
 
 const fields = {

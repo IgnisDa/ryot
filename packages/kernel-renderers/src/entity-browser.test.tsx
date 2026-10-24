@@ -12,7 +12,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
-import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { Effect, Result, Schema } from "effect";
 
 import CollectionBrowserPage from "./collection-browser";
@@ -150,8 +150,8 @@ describe("entity browser", () => {
 			expect(search.getAttribute("aria-keyshortcuts")).toBe("/");
 			const filters = screen.getByRole("button", { name: /Filters/ });
 			expect(filters.hasAttribute("disabled")).toBe(false);
-			expect(filters.textContent).toContain("0");
-			expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
+			expect(filters.getAttribute("aria-label")).toBe("Filters, 0 active filters");
+			expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
 			const add = screen.getByRole("button", { name: "Add" });
 			expect(add.getAttribute("aria-keyshortcuts")).toBe("A");
 			expect(screen.getByRole("radio", { name: "Grid view" })).toBeTruthy();
@@ -161,7 +161,7 @@ describe("entity browser", () => {
 				waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
 			);
 			expect(dialog.textContent).toContain("Add filter");
-			expect(screen.getByRole("button", { name: /^Sort results/ })).toBeTruthy();
+			expect(screen.getByRole("button", { name: /^Sort by/ })).toBeTruthy();
 			expect(dialog.textContent).not.toContain("View as");
 		}),
 	);
@@ -229,8 +229,8 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual({
-						shortcuts: ["/", "A"],
 						type: "page-shortcuts",
+						shortcuts: ["/", "A", "F"],
 					}),
 				),
 			);
@@ -794,6 +794,15 @@ const openFilters = (name = "Filters") =>
 		return yield* Effect.promise(() => waitFor(() => screen.getByRole("dialog", { name })));
 	});
 
+const selectBrowserSort = (label: string) =>
+	Effect.gen(function* () {
+		fireEvent.click(screen.getByRole("button", { name: /^Sort by/ }));
+		fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: label })));
+		yield* Effect.promise(() =>
+			waitFor(() => expect(screen.queryByRole("dialog", { name: "Sort by" })).toBeNull()),
+		);
+	});
+
 const addFilter = (field: string, position = 1) =>
 	Effect.gen(function* () {
 		fireEvent.click(screen.getByRole("button", { name: /^Add filter/ }));
@@ -816,6 +825,115 @@ const replyChoices = (
 			data: { choices: { type: "aggregate", items: items.map((item) => ({ ...item, links: 1 })) } },
 		},
 	});
+
+describe("entity browser sorting", () => {
+	afterEach(() => disposePluginBridges());
+
+	it.live(
+		"selects one field, toggles direction, and uses the next field's preferred direction",
+		() =>
+			Effect.gen(function* () {
+				const page = openBrowser({ search: `search=sample&${filtersParam(statusRule)}` });
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("one", "Sample")], true, "old-page");
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Load more results" })),
+				);
+				const second = yield* browserRequest(page, 1);
+				replyBrowser(page, second.requestId, [browserRow("two", "Sample sequel")]);
+				yield* Effect.promise(() => screen.findByText("2 results"));
+				yield* openFilters();
+				expect(
+					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
+				).toBe(true);
+				fireEvent.click(screen.getByRole("button", { name: "Sort by: Default order" }));
+				const dialog = yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Sort by" }),
+				);
+				expect(
+					within(dialog)
+						.getAllByRole("radio")
+						.map((radio) => radio.textContent),
+				).toEqual(["Default order", "Name", "Release year"]);
+				fireEvent.click(screen.getByRole("radio", { name: "Release year" }));
+				const descending = yield* browserRequest(page, 2);
+				const sorted = descending.document.queries["entityBrowser"];
+				expect(sorted?.output).toMatchObject({
+					pagination: { limit: 2 },
+					orderBy: [
+						{ direction: "desc", expr: { path: ["publishYear"] } },
+						{ direction: "asc", expr: { field: "id" } },
+					],
+				});
+				const encoded = yield* encodeJson(descending.document);
+				expect(encoded).toContain("sample");
+				expect(encoded).toContain('"read"');
+				expect(encoded).not.toContain("old-page");
+				replyBrowser(page, descending.requestId, [browserRow("three", "Sample latest")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-desc")),
+				);
+				expect(pageSearchUpdates(page).at(-1)?.update["search"]).toBe("sample");
+				expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule);
+				expect(
+					screen
+						.getByRole("button", { name: "Sort direction: Newest first" })
+						.querySelector('[data-app-icon="arrow-down"]'),
+				).not.toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Sort direction: Newest first" }));
+				const ascending = yield* browserRequest(page, 3);
+				expect(ascending.document.queries["entityBrowser"]?.output).toMatchObject({
+					orderBy: [{ direction: "asc" }, { direction: "asc" }],
+				});
+				replyBrowser(page, ascending.requestId, [browserRow("four", "Sample oldest")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-asc")),
+				);
+				yield* selectBrowserSort("Release year");
+				expect(screen.getByRole("button", { name: "Sort direction: Oldest first" })).toBeTruthy();
+				expect(
+					screen
+						.getByRole("button", { name: "Sort direction: Oldest first" })
+						.querySelector('[data-app-icon="arrow-up"]'),
+				).not.toBeNull();
+				expect(page.queryRequests("entityBrowser")).toHaveLength(4);
+				yield* selectBrowserSort("Name");
+				const named = yield* browserRequest(page, 4);
+				expect(named.document.queries["entityBrowser"]?.output).toMatchObject({
+					orderBy: [{ direction: "asc", expr: { field: "name" } }, { direction: "asc" }],
+				});
+				replyBrowser(page, named.requestId, [browserRow("five", "Sample A")]);
+				yield* selectBrowserSort("Release year");
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Sort direction: Newest first" }),
+				);
+			}),
+	);
+
+	it.live("restores URL direction in compact options and follows external navigation", () =>
+		Effect.gen(function* () {
+			const page = openBrowser({ search: "sort=year-asc" });
+			page.navigate(routeLocation("/v/all-items", "sort=year-asc"), { compact: true });
+			const first = yield* browserRequest(page, 0);
+			replyBrowser(page, first.requestId, [browserRow("one", "One")]);
+			yield* openFilters("View options");
+			expect(screen.getByRole("button", { name: "Sort by: Release year" })).toBeTruthy();
+			fireEvent.click(screen.getByRole("button", { name: "Sort direction: Oldest first" }));
+			const next = yield* browserRequest(page, 1);
+			replyBrowser(page, next.requestId, [browserRow("two", "Two")]);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-desc")),
+			);
+			page.navigate(routeLocation("/v/all-items", "sort=name-desc"), { compact: true });
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: Z–A" }));
+			page.navigate(routeLocation("/v/all-items", "sort=missing-desc"), { compact: true });
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Sort by: Default order" }));
+			expect(
+				screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
+			).toBe(true);
+		}),
+	);
+});
 
 describe("entity browser filters", () => {
 	afterEach(() => disposePluginBridges());
@@ -861,7 +979,7 @@ describe("entity browser filters", () => {
 		}),
 	);
 
-	it.live("applies a completed rule to the query, the URL and the badge", () =>
+	it.live("applies a completed rule to the query, the URL and the accessible filter count", () =>
 		Effect.gen(function* () {
 			const answered = new Set<string>();
 			const page = openBrowser();
@@ -883,9 +1001,7 @@ describe("entity browser filters", () => {
 			);
 			expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
 			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
-			expect(
-				screen.getByRole("button", { name: "Filters, 1 active filter" }).textContent,
-			).toContain("1");
+			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
 			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 				"Status is any of Read",
 			);

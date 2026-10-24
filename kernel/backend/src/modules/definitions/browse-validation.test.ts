@@ -1,4 +1,4 @@
-import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
+import type { BrowseField, EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import { castNumber, castText, column, jsonPath, literal, table } from "@ryot-app/ryotql";
 import { expect, it } from "vitest";
@@ -11,18 +11,23 @@ const rating: BrowseField = {
 	kind: "value",
 	type: "number",
 	label: "Rating",
-	sort: { ascending: "Lowest rated", descending: "Highest rated" },
 	expression: castNumber(jsonPath(column(subject, "properties"), "rating")),
+	sort: {
+		label: "Rating",
+		defaultDirection: "desc",
+		ascending: "Lowest rated",
+		descending: "Highest rated",
+	},
 };
 
-const sorted = (expression: ScalarExpression) => ({
+const sorted = (expression: ScalarExpression): { readonly browse: EntitySchemaBrowse } => ({
 	browse: {
 		fields: [
 			{
 				expression,
 				key: "added",
-				kind: "sort" as const,
-				sort: { ascending: "Old", descending: "New" },
+				kind: "sort",
+				sort: { label: "Added", ascending: "Old", descending: "New", defaultDirection: "desc" },
 			},
 		],
 	},
@@ -37,7 +42,7 @@ it("accepts read-only expressions whose kind matches the declared type", () => {
 			kind: "sort",
 			key: "named",
 			expression: column(subject, "name"),
-			sort: { ascending: "A-Z", descending: "Z-A" },
+			sort: { label: "Name", ascending: "A-Z", descending: "Z-A", defaultDirection: "asc" },
 		}),
 	).toBeUndefined();
 });
@@ -82,8 +87,8 @@ it("rejects duplicate choices and sorted list fields", () => {
 			kind: "value",
 			label: "Tags",
 			type: "text-list",
-			sort: { ascending: "A", descending: "Z" },
 			expression: jsonPath(column(subject, "properties"), "tags"),
+			sort: { label: "Tags", ascending: "A", descending: "Z", defaultDirection: "desc" },
 		}),
 	).toBe("browse field 'tags' of type text-list cannot be sorted");
 });

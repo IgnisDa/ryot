@@ -50,31 +50,31 @@ export const reservedBrowseFieldKeys: readonly string[] = [
 	NAME_SORT_KEY,
 ];
 
+export type BrowseSortChoice = BrowseSort & { readonly key: string };
+
+export type SortTarget = BrowseSortChoice & {
+	readonly branches: readonly [SortBranch, ...SortBranch[]];
+};
+
 export type BrowseSchema = {
 	readonly slug: string;
 	readonly pluginId: null | string;
 	readonly browse: null | EntitySchemaBrowse;
 };
 
-export type SortTarget = {
-	readonly key: string;
-	readonly labels: BrowseSort;
-	readonly branches: readonly [SortBranch, ...SortBranch[]];
-};
-
 type SortBranch = { readonly value: ScalarExpression; readonly when?: Predicate | undefined };
 
 export const nameSortTarget = (entity: TableReference): SortTarget => ({
+	label: "Name",
+	ascending: "A–Z",
+	descending: "Z–A",
 	key: NAME_SORT_KEY,
+	defaultDirection: "asc",
 	branches: [{ value: column(entity, "name") }],
-	labels: { ascending: "Name A-Z", descending: "Name Z-A" },
 });
 
 export const sortChoices = (targets: readonly SortTarget[]) =>
-	targets.flatMap(({ key, labels }) => [
-		{ value: `${key}-asc`, label: labels.ascending },
-		{ value: `${key}-desc`, label: labels.descending },
-	]);
+	targets.map(({ branches: _, ...choice }) => choice);
 
 const sortValue = (branches: readonly SortBranch[]) =>
 	branches.reduceRight<ScalarExpression>(
@@ -236,19 +236,19 @@ export const browseTargets = (
 		const { field, schema } = first;
 		const key =
 			keyCounts.get(field.key) === 1 ? field.key : `${field.key}:${schema.pluginId ?? "kernel"}`;
-		const sortLabels = declarations.flatMap(({ field: declared }) =>
+		const sort = declarations.flatMap(({ field: declared }) =>
 			declared.kind === "sort" || (declared.kind === "value" && declared.sort)
 				? [declared.sort]
 				: [],
 		)[0];
-		if (sortLabels) {
+		if (sort) {
 			const [branch, ...otherBranches] = valueBranches(declarations, (declared) =>
 				declared.kind === "sort" || (declared.kind === "value" && declared.sort)
 					? declared.expression
 					: undefined,
 			);
 			if (branch) {
-				sorts.push({ key, labels: sortLabels, branches: [branch, ...otherBranches] });
+				sorts.push({ key, ...sort, branches: [branch, ...otherBranches] });
 			}
 		}
 		if (field.kind === "sort") {

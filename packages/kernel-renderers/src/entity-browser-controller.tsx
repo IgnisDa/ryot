@@ -43,6 +43,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { isEnrichmentActive, SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
+import type { BrowseSortChoice } from "@ryot-app/ryotql-recipes/browse";
 import {
 	activeRuleCount,
 	decodeFilterParam,
@@ -73,7 +74,6 @@ import { type BrowserColumns, type BrowserItemActions, BrowserTable } from "./br
 import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
-export type BrowserSortChoice = { readonly label: string; readonly value: string };
 export type BrowserQueryPage<Meta> = { readonly meta: Meta; readonly result: BrowserResult };
 
 export type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
@@ -114,7 +114,7 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly layouts: readonly EntityBrowserLayout[];
 	readonly filterFields: readonly ViewFilterField[];
 	readonly name: (meta: Meta | undefined) => string;
-	readonly sortChoices: readonly BrowserSortChoice[];
+	readonly sortChoices: readonly BrowseSortChoice[];
 	readonly renderItemActions?: undefined | BrowserItemActions;
 	readonly renderResults?: undefined | BrowserResultsRenderer;
 	readonly headerActions?: undefined | readonly HeaderAction[];
@@ -187,8 +187,12 @@ export function EntityBrowserController<Meta>({
 	const requestedControls: BrowserControls = {
 		search: canSearch ? requestedSearch : "",
 		filter: decodeFilterParam(params.get("filters"), filterFields),
-		sort: sortChoices.some(({ value }) => value === requestedSort) ? requestedSort : "",
 		layout: availableLayouts.find((candidate) => candidate === requestedLayout) ?? defaultLayout,
+		sort: sortChoices.some(
+			({ key }) => requestedSort === `${key}-asc` || requestedSort === `${key}-desc`,
+		)
+			? requestedSort
+			: "",
 	};
 	const [controls, setControls] = useState(requestedControls);
 	const [draftSearch, setDraftSearch] = useState(requestedControls.search);
@@ -203,6 +207,13 @@ export function EntityBrowserController<Meta>({
 		  }
 	>(undefined);
 	const { layout, filter, sort: sortChoice, search: searchText } = controls;
+	const selectedSort = sortChoices.find(
+		({ key }) => sortChoice === `${key}-asc` || sortChoice === `${key}-desc`,
+	);
+	const ascending = selectedSort !== undefined && sortChoice === `${selectedSort.key}-asc`;
+	const directionLabel =
+		(ascending ? selectedSort.ascending : selectedSort?.descending) ?? "Default";
+	const directionIcon = ascending ? "arrow-up" : "arrow-down";
 	const filterCount = activeRuleCount(filter);
 	const [showCount, setShowCount] = useState(false);
 	const [total, setTotal] = useState<number>();
@@ -640,16 +651,42 @@ export function EntityBrowserController<Meta>({
 						</div>
 					)}
 					{sortChoices.length > 0 && (
-						<div className="mt-4">
-							<Select
-								className="w-full"
-								value={sortChoice}
-								label="Sort results"
-								checkIcon={<AppIcon size={14} name="check" />}
-								onChange={(value) => setQueryControls({ sort: value })}
-								chevronIcon={<AppIcon size={14} name="chevron-down" />}
-								choices={[{ value: "", label: defaultSortLabel }, ...sortChoices]}
-							/>
+						<div className="mt-4 flex flex-wrap items-center gap-2">
+							<div className="min-w-0 flex-1 basis-48">
+								<Select
+									label="Sort by"
+									value={selectedSort?.key ?? ""}
+									checkIcon={<AppIcon size={14} name="check" />}
+									chevronIcon={<AppIcon size={14} name="chevron-down" />}
+									choices={[
+										{ value: "", label: defaultSortLabel },
+										...sortChoices.map(({ key, label }) => ({ label, value: key })),
+									]}
+									onChange={(key) => {
+										if (key === (selectedSort?.key ?? "")) {
+											return;
+										}
+										const choice = sortChoices.find((candidate) => candidate.key === key);
+										setQueryControls({
+											sort: choice ? `${choice.key}-${choice.defaultDirection}` : "",
+										});
+									}}
+								/>
+							</div>
+							<Button
+								type="button"
+								variant="outline"
+								disabled={selectedSort === undefined}
+								aria-label={`Sort direction: ${directionLabel}`}
+								onClick={() => {
+									if (selectedSort) {
+										setQueryControls({ sort: `${selectedSort.key}-${ascending ? "desc" : "asc"}` });
+									}
+								}}
+							>
+								<AppIcon size={14} name={selectedSort ? directionIcon : "arrow-up-down"} />
+								{directionLabel}
+							</Button>
 						</div>
 					)}
 					<FilterRules

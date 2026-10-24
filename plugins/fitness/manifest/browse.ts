@@ -83,7 +83,12 @@ const exerciseBrowse = (): AuthoredEntitySchemaBrowse => {
 				key: "lastPerformed",
 				label: "Last performed",
 				expression: maximum(workoutSet, column(workoutSet, "occurredAt"), { where }),
-				sort: { descending: "Recently performed", ascending: "Least recently performed" },
+				sort: {
+					label: "Last performed",
+					defaultDirection: "desc",
+					ascending: "Oldest first",
+					descending: "Newest first",
+				},
 			},
 			{
 				kind: "value",
@@ -91,7 +96,12 @@ const exerciseBrowse = (): AuthoredEntitySchemaBrowse => {
 				key: "timesPerformed",
 				label: "Times performed",
 				expression: timesPerformed(subject),
-				sort: { ascending: "Least performed", descending: "Most performed" },
+				sort: {
+					label: "Times performed",
+					defaultDirection: "desc",
+					descending: "Most first",
+					ascending: "Fewest first",
+				},
 			},
 		],
 	};
@@ -105,7 +115,12 @@ const workoutTemplateBrowse = (): AuthoredEntitySchemaBrowse => ({
 			key: "created",
 			label: "Created",
 			expression: column(subject, "createdAt"),
-			sort: { ascending: "Oldest created", descending: "Newest created" },
+			sort: {
+				label: "Created",
+				defaultDirection: "desc",
+				ascending: "Oldest first",
+				descending: "Newest first",
+			},
 		},
 	],
 });

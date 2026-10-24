@@ -344,11 +344,22 @@ it.live("filters All Movies by status and sorts them by rating", () =>
 		expect(yield* order()).toEqual([watching]);
 
 		yield* filters.getByRole("button", { exact: true, name: "Remove filter 1" }).click();
-		yield* view.getByRole("button", { name: /^Sort results/ }).click();
-		yield* view.getByRole("radio", { exact: true, name: "Highest rated" }).click();
+		yield* view.getByRole("button", { name: /^Sort by/ }).click();
+		expect(
+			yield* view.getByRole("dialog", { exact: true, name: "Sort by" }).getByRole("radio").count,
+		).toBe(9);
+		yield* view.getByRole("radio", { exact: true, name: "Your rating" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "userRating-desc");
 		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([finished, watching, planned]);
+		yield* view.getByRole("button", { exact: true, name: "Sort direction: Highest first" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "userRating-asc");
+		yield* view
+			.locator("article[data-entity-id]")
+			.first()
+			.and(view.locator(`article[data-entity-id="${watching}"]`))
+			.waitFor({ state: "visible" });
+		expect(yield* order()).toEqual([watching, finished, planned]);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

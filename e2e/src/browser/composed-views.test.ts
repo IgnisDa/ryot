@@ -282,8 +282,9 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* waitForSearchParam(page, null);
 
 		yield* runtime.getByRole("button", { name: /Filters/ }).click();
-		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
-		yield* runtime.getByRole("radio", { name: "Name Z-A" }).click();
+		yield* runtime.getByRole("button", { name: "Sort by: Default order" }).click();
+		yield* runtime.getByRole("radio", { exact: true, name: "Name" }).click();
+		yield* runtime.getByRole("button", { name: "Sort direction: A–Z" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* page.keyboard.press("Escape");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
@@ -622,6 +623,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				),
 		);
 		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto("about:blank");
 		const assetRequests: string[] = [];
 		yield* page.use((nativePage) => {
 			nativePage.on("request", (request) => {

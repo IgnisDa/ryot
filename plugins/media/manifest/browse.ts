@@ -97,7 +97,12 @@ const userRatingField = (expression: ScalarExpression): AuthoredBrowseField => (
 	type: "number",
 	key: "userRating",
 	label: "Your rating",
-	sort: { ascending: "Lowest rated", descending: "Highest rated" },
+	sort: {
+		label: "Your rating",
+		defaultDirection: "desc",
+		ascending: "Lowest first",
+		descending: "Highest first",
+	},
 });
 
 type Choice = { readonly value: string; readonly label: string };
@@ -134,7 +139,12 @@ const propertyFields = (propertiesSchema: AppSchema): readonly AuthoredBrowseFie
 						key: "providerRating",
 						label: "Provider rating",
 						expression: castNumber(property("providerRating")),
-						sort: { ascending: "Lowest provider rating", descending: "Highest provider rating" },
+						sort: {
+							label: "Provider rating",
+							defaultDirection: "desc",
+							ascending: "Lowest first",
+							descending: "Highest first",
+						},
 					} as const,
 				]
 			: []),
@@ -166,8 +176,13 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		type: "number",
 		key: "timesCompleted",
 		label: "Times completed",
-		sort: { descending: "Most completions", ascending: "Fewest completions" },
 		expression: coalesce(castNumber(summary((value) => value.timesCompleted)), literal(0)),
+		sort: {
+			label: "Times completed",
+			defaultDirection: "desc",
+			descending: "Most first",
+			ascending: "Fewest first",
+		},
 	},
 	userRatingField(castNumber(summary((value) => value.userRating))),
 	{
@@ -176,7 +191,12 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		key: "lastCompletedAt",
 		label: "Last completed",
 		expression: summary((value) => value.lastCompletedAt),
-		sort: { ascending: "Earliest completed", descending: "Recently completed" },
+		sort: {
+			label: "Last completed",
+			defaultDirection: "desc",
+			ascending: "Oldest first",
+			descending: "Newest first",
+		},
 	},
 	{
 		type: "date",
@@ -184,7 +204,12 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		key: "lastActivityAt",
 		label: "Recent activity",
 		expression: recentActivity(subject),
-		sort: { ascending: "Oldest activity", descending: "Recent activity" },
+		sort: {
+			label: "Activity",
+			defaultDirection: "desc",
+			ascending: "Oldest first",
+			descending: "Newest first",
+		},
 	},
 	{
 		type: "date",
@@ -192,15 +217,25 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		key: "releaseDate",
 		label: "Release date",
 		expression: summary((value) => value.releaseDate),
-		sort: { ascending: "Oldest release", descending: "Newest release" },
+		sort: {
+			label: "Release date",
+			defaultDirection: "desc",
+			ascending: "Oldest first",
+			descending: "Newest first",
+		},
 	},
 	{
 		type: "date",
 		kind: "value",
 		key: "addedAt",
 		label: "Date added to library",
-		sort: { ascending: "Oldest added", descending: "Recently added" },
 		expression: libraryMembershipValue(subject, (membership) => column(membership, "createdAt")),
+		sort: {
+			defaultDirection: "desc",
+			ascending: "Oldest first",
+			descending: "Newest first",
+			label: "Date added to library",
+		},
 	},
 	sourceField(slug),
 	...propertyFields(propertiesSchema),
@@ -245,7 +280,12 @@ const creatorFields = (slug: "person" | "company"): readonly AuthoredBrowseField
 				key: "birthDate",
 				label: "Birth date",
 				expression: castDate(property("birthDate")),
-				sort: { ascending: "Oldest", descending: "Youngest" },
+				sort: {
+					label: "Birth date",
+					defaultDirection: "desc",
+					ascending: "Oldest first",
+					descending: "Newest first",
+				},
 			}
 		: {
 				kind: "value",
@@ -253,13 +293,23 @@ const creatorFields = (slug: "person" | "company"): readonly AuthoredBrowseField
 				key: "foundedYear",
 				label: "Founded year",
 				expression: castNumber(property("foundedYear")),
-				sort: { ascending: "Oldest founded", descending: "Newest founded" },
+				sort: {
+					label: "Founded year",
+					defaultDirection: "desc",
+					ascending: "Oldest first",
+					descending: "Newest first",
+				},
 			},
 	{
 		kind: "sort",
 		key: "credits",
 		expression: creditCount(subject, slug),
-		sort: { descending: "Most credits", ascending: "Fewest credits" },
+		sort: {
+			label: "Credits",
+			defaultDirection: "desc",
+			descending: "Most first",
+			ascending: "Fewest first",
+		},
 	},
 ];
 
@@ -275,7 +325,12 @@ const groupFields = (slug: string): readonly AuthoredBrowseField[] => [
 		label: "Parts",
 		type: "number",
 		expression: groupParts(subject),
-		sort: { descending: "Most parts", ascending: "Fewest parts" },
+		sort: {
+			label: "Parts",
+			defaultDirection: "desc",
+			descending: "Most first",
+			ascending: "Fewest first",
+		},
 	},
 ];
 

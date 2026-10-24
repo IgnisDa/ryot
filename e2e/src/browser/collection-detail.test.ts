@@ -316,11 +316,28 @@ it.live("browses collection members with membership properties", () =>
 		yield* detail.getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 
 		yield* detail.getByRole("button", { name: /Filters/ }).click();
-		yield* detail.getByRole("button", { name: "Sort results: Collection order" }).click();
-		yield* detail.getByRole("radio", { name: "Name A-Z" }).click();
+		expect(
+			yield* detail
+				.getByRole("button", { name: "Sort direction: Default" })
+				.getAttribute("disabled"),
+		).not.toBeNull();
+		yield* detail.getByRole("button", { name: "Sort by: Collection order" }).click();
+		yield* detail.getByRole("radio", { exact: true, name: "Name" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
 		yield* rows.nth(0).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
 		yield* rows.nth(1).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { name: "Sort direction: A–Z" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
+		yield* rows.nth(0).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { name: "Sort by: Name" }).click();
+		yield* detail.getByRole("radio", { exact: true, name: "Collection order" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === null);
+		expect(
+			yield* detail
+				.getByRole("button", { name: "Sort direction: Default" })
+				.getAttribute("disabled"),
+		).not.toBeNull();
+		yield* rows.nth(0).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
