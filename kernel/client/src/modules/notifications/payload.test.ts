@@ -29,8 +29,7 @@ describe("createNotificationChannelBody", () => {
 	it.each(notificationChannelKinds)("builds a %s channel from its required fields", (kind) => {
 		const body = succeed(kind, { ...complete[kind] });
 
-		expect(body.channel).toBe(kind);
-		expect(body.channelSpecifics).toEqual({ kind, ...complete[kind] });
+		expect(body).toEqual({ channelSpecifics: { kind, ...complete[kind] } });
 	});
 
 	it("omits optional fields the user left blank rather than sending empty strings", () => {
@@ -59,10 +58,8 @@ describe("createNotificationChannelBody", () => {
 		});
 	});
 
-	it("fails when a required field is missing", () => {
-		expect(Result.isFailure(createNotificationChannelBody({ values: {}, kind: "ntfy" }))).toBe(
-			true,
-		);
+	it.each(notificationChannelKinds)("rejects missing required %s specifics", (kind) => {
+		expect(Result.isFailure(createNotificationChannelBody({ kind, values: {} }))).toBe(true);
 	});
 
 	it("fails when a url field is not a url", () => {
@@ -78,6 +75,15 @@ describe("createNotificationChannelBody", () => {
 		const body = createNotificationChannelBody({
 			kind: "email",
 			values: { recipient: "not-an-email" },
+		});
+
+		expect(Result.isFailure(body)).toBe(true);
+	});
+
+	it("rejects a fractional priority in channel specifics", () => {
+		const body = createNotificationChannelBody({
+			kind: "ntfy",
+			values: { topic: "ryot", priority: 1.5 },
 		});
 
 		expect(Result.isFailure(body)).toBe(true);

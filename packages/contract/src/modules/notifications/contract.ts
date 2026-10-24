@@ -7,7 +7,6 @@ import { NotificationChannelId } from "../../schema/brands";
 import {
 	CreateNotificationChannelBody,
 	NotificationNotFoundError,
-	NotificationRequestError,
 	UpdateNotificationChannelBody,
 } from "./schemas";
 
@@ -16,7 +15,6 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.add(
 		AuthenticatedMutationEndpoint.post("protected")("createChannel", "/notifications/channels", {
 			payload: CreateNotificationChannelBody,
-			error: [NotificationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Create a notification channel."),
 	)

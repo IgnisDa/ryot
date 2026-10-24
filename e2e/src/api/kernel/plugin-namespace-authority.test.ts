@@ -210,7 +210,6 @@ describe("plugin namespace authority", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const apprise = yield* startFakeAppriseServerScoped;
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "namespaces", baseUrl: apprise.url },
 			});
 			const packages = pluginNamespacePackages();

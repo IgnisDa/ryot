@@ -2,7 +2,6 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type CreateNotificationChannelBody,
 	NotificationNotFoundError,
-	NotificationRequestError,
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
@@ -26,19 +25,8 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				user: CurrentUserValue,
 				body: CreateNotificationChannelBody,
 			) {
-				if (body.channel !== body.channelSpecifics.kind) {
-					return yield* new NotificationRequestError({
-						reason: {
-							channel: body.channel,
-							code: "channel-kind-mismatch",
-							specificsKind: body.channelSpecifics.kind,
-						},
-					});
-				}
-
 				const channel = yield* repository.createForUser({
 					userId: user.id,
-					channel: body.channel,
 					isDisabled: body.isDisabled ?? false,
 					channelSpecifics: body.channelSpecifics,
 				});

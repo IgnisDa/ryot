@@ -110,7 +110,6 @@ describe("company and media-group association variants", () => {
 			const companyMonitor = yield* createAuthenticatedClient();
 			const importer = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(companyMonitor.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "company-monitor", baseUrl: fakeApprise.url },
 			});
 			yield* enableMediaMonitoring(companyMonitor.client, company.id);
@@ -217,7 +216,6 @@ describe("company and media-group association variants", () => {
 			const importer = yield* createAuthenticatedClient();
 			yield* Effect.all([
 				createNotificationChannel(personMonitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,
@@ -225,7 +223,6 @@ describe("company and media-group association variants", () => {
 					},
 				}),
 				createNotificationChannel(companyMonitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,

@@ -38,12 +38,10 @@ describe("integration auto-disable on continuous errors", () => {
 				});
 
 				yield* createNotificationChannel(client, {
-					channel: "apprise",
 					channelSpecifics: { key: "enabled", kind: "apprise", baseUrl: fakeApprise.url },
 				});
 				yield* createNotificationChannel(client, {
 					isDisabled: true,
-					channel: "apprise",
 					channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
 				});
 

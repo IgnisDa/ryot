@@ -66,7 +66,6 @@ describe("outbound HTTP address policy", () => {
 				{ key: "ipv6", baseUrl: ipv6Server.url },
 			]) {
 				yield* createNotificationChannel(client, {
-					channel: "apprise",
 					channelSpecifics: { key, baseUrl, kind: "apprise" },
 				});
 			}

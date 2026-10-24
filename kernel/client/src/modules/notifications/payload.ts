@@ -35,7 +35,6 @@ export const createNotificationChannelBody = (input: {
 	return Result.isFailure(specifics)
 		? Result.fail(specifics.failure)
 		: Result.succeed({
-				channel: input.kind,
 				channelSpecifics: specifics.success,
 			} satisfies CreateNotificationChannelBody);
 };
