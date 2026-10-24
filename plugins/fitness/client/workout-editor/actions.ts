@@ -332,7 +332,7 @@ export type ExpectedCountdowns = {
 	readonly restClientId?: string;
 };
 
-export const COUNTDOWN_FEEDBACK_WINDOW_MS = 1500;
+const COUNTDOWN_FEEDBACK_WINDOW_MS = 1500;
 
 export const reconcileWorkoutTimers = (
 	draft: WorkoutEditorDraft,
