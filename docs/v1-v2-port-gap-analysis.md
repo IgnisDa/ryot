@@ -118,10 +118,11 @@ that cleanup must respect.
 | --- | --- | --- | --- | --- |
 | 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
 | 12 | Done | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
-| 13 | Pending | **Add release-day notifications** | 4 and 11; existing monitoring/subscriptions | Notify eligible monitoring users from release dates, not provider episode-discovery signals. Deduplicate each occurrence/recipient, handle date changes and bounded catch-up, and keep display/query refresh separate from delivery. |
+| 13 | Done | **Add release-day notifications** | 4; existing monitoring/subscriptions | Calendar sources declare delivery; a kernel worker notifies monitored releases once per occurrence and recipient on the recipient's reporting-timezone day with two-day catch-up and provider freshness deferral. Display and refresh stay separate from delivery. See the Order 13 acceptance record below. |
 | 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
 
-Reminders are independent of the upcoming feed and can proceed in parallel with row 11.
+Reminders are independent of the upcoming feed and can proceed in parallel with row 11. Row 13
+settled its own timezone, missing-date and freshness rules, so it no longer waits for row 11.
 The approved [Order 12 implementation plan](order-12-entity-reminders-plan.md) records the scheduling,
 restore, V1 conversion and retention decisions, implementation sequence, and real-dump acceptance gate.
 Use current feature-owned workflows; extract shared scheduling machinery only when the
@@ -572,6 +573,40 @@ Validation on **2026-10-28**:
 - One additive migration adds `check_after` and two partial indexes. No compatibility path, version
   change or type-checker bypass was added. This item is **Done**.
 
+### Phase 3 Order 13 acceptance — Release-day notifications
+
+Accepted behavior: monitored show episodes, podcast episodes, anime airings and flat media releases
+send one **Media Released** notification per occurrence and recipient ("S2E5 of Show has been released
+today"). Season-zero specials are not notified; Calendar still shows them. The day is the recipient's
+reporting timezone, or UTC when unset. Releases from the previous two days are caught up; older ones
+are skipped. Monitoring applies only to provider-backed media, so the root must have a successful
+provider check within 72 hours; otherwise delivery waits for the monitoring sweep. Unmonitored
+library items, disabled subscriptions and missing dates send nothing.
+
+Calendar sources are the single declaration of dated items. A source's optional `delivery` names an
+actor-audience signal, occurrence, eligibility and property fields, and optional freshness. The kernel
+`calendar-deliveries` frequent worker queries each subscribed user's sources, plans the signal with a
+deterministic execution ID and records the occurrence in `calendar_delivery` in the same transaction.
+A recorded occurrence is not sent again when its date moves. Delivery uses the shared notification
+admission, recovery and outcome path. See `kernel/backend/src/modules/calendar-sources/README.md`.
+
+Owners: contract `CalendarSourceDelivery`; kernel definitions, `calendar-sources` worker/repository
+and test-support scan; `@ryot-app/ryotql-recipes/calendar` delivery recipe; Media calendar sources,
+`media.released` signal and formatter. Generated migration:
+`kernel/backend/src/drizzle/20261029110548_calendar_deliveries/`.
+
+Validation on **2026-10-29**:
+
+- Affected package checks passed before tests. Affected package tests passed (46 Turbo tasks), including
+  new delivery bounds, recipe, definition-validation, Media source and formatter cases. A first run hit
+  load timeouts in the unchanged backend compiler suite; it passed alone and in the rerun.
+- E2E: `api/plugins/media/release-notifications.test.ts` passed. A stale monitored release is held, the
+  monitoring sweep refresh releases it once, a repeat scan sends nothing and an unmonitored library
+  release is silent. `api/plugins/media/calendar-sources.test.ts` (4) and
+  `api/plugins/media/media-monitoring/media-entity-update-signals.test.ts` (2) also passed.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,935 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**.
+
 ### Phase 2 Order 10 acceptance — Provider graph and accumulated data collection
 
 Provider entities carry `check_after`, which defaults to seven days after insertion and is pushed
@@ -843,7 +878,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | Refresh monitored metadata and people | Media monitoring sweep, provider refresh and semantic detectors; covered. |
 | Reminder notification + removal | Covered/reshaped: independent entity reminders use the frequent scheduler, durable delivery outcomes and explicit cancellation/history removal. Ordinary collection membership is unchanged. |
 | `recalculate_calendar_events` | Replaced by query-time Calendar sources over populated entities and airing arrays; no missing materializer. |
-| Notify users for released media | Missing server release-day notification producer; Calendar display is not delivery. |
+| Notify users for released media | Covered/reshaped: the frequent `calendar-deliveries` worker reads Calendar source delivery declarations; no calendar table (Order 13). |
 | Outdated seen-entry notifications | Missing 7-day in-progress / 14-day on-hold nudge producer; V1 gated this on Pro. |
 | `regenerate_user_summaries`, `RecalculateUserActivitiesAndSummary` | On-demand domain recipes and projections cover part of the result; no full V1 daily activity/summary reconstruction. |
 | Integration sync to Owned collection | Ownership sync annotates Media library links during integration application; covered/reshaped. |
@@ -883,7 +918,7 @@ an exact kernel/plugin signal identity, not V1 platform-specific event filters.
 | Episode images / episode name / release-date changes | Media detector signals exist; show-date and publish-year paths are explicit. Season-zero special episodes are excluded from these episode-change detectors. |
 | Review posted | Reshaped: author-only `review.created`, no public/cross-user model. |
 | Reminder | Covered by kernel `reminder.due`, shared subscriptions and durable per-channel delivery. Uncertain sends are not automatically repeated. |
-| Metadata published today | Missing; episode-discovered is a provider-inventory change, not a date-driven release alert. |
+| Metadata published today | Covered by Media `media.released` from Calendar source delivery: monitored shows, podcasts, anime airings and flat releases, excluding season-zero specials. |
 | Stale in-progress/on-hold | Missing. |
 | Completed show moved back to Watchlist | Missing literal move/alert; lifecycle correction is derived. |
 
@@ -903,8 +938,7 @@ resolved export, genre, Calendar, editor or projection work.
 
 ### Notification producers
 
-1. Release-day alerts to monitoring users. These can use the current source data; they do
-   **not** depend on rebuilding V1's calendar table.
+1. Release-day alerts to monitoring users are implemented (Order 13).
 2. In-progress/on-hold nudges (V1: 7/14 days, Pro-only).
 3. Decide whether a derived “more episodes to watch” alert replaces the literal
    Completed→Watchlist notification. No current producer does so.
