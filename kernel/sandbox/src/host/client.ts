@@ -10,7 +10,7 @@ import { makeSidecarFrameReader, makeSidecarFrameWriter } from "../protocol/fram
 import { SANDBOX_LIMITS } from "../protocol/limits";
 import {
 	SIDECAR_GENERATION_MAX,
-	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 	SidecarOutboundFrame,
 	SidecarTier,
 } from "../protocol/messages";
@@ -405,7 +405,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 							reader.retire(handle);
 							writer.retire(handle);
 						}),
-					send: (frame: SidecarInboundFrame, released?: () => void) =>
+					send: (frame: SidecarInboundLogicalMessage, released?: () => void) =>
 						Effect.suspend(() =>
 							closed
 								? Effect.fail(queueFailure())

@@ -15,7 +15,7 @@
 
 ## Status
 
-**79 implemented, 0 in progress, 4 pending; 3 excluded.**
+**80 implemented, 0 in progress, 3 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -73,7 +73,7 @@
 | P05-R2 | Implemented | Derive the reorder preview from one destination while preserving pointer-cancel, commit, and preview behavior. See this finding's audit commit. |
 | B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
 | S03-R2 | Implemented | Borrow result and console data while serializing the done payload. See this finding's audit commit. |
-| S02-R2 | Pending | The writer owns physical chunk creation. |
+| S02-R2 | Implemented | Keep writer input logical-only and let the writer create physical chunks; type the logical send boundary without a physical-part overload. See this finding's audit commit. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
 | S01-R1 | Implemented | Store validated harvested bytes directly without intermediate temporary-file writes or reads. See this finding's audit commit. |
 | P09-R1 | Implemented | Validate writer input once without self-decompression; retain exact manifest bounds and unchanged reader behavior. See this finding's audit commit. |
@@ -246,3 +246,4 @@
 - B22-R2: backend and contract scoped checks passed before 93 tests across 11 files; read-only review passed. Removed custom-renderer identity/publication branches and made saved-view and backup validation exhaustive for kernel/plugin renderers. The service-test changes are the remaining renderer hunks after B10-R2.
 - M04-R2: full media check passed before 51 tests across three files; read-only review passed. Episodic snapshots select only consumed fields; aggregate calculation dependencies and completion/TTL boundaries remain.
 - P03-R1: SDK check passed before 98 tests across 13 files; media had nine tests; native format/clippy/syntax checks and 14 tests passed. Fixed the sole P2 review finding in native Request body ownership: inherited bodies consume once, reuse rejects without another host call, replacement bodies leave the source unconsumed, and replacement works after source consumption. No cache or guard workaround; no extra review round.
+- S02-R2: 62 TypeScript tests and five plus one Rust fixture tests passed; backend type and sandbox checks passed again before nine tests across four files for the cross-package logical-message annotation fix. Read-only review passed. Only writer and logical-type hunks were staged from shared `framing.ts`; reader assembly changes remain unstaged.

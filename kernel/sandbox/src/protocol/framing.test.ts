@@ -13,6 +13,7 @@ import {
 	SIDECAR_PROTOCOL_LIMITS,
 	type SidecarInboundFrame as InboundFrame,
 	SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 	type SidecarOutboundFrame as OutboundFrame,
 	SidecarProtocolError,
 } from "./messages";
@@ -46,7 +47,7 @@ const hostResultFrame = (handle: string, seq: number, text: string) =>
 		generation: 7,
 		type: "hostResult",
 		result: { value: { text }, status: "success" },
-	}) satisfies InboundFrame;
+	}) satisfies SidecarInboundLogicalMessage;
 
 const hostCallFrame = (handle: string, seq: number, text: string) =>
 	({
@@ -69,7 +70,7 @@ const runFrame = (handle: string, seq: number, text: string) =>
 		lane: "interactive",
 		module: { source: "", sha256: "0".repeat(64) },
 		limits: { cpuMs: 1, deadlineMs: 1, heapBytes: 8 * 1024 * 1024, externalBytes: 1024 * 1024 },
-	}) satisfies InboundFrame;
+	}) satisfies SidecarInboundLogicalMessage;
 
 const outboundParts = (
 	frame: Extract<OutboundFrame, { type: "done" | "hostCall" }>,
@@ -207,6 +208,66 @@ describe("sidecar framing", () => {
 			reader.feed(stream.subarray(offset, offset + 3));
 		}
 		expect(received).toEqual(frames);
+	});
+
+	it("alternates logical result lanes and releases only after cancellation or final writes", () => {
+		const output: Uint8Array[] = [];
+		const released: string[] = [];
+		let blockNext = true;
+		const writer = makeSidecarFrameWriter({
+			maximumRunMessages: 1,
+			maximumControlMessages: 4,
+			maximumQueuedBytes: 1024 * 1024,
+			lane: (handle) => (handle === "first" ? "background" : "interactive"),
+			write: (bytes) => {
+				output.push(bytes.slice());
+				const blocked = blockNext;
+				blockNext = false;
+				return { blocked, written: bytes.byteLength };
+			},
+		});
+		writer.enqueue(hostResultFrame("first", 1, "b".repeat(300_000)), () => {
+			released.push("background");
+		});
+		writer.flush();
+		expect(released).toEqual([]);
+		writer.enqueue(hostResultFrame("second", 2, "i".repeat(300_000)), () => {
+			released.push("interactive");
+		});
+		writer.enqueue({ seq: 3, generation: 7, type: "cancel", handle: "first" }, () => {
+			released.push("cancel");
+		});
+		writer.enqueue(hostResultFrame("first", 4, "unstarted"), () => {
+			released.push("retired");
+		});
+		blockNext = true;
+		writer.flush();
+		expect(released).toEqual(["cancel"]);
+		writer.retire("first");
+		expect(released).toEqual(["cancel", "retired"]);
+		writer.flush();
+		expect(
+			decodeInboundBytes(concatBytes(output)).map((frame) => [
+				frame.handle,
+				frame.type,
+				frame.type === "part" ? frame.index : frame.seq,
+			]),
+		).toEqual([
+			["first", "part", 0],
+			["first", "cancel", 3],
+			["second", "part", 0],
+			["first", "part", 1],
+			["second", "part", 1],
+			["first", "part", 2],
+			["second", "part", 2],
+			["first", "part", 3],
+			["second", "part", 3],
+			["first", "part", 4],
+			["second", "part", 4],
+		]);
+		expect(released).toEqual(["cancel", "retired", "background", "interactive"]);
+		writer.close();
+		expect(released).toEqual(["cancel", "retired", "background", "interactive"]);
 	});
 
 	it("handles partial writes, chunk interleaving, and desync in the client", () => {
@@ -577,7 +638,7 @@ it("keeps Rust assemblies within the connection bound through lane pools", () =>
 			["run-interactive", "interactive"],
 			["run-background", "background"],
 		]);
-		const frames: InboundFrame[] = [
+		const frames: SidecarInboundLogicalMessage[] = [
 			runFrame("run-interactive", 0, runText),
 			runFrame("run-background", 0, runText),
 		];
