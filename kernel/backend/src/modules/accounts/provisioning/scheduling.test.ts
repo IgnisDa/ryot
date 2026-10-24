@@ -1,9 +1,20 @@
 import { expect, it, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, Effect, Layer, Option, Ref } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { AuthService } from "#modules/accounts/auth/service";
+import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
+import {
+	UserLifecycleWorkflow,
+	UserLifecycleWorkflowOperations,
+	UserLifecycleWorkflowOperationsLive,
+} from "#modules/accounts/lifecycle/workflow";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { IngestionExecution } from "#modules/imports/execution-service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { UserBootstrap } from "./bootstrap";
@@ -38,6 +49,7 @@ class RecordedSchedules extends Context.Service<
 		readonly options: Effect.Effect<
 			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
 		>;
+		readonly parents: Effect.Effect<ReadonlyArray<string | null>>;
 	}
 >()("test/RecordedSchedules") {}
 
@@ -46,16 +58,34 @@ const recordingSchedulingLayer = Layer.unwrap(
 		const options = yield* Ref.make<
 			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
 		>([]);
+		const parents = yield* Ref.make<ReadonlyArray<string | null>>([]);
 		const engine = makeWorkflowEngine({
 			execute: (_workflow, input) =>
-				Ref.update(options, (all) => [...all, input]).pipe(Effect.as(input.executionId)),
+				Effect.gen(function* () {
+					const parent = yield* Effect.serviceOption(WorkflowInstance);
+					yield* Ref.update(parents, (all) => [
+						...all,
+						Option.isSome(parent) ? parent.value.executionId : null,
+					]);
+					yield* Ref.update(options, (all) => [...all, input]);
+					return input.executionId;
+				}),
 		});
-		return UserBootstrapScheduling.layer.pipe(
+		return Layer.merge(UserBootstrapScheduling.layer, UserLifecycleWorkflowOperationsLive).pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					Layer.mock(UserBootstrap)({}),
+					Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+					Layer.mock(UserLifecycleRepository)({}),
+					Layer.mock(ObjectStorageService)({}),
+					Layer.mock(IngestionExecution)({}),
+					Layer.succeed(AdmittedWorkflowCatalogue, []),
+					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
-					Layer.succeed(RecordedSchedules, { options: Ref.get(options) }),
+					Layer.succeed(RecordedSchedules, {
+						options: Ref.get(options),
+						parents: Ref.get(parents),
+					}),
 				),
 			),
 		);
@@ -83,6 +113,40 @@ layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLaye
 				})),
 			);
 		}),
+	);
+});
+
+layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
+	test.effect(
+		"joins the creation bootstrap identity when reset waits for the same account generation",
+		() =>
+			Effect.gen(function* () {
+				const scheduling = yield* UserBootstrapScheduling;
+				const lifecycle = yield* UserLifecycleWorkflowOperations;
+				yield* scheduling.schedule(userId);
+				yield* lifecycle
+					.bootstrapResetUser(userId)
+					.pipe(
+						Effect.provideService(
+							WorkflowInstance,
+							WorkflowInstance.initial(UserLifecycleWorkflow, "reset-owner"),
+						),
+					);
+
+				const options = yield* (yield* RecordedSchedules).options;
+				expect(options).toEqual([
+					{
+						discard: true,
+						payload: { userId, accountGeneration: accountFor(userId) },
+						executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					},
+					{
+						payload: { userId, accountGeneration: accountFor(userId) },
+						executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					},
+				]);
+				expect(yield* (yield* RecordedSchedules).parents).toEqual([null, null]);
+			}),
 	);
 });
 

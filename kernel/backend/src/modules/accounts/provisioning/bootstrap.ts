@@ -24,7 +24,6 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 		const perform = Effect.fn("UserBootstrap.perform")(function* (
 			userId: string,
 			accountGeneration: AccountGeneration,
-			generation?: string,
 		) {
 			if (userId !== accountGeneration.userId) {
 				return yield* new DbError({
@@ -44,7 +43,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()("UserBootstr
 				return yield* Effect.void;
 			}
 			yield* pluginInstallations.provisionSystemInstallations(accountGeneration);
-			yield* pluginBootstrap.dispatchAll(user, accountGeneration, generation);
+			yield* pluginBootstrap.dispatchAll(user, accountGeneration);
 			yield* session.transaction(
 				Effect.gen(function* () {
 					yield* receipts.admitAccount(accountGeneration);

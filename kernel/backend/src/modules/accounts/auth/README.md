@@ -26,6 +26,15 @@ Preference-only consumers capture `AuthRepository` at construction and call `get
 
 Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches, and password reset deletes the user's API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.
 
+## Account Bootstrap
+
+Creation, reset, and reconciliation share one bootstrap workflow identity per account generation.
+Creation schedules it without waiting; reset waits for the same execution before enabling the
+recreated user. Plugin bootstrap execution identities also include that account generation. A later
+recreation gets a fresh generation, and retired generations cannot commit bootstrap work.
+Reset joins bootstrap as an independent workflow root, not as a lifecycle child: creation or
+reconciliation can already own that execution.
+
 ## Impersonation
 
 Instance Admin authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
