@@ -1,6 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { Effect, Layer } from "effect";
-import { TestClock } from "effect/testing";
+import { DateTime, Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import {
@@ -20,8 +19,7 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* BackgroundWorkRepository;
-			const now = Date.parse("2026-10-28T00:00:00.000Z");
-			yield* TestClock.setTime(now);
+			const now = (yield* DateTime.nowAsDate).getTime();
 			const { pluginId } = yield* installRevisionPackage(revisionPackage("work"));
 			const at = (hoursAgo: number) => new Date(now - hoursAgo * 3_600_000);
 			const work = (
