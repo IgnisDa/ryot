@@ -9,6 +9,7 @@ import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "rea
 
 import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
+import { useIngestionCatalogRefresh } from "#/modules/imports/use-catalog-refresh";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
@@ -118,6 +119,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const detail = useRyotQuery(integrationDetailQuery, props.integration.id);
 	const providers = useRyotQuery(integrationProvidersQuery);
+	useIngestionCatalogRefresh(providers.refetch);
 	const integration = detail.data ?? props.integration;
 	const runs = useRyotQuery(integrationRunsQuery, integration.id);
 	const update = useRyotMutation(updateIntegrationMutation);
@@ -126,7 +128,14 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const title = integrationTitle(integration, providerNames);
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
 	const { backInterceptors } = Route.useRouteContext();
-	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
+	const currentProvider = findOwnedIntegrationProvider(providers.data ?? [], integration);
+	const [lastProvider, setLastProvider] = useState(currentProvider);
+	if (currentProvider !== undefined && currentProvider !== lastProvider) {
+		setLastProvider(currentProvider);
+	}
+	const provider =
+		currentProvider ??
+		findOwnedIntegrationProvider(lastProvider === undefined ? [] : [lastProvider], integration);
 	const oauth = useOAuthConnect({
 		integrationId: integration.id,
 		integrationProvider: {

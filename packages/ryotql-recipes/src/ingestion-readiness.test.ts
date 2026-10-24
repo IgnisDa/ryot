@@ -3,8 +3,11 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { assert, expect, it } from "vitest";
 
-import { importSourcesRecipe } from "./import-sources";
-import { integrationProvidersRecipe } from "./integration-providers";
+import { evaluateImportSourceReadiness, importSourcesRecipe } from "./import-sources";
+import {
+	evaluateIntegrationProviderReadiness,
+	integrationProvidersRecipe,
+} from "./integration-providers";
 import { rowsResult } from "./test-utils";
 
 const owner = { kind: "plugin", pluginId: PluginId.make("plugin-owner") } satisfies DefinitionOwner;
@@ -84,34 +87,25 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 	expect(
 		Result.getOrThrow(importSourcesRecipe({ limit: 1 }).decode({ data })).items[0]?.readiness,
 	).toEqual({ plan: null, ready: true, blockReasons: [] });
-	expect(
-		Result.getOrThrow(
-			importSourcesRecipe({
-				limit: 1,
-				selected: { settings: { mode: undefined }, reference: { owner, slug: "source" } },
-			}).decode({ data }),
-		).items[0]?.readiness,
-	).toEqual({
+	const snapshot = Result.getOrThrow(importSourcesRecipe({ limit: 1 }).decode({ data }));
+	const source = snapshot.items[0];
+	assert(source);
+	expect(evaluateImportSourceReadiness(source, { mode: undefined })).toEqual({
 		ready: true,
 		blockReasons: [],
 		plan: { operation: "import", selection: { collector: "export" } },
 	});
+	expect(evaluateImportSourceReadiness(source, { mode: "api" }).blockReasons).toEqual([
+		{ key: "token", code: "configuration-required" },
+	]);
 	expect(
-		Result.getOrThrow(
-			importSourcesRecipe({
-				limit: 1,
-				selected: { settings: { mode: "api" }, reference: { owner, slug: "source" } },
-			}).decode({ data }),
-		).items[0]?.readiness.blockReasons,
-	).toEqual([{ key: "token", code: "configuration-required" }]);
+		evaluateImportSourceReadiness({ ...source, isStartable: false }, { mode: "export" }).ready,
+	).toBe(false);
 	const first = data.sources.items[0];
 	assert(first);
 	const foreignPluginId = PluginId.make("foreign-owner");
 	const decoded = Result.getOrThrow(
-		importSourcesRecipe({
-			limit: 2,
-			selected: { settings: { mode: "api" }, reference: { owner, slug: "source" } },
-		}).decode({
+		importSourcesRecipe({ limit: 2 }).decode({
 			data: {
 				sources: rowsResult(
 					[
@@ -130,11 +124,7 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 			blockReasons: readiness.blockReasons,
 		})),
 	).toEqual([
-		{
-			id: "source",
-			ready: false,
-			blockReasons: [{ key: "token", code: "configuration-required" }],
-		},
+		{ ready: true, id: "source", blockReasons: [] },
 		{ ready: true, blockReasons: [], id: "foreign-source" },
 	]);
 	expect(decoded.items[1]?.reference).toEqual({
@@ -195,44 +185,26 @@ it("matches selected OAuth connections to their settings field, provider and int
 		Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data })).items[0]?.readiness
 			.ready,
 	).toBe(true);
+	const provider = Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data }))
+		.items[0];
+	assert(provider);
+	expect(evaluateIntegrationProviderReadiness(provider, { account: "unbound" }).ready).toBe(true);
+	expect(evaluateIntegrationProviderReadiness(provider, { account: "bound" }).blockReasons).toEqual(
+		[{ key: "account", code: "connection-required" }],
+	);
 	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: { settings: { account: "unbound" }, reference: { owner, slug: "provider" } },
-			}).decode({ data }),
-		).items[0]?.readiness.ready,
+		evaluateIntegrationProviderReadiness(provider, { account: "bound" }, "integration").ready,
 	).toBe(true);
+	expect(evaluateIntegrationProviderReadiness(provider, { account: "bound" }, "other").ready).toBe(
+		false,
+	);
+	expect(evaluateIntegrationProviderReadiness(provider, { account: "wrong-provider" }).ready).toBe(
+		false,
+	);
+	expect(evaluateIntegrationProviderReadiness(provider, { other: "unbound" }).ready).toBe(false);
 	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: { settings: { account: "bound" }, reference: { owner, slug: "provider" } },
-			}).decode({ data }),
-		).items[0]?.readiness.blockReasons,
-	).toEqual([{ key: "account", code: "connection-required" }]);
-	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: {
-					integrationId: "integration",
-					settings: { account: "bound" },
-					reference: { owner, slug: "provider" },
-				},
-			}).decode({ data }),
-		).items[0]?.readiness.ready,
-	).toBe(true);
-	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: {
-					reference: { owner, slug: "provider" },
-					settings: { account: "wrong-provider" },
-				},
-			}).decode({ data }),
-		).items[0]?.readiness.ready,
+		evaluateIntegrationProviderReadiness({ ...provider, hasScript: false }, { account: "unbound" })
+			.ready,
 	).toBe(false);
 });
 
@@ -299,26 +271,15 @@ it("uses the provider plan to select settings-dependent executable requirements"
 			{ limit: 1, hasMore: false, nextCursor: null },
 		),
 	};
-	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: { settings: {}, reference: { owner, slug: "conditional" } },
-			}).decode({ data }),
-		).items[0]?.readiness,
-	).toEqual({
+	const provider = Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data }))
+		.items[0];
+	assert(provider);
+	expect(evaluateIntegrationProviderReadiness(provider, {})).toEqual({
 		ready: true,
 		blockReasons: [],
 		plan: { operation: "root", selection: { collector: "local" } },
 	});
-	expect(
-		Result.getOrThrow(
-			integrationProvidersRecipe({
-				limit: 1,
-				selected: { settings: { remote: true }, reference: { owner, slug: "conditional" } },
-			}).decode({ data }),
-		).items[0]?.readiness,
-	).toEqual({
+	expect(evaluateIntegrationProviderReadiness(provider, { remote: true })).toEqual({
 		ready: false,
 		plan: { operation: "root", selection: { collector: "remote" } },
 		blockReasons: [{ key: "token", code: "configuration-required" }],

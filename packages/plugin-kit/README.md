@@ -486,12 +486,15 @@ settings `field` and finite `cases` mapping setting values to alternative keys. 
 validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
 and selection map; it performs no source requests or writes.
 
-Ingestion setup uses `importSourcesRecipe({ selected: { reference, settings }, limit })` and
-`integrationProvidersRecipe({ selected: { reference, settings, integrationId? }, limit })` from
-`@ryot-app/ryotql-recipes`. Their structured `readiness` contains `ready`, the selected `plan`, and
-`blockReasons`; installation metadata scopes configuration to the exact system or private plugin.
+Ingestion setup loads `importSourcesRecipe({ limit })` and
+`integrationProvidersRecipe({ limit })` from `@ryot-app/ryotql-recipes`.
+Use `evaluateImportSourceReadiness(item, settings)` or
+`evaluateIntegrationProviderReadiness(item, settings, integrationId?)` with the selected catalog item.
+Their structured `readiness` contains `ready`, the selected `plan`, and `blockReasons`;
+installation metadata scopes configuration to the exact system or private plugin.
 Picker readiness covers unconditional requirements. Selected settings refine branch and account
-connection requirements; backend admission rechecks them. Presence does not validate remote credentials.
+connection requirements; backend admission rechecks them. Refresh the catalog after OAuth success
+or configuration changes. Presence does not validate remote credentials.
 
 Run reports use `@ryot-app/contract/modules/imports/ingestion`: each activity has its own ID, real unit,
 completed count, optional exact total, last advancement, and wait. Batch outcomes count committed

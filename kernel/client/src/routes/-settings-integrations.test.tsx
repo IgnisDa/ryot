@@ -8,6 +8,7 @@ import {
 	ImportRunId,
 	IntegrationId,
 	IntegrationWebhookToken,
+	OAuthConnectionId,
 	PluginId,
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
@@ -22,6 +23,7 @@ import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AuthService } from "#/modules/auth/service";
+import { type OAuthConnectInput, OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -96,6 +98,7 @@ const ownershipSyncCommonSchema = {
 const libraryProvider: IntegrationProviderItem = {
 	plan: null,
 	lot: "yank",
+	hasScript: true,
 	isCreatable: true,
 	pluginScope: "system",
 	requiresProKey: false,
@@ -132,6 +135,7 @@ const sinkProvider: IntegrationProviderItem = {
 	plan: null,
 	lot: "sink",
 	commonSchema,
+	hasScript: true,
 	isCreatable: true,
 	slug: "sample-sink",
 	name: "Sample Sink",
@@ -232,6 +236,7 @@ const makeIntegrationQueries = (
 			readonly IntegrationProviderItem[],
 			AuthenticatedApiError
 		>;
+		readonly providerRequests?: (string | undefined)[];
 		readonly detail?: () => Effect.Effect<IntegrationDetailRow | undefined, AuthenticatedApiError>;
 		readonly settings?: () => typeof userSettings;
 	} = {},
@@ -260,20 +265,28 @@ const makeIntegrationQueries = (
 				);
 			}
 			if ("providers" in request.payload.queries) {
+				const output = request.payload.queries.providers.output;
+				if (output.type !== "rows") {
+					return Effect.die("Expected provider rows");
+				}
+				options.providerRequests?.push(output.pagination.after);
+				const offset = output.pagination.after === undefined ? 0 : 100;
 				return Effect.map(
 					options.providers?.() ?? Effect.succeed([libraryProvider]),
 					(providers) => ({
 						data: {
 							providers: {
 								type: "rows" as const,
-								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-								items: providers.map(
-									({ isCreatable, commonSchema: _common, ...provider }, index) => ({
-										...provider,
-										hasScript: isCreatable,
-										id: `provider-${index}`,
-									}),
-								),
+								pageInfo: {
+									limit: 100,
+									hasMore: offset + 100 < providers.length,
+									nextCursor: offset + 100 < providers.length ? "next" : null,
+								},
+								items: providers
+									.slice(offset, offset + 100)
+									.map(({ commonSchema: _common, isCreatable: _isCreatable, ...provider }, index) =>
+										Object.assign({}, provider, { id: `provider-${index}` }),
+									),
 							},
 						},
 					}),
@@ -329,6 +342,7 @@ const mountView = (
 	queries: Layer.Layer<RyotQLApi> = makeIntegrationQueries(),
 	auth: Layer.Layer<AuthService> = AuthStub,
 	userSettingsApi: Layer.Layer<AccountApi> = makeUserSettingsStub(),
+	oauth?: OAuthConnectService["Service"],
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const publicApi = makePublicApiStub();
@@ -357,7 +371,11 @@ const mountView = (
 			integrationsApi,
 			NotificationChannelRouteStubs,
 		).pipe(
-			Layer.provideMerge(OAuthRouteStubs),
+			Layer.provideMerge(
+				oauth === undefined
+					? OAuthRouteStubs
+					: Layer.merge(OAuthRouteStubs, Layer.succeed(OAuthConnectService, oauth)),
+			),
 			Layer.provideMerge(makeStorageStubLayer("fixture")),
 		),
 	);
@@ -370,6 +388,134 @@ const mountView = (
 };
 
 describe("integrations list", () => {
+	it.live(
+		"reuses later-page providers across edits and refreshes the exact OAuth binding only after success",
+		() =>
+			Effect.gen(function* () {
+				const requests: (string | undefined)[] = [];
+				const connects: OAuthConnectInput[] = [];
+				const connectionId = OAuthConnectionId.make("new-account");
+				const oauthProvider: IntegrationProviderItem = {
+					...libraryProvider,
+					readinessConnections: [
+						{
+							id: connectionId,
+							field: "account",
+							provider: "remote",
+							integrationId: "another-integration",
+						},
+					],
+					settingsSchema: {
+						fields: {
+							endpoint: { type: "string", ...described("Endpoint") },
+							account: {
+								type: "string",
+								...described("Account"),
+								validation: { required: true },
+								format: { provider: "remote", kind: "oauth-connection" },
+							},
+						},
+					},
+					readinessMetadata: {
+						workflows: [],
+						availableConfigKeys: ["CLIENT_ID", "CLIENT_SECRET"],
+						oauthProviders: [
+							{
+								slug: "remote",
+								clientIdConfigKey: "CLIENT_ID",
+								clientSecretConfigKey: "CLIENT_SECRET",
+							},
+						],
+						scripts: [
+							{
+								capabilities: [],
+								slug: "sample-library",
+								executableDependencies: [],
+								requiredPluginConfigKeys: [],
+								optionalPluginConfigKeys: [],
+								oauthConnectionFields: ["account"],
+							},
+						],
+					},
+				};
+				let current = oauthProvider;
+				const otherProviders = Array.from({ length: 100 }, (_, index) => ({
+					...sinkProvider,
+					name: `A ${index}`,
+					slug: `provider-${index}`,
+					reference: { ...sinkProvider.reference, slug: `provider-${index}` },
+				}));
+				mountView(
+					"/settings/integrations?create=true",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						providerRequests: requests,
+						providers: () => Effect.succeed([...otherProviders, current]),
+					}),
+					AuthStub,
+					makeUserSettingsStub(),
+					{
+						connect: (input) =>
+							Effect.sync(() => {
+								connects.push(input);
+								if (connects.length === 1) {
+									return { kind: "cancelled" } as const;
+								}
+								if (connects.length === 2) {
+									return { kind: "failed", message: "Try the connection again." } as const;
+								}
+								return { connectionId, kind: "connected" } as const;
+							}),
+					},
+				);
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("button", { name: "Connect Sample Library" }),
+					),
+				);
+				const endpoint = yield* Effect.promise(() => screen.findByLabelText("Endpoint"));
+				for (const value of ["a", "ab", "https://remote.example"]) {
+					fireEvent.change(endpoint, { target: { value } });
+				}
+				expect(requests).toEqual([undefined, "next"]);
+				fireEvent.click(screen.getByRole("button", { name: "Connect Account" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole<HTMLButtonElement>("button", { name: "Connect Account" }).disabled,
+						).toBe(false),
+					),
+				);
+				expect(requests).toHaveLength(2);
+				fireEvent.click(screen.getByRole("button", { name: "Connect Account" }));
+				yield* Effect.promise(() => screen.findByText("Try the connection again."));
+				expect(requests).toHaveLength(2);
+				fireEvent.click(screen.getByRole("button", { name: "Connect Account" }));
+				yield* Effect.promise(() => screen.findByText("Connected"));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(4)));
+				expect(connects[2]?.integrationProvider).toEqual(libraryProvider.reference);
+				expect(connects[2]?.integrationId).toBeUndefined();
+				expect(connects[2]?.field).toBe("account");
+				fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+				const connect = yield* Effect.promise(() =>
+					screen.findByRole<HTMLButtonElement>("button", { name: "Connect" }),
+				);
+				expect(connect.disabled).toBe(true);
+				current = {
+					...oauthProvider,
+					readinessConnections: [
+						{ id: connectionId, field: "account", provider: "remote", integrationId: null },
+					],
+				};
+				fireEvent.click(screen.getByRole("button", { name: "Check setup again" }));
+				yield* Effect.promise(() => waitFor(() => expect(connect.disabled).toBe(false)));
+				expect(requests).toHaveLength(6);
+				current = { ...current, readinessConnections: [] };
+				fireEvent(document, new Event("visibilitychange"));
+				yield* Effect.promise(() => waitFor(() => expect(connect.disabled).toBe(true)));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(8)));
+			}),
+	);
 	it.live("shows all exact-installation setup reasons before a provider can be chosen", () =>
 		Effect.gen(function* () {
 			mountView(
@@ -676,6 +822,50 @@ describe("integrations list", () => {
 });
 
 describe("integration detail", () => {
+	it.live(
+		"preserves edited settings when the provider is removed, refresh fails, and the provider returns",
+		() =>
+			Effect.gen(function* () {
+				let current: readonly IntegrationProviderItem[] | null = [libraryProvider];
+				const requests: (string | undefined)[] = [];
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						providerRequests: requests,
+						providers: () =>
+							current === null
+								? Effect.fail(new AuthenticatedApiError({ cause: "down" }))
+								: Effect.succeed(current),
+					}),
+				);
+				const url = yield* Effect.promise(() =>
+					screen.findByRole<HTMLInputElement>("textbox", { name: "Base URL" }),
+				);
+				fireEvent.change(url, { target: { value: "https://edited.example" } });
+				expect(requests).toHaveLength(1);
+				current = [];
+				fireEvent.click(screen.getByRole("button", { name: "Check setup again" }));
+				yield* Effect.promise(() => screen.findByText("This service is no longer available."));
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Base URL" }).value).toBe(
+					"https://edited.example",
+				);
+				current = null;
+				fireEvent.click(screen.getByRole("button", { name: "Check setup again" }));
+				yield* Effect.promise(() => screen.findByText("Could not check setup."));
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Base URL" }).value).toBe(
+					"https://edited.example",
+				);
+				current = [libraryProvider];
+				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Check setup again" }));
+				expect(screen.queryByText("This service is no longer available.")).toBeNull();
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Base URL" }).value).toBe(
+					"https://edited.example",
+				);
+				expect(requests).toHaveLength(4);
+			}),
+	);
 	it.live("does not request or expose protected demo integration detail", () =>
 		Effect.gen(function* () {
 			let gets = 0;

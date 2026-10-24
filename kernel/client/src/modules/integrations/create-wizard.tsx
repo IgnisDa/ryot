@@ -203,8 +203,10 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const create = useRyotMutation(createIntegrationMutation);
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
+	const [selectedProvider, setSelectedProvider] = useState<IntegrationProviderItem>();
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
-	const provider = listed.find((item) => integrationProviderItemKey(item) === state.slug);
+	const provider =
+		listed.find((item) => integrationProviderItemKey(item) === state.slug) ?? selectedProvider;
 
 	const connect = (values: SchemaFormValues) => {
 		return Effect.runPromise(
@@ -254,6 +256,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	};
 
 	const chooseProvider = (slug: string) => {
+		setSelectedProvider(listed.find((item) => integrationProviderItemKey(item) === slug));
 		setFailure(undefined);
 		dispatch({ slug, type: "picked" });
 	};

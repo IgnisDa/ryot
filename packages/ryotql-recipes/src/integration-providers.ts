@@ -5,11 +5,7 @@ import {
 	evaluateIngestionReadiness,
 	IngestionReadinessMetadata,
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
-import {
-	type DeclarationReference,
-	definitionOwner,
-	sameDeclaration,
-} from "@ryot-app/contract/modules/plugins/references";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
@@ -25,59 +21,66 @@ import { Result, Schema } from "effect";
 
 const provider = table("integrationProvider", "provider");
 
+const readinessConnections = Schema.Array(
+	Schema.Struct({
+		id: Schema.String,
+		field: Schema.String,
+		provider: Schema.String,
+		integrationId: Schema.NullOr(Schema.String),
+	}),
+);
+
+export const evaluateIntegrationProviderReadiness = (
+	item: {
+		readonly hasScript: boolean;
+		readonly scriptSlug: string | null;
+		readonly settingsSchema: AppSchema;
+		readonly readinessMetadata: IngestionReadinessMetadata | null;
+		readonly plan: SourcePlan | null;
+		readonly readinessConnections: typeof readinessConnections.Type;
+	},
+	settings?: Readonly<Record<string, unknown>>,
+	integrationId?: string,
+) =>
+	item.readinessMetadata === null || item.scriptSlug === null || !item.hasScript
+		? { plan: null, blockReasons: [], ready: item.hasScript }
+		: evaluateIngestionReadiness({
+				settings,
+				kind: "script",
+				operation: item.scriptSlug,
+				metadata: item.readinessMetadata,
+				sourcePlan: item.plan ?? undefined,
+				settingsSchema: item.settingsSchema,
+				connectedFields: item.readinessConnections
+					.filter((connection) => {
+						const property = item.settingsSchema.fields[connection.field];
+						return (
+							settings !== undefined &&
+							settings[connection.field] === connection.id &&
+							connection.integrationId === (integrationId ?? null) &&
+							property?.type === "string" &&
+							property.format?.kind === "oauth-connection" &&
+							property.format.provider === connection.provider
+						);
+					})
+					.map(({ field }) => field),
+			});
+
 export const integrationProvidersRecipe = defineRecipe(
-	(input: {
-		readonly after?: string;
-		readonly limit: number;
-		readonly selected?: {
-			readonly reference: DeclarationReference;
-			readonly settings: Readonly<Record<string, unknown>>;
-			readonly integrationId?: string;
-		};
-	}) => ({
+	(input: { readonly after?: string; readonly limit: number }) => ({
 		map: ({ providers }) =>
 			Result.try(() => ({
 				...providers,
-				items: providers.items.map((item) => {
-					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
-					const selected =
-						input.selected !== undefined && sameDeclaration(input.selected.reference, reference)
-							? input.selected
-							: undefined;
-					return {
-						reference,
-						...item,
-						commonSchema: integrationCommonSchema(
-							item.lot,
-							item.supportsOwnershipSync,
-							item.pluginId !== null,
-						),
-						readiness:
-							item.readinessMetadata === null || item.scriptSlug === null || !item.hasScript
-								? { plan: null, blockReasons: [], ready: item.hasScript }
-								: evaluateIngestionReadiness({
-										kind: "script",
-										operation: item.scriptSlug,
-										settings: selected?.settings,
-										metadata: item.readinessMetadata,
-										sourcePlan: item.plan ?? undefined,
-										settingsSchema: item.settingsSchema,
-										connectedFields: item.readinessConnections
-											.filter((connection) => {
-												const property = item.settingsSchema.fields[connection.field];
-												return (
-													selected !== undefined &&
-													selected.settings[connection.field] === connection.id &&
-													connection.integrationId === (selected.integrationId ?? null) &&
-													property?.type === "string" &&
-													property.format?.kind === "oauth-connection" &&
-													property.format.provider === connection.provider
-												);
-											})
-											.map(({ field }) => field),
-									}),
-					};
-				}),
+				items: providers.items.map((item) => ({
+					reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
+					...item,
+					readiness: evaluateIntegrationProviderReadiness(item),
+					commonSchema: integrationCommonSchema(
+						item.lot,
+						item.supportsOwnershipSync,
+						item.pluginId !== null,
+					),
+				})),
 			})),
 		queries: {
 			providers: selectedRows(provider, {
@@ -105,6 +108,10 @@ export const integrationProvidersRecipe = defineRecipe(
 						column(provider, "supportsOwnershipSync"),
 						Schema.Boolean,
 					),
+					readinessConnections: selectedField(
+						column(provider, "readinessConnections"),
+						readinessConnections,
+					),
 					pluginScope: selectedField(
 						column(provider, "pluginScope"),
 						Schema.NullOr(Schema.Literals(["system", "user"])),
@@ -112,17 +119,6 @@ export const integrationProvidersRecipe = defineRecipe(
 					readinessMetadata: selectedField(
 						column(provider, "readinessMetadata"),
 						Schema.NullOr(IngestionReadinessMetadata),
-					),
-					readinessConnections: selectedField(
-						column(provider, "readinessConnections"),
-						Schema.Array(
-							Schema.Struct({
-								id: Schema.String,
-								field: Schema.String,
-								provider: Schema.String,
-								integrationId: Schema.NullOr(Schema.String),
-							}),
-						),
 					),
 				},
 			}),

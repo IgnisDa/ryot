@@ -4,7 +4,6 @@ import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
@@ -31,31 +30,9 @@ import type { KernelHostServices } from "#/host-services";
 export const INTEGRATIONS_PAGE_SIZE = 20;
 export const INTEGRATION_RUNS_PAGE_SIZE = 10;
 
-export const selectedIntegrationReadinessQuery = createRyotQuery<
-	NonNullable<Parameters<typeof integrationProvidersRecipe>[0]["selected"]>,
-	IntegrationProvidersPage["items"][number] | undefined,
-	KernelHostServices
->(({ input, client }) =>
-	Effect.gen(function* () {
-		let after: string | undefined;
-		do {
-			const page = yield* client.data.query(
-				integrationProvidersRecipe({ after, limit: 100, selected: input }),
-			);
-			const provider = page.items.find((item) => sameDeclaration(item.reference, input.reference));
-			if (provider !== undefined) {
-				return provider;
-			}
-			after = page.pageInfo.nextCursor ?? undefined;
-		} while (after !== undefined);
-		return undefined;
-	}),
-);
-
-export type IntegrationProviderItem = Omit<
-	IntegrationProvidersPage["items"][number],
-	"id" | "hasScript"
-> & { readonly isCreatable: boolean };
+export type IntegrationProviderItem = Omit<IntegrationProvidersPage["items"][number], "id"> & {
+	readonly isCreatable: boolean;
+};
 
 export type IntegrationClientDetail = Omit<
 	IntegrationDetail extends Option.Option<infer Row> ? Row : never,
@@ -107,10 +84,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						.query(integrationProvidersRecipe({ limit: 100, after: after ?? undefined }))
 						.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
 					providers.push(
-						...page.items.map(({ id: _id, hasScript, ...provider }) => ({
+						...page.items.map(({ id: _id, ...provider }) => ({
 							...provider,
 							isCreatable:
-								hasScript &&
+								provider.hasScript &&
 								(!provider.requiresProKey || config?.pro.isServerKeyValidated === true),
 						})),
 					);

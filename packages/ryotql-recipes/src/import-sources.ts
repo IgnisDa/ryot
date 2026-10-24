@@ -8,11 +8,7 @@ import {
 	PluginImportExportHelp,
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import {
-	type DeclarationReference,
-	definitionOwner,
-	sameDeclaration,
-} from "@ryot-app/contract/modules/plugins/references";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
@@ -28,41 +24,40 @@ import { Result, Schema } from "effect";
 const source = table("importSource", "source");
 const exportHelp = Schema.NullOr(PluginImportExportHelp);
 
+export const evaluateImportSourceReadiness = (
+	item: {
+		readonly isStartable: boolean;
+		readonly workflowSlug: string;
+		readonly inputSchema: typeof PluginImportSource.fields.inputSchema.Type;
+		readonly readinessMetadata: IngestionReadinessMetadata | null;
+		readonly plan: SourcePlan | null;
+	},
+	settings?: Readonly<Record<string, unknown>>,
+) => {
+	const readiness =
+		item.readinessMetadata === null
+			? { plan: null, blockReasons: [], ready: item.isStartable }
+			: evaluateIngestionReadiness({
+					settings,
+					kind: "workflow",
+					operation: item.workflowSlug,
+					settingsSchema: item.inputSchema,
+					metadata: item.readinessMetadata,
+					sourcePlan: item.plan ?? undefined,
+				});
+	return { ...readiness, ready: readiness.ready && item.isStartable };
+};
+
 export const importSourcesRecipe = defineRecipe(
-	(input: {
-		readonly after?: string;
-		readonly limit: number;
-		readonly selected?: {
-			readonly reference: DeclarationReference;
-			readonly settings: Readonly<Record<string, unknown>>;
-		};
-	}) => ({
+	(input: { readonly after?: string; readonly limit: number }) => ({
 		map: ({ sources }) =>
 			Result.try(() => ({
 				...sources,
-				items: sources.items.map((item) => {
-					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
-					const selected =
-						input.selected !== undefined && sameDeclaration(input.selected.reference, reference)
-							? input.selected
-							: undefined;
-					const readiness =
-						item.readinessMetadata === null
-							? { plan: null, blockReasons: [], ready: item.isStartable }
-							: evaluateIngestionReadiness({
-									kind: "workflow",
-									operation: item.workflowSlug,
-									settings: selected?.settings,
-									settingsSchema: item.inputSchema,
-									metadata: item.readinessMetadata,
-									sourcePlan: item.plan ?? undefined,
-								});
-					return {
-						reference,
-						...item,
-						readiness: { ...readiness, ready: readiness.ready && item.isStartable },
-					};
-				}),
+				items: sources.items.map((item) => ({
+					reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
+					...item,
+					readiness: evaluateImportSourceReadiness(item),
+				})),
 			})),
 		queries: {
 			sources: selectedRows(source, {
