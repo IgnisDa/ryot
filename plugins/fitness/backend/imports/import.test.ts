@@ -456,6 +456,10 @@ it.each(["hevy", "strong_app"])(
 				Effect.map((result) => {
 					const items = result.chunks.flatMap((chunk) => chunk.items);
 					expect(items.map((item) => item.itemIndex)).toEqual([0, 1]);
+					expect(items.map((item) => item.sourceIdentifier)).toEqual([
+						"2026-01-01 08:00:00:Morning",
+						"2026-01-01 08:00:00:Evening",
+					]);
 					expect(items[0]?.events.map((event) => event.properties["weight"])).toEqual([100, 120]);
 					expect(items[1]?.events.map((event) => event.properties["weight"])).toEqual([110]);
 					expect(result.chunks.flatMap((chunk) => chunk.failures)).toMatchObject([
@@ -479,6 +483,95 @@ it.each(["hevy", "strong_app"])(
 							sourceLabel: "Row 7",
 							recordKind: "workouts",
 							message: source === "hevy" ? "Row is missing End Time" : "Row is missing Date",
+						},
+					]);
+				}),
+			),
+		),
+);
+
+it.each(["hevy", "strong_app"])(
+	"keeps %s write identities and source order after a malformed first row and an all-malformed group",
+	(source) =>
+		Effect.runPromise(
+			runImport(
+				source,
+				(source === "hevy"
+					? [
+							"title,start_time,end_time,description,exercise_title,set_type,set_order,weight_kg,reps,exercise_notes",
+							"Session,2026-01-01 08:00:00,2026-01-01 10:00:00,Malformed,Bench Press,normal,1,bad,5,",
+							"Session,2026-01-01 08:00:00,2026-01-01 09:00:00,First valid,Bench Press,warmup,3,90,5,First set",
+							"Session,2026-01-01 08:00:00,2026-01-01 10:00:00,Later,Push Up,normal,1,,10,",
+							"Session,2026-01-01 08:00:00,2026-01-01 10:00:00,Later,Bench Press,failure,2,100,4,Last set",
+							"Bad,2026-01-02 08:00:00,2026-01-02 09:00:00,,Bench Press,normal,1,bad,5,",
+							"Bad,2026-01-02 08:00:00,2026-01-02 09:00:00,,Bench Press,normal,2,bad,5,",
+						]
+					: [
+							"Date,Workout Name,Duration,Workout Notes,Exercise Name,Set Order,Weight (kg),Reps,Notes",
+							"2026-01-01 08:00:00,Session,7200,Malformed,Bench Press,1,bad,5,",
+							"2026-01-01 08:00:00,Session,3600,First valid,Bench Press,W,90,5,First set",
+							"2026-01-01 08:00:00,Session,7200,Later,Push Up,1,,10,",
+							"2026-01-01 08:00:00,Session,7200,Later,Bench Press,F,100,4,Last set",
+							"2026-01-02 08:00:00,Bad,3600,,Bench Press,1,bad,5,",
+							"2026-01-02 08:00:00,Bad,3600,,Bench Press,2,bad,5,",
+						]
+				).join("\n"),
+			).pipe(
+				Effect.map((result) => {
+					const items = result.chunks.flatMap((chunk) => chunk.items);
+					expect(items).toHaveLength(1);
+					expect(items[0]?.recordId).toBe('["workout",1]');
+					expect(items[0]?.entities.find(({ alias }) => alias === "workout")).toMatchObject({
+						properties: {
+							comment: "First valid",
+							endedAt: "2026-01-01T03:30:00.000Z",
+							startedAt: "2026-01-01T02:30:00.000Z",
+						},
+					});
+					expect(
+						items[0]?.events.map(({ properties, operationId, entityAlias }) => ({
+							properties,
+							operationId,
+							entityAlias,
+						})),
+					).toMatchObject([
+						{
+							entityAlias: "exercise-0",
+							operationId: '["workout",1,"set",0,0]',
+							properties: { weight: 90, setOrder: 0, exerciseOrder: 0, note: "First set" },
+						},
+						{
+							entityAlias: "exercise-0",
+							operationId: '["workout",1,"set",0,1]',
+							properties: { setOrder: 1, weight: 100, exerciseOrder: 0, note: "Last set" },
+						},
+						{
+							entityAlias: "exercise-1",
+							operationId: '["workout",1,"set",1,0]',
+							properties: { reps: 10, setOrder: 0, exerciseOrder: 1 },
+						},
+					]);
+					expect(result.chunks.flatMap(({ failures }) => failures)).toMatchObject([
+						{
+							itemIndex: 0,
+							unit: "workouts",
+							sourceIdentifier: "1",
+							recordKind: "workouts",
+							operationId: '["fitness-source",0,"1"]',
+						},
+						{
+							itemIndex: 4,
+							unit: "workouts",
+							sourceIdentifier: "5",
+							recordKind: "workouts",
+							operationId: '["fitness-source",4,"5"]',
+						},
+						{
+							itemIndex: 5,
+							unit: "workouts",
+							sourceIdentifier: "6",
+							recordKind: "workouts",
+							operationId: '["fitness-source",5,"6"]',
 						},
 					]);
 				}),

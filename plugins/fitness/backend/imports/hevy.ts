@@ -1,7 +1,7 @@
 import { DateTime, Option, Result } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { poundsToKilograms } from "../../shared/workout-units";
-import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
+import { readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
@@ -167,17 +167,6 @@ export const hevyWorkoutKey = (row: Record<string, string>) =>
 		startTime: readCsvCell(row, ["start_time", "Start Time", "StartTime"]) ?? "",
 	});
 
-export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
-	const { rows, headers } = parseCsvText(csvText);
-	if (headers.length === 0) {
-		throw new Error("Hevy CSV is empty or has no header row");
-	}
-	return adaptHevyRows(
-		rows.map((row, itemIndex) => ({ row, itemIndex })),
-		timezone,
-	);
-};
-
 export const adaptHevyRows = (
 	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
 	timezone: string,
@@ -200,71 +189,64 @@ export const adaptHevyRows = (
 		parsedRows.push(parsed.success);
 	}
 
-	const workoutsBySourceKey = new Map<string, HevyRow[]>();
-	for (const row of parsedRows) {
-		const sourceKey = sourceIdentifierForWorkout(row);
-		const workoutRows = workoutsBySourceKey.get(sourceKey) ?? [];
-		workoutRows.push(row);
-		workoutsBySourceKey.set(sourceKey, workoutRows);
+	const firstRow = parsedRows[0];
+	if (!firstRow) {
+		return { failures };
+	}
+	const sourceIdentifier = sourceIdentifierForWorkout(firstRow);
+	const sourceLabel = sourceLabelForWorkout(firstRow);
+	const startedAt = parseHevyDate(firstRow.startTime, timezone);
+	if (Option.isNone(startedAt)) {
+		failures.push({
+			sourceLabel,
+			unit: "workouts",
+			sourceIdentifier,
+			itemIndex: firstRow.itemIndex,
+			message: `Could not parse workout start time "${firstRow.startTime}"`,
+		});
+		return { failures };
 	}
 
-	const items: WorkoutAdapterResult["items"] = [];
-	for (const [sourceIdentifier, workoutRows] of workoutsBySourceKey) {
-		const firstRow = workoutRows[0];
-		if (!firstRow) {
-			continue;
-		}
-		const sourceLabel = sourceLabelForWorkout(firstRow);
-		const startedAt = parseHevyDate(firstRow.startTime, timezone);
-		if (Option.isNone(startedAt)) {
+	const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
+	const endedAt = Option.isSome(endedAtParsed) ? DateTime.formatIso(endedAtParsed.value) : null;
+	const exercisesByName = new Map<string, HevyRow[]>();
+	for (const row of parsedRows) {
+		const exerciseRows = exercisesByName.get(row.exerciseTitle) ?? [];
+		exerciseRows.push(row);
+		exercisesByName.set(row.exerciseTitle, exerciseRows);
+	}
+
+	const exercises: WorkoutImportExercise[] = [];
+	for (const [exerciseName, exerciseRows] of exercisesByName) {
+		const sets = exerciseRows.map(toWorkoutSet);
+		const kind = determineWorkoutExerciseKind(sets);
+		if (!kind) {
 			failures.push({
-				sourceLabel,
-				unit: "workouts",
-				sourceIdentifier,
-				itemIndex: firstRow.itemIndex,
-				message: `Could not parse workout start time "${firstRow.startTime}"`,
+				unit: "exercises",
+				sourceLabel: `Exercise: ${exerciseName}`,
+				sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
+				itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
+				message: `Could not determine exercise kind from ${sets.length} sets`,
 			});
 			continue;
 		}
+		exercises.push({ kind, sets, name: exerciseName });
+	}
 
-		const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
-		const endedAt = Option.isSome(endedAtParsed) ? DateTime.formatIso(endedAtParsed.value) : null;
-		const exercisesByName = new Map<string, HevyRow[]>();
-		for (const row of workoutRows) {
-			const exerciseRows = exercisesByName.get(row.exerciseTitle) ?? [];
-			exerciseRows.push(row);
-			exercisesByName.set(row.exerciseTitle, exerciseRows);
-		}
+	if (exercises.length === 0) {
+		failures.push({
+			sourceLabel,
+			unit: "workouts",
+			sourceIdentifier,
+			itemIndex: firstRow.itemIndex,
+			message: "Workout has no importable exercises",
+		});
+		return { failures };
+	}
 
-		const exercises: WorkoutImportExercise[] = [];
-		for (const [exerciseName, exerciseRows] of exercisesByName) {
-			const sets = exerciseRows.map(toWorkoutSet);
-			const kind = determineWorkoutExerciseKind(sets);
-			if (!kind) {
-				failures.push({
-					unit: "exercises",
-					sourceLabel: `Exercise: ${exerciseName}`,
-					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
-					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
-					message: `Could not determine exercise kind from ${sets.length} sets`,
-				});
-				continue;
-			}
-			exercises.push({ kind, sets, name: exerciseName });
-		}
-
-		if (exercises.length === 0) {
-			failures.push({
-				sourceLabel,
-				unit: "workouts",
-				sourceIdentifier,
-				itemIndex: firstRow.itemIndex,
-				message: "Workout has no importable exercises",
-			});
-			continue;
-		}
-
-		items.push({
+	return {
+		failures,
+		item: {
 			endedAt,
 			exercises,
 			sourceLabel,
@@ -273,8 +255,6 @@ export const adaptHevyRows = (
 			itemIndex: firstRow.itemIndex,
 			comment: firstRow.description ?? null,
 			startedAt: DateTime.formatIso(startedAt.value),
-		});
-	}
-
-	return { items, failures };
+		},
+	};
 };

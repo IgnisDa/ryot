@@ -11,11 +11,12 @@ import { parseCsvText } from "./csv";
 import { adaptHevyRows, hevyWorkoutKey } from "./hevy";
 import { fitnessFailureOperationId } from "./identity";
 import { toMeasurementWriteItem } from "./measurement";
-import { adaptOpenScaleRows } from "./open-scale";
+import { adaptOpenScaleRows, type OpenScaleNormalizedItem } from "./open-scale";
 import type { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { FitnessRecord } from "./schemas";
 import { adaptStrongAppRows, strongAppWorkoutKey } from "./strong-app";
 import { toWorkoutWriteItem } from "./workout";
+import type { WorkoutImportItem } from "./workout-domain";
 
 const PAGE_BYTES = 512 * 1024;
 const RECORD_BYTES = 3 * 1024 * 1024;
@@ -360,7 +361,7 @@ const normalize = Effect.fn(function* (
 				],
 			});
 		}
-		for (const item of result.items) {
+		const appendItem = (item: WorkoutImportItem | OpenScaleNormalizedItem) => {
 			const writeItem =
 				"exercises" in item ? toWorkoutWriteItem(item) : toMeasurementWriteItem(item);
 			if (
@@ -383,7 +384,7 @@ const normalize = Effect.fn(function* (
 						},
 					],
 				});
-				continue;
+				return;
 			}
 			records.push({
 				failures: [],
@@ -391,6 +392,13 @@ const normalize = Effect.fn(function* (
 				itemIndex: item.itemIndex,
 				key: String(item.itemIndex).padStart(12, "0"),
 			});
+		};
+		if ("items" in result) {
+			for (const item of result.items) {
+				appendItem(item);
+			}
+		} else if (result.item) {
+			appendItem(result.item);
 		}
 		group = [];
 		groupBytes = 2;
