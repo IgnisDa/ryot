@@ -79,16 +79,16 @@ export const traktApiRecordContext = (
 	listName: string,
 	importedAt: string,
 ): TraktRecordContext => {
-	switch (kind) {
-		case "list":
-			return { type: "collection", name: listName };
-		case "collection":
-			return { type: "collection", name: "Owned" };
-		case "watchlist":
-			return { type: "backlog", importedAt };
-		default:
-			return { type: kind };
+	if (kind === "list") {
+		return { name: listName, type: "collection" };
 	}
+	if (kind === "collection") {
+		return { name: "Owned", type: "collection" };
+	}
+	if (kind === "watchlist") {
+		return { importedAt, type: "backlog" };
+	}
+	return { type: kind };
 };
 
 export const normalizeTraktRecord = (

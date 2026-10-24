@@ -88,11 +88,7 @@ const validateScript = (
 		}
 		if (specifier.startsWith("@ryot-app/plugins/")) {
 			const slug = PLUGIN_IMPORT.exec(specifier)?.[1];
-			if (
-				isSharedSource(path) ||
-				slug === undefined ||
-				!unresolvedPluginDependencies.has(slug)
-			) {
+			if (isSharedSource(path) || slug === undefined || !unresolvedPluginDependencies.has(slug)) {
 				diagnostics.push(
 					importFailure(
 						path,

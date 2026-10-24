@@ -80,19 +80,16 @@ const decodeIntent = Schema.decodeEffect(IntentJson, { onExcessProperty: "error"
 const encodeIntent = Schema.encodeEffect(IntentJson);
 
 const intentDeadline = (metadata: typeof UploadIntentMetadata.Type) => {
-	switch (metadata.state) {
-		case "pending":
-			return metadata.expiresAt;
-		case "claimed":
-			return metadata.leaseExpiresAt;
-		case "completed":
-			return metadata.kind === "permanent" ? null : metadata.completion.expiresAt;
+	if (metadata.state === "pending") {
+		return metadata.expiresAt;
 	}
+	if (metadata.state === "claimed") {
+		return metadata.leaseExpiresAt;
+	}
+	return metadata.kind === "permanent" ? null : metadata.completion.expiresAt;
 };
 
-const completionResponse = (
-	completion: typeof TemporaryCompletion.Type | typeof ManagedAssetLocator.Type,
-) =>
+const completionResponse = (completion: typeof TemporaryCompletion.Type | ManagedAssetLocator) =>
 	"token" in completion
 		? {
 				token: completion.token,

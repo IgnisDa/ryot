@@ -23,10 +23,7 @@ const eventSnapshot = (id: string, entityId: string, overrides: Record<string, u
 	...overrides,
 });
 
-const automationInput = (
-	items: readonly unknown[],
-	source: "api" | "import" = "api",
-) =>
+const automationInput = (items: readonly unknown[], source: "api" | "import" = "api") =>
 	Schema.decodeUnknownSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",
@@ -224,7 +221,6 @@ describe("workout record automation", () => {
 					after: eventSnapshot("event-3", "exercise-3"),
 				},
 			],
-			undefined,
 			"import",
 		);
 		const { host, requests, workflows } = recordingHost();
@@ -261,18 +257,16 @@ describe("workout record automation", () => {
 
 	it("requests work for source updates and declares the batch hook", () => {
 		const before = eventSnapshot("event-1", "exercise-1");
-		const sourceUpdate = automationInput(
-			[
-				{
-					before,
-					resource: "event",
-					category: "change",
-					operation: "update",
-					changedProperties: ["weight"],
-					after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
-				},
-			],
-		);
+		const sourceUpdate = automationInput([
+			{
+				before,
+				resource: "event",
+				category: "change",
+				operation: "update",
+				changedProperties: ["weight"],
+				after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
+			},
+		]);
 		const { host, requests, workflows } = recordingHost();
 
 		return Effect.runPromise(

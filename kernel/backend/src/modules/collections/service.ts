@@ -414,11 +414,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						RelationshipBadRequest: invalidMembership,
 						RelationshipNotFound: (error) => Effect.die(error),
 					}),
-					Effect.flatMap((committed) =>
-						committed._tag === "Committed"
-							? committedMembership(pending.membership, committed)
-							: Effect.die("membership commit requires policies"),
-					),
+					Effect.flatMap((committed) => committedMembership(pending.membership, committed)),
 				);
 
 			const membershipStep = Effect.fnUntraced(function* (

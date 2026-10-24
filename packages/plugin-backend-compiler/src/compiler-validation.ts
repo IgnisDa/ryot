@@ -13,7 +13,7 @@ import {
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { validateSandboxCapabilities } from "./compiler-metadata";
-import { sandboxSourcePath, type SandboxProjectEntry } from "./compiler-project";
+import { type SandboxProjectEntry, sandboxSourcePath } from "./compiler-project";
 import {
 	getModuleSpecifier,
 	inspectSandboxSource,
@@ -129,7 +129,7 @@ export const validateSandboxEntry = Effect.fn("validateSandboxEntry")(function* 
 	declaration,
 	moduleDiagnostics,
 }: ValidateSandboxEntryInput) {
-	const { sourceFile, inspection, execution } = inspected;
+	const { execution, sourceFile, inspection } = inspected;
 	if (execution.diagnostics.length > 0) {
 		return yield* sandboxCompilationFailure(execution.diagnostics);
 	}

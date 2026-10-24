@@ -238,19 +238,19 @@ export const LifecyclePlannerLive = Layer.effect(
 				input.pinnedBatchCandidates
 					? input.pinnedBatchCandidates
 							.filter(
-								({ payload, references }) =>
-									references.scopeUserId === trigger.scopeUserId &&
-									payload.hook.targets.some((target) =>
-										matchesTarget(definitionOwner(references.pluginId), target, trigger),
+								(candidate) =>
+									candidate.references.scopeUserId === trigger.scopeUserId &&
+									candidate.payload.hook.targets.some((target) =>
+										matchesTarget(definitionOwner(candidate.references.pluginId), target, trigger),
 									),
 							)
-							.map(({ payload, references }) => ({
-								hook: payload.hook,
+							.map(({ references, payload: pinned }) => ({
+								hook: pinned.hook,
 								executionUserId: references.scopeUserId,
 								script: {
-									slug: payload.scriptSlug,
+									slug: pinned.scriptSlug,
 									id: references.sandboxScriptId,
-									contentHash: payload.scriptContentHash,
+									contentHash: pinned.scriptContentHash,
 								},
 								plugin: {
 									id: references.pluginId,
@@ -399,7 +399,8 @@ export const LifecyclePlannerLive = Layer.effect(
 					identity,
 					maxItems: limits.batchMaxItems,
 					pins: candidates.map((candidate) => ({
-						...candidate,
+						payload: candidate.payload,
+						references: candidate.references,
 						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.references.scopeUserId, candidate.references.pluginId, candidate.payload.hook.slug]))}`,
 					})),
 				})

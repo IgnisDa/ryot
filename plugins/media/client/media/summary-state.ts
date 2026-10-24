@@ -15,10 +15,10 @@ import { mediaActivityDurationLabel } from "./activity-timeline";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
+	mediaImageAsset,
 	mediaImageAssets,
 	type MediaImagePurposes,
 	type MediaImages,
-	mediaImageAsset,
 	preferredMediaImageAsset,
 } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
@@ -115,8 +115,7 @@ export const mediaPosterAsset = (
 	purpose: MediaImagePurposes[number] = "cover",
 ) => preferredMediaImageAsset(media.images, purpose);
 
-export const mediaBackdropAsset = (media: MediaImaged) =>
-	mediaImageAsset(media.images, "backdrop");
+export const mediaBackdropAsset = (media: MediaImaged) => mediaImageAsset(media.images, "backdrop");
 
 export const mediaGalleryAssets = (media: MediaImaged) =>
 	mediaImageAssets(media.images).slice(0, MEDIA_GALLERY_LIMIT);
