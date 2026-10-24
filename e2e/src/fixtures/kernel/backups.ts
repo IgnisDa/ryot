@@ -35,7 +35,7 @@ export const downloadBackupArchive = (client: Client, runId: string) =>
 		const ticket = yield* client.call((c) =>
 			c.backups.createDownloadTicket({ params: { id: BackupRunId.make(runId) } }),
 		);
-		const response = yield* webRequest(`${client.baseUrl}${ticket.url}`);
+		const response = yield* webRequest(`${client.target.apiUrl}${ticket.url}`);
 		if (response.status !== 200) {
 			throw new Error(`Could not download backup archive (${response.status})`);
 		}

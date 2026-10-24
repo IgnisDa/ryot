@@ -18,7 +18,8 @@ it.live(
 	"creates, edits and starts templates with media and preserves confirmed sets on replacement",
 	() =>
 		Effect.gen(function* () {
-			const { target, origin: frontendUrl } = yield* workoutEditorProServer;
+			const { target } = yield* workoutEditorProServer;
+			const { frontendUrl } = target;
 			const { email, client, password } = yield* createAuthenticatedClient(target);
 			const name = `Template acceptance ${crypto.randomUUID()}`;
 			const exerciseName = `Bench ${name}`;

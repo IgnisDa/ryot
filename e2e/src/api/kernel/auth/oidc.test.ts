@@ -24,10 +24,9 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import type { HarnessTarget } from "~/support/harness-target";
 import {
 	buildApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	waitForHealthCheck,
 } from "~/support/provisioning";
 import { makeTestResourceScope } from "~/support/resource-scope";
 
@@ -58,9 +57,9 @@ const listPluginCount = (target: HarnessTarget, token: string) =>
 let apiPortA: number;
 let apiPortB: number;
 let apiPortC: number;
-let apiProcessA: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
-let apiProcessB: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
-let apiProcessC: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+let apiProcessA: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+let apiProcessB: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+let apiProcessC: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
 const targetA = () => requirePresent(apiProcessA, "OIDC API A is not initialised").target;
 const targetB = () => requirePresent(apiProcessB, "OIDC API B is not initialised").target;
 const targetC = () => requirePresent(apiProcessC, "OIDC API C is not initialised").target;
@@ -90,7 +89,7 @@ function requireCoreInfrastructure() {
 
 const startApi = (label: string, port: number, extraEnv: Record<string, string> = {}) => {
 	const infrastructure = requireCoreInfrastructure();
-	return spawnApiProcess(
+	return startApiProcess(
 		buildApiEnv({
 			port,
 			label: `API ${label}`,
@@ -107,11 +106,9 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 				...extraEnv,
 			},
 		}),
+		`API ${label}`,
 	);
 };
-
-const waitForApi = (port: number, process: Effect.Success<ReturnType<typeof spawnApiProcess>>) =>
-	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", process, 90);
 
 beforeAll(() =>
 	runPromise(
@@ -126,7 +123,6 @@ beforeAll(() =>
 				apiProcessA = yield* startApi("A", apiPortA, {
 					FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
 				});
-				yield* waitForApi(apiPortA, apiProcessA);
 			}),
 		),
 	),
@@ -160,7 +156,6 @@ describe("Local auth disabled (API B)", () => {
 					Effect.andThen(
 						Effect.gen(function* () {
 							apiProcessB = yield* startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
-							yield* waitForApi(apiPortB, apiProcessB);
 						}),
 					),
 				),
@@ -261,7 +256,6 @@ describe("Local auth disabled (API B)", () => {
 							apiProcessA = yield* startApi("A", apiPortA, {
 								FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
 							});
-							yield* waitForApi(apiPortA, apiProcessA);
 						}),
 					),
 				),
@@ -374,7 +368,6 @@ describe("Registration gating for OIDC (API C)", () => {
 					Effect.andThen(
 						Effect.gen(function* () {
 							apiProcessC = yield* startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
-							yield* waitForApi(apiPortC, apiProcessC);
 						}),
 					),
 				),

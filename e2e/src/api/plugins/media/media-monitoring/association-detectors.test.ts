@@ -1,4 +1,4 @@
-import { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
@@ -7,7 +7,7 @@ import {
 	createNotificationChannel,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
-	getApiClient,
+	markEntityPopulated,
 	pollProviderEntityImportResult,
 	pollUntil,
 	populateRelatedThroughForegroundInterest,
@@ -228,12 +228,7 @@ describe("dual-writer canonical identity", () => {
 				// Mark the person already-populated so its own later cron refresh below is a
 				// rewrite, not a first population — isolating the noop assertion from the
 				// initial-population carve-out (covered separately).
-				yield* getApiClient(target).adminCall((c) =>
-					c.testSupport.setEntityPopulatedAt({
-						params: { entityId: EntityId.make(person.id) },
-						payload: { populatedAt: new Date().toISOString() },
-					}),
-				);
+				yield* markEntityPopulated(person.id, "full", target);
 
 				const personMonitor = yield* createAuthenticatedClient(target);
 				const importer = yield* createAuthenticatedClient(target);
@@ -352,12 +347,7 @@ describe("association lifecycle via cron refresh", () => {
 			// Mark the person already-populated so its later cron-driven authoritative sync
 			// below is a role update, not a first population — the carve-out would otherwise
 			// silence it since the person is both the refresh root and the credited subject.
-			yield* getApiClient(target).adminCall((c) =>
-				c.testSupport.setEntityPopulatedAt({
-					params: { entityId: EntityId.make(person.id) },
-					payload: { populatedAt: new Date().toISOString() },
-				}),
-			);
+			yield* markEntityPopulated(person.id, "full", target);
 
 			const personMonitor = yield* createAuthenticatedClient(target);
 			yield* createNotificationChannel(personMonitor.client, {

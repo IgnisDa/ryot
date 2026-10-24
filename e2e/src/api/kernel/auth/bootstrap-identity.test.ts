@@ -27,18 +27,6 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 it.live("joins creation and reset bootstrap for each recreated account generation", () =>
 	Effect.gen(function* () {
 		const requests = yield* Queue.unbounded<string>();
-		let stage = "start";
-		let operationId: string | undefined;
-		const step = Effect.fnUntraced(function* <A, E, R>(name: string, work: Effect.Effect<A, E, R>) {
-			stage = name;
-			yield* Effect.logInfo("Bootstrap identity stage started", { stage, operationId });
-			return yield* work.pipe(
-				Effect.timeoutOrElse({
-					duration: "45 seconds",
-					orElse: () => Effect.die(new Error(`Bootstrap identity timed out: ${name}`)),
-				}),
-			);
-		});
 		let held: Deferred.Deferred<void> | undefined;
 		let targetUserId = "";
 		const { target } = yield* Effect.acquireRelease(
@@ -53,11 +41,6 @@ it.live("joins creation and reset bootstrap for each recreated account generatio
 				}
 				yield* Queue.offer(requests, url.pathname);
 				const gate = held;
-				yield* Effect.logInfo("Bootstrap identity HTTP request", {
-					userId,
-					entityId,
-					held: gate !== undefined && userId === targetUserId,
-				});
 				if (gate && userId === targetUserId) {
 					yield* Deferred.await(gate);
 				}
@@ -70,35 +53,30 @@ it.live("joins creation and reset bootstrap for each recreated account generatio
 		);
 		const scriptSlug = "bootstrap.record-identity";
 		yield* Effect.acquireRelease(
-			step(
-				"install recording plugin",
-				installTestSupportSystemPlugin({
-					target,
-					manifest: testPluginManifest({
-						packageId: testPluginPackageId(),
-						pluginSlug: `bootstrap-identity-${crypto.randomUUID()}`,
-						userBootstrap: [
-							{ scriptSlug, slug: "record-identity", description: "Record bootstrap identity" },
-						],
-						entitySchemas: [
-							testPluginEntitySchema({
-								slug: "bootstrap-marker",
-								propertiesSchema: { fields: {} },
-							}),
-						],
-						scripts: [
-							{
-								entry,
-								kind: "script",
-								slug: scriptSlug,
-								capabilities: ["httpCall"],
-								requiredPluginConfigKeys: [],
-								name: "Record bootstrap identity",
-							},
-						],
-					}),
-					files: encodePluginSourceFiles({
-						[entry]: `
+			installTestSupportSystemPlugin({
+				target,
+				manifest: testPluginManifest({
+					packageId: testPluginPackageId(),
+					pluginSlug: `bootstrap-identity-${crypto.randomUUID()}`,
+					userBootstrap: [
+						{ scriptSlug, slug: "record-identity", description: "Record bootstrap identity" },
+					],
+					entitySchemas: [
+						testPluginEntitySchema({ slug: "bootstrap-marker", propertiesSchema: { fields: {} } }),
+					],
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: ["httpCall"],
+							requiredPluginConfigKeys: [],
+							name: "Record bootstrap identity",
+						},
+					],
+				}),
+				files: encodePluginSourceFiles({
+					[entry]: `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { ascending, column, defineRecipe, eq, executeRyotqlRecipe, literal, selectedField, selectedOptionalRow, table } from "@ryot-app/plugin-backend-sdk/ryotql";
@@ -126,9 +104,8 @@ export default defineScript({
  }),
 });
 `,
-					}),
 				}),
-			),
+			}),
 			({ pluginId, activationId }) =>
 				getApiClient(target)
 					.adminCall((contract) =>
@@ -136,19 +113,9 @@ export default defineScript({
 					)
 					.pipe(Effect.orDie),
 		);
-		const { email, userId } = yield* step(
-			"create authenticated user",
-			createAuthenticatedClient(target),
-		);
+		const { email, userId } = yield* createAuthenticatedClient(target);
 		targetUserId = userId;
-		yield* Effect.addFinalizer(() =>
-			deleteUserAndWait(userId, target).pipe(
-				Effect.timeout("15 seconds"),
-				Effect.catchCause((cause) =>
-					Effect.logWarning("Bootstrap identity user cleanup failed", cause),
-				),
-			),
-		);
+		yield* Effect.addFinalizer(() => deleteUserAndWait(userId, target).pipe(Effect.orDie));
 		yield* Effect.addFinalizer(() =>
 			held ? Deferred.succeed(held, undefined).pipe(Effect.asVoid) : Effect.void,
 		);
@@ -160,47 +127,11 @@ export default defineScript({
 				}
 			}
 		});
-		yield* Effect.addFinalizer((exit) =>
-			exit._tag === "Failure"
-				? Effect.gen(function* () {
-						yield* Effect.logError("Bootstrap identity failure", exit.cause, {
-							stage,
-							userId,
-							operationId,
-							serverLog: target.serverLogFile,
-							requests: upstream.requests.map(({ path }) => path),
-						});
-						if (operationId !== undefined) {
-							yield* Effect.logError(
-								"Bootstrap identity operation state",
-								yield* executeAdminRyotQLRecipe(
-									userLifecycleOperationRecipe({ id: operationId }),
-									target,
-								).pipe(Effect.timeout("5 seconds"), Effect.result),
-							);
-						}
-						yield* Effect.logError(
-							"Bootstrap identity user state",
-							yield* executeAdminRyotQLRecipe(
-								instanceAdminUsersRecipe({ limit: 10, search: email }),
-								target,
-							).pipe(
-								Effect.map(({ items }) => items.map(({ id, disabledAt }) => ({ id, disabledAt }))),
-								Effect.timeout("5 seconds"),
-								Effect.result,
-							),
-						);
-					})
-				: Effect.void,
-		);
-		const executions = [yield* step("observe creation bootstrap", nextBootstrap())];
+		const executions = [yield* nextBootstrap()];
 		for (let reset = 0; reset < 2; reset++) {
-			operationId = undefined;
 			held = yield* Deferred.make<void>();
-			const accepted = yield* step(`request reset ${reset + 1}`, requestUserReset(userId, target));
-			operationId = accepted.operationId;
-			const markerPath = yield* step(`observe reset ${reset + 1} bootstrap`, nextBootstrap());
-			stage = `assert reset ${reset + 1} is held`;
+			const accepted = yield* requestUserReset(userId, target);
+			const markerPath = yield* nextBootstrap();
 			expect(markerPath).not.toBe(executions.at(-1));
 			const pending = Option.getOrThrow(
 				yield* executeAdminRyotQLRecipe(
@@ -218,14 +149,11 @@ export default defineScript({
 			);
 			expect(user.disabledAt).not.toBeNull();
 			yield* Deferred.succeed(held, undefined);
-			const completed = yield* step(
-				`complete reset ${reset + 1}`,
-				pollUserLifecycleOperation(accepted.operationId, target),
-			);
+			const completed = yield* pollUserLifecycleOperation(accepted.operationId, target);
 			assertCompleted(completed, `Reset operation ${accepted.operationId}`);
-			const enabled = yield* step(
-				`verify reset ${reset + 1} enabled the user`,
-				executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 10, search: email }), target),
+			const enabled = yield* executeAdminRyotQLRecipe(
+				instanceAdminUsersRecipe({ limit: 10, search: email }),
+				target,
 			);
 			expect(
 				requirePresent(
@@ -236,7 +164,6 @@ export default defineScript({
 			executions.push(markerPath);
 			held = undefined;
 		}
-		stage = "assert one bootstrap invocation per account generation";
 		expect(new Set(executions).size).toBe(3);
 		expect(
 			upstream.requests.map(({ path }) => path).filter((path) => path.startsWith(`/${userId}/`)),

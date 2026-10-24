@@ -89,6 +89,9 @@ type TestPluginOwner =
 	| { client?: undefined; scope: "system"; target?: HarnessTarget }
 	| { client: Client; scope?: "user" };
 
+const testPluginOwnerTarget = (owner: TestPluginOwner) =>
+	owner.scope === "system" ? (owner.target ?? getSharedHarnessTarget()) : owner.client.target;
+
 export type InstalledTestPlugin = {
 	target: HarnessTarget;
 	slug: string;
@@ -184,7 +187,7 @@ export const findTestEntitySchema = (client: Client, reference: EntitySchemaRefe
 		if (
 			reference.owner.kind !== "plugin" ||
 			registration.pluginId !== reference.owner.pluginId ||
-			registration.client.baseUrl !== client.baseUrl ||
+			registration.client.target.apiUrl !== client.target.apiUrl ||
 			registration.client.userId !== client.userId
 		) {
 			continue;
@@ -355,8 +358,7 @@ export const installTestPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
-		const target =
-			input.scope === "system" ? (input.target ?? getSharedHarnessTarget()) : input.client.target;
+		const target = testPluginOwnerTarget(input);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
@@ -457,8 +459,7 @@ export const installTestPluginBundle = (
 ) =>
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);
-		const target =
-			input.scope === "system" ? (input.target ?? getSharedHarnessTarget()) : input.client.target;
+		const target = testPluginOwnerTarget(input);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
@@ -564,7 +565,7 @@ export const installTestDefinitions = (input: {
 }) =>
 	Effect.gen(function* () {
 		const registrationKey = stableStringify([
-			input.client.baseUrl,
+			input.client.target.apiUrl,
 			requirePresent(input.client.userId, "Private test plugin client has no fixture user ID"),
 			input.pluginSlug,
 		]);

@@ -5,12 +5,7 @@ import { makeSession } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-pro-key-test";
@@ -76,7 +71,7 @@ const scenarioNames: ScenarioName[] = [
 ];
 
 type ScenarioInstance = {
-	target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
+	target: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 	fake?: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
 };
 
@@ -108,7 +103,7 @@ beforeAll(() =>
 						? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
 						: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
 					const apiOrigin = `http://127.0.0.1:${port}`;
-					const process = yield* spawnApiProcess(
+					const process = yield* startApiProcess(
 						buildApiEnv({
 							port,
 							frontendUrl: apiOrigin,
@@ -119,14 +114,9 @@ beforeAll(() =>
 							s3Endpoint: infrastructure.s3Endpoint,
 							extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
 						}),
+						`Pro key ${name}`,
 					);
 					scenarios.set(name, { fake, target: process.target });
-					yield* waitForHealthCheck(
-						`${apiOrigin}/api/system/health`,
-						`Pro key ${name} setup`,
-						process,
-						90,
-					);
 				}
 			}),
 		),

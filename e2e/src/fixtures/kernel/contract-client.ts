@@ -7,16 +7,11 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
 
-import {
-	getSharedHarnessTarget,
-	type HarnessTarget,
-	makeHarnessTarget,
-} from "~/support/harness-target";
+import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
 	readonly target: HarnessTarget;
-	readonly baseUrl: string;
 	readonly userId?: UserId;
 	call: <A, E>(
 		program: ContractProgram<A, E>,
@@ -26,16 +21,14 @@ export type ContractSession = {
 };
 
 export const makeSession = (
-	input = getSharedHarnessTarget(),
+	target = getSharedHarnessTarget(),
 	defaultHeaders: RequestHeaders = {},
 	userId?: UserId,
 ): ContractSession => {
-	const target = makeHarnessTarget(input);
 	const sessionHeaders = { ...defaultHeaders };
 	return Object.freeze({
 		userId,
 		target,
-		baseUrl: target.apiUrl,
 		call: (program, headers = {}) =>
 			makeContractClient(target.apiUrl, { ...sessionHeaders, ...headers }).pipe(
 				Effect.flatMap(program),
@@ -52,7 +45,7 @@ export const getApiClient = (target?: HarnessTarget): ContractSession => makeSes
 
 export const postApiJson = (client: ContractSession, path: string, body: unknown, token?: string) =>
 	Effect.gen(function* () {
-		return yield* webRequest(`${client.baseUrl}${path}`, {
+		return yield* webRequest(`${client.target.apiUrl}${path}`, {
 			method: "POST",
 			body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(body),
 			headers: {

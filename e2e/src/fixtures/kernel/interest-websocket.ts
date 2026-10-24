@@ -59,7 +59,7 @@ export const openInterestWebSocket = (
 		const { ticket } = yield* auth.client.call((contract) =>
 			contract["entity-watches"].createSocketTicket(),
 		);
-		const url = `${auth.client.baseUrl}/entity-watches/ws`;
+		const url = `${auth.client.target.apiUrl}/entity-watches/ws`;
 		const socket = new WebSocket(url);
 		const timeoutMs = options.timeoutMs ?? 10_000;
 

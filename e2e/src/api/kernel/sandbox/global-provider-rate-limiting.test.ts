@@ -27,10 +27,9 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	waitForHealthCheck,
 } from "~/support/provisioning";
 import { makeTestResourceScope } from "~/support/resource-scope";
 
@@ -319,17 +318,12 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 });
 
 describe("isolated deployment-global sandbox HTTP rate limiting", () => {
-	let apiPortA: number;
-	let apiPortB: number;
 	let apiEnvA: NodeJS.ProcessEnv;
 	let httpServer: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>> | undefined;
 	const requestTimestamps: Array<number> = [];
-	let apiProcessA: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
-	let apiProcessB: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+	let apiProcessA: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
+	let apiProcessB: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
 	const resources = makeTestResourceScope();
-
-	const apiOriginA = () => `http://127.0.0.1:${apiPortA}`;
-	const apiOriginB = () => `http://127.0.0.1:${apiPortB}`;
 
 	beforeAll(() =>
 		runPromise(
@@ -342,44 +336,32 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					const infrastructure = yield* startCoreTestInfrastructure({
 						bucketName: ISOLATED_BUCKET_NAME,
 					});
-					apiPortA = yield* Effect.promise(() => getPort());
+					const apiPortA = yield* Effect.promise(() => getPort());
 					apiEnvA = buildApiEnv({
 						port: apiPortA,
-						frontendUrl: apiOriginA(),
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API A",
 						redisUrl: infrastructure.redisUrl,
 						s3BucketName: ISOLATED_BUCKET_NAME,
 						s3Endpoint: infrastructure.s3Endpoint,
+						frontendUrl: `http://127.0.0.1:${apiPortA}`,
 						extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 					});
-					apiProcessA = yield* spawnApiProcess(apiEnvA);
-					yield* waitForHealthCheck(
-						`${apiOriginA()}/api/system/health`,
-						"Global Rate Limit API A",
-						apiProcessA,
-						90,
-					);
-					apiPortB = yield* Effect.promise(() => getPort());
+					apiProcessA = yield* startApiProcess(apiEnvA, "Global Rate Limit API A");
+					const apiPortB = yield* Effect.promise(() => getPort());
 					// Both processes share a FRONTEND_URL: the internal OAuth client and API resource are
 					// provisioned from it, as they are for replicas of a single deployment.
 					const apiEnvB = buildApiEnv({
 						port: apiPortB,
-						frontendUrl: apiOriginA(),
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API B",
 						redisUrl: infrastructure.redisUrl,
 						s3BucketName: ISOLATED_BUCKET_NAME,
 						s3Endpoint: infrastructure.s3Endpoint,
+						frontendUrl: `http://127.0.0.1:${apiPortA}`,
 						extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 					});
-					apiProcessB = yield* spawnApiProcess(apiEnvB);
-					yield* waitForHealthCheck(
-						`${apiOriginB()}/api/system/health`,
-						"Global Rate Limit API B",
-						apiProcessB,
-						90,
-					);
+					apiProcessB = yield* startApiProcess(apiEnvB, "Global Rate Limit API B");
 				}),
 			),
 		),
@@ -471,12 +453,8 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				expect(pressure.sandbox.activeExecutions).toBe(0);
 
 				yield* stopApiProcess(apiProcessB);
-				apiProcessA = yield* resources.run(spawnApiProcess(apiEnvA));
-				yield* waitForHealthCheck(
-					`${apiOriginA()}/api/system/health`,
-					"Global Rate Limit API A Restart",
-					apiProcessA,
-					90,
+				apiProcessA = yield* resources.run(
+					startApiProcess(apiEnvA, "Global Rate Limit API A Restart"),
 				);
 				const restartedClientA = makeSession(apiProcessA.target);
 				expectSuccessfulHttpCall(

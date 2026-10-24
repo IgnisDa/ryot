@@ -8,6 +8,7 @@ import {
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
+	markEntityPopulated,
 	pollUntil,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
@@ -125,12 +126,7 @@ beforeAll(() =>
 			apiEntityId = apiEntity.id;
 			cronEntityId = cronEntity.id;
 			discoveryEntityId = discoveryEntity.id;
-			yield* getApiClient(target).adminCall((c) =>
-				c.testSupport.setEntityPopulatedAt({
-					params: { entityId: EntityId.make(apiEntityId) },
-					payload: { populatedAt: new Date().toISOString() },
-				}),
-			);
+			yield* markEntityPopulated(apiEntityId, "full", target);
 		}),
 	),
 );
@@ -256,7 +252,6 @@ describe("media monitoring endpoints", () => {
 					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
-					target,
 					properties: {},
 					providerId: null,
 					name: "Custom Movie",
@@ -265,7 +260,6 @@ describe("media monitoring endpoints", () => {
 					entitySchemaSlug: movieSchemaId,
 				}),
 				seedMediaEntity({
-					target,
 					properties: {},
 					providerId: null,
 					userId: other.userId,

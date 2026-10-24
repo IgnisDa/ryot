@@ -23,108 +23,76 @@ export type CoreTestInfrastructure = {
 	s3Endpoint: string;
 };
 
-export const acquireCoreTestInfrastructure = Effect.fn("acquireCoreTestInfrastructure")(
-	function* (resources: {
-		postgres: Effect.Effect<
-			Pick<CoreTestInfrastructure, "dbUrl" | "pgLogPath"> & { release: Effect.Effect<void> }
-		>;
-		redis: Effect.Effect<{ redisUrl: string; release: Effect.Effect<void> }>;
-		storage: Effect.Effect<{
-			s3Endpoint: string;
-			release: Effect.Effect<void>;
-			client: Effect.Effect<{
-				release: Effect.Effect<void>;
-				createBucket: Effect.Effect<void>;
-				configureCors: Effect.Effect<void>;
-			}>;
-		}>;
-	}) {
+export const startCoreTestInfrastructure = Effect.fn("startCoreTestInfrastructure")(
+	function* (input: { bucketName: string }) {
 		const [postgres, redis, storage] = yield* Effect.all(
 			[
-				Effect.acquireRelease(resources.postgres, (resource) => resource.release),
-				Effect.acquireRelease(resources.redis, (resource) => resource.release),
-				Effect.acquireRelease(resources.storage, (resource) => resource.release),
+				Effect.acquireRelease(
+					Effect.promise(() => startPostgresContainer({ label: "e2e" })),
+					(container) => Effect.promise(() => stopPostgresContainer(container)),
+				),
+				Effect.acquireRelease(
+					Effect.promise(() =>
+						new GenericContainer("redis:alpine")
+							.withExposedPorts(6379)
+							.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
+							.start(),
+					),
+					(container) => Effect.promise(() => container.stop()),
+				),
+				Effect.acquireRelease(
+					Effect.promise(() =>
+						new GenericContainer("rustfs/rustfs")
+							.withExposedPorts(9000)
+							.withWaitStrategy(Wait.forHttp("/health", 9000))
+							.start(),
+					),
+					(container) => Effect.promise(() => container.stop()),
+				),
 			],
 			{ concurrency: "unbounded" },
 		);
-		const client = yield* Effect.acquireRelease(storage.client, (resource) => resource.release);
-		yield* client.createBucket;
-		yield* client.configureCors;
+		const s3Endpoint = `http://${storage.getHost()}:${storage.getMappedPort(9000)}`;
+		const s3Client = yield* Effect.acquireRelease(
+			Effect.sync(
+				() =>
+					new S3Client({
+						region: "us-east-1",
+						endpoint: s3Endpoint,
+						forcePathStyle: true,
+						credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
+					}),
+			),
+			(client) => Effect.sync(() => client.destroy()),
+		);
+		yield* Effect.promise(() =>
+			s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName })),
+		);
+		yield* Effect.promise(() =>
+			s3Client.send(
+				new PutBucketCorsCommand({
+					Bucket: input.bucketName,
+					CORSConfiguration: {
+						CORSRules: [
+							{
+								AllowedOrigins: ["*"],
+								AllowedHeaders: ["*"],
+								AllowedMethods: ["GET", "HEAD", "PUT"],
+							},
+						],
+					},
+				}),
+			),
+		);
 		return {
-			dbUrl: postgres.dbUrl,
-			redisUrl: redis.redisUrl,
-			pgLogPath: postgres.pgLogPath,
-			s3Endpoint: storage.s3Endpoint,
+			s3Endpoint,
+			dbUrl: postgres.url,
+			pgLogPath: postgres.logPath,
+			redisUrl: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
 		} satisfies CoreTestInfrastructure;
 	},
 	acquireInChildScope,
 );
-
-export const startCoreTestInfrastructure = (input: { bucketName: string }) =>
-	acquireCoreTestInfrastructure({
-		postgres: Effect.promise(() => startPostgresContainer({ label: "e2e" })).pipe(
-			Effect.map((postgres) => ({
-				dbUrl: postgres.url,
-				pgLogPath: postgres.logPath,
-				release: Effect.promise(() => stopPostgresContainer(postgres)),
-			})),
-		),
-		redis: Effect.promise(() =>
-			new GenericContainer("redis:alpine")
-				.withExposedPorts(6379)
-				.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
-				.start(),
-		).pipe(
-			Effect.map((container) => ({
-				release: Effect.promise(() => container.stop()).pipe(Effect.asVoid),
-				redisUrl: `redis://${container.getHost()}:${container.getMappedPort(6379)}`,
-			})),
-		),
-		storage: Effect.promise(() =>
-			new GenericContainer("rustfs/rustfs")
-				.withExposedPorts(9000)
-				.withWaitStrategy(Wait.forHttp("/health", 9000))
-				.start(),
-		).pipe(
-			Effect.map((container) => {
-				const s3Endpoint = `http://${container.getHost()}:${container.getMappedPort(9000)}`;
-				return {
-					s3Endpoint,
-					release: Effect.promise(() => container.stop()).pipe(Effect.asVoid),
-					client: Effect.sync(() => {
-						const s3Client = new S3Client({
-							region: "us-east-1",
-							endpoint: s3Endpoint,
-							forcePathStyle: true,
-							credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
-						});
-						return {
-							release: Effect.sync(() => s3Client.destroy()),
-							createBucket: Effect.promise(() =>
-								s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName })),
-							).pipe(Effect.asVoid),
-							configureCors: Effect.promise(() =>
-								s3Client.send(
-									new PutBucketCorsCommand({
-										Bucket: input.bucketName,
-										CORSConfiguration: {
-											CORSRules: [
-												{
-													AllowedOrigins: ["*"],
-													AllowedHeaders: ["*"],
-													AllowedMethods: ["GET", "HEAD", "PUT"],
-												},
-											],
-										},
-									}),
-								),
-							).pipe(Effect.asVoid),
-						};
-					}),
-				};
-			}),
-		),
-	});
 
 export const harnessApiEnv = {
 	SERVER_SMTP_USER: "",
@@ -179,7 +147,7 @@ export function buildApiEnv(input: {
 	};
 }
 
-export const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd = "../apps/server") =>
+const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd: string) =>
 	Effect.acquireRelease(
 		Effect.sync(() => {
 			const logFile = env.SERVER_LOG_FILE;
@@ -192,15 +160,13 @@ export const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd = "../apps/server") 
 			});
 		}),
 		stopApiProcess,
-	).pipe(
-		Effect.map((process) => Object.assign(process, { target: apiProcessTarget(env, process.pid) })),
-	);
+	).pipe(Effect.map((process) => Object.assign(process, { target: apiProcessTarget(env) })));
 
-export const waitForHealthCheck = (
+const waitForHealthCheck = (
 	url: string,
 	label: string,
-	process: Effect.Success<ReturnType<typeof spawnApiProcess>>,
-	maxRetries = 30,
+	process: Pick<Bun.Subprocess, "exitCode">,
+	maxRetries = 90,
 	retryDelay = 1000,
 ) =>
 	Effect.gen(function* () {
@@ -223,6 +189,21 @@ export const waitForHealthCheck = (
 		}
 		throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
 	});
+
+export const startApiProcess = Effect.fn("startApiProcess")(function* (
+	env: NodeJS.ProcessEnv,
+	label: string,
+	cwd = "../apps/server",
+) {
+	const apiProcess = yield* spawnApiProcess(env, cwd);
+	yield* waitForHealthCheck(`http://127.0.0.1:${env.PORT}/api/system/health`, label, apiProcess);
+	return apiProcess;
+});
+
+export const waitForFrontend = (
+	apiProcess: Pick<Bun.Subprocess, "exitCode">,
+	frontendUrl: string,
+) => waitForHealthCheck(frontendUrl, "E2E SPA", apiProcess);
 
 export const stopApiProcess = (proc?: Pick<Bun.Subprocess, "exitCode" | "exited" | "kill">) =>
 	Effect.gen(function* () {

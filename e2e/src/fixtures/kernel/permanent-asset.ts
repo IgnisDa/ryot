@@ -22,11 +22,14 @@ export const uploadPermanentAsset = (
 				},
 			}),
 		);
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
-			method: intent.method,
-			headers: intent.headers,
-			body: options.body ?? `synthetic ${options.fileName}`,
-		});
+		const uploadResponse = yield* webRequest(
+			new URL(intent.uploadUrl, `${client.target.apiUrl}/`),
+			{
+				method: intent.method,
+				headers: intent.headers,
+				body: options.body ?? `synthetic ${options.fileName}`,
+			},
+		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload permanent asset (${uploadResponse.status})`);
 		}

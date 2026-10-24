@@ -1,7 +1,6 @@
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import { Effect } from "effect";
-import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
@@ -13,23 +12,12 @@ import {
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
+import { getSharedHarnessTarget } from "~/support/harness-target";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
-const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
-
-let fallbackApiPort: number;
-let fallbackTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
-const resources = makeTestResourceScope();
-
-const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
+let fallbackHarness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let fallbackTarget: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 const expectValidExpiry = (expiresAt: string | undefined) => {
 	expect(expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
@@ -38,42 +26,20 @@ const expectValidExpiry = (expiresAt: string | undefined) => {
 
 beforeAll(() =>
 	runPromise(
-		resources.run(
-			Effect.gen(function* () {
-				fallbackApiPort = yield* Effect.promise(() => getPort());
-				const infrastructure = yield* startCoreTestInfrastructure({
-					bucketName: FALLBACK_S3_BUCKET_NAME,
-				});
-				const fallbackApiProcess = yield* spawnApiProcess(
-					buildApiEnv({
-						port: fallbackApiPort,
-						dbUrl: infrastructure.dbUrl,
-						label: "Upload fallback api",
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-						s3BucketName: FALLBACK_S3_BUCKET_NAME,
-						frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
-						extraEnv: {
-							FILE_STORAGE_S3_URL: "",
-							FILE_STORAGE_S3_REGION: "",
-							FILE_STORAGE_S3_BUCKET_NAME: "",
-							FILE_STORAGE_S3_ACCESS_KEY_ID: "",
-							FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
-						},
-					}),
-				);
-				yield* waitForHealthCheck(
-					`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
-					"Upload fallback setup",
-					fallbackApiProcess,
-				);
-				fallbackTarget = fallbackApiProcess.target;
-			}),
-		),
+		Effect.gen(function* () {
+			fallbackHarness = yield* startIsolatedHarness("Upload fallback api", {
+				FILE_STORAGE_S3_URL: "",
+				FILE_STORAGE_S3_REGION: "",
+				FILE_STORAGE_S3_BUCKET_NAME: "",
+				FILE_STORAGE_S3_ACCESS_KEY_ID: "",
+				FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
+			});
+			fallbackTarget = fallbackHarness.target;
+		}),
 	),
 );
 
-afterAll(() => runPromise(resources.close));
+afterAll(() => runPromise(fallbackHarness?.stop ?? Effect.void));
 
 const uploadAndComplete = (
 	fileName: string,
@@ -86,11 +52,10 @@ const uploadAndComplete = (
 		const intent = yield* client.call((c) =>
 			c.uploads.createIntent({ payload: { fileName, contentType, kind: "permanent" } }),
 		);
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
-			body,
-			method: intent.method,
-			headers: intent.headers,
-		});
+		const uploadResponse = yield* webRequest(
+			new URL(intent.uploadUrl, `${client.target.apiUrl}/`),
+			{ body, method: intent.method, headers: intent.headers },
+		);
 		expect([200, 204]).toContain(uploadResponse.status);
 		const asset = yield* client.call((c) =>
 			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -251,7 +216,7 @@ describe("POST /uploads/intents", () => {
 
 	it.live("falls back to local storage for permanent uploads when S3 is not configured", () =>
 		Effect.gen(function* () {
-			const apiUrl = getFallbackApiUrl();
+			const apiUrl = fallbackTarget.apiUrl;
 			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", fallbackTarget);
 			expect(asset).toMatchObject({ type: "local" });
 			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
@@ -269,7 +234,7 @@ describe("POST /uploads/intents", () => {
 
 	it.live("serves local SVG artwork as a sandboxed attachment", () =>
 		Effect.gen(function* () {
-			const apiUrl = getFallbackApiUrl();
+			const apiUrl = fallbackTarget.apiUrl;
 			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" />';
 			const { asset, client } = yield* uploadAndComplete(
 				"cover.svg",
@@ -298,12 +263,13 @@ describe("POST /uploads/intents", () => {
 					payload: { kind: "temporary", fileName: "report.csv", contentType: "text/csv" },
 				}),
 			);
-			expect(new URL(intent.uploadUrl, `${getApiUrl()}/`).pathname).toContain("/uploads/local/");
-			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-				method: intent.method,
-				body: "temporary data",
-				headers: intent.headers,
-			});
+			expect(new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`).pathname).toContain(
+				"/uploads/local/",
+			);
+			const uploadResponse = yield* webRequest(
+				new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`),
+				{ method: intent.method, body: "temporary data", headers: intent.headers },
+			);
 			expect([200, 204]).toContain(uploadResponse.status);
 			const token = yield* client.call((c) =>
 				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -326,11 +292,10 @@ describe("POST /uploads/intents", () => {
 			);
 			const body = new Uint8Array(UPLOAD_MAX_FILE_BYTES + 1);
 			body.fill(97);
-			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-				body,
-				method: intent.method,
-				headers: intent.headers,
-			});
+			const uploadResponse = yield* webRequest(
+				new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`),
+				{ body, method: intent.method, headers: intent.headers },
+			);
 			expect(uploadResponse.status).toBe(400);
 			const cleaned = yield* Effect.flip(
 				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
@@ -406,7 +371,7 @@ describe("POST /uploads/intents", () => {
 					payload: { kind: "temporary", fileName: "signed.csv", contentType: "text/csv" },
 				}),
 			);
-			const tamperedSignature = new URL(intent.uploadUrl, `${getApiUrl()}/`);
+			const tamperedSignature = new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`);
 			tamperedSignature.searchParams.set("signature", "invalid");
 			const invalidSignature = yield* webRequest(tamperedSignature, {
 				body: "signed",
@@ -415,7 +380,7 @@ describe("POST /uploads/intents", () => {
 			});
 			expect(invalidSignature.status).toBe(400);
 
-			const expired = new URL(intent.uploadUrl, `${getApiUrl()}/`);
+			const expired = new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`);
 			expired.searchParams.set("expires", "0");
 			const expiredResponse = yield* webRequest(expired, {
 				body: "signed",
@@ -425,7 +390,7 @@ describe("POST /uploads/intents", () => {
 			expect(expiredResponse.status).toBe(400);
 
 			const mismatchedContentType = yield* webRequest(
-				new URL(intent.uploadUrl, `${getApiUrl()}/`),
+				new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`),
 				{
 					body: "signed",
 					method: intent.method,
@@ -445,11 +410,10 @@ describe("POST /uploads/intents", () => {
 					payload: { kind: "permanent", contentType: "text/csv", fileName: "other-user.csv" },
 				}),
 			);
-			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-				method: intent.method,
-				body: "title\nexample",
-				headers: intent.headers,
-			});
+			const uploadResponse = yield* webRequest(
+				new URL(intent.uploadUrl, `${getSharedHarnessTarget().apiUrl}/`),
+				{ method: intent.method, body: "title\nexample", headers: intent.headers },
+			);
 			expect([200, 204]).toContain(uploadResponse.status);
 			const error = yield* Effect.flip(
 				second.client.call((c) =>
@@ -463,7 +427,7 @@ describe("POST /uploads/intents", () => {
 
 	it.live("requires authentication for temporary intents", () =>
 		Effect.gen(function* () {
-			const response = yield* webRequest(`${getApiUrl()}/uploads/intents`, {
+			const response = yield* webRequest(`${getSharedHarnessTarget().apiUrl}/uploads/intents`, {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: '{"kind":"temporary","fileName":"report.csv","contentType":"text/csv"}',
@@ -476,7 +440,7 @@ describe("POST /uploads/intents", () => {
 describe("GET /uploads/local/download", () => {
 	it.live("serves local files with HEAD and byte range support", () =>
 		Effect.gen(function* () {
-			const apiUrl = getFallbackApiUrl();
+			const apiUrl = fallbackTarget.apiUrl;
 			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", fallbackTarget);
 			const resolved = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
