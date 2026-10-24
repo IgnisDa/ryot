@@ -5,7 +5,7 @@ import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
 import { ProviderLibraryMembership } from "../entity-providers/schemas";
-import { AuthoredFilterField, FilterField } from "../filters/schemas";
+import { FilterField } from "../filters/schemas";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
@@ -101,15 +101,6 @@ export type SavedViewRenderer = typeof SavedViewRenderer.Type;
 export const EntityBrowserLayout = Schema.Literals(["grid", "list", "table"]);
 export type EntityBrowserLayout = typeof EntityBrowserLayout.Type;
 
-export const EntityBrowserSortChoice = strictStruct({
-	label: Schema.String,
-	name: Schema.NonEmptyString,
-	orderBy: Schema.NonEmptyArray(
-		strictStruct({ field: OutputFieldKey, direction: Schema.Literals(["asc", "desc"]) }),
-	),
-});
-export type EntityBrowserSortChoice = typeof EntityBrowserSortChoice.Type;
-
 const EntityBrowserProviderSearchAddAction = strictStruct({
 	schema: EntitySchemaReference,
 	library: ProviderLibraryMembership,
@@ -203,8 +194,6 @@ export const EntityBrowserSavedViewSettings = strictStruct({
 	searchFields: Schema.Array(OutputFieldKey),
 	addAction: Schema.NullOr(EntityBrowserAddAction),
 	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
-	sortChoices: Schema.Array(EntityBrowserSortChoice),
-	filterFields: Schema.optionalKey(Schema.Array(FilterField)),
 	tableColumns: Schema.NullOr(Schema.NonEmptyArray(SavedViewTableColumn)),
 });
 export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
@@ -213,7 +202,6 @@ export const AuthoredEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
 	subject: AuthoredSavedViewSubject,
 	addAction: Schema.NullOr(AuthoredEntityBrowserAddAction),
-	filterFields: Schema.optionalKey(Schema.Array(AuthoredFilterField)),
 });
 export type AuthoredEntityBrowserSavedViewSettings =
 	typeof AuthoredEntityBrowserSavedViewSettings.Type;

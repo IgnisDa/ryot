@@ -1,10 +1,6 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { calendarSourceDocument } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
-	mapFilterFieldReference,
-	type ValueFilterField,
-} from "@ryot-app/contract/modules/filters/schemas";
-import {
 	type DefinitionOwner,
 	definitionOwner,
 	type PluginIdentityReference,
@@ -46,22 +42,6 @@ import {
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
-const linkedFieldReferences = <Relationship, Event>(
-	filterFields:
-		| undefined
-		| readonly (
-				| ValueFilterField
-				| { readonly event: Event; readonly kind: "session-event" }
-				| { readonly kind: "relationship"; readonly relationship: Relationship }
-		  )[],
-) =>
-	(filterFields ?? []).flatMap((filterField): readonly (Event | Relationship)[] => {
-		if (filterField.kind === "value") {
-			return [];
-		}
-		return filterField.kind === "relationship" ? [filterField.relationship] : [filterField.event];
-	});
-
 export const exportRendererSettings = Effect.fn(function* (
 	renderer: { readonly kind: string; readonly name?: string },
 	settings: Readonly<Record<string, JsonValue>>,
@@ -77,7 +57,6 @@ export const exportRendererSettings = Effect.fn(function* (
 	const references = [
 		...decoded.subject.schemas,
 		...(action?.type === "provider-search" ? [action.schema] : []),
-		...linkedFieldReferences(decoded.filterFields),
 	];
 	if (references.some(({ owner }) => owner.kind === "plugin" && !pluginKeys.has(owner.pluginId))) {
 		return yield* archiveError(
@@ -95,18 +74,10 @@ export const exportRendererSettings = Effect.fn(function* (
 		slug,
 		pluginKey: (owner.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null) ?? null,
 	});
-	const { filterFields, ...rest } = decoded;
 	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
-		...rest,
+		...decoded,
 		addAction: mapEntityBrowserAddActionSchema(action, toArchive),
 		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toArchive) },
-		...(filterFields
-			? {
-					filterFields: filterFields.map((filterField) =>
-						mapFilterFieldReference(filterField, toArchive),
-					),
-				}
-			: {}),
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });
@@ -126,7 +97,6 @@ export const importRendererSettings = Effect.fn(function* (
 	const references = [
 		...decoded.subject.schemas,
 		...(action?.type === "provider-search" ? [action.schema] : []),
-		...linkedFieldReferences(decoded.filterFields),
 	];
 	if (references.some(({ pluginKey }) => pluginKey != null && !pluginIds.has(pluginKey))) {
 		return yield* archiveError(
@@ -148,13 +118,6 @@ export const importRendererSettings = Effect.fn(function* (
 		...decoded,
 		addAction: mapEntityBrowserAddActionSchema(action, toLocal),
 		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toLocal) },
-		...(decoded.filterFields
-			? {
-					filterFields: decoded.filterFields.map((filterField) =>
-						mapFilterFieldReference(filterField, toLocal),
-					),
-				}
-			: {}),
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });
@@ -300,10 +263,10 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			addQueryPackages(view.dataSources);
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
-			const { subject, addAction, filterFields } = Schema.decodeUnknownSync(
+			const { subject, addAction } = Schema.decodeUnknownSync(
 				ArchiveEntityBrowserSavedViewSettings,
 			)(view.settings);
-			for (const { pluginKey } of [...subject.schemas, ...linkedFieldReferences(filterFields)]) {
+			for (const { pluginKey } of subject.schemas) {
 				add(pluginKey);
 			}
 			if (addAction?.type === "provider-search") {

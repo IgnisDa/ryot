@@ -1,5 +1,4 @@
 import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
-import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -47,23 +46,26 @@ const logged: FilterField = {
 	},
 };
 
-const issue = (
-	filterFields: undefined | readonly FilterField[],
-	renderer: KernelSavedViewRendererName = "entity-browser",
-) => filterFieldIssues({ query, renderer, settings: { filterFields } });
+const issue = (filterFields: undefined | readonly FilterField[]) =>
+	filterFieldIssues({
+		query,
+		settings: {
+			pageSize: 20,
+			entityLink: null,
+			sourceName: "source",
+			rowKeyFields: ["name"],
+			columns: [{ label: "Name", field: "name", displayKind: "text" }],
+			...(filterFields === undefined ? {} : { filterFields }),
+		},
+	});
 
-it("accepts absent, value, relationship and session-event filter fields", () => {
+it("accepts absent and value filter fields", () => {
 	expect(issue(undefined)).toBeUndefined();
-	expect(issue([level, related, logged])).toBeUndefined();
-	expect(issue([related], "collection-browser")).toBeUndefined();
-	expect(issue([level], "results-table")).toBeUndefined();
+	expect(issue([level])).toBeUndefined();
 });
 
-it("rejects duplicate and reserved keys", () => {
+it("rejects duplicate keys", () => {
 	expect(issue([level, level])).toBe("Filter field key 'level' must be unique");
-	expect(issue([{ ...related, key: "collections" }])).toBe(
-		"Filter field key 'collections' is reserved",
-	);
 });
 
 it("rejects value fields that the source does not project", () => {
@@ -86,14 +88,9 @@ it("rejects duplicate enum choices", () => {
 	).toBe("Filter field 'level' choices must be unique");
 });
 
-it("rejects relationship fields on results tables", () => {
-	expect(issue([related], "results-table")).toBe(
-		"Filter field 'tags' cannot be a relationship on a results table",
-	);
-});
-
-it("rejects session-event fields on results tables", () => {
-	expect(issue([logged], "results-table")).toBe(
+it("rejects relationship and session-event fields", () => {
+	expect(issue([related])).toBe("Filter field 'tags' cannot be a relationship on a results table");
+	expect(issue([logged])).toBe(
 		"Filter field 'records' cannot be a session-event on a results table",
 	);
 });

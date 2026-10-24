@@ -15,7 +15,6 @@ import { revisionDefinitions } from "./source";
 const browserSettings = {
 	pageSize: 20,
 	addAction: null,
-	sortChoices: [],
 	layouts: ["grid"],
 	tableColumns: null,
 	defaultLayout: "grid",
@@ -188,52 +187,51 @@ it("keeps plugin-route add actions portable while materializing saved views", ()
 	expect(view.settings["addAction"]).toEqual(addAction);
 });
 
-it("resolves self relationship owners on filter fields", () => {
-	const browserView = {
-		icon: "box",
-		sortOrder: 0,
-		name: "Bottles",
-		slug: "bottles",
-		dataSources: { queries: {} },
-		renderer: { kind: "kernel", name: "entity-browser" } as const,
-		settings: {
-			...browserSettings,
-			filterFields: [
-				{ key: "name", type: "text", label: "Name", kind: "value", field: "name" },
-				{
-					key: "tags",
-					label: "Tags",
-					kind: "relationship",
-					direction: "incoming",
-					relationship: { owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("tagged") },
+it("resolves self owners and plugin references in entity schema browse fields", () => {
+	const manifest = fixtureManifest();
+	const [entitySchema] = manifest.entitySchemas;
+	assert(entitySchema);
+	const tags = {
+		key: "tags",
+		label: "Tags",
+		kind: "relationship",
+		direction: "incoming",
+		relationship: { owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("tagged") },
+	} as const;
+	const labels = {
+		key: "labels",
+		label: "Labels",
+		kind: "relationship",
+		direction: "outgoing",
+		relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("labelled") },
+	} as const;
+	const owned = {
+		key: "owned",
+		kind: "value",
+		label: "Owned",
+		type: "boolean",
+		expression: { type: "isNotNull", expr: pluginId({ kind: "self" }) },
+	} as const;
+	const [materialized] = revisionDefinitions("plugin-a", {
+		...manifest,
+		entitySchemas: [{ ...entitySchema, browse: { fields: [owned, tags, labels] } }],
+	}).entitySchemas;
+	expect(materialized?.browse).toEqual({
+		fields: [
+			{
+				...owned,
+				expression: {
+					type: "isNotNull",
+					expr: pluginId({ kind: "local", pluginId: PluginId.make("plugin-a") }),
 				},
-				{
-					key: "labels",
-					label: "Labels",
-					kind: "relationship",
-					direction: "outgoing",
-					relationship: {
-						owner: { kind: "kernel" },
-						slug: RelationshipSchemaSlug.make("labelled"),
-					},
-				},
-			],
-		} satisfies AuthoredEntityBrowserSavedViewSettings,
-	};
-	const view = revisionDefinitions("plugin-a", {
-		...fixtureManifest(),
-		client,
-		savedViews: [browserView],
-	}).savedViews[0];
-	assert(view);
-	expect(view.settings["filterFields"]).toEqual([
-		browserView.settings.filterFields[0],
-		{
-			...browserView.settings.filterFields[1],
-			relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "plugin-a" } },
-		},
-		browserView.settings.filterFields[2],
-	]);
+			},
+			{
+				...tags,
+				relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "plugin-a" } },
+			},
+			labels,
+		],
+	});
 });
 
 it("materializes calendar sources with self references bound to the stable plugin id", () => {

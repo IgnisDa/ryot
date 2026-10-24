@@ -141,10 +141,10 @@ CREATE TABLE "background_work" (
 	"payload" jsonb NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"purpose" text NOT NULL,
 	"status" text NOT NULL,
 	"user_id" text NOT NULL,
-	"plugin_id" text NOT NULL
+	"plugin_id" text NOT NULL,
+	"purpose" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "backup_run" (
@@ -231,6 +231,7 @@ CREATE TABLE "definition_entity_schema" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
+	"browse" jsonb,
 	"editor" jsonb,
 	"merge_identity_properties" text[] NOT NULL,
 	"properties_schema" jsonb NOT NULL,
@@ -306,8 +307,8 @@ CREATE TABLE "definition_relationship_schema" (
 	"id" text PRIMARY KEY,
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
-	"properties_schema" jsonb NOT NULL,
 	"projection" jsonb,
+	"properties_schema" jsonb NOT NULL,
 	"retention" text,
 	"user_write_policy" text,
 	"plugin_revision_id" text,
@@ -1003,13 +1004,13 @@ CREATE TABLE "relationship_projection" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship_projection_work" (
-	"id" text PRIMARY KEY,
 	"current_job_id" text,
-	"relationship_schema_slug" text NOT NULL,
 	"account_token" text NOT NULL,
+	"id" text PRIMARY KEY,
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
 	"step" integer DEFAULT 0 NOT NULL,
+	"relationship_schema_slug" text NOT NULL,
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
@@ -1499,7 +1500,7 @@ CREATE VIEW "global_calendar_source" AS (
 ) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
 		);--> statement-breakpoint
 CREATE VIEW "global_entity_schema" AS (
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties
 			from definition_entity_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join (
@@ -1555,12 +1556,12 @@ CREATE VIEW "user_calendar_source_effective" AS (
 			where p.is_listed
 		);--> statement-breakpoint
 CREATE VIEW "user_entity_schema" AS (
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, true as is_effective
 			from definition_entity_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, p.is_definition_effective
 			from "user_plugin_state" p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_present and p.is_listed

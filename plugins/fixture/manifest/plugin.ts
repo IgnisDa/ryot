@@ -5,6 +5,7 @@ import {
 	stringArrayField,
 	stringField,
 } from "@ryot-app/contract/schema/core";
+import { castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fixtureCalendarSources } from "./calendar-sources";
@@ -59,6 +60,19 @@ export const fixturePlugin = definePlugin({
 			name: "Pokemon",
 			icon: "sparkles",
 			eventSchemas: [],
+			browse: {
+				fields: [
+					{
+						key: "height",
+						kind: "value",
+						type: "number",
+						label: "Height",
+						expression: castNumber(
+							jsonPath(column(table("entity", "subject"), "properties"), "height"),
+						),
+					},
+				],
+			},
 			propertiesSchema: {
 				fields: {
 					types: stringArrayField("Types", "Elemental types of this Pokémon"),

@@ -502,10 +502,12 @@ const mapNonEmpty = <A, B>(
 	transform: (value: A) => B,
 ): readonly [B, ...B[]] => [transform(values[0]), ...values.slice(1).map(transform)];
 
-export const mapPluginIdentityReferences = <Selection extends RowSelection>(
-	document: RyotQLDocumentWithSelections<Selection>,
-	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
-): RyotQLDocumentWithSelections<Selection | FieldSelection> => {
+type LanguageMapping = {
+	readonly alias: (alias: string) => string;
+	readonly reference: (reference: PluginIdentityReference) => PluginIdentityReference;
+};
+
+const languageMapper = (mapping: LanguageMapping) => {
 	const aggregation = (value: AggregationSpec): AggregationSpec =>
 		value.function === "count" ? value : { ...value, expr: expression(value.expr) };
 	const ordering = (value: OrderBy): OrderBy => ({ ...value, expr: expression(value.expr) });
@@ -513,14 +515,17 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 		...value,
 		expr: expression(value.expr),
 	});
-	const selection = (value: Selection): Selection | FieldSelection =>
-		"expr" in value ? field(value) : value;
+	const tableReference = (value: TableReference): TableReference => ({
+		...value,
+		alias: mapping.alias(value.alias),
+	});
 	const join = (value: Join): Join =>
 		value.type === "jsonElements"
-			? { ...value, expr: expression(value.expr) }
-			: { ...value, on: predicate(value.on) };
+			? { ...value, expr: expression(value.expr), alias: mapping.alias(value.alias) }
+			: { ...value, on: predicate(value.on), table: tableReference(value.table) };
 	const querySet = <A extends CorrelatedQuerySet>(value: A) => ({
 		...value,
+		from: tableReference(value.from),
 		...(value.where === undefined ? {} : { where: predicate(value.where) }),
 		...(value.joins === undefined ? {} : { joins: mapNonEmpty(value.joins, join) }),
 	});
@@ -543,17 +548,18 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 					orderBy: mapNonEmpty(value.orderBy, ordering),
 				};
 			case "column":
-			case "literal":
-			case "currentDate":
-			case "jsonElement":
-				return value;
+				return { ...value, tableAlias: mapping.alias(value.tableAlias) };
 			case "concat":
 			case "coalesce":
 				return { ...value, values: mapNonEmpty(value.values, expression) };
 			case "exists":
 				return { ...value, query: querySet(value.query) };
+			case "literal":
+			case "currentDate":
+			case "jsonElement":
+				return value;
 			case "pluginId":
-				return { ...value, reference: transform(value.reference) };
+				return { ...value, reference: mapping.reference(value.reference) };
 			case "aggregate":
 				return {
 					...value,
@@ -616,6 +622,28 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 				throw new Error(`Unknown RyotQL predicate: ${String(value satisfies never)}`);
 		}
 	}
+	return { field, ordering, querySet, expression, aggregation };
+};
+
+export const mapScalarExpression = (
+	value: ScalarExpression,
+	mapping: Partial<LanguageMapping>,
+): ScalarExpression =>
+	languageMapper({
+		alias: mapping.alias ?? ((alias) => alias),
+		reference: mapping.reference ?? ((reference) => reference),
+	}).expression(value);
+
+export const mapPluginIdentityReferences = <Selection extends RowSelection>(
+	document: RyotQLDocumentWithSelections<Selection>,
+	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
+): RyotQLDocumentWithSelections<Selection | FieldSelection> => {
+	const { field, ordering, querySet, expression, aggregation } = languageMapper({
+		reference: transform,
+		alias: (alias) => alias,
+	});
+	const selection = (value: Selection): Selection | FieldSelection =>
+		"expr" in value ? field(value) : value;
 	const include = (
 		value: IncludeWithSelections<Selection>,
 	): IncludeWithSelections<Selection | FieldSelection> => ({

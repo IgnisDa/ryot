@@ -50,7 +50,6 @@ const buildDefinition = (
 	columns: NonEmptyColumns,
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 	subtitle: AuthoredEntityBrowserSavedViewSettings["summary"]["subtitle"],
-	filterFields?: AuthoredEntityBrowserSavedViewSettings["filterFields"],
 ) => {
 	const dataSources = document({
 		savedView: rows(entity, {
@@ -73,13 +72,11 @@ const buildDefinition = (
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			pageSize: 20,
-			sortChoices: [],
 			searchFields: ["name"],
 			sourceName: "savedView",
-			summary: { subtitle, image: image === null ? null : "image" },
-			...(filterFields === undefined ? {} : { filterFields }),
 			defaultLayout: "grid" as const,
 			layouts: ["grid", "list", "table"] as const,
+			summary: { subtitle, image: image === null ? null : "image" },
 			tableColumns: image === null ? tableColumns : Arr.prepend(tableColumns, imageColumn),
 			subject: {
 				entityAlias: "entity",
@@ -132,7 +129,6 @@ export const fixtureSavedViews = [
 			pokemonColumns,
 			pokemonPresentationSource().fields,
 			null,
-			[{ key: "height", kind: "value", type: "number", label: "Height", field: "height" }],
 		),
 	},
 	{

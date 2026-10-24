@@ -183,7 +183,6 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			settings: {
 				pageSize: 20,
 				addAction: null,
-				sortChoices: [],
 				defaultLayout: "grid",
 				searchFields: ["name"],
 				sourceName: "savedView",

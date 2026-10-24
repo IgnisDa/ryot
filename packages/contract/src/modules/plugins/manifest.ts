@@ -13,6 +13,7 @@ import {
 	AutomationSource,
 } from "../automations/lifecycle";
 import { CalendarSourcePrecision, CalendarSourceQuery } from "../calendar-sources/schemas";
+import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
 import { OutputFieldKey } from "../ryotql/language";
 import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
@@ -321,6 +322,7 @@ export const PluginEntitySchema = strictStruct({
 	propertiesSchema: PluginAppSchema,
 	editor: Schema.optional(PluginEntityEditor),
 	eventSchemas: Schema.Array(PluginEventSchema),
+	browse: Schema.optional(AuthoredEntitySchemaBrowse),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
 });

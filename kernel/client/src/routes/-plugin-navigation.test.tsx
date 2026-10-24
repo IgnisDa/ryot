@@ -545,7 +545,6 @@ describe("client page routes", () => {
 							renderer: { kind: "kernel", name: "Entity browser" },
 							settings: {
 								pageSize: 20,
-								sortChoices: [],
 								searchFields: [],
 								tableColumns: null,
 								sourceName: "items",
@@ -658,7 +657,6 @@ describe("client page routes", () => {
 							renderer: { kind: "kernel", name: "Entity browser" },
 							settings: {
 								pageSize: 20,
-								sortChoices: [],
 								searchFields: [],
 								tableColumns: null,
 								sourceName: "items",
@@ -758,7 +756,6 @@ describe("client page routes", () => {
 							renderer: { kind: "kernel", name: "Entity browser" },
 							settings: {
 								pageSize: 20,
-								sortChoices: [],
 								searchFields: [],
 								tableColumns: null,
 								sourceName: "items",

@@ -1,5 +1,9 @@
 import { mapCalendarSourceQueryReferences } from "@ryot-app/contract/modules/calendar-sources/schemas";
-import { mapFilterFieldReference } from "@ryot-app/contract/modules/filters/schemas";
+import {
+	type AuthoredEntitySchemaBrowse,
+	type EntitySchemaBrowse,
+	mapBrowseFieldReferences,
+} from "@ryot-app/contract/modules/filters/browse";
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -73,25 +77,11 @@ export const materializeSavedView = (
 			slug,
 			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
 		});
-		const resolveFilterReference = <Slug extends string>({
-			slug,
-			owner,
-		}: {
-			readonly slug: Slug;
-			readonly owner: AuthoredDefinitionOwner;
-		}) => ({ slug, owner: owner.kind === "self" ? definitionOwner(pluginId) : owner });
-		const { subject, addAction, filterFields } = decoded.success;
+		const { subject, addAction } = decoded.success;
 		settings = {
 			...decoded.success,
 			addAction: mapEntityBrowserAddActionSchema(addAction, resolveSchema),
 			subject: { ...subject, schemas: Arr.map(subject.schemas, resolveSchema) },
-			...(filterFields
-				? {
-						filterFields: filterFields.map((filterField) =>
-							mapFilterFieldReference(filterField, resolveFilterReference),
-						),
-					}
-				: {}),
 		};
 	}
 	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };
@@ -120,6 +110,28 @@ export const materializeCalendarSource = (
 			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
 		})),
 	},
+});
+
+const materializeBrowse = (
+	browse: AuthoredEntitySchemaBrowse,
+	pluginId: string,
+): EntitySchemaBrowse => ({
+	fields: browse.fields.map((browseField) =>
+		mapBrowseFieldReferences(
+			browseField,
+			<Slug extends string>({
+				slug,
+				owner,
+			}: {
+				readonly slug: Slug;
+				readonly owner: AuthoredDefinitionOwner;
+			}) => ({ slug, owner: owner.kind === "self" ? definitionOwner(pluginId) : owner }),
+			(reference) =>
+				reference.kind === "self"
+					? { kind: "local", pluginId: PluginId.make(pluginId) }
+					: reference,
+		),
+	),
 });
 
 export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) => ({
@@ -156,9 +168,10 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 		workflowScriptSlug:
 			manifest.workflows.find(({ slug }) => slug === source.workflowSlug)?.scriptSlug ?? null,
 	})),
-	entitySchemas: manifest.entitySchemas.map((definition) => ({
+	entitySchemas: manifest.entitySchemas.map(({ browse, ...definition }) => ({
 		...definition,
 		pluginId,
+		...(browse ? { browse: materializeBrowse(browse, pluginId) } : {}),
 		mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
 		eventSchemas: definition.eventSchemas.map((eventSchema) => ({ ...eventSchema, pluginId })),
 	})),

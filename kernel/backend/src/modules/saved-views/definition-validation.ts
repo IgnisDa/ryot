@@ -97,10 +97,6 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	if (new Set(settings.searchFields).size !== settings.searchFields.length) {
 		return yield* settingsIncompatible("Entity-browser searchFields must not contain duplicates");
 	}
-	const sortNames = settings.sortChoices.map(({ name }) => name);
-	if (new Set(sortNames).size !== sortNames.length) {
-		return yield* settingsIncompatible("Entity-browser sort choice names must be unique");
-	}
 	if (input.dataSources === null) {
 		return yield* settingsIncompatible("Entity-browser dataSources are required");
 	}
@@ -145,10 +141,6 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		return yield* settingsIncompatible(
 			`Entity-browser configured field '${unprojected}' must be a projected scalar field`,
 		);
-	}
-	const filterIssue = filterFieldIssues({ query, settings, renderer: "entity-browser" });
-	if (filterIssue) {
-		return yield* settingsIncompatible(filterIssue);
 	}
 	return undefined;
 });
@@ -254,7 +246,7 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 			);
 		}
 	}
-	const filterIssue = filterFieldIssues({ query, settings, renderer: "results-table" });
+	const filterIssue = filterFieldIssues({ query, settings });
 	if (filterIssue) {
 		return yield* settingsIncompatible(filterIssue);
 	}

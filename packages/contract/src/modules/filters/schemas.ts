@@ -38,7 +38,7 @@ export const filterOperators = {
 
 export const linkFilterOperators = ["anyOf", "allOf", "noneOf", "empty", "notEmpty"] as const;
 
-const FilterChoice = strictStruct({ label: Schema.String, value: Schema.NonEmptyString });
+export const FilterChoice = strictStruct({ label: Schema.String, value: Schema.NonEmptyString });
 
 const filterFieldBase = {
 	label: Schema.String,

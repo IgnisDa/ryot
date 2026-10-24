@@ -12,7 +12,6 @@ import {
 
 const browserSettings = {
 	pageSize: 25,
-	sortChoices: [],
 	addAction: null,
 	layouts: ["grid"],
 	tableColumns: null,
@@ -80,9 +79,6 @@ describe("saved-view schemas", () => {
 			layouts: ["grid", "table"],
 			summary: { image: null, subtitle: null },
 			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
-			sortChoices: [
-				{ name: "newest", label: "Newest", orderBy: [{ direction: "desc", field: "createdAt" }] },
-			],
 			subject: {
 				entityAlias: "entity",
 				schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],

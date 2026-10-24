@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
@@ -52,7 +53,6 @@ const dataSources = document({
 });
 const browserSettings = {
 	pageSize: 20,
-	sortChoices: [],
 	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "entities",
@@ -196,7 +196,16 @@ it.effect("does not apply entity provenance validation to plugin-route add actio
 	}),
 );
 
-it.effect("accepts valid filter fields and rejects invalid ones as bad requests", () =>
+const tableSettings = (filterFields: readonly FilterField[]) => ({
+	filterFields,
+	pageSize: 20,
+	entityLink: null,
+	sourceName: "entities",
+	rowKeyFields: ["entityId"] as const,
+	columns: [{ label: "Name", field: "name", displayKind: "text" }] as const,
+});
+
+it.effect("accepts valid results-table filter fields and rejects invalid ones", () =>
 	Effect.gen(function* () {
 		const nameField = {
 			key: "name",
@@ -205,18 +214,28 @@ it.effect("accepts valid filter fields and rejects invalid ones as bad requests"
 			kind: "value",
 			field: "name",
 		} as const;
-		yield* validateEntityBrowserSavedViewDefinition({
+		yield* validateResultsTableSavedViewDefinition({
 			dataSources,
-			settings: { ...browserSettings, filterFields: [nameField] },
+			settings: tableSettings([nameField]),
 		});
-		yield* rejectsBrowserSettings(
-			{ ...browserSettings, filterFields: [nameField, nameField] },
-			"Filter field key 'name' must be unique",
-		);
-		yield* rejectsBrowserSettings(
-			{ ...browserSettings, filterFields: [{ ...nameField, field: "missing" }] },
-			"Filter field 'name' must reference a projected scalar field",
-		);
+		for (const [filterFields, message] of [
+			[[nameField, nameField], "Filter field key 'name' must be unique"],
+			[
+				[{ ...nameField, field: "missing" }],
+				"Filter field 'name' must reference a projected scalar field",
+			],
+		] as const) {
+			const exit = yield* Effect.exit(
+				validateResultsTableSavedViewDefinition({
+					dataSources,
+					settings: tableSettings(filterFields),
+				}),
+			);
+			assertExitFails(
+				exit,
+				new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } }),
+			);
+		}
 	}),
 );
 

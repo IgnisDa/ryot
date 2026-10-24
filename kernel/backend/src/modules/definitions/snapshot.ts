@@ -2,6 +2,7 @@ import {
 	CalendarSourcePrecision,
 	CalendarSourceQuery,
 } from "@ryot-app/contract/modules/calendar-sources/schemas";
+import { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
@@ -29,6 +30,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { Data, Effect, Result, Schema } from "effect";
 
+import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
 import { calendarSourceIssue } from "#modules/definitions/calendar-source-validation";
 import {
 	formatPropertyIssues,
@@ -62,6 +64,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	editor: Schema.optional(PluginEntityEditor),
+	browse: Schema.optional(EntitySchemaBrowse),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -295,11 +298,10 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 			`Invalid saved view ${savedView.slug}: configured field '${unprojected}' must be a projected scalar field`,
 		);
 	}
-	const filterIssue = filterFieldIssues({
-		query: source,
-		settings: decoded.success,
-		renderer: savedView.renderer.name,
-	});
+	const filterIssue =
+		"rowKeyFields" in decoded.success
+			? filterFieldIssues({ query: source, settings: decoded.success })
+			: undefined;
 	if (filterIssue) {
 		throw new Error(`Invalid saved view ${savedView.slug}: ${filterIssue}`);
 	}
@@ -320,8 +322,16 @@ const validateDefinitionSource = (
 		}
 	}
 
+	const browseConsistency = browseConsistencyIssue(source.entitySchemas);
+	if (browseConsistency) {
+		throw new Error(browseConsistency);
+	}
 	for (const entitySchema of source.entitySchemas) {
 		assertSchemaDefinition("entity", entitySchema.slug, entitySchema.propertiesSchema);
+		const browse = entitySchema.browse && browseIssue(entitySchema.browse);
+		if (browse) {
+			throw new Error(`Entity schema ${entitySchema.slug} ${browse}`);
+		}
 		const mergeIdentityProperties = entitySchema.mergeIdentityProperties ?? [];
 		const uniqueMergeIdentityProperties = new Set(mergeIdentityProperties);
 		if (mergeIdentityProperties.some((property) => property.length === 0)) {

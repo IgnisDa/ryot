@@ -72,7 +72,7 @@ describe("filter schemas", () => {
 		).toBe(false);
 	});
 
-	it("keeps filterFields optional on entity-browser and results-table settings", () => {
+	it("keeps filterFields optional on results tables and rejects them on entity browsers", () => {
 		const table = {
 			pageSize: 10,
 			entityLink: null,
@@ -85,7 +85,6 @@ describe("filter schemas", () => {
 		expect(decodes(ResultsTableSavedViewSettings, { ...table, filterFields: [field] })).toBe(true);
 		const browser = {
 			pageSize: 10,
-			sortChoices: [],
 			addAction: null,
 			searchFields: [],
 			layouts: ["grid"],
@@ -97,10 +96,7 @@ describe("filter schemas", () => {
 		};
 		expect(decodes(EntityBrowserSavedViewSettings, browser)).toBe(true);
 		expect(decodes(EntityBrowserSavedViewSettings, { ...browser, filterFields: [field] })).toBe(
-			true,
+			false,
 		);
-		expect(
-			decodes(EntityBrowserSavedViewSettings, { ...browser, filterFields: [{ key: "x" }] }),
-		).toBe(false);
 	});
 });

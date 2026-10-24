@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { fixturePlugin } from "./plugin";
 import { fixtureSavedViews } from "./saved-views";
 
 describe("fixture saved-view presentations", () => {
@@ -41,14 +42,9 @@ describe("fixture saved-view presentations", () => {
 		});
 	});
 
-	it("authors one number filter over a selected Pokemon projection", () => {
-		const [pokemon, moves] = fixtureSavedViews;
-		expect(pokemon.settings.filterFields).toEqual([
-			{ key: "height", kind: "value", type: "number", label: "Height", field: "height" },
-		]);
-		expect(pokemon.dataSources.queries.savedView.output.fields).toContainEqual(
-			expect.objectContaining({ key: "height" }),
-		);
-		expect(moves.settings).not.toHaveProperty("filterFields");
+	it("declares the Pokemon height filter on its entity schema instead of the view", () => {
+		const [pokemon] = fixturePlugin.entitySchemas;
+		expect(pokemon.browse.fields.map(({ key }) => key)).toEqual(["height"]);
+		expect(fixtureSavedViews[0].settings).not.toHaveProperty("filterFields");
 	});
 });

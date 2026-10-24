@@ -40,7 +40,6 @@ const dataSources = document({
 
 const settings = {
 	pageSize: 20,
-	sortChoices: [],
 	addAction: null,
 	tableColumns: null,
 	defaultLayout: "grid",

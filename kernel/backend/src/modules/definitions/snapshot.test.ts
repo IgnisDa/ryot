@@ -158,7 +158,6 @@ const bottleBrowserView = (settings: Readonly<Record<string, JsonValue>>): Saved
 		settings: {
 			pageSize: 20,
 			addAction: null,
-			sortChoices: [],
 			searchFields: [],
 			layouts: ["grid"],
 			tableColumns: null,
@@ -184,14 +183,32 @@ it("throws for configured fields the source does not project during snapshot val
 	);
 });
 
-it("throws for invalid saved-view filter fields during snapshot validation", () => {
+it("rejects entity-browser filter fields and validates entity schema browse fields", () => {
 	const nameField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
-	expect(() => buildBottleView({ filterFields: [nameField] })).not.toThrow();
-	expect(() => buildBottleView({ filterFields: [nameField, nameField] })).toThrow(
-		"Invalid saved view bottles: Filter field key 'name' must be unique",
+	expect(() => buildBottleView({ filterFields: [nameField] })).toThrow(
+		/Invalid saved view bottles/,
 	);
-	expect(() => buildBottleView({ filterFields: [{ ...nameField, field: "missing" }] })).toThrow(
-		"Invalid saved view bottles: Filter field 'name' must reference a projected scalar field",
+	const subject = table("entity", "subject");
+	const browsed = (key: string, expression = column(subject, "createdAt")) => {
+		const base = source(null);
+		const [bottle] = base.entitySchemas;
+		assert(bottle);
+		return buildDefinitionSnapshot({
+			...base,
+			entitySchemas: [
+				{
+					...bottle,
+					browse: { fields: [{ key, expression, type: "date", kind: "value", label: "Bottled" }] },
+				},
+			],
+		});
+	};
+	expect(() => browsed("bottledAt")).not.toThrow();
+	expect(() => browsed("bottled-at")).toThrow(
+		"Entity schema bottle browse field key 'bottled-at' must be camelCase letters and digits",
+	);
+	expect(() => browsed("bottledAt", column(subject, "name"))).toThrow(
+		"Entity schema bottle browse field 'bottledAt' expression has kind 'text'",
 	);
 });
 

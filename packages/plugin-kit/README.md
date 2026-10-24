@@ -170,25 +170,25 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 ## Manifest Sections
 
-| Section                | Purpose                                                                 |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `metadata`             | Permanent package ID, name, description, version, and icon              |
-| `configSchema`         | Plugin-owned environment configuration                                  |
-| `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
-| `scripts`              | Build-derived sandbox entries and requirements                          |
-| `providers`            | Logical provider names, information, and root entity schemas            |
-| `workflows`            | Public workflow slugs                                                   |
-| `operations`           | Public user- or integration-authenticated operations                    |
-| `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins            |
-| `crons`                | Scheduled system-subject dispatches                                     |
-| `importSources`        | Payload, single-file, or named-file workflow inputs                     |
-| `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
-| `integrationProviders` | Push, sink, or yank integrations                                        |
-| `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
-| `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
-| `relationshipSchemas`  | Relationship endpoints, user-write ownership, retention and projections |
-| `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
-| `calendarSources`      | Optional dated occurrences listed by the kernel calendar                |
+| Section                | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `metadata`             | Permanent package ID, name, description, version, and icon                 |
+| `configSchema`         | Plugin-owned environment configuration                                     |
+| `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel            |
+| `scripts`              | Build-derived sandbox entries and requirements                             |
+| `providers`            | Logical provider names, information, and root entity schemas               |
+| `workflows`            | Public workflow slugs                                                      |
+| `operations`           | Public user- or integration-authenticated operations                       |
+| `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins               |
+| `crons`                | Scheduled system-subject dispatches                                        |
+| `importSources`        | Payload, single-file, or named-file workflow inputs                        |
+| `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                      |
+| `integrationProviders` | Push, sink, or yank integrations                                           |
+| `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system)    |
+| `entitySchemas`        | Entities, events, editors, browse fields, user-data policy, merge identity |
+| `relationshipSchemas`  | Relationship endpoints, user-write ownership, retention and projections    |
+| `signalSchemas`        | Signal audience, catalog, and formatter definitions                        |
+| `calendarSources`      | Optional dated occurrences listed by the kernel calendar                   |
 
 Set `userWritePolicy: "source-owner"` on structural relationship schemas when user-scoped writes
 must require ownership of the source entity. The target may be global and visible. The rule covers
@@ -238,9 +238,31 @@ legacy display mappings or sandbox scripts.
 Entity-browser settings declare a `summary` for compact kernel lists such as command-center search:
 `image` names a projected managed-asset field and `subtitle` names a projected field with a `text`,
 `date`, `number`, `year`, or `boolean` display kind; either may be null. Installation rejects search,
-sort, column, and summary fields that the source query does not project.
+column, and summary fields that the source query does not project. Filters and sorts come from the
+subject schemas' browse fields, not view settings; the view query's `orderBy` is the default order.
 
-### User Settings
+### Browse Fields
+
+An entity schema may declare `browse: { fields }`, the filters and sorts every entity browser and
+collection offers for its entities. Keys are unique per schema, match `/^[a-z][A-Za-z0-9]*$/`, and
+avoid the reserved `collections` and `name`.
+
+- `kind: "value"`: a typed filter (`text`, `number`, `date`, `boolean`, `enum`, `enum-list`, or
+  `text-list`; enum types list unique `choices`) with a RyotQL `expression`. Add
+  `sort: { ascending, descending }` labels to also offer it as a sort; list types cannot sort.
+- `kind: "sort"`: a sort-only `expression` with `sort` labels.
+- `kind: "relationship"` or `"session-event"`: the existing linked-entity filter shapes.
+
+Expressions read the browsed entity through the table alias `subject` (`BROWSE_SUBJECT_ALIAS`)
+and may use correlated subqueries; their kind must match the field type (lists are JSON).
+Installation validates them with saved-view data-source access. Browsers rebase them onto their own
+query alias.
+
+Schemas of one plugin that declare the same key form one field, so declare it with the same type,
+relationship direction, or event shape on each. Where expressions differ, each entity reads its own
+schema's expression, and entities whose schema lacks the field never match it and sort last. The
+same key from different plugins stays separate. Every browser also offers the Collections filter and
+a Name sort.
 
 System and private plugins may declare `userSettingsSchema` with primitive fields, primitive arrays,
 and static enum choices. Labels, descriptions, ordering, defaults, validation, and rules use `AppSchema`.
