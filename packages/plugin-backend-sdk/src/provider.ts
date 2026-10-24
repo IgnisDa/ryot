@@ -210,9 +210,6 @@ export type ProviderResolveResult = Schema.Schema.Type<typeof providerResolveRes
 export type ProviderTranslateInput = Schema.Schema.Type<typeof providerTranslateInputSchema>;
 export type ProviderTranslateResult = Schema.Schema.Type<typeof providerTranslateResultSchema>;
 export type ProviderSearchResultItem = Schema.Schema.Type<typeof providerSearchResultItemSchema>;
-export type ProviderSearchOptionsInput = Schema.Schema.Type<
-	typeof providerSearchOptionsInputSchema
->;
 export type ProviderSearchOptionsResult = Schema.Schema.Type<
 	typeof providerSearchOptionsResultSchema
 >;

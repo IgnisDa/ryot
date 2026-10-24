@@ -393,7 +393,7 @@ describe("Workout editor E2E", () => {
 	it.live("loads context defaults and updates an exercise override", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(target);
-			const context = yield* loadWorkoutEditorContext(client, {});
+			const context = yield* loadWorkoutEditorContext(client);
 			expect(context).toEqual({
 				proAvailable: false,
 				settings: {

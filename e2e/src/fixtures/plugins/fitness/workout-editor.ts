@@ -32,10 +32,8 @@ export const saveWorkoutEditor = (
 ) =>
 	invokeOperation(client, workoutEditorSaveRecipe, input, { idempotencyKey: input.submissionId });
 
-export const loadWorkoutEditorContext = (
-	client: Client,
-	input: RecipeInput<typeof workoutEditorContextRecipe>,
-) => invokeOperation(client, workoutEditorContextRecipe, input);
+export const loadWorkoutEditorContext = (client: Client) =>
+	invokeOperation(client, workoutEditorContextRecipe, {});
 
 export const correctWorkoutTimes = (
 	client: Client,
