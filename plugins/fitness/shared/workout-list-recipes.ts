@@ -28,10 +28,10 @@ import {
 	rows,
 	schemaOwnerPredicate,
 	selectedAggregate,
-	type SelectedAggregateRow,
 	selectedField,
 	selectedInclude,
 	selectedMeasure,
+	type SelectedMeasureRow,
 	selectedRows,
 	sum,
 	table,
@@ -443,8 +443,8 @@ const rangeBuckets = (
 	] as const;
 };
 
-type SetTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeof setMeasures>>;
-type WorkoutTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeof workoutMeasures>>;
+type SetTotals = SelectedMeasureRow<ReturnType<typeof setMeasures>>;
+type WorkoutTotals = SelectedMeasureRow<ReturnType<typeof workoutMeasures>>;
 
 const combineTotals = (workouts: WorkoutTotals, sets: SetTotals) => ({
 	...workouts,
