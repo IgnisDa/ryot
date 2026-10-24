@@ -29,6 +29,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	UserPreferences,
 	type UserPreferencesPatch,
@@ -873,7 +874,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
 				).pipe(Effect.orDie),
-			initializeReportingTimeZone: (userId: UserId, reportingTimeZone: string) =>
+			initializeReportingTimeZone: (userId: UserId, reportingTimeZone: TimeZone) =>
 				repository.initializeReportingTimeZone(userId, reportingTimeZone).pipe(Effect.asVoid),
 			updateUserImage: (userId: UserId, image: string) =>
 				withInternalAdapter(({ internalAdapter }) =>

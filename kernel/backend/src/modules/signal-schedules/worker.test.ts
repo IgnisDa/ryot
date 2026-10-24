@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { describe, expect, it } from "vitest";
 
 import { signalScheduleBounds } from "./worker";
@@ -10,9 +11,9 @@ describe("signal schedule bounds", () => {
 			signalScheduleBounds({
 				now,
 				delayDays: null,
-				timeZone: "UTC",
 				precision: "date",
 				maxAgeHours: null,
+				timeZone: TimeZone.make("UTC"),
 			}),
 		).toEqual({
 			confirmedAfter: null,
@@ -25,7 +26,7 @@ describe("signal schedule bounds", () => {
 				delayDays: null,
 				maxAgeHours: 72,
 				precision: "date",
-				timeZone: "America/Los_Angeles",
+				timeZone: TimeZone.make("America/Los_Angeles"),
 			}),
 		).toEqual({
 			end: "2026-10-29T00:00:00.000Z",
@@ -41,7 +42,7 @@ describe("signal schedule bounds", () => {
 				delayDays: null,
 				maxAgeHours: null,
 				precision: "instant",
-				timeZone: "Asia/Kolkata",
+				timeZone: TimeZone.make("Asia/Kolkata"),
 			}),
 		).toEqual({
 			confirmedAfter: null,
@@ -55,9 +56,9 @@ describe("signal schedule bounds", () => {
 			signalScheduleBounds({
 				now,
 				delayDays: 7,
-				timeZone: "UTC",
 				maxAgeHours: null,
 				precision: "instant",
+				timeZone: TimeZone.make("UTC"),
 			}),
 		).toEqual({
 			confirmedAfter: null,

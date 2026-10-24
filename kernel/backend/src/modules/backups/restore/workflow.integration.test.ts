@@ -4,6 +4,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
@@ -52,7 +53,11 @@ class RestoreDatabaseHarness extends Context.Service<
 const profile = {
 	image: null,
 	name: "Restored profile",
-	preferences: { language: null, disableIntegrations: true, reportingTimeZone: "America/New_York" },
+	preferences: {
+		language: null,
+		disableIntegrations: true,
+		reportingTimeZone: TimeZone.make("America/New_York"),
+	},
 };
 const restoredReminderDate = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 const archiveLocator = { intentId: "restore-intent", key: "temporary/restore.zip" };

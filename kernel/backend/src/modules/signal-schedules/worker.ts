@@ -1,4 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
+import {
+	addCalendarDays,
+	localDateOf,
+	startOfLocalDay,
+} from "@ryot-app/contract/modules/analytics/calendar";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -7,6 +12,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { effectiveTimeZone, type TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	type SignalScheduleCandidate,
 	signalSchedulePageRecipe,
@@ -46,23 +52,19 @@ class SignalScheduleQueryError extends Data.TaggedError("SignalScheduleQueryErro
 
 export const signalScheduleBounds = (input: {
 	now: Date;
-	timeZone: string;
+	timeZone: TimeZone;
 	delayDays: null | number;
 	maxAgeHours: null | number;
 	precision: "date" | "instant";
 }) => {
 	const now = DateTime.makeUnsafe(input.now);
-	const today = DateTime.makeUnsafe(
-		DateTime.formatIsoDate(DateTime.makeZonedUnsafe(now, { timeZone: input.timeZone })),
-	);
-	const first = DateTime.subtract(today, { days: CATCH_UP_DAYS });
+	const today = localDateOf(input.now, input.timeZone);
+	const first = addCalendarDays(today, -CATCH_UP_DAYS);
 	const [start, end] =
 		input.precision === "date"
-			? [first, DateTime.add(today, { days: 1 })]
+			? [DateTime.makeUnsafe(first), DateTime.makeUnsafe(addCalendarDays(today, 1))]
 			: [
-					DateTime.toUtc(
-						DateTime.makeZonedUnsafe(first, { adjustForTimeZone: true, timeZone: input.timeZone }),
-					),
+					DateTime.makeUnsafe(startOfLocalDay(first, input.timeZone)),
 					DateTime.add(now, { milliseconds: 1 }),
 				];
 	const delay = { days: input.delayDays ?? 0 };
@@ -156,7 +158,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					delayDays: target.delayDays,
 					precision: target.precision,
 					maxAgeHours: target.freshness?.maxAgeHours ?? null,
-					timeZone: target.preferences.reportingTimeZone ?? "UTC",
+					timeZone: effectiveTimeZone(target.preferences.reportingTimeZone),
 				});
 				const ledger = {
 					scheduleSlug: target.slug,

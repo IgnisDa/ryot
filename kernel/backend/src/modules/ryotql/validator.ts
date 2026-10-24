@@ -17,7 +17,7 @@ import type {
 	TableReference,
 	TimeSeriesOutput,
 } from "@ryot-app/contract/modules/ryotql/language";
-import { isNamedTimeZone } from "@ryot-app/contract/schema/utils";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { DateTime, Duration, Option } from "effect";
 
 import {

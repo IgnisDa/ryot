@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { ReportingTimeZone } from "@ryot-app/contract/modules/analytics/reporting";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences, UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -210,12 +210,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 			);
 		});
 		const initializeReportingTimeZone = Effect.fn("AuthRepository.initializeReportingTimeZone")(
-			function* (userId: UserId, reportingTimeZone: string) {
-				yield* Schema.decodeEffect(ReportingTimeZone)(reportingTimeZone).pipe(
-					Effect.mapError(
-						(error) => new DbError({ message: `Invalid reporting time zone: ${error.message}` }),
-					),
-				);
+			function* (userId: UserId, reportingTimeZone: TimeZone) {
 				const [row] = yield* database.run((db) =>
 					db
 						.update(schema.user)

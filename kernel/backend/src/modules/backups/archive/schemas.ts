@@ -23,11 +23,12 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { DateTime, Option, Schema } from "effect";
+import { Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
@@ -387,7 +388,7 @@ export const ArchiveReminder = strictStruct({
 }).pipe(
 	Schema.check(
 		Schema.makeFilter((row) => {
-			if (row.timezone !== null && Option.isNone(DateTime.zoneMakeNamed(row.timezone))) {
+			if (row.timezone !== null && !isNamedTimeZone(row.timezone)) {
 				return false;
 			}
 			if (row.state === "scheduled" || row.state === "processing") {

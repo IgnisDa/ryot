@@ -2,6 +2,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -53,7 +54,11 @@ const records: ArchiveRecords = {
 	profile: {
 		image: null,
 		name: "Test User",
-		preferences: { language: null, disableIntegrations: false, reportingTimeZone: "Asia/Tokyo" },
+		preferences: {
+			language: null,
+			disableIntegrations: false,
+			reportingTimeZone: TimeZone.make("Asia/Tokyo"),
+		},
 	},
 	installations: [
 		{

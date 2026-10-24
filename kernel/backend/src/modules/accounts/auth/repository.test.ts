@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq, sql } from "drizzle-orm";
@@ -35,16 +36,14 @@ layer(testLayer)((test) => {
 				db.insert(user).values({ id, name: "Reader", email: "read@example.test" }),
 			);
 			yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
-			yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
-			expect(
-				(yield* Effect.flip(repository.patchUserPreferences(id, { reportingTimeZone: "+05:30" })))
-					.message,
-			).toContain("Invalid user preference patch");
+			yield* repository.patchUserPreferences(id, {
+				reportingTimeZone: TimeZone.make("America/New_York"),
+			});
 			expect(yield* repository.getUserPreferences(id)).toEqual({
 				...defaultUserPreferences,
 				language: "fr",
 				disableIntegrations: true,
-				reportingTimeZone: "America/New_York",
+				reportingTimeZone: TimeZone.make("America/New_York"),
 			});
 			expect(yield* translations.findUserLanguage(id)).toBe("fr");
 			expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
@@ -81,7 +80,7 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* AuthRepository;
-			for (const reportingTimeZone of ["UTC", "Asia/Kolkata"]) {
+			for (const reportingTimeZone of [TimeZone.make("UTC"), TimeZone.make("Asia/Kolkata")]) {
 				const id = UserId.make(`initialize-${reportingTimeZone}`);
 				yield* session.run((db) =>
 					db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
@@ -91,33 +90,24 @@ layer(testLayer)((test) => {
 					...defaultUserPreferences,
 					reportingTimeZone,
 				});
-				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(false);
-				yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
-				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(false);
+				expect(
+					yield* repository.initializeReportingTimeZone(id, TimeZone.make("Pacific/Auckland")),
+				).toBe(false);
+				yield* repository.patchUserPreferences(id, {
+					reportingTimeZone: TimeZone.make("America/New_York"),
+				});
+				expect(
+					yield* repository.initializeReportingTimeZone(id, TimeZone.make("Pacific/Auckland")),
+				).toBe(false);
 				expect(yield* repository.getUserPreferences(id)).toEqual({
 					...defaultUserPreferences,
-					reportingTimeZone: "America/New_York",
+					reportingTimeZone: TimeZone.make("America/New_York"),
 				});
 				yield* repository.patchUserPreferences(id, { reportingTimeZone: null });
-				expect(yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland")).toBe(true);
-			}
-		}),
-	);
-
-	test.effect("rejects invalid initialization zones without changing preferences", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* AuthRepository;
-			const id = UserId.make("invalid-initialization");
-			yield* session.run((db) =>
-				db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
-			);
-			for (const zone of ["+05:30", "Not/AZone", ""]) {
 				expect(
-					(yield* Effect.flip(repository.initializeReportingTimeZone(id, zone))).message,
-				).toContain("Invalid reporting time zone");
+					yield* repository.initializeReportingTimeZone(id, TimeZone.make("Pacific/Auckland")),
+				).toBe(true);
 			}
-			expect(yield* repository.getUserPreferences(id)).toEqual(defaultUserPreferences);
 		}),
 	);
 
@@ -137,7 +127,10 @@ layer(testLayer)((test) => {
 				[
 					session.transaction(
 						Effect.gen(function* () {
-							const initialized = yield* repository.initializeReportingTimeZone(id, "Asia/Kolkata");
+							const initialized = yield* repository.initializeReportingTimeZone(
+								id,
+								TimeZone.make("Asia/Kolkata"),
+							);
 							yield* Deferred.succeed(locked, undefined);
 							yield* Deferred.await(secondStarted);
 							return initialized;
@@ -146,7 +139,10 @@ layer(testLayer)((test) => {
 					Effect.gen(function* () {
 						yield* Deferred.await(locked);
 						yield* Deferred.succeed(secondStarted, undefined);
-						return yield* repository.initializeReportingTimeZone(id, "Pacific/Auckland");
+						return yield* repository.initializeReportingTimeZone(
+							id,
+							TimeZone.make("Pacific/Auckland"),
+						);
 					}),
 					Effect.gen(function* () {
 						yield* Deferred.await(locked);
@@ -162,7 +158,7 @@ layer(testLayer)((test) => {
 			expect(yield* repository.getUserPreferences(id)).toEqual({
 				language: "fr",
 				disableIntegrations: true,
-				reportingTimeZone: "Asia/Kolkata",
+				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 			});
 		}),
 	);
@@ -183,11 +179,13 @@ layer(testLayer)((test) => {
 						expect((yield* repository.getUserPreferences(id))?.reportingTimeZone).toBeNull();
 						yield* Deferred.succeed(read, undefined);
 						yield* Deferred.await(selected);
-						return yield* repository.initializeReportingTimeZone(id, "Asia/Kolkata");
+						return yield* repository.initializeReportingTimeZone(id, TimeZone.make("Asia/Kolkata"));
 					}),
 					Effect.gen(function* () {
 						yield* Deferred.await(read);
-						yield* repository.patchUserPreferences(id, { reportingTimeZone: "America/New_York" });
+						yield* repository.patchUserPreferences(id, {
+							reportingTimeZone: TimeZone.make("America/New_York"),
+						});
 						yield* Deferred.succeed(selected, undefined);
 					}),
 				],
@@ -196,7 +194,7 @@ layer(testLayer)((test) => {
 			expect(results[0]).toBe(false);
 			expect(yield* repository.getUserPreferences(id)).toEqual({
 				...defaultUserPreferences,
-				reportingTimeZone: "America/New_York",
+				reportingTimeZone: TimeZone.make("America/New_York"),
 			});
 		}),
 	);

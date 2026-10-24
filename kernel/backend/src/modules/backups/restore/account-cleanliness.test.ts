@@ -8,6 +8,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer } from "effect";
@@ -329,7 +330,10 @@ describe("classifyAccountCleanliness", () => {
 					profile: {
 						image: null,
 						name: "User",
-						preferences: { ...defaultUserPreferences, reportingTimeZone: "America/New_York" },
+						preferences: {
+							...defaultUserPreferences,
+							reportingTimeZone: TimeZone.make("America/New_York"),
+						},
 					},
 				}),
 			),

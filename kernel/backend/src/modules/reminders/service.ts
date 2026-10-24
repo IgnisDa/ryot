@@ -17,6 +17,7 @@ import {
 	EntityId,
 	ReminderId,
 } from "@ryot-app/contract/schema/brands";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Option } from "effect";
@@ -105,7 +106,7 @@ export class RemindersService extends Context.Service<RemindersService>()("Remin
 			if (input.message.length === 0 || input.message.length > REMINDER_MESSAGE_MAX_LENGTH) {
 				return yield* new ReminderInvalid({ reason: "invalid-message" });
 			}
-			if (Option.isNone(DateTime.zoneMakeNamed(input.timezone))) {
+			if (!isNamedTimeZone(input.timezone)) {
 				return yield* new ReminderInvalid({ reason: "invalid-timezone" });
 			}
 			const dueAt = DateTime.make(input.dueAt);

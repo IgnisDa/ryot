@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	defaultUserPreferences,
 	type UserPreferences,
@@ -75,18 +76,23 @@ layer(serviceLayer())((test) => {
 	test.effect("routes initialization to the conditional writer without a preference patch", () =>
 		Effect.gen(function* () {
 			const service = yield* UserSettingsService;
-			const user = makeUser({ ...defaultUserPreferences, reportingTimeZone: "America/New_York" });
+			const user = makeUser({
+				...defaultUserPreferences,
+				reportingTimeZone: TimeZone.make("America/New_York"),
+			});
 			const body = yield* Schema.decodeEffect(UpdateUserPreferencesBody)({
 				initializeReportingTimeZone: "Asia/Kolkata",
 			});
 			yield* service.updatePreferences(user, body);
 			expect(yield* (yield* FakeAuthSettings).initializations).toEqual([
-				{ userId: user.id, reportingTimeZone: "Asia/Kolkata" },
+				{ userId: user.id, reportingTimeZone: TimeZone.make("Asia/Kolkata") },
 			]);
 			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([]);
-			yield* service.updatePreferences(user, { reportingTimeZone: "Pacific/Auckland" });
+			yield* service.updatePreferences(user, {
+				reportingTimeZone: TimeZone.make("Pacific/Auckland"),
+			});
 			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{ userId: user.id, preferences: { reportingTimeZone: "Pacific/Auckland" } },
+				{ userId: user.id, preferences: { reportingTimeZone: TimeZone.make("Pacific/Auckland") } },
 			]);
 		}),
 	);
@@ -101,7 +107,7 @@ layer(serviceLayer())((test) => {
 				{ initializeReportingTimeZone: "Not/AZone" },
 				{ initializeReportingTimeZone: null },
 				{ language: "fr", initializeReportingTimeZone: "UTC" },
-				{ reportingTimeZone: "Asia/Kolkata", initializeReportingTimeZone: "UTC" },
+				{ initializeReportingTimeZone: "UTC", reportingTimeZone: TimeZone.make("Asia/Kolkata") },
 			]) {
 				const exit = yield* Schema.decodeUnknownEffect(UpdateUserPreferencesBody)(body).pipe(
 					Effect.flatMap((decoded) =>
