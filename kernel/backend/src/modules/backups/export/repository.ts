@@ -1,5 +1,5 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -35,7 +35,18 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 						),
 				);
 			});
-			return { listSavedViewOverrides, listCalendarSourceOverrides };
+			const listReminders = Effect.fn("BackupExportRepository.listReminders")(function* (
+				userId: UserId,
+			) {
+				return yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.reminder)
+						.where(and(eq(schema.reminder.userId, userId), isNull(schema.reminder.removedAt)))
+						.orderBy(asc(schema.reminder.id)),
+				);
+			});
+			return { listReminders, listSavedViewOverrides, listCalendarSourceOverrides };
 		}),
 	},
 ) {

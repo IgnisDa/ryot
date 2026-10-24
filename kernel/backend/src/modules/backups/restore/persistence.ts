@@ -101,6 +101,12 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
 			const streams = yield* EventStreamRepository.make;
+			const restoreReminder = Effect.fn("BackupRestorePersistence.restoreReminder")(function* (
+				input: typeof schema.reminder.$inferInsert,
+			) {
+				yield* session.requireTransaction;
+				yield* session.run((db) => db.insert(schema.reminder).values(input));
+			});
 
 			const restoreEntity = Effect.fn("BackupRestorePersistence.restoreEntity")(function* (
 				input: RestoreEntityInput,
@@ -501,6 +507,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreEntity,
 				restoreEvents,
 				restoreForUser,
+				restoreReminder,
 				activateRestored,
 				restoreCustomView,
 				restoreTranslation,

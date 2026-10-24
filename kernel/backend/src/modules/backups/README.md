@@ -7,7 +7,7 @@ Account export and restore use the deterministic `ryot-backup` version 1 archive
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, and `reminders.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
@@ -72,6 +72,13 @@ Private plugin backups contain no authoring source. Only manifest configuration 
 Account restore retains canonical entity data, relationships, and translation overlays, but enrichment request and workflow state is runtime state and is not included. Restored translation overlays bind their `sourceContentGeneration` to the destination entity's current canonical content generation, so restore does not carry a source generation from another database. Restored dependencies have no related-completion stamp; foreground interest rechecks them lazily. The archive version and layout are unchanged.
 
 A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
+
+Reminder records are required metadata in the current archive. Export includes reminder-only global
+targets and parent scopes as dependencies. Restore remaps targets, parents and replacement links.
+Unfinished records become `needs-scheduling`, with no active instant, formatter, trigger, dispatch or
+delivery claim. Original date/time evidence remains, including whether a Processing source may have
+sent. Settled/cancelled outcomes remain history. Existing reminders make an account unclean, including
+retained removal fences. Channels and delivery ledgers are not portable and are never restored.
 
 ## Failure Contract
 

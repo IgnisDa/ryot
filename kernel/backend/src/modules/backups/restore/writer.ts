@@ -42,6 +42,7 @@ import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { validateRestoredProperties } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -681,6 +682,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			const entities = yield* EntitiesRepository;
 			const automations = yield* AutomationsRepository;
 			const installations = yield* PluginInstallationRepository;
+			const receipts = yield* MutationReceipts.make;
 
 			const assertRequiredPlugins = Effect.fn("BackupRestoreWriter.assertRequiredPlugins")(
 				function* (required: ReadonlyArray<ArchiveRequiredPlugin>) {
@@ -1211,6 +1213,51 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							: null,
 					});
 					relationshipIdMap.set(relationship.id, restoredId);
+				}
+				const reminderIds = new Map(records.reminders.map(({ id }) => [id, crypto.randomUUID()]));
+				const generation =
+					records.reminders.length === 0 ? null : yield* receipts.currentAccount(userId);
+				for (const row of records.reminders) {
+					if (generation === null) {
+						return yield* badRequest("Backup reminder account is unavailable");
+					}
+					const unfinished = row.state === "scheduled" || row.state === "processing";
+					const entityId = row.entityId === null ? null : entityIdMap.get(row.entityId);
+					const parentEntityId =
+						row.parentEntityId === null ? null : entityIdMap.get(row.parentEntityId);
+					if (entityId === undefined || parentEntityId === undefined) {
+						return yield* badRequest("Backup reminder entity mapping is incomplete");
+					}
+					yield* persistence.restoreReminder({
+						userId,
+						entityId,
+						parentEntityId,
+						reason: row.reason,
+						message: row.message,
+						outcome: row.outcome,
+						entityTitle: row.entityTitle,
+						accountGeneration: generation.token,
+						createdAt: parseDate(row.createdAt),
+						updatedAt: parseDate(row.updatedAt),
+						timezone: unfinished ? null : row.timezone,
+						state: unfinished ? "needs-scheduling" : row.state,
+						settledAt: row.settledAt === null ? null : parseDate(row.settledAt),
+						dueAt: unfinished || row.dueAt === null ? null : parseDate(row.dueAt),
+						processingAt: row.processingAt === null ? null : parseDate(row.processingAt),
+						replacementId: row.replacementId === null ? null : reminderIds.get(row.replacementId),
+						id:
+							reminderIds.get(row.id) ??
+							(yield* badRequest("Backup reminder mapping is incomplete")),
+						originalSchedule: unfinished
+							? {
+									dueAt: row.dueAt,
+									timezone: row.timezone,
+									date: row.originalSchedule?.date ?? null,
+									mayHaveSent:
+										row.state === "processing" || row.originalSchedule?.mayHaveSent === true,
+								}
+							: row.originalSchedule,
+					});
 				}
 
 				const eventBatch: Parameters<typeof restoreEventBatch>[0][number][] = [];

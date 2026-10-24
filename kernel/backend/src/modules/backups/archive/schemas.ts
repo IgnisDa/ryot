@@ -7,7 +7,14 @@ import {
 	eventDataFields,
 	relationshipDataFields,
 } from "@ryot-app/contract/modules/imports/data-json";
+import { NotificationOutcome } from "@ryot-app/contract/modules/notifications/delivery";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	REMINDER_MESSAGE_MAX_LENGTH,
+	ReminderReason,
+	ReminderScheduleEvidence,
+	ReminderState,
+} from "@ryot-app/contract/modules/reminders/schemas";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserPluginRouteAddAction,
@@ -20,7 +27,7 @@ import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Schema } from "effect";
+import { DateTime, Option, Schema } from "effect";
 
 const nonNegativeInteger = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
@@ -50,6 +57,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"calendar-source-overrides.ndjson",
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
+	"reminders.ndjson",
 ] as const;
 
 export type ArchiveSectionPath = (typeof ARCHIVE_SECTION_PATHS)[number];
@@ -357,9 +365,57 @@ export const ArchiveNotificationSubscription = strictStruct({
 });
 export type ArchiveNotificationSubscription = typeof ArchiveNotificationSubscription.Type;
 
+export const ArchiveReminder = strictStruct({
+	state: ReminderState,
+	id: Schema.NonEmptyString,
+	entityTitle: Schema.String,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
+	reason: Schema.NullOr(ReminderReason),
+	entityId: Schema.NullOr(Schema.String),
+	timezone: Schema.NullOr(Schema.String),
+	dueAt: Schema.NullOr(DataRecordTimestamp),
+	replacementId: Schema.NullOr(Schema.String),
+	outcome: Schema.NullOr(NotificationOutcome),
+	parentEntityId: Schema.NullOr(Schema.String),
+	settledAt: Schema.NullOr(DataRecordTimestamp),
+	processingAt: Schema.NullOr(DataRecordTimestamp),
+	originalSchedule: Schema.NullOr(ReminderScheduleEvidence),
+	message: Schema.String.pipe(
+		Schema.check(Schema.isMinLength(1), Schema.isMaxLength(REMINDER_MESSAGE_MAX_LENGTH)),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter((row) => {
+			if (row.timezone !== null && Option.isNone(DateTime.zoneMakeNamed(row.timezone))) {
+				return false;
+			}
+			if (row.state === "scheduled" || row.state === "processing") {
+				if (row.entityId === null || row.dueAt === null || row.timezone === null) {
+					return false;
+				}
+			}
+			if (row.state === "processing" && row.processingAt === null) {
+				return false;
+			}
+			if (
+				row.state === "needs-scheduling" &&
+				(row.dueAt !== null || row.timezone !== null || row.originalSchedule === null)
+			) {
+				return false;
+			}
+			return row.state === "settled"
+				? row.outcome !== null && row.settledAt !== null
+				: row.outcome === null;
+		}),
+	),
+);
+export type ArchiveReminder = typeof ArchiveReminder.Type;
+
 export const ARCHIVE_CODECS = {
 	"events.ndjson": ArchiveEvent,
 	"profile.json": ArchiveProfile,
+	"reminders.ndjson": ArchiveReminder,
 	"entities.ndjson": ArchiveUserEntity,
 	"saved-views.ndjson": ArchiveSavedView,
 	"integrations.ndjson": ArchiveIntegration,
@@ -373,6 +429,7 @@ export const ARCHIVE_CODECS = {
 
 export type ArchiveRecords = {
 	readonly profile: ArchiveProfile;
+	readonly reminders: ReadonlyArray<ArchiveReminder>;
 	readonly entities: ReadonlyArray<ArchiveUserEntity>;
 	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
 	readonly integrations: ReadonlyArray<ArchiveIntegration>;

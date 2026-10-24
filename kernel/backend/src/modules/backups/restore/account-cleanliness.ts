@@ -39,6 +39,7 @@ import { isDefaultSystemInstallation } from "../installation-state";
 
 export type AccountCleanlinessState = {
 	readonly hasEvents: boolean;
+	readonly hasReminders: boolean;
 	readonly hasIntegrations: boolean;
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
@@ -93,6 +94,9 @@ export const classifyAccountCleanliness = (
 	}
 	if (state.hasEvents) {
 		return "events";
+	}
+	if (state.hasReminders) {
+		return "reminders";
 	}
 	const relationships = state.relationships.map(
 		({
@@ -265,6 +269,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						notificationSubscriptions: subscriptions,
 						defaultPreferences: { ...defaultUserPreferences },
 						expectedSavedViews: Object.values(snapshot.savedViews),
+						hasReminders: (yield* backupReads.listReminders(userId)).length > 0,
 						expectedNotificationSubscriptions: Object.values(snapshot.signalSchemas)
 							.filter(({ catalogState }) => catalogState === "active")
 							.map(({ slug, pluginId }) => ({

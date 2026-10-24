@@ -89,6 +89,7 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	pluginState: [],
 	hasEvents: false,
 	relationships: [],
+	hasReminders: false,
 	expectedSavedViews: [],
 	hasIntegrations: false,
 	hasManagedAssets: false,
@@ -447,6 +448,7 @@ describe("classifyAccountCleanliness", () => {
 			},
 		],
 		["events", { hasEvents: true }],
+		["reminders", { hasReminders: true }],
 		["managed-assets", { hasManagedAssets: true }],
 		[
 			"relationships",

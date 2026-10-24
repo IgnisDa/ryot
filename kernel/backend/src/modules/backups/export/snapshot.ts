@@ -59,6 +59,7 @@ import type {
 	ArchiveNotificationSubscription,
 	ArchiveRecords,
 	ArchiveRelationship,
+	ArchiveReminder,
 	ArchiveSavedView,
 	ArchiveUserEntity,
 } from "../archive/schemas";
@@ -362,6 +363,31 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const storedRelationships = yield* relationships.listUserRelationshipsForBackup(userId);
 				const storedIntegrations = yield* integrations.listForBackup(userId);
 				const storedViews = yield* savedViews.listForBackup(userId);
+				const storedReminders = yield* exportRepository.listReminders(userId);
+				const reminderIds = new Set(storedReminders.map(({ id }) => id));
+				const reminderRecords: ArchiveReminder[] = yield* Effect.forEach(storedReminders, (row) =>
+					Schema.decodeUnknownEffect(ARCHIVE_CODECS["reminders.ndjson"])({
+						id: row.id,
+						state: row.state,
+						reason: row.reason,
+						message: row.message,
+						outcome: row.outcome,
+						entityId: row.entityId,
+						timezone: row.timezone,
+						entityTitle: row.entityTitle,
+						parentEntityId: row.parentEntityId,
+						originalSchedule: row.originalSchedule,
+						createdAt: row.createdAt.toISOString(),
+						updatedAt: row.updatedAt.toISOString(),
+						dueAt: row.dueAt?.toISOString() ?? null,
+						settledAt: row.settledAt?.toISOString() ?? null,
+						processingAt: row.processingAt?.toISOString() ?? null,
+						replacementId:
+							row.replacementId !== null && reminderIds.has(row.replacementId)
+								? row.replacementId
+								: null,
+					}).pipe(Effect.mapError(() => badRequest("Backup reminder data is invalid"))),
+				);
 				const storedSubscriptions =
 					yield* automations.listNotificationSubscriptionsForBackup(userId);
 				const translationRows = yield* translations.listForBackup(
@@ -664,6 +690,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					propertyRecords,
 					entityDependencies,
 					savedViews: viewRecords,
+					reminders: reminderRecords,
 					integrations: integrationRecords,
 					installations: installationRecords,
 					relationships: relationshipRecords,
@@ -1060,6 +1087,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const records = {
 						entityDependencies,
 						profile: data.profile,
+						reminders: data.reminders,
 						notificationSubscriptions,
 						entities: exportedEntities,
 						savedViews: data.savedViews,

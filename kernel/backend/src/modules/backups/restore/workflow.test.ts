@@ -146,6 +146,7 @@ const archiveLocator = { intentId: "intent-id", key: "temporary/archive.zip" };
 
 const emptyRecords = {
 	entities: [],
+	reminders: [],
 	savedViews: [],
 	integrations: [],
 	installations: [],

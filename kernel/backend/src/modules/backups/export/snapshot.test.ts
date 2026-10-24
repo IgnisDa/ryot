@@ -568,6 +568,7 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 			Layer.provideMerge(
 				Layer.mergeAll(
 					Layer.mock(BackupExportRepository, {
+						listReminders: () => Effect.succeed([]),
 						listSavedViewOverrides: () =>
 							Effect.succeed([
 								{
@@ -934,6 +935,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 		Layer.provideMerge(
 			Layer.mergeAll(
 				Layer.mock(BackupExportRepository, {
+					listReminders: () => Effect.succeed([]),
 					listSavedViewOverrides: () => Effect.succeed([]),
 					listCalendarSourceOverrides: () => Effect.succeed([]),
 				}),

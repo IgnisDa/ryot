@@ -6,7 +6,7 @@ import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
+import { Context, DateTime, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
 
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -15,6 +15,7 @@ import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
+import { reminder } from "#schema/tables/reminders";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
@@ -51,6 +52,7 @@ const profile = {
 	name: "Restored profile",
 	preferences: { language: null, disableIntegrations: true },
 };
+const restoredReminderDate = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 const archiveLocator = { intentId: "restore-intent", key: "temporary/restore.zip" };
 const failure = new BackupWorkflowError({
 	failure: { operation: "restore", code: "unexpected-failure" },
@@ -135,6 +137,24 @@ const dependencies = Layer.unwrap(
 					Effect.gen(function* () {
 						yield* record("restore");
 						yield* persistence.restorePortableProfile(userId, records.profile);
+						yield* persistence.restoreReminder({
+							userId,
+							entityId: null,
+							parentEntityId: null,
+							state: "needs-scheduling",
+							message: "Restored reminder",
+							entityTitle: "Retained target",
+							createdAt: restoredReminderDate,
+							updatedAt: restoredReminderDate,
+							id: `${userId}-restored-reminder`,
+							accountGeneration: "test-account-generation",
+							originalSchedule: {
+								dueAt: null,
+								timezone: null,
+								mayHaveSent: true,
+								date: "2025-01-01",
+							},
+						});
 						const current = yield* Ref.get(scenario);
 						if (current === "write-failure") {
 							return yield* new BadRequest({ message: "invalid historical row" });
@@ -174,6 +194,7 @@ const dependencies = Layer.unwrap(
 								records: {
 									profile,
 									entities: [],
+									reminders: [],
 									savedViews: [],
 									integrations: [],
 									installations: [],
@@ -243,6 +264,30 @@ layer(operationsLayer)((test) => {
 			yield* operations.cleanup(payload, archiveLocator);
 			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
+			const restoredReminders = yield* database.run((db) =>
+				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+			);
+			expect(restoredReminders).toHaveLength(1);
+			expect(restoredReminders[0]).toMatchObject({
+				dueAt: null,
+				entityId: null,
+				timezone: null,
+				dispatch: null,
+				triggerId: null,
+				reconcileAt: null,
+				processingAt: null,
+				parentEntityId: null,
+				formatterRunId: null,
+				userId: payload.userId,
+				state: "needs-scheduling",
+				message: "Restored reminder",
+				entityTitle: "Retained target",
+				createdAt: restoredReminderDate,
+				updatedAt: restoredReminderDate,
+				id: `${payload.userId}-restored-reminder`,
+				accountGeneration: "test-account-generation",
+				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
+			});
 			yield* operations.fail(payload, failure);
 			expect(yield* repository.getRunById(payload)).toEqual(completed);
 			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
@@ -267,6 +312,11 @@ layer(operationsLayer)((test) => {
 					db.select().from(user).where(eq(user.id, payload.userId)),
 				);
 				expect(unchanged?.name).toBe("Before restore");
+				expect(
+					yield* database.run((db) =>
+						db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+					),
+				).toHaveLength(0);
 				const repository = yield* BackupsRepository;
 				expect(yield* repository.getRunById(payload)).toMatchObject({
 					progress: 5,
@@ -293,6 +343,31 @@ layer(operationsLayer)((test) => {
 					progress: 100,
 					status: "completed",
 				});
+				const database = yield* DatabaseSession;
+				const restoredReminders = yield* database.run((db) =>
+					db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+				);
+				expect(restoredReminders).toHaveLength(1);
+				expect(restoredReminders[0]).toMatchObject({
+					dueAt: null,
+					entityId: null,
+					timezone: null,
+					dispatch: null,
+					triggerId: null,
+					reconcileAt: null,
+					processingAt: null,
+					parentEntityId: null,
+					formatterRunId: null,
+					userId: payload.userId,
+					state: "needs-scheduling",
+					message: "Restored reminder",
+					entityTitle: "Retained target",
+					createdAt: restoredReminderDate,
+					updatedAt: restoredReminderDate,
+					id: `${payload.userId}-restored-reminder`,
+					accountGeneration: "test-account-generation",
+					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
+				});
 				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
 					"open",
 					"restore",
@@ -317,6 +392,31 @@ layer(operationsLayer)((test) => {
 			});
 			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
+			const database = yield* DatabaseSession;
+			const restoredReminders = yield* database.run((db) =>
+				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+			);
+			expect(restoredReminders).toHaveLength(1);
+			expect(restoredReminders[0]).toMatchObject({
+				dueAt: null,
+				entityId: null,
+				timezone: null,
+				dispatch: null,
+				triggerId: null,
+				reconcileAt: null,
+				processingAt: null,
+				parentEntityId: null,
+				formatterRunId: null,
+				userId: payload.userId,
+				state: "needs-scheduling",
+				message: "Restored reminder",
+				entityTitle: "Retained target",
+				createdAt: restoredReminderDate,
+				updatedAt: restoredReminderDate,
+				id: `${payload.userId}-restored-reminder`,
+				accountGeneration: "test-account-generation",
+				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
+			});
 			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
 				"open",
 				"restore",
@@ -333,6 +433,31 @@ layer(operationsLayer)((test) => {
 			expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
 				progress: 100,
 				status: "completed",
+			});
+			const database = yield* DatabaseSession;
+			const restoredReminders = yield* database.run((db) =>
+				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+			);
+			expect(restoredReminders).toHaveLength(1);
+			expect(restoredReminders[0]).toMatchObject({
+				dueAt: null,
+				entityId: null,
+				timezone: null,
+				dispatch: null,
+				triggerId: null,
+				reconcileAt: null,
+				processingAt: null,
+				parentEntityId: null,
+				formatterRunId: null,
+				userId: payload.userId,
+				state: "needs-scheduling",
+				message: "Restored reminder",
+				entityTitle: "Retained target",
+				createdAt: restoredReminderDate,
+				updatedAt: restoredReminderDate,
+				id: `${payload.userId}-restored-reminder`,
+				accountGeneration: "test-account-generation",
+				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
 			});
 			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
 				"open",

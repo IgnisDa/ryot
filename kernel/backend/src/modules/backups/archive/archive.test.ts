@@ -43,6 +43,7 @@ const savedViewQuery = document({
 });
 const records: ArchiveRecords = {
 	entities: [],
+	reminders: [],
 	integrations: [],
 	relationships: [],
 	privatePlugins: [],
@@ -863,6 +864,44 @@ layer(BunFileSystem.layer)((test) => {
 			});
 			const error = yield* validationError(archive);
 			expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+		}),
+	);
+
+	test.effect("rejects invalid reminder time zones in archive records", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(input(), (files) => {
+				const reminder = {
+					reason: null,
+					entityId: null,
+					state: "settled",
+					dueAt: timestamp,
+					message: "Message",
+					processingAt: null,
+					id: "reminder-zone",
+					outcome: "accepted",
+					replacementId: null,
+					parentEntityId: null,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					settledAt: timestamp,
+					entityTitle: "Target",
+					timezone: "Not/A_Zone",
+					originalSchedule: null,
+				};
+				replaceSection(
+					files,
+					"reminders.ndjson",
+					encoder.encode(`${JSON.stringify(reminder)}\n`),
+					1,
+				);
+			});
+			const error = yield* validationError(archive);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error).toMatchObject({
+				reason: "invalid_entry",
+				path: "reminders.ndjson",
+				_tag: "BackupArchiveError",
+			});
 		}),
 	);
 });

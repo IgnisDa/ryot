@@ -435,6 +435,21 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								or(
 									exists(
 										db
+											.select({ id: schema.reminder.id })
+											.from(schema.reminder)
+											.where(
+												and(
+													eq(schema.reminder.userId, userId),
+													isNull(schema.reminder.removedAt),
+													or(
+														eq(schema.reminder.entityId, schema.entity.id),
+														eq(schema.reminder.parentEntityId, schema.entity.id),
+													),
+												),
+											),
+									),
+									exists(
+										db
 											.select({ id: schema.relationship.id })
 											.from(schema.relationship)
 											.where(

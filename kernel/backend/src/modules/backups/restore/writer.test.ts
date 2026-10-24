@@ -424,6 +424,7 @@ const provenanceRecords = (
 		readonly subscriptionKey?: null | string;
 	} = {},
 ): ArchiveRecords => ({
+	reminders: [],
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
@@ -927,6 +928,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 		return yield* writer.restoreRecords(
 			UserId.make("user-id"),
 			{
+				reminders: [],
 				savedViews: [],
 				integrations: [],
 				installations: [],
@@ -1308,6 +1310,7 @@ describe("account backup restore in PostgreSQL", () => {
 					);
 					const timestamp = "2026-09-16T00:00:00.000Z";
 					const records: ArchiveRecords = {
+						reminders: [],
 						savedViews: [],
 						integrations: [],
 						privatePlugins: [],
@@ -2238,6 +2241,7 @@ const assetRestoreLayer = (assetOwnerUserId: string) =>
 	);
 const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	entities: [],
+	reminders: [],
 	savedViews: [],
 	integrations: [],
 	installations: [],

@@ -69,6 +69,7 @@ type ArchiveEventsInput = {
 
 const recordCollections = (records: ArchiveRecords) => ({
 	"entities.ndjson": records.entities,
+	"reminders.ndjson": records.reminders,
 	"saved-views.ndjson": records.savedViews,
 	"integrations.ndjson": records.integrations,
 	"installations.ndjson": records.installations,
@@ -110,6 +111,7 @@ const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
 const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	profile: records.profile,
 	entities: sortedIfNeeded(records.entities, compareId),
+	reminders: sortedIfNeeded(records.reminders, compareId),
 	savedViews: sortedIfNeeded(records.savedViews, compareId),
 	integrations: sortedIfNeeded(records.integrations, compareId),
 	relationships: sortedIfNeeded(records.relationships, compareId),
@@ -184,6 +186,7 @@ const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: st
 };
 
 const validateRecordKeys = (records: ArchiveRecords) => {
+	requireUniqueIds("reminders.ndjson", records.reminders);
 	requireUniqueIds("entities.ndjson", records.entities);
 	requireUniqueIds("saved-views.ndjson", records.savedViews);
 	requireUniqueIds("integrations.ndjson", records.integrations);
@@ -227,6 +230,24 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 		viewSlugs.add(key);
 	}
 	const customViews = records.savedViews.filter((view) => view.kind === "custom");
+	const reminderIds = new Set(records.reminders.map(({ id }) => id));
+	const reminderTargets = new Set([
+		...entityIds,
+		...records.entityDependencies.map(({ id }) => id),
+	]);
+	for (const row of records.reminders) {
+		if (
+			(row.entityId !== null && !reminderTargets.has(row.entityId)) ||
+			(row.parentEntityId !== null && !reminderTargets.has(row.parentEntityId)) ||
+			(row.replacementId !== null && !reminderIds.has(row.replacementId))
+		) {
+			throw archiveError(
+				"missing_reference_mapping",
+				"Backup reminder reference is missing",
+				"reminders.ndjson",
+			);
+		}
+	}
 	const customViewIds = new Set(customViews.map(({ id }) => id));
 	const installationKeys = new Set<string>();
 	for (const installation of records.installations) {
@@ -390,6 +411,7 @@ const buildManifest = (
 			records.notificationSubscriptions.length,
 			limits,
 		),
+		boundedSection("reminders.ndjson", records, records.reminders.length, limits),
 	];
 	const declaredAssets = new Set<string>();
 	for (const asset of input.assets) {
@@ -934,9 +956,11 @@ const validateExtracted = (
 		"notification-subscriptions.ndjson",
 		ARCHIVE_CODECS["notification-subscriptions.ndjson"],
 	);
+	const reminders = readSection("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]);
 	validateRecordKeys({
 		profile,
 		entities,
+		reminders,
 		savedViews,
 		integrations,
 		installations,
@@ -950,6 +974,7 @@ const validateExtracted = (
 		{
 			profile,
 			entities,
+			reminders,
 			savedViews,
 			integrations,
 			installations,
@@ -1015,6 +1040,7 @@ const validateExtracted = (
 		records: {
 			profile,
 			entities,
+			reminders,
 			savedViews,
 			integrations,
 			installations,
