@@ -65,7 +65,7 @@ export const makePluginScriptHost = Effect.gen(function* () {
 					const values = yield* getPluginConfig({
 						access,
 						metadata: input.principal.metadata,
-						context: { config, kind: "installation", configSchema: revision.configSchema },
+						context: { config, configSchema: revision.configSchema },
 					});
 					return yield* encodeConfigValues(values);
 				}),
