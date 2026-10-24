@@ -62,6 +62,13 @@ const levelsPackage = () => {
 					propertiesSchema: { fields: {} },
 				},
 				{
+					name: "Subparts",
+					slug: "part-part",
+					targetEntitySchemaSlug: "part",
+					sourceEntitySchemaSlug: "part",
+					propertiesSchema: { fields: {} },
+				},
+				{
 					slug: "credits",
 					name: "Credits",
 					sourceEntitySchemaSlug: "bottle",
@@ -141,16 +148,17 @@ const setup = Effect.gen(function* () {
 	const populate = (input: {
 		readonly executionId: string;
 		readonly level: PopulationLevel;
+		readonly mode?: "ensure" | "refresh";
 		readonly details: Effect.Effect<unknown>;
 	}) => {
 		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, input.executionId);
 		return runProviderEntityPopulationWorkflow(
 			{
-				mode: "ensure",
 				level: input.level,
 				externalId: "root",
 				providerId: provider.id,
 				entitySchemaSlug: bottle,
+				mode: input.mode ?? "ensure",
 				executionId: input.executionId,
 				command: command(input.executionId),
 				pluginId: PluginId.make(installed.pluginId),
@@ -225,6 +233,84 @@ const setup = Effect.gen(function* () {
 });
 
 const given = (value: unknown) => Effect.succeed(value);
+
+layer(relationshipDatabaseLayer())((test) => {
+	test.effect(
+		"keeps mixed-case provider siblings attached to their own subtrees and stamps new children",
+		() =>
+			Effect.gen(function* () {
+				const { entity, populate, relationships } = yield* setup;
+				const tree = {
+					name: "Bottle",
+					properties: { title: "Tree" },
+					expectedChildEntitySchemaSlug: "part",
+					childEntities: ["zeta", "Alpha", "alpha"].map((externalId) => ({
+						externalId,
+						name: externalId,
+						entitySchemaSlug: "part",
+						properties: { title: externalId },
+						childEntities: [
+							{
+								entitySchemaSlug: "part",
+								name: `${externalId} leaf`,
+								externalId: `${externalId}-leaf`,
+								properties: { title: `${externalId} leaf` },
+							},
+						],
+					})),
+				};
+				yield* populate({ level: "base", details: given(tree), executionId: "tree-base" });
+				const children = yield* Effect.forEach(tree.childEntities, (child) =>
+					entity(child.externalId),
+				);
+				const leaves = yield* Effect.forEach(tree.childEntities, (child) =>
+					entity(`${child.externalId}-leaf`),
+				);
+				const expectedEdges = children.map((child, index) => {
+					const leaf = leaves[index];
+					assert(child?.populatedAt && leaf?.populatedAt);
+					expect(child.relatedPopulatedAt).toEqual(child.populatedAt);
+					expect(leaf.relatedPopulatedAt).toEqual(leaf.populatedAt);
+					return { targetEntityId: leaf.id, sourceEntityId: child.id };
+				});
+				expect(yield* relationships("part-part")).toEqual(
+					expect.arrayContaining(expectedEdges.map((edge) => expect.objectContaining(edge))),
+				);
+				expect(yield* relationships("part-part")).toHaveLength(3);
+
+				yield* populate({
+					level: "full",
+					mode: "refresh",
+					executionId: "tree-refresh",
+					details: given({
+						...tree,
+						childEntities: [
+							...tree.childEntities.toReversed(),
+							{
+								name: "New",
+								externalId: "new",
+								entitySchemaSlug: "part",
+								properties: { title: "New" },
+							},
+						],
+					}),
+				});
+				const fresh = yield* entity("new");
+				assert(fresh?.populatedAt);
+				expect(fresh.relatedPopulatedAt).toEqual(fresh.populatedAt);
+				expect(yield* relationships("part-part")).toEqual(
+					expect.arrayContaining(expectedEdges.map((edge) => expect.objectContaining(edge))),
+				);
+				expect(yield* relationships("part-part")).toHaveLength(3);
+				for (const child of children) {
+					assert(child?.externalId);
+					const refreshed = yield* entity(child.externalId);
+					expect(refreshed?.id).toBe(child.id);
+					expect(refreshed?.relatedPopulatedAt).toEqual(child.relatedPopulatedAt);
+				}
+			}),
+	);
+});
 
 layer(relationshipDatabaseLayer())((test) => {
 	test.effect(

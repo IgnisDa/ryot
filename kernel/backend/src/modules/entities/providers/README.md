@@ -180,6 +180,13 @@ lock one entity and then discover another mutation target.
 The locks are granular. Unrelated entity graphs continue concurrently, while transactions touching
 the same provider entity or relationship serialize their conflicting mutations.
 
+Repositories own lock sorting; provider callers submit children and deduplicated related entities in
+provider order. Results, receipt batch indexes, and sibling lifecycle dispatch follow that order,
+with entity dispatch before relationship dispatch. Item command and receipt identities do not depend
+on sibling positions. Replayed receipts retain their recorded dispatch; newly admitted batches use
+provider order. Child-related stamps stay in the child-set transaction, and nested child sets use the
+same provider-order result positions as their input subtrees.
+
 ### Deadlock retry
 
 PostgreSQL can still select a transaction as a deadlock victim when a new mutation path violates the

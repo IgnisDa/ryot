@@ -30,8 +30,6 @@ const ProcessedChildEntity = Schema.Struct({
 	entitySchemaSlug: EntitySchemaSlug,
 });
 
-type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
-
 const RelationshipReconciliationResult = Schema.Struct({
 	created: Schema.Finite,
 	updated: Schema.Finite,
@@ -135,17 +133,14 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		input.scope === "user"
 			? ({ scope: "user", userId: input.userId } as const)
 			: ({ scope: "global" } as const);
-	const orderedChildEntities = input.childEntities
-		.map((childEntity, index) => ({ index, childEntity }))
-		.sort((left, right) => left.childEntity.externalId.localeCompare(right.childEntity.externalId));
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
-				if (orderedChildEntities.length > 0 && !childEntitySchemaSlug) {
+				if (input.childEntities.length > 0 && !childEntitySchemaSlug) {
 					return yield* Effect.die("Validated child schema is missing");
 				}
 				const childEntities = childEntitySchemaSlug
-					? orderedChildEntities.map(({ childEntity }) => ({
+					? input.childEntities.map((childEntity) => ({
 							...scope,
 							name: childEntity.name,
 							providerId: input.providerId,
@@ -174,23 +169,11 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 						identity: ["children", String(input.parentEntityId), "entities"],
 					},
 				});
-				const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
-					length: input.childEntities.length,
-				});
-				for (const [position, { index }] of orderedChildEntities.entries()) {
-					const result = upserts.results[position];
-					if (!result || !childEntitySchemaSlug) {
-						return yield* Effect.die("Planned child entity upsert is missing its result");
-					}
-					processedChildrenByIndex[index] = {
-						entity: result.entity,
-						entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
-					};
-				}
 				const entityDispatch = upserts.dispatch;
-				const processedChildren = processedChildrenByIndex.flatMap((child) =>
-					child ? [child] : [],
-				);
+				const processedChildren = upserts.results.map(({ entity }) => ({
+					entity,
+					entitySchemaSlug: entity.entitySchemaSlug,
+				}));
 				yield* repository.stampChildRelatedPopulated(
 					processedChildren.map(({ entity }) => entity.id),
 				);

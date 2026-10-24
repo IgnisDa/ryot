@@ -238,6 +238,7 @@ class FakeProviderWrites extends Context.Service<
 	{
 		readonly persisted: Effect.Effect<ReadonlyArray<UpsertInput>>;
 		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
+		readonly stampedChildren: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
 >()("test/FakeProviderWrites") {}
 
@@ -252,6 +253,7 @@ const providerWritesLayer = (options: {
 		Effect.gen(function* () {
 			const transaction = yield* makeTransaction<UpsertInput>();
 			const reconciliations = yield* Ref.make<ReadonlyArray<Reconciliation>>([]);
+			const stampedChildren = yield* Ref.make<ReadonlyArray<ReadonlyArray<EntityId>>>([]);
 			const { reconciled, privateProvider } = options;
 			return Layer.mergeAll(
 				transaction.database,
@@ -278,7 +280,12 @@ const providerWritesLayer = (options: {
 					}),
 				}),
 				options.entitiesRepository ??
-					Layer.mock(EntitiesRepository)({ stampChildRelatedPopulated: () => Effect.void }),
+					Layer.mock(EntitiesRepository)({
+						stampChildRelatedPopulated: (ids) =>
+							transaction
+								.expectTransaction(true)
+								.pipe(Effect.andThen(Ref.update(stampedChildren, (all) => [...all, ids]))),
+					}),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpserts: (input) =>
 						Effect.forEach(input.items, (item) =>
@@ -322,6 +329,7 @@ const providerWritesLayer = (options: {
 				Layer.succeed(FakeProviderWrites, {
 					persisted: transaction.persisted,
 					reconciliations: Ref.get(reconciliations),
+					stampedChildren: Ref.get(stampedChildren),
 				}),
 			);
 		}),
@@ -339,53 +347,61 @@ layer(
 		},
 	}),
 )((it) => {
-	it.effect("commits a child set atomically and returns entity then relationship plans", () =>
-		Effect.gen(function* () {
-			const result = yield* writeChildEntitySet({
-				command,
-				pluginId,
-				population,
-				providerId,
-				definitions,
-				scope: "global",
-				parentEntityId: rootEntityId,
-				parentEntitySchemaSlug: rootSchemaSlug,
-				expectedChildEntitySchemaSlug: childSchemaSlug,
-				childEntities: [
-					{ name: "Second", properties: {}, externalId: "b", entitySchemaSlug: childSchemaSlug },
-					{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
-				],
-			});
-			expect(yield* persistedExternalIds).toEqual(["a", "b"]);
-			expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "a"]);
-			expect(result.relationshipResults).toEqual([
-				{ created: 2, updated: 0, deleted: 0, upserted: 2 },
-			]);
-			expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
-				"entity-a",
-				"entity-b",
-				"entities-batch",
-				"relationships",
-			]);
-			const [reconciliation] = yield* (yield* FakeProviderWrites).reconciliations;
-			expect(reconciliation).toMatchObject({
-				scope: { scope: "global" },
-				command: {
-					causation: command.causation,
-					population: {
-						...population,
-						batch: {
-							afterCount: 0,
-							isLeader: true,
-							beforeCount: 0,
-							createdCount: 0,
-							deletedCount: 0,
-							updatedCount: 0,
+	it.effect(
+		"commits children and stamps in provider order with entity then relationship plans",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* writeChildEntitySet({
+					command,
+					pluginId,
+					population,
+					providerId,
+					definitions,
+					scope: "global",
+					parentEntityId: rootEntityId,
+					parentEntitySchemaSlug: rootSchemaSlug,
+					expectedChildEntitySchemaSlug: childSchemaSlug,
+					childEntities: [
+						{ name: "Second", properties: {}, externalId: "b", entitySchemaSlug: childSchemaSlug },
+						{ name: "First", properties: {}, externalId: "A", entitySchemaSlug: childSchemaSlug },
+					],
+				});
+				expect(yield* persistedExternalIds).toEqual(["b", "A"]);
+				expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "A"]);
+				expect(yield* (yield* FakeProviderWrites).stampedChildren).toEqual([
+					["entity-b", "entity-A"],
+				]);
+				expect(result.relationshipResults).toEqual([
+					{ created: 2, updated: 0, deleted: 0, upserted: 2 },
+				]);
+				expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
+					"entity-b",
+					"entity-A",
+					"entities-batch",
+					"relationships",
+				]);
+				const [reconciliation] = yield* (yield* FakeProviderWrites).reconciliations;
+				expect(
+					reconciliation?.groups[0]?.relationships.map(({ targetEntityId }) => targetEntityId),
+				).toEqual(["entity-b", "entity-A"]);
+				expect(reconciliation).toMatchObject({
+					scope: { scope: "global" },
+					command: {
+						causation: command.causation,
+						population: {
+							...population,
+							batch: {
+								afterCount: 0,
+								isLeader: true,
+								beforeCount: 0,
+								createdCount: 0,
+								deletedCount: 0,
+								updatedCount: 0,
+							},
 						},
 					},
-				},
-			});
-		}),
+				});
+			}),
 	);
 });
 
@@ -462,10 +478,13 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 layer(
 	providerWritesLayer({
 		privateProvider: SandboxProviderId.make("private-provider"),
-		reconciled: { dispatch: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] },
+		reconciled: {
+			result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }],
+			dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
+		},
 	}),
 )((it) => {
-	it.effect("keeps private related entities and reconciliation in one user transaction", () =>
+	it.effect("deduplicates related entities in provider order in one private transaction", () =>
 		Effect.gen(function* () {
 			const result = yield* syncRelatedEntityGroup({
 				userId,
@@ -483,9 +502,21 @@ layer(
 					entities: [
 						{
 							name: "Person",
-							externalId: "person-1",
+							externalId: "zeta",
 							providerSlug: "private.person",
 							relationshipProperties: { role: "actor" },
+						},
+						{
+							name: "Alpha",
+							externalId: "Alpha",
+							providerSlug: "private.person",
+							relationshipProperties: { role: "writer" },
+						},
+						{
+							name: "Last Zeta",
+							externalId: "zeta",
+							providerSlug: "private.person",
+							relationshipProperties: { role: "director" },
 						},
 					],
 				},
@@ -496,8 +527,27 @@ layer(
 				userId: item.scope === "user" ? item.userId : null,
 			}));
 			const [reconciliation] = yield* fake.reconciliations;
-			expect(result.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
-			expect(entityScopes).toEqual([{ userId, scope: "user" }]);
+			expect(result.result).toEqual([{ created: 2, updated: 0, deleted: 0, upserted: 2 }]);
+			expect(entityScopes).toEqual([
+				{ userId, scope: "user" },
+				{ userId, scope: "user" },
+			]);
+			expect((yield* fake.persisted).map(({ name, externalId }) => ({ name, externalId }))).toEqual(
+				[
+					{ name: "Last Zeta", externalId: "zeta" },
+					{ name: "Alpha", externalId: "Alpha" },
+				],
+			);
+			expect(reconciliation?.groups[0]?.relationships).toMatchObject([
+				{ targetEntityId: "entity-zeta", properties: { role: "director" } },
+				{ targetEntityId: "entity-Alpha", properties: { role: "writer" } },
+			]);
+			expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
+				"entity-zeta",
+				"entity-Alpha",
+				"entities-batch",
+				"relationships",
+			]);
 			expect(reconciliation?.scope).toEqual({ userId, scope: "user" });
 			expect(reconciliation?.command).toMatchObject({
 				causation: command.causation,
