@@ -14,6 +14,7 @@ export const buildUserToEntityInLibraryMigrationSql = (input: {
 }) => {
 	const phase = `user_to_entity -> ${input.inLibraryRelationshipSchema.slug} relationship`;
 	const fitness = input.inLibraryRelationshipSchema.slug === "in-fitness-library";
+	const media = input.inLibraryRelationshipSchema.slug === "in-media-library";
 	const properties = fitness
 		? `jsonb_strip_nulls(jsonb_build_object(
 			'normalRestTime', ute.exercise_extra_information #> '{settings,set_rest_timers,normal}',
@@ -31,6 +32,7 @@ DECLARE
 	cursor_id           text         := '';
 	next_cursor_id      text;
 	rows_inserted       int          := 0;
+	events_inserted int := 0;
 	invalid_settings_count int;
 	invalid_settings_sample text;
 	started_at          timestamptz  := clock_timestamp();
@@ -112,7 +114,46 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql(phase, [{ count: "rows_inserted", message: "row(s) migrated total" }])}
+	${
+		media
+			? `ANALYZE "relationship";
+
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"event_schema_plugin_id",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
+	SELECT
+		md5(rel.id || ':add-to-media-library'),
+		rel.user_id,
+		rel.source_entity_id,
+		'add-to-media-library',
+		${quoteNullableSqlString(input.inLibraryRelationshipSchema.pluginId)},
+		'{}'::jsonb,
+		rel.created_at,
+		rel.created_at
+	FROM "user_to_entity" ute
+	INNER JOIN "relationship" rel
+		ON rel.id = md5(ute.entity_id || ${quoteSqlString(`:${input.inLibraryRelationshipSchema.slug}:`)} || ute.user_id)
+		AND rel.relationship_schema_slug = ${quoteSqlString(input.inLibraryRelationshipSchema.slug)}
+		AND rel.relationship_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.inLibraryRelationshipSchema.pluginId)}
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS events_inserted = ROW_COUNT;`
+			: ""
+	}
+
+	${buildReportSql(phase, [
+		{ count: "rows_inserted", message: "row(s) migrated total" },
+		...(media
+			? [{ count: "events_inserted", message: "add-to-media-library event(s) migrated" }]
+			: []),
+	])}
 END $$;
 `;
 };
