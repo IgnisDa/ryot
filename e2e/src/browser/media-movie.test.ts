@@ -13,9 +13,11 @@ import {
 } from "~/fixtures/kernel";
 import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
 import {
+	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	seedGlobalMovieWithCollection,
+	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
@@ -270,6 +272,83 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("filters All Movies by status and sorts them by rating", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const movie = Effect.fn(function* (
+			events: readonly (readonly [
+				"review" | "backlog" | "complete" | "progress",
+				string,
+				Record<string, unknown>,
+			])[],
+		) {
+			const fixture = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			const slugs = {
+				review: fixture.reviewEventSchemaSlug,
+				backlog: fixture.backlogEventSchemaSlug,
+				complete: fixture.completeEventSchemaSlug,
+				progress: fixture.progressEventSchemaSlug,
+			};
+			for (const [kind, occurredAt, properties] of events) {
+				yield* createEventFixture(client, {
+					occurredAt,
+					properties,
+					entityId: fixture.entityId,
+					eventSchemaSlug: slugs[kind],
+				});
+			}
+			yield* waitForLibrarySummary(client, fixture.entityId);
+			return fixture.entityId;
+		});
+		const finished = yield* movie([
+			["complete", "2026-07-01T10:00:00.000Z", {}],
+			["review", "2026-07-01T11:00:00.000Z", { rating: 90 }],
+		]);
+		const watching = yield* movie([
+			["progress", "2026-07-02T10:00:00.000Z", { progressPercent: 50 }],
+			["review", "2026-07-02T11:00:00.000Z", { rating: 40 }],
+		]);
+		const planned = yield* movie([["backlog", "2026-07-03T10:00:00.000Z", {}]]);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-movies", packageId: mediaPlugin.metadata.packageId })}`,
+		);
+		const view = page.locator("iframe").contentFrame();
+		const order = () =>
+			view
+				.locator("article[data-entity-id]")
+				.evaluateAll((elements) => elements.map((element) => element.dataset.entityId));
+		yield* view.locator(`article[data-entity-id="${finished}"]`).waitFor({ state: "visible" });
+		expect(yield* order()).toEqual([planned, watching, finished]);
+
+		const filters = view.getByRole("dialog", { exact: true, name: "Filters" });
+		yield* view.getByRole("button", { name: /^Filters/ }).click();
+		yield* filters.getByRole("button", { name: /^Add filter/ }).click();
+		yield* view.getByRole("radio", { exact: true, name: "Status" }).click();
+		yield* filters.getByRole("button", { exact: true, name: "Status values" }).click();
+		yield* view.getByRole("checkbox", { exact: true, name: "In progress" }).click();
+		yield* view
+			.getByRole("dialog", { exact: true, name: "Status values" })
+			.getByRole("button", { exact: true, name: "Close options" })
+			.click();
+		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "detached" });
+		yield* view.locator(`article[data-entity-id="${watching}"]`).waitFor({ state: "visible" });
+		expect(yield* order()).toEqual([watching]);
+
+		yield* filters.getByRole("button", { exact: true, name: "Remove filter 1" }).click();
+		yield* view.getByRole("button", { name: /^Sort results/ }).click();
+		yield* view.getByRole("radio", { exact: true, name: "Highest rated" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "userRating-desc");
+		yield* view.locator(`article[data-entity-id="${planned}"]`).waitFor({ state: "visible" });
+		expect(yield* order()).toEqual([finished, watching, planned]);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

@@ -23,6 +23,7 @@ import {
 	workoutTimeCorrectionOperationSlug,
 } from "../shared/workout-editor-context-operations";
 import { fitnessClientRoutes } from "../shared/workout-editor-routes";
+import { fitnessBrowse } from "./browse";
 import { fitnessCalendarSources } from "./calendar-sources";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
@@ -67,7 +68,6 @@ export const fitnessPlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fitnessSavedViews(),
 	configSchema: fitnessConfigSchema,
-	entitySchemas: fitnessEntitySchemas,
 	signalSchemas: fitnessSignalSchemas(),
 	calendarSources: fitnessCalendarSources(),
 	userSettingsSchema: fitnessUserSettingsSchema,
@@ -86,6 +86,10 @@ export const fitnessPlugin = definePlugin({
 		packageId: PLUGIN_PACKAGE_ID,
 		description: "Track workouts, measurements, and progress.",
 	},
+	entitySchemas: fitnessEntitySchemas.map((schema) => {
+		const browse = fitnessBrowse(schema.slug);
+		return browse === undefined ? schema : Object.assign({}, schema, { browse });
+	}),
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.import" },
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },

@@ -17,7 +17,7 @@ Removing an item from a collection does not remove it from your library or delet
 4. Select **Done** to return to browsing.
 
 Each move saves immediately. Reorder mode shows the collection without search or filters.
-Select **Load more** to reorder additional members. Normal browsing still offers name and added-date sorts;
+Select **Load more** to reorder additional members. Normal browsing offers the filters and sorts of the collection's item types;
 select **Collection order** to see your saved manual order.
 
 If another tab changes the collection, reload it before making another move. If a move cannot be

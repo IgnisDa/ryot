@@ -1,6 +1,7 @@
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { entitySchemaBrowseRecipe } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import { entityBrowserRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { DateTime, Effect, Schema } from "effect";
@@ -44,9 +45,13 @@ describe("Media genres", () => {
 			const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
 				view.settings,
 			);
+			const browse = yield* executeRyotQLRecipe(
+				userA.client,
+				entitySchemaBrowseRecipe({ schemas: [{ pluginId, slug: "movie" }] }),
+			);
 			const genreFilter = requirePresent(
-				settings.filterFields?.find(({ key }) => key === "genres"),
-				"Movie saved view has no genre relationship filter",
+				browse[0]?.browse?.fields.find(({ key }) => key === "genres"),
+				"Movie schema has no genre relationship filter",
 			);
 			assertCondition(
 				genreFilter.kind === "relationship",
@@ -120,6 +125,7 @@ describe("Media genres", () => {
 							entityBrowserRecipe({
 								now,
 								after,
+								browse,
 								filter,
 								searchText: suffix,
 								queryDocument: source,

@@ -27,9 +27,6 @@ describe("media saved views", () => {
 			"productionStatus",
 			"ownerPluginId",
 			"entitySchemaSlug",
-			"publishYearValue",
-			"providerRatingValue",
-			"isNsfwValue",
 			"id",
 			"schemaSlug",
 			"populationStatus",
@@ -65,66 +62,11 @@ describe("media saved views", () => {
 		}
 	});
 
-	it("declares value and relationship filters without projecting genre properties", () => {
-		const { view, output } = source("All Books");
-		expect(view.settings.filterFields).toEqual([
-			{
-				kind: "value",
-				type: "number",
-				key: "publishYear",
-				label: "Publish year",
-				field: "publishYearValue",
-			},
-			{
-				kind: "value",
-				type: "number",
-				key: "providerRating",
-				label: "Provider rating",
-				field: "providerRatingValue",
-			},
-			{
-				key: "isNsfw",
-				kind: "value",
-				type: "boolean",
-				field: "isNsfwValue",
-				label: "Adult content",
-			},
-			{
-				key: "genres",
-				label: "Genres",
-				kind: "relationship",
-				direction: "outgoing",
-				relationship: { slug: "book-to-genre", owner: { kind: "self" } },
-			},
-		]);
-		const keys = output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []));
-		expect(keys).toEqual(
-			expect.arrayContaining(["publishYearValue", "providerRatingValue", "isNsfwValue"]),
-		);
-		expect(keys).not.toContain("genresValue");
-	});
-
-	it("adds genre relationship filters only to builtin media roots", () => {
-		const books = source("All Books").view.settings.filterFields;
-		const groups = source("All Book Series").view.settings.filterFields;
-
-		expect(books).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					key: "genres",
-					kind: "relationship",
-					direction: "outgoing",
-					relationship: { slug: "book-to-genre", owner: { kind: "self" } },
-				}),
-			]),
-		);
-		expect(groups).not.toEqual(
-			expect.arrayContaining([expect.objectContaining({ key: "genres" })]),
-		);
-	});
-
-	it("leaves persons and companies with only the kernel Collections filter", () => {
-		expect(source("All Persons").view.settings).not.toHaveProperty("filterFields");
-		expect(source("All Companies").view.settings).not.toHaveProperty("filterFields");
+	it("orders titles by recent activity, creators by credits and groups by parts", () => {
+		const order = (name: string) => JSON.stringify(source(name).view.dataSources);
+		expect(order("All Movies")).toContain('"path":["lastActivityAt"]');
+		expect(order("All Persons")).toContain('"function":"countDistinct"');
+		expect(order("All Book Series")).toContain('"path":["parts"]');
+		expect(source("All Movies").view.settings).not.toHaveProperty("filterFields");
 	});
 });

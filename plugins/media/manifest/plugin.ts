@@ -1,3 +1,4 @@
+import type { AuthoredEntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
 	CLIENT_API_VERSION,
 	definePlugin,
@@ -17,15 +18,16 @@ import {
 	mediaEntityEditorRoutes,
 	mediaEntityEditors,
 } from "../shared/media-entity-editors";
-import { mediaGenreProviderSlug } from "../shared/media-genres";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaGroupSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { mediaBrowse } from "./browse";
 import { mediaCalendarSources } from "./calendar-sources";
 import { mediaConfigSchema } from "./config";
+import { mediaProviders } from "./providers";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
@@ -35,13 +37,18 @@ import { mediaUserStatePolicy } from "./user-state";
 const entitySchemas = mediaEntitySchemas().map(
 	(
 		schema,
-	): { readonly editor?: PluginEntityEditor } & ReturnType<typeof mediaEntitySchemas>[number] => {
+	): ReturnType<typeof mediaEntitySchemas>[number] & {
+		readonly editor?: PluginEntityEditor;
+		readonly browse?: AuthoredEntitySchemaBrowse;
+	} => {
 		const editor = Object.hasOwn(mediaEntityEditors, schema.slug)
 			? mediaEntityEditors[schema.slug]
 			: undefined;
+		const browse = mediaBrowse(schema);
+		const browsed = browse === undefined ? schema : Object.assign({}, schema, { browse });
 		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
-			? Object.assign({}, schema, { userState: mediaUserStatePolicy(schema.slug) })
-			: schema;
+			? Object.assign({}, browsed, { userState: mediaUserStatePolicy(schema.slug) })
+			: browsed;
 		return editor === undefined ? definition : Object.assign({}, definition, { editor });
 	},
 );
@@ -208,74 +215,6 @@ const creditRelationshipSlugs = relationshipSchemas
 		return isCreditSource && isCreditTarget;
 	})
 	.map(({ slug }) => slug);
-
-const provider = (
-	rootEntitySchemaSlug: string,
-	slug: string,
-	name: string,
-	source: string,
-	canonicalLanguage?: string,
-) => ({
-	name,
-	slug,
-	rootEntitySchemaSlug,
-	information: canonicalLanguage ? { source, canonicalLanguage } : { source },
-});
-
-const mediaProviders = [
-	provider("anime", "anime.anilist", "Anilist", "anilist", "en"),
-	provider("anime", "anime.myanimelist", "MyAnimeList", "myanimelist"),
-	provider("audiobook-group", "audiobook-group.audible", "Audible", "audible"),
-	provider("audiobook", "audiobook.audible", "Audible", "audible"),
-	provider("book-group", "book-group.hardcover", "Hardcover", "hardcover"),
-	provider("book", "book.google-books", "Google Books", "google-books"),
-	provider("book", "book.hardcover", "Hardcover", "hardcover"),
-	provider("book", "book.openlibrary", "OpenLibrary", "openlibrary"),
-	provider("comic-book-group", "comic-book-group.metron", "Metron", "metron"),
-	provider("comic-book", "comic-book.metron", "Metron", "metron"),
-	provider("company", "company.anilist", "Anilist", "anilist"),
-	provider("company", "company.giant-bomb", "GiantBomb", "giant-bomb"),
-	provider("company", "company.hardcover", "Hardcover", "hardcover"),
-	provider("company", "company.igdb", "IGDB", "igdb"),
-	provider("company", "company.tmdb", "TMDB", "tmdb"),
-	provider("company", "company.tvdb", "TVDB", "tvdb"),
-	provider("manga", "manga.anilist", "Anilist", "anilist", "en"),
-	provider("manga", "manga.manga-updates", "MangaUpdates", "manga-updates"),
-	provider("manga", "manga.myanimelist", "MyAnimeList", "myanimelist"),
-	provider("movie-group", "movie-group.tmdb", "TMDB", "tmdb", "en"),
-	provider("movie-group", "movie-group.tvdb", "TVDB", "tvdb", "en"),
-	provider("movie", "movie.tmdb", "TMDB", "tmdb", "en"),
-	provider("movie", "movie.tvdb", "TVDB", "tvdb", "en"),
-	provider("music-group", "music-group.music-brainz", "MusicBrainz", "music-brainz"),
-	provider("music-group", "music-group.spotify", "Spotify", "spotify"),
-	provider("music-group", "music-group.youtube-music", "YouTube Music", "youtube-music", "en"),
-	provider("music", "music.music-brainz", "MusicBrainz", "music-brainz"),
-	provider("music", "music.spotify", "Spotify", "spotify"),
-	provider("music", "music.youtube-music", "YouTube Music", "youtube-music", "en"),
-	provider("person", "person.anilist", "Anilist", "anilist"),
-	provider("person", "person.audible", "Audible", "audible"),
-	provider("person", "person.giant-bomb", "GiantBomb", "giant-bomb"),
-	provider("person", "person.hardcover", "Hardcover", "hardcover"),
-	provider("person", "person.manga-updates", "MangaUpdates", "manga-updates"),
-	provider("person", "person.metron", "Metron", "metron"),
-	provider("person", "person.music-brainz", "MusicBrainz", "music-brainz"),
-	provider("person", "person.openlibrary", "OpenLibrary", "openlibrary"),
-	provider("person", "person.spotify", "Spotify", "spotify"),
-	provider("person", "person.tmdb", "TMDB", "tmdb", "en"),
-	provider("person", "person.tvdb", "TVDB", "tvdb", "en"),
-	provider("person", "person.vndb", "VNDB", "vndb"),
-	provider("person", "person.youtube-music", "YouTube Music", "youtube-music", "en"),
-	provider("podcast", "podcast.itunes", "iTunes", "itunes", "en"),
-	provider("podcast", "podcast.listennotes", "Listen Notes", "listennotes"),
-	provider("show", "show.tmdb", "TMDB", "tmdb", "en"),
-	provider("show", "show.tvdb", "TVDB", "tvdb", "en"),
-	provider("video-game-group", "video-game-group.giant-bomb", "GiantBomb", "giant-bomb"),
-	provider("video-game-group", "video-game-group.igdb", "IGDB", "igdb"),
-	provider("video-game", "video-game.giant-bomb", "GiantBomb", "giant-bomb"),
-	provider("video-game", "video-game.igdb", "IGDB", "igdb"),
-	provider("genre", mediaGenreProviderSlug, "Media Catalog", "media-catalog", "en"),
-	provider("visual-novel", "visual-novel.vndb", "VNDB", "vndb"),
-] as const;
 
 const stringSetting = (label: string, description: string, required = true, secret = false) => ({
 	label,

@@ -14,6 +14,7 @@ import {
 	currentDate,
 	defineRecipe,
 	eq,
+	first,
 	inArray,
 	IsoDateString,
 	join,
@@ -38,6 +39,7 @@ import {
 	podcastEpisodicKindConfig,
 	publishDate,
 	sameSchemaOwner,
+	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
@@ -210,7 +212,6 @@ export const librarySummarySourceRecipe = defineRecipe(
 
 export type LibrarySummarySourceRow = Recipe.Success<typeof librarySummarySourceRecipe>[number];
 
-/** Projection properties for a computed row, omitting absent values. */
 export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 	Object.fromEntries(
 		Object.entries({
@@ -224,7 +225,6 @@ export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 		}).filter(([, value]) => value !== null),
 	);
 
-/** Inner join of `entity` to its `in-media-library` relationship, aliased `alias`. */
 export const libraryMembershipJoin = (entity: Table, alias: string) => {
 	const membership = table("relationship", alias);
 	return {
@@ -260,4 +260,21 @@ export const librarySummary = (membership: Table) => {
 			stored,
 		),
 	};
+};
+
+/** A value read from `entity`'s own `in-media-library` relationship; null outside the library. */
+export const libraryMembershipValue = (
+	entity: Table,
+	read: (membership: Table) => ScalarExpression,
+) => {
+	const membership = table("relationship", "summaryMembership");
+	return first(membership, {
+		select: read(membership),
+		orderBy: [ascending(column(membership, "id"))],
+		where: and(
+			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+			sameSchemaOwner(membership, "relationshipSchemaPluginId", entity),
+			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+		),
+	});
 };
