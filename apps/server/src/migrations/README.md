@@ -85,6 +85,16 @@ membership-derived ID, so later activity takes precedence and restarts do not du
 Shows and podcasts use the title itself as their session. Collection membership remains intact;
 non-title members receive no backlog event.
 
+Memberships in the exact V1 `Reminders` collection with non-null `information` create independent
+`needs-scheduling` reminder records. Deterministic IDs derive from membership identity. The message
+and date-only `reminder` value are preserved exactly, with no active UTC instant or timezone. No
+notification work is created. Missing owners/targets, ownership conflicts, malformed dates, and
+invalid messages abort with membership IDs and a recovery instruction. Memberships whose information
+is SQL NULL remain inert collection data: the V1 worker also skipped them because they contained no
+reminder payload. Both counts are reported. Collection metadata and memberships remain unchanged.
+The inserts and completion reports commit atomically; an interrupted restart repeats the whole
+uncommitted phase, while a committed phase never replaces a later user edit.
+
 Plugin-owned definitions and views retain qualified stable plugin provenance; kernel definitions retain `NULL` provenance. No private package or unsupported plugin state is synthesized. Mapping files remain authoritative for exact field transforms, clamping, deterministic IDs, and SQL.
 
 Completed seen rows keep their recorded finish date as `occurredAt`; migrated `complete` events carry no `completedOn` or `completionMode`, because V1 dates are always known. Generated progress never occurs after that completion, and completion sorts after its own progress when timestamps tie. Backfilled episodic parent completions sort directly after the event that closes coverage. Anime and manga completions replay runtime auto-completion: a progress event whose position reaches the title's episode or chapter total, or whose percent is 100, writes one `complete` unless an equal-or-later completion exists.
@@ -208,6 +218,15 @@ Verify events are sessionless and templates receive none. With legacy tables pre
 workout entity phase already reported complete, remove a completion event and rerun: only that
 event must be backfilled, with workout data unchanged. Later runs must preserve event counts and
 IDs, and all automation history tables must remain empty.
+
+For reminder mapping, compare the complete source/destination sets over membership identity, owner,
+target, original date and exact text. Require `needs-scheduling`, null `due_at`/`timezone`, and no
+formatter/trigger/dispatch identity. Check the explicit inert NULL-information count separately.
+Run migration-only mode twice and an interrupted restart with legacy tables retained; IDs, content
+and counts must remain unchanged. Normal startup and due scans must leave these records inactive.
+Verify `notification` and `notification_delivery` are empty as well as automation history. If the
+dump has no non-null reminder payloads, add controlled valid and malformed cases in an isolated copy;
+do not report that supplementary evidence as original-dump coverage.
 
 Use disposable PostgreSQL, Redis, and object storage. `just restore-db` clears its configured database,
 Redis, and S3 bucket; the asset phase also deletes copied legacy keys after commit. Never use production

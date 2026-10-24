@@ -75,6 +75,7 @@ import {
 	getUnsupportedPersonSources,
 	personEntityTargets,
 } from "./person-mapping";
+import { buildReminderMigrationSql } from "./reminder-mapping";
 import { buildReviewMigrationSql } from "./review-mapping";
 import {
 	buildLegacySavedViewStateMigrationSql,
@@ -617,6 +618,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
+			yield* connection.executeRaw(buildReminderMigrationSql(), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildUserToEntityInLibraryMigrationSql({
 					libraryEntitySchema,
