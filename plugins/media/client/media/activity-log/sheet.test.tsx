@@ -83,6 +83,11 @@ const dialogOf = () => getByRole(document.body, "dialog", { name: "Log activity"
 
 const eventually = (check: () => void) => Effect.promise(() => waitFor(check));
 
+const releaseQuery = (release: Deferred.Deferred<void>) =>
+	Effect.promise(() =>
+		act(() => Effect.runPromise(Deferred.succeed(release, undefined).pipe(Effect.asVoid))),
+	);
+
 type Request = { readonly slug: string; readonly packageId: string; readonly input: unknown };
 
 const watchEntities = () => ({ update: () => undefined, dispose: () => undefined });
@@ -94,6 +99,7 @@ const mountLog = (options: {
 	readonly compact?: boolean;
 	readonly fake?: ActivityLogFake;
 	readonly settings?: (read: number) => Record<string, unknown>;
+	readonly query?: (document: unknown) => Effect.Effect<unknown, RyotClientError> | undefined;
 	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
 	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
 }) => {
@@ -122,7 +128,7 @@ const mountLog = (options: {
 					queries.push("context");
 					return options.refresh(document);
 				}
-				return answer(document);
+				return options.query?.(document) ?? answer(document);
 			},
 		},
 		<MediaLogActivityButton
@@ -754,6 +760,197 @@ it.live("marks only the selected show episode when the earlier toggle is off", (
 	}),
 );
 
+it.live(
+	"keeps the current episode and focused draft when an older earlier query resolves last",
+	() =>
+		Effect.gen(function* () {
+			const releaseA = yield* Deferred.make<void>();
+			const releaseB = yield* Deferred.make<void>();
+			const finishedA = yield* Deferred.make<void>();
+			const fake = showFake({
+				earlier: { s2e6: [[earlierRow(2, 5)]], s2e5: [[earlierRow(1, 8), earlierRow(1, 9)]] },
+			});
+			const answer = activityLogQuery(fake);
+			const started: string[] = [];
+			const mounted = mountLog({
+				fake,
+				logger: show,
+				query: (document) => {
+					const text = JSON.stringify(document);
+					if (!text.includes('"earlierEpisode"')) {
+						return undefined;
+					}
+					const isA = text.includes('"s2e5"');
+					started.push(isA ? "A" : "B");
+					return Effect.gen(function* () {
+						yield* Deferred.await(isA ? releaseA : releaseB);
+						const result = yield* answer(document);
+						if (isA) {
+							yield* Deferred.succeed(finishedA, undefined);
+						}
+						return result;
+					}).pipe(Effect.uninterruptible);
+				},
+			});
+			try {
+				const dialog = yield* openLog(mounted);
+				yield* eventually(() => expect(started).toEqual(["A"]));
+				clickRyotElement(radio(dialog, "S2·E6"));
+				yield* eventually(() => expect(started).toEqual(["A", "B"]));
+				clickRyotElement(radio(dialog, "Pick date"));
+				input(getByLabelText(dialog, "Watched on"), "2026-10-18");
+				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
+				input(source, "Living room");
+				act(() => source.focus());
+				const form = getByRole(dialog, "form", { name: "Log activity" });
+				act(() => {
+					fireEvent.keyDown(source, { key: "Enter" });
+				});
+				expect(mounted.requests).toEqual([]);
+				yield* releaseQuery(releaseB);
+				yield* eventually(() =>
+					expect(
+						getByRole(dialog, "button", { name: "Mark 2 episodes watched" }).hasAttribute(
+							"disabled",
+						),
+					).toBe(false),
+				);
+				yield* releaseQuery(releaseA);
+				yield* Deferred.await(finishedA);
+				yield* eventually(() => {
+					expect(dialogOf()).toBe(dialog);
+					expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+					expect(document.activeElement).toBe(source);
+					expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
+					expect(source.getAttribute("value")).toBe("Living room");
+					expect(radio(dialog, "S2·E6").getAttribute("aria-checked")).toBe("true");
+					expect(
+						queryByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
+					).toBeNull();
+				});
+				press(dialog, "Mark 2 episodes watched");
+				yield* submitted(mounted);
+				expect(mounted.requests).toEqual([
+					operation({
+						kind: "episodes",
+						consumedOn: "Living room",
+						parentEntityId: "entity-1",
+						episodeEntityIds: ["s2e5", "s2e6"],
+						when: { kind: "date", finishedOn: noon(18) },
+					}),
+				]);
+			} finally {
+				yield* releaseQuery(releaseA);
+				yield* releaseQuery(releaseB);
+				mounted.view.unmount();
+			}
+		}),
+);
+
+it.live("keeps the dialog and draft through Status, a reloading episode check and retry", () =>
+	Effect.gen(function* () {
+		const reload = yield* Deferred.make<void>();
+		const retry = yield* Deferred.make<void>();
+		const fake = showFake();
+		const answer = activityLogQuery(fake);
+		let attempts = 0;
+		const mounted = mountLog({
+			fake,
+			logger: show,
+			query: (document) => {
+				if (!JSON.stringify(document).includes('"earlierEpisode"')) {
+					return undefined;
+				}
+				attempts += 1;
+				if (attempts === 2) {
+					return Deferred.await(reload).pipe(
+						Effect.andThen(Effect.fail(new RyotClientError("query-failed"))),
+					);
+				}
+				return attempts === 3
+					? Deferred.await(retry).pipe(Effect.andThen(answer(document)))
+					: answer(document);
+			},
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			const toggle = yield* Effect.promise(() =>
+				waitFor(() =>
+					getByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
+				),
+			);
+			clickRyotElement(toggle);
+			clickRyotElement(radio(dialog, "Pick date"));
+			input(getByLabelText(dialog, "Watched on"), "2026-10-18");
+			input(getByRole(dialog, "textbox", { name: /Where did you watch it/ }), "Living room");
+			const form = getByRole(dialog, "form", { name: "Log activity" });
+			clickRyotElement(radio(dialog, "Status"));
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			clickRyotElement(radio(dialog, "Episode"));
+			yield* eventually(() => expect(attempts).toBe(2));
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			expect(getByText(dialog, "Checking earlier episodes…")).toBeDefined();
+			const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
+			expect(source.getAttribute("value")).toBe("Living room");
+			expect(getByLabelText(dialog, "Watched on").getAttribute("value")).toBe("2026-10-18");
+			act(() => source.focus());
+			expect(
+				getByRole(dialog, "button", { name: "Mark S2·E5 watched" }).hasAttribute("disabled"),
+			).toBe(true);
+			act(() => {
+				fireEvent.keyDown(source, { key: "Enter" });
+			});
+			expect(mounted.requests).toEqual([]);
+			yield* releaseQuery(reload);
+			yield* eventually(() =>
+				expect(getByText(dialog, "Unable to check earlier episodes.")).toBeDefined(),
+			);
+			expect(document.activeElement).toBe(source);
+			act(() => {
+				fireEvent.keyDown(source, { key: "Enter" });
+			});
+			expect(mounted.requests).toEqual([]);
+			press(dialog, "Try again");
+			yield* eventually(() => expect(attempts).toBe(3));
+			act(() => source.focus());
+			act(() => {
+				fireEvent.keyDown(source, { key: "Enter" });
+			});
+			expect(mounted.requests).toEqual([]);
+			yield* releaseQuery(retry);
+			yield* eventually(() =>
+				expect(
+					getByRole(dialog, "switch", {
+						name: "Also mark 2 earlier unwatched episodes",
+					}).getAttribute("aria-checked"),
+				).toBe("false"),
+			);
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
+			expect(document.activeElement).toBe(source);
+			expect(radio(dialog, "S2·E5 · Next up").getAttribute("aria-checked")).toBe("true");
+			press(dialog, "Mark S2·E5 watched");
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({
+					kind: "episodes",
+					consumedOn: "Living room",
+					parentEntityId: "entity-1",
+					episodeEntityIds: ["s2e5"],
+					when: { kind: "date", finishedOn: noon(18) },
+				}),
+			]);
+		} finally {
+			yield* releaseQuery(reload);
+			yield* releaseQuery(retry);
+			mounted.view.unmount();
+		}
+	}),
+);
+
 it.live("lists a long earlier backlog, notes a rewatch and never backfills specials", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({
@@ -777,11 +974,28 @@ it.live("lists a long earlier backlog, notes a rewatch and never backfills speci
 			expect(getByRole(dialog, "button", { name: "Mark 5 episodes watched" })).toBeDefined();
 			clickRyotElement(radio(dialog, "S2·E1 · Watched"));
 			expect(getByText(dialog, /logged as a rewatch/)).toBeDefined();
+			const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
+			input(source, "Living room");
+			const form = getByRole(dialog, "form", { name: "Log activity" });
 			press(dialog, "Season: Season 2");
 			clickRyotElement(radio(document.body, "Specials"));
 			yield* eventually(() => expect(radio(dialog, "S0·E1")).toBeDefined());
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
+			expect(source.getAttribute("value")).toBe("Living room");
 			expect(queryByRole(dialog, "switch")).toBeNull();
-			expect(getByRole(dialog, "button", { name: "Mark S0·E1 watched" })).toBeDefined();
+			press(dialog, "Mark S0·E1 watched");
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({
+					kind: "episodes",
+					when: { kind: "now" },
+					consumedOn: "Living room",
+					parentEntityId: "entity-1",
+					episodeEntityIds: ["s0e1"],
+				}),
+			]);
 		} finally {
 			mounted.view.unmount();
 		}
@@ -830,9 +1044,31 @@ it.live("pages a season's episodes with load more", () =>
 				expect(radio(dialog, "S2·E5 · Next up").getAttribute("aria-checked")).toBe("true"),
 			);
 			expect(queryByRole(dialog, "radio", { name: "S2·E101" })).toBeNull();
+			clickRyotElement(radio(dialog, "S2·E4"));
+			const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
+			input(source, "Living room");
+			act(() => source.focus());
+			const form = getByRole(dialog, "form", { name: "Log activity" });
 			press(dialog, "Load more");
 			yield* eventually(() => expect(radio(dialog, "S2·E101")).toBeDefined());
+			expect(radio(dialog, "S2·E4").getAttribute("aria-checked")).toBe("true");
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
+			expect(document.activeElement).toBe(source);
+			expect(source.getAttribute("value")).toBe("Living room");
 			expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
+			press(dialog, "Mark S2·E4 watched");
+			yield* submitted(mounted);
+			expect(mounted.requests).toEqual([
+				operation({
+					kind: "episodes",
+					when: { kind: "now" },
+					consumedOn: "Living room",
+					parentEntityId: "entity-1",
+					episodeEntityIds: ["s2e4"],
+				}),
+			]);
 		} finally {
 			mounted.view.unmount();
 		}
@@ -929,6 +1165,7 @@ it.live("logs a podcast episode newest first with backfill and load more", () =>
 			expect(queryByRole(dialog, "radio", { name: "Episode 70 · Listened" })).toBeNull();
 			press(dialog, "Load more");
 			yield* eventually(() => expect(radio(dialog, "Episode 70 · Listened")).toBeDefined());
+			expect(radio(dialog, "Episode 71 · Next up").getAttribute("aria-checked")).toBe("true");
 			clickRyotElement(radio(dialog, "Episode 72"));
 			yield* eventually(() =>
 				expect(
