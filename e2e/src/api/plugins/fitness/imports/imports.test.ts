@@ -1,6 +1,5 @@
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
-import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
@@ -15,6 +14,7 @@ import {
 import {
 	createFitnessImportRun,
 	findFitnessEntitySchema,
+	readMeasurementLogReadings,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
 } from "~/fixtures/plugins/fitness";
@@ -40,10 +40,10 @@ describe("OpenScale Import E2E", () => {
 				yield* pollImportRunUntilTerminal(client, runId),
 				"OpenScale timezone import",
 			);
-			const readings = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
-			);
+			const readings = yield* readMeasurementLogReadings(client, {
+				limit: 20,
+				reference: { pluginId, kind: "local" },
+			});
 			expect(readings.items.map(({ occurredAt }) => occurredAt)).toEqual([
 				"2026-04-02T06:00:00.000Z",
 				"2026-04-01T02:30:00.000Z",
@@ -65,10 +65,10 @@ describe("OpenScale Import E2E", () => {
 			});
 			yield* runOpenScaleImportFixture(client, token);
 
-			const readings = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
-			);
+			const readings = yield* readMeasurementLogReadings(client, {
+				limit: 20,
+				reference: { pluginId, kind: "local" },
+			});
 			const weightReadings = readings.items.filter(({ metricKey }) => metricKey === "weight");
 			expect(weightReadings).toHaveLength(3);
 			expect(weightReadings.map(({ metricId }) => metricId)).toEqual([
@@ -129,10 +129,10 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.startedAt).not.toBeNull();
 			expect(completedRun.finishedAt).not.toBeNull();
 
-			const result = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
-			);
+			const result = yield* readMeasurementLogReadings(client, {
+				limit: 20,
+				reference: { pluginId, kind: "local" },
+			});
 			expect(result.items).toHaveLength(15);
 			expect(new Set(result.items.map(({ metricId }) => metricId)).size).toBe(5);
 			const weightReadings = result.items.filter(({ metricKey }) => metricKey === "weight");

@@ -3,7 +3,10 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
-import { measurementReadingProperties } from "../../shared/measurement-properties";
+import {
+	measurementEntryProperties,
+	measurementReadingProperties,
+} from "../../shared/measurement-properties";
 import {
 	MeasurementReadingLogInput,
 	MeasurementReadingLogOutput,
@@ -26,13 +29,22 @@ export default defineOperation({
 				values.map(({ metricId }) => metricId),
 				host.executeRyotql,
 			);
+			const { entityId: entryId } = yield* host.createUserEntity(
+				{
+					name: "Measurement",
+					entitySchemaSlug: "measurement-entry",
+					properties: measurementEntryProperties(occurredAt, comment),
+				},
+				{ submittedAt, idempotencyKey: `${submissionId}:entry` },
+			);
 			return yield* host
 				.createEvents(
 					values.map(({ value, metricId }) => ({
 						occurredAt,
 						entityId: metricId,
+						sessionEntityId: entryId,
 						eventSchemaSlug: "measurement-reading",
-						properties: measurementReadingProperties(value, comment),
+						properties: measurementReadingProperties(value),
 					})),
 					{ submittedAt, idempotencyKey: submissionId },
 				)

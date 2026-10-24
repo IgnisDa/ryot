@@ -1,8 +1,6 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId } from "@ryot-app/contract/schema/brands";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
-import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -13,7 +11,6 @@ import {
 	listEventsForEntity,
 	listSavedViews,
 	requireEventSchemaBySlug,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
@@ -23,6 +20,7 @@ import {
 	findFitnessEntitySchema,
 	logMeasurementReadings,
 	pinMeasurementMetric,
+	readMeasurementLogReadings,
 	updateMeasurementReadings,
 } from "~/fixtures/plugins/fitness";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
@@ -34,6 +32,50 @@ const fitnessReference = (client: Client) =>
 	);
 
 describe("Measurements E2E", () => {
+	it.live("edits and deletes one of two same-time submissions without changing the other", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const reference = yield* fitnessReference(client);
+			const { entityId: metricId } = yield* createMeasurementMetric(client, { name: "Weight" });
+			const occurredAt = "2026-10-01T07:30:00.000Z";
+			yield* logMeasurementReadings(client, {
+				occurredAt,
+				comment: "Before run",
+				values: [{ metricId, value: 70 }],
+			});
+			yield* logMeasurementReadings(client, {
+				occurredAt,
+				comment: "After run",
+				values: [{ metricId, value: 72 }],
+			});
+			const original = yield* readMeasurementLogReadings(client, { reference });
+			expect(original.items).toHaveLength(2);
+			expect(new Set(original.items.map(({ entryId }) => entryId)).size).toBe(2);
+			const before = requirePresent(
+				original.items.find(({ comment }) => comment === "Before run"),
+				"Expected first entry",
+			);
+			const after = requirePresent(
+				original.items.find(({ comment }) => comment === "After run"),
+				"Expected second entry",
+			);
+			yield* updateMeasurementReadings(client, {
+				occurredAt,
+				comment: "Corrected",
+				entryId: before.entryId,
+				values: [{ metricId, value: 69 }],
+			});
+			const edited = yield* readMeasurementLogReadings(client, { reference });
+			expect(edited.items.find(({ entryId }) => entryId === after.entryId)).toEqual(after);
+			expect(edited.items.find(({ entryId }) => entryId === before.entryId)).toMatchObject({
+				value: 69,
+				comment: "Corrected",
+			});
+			yield* deleteMeasurementReadings(client, { entryId: before.entryId });
+			expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual([after]);
+		}),
+	);
+
 	it.live(
 		"retries lost-response and concurrent submissions without duplicates and rejects changed content",
 		() =>
@@ -53,10 +95,7 @@ describe("Measurements E2E", () => {
 					],
 				};
 				yield* logMeasurementReadings(client, input);
-				const original = yield* executeRyotQLRecipe(
-					client,
-					measurementReadingListRecipe({ reference }),
-				);
+				const original = yield* readMeasurementLogReadings(client, { reference });
 				expect(original.items).toHaveLength(2);
 				const retries = yield* Effect.all(
 					[logMeasurementReadings(client, input), logMeasurementReadings(client, input)],
@@ -66,17 +105,17 @@ describe("Measurements E2E", () => {
 					{ count: 2, status: "saved" },
 					{ count: 2, status: "saved" },
 				]);
-				expect(
-					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
-				).toEqual(original.items);
+				expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual(
+					original.items,
+				);
 				const conflict = yield* Effect.flip(
 					logMeasurementReadings(client, { ...input, comment: "Changed" }),
 				);
 				assertTaggedError(conflict, "PluginInvocationError");
 				expect(conflict.reason.code).toBe("runtime-failed");
-				expect(
-					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
-				).toEqual(original.items);
+				expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual(
+					original.items,
+				);
 				const concurrent = { ...input, submissionId: crypto.randomUUID() };
 				expect(
 					yield* Effect.all(
@@ -90,9 +129,7 @@ describe("Measurements E2E", () => {
 					{ count: 2, status: "saved" },
 					{ count: 2, status: "saved" },
 				]);
-				expect(
-					(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
-				).toHaveLength(4);
+				expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(4);
 				const { client: other } = yield* createAuthenticatedClient();
 				const otherMetric = yield* createMeasurementMetric(other, { name: "Weight" });
 				expect(
@@ -132,9 +169,14 @@ describe("Measurements E2E", () => {
 				key: { label: "Key", type: "string", validation: { required: true } },
 			});
 			expect(readingSchema.propertiesSchema.fields).toMatchObject({
-				comment: { type: "string", label: "Comment" },
 				value: { label: "Value", type: "number", validation: { required: true } },
 			});
+			const { schema: entrySchema } = yield* findFitnessEntitySchema(client, "measurement-entry");
+			expect(entrySchema.propertiesSchema.fields).toMatchObject({
+				comment: { type: "string", label: "Comment" },
+				occurredAt: { type: "datetime", validation: { required: true } },
+			});
+			expect(readingSchema.propertiesSchema.fields).not.toHaveProperty("comment");
 		}),
 	);
 
@@ -165,10 +207,9 @@ describe("Measurements E2E", () => {
 			const { pluginId } = yield* findFitnessEntitySchema(client, "measurement-metric");
 			const { metricId } = yield* createMeasurementReadingFixture(client);
 
-			const result = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ reference: { pluginId, kind: "local" } }),
-			);
+			const result = yield* readMeasurementLogReadings(client, {
+				reference: { pluginId, kind: "local" },
+			});
 
 			expect(result.items).toEqual([
 				expect.objectContaining({
@@ -190,28 +231,21 @@ describe("Measurements E2E", () => {
 			const reference = yield* fitnessReference(client);
 			const { client: otherClient } = yield* createAuthenticatedClient();
 			yield* createMeasurementReadingFixture(client);
-			const [stored] = (yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ reference }),
-			)).items;
-			const readingIds = [requirePresent(stored, "Expected a reading").id];
+			const [stored] = (yield* readMeasurementLogReadings(client, { reference })).items;
+			const entryId = requirePresent(stored, "Expected a reading").entryId;
 
-			const failure = yield* Effect.flip(deleteMeasurementReadings(otherClient, { readingIds }));
+			const failure = yield* Effect.flip(deleteMeasurementReadings(otherClient, { entryId }));
 			assertTaggedError(failure, "PluginInvocationError");
 			expect(failure.reason).toMatchObject({
 				code: "runtime-failed",
 				diagnostics: [
-					{ severity: "error", message: expect.stringContaining("Measurement reading not found") },
+					{ severity: "error", message: expect.stringContaining("Measurement entry not found") },
 				],
 			});
-			expect(
-				(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
-			).toHaveLength(1);
+			expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(1);
 
-			expect(yield* deleteMeasurementReadings(client, { readingIds })).toEqual({ count: 1 });
-			expect(
-				(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({ reference }))).items,
-			).toEqual([]);
+			expect(yield* deleteMeasurementReadings(client, { entryId })).toEqual({ count: 1 });
+			expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual([]);
 		}),
 	);
 
@@ -224,7 +258,7 @@ describe("Measurements E2E", () => {
 			const waist = yield* createMeasurementMetric(client, { name: "Waist" });
 			const hip = yield* createMeasurementMetric(client, { name: "Hip" });
 			const listReadings = () =>
-				executeRyotQLRecipe(client, measurementReadingListRecipe({ reference })).pipe(
+				readMeasurementLogReadings(client, { reference }).pipe(
 					Effect.map(({ items }) =>
 						items.map(({ value, comment, metricKey, occurredAt }) => ({
 							value,
@@ -264,13 +298,10 @@ describe("Measurements E2E", () => {
 				},
 			]);
 
-			const readingIds = (yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ reference }),
-			)).items.map(({ id }) => id);
+			const [stored] = (yield* readMeasurementLogReadings(client, { reference })).items;
 			const edited = {
-				readingIds,
 				occurredAt: "2026-04-28T09:15:00.000Z",
+				entryId: requirePresent(stored, "Expected measurement entry").entryId,
 				values: [
 					{ value: 71.2, metricId: weight.entityId },
 					{ value: 95, metricId: hip.entityId },
@@ -279,7 +310,7 @@ describe("Measurements E2E", () => {
 			const foreignEdit = yield* Effect.flip(updateMeasurementReadings(otherClient, edited));
 			assertTaggedError(foreignEdit, "PluginInvocationError");
 			expect(foreignEdit.reason).toMatchObject({
-				diagnostics: [{ message: expect.stringContaining("Measurement reading not found") }],
+				diagnostics: [{ message: expect.stringContaining("Measurement entry not found") }],
 			});
 			expect(yield* updateMeasurementReadings(client, edited)).toEqual({ count: 3 });
 			expect(yield* listReadings()).toEqual([
@@ -462,39 +493,22 @@ describe("Measurements E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const reference = yield* fitnessReference(client);
 			const { entityId } = yield* createMeasurementMetric(client, { name: "Weight" });
-			const { schema } = yield* findFitnessEntitySchema(client, "measurement-metric");
-			const eventSchema = requireEventSchemaBySlug(
-				yield* listEventSchemas(client, schema.reference),
-				"measurement-reading",
-			);
-			const readings = Array.from({ length: 101 }, (_, value) => ({
-				properties: { value },
-				eventSchemaSlug: eventSchema.id,
-				entityId: EntityId.make(entityId),
-				occurredAt: new Date(Date.UTC(2026, 0, 1, 0, value)).toISOString(),
-			}));
-			for (const payload of [readings.slice(0, 100), readings.slice(100)]) {
-				yield* waitForCreateEvents(
-					client,
-					yield* client.call((contract) => contract.events.create({ payload })),
-				);
+			for (let value = 0; value < 101; value += 1) {
+				yield* logMeasurementReadings(client, {
+					values: [{ value, metricId: entityId }],
+					occurredAt: DateTime.formatIso(DateTime.makeUnsafe(Date.UTC(2026, 0, 1, 0, value))),
+				});
 			}
-			const first = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({ reference, limit: 100 }),
-			);
+			const first = yield* readMeasurementLogReadings(client, { reference, limit: 100 });
 			expect(first.items.map(({ value }) => value)).toEqual(
 				Array.from({ length: 100 }, (_, index) => 100 - index),
 			);
 			expect(first.pageInfo.hasMore).toBe(true);
-			const second = yield* executeRyotQLRecipe(
-				client,
-				measurementReadingListRecipe({
-					reference,
-					limit: 100,
-					after: requirePresent(first.pageInfo.nextCursor, "Expected next reading cursor"),
-				}),
-			);
+			const second = yield* readMeasurementLogReadings(client, {
+				reference,
+				limit: 100,
+				after: requirePresent(first.pageInfo.nextCursor, "Expected next reading cursor"),
+			});
 			expect(second.items.map(({ value }) => value)).toEqual([0]);
 			expect(second.pageInfo.hasMore).toBe(false);
 			expect(second.pageInfo.nextCursor).toBeNull();

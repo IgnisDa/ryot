@@ -3,12 +3,20 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
-import { measurementReadingProperties } from "../../shared/measurement-properties";
+import { chunk } from "../../shared/collections";
+import {
+	measurementEntryProperties,
+	measurementReadingProperties,
+} from "../../shared/measurement-properties";
 import {
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
 } from "../../shared/measurement-reading-operations";
-import { requireMeasurementMetrics, requireMeasurementReadings } from "./measurement-readings";
+import {
+	readMeasurementEntryReadings,
+	requireMeasurementEntry,
+	requireMeasurementMetrics,
+} from "./measurement-readings";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -20,9 +28,14 @@ export default defineOperation({
 	manifest,
 	output: MeasurementReadingOutput,
 	input: MeasurementReadingUpdateInput,
-	run: ({ values, comment, readingIds, occurredAt }, host) =>
+	run: ({ values, comment, entryId, occurredAt }, host) =>
 		Effect.gen(function* () {
-			const readings = yield* requireMeasurementReadings(readingIds, host.executeRyotql);
+			const entry = yield* requireMeasurementEntry(entryId, host.executeRyotql);
+			const readings = yield* readMeasurementEntryReadings(entryId, host.executeRyotql);
+			yield* requireMeasurementMetrics(
+				values.map(({ metricId }) => metricId),
+				host.executeRyotql,
+			);
 			const pending = new Map(values.map(({ value, metricId }) => [metricId, value]));
 			const updates: UpdateEventItem[] = [];
 			const removed: string[] = [];
@@ -36,33 +49,36 @@ export default defineOperation({
 						eventId: id,
 						patch: {
 							occurredAt,
-							properties: {
-								remove: comment ? [] : ["comment"],
-								set: measurementReadingProperties(value, comment),
-							},
+							properties: { remove: [], set: measurementReadingProperties(value) },
 						},
 					});
 				}
 			}
-			yield* requireMeasurementMetrics([...pending.keys()], host.executeRyotql);
 			let count = 0;
-			if (updates.length > 0) {
-				count += (yield* host.updateEvents(updates)).count;
+			for (const batch of chunk(updates, 100)) {
+				count += (yield* host.updateEvents(batch)).count;
 			}
-			if (pending.size > 0) {
+			for (const batch of chunk([...pending], 100)) {
 				const created = yield* host.createEvents(
-					[...pending].map(([metricId, value]) => ({
+					batch.map(([metricId, value]) => ({
 						occurredAt,
 						entityId: metricId,
+						sessionEntityId: entryId,
 						eventSchemaSlug: "measurement-reading",
-						properties: measurementReadingProperties(value, comment),
+						properties: measurementReadingProperties(value),
 					})),
 				);
 				count += created.count;
 			}
-			if (removed.length > 0) {
-				count += (yield* host.deleteEvents(removed)).count;
+			for (const batch of chunk(removed, 100)) {
+				count += (yield* host.deleteEvents(batch)).count;
 			}
+			yield* host.updateUserEntity({
+				name: entry.name,
+				entityId: entryId,
+				properties: measurementEntryProperties(occurredAt, comment),
+				expected: { name: entry.name, updatedAt: entry.updatedAt, properties: entry.properties },
+			});
 			return { count };
 		}),
 });

@@ -2,12 +2,11 @@ import type { TimeSeriesPoint } from "@ryot-app/plugin-ui-sdk/charts";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
-import type { MeasurementReadingListResult } from "../../shared/query-recipes";
 import { formatNumber } from "../workout/format";
+import type { MeasurementLogEntry } from "./queries";
 
 export type RangeKey = "1M" | "3M" | "1Y" | "All";
 export type MetricSort = "recent" | "changed" | "az";
-export type MeasurementReading = MeasurementReadingListResult["items"][number];
 
 export const DAY_MS = 86_400_000;
 export const STALE_AFTER_DAYS = 45;
@@ -184,22 +183,23 @@ export type ReadingValue = {
 };
 
 export type ReadingGroup = {
+	readonly id: string;
 	readonly occurredAt: string;
 	readonly comment: string | null;
 	readonly values: ReadonlyMap<string, ReadingValue>;
 };
 
-export const groupReadings = (readings: readonly MeasurementReading[]): readonly ReadingGroup[] => {
-	const groups = new Map<string, MeasurementReading[]>();
-	for (const reading of readings) {
-		groups.set(reading.occurredAt, [...(groups.get(reading.occurredAt) ?? []), reading]);
-	}
+export const groupReadings = (entries: readonly MeasurementLogEntry[]): readonly ReadingGroup[] => {
 	const lastValue = new Map<string, number>();
-	return [...groups.entries()]
-		.sort(([left], [right]) => Date.parse(left) - Date.parse(right))
-		.map(([occurredAt, members]) => {
+	return [...entries]
+		.sort(
+			(left, right) =>
+				Date.parse(left.occurredAt) - Date.parse(right.occurredAt) ||
+				right.id.localeCompare(left.id),
+		)
+		.map(({ id, comment, readings, occurredAt }) => {
 			const values = new Map(
-				members.map((reading) => {
+				readings.map((reading) => {
 					const previous = lastValue.get(reading.metricId) ?? null;
 					lastValue.set(reading.metricId, reading.value);
 					return [
@@ -208,13 +208,13 @@ export const groupReadings = (readings: readonly MeasurementReading[]): readonly
 					] as const;
 				}),
 			);
-			return {
-				values,
-				occurredAt,
-				comment: members.find(({ comment }) => comment !== null)?.comment ?? null,
-			};
+			return { id, values, comment, occurredAt };
 		})
-		.sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt));
+		.sort(
+			(left, right) =>
+				Date.parse(right.occurredAt) - Date.parse(left.occurredAt) ||
+				left.id.localeCompare(right.id),
+		);
 };
 
 export type MonthSection = { readonly label: string; readonly groups: readonly ReadingGroup[] };

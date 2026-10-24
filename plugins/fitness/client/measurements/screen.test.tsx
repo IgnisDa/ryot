@@ -61,20 +61,21 @@ const reading = (
 	occurredAt: string,
 ) => ({
 	id,
-	value,
-	metricId,
 	occurredAt,
-	unit: null,
 	comment: null,
-	metricName: name,
-	metricKey: metricId,
+	readings: [{ value, metricId, metricName: name, id: `${id}-reading` }],
 });
 
 const readingsAt = daysAgo(2);
 const loggedAt = new Date("2026-05-01T07:30").toISOString();
 const logRows = rows([
-	reading("r1", "weight", "Weight", 73.6, readingsAt),
-	reading("r2", "sugar", "Sugar level", 130, readingsAt),
+	{
+		...reading("r1", "weight", "Weight", 73.6, readingsAt),
+		readings: [
+			{ id: "r1", value: 73.6, metricId: "weight" },
+			{ id: "r2", value: 130, metricId: "sugar" },
+		],
+	},
 	reading("r3", "weight", "Weight", 73.1, daysAgo(5)),
 ]);
 
@@ -84,7 +85,7 @@ const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics)
 			if (key === "metrics") {
 				return [key, metricRows];
 			}
-			if (key === "readings") {
+			if (key === "entries") {
 				return [key, logRows];
 			}
 			const average = key.startsWith("average");
@@ -132,6 +133,10 @@ const openPage = (
 		readonly loggerOnly?: boolean;
 		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 		readonly readingsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
+		readonly entryReadingsPage?: (
+			entryId: string,
+			after: string | undefined,
+		) => ReturnType<typeof rows> | null | undefined;
 	} = {},
 ) => {
 	let pageComponent = MeasurementsPage;
@@ -160,6 +165,14 @@ const openPage = (
 		},
 	});
 	const answered = new Set<string>();
+	const entryReadings = new Map<string, unknown>();
+	const rememberEntries = (entries: ReturnType<typeof rows>) => {
+		for (const entry of entries.items) {
+			assert(typeof entry.id === "string");
+			entryReadings.set(entry.id, entry.readings);
+		}
+	};
+	rememberEntries(logRows);
 	const answerPending = () => {
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
@@ -174,14 +187,45 @@ const openPage = (
 					}
 					data.metrics = metricPage;
 				}
-				const readingQuery = request.document.queries.readings;
+				const readingQuery = request.document.queries.entries;
 				if (options.readingsPage !== undefined && readingQuery?.output.type === "rows") {
 					const readings = options.readingsPage(readingQuery.output.pagination.after);
 					if (readings === null) {
 						page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
 						continue;
 					}
-					data.readings = readings;
+					rememberEntries(readings);
+					data.entries = readings;
+				}
+				const children = request.document.queries.readings;
+				if (children !== undefined) {
+					assert(children.where?.type === "and");
+					const session = children.where.predicates[0];
+					assert(
+						session?.type === "comparison" &&
+							session.right.type === "literal" &&
+							typeof session.right.value === "string",
+					);
+					if (options.entryReadingsPage !== undefined) {
+						assert(children.output.type === "rows");
+						const childPage = options.entryReadingsPage(
+							session.right.value,
+							children.output.pagination.after,
+						);
+						if (childPage === undefined) {
+							answered.delete(request.requestId);
+							continue;
+						}
+						if (childPage === null) {
+							page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
+							continue;
+						}
+						data.readings = childPage;
+					} else {
+						const readings = entryReadings.get(session.right.value);
+						assert(Array.isArray(readings));
+						data.readings = rows(readings);
+					}
 				}
 				page.replyQuery(request.requestId, { outcome: "success", response: { data } });
 			}
@@ -193,6 +237,108 @@ const openPage = (
 const text = (element: Element | null) => element?.textContent ?? "";
 
 describe("measurements page", () => {
+	it.live("keeps equal-time submissions and their comments separate", () =>
+		Effect.gen(function* () {
+			const at = daysAgo(2);
+			const { page, answerPending } = openPage(metrics, {
+				readingsOnly: true,
+				readingsPage: () =>
+					rows([
+						{ ...reading("first-entry", "weight", "Weight", 70, at), comment: "Before run" },
+						{ ...reading("second-entry", "weight", "Weight", 72, at), comment: "After run" },
+					]),
+			});
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getAllByRole("button", { name: /^Delete measurement from/ })).toHaveLength(2);
+				}),
+			);
+			expect(body.getByText("Before run")).toBeTruthy();
+			expect(body.getByText("After run")).toBeTruthy();
+			fireEvent.click(
+				body.getAllByRole("button", { name: /^Delete measurement from/ })[1] ?? document.body,
+			);
+			yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
+			fireEvent.click(
+				within(body.getByRole("dialog")).getByRole("button", { name: "Delete measurement" }),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual(
+						expect.objectContaining({
+							type: "operation-request",
+							input: { entryId: "second-entry" },
+						}),
+					),
+				),
+			);
+		}),
+	);
+
+	it.live(
+		"loads all 101 children before exposing an entry and deletes by entry ID before older entries load",
+		() =>
+			Effect.gen(function* () {
+				let release = false;
+				const cursors: Array<string | undefined> = [];
+				const children = Array.from({ length: 101 }, (_, index) => ({
+					value: index,
+					id: `child-${index}`,
+					metricId: index === 0 ? "weight" : `metric-${index}`,
+				}));
+				const { page, answerPending } = openPage(metrics, {
+					readingsOnly: true,
+					readingsPage: (after) => {
+						cursors.push(after);
+						return rows([reading("large-entry", "weight", "Weight", 0, readingsAt)], {
+							hasMore: true,
+							nextCursor: "older-entries",
+						});
+					},
+					entryReadingsPage: (_, after) => {
+						if (after === undefined) {
+							return rows(children.slice(0, 100), { hasMore: true, nextCursor: "last-child" });
+						}
+						return release ? rows(children.slice(100)) : undefined;
+					},
+				});
+				const body = within(document.body);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(page.queryRequests("readings")).toHaveLength(2);
+					}),
+				);
+				expect(body.queryByRole("button", { name: /^Delete measurement from/ })).toBeNull();
+				release = true;
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(body.getByRole("button", { name: /^Delete measurement from/ })).toBeTruthy();
+					}),
+				);
+				fireEvent.click(body.getByRole("button", { name: /^Delete measurement from/ }));
+				yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
+				expect(body.getByRole("dialog").textContent).toContain("101 readings");
+				fireEvent.click(
+					within(body.getByRole("dialog")).getByRole("button", { name: "Delete measurement" }),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual(
+							expect.objectContaining({
+								type: "operation-request",
+								input: { entryId: "large-entry" },
+							}),
+						),
+					),
+				);
+				expect(cursors).toEqual([undefined]);
+			}),
+	);
+
 	it.live("loads older readings using the next cursor and hides the button at the end", () =>
 		Effect.gen(function* () {
 			const cursors: Array<string | undefined> = [];
@@ -234,9 +380,9 @@ describe("measurements page", () => {
 				}),
 			);
 			expect(cursors).toEqual([undefined, "older"]);
-			expect(
-				page.queryRequests("readings").at(-1)?.document.queries.readings?.output,
-			).toMatchObject({ pagination: { after: "older" } });
+			expect(page.queryRequests("entries").at(-1)?.document.queries.entries?.output).toMatchObject({
+				pagination: { after: "older" },
+			});
 		}),
 	);
 	it.live(
@@ -522,8 +668,8 @@ describe("measurements page", () => {
 			const [failed] = requests();
 			assert(failed?.type === "operation-request");
 			expect(failed).toMatchObject({
+				input: { entryId: "r1" },
 				packageId: PLUGIN_PACKAGE_ID,
-				input: { readingIds: ["r1", "r2"] },
 				operationSlug: "measurement-reading-delete",
 			});
 			page.send({
@@ -948,8 +1094,8 @@ describe("measurements page", () => {
 				operationSlug: "measurement-reading-update",
 				input: {
 					comment: "",
+					entryId: "r1",
 					occurredAt: readingsAt,
-					readingIds: ["r1", "r2"],
 					values: [
 						{ value: 0, metricId: "weight" },
 						{ value: 80, metricId: "waist" },

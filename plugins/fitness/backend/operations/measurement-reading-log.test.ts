@@ -21,6 +21,7 @@ const recordingHost = (
 ) =>
 	defineSandboxTestHost(manifest, {
 		executeRyotql: executeMeasurementRyotql,
+		createUserEntity: () => Effect.succeed({ entityId: "entry-test" }),
 		createEvents: (items, options) =>
 			Effect.sync(() => {
 				creates.push(items);
@@ -42,6 +43,7 @@ describe("measurement reading log operation", () => {
 			const host = defineSandboxTestHost(manifest, {
 				executeRyotql: executeMeasurementRyotql,
 				createEvents: () => Effect.succeed({ count: 0, outcomes: [] }),
+				createUserEntity: () => Effect.succeed({ entityId: "entry-test" }),
 			});
 			expect(
 				yield* runSandboxTestScript(
@@ -64,8 +66,14 @@ describe("measurement reading log operation", () => {
 		() =>
 			Effect.gen(function* () {
 				const options: (CreateEventOptions | undefined)[] = [];
+				const entries: unknown[] = [];
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: executeMeasurementRyotql,
+					createUserEntity: (item, identity) =>
+						Effect.sync(() => {
+							entries.push({ item, identity });
+							return { entityId: "entry-test" };
+						}),
 					createEvents: (items, identity) =>
 						Effect.suspend(() => {
 							options.push(identity);
@@ -111,6 +119,16 @@ describe("measurement reading log operation", () => {
 					{ submittedAt: occurredAt, idempotencyKey: "partial-submission" },
 					{ submittedAt: occurredAt, idempotencyKey: "partial-submission" },
 				]);
+				expect(entries).toEqual(
+					Array.from({ length: 2 }, () => ({
+						identity: { submittedAt: occurredAt, idempotencyKey: "partial-submission:entry" },
+						item: {
+							name: "Measurement",
+							properties: { occurredAt },
+							entitySchemaSlug: "measurement-entry",
+						},
+					})),
+				);
 			}),
 	);
 
@@ -141,14 +159,16 @@ describe("measurement reading log operation", () => {
 					{
 						occurredAt,
 						entityId: "weight",
+						properties: { value: 72.4 },
+						sessionEntityId: "entry-test",
 						eventSchemaSlug: "measurement-reading",
-						properties: { value: 72.4, comment: "After run" },
 					},
 					{
 						occurredAt,
 						entityId: "waist",
+						properties: { value: 0 },
+						sessionEntityId: "entry-test",
 						eventSchemaSlug: "measurement-reading",
-						properties: { value: 0, comment: "After run" },
 					},
 				],
 			]);

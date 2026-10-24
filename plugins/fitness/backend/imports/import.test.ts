@@ -570,8 +570,13 @@ it("writes one metric entity and one reading event per OpenScale value and count
 			Effect.map((result) => {
 				const items = result.chunks.flatMap((chunk) => chunk.items);
 				expect(items).toHaveLength(1);
-				expect(items[0]?.subjectEntityAlias).toBe("metric-0");
+				expect(items[0]?.subjectEntityAlias).toBe("entry");
 				expect(items[0]?.entities).toMatchObject([
+					{
+						alias: "entry",
+						entitySchemaSlug: "measurement-entry",
+						properties: { comment: "Morning", occurredAt: "2026-01-01T08:00:00.000Z" },
+					},
 					{
 						scope: "user",
 						name: "Weight",
@@ -589,12 +594,13 @@ it("writes one metric entity and one reading event per OpenScale value and count
 				expect(items[0]?.events).toMatchObject([
 					{
 						entityAlias: "metric-0",
+						sessionEntityAlias: "entry",
+						properties: { value: 72.5 },
 						occurredAt: "2026-01-01T08:00:00.000Z",
 						eventSchemaSlug: "measurement-reading",
-						properties: { value: 72.5, comment: "Morning" },
 						outcome: { unit: "measurements", recordKind: "measurements" },
 					},
-					{ entityAlias: "metric-1", properties: { value: 18, comment: "Morning" } },
+					{ entityAlias: "metric-1", properties: { value: 18 }, sessionEntityAlias: "entry" },
 				]);
 				expect(items[0]?.events[1]).not.toHaveProperty("outcome");
 				expect(result.chunks.flatMap((chunk) => chunk.failures)).toMatchObject([
@@ -621,6 +627,49 @@ it("keeps OpenScale failures distinct when rows share a timestamp", () =>
 				const failures = result.chunks.flatMap((chunk) => chunk.failures);
 				expect(failures).toHaveLength(2);
 				expect(new Set(failures.map(({ operationId }) => operationId)).size).toBe(2);
+			}),
+		),
+	));
+
+it("keeps equal-time OpenScale rows distinct and preserves an entry with 205 readings", () =>
+	Effect.runPromise(
+		runImport(
+			"open_scale",
+			[
+				[
+					"dateTime",
+					"comment",
+					...Array.from({ length: 205 }, (_, index) => `Metric ${index}`),
+				].join(","),
+				[
+					"2026-01-01T08:00:00Z",
+					"Before run",
+					...Array.from({ length: 205 }, (_, index) => String(index)),
+				].join(","),
+				[
+					"2026-01-01T08:00:00Z",
+					"After run",
+					...Array.from({ length: 205 }, (_, index) => String(index + 1)),
+				].join(","),
+			].join("\n"),
+		).pipe(
+			Effect.map((result) => {
+				const items = result.chunks.flatMap((chunk) => chunk.items);
+				expect(items).toHaveLength(2);
+				expect(items.map(({ events }) => events.length)).toEqual([205, 205]);
+				expect(items.map(({ entities }) => entities[0]?.properties)).toEqual([
+					{ comment: "Before run", occurredAt: "2026-01-01T08:00:00.000Z" },
+					{ comment: "After run", occurredAt: "2026-01-01T08:00:00.000Z" },
+				]);
+				expect(new Set(items.map(({ entities }) => entities[0]?.operationId)).size).toBe(2);
+				expect(
+					items.every(({ events }) =>
+						events.every(({ sessionEntityAlias }) => sessionEntityAlias === "entry"),
+					),
+				).toBe(true);
+				expect(result.output).toMatchObject({
+					summary: [{ unit: "measurements", counts: { created: 2 } }],
+				});
 			}),
 		),
 	));
@@ -658,8 +707,8 @@ it("restores a quoted measurement record across source and JSON capture windows 
 			Effect.map((result) => {
 				const items = result.chunks.flatMap((chunk) => chunk.items);
 				expect(items.map((item) => item.itemIndex)).toEqual([0, 1]);
-				expect(items[0]?.events[0]?.properties["comment"]).toBe(comment);
-				expect(items[1]?.events[0]?.properties["comment"]).toBe("end");
+				expect(items[0]?.entities[0]?.properties["comment"]).toBe(comment);
+				expect(items[1]?.entities[0]?.properties["comment"]).toBe("end");
 				expect(result.collectionOffsets.length).toBeGreaterThan(1);
 				expect(result.output).toMatchObject({
 					summary: [{ unit: "measurements", counts: { created: 2 } }],

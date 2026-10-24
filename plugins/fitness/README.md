@@ -65,15 +65,18 @@ collapse state remain draft-local. Session flow uses timestamps, not configured 
 ## Measurements
 
 Each user-owned `measurement-metric` has a name, stable key, and optional unit. Its
-`measurement-reading` events carry value, optional comment, and occurrence time. Values logged
-together share timestamp/comment. All Measurements uses only page-context name/icon and these
+`measurement-reading` events carry value and occurrence time for analytics. Each submission or
+import row creates a user-owned `measurement-entry` containing time and optional comment; its
+readings reference it through `sessionEntityId`. Equal timestamps never imply shared identity.
+All Measurements uses only page-context name/icon and these
 shared recipes:
 
-| Recipe                         | Purpose                                                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `measurementSummaryRecipe`     | Cursor-paged metrics with latest value/time, first reading, range count, and pin time                               |
-| `measurementSeriesRecipe`      | Average plus count series, so zero-filled empty buckets are distinguishable; metric batches respect the query limit |
-| `measurementReadingListRecipe` | Newest-first paged log, grouped by timestamp and month                                                              |
+| Recipe                           | Purpose                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `measurementSummaryRecipe`       | Cursor-paged metrics with latest value/time, first reading, range count, and pin time                               |
+| `measurementSeriesRecipe`        | Average plus count series, so zero-filled empty buckets are distinguishable; metric batches respect the query limit |
+| `measurementEntryListRecipe`     | Newest-first entry pages, with all child pages loaded before display and month grouping                             |
+| `measurementEntryReadingsRecipe` | Cursor-paged children of one entry, without a total-child limit                                                     |
 
 Ranges through 1Y use daily buckets; All uses bounded weekly buckets. Trend lines smooth bucket
 averages. Loaded rows remain during pagination; malformed/repeated cursors fail rather than loop.
@@ -93,14 +96,17 @@ rejected. Repeated times show both UTC offsets; edits within the original local 
 offset when valid, while other ambiguous times require an occurrence choice. An explicit choice
 overrides the original offset.
 
-`measurement-reading-log` validates every metric's schema/visibility and sends one `createEvents`
-batch. The retained submission and mutation receipts replay committed readings without duplication;
+`measurement-reading-log` validates every metric's schema/visibility, creates an entry, and sends one
+`createEvents` batch (at most 100 values). The retained submission and mutation receipts replay both
+the entry and committed readings without duplication;
 partial/skipped writes retain input for retry. Cancelling never rolls back committed readings.
 
-Update/delete validate every reading against both its event and parent metric schema and caller
-visibility. Update patches kept readings, creates added values, then deletes cleared values in
-separate calls: partial failure may leave an edit partly applied. Delete uses one `deleteEvents`
-call. A timestamp row split across pages affects only its loaded readings.
+Update/delete resolve the caller-owned entry by ID, not client-supplied reading IDs. Update loads all
+children, validates event and metric schemas/visibility, patches kept readings, creates added values,
+deletes cleared values, then updates entry time/comment. Event writes use batches of at most 100,
+including imported entries larger than 100 values. These are separate calls: partial failure may
+leave an edit partly applied. Deleting the entry cascades to all session children, including children
+the client has never loaded.
 
 Metric creation uses shared normalization and canonical units for known keys; empty normalized names
 and incompatible units fail. Unknown keys may have custom units. Client duplicate detection is not an

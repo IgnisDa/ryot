@@ -254,6 +254,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"add-entity-to-collection",
 	);
 	const measurementMetricEntitySchema = entitySchema(fitnessPluginId, "measurement-metric");
+	const measurementEntryEntitySchema = entitySchema(fitnessPluginId, "measurement-entry");
 	const measurementMetricPinnedRelationshipSchema = relationshipSchema(
 		fitnessPluginId,
 		"measurement-metric-pinned",
@@ -534,6 +535,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(
 				buildMeasurementMigrationSql({
+					entryEntitySchema: measurementEntryEntitySchema,
 					libraryEntitySchema: fitnessLibraryEntitySchema,
 					metricEntitySchema: measurementMetricEntitySchema,
 					readingEventSchema: measurementReadingEventSchema,
