@@ -30,8 +30,8 @@ const user = {
 	name: "Owner",
 	id: UserId.make("owner"),
 	email: "owner@example.test",
-	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { token: "generation", userId: UserId.make("owner") },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 const foreignUser = UserId.make("foreign");
 const kernel = (slug: string): SavedViewReference => ({ slug, kind: "kernel" });

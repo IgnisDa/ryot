@@ -165,6 +165,8 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 			switch (renderer.name) {
 				case "calendar":
 					return yield* settingsIncompatible("Calendar views are kernel built-ins only");
+				case "analytics":
+					return yield* settingsIncompatible("Analytics views are kernel built-ins only");
 				case "results-table":
 					return yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
 				case "entity-browser":
