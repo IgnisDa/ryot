@@ -53,7 +53,6 @@ import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { ProviderAddService } from "#/modules/provider-add/service";
-import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -321,13 +320,10 @@ export const InstanceAdminRouteStubs = Layer.mergeAll(
 	}),
 );
 
-export const SavedViewRouteStubs = Layer.mergeAll(
-	Layer.succeed(ManagedAssetsService, {
-		read: () => Effect.succeed([]),
-		outcome: () => Effect.die("not used"),
-	}),
-	Layer.succeed(SavedViewsService, { loadRecord: () => Effect.die("not used") }),
-);
+export const SavedViewRouteStubs = Layer.succeed(ManagedAssetsService, {
+	read: () => Effect.succeed([]),
+	outcome: () => Effect.die("not used"),
+});
 
 export const makeImportsStub = (overrides: Partial<ImportsService["Service"]> = {}) =>
 	Layer.succeed(ImportsService, {
