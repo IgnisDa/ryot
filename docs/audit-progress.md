@@ -15,7 +15,7 @@
 
 ## Status
 
-**70 implemented, 0 in progress, 13 pending; 3 excluded.**
+**71 implemented, 0 in progress, 12 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -60,7 +60,7 @@
 | A05-R1 | Excluded | Website payment agreement and rights transitions. |
 | A03-R1 | Excluded | Browser-extension frame/navigation ownership. |
 | S03-R1 | Implemented | One optional stopping cause and first timestamp own stop transitions; cleanup and wakeup happen once while cause priority is preserved. See this finding's audit commit. |
-| B03-R1 | Pending | Prepared HTTP hops and explicit phases. |
+| B03-R1 | Implemented | Persist one prepared HTTP hop and explicit admission, rate-limit, and wait phases; preserve redirect, retry, headers, body, and ticket identity. See this finding's audit commit. |
 | P04-R2 | Implemented | One automatic query-refresh owner manages entity and page refresh atoms. See this finding's audit commit. |
 | B15-R1 | Implemented | Use only a persisted paged worklist, with the database cutoff after admission, creation-time/ID cursor, exact IDs, and release. See this finding's audit commit. |
 | B05-R2 | Pending | Query asset-reference existence in PostgreSQL. |
@@ -237,3 +237,4 @@
 
 - C07-R1: client type, format, and lint checks passed before 44 navigation and 20 host tests; read-only review passed. Removed the unused saved-view client service and its wiring; canonical preparation and the managed-asset stub remain.
 - B02-R1: backend type, format, and lint checks passed before 103 tests across seven files; read-only review passed. Deleted the test-only live-environment runtime mode and verified that late host reads retain the execution's exact config pin across environment reactivation. B02-R2 readiness changes were not included.
+- B03-R1: scoped checks passed before 204 tests across 10 files, run serially; read-only review passed. Prepared hops and explicit phases retain retry, redirect, request headers/body, and provider ticket identity. No continuation compatibility or drain mechanism was added.

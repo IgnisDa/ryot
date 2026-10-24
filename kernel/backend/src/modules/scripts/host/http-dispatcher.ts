@@ -24,7 +24,7 @@ import type { ScriptExecutionWorkflowPayload } from "#modules/scripts/executions
 import {
 	dispatchSandboxHttpHop,
 	hostCallScopeOf,
-	sandboxDurableHttpRequestUrl,
+	prepareSandboxDurableHttpHop,
 	sandboxHttpRedirectClassifier,
 } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -35,11 +35,18 @@ import {
 	type ProviderHttpTicket,
 	providerHttpTicketId,
 } from "#modules/scripts/host/http-admission";
-import { SandboxHttpRedirect } from "#modules/scripts/host/runtime-host-functions";
+import {
+	type SandboxHttpHop,
+	SandboxHttpRedirect,
+} from "#modules/scripts/host/runtime-host-functions";
 import { workflowInterruptRequested } from "#platform/workflow/interruption";
 import { makeActivity } from "#platform/workflow/scope";
 
-import { SandboxHttpPolicy, type SandboxHttpProgress } from "./http-progress";
+import {
+	SandboxHttpPolicy,
+	type SandboxHttpProgress,
+	SandboxHttpRateLimitResult,
+} from "./http-progress";
 
 type HostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }>;
 
@@ -218,25 +225,17 @@ const networkAttemptLogLevel = (result: WorkflowDurableResult) => {
 };
 
 const retryAfterDelay = (
-	result: WorkflowDurableResult,
+	result: typeof SandboxHttpRateLimitResult.Type,
 	responseTimeMs: number,
 	intervalMs: number,
 ) => {
-	if (result.state !== "failure" || result.error.message !== "HTTP 429") {
-		return null;
-	}
 	const data = result.error.data;
-	if (!data || typeof data !== "object" || Reflect.get(data, "status") !== 429) {
-		return null;
-	}
-	const headers = Reflect.get(data, "headers");
+	const headers = data.headers;
 	let retryAfter: string | undefined;
-	if (headers && typeof headers === "object" && !Array.isArray(headers)) {
-		for (const [name, value] of Object.entries(headers)) {
-			if (name.toLowerCase() === "retry-after" && typeof value === "string") {
-				retryAfter = value;
-				break;
-			}
+	for (const [name, value] of Object.entries(headers)) {
+		if (name.toLowerCase() === "retry-after") {
+			retryAfter = value;
+			break;
 		}
 	}
 	const limit = PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs;
@@ -340,26 +339,28 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 		inline?: InlineHttpSettlement,
 	) {
 		let rateLimitCount = 0;
-		const requestUrl = sandboxDurableHttpRequestUrl(request);
-		let state: SandboxHttpProgress = progress ?? {
-			hop: 0,
-			attempt: 0,
-			cleanup: null,
-			redirect: null,
-			networkAttempt: 0,
-			pendingBlock: null,
-			blockWaitAttempt: 0,
-			admissionAttempt: 0,
-			blockedUntilMs: null,
-			url: requestUrl ?? "",
-			coordinationAttempt: 0,
-			registrationAttempt: 0,
-			terminalRateLimit: null,
-			coordinationBackoffAttempt: 0,
-		};
-		const update = (patch: Partial<SandboxHttpProgress>) => {
-			state = { ...state, ...patch };
-		};
+		const scope = hostCallScopeOf(payload, principal, executionId, startedAt);
+		let state: SandboxHttpProgress;
+		if (progress) {
+			state = progress;
+		} else {
+			const prepared = yield* prepareSandboxDurableHttpHop(request, scope);
+			if (prepared._tag === "completed") {
+				return prepared.result;
+			}
+			state = {
+				attempt: 0,
+				cleanup: null,
+				networkAttempt: 0,
+				blockWaitAttempt: 0,
+				admissionAttempt: 0,
+				coordinationAttempt: 0,
+				registrationAttempt: 0,
+				current: prepared.current,
+				coordinationBackoffAttempt: 0,
+				phase: { rateLimit: null, _tag: "Admitting" },
+			};
+		}
 		const next = (
 			counter:
 				| "admissionAttempt"
@@ -369,7 +370,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				| "coordinationBackoffAttempt",
 		) => {
 			const value = state[counter];
-			update({ [counter]: value + 1 });
+			state = { ...state, [counter]: value + 1 };
 			return value;
 		};
 		const save = () => inline?.checkpoint(state) ?? Effect.void;
@@ -428,19 +429,25 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			coordinate("block", ProviderHttpAdmissionBlockResult, () =>
 				admission.block(declaration, delayMs).pipe(Effect.catchTags(admissionFailure("block"))),
 			);
-		const finishBlock = Effect.fnUntraced(function* () {
-			if (state.pendingBlock === null) {
-				return;
-			}
-			const blocked = yield* block(state.pendingBlock.declaration, state.pendingBlock.delayMs);
-			update({ pendingBlock: null, attempt: state.attempt + 1 });
+		const finishBlock = Effect.fnUntraced(function* (
+			phase: Extract<SandboxHttpProgress["phase"], { readonly _tag: "ApplyingRateLimitBlock" }>,
+		) {
+			const blocked = yield* block(phase.declaration, phase.delayMs);
+			state = { ...state, attempt: state.attempt + 1 };
 			if (blocked.status === "blocked") {
 				const durationMs = blocked.blockedUntilMs - blocked.observedAtMs;
-				update({ blockedUntilMs: (yield* Clock.currentTimeMillis) + durationMs });
+				state = {
+					...state,
+					phase: {
+						rateLimit: phase.rateLimit,
+						_tag: "WaitingForRateLimitBlock",
+						blockedUntilMs: (yield* Clock.currentTimeMillis) + durationMs,
+					},
+				};
 				const name = `sandbox-http-${request.index}-block-wait-${next("blockWaitAttempt")}`;
 				yield* inline ? pause(durationMs) : sleepFor(name, durationMs);
-				update({ blockedUntilMs: null });
 			}
+			state = { ...state, phase: { _tag: "Admitting", rateLimit: phase.rateLimit } };
 		});
 
 		const cancelOnInterrupt = (
@@ -489,7 +496,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 					let overloadStreak = 0;
 					registration: for (;;) {
 						yield* Ref.set(activePolicy, policy);
-						update({ cleanup: { ticket, declaration: admissionDeclaration(policy) } });
+						state = { ...state, cleanup: { ticket, declaration: admissionDeclaration(policy) } };
 						yield* save();
 						if (yield* cancelIfInterrupted()) {
 							return { cleanupPolicy: policy, _tag: "Interrupted" as const };
@@ -585,20 +592,25 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				});
 			});
 
-		const admit = (url: string, identity: { readonly hop: number; readonly attempt: number }) =>
+		const admit = (current: SandboxHttpHop, attempt: number) =>
 			Effect.gen(function* () {
 				const ticket: ProviderHttpTicket = {
 					...scheduling,
-					id: providerHttpTicketId({ ...identity, executionId, requestIndex: request.index }),
+					id: providerHttpTicketId({
+						attempt,
+						executionId,
+						hop: current.hop,
+						requestIndex: request.index,
+					}),
 				};
 				const activePolicy = yield* Ref.make<MatchedHttpRateLimit | null>(null);
 				yield* cancelOnInterrupt(activePolicy, ticket);
 				const admitted = yield* coordinateDurably("admission", () => {
 					const name = `sandbox-http-${request.index}-admission-${next("admissionAttempt")}`;
 					const execute = Effect.gen(function* () {
-						const resolution = yield* resolveNow(executionId, url);
+						const resolution = yield* resolveNow(executionId, current.url);
 						return resolution.matched
-							? yield* admitInMemory(resolution, url, ticket, activePolicy)
+							? yield* admitInMemory(resolution, current.url, ticket, activePolicy)
 							: { resolution, cleanupPolicy: null, _tag: "Settled" as const };
 					});
 					return inline
@@ -620,11 +632,8 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				return admitted;
 			});
 
-		const runNetworkAttempt = (
-			policy: MatchedHttpRateLimit | null,
-			redirect: SandboxHttpRedirect | null,
-		) => {
-			update({ networkAttempt: state.networkAttempt + 1 });
+		const runNetworkAttempt = (policy: MatchedHttpRateLimit | null, current: SandboxHttpHop) => {
+			state = { ...state, networkAttempt: state.networkAttempt + 1 };
 			const attempt = state.networkAttempt;
 			return step({
 				error: SandboxRunError,
@@ -633,12 +642,9 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				execute: Effect.gen(function* () {
 					yield* executionAuthority.resolve(principal);
 					const startedAtMs = yield* Clock.currentTimeMillis;
-					const outcome = yield* dispatchSandboxHttpHop(
-						request,
-						hostCallScopeOf(payload, principal, executionId, startedAt),
-						redirect,
-						classify,
-					).pipe(Effect.provideService(HttpClient.HttpClient, httpClient));
+					const outcome = yield* dispatchSandboxHttpHop(request, scope, current, classify).pipe(
+						Effect.provideService(HttpClient.HttpClient, httpClient),
+					);
 					const responseTimeMs = yield* Clock.currentTimeMillis;
 					const durationMs = Math.max(0, responseTimeMs - startedAtMs);
 					yield* Effect.logWithLevel(
@@ -668,50 +674,42 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			});
 		};
 
-		if (requestUrl === null) {
-			const attempted = yield* runNetworkAttempt(null, null);
-			return attempted.outcome._tag === "completed"
-				? attempted.outcome.result
-				: yield* new SandboxRunError({
-						kind: "infrastructure",
-						message: "Sandbox HTTP request without a URL produced a redirect",
-					});
-		}
-
-		yield* finishBlock();
-		if (state.blockedUntilMs !== null) {
-			yield* sleepFor(
-				`sandbox-http-${request.index}-block-resume`,
-				state.blockedUntilMs - (yield* Clock.currentTimeMillis),
-			);
-			update({ blockedUntilMs: null });
-		}
 		for (;;) {
 			yield* save();
+			const phase = state.phase;
+			if (phase._tag === "ApplyingRateLimitBlock") {
+				yield* finishBlock(phase);
+				continue;
+			}
+			if (phase._tag === "WaitingForRateLimitBlock") {
+				yield* sleepFor(
+					`sandbox-http-${request.index}-block-resume`,
+					phase.blockedUntilMs - (yield* Clock.currentTimeMillis),
+				);
+				state = { ...state, phase: { _tag: "Admitting", rateLimit: phase.rateLimit } };
+				continue;
+			}
+			const current = state.current;
 			let policy: MatchedHttpRateLimit | null = null;
-			const admitted = yield* admit(state.url, { hop: state.hop, attempt: state.attempt });
+			const admitted = yield* admit(current, state.attempt);
 			if (admitted.resolution.matched) {
 				policy = admitted.resolution;
 			}
-			if (policy === null && state.terminalRateLimit) {
-				return state.terminalRateLimit;
+			if (policy === null && phase.rateLimit) {
+				return phase.rateLimit;
 			}
-			const attempted: typeof HttpNetworkAttempt.Type = yield* runNetworkAttempt(
-				policy,
-				state.redirect,
-			);
+			const attempted: typeof HttpNetworkAttempt.Type = yield* runNetworkAttempt(policy, current);
 			if (attempted.outcome._tag === "redirected") {
-				update({
+				state = {
+					...state,
 					attempt: 0,
-					terminalRateLimit: null,
-					hop: attempted.outcome.hop,
-					url: attempted.outcome.url,
-					redirect: attempted.outcome,
-				});
+					current: attempted.outcome.next,
+					phase: { rateLimit: null, _tag: "Admitting" },
+				};
 				continue;
 			}
 			const result = attempted.outcome.result;
-			if (policy === null) {
+			if (policy === null || !Schema.is(SandboxHttpRateLimitResult)(result)) {
 				return result;
 			}
 			const delayMs = retryAfterDelay(
@@ -719,10 +717,6 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				attempted.responseTimeMs,
 				policy.declaration.intervalMs,
 			);
-			if (delayMs === null) {
-				return result;
-			}
-			update({ terminalRateLimit: result });
 			rateLimitCount += 1;
 			yield* Effect.logWarning("sandbox HTTP request rate limited").pipe(
 				Effect.annotateLogs({
@@ -734,8 +728,15 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 					sandboxWorkflowExecutionId: executionId,
 				}),
 			);
-			update({ pendingBlock: { delayMs, declaration: admissionDeclaration(policy) } });
-			yield* finishBlock();
+			state = {
+				...state,
+				phase: {
+					delayMs,
+					rateLimit: result,
+					_tag: "ApplyingRateLimitBlock",
+					declaration: admissionDeclaration(policy),
+				},
+			};
 		}
 	});
 

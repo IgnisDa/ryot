@@ -33,7 +33,7 @@ import {
 	Schema,
 	Scope,
 } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -441,6 +441,14 @@ type CapturedLog = Readonly<{
 	annotations: Readonly<Record<string, unknown>>;
 }>;
 
+type SentHttpRequest = Readonly<{
+	url: string;
+	method: string;
+	body: string | null;
+	headers: Readonly<Record<string, string>>;
+	requestInit: RequestInit | undefined;
+}>;
+
 class HttpDispatchHarness extends Context.Service<
 	HttpDispatchHarness,
 	{
@@ -452,6 +460,8 @@ class HttpDispatchHarness extends Context.Service<
 		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
 		readonly requestInterrupt: Effect.Effect<void>;
 		readonly registered: Effect.Effect<ReadonlyArray<ProviderHttpTicket>>;
+		readonly sent: Effect.Effect<ReadonlyArray<SentHttpRequest>>;
+		readonly resolvedUrls: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("test/HttpDispatchHarness") {}
 
@@ -472,6 +482,7 @@ const httpDispatchLayer = (options: {
 	readonly resolutions?: Readonly<Record<string, ReadonlyArray<ScriptedResolution>>>;
 	readonly cancelFailures?: number;
 	readonly blockFailures?: number;
+	readonly staleBlock?: boolean;
 	readonly cachedInterruptedAdmission?: boolean;
 }) =>
 	Layer.unwrap(
@@ -482,6 +493,8 @@ const httpDispatchLayer = (options: {
 			const activityNames = yield* Ref.make<ReadonlyArray<string>>([]);
 			const clockDurations = yield* Ref.make<ReadonlyArray<number>>([]);
 			const registered = yield* Ref.make<ReadonlyArray<ProviderHttpTicket>>([]);
+			const sent = yield* Ref.make<ReadonlyArray<SentHttpRequest>>([]);
+			const resolvedUrls = yield* Ref.make<ReadonlyArray<string>>([]);
 			const interruptRequested = yield* Ref.make(false);
 			const cancellations = yield* Ref.make(0);
 			const blockCalls = yield* Ref.make(0);
@@ -539,6 +552,18 @@ const httpDispatchLayer = (options: {
 				Effect.gen(function* () {
 					const call = yield* nextIndex(httpCalls);
 					yield* record(`http:${_request.method} ${url.toString()}`);
+					yield* append(sent, {
+						url: url.toString(),
+						method: _request.method,
+						headers: { ..._request.headers },
+						requestInit: Option.getOrUndefined(
+							yield* Effect.serviceOption(FetchHttpClient.RequestInit),
+						),
+						body:
+							_request.body._tag === "Uint8Array"
+								? new TextDecoder().decode(_request.body.body)
+								: null,
+					});
 					const outcome = at(options.outcomes, call);
 					if (!outcome) {
 						return yield* Effect.die("missing HTTP outcome");
@@ -554,6 +579,7 @@ const httpDispatchLayer = (options: {
 			);
 			const resolve = (url: string) =>
 				Effect.gen(function* () {
+					yield* append(resolvedUrls, url);
 					const origin = new URL(url).origin;
 					const scripted = options.resolutions?.[origin] ?? [unmatched(origin)];
 					const index = (yield* Ref.get(resolutionIndex)).get(origin) ?? 0;
@@ -620,20 +646,26 @@ const httpDispatchLayer = (options: {
 										return undefined;
 									}),
 								),
-								Effect.as({
-									status: "blocked" as const,
-									observedAtMs: options.blockObservedAtMs ?? 0,
-									blockedUntilMs: (options.blockObservedAtMs ?? 0) + delayMs,
-								}),
+								Effect.as(
+									options.staleBlock
+										? { status: "stale" as const }
+										: {
+												status: "blocked" as const,
+												observedAtMs: options.blockObservedAtMs ?? 0,
+												blockedUntilMs: (options.blockObservedAtMs ?? 0) + delayMs,
+											},
+								),
 							),
 					},
 				}),
 				Layer.succeed(HttpDispatchHarness, {
 					instance,
 					logs: Ref.get(logs),
+					sent: Ref.get(sent),
 					events: Ref.get(events),
 					clockNames: Ref.get(clockNames),
 					registered: Ref.get(registered),
+					resolvedUrls: Ref.get(resolvedUrls),
 					activityNames: Ref.get(activityNames),
 					clockDurations: Ref.get(clockDurations),
 					requestInterrupt: Ref.set(interruptRequested, true),
@@ -644,7 +676,8 @@ const httpDispatchLayer = (options: {
 		}),
 	);
 
-const decodeHttpProgress = Schema.decodeUnknownSync(SandboxHttpProgress);
+const decodeHttpProgress = (value: unknown) =>
+	Schema.decodeUnknownSync(SandboxHttpProgress)(JSON.parse(JSON.stringify(value)));
 
 const runHttpDispatch = (
 	url = `${providerOrigin}/private?token=secret`,
@@ -696,19 +729,15 @@ const ticketId = (hop: number, attempt: number) => `${httpExecutionId}:7:${hop}:
 
 const matchedOnly = { [providerOrigin]: [httpPolicy()] };
 
-const runInlineHttp = (url = `${providerOrigin}/private?token=secret`) =>
+const runInlineHttp = (
+	url = `${providerOrigin}/private?token=secret`,
+	args: ReadonlyArray<JsonValue> = ["GET", url],
+) =>
 	Effect.gen(function* () {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
 		const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
 		const result = yield* dispatcher.settleInline(
-			[
-				{
-					index: 7,
-					kind: "host",
-					name: "httpCall",
-					args: { args: ["GET", url], capability: "httpCall" },
-				},
-			],
+			[{ index: 7, kind: "host", name: "httpCall", args: { args, capability: "httpCall" } }],
 			{},
 			principal,
 			"background",
@@ -844,10 +873,10 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 				const progress = deferred.pending.at(-1);
 				assert(progress?._tag === "Http");
 				expect(progress.progress).toMatchObject({
-					hop: 1,
 					attempt: 0,
 					networkAttempt: 1,
-					url: `${nextOrigin}/target`,
+					phase: { rateLimit: null, _tag: "Admitting" },
+					current: { hop: 1, url: `${nextOrigin}/target` },
 				});
 				expect(
 					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
@@ -874,8 +903,7 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 				expect(progress.progress).toMatchObject({
 					attempt: 1,
 					networkAttempt: 1,
-					pendingBlock: null,
-					blockedUntilMs: 2_000,
+					phase: { blockedUntilMs: 2_000, _tag: "WaitingForRateLimitBlock" },
 				});
 				expect(
 					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
@@ -907,7 +935,7 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 				expect(progress.progress).toMatchObject({
 					attempt: 0,
 					networkAttempt: 1,
-					pendingBlock: { delayMs: 0 },
+					phase: { delayMs: 0, _tag: "ApplyingRateLimitBlock" },
 				});
 				expect(httpEvents(yield* harness.events)).toHaveLength(1);
 				expect(
@@ -923,6 +951,36 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 });
 
 describe("live HTTP waits preserve cancellation and fail-closed admission", () => {
+	httpCase(
+		"cancels the exact last binding retained by a deferred admission",
+		{
+			outcomes: [{ status: 200 }],
+			resolutions: { [providerOrigin]: [httpPolicy("old"), httpPolicy("new")] },
+			polls: [
+				{ waitMs: 100, status: "wait" },
+				{ waitMs: 1_001, status: "wait" },
+			],
+		},
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("100 millis");
+				const deferred = yield* Fiber.join(fiber);
+				const retained = deferred.pending.at(-1);
+				assert(retained?._tag === "Http");
+				expect(retained.progress).toMatchObject({
+					phase: { _tag: "Admitting" },
+					cleanup: { declaration: { key: "new" }, ticket: { id: ticketId(0, 0) } },
+				});
+				yield* (yield* SandboxDurableHostDispatcher).cancelInline(httpExecutionId, [retained]);
+				expect(withPrefix(yield* harness.events, "cancel:")).toEqual([
+					`cancel:old:${ticketId(0, 0)}`,
+					`cancel:new:${ticketId(0, 0)}`,
+				]);
+				expect(httpEvents(yield* harness.events)).toEqual([]);
+			}),
+	);
 	httpCase(
 		"cancels the old binding when live policy changes",
 		{
@@ -970,6 +1028,232 @@ describe("live HTTP waits preserve cancellation and fail-closed admission", () =
 			}),
 	);
 });
+
+describe("HTTP continuation phase transitions", () => {
+	httpCase(
+		"returns the retained 429 when policy disappears during a resumed retry admission",
+		{
+			outcomes: [{ status: 429, headers: { "Retry-After": "0" } }],
+			resolutions: { [providerOrigin]: [httpPolicy(), httpPolicy(), unmatched()] },
+			polls: [
+				{ nonce: "initial", status: "granted" },
+				{ waitMs: 1_001, status: "wait" },
+			],
+		},
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const deferred = yield* runInlineHttp();
+				const retained = deferred.pending.at(-1);
+				assert(retained?._tag === "Http");
+				expect(retained.progress).toMatchObject({
+					attempt: 1,
+					phase: { _tag: "Admitting", rateLimit: { error: { message: "HTTP 429" } } },
+				});
+				const progress = decodeHttpProgress(retained.progress);
+				expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual(
+					progress.phase.rateLimit,
+				);
+				expect(httpEvents(yield* harness.events)).toHaveLength(1);
+				expect(withPrefix(yield* harness.events, "block:")).toEqual(["block:0"]);
+			}),
+	);
+	for (const elapsedMs of [500, 2_500]) {
+		httpCase(
+			`resumes an acknowledged block after ${elapsedMs}ms without reapplying it`,
+			{
+				outcomes: [{ status: 429, headers: { "Retry-After": "2" } }],
+				resolutions: { [providerOrigin]: [httpPolicy(), unmatched()] },
+			},
+			() =>
+				Effect.gen(function* () {
+					const harness = yield* HttpDispatchHarness;
+					const deferred = yield* runInlineHttp();
+					const retained = deferred.pending.at(-1);
+					assert(retained?._tag === "Http");
+					const progress = decodeHttpProgress(retained.progress);
+					assert(progress.phase._tag === "WaitingForRateLimitBlock");
+					yield* TestClock.adjust(Duration.millis(elapsedMs));
+					expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual(
+						progress.phase.rateLimit,
+					);
+					expect(withPrefix(yield* harness.events, "block:")).toEqual(["block:2000"]);
+					expect(httpEvents(yield* harness.events)).toHaveLength(1);
+					expect(yield* harness.clockDurations).toEqual(
+						elapsedMs < 2_000 ? [2_000 - elapsedMs] : [],
+					);
+				}),
+		);
+	}
+	httpCase(
+		"settles a stale block without waiting or repeating the retained response",
+		{
+			staleBlock: true,
+			outcomes: [{ status: 429, headers: { "Retry-After": "2" } }],
+			resolutions: { [providerOrigin]: [httpPolicy(), unmatched()] },
+		},
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				expect(yield* runHttpDispatch()).toMatchObject({
+					state: "failure",
+					error: { message: "HTTP 429" },
+				});
+				expect(withPrefix(yield* harness.events, "block:")).toEqual(["block:2000"]);
+				expect(httpEvents(yield* harness.events)).toHaveLength(1);
+				expect(yield* harness.clockDurations).toEqual([]);
+			}),
+	);
+});
+
+describe("prepared HTTP hops survive redirect handoff", () => {
+	httpCase(
+		"admits and executes the same normalized initial request after handoff",
+		{
+			resolutions: matchedOnly,
+			outcomes: [{ status: 200 }],
+			polls: [
+				{ waitMs: 1_001, status: "wait" },
+				{ nonce: "initial", status: "granted" },
+			],
+		},
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const url = "https://PROVIDER.test:443/data";
+				const args: ReadonlyArray<JsonValue> = [
+					" post ",
+					url,
+					{ body: "payload", headers: { Authorization: "Bearer secret" } },
+				];
+				const deferred = yield* runInlineHttp(url, args);
+				const retained = deferred.pending.at(-1);
+				assert(retained?._tag === "Http");
+				const progress = decodeHttpProgress(retained.progress);
+				expect(progress.current).toMatchObject({
+					hop: 0,
+					method: "POST",
+					body: "payload",
+					url: `${providerOrigin}/data`,
+					headers: { Authorization: "Bearer secret" },
+				});
+				expect(yield* harness.sent).toEqual([]);
+				expect(yield* runHttpDispatch(url, args, progress)).toMatchObject({ state: "success" });
+				expect(yield* harness.sent).toMatchObject([
+					{
+						method: "POST",
+						body: "payload",
+						url: progress.current.url,
+						headers: { authorization: "Bearer secret" },
+					},
+				]);
+				expect(yield* harness.resolvedUrls).toEqual([progress.current.url, progress.current.url]);
+				expect((yield* harness.registered).map(({ id }) => id)).toEqual([
+					ticketId(0, 0),
+					ticketId(0, 0),
+				]);
+			}),
+	);
+	for (const status of [301, 302, 303, 307, 308]) {
+		for (const crossOrigin of [false, true]) {
+			const sourceOrigin = crossOrigin ? openOrigin : providerOrigin;
+			const source = `${sourceOrigin}/start`;
+			const target = `${providerOrigin}/target`;
+			const args: ReadonlyArray<JsonValue> = [
+				" post ",
+				source.replace(".test/", ".test:443/"),
+				{
+					body: "payload",
+					allowInsecureConnections: true,
+					headers: {
+						Cookie: "c=1",
+						"X-Trace": "trace",
+						"Content-Type": "text/plain",
+						Authorization: "Bearer secret",
+						"Proxy-Authorization": "Basic secret",
+					},
+				},
+			];
+			httpCase(
+				`retains ${status} ${crossOrigin ? "cross-origin" : "same-origin"} request semantics after resume`,
+				{
+					resolutions: matchedOnly,
+					outcomes: [{ status, headers: { Location: target } }, { status: 200 }],
+					polls: [
+						...(crossOrigin ? [] : [{ nonce: "source", status: "granted" as const }]),
+						{ waitMs: 1_001, status: "wait" },
+						{ nonce: "target", status: "granted" },
+					],
+				},
+				() =>
+					Effect.gen(function* () {
+						const harness = yield* HttpDispatchHarness;
+						const deferred = yield* runInlineHttp(source, args);
+						const retained = deferred.pending.at(-1);
+						assert(retained?._tag === "Http");
+						const progress = decodeHttpProgress(retained.progress);
+						const rewrite = status === 301 || status === 302 || status === 303;
+						expect(retained.progress).toMatchObject({
+							phase: { rateLimit: null, _tag: "Admitting" },
+							current: {
+								hop: 1,
+								url: target,
+								allowInsecureConnections: true,
+								method: rewrite ? "GET" : "POST",
+							},
+						});
+						expect((yield* harness.sent).map(({ url }) => url)).toEqual([source]);
+						expect(yield* runHttpDispatch(source, args, progress)).toMatchObject({
+							state: "success",
+						});
+						const sent = yield* harness.sent;
+						expect(sent.map(({ url }) => url)).toEqual([source, target]);
+						expect(sent[1]).toMatchObject({
+							headers: { "x-trace": "trace" },
+							method: rewrite ? "GET" : "POST",
+							body: rewrite ? null : "payload",
+							requestInit: { redirect: "manual", tls: { rejectUnauthorized: false } },
+						});
+						for (const header of ["cookie", "authorization", "proxy-authorization"]) {
+							if (crossOrigin) {
+								expect(sent[1]?.headers).not.toHaveProperty(header);
+							} else {
+								expect(sent[1]?.headers[header]).toBe(sent[0]?.headers[header]);
+							}
+						}
+						if (rewrite) {
+							expect(progress.current).not.toHaveProperty("body");
+							expect(sent[1]?.headers).not.toHaveProperty("content-type");
+						} else {
+							expect(sent[1]?.headers["content-type"]).toBe("text/plain");
+						}
+						expect((yield* harness.resolvedUrls).at(-1)).toBe(progress.current.url);
+						expect((yield* harness.registered).at(-1)?.id).toBe(ticketId(progress.current.hop, 0));
+					}),
+			);
+		}
+	}
+});
+
+for (const args of [
+	[],
+	["GET", ""],
+	["GET", "not a URL"],
+	["BREW", `${providerOrigin}/data`],
+	["GET", `${providerOrigin}/data`, { headers: { hOsT: "other.test" } }],
+] satisfies ReadonlyArray<ReadonlyArray<JsonValue>>) {
+	httpCase(
+		`rejects invalid initial HTTP arguments before admission: ${JSON.stringify(args)}`,
+		{ outcomes: [{ status: 200 }] },
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				expect(yield* runHttpDispatch(undefined, args)).toMatchObject({ state: "failure" });
+				expect(yield* harness.events).toEqual([]);
+				expect(yield* harness.activityNames).toEqual([]);
+			}),
+	);
+}
 
 httpCase(
 	"skips admission for unmatched HTTP requests and runs once",

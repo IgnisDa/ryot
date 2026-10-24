@@ -145,20 +145,18 @@ const REQUEST_BODY_HEADERS: ReadonlySet<string> = new Set([
 export const SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE =
 	"httpCall redirect target requires durable rate-limit admission";
 
-const SandboxHttpRequest = Schema.Struct({
+export const SandboxHttpHop = Schema.Struct({
 	url: Schema.String,
 	method: Schema.String,
 	body: Schema.optional(Schema.String),
 	headers: Schema.Record(Schema.String, Schema.String),
+	allowInsecureConnections: Schema.optional(Schema.Boolean),
+	hop: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: SANDBOX_HTTP_REDIRECT_HOPS })),
 });
-type SandboxHttpRequest = typeof SandboxHttpRequest.Type;
+export type SandboxHttpHop = typeof SandboxHttpHop.Type;
 
 /** A hop the classifier stopped; it stays in the host and never reaches scripts. */
-export const SandboxHttpRedirect = Schema.TaggedStruct("redirected", {
-	...SandboxHttpRequest.fields,
-	hop: Schema.Int,
-});
-export type SandboxHttpRedirect = typeof SandboxHttpRedirect.Type;
+export const SandboxHttpRedirect = Schema.TaggedStruct("redirected", { next: SandboxHttpHop });
 
 const HttpHopResult = Schema.Union([
 	Schema.TaggedStruct("completed", { result: httpCallResponseSchema }),
@@ -175,7 +173,7 @@ export const prepareSandboxHttpRequest = (
 	method: string,
 	url: string,
 	options: SandboxHttpOptions | undefined,
-): Effect.Effect<SandboxHttpRequest, SandboxHostError> => {
+): Effect.Effect<SandboxHttpHop, SandboxHostError> => {
 	if (!method.trim()) {
 		return sandboxHostFailure("httpCall expects a non-empty method string");
 	}
@@ -200,10 +198,14 @@ export const prepareSandboxHttpRequest = (
 				Match.orElse(() => Effect.fail("httpCall method is not a valid HTTP method")),
 			);
 			return {
+				hop: 0,
 				method: httpMethod,
 				url: requestUrl.toString(),
 				headers: { ...defaultHeaders, ...options?.headers },
 				...(options?.body === undefined ? {} : { body: options.body }),
+				...(options?.allowInsecureConnections === undefined
+					? {}
+					: { allowInsecureConnections: options.allowInsecureConnections }),
 			};
 		}),
 	);
@@ -212,10 +214,10 @@ export const prepareSandboxHttpRequest = (
 // Fetch redirect semantics: 303 and POST under 301/302 become GET without a body, and credentials
 // never cross origins.
 const redirectRequest = (
-	current: SandboxHttpRequest,
+	current: SandboxHttpHop,
 	status: number,
 	location: string,
-): Effect.Effect<SandboxHttpRequest, SandboxHostError> =>
+): Effect.Effect<SandboxHttpHop, SandboxHostError> =>
 	Effect.gen(function* () {
 		const target = yield* Effect.try({
 			try: () => new URL(location, current.url),
@@ -239,30 +241,28 @@ const redirectRequest = (
 				);
 			}),
 		);
+		const { body, ...request } = current;
 		return {
+			...request,
 			method,
 			headers,
+			hop: current.hop + 1,
 			url: target.toString(),
-			...(method === current.method && current.body !== undefined ? { body: current.body } : {}),
+			...(method === current.method && body !== undefined ? { body } : {}),
 		};
 	}).pipe(sandboxHostEffect);
 
 /**
- * Sends `request` as hop `hop`, following only redirects `classify` proves unmatched; a stopped
+ * Sends the prepared hop, following only redirects `classify` proves unmatched; a stopped
  * hop is returned unrequested so the caller can admit it.
  */
 export const executeSandboxHttp = (
-	request: SandboxHttpRequest,
-	options: {
-		readonly hop: number;
-		readonly classify: SandboxHttpClassify;
-		readonly allowInsecureConnections: boolean | undefined;
-	},
+	request: SandboxHttpHop,
+	classify: SandboxHttpClassify,
 ): Effect.Effect<HttpHopResult, SandboxHostError, HttpClient.HttpClient> =>
 	Effect.gen(function* () {
 		const httpClient = yield* HttpClient.HttpClient;
 		let current = request;
-		let hop = options.hop;
 		for (;;) {
 			const method = current.method;
 			if (!HttpMethod.isHttpMethod(method)) {
@@ -275,19 +275,18 @@ export const executeSandboxHttp = (
 			outgoing = outgoing.pipe(HttpClientRequest.setHeaders(current.headers));
 			const response = yield* applySandboxHttpRequestInit(
 				withManualRedirects(httpClient.execute(outgoing)),
-				options.allowInsecureConnections,
+				current.allowInsecureConnections,
 			).pipe(Effect.mapError(httpRequestFailure));
 			const location = response.headers["location"];
 			if (REDIRECT_STATUSES.has(response.status) && location !== undefined) {
-				if (hop >= SANDBOX_HTTP_REDIRECT_HOPS) {
+				if (current.hop >= SANDBOX_HTTP_REDIRECT_HOPS) {
 					return yield* sandboxHostFailure(
 						`httpCall exceeded ${SANDBOX_HTTP_REDIRECT_HOPS} redirects`,
 					);
 				}
-				hop += 1;
 				current = yield* redirectRequest(current, response.status, location);
-				if ((yield* options.classify(current.url)) === "stop") {
-					return { ...current, hop, _tag: "redirected" as const };
+				if ((yield* classify(current.url)) === "stop") {
+					return { next: current, _tag: "redirected" as const };
 				}
 				continue;
 			}
@@ -364,13 +363,7 @@ export const makeRuntimeSandboxApiFunctions = (
 			// Inline and live calls cannot wait for admission, so a stopped redirect fails the call.
 			httpCall: (_input, method, url, options) =>
 				prepareSandboxHttpRequest(method, url, options).pipe(
-					Effect.flatMap((request) =>
-						executeSandboxHttp(request, {
-							hop: 0,
-							classify,
-							allowInsecureConnections: options?.allowInsecureConnections,
-						}),
-					),
+					Effect.flatMap((request) => executeSandboxHttp(request, classify)),
 					Effect.provideService(HttpClient.HttpClient, httpClient),
 					Effect.flatMap((outcome) =>
 						outcome._tag === "completed"
