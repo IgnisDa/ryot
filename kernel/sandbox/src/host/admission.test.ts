@@ -271,23 +271,23 @@ it("derives the sandbox memory budget from effective memory", () => {
 it.effect("follows the budget for admission mode and admits background work", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			for (const budget of [800, 853]) {
+			for (const budget of [800, 854]) {
 				expect(planFailure(plannedRegions(budget))).toEqual({
 					kind: "resource-unavailable",
 					message:
 						"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
 				});
 			}
-			expect([854, 964, 1094, 1362, 1451, 1452, 1480, 1536, 1904].map(plannedRegions)).toEqual([
-				Result.succeed({ dynamic: 426, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ dynamic: 536, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ dynamic: 666, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ dynamic: 934, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ dynamic: 1023, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ mode: "lane", dynamic: 852, pools: [172, 172] }),
-				Result.succeed({ mode: "lane", dynamic: 852, pools: [200, 172] }),
-				Result.succeed({ mode: "lane", dynamic: 852, pools: [232, 196] }),
-				Result.succeed({ mode: "lane", dynamic: 1184, pools: [232, 232] }),
+			expect([855, 964, 1094, 1362, 1453, 1454, 1480, 1536, 1904].map(plannedRegions)).toEqual([
+				Result.succeed({ dynamic: 426, mode: "shared", pools: [173, 173] }),
+				Result.succeed({ dynamic: 535, mode: "shared", pools: [173, 173] }),
+				Result.succeed({ dynamic: 665, mode: "shared", pools: [173, 173] }),
+				Result.succeed({ dynamic: 933, mode: "shared", pools: [173, 173] }),
+				Result.succeed({ dynamic: 1024, mode: "shared", pools: [173, 173] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [173, 173] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [199, 173] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [233, 195] }),
+				Result.succeed({ mode: "lane", dynamic: 1182, pools: [233, 233] }),
 			]);
 
 			const admission = yield* makeSandboxAdmission(1094);
@@ -327,7 +327,7 @@ it.effect("follows the budget for admission mode and admits background work", ()
 it.effect("releases fair admission tickets and reservations exactly once", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const admission = yield* makeSandboxAdmission(1452);
+			const admission = yield* makeSandboxAdmission(1454);
 			const idle = idleSnapshot(admission);
 
 			const held = yield* acquireScope;

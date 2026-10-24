@@ -1801,7 +1801,7 @@ const withLaneSupervisor = <A, E, R>(work: Parameters<typeof withSupervisor<A, E
 			...config,
 			workerConcurrency: 3,
 			perUserSidecars: true,
-			memoryBudgetMiB: Option.some(1452),
+			memoryBudgetMiB: Option.some(1454),
 		};
 		const admission = yield* SandboxSidecarAdmission.make.pipe(
 			Effect.provideService(SandboxHostConfig, laneConfig),

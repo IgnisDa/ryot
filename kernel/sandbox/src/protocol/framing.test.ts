@@ -625,7 +625,7 @@ it("keeps Rust assemblies within the connection bound through lane pools", () =>
 	const sliceText = "x".repeat(Math.ceil((4 * MiB) / 3));
 	const runText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run - 4096);
 	let largestQueue = 0;
-	for (const budget of [854, 1094, 1452, 1536, 1904]) {
+	for (const budget of [855, 1094, 1454, 1536, 1904]) {
 		const plan = Result.getOrThrow(sandboxMemoryPlan(Option.some(budget), 8 * 1024 * MiB));
 		const pools: ReadonlyArray<readonly [ExecutionLane, number]> =
 			plan.mode === "lane"

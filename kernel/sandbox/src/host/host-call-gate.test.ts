@@ -1208,7 +1208,7 @@ const decodeFrameHandle = Schema.decodeUnknownSync(
 it.effect("keeps existing execution limits under interactive memory headroom", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const admission = yield* makeSandboxAdmission(1452, 3);
+			const admission = yield* makeSandboxAdmission(1454, 3);
 			const gate = yield* gateFor(admission);
 			yield* enterLazy(admission, "user/data", 1, "background");
 			const background = yield* gate.register(
@@ -1276,7 +1276,7 @@ it.effect("keeps existing execution limits under interactive memory headroom", (
 it.effect("settles an interactive inline batch at the lane edge", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const admission = yield* makeSandboxAdmission(1452, 3);
+			const admission = yield* makeSandboxAdmission(1454, 3);
 			expect(admission.plan.mode).toBe("lane");
 			const gate = yield* gateFor(admission);
 			yield* enterLazy(admission, "user/data", 1, "interactive");
