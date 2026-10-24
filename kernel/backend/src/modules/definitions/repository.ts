@@ -2,6 +2,7 @@ import type { DbError } from "@ryot-app/contract/errors";
 import {
 	type DeclarationReference,
 	definitionKey,
+	type EntitySchemaReference,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
@@ -1348,8 +1349,31 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				},
 			);
 
+			const listUserStateParents = Effect.fn("DefinitionRepository.listUserStateParents")(
+				function* (userId: UserId, reference: EntitySchemaReference) {
+					return yield* session.run((db) =>
+						db
+							.select({
+								slug: schema.userEntitySchema.slug,
+								pluginId: schema.userEntitySchema.pluginId,
+								userState: schema.userEntitySchema.userState,
+							})
+							.from(schema.userEntitySchema)
+							.where(
+								and(
+									userWhere(schema.userEntitySchema, userId, effective),
+									reference.owner.kind === "kernel"
+										? isNull(schema.userEntitySchema.pluginId)
+										: eq(schema.userEntitySchema.pluginId, reference.owner.pluginId),
+									sql`${schema.userEntitySchema.userState}->'children' @> ${JSON.stringify([{ entitySchemaSlug: reference.slug }])}::jsonb`,
+								),
+							),
+					);
+				},
+			);
 			return {
 				readPinnedRows,
+				listUserStateParents,
 				findUserSignalSchema,
 				getSnapshotForContext,
 				findGlobalEventSchema,

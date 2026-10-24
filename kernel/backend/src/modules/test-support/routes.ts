@@ -12,6 +12,7 @@ import { HttpApiBuilder } from "effect/http-api";
 import { AutomationReconciliation } from "#modules/automations/reconciliation";
 
 import { OperationalGateService } from "./operational-gate-service";
+import { ReminderTestSupport } from "./reminders";
 import { TestSupportService } from "./service";
 
 const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -49,6 +50,9 @@ const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
+		.handle("runReminderScan", () =>
+			Effect.flatMap(ReminderTestSupport, (service) => service.scan()).pipe(mapTestSupportFailure),
+		)
 		.handle("enqueueSandbox", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

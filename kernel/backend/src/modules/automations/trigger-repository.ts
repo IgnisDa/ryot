@@ -175,7 +175,28 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 					return db.delete(table).where(inArray(table.id, candidates)).returning({ id: table.id });
 				});
 			});
-			return { insert, findById, deleteExpired, prunePayloads, listRecipients, insertRecipients };
+			const erasePayload = Effect.fn("AutomationTriggerRepository.erasePayload")(function* (
+				id: AutomationTriggerId,
+				now: Date,
+			) {
+				yield* session.requireTransaction.pipe(
+					Effect.mapError(
+						() => new DbError({ message: "Signal content removal requires a transaction" }),
+					),
+				);
+				yield* session.run((db) =>
+					db.update(table).set({ payload: null, payloadPrunedAt: now }).where(eq(table.id, id)),
+				);
+			});
+			return {
+				insert,
+				findById,
+				erasePayload,
+				deleteExpired,
+				prunePayloads,
+				listRecipients,
+				insertRecipients,
+			};
 		}),
 	},
 ) {

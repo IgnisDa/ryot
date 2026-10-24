@@ -18,9 +18,11 @@ import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
+import { ReminderTestSupport } from "./reminders";
 import { TestSupportService } from "./service";
 
-export const TestSupportServicesLive = Layer.merge(
+export const TestSupportServicesLive = Layer.mergeAll(
+	ReminderTestSupport.layer,
 	TestSupportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(

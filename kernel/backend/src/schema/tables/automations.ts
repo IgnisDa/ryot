@@ -65,7 +65,7 @@ export const automationTrigger = snakeCase.table(
 		),
 		check(
 			"automation_trigger_causation_check",
-			sql`${table.depth} >= 0 and ${table.lane} in ('interactive', 'background') and ${table.initiatorKind} in ('user', 'integration', 'system') and ${table.source} in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and (${table.source} <> 'automation' or (${table.parentRunId} is not null and ${table.parentTriggerId} is not null and ${table.depth} > 0))`,
+			sql`${table.depth} >= 0 and ${table.lane} in ('interactive', 'background') and ${table.initiatorKind} in ('user', 'integration', 'system') and ${table.source} in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'scheduler', 'automation') and (${table.source} <> 'automation' or (${table.parentRunId} is not null and ${table.parentTriggerId} is not null and ${table.depth} > 0))`,
 		),
 		check(
 			"automation_trigger_payload_check",

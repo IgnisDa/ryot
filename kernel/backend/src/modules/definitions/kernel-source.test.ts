@@ -30,7 +30,12 @@ it("keeps source zero limited to generic kernel definitions", () => {
 		{ key: "ownerPluginId" },
 		{ key: "entitySchemaSlug" },
 	]);
-	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual(["integration.disabled"]);
+	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual([
+		"reminder.due",
+		"integration.disabled",
+	]);
 	expect(kernelScripts.map(({ slug }) => slug)).toEqual(["automation.notification"]);
-	expect(kernelScripts[0].inputProjection).toEqual({ signal: { properties: ["providerName"] } });
+	expect(kernelScripts[0].inputProjection).toEqual({
+		signal: { properties: ["providerName", "message", "entityTitle", "dueAt", "timezone"] },
+	});
 });

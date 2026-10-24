@@ -44,6 +44,7 @@ import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
 import { PagesRoutesLive } from "#modules/pages/preparation/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
+import { RemindersRoutesLive } from "#modules/reminders/routes";
 import { AdminRyotQLRoutesLive, RyotQLRoutesLive } from "#modules/ryotql/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
@@ -103,7 +104,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	),
 	Layer.provide(BackupsRoutesLive),
 	Layer.provide(BackupDownloadsRoutesLive),
-	Layer.provide(RelationshipsRoutesLive),
+	Layer.provide(Layer.merge(RelationshipsRoutesLive, RemindersRoutesLive)),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(EntityProvidersRoutesLive),
 	Layer.provide(Layer.mergeAll(EntityUserDataRoutesLive, UserSettingsRoutesLive)),

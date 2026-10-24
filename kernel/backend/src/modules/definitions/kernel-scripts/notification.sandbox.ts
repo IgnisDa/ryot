@@ -8,7 +8,9 @@ export const manifest = defineManifest({
 	name: "Signal Notification",
 	automationType: "automation",
 	slug: "automation.notification",
-	inputProjection: { signal: { properties: ["providerName"] } },
+	inputProjection: {
+		signal: { properties: ["providerName", "message", "entityTitle", "dueAt", "timezone"] },
+	},
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
@@ -25,6 +27,9 @@ const formatMessage = (
 ) => {
 	if (signalSchemaSlug === "integration.disabled") {
 		return `Integration ${stringProperty(properties, "providerName")} has been disabled due to too many errors`;
+	}
+	if (signalSchemaSlug === "reminder.due") {
+		return `${stringProperty(properties, "entityTitle")}: ${stringProperty(properties, "message")}\nScheduled for ${stringProperty(properties, "dueAt")} (${stringProperty(properties, "timezone")})`;
 	}
 	throw new Error(`Unsupported signal schema: ${signalSchemaSlug}`);
 };

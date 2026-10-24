@@ -6,7 +6,7 @@ import { Cause, Exit } from "effect";
 
 import definition, { manifest } from "./notification.sandbox";
 
-const inputFor = (executionUserId: null | string) =>
+const inputFor = (executionUserId: null | string, reminder = false) =>
 	Schema.decodeSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",
@@ -30,8 +30,15 @@ const inputFor = (executionUserId: null | string) =>
 				resource: "signal",
 				actorUserId: "actor",
 				signalSchemaPluginId: null,
-				signalSchemaSlug: "integration.disabled",
-				properties: { providerName: "Example", integrationId: "integration-1" },
+				signalSchemaSlug: reminder ? "reminder.due" : "integration.disabled",
+				properties: reminder
+					? {
+							timezone: "Asia/Kolkata",
+							entityTitle: "Target_[1]",
+							message: "Read the notes_*",
+							dueAt: "2026-09-15T08:30:00.000Z",
+						}
+					: { providerName: "Example", integrationId: "integration-1" },
 			},
 		},
 	});
@@ -72,5 +79,23 @@ it.effect("does not use the actor as a fallback for a missing execution recipien
 			expect(Cause.pretty(exit.cause)).toContain("Signal notification requires an execution user");
 		}
 		expect(messages).toEqual([]);
+	}),
+);
+
+it.effect("formats reminder evidence as plain text for the trusted recipient", () =>
+	Effect.gen(function* () {
+		const messages: string[] = [];
+		yield* definition.run(
+			inputFor("recipient", true),
+			defineSandboxTestHost(manifest, {
+				sendNotification: (message) => {
+					messages.push(message);
+					return Effect.succeed(null);
+				},
+			}),
+		);
+		expect(messages).toEqual([
+			"Target_[1]: Read the notes_*\nScheduled for 2026-09-15T08:30:00.000Z (Asia/Kolkata)",
+		]);
 	}),
 );

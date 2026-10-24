@@ -23,7 +23,11 @@ export const kernelNotificationHook = {
 	name: "Signal Notification",
 	slug: "automation.notification",
 	scriptSlug: notificationManifest.slug,
-	targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "integration.disabled" }],
+	targets: ["integration.disabled", "reminder.due"].map((signalSchemaSlug) => ({
+		signalSchemaSlug,
+		operation: "emit",
+		resource: "signal",
+	})),
 } as const satisfies PluginHook;
 
 const reviewPropertiesSchema = {
@@ -208,6 +212,49 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 	],
 
 	signalSchemas: [
+		{
+			pluginId: null,
+			slug: "reminder.due",
+			name: "Reminder due",
+			catalogState: "active",
+			audiencePolicy: { kind: "actor" },
+			notificationHookSlug: kernelNotificationHook.slug,
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: {
+					message: {
+						type: "string",
+						label: "Message",
+						validation: { required: true },
+						description: "Authored reminder text",
+					},
+					timezone: {
+						type: "string",
+						label: "Timezone",
+						validation: { required: true },
+						description: "Selected IANA timezone",
+					},
+					dueAt: {
+						type: "string",
+						label: "Scheduled time",
+						validation: { required: true },
+						description: "Fixed UTC due instant",
+					},
+					entityTitle: {
+						type: "string",
+						label: "Entity",
+						validation: { required: true },
+						description: "Target title at scheduling",
+					},
+					reminderId: {
+						type: "string",
+						label: "Reminder ID",
+						validation: { required: true },
+						description: "Independent reminder occurrence",
+					},
+				},
+			},
+		},
 		{
 			pluginId: null,
 			catalogState: "active",

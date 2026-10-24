@@ -7,6 +7,7 @@ export * from "./imports";
 export * from "./uploads";
 export * from "./entities";
 export * from "./mutations";
+export * from "./reminders";
 export * from "./enrichment";
 export * from "./automations";
 export * from "./definitions";

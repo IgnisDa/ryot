@@ -102,6 +102,7 @@ import {
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
+	NotificationAdmissionsLive,
 	NotificationDeliveryServiceLive,
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
@@ -133,6 +134,12 @@ import {
 	RelationshipProjectionServiceLive,
 	RelationshipsServiceLive,
 } from "#modules/relationships/layer";
+import { ReminderEntityLifecycleLive } from "#modules/reminders/entity-lifecycle";
+import {
+	ReminderNotificationSourcePolicyLive,
+	RemindersServiceLive,
+	ReminderWorkerLive,
+} from "#modules/reminders/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -234,8 +241,11 @@ const ServicesLive = Layer.mergeAll(
 	IntegrationsServiceLive,
 	InterestServicesLive,
 	NotificationDeliveryServiceLive,
+	NotificationAdmissionsLive,
 	NotificationsServiceLive,
 	OAuthConnectionsServiceLive,
+	RemindersServiceLive,
+	ReminderWorkerLive,
 	OperationsServiceLive,
 	PluginIngestionServiceLive,
 	PluginCatalogInvalidatorLive,
@@ -373,6 +383,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationMigrationLive,
 	IntegrationsRepository.layer,
 ).pipe(
+	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
 	Layer.provideMerge(WorkflowEngineLive),
 	Layer.provideMerge(PgClientLive),
@@ -405,7 +416,10 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 );
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
-	Layer.provideMerge(RuntimeWorkflowOperationsLive, ServicesWithTestSupportLive),
+	Layer.provideMerge(
+		Layer.provideMerge(RuntimeWorkflowOperationsLive, ServicesWithTestSupportLive),
+		Layer.merge(ReminderNotificationSourcePolicyLive, ReminderEntityLifecycleLive),
+	),
 	ApplicationInfrastructureLive,
 );
 

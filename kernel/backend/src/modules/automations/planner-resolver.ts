@@ -486,7 +486,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				);
 				if (
 					kernelSignal?.catalogState === "active" &&
-					signal?.signalSchemaSlug === "integration.disabled" &&
+					signal &&
 					executionUserId !== null &&
 					preferences.some((p) => p.isActive && p.signalSchemaPluginId === null)
 				) {

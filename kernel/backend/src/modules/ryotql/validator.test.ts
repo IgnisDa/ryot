@@ -1925,3 +1925,73 @@ it("validates JSON elements joins in lexical scope with audience-aware field che
 		"Query 'entities': Table 'user' is not available to the plugin audience",
 	);
 });
+
+it("restricts notification delivery reads to kernel users", () => {
+	const pluginAudience = { ...userAccess, audience: "plugin" } as const;
+	const systemPlugin = { type: "plugin" } as const;
+	const admin = { type: "admin" } as const;
+
+	for (const tableName of ["notification", "notificationDelivery"] as const) {
+		const source = table(tableName, "source");
+		const query = document({ rows: rows(source, { fields: [star(source)] }) });
+
+		expect(validateRyotQLDocument(query, userAccess).error).toBeNull();
+		expect(validateRyotQLDocument(query, pluginAudience).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to the plugin audience`,
+		);
+		expect(validateRyotQLDocument(query, systemPlugin).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to plugin execution`,
+		);
+		expect(validateRyotQLDocument(query, admin).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to admin execution`,
+		);
+	}
+});
+
+it("keeps notification internals out of kernel fields and wildcards", () => {
+	for (const [tableName, fieldName] of [
+		["notification", "accountGeneration"],
+		["notification", "sourceKey"],
+		["notification", "inputDigest"],
+		["notification", "request"],
+		["notification", "sourceRunId"],
+		["notificationDelivery", "diagnostic"],
+		["notificationDelivery", "attemptId"],
+	] as const) {
+		const source = table(tableName, "source");
+		const query = document({
+			rows: rows(source, { fields: [field("value", column(source, fieldName))] }),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBe(
+			`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`,
+		);
+	}
+
+	for (const [tableName, safeFields] of [
+		["notification", ["id", "reminderId", "state", "outcome", "reason", "createdAt", "settledAt"]],
+		[
+			"notificationDelivery",
+			[
+				"id",
+				"notificationId",
+				"channelId",
+				"channel",
+				"description",
+				"status",
+				"reason",
+				"claimedAt",
+				"settledAt",
+			],
+		],
+	] as const) {
+		const source = table(tableName, "source");
+		const validated = validateRyotQLDocument(
+			document({ rows: rows(source, { fields: [star(source)] }) }),
+			userAccess,
+		);
+		assert(validated.error === null);
+		const query = validated.value.queries["rows"];
+		assert(query?.output.type === "rows");
+		expect(new Set(query.output.fields.map(({ key }) => key))).toEqual(new Set(safeFields));
+	}
+});

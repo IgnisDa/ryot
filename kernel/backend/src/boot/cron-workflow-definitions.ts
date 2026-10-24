@@ -21,6 +21,7 @@ import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { NotificationAdmissions } from "#modules/notifications/admission";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
@@ -28,6 +29,7 @@ import { pluginCatalogFrequentTask } from "#modules/plugins/catalog/frequent-tas
 import type { PluginInstallationService } from "#modules/plugins/installations/service";
 import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
 import { RelationshipProjectionService } from "#modules/relationships/projections/service";
+import { ReminderWorker } from "#modules/reminders/worker";
 import {
 	type CronRunPayload,
 	FrequentCronWorkflow,
@@ -43,6 +45,7 @@ const frequentCronTasks: ReadonlyArray<
 		| BackupsService
 		| WorkflowEngine
 		| ImportsService
+		| ReminderWorker
 		| DatabaseSession
 		| MutationReceipts
 		| AutomationRetention
@@ -51,6 +54,7 @@ const frequentCronTasks: ReadonlyArray<
 		| EntityGraphCollector
 		| ManagedAssetCollector
 		| BackgroundWorkService
+		| NotificationAdmissions
 		| EventStreamWorkService
 		| OAuthConnectionsService
 		| UserBootstrapScheduling
@@ -84,6 +88,20 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	automationsFrequentTask,
+	{
+		name: "entity-reminders",
+		run: () =>
+			Effect.flatMap(ReminderWorker, (worker) => worker.run()).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("Reminder scan failed", cause)),
+			),
+	},
+	{
+		name: "notification-delivery-recovery",
+		run: () =>
+			Effect.flatMap(NotificationAdmissions, (admissions) => admissions.recover()).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("Notification recovery failed", cause)),
+			),
+	},
 	{
 		name: "background-work-recovery",
 		run: () =>

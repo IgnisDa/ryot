@@ -934,6 +934,84 @@ const notificationChannel: CatalogTable = {
 	},
 };
 
+const notification: CatalogTable = {
+	primaryKey: ["id"],
+	name: "notification",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		reason: physicalField("reason", "text"),
+		outcome: physicalField("outcome", "text"),
+		state: physicalField("state", "text", false),
+		settledAt: physicalField("settled_at", "date"),
+		createdAt: physicalField("created_at", "date", false),
+		reminderId: {
+			kind: "text",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(select r.id from reminder r where r.formatter_run_id = ${sqlAlias}.source_run_id and r.user_id = ${sqlAlias}.user_id and r.removed_at is null)`,
+				),
+		},
+	},
+};
+
+const notificationDelivery: CatalogTable = {
+	primaryKey: ["id"],
+	name: "notification_delivery",
+	visibility: {
+		user: {
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: false,
+			column: "notification_id",
+			parentTable: "notification",
+			parentOwnerColumn: "user_id",
+		},
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		reason: physicalField("reason", "text"),
+		status: physicalField("status", "text", false),
+		claimedAt: physicalField("claimed_at", "date"),
+		settledAt: physicalField("settled_at", "date"),
+		channel: physicalField("channel", "text", false),
+		channelId: physicalField("channel_id", "text", false),
+		description: physicalField("description", "text", false),
+		notificationId: physicalField("notification_id", "text", false),
+	},
+};
+
+const reminder: CatalogTable = {
+	name: "reminder",
+	primaryKey: ["id"],
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		dueAt: physicalField("due_at", "date"),
+		reason: physicalField("reason", "text"),
+		message: physicalField("message", "text"),
+		outcome: physicalField("outcome", "text"),
+		timezone: physicalField("timezone", "text"),
+		entityId: physicalField("entity_id", "text"),
+		state: physicalField("state", "text", false),
+		settledAt: physicalField("settled_at", "date"),
+		removedAt: physicalField("removed_at", "date"),
+		entityTitle: physicalField("entity_title", "text"),
+		revision: physicalField("revision", "number", false),
+		processingAt: physicalField("processing_at", "date"),
+		createdAt: physicalField("created_at", "date", false),
+		updatedAt: physicalField("updated_at", "date", false),
+		replacementId: physicalField("replacement_id", "text"),
+		parentEntityId: physicalField("parent_entity_id", "text"),
+		originalSchedule: physicalField("original_schedule", "json"),
+	},
+};
+
 const notificationSubscription: CatalogTable = {
 	primaryKey: ["id"],
 	name: "notification_subscription",
@@ -1388,6 +1466,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
 	plugin,
+	reminder,
 	backupRun,
 	importRun,
 	savedView,
@@ -1400,6 +1479,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	importSource,
 	relationship,
 	signalSchema,
+	notification,
 	sandboxScript,
 	automationRun,
 	backgroundWork,
@@ -1415,6 +1495,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	relationshipSchema,
 	integrationProvider,
 	notificationChannel,
+	notificationDelivery,
 	automationRunAttempt,
 	migrationReportDetail,
 	userLifecycleOperation,
