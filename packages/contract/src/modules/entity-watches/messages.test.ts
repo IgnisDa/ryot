@@ -9,23 +9,13 @@ import {
 	encodeEntityWatchServerMessage,
 	EntityWatchSocketTicketResponse,
 	MAX_FOREGROUND_ENTITY_IDS,
+	MAX_INTEREST_ENTITY_IDS,
 } from "./messages";
 
 const ids = (count: number) => Array.from({ length: count }, (_, index) => `entity-${index}`);
 const replace = (entityIds: readonly string[], foregroundIds: readonly string[]) =>
 	decodeEntityWatchClientMessage(
 		JSON.stringify({ entityIds, revision: 1, foregroundIds, type: "replace" }),
-	);
-const update = (addForeground: readonly string[]) =>
-	decodeEntityWatchClientMessage(
-		JSON.stringify({
-			add: [],
-			remove: [],
-			revision: 2,
-			addForeground,
-			type: "update",
-			removeForeground: [],
-		}),
 	);
 
 describe("entity-watches socket messages", () => {
@@ -44,22 +34,6 @@ describe("entity-watches socket messages", () => {
 					type: "replace",
 					foregroundIds: ["entity-1"],
 					entityIds: ["entity-2", "entity-1"],
-				},
-			}),
-		);
-		expect(
-			decodeEntityWatchClientMessage(
-				'{"type":"update","revision":2,"add":["entity-2","entity-2"],"remove":["entity-1","entity-1"],"addForeground":["entity-2","entity-2"],"removeForeground":["entity-3"]}',
-			),
-		).toEqual(
-			expect.objectContaining({
-				success: {
-					revision: 2,
-					type: "update",
-					add: ["entity-2"],
-					remove: ["entity-1"],
-					addForeground: ["entity-2"],
-					removeForeground: ["entity-3"],
 				},
 			}),
 		);
@@ -82,36 +56,20 @@ describe("entity-watches socket messages", () => {
 		}
 	});
 
-	it("rejects no-op updates and IDs present on both sides", () => {
-		for (const message of [
-			'{"type":"update","revision":1,"add":[],"remove":[],"addForeground":[],"removeForeground":[]}',
-			'{"type":"update","revision":1,"add":["entity-1"],"remove":["entity-1"],"addForeground":[],"removeForeground":[]}',
-			'{"type":"update","revision":1,"add":[],"remove":[],"addForeground":["entity-1"],"removeForeground":["entity-1"]}',
-			'{"type":"update","revision":1,"add":[],"remove":["entity-1"],"addForeground":["entity-1"],"removeForeground":[]}',
-			'{"type":"update","revision":1,"add":[],"remove":["entity-1"],"addForeground":[],"removeForeground":["entity-1"]}',
-			'{"type":"update","revision":1,"add":["entity-1"],"remove":[]}',
-		]) {
-			expect(Result.isFailure(decodeEntityWatchClientMessage(message))).toBe(true);
-		}
+	it("rejects a removed delta command", () => {
+		expect(
+			Result.isFailure(
+				decodeEntityWatchClientMessage(
+					'{"type":"update","revision":2,"add":["entity-2"],"remove":["entity-1"],"addForeground":["entity-2"],"removeForeground":[]}',
+				),
+			),
+		).toBe(true);
 	});
 
-	it("accepts a foreground-only update", () => {
-		expect(
-			decodeEntityWatchClientMessage(
-				'{"type":"update","revision":3,"add":[],"remove":[],"addForeground":[],"removeForeground":["entity-1"]}',
-			),
-		).toEqual(
-			expect.objectContaining({
-				success: {
-					add: [],
-					remove: [],
-					revision: 3,
-					type: "update",
-					addForeground: [],
-					removeForeground: ["entity-1"],
-				},
-			}),
-		);
+	it("accepts empty and priority-only complete snapshots", () => {
+		expect(Result.isSuccess(replace([], []))).toBe(true);
+		expect(Result.isSuccess(replace(["entity-1"], []))).toBe(true);
+		expect(Result.isSuccess(replace(["entity-1"], ["entity-1"]))).toBe(true);
 	});
 
 	it("caps foreground IDs and requires replace foreground IDs to be members", () => {
@@ -121,8 +79,25 @@ describe("entity-watches socket messages", () => {
 		expect(Result.isSuccess(replace(atCap, atCap))).toBe(true);
 		expect(Result.isFailure(replace(overCap, overCap))).toBe(true);
 		expect(Result.isFailure(replace(["entity-1"], ["entity-2"]))).toBe(true);
-		expect(Result.isSuccess(update(atCap))).toBe(true);
-		expect(Result.isFailure(update(overCap))).toBe(true);
+		expect(Result.isSuccess(replace(atCap, [...atCap, ...atCap]))).toBe(true);
+	});
+
+	it("round-trips a full 500-member and 50-foreground frame within its byte budget", () => {
+		const entityIds = Array.from(
+			{ length: MAX_INTEREST_ENTITY_IDS },
+			(_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+		);
+		const message = {
+			entityIds,
+			revision: 2,
+			type: "replace" as const,
+			foregroundIds: entityIds.slice(0, MAX_FOREGROUND_ENTITY_IDS),
+		};
+		const frame = encodeEntityWatchClientMessage(message);
+		expect(new TextEncoder().encode(frame).byteLength).toBe(21513);
+		expect(decodeEntityWatchClientMessage(frame)).toEqual(
+			expect.objectContaining({ success: message }),
+		);
 	});
 
 	it("round-trips client and server text frames", () => {

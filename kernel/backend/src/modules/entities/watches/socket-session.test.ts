@@ -10,6 +10,7 @@ import * as Socket from "effect/socket/Socket";
 import { TestClock } from "effect/testing";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
+import { testRedisServiceLayer } from "#testing/redis";
 
 import { LocalInterestSessions } from "./connections";
 import { InterestService } from "./service";
@@ -154,12 +155,6 @@ const makeLayer = (
 					closeSession: (sessionId) => record(`close:${sessionId}`).pipe(Effect.as(true)),
 					openSession: ({ sessionId }) => record(`open:${sessionId}`).pipe(Effect.as(undefined)),
 					markReconciled: ({ pending }) => Effect.succeed(pending.map(({ entityId }) => entityId)),
-					updateInterest: ({ revision }) =>
-						Effect.succeed({
-							revision,
-							status: "applied" as const,
-							pending: [{ revision, entityId: "entity-2", priority: "visible" as const }],
-						}),
 					replaceInterest: ({ revision }) =>
 						Effect.gen(function* () {
 							yield* Ref.update(replacements, (count) => count + 1);
@@ -251,6 +246,114 @@ const obsoleteTokenLayer = Layer.unwrap(
 );
 
 describe("entity interest socket session", () => {
+	layer(EntityWatchStore.layer.pipe(Layer.provide(testRedisServiceLayer)), {
+		excludeTestServices: true,
+	})((test) => {
+		test.effect(
+			"drops real Redis output from removed and re-added interest before delivering its new token",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const store = yield* EntityWatchStore;
+						const firstStarted = yield* Deferred.make<void>();
+						const releaseFirst = yield* Deferred.make<void>();
+						const staleMarked = yield* Deferred.make<readonly string[]>();
+						const releaseLatest = yield* Deferred.make<void>();
+						const entityId = EntityId.make(`replacement-${crypto.randomUUID()}`);
+						const dependencies = Layer.mergeAll(
+							Layer.mock(EntityWatchTicketService)({
+								consume: () =>
+									Effect.succeed({
+										preferredLanguage: null,
+										userId: UserId.make("user-1"),
+										accountGeneration: {
+											userId: UserId.make("user-1"),
+											token: "test-account-generation",
+										},
+									}),
+							}),
+							Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
+							Layer.mock(LocalInterestSessions)({
+								add: () => Effect.void,
+								remove: () => Effect.void,
+							}),
+							Layer.succeed(EntityWatchStore, {
+								...store,
+								markReconciled: (input) =>
+									store
+										.markReconciled(input)
+										.pipe(
+											Effect.tap((marked) =>
+												input.pending[0]?.revision === 1
+													? Deferred.succeed(staleMarked, marked)
+													: Effect.void,
+											),
+										),
+							}),
+							Layer.mock(InterestService)({
+								reconcile: ({ pending }) =>
+									Effect.gen(function* () {
+										if (pending[0]?.revision === 1) {
+											yield* Deferred.succeed(firstStarted, undefined);
+											yield* Deferred.await(releaseFirst);
+										} else {
+											yield* Deferred.await(releaseLatest);
+										}
+										return pending.map((item) => ({
+											pending: item,
+											message: {
+												entityId,
+												type: "entity-updated" as const,
+												reason:
+													item.revision === 1 ? ("translated" as const) : ("populated" as const),
+											},
+										}));
+									}),
+							}),
+						);
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(
+							Effect.provideContext(yield* Layer.build(dependencies)),
+							Effect.forkChild,
+						);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send(
+							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
+						);
+						const ready = yield* socket.nextMessage();
+						assert(ready.type === "ready");
+						for (const revision of [1, 2, 3]) {
+							yield* socket.send(
+								encodeEntityWatchClientMessage({
+									revision,
+									type: "replace",
+									entityIds: revision === 2 ? [] : [entityId],
+									foregroundIds: revision === 2 ? [] : [entityId],
+								}),
+							);
+							expect(yield* socket.nextMessage()).toEqual({ revision, type: "applied" });
+							if (revision === 1) {
+								yield* Deferred.await(firstStarted);
+							}
+						}
+						yield* Deferred.succeed(releaseFirst, undefined);
+						expect(yield* Deferred.await(staleMarked)).toEqual([]);
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+						yield* Deferred.succeed(releaseLatest, undefined);
+						expect(yield* socket.nextMessage()).toEqual({
+							entityId,
+							reason: "populated",
+							type: "entity-updated",
+						});
+						expect(yield* store.listWatchingSessions(entityId)).toContain(ready.sessionId);
+						yield* socket.remoteClose;
+						yield* Fiber.await(fiber);
+						expect(yield* store.listInterestedSessions(entityId)).not.toContain(ready.sessionId);
+					}),
+				),
+		);
+	});
+
 	layer(makeLayer())((test) => {
 		test.effect(
 			"authenticates, acknowledges commands while reconciliation is blocked, and cleans up",
@@ -280,12 +383,10 @@ describe("entity interest socket session", () => {
 						expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 						yield* socket.send(
 							encodeEntityWatchClientMessage({
-								remove: [],
 								revision: 2,
-								type: "update",
-								add: ["entity-2"],
-								addForeground: [],
-								removeForeground: [],
+								type: "replace",
+								foregroundIds: [],
+								entityIds: ["entity-1", "entity-2"],
 							}),
 						);
 						expect(yield* socket.nextMessage()).toEqual({ revision: 2, type: "applied" });
@@ -474,14 +575,7 @@ describe("entity interest socket session", () => {
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							remove: [],
-							revision: 1,
-							type: "update",
-							add: ["invalid"],
-							addForeground: [],
-							removeForeground: [],
-						}),
+						'{"type":"update","revision":1,"add":["invalid"],"remove":[],"addForeground":[],"removeForeground":[]}',
 					);
 					yield* socket.send(
 						encodeEntityWatchClientMessage({

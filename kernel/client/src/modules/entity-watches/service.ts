@@ -151,39 +151,22 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					}
 					const ids = new Set(effective);
 					const foreground = new Set([...effectiveForeground].filter((id) => ids.has(id)));
-					const add = [...ids].filter((id) => !applied.has(id)).sort();
-					const remove = [...applied].filter((id) => !ids.has(id)).sort();
-					const addForeground = [...foreground].filter((id) => !appliedForeground.has(id)).sort();
-					const removeForeground = [...appliedForeground]
-						.filter((id) => ids.has(id) && !foreground.has(id))
-						.sort();
 					if (
 						revision &&
-						!add.length &&
-						!remove.length &&
-						!addForeground.length &&
-						!removeForeground.length
+						ids.size === applied.size &&
+						[...ids].every((id) => applied.has(id)) &&
+						foreground.size === appliedForeground.size &&
+						[...foreground].every((id) => appliedForeground.has(id))
 					) {
 						return;
 					}
 					pending = { ids, foreground, revision: revision + 1 };
-					send(
-						revision === 0
-							? {
-									revision: 1,
-									type: "replace",
-									entityIds: [...ids].sort(),
-									foregroundIds: [...foreground].sort(),
-								}
-							: {
-									add,
-									remove,
-									addForeground,
-									type: "update",
-									removeForeground,
-									revision: revision + 1,
-								},
-					);
+					send({
+						type: "replace",
+						revision: pending.revision,
+						entityIds: [...ids].sort(),
+						foregroundIds: [...foreground].sort(),
+					});
 				};
 				const refresh = () => {
 					if (disposed) {

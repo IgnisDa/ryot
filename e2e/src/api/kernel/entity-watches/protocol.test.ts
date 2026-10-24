@@ -1,4 +1,7 @@
-import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
+import {
+	MAX_FOREGROUND_ENTITY_IDS,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, openInterestWebSocketScoped } from "~/fixtures/kernel";
@@ -7,7 +10,7 @@ import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("entity interest protocol", () => {
-	it.live("deduplicates IDs and rejects over-limit updates without changing the revision", () =>
+	it.live("deduplicates IDs and rejects over-limit snapshots without changing the revision", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { schema } = yield* findMediaEntitySchema(auth.client, "company");
@@ -28,21 +31,22 @@ describe("entity interest protocol", () => {
 				type: "applied",
 			});
 
-			const additionalIds = Array.from(
-				{ length: MAX_INTEREST_ENTITY_IDS },
-				(_, index) => `interest-limit-${crypto.randomUUID()}-${index}`,
+			const additionalIds = Array.from({ length: MAX_INTEREST_ENTITY_IDS }, () =>
+				crypto.randomUUID(),
 			);
-			expect(yield* socket.updateInterest({ remove: [], add: additionalIds })).toEqual({
+			expect(yield* socket.replaceInterest([entity.id, ...additionalIds])).toEqual({
 				revision: 2,
 				type: "rejected",
 				code: "interest-limit-exceeded",
 				maxEntityIds: MAX_INTEREST_ENTITY_IDS,
 			});
 
-			expect(yield* socket.updateInterest({ add: additionalIds, remove: [entity.id] })).toEqual({
-				revision: 2,
-				type: "applied",
-			});
+			expect(
+				yield* socket.replaceInterest(
+					additionalIds,
+					additionalIds.slice(0, MAX_FOREGROUND_ENTITY_IDS),
+				),
+			).toEqual({ revision: 2, type: "applied" });
 		}),
 	);
 });

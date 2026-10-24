@@ -180,7 +180,6 @@ const makeReconciliationSchedule = () =>
 const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(function* (
 	message: EntityWatchClientMessage,
 	sessionId: string,
-	hasSnapshot: { value: boolean },
 	store: EntityWatchStore["Service"],
 	output: Outbound,
 	submitPending: (pending: readonly PendingInterest[]) => Effect.Effect<void>,
@@ -188,25 +187,12 @@ const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(func
 	if (message.type === "authenticate" || message.type === "pong") {
 		return false;
 	}
-	if (!hasSnapshot.value && (message.type !== "replace" || message.revision !== 1)) {
-		return false;
-	}
-	const outcome =
-		message.type === "replace"
-			? yield* store.replaceInterest({
-					sessionId,
-					revision: message.revision,
-					entityIds: message.entityIds,
-					foregroundIds: message.foregroundIds,
-				})
-			: yield* store.updateInterest({
-					sessionId,
-					add: message.add,
-					remove: message.remove,
-					revision: message.revision,
-					addForeground: message.addForeground,
-					removeForeground: message.removeForeground,
-				});
+	const outcome = yield* store.replaceInterest({
+		sessionId,
+		revision: message.revision,
+		entityIds: message.entityIds,
+		foregroundIds: message.foregroundIds,
+	});
 	if (outcome.status === "limit-exceeded") {
 		yield* output.enqueue({
 			type: "rejected",
@@ -219,7 +205,6 @@ const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(func
 	if (outcome.status !== "applied") {
 		return false;
 	}
-	hasSnapshot.value = true;
 	yield* output.enqueue({ type: "applied", revision: outcome.revision });
 	yield* submitPending(outcome.pending);
 	return true;
@@ -457,7 +442,6 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 		yield* Effect.sleep(Duration.millis(remainingLeaseMs));
 		yield* output.close(SESSION_EXPIRED);
 	});
-	const hasSnapshot = { value: false };
 	const commandWorker = Effect.gen(function* () {
 		for (;;) {
 			const frame = yield* Queue.take(inbound);
@@ -481,7 +465,6 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 			const applied = yield* processCommand(
 				decoded.success,
 				sessionId,
-				hasSnapshot,
 				store,
 				output,
 				submitPending,

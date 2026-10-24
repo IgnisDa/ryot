@@ -14,12 +14,11 @@ Entity interest lets authenticated clients declare which entities are visible an
 
 Client frames:
 
-| `type`         | Fields                                                                                                                     |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `authenticate` | `ticket: string`                                                                                                           |
-| `replace`      | `revision: positive integer`, `entityIds: string[]`, `foregroundIds: string[]`                                             |
-| `update`       | `revision: positive integer`, `add: string[]`, `remove: string[]`, `addForeground: string[]`, `removeForeground: string[]` |
-| `pong`         | `nonce: string`                                                                                                            |
+| `type`         | Fields                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `authenticate` | `ticket: string`                                                               |
+| `replace`      | `revision: positive integer`, `entityIds: string[]`, `foregroundIds: string[]` |
+| `pong`         | `nonce: string`                                                                |
 
 Server frames:
 
@@ -31,9 +30,11 @@ Server frames:
 | `entity-updated` | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `projection-updated` |
 | `ping`           | `nonce`                                                                                       |
 
-After `ready`, send a complete `replace` at revision 1. Each later `replace` or `update` increments the current revision by one. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
+After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`. Clients suppress unchanged membership/foreground pairs, batch changes for 100 ms, and retain departed interest for a 2-second grace period unless new demand needs its capacity.
 
-IDs are deduplicated. `update` must change membership or priority; `add` and `remove` cannot overlap, `addForeground` and `removeForeground` cannot overlap, and neither foreground list may name a removed ID. An empty replacement is valid. The final membership may contain at most 500 IDs and at most 50 foreground IDs; an over-limit command is rejected without partial mutation (`rejected` with `interest-limit-exceeded`). A frame that itself lists more than 50 foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`, and both foreground lists of an `update` must name IDs in the resulting membership; a violation is a protocol error. Every other member has visible priority. A new member is foreground when it is in `addForeground`; an existing member keeps its priority unless a foreground list changes it.
+IDs are deduplicated. An empty replacement is valid. Membership may contain at most 500 IDs; an over-limit command is rejected without partial mutation or revision advancement (`rejected` with `interest-limit-exceeded`). A frame that lists more than 50 distinct foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`; a violation is a protocol error. Every other member has visible priority.
+
+A full frame carries up to 550 IDs: 500 members plus 50 repeated foreground IDs. With 36-byte UUIDs and a single-digit revision its JSON payload is 21,513 bytes (21,521 bytes including the masked client WebSocket header), below the server's 1-MiB WebSocket payload limit. Each additional revision digit adds one byte. The client waits for acknowledgment and sends only the latest complete pair. With fast acknowledgments, sustained declaration churn can produce about ten full snapshots per second through 100-ms batching: about 215 KB/s of JSON. Grace expiry can emit additional snapshots, so batching is not a strict rate limit. This trades larger changed frames for a single command model; it does not promise a measured bandwidth reduction. IDs are strings, so this UUID budget is not a general frame-size limit.
 
 Priority chooses the population level. Pending interest in an unpopulated entity requests a `base` population when visible and a `full` population when foreground. Foreground interest in a populated entity whose `relatedPopulationStatus` is `pending` also requests a `full` upgrade, with execution ID `populate-<entityId>-full-<generation>-<populatedAtMs>-<hourBucket>` (the hour bucket comes from the reconciliation clock), so a failed or lost upgrade is requested again at most once per hour per user. Visible interest never requests `full`. Reconciliation never withholds the terminal update for the related level: base and full populations each publish `populated`, and clients read `relatedPopulationStatus` to show related-data placeholders. A related-level failure adds no completion reason; its population publishes `populated` and the status reads `failed`.
 
