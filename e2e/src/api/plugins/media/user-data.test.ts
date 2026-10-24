@@ -939,7 +939,7 @@ describe("Media entity user data HTTP operations", () => {
 		"removes user state from editor-authored custom episodes without changing metadata or links",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const { client, userId } = yield* createAuthenticatedClient();
 				const tree = yield* customShowTree(client);
 				for (const entity of tree.entities) {
 					yield* insertLibraryMembership(client, {
@@ -957,6 +957,7 @@ describe("Media entity user data HTTP operations", () => {
 						eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "review").id,
 					});
 				}
+				yield* settledHistoryCorrection(client, userId);
 				const clearRequest = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
 				const [showEntity, seasonEntity, episodeEntity] = tree.entities;
 				assertCondition(

@@ -30,6 +30,7 @@ import {
 	findMediaEntitySchema,
 	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
+import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
@@ -163,12 +164,13 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 				}),
 			);
 
+			yield* settledHistoryCorrection(userA.client, userA.userId);
 			const result = yield* clearEntityUserData(userA.client, entity.id);
 
 			expect(result).toEqual({
 				warnings: [],
 				entityId: entity.id,
-				deletedEventsCount: 2,
+				deletedEventsCount: 3,
 				deletedRelationshipsCount: 2,
 			});
 			expect(
