@@ -1043,11 +1043,18 @@ describe("measurements page", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerPending();
-					expect(body.getAllByRole("button", { name: /^Edit measurement from/ })).toHaveLength(2);
+					expect(body.getByRole("region", { name: "All metrics" })).toBeTruthy();
+				}),
+			);
+			const log = within(body.getByRole("region", { name: "Log" }));
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(log.getAllByRole("button", { name: /^Edit measurement from/ })).toHaveLength(2);
 				}),
 			);
 			fireEvent.click(
-				body.getAllByRole("button", { name: /^Edit measurement from/ })[0] ?? document.body,
+				log.getAllByRole("button", { name: /^Edit measurement from/ })[0] ?? document.body,
 			);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(body.getByRole("dialog", { name: "Edit measurement" })).toBeTruthy()),
