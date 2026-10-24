@@ -75,13 +75,20 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 				return { status: "scheduled" } as const;
 			}),
 		listen: (onTap, onForeground, onDelivered) =>
-			Effect.sync(() => {
-				listens++;
-				tap = onTap;
-				foreground = onForeground;
-				delivered = onDelivered;
-				return () => {};
-			}),
+			Effect.acquireRelease(
+				Effect.sync(() => {
+					listens++;
+					tap = onTap;
+					foreground = onForeground;
+					delivered = onDelivered;
+				}),
+				() =>
+					Effect.sync(() => {
+						tap = undefined;
+						foreground = undefined;
+						delivered = undefined;
+					}),
+			),
 	});
 	return {
 		awake,
@@ -280,15 +287,20 @@ describe("device authority", () => {
 			Effect.sync(() => {
 				cancelledDuringScheduling.push(id);
 			}),
-		listen: (tap) =>
-			Effect.sync(() => {
-				tapDuringScheduling = tap;
-				return () => {};
-			}),
 		schedule: () =>
 			Deferred.succeed(entered, undefined).pipe(
 				Effect.andThen(Deferred.await(gate)),
 				Effect.as({ status: "scheduled" } as const),
+			),
+		listen: (tap) =>
+			Effect.acquireRelease(
+				Effect.sync(() => {
+					tapDuringScheduling = tap;
+				}),
+				() =>
+					Effect.sync(() => {
+						tapDuringScheduling = undefined;
+					}),
 			),
 	});
 	layer(

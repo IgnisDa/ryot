@@ -6,7 +6,7 @@ import type {
 	PluginHapticKind,
 	PluginNavigationTarget,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Layer, Semaphore } from "effect";
+import { Context, Data, Effect, Exit, Layer, Scope, Semaphore } from "effect";
 
 import type { ApiScope } from "#/api/scope";
 import { apiScopeKey } from "#/api/scope";
@@ -44,7 +44,7 @@ export class DevicePlatform extends Context.Service<
 			tap: (id: number) => void,
 			foreground: (active: boolean) => void,
 			delivered: (id: number) => void,
-		) => Effect.Effect<() => void, DevicePlatformError>;
+		) => Effect.Effect<void, DevicePlatformError, Scope.Scope>;
 	}
 >()("DevicePlatform") {}
 
@@ -52,6 +52,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 	make: Effect.gen(function* () {
 		const platform = yield* DevicePlatform;
 		const storage = yield* ClientStorage;
+		const serviceScope = yield* Effect.scope;
 		const runFork = Effect.runForkWith(yield* Effect.context());
 		const mutex = Semaphore.makeUnsafe(1);
 		const listeners = new Set<() => void>();
@@ -63,7 +64,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 		let foreground = true;
 		let awake = false;
 		let pendingTap: number | undefined;
-		let removeListeners: (() => void) | undefined;
+		let listenerScope: Scope.Closeable | undefined;
 		let navigate: ((target: PluginNavigationTarget) => void) | undefined;
 		const publish = () => listeners.forEach((listener) => listener());
 		const load = Effect.gen(function* () {
@@ -101,20 +102,38 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 		const start = mutex.withPermit(
 			Effect.gen(function* () {
 				yield* load;
-				removeListeners ??= yield* platform.listen(
-					(id) => {
-						pendingTap = id;
-						routeTap();
-					},
-					(active) => {
-						foreground = active;
-						runFork(mutex.withPermit(updateAwake()));
-					},
-					(id) => {
-						if (state.alerts.some((alert) => alert.id === id && alert.scope === activeScope)) {
-							alertListeners.forEach((listener) => listener());
-						}
-					},
+				if (listenerScope) {
+					return;
+				}
+				yield* Effect.uninterruptibleMask((restore) =>
+					Effect.gen(function* () {
+						const registration = yield* Scope.fork(serviceScope);
+						yield* restore(
+							platform.listen(
+								(id) => {
+									pendingTap = id;
+									routeTap();
+								},
+								(active) => {
+									foreground = active;
+									runFork(mutex.withPermit(updateAwake()));
+								},
+								(id) => {
+									if (
+										state.alerts.some((alert) => alert.id === id && alert.scope === activeScope)
+									) {
+										alertListeners.forEach((listener) => listener());
+									}
+								},
+							),
+						).pipe(
+							Scope.provide(registration),
+							Effect.onExit((exit) =>
+								Exit.isFailure(exit) ? Scope.close(registration, exit) : Effect.void,
+							),
+						);
+						listenerScope = registration;
+					}),
 				);
 			}),
 		);
@@ -281,12 +300,14 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 			},
 			stop: mutex.withPermit(
 				Effect.gen(function* () {
-					removeListeners?.();
-					removeListeners = undefined;
+					if (listenerScope) {
+						yield* Scope.close(listenerScope, Exit.void);
+						listenerScope = undefined;
+					}
 					demands.clear();
 					foreground = false;
 					yield* updateAwake();
-				}),
+				}).pipe(Effect.uninterruptible),
 			),
 		};
 	}),
