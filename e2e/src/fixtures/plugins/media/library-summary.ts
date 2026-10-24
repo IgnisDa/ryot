@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import {
 	librarySummaryKind,
 	librarySummaryProperties,
@@ -5,7 +7,6 @@ import {
 } from "@ryot-app/media-plugin/shared/library-summary";
 import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
-import { isDeepStrictEqual } from "node:util";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
@@ -36,14 +37,14 @@ export const waitForLibrarySummary = (client: Client, entityId: string) =>
 					document({
 						memberships: rows(membership, {
 							limit: 1,
-							where: and(
-								eq(column(membership, "sourceEntityId"), literal(entityId)),
-								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-							),
 							fields: [
 								field("projection", column(membership, "projection")),
 								field("status", column(membership, "projectionStatus")),
 							],
+							where: and(
+								eq(column(membership, "sourceEntityId"), literal(entityId)),
+								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+							),
 						}),
 					}),
 				);
@@ -51,7 +52,10 @@ export const waitForLibrarySummary = (client: Client, entityId: string) =>
 				return live &&
 					stored &&
 					requireRyotQLText(stored, "status") === "ready" &&
-					isDeepStrictEqual(requireRyotQLValue(stored, "projection"), librarySummaryProperties(live))
+					isDeepStrictEqual(
+						requireRyotQLValue(stored, "projection"),
+						librarySummaryProperties(live),
+					)
 					? live
 					: null;
 			}),

@@ -1444,8 +1444,8 @@ describe("Media lifecycle list recipes", () => {
 				eventSchemaSlug: schemas.movieEvents.backlog,
 			});
 
-			yield* Effect.all(
-				[movie, anime, backlogged].map(({ id }) => waitForLibrarySummary(client, id)),
+			yield* Effect.forEach([movie, anime, backlogged], ({ id }) =>
+				waitForLibrarySummary(client, id),
 			);
 			const inProgress = yield* executeRyotQLRecipe(
 				client,

@@ -220,7 +220,6 @@ export const httpFailure = (message = "request failed") => Effect.fail({ message
 export const toRecord = (value: unknown): Record<string, unknown> =>
 	isObjectRecord(value) ? value : Object.create(null);
 
-/** An `executeRyotql` that answers containment lookups from a child-to-container map. */
 export const containmentRyotql =
 	(containers: Readonly<Record<string, string>> = {}) =>
 	(document: unknown) => {
