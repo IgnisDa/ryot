@@ -15,7 +15,7 @@
 
 ## Status
 
-**78 implemented, 0 in progress, 5 pending; 3 excluded.**
+**79 implemented, 0 in progress, 4 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -99,7 +99,7 @@
 | C07-R1 | Implemented | Delete the unused saved-view client service and test, its boot layer, and its route-stub wiring; retain the managed-asset stub. See this finding's audit commit. |
 | C07-R2 | Implemented | Shared collection-editor mutation ownership interrupts departure and suppresses late callbacks and refresh; it does not imply server rollback. See this finding's audit commit. |
 | C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
-| P03-R1 | Pending | Normalize existing Request headers/body once. |
+| P03-R1 | Implemented | Normalize Request inputs through the host runtime; replacement bodies do not consume source bodies, while inherited bodies are consumed once and used/locked bodies reject. See this finding's audit commit. |
 | M01-R1 | Implemented | Use the canonical Metron role accumulator without folding or a second set pass. See this finding's audit commit. |
 | M04-R2 | Implemented | Select only completion-consumer fields in episodic snapshots; retain aggregate signals inside calculations and preserve completion/TTL boundaries. See this finding's audit commit. |
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
@@ -245,3 +245,4 @@
 - B10-R2: scoped checks passed before 21 tests across four files; final read-only review reported no findings. Removed unused definition-reader modes and staged only the dead reader fixture hunks from the shared saved-view service test; B22-R2 renderer test changes remain unstaged.
 - B22-R2: backend and contract scoped checks passed before 93 tests across 11 files; read-only review passed. Removed custom-renderer identity/publication branches and made saved-view and backup validation exhaustive for kernel/plugin renderers. The service-test changes are the remaining renderer hunks after B10-R2.
 - M04-R2: full media check passed before 51 tests across three files; read-only review passed. Episodic snapshots select only consumed fields; aggregate calculation dependencies and completion/TTL boundaries remain.
+- P03-R1: SDK check passed before 98 tests across 13 files; media had nine tests; native format/clippy/syntax checks and 14 tests passed. Fixed the sole P2 review finding in native Request body ownership: inherited bodies consume once, reuse rejects without another host call, replacement bodies leave the source unconsumed, and replacement works after source consumption. No cache or guard workaround; no extra review round.
