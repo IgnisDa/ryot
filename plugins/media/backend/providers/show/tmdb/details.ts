@@ -262,22 +262,23 @@ export const getTmdbShowDetails = (
 			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
 		]);
 		const episodeOrderListData = asRecord(showData["episode_groups"]) ?? {};
-		const seasonNumbers = recordsValue(showData["seasons"]).flatMap((season) => {
+		const listedSeasons = recordsValue(showData["seasons"]).flatMap((season) => {
 			const value = numberValue(season["season_number"]);
-			return value === null ? [] : [Math.trunc(value)];
+			return value === null ? [] : [{ id: season["id"], number: Math.trunc(value) }];
 		});
-		const seasonChunks = chunksOf(seasonNumbers, SEASON_APPEND_LIMIT);
-		const seasonDataList = (yield* loadInBatches(seasonChunks, (numbers) =>
+		const seasonChunks = chunksOf(listedSeasons, SEASON_APPEND_LIMIT);
+		const seasonDataList = (yield* loadInBatches(seasonChunks, (seasons) =>
 			tmdbGet(
 				host,
 				`/tv/${input.externalId}`,
-				{ language, append_to_response: numbers.map((number) => `season/${number}`).join(",") },
+				{ language, append_to_response: seasons.map(({ number }) => `season/${number}`).join(",") },
 				token,
 			).pipe(
 				Effect.map((chunkData) =>
-					numbers.flatMap((number) => {
+					seasons.flatMap(({ id, number }) => {
 						const seasonData = asRecord(chunkData[`season/${number}`]);
-						return seasonData ? [seasonData] : [];
+						// Appended seasons omit their TMDB id, which only the show's season list carries.
+						return seasonData ? [{ ...seasonData, id }] : [];
 					}),
 				),
 			),
