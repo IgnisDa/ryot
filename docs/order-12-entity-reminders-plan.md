@@ -7,8 +7,9 @@ This is an approved engineering plan for Order 12 in
 It is reference material, not maintained user documentation. Maintained user documentation belongs
 in `apps/docs`.
 
-Planning completed on **2026-10-28**. Implementation and validation have not started as part of this
-task. The checkout at handoff was based on `9e600b74506a8fe3b8016d0367dae1d5e5c3e9cf`, with concurrent
+Planning completed on **2026-10-28**. Implementation started on **2026-10-28** with the shared
+notification admission/delivery foundation. Order 12 is not complete. The checkout at planning
+handoff was based on `9e600b74506a8fe3b8016d0367dae1d5e5c3e9cf`, with concurrent
 uncommitted work, including Media library projections and migration documentation. Recheck the
 current code and working tree before editing; preserve that work. File paths below describe the
 researched checkout and proposed additions, not a claim that the feature already exists.
@@ -18,6 +19,14 @@ evidence requires changing this contract or widening the scope. The user withdre
 commit this planning work; do not infer commit authorization from this document.
 
 ## 1. Approved behavior
+
+Source-only dump inspection on 2026-10-28 confirmed that all three `tmp/file*.sql` candidates contain
+the V1 collection/membership shapes. The exact named Reminders collections contain zero memberships
+in `file.sql` and `file3.sql`; `file2.sql` contains one membership whose information is SQL NULL,
+which the V1 worker skipped. No original candidate contains a non-null reminder payload. This is not
+migration acceptance: full isolated startup/restart validation and supplementary controlled payloads
+remain required. Source evidence is retained outside the checkout in the session temporary directory;
+private message content must not be copied into this plan.
 
 | Topic | Decision |
 | --- | --- |
@@ -525,17 +534,127 @@ bun turbo --filter='!@ryot-app/e2e' test
 
 Close Order 12 only when all of the following are recorded:
 
-- [ ] Shared notification owner is used by every existing send entrypoint.
-- [ ] Reminder commands, read recipes, host UI and Media/Fitness entry points work together.
-- [ ] Crash/retry deduplication, uncertain outcomes and account retirement pass acceptance.
-- [ ] Clear/merge/delete, child scope, graph collection and retention are covered.
-- [ ] Backup restore and V1 conversion leave unfinished historical reminders inactive.
-- [ ] Real normal/larger dump validation, source comparisons and restart checks are complete.
-- [ ] Maintained docs and feature READMEs describe the shipped behavior.
+- [x] Shared notification owner is used by every existing send entrypoint.
+- [x] Reminder commands, read recipes, host UI and Media/Fitness entry points work together.
+- [x] Crash/retry deduplication, uncertain outcomes and account retirement pass acceptance.
+- [x] Clear/merge/delete, child scope, graph collection and retention are covered.
+- [x] Backup restore and V1 conversion leave unfinished historical reminders inactive.
+- [x] Real normal/larger dump validation, source comparisons and restart checks are complete.
+- [x] Maintained docs and feature READMEs describe the shipped behavior.
 - [ ] Affected checks/tests, selected e2e and final repository checks/tests pass.
-- [ ] Review fixes and scoped cleanup are complete.
+- [x] Review fixes and scoped cleanup are complete.
 - [ ] `docs/v1-v2-port-gap-analysis.md` contains the accepted behavior, actual validation results and
   remaining limitations, with Order 12 marked Done only at that point.
 
 Report genuine blockers or uncovered acceptance cases. Do not claim live delivery-provider testing
 from hermetic adapter tests, or migration acceptance from zero-source-data samples alone.
+
+## 11. Acceptance execution evidence
+
+Validation below used disposable PostgreSQL, Redis and S3 storage named
+`ryot-order12-acceptance-{postgres,redis,storage}`. Original dumps and `/tmp/ryot-bucket` were
+read-only inputs; 58 cached objects were uploaded into isolated storage before applicable runs.
+Connection overrides were explicit, and container ports were rediscovered after restart. No working
+database, Redis or bucket reset recipe was used.
+
+### Original dump disposition
+
+| Dump | SHA-256 | Source reminders | Result |
+| --- | --- | --- | --- |
+| `file.sql` (36,104,886 bytes) | `7dcdf4af40474fdf12419cb3af0b49fa57557a6130d09f83245d723338bf90cf` | 0 memberships | Migration completed after interrupted attempts; final resume 84.655 s, migration-only restart 2.852 s, 40,360 entities. Restart reminder/history fingerprint unchanged. Normal startup and one explicit hermetic API occurrence passed in 76.853 s. |
+| `file2.sql` (250,936,527 bytes) | `b44cb30420d0429f7ced2ecacbcfe8bd5f66230a02f5b2f9454fb53b51e9b45b` | 1 SQL-NULL-information membership, 0 payloads | Restore 19.676 s, migration 841.243 s, restart 7.780 s, 736,147 entities. The NULL membership stayed inert. Restart fingerprint unchanged. Normal startup and one explicit hermetic API occurrence passed in 74.930 s. |
+| `file3.sql` (159,469,037 bytes) | `9076fff6b87b0d8c644cfb82a2f600bec9d409eed0b4e769cf2fb19ab48cdbdb` | 0 memberships | Migration refused an existing blank legacy genre after 39.355 s, before reminder conversion. Original input was not corrected or counted as a successful startup. The operator must correct the source genre before this candidate can migrate. |
+
+Immediately after migration-only runs, `reminder`, `notification`, `notification_delivery`,
+`automation_trigger`, `automation_run` and `automation_run_attempt` were empty on both successful
+original dumps. Normal-startup validation disabled migrated channels and integrations in the
+disposable copies, used future cron schedules to avoid unrelated dispatch, and invoked the production
+scan through its admin-only operation. Each fresh API-created occurrence made exactly one request to
+a local hermetic provider. This is not live-provider validation.
+
+Complete collection membership order matched the original source on both successful dumps:
+
+| Dump | Memberships | SHA-256 of complete collection-to-ordered-relationship-ID map |
+| --- | ---: | --- |
+| `file.sql` | 28,464 | `2050387c7bd7efa7bffa2d3f0519e816a3aa0861a176314ac0baa04a4367a01e` |
+| `file2.sql` | 100,289 | `fe004efddfb27c8a201198ab9b12602ac6f21516f78faf3de7c60ee18f4160f3` |
+
+Both copies had zero invalid plugin/environment revision bindings, unready installations, invalid
+content generations, related-completion stamps, translations or enrichment requests. Migrated
+installations were ready but retained suppressed bootstrap markers (2 and 598 uninitialized
+installations respectively); validation did not reinterpret those markers as failed installation
+health. Existing migration warning reports (69 and 27 rows) remained separate from reminder results.
+
+### Supplementary restored-source cases
+
+A separately restored `file.sql` copy received three controlled memberships, not private source
+messages. An invalid calendar date refused conversion with zero reminder rows and no completion
+report. After correction, all three records matched the complete source set over deterministic ID,
+owner, target, exact text and date; active instants, timezones and execution identities were absent.
+
+The API process was killed after the committed reminder phase while legacy tables still existed.
+A controlled edit to one converted record survived resumed migration and a further migration-only
+restart. Resume took 72.411 s and restart 3.410 s; the combined malformed/interrupted exercise took
+389.665 s. No notifications, channel attempts or automation history were created. Normal startup and
+production scans left all three source reminders unchanged, followed by exactly one fresh hermetic
+API occurrence (68.448 s). These cases are supplementary evidence, not original-dump payload coverage.
+
+A fresh restored `file.sql` copy also covered the shared message bound after review. A padded
+4,001-unit message and a 4,002-unit non-BMP message refused conversion atomically. After correction,
+three messages at exactly 4,000 UTF-16 units retained their exact text, owner and date as inactive
+records, with no delivery or automation work. Migration took 80.168 s and migration-only restart
+5.412 s; the full refusal/correction/restart exercise took 162.163 s. Evidence is retained as
+`message-bounds.*` with `order12-reminder-bounds.py` beside the evidence directory.
+
+The actual migrated owner also signed in through the normal password-setup/password-login path in the
+disposable supplementary copy. A production scan left its imported record inactive. Explicit
+subscription enablement and a local channel preceded scheduling a replacement through the HTTP
+contract. The imported record became cancelled with its replacement link, the new occurrence was
+accepted exactly once, and every unrelated reminder row stayed unchanged (93.667 s).
+
+Scripts, source comparisons, fingerprints and logs are retained under the session temporary directory
+in `order12-full-acceptance/`, with `order12-full-migration.py`,
+`order12-supplementary-migration.py`, `order12-normal-startup.py` and
+`order12-migration-invariants.py` beside it. Source evidence contains no committed private messages.
+Final repository-wide checks/tests remain pending; the completion gate above is deliberately open.
+The disposable migration containers were removed after evidence was retained. Original dumps and
+the original cached-object directory were preserved.
+
+### Application acceptance evidence
+
+- The reminder browser file passed both Media/Fitness management and restored Needs scheduling
+  replacement. The command/delivery API file passed four cases, including target deletion. Selected
+  notification-channel API and browser files also passed.
+- A fresh browser rerun also passed editing the saved UTC reminder from an `Asia/Tokyo` device
+  context. Its named zone and complete UTC instant, including seconds and milliseconds, stayed fixed.
+- The remaining individually selected e2e files passed: notification subscriptions, god-mode account
+  reset, backup round-trip, backup lifecycle, archive validation, entity user data and observability.
+- The isolated process-loss case in `e2e/src/api/kernel/reminders/recovery.test.ts` passed. One channel
+  acknowledged before termination remained Accepted; a second held request became Unknown after
+  restart. Each provider path received one request, including after a further scan.
+- Admission-before-dispatch failure is covered by the backend test `recovers an admission committed
+  before workflow dispatch failed`: admission remains durable when workflow registration fails,
+  recovery dispatches it and its channel settles Accepted. This is injected dispatcher-failure
+  evidence, separate from the real process-loss test above.
+- Bridge tests cover cross-type host-screen exclusivity, matching cancellation and suppression of
+  stale replies/refreshes after document replacement. Browser acceptance verifies iframe inertness
+  while the reminder manager is open and restoration when it closes.
+- Client validation passed 15 Turbo tasks, including 145 files / 1,201 tests. The reminder-specific
+  nested Back test confirms that Back closes the editor first, then the manager, returns cancellation
+  and leaves the route unchanged. Both deterministic due/edit and due/cancel race cases passed.
+- The next backend run passed 2,894 tests and timed out in the unrelated background-work pruning
+  test. Its unnecessary jump from the test clock epoch to 2026 was removed without changing seeds,
+  assertions, timeouts or production behavior. The full rerun passed 341 files / 2,895 tests.
+- The single read-only review covered the client, contracts, e2e, notification owner, reminders,
+  lifecycle, backup and migration paths. It found a channel re-enable preparation race, invalid
+  restored timezones and inconsistent legacy message bounds. All three fixes are implemented;
+  the post-review channel API, reminder API, real process-loss recovery and archive-validation e2e
+  files passed individually. The fresh full backend test run passed 40 Turbo tasks, including
+  341 files / 2,897 tests.
+- Scoped cleanup removed duplicate Layer composition and a single-workflow merge wrapper. The
+  persistence retry-boundary comment and lint-required explicit void return remain. Generated route
+  casts remain generator-owned; no handwritten checker bypass or suppression was added.
+
+At the user's request, implementation and evidence were committed in scoped groups before final
+repository-wide validation. `bun run check` and then `bun turbo --filter='!@ryot-app/e2e' test` still
+must pass before Order 12 can be marked Done. No commands remain active at this handoff.

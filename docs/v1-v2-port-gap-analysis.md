@@ -117,7 +117,7 @@ that cleanup must respect.
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
 | 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
-| 12 | Pending | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Resolve missed-deadline and timezone behavior before shipping. |
+| 12 | In progress | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
 | 13 | Pending | **Add release-day notifications** | 4 and 11; existing monitoring/subscriptions | Notify eligible monitoring users from release dates, not provider episode-discovery signals. Deduplicate each occurrence/recipient, handle date changes and bounded catch-up, and keep display/query refresh separate from delivery. |
 | 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
 
@@ -127,6 +127,30 @@ restore, V1 conversion and retention decisions, implementation sequence, and rea
 Use current feature-owned workflows; extract shared scheduling machinery only when the
 implementations show a real common need. Reuse existing channel adapters; Order 12 strengthens the
 shared notification admission and delivery-outcome path for all callers.
+
+Implementation began on **2026-10-28**. The shared notification owner, account fences, per-channel
+claims/recovery, reminder commands and worker, clear/merge/delete attachment, graph retention,
+inactive backup/V1 conversion, shared host/account UI and Media/Fitness actions are implemented.
+Backend, Media and Fitness validation passed 47 Turbo tasks (the backend passed 341 files and 2,893
+tests before two later race tests were added). An unrelated pruning-test clock jump was fixed after
+a timeout. The final affected backend run passed 40 Turbo tasks, 341 files and 2,897 tests, including
+both due-command races and the review fixes. The
+selected process-loss e2e passed: an acknowledged channel remained accepted, a held request became
+Unknown after restart, and neither request repeated. The client passed 145 files / 1,201 tests,
+including retry, readiness, outcomes and nested Back ownership. Browser acceptance passed
+Media/Fitness management, restored replacement and a device-timezone change without shifting the
+saved instant. All selected notification, subscription, account-reset, backup, user-data and
+observability e2e files passed individually.
+
+Real normal/larger dumps completed migration-only restart and ordinary-startup acceptance, with no
+historical reminder sends. A separately restored controlled copy covered invalid-date refusal,
+exact date/text conversion, interruption while legacy tables remained, preservation of a later edit,
+and explicit rescheduling by the migrated owner. `file3.sql` still refuses an unrelated blank legacy
+genre; the original dump was preserved. Full commands, counts, hashes, timings and limitations are in
+the [acceptance evidence](order-12-entity-reminders-plan.md#11-acceptance-execution-evidence).
+The read-only review, its three fixes and scoped cleanup are complete. At the user's request, work
+was committed in scoped groups before final repository-wide checks/tests. Those final commands
+still gate completion; Order 12 remains In progress.
 
 ### Phase 4 — Discovery, analytics and lower-priority account controls
 
