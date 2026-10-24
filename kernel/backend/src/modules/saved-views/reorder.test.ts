@@ -1,40 +1,48 @@
-import { describe, expect, it } from "vitest";
+import { expect, it } from "@effect/vitest";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { Effect } from "effect";
 
-import { buildReorderedIds } from "./reorder";
+import { buildSavedViewReorderPlan } from "./reorder";
 
-describe("buildReorderedIds", () => {
-	it("preserves the order of the requested ids", () => {
-		const result = buildReorderedIds({ requestedIds: ["c", "a"], currentIds: ["a", "b", "c"] });
-		expect(result).toEqual(["c", "a", "b"]);
-	});
+const kernel = { slug: "same", kind: "kernel" } as const;
+const plugin = { slug: "same", kind: "plugin", pluginId: PluginId.make("owner") } as const;
+const custom = { kind: "custom", savedViewId: SavedViewId.make("same") } as const;
+const views = [kernel, plugin, custom].map((reference, sortOrder) => ({
+	reference,
+	sortOrder,
+	isHidden: reference.kind === "plugin",
+	defaultSortOrder: reference.kind === "custom" ? null : sortOrder,
+}));
 
-	it("deduplicates requested ids, keeping first occurrence", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b"], requestedIds: ["a", "a", "b"] });
-		expect(result).toEqual(["a", "b"]);
-	});
+it.effect(
+	"carries exact owners, hidden state and defaults into requested-first shared positions",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* buildSavedViewReorderPlan(views, [custom])).toEqual([
+				{ ...views[2], sortOrder: 0, currentSortOrder: 2 },
+				{ ...views[0], sortOrder: 1, currentSortOrder: 0 },
+				{ ...views[1], sortOrder: 2, currentSortOrder: 1 },
+			]);
+		}),
+);
 
-	it("appends current ids not present in the request", () => {
-		const result = buildReorderedIds({ requestedIds: ["b"], currentIds: ["a", "b", "c"] });
-		expect(result).toEqual(["b", "a", "c"]);
-	});
-
-	it("returns only deduplicated requested ids when all current ids are covered", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b"], requestedIds: ["b", "a"] });
-		expect(result).toEqual(["b", "a"]);
-	});
-
-	it("returns all current ids as trailing when request is empty", () => {
-		const result = buildReorderedIds({ requestedIds: [], currentIds: ["a", "b", "c"] });
-		expect(result).toEqual(["a", "b", "c"]);
-	});
-
-	it("includes requested ids even when absent from current ids", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b"], requestedIds: ["c", "a"] });
-		expect(result).toEqual(["c", "a", "b"]);
-	});
-
-	it("returns an empty array when both inputs are empty", () => {
-		const result = buildReorderedIds({ currentIds: [], requestedIds: [] });
-		expect(result).toEqual([]);
-	});
-});
+for (const [issue, references] of [
+	["empty", []],
+	["duplicate", [custom, custom]],
+	["unknown-view", [{ kind: "kernel", slug: "missing" }]],
+	["unknown-view", [{ slug: "same", kind: "plugin", pluginId: PluginId.make("other") }]],
+] satisfies ReadonlyArray<
+	readonly ["empty" | "duplicate" | "unknown-view", ReadonlyArray<SavedViewReference>]
+>) {
+	it.effect(`rejects ${issue}: ${JSON.stringify(references)}`, () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(buildSavedViewReorderPlan(views, references)),
+				new SavedViewBadRequest({ reason: { issue, references, code: "invalid-reorder" } }),
+			);
+		}),
+	);
+}

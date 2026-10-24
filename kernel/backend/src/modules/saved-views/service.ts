@@ -1,8 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import {
-	type SavedViewReference,
-	savedViewReferenceKey,
-} from "@ryot-app/contract/modules/plugins/references";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type CreateSavedViewBody,
 	type ReorderSavedViewsBody,
@@ -28,6 +25,7 @@ import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
 import { validateSavedViewDefinition } from "./definition-validation";
+import { buildSavedViewReorderPlan } from "./reorder";
 import { SavedViewsRepository } from "./repository";
 
 const missing = (reference: SavedViewReference) =>
@@ -306,39 +304,18 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						const pluginInstallationId = payload.installationId
 							? yield* requireInstallation(user.id, payload.installationId)
 							: null;
-						const views = (yield* repository.listByUser(user.id, {
-							includeHidden: true,
-							pluginInstallationId: pluginInstallationId ?? undefined,
-						})).filter((view) => view.pluginInstallationId === pluginInstallationId);
-						const requested = payload.references;
-						const keys = new Set(requested.map(savedViewReferenceKey));
-						const viewKeys = new Set(views.map((view) => savedViewReferenceKey(view.reference)));
-						const invalid = (issue: "empty" | "duplicate" | "unknown-view" | "update-failed") =>
-							new SavedViewBadRequest({
-								reason: { issue, references: requested, code: "invalid-reorder" },
+						const views = yield* repository.listReorderScope(user.id, pluginInstallationId);
+						const plan = yield* buildSavedViewReorderPlan(views, payload.references);
+						if (!(yield* repository.persistReorder(user.id, pluginInstallationId, plan))) {
+							return yield* new SavedViewBadRequest({
+								reason: {
+									issue: "update-failed",
+									code: "invalid-reorder",
+									references: payload.references,
+								},
 							});
-						if (requested.length === 0) {
-							return yield* invalid("empty");
 						}
-						if (keys.size !== requested.length) {
-							return yield* invalid("duplicate");
-						}
-						if (!requested.every((reference) => viewKeys.has(savedViewReferenceKey(reference)))) {
-							return yield* invalid("unknown-view");
-						}
-						const references = [
-							...requested,
-							...views
-								.map((view) => view.reference)
-								.filter((reference) => !keys.has(savedViewReferenceKey(reference))),
-						];
-						if (
-							(yield* repository.reorderByReferences(user.id, pluginInstallationId, references)) !==
-							references.length
-						) {
-							return yield* invalid("update-failed");
-						}
-						return { references };
+						return { references: plan.map((entry) => entry.reference) };
 					}),
 				),
 			);
