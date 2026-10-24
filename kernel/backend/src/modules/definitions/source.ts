@@ -139,6 +139,17 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 	calendarSources: (manifest.calendarSources ?? []).map((definition) =>
 		materializeCalendarSource(definition, pluginId),
 	),
+	providerOperations: manifest.scripts.flatMap((script) =>
+		script.kind === "provider"
+			? [
+					{
+						scriptSlug: script.slug,
+						providerSlug: script.providerSlug,
+						operation: script.providerOperation,
+					},
+				]
+			: [],
+	),
 	importSources: manifest.importSources.map((source) => ({
 		...source,
 		requiredPluginConfigKeys: sourcePlanConfigKeys(manifest, source),
@@ -151,19 +162,6 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 		mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
 		eventSchemas: definition.eventSchemas.map((eventSchema) => ({ ...eventSchema, pluginId })),
 	})),
-	providerOperations: manifest.providers.flatMap((provider) =>
-		Object.entries(provider.operations).flatMap(([operation, scriptSlug]) =>
-			scriptSlug === undefined
-				? []
-				: [
-						{
-							scriptSlug,
-							providerSlug: provider.slug,
-							operation: operation === "searchOptions" ? "search-options" : operation,
-						},
-					],
-		),
-	),
 });
 
 export type RevisionDefinitions = ReturnType<typeof revisionDefinitions>;

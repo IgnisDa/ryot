@@ -217,7 +217,6 @@ const populationLayer = (options: {
 							slug: "person.provider",
 							information: { source: "fixture" },
 							rootEntitySchemaSlug: relatedSchemaSlug,
-							operations: { details: relatedScript.slug },
 						},
 					],
 				},

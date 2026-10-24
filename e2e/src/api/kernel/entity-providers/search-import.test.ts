@@ -116,6 +116,38 @@ beforeAll(() =>
 afterAll(() => runPromise(uninstallTestProvider(companyProvider)));
 
 describe("provider entity search result", () => {
+	it.live("compiles, installs, searches, and imports using generated provider tuples only", () =>
+		Effect.gen(function* () {
+			const declaration = bookProvider.manifest.providers.find(
+				({ slug }) => slug === bookProvider.providerSlug,
+			);
+			assertPresent(declaration, "Expected the installed provider declaration");
+			expect(declaration).not.toHaveProperty("operations");
+			expect(
+				bookProvider.manifest.scripts
+					.flatMap((script) =>
+						script.kind === "provider" && script.providerSlug === bookProvider.providerSlug
+							? [script.providerOperation]
+							: [],
+					)
+					.sort(),
+			).toEqual(["details", "search"]);
+			const search = yield* searchProviderEntities(providerClient, {
+				page: 1,
+				pageSize: 5,
+				query: "test",
+				providerId: bookProvider.providerId,
+			});
+			const result = search.items[0];
+			assertPresent(result, "Expected a provider search result");
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
+				externalId: result.externalId,
+				providerId: bookProvider.providerId,
+			});
+			const imported = yield* pollProviderEntityImportResult(providerClient, jobId);
+			assertCompleted(imported, "generated-provider import");
+		}),
+	);
 	it.live("returns the result from the configured provider", () =>
 		Effect.gen(function* () {
 			const search = yield* searchProviderEntities(providerClient, {

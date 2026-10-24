@@ -479,14 +479,6 @@ export const PluginProvider = strictStruct({
 	name: sandboxManifestString,
 	rootEntitySchemaSlug: Schema.String,
 	information: PluginProviderInformation,
-	operations: strictStruct({
-		details: sandboxManifestSlug,
-		search: Schema.optional(sandboxManifestSlug),
-		related: Schema.optional(sandboxManifestSlug),
-		resolve: Schema.optional(sandboxManifestSlug),
-		translate: Schema.optional(sandboxManifestSlug),
-		searchOptions: Schema.optional(sandboxManifestSlug),
-	}),
 });
 
 export type PluginProvider = Schema.Schema.Type<typeof PluginProvider>;
@@ -1136,10 +1128,7 @@ const hasValidAuthoredPluginManifestReferences = (
 	if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
 		return false;
 	}
-	const assignedScriptSlugs = manifest.providers.flatMap((provider) =>
-		Object.values(provider.operations),
-	);
-	return new Set(assignedScriptSlugs).size === assignedScriptSlugs.length;
+	return true;
 };
 
 export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
@@ -1275,39 +1264,22 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
 
-	const operationAssignments = manifest.providers.flatMap((provider) =>
-		Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
-			scriptSlug,
-			providerSlug: provider.slug,
-			operation: operation === "searchOptions" ? "search-options" : operation,
-		})),
-	);
 	if (
-		new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
-		operationAssignments.length
+		new Set(
+			providerScripts.map(
+				({ providerSlug, providerOperation }) => `${providerSlug}:${providerOperation}`,
+			),
+		).size !== providerScripts.length
 	) {
 		return false;
 	}
 
 	if (
-		operationAssignments.some(({ operation, scriptSlug, providerSlug }) => {
-			const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
-			return (
-				!script || script.providerSlug !== providerSlug || script.providerOperation !== operation
-			);
-		})
-	) {
-		return false;
-	}
-
-	if (
-		providerScripts.some(
-			(script) =>
-				!operationAssignments.some(
-					(assignment) =>
-						assignment.scriptSlug === script.slug &&
-						assignment.providerSlug === script.providerSlug &&
-						assignment.operation === script.providerOperation,
+		manifest.providers.some(
+			(provider) =>
+				!providerScripts.some(
+					(script) =>
+						script.providerSlug === provider.slug && script.providerOperation === "details",
 				),
 		)
 	) {
@@ -1319,10 +1291,10 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 				script.providerOperation === "search" &&
 				script.searchOptionsSchema !== undefined &&
 				Object.values(script.searchOptionsSchema.fields).some(hasDynamicChoices) &&
-				!operationAssignments.some(
-					(assignment) =>
-						assignment.providerSlug === script.providerSlug &&
-						assignment.operation === "search-options",
+				!providerScripts.some(
+					(candidate) =>
+						candidate.providerSlug === script.providerSlug &&
+						candidate.providerOperation === "search-options",
 				),
 		)
 	) {

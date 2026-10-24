@@ -1,3 +1,4 @@
+import type { PluginProviderOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
@@ -21,13 +22,20 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 			db
 				.select({
 					id: tables.sandboxProvider.id,
-					providers: tables.pluginRevision.providers,
 					rootEntitySchemaSlug: tables.sandboxProvider.rootEntitySchemaSlug,
+					declaredRootEntitySchemaSlug: tables.definitionProvider.rootEntitySchemaSlug,
 				})
 				.from(tables.sandboxProvider)
 				.innerJoin(
 					tables.pluginRevision,
 					eq(tables.pluginRevision.pluginId, tables.sandboxProvider.pluginId),
+				)
+				.innerJoin(
+					tables.definitionProvider,
+					and(
+						eq(tables.definitionProvider.pluginRevisionId, tables.pluginRevision.id),
+						eq(tables.definitionProvider.slug, tables.sandboxProvider.slug),
+					),
 				)
 				.where(
 					and(
@@ -38,20 +46,35 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 				)
 				.limit(1),
 		);
-		const declaration = row?.providers.find(({ slug }) => slug === reference.slug);
-		return row && declaration?.rootEntitySchemaSlug === row.rootEntitySchemaSlug
+		return row && row.declaredRootEntitySchemaSlug === row.rootEntitySchemaSlug
 			? { id: SandboxProviderId.make(row.id), rootEntitySchemaSlug: row.rootEntitySchemaSlug }
 			: null;
 	});
-	const findRevisionProviders = Effect.fnUntraced(function* (revisionId: string) {
+	const findRevisionProviderOperation = Effect.fnUntraced(function* (input: {
+		pluginId: string;
+		revisionId: string;
+		providerSlug: string;
+		operation: PluginProviderOperation;
+	}) {
 		const [row] = yield* session.run((db) =>
 			db
-				.select({ providers: tables.pluginRevision.providers })
-				.from(tables.pluginRevision)
-				.where(eq(tables.pluginRevision.id, revisionId))
+				.select({ scriptSlug: tables.definitionProviderOperation.scriptSlug })
+				.from(tables.definitionProviderOperation)
+				.innerJoin(
+					tables.pluginRevision,
+					eq(tables.pluginRevision.id, tables.definitionProviderOperation.pluginRevisionId),
+				)
+				.where(
+					and(
+						eq(tables.pluginRevision.pluginId, input.pluginId),
+						eq(tables.definitionProviderOperation.pluginRevisionId, input.revisionId),
+						eq(tables.definitionProviderOperation.providerSlug, input.providerSlug),
+						eq(tables.definitionProviderOperation.operation, input.operation),
+					),
+				)
 				.limit(1),
 		);
-		return row?.providers;
+		return row?.scriptSlug;
 	});
-	return { findPinnedProvider, findRevisionScript, findRevisionProviders };
+	return { findPinnedProvider, findRevisionScript, findRevisionProviderOperation };
 };

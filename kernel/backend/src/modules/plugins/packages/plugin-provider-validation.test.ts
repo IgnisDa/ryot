@@ -26,32 +26,34 @@ const providerManifest = () => {
 				name: "Fixture provider",
 				slug: "fixture-provider",
 				information: { source: "fixture" },
-				operations: { details: details.slug },
 				rootEntitySchemaSlug: "fixture-entity",
 			},
 		],
 	};
 };
 
-it.effect("accepts explicit providers and operation mappings", () =>
+it.effect("accepts descriptive providers and generated operation bindings", () =>
 	Effect.gen(function* () {
 		const decoded = yield* decodePluginManifest(providerManifest());
 		expect(decoded.providers[0]).toMatchObject({
 			slug: "fixture-provider",
-			operations: { details: "fixture.details" },
+			rootEntitySchemaSlug: "fixture-entity",
 		});
 	}),
 );
 
 it.effect(
-	"rejects missing providers and invalid operation mappings through the manifest schema",
+	"rejects unknown providers, missing details, and duplicate generated operation tuples",
 	() => {
 		const manifest = providerManifest();
 		const provider = manifest.providers[0];
 		assert(provider);
+		const details = manifest.scripts.find((script) => script.kind === "provider");
+		assert(details);
 		const cases = [
 			{ ...manifest, providers: [] },
-			{ ...manifest, providers: [{ ...provider, operations: { details: "fixture.automation" } }] },
+			{ ...manifest, scripts: manifest.scripts.filter(({ slug }) => slug !== details.slug) },
+			{ ...manifest, scripts: [...manifest.scripts, { ...details, slug: "duplicate.details" }] },
 		];
 		return Effect.forEach(cases, (candidate) =>
 			Effect.gen(function* () {

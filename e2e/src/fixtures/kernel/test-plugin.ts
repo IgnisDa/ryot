@@ -511,9 +511,13 @@ export const installTestPluginBundle = (
 			);
 		}
 		const scriptIds = operationScriptIds(operationResult);
-		const scriptId =
-			scriptIds[input.providers?.[0]?.operations.details ?? ""] ??
-			scriptIds[input.scripts[0]?.slug ?? ""];
+		const details = manifest.scripts.find(
+			(script) =>
+				script.kind === "provider" &&
+				script.providerOperation === "details" &&
+				script.providerSlug === input.providers?.[0]?.slug,
+		);
+		const scriptId = scriptIds[details?.slug ?? ""] ?? scriptIds[input.scripts[0]?.slug ?? ""];
 		if (!scriptId) {
 			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}

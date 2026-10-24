@@ -123,8 +123,12 @@ build-derived script metadata. There are no driver maps or runtime kind selectio
 | `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
 | `provider`   | `defineProvider`         | One logical provider operation                                  |
 
-A logical provider requires `details` and may declare `search`, `related`, `resolve`, and `translate`,
-each as a separate provider script. `rootEntitySchemaSlug` may reference an entity schema from the same plugin.
+A logical provider requires `details` and may declare `search`, `search-options`, `related`, `resolve`,
+and `translate`, each as a separate provider script. Generated `providerSlug`/`providerOperation`
+script tuples are the sole operation bindings. Each tuple must be unique and reference a declared
+provider. Dynamic choices in a search schema require that provider's `search-options` script.
+Authored and archive `providers` contain only descriptive metadata, including `rootEntitySchemaSlug`,
+which references an entity schema from the same plugin; they contain no operation map.
 User-effective provider and schema resolution includes ready private installations only for their
 owner; APIs without user context resolve system definitions only. Persisted provenance uses stable
 plugin ID, not installation ID.
@@ -159,7 +163,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `configSchema`         | Plugin-owned environment configuration                                  |
 | `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |
-| `providers`            | Logical providers mapped to provider-operation scripts                  |
+| `providers`            | Logical provider names, information, and root entity schemas            |
 | `workflows`            | Public workflow slugs                                                   |
 | `operations`           | Public user- or integration-authenticated operations                    |
 | `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins            |

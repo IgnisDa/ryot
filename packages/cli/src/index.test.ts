@@ -59,6 +59,63 @@ const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean,
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
+	test.effect("discovers provider bindings without an authored operation map", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const original = yield* fs.readFileString(manifestPath);
+			const authored = original
+				.replace(
+					"providers: []",
+					'providers: [{ slug: "catalog.remote", name: "Remote", rootEntitySchemaSlug: "record", information: { source: "remote" } }]',
+				)
+				.replace(
+					"entitySchemas: []",
+					'entitySchemas: [{ slug: "record", name: "Record", icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
+				);
+			yield* fs.writeFileString(manifestPath, authored);
+			const providerRoot = path.join(plugin, "backend/providers/catalog/remote");
+			yield* fs.makeDirectory(providerRoot, { recursive: true });
+			for (const operation of ["details", "search"] as const) {
+				yield* fs.writeFileString(
+					path.join(providerRoot, `${operation}.sandbox.ts`),
+					`
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({ kind: "provider", slug: "custom.${operation}", name: "Remote ${operation}" });
+export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.succeed(${operation === "details" ? '{ name: "Record", properties: {} }' : "{ items: [] }"}) });
+`,
+				);
+			}
+			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+			const archivePath = path.join(plugin, "dist", archiveName);
+			const bytes = yield* fs.readFile(archivePath);
+			const archive = yield* readPluginArchive(bytes);
+			expect(archive.manifest.providers).toEqual([
+				{
+					name: "Remote",
+					slug: "catalog.remote",
+					rootEntitySchemaSlug: "record",
+					information: { source: "remote" },
+				},
+			]);
+			expect(archive.manifest.scripts.filter(({ kind }) => kind === "provider")).toMatchObject([
+				{ slug: "custom.details", providerOperation: "details", providerSlug: "catalog.remote" },
+				{ slug: "custom.search", providerOperation: "search", providerSlug: "catalog.remote" },
+			]);
+			yield* fs.remove(path.join(providerRoot, "details.sandbox.ts"));
+			const missingDetails = yield* run(plugin, ["plugin", "build"]);
+			expect(missingDetails.exitCode).not.toBe(0);
+			expect(missingDetails.stdout + missingDetails.stderr).toContain(
+				"Expected valid plugin config, provider, and script references",
+			);
+			expect(yield* fs.readFile(archivePath)).toEqual(bytes);
+		}),
+	);
 	test.effect("keeps package outputs independent", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

@@ -479,6 +479,14 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 	return installTestPluginBundle({
 		scope: "system",
 		workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+		providers: [
+			{
+				slug: providerSlug,
+				information: { source: "e2e" },
+				rootEntitySchemaSlug: entitySchemaSlug,
+				name: "E2E partial-result cancellation provider",
+			},
+		],
 		entitySchemas: [
 			{
 				icon: "file",
@@ -503,15 +511,6 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 			[chunkEntry]: partialResultCancellationChunkSource(chunkScriptSlug, items),
 			[workflowEntry]: partialResultCancellationWorkflowSource(workflowScriptSlug, chunkScriptSlug),
 		},
-		providers: [
-			{
-				slug: providerSlug,
-				information: { source: "e2e" },
-				rootEntitySchemaSlug: entitySchemaSlug,
-				name: "E2E partial-result cancellation provider",
-				operations: { details: detailsScriptSlug, resolve: resolveScriptSlug },
-			},
-		],
 		scripts: [
 			{
 				kind: "workflow",

@@ -195,16 +195,6 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 		slug: providerSlug,
 		rootEntitySchemaSlug: input.rootEntitySchemaSlug,
 		information: input.information ?? { source: "e2e" },
-		operations: {
-			details: `${providerSlug}.details`,
-			...(input.search ? { search: `${providerSlug}.search` } : {}),
-			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
-			...(input.relatedPages ? { related: `${providerSlug}.related` } : {}),
-			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
-			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
-				? { searchOptions: `${providerSlug}.search-options` }
-				: {}),
-		},
 	};
 	return { files, scripts, provider };
 };

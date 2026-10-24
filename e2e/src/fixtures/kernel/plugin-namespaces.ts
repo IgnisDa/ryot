@@ -508,6 +508,20 @@ const namespacePackage = (input: {
 				dataSources: namespaceBottlesRecipe({ reference: { kind: "self" } }).document,
 			},
 		],
+		providers: [
+			{
+				name: "Catalog",
+				slug: "catalog",
+				rootEntitySchemaSlug: "bottle",
+				information: { source: "offline" },
+			},
+			{
+				name: "Distillery",
+				slug: "distillery",
+				rootEntitySchemaSlug: "distillery",
+				information: { source: "offline" },
+			},
+		],
 		integrationProviders: [
 			{
 				lot: "push",
@@ -561,22 +575,6 @@ const namespacePackage = (input: {
 				sourceEntitySchemaSlug: "bottle",
 				propertiesSchema: { fields: {} },
 				targetEntitySchemaSlug: "distillery",
-			},
-		],
-		providers: [
-			{
-				name: "Catalog",
-				slug: "catalog",
-				rootEntitySchemaSlug: "bottle",
-				information: { source: "offline" },
-				operations: { details: "catalog.details" },
-			},
-			{
-				name: "Distillery",
-				slug: "distillery",
-				rootEntitySchemaSlug: "distillery",
-				information: { source: "offline" },
-				operations: { details: "distillery.details" },
 			},
 		],
 		clientDefinition: {

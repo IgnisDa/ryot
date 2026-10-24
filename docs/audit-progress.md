@@ -15,7 +15,7 @@
 
 ## Status
 
-**46 implemented, 0 in progress, 37 pending; 3 excluded.**
+**47 implemented, 0 in progress, 36 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -48,7 +48,7 @@
 | B16-R1 | Implemented | Use relational execution and retention references with snapshot JSON; derive execution user from scope and preserve retention/replay. See this finding's audit commit. |
 | B16-R2 | Implemented | Predecode candidate rows in bounded chunks of 1,000 before inserting them. See this finding's audit commit. |
 | B06-R1 | Pending | Materialize distinct pins and accepted automation runs as sets. |
-| P01-R1 | Pending | Generated provider metadata owns script/operation bindings. |
+| P01-R1 | Implemented | Generated provider tuples are the sole script/operation bindings, scoped to active or retained revisions. See this finding's audit commit. |
 | B09-R1 | Pending | Persist collection fields in authored order. |
 | F04-R2 | Pending | Address complete measurement entries for edits and deletes. |
 | B28-R1 | Pending | Derive ingestion identity projections from JSON. |
@@ -211,3 +211,4 @@
 - M02-R1: media type, format, and lint checks passed before 28 tests across six files; read-only review passed. Decoded Trakt records are processed directly without a synthetic ZIP round trip.
 - S03-R2: native format/clippy and fixture checks passed; 73 native tests passed with one ignored, plus seven TypeScript tests. Earlier timing-sensitive attempts were followed by a full pass without code changes; read-only review passed. Linux-only validation was not run on macOS.
 - S01-R1: host and backend checks passed before 16 host and 14 backend tests; read-only review passed. Validated bytes are stored directly without temporary-file writes or reads.
+- P01-R1: eight checks passed before 181 tests across 14 files; archives were rebuilt and read-only review passed. E2E source was not run. Only provider-operation hunks were staged from the shared Fitness manifest test; its F04 measurement assertion remains unstaged.

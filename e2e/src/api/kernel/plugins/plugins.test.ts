@@ -219,7 +219,6 @@ export default defineAutomation({
 							information: { source: "e2e" },
 							name: "E2E Lifecycle Provider",
 							rootEntitySchemaSlug: schemaSlug,
-							operations: { search: searchSlug, details: detailsSlug },
 						},
 					],
 					hooks: [

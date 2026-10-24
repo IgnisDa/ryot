@@ -95,12 +95,8 @@ const providerScript = (
 	entry: `backend/${providerSlug}-${providerOperation}.sandbox.ts`,
 });
 
-const multiProvider = (
-	slug: string,
-	operations: PluginManifest["providers"][number]["operations"],
-) => ({
+const multiProvider = (slug: string) => ({
 	slug,
-	operations,
 	name: slug,
 	information: { source: "fixture" },
 	rootEntitySchemaSlug: "multi-entity",
@@ -115,15 +111,9 @@ const multiProviderPackage = (
 	const manifest: PluginManifest = {
 		...value.manifest,
 		providers: [
-			multiProvider("multi-provider", {
-				search: "multi-provider.search",
-				details: "multi-provider.details",
-				resolve: "multi-provider.resolve",
-				translate: "multi-provider.translate",
-				searchOptions: "multi-provider.search-options",
-			}),
-			multiProvider("multi-second", { details: "multi-second.details" }),
-			...(retired ? [multiProvider("multi-retired", { details: "multi-retired.details" })] : []),
+			multiProvider("multi-provider"),
+			multiProvider("multi-second"),
+			...(retired ? [multiProvider("multi-retired")] : []),
 		],
 		scripts: [
 			...value.manifest.scripts.filter(({ kind }) => kind !== "provider"),

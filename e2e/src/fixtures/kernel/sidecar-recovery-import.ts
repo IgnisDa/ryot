@@ -83,6 +83,14 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 			scope: "user",
 			pluginSlug: `sidecar-recovery-import-${suffix}`,
 			workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+			providers: [
+				{
+					slug: providerSlug,
+					information: { source: "e2e" },
+					name: "Sidecar recovery provider",
+					rootEntitySchemaSlug: entitySchemaSlug,
+				},
+			],
 			entitySchemas: [
 				{
 					icon: "file",
@@ -90,15 +98,6 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 					slug: entitySchemaSlug,
 					name: "Sidecar recovery record",
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
-				},
-			],
-			providers: [
-				{
-					slug: providerSlug,
-					information: { source: "e2e" },
-					name: "Sidecar recovery provider",
-					rootEntitySchemaSlug: entitySchemaSlug,
-					operations: { details: detailsSlug, resolve: resolveSlug },
 				},
 			],
 			importSources: [

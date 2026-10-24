@@ -1,5 +1,13 @@
 # Provider entities
 
+## Operation bindings
+
+Generated provider scripts supply each `providerSlug`/`providerOperation` tuple. Ingestion persists
+these in `definition_provider_operation` for the exact revision. Provider declarations contain only
+descriptive metadata. Active dispatch selects the active revision's tuple; admitted population and
+resolve work select the retained principal's revision and owner. Neither path falls back to another
+revision or another provider when an operation is absent.
+
 ## Import admission
 
 `POST /entity-providers/imports` does not start a workflow. It writes a `queued` row to
