@@ -228,7 +228,6 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 
 			const touch = Effect.fn("EventStreamRepository.touch")(function* (
 				keys: ReadonlyArray<StreamTouch>,
-				ownerWorkId?: string,
 			) {
 				yield* requireTransaction;
 				const occurredAtById = new Map<string, { readonly key: StreamKey; occurredAt: Date }>();
@@ -250,9 +249,6 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				const workById = new Map(workRows.map((work) => [work.id, work]));
 
 				for (const stream of streams) {
-					if (ownerWorkId === stream.id) {
-						continue;
-					}
 					const work = workById.get(stream.id);
 					if (!work) {
 						continue;

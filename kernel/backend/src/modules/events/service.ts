@@ -1338,9 +1338,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					draft: prepared.draft,
 					expectedRevision: prepared.expectedRevision,
 					updatedAt: DateTime.toDate(DateTime.makeUnsafe(prepared.command.occurredAt)),
-					...(prepared.command.causation.eventStreamWorkId === undefined
-						? {}
-						: { ownerWorkId: prepared.command.causation.eventStreamWorkId }),
 				});
 				if (!updated) {
 					return yield* new EventStale({
@@ -1363,9 +1360,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				const deleted = yield* repository.deletePreparedEvent({
 					...prepared.input,
 					expectedRevision: prepared.expectedRevision,
-					...(prepared.command.causation.eventStreamWorkId === undefined
-						? {}
-						: { ownerWorkId: prepared.command.causation.eventStreamWorkId }),
 				});
 				if (!deleted) {
 					return yield* new EventStale({
