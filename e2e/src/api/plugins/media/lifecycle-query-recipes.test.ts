@@ -49,6 +49,7 @@ import {
 	seedShow,
 	seedShowEpisode,
 	triggerCronAndWaitForEntity,
+	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -201,6 +202,7 @@ const assertEpisodicState = (
 	expected: LifecycleState,
 ) =>
 	Effect.gen(function* () {
+		yield* waitForLibrarySummary(client, entityId);
 		const reference = yield* localReferenceForEntity(client, entityId);
 		const results = yield* Effect.all(
 			lifecycleStates.map((state) =>
@@ -1292,6 +1294,10 @@ describe("Media lifecycle list recipes", () => {
 				"2026-06-03T02:00:00.000Z",
 			);
 
+			yield* Effect.all([
+				waitForLibrarySummary(client, show.id),
+				waitForLibrarySummary(client, podcast.id),
+			]);
 			const shows = yield* executeRyotQLRecipe(
 				client,
 				episodicByLifecycleStateRecipe({
@@ -1333,6 +1339,7 @@ describe("Media lifecycle list recipes", () => {
 				occurredAt: "2026-06-03T03:00:00.000Z",
 				eventSchemaSlug: schemas.showEvents.backlog,
 			});
+			yield* waitForLibrarySummary(client, show.id);
 			const backlog = yield* executeRyotQLRecipe(
 				client,
 				episodicByLifecycleStateRecipe({
@@ -1382,6 +1389,7 @@ describe("Media lifecycle list recipes", () => {
 				expect(result.summary).toMatchObject({ state: "in_progress" });
 				expect(result.summary.progressPercent).toBeCloseTo(42.86, 2);
 
+				yield* waitForLibrarySummary(client, anime.id);
 				const inProgress = yield* executeRyotQLRecipe(
 					client,
 					flatByLifecycleStateRecipe({ limit: 20, reference, states: ["in_progress"] }),
@@ -1436,6 +1444,9 @@ describe("Media lifecycle list recipes", () => {
 				eventSchemaSlug: schemas.movieEvents.backlog,
 			});
 
+			yield* Effect.all(
+				[movie, anime, backlogged].map(({ id }) => waitForLibrarySummary(client, id)),
+			);
 			const inProgress = yield* executeRyotQLRecipe(
 				client,
 				flatByLifecycleStateRecipe({

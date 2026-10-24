@@ -5,3 +5,4 @@ export * from "./translations";
 export * from "./entity-schemas";
 export * from "./media-monitoring";
 export * from "./operational-gate";
+export * from "./library-summary";

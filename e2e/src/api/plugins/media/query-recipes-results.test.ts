@@ -32,6 +32,7 @@ import {
 	seedMediaEntity,
 	seedPodcast,
 	seedShow,
+	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { assertPresent } from "~/support/assertions";
@@ -854,6 +855,7 @@ describe("Media RyotQL query recipe results", () => {
 			] as const;
 			const assertPodcastState = (expectedState: (typeof lifecycleStates)[number]) =>
 				Effect.gen(function* () {
+					yield* waitForLibrarySummary(client, seeded.podcast.id);
 					const responses = yield* Effect.all(
 						lifecycleStates.map((state) =>
 							executeRyotQLRecipe(

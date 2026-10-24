@@ -197,6 +197,10 @@ Include custom titles, people, companies, and media groups. Verify Fitness and c
 produce no Media library event. An interrupted restart must backfill an absent event for an existing
 relationship, leave existing annotations unchanged, and preserve event counts and IDs on later runs.
 
+After normal startup, wait for every `in-media-library` relationship's `projectionStatus` to read
+`ready`, then compare each stored library summary with the Media library summary computed live from
+the user's history, including shows with specials, rewatch cycles, and list-state snapshots.
+
 For workout completions, compare every legacy workout with exactly one `workout-completed` event
 of the same owner and entity, with its original name, finish time, and Fitness plugin provenance.
 Verify events are sessionless and templates receive none. With legacy tables present and the

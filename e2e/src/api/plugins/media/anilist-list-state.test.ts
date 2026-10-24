@@ -18,6 +18,7 @@ import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	seedMediaEntity,
+	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -144,6 +145,10 @@ describe("AniList list-state media queries", () => {
 
 				const animeSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(animeSummary).toMatchObject({ state: "in_progress", progressPercent: null });
+				yield* Effect.all([
+					waitForLibrarySummary(client, anime.id),
+					waitForLibrarySummary(client, manga.id),
+				]);
 				const initialFlat = yield* executeRyotQLRecipe(
 					client,
 					flatByLifecycleStateRecipe({
@@ -173,6 +178,7 @@ describe("AniList list-state media queries", () => {
 					state: "on_hold",
 					progressPercent: null,
 				});
+				yield* waitForLibrarySummary(client, anime.id);
 				const heldFlat = yield* executeRyotQLRecipe(
 					client,
 					flatByLifecycleStateRecipe({ limit: 20, states: ["on_hold"], reference: animeReference }),
@@ -191,6 +197,7 @@ describe("AniList list-state media queries", () => {
 				});
 				const resumedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(resumedSummary).toMatchObject({ progressPercent: 25, state: "in_progress" });
+				yield* waitForLibrarySummary(client, anime.id);
 				const resumedFlat = yield* executeRyotQLRecipe(
 					client,
 					flatByLifecycleStateRecipe({
@@ -219,6 +226,7 @@ describe("AniList list-state media queries", () => {
 				});
 				const completedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(completedSummary).toMatchObject({ state: "complete", progressPercent: null });
+				yield* waitForLibrarySummary(client, anime.id);
 				const completedFlat = yield* executeRyotQLRecipe(
 					client,
 					flatByLifecycleStateRecipe({
