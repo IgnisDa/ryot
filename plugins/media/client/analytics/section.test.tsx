@@ -10,6 +10,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, useState } from "react";
 
@@ -19,7 +20,7 @@ import MediaAnalyticsSection from "./section";
 afterEach(disposePluginBridges);
 
 const scopeFor = (pluginId = "media-owner"): AnalyticsSectionProps => ({
-	timeZone: "UTC",
+	timeZone: TimeZone.make("UTC"),
 	owner: { kind: "local", pluginId: PluginId.make(pluginId) },
 	selection: { grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
 });
@@ -47,7 +48,7 @@ function AnalyticsHost() {
 				onClick={() =>
 					setScope((current) => ({
 						...current,
-						timeZone: "America/Los_Angeles",
+						timeZone: TimeZone.make("America/Los_Angeles"),
 						selection: {
 							grouping: "week",
 							comparison: "none",

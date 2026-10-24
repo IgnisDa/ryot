@@ -9,6 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
@@ -34,7 +35,7 @@ const selection = {
 } as const;
 const makeInput = (
 	owner = "media-owner",
-	timeZone = "America/New_York",
+	timeZone = TimeZone.make("America/New_York"),
 	selected: AnalyticsInput["selection"] = selection,
 ): AnalyticsInput => ({
 	timeZone,
@@ -462,7 +463,7 @@ describe("Media analytics rankings", () => {
 								type="button"
 								onClick={() =>
 									setInput(
-										makeInput("media-next", "Europe/Paris", {
+										makeInput("media-next", TimeZone.make("Europe/Paris"), {
 											grouping: "day",
 											comparison: "none",
 											range: { kind: "custom", endDate: "2026-09-03", startDate: "2026-09-01" },

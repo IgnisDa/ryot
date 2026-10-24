@@ -10,6 +10,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
@@ -45,7 +46,7 @@ const aggregate = (
 const inputFor = (selection: AnalyticsInput["selection"]): AnalyticsInput => ({
 	selection,
 	reference: owner,
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 });
 
 const reportFor = (input: AnalyticsInput, processing: "ready" | "failed" | "pending" = "ready") => {

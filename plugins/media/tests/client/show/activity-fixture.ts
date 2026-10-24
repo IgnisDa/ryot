@@ -1,10 +1,10 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
 const showActivityFixtureRecipe = showRecipes.activityRecipe({
-	timeZone: "UTC",
 	coverageLimit: 100,
 	entityId: "show-1",
 	watchDayLimit: 1000,
@@ -13,6 +13,7 @@ const showActivityFixtureRecipe = showRecipes.activityRecipe({
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
 	reference: { kind: "self" },
+	timeZone: TimeZone.make("UTC"),
 });
 
 const emptyEventProperties = {

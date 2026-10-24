@@ -1,4 +1,4 @@
-import { DateTime, Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	castBoolean,
@@ -25,7 +25,12 @@ import {
 	selectedMeasure,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference, ReportingPeriod } from "@ryot-app/plugin-kit/schema";
+import {
+	localDateOf,
+	type PluginIdentityReference,
+	type ReportingPeriod,
+	type TimeZone,
+} from "@ryot-app/plugin-kit/schema";
 
 import { consumptionEventSlugs, consumptionProcessingState } from "./consumption-projection";
 import {
@@ -91,7 +96,7 @@ export const consumptionDailySelection = (
 		readonly joins: readonly ReturnType<typeof join>[];
 	},
 	kind: "date" | "instant",
-	input: { readonly timeZone: string; readonly period: null | ReportingPeriod },
+	input: { readonly timeZone: TimeZone; readonly period: null | ReportingPeriod },
 ) =>
 	selectedAggregate(source.event, {
 		limit: DAY_LIMIT,
@@ -120,16 +125,14 @@ export const mediaActivityRecipe = defineRecipe(
 	(input: {
 		readonly from: string;
 		readonly until: string;
-		readonly timeZone: string;
+		readonly timeZone: TimeZone;
 		readonly reference: PluginIdentityReference;
 	}) => {
-		const localDate = (instant: string) =>
-			DateTime.formatIsoDate(DateTime.makeZonedUnsafe(instant, { timeZone: input.timeZone }));
 		const period = {
 			endAt: input.until,
 			startAt: input.from,
-			startDate: localDate(input.from),
-			endDate: localDate(new Date(Date.parse(input.until) - 1).toISOString()),
+			startDate: localDateOf(input.from, input.timeZone),
+			endDate: localDateOf(Date.parse(input.until) - 1, input.timeZone),
 		};
 		const scoped = (alias: string, eventSlugs: readonly string[]) => {
 			const event = table("event", `${alias}Event`);
@@ -158,7 +161,10 @@ export const mediaActivityRecipe = defineRecipe(
 			map: ({ mediaTypes, days: dayRows, dates: dateRows, figures: totals }) => {
 				const counts = new Map<string, number>();
 				for (const row of [
-					...dayRows.items.map((bucket) => ({ events: bucket.events, day: localDate(bucket.day) })),
+					...dayRows.items.map((bucket) => ({
+						events: bucket.events,
+						day: localDateOf(bucket.day, input.timeZone),
+					})),
 					...dateRows.items,
 				]) {
 					counts.set(row.day, (counts.get(row.day) ?? 0) + row.events);

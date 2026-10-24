@@ -2,13 +2,13 @@ import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";
 
 const ACTIVITY_INPUT = {
-	timeZone: "UTC",
 	coverageLimit: 50,
 	watchDayLimit: 500,
 	entityId: "parent-1",
@@ -16,6 +16,7 @@ const ACTIVITY_INPUT = {
 	episodeEventLimit: 100,
 	collectionEventLimit: 40,
 	episodeProgressLimit: 100,
+	timeZone: TimeZone.make("UTC"),
 };
 
 describe("episodic lifecycle documents", () => {

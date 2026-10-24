@@ -3,14 +3,15 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { mediaActivityRecipe } from "./activity-recipes";
 
 const INPUT = {
-	timeZone: "Asia/Kolkata",
 	from: "2025-09-28T18:30:00.000Z",
 	until: "2026-09-25T18:30:00.000Z",
+	timeZone: TimeZone.make("Asia/Kolkata"),
 };
 
 describe("media activity recipe", () => {

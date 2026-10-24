@@ -12,7 +12,7 @@ import {
 	localDate,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { resolveReportingSelection } from "@ryot-app/plugin-kit/schema";
+import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { Effect } from "effect";
 
 import { mediaActivityRecipe } from "./activity-recipes";
@@ -35,8 +35,8 @@ import {
 
 const input = {
 	reference: { kind: "self" },
-	timeZone: "America/New_York",
 	now: Date.parse("2026-10-29T12:00:00Z"),
+	timeZone: TimeZone.make("America/New_York"),
 	selection: {
 		grouping: "day",
 		comparison: "previous-period",
@@ -150,10 +150,10 @@ describe("supplemental Media analytics recipes", () => {
 				expect(yield* documentHash(report.document)).toBe(hashes[index]);
 			}
 			const activity = mediaActivityRecipe({
-				timeZone: "Asia/Kolkata",
 				reference: input.reference,
 				from: "2025-09-28T18:30:00.000Z",
 				until: "2026-09-25T18:30:00.000Z",
+				timeZone: TimeZone.make("Asia/Kolkata"),
 			});
 			expect(yield* documentHash(activity.document)).toBe(
 				"efb78bd59c425b826864ce720697881fceb086f6ce3c5d3e25bb8b7ccc56c7b8",

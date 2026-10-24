@@ -1,7 +1,14 @@
 import {
+	addCalendarDays,
+	addCalendarUnits,
 	type AnalyticsSectionProps,
+	calendarDaysBetween,
+	calendarPeriod,
+	localDateOf,
 	type ReportingSelection,
 	resolveReportingSelection,
+	startOfCalendarUnit,
+	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
@@ -16,7 +23,6 @@ import {
 	type mediaAnalyticsRecordsRecipe,
 	type mediaAnalyticsStatsRecipe,
 	type mediaAnalyticsTrendRecipe,
-	type MediaAnalyticsWindow,
 	resolveMediaAnalyticsPeriods,
 } from "../../shared/analytics-recipes";
 import type { ConsumptionMeasureUnit } from "../../shared/consumption-allocation";
@@ -87,7 +93,7 @@ export const reportingExecution = (input: AnalyticsInput, now: number): Reportin
 		now,
 		resolved,
 		originalSelection: input.selection,
-		anchorDate: resolved.current?.endDate ?? zonedDate(now, input.timeZone),
+		anchorDate: resolved.current?.endDate ?? localDateOf(now, input.timeZone),
 		selection: selectionForPeriod(
 			{ ...input.selection, grouping: resolved.grouping },
 			resolved.current,
@@ -121,7 +127,7 @@ export const calendarReportingExecution = (
 		now,
 		resolved,
 		originalSelection: input.selection,
-		anchorDate: anchorDate ?? resolved.current?.endDate ?? zonedDate(now, input.timeZone),
+		anchorDate: anchorDate ?? resolved.current?.endDate ?? localDateOf(now, input.timeZone),
 		selection: selectionForPeriod(
 			{ ...input.selection, grouping: resolved.grouping },
 			resolved.current,
@@ -221,40 +227,6 @@ export const displayMediaType = (slug: string) => {
 	return slug === "podcast-episode" ? "podcast" : slug;
 };
 
-const dateValue = (date: string) => Date.parse(`${date}T00:00:00Z`);
-export const addCalendarDays = (date: string, count: number) =>
-	new Date(dateValue(date) + count * 86_400_000).toISOString().slice(0, 10);
-const zonedDate = (at: number, timeZone: string) => {
-	const parts = new Intl.DateTimeFormat("en-CA", {
-		timeZone,
-		day: "2-digit",
-		year: "numeric",
-		month: "2-digit",
-	}).formatToParts(at);
-	return `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}-${parts.find((part) => part.type === "day")?.value}`;
-};
-export const bucketDate = (date: string, grouping: ReportingGrouping) => {
-	if (grouping === "year") {
-		return `${date.slice(0, 4)}-01-01`;
-	}
-	if (grouping === "month") {
-		return `${date.slice(0, 7)}-01`;
-	}
-	return grouping === "week"
-		? addCalendarDays(date, -((new Date(dateValue(date)).getUTCDay() + 6) % 7))
-		: date;
-};
-export const advanceBucket = (date: string, grouping: ReportingGrouping, count: number) => {
-	const next = new Date(dateValue(date));
-	if (grouping === "year") {
-		next.setUTCFullYear(next.getUTCFullYear() + count);
-	} else if (grouping === "month") {
-		next.setUTCMonth(next.getUTCMonth() + count);
-	} else {
-		next.setUTCDate(next.getUTCDate() + count * (grouping === "week" ? 7 : 1));
-	}
-	return next.toISOString().slice(0, 10);
-};
 const bucketDistance = (from: string, until: string, grouping: ReportingGrouping) => {
 	if (grouping === "year") {
 		return Number(until.slice(0, 4)) - Number(from.slice(0, 4));
@@ -266,19 +238,7 @@ const bucketDistance = (from: string, until: string, grouping: ReportingGrouping
 			Number(from.slice(5, 7))
 		);
 	}
-	return Math.round(
-		(dateValue(until) - dateValue(from)) / (86_400_000 * (grouping === "week" ? 7 : 1)),
-	);
-};
-export const calendarPeriod = (window: MediaAnalyticsWindow, timeZone: string): ReportingPeriod => {
-	const period = resolveReportingSelection(
-		{ grouping: "day", comparison: "none", range: { kind: "custom", ...window } },
-		{ timeZone, now: dateValue(window.startDate) },
-	).current;
-	if (period === null) {
-		throw new Error("A calendar window must resolve a period");
-	}
-	return period;
+	return Math.round(calendarDaysBetween(from, until) / (grouping === "week" ? 7 : 1));
 };
 export type AnalyticsWindow = {
 	readonly period: ReportingPeriod;
@@ -297,17 +257,17 @@ export const analyticsWindow = (
 	const last = range?.endDate ?? reporting.anchorDate;
 	const cursor = endCursor === undefined || endCursor > last ? last : endCursor;
 	const endDate = range !== null && cursor < range.startDate ? range.startDate : cursor;
-	const first = advanceBucket(bucketDate(endDate, grouping), grouping, -(limit - 1));
+	const first = addCalendarUnits(startOfCalendarUnit(endDate, grouping), grouping, -(limit - 1));
 	const startDate = range !== null && range.startDate > first ? range.startDate : first;
 	const nextEnd = addCalendarDays(
-		advanceBucket(bucketDate(endDate, grouping), grouping, limit + 1),
+		addCalendarUnits(startOfCalendarUnit(endDate, grouping), grouping, limit + 1),
 		-1,
 	);
 	const nextCursor = nextEnd > last ? last : nextEnd;
 	return {
 		grouping,
 		nextCursor: endDate >= last ? null : nextCursor,
-		period: calendarPeriod({ endDate, startDate }, reporting.resolved.timeZone),
+		period: calendarPeriod(startDate, endDate, reporting.resolved.timeZone),
 		previousCursor:
 			range !== null && startDate <= range.startDate ? null : addCalendarDays(startDate, -1),
 	};
@@ -323,31 +283,33 @@ export const comparisonWindow = (
 	}
 	const grouping = window.grouping;
 	const offset = bucketDistance(
-		bucketDate(current.startDate, grouping),
-		bucketDate(window.period.startDate, grouping),
+		startOfCalendarUnit(current.startDate, grouping),
+		startOfCalendarUnit(window.period.startDate, grouping),
 		grouping,
 	);
-	const start = advanceBucket(bucketDate(previous.startDate, grouping), grouping, offset);
+	const start = addCalendarUnits(
+		startOfCalendarUnit(previous.startDate, grouping),
+		grouping,
+		offset,
+	);
 	if (start > previous.endDate) {
 		return null;
 	}
 	const count =
 		bucketDistance(
-			bucketDate(window.period.startDate, grouping),
-			bucketDate(window.period.endDate, grouping),
+			startOfCalendarUnit(window.period.startDate, grouping),
+			startOfCalendarUnit(window.period.endDate, grouping),
 			grouping,
 		) + 1;
-	const bound = addCalendarDays(advanceBucket(start, grouping, 32), -1);
+	const bound = addCalendarDays(addCalendarUnits(start, grouping, 32), -1);
 	const alignedEnd =
 		window.period.endDate === current.endDate
 			? previous.endDate
-			: addCalendarDays(advanceBucket(start, grouping, count), -1);
+			: addCalendarDays(addCalendarUnits(start, grouping, count), -1);
 	const end = alignedEnd > bound ? bound : alignedEnd;
 	return calendarPeriod(
-		{
-			endDate: end > previous.endDate ? previous.endDate : end,
-			startDate: start < previous.startDate ? previous.startDate : start,
-		},
+		start < previous.startDate ? previous.startDate : start,
+		end > previous.endDate ? previous.endDate : end,
 		reporting.resolved.timeZone,
 	);
 };
@@ -366,7 +328,8 @@ export const extraPreviousWindow = (
 		return null;
 	}
 	return calendarPeriod(
-		{ endDate: previous.endDate, startDate: addCalendarDays(previousWindow.endDate, 1) },
+		addCalendarDays(previousWindow.endDate, 1),
+		previous.endDate,
 		reporting.resolved.timeZone,
 	);
 };
@@ -535,22 +498,20 @@ export const trendGrid = (
 	trend: MediaAnalyticsTrend,
 	metric: MediaAnalyticsMetric,
 	processing: MediaConsumptionReport["processing"],
-	timeZone: string,
+	timeZone: TimeZone,
 	mediaType?: string,
 ) => {
 	const buckets = [];
 	const partial = trend.pageInfo?.hasMore ?? false;
 	for (
-		let date = bucketDate(trend.period.startDate, trend.grouping);
+		let date = startOfCalendarUnit(trend.period.startDate, trend.grouping);
 		date <= trend.period.endDate;
-		date = advanceBucket(date, trend.grouping, 1)
+		date = addCalendarUnits(date, trend.grouping, 1)
 	) {
-		const endDate = addCalendarDays(advanceBucket(date, trend.grouping, 1), -1);
+		const endDate = addCalendarDays(addCalendarUnits(date, trend.grouping, 1), -1);
 		const period = calendarPeriod(
-			{
-				startDate: date < trend.period.startDate ? trend.period.startDate : date,
-				endDate: endDate > trend.period.endDate ? trend.period.endDate : endDate,
-			},
+			date < trend.period.startDate ? trend.period.startDate : date,
+			endDate > trend.period.endDate ? trend.period.endDate : endDate,
 			timeZone,
 		);
 		const rows = trend.items.filter(
@@ -578,7 +539,7 @@ export const trendModel = (
 	previous: null | MediaAnalyticsTrend,
 	metric: MediaAnalyticsMetric,
 	processing: MediaConsumptionReport["processing"],
-	timeZone: string,
+	timeZone: TimeZone,
 	mediaType?: string,
 ) => {
 	const currentGrid = trendGrid(current, metric, processing, timeZone, mediaType);

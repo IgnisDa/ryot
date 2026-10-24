@@ -1,4 +1,5 @@
 import type { PluginIdentityReference, ReportingSelection } from "@ryot-app/plugin-kit/schema";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 
 import { mediaActivityRecipe } from "../shared/activity-recipes";
 import type { ConsumptionObservation } from "../shared/consumption-allocation";
@@ -127,8 +128,8 @@ export const mediaConsumptionBenchmarkCases = (
 		mediaConsumptionReportRecipe({
 			reference,
 			selection: selection(range),
-			timeZone: "America/New_York",
 			now: mediaConsumptionBenchmarkNow,
+			timeZone: TimeZone.make("America/New_York"),
 		});
 	return {
 		allTimeTotals: report({ kind: "all-time" }),
@@ -136,16 +137,16 @@ export const mediaConsumptionBenchmarkCases = (
 		monthTotals: report({ kind: "custom", endDate: "2026-10-29", startDate: "2026-10-01" }),
 		home: mediaActivityRecipe({
 			reference,
-			timeZone: "America/New_York",
 			from: "2025-11-03T05:00:00.000Z",
 			until: "2026-10-30T04:00:00.000Z",
+			timeZone: TimeZone.make("America/New_York"),
 		}),
 		singleLongTitle: mediaConsumptionReportRecipe({
 			reference,
 			entityId: longTitleEntityId,
-			timeZone: "America/New_York",
 			now: mediaConsumptionBenchmarkNow,
 			selection: selection({ kind: "all-time" }),
+			timeZone: TimeZone.make("America/New_York"),
 		}),
 	};
 };

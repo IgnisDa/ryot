@@ -1,4 +1,4 @@
-import { DateTime, Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	add,
 	and,
@@ -35,10 +35,13 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
+	localDateOf,
 	type PluginIdentityReference,
 	type ReportingPeriod,
 	type ReportingSelection,
 	resolveReportingSelection,
+	type TimeZone,
+	UTC,
 } from "@ryot-app/plugin-kit/schema";
 
 import { type ConsumptionMeasureUnit, consumptionMeasureUnits } from "./consumption-allocation";
@@ -244,7 +247,7 @@ export const consumptionMeasures = (event: Table, totals = false) => {
 };
 
 export const consumptionTrendSelection = (
-	input: ConsumptionScope & { readonly timeZone: string },
+	input: ConsumptionScope & { readonly timeZone: TimeZone },
 	period: null | ReportingPeriod,
 	grouping: ReturnType<typeof resolveReportingSelection>["grouping"],
 	alias = "consumptionTrend",
@@ -273,7 +276,7 @@ export const consumptionTrendSelection = (
 					conditional(
 						eq(kind, literal("date")),
 						dateBucket(at, {
-							timeZone: "UTC",
+							timeZone: UTC,
 
 							bucket: grouping,
 						}),
@@ -335,7 +338,7 @@ export const consumptionReviewMeasures = (review: Table) => ({
 export const mediaConsumptionReportRecipe = defineRecipe(
 	(input: {
 		now: number;
-		timeZone: string;
+		timeZone: TimeZone;
 		selection: ReportingSelection;
 		entityId?: string | undefined;
 		reference: PluginIdentityReference;
@@ -395,21 +398,17 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 					rankings,
 					current: withCoverage(current),
 					previous: resolved.previous === null ? null : withCoverage(previous),
-					processing: consumptionProcessingState(
-						coverage.items.reduce((total, row) => total + (row.pending ?? 0), 0),
-						coverage.items.reduce((total, row) => total + (row.failed ?? 0), 0),
-					),
 					trends: {
 						...trends,
 						items: trends.items.map((row) => ({
 							...row,
-							at: DateTime.formatIsoDate(
-								DateTime.makeZonedUnsafe(row.at, {
-									timeZone: row.precision === "date" ? "UTC" : input.timeZone,
-								}),
-							),
+							at: localDateOf(row.at, row.precision === "date" ? UTC : input.timeZone),
 						})),
 					},
+					processing: consumptionProcessingState(
+						coverage.items.reduce((total, row) => total + (row.pending ?? 0), 0),
+						coverage.items.reduce((total, row) => total + (row.failed ?? 0), 0),
+					),
 				});
 			},
 			queries: {

@@ -10,6 +10,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
@@ -39,7 +40,7 @@ import {
 afterEach(disposePluginBridges);
 const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const input = {
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	reference: { kind: "local", pluginId: PluginId.make("media-owner") },
 	selection: {
 		grouping: "day",

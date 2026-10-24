@@ -1,4 +1,6 @@
+import { calendarPeriod } from "@ryot-app/plugin-client-sdk/plugin";
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { mediaAnalyticsStatsRecipe } from "../../shared/analytics-recipes";
@@ -7,7 +9,6 @@ import {
 	analyticsCalendarInput,
 	analyticsWindow,
 	analyticsWindowInput,
-	calendarPeriod,
 	calendarReportingExecution,
 	compareValues,
 	comparisonWindow,
@@ -28,7 +29,7 @@ import {
 
 const input = {
 	reference: { kind: "self" },
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	selection: {
 		grouping: "day",
 		comparison: "previous-period",
@@ -120,7 +121,7 @@ const trend = (
 ): MediaAnalyticsTrend => ({
 	grouping: "day",
 	pageInfo: { hasMore, limit: 1000 },
-	period: calendarPeriod({ endDate, startDate }, input.timeZone),
+	period: calendarPeriod(startDate, endDate, input.timeZone),
 	items: [
 		{ ...totals, ...presence, at: startDate, mediaType: "book", precision: "date" },
 		{
@@ -325,10 +326,7 @@ describe("Media analytics presentation model", () => {
 		).toBeNull();
 	});
 	it("keeps daily consistency independent of selected monthly grouping and marks incomplete empty days unknown", () => {
-		const period = calendarPeriod(
-			{ endDate: "2026-03-09", startDate: "2026-03-07" },
-			input.timeZone,
-		);
+		const period = calendarPeriod("2026-03-07", "2026-03-09", input.timeZone);
 		const data = { period, hasMore: false, days: [{ events: 2, day: "2026-03-08" }] };
 		expect(consistencyModel(data, "ready").days).toEqual([
 			{ value: 0, date: "2026-03-07" },

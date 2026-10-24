@@ -1,4 +1,4 @@
-import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { calendarPeriod, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -16,7 +16,6 @@ import type { MediaAnalyticsFilter } from "../../shared/analytics-recipes";
 import {
 	analyticsCalendarInput,
 	analyticsWindowInput,
-	calendarPeriod,
 	consistencyModel,
 	formatExactValue,
 	hourlyModel,
@@ -274,6 +273,81 @@ function ExtraPreviousValues(props: {
 	);
 }
 
+function ConsistencyDayTable(props: {
+	readonly input: SummaryChartsProps["input"];
+	readonly onDrill: SummaryChartsProps["onDrill"];
+	readonly model: ReturnType<typeof consistencyModel>;
+	readonly selection: undefined | SummaryChartsProps["report"]["reporting"]["selection"];
+}) {
+	return (
+		<details className="min-w-0 rounded-md border border-border px-3 py-2">
+			<summary className="cursor-pointer py-2 text-label font-medium text-text">
+				View exact daily values ({props.model.days.length} days)
+			</summary>
+			<div className="mt-2 max-h-80 overflow-auto">
+				<table className="w-full min-w-64 border-collapse text-left text-sm">
+					<caption className="sr-only">Daily active observations and record links</caption>
+					<thead className="sticky top-0 bg-surface text-text-muted">
+						<tr>
+							<th scope="col" className="py-2 pr-3 font-medium">
+								Date
+							</th>
+							<th scope="col" className="py-2 pr-3 font-medium">
+								Active observations
+							</th>
+							<th scope="col" className="py-2 font-medium">
+								Records
+							</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-border">
+						{props.model.days.map((day) => {
+							const period = calendarPeriod(day.date, day.date, props.input.timeZone);
+							const selection = props.selection;
+							const drill =
+								day.value === null || selection === undefined || props.model.processing !== "ready"
+									? null
+									: { activeOnly: true, selection: selectionForPeriod(selection, period) };
+							return (
+								<tr key={day.date}>
+									<th scope="row" className="py-2 pr-3 font-normal text-text">
+										{day.date}
+									</th>
+									<td className="py-2 pr-3 tabular-nums text-text">
+										{day.value === null
+											? "Unknown"
+											: `${props.model.partial ? "≥ " : ""}${formatExactValue(day.value, "observations")}`}
+									</td>
+									<td className="py-2">
+										{drill === null ? (
+											<span className="text-text-muted">Unavailable</span>
+										) : (
+											<Button
+												variant="link"
+												aria-label={`View records for ${day.date}`}
+												onClick={() => {
+													props.onDrill({
+														selection: drill.selection,
+														activeOnly: drill.activeOnly,
+														periodCaption: periodCaption(period),
+														title: `Active observations · ${day.date}`,
+													});
+												}}
+											>
+												View records
+											</Button>
+										)}
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
+		</details>
+	);
+}
+
 function HourlyRegion(props: {
 	readonly compact: boolean;
 	readonly metric: MediaAnalyticsMetric;
@@ -341,84 +415,6 @@ function HourlyRegion(props: {
 				</p>
 			)}
 		</Card>
-	);
-}
-
-function ConsistencyDayTable(props: {
-	readonly input: SummaryChartsProps["input"];
-	readonly onDrill: SummaryChartsProps["onDrill"];
-	readonly model: ReturnType<typeof consistencyModel>;
-	readonly selection: undefined | SummaryChartsProps["report"]["reporting"]["selection"];
-}) {
-	return (
-		<details className="min-w-0 rounded-md border border-border px-3 py-2">
-			<summary className="cursor-pointer py-2 text-label font-medium text-text">
-				View exact daily values ({props.model.days.length} days)
-			</summary>
-			<div className="mt-2 max-h-80 overflow-auto">
-				<table className="w-full min-w-64 border-collapse text-left text-sm">
-					<caption className="sr-only">Daily active observations and record links</caption>
-					<thead className="sticky top-0 bg-surface text-text-muted">
-						<tr>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Date
-							</th>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Active observations
-							</th>
-							<th scope="col" className="py-2 font-medium">
-								Records
-							</th>
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-border">
-						{props.model.days.map((day) => {
-							const period = calendarPeriod(
-								{ endDate: day.date, startDate: day.date },
-								props.input.timeZone,
-							);
-							const selection = props.selection;
-							const drill =
-								day.value === null || selection === undefined || props.model.processing !== "ready"
-									? null
-									: { activeOnly: true, selection: selectionForPeriod(selection, period) };
-							return (
-								<tr key={day.date}>
-									<th scope="row" className="py-2 pr-3 font-normal text-text">
-										{day.date}
-									</th>
-									<td className="py-2 pr-3 tabular-nums text-text">
-										{day.value === null
-											? "Unknown"
-											: `${props.model.partial ? "≥ " : ""}${formatExactValue(day.value, "observations")}`}
-									</td>
-									<td className="py-2">
-										{drill === null ? (
-											<span className="text-text-muted">Unavailable</span>
-										) : (
-											<Button
-												variant="link"
-												aria-label={`View records for ${day.date}`}
-												onClick={() => {
-													props.onDrill({
-														selection: drill.selection,
-														activeOnly: drill.activeOnly,
-														periodCaption: periodCaption(period),
-														title: `Active observations · ${day.date}`,
-													});
-												}}
-											>
-												View records
-											</Button>
-										)}
-									</td>
-								</tr>
-							);
-						})}
-					</tbody>
-				</table>
-			</div>
-		</details>
 	);
 }
 

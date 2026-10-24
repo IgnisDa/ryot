@@ -3,6 +3,7 @@ import type {
 	EntityRendererProps,
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import { deviceTimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
@@ -225,13 +226,13 @@ export const defineEpisodicMediaSchema = <
 			recipes.activityRecipe({
 				entityId: input.entityId,
 				reference: input.reference,
+				timeZone: deviceTimeZone(),
 				coverageLimit: ACTIVITY_COVERAGE_LIMIT,
 				watchDayLimit: ACTIVITY_WATCH_DAY_LIMIT,
 				parentEventLimit: ACTIVITY_PARENT_EVENT_LIMIT,
 				episodeEventLimit: ACTIVITY_EPISODE_EVENT_LIMIT,
 				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
 				episodeProgressLimit: ACTIVITY_EPISODE_PROGRESS_LIMIT,
-				timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 			}),
 		(data) => [
 			...data.coverage.map(({ id }) => id),

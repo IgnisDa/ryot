@@ -1,6 +1,7 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { castDate, literal } from "@ryot-app/plugin-kit/ryotql";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +23,6 @@ const rows = (items: readonly unknown[], hasMore = false) =>
 describe("complete activity history recipes", () => {
 	it("does not offer more history for truncated coverage alone, but includes older episode logs hidden by the summary", () => {
 		const recipe = showRecipes.activityRecipe({
-			timeZone: "UTC",
 			entityId: "show-1",
 			coverageLimit: 100,
 			watchDayLimit: 1000,
@@ -31,6 +31,7 @@ describe("complete activity history recipes", () => {
 			collectionEventLimit: 60,
 			episodeProgressLimit: 100,
 			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
 		});
 		const data = {
 			parentEvents: rows([]),

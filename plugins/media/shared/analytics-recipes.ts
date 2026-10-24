@@ -1,4 +1,4 @@
-import { DateTime, Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
@@ -28,9 +28,12 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
+	localDateOf,
 	type ReportingPeriod,
 	type ReportingSelection,
 	resolveReportingSelection,
+	type TimeZone,
+	UTC,
 } from "@ryot-app/plugin-kit/schema";
 
 import { consumptionDailySelection } from "./activity-recipes";
@@ -63,7 +66,7 @@ export type MediaAnalyticsCalendarInput = Omit<MediaAnalyticsInput, "selection">
 };
 export type MediaAnalyticsInput = ConsumptionScope & {
 	readonly now: number;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 };
 export type MediaAnalyticsPeriods = {
@@ -126,7 +129,7 @@ const sumWhen = (predicate: Parameters<typeof conditional>[0]) =>
 		nullableNumber,
 	);
 const attributionKind = (event: Table) => castText(consumptionValue(event, "attribution", "kind"));
-export const consumptionActiveDay = (event: Table, timeZone: string) =>
+export const consumptionActiveDay = (event: Table, timeZone: TimeZone) =>
 	conditional(
 		eq(attributionKind(event), literal("date")),
 		castText(consumptionValue(event, "attribution", "value")),
@@ -162,7 +165,7 @@ export const consumptionQuantityPresence = (event: Table) => {
 	};
 };
 
-const statsMeasures = (event: Table, timeZone: string) => ({
+const statsMeasures = (event: Table, timeZone: TimeZone) => ({
 	distinctTitles: selectedMeasure(
 		{
 			function: "countDistinct",
@@ -361,11 +364,7 @@ export const mediaAnalyticsTrendRecipe = defineRecipe(
 					grouping,
 					items: trend.items.map((row) => ({
 						...row,
-						at: DateTime.formatIsoDate(
-							DateTime.makeZonedUnsafe(row.at, {
-								timeZone: row.precision === "date" ? "UTC" : input.timeZone,
-							}),
-						),
+						at: localDateOf(row.at, row.precision === "date" ? UTC : input.timeZone),
 					})),
 				}),
 		};
@@ -416,9 +415,7 @@ export const mediaAnalyticsConsistencyRecipe = defineRecipe(
 					...dates.items,
 					...instants.items.map((item) => ({
 						...item,
-						day: DateTime.formatIsoDate(
-							DateTime.makeZonedUnsafe(item.day, { timeZone: input.timeZone }),
-						),
+						day: localDateOf(item.day, input.timeZone),
 					})),
 				]) {
 					counts.set(row.day, (counts.get(row.day) ?? 0) + row.events);

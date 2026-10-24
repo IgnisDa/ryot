@@ -9,6 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { screen, waitFor } from "@testing-library/dom";
 
 import { mediaAnalyticsStatsRecipe } from "../../shared/analytics-recipes";
@@ -32,7 +33,7 @@ const owner: AnalyticsInput["reference"] = {
 };
 const input: AnalyticsInput = {
 	reference: owner,
-	timeZone: "America/New_York",
+	timeZone: TimeZone.make("America/New_York"),
 	selection: {
 		grouping: "day",
 		comparison: "previous-period",

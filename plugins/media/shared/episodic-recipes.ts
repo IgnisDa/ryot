@@ -1,4 +1,4 @@
-import { DateTime, Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
@@ -36,8 +36,8 @@ import {
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { EntityId, localDateOf } from "@ryot-app/plugin-kit/schema";
 
 import { consumptionProcessingState } from "./consumption-projection";
 import {
@@ -472,7 +472,7 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
 	readonly orderProperties: readonly string[];
@@ -680,7 +680,7 @@ export type EpisodicOverviewInput = {
 
 export type EpisodicActivityInput = {
 	readonly entityId: string;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly coverageLimit: number;
 	readonly watchDayLimit: number;
 	readonly parentEventLimit: number;
@@ -915,13 +915,8 @@ export const mediaEpisodicRecipes = <
 				];
 				const days = watchDays.items.map((row) => ({
 					...row,
+					day: localDateOf(row.day, input.timeZone),
 					minutes: (row.missing ?? 0) > 0 ? null : row.minutes,
-					day:
-						row.day.length === 10
-							? row.day
-							: DateTime.formatIsoDate(
-									DateTime.makeZonedUnsafe(row.day, { timeZone: input.timeZone }),
-								),
 				}));
 				const displayedWatches = new Set(
 					days.map((row) => JSON.stringify([row.day, row.episodeId])),

@@ -1,4 +1,4 @@
-import { PluginLink, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -166,7 +166,7 @@ export function MediaAnalyticsRecords(props: {
 	);
 }
 
-function RecordDate(props: { readonly timeZone: string; readonly row: MediaAnalyticsRecord }) {
+function RecordDate(props: { readonly timeZone: TimeZone; readonly row: MediaAnalyticsRecord }) {
 	const attribution = props.row.contribution.attribution;
 	const modeled = recordModel(props.row, "ready");
 	if (attribution.kind === "unknown") {
@@ -233,7 +233,7 @@ function Contribution(props: {
 }
 
 function RecordTable(props: {
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly items: readonly MediaAnalyticsRecord[];
 	readonly processing: MediaConsumptionReport["processing"];
 }) {

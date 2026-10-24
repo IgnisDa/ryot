@@ -1,4 +1,5 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { podcastRecipes } from "../../../shared/podcast-recipes";
 import { rowsResult } from "../query-result-fixture";
@@ -21,7 +22,6 @@ const podcastOverviewFixtureRecipe = podcastRecipes.overviewRecipe({
 });
 
 const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
-	timeZone: "UTC",
 	coverageLimit: 100,
 	watchDayLimit: 1000,
 	parentEventLimit: 60,
@@ -30,6 +30,7 @@ const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
 	reference: { kind: "self" },
+	timeZone: TimeZone.make("UTC"),
 });
 
 export const podcastSummaryRow = {

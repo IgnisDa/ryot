@@ -1,5 +1,6 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { mediaConsumptionBenchmarkCases } from "../benchmarks/consumption";
@@ -54,8 +55,8 @@ describe("canonical consumption reads", () => {
 		"disables the previous source scan only when comparison is absent: %s",
 		({ range, disabled, comparison }) => {
 			const recipe = mediaConsumptionReportRecipe({
-				timeZone: "UTC",
 				reference: { kind: "self" },
+				timeZone: TimeZone.make("UTC"),
 				now: Date.parse("2026-10-29T12:00:00Z"),
 				selection: { range, comparison, grouping: "auto" },
 			});
@@ -86,8 +87,8 @@ describe("canonical consumption reads", () => {
 		"retains repair and undated coverage with no period quantities: %s",
 		({ failed, processing }) => {
 			const recipe = mediaConsumptionReportRecipe({
-				timeZone: "UTC",
 				reference: { kind: "self" },
+				timeZone: TimeZone.make("UTC"),
 				now: Date.parse("2026-10-29T12:00:00Z"),
 				selection: {
 					grouping: "auto",
@@ -121,8 +122,8 @@ describe("canonical consumption reads", () => {
 	);
 	it("combines period quantities with full-history coverage and exposes truncation", () => {
 		const recipe = mediaConsumptionReportRecipe({
-			timeZone: "UTC",
 			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
 			now: Date.parse("2026-10-29T12:00:00Z"),
 			selection: {
 				grouping: "auto",
@@ -188,7 +189,7 @@ describe("canonical consumption reads", () => {
 				collectionEventLimit: 60,
 				episodeProgressLimit: 100,
 				reference: { kind: "self" },
-				timeZone: "America/New_York",
+				timeZone: TimeZone.make("America/New_York"),
 			});
 			expect(
 				validateRyotQLDocument(recipe.document, {
@@ -217,8 +218,8 @@ describe("canonical consumption reads", () => {
 		]) {
 			const recipe = mediaConsumptionReportRecipe({
 				reference: { kind: "self" },
-				timeZone: "America/New_York",
 				now: Date.parse("2026-03-09T12:00:00Z"),
+				timeZone: TimeZone.make("America/New_York"),
 				selection: { range, grouping: "auto", comparison: "previous-period" },
 			});
 			expect(

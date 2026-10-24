@@ -1,3 +1,4 @@
+import { localDateOf, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,26 +7,12 @@ import {
 	activityStreak,
 	activityWindow,
 	largestRemainderPercents,
-	localDateOf,
-	resolveTimeZone,
 } from "./activity-model";
-
-describe("resolveTimeZone", () => {
-	it.each([
-		["Asia/Tokyo", "Asia/Tokyo"],
-		[undefined, "UTC"],
-		["", "UTC"],
-		["Not/AZone", "UTC"],
-		["+05:30", "UTC"],
-	])("resolves %j to %s", (candidate, expected) => {
-		expect(resolveTimeZone(candidate)).toBe(expected);
-	});
-});
 
 describe("activityWindow", () => {
 	it("starts on the Monday 51 weeks before this week and spans local midnights", () => {
 		// 2026-09-25 is a Friday.
-		expect(activityWindow("2026-09-25", "Asia/Kolkata")).toEqual({
+		expect(activityWindow("2026-09-25", TimeZone.make("Asia/Kolkata"))).toEqual({
 			end: "2026-09-25",
 			start: "2025-09-29",
 			from: "2025-09-28T18:30:00.000Z",
@@ -34,13 +21,13 @@ describe("activityWindow", () => {
 	});
 
 	it("keeps a Monday today as the first day of the newest week", () => {
-		const window = activityWindow("2026-09-21", "UTC");
+		const window = activityWindow("2026-09-21", TimeZone.make("UTC"));
 		expect(window.start).toBe("2025-09-29");
 		expect(window.until).toBe("2026-09-22T00:00:00.000Z");
 	});
 
 	it("follows daylight saving shifts for the bounds", () => {
-		const window = activityWindow("2026-03-08", "America/New_York");
+		const window = activityWindow("2026-03-08", TimeZone.make("America/New_York"));
 		expect(window.from).toBe("2025-03-10T04:00:00.000Z");
 		expect(window.until).toBe("2026-03-09T04:00:00.000Z");
 	});
@@ -48,10 +35,10 @@ describe("activityWindow", () => {
 
 describe("activityDays", () => {
 	it("pads every date of the window and reads bucket instants as local dates", () => {
-		const window = activityWindow("2026-09-25", "Asia/Kolkata");
+		const window = activityWindow("2026-09-25", TimeZone.make("Asia/Kolkata"));
 		const days = activityDays(
 			window,
-			new Map([[localDateOf("2026-09-24T18:30:00.000Z", "Asia/Kolkata"), 3]]),
+			new Map([[localDateOf("2026-09-24T18:30:00.000Z", TimeZone.make("Asia/Kolkata")), 3]]),
 		);
 		expect(days).toHaveLength(52 * 7 - 2);
 		expect(days[0]).toEqual({ value: 0, date: "2025-09-29" });

@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { localDateOf, PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
 	type RyotQueryResult,
@@ -24,21 +24,16 @@ import {
 	activityStreak,
 	type ActivityWindow,
 	activityWindow,
-	localDateOf,
-	resolveTimeZone,
 } from "./activity-model";
 
 const TITLE = "Your activity";
 
-type MediaActivityInput = { readonly timeZone: string };
+type MediaActivityInput = { readonly timeZone: TimeZone };
 type MediaActivityResult = { readonly window: ActivityWindow; readonly activity: MediaActivity };
 
 const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivityResult>(
 	({ input, client, schedule }) => {
-		const window = activityWindow(
-			localDateOf(new Date(schedule.now()).toISOString(), input.timeZone),
-			input.timeZone,
-		);
+		const window = activityWindow(localDateOf(schedule.now(), input.timeZone), input.timeZone);
 		return client.data
 			.query(
 				mediaActivityRecipe({
@@ -154,9 +149,9 @@ export function ActivitySection(props: { readonly compact: boolean }) {
 	return (
 		<ActivitySectionForTimeZone
 			compact={props.compact}
+			timeZone={preferences.data.timeZone}
 			retryPreferences={preferences.refetch}
 			preferencesRefreshingFailed={preferences.isError}
-			timeZone={resolveTimeZone(preferences.data.timeZone)}
 		/>
 	);
 }
@@ -230,7 +225,7 @@ function AnalyticsLink() {
 
 function ActivitySectionForTimeZone(props: {
 	readonly compact: boolean;
-	readonly timeZone: string;
+	readonly timeZone: TimeZone;
 	readonly retryPreferences: () => void;
 	readonly preferencesRefreshingFailed: boolean;
 }) {

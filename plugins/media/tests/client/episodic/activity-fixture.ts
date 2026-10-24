@@ -1,10 +1,10 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { rowsResult } from "../query-result-fixture";
 import { episodicFixtureRecipes } from "./recipes";
 
 export const EPISODIC_ACTIVITY_INPUT = {
-	timeZone: "UTC",
 	coverageLimit: 100,
 	watchDayLimit: 1000,
 	entityId: "parent-1",
@@ -12,6 +12,7 @@ export const EPISODIC_ACTIVITY_INPUT = {
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
+	timeZone: TimeZone.make("UTC"),
 };
 
 export const episodicActivityFixtureRecipe = episodicFixtureRecipes.activityRecipe({

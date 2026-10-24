@@ -1,29 +1,12 @@
-import { DateTime, Option } from "@ryot-app/plugin-client-sdk/effect";
-
-const DAY_MS = 86_400_000;
+import {
+	addCalendarDays,
+	calendarDaysBetween,
+	startOfCalendarUnit,
+	startOfLocalDay,
+	type TimeZone,
+} from "@ryot-app/plugin-client-sdk/plugin";
 
 const ACTIVITY_WEEKS = 52;
-
-const dayNumber = (date: string) => Date.parse(`${date}T00:00:00.000Z`) / DAY_MS;
-
-const isoDate = (day: number) => new Date(day * DAY_MS).toISOString().slice(0, 10);
-
-const shiftDate = (date: string, days: number) => isoDate(dayNumber(date) + days);
-
-/** An IANA zone name, or `"UTC"`: the server buckets by name, so offsets and unknown names fall back. */
-export const resolveTimeZone = (candidate: string | undefined) =>
-	Option.match(
-		Option.filter(
-			DateTime.zoneMakeNamed(candidate ?? ""),
-			(zone) => !/^[+-]/.test(DateTime.zoneToString(zone)),
-		),
-		{ onNone: () => "UTC", onSome: DateTime.zoneToString },
-	);
-
-const localMidnight = (date: string, timeZone: string) =>
-	DateTime.formatIso(
-		DateTime.makeZonedUnsafe(`${date}T00:00:00`, { timeZone, adjustForTimeZone: true }),
-	);
 
 export type ActivityWindow = {
 	/** Last local date shown: today. */
@@ -36,27 +19,22 @@ export type ActivityWindow = {
 	readonly until: string;
 };
 
-export const activityWindow = (today: string, timeZone: string): ActivityWindow => {
-	const daysSinceMonday = (new Date(dayNumber(today) * DAY_MS).getUTCDay() + 6) % 7;
-	const start = shiftDate(today, -daysSinceMonday - (ACTIVITY_WEEKS - 1) * 7);
+export const activityWindow = (today: string, timeZone: TimeZone): ActivityWindow => {
+	const start = addCalendarDays(startOfCalendarUnit(today, "week"), -(ACTIVITY_WEEKS - 1) * 7);
 	return {
 		start,
 		end: today,
-		from: localMidnight(start, timeZone),
-		until: localMidnight(shiftDate(today, 1), timeZone),
+		from: startOfLocalDay(start, timeZone),
+		until: startOfLocalDay(addCalendarDays(today, 1), timeZone),
 	};
 };
-
-/** The local date of a day bucket, which the server reports as the instant that day begins. */
-export const localDateOf = (instant: string, timeZone: string) =>
-	DateTime.formatIsoDate(DateTime.makeZonedUnsafe(instant, { timeZone }));
 
 export const activityDays = (
 	window: ActivityWindow,
 	counts: ReadonlyMap<string, number>,
 ): readonly { readonly date: string; readonly value: number }[] =>
-	Array.from({ length: dayNumber(window.end) - dayNumber(window.start) + 1 }, (_, index) => {
-		const date = shiftDate(window.start, index);
+	Array.from({ length: calendarDaysBetween(window.start, window.end) + 1 }, (_, index) => {
+		const date = addCalendarDays(window.start, index);
 		return { date, value: counts.get(date) ?? 0 };
 	});
 
@@ -64,11 +42,11 @@ export const activityDays = (
  * Consecutive active days ending today, or ending yesterday while today has no activity yet.
  */
 export const activityStreak = (activeDates: ReadonlySet<string>, today: string) => {
-	let date = activeDates.has(today) ? today : shiftDate(today, -1);
+	let date = activeDates.has(today) ? today : addCalendarDays(today, -1);
 	let streak = 0;
 	while (activeDates.has(date)) {
 		streak += 1;
-		date = shiftDate(date, -1);
+		date = addCalendarDays(date, -1);
 	}
 	return streak;
 };

@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
@@ -85,7 +86,6 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 	);
 
 const ACTIVITY_INPUT = {
-	timeZone: "UTC",
 	coverageLimit: 50,
 	watchDayLimit: 500,
 	entityId: "parent-1",
@@ -93,6 +93,7 @@ const ACTIVITY_INPUT = {
 	episodeEventLimit: 100,
 	collectionEventLimit: 40,
 	episodeProgressLimit: 100,
+	timeZone: TimeZone.make("UTC"),
 };
 
 const COVERAGE_ROW = { id: "parent-1", episodeTotal: 6, watchedTotal: 2, upcomingTotal: 0 };
@@ -562,11 +563,11 @@ describe("episodic watch days", () => {
 		const query = episodicWatchDaysQuery({
 			limit: 10,
 			alias: "days",
-			timeZone: "UTC",
 			entityId: "show-1",
 			orderProperties: [],
 			episodeFields: () => ({}),
 			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
 			config: podcastEpisodicKindConfig,
 		});
 

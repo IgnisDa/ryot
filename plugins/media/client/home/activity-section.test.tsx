@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { usePageRefreshRequest, useReportingPreferences } from "@ryot-app/plugin-client-sdk/react";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import {
@@ -26,7 +27,7 @@ import { type ActivityWindow, activityWindow } from "./activity-model";
 import { ActivitySection, ActivitySectionView } from "./activity-section";
 
 const TODAY = "2026-09-25";
-const TIME_ZONE = "America/New_York";
+const TIME_ZONE = TimeZone.make("America/New_York");
 const noopAdapter = { query: () => Effect.succeed({}) };
 type ActivityPage = ReturnType<typeof mountPluginPage>;
 type ActivityRequest = ReturnType<ActivityPage["queryRequests"]>[number];
@@ -122,7 +123,7 @@ const replyReportingPreferences = (
 	page: ActivityPage,
 	requestId: string,
 	outcome: "failure" | "success",
-	timeZone = "America/New_York",
+	timeZone = TimeZone.make("America/New_York"),
 ) =>
 	page.send(
 		outcome === "success"
@@ -535,7 +536,7 @@ describe("ActivitySection reporting window", () => {
 				const preference = yield* Effect.promise(() =>
 					waitForRequest(() => reportingPreferenceRequests(page), 0),
 				);
-				replyReportingPreferences(page, preference.requestId, "success", "UTC");
+				replyReportingPreferences(page, preference.requestId, "success", TimeZone.make("UTC"));
 				const oldZoneRequest = yield* Effect.promise(() =>
 					waitForRequest(() => activityRequests(page), 0),
 				);
