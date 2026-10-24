@@ -1,12 +1,17 @@
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
-import { Badge, ScreenBarButton, ScreenFrame } from "@ryot-app/plugin-ui-sdk";
+import { Badge, ScreenBarButton, ScreenFrame, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Match } from "effect";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
 
 import { filtersLabel } from "./filters";
-import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./navigation/routing";
+import {
+	usePageShortcut,
+	usePluginChrome,
+	usePluginScreenSurface,
+	usePluginTitle,
+} from "./navigation/routing";
 
 type PluginScreenFrameProps = {
 	readonly meta?: ReactNode;
@@ -125,17 +130,21 @@ export function ViewFiltersButton({
 	readonly activeCount: number;
 	readonly ref?: undefined | Ref<HTMLButtonElement>;
 }) {
+	usePageShortcut("F", onClick);
+
 	return (
 		<button
 			ref={ref}
 			type="button"
 			onClick={onClick}
+			aria-keyshortcuts="F"
 			aria-label={filtersLabel(activeCount)}
 			className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
 		>
 			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 			<span className="text-[13px] text-text">Filters</span>
 			<Badge aria-hidden="true">{activeCount}</Badge>
+			<ShortcutHint shortcut="F" />
 		</button>
 	);
 }
