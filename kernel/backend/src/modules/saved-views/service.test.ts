@@ -13,7 +13,6 @@ import {
 	insertManagedAsset,
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
-import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -169,7 +168,6 @@ const makeLayer = (options: {
 							user: () => record("invalidate"),
 							deliverPending: () => Effect.void,
 						}),
-						Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
 						Layer.mock(PluginRepository)({ lockIngestionShared: () => Effect.void }),
 						Layer.mock(PluginRuntimeResolver)({
 							listPluginsAvailableToUser: () =>

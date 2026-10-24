@@ -1,16 +1,9 @@
 import { expect, layer } from "@effect/vitest";
 import {
 	definitionKey,
-	type DefinitionOwner,
-	type EntitySchemaReference,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import {
-	EntitySchemaSlug,
-	PluginId,
-	RelationshipSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { PluginId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -42,24 +35,14 @@ const pluginReference: RelationshipSchemaReference = {
 	owner: { pluginId, kind: "plugin" },
 };
 
-type EndpointQuery = {
-	readonly owner: DefinitionOwner;
-	readonly sourceEntitySchemaSlug: EntitySchemaSlug;
-	readonly targetEntitySchemaSlug: EntitySchemaSlug;
-};
-
 class RelationshipCalls extends Context.Service<
 	RelationshipCalls,
-	{
-		readonly globalReferences: Effect.Effect<ReadonlyArray<RelationshipSchemaReference>>;
-		readonly endpointQueries: Effect.Effect<ReadonlyArray<EndpointQuery>>;
-	}
+	{ readonly globalReferences: Effect.Effect<ReadonlyArray<RelationshipSchemaReference>> }
 >()("test/RelationshipCalls") {}
 
 const repositoryLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const globalReferences = yield* Ref.make<ReadonlyArray<RelationshipSchemaReference>>([]);
-		const endpointQueries = yield* Ref.make<ReadonlyArray<EndpointQuery>>([]);
 		const definitions = Layer.mock(DefinitionRepository)({
 			findUserRelationshipSchemas: (_userId, references) =>
 				Effect.succeed(
@@ -79,27 +62,11 @@ const repositoryLayer = Layer.unwrap(
 						Effect.succeed(reference.owner.kind === "kernel" ? kernelDefinition : pluginDefinition),
 					),
 				),
-			findGlobalRelationshipSchemaByEndpoints: (
-				owner,
-				sourceEntitySchemaSlug,
-				targetEntitySchemaSlug,
-			) =>
-				Ref.update(endpointQueries, (all) => [
-					...all,
-					{
-						owner,
-						sourceEntitySchemaSlug: EntitySchemaSlug.make(sourceEntitySchemaSlug),
-						targetEntitySchemaSlug: EntitySchemaSlug.make(targetEntitySchemaSlug),
-					},
-				]).pipe(Effect.as(pluginDefinition)),
 		});
 		return RelationshipSchemaReader.layer.pipe(
 			Layer.provideMerge(definitions),
 			Layer.provideMerge(
-				Layer.succeed(RelationshipCalls, {
-					endpointQueries: Ref.get(endpointQueries),
-					globalReferences: Ref.get(globalReferences),
-				}),
+				Layer.succeed(RelationshipCalls, { globalReferences: Ref.get(globalReferences) }),
 			),
 		);
 	}),
@@ -124,34 +91,6 @@ layer(repositoryLayer)((test) => {
 			expect(yield* (yield* RelationshipCalls).globalReferences).toEqual([
 				kernelReference,
 				kernelReference,
-			]);
-		}),
-	);
-
-	test.effect("uses the supplied endpoint references and relationship owner", () =>
-		Effect.gen(function* () {
-			const repository = yield* RelationshipSchemaReader;
-			const sourceEntitySchema: EntitySchemaReference = {
-				owner: { pluginId, kind: "plugin" },
-				slug: EntitySchemaSlug.make("source"),
-			};
-			const targetEntitySchema: EntitySchemaReference = {
-				owner: { pluginId, kind: "plugin" },
-				slug: EntitySchemaSlug.make("target"),
-			};
-			expect(
-				yield* repository.findGlobalBySchemaIds({
-					sourceEntitySchema,
-					targetEntitySchema,
-					owner: { pluginId, kind: "plugin" },
-				}),
-			).toMatchObject({ pluginId });
-			expect(yield* (yield* RelationshipCalls).endpointQueries).toEqual([
-				{
-					owner: { pluginId, kind: "plugin" },
-					sourceEntitySchemaSlug: sourceEntitySchema.slug,
-					targetEntitySchemaSlug: targetEntitySchema.slug,
-				},
 			]);
 		}),
 	);
