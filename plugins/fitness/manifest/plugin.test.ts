@@ -107,6 +107,14 @@ it("declares the complete fitness-owned source", () => {
 		homeView: null,
 		routes: fitnessClientRoutes,
 		apiVersion: CLIENT_API_VERSION,
+		analyticsSections: {
+			fitness: {
+				sortOrder: 20,
+				name: "Fitness",
+				icon: "dumbbell",
+				exportName: "fitness-analytics",
+			},
+		},
 		entities: {
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			workout: {
@@ -146,6 +154,11 @@ it("declares the complete fitness-owned source", () => {
 				kind: "presentation",
 				entry: "client/workout-card.ts",
 				automaticEntityPresentations: false,
+			},
+			"fitness-analytics": {
+				kind: "analytics-section",
+				automaticEntityPresentations: false,
+				entry: "client/analytics/section.tsx",
 			},
 			workouts: {
 				kind: "page",

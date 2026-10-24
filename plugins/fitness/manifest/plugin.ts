@@ -167,6 +167,19 @@ export const fitnessPlugin = definePlugin({
 		{
 			position: 110,
 			stage: "before",
+			name: "Freeze workout taxonomy",
+			slug: "fitness.workout-exercise",
+			scriptSlug: "policy.workout-exercise",
+			targets: (["create", "update"] as const).map((operation) => ({
+				operation,
+				resource: "event" as const,
+				entitySchemaSlug: "exercise",
+				eventSchemaSlug: "workout-exercise",
+			})),
+		},
+		{
+			position: 110,
+			stage: "before",
 			slug: "fitness.workout-set",
 			name: "Normalize workout sets",
 			scriptSlug: "policy.workout-set",
@@ -257,6 +270,14 @@ export const fitnessPlugin = definePlugin({
 		homeView: null,
 		routes: fitnessClientRoutes,
 		apiVersion: CLIENT_API_VERSION,
+		analyticsSections: {
+			fitness: {
+				sortOrder: 20,
+				name: "Fitness",
+				icon: "dumbbell",
+				exportName: "fitness-analytics",
+			},
+		},
 		entities: {
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			workout: {
@@ -296,6 +317,11 @@ export const fitnessPlugin = definePlugin({
 				kind: "presentation",
 				entry: "client/workout-card.ts",
 				automaticEntityPresentations: false,
+			},
+			"fitness-analytics": {
+				kind: "analytics-section",
+				automaticEntityPresentations: false,
+				entry: "client/analytics/section.tsx",
 			},
 			workouts: {
 				kind: "page",

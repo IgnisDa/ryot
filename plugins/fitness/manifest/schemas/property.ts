@@ -80,12 +80,6 @@ const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
 		label: "Confirmed At",
 		description: "Date and time this set was confirmed by the user",
 	},
-	restTime: {
-		type: "integer",
-		label: "Rest Time",
-		validation: { minimum: 0 },
-		description: "Rest time after this set in seconds",
-	},
 	restTimerStartedAt: {
 		type: "datetime",
 		label: "Rest Timer Started At",
@@ -108,6 +102,12 @@ const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
 		label: "Exercise Order",
 		validation: { minimum: 0 },
 		description: "Zero-based position of this exercise within the workout",
+	},
+	restTime: {
+		type: "integer",
+		label: "Planned rest",
+		validation: { minimum: 0 },
+		description: "Planned rest after this set in seconds, not measured elapsed rest",
 	},
 	rpe: {
 		label: "Rpe",
@@ -302,7 +302,7 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 	},
 	restTime: {
 		type: "integer",
-		label: "Rest Time",
+		label: "Planned rest",
 		validation: { minimum: 0 },
 		description: "Planned rest after this set in seconds; zero disables rest",
 	},

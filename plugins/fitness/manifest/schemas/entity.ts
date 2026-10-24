@@ -9,6 +9,7 @@ import {
 	workoutSetPropertiesSchema,
 	workoutTemplatePropertiesSchema,
 } from "./property";
+import { workoutExercisePropertiesSchema } from "./workout-taxonomy";
 
 const exerciseReviewPropertiesSchema = {
 	unknownKeys: "strict" as const,
@@ -50,12 +51,33 @@ export const fitnessEntitySchemas = [
 		},
 		eventSchemas: [
 			{
+				slug: "workout-exercise",
+				name: "Recorded exercise occurrence",
+				propertiesSchema: workoutExercisePropertiesSchema,
+				eventGroup: {
+					scope: "session",
+					keyProperties: ["exerciseOrder"],
+					immutableFields: ["sessionEntityId"],
+					immutableProperties: ["exerciseKind", "targets", "equipment", "provenance"],
+					dependents: [
+						{
+							minimumCount: 1,
+							matchEntity: true,
+							preserveMatch: true,
+							eventSchemaSlug: "workout-set",
+							matchProperties: ["exerciseOrder", "exerciseKind"],
+						},
+					],
+				},
+			},
+			{
 				name: "Workout Set",
 				slug: "workout-set",
 				propertiesSchema: workoutSetPropertiesSchema,
 				projection: {
 					scriptSlug: "script.workout-record-step",
 					propertiesSchema: workoutRecordPropertiesSchema,
+					inputs: [{ scope: "entity", eventSchemaSlug: "workout-set" }],
 				},
 			},
 			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
