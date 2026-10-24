@@ -38,6 +38,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/browse" },
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/calendar" },
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/collections" },
+	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/collection-analytics" },
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/filters" },
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/saved-views" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-ui-sdk" },

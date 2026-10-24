@@ -53,6 +53,10 @@ and stylesheet policy, TypeScript semantics, and public export contracts without
 `src/module.ts` stages validated sources, runs one minified production Vite module build, checks
 emitted files and references, and finalizes the artifact. Validation and stylesheet generation are
 isolated in `src/generated-source.ts`.
+
+`analytics-section` exports are checked as `ComponentType<AnalyticsSectionProps>` through the public
+client SDK contract. Their manifest registrations may name only same-owner analytics exports; those
+declarations also participate in the existing client declaration hash.
 Combined client/shared source and raw asset input is limited to 1 MiB; individual raw assets remain
 limited to 256 KiB. Emitted artifacts have a separate 8 MiB limit.
 

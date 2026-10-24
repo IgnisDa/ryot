@@ -6,6 +6,9 @@ import type { ClientPluginCompilerPackageExport, ClientPluginExportKind } from "
 export const GENERATED_VALIDATION = "__generated/validation.tsx";
 
 const publicExportType = (kind: ClientPluginExportKind) => {
+	if (kind === "analytics-section") {
+		return "ComponentType<AnalyticsSectionProps>";
+	}
 	if (kind === "presentation") {
 		return "EntityPresentationDefinition";
 	}
@@ -18,6 +21,7 @@ export const packageValidationSource = (
 	const imports = [
 		`import type { ComponentType } from "react";`,
 		`import type { EntityPresentationDefinition } from "@ryot-app/plugin-client-sdk/plugin";`,
+		`import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";`,
 	];
 	for (const [index, [, declaration]] of sortBy(
 		Object.entries(publicExports),

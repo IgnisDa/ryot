@@ -3,7 +3,12 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
 
-export const ClientPluginExportKind = Schema.Literals(["component", "page", "presentation"]);
+export const ClientPluginExportKind = Schema.Literals([
+	"component",
+	"page",
+	"presentation",
+	"analytics-section",
+]);
 export type ClientPluginExportKind = Schema.Schema.Type<typeof ClientPluginExportKind>;
 
 export const ClientPluginCompilerPackageExport = Schema.Struct({

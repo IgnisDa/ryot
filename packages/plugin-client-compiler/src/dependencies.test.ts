@@ -20,6 +20,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/ryotql-recipes/browse",
 		"@ryot-app/ryotql-recipes/calendar",
 		"@ryot-app/ryotql-recipes/collections",
+		"@ryot-app/ryotql-recipes/collection-analytics",
 		"@ryot-app/ryotql-recipes/filters",
 		"@ryot-app/ryotql-recipes/saved-views",
 		"@ryot-app/plugin-ui-sdk",

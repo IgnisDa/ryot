@@ -61,6 +61,42 @@ const emittedInput = {
 	files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
 };
 
+it.layer(emittedLayer("export const activity = () => null;"))(
+	"analytics section contract",
+	(test) => {
+		test.effect("accepts a generic section with the shared selection and exact owner", () =>
+			Effect.gen(function* () {
+				const compiled = yield* compileClientPluginModule({
+					...emittedInput,
+					publicExports: { activity: { kind: "analytics-section", entry: "client/activity.tsx" } },
+					files: {
+						"client/activity.tsx": bytes(`
+import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";
+export default function Activity({ selection, timeZone, owner }: AnalyticsSectionProps) {
+  return <p>{owner.pluginId}: {selection.range.kind} ({timeZone})</p>;
+}`),
+					},
+				});
+				expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
+			}),
+		);
+		test.effect("rejects section exports requiring unsupported host props", () =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule({
+					...emittedInput,
+					publicExports: { activity: { kind: "analytics-section", entry: "client/activity.tsx" } },
+					files: {
+						"client/activity.tsx": bytes(
+							"export default function Activity({ secret }: { secret: string }) { return <p>{secret}</p>; }",
+						),
+					},
+				}).pipe(Effect.flip);
+				expect(error.diagnostics.some(({ message }) => message.includes("secret"))).toBe(true);
+			}),
+		);
+	},
+);
+
 const inputAtSize = (size: number) => ({
 	...emittedInput,
 	files: {
