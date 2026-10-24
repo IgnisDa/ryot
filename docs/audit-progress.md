@@ -15,7 +15,7 @@
 
 ## Status
 
-**24 implemented, 0 in progress, 59 pending; 3 excluded.**
+**25 implemented, 0 in progress, 58 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -45,7 +45,7 @@
 | M07-R1 | Implemented | Successful count-zero owns first-run; failed counts show sections and retain stale data. See this finding's audit commit. |
 | P01-R2 | Implemented | Notification specifics owns the creation discriminator; repository derives the scalar, while stored and listed delivery stay unchanged. See this finding's audit commit. |
 | C06-R2 | Pending | Provider subtree owns options, form, and submitted-search lifetime. |
-| B16-R1 | Pending | One execution/retention pin model. |
+| B16-R1 | Implemented | Use relational execution and retention references with snapshot JSON; derive execution user from scope and preserve retention/replay. See this finding's audit commit. |
 | B16-R2 | Pending | Insert candidates as a set or bounded chunks. |
 | B06-R1 | Pending | Materialize distinct pins and accepted automation runs as sets. |
 | P01-R1 | Pending | Generated provider metadata owns script/operation bindings. |
@@ -189,3 +189,4 @@
 - P02-R1: contract, SDK, and fitness checks plus scoped kernel type, format, and lint checks passed before 47 contract, 234 SDK, 12 fitness, and four kernel tests; read-only review reported no findings.
 - C11-R1: client check passed before 130 tests across four files; read-only review reported no findings.
 - P01-R2: contract, backend, client, and e2e checks passed before two contract, 10 backend, and 25 client tests; read-only review reported no findings.
+- B16-R1: backend check passed before 69 tests across five files; read-only review reported no findings. Pending candidate JSON must be rewritten or drained before rollout; no reset was performed and no dual decoder was added.

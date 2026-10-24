@@ -638,13 +638,15 @@ describe("Event lifecycle PostgreSQL", () => {
 							identity: emptyDecision,
 							pins: [
 								{
-									pluginId: null,
 									id: candidateId,
-									sandboxScriptId: null,
-									pluginRevisionId: null,
-									executionUserId: userId,
-									result: { hook: "batch" },
-									pluginConfigRevisionId: null,
+									payload: { hook: "batch" },
+									references: {
+										pluginId: null,
+										scopeUserId: userId,
+										sandboxScriptId: null,
+										pluginRevisionId: null,
+										pluginConfigRevisionId: null,
+									},
 								},
 							],
 						}),

@@ -4,7 +4,7 @@ import {
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
@@ -75,6 +75,18 @@ export const MutationReceiptIdentity = Schema.Struct({
 	rootExecutionId: LifecycleCommand.fields.causation.fields.rootExecutionId,
 });
 export type MutationReceiptIdentity = typeof MutationReceiptIdentity.Type;
+
+const MutationBatchPinReferences = Schema.Struct({
+	pluginId: Schema.NullOr(PluginId),
+	scopeUserId: Schema.NullOr(UserId),
+	sandboxScriptId: Schema.NullOr(Schema.String),
+	pluginRevisionId: Schema.NullOr(Schema.String),
+	pluginConfigRevisionId: Schema.NullOr(Schema.String),
+});
+export type MutationBatchPin<Payload> = {
+	readonly references: typeof MutationBatchPinReferences.Type;
+	readonly payload: Payload;
+};
 
 const WorkflowOwnerState = Schema.Struct({
 	retiring: Schema.Boolean,
@@ -529,12 +541,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			maxItems: number;
 			pins: ReadonlyArray<{
 				readonly id: string;
-				readonly result: unknown;
-				readonly executionUserId: UserId | null;
-				readonly pluginId: string | null;
-				readonly pluginRevisionId: string | null;
-				readonly pluginConfigRevisionId: string | null;
-				readonly sandboxScriptId: string | null;
+				readonly payload: unknown;
+				readonly references: typeof MutationBatchPinReferences.Type;
 			}>;
 		}) {
 			yield* requireTransaction;
@@ -559,24 +567,20 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 					}),
 			);
 			for (const pin of input.pins) {
-				const result = yield* decodeStoredSchema(pin.result, JsonValue, "Invalid batch pin");
+				const result = yield* decodeStoredSchema(pin.payload, JsonValue, "Invalid batch pin");
 				yield* session.run((db) =>
 					db
 						.insert(mutationReceipt)
 						.values({
 							...input.identity,
+							...pin.references,
 							result,
 							id: pin.id,
 							dispatch: [],
-							pluginId: pin.pluginId,
 							batchId: input.identity.id,
 							receiptType: "batch-candidate",
-							scopeUserId: pin.executionUserId,
-							sandboxScriptId: pin.sandboxScriptId,
-							pluginRevisionId: pin.pluginRevisionId,
-							pluginConfigRevisionId: pin.pluginConfigRevisionId,
-							ownerUserId: pin.executionUserId ?? input.identity.ownerUserId,
-							mutationScope: pin.executionUserId === null ? "global" : "user",
+							ownerUserId: pin.references.scopeUserId ?? input.identity.ownerUserId,
+							mutationScope: pin.references.scopeUserId === null ? "global" : "user",
 						}),
 				);
 			}
@@ -630,9 +634,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			return {
 				...decision,
 				maxItems: decision.maxItems,
-				pins: yield* Effect.forEach(rows, (row) =>
-					decodeStoredSchema(row.result, pinSchema, `Invalid batch pin ${row.id}`),
-				),
 				evidence: yield* Effect.forEach(items, (row) =>
 					decodeStoredSchema(
 						row.evidence,
@@ -643,6 +644,22 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 							payload,
 							scopeUserId: row.scopeUserId === null ? null : UserId.make(row.scopeUserId),
 						})),
+					),
+				),
+				pins: yield* Effect.forEach(rows, (row) =>
+					decodeStoredSchema(
+						{
+							payload: row.result,
+							references: {
+								pluginId: row.pluginId,
+								scopeUserId: row.scopeUserId,
+								sandboxScriptId: row.sandboxScriptId,
+								pluginRevisionId: row.pluginRevisionId,
+								pluginConfigRevisionId: row.pluginConfigRevisionId,
+							},
+						},
+						Schema.Struct({ payload: pinSchema, references: MutationBatchPinReferences }),
+						`Invalid batch pin ${row.id}`,
 					),
 				),
 			};

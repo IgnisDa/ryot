@@ -435,6 +435,79 @@ layer(
 	);
 
 	test.effect(
+		"returns canonical references with decoded payloads and preserves the admitted pins on replay",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const account = { token: "batch-pin-generation", userId: UserId.make("batch-pin-owner") };
+				yield* seedAccount(account);
+				const batch = receipts.batchIdentity({
+					resource: "entity",
+					ownerUserId: account.userId,
+					identity: ["canonical-pins"],
+					command: { ...command, accountGeneration: account },
+				});
+				const pins = [null, account.userId].map((scopeUserId, index) => ({
+					id: `canonical-pin-${index}`,
+					payload: { snapshot: `snapshot-${index}` },
+					references: {
+						scopeUserId,
+						pluginId: null,
+						sandboxScriptId: null,
+						pluginRevisionId: null,
+						pluginConfigRevisionId: null,
+					},
+				}));
+				yield* session.transaction(
+					Effect.gen(function* () {
+						const decision = yield* receipts.beginBatch({ pins, maxItems: 3, identity: batch });
+						expect(yield* receipts.beginBatch({ pins: [], maxItems: 99, identity: batch })).toEqual(
+							decision,
+						);
+						const contents = yield* receipts.batchContents(
+							batch,
+							Schema.Struct({ snapshot: Schema.String }),
+						);
+						expect(contents.pins).toEqual(
+							pins.map(({ payload, references }) => ({ payload, references })),
+						);
+						expect(contents.maxItems).toBe(3);
+						const rows = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.mutationReceipt)
+								.where(
+									inArray(
+										tables.mutationReceipt.id,
+										pins.map(({ id }) => id),
+									),
+								)
+								.orderBy(tables.mutationReceipt.id),
+						);
+						expect(
+							rows.map(({ result, scopeUserId, ownerUserId }) => ({
+								result,
+								scopeUserId,
+								ownerUserId,
+							})),
+						).toEqual(
+							pins.map(({ payload, references }) => ({
+								result: payload,
+								ownerUserId: account.userId,
+								scopeUserId: references.scopeUserId,
+							})),
+						);
+						yield* receipts.sealBatch(batch, []);
+						expect(
+							yield* receipts.batchContents(batch, Schema.Struct({ snapshot: Schema.String })),
+						).toMatchObject({ pins: [], sealed: true, evidence: [] });
+					}),
+				);
+			}),
+	);
+
+	test.effect(
 		"keeps distinct provider batches separate under one command and rejects changed input",
 		() =>
 			Effect.gen(function* () {
