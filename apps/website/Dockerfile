@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
+ARG NODE_BASE_IMAGE=node:24.22.1-bookworm-slim
 
 FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS website-build-base
 WORKDIR /app
