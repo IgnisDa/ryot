@@ -92,11 +92,40 @@ export const composeClientPage = (input: {
 				.map(({ name }) => file(hash, name)),
 		),
 	}));
+	const analyticsSections = identity.analyticsSections.map((registration) => {
+		if (registration.module !== null) {
+			const owner = identity.contributors.find(
+				(contributor) =>
+					contributor.kind === "plugin" && contributor.pluginId === registration.ownerPluginId,
+			);
+			if (
+				owner?.kind !== "plugin" ||
+				!owner.exports.some(
+					(declaration) =>
+						declaration.kind === "analytics-section" &&
+						declaration.name === registration.module?.binding &&
+						pluginExportSpecifier(owner, declaration.name) === registration.module.specifier,
+				)
+			) {
+				throw missing(registration.module.specifier);
+			}
+		}
+		return {
+			...registration,
+			module: registration.module === null ? null : module(registration.module),
+			stylesheets: registration.artifactClosure.flatMap((hash) =>
+				(artifacts.get(hash)?.files ?? [])
+					.filter(({ contentType }) => contentType.startsWith("text/css"))
+					.map(({ name }) => file(hash, name)),
+			),
+		};
+	});
 	let descriptor: ClientPageCompositionManifest["descriptor"];
 	if (identity.application === "plugin-route") {
 		const routes = identity.routes;
 		descriptor = {
 			automaticRegistry,
+			analyticsSections,
 			application: "plugin-route",
 			routes: {
 				...(routes.home === undefined ? {} : { home: module(routes.home) }),
@@ -108,7 +137,12 @@ export const composeClientPage = (input: {
 			},
 		};
 	} else {
-		descriptor = { automaticRegistry, application: "page", entry: module(identity.entry) };
+		descriptor = {
+			automaticRegistry,
+			analyticsSections,
+			application: "page",
+			entry: module(identity.entry),
+		};
 	}
 	return {
 		imports,

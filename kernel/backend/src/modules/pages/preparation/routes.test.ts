@@ -25,7 +25,7 @@ const user = {
 	name: "User",
 	id: UserId.make("user-1"),
 	email: "user@example.com",
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
@@ -58,6 +58,7 @@ const document: ClientCompositionDocument = {
 	descriptor: {
 		application: "page",
 		automaticRegistry: [],
+		analyticsSections: [],
 		entry: { binding: "default", specifier: "@ryot-app/kernel-renderers/fixture" },
 	},
 };

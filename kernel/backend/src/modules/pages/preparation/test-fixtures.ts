@@ -20,6 +20,7 @@ export const presentationReference = {
 export const identity = (): ClientPageCompositionIdentity => ({
 	name: "Page",
 	application: "page",
+	analyticsSections: [],
 	kernelAutomaticFallback: null,
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,

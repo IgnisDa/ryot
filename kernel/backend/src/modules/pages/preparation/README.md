@@ -14,6 +14,15 @@ validates that reference against the declared exports.
 Page context carries each contributor's package ID, local ID, revision, and installation. These
 nonsecret bindings support explicit SDK recipe selection in a shared realm, not module isolation.
 
+The Analytics kernel renderer requests the visible, ready plugins' declarative analytics sections.
+Each stable local section slug is bound to its exact plugin owner and typed export. Its dependency
+closure uses the same scoped package graph as ordinary pages, including private dependencies.
+Unavailable section artifacts or dependencies produce an unavailable section without granting a
+partially resolved contributor graph. Other sections remain executable. The composition identity
+includes the ordered registrations and their closures; catalog changes therefore use the ordinary
+freshness/reload path. Section modules and styles load on demand, with private artifacts warmed while
+their grants are valid. The renderer mounts only its selected section.
+
 Plugin routes use `/p/<publisher>/<name>`. Saved views use `/v/c/<id>`, `/v/k/<slug>`, or
 `/v/p/<publisher>/<name>/<slug>` according to their tagged reference. Quarantine removes executable
 contributors; freshness checks never replace them with another package.

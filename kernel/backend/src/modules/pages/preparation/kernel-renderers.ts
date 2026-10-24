@@ -1,5 +1,6 @@
 import type { ClientCompositionModuleReference } from "@ryot-app/contract/modules/pages/schemas";
 import {
+	kernelAnalyticsRenderer,
 	kernelCalendarRenderer,
 	kernelCollectionBrowserRenderer,
 	kernelCollectionDetailRenderer,
@@ -11,6 +12,7 @@ type KernelClientRenderer = typeof kernelEntityBrowserRenderer;
 
 const kernelRenderers = new Map<string, KernelClientRenderer>([
 	["calendar", kernelCalendarRenderer],
+	["analytics", kernelAnalyticsRenderer],
 	["results-table", kernelResultsTableRenderer],
 	["entity-browser", kernelEntityBrowserRenderer],
 	["collection-browser", kernelCollectionBrowserRenderer],

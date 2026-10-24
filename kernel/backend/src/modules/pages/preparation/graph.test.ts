@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
@@ -41,6 +41,222 @@ const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): Gr
 	};
 };
 
+const analyticsGraph = (plugins: readonly GraphPlugin[]) =>
+	resolveClientPageGraph({
+		plugins,
+		kernel: true,
+		clientImports: [],
+		rendererName: "Analytics",
+		sourceHash: "analytics-source",
+		runtimeArtifactHash: "runtime",
+		rendererArtifactHash: "renderer",
+		definition: {
+			files: [],
+			pluginDependencies: {},
+			analyticsSections: true,
+			entry: "client/analytics.tsx",
+			settingsSchema: { fields: {} },
+			automaticEntityPresentations: false,
+		},
+	});
+
+const analyticsPlugin = (name: string) =>
+	plugin(name, {
+		apiVersion: 1,
+		homeView: null,
+		analyticsSections: {
+			activity: { sortOrder: 0, name: "Activity", icon: "chart-column", exportName: "activity" },
+		},
+		exports: {
+			activity: {
+				kind: "analytics-section",
+				entry: "client/activity.tsx",
+				automaticEntityPresentations: false,
+			},
+		},
+	});
+
+it.effect(
+	"composes generic analytics sections with exact private dependencies and lazy styles",
+	() =>
+		Effect.gen(function* () {
+			const dependency = plugin("analytics-dependency", {
+				apiVersion: 1,
+				homeView: null,
+				exports: {
+					shared: {
+						kind: "component",
+						entry: "client/shared.tsx",
+						automaticEntityPresentations: false,
+					},
+				},
+			});
+			const original = analyticsPlugin("analytics-owner");
+			const client = original.manifest.client;
+			assert(client);
+			const owner = {
+				...original,
+				manifest: {
+					...original.manifest,
+					client: {
+						...client,
+						pluginDependencies: { shared: dependencyReference("analytics-dependency") },
+					},
+				},
+			};
+			const other = analyticsPlugin("analytics-other");
+			const graph = yield* analyticsGraph([other, owner, dependency]);
+			expect(yield* analyticsGraph([dependency, owner, other])).toEqual(graph);
+			expect(graph.identity.eagerArtifactHashes).toEqual(["renderer", "runtime"]);
+			expect(graph.identity.analyticsSections).toHaveLength(2);
+			expect(
+				graph.identity.analyticsSections.find(({ ownerPluginId }) => ownerPluginId === owner.id),
+			).toMatchObject({
+				slug: "activity",
+				artifactClosure: ["analytics-dependency-hash", "analytics-owner-hash"],
+				module: { binding: "activity", specifier: pluginExportSpecifier(owner, "activity") },
+			});
+			const manifest = composeClientPage({
+				identity: graph.identity,
+				runtimeEntries: { bootstrap: "bootstrap.js" },
+				artifacts: new Map<string, ArtifactDescription>([
+					["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+					...[
+						"renderer",
+						"analytics-owner-hash",
+						"analytics-other-hash",
+						"analytics-dependency-hash",
+					].map(
+						(hash) =>
+							[
+								hash,
+								{
+									files: [
+										{ name: "module.js", contentType: "text/javascript" },
+										{ name: "module.css", contentType: "text/css" },
+									],
+								},
+							] as const,
+					),
+				]),
+			});
+			expect(manifest.imports[pluginExportSpecifier(dependency, "shared")]).toEqual({
+				file: "module.js",
+				artifactHash: "analytics-dependency-hash",
+			});
+			expect(
+				manifest.descriptor.analyticsSections.find(
+					({ ownerPluginId }) => ownerPluginId === owner.id,
+				)?.stylesheets,
+			).toEqual([
+				{ file: "module.css", artifactHash: "analytics-dependency-hash" },
+				{ file: "module.css", artifactHash: "analytics-owner-hash" },
+			]);
+			expect(
+				(yield* analyticsGraph([owner, { ...other, pluginRevisionId: "new-revision" }, dependency]))
+					.compositionKey,
+			).not.toBe(graph.compositionKey);
+			expect(
+				(yield* analyticsGraph([{ ...owner, isHidden: true }, other, dependency])).identity
+					.analyticsSections,
+			).toHaveLength(1);
+		}),
+);
+
+it.effect(
+	"isolates missing analytics artifacts and dependencies without granting partial contributors",
+	() =>
+		Effect.gen(function* () {
+			const original = analyticsPlugin("unavailable-owner");
+			const client = original.manifest.client;
+			assert(client);
+			const broken = {
+				...original,
+				manifest: {
+					...original.manifest,
+					client: {
+						...client,
+						pluginDependencies: { missing: dependencyReference("uninstalled") },
+					},
+				},
+			};
+			const good = analyticsPlugin("ready-owner");
+			const graph = yield* analyticsGraph([broken, good]);
+			expect(
+				graph.identity.analyticsSections.find(({ ownerPluginId }) => ownerPluginId === broken.id),
+			).toMatchObject({ module: null, artifactClosure: [] });
+			expect(
+				graph.identity.contributors.flatMap((contributor) =>
+					contributor.kind === "plugin" ? [contributor.pluginId] : [],
+				),
+			).toEqual([good.id]);
+			const missingArtifact = yield* analyticsGraph([{ ...good, clientArtifactHash: null }]);
+			expect(missingArtifact.identity.analyticsSections[0]?.module).toBeNull();
+			expect((yield* analyticsGraph([])).identity.analyticsSections).toEqual([]);
+		}),
+);
+
+it.effect("keeps unavailable lazy analytics sections out of automatic presentation inference", () =>
+	Effect.gen(function* () {
+		const healthySection = plugin("healthy-section", {
+			apiVersion: 1,
+			homeView: null,
+			analyticsSections: {
+				activity: { sortOrder: 0, name: "Activity", icon: "chart-column", exportName: "activity" },
+			},
+			exports: {
+				activity: {
+					kind: "analytics-section",
+					entry: "client/activity.tsx",
+					automaticEntityPresentations: false,
+				},
+				unrelatedPage: {
+					kind: "page",
+					entry: "client/page.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: true,
+				},
+			},
+		});
+		const unavailableSection = plugin("unavailable-section", {
+			apiVersion: 1,
+			homeView: null,
+			entities: { entity: { gridPresentation: "card" } },
+			pluginDependencies: { missing: dependencyReference("unavailable-dependency") },
+			analyticsSections: {
+				activity: { sortOrder: 0, name: "Activity", icon: "chart-column", exportName: "activity" },
+			},
+			exports: {
+				card: {
+					kind: "presentation",
+					entry: "client/card.tsx",
+					automaticEntityPresentations: false,
+				},
+				activity: {
+					kind: "analytics-section",
+					entry: "client/activity.tsx",
+					automaticEntityPresentations: false,
+				},
+			},
+		});
+		const graph = yield* analyticsGraph([healthySection, unavailableSection]);
+
+		expect(
+			graph.identity.analyticsSections.find(
+				({ ownerPluginId }) => ownerPluginId === healthySection.id,
+			),
+		).toMatchObject({ module: { binding: "activity" } });
+		expect(
+			graph.identity.analyticsSections.find(
+				({ ownerPluginId }) => ownerPluginId === unavailableSection.id,
+			),
+		).toMatchObject({ module: null, artifactClosure: [] });
+		expect(graph.identity.automaticRegistry).toEqual([]);
+		expect(graph.identity.kernelAutomaticFallback).toBeNull();
+		expect(graph.identity.eagerArtifactHashes).toEqual(["renderer", "runtime"]);
+	}),
+);
+
 it.effect("composes explicit plugin routes without inventing a home route", () =>
 	Effect.gen(function* () {
 		const page = plugin("rootless", {
@@ -77,6 +293,7 @@ it.effect("composes explicit plugin routes without inventing a home route", () =
 			]),
 		});
 		expect(manifest.descriptor).toEqual({
+			analyticsSections: [],
 			automaticRegistry: [],
 			application: "plugin-route",
 			routes: {
@@ -195,6 +412,7 @@ it.effect("stores route modules with home, ordered routes, and not-found binding
 			expect(graph.identity.routes).toEqual(expectedRoutes);
 		}
 		expect(manifest.descriptor).toEqual({
+			analyticsSections: [],
 			automaticRegistry: [],
 			routes: expectedRoutes,
 			application: "plugin-route",
@@ -415,6 +633,7 @@ it.effect("keeps the exact selected export when pages share a source entry", () 
 		});
 		expect(manifest.descriptor).toEqual({
 			application: "page",
+			analyticsSections: [],
 			automaticRegistry: [],
 			entry: { binding: "second", specifier: pluginExportSpecifier(page, "second") },
 		});
@@ -452,6 +671,7 @@ it.effect("stores and composes the kernel page binding directly", () =>
 		});
 		expect(manifest.descriptor).toEqual({
 			application: "page",
+			analyticsSections: [],
 			automaticRegistry: [],
 			entry: { binding: "page", specifier: "@ryot-app/kernel-renderers/renderer" },
 		});

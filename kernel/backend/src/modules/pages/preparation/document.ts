@@ -32,7 +32,9 @@ export const planClientDocumentPreloads = (
 ): Plan => {
 	const eager = new Set(manifest.identity.eagerArtifactHashes);
 	const lazy = new Set(
-		manifest.descriptor.automaticRegistry.flatMap(({ artifactClosure }) => artifactClosure),
+		[...manifest.descriptor.automaticRegistry, ...manifest.descriptor.analyticsSections].flatMap(
+			({ artifactClosure }) => artifactClosure,
+		),
 	);
 	const modulepreloads = new Set<string>();
 	const stylesheets = new Set<string>();
@@ -90,6 +92,12 @@ export const renderClientDocument = (
 		metadata: { format, apiVersion, bridgeVersion, compilerVersion, hash: compositionHash },
 		descriptor: {
 			...manifest.descriptor,
+			analyticsSections: manifest.descriptor.analyticsSections.map(
+				({ stylesheets, artifactClosure: _closure, ...registration }) => ({
+					...registration,
+					stylesheets: [...new Set(stylesheets.map(url))],
+				}),
+			),
 			automaticRegistry: manifest.descriptor.automaticRegistry.map(
 				({ stylesheets, artifactClosure: _closure, ...registration }) => ({
 					...registration,
@@ -112,6 +120,7 @@ export const generateClientDocument = Effect.fn("Pages.generateDocument")(functi
 		...Object.values(manifest.imports).map(({ artifactHash }) => artifactHash),
 		...manifest.identity.eagerArtifactHashes,
 		...manifest.descriptor.automaticRegistry.flatMap(({ artifactClosure }) => artifactClosure),
+		...manifest.descriptor.analyticsSections.flatMap(({ artifactClosure }) => artifactClosure),
 	]);
 	const artifacts = new Map<string, ArtifactDescription>();
 	const access = new Map<string, string>();

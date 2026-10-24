@@ -23,7 +23,7 @@ import {
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/catalog/runtime-resolver";
 
@@ -100,7 +100,12 @@ type KernelInput = Common & {
 
 const ordered = <T>(values: Iterable<T>, key: (value: T) => string) => sortBy([...values], key);
 const unavailable = (reference: PluginPackageReference) =>
-	new ClientPagePreparationError({ reason: { reference, code: "dependency-unavailable" } });
+	new ClientPagePreparationError({
+		reason: {
+			code: "dependency-unavailable",
+			reference: { scope: reference.scope, packageId: reference.packageId },
+		},
+	});
 const missingExport = (specifier: string) =>
 	new ClientPagePreparationError({ reason: { exportName: specifier, code: "export-not-found" } });
 const artifactHash = (plugin: GraphPlugin): string => {
@@ -194,6 +199,59 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		yield* include(input.plugin);
 	}
 	const eagerIds = new Set(included.keys());
+	const analyticsSections: ClientPageCompositionIdentity["analyticsSections"][number][] = [];
+	if (isKernel && input.definition.analyticsSections) {
+		for (const plugin of ordered(
+			input.plugins.filter((candidate) => candidate.health === "ready" && !candidate.isHidden),
+			(candidate) => candidate.id,
+		)) {
+			for (const [slug, registration] of ordered(
+				Object.entries(plugin.manifest.client?.analyticsSections ?? {}),
+				([key]) => key,
+			)) {
+				if (
+					plugin.manifest.client?.exports?.[registration.exportName]?.kind !== "analytics-section"
+				) {
+					return yield* missingExport(pluginExportSpecifier(plugin, registration.exportName));
+				}
+				const before = new Map(included);
+				const result = yield* include(plugin).pipe(Effect.result);
+				if (Result.isFailure(result)) {
+					included.clear();
+					for (const [id, entry] of before) {
+						included.set(id, entry);
+					}
+					visiting.length = 0;
+				}
+				const closure = new Set<string>();
+				const visit = (entry: GraphPlugin) => {
+					const hash = artifactHash(entry);
+					if (closure.has(hash)) {
+						return;
+					}
+					closure.add(hash);
+					for (const reference of dependencies(entry.manifest.client?.pluginDependencies ?? {})) {
+						const dependency = catalog.get(pluginPackageKey(reference));
+						if (dependency) {
+							visit(dependency);
+						}
+					}
+				};
+				if (Result.isSuccess(result)) {
+					visit(plugin);
+				}
+				analyticsSections.push({
+					slug,
+					name: registration.name,
+					icon: registration.icon,
+					ownerPluginId: plugin.id,
+					sortOrder: registration.sortOrder,
+					artifactClosure: [...closure].sort(),
+					module: Result.isSuccess(result) ? pluginModule(plugin, registration.exportName) : null,
+				});
+			}
+		}
+	}
 
 	const routes =
 		!isKernel && input.application === "plugin-route"
@@ -250,6 +308,7 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 	if (!automatic) {
 		automatic = [...included.values()].some(
 			(plugin) =>
+				eagerIds.has(plugin.id) &&
 				plugin.id !== (isKernel ? null : input.plugin.id) &&
 				Object.values(plugin.manifest.client?.exports ?? {}).some(
 					(declaration) => declaration.automaticEntityPresentations,
@@ -328,6 +387,13 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		kernelAutomaticFallback: automatic
 			? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 			: null,
+		analyticsSections: analyticsSections.sort(
+			(left, right) =>
+				left.sortOrder - right.sortOrder ||
+				identityTupleKey(left.ownerPluginId, left.slug).localeCompare(
+					identityTupleKey(right.ownerPluginId, right.slug),
+				),
+		),
 		contributors: [
 			...(isKernel
 				? [
