@@ -10,6 +10,10 @@
 		"./javascript-references": {
 			"types": "./src/javascript-references.ts",
 			"default": "./src/javascript-references.ts"
+		},
+		"./typescript-references": {
+			"types": "./src/typescript-references.ts",
+			"default": "./src/typescript-references.ts"
 		}
 	},
 	"scripts": {

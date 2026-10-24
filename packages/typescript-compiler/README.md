@@ -10,6 +10,13 @@ re-exports, literal dynamic imports, and `new URL(..., import.meta.url)` referen
 JavaScript. It reports nonliteral dynamic expressions to the caller; plugin client and backend compilers
 enforce their own approval policies.
 
+The Rolldown-free `./typescript-references` entry walks a parsed TypeScript source file and reports,
+in document order, every import and export declaration with a module specifier, import assignment,
+import type, dynamic import, and `import.meta` use, with `new URL(..., import.meta.url)` reported as
+one site. Each reference carries its declaration or expression node, its literal specifier or `null`,
+and whether its parent is the source file. Reference directives, glob interpretation, and every
+approval decision stay with the plugin compilers.
+
 Each target supplies a complete in-memory project configuration and resolved source/type aliases.
 Dynamic compilation does not inherit repository or package TypeScript configuration.
 

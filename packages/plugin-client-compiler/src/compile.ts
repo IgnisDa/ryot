@@ -80,7 +80,6 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 		const policyDiagnostics = validateClientSourcePolicy({
 			sourceFiles,
 			files: plan.files,
-			publicExports: {},
 			parsedFiles: analysis.sourceFiles,
 			unresolvedPluginDependencies: plan.pluginDependencies,
 		});

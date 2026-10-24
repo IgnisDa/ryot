@@ -7,6 +7,11 @@ import {
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 } from "@ryot-app/plugin-backend-sdk/imports";
+import { posixPath } from "@ryot-app/ts-utils/path";
+import {
+	inspectTypeScriptReferences,
+	type TypeScriptReference,
+} from "@ryot-app/typescript-compiler/typescript-references";
 import * as ts from "typescript/unstable/ast";
 
 import {
@@ -19,25 +24,10 @@ const SHARED_SOURCE_ROOT = "shared/";
 const allowedImports = new Set<string>(SANDBOX_SDK_IMPORTS);
 const sharedAllowedImports = new Set<string>(PLUGIN_KIT_IMPORTS);
 
-const normalizeRelativeSpecifier = (importer: string, specifier: string) => {
-	const normalized: string[] = [];
-	for (const part of [...importer.split("/").slice(0, -1), ...specifier.split("/")]) {
-		if (!part || part === ".") {
-			continue;
-		}
-		if (part === "..") {
-			if (normalized.length === 0) {
-				return null;
-			}
-			normalized.pop();
-			continue;
-		}
-		normalized.push(part);
-	}
-	return normalized.join("/");
-};
+export const resolveRelativeModulePath = (importer: string, specifier: string) =>
+	posixPath.join(posixPath.dirname(importer), specifier).replace(/\/+$/, "");
 
-const getModuleSpecifier = (node: ts.ImportDeclaration | ts.ExportDeclaration) =>
+export const getModuleSpecifier = (node: ts.ImportDeclaration | ts.ExportDeclaration) =>
 	node.moduleSpecifier && ts.isStringLiteralLikeNode(node.moduleSpecifier)
 		? node.moduleSpecifier.text
 		: null;
@@ -233,14 +223,18 @@ const inspectImports = (
 		);
 	}
 
-	for (const statement of file.statements) {
-		if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) {
-			const specifier = getModuleSpecifier(statement);
+	const references = inspectTypeScriptReferences(file);
+	for (const reference of references) {
+		if (!reference.isTopLevel) {
+			continue;
+		}
+		if (reference.kind === "import-declaration" || reference.kind === "export-declaration") {
+			const { node, specifier } = reference;
 			const relative = specifier?.startsWith(".") === true;
 			const escapesSharedRoot =
 				shared &&
 				relative &&
-				normalizeRelativeSpecifier(sourcePath, specifier)?.startsWith(SHARED_SOURCE_ROOT) !== true;
+				!resolveRelativeModulePath(sourcePath, specifier).startsWith(SHARED_SOURCE_ROOT);
 			const isAllowedRelativeImport = allowRelativeImports && relative && !escapesSharedRoot;
 			if (
 				specifier !== null &&
@@ -249,7 +243,7 @@ const inspectImports = (
 			) {
 				diagnostics.push(
 					diagnosticAt(
-						statement.moduleSpecifier ?? statement,
+						node.moduleSpecifier ?? node,
 						"RYOT_IMPORT",
 						shared
 							? `Import "${specifier}" is not allowed; plugin shared sources may only import an approved @ryot-app/plugin-kit entry point or another shared source`
@@ -259,7 +253,7 @@ const inspectImports = (
 			}
 
 			if (
-				ts.isImportDeclaration(statement) &&
+				reference.kind === "import-declaration" &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
@@ -267,7 +261,7 @@ const inspectImports = (
 					specifier === "@ryot-app/plugin-backend-sdk/driver" ||
 					specifier === "@ryot-app/plugin-backend-sdk/operation")
 			) {
-				const bindings = statement.importClause?.namedBindings;
+				const bindings = reference.node.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {
 					for (const element of bindings.elements) {
 						const importedName = (element.propertyName ?? element.name).text;
@@ -303,15 +297,19 @@ const inspectImports = (
 			}
 		}
 
-		if (ts.isImportEqualsDeclaration(statement)) {
+		if (reference.kind === "import-equals-require" || reference.kind === "import-equals-alias") {
 			diagnostics.push(
-				diagnosticAt(statement, "RYOT_IMPORT", "Import assignments are not allowed"),
+				diagnosticAt(reference.node, "RYOT_IMPORT", "Import assignments are not allowed"),
 			);
 		}
 	}
 
+	const referenceKinds = new Map<ts.Node, TypeScriptReference["kind"]>(
+		references.map(({ node, kind }) => [node, kind]),
+	);
 	const visit = (node: ts.Node): void => {
-		if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+		const referenceKind = referenceKinds.get(node);
+		if (referenceKind === "dynamic-import") {
 			diagnostics.push(diagnosticAt(node, "RYOT_IMPORT", "Dynamic imports are not allowed"));
 		}
 		if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && inspectsGeneratedModule(node)) {
@@ -330,7 +328,7 @@ const inspectImports = (
 		) {
 			diagnostics.push(diagnosticAt(node, "RYOT_IMPORT", "CommonJS require calls are not allowed"));
 		}
-		if (ts.isImportTypeNode(node)) {
+		if (referenceKind === "import-type") {
 			diagnostics.push(
 				diagnosticAt(node, "RYOT_IMPORT", "Import type expressions are not allowed"),
 			);

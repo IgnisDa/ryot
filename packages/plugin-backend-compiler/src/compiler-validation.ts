@@ -1,29 +1,41 @@
 import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
+import type { ProviderOperation } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
+import { type Diagnostic, DiagnosticCategory } from "typescript/unstable/async";
 
-import type { SandboxEntryDeclaration } from "./compiler-builtins";
 import {
 	type PluginBackendCompilerDiagnostic,
 	pluginBackendCompilerDiagnostic,
-	type PluginBackendCompilerFailure,
 	sandboxCompilationFailure,
+	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { validateSandboxCapabilities } from "./compiler-metadata";
-import type { createTypeScriptSourcesProjectForEntries } from "./compiler-project";
+import { sandboxSourcePath, type SandboxProjectEntry } from "./compiler-project";
 import {
-	type inspectSandboxSource,
+	getModuleSpecifier,
+	inspectSandboxSource,
 	inspectWorkflowDeterminism,
 	inspectWorkflowImports,
+	resolveRelativeModulePath,
 	sandboxDefinitionMismatch,
 } from "./compiler-source";
+import { SANDBOX_COMPILER_LIMITS } from "./limits";
 
-export type InspectedSandboxEntry = {
-	readonly entry: string;
+export type SandboxEntryDeclaration =
+	| {
+			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
+			readonly providerOperation?: never;
+	  }
+	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation };
+
+const inspectedSandboxEntry = Symbol("InspectedSandboxEntry");
+
+export type InspectedSandboxEntry = SandboxProjectEntry & {
+	readonly [inspectedSandboxEntry]: true;
 	readonly source: string;
-	readonly sourceFile: ts.SourceFile;
 	readonly inspection: ReturnType<typeof inspectSandboxSource>;
 };
 
@@ -34,31 +46,52 @@ export type ValidatedSandboxEntry = InspectedSandboxEntry & {
 
 type ValidateSandboxEntryInput = {
 	readonly inspected: InspectedSandboxEntry;
-	readonly execution:
-		| Effect.Success<
-				ReturnType<typeof createTypeScriptSourcesProjectForEntries>
-		  >["executionByEntry"][string]
-		| undefined;
 	readonly sourceFiles: readonly ts.SourceFile[];
-	readonly moduleDiagnostics?: readonly PluginBackendCompilerDiagnostic[];
+	readonly moduleDiagnostics: readonly PluginBackendCompilerDiagnostic[];
 	readonly declaration?: SandboxEntryDeclaration;
-	readonly validateTypes?: Effect.Effect<void, PluginBackendCompilerFailure>;
 };
 
-const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
-	const segments = sourceFile.fileName.split("/").slice(0, -1);
-	for (const segment of specifier.split("/")) {
-		if (segment === "..") {
-			segments.pop();
-		} else if (segment !== ".") {
-			segments.push(segment);
-		}
+export const inspectSandboxEntry = Effect.fn("inspectSandboxEntry")(function* (
+	projectEntry: SandboxProjectEntry,
+	source: string,
+	options: { readonly allowRelativeImports: boolean },
+) {
+	const inspection = inspectSandboxSource(projectEntry.sourceFile, options);
+	if (inspection.diagnostics.length > 0) {
+		return yield* sandboxCompilationFailure(inspection.diagnostics);
 	}
-	return segments.join("/");
+	const inspected: InspectedSandboxEntry = {
+		...projectEntry,
+		source,
+		inspection,
+		[inspectedSandboxEntry]: true,
+	};
+	return inspected;
+});
+
+export const validateSandboxProjectDiagnostics = (
+	project: {
+		readonly diagnostics: readonly Diagnostic[];
+		readonly sourceFiles: readonly ts.SourceFile[];
+	},
+	fallbackSourceFile: ts.SourceFile,
+) => {
+	const typeErrors = project.diagnostics.filter(
+		(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
+	);
+	return typeErrors.length === 0
+		? Effect.void
+		: sandboxCompilationFailure(
+				typeErrors
+					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
+					.map((diagnostic) =>
+						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, fallbackSourceFile),
+					),
+			);
 };
 
 const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts.SourceFile>) => {
-	const byName = new Map(sourceFiles.map((file) => [file.fileName, file]));
+	const byPath = new Map(sourceFiles.map((file) => [sandboxSourcePath(file.fileName), file]));
 	const visited = new Set<string>();
 	const reachable: ts.SourceFile[] = [];
 	const visit = (file: ts.SourceFile) => {
@@ -71,20 +104,16 @@ const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts
 			if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) {
 				continue;
 			}
-			const moduleSpecifier = statement.moduleSpecifier;
-			if (!moduleSpecifier || !ts.isStringLiteralLikeNode(moduleSpecifier)) {
+			const specifier = getModuleSpecifier(statement);
+			if (!specifier?.startsWith(".")) {
 				continue;
 			}
-			const specifier = moduleSpecifier.text;
-			if (!specifier.startsWith(".")) {
-				continue;
-			}
-			const path = relativeModulePath(file, specifier);
+			const path = resolveRelativeModulePath(sandboxSourcePath(file.fileName), specifier);
 			const dependency =
-				byName.get(path) ??
-				byName.get(`${path}.ts`) ??
-				byName.get(path.replace(/\.js$/, ".ts")) ??
-				byName.get(`${path}/index.ts`);
+				byPath.get(path) ??
+				byPath.get(`${path}.ts`) ??
+				byPath.get(path.replace(/\.js$/, ".ts")) ??
+				byPath.get(`${path}/index.ts`);
 			if (dependency) {
 				visit(dependency);
 			}
@@ -96,29 +125,18 @@ const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts
 
 export const validateSandboxEntry = Effect.fn("validateSandboxEntry")(function* ({
 	inspected,
-	execution,
 	sourceFiles,
 	declaration,
-	validateTypes,
 	moduleDiagnostics,
 }: ValidateSandboxEntryInput) {
-	if (!execution) {
-		return yield* sandboxCompilationFailure([
-			pluginBackendCompilerDiagnostic("RYOT_DEPENDENCY", "Executable analysis is missing"),
-		]);
-	}
+	const { sourceFile, inspection, execution } = inspected;
 	if (execution.diagnostics.length > 0) {
 		return yield* sandboxCompilationFailure(execution.diagnostics);
 	}
-	if (inspected.inspection.diagnostics.length > 0) {
-		return yield* sandboxCompilationFailure(inspected.inspection.diagnostics);
-	}
-	yield* validateTypes ?? Effect.void;
-	if (moduleDiagnostics && moduleDiagnostics.length > 0) {
+	if (moduleDiagnostics.length > 0) {
 		return yield* sandboxCompilationFailure(moduleDiagnostics);
 	}
 
-	const { sourceFile, inspection } = inspected;
 	const extracted = extractSandboxManifest(sourceFile, inspection.manifestHelpers);
 	if (extracted.diagnostic) {
 		return yield* sandboxCompilationFailure([extracted.diagnostic]);
