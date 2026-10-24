@@ -42,6 +42,10 @@
 			"types": "./shared/workout-list-recipes.ts",
 			"default": "./shared/workout-list-recipes.ts"
 		},
+		"./home-recipes": {
+			"types": "./shared/home-recipes.ts",
+			"default": "./shared/home-recipes.ts"
+		},
 		"./exercise-details-recipes": {
 			"types": "./shared/exercise-details-recipes.ts",
 			"default": "./shared/exercise-details-recipes.ts"

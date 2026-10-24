@@ -13,7 +13,7 @@
 
 ## Status
 
-**13 implemented, 4 in progress, 66 pending; 3 excluded.**
+**14 implemented, 3 in progress, 66 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -35,7 +35,7 @@
 | F03-R1 | In progress | One workout-editor save owner. |
 | C04-R1 | In progress | Release partially acquired native listeners. |
 | C05-R1 | In progress | Keep form edits from reloading remote catalog pages. |
-| F05-R1 | In progress | Preserve independent activity for equal-name targets and all roles. |
+| F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
 | M05-R2 | Pending | Require one purpose shape across manifests and readers. |
 | P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
 | M06-R2 | Pending | Use the current query for backfill eligibility. |
@@ -167,3 +167,4 @@
 - Each finding retains its own review and `audit:` commit. Affected validation, main-session cleanup, and final repository-wide acceptance are pending.
 - F03-R2: removed the fallback auto-confirm path. Added combined invalid-input, prompt, late-observation, replacement, and independent-rest regressions. Fitness check passed before 16 editor files / 163 tests. Read-only review reported no findings. No persisted shapes, suppressions, or bypass casts changed.
 - B07-R2: historical writes and `completeRun` use the captured database transaction. Completed status replaces progress-90 replay logic; ambiguous failures reread completion before retry/failure. Cleanup only deletes the temporary upload best-effort. Backend check passed before 11 backup files / 130 tests, including real PostgreSQL commit/rollback, lost acknowledgement, postcommit cancellation, replay, unavailable cleanup, and deadlock retry. Read-only review reported no findings. Drain active restores before deployment; no compatibility path was added.
+- F05-R1: one ID-keyed aggregate retains visibility, effective-link deduplication, bounds, never-trained targets, and sorting. Set weights remain primary/untyped 1, secondary 0.5, stabilizer 0; recency includes every role. Fitness check passed before all 85 files / 537 tests. E2E check and the new `home-recipes.test.ts` API regression passed against PostgreSQL, covering equal-name targets and generated SQL. Read-only review reported no findings.

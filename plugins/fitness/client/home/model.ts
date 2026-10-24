@@ -86,9 +86,10 @@ export const buildMuscleTiles = (
 	now: Date,
 	timeZone: string,
 ) =>
-	activity.map(({ name, weeklySets, lastTrainedAt }) => {
+	activity.map(({ id, name, weeklySets, lastTrainedAt }) => {
 		const days = lastTrainedAt === null ? null : daysSince(lastTrainedAt, now, timeZone);
 		return {
+			id,
 			name,
 			band: bandOf(days),
 			days: days === null ? "Never" : `${days}d`,

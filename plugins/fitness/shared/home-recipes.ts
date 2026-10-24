@@ -13,14 +13,11 @@ import {
 	first,
 	groupAscending,
 	gte,
-	isNull,
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
 	jsonPath,
 	literal,
-	neq,
-	or,
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
@@ -42,7 +39,6 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
-import { exerciseTargetRoleSchema } from "./taxonomy";
 import { effectiveTaxonomyLink } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
 
@@ -54,104 +50,83 @@ const templateSlug = "workout-to-workout-template";
 const MUSCLE_TARGET_LIMIT = 100;
 const SECONDARY_WEIGHT = 0.5;
 
-export const combineMuscleActivity = (
-	names: readonly string[],
-	groups: readonly {
-		readonly name: string;
-		readonly sets: number | null;
-		readonly lastAt: string | null;
-		readonly role: typeof exerciseTargetRoleSchema.Type | null;
-	}[],
-) => {
-	const activity = new Map<string, { weeklySets: number; lastTrainedAt: string | null }>(
-		names.map((name) => [name, { weeklySets: 0, lastTrainedAt: null }]),
-	);
-	for (const group of groups) {
-		const current = activity.get(group.name) ?? { weeklySets: 0, lastTrainedAt: null };
-		const weight = group.role === "secondary" ? SECONDARY_WEIGHT : 1;
-		activity.set(group.name, {
-			weeklySets: current.weeklySets + (group.sets ?? 0) * weight,
-			lastTrainedAt:
-				group.lastAt !== null &&
-				(current.lastTrainedAt === null ||
-					Date.parse(group.lastAt) > Date.parse(current.lastTrainedAt))
-					? group.lastAt
-					: current.lastTrainedAt,
-		});
-	}
-	return [...activity.entries()]
-		.map(([name, { weeklySets, lastTrainedAt }]) => ({ name, weeklySets, lastTrainedAt }))
-		.sort((left, right) => {
-			if (left.lastTrainedAt === null || right.lastTrainedAt === null) {
-				return (
-					Number(right.lastTrainedAt === null) - Number(left.lastTrainedAt === null) ||
-					left.name.localeCompare(right.name)
-				);
-			}
-			return (
-				Date.parse(left.lastTrainedAt) - Date.parse(right.lastTrainedAt) ||
-				left.name.localeCompare(right.name)
-			);
-		});
-};
-
 export const muscleActivityRecipe = defineRecipe(
 	(input: { readonly reference: Reference; readonly weekStartAt: string }) => {
 		const set = table("event", "muscleSet");
 		const link = table("relationship", "muscleLink");
 		const target = table("entity", "muscleTarget");
-		const names = table("entity", "muscleName");
 		return {
-			map: ({ groups, targets }) =>
+			map: ({ activity }) =>
 				Result.succeed(
-					combineMuscleActivity(
-						targets.items.map(({ name }) => name),
-						groups.items,
-					),
+					activity.items
+						.map((item) => ({ ...item, weeklySets: item.weeklySets ?? 0 }))
+						.sort((left, right) => {
+							if (left.lastTrainedAt === null || right.lastTrainedAt === null) {
+								return (
+									Number(right.lastTrainedAt === null) - Number(left.lastTrainedAt === null) ||
+									left.name.localeCompare(right.name)
+								);
+							}
+							return (
+								Date.parse(left.lastTrainedAt) - Date.parse(right.lastTrainedAt) ||
+								left.name.localeCompare(right.name)
+							);
+						}),
 				),
 			queries: {
-				targets: selectedRows(names, {
+				activity: selectedAggregate(target, {
 					limit: MUSCLE_TARGET_LIMIT,
-					where: entitySchemaPredicate(names, "exercise-target", input.reference),
-					selection: { name: selectedField(column(names, "name"), Schema.String) },
-					orderBy: [ascending(column(names, "name")), ascending(column(names, "id"))],
-				}),
-				groups: selectedAggregate(set, {
-					limit: 400,
-					orderBy: [groupAscending("name"), groupAscending("role")],
+					orderBy: [groupAscending("name"), groupAscending("id")],
+					where: entitySchemaPredicate(target, "exercise-target", input.reference),
 					groupBy: {
+						id: selectedField(column(target, "id"), Schema.String),
 						name: selectedField(column(target, "name"), Schema.String),
-						role: selectedField(property(link, "role"), Schema.NullOr(exerciseTargetRoleSchema)),
 					},
 					joins: [
-						join("inner", link, eq(column(link, "sourceEntityId"), column(set, "entityId"))),
-						join("inner", target, eq(column(link, "targetEntityId"), column(target, "id"))),
+						join(
+							"left",
+							link,
+							and(
+								eq(column(link, "targetEntityId"), column(target, "id")),
+								relationshipSchemaPredicate(link, "exercise-targets", input.reference),
+								effectiveTaxonomyLink(link),
+							),
+						),
+						join(
+							"left",
+							set,
+							and(
+								eq(column(set, "entityId"), column(link, "sourceEntityId")),
+								schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
+								eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+							),
+						),
 					],
 					measures: {
-						lastAt: selectedMeasure(
+						lastTrainedAt: selectedMeasure(
 							{ function: "maximum", expr: column(set, "occurredAt") },
 							nullableString,
 						),
-						sets: selectedMeasure(
+						weeklySets: selectedMeasure(
 							{
 								function: "sum",
 								expr: conditional(
 									gte(column(set, "occurredAt"), castDate(literal(input.weekStartAt))),
-									literal(1),
+									conditional(
+										eq(property(link, "role"), literal("stabilizer")),
+										literal(0),
+										conditional(
+											eq(property(link, "role"), literal("secondary")),
+											literal(SECONDARY_WEIGHT),
+											literal(1),
+										),
+									),
 									literal(0),
 								),
 							},
 							nullableNumber,
 						),
 					},
-					where: and(
-						schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
-						eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-						relationshipSchemaPredicate(link, "exercise-targets", input.reference),
-						entitySchemaPredicate(target, "exercise-target", input.reference),
-						effectiveTaxonomyLink(link),
-						or(isNull(property(link, "role")), neq(property(link, "role"), literal("stabilizer"))),
-					),
 				}),
 			},
 		};
@@ -296,6 +271,6 @@ export const homeTemplatesRecipe = defineRecipe(
 	},
 );
 
-export type MuscleActivity = ReturnType<typeof combineMuscleActivity>[number];
+export type MuscleActivity = Recipe.Success<typeof muscleActivityRecipe>[number];
 export type HomePersonalBest = Recipe.Success<typeof recentPersonalBestsRecipe>["items"][number];
 export type HomeTemplate = Recipe.Success<typeof homeTemplatesRecipe>[number];
