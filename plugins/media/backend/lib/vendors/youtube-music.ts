@@ -66,8 +66,12 @@ export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: stri
 		retrieveInnertubeConfig: false,
 	}).pipe(Effect.mapError(toMediaSandboxError));
 
-export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
-	createSdkYoutubeHistoryClient(host, authCookie).pipe(
+export const createYoutubeHistoryClient = (
+	host: YoutubeMusicHost,
+	authCookie: string,
+	timezone: string,
+) =>
+	createSdkYoutubeHistoryClient(host, authCookie, timezone).pipe(
 		Effect.map((client): HistoryClient => ({
 			getHistory: () => client.getHistory().pipe(Effect.mapError(toMediaSandboxError)),
 		})),

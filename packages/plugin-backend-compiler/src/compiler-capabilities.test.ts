@@ -228,7 +228,7 @@ export default (host: Pick<ScriptHost, "httpCall">) => makeMusicClient(host);
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { createYoutubeHistoryClient as makeHistoryClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
-export default (host: Pick<ScriptHost, "httpCall">) => makeHistoryClient(host, "cookie");
+export default (host: Pick<ScriptHost, "httpCall">) => makeHistoryClient(host, "cookie", "UTC");
 `,
 			},
 			entries,

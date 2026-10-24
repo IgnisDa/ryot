@@ -19,6 +19,7 @@ export const manifest = defineManifest({
 type HistoryClientFactory = (
 	host: YoutubeMusicHost,
 	authCookie: string,
+	timezone: string,
 ) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 
 export const runHistory = (
@@ -27,7 +28,7 @@ export const runHistory = (
 	execution: ExecutionMetadata,
 	createClient: HistoryClientFactory = createYoutubeHistoryClient,
 ) =>
-	createClient(host, input.authCookie).pipe(
+	createClient(host, input.authCookie, input.timezone).pipe(
 		Effect.flatMap((client) =>
 			execution.startedAt
 				? buildHistory(client, input.timezone, execution.startedAt)

@@ -24,6 +24,7 @@ export const manifest = defineManifest({
 type HistoryClientFactory = (
 	host: YoutubeMusicHost,
 	authCookie: string,
+	timezone: string,
 ) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 const Cursor = Schema.Struct({
 	offset: Schema.Int,
@@ -82,7 +83,7 @@ export const runYoutubeMusicYank = (
 			const { timezone, authCookie } = yield* Schema.decodeUnknownEffect(YoutubeMusicSettings)(
 				integration.providerSpecifics,
 			);
-			const history = yield* createClient(host, authCookie).pipe(
+			const history = yield* createClient(host, authCookie, timezone).pipe(
 				Effect.flatMap((client) => buildHistory(client, timezone, startedAt)),
 			);
 			cursor = {

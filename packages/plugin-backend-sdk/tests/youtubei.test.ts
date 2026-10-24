@@ -268,7 +268,7 @@ describe("Youtubei sandbox adapter", () => {
 							};
 						}),
 				} satisfies YoutubeiHost;
-				const client = yield* createYoutubeHistoryClient(host, "SAPISID=value");
+				const client = yield* createYoutubeHistoryClient(host, "SAPISID=value", "Asia/Kolkata");
 
 				yield* client.getHistory();
 
@@ -279,9 +279,21 @@ describe("Youtubei sandbox adapter", () => {
 				expect(headers.get("cookie")).toBe("SAPISID=value");
 				expect(headers.get("authorization")).toMatch(/^SAPISIDHASH /);
 				const body = yield* Schema.decodeEffect(
-					Schema.fromJsonString(Schema.Struct({ params: Schema.String, browseId: Schema.String })),
+					Schema.fromJsonString(
+						Schema.Struct({
+							params: Schema.String,
+							browseId: Schema.String,
+							context: Schema.Struct({
+								client: Schema.Struct({ timeZone: Schema.String, utcOffsetMinutes: Schema.Finite }),
+							}),
+						}),
+					),
 				)(requests[0]?.body ?? "{}");
-				expect(body).toMatchObject({ params: "oggECgIIAQ%3D%3D", browseId: "FEmusic_history" });
+				expect(body).toMatchObject({
+					params: "oggECgIIAQ%3D%3D",
+					browseId: "FEmusic_history",
+					context: { client: { utcOffsetMinutes: 330, timeZone: "Asia/Kolkata" } },
+				});
 			}),
 		));
 

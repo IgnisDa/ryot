@@ -86,10 +86,37 @@ export const createYoutubeMusicClient = (
 		),
 	).pipe(Effect.map(wrapClient));
 
-export const createYoutubeHistoryClient = (host: YoutubeiHost, authCookie: string) =>
+const utcOffsetMinutes = (timeZone: string, date: Date) => {
+	const parts = new Intl.DateTimeFormat("en-US", {
+		timeZone,
+		day: "numeric",
+		hour: "numeric",
+		year: "numeric",
+		hourCycle: "h23",
+		month: "numeric",
+		minute: "numeric",
+	}).formatToParts(date);
+	const part = (type: Intl.DateTimeFormatPartTypes) =>
+		Number(parts.find((entry) => entry.type === type)?.value);
+	const zoned = Date.UTC(
+		part("year"),
+		part("month") - 1,
+		part("day"),
+		part("hour"),
+		part("minute"),
+	);
+	return (zoned - Math.floor(date.getTime() / 60_000) * 60_000) / 60_000;
+};
+
+export const createYoutubeHistoryClient = (
+	host: YoutubeiHost,
+	authCookie: string,
+	timezone: string,
+) =>
 	Effect.tryPromise(() =>
 		withApprovedDependencyRuntime(() =>
 			Innertube.create({
+				timezone,
 				cookie: authCookie,
 				fetch: makeFetch(host),
 				retrieve_player: false,
@@ -101,13 +128,14 @@ export const createYoutubeHistoryClient = (host: YoutubeiHost, authCookie: strin
 		Effect.map((client) => ({
 			getHistory: () =>
 				Effect.tryPromise(() =>
-					withApprovedDependencyRuntime(() =>
-						client.actions.execute("/browse", {
+					withApprovedDependencyRuntime(() => {
+						client.session.context.client.utcOffsetMinutes = utcOffsetMinutes(timezone, new Date());
+						return client.actions.execute("/browse", {
 							client: "YTMUSIC",
 							params: "oggECgIIAQ%3D%3D",
 							browseId: "FEmusic_history",
-						}),
-					),
+						});
+					}),
 				).pipe(Effect.map((response) => response.data)),
 		})),
 	);
