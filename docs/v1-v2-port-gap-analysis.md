@@ -116,7 +116,7 @@ that cleanup must respect.
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
+| 11 | Done | **Complete the upcoming feed** | 4; existing Calendar sources | One Media `upcomingRecipe` replaces the show/anime airing recipes and feeds the home **Upcoming** rail from show/podcast episodes, anime airings and monitored releases. Monitored titles plus in-progress/caught-up episodic titles appear; a **Days ahead** setting (default 14) bounds the window and the soonest 20 show; **One entry per title** (default on) keeps each title's soonest item with "+N more". Calendar stays query-based. See the Order 11 acceptance record below. |
 | 12 | Done | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
 | 13 | Done | **Add release-day notifications** | 4; existing monitoring/subscriptions | Media signal schedules (row 14) declare release delivery; a kernel worker notifies monitored releases once per occurrence and recipient on the recipient's reporting-timezone day with two-day catch-up and provider freshness deferral. Display and refresh stay separate from delivery. See the Order 13 acceptance record below. |
 | 14 | Done | **Add stale-progress and newly-available-episode alerts** | 1 and 13 | Plugin signal schedules replace Calendar source delivery as the one date-driven notification mechanism. Pro-gated in-progress/on-hold nudges fire once per stale period at 7/14 days; unmonitored caught-up shows and podcasts get “more episodes available” instead of a Completed→Watchlist move. Monitoring is never enabled implicitly. See the Order 14 acceptance record below. |
@@ -180,7 +180,7 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | Learned collection string choices and standalone genre pages | Keep explicit choices and existing genre pickers/filters unless a user workflow needs more. Approved browse work fits after row 6. |
 | Broader exercise merge and `exclude_from_analytics` | Decide before row 16's metric contract. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
-| V1 display/dashboard/per-provider-language preferences | Keep workspace/home, current language and plugin-owned settings as defaults. Add only selected missing user controls; upcoming-window/dedup controls belong to row 11, not a wholesale preference-schema port. |
+| V1 display/dashboard/per-provider-language preferences | Keep workspace/home, current language and plugin-owned settings as defaults. Add only selected missing user controls; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
 | S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Add only a current operational requirement. Bucket health and configurable upload limits can be scoped separately; old export internals, token settings and startup knobs do not block this roadmap. |
 | Public sharing, collaborators, review visibility/comments/likes | Remain excluded. Restoring them would be a separate product/security scope, not a small follow-on notification task. |
 
@@ -573,6 +573,40 @@ Validation on **2026-10-28**:
 - One additive migration adds `check_after` and two partial indexes. No compatibility path, version
   change or type-checker bypass was added. This item is **Done**.
 
+### Phase 3 Order 11 acceptance — Upcoming feed
+
+Accepted behavior: the Media home **Upcoming** rail replaces "Airing soon". One Media
+`upcomingRecipe` replaces the separate show and anime airing recipes and reads four sources: unwatched
+regular show and podcast episodes of in-progress, caught-up or monitored titles; anime airings after
+the latest watched episode for in-progress or monitored anime; and monitored, incomplete flat releases,
+including anime premieres. Lifecycle states come from the stored library summary. Show/podcast/release
+dates use the viewer's local days; anime airings use instants from local midnight, and the provider's
+UTC-midnight premiere entry is left to the release source, matching Calendar. Undated items never
+appear, and stored dates are displayed without provider-freshness deferral, which remains a delivery
+rule (rows 13–14). Calendar stays query-based with no nightly table.
+
+Media user settings **Upcoming days ahead** (`upcomingDaysAhead`, default 14, 1–365) and **One
+upcoming entry per title** (`upcomingOnePerTitle`, default on) control the window and deduplication.
+The rail always shows the soonest 20 in the window, so V1's alternative "next N items" mode is not
+kept as a second control. With one entry per title, each title keeps its soonest item across sources
+and shows "+N more" for the rest of its window; otherwise every episode or release is its own tile.
+
+Owners: `plugins/media/shared/{upcoming-recipes,upcoming-settings}.ts`, Media `userSettingsSchema`,
+`client/home/upcoming-rail.tsx`.
+
+Validation on **2026-10-29**:
+
+- Media and e2e package checks passed before tests. Media unit/DOM tests cover document validation,
+  source normalization, settings parsing, the manifest settings, rail artwork, cross-source local-day
+  merging and midnight recaptioning, per-title deduplication, the off mode, and the settings-driven
+  window.
+- E2E: `api/plugins/media/upcoming-recipes.test.ts` passed (2), against real summaries: followed and
+  monitored shows/podcasts at their soonest unwatched episode with window totals and the off mode;
+  anime after the watched episode, premiere routing to releases, and monitored-only releases inside
+  the window. It replaces `airing-recipes.test.ts` and `anime-airing-schedule.test.ts`.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,967 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**.
+
 ### Phase 3 Order 14 acceptance — Signal schedules, stale progress and available episodes
 
 Accepted behavior: plugins declare **signal schedules**, the single mechanism for date-driven
@@ -735,13 +769,13 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Watch providers | Covered | TMDB movie/show properties and detail UI filtered by viewer region, offer kinds and JustWatch attribution. Data includes stream/free/ads/rent/buy. V1's user-defined consumption-source lists are now Media per-type settings, not dropped. |
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
-| Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. Home airing panels cover shows/anime, not V1's full monitored next-N feed. |
+| Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). |
 | Analytics | Partial | Media activity heatmap/counts/minutes/reviews, per-entity consumption summaries; Fitness summaries/history/measurements. No unified V1 analytics screen or full metric set. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
 Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-views.ts}`;
-`plugins/media/shared/{lifecycle-expressions,episodic-recipes,lifecycle-list-recipes,discovery-recipes,activity-recipes,airing-recipes,media-entity-editors}.ts`;
+`plugins/media/shared/{lifecycle-expressions,episodic-recipes,lifecycle-list-recipes,discovery-recipes,activity-recipes,upcoming-recipes,media-entity-editors}.ts`;
 `kernel/backend/src/modules/entities/{user-data/service,providers/enrichment}.ts`;
 `packages/ryotql-recipes/src/{collections,calendar}.ts`;
 `packages/kernel-renderers/{README.md,src/collection-detail.tsx,src/calendar.tsx}`.
@@ -1058,16 +1092,14 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
   exercise/muscle/equipment frequency rankings and automatic day/month/year grouping. Current
   Media home activity, Fitness home/workout summaries, measurement series and per-entity
   consumption totals cover subsets. No `daily_user_activity` table is required merely for parity.
-- Calendar itself is built. Remaining V1 upcoming-feed controls are monitored-only next-N
-  items/days across all relevant media, configurable dashboard dedup/count/window choices,
-  and the same breadth of upcoming content on home. Current home panels focus on shows/anime;
-  Calendar uses source visibility and a per-source monthly cap, includes specials, and does
-  not reproduce the old dashboard preference contract.
+- Calendar and the upcoming feed are built (row 11). The home **Upcoming** rail covers every
+  dated Media source with a days-ahead window and one-per-title deduplication. V1's alternative
+  "next N items" mode is not reproduced: the rail always shows the soonest 20 in the window.
 - Recently-consumed debounce information is not exposed as a user flag. Do not conflate this
   with paged activity/history, which exists.
 
 Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/src/lib.rs`;
-`plugins/media/shared/{activity-recipes,airing-recipes}.ts`;
+`plugins/media/shared/{activity-recipes,upcoming-recipes}.ts`;
 `plugins/fitness/shared/*recipes.ts`; `packages/kernel-renderers/src/calendar.tsx`.
 
 ### Account and preference differences
@@ -1190,7 +1222,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `statistics` | `user_analytics_parameters`, `user_analytics` | — | Partial domain analytics, not a complete unified replacement. |
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
-| `miscellaneous/tracking` | `user_calendar_events`, `user_upcoming_calendar_events` | `delete_seen_item`, `update_seen_item`, `deploy_bulk_metadata_progress_update` | Calendar sources, home airing subset and activity commands; edit/delete are implemented. |
+| `miscellaneous/tracking` | `user_calendar_events`, `user_upcoming_calendar_events` | `delete_seen_item`, `update_seen_item`, `deploy_bulk_metadata_progress_update` | Calendar sources, home Upcoming rail and activity commands; edit/delete are implemented. |
 | `miscellaneous/system` | `core_details` | `expire_cache_key`, `deploy_background_job`, `deploy_update_media_entity_job`, `generate_log_download_url`, `development_mutation` (debug only) | System config/catalogs, owning schedulers, explicit provider enrichment, admin logs; no general cache/job control; test support replaces development-only hooks. |
 | `miscellaneous/social` | `person_details`, `user_person_details`, `user_people_list` | `create_or_update_review`, `delete_review`, `create_review_comment` | Creator recipes/screens and private review commands; public/comment features excluded. |
 | `miscellaneous/search` | `metadata_search`, `people_search`, `metadata_group_search`, `trending_metadata`, `metadata_lookup` | — | Provider operations, Media trending/home and integration metadata lookup. |
