@@ -42,8 +42,21 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition): string | 
 	if (queryIssue) {
 		return queryIssue;
 	}
-	for (const [name, kind] of namedFieldKinds) {
-		const key = source[name];
+	const { delivery } = source;
+	const fieldChecks: ReadonlyArray<readonly [string, null | string, null | string]> = [
+		...namedFieldKinds.map(([name, kind]) => [name, source[name], kind] as const),
+		...(delivery === null
+			? []
+			: ([
+					["delivery occurrence", delivery.occurrence, "text"],
+					["delivery eligible", delivery.eligible, "boolean"],
+					["delivery confirmedAt", delivery.freshness?.confirmedAt ?? null, "date"],
+					...Object.entries(delivery.properties).map(
+						([property, key]) => [`delivery property ${property}`, key, null] as const,
+					),
+				] as const)),
+	];
+	for (const [name, key, kind] of fieldChecks) {
 		if (key === null) {
 			continue;
 		}
@@ -53,7 +66,10 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition): string | 
 		if (!field) {
 			return `${name} field '${key}' must be a projected field`;
 		}
-		if (queryExpressionKind(query, field.expr, savedViewDataSourceAccess) !== kind) {
+		if (
+			kind !== null &&
+			queryExpressionKind(query, field.expr, savedViewDataSourceAccess) !== kind
+		) {
 			return `${name} field '${key}' must be a ${kind} expression`;
 		}
 	}

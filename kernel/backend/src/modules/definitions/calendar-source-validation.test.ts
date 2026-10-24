@@ -1,5 +1,8 @@
-import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type {
+	PluginCalendarSource,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { EntitySchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	castBoolean,
 	castJson,
@@ -121,6 +124,29 @@ describe("calendar source definition validation", () => {
 		).toContain("config");
 	});
 
+	it("requires delivery fields to be projected with their kinds", () => {
+		const delivery = {
+			eligible: "done",
+			occurrence: "caption",
+			properties: { name: "label" },
+			signal: SignalSchemaSlug.make("fixture.released"),
+			freshness: { maxAgeHours: 1, confirmedAt: "startAt" },
+		};
+		expect(issue({ delivery })).toBeUndefined();
+		expect(issue({ delivery: { ...delivery, occurrence: "startAt" } })).toBe(
+			"delivery occurrence field 'startAt' must be a text expression",
+		);
+		expect(issue({ delivery: { ...delivery, eligible: "caption" } })).toBe(
+			"delivery eligible field 'caption' must be a boolean expression",
+		);
+		expect(
+			issue({ delivery: { ...delivery, freshness: { maxAgeHours: 1, confirmedAt: "caption" } } }),
+		).toBe("delivery confirmedAt field 'caption' must be a date expression");
+		expect(issue({ delivery: { ...delivery, properties: { name: "missing" } } })).toBe(
+			"delivery property name field 'missing' must be a projected field",
+		);
+	});
+
 	it("rejects ordering and pagination that bypassed the authored schema", () => {
 		const source = materializeCalendarSource(authoredSource(), "plugin-1");
 		for (const output of [{ orderBy: [] }, { pagination: { limit: 20 } }]) {
@@ -160,5 +186,45 @@ describe("calendar sources in definition snapshots", () => {
 				"Invalid calendar source entity-dates",
 			);
 		}
+	});
+
+	it("requires delivery to name an actor-audience signal of the same plugin", () => {
+		const source = authoredSource({
+			delivery: {
+				properties: {},
+				eligible: "done",
+				occurrence: "caption",
+				signal: SignalSchemaSlug.make("fixture.released"),
+			},
+		});
+		const build = (signalSchemas: PluginManifest["signalSchemas"]) =>
+			buildDefinitionSnapshot(
+				mergeManifestDefinitions(kernelDefinitionSource(), [
+					{ ...plugin(source), manifest: { ...plugin(source).manifest, signalSchemas } },
+				]),
+			);
+		const signal = {
+			name: "Released",
+			slug: "fixture.released",
+			catalogState: "active" as const,
+			propertiesSchema: { fields: {} },
+			notificationHookSlug: "fixture.notify",
+		};
+		expect(() => build([])).toThrow("delivery signal 'fixture.released' must be an actor-audience");
+		expect(() =>
+			build([
+				{
+					...signal,
+					audiencePolicy: {
+						subjectSide: "source",
+						kind: "related_users",
+						relationshipSchemaSlug: "fixture-link",
+					},
+				},
+			]),
+		).toThrow("delivery signal 'fixture.released' must be an actor-audience");
+		expect(
+			Object.keys(build([{ ...signal, audiencePolicy: { kind: "actor" } }]).calendarSources),
+		).toHaveLength(1);
 	});
 });

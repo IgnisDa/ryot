@@ -100,6 +100,7 @@ export const materializeCalendarSource = (
 	done: definition.done ?? null,
 	precision: definition.precision,
 	caption: definition.caption ?? null,
+	delivery: definition.delivery ?? null,
 	query: mapCalendarSourceQueryReferences(definition.query, (reference) =>
 		reference.kind === "self" ? { kind: "local", pluginId: PluginId.make(pluginId) } : reference,
 	),

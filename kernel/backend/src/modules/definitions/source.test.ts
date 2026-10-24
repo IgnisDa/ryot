@@ -266,6 +266,7 @@ it("materializes calendar sources with self references bound to the stable plugi
 			name: "Dates",
 			slug: "dates",
 			caption: null,
+			delivery: null,
 			icon: "calendar",
 			precision: "date",
 			startAt: "startAt",

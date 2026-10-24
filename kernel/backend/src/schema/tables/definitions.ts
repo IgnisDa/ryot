@@ -1,4 +1,5 @@
 import type {
+	CalendarSourceDelivery,
 	CalendarSourcePrecision,
 	CalendarSourceQuery,
 } from "@ryot-app/contract/modules/calendar-sources/schemas";
@@ -171,6 +172,7 @@ export const definitionCalendarSource = snakeCase.table(
 		caption: text(),
 		icon: text().notNull(),
 		startAt: text().notNull(),
+		delivery: jsonb().$type<CalendarSourceDelivery>(),
 		subject: jsonb().$type<SavedViewSubject>().notNull(),
 		query: jsonb().$type<CalendarSourceQuery>().notNull(),
 		precision: text().$type<CalendarSourcePrecision>().notNull(),
@@ -437,6 +439,7 @@ const calendarSourceColumns = () => ({
 	caption: text(),
 	icon: text().notNull(),
 	startAt: text().notNull(),
+	delivery: jsonb().$type<CalendarSourceDelivery>(),
 	subject: jsonb().$type<SavedViewSubject>().notNull(),
 	query: jsonb().$type<CalendarSourceQuery>().notNull(),
 	precision: text().$type<CalendarSourcePrecision>().notNull(),
@@ -506,7 +509,7 @@ export const globalCalendarSource = snakeCase
 	})
 	.as(
 		sql`
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, d.delivery
 			from definition_calendar_source d
 			join plugin_revision r on r.id = d.plugin_revision_id
 			join (${globalPluginQuery}) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -639,7 +642,7 @@ export const userCalendarSourceEffective = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, d.delivery, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden
 			from ${userPlugin} p
 			join definition_calendar_source d on d.plugin_revision_id = p.active_revision_id
 			left join ${calendarSourceOverride} o on o.user_id = p.user_id and o.plugin_id = p.plugin_id and o.slug = d.slug

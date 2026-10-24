@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { CalendarSourceSlug, PluginId } from "../../schema/brands";
+import { CalendarSourceSlug, PluginId, SignalSchemaSlug } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import type { PluginIdentityReference } from "../plugins/references";
 import {
@@ -8,6 +8,7 @@ import {
 	Join,
 	mapPluginIdentityReferences,
 	type NamedQuery,
+	OutputFieldKey,
 	Predicate,
 	RowSelection,
 	type RowsOutput,
@@ -29,6 +30,20 @@ export const CalendarSourceQuery = strictStruct({
 	}),
 });
 export type CalendarSourceQuery = typeof CalendarSourceQuery.Type;
+
+export const CalendarSourceDelivery = strictStruct({
+	eligible: OutputFieldKey,
+	signal: SignalSchemaSlug,
+	occurrence: OutputFieldKey,
+	properties: Schema.Record(Schema.String, OutputFieldKey),
+	freshness: Schema.optional(
+		strictStruct({
+			confirmedAt: OutputFieldKey,
+			maxAgeHours: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+		}),
+	),
+});
+export type CalendarSourceDelivery = typeof CalendarSourceDelivery.Type;
 
 const CALENDAR_SOURCE_QUERY_NAME = "source";
 

@@ -12,7 +12,11 @@ import {
 	AutomationRetryPolicy,
 	AutomationSource,
 } from "../automations/lifecycle";
-import { CalendarSourcePrecision, CalendarSourceQuery } from "../calendar-sources/schemas";
+import {
+	CalendarSourceDelivery,
+	CalendarSourcePrecision,
+	CalendarSourceQuery,
+} from "../calendar-sources/schemas";
 import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
 import { OutputFieldKey } from "../ryotql/language";
@@ -431,6 +435,7 @@ export const PluginCalendarSource = strictStruct({
 	done: Schema.optional(OutputFieldKey),
 	caption: Schema.optional(OutputFieldKey),
 	query: Schema.toType(CalendarSourceQuery),
+	delivery: Schema.optional(CalendarSourceDelivery),
 });
 
 export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;

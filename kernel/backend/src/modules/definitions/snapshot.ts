@@ -1,4 +1,5 @@
 import {
+	CalendarSourceDelivery,
 	CalendarSourcePrecision,
 	CalendarSourceQuery,
 } from "@ryot-app/contract/modules/calendar-sources/schemas";
@@ -133,6 +134,7 @@ export const CalendarSourceDefinition = Schema.Struct({
 	done: Schema.NullOr(Schema.String),
 	precision: CalendarSourcePrecision,
 	caption: Schema.NullOr(Schema.String),
+	delivery: Schema.NullOr(CalendarSourceDelivery),
 });
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
@@ -325,6 +327,17 @@ const validateDefinitionSource = (
 		const issue = calendarSourceIssue(calendarSource);
 		if (issue) {
 			throw new Error(`Invalid calendar source ${calendarSource.slug}: ${issue}`);
+		}
+		const delivery = calendarSource.delivery;
+		const signal =
+			delivery &&
+			source.signalSchemas.find(
+				({ slug, pluginId }) => pluginId === calendarSource.pluginId && slug === delivery.signal,
+			);
+		if (delivery && signal?.audiencePolicy.kind !== "actor") {
+			throw new Error(
+				`Invalid calendar source ${calendarSource.slug}: delivery signal '${delivery.signal}' must be an actor-audience signal of the same plugin`,
+			);
 		}
 	}
 
