@@ -15,11 +15,6 @@ workflows retain each run's original execution ID.
 Admission itself still reads the enabled yank integrations as one collection. The worklist does not
 make that read bounded. Deliveries created after the cutoff wait for a later sync.
 
-Before deploying this workflow shape, drain the old `IntegrationSyncWorkflow` executions and their
-durable histories. The admission, cutoff, and page activities have new identities; old admission
-arrays and pre-admission cutoffs are not decoded or reused. No database schema or version changes
-are required.
-
 ## Webhook Admission
 
 The contract accepts one text payload per declared content type. Plugin sink ingress captures
