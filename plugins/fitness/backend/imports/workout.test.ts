@@ -99,15 +99,25 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 		},
 	});
 	expect(item.events[0]).toMatchObject({
+		eventSchemaSlug: "workout-exercise",
+		properties: {
+			targets: [],
+			equipment: [],
+			exerciseOrder: 0,
+			provenance: "recorded",
+			exerciseKind: "reps_and_weight",
+		},
+	});
+	expect(item.events[1]).toMatchObject({
 		entityAlias: "exercise-0",
 		sessionEntityAlias: "workout",
 		properties: { reps: 5, weight: 100, note: "Felt strong" },
 	});
-	expect(item.events[0]?.occurredAt).toBe("2026-01-01T08:00:00.000Z");
-	expect(item.events[0]?.properties).not.toHaveProperty("volume");
-	expect(item.events[0]?.properties).not.toHaveProperty("confirmedAt");
-	expect(item.events[0]?.properties).not.toHaveProperty("restTime");
-	expect(item.events[0]?.properties).not.toHaveProperty("restTimerStartedAt");
+	expect(item.events[1]?.occurredAt).toBe("2026-01-01T08:00:00.000Z");
+	expect(item.events[1]?.properties).not.toHaveProperty("volume");
+	expect(item.events[1]?.properties).not.toHaveProperty("confirmedAt");
+	expect(item.events[1]?.properties).not.toHaveProperty("restTime");
+	expect(item.events[1]?.properties).not.toHaveProperty("restTimerStartedAt");
 });
 
 it("propagates optional set timing to event properties and occurrence time", () => {
@@ -131,7 +141,7 @@ it("propagates optional set timing to event properties and occurrence time", () 
 		],
 	});
 
-	expect(item.events[0]).toMatchObject({
+	expect(item.events[1]).toMatchObject({
 		occurredAt: confirmedAt,
 		properties: { confirmedAt, restTime: 90, restTimerStartedAt },
 	});
@@ -154,12 +164,64 @@ it("writes metric measurements without derived statistics", () => {
 		],
 	});
 
-	expect(item.events[0]?.properties).toMatchObject({
+	expect(item.events[1]?.properties).toMatchObject({
 		distance: 1.5,
 		duration: 900,
 		exerciseKind: "distance_and_duration",
 	});
-	expect(item.events[0]?.properties).not.toHaveProperty("pace");
+	expect(item.events[1]?.properties).not.toHaveProperty("pace");
+});
+
+it("keeps repeated exercise positions distinct and omits anchors for empty positions", () => {
+	const item = toWorkoutWriteItem({
+		itemIndex: 7,
+		endedAt: null,
+		name: "Repeated exercise",
+		sourceIdentifier: "repeated",
+		sourceLabel: "Repeated exercise",
+		startedAt: "2026-01-01T08:00:00.000Z",
+		exercises: [
+			{
+				name: "Bench Press",
+				kind: "reps_and_weight",
+				sets: [{ reps: 5, weight: 100, setLot: "normal" }],
+			},
+			{ sets: [], name: "Bench Press", kind: "reps_and_weight" },
+			{
+				name: "Bench Press",
+				kind: "reps_and_weight",
+				sets: [{ reps: 3, weight: 110, setLot: "normal" }],
+			},
+		],
+	});
+	expect(item.events).toMatchObject([
+		{
+			entityAlias: "exercise-0",
+			sessionEntityAlias: "workout",
+			eventSchemaSlug: "workout-exercise",
+			operationId: '["workout",7,"occurrence",0]',
+			properties: { exerciseOrder: 0, exerciseKind: "reps_and_weight" },
+		},
+		{
+			entityAlias: "exercise-0",
+			sessionEntityAlias: "workout",
+			eventSchemaSlug: "workout-set",
+			properties: { reps: 5, setOrder: 0, exerciseOrder: 0, exerciseKind: "reps_and_weight" },
+		},
+		{
+			entityAlias: "exercise-2",
+			sessionEntityAlias: "workout",
+			eventSchemaSlug: "workout-exercise",
+			operationId: '["workout",7,"occurrence",2]',
+			properties: { exerciseOrder: 2, exerciseKind: "reps_and_weight" },
+		},
+		{
+			entityAlias: "exercise-2",
+			sessionEntityAlias: "workout",
+			eventSchemaSlug: "workout-set",
+			properties: { reps: 3, setOrder: 0, exerciseOrder: 2, exerciseKind: "reps_and_weight" },
+		},
+	]);
 });
 
 it("keeps workout operations distinct across batches and retains exercise and set order", () => {
@@ -204,8 +266,10 @@ it("keeps workout operations distinct across batches and retains exercise and se
 		sourceLabel: "Source row 151",
 		sourceIdentifier: "source-workout-50",
 		events: [
+			{ properties: { exerciseOrder: 0 }, eventSchemaSlug: "workout-exercise" },
 			{ properties: { reps: 5, setOrder: 0, weight: 100, exerciseOrder: 0 } },
 			{ properties: { reps: 3, setOrder: 1, weight: 110, exerciseOrder: 0 } },
+			{ properties: { exerciseOrder: 1 }, eventSchemaSlug: "workout-exercise" },
 			{ properties: { setOrder: 0, distance: 5000, duration: 1200, exerciseOrder: 1 } },
 		],
 	});

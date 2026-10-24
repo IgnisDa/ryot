@@ -11,6 +11,7 @@ import {
 	type RyotqlRecipeDecodeError,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
@@ -49,6 +50,10 @@ import {
 	type WorkoutSetAssetLocator,
 	workoutSetEditableFields,
 } from "../../shared/workout-set";
+import {
+	workoutEvidenceRevisionRecipe,
+	workoutOccurrencesRecipe,
+} from "../../shared/workout-taxonomy-recipes";
 
 type Data = WorkoutEditorSaveInput["data"];
 type Properties = WorkoutEditorEvent["properties"];
@@ -647,6 +652,127 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	}
 	const updates: UpdateEventItem[] = [];
 	const creates: Array<UserCommandInput["events"]["creates"][number]> = [];
+	const occurrenceChanges: Array<UserCommandInput["events"]["changes"][number]> = [];
+	let evidenceRevision: number | undefined;
+	if (data.kind === "workout") {
+		const recorded: Array<Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number]> = [];
+		if (baseline) {
+			evidenceRevision = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				workoutEvidenceRevisionRecipe(baseline.entity.id),
+			);
+			let after: string | undefined;
+			do {
+				const page = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					workoutOccurrencesRecipe({
+						after,
+						reference: { kind: "self" },
+						workoutId: baseline.entity.id,
+					}),
+				);
+				recorded.push(...page.items);
+				if (
+					page.pageInfo.hasMore &&
+					(!page.pageInfo.nextCursor || page.pageInfo.nextCursor === after)
+				) {
+					return yield* invalid("invalid-source");
+				}
+				after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
+			} while (after !== undefined);
+		}
+		if (new Set(recorded.map((item) => item.properties.exerciseOrder)).size !== recorded.length) {
+			return yield* invalid("invalid-source");
+		}
+		const retainedOccurrences = new Set<string>();
+		for (const [exerciseOrder, occurrence] of data.occurrences.entries()) {
+			if (occurrence.sets.length === 0) {
+				continue;
+			}
+			const previous = recorded.find(
+				(item) => item.properties.exerciseOrder === occurrence.sourceExerciseOrder,
+			);
+			if (occurrence.sourceExerciseOrder !== undefined && !previous) {
+				return yield* invalid("invalid-source");
+			}
+			if (previous) {
+				const originalSets =
+					baseline?.sets.filter(
+						({ set }) => set.exerciseOrder === occurrence.sourceExerciseOrder,
+					) ?? [];
+				if (
+					originalSets.some(
+						(set) =>
+							set.entityId !== previous.entityId ||
+							set.set.exerciseKind !== previous.properties.exerciseKind,
+					)
+				) {
+					return yield* invalid("invalid-source");
+				}
+				retainedOccurrences.add(previous.id);
+				if (
+					previous.entityId !== occurrence.exerciseId ||
+					previous.properties.exerciseOrder !== exerciseOrder
+				) {
+					occurrenceChanges.push({
+						kind: "update",
+						itemIdentity: `occurrence-update:${previous.id}`,
+						item: {
+							eventId: previous.id,
+							patch: {
+								entityId: occurrence.exerciseId,
+								properties: { remove: [], set: { exerciseOrder } },
+							},
+							expected: {
+								kind: "fields",
+								absentProperties: [],
+								entityId: previous.entityId,
+								occurredAt: previous.occurredAt,
+								properties: previous.properties,
+								sessionEntityId: previous.sessionEntityId,
+							},
+						},
+					});
+				}
+			} else {
+				const firstSet = occurrence.sets[0];
+				if (!firstSet) {
+					continue;
+				}
+				creates.push({
+					session: { kind: "root" },
+					occurredAt: data.startedAt,
+					eventSchemaSlug: "workout-exercise",
+					itemIdentity: `occurrence:${occurrence.clientId}`,
+					entity: { kind: "existing", entityId: EntityId.make(occurrence.exerciseId) },
+					properties: {
+						targets: [],
+						exerciseOrder,
+						equipment: [],
+						provenance: "recorded",
+						exerciseKind: firstSet.exerciseKind,
+					},
+				});
+			}
+		}
+		for (const previous of recorded) {
+			if (!retainedOccurrences.has(previous.id)) {
+				occurrenceChanges.push({
+					kind: "delete",
+					eventId: previous.id,
+					itemIdentity: `occurrence-delete:${previous.id}`,
+					expected: {
+						kind: "fields",
+						absentProperties: [],
+						entityId: previous.entityId,
+						occurredAt: previous.occurredAt,
+						properties: previous.properties,
+						sessionEntityId: previous.sessionEntityId,
+					},
+				});
+			}
+		}
+	}
 	const savedSets: SavedSet[] = [];
 	for (const [exerciseOrder, occurrence] of (data.kind === "workout"
 		? data.occurrences
@@ -723,7 +849,11 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		},
 		events: {
 			creates,
+			...(baseline && evidenceRevision !== undefined
+				? { baselines: [{ revision: evidenceRevision, entityId: baseline.entity.id }] }
+				: {}),
 			changes: [
+				...occurrenceChanges,
 				...updates.map((item) => ({
 					item,
 					kind: "update",

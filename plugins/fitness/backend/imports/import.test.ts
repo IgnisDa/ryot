@@ -235,13 +235,15 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 									let result: keyof IngestionSummary[number]["counts"] = "created";
 									if (
 										item.itemIndex === 1 &&
-										item.events.some((event, index) => index >= 1 && event === intent)
+										item.events
+											.filter((event) => event.outcome !== undefined)
+											.some((event, index) => index >= 1 && event === intent)
 									) {
 										result = "unsuccessful";
 									}
 									if (
 										item.itemIndex === 2 &&
-										intent === item.events[0] &&
+										intent === item.events.find((event) => event.outcome !== undefined) &&
 										intent.eventSchemaSlug === "workout-set"
 									) {
 										result = "skipped";
@@ -384,16 +386,28 @@ it.each(["hevy", "strong_app"])(
 					expect(items.map((item) => item.itemIndex)).toEqual(
 						Array.from({ length: 76 }, (_, index) => index),
 					);
-					expect(items[51]?.events.map((event) => event.properties["weight"])).toEqual([
-						100, 101, 102,
-					]);
-					expect(items[51]?.events.map((event) => event.properties["setOrder"])).toEqual([0, 1, 2]);
-					expect(items[51]?.events[0]?.properties["note"]).toContain('🏋️ note\n"quoted"');
+					expect(
+						items[51]?.events
+							.filter((event) => event.eventSchemaSlug === "workout-set")
+							.map((event) => event.properties["weight"]),
+					).toEqual([100, 101, 102]);
+					expect(
+						items[51]?.events
+							.filter((event) => event.eventSchemaSlug === "workout-set")
+							.map((event) => event.properties["setOrder"]),
+					).toEqual([0, 1, 2]);
+					expect(
+						items[51]?.events.find((event) => event.eventSchemaSlug === "workout-set")?.properties[
+							"note"
+						],
+					).toContain('🏋️ note\n"quoted"');
 					expect(
 						items.every((item) =>
-							item.events.every(
-								(event) => event.properties["note"] === '🏋️ note\n"quoted" '.repeat(100).trim(),
-							),
+							item.events
+								.filter((event) => event.eventSchemaSlug === "workout-set")
+								.every(
+									(event) => event.properties["note"] === '🏋️ note\n"quoted" '.repeat(100).trim(),
+								),
 						),
 					).toBe(true);
 					const operationIds = items.flatMap((item) =>
@@ -460,8 +474,16 @@ it.each(["hevy", "strong_app"])(
 						"2026-01-01 08:00:00:Morning",
 						"2026-01-01 08:00:00:Evening",
 					]);
-					expect(items[0]?.events.map((event) => event.properties["weight"])).toEqual([100, 120]);
-					expect(items[1]?.events.map((event) => event.properties["weight"])).toEqual([110]);
+					expect(
+						items[0]?.events
+							.filter((event) => event.eventSchemaSlug === "workout-set")
+							.map((event) => event.properties["weight"]),
+					).toEqual([100, 120]);
+					expect(
+						items[1]?.events
+							.filter((event) => event.eventSchemaSlug === "workout-set")
+							.map((event) => event.properties["weight"]),
+					).toEqual([110]);
 					expect(result.chunks.flatMap((chunk) => chunk.failures)).toMatchObject([
 						{ itemIndex: 2, unit: "workouts", sourceLabel: "Row 3", recordKind: "workouts" },
 						{
@@ -529,11 +551,13 @@ it.each(["hevy", "strong_app"])(
 						},
 					});
 					expect(
-						items[0]?.events.map(({ properties, operationId, entityAlias }) => ({
-							properties,
-							operationId,
-							entityAlias,
-						})),
+						items[0]?.events
+							.filter((event) => event.eventSchemaSlug === "workout-set")
+							.map(({ properties, operationId, entityAlias }) => ({
+								properties,
+								operationId,
+								entityAlias,
+							})),
 					).toMatchObject([
 						{
 							entityAlias: "exercise-0",

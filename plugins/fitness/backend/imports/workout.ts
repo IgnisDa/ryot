@@ -33,28 +33,6 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 			relationshipSchemaSlug: "in-fitness-library",
 			operationId: operationId("exercise-membership", index),
 		})),
-		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
-			exercise.sets.map((set, setOrder) => ({
-				sessionEntityAlias: "workout",
-				eventSchemaSlug: "workout-set",
-				entityAlias: `exercise-${exerciseOrder}`,
-				occurredAt: set.confirmedAt ?? workout.startedAt,
-				outcome: { unit: "sets", recordKind: "workout-sets" },
-				operationId: operationId("set", exerciseOrder, setOrder),
-				properties: buildWorkoutSetEventProperties({
-					...set,
-					setOrder,
-					exerciseOrder,
-					setLot: set.setLot,
-					exerciseKind: exercise.kind,
-				}),
-				attribution: {
-					sourceLabel: workout.sourceLabel,
-					sourceIdentifier: workout.sourceIdentifier,
-					recordId: workoutRecordId(workout.itemIndex),
-				},
-			})),
-		),
 		entities: [
 			...workout.exercises.map((exercise, index) => ({
 				name: exercise.name,
@@ -97,5 +75,45 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				outcome: { unit: "workouts", recordKind: "workouts" },
 			},
 		],
+		events: workout.exercises.flatMap((exercise, exerciseOrder) => [
+			...(exercise.sets.length === 0
+				? []
+				: [
+						{
+							sessionEntityAlias: "workout",
+							occurredAt: workout.startedAt,
+							eventSchemaSlug: "workout-exercise",
+							entityAlias: `exercise-${exerciseOrder}`,
+							operationId: operationId("occurrence", exerciseOrder),
+							properties: {
+								targets: [],
+								exerciseOrder,
+								equipment: [],
+								provenance: "recorded",
+								exerciseKind: exercise.kind,
+							},
+						},
+					]),
+			...exercise.sets.map((set, setOrder) => ({
+				sessionEntityAlias: "workout",
+				eventSchemaSlug: "workout-set",
+				entityAlias: `exercise-${exerciseOrder}`,
+				occurredAt: set.confirmedAt ?? workout.startedAt,
+				outcome: { unit: "sets", recordKind: "workout-sets" },
+				operationId: operationId("set", exerciseOrder, setOrder),
+				properties: buildWorkoutSetEventProperties({
+					...set,
+					setOrder,
+					exerciseOrder,
+					setLot: set.setLot,
+					exerciseKind: exercise.kind,
+				}),
+				attribution: {
+					sourceLabel: workout.sourceLabel,
+					sourceIdentifier: workout.sourceIdentifier,
+					recordId: workoutRecordId(workout.itemIndex),
+				},
+			})),
+		]),
 	};
 };

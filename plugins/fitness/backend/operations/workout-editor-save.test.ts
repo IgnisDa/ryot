@@ -101,6 +101,7 @@ const harness = (
 		partial?: boolean;
 		lateConflict?: boolean;
 		baseline?: WorkoutEditorBaseline;
+		occurrences?: readonly WorkoutEditorEvent[];
 		exercises?: readonly WorkoutEditorExercise[];
 	} = {},
 ) => {
@@ -110,6 +111,9 @@ const harness = (
 	);
 	let partial = options.partial ?? false;
 	const rowsFor = (key: string): readonly unknown[] => {
+		if (key === "scope") {
+			return [{ revision: 7 }];
+		}
 		if (key === "entity") {
 			return options.baseline === undefined ? [] : [options.baseline.entity];
 		}
@@ -131,6 +135,32 @@ const harness = (
 		}
 		if (key === "sets") {
 			return [...events.values()];
+		}
+		if (key === "occurrences") {
+			if (options.occurrences !== undefined) {
+				return options.occurrences;
+			}
+			return [
+				...new Map(
+					[...events.values()].map((set) => [set.properties["exerciseOrder"], set]),
+				).values(),
+			].map((set) => {
+				const exerciseOrder = set.properties["exerciseOrder"];
+				assert(typeof exerciseOrder === "number");
+				return {
+					occurredAt: time,
+					entityId: set.entityId,
+					id: `occurrence-${exerciseOrder}`,
+					sessionEntityId: set.sessionEntityId,
+					properties: {
+						provenance: "legacy",
+						equipment: ["barbell"],
+						exerciseKind: set.properties["exerciseKind"],
+						exerciseOrder: set.properties["exerciseOrder"],
+						targets: [{ role: "primary", entityId: "chest" }],
+					},
+				};
+			});
 		}
 		if (key === "identities") {
 			return [...events.values()].map((set) =>
@@ -182,6 +212,228 @@ const harness = (
 };
 
 describe("workout editor save", () => {
+	it("rejects ambiguous or mismatched occurrence evidence before committing", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const occurrence: WorkoutEditorEvent = {
+					...original,
+					id: EventId.make("occurrence-0"),
+					properties: {
+						targets: [],
+						equipment: [],
+						exerciseOrder: 0,
+						provenance: "legacy",
+						exerciseKind: "reps_and_weight",
+					},
+				};
+				for (const occurrences of [
+					[occurrence, { ...occurrence, id: EventId.make("duplicate") }],
+					[{ ...occurrence, entityId: EntityId.make("different-exercise") }],
+				]) {
+					const { host, calls } = harness({ baseline, occurrences });
+					expect(yield* definition.run(input(true), host)).toMatchObject({
+						kind: "invalid",
+						code: "invalid-source",
+					});
+					expect(calls.filter(({ method }) => method === "commit")).toEqual([]);
+				}
+			}),
+		));
+
+	it("fences evidence reads and retains the occurrence ID and snapshot when reordering", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = input(true);
+				assert(source.data.kind === "workout");
+				const first = source.data.occurrences[0];
+				assert(first);
+				const { host, calls } = harness({ baseline });
+				const result = yield* definition.run(
+					{
+						...source,
+						data: {
+							...source.data,
+							occurrences: [
+								{ ...first, sets: [], clientId: "empty", sourceExerciseOrder: undefined },
+								first,
+							],
+						},
+					},
+					host,
+				);
+				expect(result.kind).toBe("saved");
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: {
+						baselines: [{ entityId, revision: 7 }],
+						changes: expect.arrayContaining([
+							{
+								kind: "update",
+								itemIdentity: "occurrence-update:occurrence-0",
+								item: {
+									eventId: "occurrence-0",
+									patch: {
+										entityId: exerciseId,
+										properties: { remove: [], set: { exerciseOrder: 1 } },
+									},
+									expected: expect.objectContaining({
+										properties: {
+											exerciseOrder: 0,
+											provenance: "legacy",
+											equipment: ["barbell"],
+											exerciseKind: "reps_and_weight",
+											targets: [{ role: "primary", entityId: "chest" }],
+										},
+									}),
+								},
+							},
+						]),
+					},
+				});
+			}),
+		));
+	it("swaps repeated exercises with distinct snapshots without rebinding retained sets", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = input(true);
+				assert(source.data.kind === "workout");
+				const first = source.data.occurrences[0];
+				assert(first);
+				const second: WorkoutEditorEvent = {
+					...original,
+					id: EventId.make("set-2"),
+					properties: { ...original.properties, exerciseOrder: 1 },
+				};
+				const repeated = { ...baseline, sets: [original, second] };
+				const occurrences: WorkoutEditorEvent[] = [0, 1].map((exerciseOrder) => ({
+					occurredAt: time,
+					entityId: exerciseId,
+					sessionEntityId: entityId,
+					id: EventId.make(`anchor-${exerciseOrder}`),
+					properties: {
+						exerciseOrder,
+						provenance: "legacy",
+						exerciseKind: "reps_and_weight",
+						equipment: [`equipment-${exerciseOrder}`],
+						targets: [{ role: "primary", entityId: `target-${exerciseOrder}` }],
+					},
+				}));
+				const { host, calls } = harness({ occurrences, baseline: repeated });
+				expect(
+					yield* definition.run(
+						{
+							...source,
+							data: {
+								...source.data,
+								target: {
+									entityId,
+									kind: "update",
+									conflictToken: encodeWorkoutEditorBaseline(repeated),
+								},
+								occurrences: [
+									{
+										...first,
+										clientId: "second",
+										sourceExerciseOrder: 1,
+										sets: first.sets.map((set) => ({
+											...set,
+											eventId: second.id,
+											clientId: "second-set",
+										})),
+									},
+									first,
+								],
+							},
+						},
+						host,
+					),
+				).toMatchObject({ kind: "saved" });
+				const command = calls.find(({ method }) => method === "commit")?.args[0];
+				expect(command).toMatchObject({
+					events: { creates: [], baselines: [{ entityId, revision: 7 }] },
+				});
+				for (const [oldOrder, eventId] of [original.id, second.id].entries()) {
+					expect(command).toMatchObject({
+						events: {
+							changes: expect.arrayContaining([
+								{
+									kind: "update",
+									itemIdentity: `occurrence-update:anchor-${oldOrder}`,
+									item: {
+										eventId: `anchor-${oldOrder}`,
+										patch: {
+											entityId: exerciseId,
+											properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } },
+										},
+										expected: expect.objectContaining({
+											sessionEntityId: entityId,
+											properties: occurrences[oldOrder]?.properties,
+										}),
+									},
+								},
+								expect.objectContaining({
+									kind: "update",
+									item: expect.objectContaining({
+										eventId,
+										patch: expect.objectContaining({
+											properties: expect.objectContaining({
+												set: expect.objectContaining({ exerciseOrder: 1 - oldOrder }),
+											}),
+										}),
+									}),
+								}),
+							]),
+						},
+					});
+				}
+			}),
+		));
+
+	it("replaces the last set atomically while retaining its occurrence anchor", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = input(true);
+				assert(source.data.kind === "workout");
+				const { host, calls } = harness({ baseline });
+				expect(
+					yield* definition.run(
+						{
+							...source,
+							data: {
+								...source.data,
+								occurrences: source.data.occurrences.map((occurrence) =>
+									Object.assign({}, occurrence, {
+										sets: occurrence.sets.map((set) =>
+											Object.assign({}, set, {
+												note: undefined,
+												eventId: undefined,
+												confirmedAt: setTime,
+												clientId: "replacement",
+											}),
+										),
+									}),
+								),
+							},
+						},
+						host,
+					),
+				).toMatchObject({ kind: "saved" });
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: {
+						baselines: [{ entityId, revision: 7 }],
+						changes: [expect.objectContaining({ kind: "delete", eventId: original.id })],
+						creates: [
+							{
+								session: { kind: "root" },
+								eventSchemaSlug: "workout-set",
+								itemIdentity: "set:replacement",
+								properties: { exerciseOrder: 0, exerciseKind: "reps_and_weight" },
+							},
+						],
+					},
+				});
+			}),
+		));
+
 	it("commits the workout, sets, and completion atomically, accepting zeros", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
@@ -190,7 +442,7 @@ describe("workout editor save", () => {
 				expect(result).toMatchObject({
 					entityId,
 					kind: "saved",
-					sets: [{ eventId: "new-set-0", clientId: "client-set-1" }],
+					sets: [{ eventId: "new-set-1", clientId: "client-set-1" }],
 				});
 				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
 				const command = calls[0]?.args[0];
@@ -203,6 +455,17 @@ describe("workout editor save", () => {
 					},
 					events: {
 						creates: [
+							{
+								eventSchemaSlug: "workout-exercise",
+								itemIdentity: "occurrence:occurrence-1",
+								properties: {
+									targets: [],
+									equipment: [],
+									exerciseOrder: 0,
+									provenance: "recorded",
+									exerciseKind: "reps_and_weight",
+								},
+							},
 							{
 								session: { kind: "root" },
 								eventSchemaSlug: "workout-set",
@@ -368,7 +631,16 @@ describe("workout editor save", () => {
 					yield* definition.run({ ...source, data: removalData }, removedSet.host),
 				).toMatchObject({ kind: "saved" });
 				expect(removedSet.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: { changes: [{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" }] },
+					events: {
+						changes: [
+							{
+								kind: "delete",
+								eventId: "occurrence-0",
+								itemIdentity: "occurrence-delete:occurrence-0",
+							},
+							{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
+						],
+					},
 				});
 				const denied = harness({ baseline });
 				const changed = {
@@ -442,6 +714,16 @@ describe("workout editor save", () => {
 				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
 						changes: [
+							{
+								kind: "update",
+								item: {
+									eventId: "occurrence-0",
+									patch: {
+										entityId: replacementId,
+										properties: { remove: [], set: { exerciseOrder: 0 } },
+									},
+								},
+							},
 							{
 								kind: "update",
 								item: { eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
