@@ -4,7 +4,8 @@ import {
 	ClientPagePreparationError,
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
-import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
@@ -64,10 +65,50 @@ const plugin = {
 					settingsSchema: { fields: {} },
 					automaticEntityPresentations: false,
 				},
+				alternate: {
+					kind: "page" as const,
+					entry: "client/alternate.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
 			},
 		},
 	},
 };
+
+const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
+	viewId: id,
+	view: {
+		id,
+		slug: id,
+		revision,
+		sortOrder: 0,
+		settings: {},
+		pluginId: null,
+		packageId: null,
+		createdAt: null,
+		updatedAt: null,
+		isHidden: false,
+		icon: "fixture",
+		isBuiltin: false,
+		dataSources: null,
+		name: `View ${id}`,
+		pluginInstallationId: null,
+		userId: UserId.make("user-1"),
+		renderer: { exportName, pluginId: plugin.id, kind: "plugin" as const },
+	},
+});
+
+type SavedView = ReturnType<typeof savedView>;
+const savedViewReferenceKey = (reference: SavedViewReference) => JSON.stringify(reference);
+
+class PageSelections extends Context.Service<
+	PageSelections,
+	{
+		readonly setHome: (reference: SavedViewReference | null) => Effect.Effect<void>;
+		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
+	}
+>()("test/PageSelections") {}
 
 class RecordedPrepareCalls extends Context.Service<
 	RecordedPrepareCalls,
@@ -153,11 +194,31 @@ const pagesLayer = PagesService.layer.pipe(
 					}),
 				),
 			),
-			Layer.succeed(
-				PagesRepository,
-				PagesRepository.of(
-					Object.assign(Object.create(null), { findHomeSavedView: () => Effect.succeed(null) }),
-				),
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const home = yield* Ref.make<SavedViewReference | null>(null);
+					const views = yield* Ref.make<ReadonlyMap<string, SavedView>>(new Map());
+					return Context.make(
+						PagesRepository,
+						PagesRepository.of(
+							Object.assign(Object.create(null), {
+								findHomeSavedView: () => Ref.get(home),
+								findPreparedTarget: (_userId: unknown, reference: SavedViewReference) =>
+									Ref.get(views).pipe(
+										Effect.map((current) => current.get(savedViewReferenceKey(reference)) ?? null),
+									),
+							}),
+						),
+					).pipe(
+						Context.add(PageSelections, {
+							setHome: (reference) => Ref.set(home, reference),
+							setView: (reference, view) =>
+								Ref.update(views, (current) =>
+									new Map(current).set(savedViewReferenceKey(reference), view),
+								),
+						}),
+					);
+				}),
 			),
 			Layer.effectContext(
 				Effect.gen(function* () {
@@ -243,6 +304,84 @@ layer(pagesLayer)((test) => {
 				yield* Effect.exit(service.document({ id: UserId.make("user-2") }, foreignEntity)),
 				stale,
 			);
+		}),
+	);
+
+	test.effect("uses the same changing home selection for preparation and freshness", () =>
+		Effect.gen(function* () {
+			const user = { id: UserId.make("user-1") };
+			const firstReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-a") };
+			const secondReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-b") };
+			const service = yield* PagesService;
+			const selections = yield* PageSelections;
+			const recorded = yield* RecordedPrepareCalls;
+			const stale = new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } });
+			const assertStaleWithoutMaterialization = Effect.fn(function* (
+				identity: PreparedClientPage["identity"],
+			) {
+				const before = yield* recorded.calls;
+				expect(yield* service.isIdentityCurrent(user.id, identity)).toBe(false);
+				assertExitFails(yield* Effect.exit(service.document(user, identity)), stale);
+				expect(yield* recorded.calls).toEqual(before);
+			});
+
+			const route = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			expect(route.identity.kind).toBe("plugin-page");
+			expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
+
+			yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 1));
+			yield* selections.setHome(firstReference);
+			yield* assertStaleWithoutMaterialization(route.identity);
+			const firstHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			expect(firstHome.identity).toMatchObject({
+				viewRevision: 1,
+				exportName: "main",
+				target: routeTarget,
+				kind: "plugin-saved-view",
+				savedViewId: firstReference.savedViewId,
+			});
+			expect(firstHome.context.target).toEqual({ kind: "saved-view", reference: firstReference });
+
+			yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 2));
+			yield* assertStaleWithoutMaterialization(firstHome.identity);
+			const revisedHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			expect(revisedHome.identity).toMatchObject({ viewRevision: 2, exportName: "main" });
+
+			yield* selections.setView(
+				firstReference,
+				savedView(firstReference.savedViewId, 2, "alternate"),
+			);
+			yield* assertStaleWithoutMaterialization(revisedHome.identity);
+			const alternateHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			expect(alternateHome.identity).toMatchObject({
+				viewRevision: 2,
+				exportName: "alternate",
+				kind: "plugin-saved-view",
+			});
+
+			yield* selections.setView(secondReference, savedView(secondReference.savedViewId, 1));
+			yield* selections.setHome(secondReference);
+			yield* assertStaleWithoutMaterialization(alternateHome.identity);
+			const secondHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+				yield* service.prepare(user, routeTarget),
+			);
+			expect(secondHome.identity).toMatchObject({
+				viewRevision: 1,
+				kind: "plugin-saved-view",
+				savedViewId: secondReference.savedViewId,
+			});
+
+			yield* selections.setHome(null);
+			yield* assertStaleWithoutMaterialization(secondHome.identity);
+			expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
 		}),
 	);
 

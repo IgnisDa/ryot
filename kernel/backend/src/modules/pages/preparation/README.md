@@ -1,8 +1,10 @@
 # Client pages and compositions
 
 Client-page preparation resolves a saved view, plugin route, or entity against the current authorized
-catalog. It reuses an immutable composition by key and materializes it on a miss. A hit does not
-inspect artifacts or rebuild the manifest. Preparation does not compile plugin source. A separate freshness check compares a prepared page with current catalog state.
+catalog. Preparation and freshness use the same read-only home and route selection. Preparation
+reuses an immutable composition by key and materializes it on a miss; freshness only finds an
+existing composition. A hit does not inspect artifacts or rebuild the manifest. Preparation does not
+compile plugin source.
 
 Dependency aliases belong to the importing manifest. Compiled imports carry scoped package IDs
 and export names; graph preparation checks their declarations, exact targets, exports, and cycles.
