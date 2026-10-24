@@ -8,7 +8,6 @@ import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-c
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { animeAiringTrailing, animeUpcomingEpisodes } from "./sections";
@@ -61,7 +60,6 @@ export const animeSchema = defineFlatMediaSchema({
 	recipes: animeRecipes,
 	facts: animeSummaryFacts,
 	aspect: mediaSchemaAspects.anime,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	overviewTrailing: animeAiringTrailing,
 	presentationFacts: animePresentationFacts,
 	nouns: { title: "Anime", plural: "anime", singular: "anime" },

@@ -125,12 +125,8 @@ export const mediaBackdropAsset = (
 export const mediaGalleryAssets = (media: MediaImaged) =>
 	mediaImageAssets(media.images).slice(0, MEDIA_GALLERY_LIMIT);
 
-export const mediaManagedAssets = (media: MediaImaged, purposes?: MediaImagePurposes) =>
-	collectManagedAssetLocators([
-		mediaPosterAsset(media),
-		mediaBackdropAsset(media, purposes),
-		...mediaImageAssets(media.images),
-	]);
+export const mediaManagedAssets = (media: MediaImaged) =>
+	collectManagedAssetLocators(mediaImageAssets(media.images));
 
 export const mediaReleaseLabel = (media: {
 	readonly publishDate: string | null;

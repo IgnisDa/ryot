@@ -34,7 +34,7 @@ import {
 	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
-import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
+import { collectManagedAssetLocators } from "./image";
 import {
 	MediaCreditColumns,
 	type MediaCreditCopy,
@@ -127,8 +127,6 @@ export type MediaGroupSchemaDescriptor<
 	Overview extends GroupCredits,
 > = {
 	readonly aspect: MediaArtworkAspect;
-	readonly heroHeight: (compact: boolean) => number;
-	readonly backdropPurposes?: MediaImagePurposes;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly members: { readonly tab: string; readonly noun: string; readonly verb: string };
 	readonly member: {
@@ -395,9 +393,7 @@ export const defineGroupMediaSchema = <
 			summaryQuery,
 			Body: DetailBody,
 			entityId: props.entityId,
-			heroHeight: descriptor.heroHeight,
 			mapSummary: summaryState.mapSummary,
-			backdropPurposes: descriptor.backdropPurposes,
 		};
 		return overviewQuery === undefined ? (
 			<MediaDetailScreen {...screen} />

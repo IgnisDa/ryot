@@ -240,7 +240,7 @@ describe("library rails", () => {
 	});
 });
 
-const airingShow = (publishDate: string, sameDayCount: number) => ({
+const airingShow = (publishDate: string, sameDayCount: number, still = true) => ({
 	...mediaIdentity("show-1", "Severance", "show"),
 	episode: includeResult([
 		{
@@ -249,7 +249,9 @@ const airingShow = (publishDate: string, sameDayCount: number) => ({
 			sameDayCount,
 			seasonNumber: 2,
 			episodeNumber: 10,
-			images: [{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" }],
+			images: still
+				? [{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" }]
+				: [],
 		},
 	]),
 });
@@ -267,6 +269,38 @@ function AiringToday(props: { readonly data: ReturnType<typeof airingData> }) {
 }
 
 describe("AiringRail", () => {
+	it.each([
+		{ still: true, backdrop: true, expected: "still" },
+		{ still: false, backdrop: true, expected: "backdrop" },
+		{ still: false, backdrop: false, expected: "cover" },
+	])(
+		"uses $expected artwork with still=$still and backdrop=$backdrop",
+		({ still, backdrop, expected }) => {
+			const data = airingData({
+				shows: [
+					{
+						...airingShow("2026-09-26", 1, still),
+						images: [
+							{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
+							...(backdrop
+								? [{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" }]
+								: []),
+						],
+					},
+				],
+			});
+			const view = mountRyotClient(
+				noopAdapter,
+				<AiringRail compact today="2026-09-25" result={readyQueryResult(data)} />,
+			);
+
+			expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
+				`https://images.test/${expected}.jpg`,
+			);
+			view.unmount();
+		},
+	);
+
 	it.live("merges shows and anime by local day and recaptions them at local midnight", () =>
 		Effect.gen(function* () {
 			const mondayMorning = DateTime.formatIso(

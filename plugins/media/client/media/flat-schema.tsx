@@ -55,7 +55,7 @@ import {
 	mediaGroupOverviewManagedAssets,
 	MediaPartOfSection,
 } from "./group-section";
-import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
+import { collectManagedAssetLocators } from "./image";
 import {
 	type MediaCreditCopy,
 	MediaOverviewRelations,
@@ -159,8 +159,6 @@ export type MediaFlatSchemaDescriptor<
 	};
 	readonly aspect: MediaArtworkAspect;
 	readonly logActivity: MediaActivityLogger;
-	readonly heroHeight: (compact: boolean) => number;
-	readonly backdropPurposes?: MediaImagePurposes;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly activityCopy: {
 		readonly libraryLabel: string;
@@ -505,10 +503,8 @@ export const defineFlatMediaSchema = <
 				entityId={props.entityId}
 				summaryQuery={summaryQuery}
 				overviewQuery={overviewQuery}
-				heroHeight={descriptor.heroHeight}
 				mapSummary={summaryState.mapSummary}
 				overviewAssets={overviewManagedAssets}
-				backdropPurposes={descriptor.backdropPurposes}
 			/>
 		);
 	}

@@ -1,7 +1,6 @@
 import { mediaActivityTimeLabel } from "../../../client/media/activity-timeline";
 import type { MediaPresentationSubject } from "../../../client/media/entity-presentation";
 import { defineFlatMediaSchema, type MediaOverviewRail } from "../../../client/media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../../../client/media/hero";
 import {
 	flatFixtureRecipes,
 	flatUngroupedFixtureRecipes,
@@ -19,7 +18,6 @@ const defineFixtureSchema = (overviewRails?: () => readonly MediaOverviewRail[])
 		aspect: "poster",
 		recipes: flatFixtureRecipes,
 		presentationFacts: () => [],
-		heroHeight: () => MEDIA_ART_HEIGHT,
 		overviewLoadingDetail: "Fetching the credits for this item.",
 		nouns: { plural: "items", title: "Fixture", singular: "item" },
 		measureFigure: { label: "Time", value: mediaActivityTimeLabel },
@@ -68,7 +66,6 @@ export const ungroupedFixtureSchema = defineFlatMediaSchema({
 	facts: () => [],
 	aspect: "square",
 	presentationFacts: () => [],
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	recipes: flatUngroupedFixtureRecipes,
 	overviewLoadingDetail: "Fetching the credits for this item.",
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },

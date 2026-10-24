@@ -3,7 +3,6 @@ import { personRecipes } from "../../shared/person-recipes";
 import { creatorCreditSections } from "../creator/credit-sections";
 import { defineCreatorMediaSchema } from "../media/creator-schema";
 import { completedYearsBetween, formatDateOnlyLabel, formatLocalDateKey } from "../media/date";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaSourceLinks, type MediaSummaryFact } from "../media/summary-state";
 
 type PersonSummary = MediaSummaryOf<typeof personRecipes>;
@@ -55,7 +54,6 @@ export const personSummaryFacts = (
 export const personSchema = defineCreatorMediaSchema({
 	recipes: personRecipes,
 	links: mediaSourceLinks,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	creditSections: creatorCreditSections,
 	artwork: { aspect: "poster", purpose: "profile" },
 	nouns: { title: "Person", plural: "people", singular: "person" },

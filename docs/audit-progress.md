@@ -15,7 +15,7 @@
 
 ## Status
 
-**28 implemented, 0 in progress, 55 pending; 3 excluded.**
+**29 implemented, 0 in progress, 54 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -103,7 +103,7 @@
 | M01-R1 | Pending | Use the canonical Metron role accumulator. |
 | M04-R2 | Pending | Select only consumed episodic-completion fields. |
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
-| M06-R1 | Pending | Delete dormant hero configuration. |
+| M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
 | B11-R2 | Pending | Return the locked event revision once. |
 | B22-R2 | Pending | Remove unreachable custom-renderer publication. |
 | P08-R1 | Pending | Acquire a complete private workspace before exposing its handle. |
@@ -193,3 +193,4 @@
 - B30-R2: backend check passed before 170 tests across nine files; read-only review reported no findings. Parsed configuration retains complete optional OIDC, SMTP, and S3 values, CIDRs, and OTLP headers without consumer reparsing or reconstruction; partial-startup semantics are unchanged.
 - C06-R2: client type check and scoped format/lint passed before 83 tests across eight files; read-only review reported no findings. Pagination uses a submitted snapshot.
 - B24-R1: backend type, format, and lint checks passed before 57 tests across seven files; read-only review reported no findings. Definition registration, invalidation, and publication remain intact.
+- M06-R1: media check passed before 222 tests across 25 files; read-only review reported no findings. All locators resolve once; actual headers and the home backdrop remain.

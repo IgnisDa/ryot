@@ -10,7 +10,6 @@ import {
 	mediaEpisodicCoveragePercent,
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { podcastEpisodeOriginLabel, PodcastEpisodesTab } from "./episodes";
@@ -74,7 +73,6 @@ export const podcastSchema = defineEpisodicMediaSchema({
 	EpisodesTab: PodcastEpisodesTab,
 	coverage: podcastActivityCoverage,
 	aspect: mediaSchemaAspects.podcast,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	episodeOrigin: podcastEpisodeOriginLabel,
 	presentationFacts: podcastPresentationFacts,
 	presentationDetail: podcastPresentationDetail,

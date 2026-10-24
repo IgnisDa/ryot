@@ -146,7 +146,6 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly logActivity: MediaActivityLogger;
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
-	readonly heroHeight: (compact: boolean) => number;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly activityCopy: MediaActivityCopy &
 		MediaEpisodicActivityCopy & {
@@ -447,7 +446,6 @@ export const defineEpisodicMediaSchema = <
 				entityId={props.entityId}
 				summaryQuery={summaryQuery}
 				overviewQuery={overviewQuery}
-				heroHeight={descriptor.heroHeight}
 				mapSummary={summaryState.mapSummary}
 				overviewAssets={mediaOverviewManagedAssets}
 			/>
