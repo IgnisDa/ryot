@@ -18,7 +18,9 @@ const getSourceFiles = (dir: string) =>
 		});
 
 const guidesSourceFiles = getSourceFiles("guides");
-const conceptsSourceFiles = getSourceFiles("concepts");
+const conceptsSourceFiles = getSourceFiles("concepts").filter(
+	({ link }) => link !== "/concepts/analytics",
+);
 const importingSourceFiles = getSourceFiles("importing");
 const integrationsSourceFiles = getSourceFiles("integrations");
 
@@ -52,7 +54,11 @@ export default defineConfig({
 				collapsed: true,
 				text: "Concepts",
 				link: "/concepts/overview",
-				items: [{ text: "Overview", link: "/concepts/overview" }, ...conceptsSourceFiles],
+				items: [
+					{ text: "Overview", link: "/concepts/overview" },
+					{ text: "Analytics", link: "/concepts/analytics" },
+					...conceptsSourceFiles,
+				],
 			},
 			{
 				collapsed: true,
