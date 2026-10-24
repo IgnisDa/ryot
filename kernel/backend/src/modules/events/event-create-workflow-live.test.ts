@@ -34,6 +34,7 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import {
+	noHooksFixture,
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
@@ -313,6 +314,13 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			const update = (change: (snapshot: HarnessState) => Partial<HarnessState>) =>
 				Ref.update(state, (snapshot) => ({ ...snapshot, ...change(snapshot) }));
 			const record = (call: string) => update(({ calls }) => ({ calls: [...calls, call] }));
+			const recordEntityLocks = (entityIds: ReadonlyArray<EntityId>) =>
+				Effect.gen(function* () {
+					expect((yield* current).activeTransaction).toBe(true);
+					yield* update(({ lockedEntityIds }) => ({
+						lockedEntityIds: [...lockedEntityIds, [...entityIds]],
+					}));
+				});
 			const remember = (plan: LifecyclePlan) =>
 				update(({ planned }) => ({ planned: new Map([...planned, [plan.trigger.id, plan]]) })).pipe(
 					Effect.as(plan),
@@ -390,7 +398,13 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										const replayed = plans.get(trigger.id);
 										return replayed
 											? { ...replayed, wasCreated: false }
-											: { runs: [], policies: [], trigger: existing, wasCreated: false };
+											: {
+													runs: [],
+													policies: [],
+													trigger: existing,
+													wasCreated: false,
+													backgroundJobIds: [],
+												};
 									}
 									if (trigger.kind.category === "change" && options.failChange) {
 										return yield* new DbError({ message: "planning failed" });
@@ -439,13 +453,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										trigger.kind.category === "change" && rated(options.afterHookRatings, false);
 									if (options.noHooks && !blocked && declarations.length === 0 && !afterHook) {
 										yield* record(`plan:${trigger.kind.category}`);
-										return {
-											trigger: null,
-											runs: [] as const,
-											policies: [] as const,
-											_tag: "NoHooks" as const,
-											wasCreated: false as const,
-										};
+										return noHooksFixture();
 									}
 									yield* update(({ calls, triggers: planned }) => ({
 										triggers: [...planned, trigger],
@@ -456,6 +464,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											runs: [],
 											policies: [],
 											wasCreated: true,
+											backgroundJobIds: [],
 											trigger: {
 												...trigger,
 												blockedReason: {
@@ -476,6 +485,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											trigger,
 											policies: [],
 											wasCreated: true,
+											backgroundJobIds: [],
 											runs: afterHook ? [hookRun(trigger, { slug: "after", stage: "after" })] : [],
 										});
 									}
@@ -514,6 +524,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									return yield* remember({
 										runs,
 										wasCreated: true,
+										backgroundJobIds: [],
 										trigger: plannedTrigger,
 										policies: runs.map((run, index) => ({
 											runId: run.id,
@@ -715,15 +726,9 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				Layer.succeed(LifecycleExecution, execution),
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.mock(EntitiesRepository)({
+					lockEntityReferencesByIds: recordEntityLocks,
 					getByIdForUser: ({ entityId: requestedId }) =>
 						read((snapshot) => visibleEntity(snapshot, requestedId)),
-					lockEntityReferencesByIds: (entityIds) =>
-						Effect.gen(function* () {
-							expect((yield* current).activeTransaction).toBe(true);
-							yield* update(({ lockedEntityIds }) => ({
-								lockedEntityIds: [...lockedEntityIds, [...entityIds]],
-							}));
-						}),
 					getByIdsForUser: ({ entityIds }) =>
 						read(
 							(snapshot) =>
@@ -749,6 +754,22 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									}
 								: null;
 						}),
+					getMutationEntities: (entityIds, lock) =>
+						Effect.gen(function* () {
+							const ids = [...new Set(entityIds)].sort();
+							if (lock) {
+								yield* recordEntityLocks(ids);
+							}
+							return yield* read(
+								(snapshot) =>
+									new Map(
+										ids.flatMap((requestedId) => {
+											const entity = visibleEntity(snapshot, requestedId);
+											return entity ? [[requestedId, { entity, userId }] as const] : [];
+										}),
+									),
+							);
+						}),
 				}),
 				Layer.mock(EventSchemaReader)({
 					getScopeForUser: () =>
@@ -766,66 +787,91 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								triggers.some(({ kind }) => kind.category === "request"),
 						})),
 				}),
-				Layer.mock(EventsRepository)({
-					lockEventRows: ({ eventIds }) =>
-						eventIds.length === 0
-							? Effect.succeed([])
-							: Effect.succeed(eventIds.map((id) => ({ id }))),
-					createEvent: (input) =>
-						Effect.gen(function* () {
-							const { activeActivity, activeTransaction } = yield* current;
-							expect(activeTransaction).toBe(true);
-							expect(activeActivity).toBe(true);
-							yield* update(({ calls, created }) => ({
-								calls: [...calls, "write"],
-								created: [...created, input],
-							}));
-							return {
-								id: input.id,
-								createdAt: now,
-								updatedAt: now,
-								entityId: input.entityId,
-								properties: input.properties,
-								eventSchemaSlug: input.eventSchemaSlug,
-								eventSchemaName: input.eventSchemaName,
-								sessionEntityId: input.sessionEntityId,
-								occurredAt: input.occurredAt.toISOString(),
-								eventSchemaPluginId:
-									input.eventSchemaPluginId === null
-										? null
-										: PluginId.make(input.eventSchemaPluginId),
-							};
-						}),
-					getEventSnapshot: ({ eventId }) =>
-						Effect.gen(function* () {
-							const snapshot = yield* current;
-							const created = snapshot.created.find(({ id }) => id === eventId);
-							if (!created) {
-								return null;
-							}
-							const entitySchemaPluginId =
-								visibleEntity(snapshot, created.entityId)?.entitySchemaPluginId ?? null;
-							return yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
-								id: created.id,
-								createdAt: now,
-								updatedAt: now,
-								entitySchemaSlug,
-								entitySchemaPluginId,
-								entityId: created.entityId,
-								properties: created.properties,
-								eventSchemaSlug: created.eventSchemaSlug,
-								occurredAt: created.occurredAt.toISOString(),
-								sessionEntityId: created.sessionEntityId ?? null,
-								eventSchemaPluginId:
-									created.eventSchemaPluginId === null
-										? null
-										: PluginId.make(created.eventSchemaPluginId),
-							}).pipe(
-								Effect.mapError(() => new DbError({ message: "Invalid fixture event snapshot" })),
-								Effect.map((eventSnapshot) => ({ revision: 0, snapshot: eventSnapshot })),
-							);
-						}),
-				}),
+				Layer.effect(
+					EventsRepository,
+					Effect.gen(function* () {
+						const live = yield* EventsRepository.make;
+						return EventsRepository.of({
+							...live,
+							lockEventRows: ({ eventIds }) =>
+								eventIds.length === 0
+									? Effect.succeed([])
+									: Effect.succeed(eventIds.map((id) => ({ id }))),
+							lockMutationReferences: (input) =>
+								Effect.gen(function* () {
+									expect(input.eventIds).toEqual([]);
+									yield* live.lockMutationReferences(input);
+									yield* recordEntityLocks(
+										[
+											...new Set(
+												(input.sources ?? []).flatMap((source) =>
+													source.sessionEntityId
+														? [source.entityId, EntityId.make(source.sessionEntityId)]
+														: [source.entityId],
+												),
+											),
+										].sort(),
+									);
+								}),
+							createEvent: (input) =>
+								Effect.gen(function* () {
+									const { activeActivity, activeTransaction } = yield* current;
+									expect(activeTransaction).toBe(true);
+									expect(activeActivity).toBe(true);
+									yield* update(({ calls, created }) => ({
+										calls: [...calls, "write"],
+										created: [...created, input],
+									}));
+									return {
+										id: input.id,
+										createdAt: now,
+										updatedAt: now,
+										entityId: input.entityId,
+										properties: input.properties,
+										eventSchemaSlug: input.eventSchemaSlug,
+										eventSchemaName: input.eventSchemaName,
+										sessionEntityId: input.sessionEntityId,
+										occurredAt: input.occurredAt.toISOString(),
+										eventSchemaPluginId:
+											input.eventSchemaPluginId === null
+												? null
+												: PluginId.make(input.eventSchemaPluginId),
+									};
+								}),
+							getEventSnapshot: ({ eventId }) =>
+								Effect.gen(function* () {
+									const snapshot = yield* current;
+									const created = snapshot.created.find(({ id }) => id === eventId);
+									if (!created) {
+										return null;
+									}
+									const entitySchemaPluginId =
+										visibleEntity(snapshot, created.entityId)?.entitySchemaPluginId ?? null;
+									return yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
+										id: created.id,
+										createdAt: now,
+										updatedAt: now,
+										entitySchemaSlug,
+										entitySchemaPluginId,
+										entityId: created.entityId,
+										properties: created.properties,
+										eventSchemaSlug: created.eventSchemaSlug,
+										occurredAt: created.occurredAt.toISOString(),
+										sessionEntityId: created.sessionEntityId ?? null,
+										eventSchemaPluginId:
+											created.eventSchemaPluginId === null
+												? null
+												: PluginId.make(created.eventSchemaPluginId),
+									}).pipe(
+										Effect.mapError(
+											() => new DbError({ message: "Invalid fixture event snapshot" }),
+										),
+										Effect.map((eventSnapshot) => ({ revision: 0, snapshot: eventSnapshot })),
+									);
+								}),
+						});
+					}),
+				).pipe(Layer.provide(database)),
 				Layer.succeed(EventCreateHarness, {
 					calls: read(({ calls }) => calls),
 					inputs: read(({ inputs }) => inputs),
@@ -1241,7 +1287,13 @@ layer(
 			const h = yield* EventCreateHarness;
 			expect(yield* run()).toMatchObject({ count: 1, failure: null });
 			expect((yield* h.created)[0]?.sessionEntityId).toBeUndefined();
-			expect(yield* h.lockedEntityIds).toEqual([[entityId], [entityId]]);
+			expect(yield* h.lockedEntityIds).toEqual([
+				[entityId],
+				[entityId],
+				[entityId],
+				[entityId],
+				[entityId],
+			]);
 		}),
 	);
 });
@@ -1267,7 +1319,13 @@ layer(
 			Effect.gen(function* () {
 				const h = yield* EventCreateHarness;
 				expect((yield* run()).failure).toEqual({ index: 0, reason: { code: "mutation-conflict" } });
-				expect(yield* h.lockedEntityIds).toEqual([[entityId], [racingSession, entityId]]);
+				expect(yield* h.lockedEntityIds).toEqual([
+					[entityId],
+					[entityId],
+					[racingSession, entityId],
+					[racingSession, entityId],
+					[racingSession, entityId],
+				]);
 				expect(yield* h.created).toEqual([]);
 			}),
 	);
@@ -1284,7 +1342,13 @@ layer(
 			const h = yield* EventCreateHarness;
 			expect((yield* run()).failure).toEqual({ index: 0, reason: { code: "mutation-conflict" } });
 			expect(yield* h.executed).toEqual(["plugin/metadata"]);
-			expect(yield* h.lockedEntityIds).toEqual([[entityId], [entityId]]);
+			expect(yield* h.lockedEntityIds).toEqual([
+				[entityId],
+				[entityId],
+				[entityId],
+				[entityId],
+				[entityId],
+			]);
 			expect(yield* h.created).toEqual([]);
 		}),
 	);

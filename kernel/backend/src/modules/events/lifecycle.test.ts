@@ -42,6 +42,7 @@ import {
 import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
+	noHooksFixture,
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
@@ -202,13 +203,7 @@ const planner = (
 								yield* Ref.update(transactions, (all) => [...all, transaction.id]);
 							}
 							if (noHooks) {
-								return {
-									trigger: null,
-									runs: [] as const,
-									policies: [] as const,
-									_tag: "NoHooks" as const,
-									wasCreated: false as const,
-								};
+								return noHooksFixture();
 							}
 							const { kind, causation } = trigger;
 							yield* session.run((db) =>
@@ -262,6 +257,7 @@ const planner = (
 								trigger,
 								runs: [],
 								wasCreated: true,
+								backgroundJobIds: [],
 								policies:
 									kind.category === "request" && kind.operation === "update"
 										? Array.from({ length: policyCount }, (_, index) => ({
@@ -304,6 +300,8 @@ const workflowLayer = Layer.mergeAll(
 		getByIdForUser: ({ entityId: requestedId }) => Effect.succeed(workflowEntity(requestedId)),
 		getByIdsForUser: ({ entityIds }) =>
 			Effect.succeed(new Map(entityIds.map((id) => [id, workflowEntity(id)] as const))),
+		getMutationEntities: (entityIds) =>
+			Effect.succeed(new Map(entityIds.map((id) => [id, { userId, entity: workflowEntity(id) }]))),
 		getEntityScopeForUser: ({ entityId: requestedId }) =>
 			Effect.succeed({
 				isBuiltin: false,
@@ -481,6 +479,18 @@ const lifecycleDatabaseLayer = (
 										new Map(
 											entityIds.flatMap((id) =>
 												id === "unreadable" ? [] : [[id, listedEntity(id, properties)] as const],
+											),
+										),
+								),
+							getMutationEntities: (entityIds) =>
+								Effect.map(
+									Ref.get(entityProperties),
+									(properties) =>
+										new Map(
+											entityIds.flatMap((id) =>
+												id === "unreadable"
+													? []
+													: [[id, { userId, entity: listedEntity(id, properties) }]],
 											),
 										),
 								),

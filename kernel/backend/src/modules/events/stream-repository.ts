@@ -16,6 +16,13 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
+import {
+	projectionDependencyTargets,
+	projectionSourceReferences,
+	projectionSources,
+} from "./projection-dependencies";
+import { requiredProjectionTargets } from "./projection-readiness";
+
 export const StreamKeySchema = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
@@ -25,7 +32,15 @@ export const StreamKeySchema = Schema.Struct({
 
 export type StreamKey = typeof StreamKeySchema.Type;
 
-type StreamTouch = StreamKey & { readonly occurredAt: Date };
+export type StreamSource = StreamKey & {
+	readonly sessionEntityId?: null | string | undefined;
+	readonly properties?: undefined | Readonly<Record<string, unknown>>;
+};
+
+type StreamTouch = StreamSource & { readonly occurredAt: Date };
+
+const streamIds = (ids: ReadonlyArray<string>) =>
+	sql`(select jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))`;
 
 export const eventStreamId = (key: StreamKey) =>
 	sha256Hex(
@@ -37,8 +52,12 @@ const toStreamKey = (row: {
 	readonly entityId: string;
 	readonly eventSchemaSlug: string;
 	readonly eventSchemaPluginId: null | string;
-}): StreamKey => ({
+	readonly sessionEntityId?: null | string | undefined;
+	readonly properties?: undefined | Readonly<Record<string, unknown>>;
+}): StreamSource => ({
+	properties: row.properties,
 	userId: UserId.make(row.userId),
+	sessionEntityId: row.sessionEntityId,
 	entityId: EntityId.make(row.entityId),
 	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	eventSchemaPluginId:
@@ -51,6 +70,7 @@ const currentSelection = {
 	error: schema.backgroundWork.error,
 	status: schema.backgroundWork.status,
 	pluginPin: schema.eventStreamWork.pluginPin,
+	repairEpoch: schema.eventStream.repairEpoch,
 	streamRevision: schema.eventStream.revision,
 	dirtyFrom: schema.eventStreamWork.dirtyFrom,
 	updatedAt: schema.eventStreamWork.updatedAt,
@@ -58,6 +78,7 @@ const currentSelection = {
 	currentJobId: schema.eventStreamWork.currentJobId,
 	accountToken: schema.eventStreamWork.accountToken,
 	outputSchema: schema.eventStreamWork.outputSchema,
+	inputRepairJobId: schema.eventStreamWork.inputRepairJobId,
 	pluginRevisionId: schema.eventStreamWork.pluginRevisionId,
 	completedRevision: schema.eventStreamWork.completedRevision,
 	processorScriptId: schema.eventStreamWork.processorScriptId,
@@ -80,6 +101,82 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				),
 			);
 
+			const dependencies = Effect.fn("EventStreamRepository.dependencies")(function* (
+				sources: ReadonlyArray<StreamSource>,
+			) {
+				if (sources.length === 0) {
+					return [];
+				}
+				return yield* session.run((db) =>
+					db.execute<{
+						userId: string;
+						restart: boolean;
+						entityId: string;
+						sourceIndex: number;
+						eventSchemaSlug: string;
+						eventSchemaPluginId: string;
+					}>(projectionDependencyTargets(projectionSources(sources)), "objects"),
+				);
+			});
+
+			const lockSourceReferences = Effect.fn("EventStreamRepository.lockSourceReferences")(
+				function* (sources: ReadonlyArray<StreamSource>) {
+					yield* requireTransaction;
+					if (sources.length > 0) {
+						yield* session.run((db) =>
+							db.execute(projectionSourceReferences(projectionSources(sources))),
+						);
+					}
+				},
+			);
+			const sourceCandidates = Effect.fn("EventStreamRepository.sourceCandidates")(function* (
+				sources: ReadonlyArray<StreamSource>,
+			) {
+				yield* requireTransaction;
+				const ids = [
+					...new Set(
+						[...sources, ...(yield* dependencies(sources)).map(toStreamKey)].map(eventStreamId),
+					),
+				].sort();
+				if (ids.length === 0) {
+					return [];
+				}
+				return yield* session.run((db) =>
+					db
+						.select({
+							id: schema.eventStream.id,
+							projection: schema.userEventSchema.projection,
+							key: {
+								userId: schema.eventStream.userId,
+								entityId: schema.eventStream.entityId,
+								eventSchemaSlug: schema.eventStream.eventSchemaSlug,
+								eventSchemaPluginId: schema.eventStream.eventSchemaPluginId,
+							},
+						})
+						.from(schema.eventStream)
+						.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
+						.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
+						.innerJoin(
+							schema.userEventSchema,
+							and(
+								eq(schema.userEventSchema.userId, schema.eventStream.userId),
+								eq(schema.userEventSchema.entitySchemaSlug, schema.entity.entitySchemaSlug),
+								eq(schema.userEventSchema.slug, schema.eventStream.eventSchemaSlug),
+								sql`${schema.userEventSchema.pluginId} is not distinct from ${schema.eventStream.eventSchemaPluginId}`,
+							),
+						)
+						.where(
+							and(
+								inArray(schema.eventStream.id, streamIds(ids)),
+								isNull(schema.user.disabledAt),
+								eq(schema.userEventSchema.isEffective, true),
+								isNotNull(schema.userEventSchema.projection),
+							),
+						)
+						.orderBy(asc(schema.eventStream.id)),
+				);
+			});
+
 			const ensureAndLockStreams = Effect.fn("EventStreamRepository.ensureAndLockStreams")(
 				function* (keys: ReadonlyArray<StreamKey>) {
 					const entries = [...new Map(keys.map((key) => [eventStreamId(key), key])).entries()].sort(
@@ -91,49 +188,55 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					const ids = entries.map(([id]) => id);
 
 					yield* session.run((db) =>
-						db
-							.insert(schema.eventStream)
-							.values(
-								entries.map(([id, key]) => ({
-									id,
-									userId: key.userId,
-									entityId: key.entityId,
-									eventSchemaSlug: key.eventSchemaSlug,
-									eventSchemaPluginId: key.eventSchemaPluginId,
-								})),
-							)
-							.onConflictDoNothing(),
+						db.execute(sql`
+						insert into event_stream (id, user_id, entity_id, event_schema_slug, event_schema_plugin_id, repair_epoch)
+						select source.id, "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId",
+							coalesce((select sibling.repair_epoch from event_stream sibling
+								where sibling.user_id = source."userId" and sibling.entity_id = source."entityId"
+								and sibling.event_schema_plugin_id is not distinct from source."eventSchemaPluginId"
+								order by sibling.id limit 1), 'initial')
+						from jsonb_to_recordset(${JSON.stringify(entries.map(([id, key]) => ({ id, userId: key.userId, entityId: key.entityId, eventSchemaSlug: key.eventSchemaSlug, eventSchemaPluginId: key.eventSchemaPluginId })))}::jsonb)
+							as source(id text, "userId" text, "entityId" text, "eventSchemaSlug" text, "eventSchemaPluginId" text)
+						order by source.id collate "C" on conflict do nothing
+					`),
 					);
 
 					return yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.eventStream)
-							.where(inArray(schema.eventStream.id, ids))
+							.where(inArray(schema.eventStream.id, streamIds(ids)))
 							.orderBy(asc(schema.eventStream.id))
 							.for("update"),
 					);
 				},
 			);
 			const lock = Effect.fn("EventStreamRepository.lock")(function* (
-				keys: ReadonlyArray<StreamKey>,
+				keys: ReadonlyArray<StreamSource>,
 			) {
 				yield* requireTransaction;
-				return yield* ensureAndLockStreams(keys);
+				yield* lockSourceReferences(keys);
+				return yield* ensureAndLockStreams([
+					...keys,
+					...(yield* dependencies(keys)).map(toStreamKey),
+				]);
 			});
-			const lockForEvents = Effect.fn("EventStreamRepository.lockForEvents")(function* (
+			const sourcesForEvents = Effect.fn("EventStreamRepository.sourcesForEvents")(function* (
 				eventIds: ReadonlyArray<EventId>,
+				sources: ReadonlyArray<StreamSource> = [],
 			) {
 				yield* requireTransaction;
 				const ids = [...new Set(eventIds)].sort();
 				if (ids.length === 0) {
-					return;
+					return sources;
 				}
 				const rows = yield* session.run((db) =>
 					db
 						.select({
 							userId: schema.event.userId,
 							entityId: schema.event.entityId,
+							properties: schema.event.properties,
+							sessionEntityId: schema.event.sessionEntityId,
 							eventSchemaSlug: schema.event.eventSchemaSlug,
 							eventSchemaPluginId: schema.event.eventSchemaPluginId,
 						})
@@ -141,7 +244,18 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						.where(inArray(schema.event.id, ids))
 						.orderBy(asc(schema.event.id)),
 				);
-				yield* lock(rows.map(toStreamKey));
+				return [...sources, ...rows.map(toStreamKey)];
+			});
+			const lockSourceReferencesForEvents = Effect.fn(
+				"EventStreamRepository.lockSourceReferencesForEvents",
+			)(function* (eventIds: ReadonlyArray<EventId>, sources: ReadonlyArray<StreamSource> = []) {
+				yield* lockSourceReferences(yield* sourcesForEvents(eventIds, sources));
+			});
+			const lockForEvents = Effect.fn("EventStreamRepository.lockForEvents")(function* (
+				eventIds: ReadonlyArray<EventId>,
+				sources: ReadonlyArray<StreamSource> = [],
+			) {
+				yield* lock(yield* sourcesForEvents(eventIds, sources));
 			});
 
 			const lockWorkRows = Effect.fn("EventStreamRepository.lockWorkRows")(function* (
@@ -154,7 +268,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					db
 						.select()
 						.from(schema.eventStreamWork)
-						.where(inArray(schema.eventStreamWork.id, ids))
+						.where(inArray(schema.eventStreamWork.id, streamIds(ids)))
 						.orderBy(asc(schema.eventStreamWork.id))
 						.for("update"),
 				);
@@ -164,12 +278,12 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				streams: ReadonlyArray<typeof schema.eventStream.$inferSelect>,
 				now: Date,
 			) {
-				for (const stream of streams) {
+				if (streams.length > 0) {
 					yield* session.run((db) =>
 						db
 							.update(schema.eventStream)
 							.set({ updatedAt: now, revision: sql`${schema.eventStream.revision} + 1` })
-							.where(eq(schema.eventStream.id, stream.id)),
+							.where(inArray(schema.eventStream.id, streamIds(streams.map(({ id }) => id)))),
 					);
 				}
 			});
@@ -212,6 +326,8 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							.selectDistinct({
 								userId: schema.event.userId,
 								entityId: schema.event.entityId,
+								properties: schema.event.properties,
+								sessionEntityId: schema.event.sessionEntityId,
 								eventSchemaSlug: schema.event.eventSchemaSlug,
 								eventSchemaPluginId: schema.event.eventSchemaPluginId,
 							})
@@ -222,7 +338,9 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					);
 
 					return rows.map((row) => ({
+						properties: row.properties,
 						userId: UserId.make(row.userId),
+						sessionEntityId: row.sessionEntityId,
 						entityId: EntityId.make(row.entityId),
 						eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 						eventSchemaPluginId:
@@ -235,8 +353,23 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				keys: ReadonlyArray<StreamTouch>,
 			) {
 				yield* requireTransaction;
+				yield* lockSourceReferences(keys);
+				const related = yield* dependencies(keys);
+				const reset = new Set<string>();
+				const touches = [...keys];
+				for (const row of related) {
+					const source = keys[row.sourceIndex];
+					if (!source) {
+						continue;
+					}
+					const key = toStreamKey(row);
+					touches.push({ ...key, occurredAt: source.occurredAt });
+					if (row.restart || eventStreamId(key) !== eventStreamId(source)) {
+						reset.add(eventStreamId(key));
+					}
+				}
 				const occurredAtById = new Map<string, { occurredAt: Date; readonly key: StreamKey }>();
-				for (const { occurredAt, ...key } of keys) {
+				for (const { occurredAt, ...key } of touches) {
 					const id = eventStreamId(key);
 					const current = occurredAtById.get(id);
 					if (!current || occurredAt.getTime() < current.occurredAt.getTime()) {
@@ -247,11 +380,19 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					return;
 				}
 
-				const streams = yield* lock([...occurredAtById.values()].map(({ key }) => key));
+				const streams = yield* ensureAndLockStreams(
+					[...occurredAtById.values()].map(({ key }) => key),
+				);
 				const now = yield* DateTime.nowAsDate;
 				yield* incrementStreams(streams, now);
 				const workRows = yield* lockWorkRows(streams.map((stream) => stream.id));
 				const workById = new Map(workRows.map((work) => [work.id, work]));
+				const updates: Array<
+					{ dirtyFrom: null | string } & Pick<
+						typeof schema.eventStreamWork.$inferSelect,
+						"id" | "checkpoint"
+					>
+				> = [];
 
 				for (const stream of streams) {
 					const work = workById.get(stream.id);
@@ -268,13 +409,25 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					} else if (dirtyFrom !== null && occurredAt < dirtyFrom) {
 						dirtyFrom = occurredAt;
 					}
-					const checkpoint = work.completedRevision === stream.revision ? work.checkpoint : null;
+					const checkpoint =
+						!reset.has(stream.id) && work.completedRevision === stream.revision
+							? work.checkpoint
+							: null;
+					if (reset.has(stream.id)) {
+						dirtyFrom = null;
+					}
 
+					updates.push({ checkpoint, id: stream.id, dirtyFrom: dirtyFrom?.toISOString() ?? null });
+				}
+				if (updates.length > 0) {
 					yield* session.run((db) =>
-						db
-							.update(schema.eventStreamWork)
-							.set({ dirtyFrom, checkpoint, updatedAt: now, currentJobId: null })
-							.where(eq(schema.eventStreamWork.id, stream.id)),
+						db.execute(sql`
+						update event_stream_work w set dirty_from = changed."dirtyFrom",
+							checkpoint = changed.checkpoint, updated_at = ${now}, current_job_id = null
+						from jsonb_to_recordset(${JSON.stringify(updates)}::jsonb)
+							as changed(id text, checkpoint jsonb, "dirtyFrom" timestamptz)
+						where w.id = changed.id
+					`),
 					);
 				}
 			});
@@ -354,6 +507,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								dirtyFrom: null,
 								checkpoint: null,
 								currentJobId: null,
+								inputRepairJobId: null,
 								completedRevision: null,
 								pluginPin: input.pluginPin,
 								accountToken: input.accountToken,
@@ -384,26 +538,147 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 			});
 
 			const listCandidates = Effect.fn("EventStreamRepository.listCandidates")(function* (
-				limit = 500,
+				limit = 100,
+				after?: string,
 			) {
 				return yield* session.run((db) =>
 					db
 						.select(currentSelection)
 						.from(schema.eventStreamWork)
 						.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
+						.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
 						.leftJoin(
 							schema.backgroundWork,
 							eq(schema.backgroundWork.id, schema.eventStreamWork.currentJobId),
 						)
 						.where(
 							and(
+								isNull(schema.user.disabledAt),
+								eq(schema.user.accountGeneration, schema.eventStreamWork.accountToken),
 								isNull(schema.eventStreamWork.currentJobId),
+								sql`(${schema.eventStreamWork.inputRepairJobId} is null or exists (
+									select 1 from background_work repair
+									where repair.id = ${schema.eventStreamWork.inputRepairJobId} and repair.status = 'succeeded'
+								))`,
+								after === undefined ? undefined : gt(schema.eventStreamWork.id, after),
 								sql`${schema.eventStreamWork.completedRevision} is distinct from ${schema.eventStream.revision}`,
 							),
 						)
-						.orderBy(asc(schema.eventStreamWork.updatedAt), asc(schema.eventStreamWork.id))
+						.orderBy(asc(schema.eventStreamWork.id))
 						.limit(limit),
 				);
+			});
+
+			const claimInputRepair = Effect.fn("EventStreamRepository.claimInputRepair")(function* (
+				id: string,
+				jobId: string,
+			) {
+				yield* requireTransaction;
+				yield* lockStream(id);
+				const work = yield* lockWork(id);
+				if (!work) {
+					return false;
+				}
+				if (work.inputRepairJobId !== null) {
+					return work.inputRepairJobId === jobId;
+				}
+				yield* session.run((db) =>
+					db
+						.update(schema.eventStreamWork)
+						.set({ inputRepairJobId: jobId })
+						.where(eq(schema.eventStreamWork.id, id)),
+				);
+				return true;
+			});
+
+			const inputRepairCandidates = Effect.fn("EventStreamRepository.inputRepairCandidates")(
+				function* (jobId: string, after?: string) {
+					return yield* session.run((db) =>
+						db
+							.select({ id: schema.eventStreamWork.id })
+							.from(schema.eventStreamWork)
+							.where(
+								and(
+									eq(schema.eventStreamWork.inputRepairJobId, jobId),
+									isNull(schema.eventStreamWork.currentJobId),
+									after === undefined ? undefined : gt(schema.eventStreamWork.id, after),
+								),
+							)
+							.orderBy(asc(schema.eventStreamWork.id))
+							.limit(100),
+					);
+				},
+			);
+
+			const inputRepair = Effect.fn("EventStreamRepository.inputRepair")(function* (id: string) {
+				const [declaration] = yield* session.run((db) =>
+					db
+						.select({ projection: schema.userEventSchema.projection })
+						.from(schema.eventStream)
+						.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
+						.innerJoin(
+							schema.userEventSchema,
+							and(
+								eq(schema.userEventSchema.userId, schema.eventStream.userId),
+								eq(schema.userEventSchema.entitySchemaSlug, schema.entity.entitySchemaSlug),
+								eq(schema.userEventSchema.slug, schema.eventStream.eventSchemaSlug),
+								sql`${schema.userEventSchema.pluginId} is not distinct from ${schema.eventStream.eventSchemaPluginId}`,
+								eq(schema.userEventSchema.isEffective, true),
+							),
+						)
+						.where(eq(schema.eventStream.id, id))
+						.limit(1),
+				);
+				const scriptSlug = declaration?.projection?.inputRepairScriptSlug;
+				if (scriptSlug === undefined) {
+					return null;
+				}
+				const [job] = yield* session.run((db) =>
+					db
+						.select({ id: schema.backgroundWork.id, status: schema.backgroundWork.status })
+						.from(schema.eventStreamWork)
+						.innerJoin(
+							schema.backgroundWork,
+							eq(schema.backgroundWork.id, schema.eventStreamWork.inputRepairJobId),
+						)
+						.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
+						.innerJoin(
+							schema.sandboxScript,
+							eq(
+								schema.sandboxScript.id,
+								sql`${schema.backgroundWork.payload}->'execution'->>'scriptId'`,
+							),
+						)
+						.innerJoin(
+							schema.pluginInstallation,
+							and(
+								eq(
+									schema.pluginInstallation.id,
+									sql`${schema.backgroundWork.payload}->'featureInput'->>'installationId'`,
+								),
+								eq(schema.pluginInstallation.userId, schema.eventStream.userId),
+								eq(schema.pluginInstallation.pluginId, schema.eventStream.eventSchemaPluginId),
+							),
+						)
+						.where(
+							and(
+								eq(schema.eventStreamWork.id, id),
+								eq(schema.backgroundWork.purpose, "user-script"),
+								eq(schema.backgroundWork.userId, schema.eventStream.userId),
+								eq(schema.backgroundWork.pluginId, schema.eventStream.eventSchemaPluginId),
+								eq(schema.backgroundWork.accountToken, schema.eventStreamWork.accountToken),
+								eq(schema.backgroundWork.scope, schema.eventStream.entityId),
+								eq(schema.sandboxScript.slug, scriptSlug),
+								eq(schema.sandboxScript.pluginRevisionId, schema.eventStreamWork.pluginRevisionId),
+								sql`${schema.backgroundWork.payload}->'featureInput'->>'kind' = 'event-stream-input-repair'`,
+								sql`${schema.backgroundWork.payload}->'featureInput'->>'repairEpoch' = ${schema.eventStream.repairEpoch}`,
+								sql`${schema.backgroundWork.payload}->'featureInput'->>'entityId' = ${schema.eventStream.entityId}`,
+								sql`${schema.backgroundWork.payload}->'featureInput'->'pluginPin' = ${schema.eventStreamWork.pluginPin} - 'writeContext'`,
+							),
+						)
+						.limit(1),
+				);
+				return { scriptSlug, job: job ?? null };
 			});
 
 			const postponeCandidate = Effect.fn("EventStreamRepository.postponeCandidate")(function* (
@@ -435,6 +710,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								},
 							})
 							.from(schema.eventStream)
+							.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
 							.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
 							.innerJoin(
 								schema.userEventSchema,
@@ -462,11 +738,13 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							)
 							.where(
 								and(
+									isNull(schema.user.disabledAt),
 									eq(schema.userEventSchema.isEffective, true),
 									isNotNull(schema.userEventSchema.projection),
 									input.after === undefined ? undefined : gt(schema.eventStream.id, input.after),
 									or(
 										isNull(schema.eventStreamWork.id),
+										sql`${schema.eventStreamWork.accountToken} is distinct from ${schema.user.accountGeneration}`,
 										sql`${schema.eventStreamWork.pluginRevisionId} is distinct from ${schema.plugin.activeRevisionId}`,
 										sql`${schema.eventStreamWork.pluginPin}->>'configRevisionId' is distinct from (case when ${schema.plugin.ownerId} is null then ${schema.plugin.environmentConfigRevisionId} else ${schema.pluginInstallation.activeConfigRevisionId} end)`,
 									),
@@ -478,8 +756,48 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				},
 			);
 
+			const discover = Effect.fn("EventStreamRepository.discover")(function* (limit: number) {
+				yield* requireTransaction;
+				const rows = yield* session.run((db) =>
+					db.execute<{
+						userId: string;
+						entityId: string;
+						eventSchemaSlug: string;
+						eventSchemaPluginId: string;
+					}>(
+						sql`
+					with targets as (${requiredProjectionTargets()})
+					select distinct "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId" from targets
+					join "user" u on u.id = targets."userId" and u.disabled_at is null
+					join plugin p on p.id = targets."eventSchemaPluginId" and p.status = 'active'
+					join plugin_installation i on i.user_id = targets."userId" and i.plugin_id = p.id
+						and i.health = 'ready' and i.uninstalled_at is null
+					where not exists (
+						select 1 from event_stream s where s.user_id = targets."userId"
+						and s.entity_id = targets."entityId" and s.event_schema_plugin_id = targets."eventSchemaPluginId"
+						and s.event_schema_slug = targets."eventSchemaSlug")
+					order by "userId", "entityId", "eventSchemaPluginId", "eventSchemaSlug"
+					limit ${limit}
+				`,
+						"objects",
+					),
+				);
+				yield* ensureAndLockStreams(rows.map(toStreamKey));
+				return rows.length;
+			});
+
 			const prepare = Effect.fn("EventStreamRepository.prepare")(function* (id: string) {
 				yield* requireTransaction;
+				const [account] = yield* session.run((db) =>
+					db
+						.select({ disabledAt: schema.user.disabledAt })
+						.from(schema.eventStream)
+						.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
+						.where(eq(schema.eventStream.id, id)),
+				);
+				if (account?.disabledAt !== null) {
+					return null;
+				}
 				const stream = yield* lockStream(id);
 				if (!stream) {
 					return null;
@@ -531,6 +849,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				revision: number,
 				checkpoint: JsonValue,
 				done: boolean,
+				waitingForInputs = false,
 			) {
 				yield* requireTransaction;
 				if (!(yield* currentClaim(id, jobId, revision))) {
@@ -545,7 +864,8 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							checkpoint,
 							updatedAt: now,
 							completedRevision: done ? revision : null,
-							...(done ? { dirtyFrom: null } : { currentJobId: null }),
+							...(done ? { dirtyFrom: null } : {}),
+							...(!done && !waitingForInputs ? { currentJobId: null } : {}),
 						})
 						.where(eq(schema.eventStreamWork.id, id)),
 				);
@@ -560,12 +880,19 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				prepare,
 				reserve,
 				request,
+				discover,
+				inputRepair,
 				currentClaim,
 				lockForEvents,
 				listCandidates,
+				claimInputRepair,
 				invalidateEntity,
+				sourceCandidates,
 				bindingCandidates,
 				postponeCandidate,
+				lockSourceReferences,
+				inputRepairCandidates,
+				lockSourceReferencesForEvents,
 			};
 		}),
 	},

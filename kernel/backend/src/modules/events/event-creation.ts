@@ -19,6 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Option, type Result, Schema } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -30,6 +31,8 @@ import {
 	type DomainWriteConflict,
 	type DomainWritePin,
 } from "#modules/entities/write-context";
+
+import { EventsRepository } from "./repository";
 
 export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
 
@@ -276,9 +279,30 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				id ? [EntityId.make(id)] : [],
 			),
 		);
-		yield* entitiesRepository.lockEntityReferencesByIds(entityIds);
+		const events = yield* EventsRepository;
 		const entities = yield* entitiesRepository.getByIdsForUser({ entityIds, userId: input.userId });
 		const referenceOf = (id: EntityId) => input.proposedEntities?.[id] ?? entities.get(id);
+		yield* events.lockMutationReferences({
+			eventIds: [],
+			sources: input.items.flatMap((item) => {
+				const entity = referenceOf(EntityId.make(item.entityId.trim()));
+				return entity
+					? [
+							{
+								userId: input.userId,
+								entityId: EntityId.make(item.entityId.trim()),
+								eventSchemaPluginId: entity.entitySchemaPluginId,
+								eventSchemaSlug: EventSchemaSlug.make(item.eventSchemaSlug.trim()),
+								properties: isObjectRecord(item.properties) ? item.properties : {},
+								sessionEntityId: item.sessionEntityId?.trim()
+									? EntityId.make(item.sessionEntityId.trim())
+									: undefined,
+							},
+						]
+					: [];
+			}),
+		});
+		yield* entitiesRepository.lockEntityReferencesByIds(entityIds);
 		const schemaInputs = new Map<string, EventCreateSchemaInput>();
 		for (const item of input.items) {
 			const entity = referenceOf(EntityId.make(item.entityId.trim()));

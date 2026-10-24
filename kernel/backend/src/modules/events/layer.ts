@@ -12,7 +12,7 @@ import { EventProjectionRepository } from "./projection-repository";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 import { EventStreamRepository } from "./stream-repository";
-import { EventStreamWorkService } from "./stream-work";
+import { EventStreamLifecycleWorkLive, EventStreamWorkService } from "./stream-work";
 
 export const EventsServiceLive = EventsService.layer.pipe(
 	Layer.provide(
@@ -61,4 +61,8 @@ export const EventStreamWorkServiceLive = EventStreamWorkService.layer.pipe(
 			EventSchemaReaderLive,
 		),
 	),
+);
+
+export const EventStreamLifecycleWorkProvidedLive = EventStreamLifecycleWorkLive.pipe(
+	Layer.provide(Layer.merge(EventStreamWorkServiceLive, BackgroundWorkService.layer)),
 );

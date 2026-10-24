@@ -40,7 +40,12 @@ const seed = (suffix: string) =>
 		yield* session.run((db) =>
 			db
 				.insert(tables.user)
-				.values({ id: userId, name: "Stream owner", email: `stream-${suffix}@example.test` }),
+				.values({
+					id: userId,
+					name: "Stream owner",
+					email: `stream-${suffix}@example.test`,
+					accountGeneration: "stream-account-token",
+				}),
 		);
 		yield* session.run((db) =>
 			db
@@ -95,12 +100,12 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("event_stream_candidate_batch")),
 	),
 )((test) => {
-	test.effect("selects up to 500 pending streams per default dispatch batch", () =>
+	test.effect("pages pending streams without repeating blocked heads", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* EventStreamRepository;
 			const { key, ...work } = requestInput((yield* seed("candidate-batch")).key);
-			const streams = Array.from({ length: 501 }, (_, index) => {
+			const streams = Array.from({ length: 201 }, (_, index) => {
 				const stream = { ...key, eventSchemaSlug: EventSchemaSlug.make(`batch-${index}`) };
 				return { ...stream, id: eventStreamId(stream) };
 			}).sort((left, right) => left.id.localeCompare(right.id));
@@ -109,14 +114,60 @@ layer(
 				db.insert(tables.eventStreamWork).values(streams.map(({ id }) => ({ ...work, id }))),
 			);
 
-			expect((yield* repository.listCandidates()).map(({ id }) => id)).toEqual(
-				streams.slice(0, 500).map(({ id }) => id),
-			);
+			const first = yield* repository.listCandidates();
+			expect(first.map(({ id }) => id)).toEqual(streams.slice(0, 100).map(({ id }) => id));
+			const last = first.at(-1);
+			assert(last);
+			const second = yield* repository.listCandidates(100, last.id);
+			expect(second.map(({ id }) => id)).toEqual(streams.slice(100, 200).map(({ id }) => id));
+			const tail = second.at(-1);
+			assert(tail);
+			expect((yield* repository.listCandidates(100, tail.id)).map(({ id }) => id)).toEqual([
+				streams[200]?.id,
+			]);
 		}),
 	);
 });
 
 layer(databaseLayer)((test) => {
+	test.effect(
+		"restarts parked work when its account generation and processor declaration change",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EventStreamRepository;
+				const { key, userId, pluginId } = yield* seed("parked-rebind");
+				const request = requestInput(key);
+				const id = yield* session.transaction(repository.request(request));
+				const jobId = `${id}-parked`;
+				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
+				expect(
+					yield* session.transaction(
+						repository.finish(id, jobId, prepared.streamRevision, null, false, true),
+					),
+				).toBe(true);
+				expect((yield* repository.get(id))?.currentJobId).toBe(jobId);
+				yield* session.transaction(
+					repository.request({
+						...request,
+						accountToken: "restored-generation",
+						pluginRevisionId: "replacement-revision",
+						processorScriptId: "replacement-processor",
+						pluginPin: { revisionId: "replacement-revision" },
+					}),
+				);
+				const rebound = yield* repository.get(id);
+				expect(rebound?.checkpoint).toBeNull();
+				expect(rebound?.currentJobId).toBeNull();
+				expect(rebound?.completedRevision).toBeNull();
+				expect(rebound?.processorScriptId).toBe("replacement-processor");
+				expect(rebound?.accountToken).toBe("restored-generation");
+				expect(
+					yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
+				).toBe(false);
+			}),
+	);
+
 	test.effect("rebuilds completed projections when only their configuration pin changes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

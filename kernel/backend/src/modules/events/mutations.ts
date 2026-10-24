@@ -44,6 +44,7 @@ import {
 import { DatabaseSession } from "#platform/db/session";
 
 import { readEventCreateChunkScopes } from "./event-creation";
+import { EventGroupConstraints } from "./event-group-constraints";
 import { EventsRepository } from "./repository";
 
 export const PreparedEventChange = Schema.Struct({
@@ -73,6 +74,35 @@ export const PreparedEventChanges = Schema.Struct({
 	),
 });
 export type PreparedEventChanges = typeof PreparedEventChanges.Type;
+
+const preparedMutationReferences = (input: {
+	readonly userId: UserId;
+	readonly batches: ReadonlyArray<{
+		readonly validated: PolicyBatchResult;
+		readonly prepared: PreparedEventChanges;
+	}>;
+}) => ({
+	eventIds: input.batches.flatMap(({ prepared }) =>
+		prepared.items.flatMap((row) => [
+			...(row.source ? [row.source.snapshot.id] : []),
+			...(row.order ? [row.order.anchorId] : []),
+		]),
+	),
+	sources: input.batches.flatMap(({ prepared, validated }) => [
+		...prepared.items.flatMap((row) => [
+			{ ...row.draft, userId: input.userId },
+			...(row.source ? [{ ...row.source.snapshot, userId: input.userId }] : []),
+		]),
+		...validated.items.flatMap((row) =>
+			row.request.resource === "event" ? [{ ...row.request.draft, userId: input.userId }] : [],
+		),
+	]),
+});
+
+const preparedEventId = (row: typeof PreparedEventChange.Type) =>
+	EventId.make(
+		`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([row.receipt.executionId, row.receipt.itemIdentity]))}`,
+	);
 
 export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedEventChanges) {
 	return yield* Effect.forEach(prepared.items, (item) =>
@@ -161,12 +191,69 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 		const planner = yield* LifecyclePlanner;
 		const receipts = yield* MutationReceipts.make;
 		const assets = yield* ManagedAssetReferenceLocker.make;
+		const groups = yield* EventGroupConstraints.make;
+		const captureGroups = Effect.fn("EventMutations.captureGroups")(function* (input: {
+			readonly userId: UserId;
+			readonly entityIds?: ReadonlyArray<EntityId>;
+			readonly batches: ReadonlyArray<{
+				readonly validated: PolicyBatchResult;
+				readonly prepared: PreparedEventChanges;
+			}>;
+		}) {
+			const accounts = new Map<UserId, NonNullable<MutationReceiptIdentity["accountGeneration"]>>();
+			const expectedRevisions = new Map<EventId, number>();
+			for (const { prepared } of input.batches) {
+				for (const row of prepared.items) {
+					if (row.source) {
+						expectedRevisions.set(row.source.snapshot.id, row.source.revision);
+					}
+					if (row.order) {
+						expectedRevisions.set(row.order.anchorId, row.order.revision);
+					}
+					if (row.receipt.accountGeneration !== null) {
+						accounts.set(row.receipt.accountGeneration.userId, row.receipt.accountGeneration);
+					}
+				}
+			}
+			for (const [, account] of [...accounts].sort(([left], [right]) =>
+				left.localeCompare(right),
+			)) {
+				yield* receipts.admitAccount(account);
+			}
+			yield* schemas.lockCatalog();
+			const mutationReferences = preparedMutationReferences(input);
+			yield* repository.lockMutationReferences(mutationReferences);
+			return yield* groups.capture({
+				expectedRevisions,
+				userId: input.userId,
+				entityIds: input.entityIds ?? [],
+				drafts: mutationReferences.sources,
+				eventIds: input.batches.flatMap(({ prepared }) =>
+					prepared.items.flatMap((row) => (row.source ? [row.source.snapshot.id] : [])),
+				),
+				createdEventIds: input.batches.flatMap(({ prepared }) =>
+					prepared.items.flatMap((row) =>
+						row.change.kind === "create" ? [preparedEventId(row)] : [],
+					),
+				),
+			});
+		});
+		const lockPreparedChanges = Effect.fn("EventMutations.lockPreparedChanges")(function* (
+			input: Parameters<typeof preparedMutationReferences>[0],
+		) {
+			yield* session.requireTransaction.pipe(Effect.orDie);
+			yield* repository.lockEventRows({
+				userId: input.userId,
+				...preparedMutationReferences(input),
+			});
+		});
 		const prepare = Effect.fn("EventMutations.prepare")(function* (input: {
 			userId: UserId;
 			independent?: boolean;
 			positionOffset?: number;
 			command: DomainLifecycleCommand;
 			changes: ReadonlyArray<EventMutationChange>;
+			itemIdentities?: Readonly<Record<string, string>>;
 			proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 		}) {
 			const writer = input.command.writeContext?.pluginRevision;
@@ -226,10 +313,16 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 				Effect.provideService(EventSchemaReader, schemas),
 				Effect.provideService(EntitiesRepository, entities),
 				Effect.provideService(DomainWriteChecks, writes),
+				Effect.provideService(EventsRepository, repository),
 			);
 			const prepared = yield* Effect.forEach(changes, (item, index) =>
 				Effect.gen(function* () {
-					const command = commandFor(input.command, item.change.itemIdentity);
+					const command = {
+						...commandFor(input.command, item.change.itemIdentity),
+						itemIdentity:
+							input.itemIdentities?.[item.change.itemIdentity] ??
+							commandFor(input.command, item.change.itemIdentity).itemIdentity,
+					};
 					const scope = yield* scopes.resolve(
 						{ ...item.item, occurredAt: item.item.occurredAt ?? input.command.occurredAt },
 						command,
@@ -336,6 +429,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 			validated: PolicyBatchResult;
 			prepared: PreparedEventChanges;
 			command: DomainLifecycleCommand;
+			groupState?: Effect.Success<ReturnType<typeof captureGroups>>;
 		}) {
 			yield* session.requireTransaction.pipe(Effect.orDie);
 			const prior = yield* receipts
@@ -360,6 +454,13 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 				};
 			}
 			yield* schemas.lockCatalog();
+			const groupState =
+				input.groupState ??
+				(yield* captureGroups({
+					batches: [input],
+					userId: input.userId,
+					entityIds: Object.keys(input.validated.references).map((id) => EntityId.make(id)),
+				}));
 			const rows = input.prepared.items;
 			const referencedIds = new Set(
 				rows.flatMap((row) => {
@@ -390,7 +491,15 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					.map((id) => EntityId.make(id))
 					.sort(),
 			);
-			yield* repository.lockEventRows({ eventIds, userId: input.userId });
+			yield* repository.lockEventRows({
+				eventIds,
+				userId: input.userId,
+				sources: input.validated.items.flatMap((item) =>
+					item.request.resource === "event"
+						? [{ ...item.request.draft, userId: input.userId }]
+						: [],
+				),
+			});
 			const currentReferences = yield* entities.getByIdsForUser({
 				userId: input.userId,
 				entityIds: Object.keys(references).map((id) => EntityId.make(id)),
@@ -489,7 +598,8 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					}
 				}
 				const command = {
-					...commandFor(input.command, row.change.itemIdentity),
+					...input.command,
+					itemIdentity: row.receipt.itemIdentity,
 					causation: {
 						...input.command.causation,
 						parentTriggerId: input.validated.triggerId ?? input.command.causation.parentTriggerId,
@@ -533,12 +643,10 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 						order: row.order ?? undefined,
 						...draft,
 						userId: input.userId,
+						id: preparedEventId(row),
 						eventSchemaName: schema.name,
 						sessionEntityId: draft.sessionEntityId ?? undefined,
 						occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-						id: EventId.make(
-							`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
-						),
 					});
 					eventId = event.id;
 					const after = yield* repository.getEventSnapshot({ eventId, userId: input.userId });
@@ -592,6 +700,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 					}
 				}
 				const plan = yield* planner.plan({
+					writeContext: command.writeContext,
 					trigger: lifecycleTrigger(command, input.userId, change),
 				});
 				const planned = plan.trigger ? [toLifecycleDispatchPlan(plan)] : [];
@@ -607,13 +716,22 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 				});
 				results.push({ eventId, itemIdentity: row.change.itemIdentity });
 			}
+			if (input.groupState === undefined) {
+				yield* groups.validate(groupState);
+			}
 			yield* receipts.insertMany(recorded);
 			if (input.sealBatch !== false) {
 				dispatch.push(...(yield* planner.planBatch(batch)));
 			}
 			return { results, dispatch };
 		});
-		return { prepare, persist };
+		return {
+			prepare,
+			persist,
+			captureGroups,
+			lockPreparedChanges,
+			validateGroups: groups.validate,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

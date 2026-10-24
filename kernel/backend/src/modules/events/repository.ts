@@ -25,7 +25,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
-import { EventStreamRepository, type StreamKey } from "./stream-repository";
+import { EventStreamRepository, type StreamSource } from "./stream-repository";
 
 export type EventIdentityInput = {
 	readonly userId: UserId;
@@ -89,8 +89,12 @@ const eventStreamKey = (row: {
 	readonly entityId: string;
 	readonly eventSchemaSlug: string;
 	readonly eventSchemaPluginId: null | string;
-}): StreamKey => ({
+	readonly sessionEntityId?: null | string | undefined;
+	readonly properties?: undefined | Readonly<Record<string, unknown>>;
+}): StreamSource => ({
+	properties: row.properties,
 	userId: UserId.make(row.userId),
+	sessionEntityId: row.sessionEntityId,
 	entityId: EntityId.make(row.entityId),
 	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	eventSchemaPluginId:
@@ -158,6 +162,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						userId: schema.event.userId,
 						revision: schema.event.revision,
 						entityId: schema.event.entityId,
+						properties: schema.event.properties,
 						occurredAt: schema.event.occurredAt,
 						eventSchemaSlug: schema.event.eventSchemaSlug,
 						sessionEntityId: schema.event.sessionEntityId,
@@ -170,8 +175,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			return row ?? null;
 		});
 		const touchEventMutation = Effect.fn("EventsRepository.touchEventMutation")(function* (input: {
-			after: StreamKey;
-			before: StreamKey;
+			after: StreamSource;
+			before: StreamSource;
 			afterOccurredAt: Date;
 			beforeOccurredAt: Date;
 		}) {
@@ -223,12 +228,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			order?: undefined | { key: string; createdAt: string };
 		}) {
 			yield* requireTransaction;
-			const streamKey = eventStreamKey({
-				userId: input.userId,
-				entityId: input.entityId,
-				eventSchemaSlug: input.eventSchemaSlug,
-				eventSchemaPluginId: input.eventSchemaPluginId,
-			});
+			const streamKey = eventStreamKey(input);
 			yield* eventStreams.lock([streamKey]);
 			const createdAt = yield* DateTime.nowAsDate;
 			const [inserted] = yield* session.run((db) =>
@@ -495,6 +495,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				const afterKey = eventStreamKey({
 					...current,
 					entityId: current.entityId === input.mergeFrom ? input.mergeInto : current.entityId,
+					sessionEntityId:
+						current.sessionEntityId === input.mergeFrom ? input.mergeInto : current.sessionEntityId,
 				});
 				yield* eventStreams.lock([beforeKey, afterKey]);
 				const [row] = yield* session.run((db) =>
@@ -559,7 +561,12 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				return null;
 			}
 			const beforeKey = eventStreamKey(current);
-			const afterKey = eventStreamKey({ ...current, entityId: input.draft.entityId });
+			const afterKey = eventStreamKey({
+				...current,
+				entityId: input.draft.entityId,
+				properties: input.draft.properties,
+				sessionEntityId: input.draft.sessionEntityId,
+			});
 			const afterOccurredAt = DateTime.toDate(DateTime.makeUnsafe(input.draft.occurredAt));
 			yield* eventStreams.lock([beforeKey, afterKey]);
 			const [row] = yield* session.run((db) =>
@@ -606,12 +613,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		const lockEventRows = Effect.fn("EventsRepository.lockEventRows")(function* (input: {
 			userId: UserId;
 			eventIds: ReadonlyArray<EventId>;
+			sources?: ReadonlyArray<StreamSource>;
 		}) {
 			const eventIds = [...new Set(input.eventIds)].sort();
+			yield* eventStreams.lockForEvents(eventIds, input.sources);
 			if (eventIds.length === 0) {
 				return [];
 			}
-			yield* eventStreams.lockForEvents(eventIds);
 			return yield* session.run((db) =>
 				db
 					.select({ id: schema.event.id })
@@ -621,6 +629,15 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					.for("update"),
 			);
 		});
+
+		const lockMutationReferences = Effect.fn("EventsRepository.lockMutationReferences")(
+			function* (input: {
+				eventIds: ReadonlyArray<EventId>;
+				sources?: ReadonlyArray<StreamSource>;
+			}) {
+				yield* eventStreams.lockSourceReferencesForEvents(input.eventIds, input.sources);
+			},
+		);
 
 		const getEventSnapshot = Effect.fn("EventsRepository.getEventSnapshot")(function* (
 			input: EventIdentityInput,
@@ -694,6 +711,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			deletePreparedEvent,
 			updatePreparedEvent,
 			listSessionEventIds,
+			lockMutationReferences,
 			listUserEventsForBackup,
 			listUserDataEventReferences,
 			updateEventEntityReferences,
