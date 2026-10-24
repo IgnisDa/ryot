@@ -9,6 +9,7 @@ import {
 	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Option, Ref } from "effect";
 
 import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
@@ -26,7 +27,7 @@ const now = new Date("2026-08-31T12:00:00.000Z");
 it("builds the exact first-party clients and API resource", () => {
 	const records = internalOAuthRecords("https://ryot.example", now, true);
 	expect(records.clients).toEqual([
-		expect.objectContaining({
+		objectContaining({
 			disabled: false,
 			requirePKCE: true,
 			skipConsent: true,
@@ -42,20 +43,20 @@ it("builds the exact first-party clients and API resource", () => {
 			redirectUris: ["https://ryot.example/auth/callback"],
 			postLogoutRedirectUris: ["https://ryot.example/auth/logout/callback"],
 		}),
-		expect.objectContaining({
+		objectContaining({
 			applicationType: "native",
 			clientId: OAUTH_NATIVE_CLIENT_ID,
 			redirectUris: [...OAUTH_NATIVE_CALLBACK_URIS],
 			postLogoutRedirectUris: [...OAUTH_NATIVE_LOGOUT_CALLBACK_URIS],
 		}),
-		expect.objectContaining({
+		objectContaining({
 			disabled: false,
 			applicationType: "web",
 			clientId: OAUTH_DEMO_WEB_CLIENT_ID,
 			redirectUris: ["https://ryot.example/auth/callback"],
 			postLogoutRedirectUris: ["https://ryot.example/auth/logout/callback"],
 		}),
-		expect.objectContaining({
+		objectContaining({
 			disabled: false,
 			requirePKCE: true,
 			skipConsent: true,
@@ -71,7 +72,7 @@ it("builds the exact first-party clients and API resource", () => {
 			redirectUris: ["https://ryot.example/auth/callback"],
 			postLogoutRedirectUris: ["https://ryot.example/auth/logout/callback"],
 		}),
-		expect.objectContaining({
+		objectContaining({
 			disabled: false,
 			requirePKCE: true,
 			skipConsent: true,
@@ -136,7 +137,7 @@ it("builds the exact first-party clients and API resource", () => {
 it("disables the demo web client when no demo account is configured", () => {
 	const records = internalOAuthRecords("https://ryot.example", now, false);
 	expect(records.clients.find(({ clientId }) => clientId === OAUTH_DEMO_WEB_CLIENT_ID)).toEqual(
-		expect.objectContaining({
+		objectContaining({
 			disabled: true,
 			requirePKCE: true,
 			skipConsent: true,
@@ -251,7 +252,7 @@ layer(reprovisioningLayer)((test) => {
 				...OAUTH_NATIVE_CALLBACK_URIS,
 			]);
 			expect(clients.get(OAUTH_IMPERSONATION_WEB_CLIENT_ID)).toEqual(
-				expect.objectContaining({
+				objectContaining({
 					requirePKCE: true,
 					skipConsent: true,
 					scopes: [...OAUTH_SCOPES],
@@ -260,7 +261,7 @@ layer(reprovisioningLayer)((test) => {
 				}),
 			);
 			expect(clients.get(OAUTH_IMPERSONATION_NATIVE_CLIENT_ID)).toEqual(
-				expect.objectContaining({
+				objectContaining({
 					requirePKCE: true,
 					skipConsent: true,
 					scopes: [...OAUTH_SCOPES],

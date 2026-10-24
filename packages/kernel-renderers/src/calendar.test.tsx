@@ -8,6 +8,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { castDate, castJson, column, field, jsonPath, literal, table } from "@ryot-app/ryotql";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
@@ -271,8 +272,8 @@ describe("calendar renderer", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(rowTexts(day)).toEqual([
-						expect.stringContaining("AlphaFirst"),
-						expect.stringContaining("BetaSecond"),
+						stringContaining("AlphaFirst"),
+						stringContaining("BetaSecond"),
 					]),
 				),
 			);
@@ -308,9 +309,9 @@ describe("calendar renderer", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(rowTexts(today)).toEqual([
-						expect.stringContaining("AlphaStep 2"),
-						expect.stringContaining("BetaNote 2"),
-						expect.stringContaining("BetaNote 3"),
+						stringContaining("AlphaStep 2"),
+						stringContaining("BetaNote 2"),
+						stringContaining("BetaNote 3"),
 					]),
 				),
 			);
@@ -623,17 +624,11 @@ describe("calendar renderer", () => {
 					expect(encodeJson(deadlines.document)).toContain("2026-01-01T00:00:00.000Z");
 					expect(encodeJson(deadlines.document)).toContain("2026-02-01T00:00:00.000Z");
 					expect(encodeJson(reminders.document)).toContain(localMonthStart(2026, 0));
-					expect(rowTexts(yield* daySection("2026-01-01"))).toEqual([
-						expect.stringContaining("Gamma"),
-					]);
-					expect(rowTexts(yield* daySection("2026-01-31"))).toEqual([
-						expect.stringContaining("Delta"),
-					]);
-					expect(rowTexts(yield* daySection("2026-01-15"))).toEqual([
-						expect.stringContaining("Note 11"),
-					]);
+					expect(rowTexts(yield* daySection("2026-01-01"))).toEqual([stringContaining("Gamma")]);
+					expect(rowTexts(yield* daySection("2026-01-31"))).toEqual([stringContaining("Delta")]);
+					expect(rowTexts(yield* daySection("2026-01-15"))).toEqual([stringContaining("Note 11")]);
 					const previous = yield* daySection("2026-01-14");
-					expect(rowTexts(previous)).toEqual([expect.stringContaining("Note 10")]);
+					expect(rowTexts(previous)).toEqual([stringContaining("Note 10")]);
 					expect(within(previous).getByTestId("calendar-time").textContent).toBe("23:59");
 				}),
 			);

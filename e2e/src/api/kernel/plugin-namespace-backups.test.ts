@@ -15,6 +15,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -427,8 +428,8 @@ describe("plugin namespace backups", () => {
 					);
 					expect(bottles).toHaveLength(2);
 					expect(bottles).toEqual(
-						expect.arrayContaining([
-							expect.objectContaining({
+						arrayContaining([
+							objectContaining({
 								owner: installation.pluginId,
 								properties: { strength, opaque: packages.externalId },
 							}),
@@ -547,7 +548,7 @@ describe("plugin namespace backups", () => {
 					workspaceSavedViewRecordsRecipe(),
 				);
 				expect(associations).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						{ id: restoredView.id, installationId: restoredA.id },
 						{ installationId: restoredB.id, id: restoredContributorView.id },
 					]),

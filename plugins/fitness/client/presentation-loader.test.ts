@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import { preferenceSettings } from "../tests/client/draft-fixtures";
 import { loadFitnessPresentations } from "./entity-presentation";
@@ -170,13 +171,10 @@ describe("fitness presentation loaders", () => {
 			});
 
 			expect(lists).toEqual([
-				expect.objectContaining({
-					where: expect.objectContaining({
-						predicates: expect.arrayContaining([
-							expect.objectContaining({
-								type: "in",
-								values: [{ type: "literal", value: "workout-1" }],
-							}),
+				objectContaining({
+					where: objectContaining({
+						predicates: arrayContaining([
+							objectContaining({ type: "in", values: [{ type: "literal", value: "workout-1" }] }),
 						]),
 					}),
 				}),
@@ -184,7 +182,7 @@ describe("fitness presentation loaders", () => {
 			expect(loaded["workout-1"]).toMatchObject({
 				volume: "1,058 lb × reps",
 				duration: { value: "1h", label: "Duration" },
-				top: [expect.objectContaining({ name: "Bench Press", best: "132.28 lb × 8" })],
+				top: [objectContaining({ name: "Bench Press", best: "132.28 lb × 8" })],
 			});
 			yield* Effect.promise(() => clock.dispose());
 		}),

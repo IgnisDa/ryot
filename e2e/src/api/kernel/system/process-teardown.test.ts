@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import { describe, expect, it } from "~/support/effect-test";
@@ -51,7 +52,7 @@ describe("tracked API child teardown", () => {
 			yield* stopApiProcess(child);
 
 			expect(child.signalCode).toBe("SIGKILL");
-			expect(() => process.kill(child.pid, 0)).toThrow(expect.objectContaining({ code: "ESRCH" }));
+			expect(() => process.kill(child.pid, 0)).toThrow(objectContaining({ code: "ESRCH" }));
 			expect(otherChild.exitCode).toBeNull();
 		}),
 	);

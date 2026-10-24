@@ -7,6 +7,7 @@ import {
 	EventId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import {
 	makeRecordingTracer,
 	maxBindParameter,
@@ -628,7 +629,7 @@ layer(
 							.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 					)
 					.pipe(Effect.flip),
-			).toMatchObject({ _tag: "DbError", message: expect.stringContaining("Invalid batch pin") });
+			).toMatchObject({ _tag: "DbError", message: stringContaining("Invalid batch pin") });
 			expect(receiptInsertStatements(spans)).toEqual([]);
 			expect(yield* receiptRowIds([batch.id, ...pins.map(({ id }) => id)])).toEqual([]);
 		}),

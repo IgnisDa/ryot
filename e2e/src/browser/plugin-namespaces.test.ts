@@ -1,4 +1,5 @@
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -62,13 +63,13 @@ describe("Whiskey namespace workspaces", () => {
 							(contributor) => contributor.kind === "plugin",
 						),
 					).toEqual(
-						expect.arrayContaining([
-							expect.objectContaining({
+						arrayContaining([
+							objectContaining({
 								pluginId: a.pluginId,
 								installationId: a.id,
 								packageId: packages.a.manifest.metadata.packageId,
 							}),
-							expect.objectContaining({
+							objectContaining({
 								pluginId: b.pluginId,
 								installationId: b.id,
 								packageId: packages.b.manifest.metadata.packageId,
@@ -76,7 +77,7 @@ describe("Whiskey namespace workspaces", () => {
 						]),
 					);
 					expect(originalView.identity.operationTargets).toEqual(
-						expect.arrayContaining([
+						arrayContaining([
 							{
 								pluginId: a.pluginId,
 								installationId: a.id,

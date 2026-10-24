@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
@@ -33,8 +34,8 @@ function Header(props: { readonly media: MediaEntitySummaryValue }) {
 
 const monitoringRequest = (enable: boolean) => ({
 	packageId: "ryot/media",
+	idempotencyKey: anyOf(String),
 	input: { entityIds: ["media-1"] },
-	idempotencyKey: expect.any(String),
 	label: enable ? "Started monitoring" : "Stopped monitoring",
 	slug: enable ? "media-monitoring-enable" : "media-monitoring-disable",
 });

@@ -18,6 +18,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -416,7 +417,7 @@ describe("Workouts E2E", () => {
 					client,
 					workoutComparisonsRecipe({ reference, workoutIds: [legs] }),
 				),
-			).toEqual([{ id: legs, volume: 500, startedAt: expect.any(String) }]);
+			).toEqual([{ id: legs, volume: 500, startedAt: anyOf(String) }]);
 
 			const weeks = yield* executeRyotQLRecipe(
 				client,

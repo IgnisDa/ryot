@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
@@ -164,7 +165,7 @@ describe("revision-backed integration providers", () => {
 				const catalog = yield* IntegrationProviderCatalog.make;
 				expect(
 					(yield* catalog.listResolvedForUser(owner)).map(({ provider }) => provider.pluginId),
-				).toEqual(expect.arrayContaining([system.pluginId, privatePlugin.pluginId]));
+				).toEqual(arrayContaining([system.pluginId, privatePlugin.pluginId]));
 				expect(yield* catalog.listResolvedForUser(owner)).toHaveLength(6);
 				expect(
 					(yield* catalog.findForUser(owner, {

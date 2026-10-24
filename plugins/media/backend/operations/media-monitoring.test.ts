@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 
 import {
 	MediaMonitoringEnableInput,
@@ -74,7 +75,7 @@ describe("media monitoring operations", () => {
 								type: "rows",
 								pagination: { limit: 3 },
 								include: [
-									expect.objectContaining({
+									objectContaining({
 										key: "monitoringLibraries",
 										from: { table: "relationship", alias: "monitoringRelationship" },
 									}),
@@ -85,25 +86,25 @@ describe("media monitoring operations", () => {
 				});
 				const nodes = ryotqlDocumentNodes(documents[0]);
 				expect(nodes).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						type: "column",
 						field: "targetEntityId",
 						tableAlias: "monitoringRelationship",
 					}),
 				);
 				expect(nodes).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						type: "isNotNull",
 						expr: { type: "column", field: "userId", tableAlias: "monitoringRelationship" },
 					}),
 				);
 				for (const field of ["providerId", "externalId"]) {
 					expect(nodes).toContainEqual(
-						expect.objectContaining({ field, type: "column", tableAlias: "entity" }),
+						objectContaining({ field, type: "column", tableAlias: "entity" }),
 					);
 				}
 				expect(nodes).not.toContainEqual(
-					expect.objectContaining({ table: "entity", alias: "mediaLibrary" }),
+					objectContaining({ table: "entity", alias: "mediaLibrary" }),
 				);
 				expect(nodes).not.toContain("show-season");
 			}),

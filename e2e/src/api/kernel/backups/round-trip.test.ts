@@ -14,6 +14,7 @@ import {
 	type PluginUserSettingsPage,
 	pluginUserSettingsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
+import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -209,7 +210,7 @@ describe("backup export and restore round trip", () => {
 					if (globalReference) {
 						expect(
 							yield* readBackupEvidenceSection(bytes, "entity-dependencies.ndjson"),
-						).toContainEqual(expect.objectContaining({ id: globalReference.id }));
+						).toContainEqual(objectContaining({ id: globalReference.id }));
 					}
 					yield* deleteUserAndWait(source.userId);
 					const restored = yield* restoreBackup(target.client, bytes);
@@ -245,7 +246,7 @@ describe("backup export and restore round trip", () => {
 					).toEqual([
 						{
 							occurredAt,
-							id: expect.any(String),
+							id: anyOf(String),
 							sessionEntityId: undefined,
 							eventSchemaSlug: fixture.eventSchemaSlug,
 							properties: {
@@ -362,8 +363,8 @@ describe("backup export and restore round trip", () => {
 				frozen: false,
 				rule: "progress",
 				status: "inactive",
+				runKey: anyOf(String),
 				entityId: fixture.entityId,
-				runKey: expect.any(String),
 				total: index === 0 ? 90 : 0,
 				subjectEntityId: fixture.entityId,
 				sourceEventId: requirePresent(
@@ -377,7 +378,7 @@ describe("backup export and restore round trip", () => {
 				sourceLibraryEvents
 					.filter(({ eventSchemaSlug }) => eventSchemaSlug === "completion-occurrence")
 					.map(({ properties }) => properties),
-			).toEqual(expect.arrayContaining(occurrenceFacts));
+			).toEqual(arrayContaining(occurrenceFacts));
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			const archivedEvents = yield* readBackupEvidenceSection(bytes, "events.ndjson");
 			expect(archivedEvents).toHaveLength(sourceEvents.length + sourceLibraryEvents.length);
@@ -387,7 +388,7 @@ describe("backup export and restore round trip", () => {
 			]) {
 				for (const event of events) {
 					expect(archivedEvents).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							...event,
 							entityId,
 							sessionEntityId: event.sessionEntityId ?? null,
@@ -414,7 +415,7 @@ describe("backup export and restore round trip", () => {
 					occurredAt: at,
 					eventSchemaSlug,
 					sessionEntityId,
-					id: expect.any(String),
+					id: anyOf(String),
 				})),
 			);
 			const restoredLibraryEvents = yield* listEventsForEntity(
@@ -439,7 +440,7 @@ describe("backup export and restore round trip", () => {
 					)?.properties,
 				).toEqual({
 					...requirePresent(occurrenceFacts[index], "Source occurrence evidence is missing"),
-					runKey: expect.any(String),
+					runKey: anyOf(String),
 					entityId: restoredEntity.id,
 					subjectEntityId: restoredEntity.id,
 					sourceEventId: restoredProgress.id,
@@ -576,7 +577,7 @@ describe("backup export and restore round trip", () => {
 			expect(restoredOccurrenceEvents).toEqual([
 				{
 					eventSchemaSlug,
-					id: expect.any(String),
+					id: anyOf(String),
 					occurredAt: workoutStartedAt,
 					sessionEntityId: restoredWorkoutId,
 					properties: {
@@ -590,7 +591,7 @@ describe("backup export and restore round trip", () => {
 				({ eventSchemaSlug: slug }) => slug === "workout-set",
 			);
 			expect(restoredSetEvents).toContainEqual(
-				expect.objectContaining({ sessionEntityId: restoredWorkoutId }),
+				objectContaining({ sessionEntityId: restoredWorkoutId }),
 			);
 			expect(
 				(yield* findRelationshipBySchema(target.client, {
@@ -1062,14 +1063,14 @@ describe("backup export and restore round trip", () => {
 			);
 			expect(restoredEvents).toEqual([
 				{
-					id: expect.any(String),
+					id: anyOf(String),
 					sessionEntityId: undefined,
 					occurredAt: newerOccurredAt,
 					properties: newerProperties,
 					eventSchemaSlug: eventSchema.id,
 				},
 				{
-					id: expect.any(String),
+					id: anyOf(String),
 					sessionEntityId: undefined,
 					occurredAt: olderOccurredAt,
 					properties: olderProperties,

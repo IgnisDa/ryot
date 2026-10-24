@@ -1,5 +1,6 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { assert, expect, it } from "vitest";
 
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
@@ -73,10 +74,7 @@ it("hydrates saved sets without confirmations and retains their recorded exercis
 	});
 
 	assert(result.kind === "ready");
-	expect(result.draft.mode).toMatchObject({
-		kind: "historical",
-		conflictToken: expect.any(String),
-	});
+	expect(result.draft.mode).toMatchObject({ kind: "historical", conflictToken: anyOf(String) });
 	expect(result.draft.activeDurationIntent).toBe("preserve");
 	expect(result.draft.activeDuration).toBe(0);
 	expect(result.draft.caloriesBurnt).toBe("0");

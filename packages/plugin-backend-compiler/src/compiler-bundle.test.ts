@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, FileSystem, Path } from "effect";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
@@ -39,9 +40,9 @@ it.layer(pluginBackendCompilerPlatformLayer)("bundleSandboxPackage", (test) => {
 				),
 			);
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_BUNDLE",
-					message: expect.stringContaining("forbidden CommonJS, Bun, or browser helper"),
+					message: stringContaining("forbidden CommonJS, Bun, or browser helper"),
 				}),
 			]);
 		}),

@@ -1,6 +1,7 @@
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { fitnessPlugin } from "../../manifest/plugin";
@@ -154,9 +155,9 @@ describe("workout start change", () => {
 					expect(result).toBeNull();
 					expect(requests).toEqual(
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
-							expect.objectContaining({
+							objectContaining({
 								request: { entityId, eventSchemaSlug: "workout-set" },
-								reference: expect.objectContaining({
+								reference: objectContaining({
 									referenceKind: "script",
 									scriptSlug: "script.workout-record-step",
 								}),
@@ -217,9 +218,9 @@ describe("workout record automation", () => {
 					expect(requests).toHaveLength(3);
 					expect(requests).toEqual(
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
-							expect.objectContaining({
+							objectContaining({
 								request: { entityId, eventSchemaSlug: "workout-set" },
-								reference: expect.objectContaining({
+								reference: objectContaining({
 									referenceKind: "script",
 									scriptSlug: "script.workout-record-step",
 								}),
@@ -250,9 +251,7 @@ describe("workout record automation", () => {
 				expect(yield* definition.run(sourceUpdate, host)).toBeNull();
 				expect(requests).toHaveLength(1);
 				expect(requests).toEqual([
-					expect.objectContaining({
-						request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
-					}),
+					objectContaining({ request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" } }),
 				]);
 				const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
 				expect(hook).toMatchObject({
@@ -322,7 +321,7 @@ describe("workout record automation", () => {
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(requests).toEqual([
-						expect.objectContaining({
+						objectContaining({
 							request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
 						}),
 					]);

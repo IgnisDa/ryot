@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { describe, expect, it } from "vitest";
 
@@ -105,14 +106,14 @@ describe("company.tmdb sandbox script", () => {
 					{ page: "1", company: "1", path: "/3/discover/tv" },
 				]);
 				expect(result.relatedEntityGroups).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						relationshipSchemaSlug: "company-to-movie",
 						continuation: { page: 2, totalPages: 500 },
-						entities: [expect.objectContaining({ externalId: "2" })],
+						entities: [objectContaining({ externalId: "2" })],
 					}),
-					expect.objectContaining({
+					objectContaining({
 						relationshipSchemaSlug: "company-to-show",
-						entities: [expect.objectContaining({ externalId: "3" })],
+						entities: [objectContaining({ externalId: "3" })],
 					}),
 				]);
 				expect(result.relatedEntityGroups?.[1]).not.toHaveProperty("continuation");

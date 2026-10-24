@@ -13,6 +13,7 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import { mediaActivityRecipe } from "./activity-recipes";
@@ -166,7 +167,7 @@ describe("supplemental Media analytics recipes", () => {
 		const global = document.queries["currentGlobal"];
 		expect(global?.output).toMatchObject({
 			type: "aggregate",
-			measures: expect.arrayContaining([
+			measures: arrayContaining([
 				{
 					key: "distinctTitles",
 					aggregation: {
@@ -421,18 +422,16 @@ describe("supplemental Media analytics recipes", () => {
 		expect(query?.from.table).toBe("event");
 		expect(query?.output).toMatchObject({
 			type: "aggregate",
-			measures: expect.arrayContaining([
-				expect.objectContaining({
+			measures: arrayContaining([
+				objectContaining({
 					key: "averageRating",
-					aggregation: expect.objectContaining({ function: "average" }),
+					aggregation: objectContaining({ function: "average" }),
 				}),
-				expect.objectContaining({
+				objectContaining({
 					key: "rated",
-					aggregation: expect.objectContaining({
+					aggregation: objectContaining({
 						function: "sum",
-						expr: expect.objectContaining({
-							condition: expect.objectContaining({ type: "isNotNull" }),
-						}),
+						expr: objectContaining({ condition: objectContaining({ type: "isNotNull" }) }),
 					}),
 				}),
 			]),

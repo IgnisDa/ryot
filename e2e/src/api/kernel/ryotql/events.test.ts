@@ -14,6 +14,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -109,8 +110,8 @@ describe("RyotQL event queries", () => {
 			expect(events.items[0]).toMatchObject({
 				rating: 5,
 				sessionEntityId: null,
-				createdAt: expect.any(String),
-				updatedAt: expect.any(String),
+				createdAt: anyOf(String),
+				updatedAt: anyOf(String),
 				occurredAt: "2026-08-01T00:00:00.000Z",
 			});
 		}),

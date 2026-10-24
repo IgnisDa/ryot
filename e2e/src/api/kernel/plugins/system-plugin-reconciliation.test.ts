@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -266,7 +267,7 @@ describe("system plugin reconciliation", () => {
 					(yield* listSavedViews(client))
 						.filter((view) => view.slug === viewSlug)
 						.map(({ packageId: owner }) => owner),
-				).toEqual(expect.arrayContaining([packageId, shippedPackageId]));
+				).toEqual(arrayContaining([packageId, shippedPackageId]));
 			}),
 	);
 

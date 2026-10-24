@@ -14,6 +14,7 @@ import {
 	pluginId,
 	table,
 } from "@ryot-app/ryotql";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -73,7 +74,7 @@ describe("signal schedule recipe", () => {
 			type: "and",
 			predicates: [
 				where,
-				expect.objectContaining({ type: "or" }),
+				objectContaining({ type: "or" }),
 				gte(dueAt, castDate(literal(bounds.start))),
 				lt(dueAt, castDate(literal(bounds.end))),
 				or(isNull(confirmedAt), gte(confirmedAt, castDate(literal(bounds.confirmedAfter)))),

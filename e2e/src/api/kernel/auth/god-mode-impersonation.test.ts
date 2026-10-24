@@ -10,6 +10,7 @@ import {
 	OAuthUserInfoResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -81,7 +82,7 @@ const runImpersonationClientFlow = (
 		expect(claims).toMatchObject({
 			azp: clientId,
 			sub: target.userId,
-			impersonation: { expiresAt: expect.any(Number) },
+			impersonation: { expiresAt: anyOf(Number) },
 		});
 		const sessionId = requireString(claims["sid"], "Access token has no session ID");
 

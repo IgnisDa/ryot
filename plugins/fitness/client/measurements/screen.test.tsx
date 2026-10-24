@@ -13,6 +13,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
@@ -269,7 +270,7 @@ describe("measurements page", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							input: { entryId: "second-entry" },
 							type: "background-operation-request",
 						}),
@@ -331,7 +332,7 @@ describe("measurements page", () => {
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual(
-							expect.objectContaining({
+							objectContaining({
 								input: { entryId: "large-entry" },
 								type: "background-operation-request",
 							}),
@@ -408,8 +409,8 @@ describe("measurements page", () => {
 				const pinned = body.getByRole("group", { name: "Pinned metrics" });
 				const tiles = within(pinned).getAllByRole("button");
 				expect(tiles.map((tile) => text(tile))).toEqual([
-					expect.stringContaining("Weight"),
-					expect.stringContaining("Waist"),
+					stringContaining("Weight"),
+					stringContaining("Waist"),
 				]);
 				expect(text(tiles[0] ?? null)).toContain("73.6 kg");
 				expect(text(tiles[1] ?? null)).toContain("last");
@@ -485,9 +486,9 @@ describe("measurements page", () => {
 							.getAllByRole("button")
 							.map((tile) => text(tile)),
 					).toEqual([
-						expect.stringContaining("Weight"),
-						expect.stringContaining("Waist"),
-						expect.stringContaining("Sugar level"),
+						stringContaining("Weight"),
+						stringContaining("Waist"),
+						stringContaining("Sugar level"),
 					]);
 				}),
 			);

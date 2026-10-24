@@ -2,6 +2,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
 import { hostFailure, hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
+import { anyOf, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 
@@ -168,9 +169,7 @@ export default defineWorkflow({
 							state: "failed",
 							journalLength: 1,
 							requests: [activityRequest],
-							error: expect.stringContaining(
-								"Sandbox workflow journal identity mismatch at index 0",
-							),
+							error: stringContaining("Sandbox workflow journal identity mismatch at index 0"),
 						},
 					});
 				}
@@ -180,7 +179,7 @@ export default defineWorkflow({
 					value: {
 						state: "failed",
 						journalLength: 3,
-						error: expect.stringContaining("Sandbox workflow journal identity mismatch at index 0"),
+						error: stringContaining("Sandbox workflow journal identity mismatch at index 0"),
 					},
 				});
 				for (const index of [0, 1]) {
@@ -196,7 +195,7 @@ export default defineWorkflow({
 						value: {
 							state: "failed",
 							journalLength: 3,
-							error: expect.stringContaining("Expected number"),
+							error: stringContaining("Expected number"),
 							requests: [activityRequest, childRequest].slice(0, index + 1),
 						},
 					});
@@ -216,7 +215,7 @@ export default defineWorkflow({
 					success: false,
 					error: {
 						phase: "execute",
-						message: expect.stringContaining("host.replayJournal is not a function"),
+						message: stringContaining("host.replayJournal is not a function"),
 					},
 				});
 				expect(unavailable.controls).toEqual([]);
@@ -245,12 +244,12 @@ export default defineWorkflow({
 					);
 					expect((yield* runNative(top, {}, options)).response).toMatchObject({
 						success: false,
-						error: { phase: "load", message: expect.stringContaining(message) },
+						error: { phase: "load", message: stringContaining(message) },
 					});
 					const body = runtimeDefinition(compiled, `() => Effect.sync(() => ${expression})`);
 					expect((yield* runNative(body, {}, options)).response).toMatchObject({
 						success: false,
-						error: { phase: "execute", message: expect.stringContaining(message) },
+						error: { phase: "execute", message: stringContaining(message) },
 					});
 				}
 				const deterministic = runtimeDefinition(
@@ -286,7 +285,7 @@ export default defineWorkflow({
 				} else {
 					expect(temporalResult.response.error).toMatchObject({
 						phase: "execute",
-						message: expect.stringContaining("Temporal.Now"),
+						message: stringContaining("Temporal.Now"),
 					});
 				}
 			}
@@ -342,7 +341,7 @@ export default defineWorkflow({
 				const other = yield* runNative(compiled, {}, { workflowExecutionId: "youtubei-other" });
 				expect(first.response).toMatchObject({
 					success: true,
-					value: { state: "completed", output: expect.any(String) },
+					value: { state: "completed", output: anyOf(String) },
 				});
 				expect(second.response).toMatchObject({ success: true, value: { state: "completed" } });
 				expect(other.response).toMatchObject({ success: true, value: { state: "completed" } });
@@ -411,7 +410,7 @@ export default defineWorkflow({
 			);
 			expect(response).toMatchObject({
 				success: false,
-				error: { phase: "execute", message: expect.stringContaining("new Date()") },
+				error: { phase: "execute", message: stringContaining("new Date()") },
 			});
 		}),
 	);
@@ -446,7 +445,7 @@ export default defineWorkflow({
 				} else {
 					expect(response).toMatchObject({
 						success: false,
-						error: { message: expect.stringContaining("Sandbox artifact range length is invalid") },
+						error: { message: stringContaining("Sandbox artifact range length is invalid") },
 					});
 				}
 			}
@@ -568,7 +567,10 @@ export default defineWorkflow({
 			expect(controls).toEqual(["inlineBatch"]);
 			expect(response).toMatchObject({
 				success: true,
-				value: { state: "failed", error: "WorkflowJournalMismatchError: Inline sleep results do not match the batch" },
+				value: {
+					state: "failed",
+					error: "WorkflowJournalMismatchError: Inline sleep results do not match the batch",
+				},
 			});
 		}),
 	);
@@ -663,7 +665,7 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 					const failed = uncheckedDefinition(compiled, run);
 					expect((yield* runNative(failed, { value: 1 })).response).toMatchObject({
 						success: false,
-						error: { phase: "execute", message: expect.stringContaining(message) },
+						error: { phase: "execute", message: stringContaining(message) },
 					});
 				}
 				const nonJson = uncheckedDefinition(compiled, "() => Effect.succeed(Infinity)");
@@ -772,8 +774,8 @@ export default defineScript({
 			expect(response.error).toMatchObject({
 				line: 10,
 				phase: "execute",
-				column: expect.any(Number),
-				stack: expect.stringContaining("    at script.ts:10:"),
+				column: anyOf(Number),
+				stack: stringContaining("    at script.ts:10:"),
 				message: "[redacted] [redacted] [internal] [external URL] script.ts",
 			});
 			expect(response.error.column).toBeGreaterThan(0);
@@ -864,7 +866,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				column: 9,
 				phase: "execute",
 				message: "nested authored defect",
-				stack: expect.stringContaining("    at backend/helpers/failure.ts:3:9"),
+				stack: stringContaining("    at backend/helpers/failure.ts:3:9"),
 			});
 			expect(response.error.stack?.split("\n").length).toBeGreaterThan(10);
 			expect(response.error.stack).not.toContain("ryot-module:");
@@ -1002,7 +1004,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					value: {
 						requests: [],
 						state: "failed",
-						error: expect.stringContaining("executeWorkflow input is invalid"),
+						error: stringContaining("executeWorkflow input is invalid"),
 					},
 				});
 				const pending = yield* runNative(
@@ -1036,7 +1038,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 								? { output: value, journalLength: 1, state: "completed" }
 								: {
 										state: "failed",
-										error: expect.stringContaining("Recorded workflow child output is invalid"),
+										error: stringContaining("Recorded workflow child output is invalid"),
 									},
 					});
 					expect(replay.controls.every((name) => name === "journalRead")).toBe(true);

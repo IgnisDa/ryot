@@ -1,5 +1,6 @@
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -65,9 +66,9 @@ describe("sandbox RyotQL reads", () => {
 			expect(result.error).toBeNull();
 			expect(result.value).toHaveLength(2);
 			expect(result.value).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ id: first.id, name: "First entity" }),
-					expect.objectContaining({ id: second.id, name: "Second entity" }),
+				arrayContaining([
+					objectContaining({ id: first.id, name: "First entity" }),
+					objectContaining({ id: second.id, name: "Second entity" }),
 				]),
 			);
 

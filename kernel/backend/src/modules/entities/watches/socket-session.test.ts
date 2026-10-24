@@ -5,6 +5,7 @@ import {
 	encodeEntityWatchClientMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { stringMatching } from "@ryot-app/testing/matchers";
 import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
 import * as Socket from "effect/socket/Socket";
 import { TestClock } from "effect/testing";
@@ -424,11 +425,11 @@ describe("entity interest socket session", () => {
 					expect(close.reason).toBe("Session expired");
 					yield* Fiber.await(fiber);
 					expect(yield* fake.activity).toEqual([
-						expect.stringMatching(/^open:/),
-						expect.stringMatching(/^add:.*:auth:auth-session-1$/),
+						stringMatching(/^open:/),
+						stringMatching(/^add:.*:auth:auth-session-1$/),
 						"auth-session-check:auth-session-1:user-1",
-						expect.stringMatching(/^remove:/),
-						expect.stringMatching(/^close:/),
+						stringMatching(/^remove:/),
+						stringMatching(/^close:/),
 					]);
 				}),
 			),

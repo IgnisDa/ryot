@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { adaptImdbCsv } from "./imdb";
@@ -63,11 +64,7 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: expect.any(String),
-				properties: { dateUnknown: true },
-			},
+			{ occurredAt: anyOf(String), eventSchemaSlug: "complete", properties: { dateUnknown: true } },
 			{
 				eventSchemaSlug: "review",
 				properties: { rating: rating * 10 },
@@ -96,7 +93,7 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.events).toEqual([
-			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: expect.any(String) },
+			{ properties: {}, occurredAt: anyOf(String), eventSchemaSlug: "backlog" },
 		]);
 	});
 

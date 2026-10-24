@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { anything, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { latestCompletionSuggestionsRecipe, trendingLatestMediaRecipe } from "./discovery-recipes";
@@ -39,7 +40,7 @@ describe("latest completion suggestions recipe", () => {
 		}
 
 		expect(itemsWhere.predicates).toContainEqual(
-			expect.objectContaining({ type: "comparison", right: sourceFirst.right }),
+			objectContaining({ type: "comparison", right: sourceFirst.right }),
 		);
 		expect(sourceFirst.right).toMatchObject({ type: "first" });
 	});
@@ -90,13 +91,13 @@ describe("trending latest media recipe", () => {
 		}
 
 		expect(query.where.predicates).toContainEqual(
-			expect.objectContaining({
-				right: expect.objectContaining({
+			objectContaining({
+				right: objectContaining({
 					type: "aggregate",
-					aggregation: { function: "maximum", expr: expect.anything() },
-					query: expect.objectContaining({
-						where: expect.objectContaining({
-							predicates: expect.arrayContaining([
+					aggregation: { expr: anything(), function: "maximum" },
+					query: objectContaining({
+						where: objectContaining({
+							predicates: arrayContaining([
 								{
 									operator: "eq",
 									type: "comparison",

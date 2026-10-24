@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { buildWorkoutSetEventProperties } from "../../shared/workout-set";
@@ -240,12 +241,12 @@ describe("adaptHevyRows", () => {
 
 		expect(result.item).toBeUndefined();
 		expect(result.failures).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Exercise: Mystery",
 				message: "Could not determine exercise kind from 1 sets",
 			}),
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Empty (2026-01-01T10:00:00)",
 				message: "Workout has no importable exercises",

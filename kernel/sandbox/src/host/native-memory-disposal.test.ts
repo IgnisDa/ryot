@@ -2,6 +2,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import {
 	Cause,
@@ -676,7 +677,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				yield* assertDisposed(neighbour.executionId);
 				expect(result).toMatchObject({
 					success: false,
-					error: { message: expect.stringContaining("quota") },
+					error: { message: stringContaining("quota") },
 				});
 			}),
 		),

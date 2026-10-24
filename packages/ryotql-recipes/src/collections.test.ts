@@ -1,6 +1,7 @@
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { DateTime, Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -252,8 +253,8 @@ describe("collections recipes", () => {
 		expect(query.joins).toHaveLength(2);
 		expect(query.where).toMatchObject({
 			type: "and",
-			predicates: expect.arrayContaining([
-				expect.objectContaining({ type: "contains", right: { value: "sample", type: "literal" } }),
+			predicates: arrayContaining([
+				objectContaining({ type: "contains", right: { value: "sample", type: "literal" } }),
 			]),
 		});
 		expect(query.output.orderBy).toMatchObject([
@@ -691,7 +692,7 @@ describe("collections recipes", () => {
 				memberFields(membershipPropertiesSchema),
 			).filterFields.map(({ key }) => key);
 			expect(keys).toEqual(
-				expect.arrayContaining(["collections", "membership.notes", "membership.status"]),
+				arrayContaining(["collections", "membership.notes", "membership.status"]),
 			);
 			expect(keys).not.toContain("member-type");
 			expect(keys).not.toContain("membership.secret");

@@ -8,6 +8,7 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act } from "react";
 
@@ -321,9 +322,9 @@ describe("exercise details view", () => {
 			);
 			click(screen.getByRole("button", { name: "Add to current workout" }));
 			expect(yield* navigations(page)).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					mode: "push",
-					target: expect.objectContaining({ path: "/workout-editor", search: "add=exercise-1" }),
+					target: objectContaining({ path: "/workout-editor", search: "add=exercise-1" }),
 				}),
 			]);
 		}),
@@ -337,9 +338,7 @@ describe("exercise details view", () => {
 			);
 			click(screen.getByRole("button", { name: "Edit" }));
 			expect(yield* navigations(page)).toEqual([
-				expect.objectContaining({
-					target: expect.objectContaining({ path: "/exercises/custom%201/edit" }),
-				}),
+				objectContaining({ target: objectContaining({ path: "/exercises/custom%201/edit" }) }),
 			]);
 		}),
 	);
@@ -360,11 +359,8 @@ describe("exercise details view", () => {
 				]);
 				click(screen.getByRole("menuitem", { name: "Duplicate" }));
 				expect(yield* navigations(page)).toEqual([
-					expect.objectContaining({
-						target: expect.objectContaining({
-							path: "/exercises/new",
-							search: "duplicate=exercise-1",
-						}),
+					objectContaining({
+						target: objectContaining({ path: "/exercises/new", search: "duplicate=exercise-1" }),
 					}),
 				]);
 				disposePluginBridges();
@@ -647,9 +643,9 @@ describe("exercise merge", () => {
 				});
 			});
 			expect(yield* navigations(setup.page)).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					mode: "replace",
-					target: expect.objectContaining({ kind: "entity", entityId: "global-1" }),
+					target: objectContaining({ kind: "entity", entityId: "global-1" }),
 				}),
 			]);
 		}),

@@ -1,4 +1,5 @@
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -88,8 +89,8 @@ describe("sandbox integration reads", () => {
 			);
 
 			expect(result).toEqual({
-				current: expect.objectContaining({ id: current.id }),
-				enabled: [expect.objectContaining({ id: current.id })],
+				current: objectContaining({ id: current.id }),
+				enabled: [objectContaining({ id: current.id })],
 			});
 
 			const unauthenticated = yield* getApiClient().call((c) =>

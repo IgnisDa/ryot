@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -83,7 +84,7 @@ it.live(
 			const savedTemplate = yield* getEntity(client, templateId);
 			expect(savedTemplate.name).toBe(`${name} edited`);
 			expect(savedTemplate.properties).toMatchObject({
-				images: [{ type: "s3", key: expect.any(String) }],
+				images: [{ type: "s3", key: anyOf(String) }],
 			});
 			yield* frame.getByRole("button", { exact: true, name: "Edit template" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Attachments (1)" }).click();

@@ -13,6 +13,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { screen, waitFor } from "@testing-library/dom";
 import * as Deferred from "effect/Deferred";
 import { act, useEffect, useRef, useState } from "react";
@@ -154,7 +155,7 @@ it.live(
 						respond();
 						expect(screen.getByText("Recovered session")).toBeTruthy();
 						expect(page.clientMessages()).toContainEqual(
-							expect.objectContaining({ enabled: true, action: "awake", type: "device-request" }),
+							objectContaining({ enabled: true, action: "awake", type: "device-request" }),
 						);
 					}),
 				);

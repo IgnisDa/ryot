@@ -32,6 +32,7 @@ import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferenc
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import { testAccountGeneration } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Result } from "effect";
 
@@ -834,7 +835,7 @@ describe("requestEventStreamWork", () => {
 						accountGeneration,
 						pluginPin: systemPluginRevision,
 						processorScriptId: SandboxScriptId.make("processor-script"),
-						command: expect.objectContaining({
+						command: objectContaining({
 							writeContext: input.principal,
 							itemIdentity: "requestEventStreamWork",
 						}),
@@ -1812,7 +1813,7 @@ describe("executeRyotql", () => {
 				);
 
 				expect(Option.getOrThrow(Result.getFailure(result))).toMatchObject({
-					message: expect.stringContaining("scope"),
+					message: stringContaining("scope"),
 				});
 				expect(yield* (yield* HostFunctionCalls).ryotqlUserCalls).toEqual([]);
 			}),

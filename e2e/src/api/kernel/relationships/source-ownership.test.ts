@@ -21,6 +21,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -175,7 +176,7 @@ describe("relationship source ownership", () => {
 				itemLabelTargetsRecipe({ owner, sourceEntityId: imported.data.id }),
 			);
 			expect(targets).toEqual([
-				{ name: LABEL_NAME, id: expect.any(String), externalId: LABEL_EXTERNAL_ID },
+				{ name: LABEL_NAME, id: anyOf(String), externalId: LABEL_EXTERNAL_ID },
 			]);
 			const globalLabel = requirePresent(targets[0], "Expected the provider-linked global label");
 			const providerOwner = definitionOwner(itemProvider.pluginId);

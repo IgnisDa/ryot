@@ -2,6 +2,7 @@ import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -267,8 +268,8 @@ it.live("keeps configured entity-browser controls within their declared source",
 		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
 		expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual(["Schema", "Name"]);
 		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
-			expect.stringContaining("01 Alpha member"),
-			expect.stringContaining("02 Zulu member"),
+			stringContaining("01 Alpha member"),
+			stringContaining("02 Zulu member"),
 		]);
 		expect(yield* runtime.getByText(excluded.name, { exact: true }).count).toBe(0);
 
@@ -289,8 +290,8 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* page.keyboard.press("Escape");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
-			expect.stringContaining("02 Zulu member"),
-			expect.stringContaining("01 Alpha member"),
+			stringContaining("02 Zulu member"),
+			stringContaining("01 Alpha member"),
 		]);
 
 		yield* runtime.getByRole("radio", { name: "List view" }).click();
@@ -468,8 +469,8 @@ it.live(
 			]);
 			expect(yield* rows.count).toBe(2);
 			expect(yield* rows.allInnerTexts()).toEqual([
-				expect.stringContaining("First row"),
-				expect.stringContaining("Second row"),
+				stringContaining("First row"),
+				stringContaining("Second row"),
 			]);
 			expect(yield* rows.locator("td:last-child").allInnerTexts()).toEqual(["", ""]);
 			expect(yield* rows.getByRole("link").count).toBe(2);
@@ -499,7 +500,7 @@ it.live(
 				.waitFor();
 			yield* rows.nth(1).waitFor({ state: "detached" });
 			yield* rows.getByText("Second row", { exact: true }).waitFor({ state: "visible" });
-			expect(yield* rows.allInnerTexts()).toEqual([expect.stringContaining("Second row")]);
+			expect(yield* rows.allInnerTexts()).toEqual([stringContaining("Second row")]);
 			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
 
 			yield* page.reload;

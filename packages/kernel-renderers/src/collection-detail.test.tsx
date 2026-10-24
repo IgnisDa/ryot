@@ -8,6 +8,7 @@ import {
 	entityLocation,
 	kernelEntityPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
@@ -227,7 +228,7 @@ describe("collection detail", () => {
 				destination: { kind: "before", entityId: "item-3" },
 			});
 			expect(page.clientMessages()).toContainEqual(
-				expect.objectContaining({ action: "haptic", kind: "selection", type: "device-request" }),
+				objectContaining({ action: "haptic", kind: "selection", type: "device-request" }),
 			);
 			page.send({
 				outcome: "success",
@@ -356,7 +357,7 @@ describe("collection detail", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							mode: "replace",
 							type: "navigate",
 							target: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },

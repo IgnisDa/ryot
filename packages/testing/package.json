@@ -31,6 +31,10 @@
 			"types": "./src/fakes.ts",
 			"default": "./src/fakes.ts"
 		},
+		"./matchers": {
+			"types": "./src/matchers.ts",
+			"default": "./src/matchers.ts"
+		},
 		"./recording-tracer": {
 			"types": "./src/recording-tracer.ts",
 			"default": "./src/recording-tracer.ts"

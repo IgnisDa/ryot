@@ -4,6 +4,7 @@ import {
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Layer } from "effect";
 import { describe } from "vitest";
 
@@ -179,7 +180,7 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 				expect(applied).toEqual({
 					revision: 1,
 					status: "applied",
-					pending: expect.arrayContaining([
+					pending: arrayContaining([
 						{ revision: 1, entityId: "a", priority: "visible" },
 						{ revision: 1, entityId: "b", priority: "foreground" },
 					]),
@@ -245,7 +246,7 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 				expect(replaced).toEqual({
 					revision: 3,
 					status: "applied",
-					pending: expect.arrayContaining([
+					pending: arrayContaining([
 						{ revision: 3, entityId: "a", priority: "visible" },
 						{ revision: 3, entityId: "b", priority: "foreground" },
 					]),

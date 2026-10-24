@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
@@ -173,7 +174,7 @@ it.live(
 				yield* Effect.promise(() => waitFor(() => expect(navigation).toHaveLength(1)));
 				expect(operations[0]).toMatchObject({
 					slug: "media-user-data",
-					idempotencyKey: expect.any(String),
+					idempotencyKey: anyOf(String),
 					input: {
 						submittedAt,
 						action: "merge",

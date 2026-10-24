@@ -1,6 +1,7 @@
 import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
@@ -149,7 +150,7 @@ describe("plugin user settings", () => {
 				assertTaggedError(failure, "PluginInvocationError");
 				expect(failure.reason).toMatchObject({
 					code: "runtime-failed",
-					diagnostics: [{ severity: "error", message: expect.stringContaining(message) }],
+					diagnostics: [{ severity: "error", message: stringContaining(message) }],
 				});
 			}
 			expect(yield* storedSettings(client, plugin.setting.id)).toEqual({ limit: 3, enabled: true });

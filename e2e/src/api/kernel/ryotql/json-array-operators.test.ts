@@ -17,6 +17,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -168,7 +169,7 @@ describe("RyotQL JSON array operators", () => {
 				"Show First",
 			]);
 			expect(firstPage.pageInfo.hasMore).toBe(true);
-			expect(firstPage.pageInfo.nextCursor).toEqual(expect.any(String));
+			expect(firstPage.pageInfo.nextCursor).toEqual(anyOf(String));
 
 			const secondPage = yield* executeRyotQL(
 				client,

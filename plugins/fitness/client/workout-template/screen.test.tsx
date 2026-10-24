@@ -9,6 +9,7 @@ import {
 	pluginContributor,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act } from "react";
 
@@ -210,7 +211,7 @@ it.live("loads distinct enriched exercises once and renders numeric partial plan
 		yield* Effect.promise(() =>
 			waitFor(() =>
 				expect(page.clientMessages()).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						type: "navigate",
 						target: {
 							search: "",

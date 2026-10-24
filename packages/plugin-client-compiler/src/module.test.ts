@@ -9,6 +9,7 @@ import {
 	clientDeclarationHash,
 	type PluginClientArtifact,
 } from "@ryot-app/plugin-client-contract";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, Layer, Result } from "effect";
@@ -296,7 +297,7 @@ it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
 
 			expect(audioFiles).toHaveLength(sounds.length);
 			expect(audioFiles.map(({ contents }) => contents)).toEqual(
-				expect.arrayContaining(sounds.map(({ contents }) => contents)),
+				arrayContaining(sounds.map(({ contents }) => contents)),
 			);
 			expect(audioFiles.every(({ name }) => name.endsWith(".mp3"))).toBe(true);
 		}),
@@ -385,7 +386,7 @@ it.layer(emittedLayer("export default {};"))("authored AST import policy", (test
 				Effect.flip,
 			);
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
+				objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
 			]);
 		}),
 	);
@@ -664,7 +665,7 @@ export default function Alpha() {
 				expect(css).not.toContain("--bg:");
 				expect(cssImports).toHaveLength(0);
 				expect(imports).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						"react",
 						"react/jsx-runtime",
 						"@ryot-app/plugin-client-sdk/plugin",
@@ -724,7 +725,7 @@ export default function Alpha() {
 				};
 				const invalidExport = yield* compileClientPluginModule(input).pipe(Effect.flip);
 				expect(invalidExport.diagnostics).toEqual(
-					expect.arrayContaining([expect.objectContaining({ code: "TS2322" })]),
+					arrayContaining([objectContaining({ code: "TS2322" })]),
 				);
 
 				const invalidSource = yield* compileClientPluginModule({
@@ -736,9 +737,7 @@ export default function Alpha() {
 					},
 				}).pipe(Effect.flip);
 				expect(invalidSource.diagnostics).toEqual(
-					expect.arrayContaining([
-						expect.objectContaining({ code: "TS2322", file: "shared/unreachable.ts" }),
-					]),
+					arrayContaining([objectContaining({ code: "TS2322", file: "shared/unreachable.ts" })]),
 				);
 				expect(
 					invalidSource.diagnostics.some(({ file }) => file === "shared/ignored.test.ts"),

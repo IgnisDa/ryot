@@ -1,3 +1,4 @@
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -70,9 +71,9 @@ it.live("reorders a kernel collection and opens memberships without member field
 			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
 			.waitFor({ state: "visible" });
 		expect(yield* order.locator("li").allInnerTexts()).toEqual([
-			expect.stringContaining(`Alpha ${suffix}`),
-			expect.stringContaining(`Gamma ${suffix}`),
-			expect.stringContaining(`Beta ${suffix}`),
+			stringContaining(`Alpha ${suffix}`),
+			stringContaining(`Gamma ${suffix}`),
+			stringContaining(`Beta ${suffix}`),
 		]);
 		yield* detail.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* detail.getByRole("button", { name: `Collection details for Alpha ${suffix}` }).click();

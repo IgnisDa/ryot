@@ -1,6 +1,7 @@
 import { EntityId, EventSchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import type { Client, TestPluginScript } from "~/fixtures/kernel";
@@ -460,7 +461,7 @@ export default defineAutomation({
 				automatedEvent.properties,
 				"Missing automation execution properties",
 			);
-			expect(automatedProperties["runId"]).toEqual(expect.any(String));
+			expect(automatedProperties["runId"]).toEqual(anyOf(String));
 			const reingestedPlugin = (yield* listAdminSystemPlugins()).find(
 				({ packageId }) => packageId === provider.manifest.metadata.packageId,
 			);

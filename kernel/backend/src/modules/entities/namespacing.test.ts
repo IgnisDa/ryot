@@ -11,6 +11,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
@@ -960,7 +961,7 @@ layer(
 						.where(eq(tables.event.userId, firstUser)),
 				),
 			).toEqual(
-				expect.arrayContaining([
+				arrayContaining([
 					{ entityId: into.id, sessionEntityId: null, eventSchemaSlug: "tasted" },
 					{
 						entityId: container.id,

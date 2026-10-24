@@ -1,5 +1,6 @@
 import type { ResolvedReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -78,7 +79,7 @@ describe("collection review analytics", () => {
 		});
 		expect(
 			collectionReviewRecordsRecipe({ period: null }).document.queries.reviews?.where,
-		).toMatchObject({ predicates: [expect.objectContaining({ type: "and" })] });
+		).toMatchObject({ predicates: [objectContaining({ type: "and" })] });
 	});
 	it("counts every kernel collection review, including rating-only records, with both owners scoped", () => {
 		const recipe = collectionReviewAnalyticsRecipe({ reporting });
@@ -89,8 +90,8 @@ describe("collection review analytics", () => {
 				measures: [{ key: "count", aggregation: { function: "count" } }],
 			});
 			expect(query.where).toMatchObject({
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
+				predicates: arrayContaining([
+					objectContaining({
 						predicates: [
 							{
 								operator: "eq",

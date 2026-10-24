@@ -1,6 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest } from "./shared";
@@ -106,8 +107,8 @@ describe("company.anilist sandbox script", () => {
 			Effect.map((result) => {
 				expect(requestedPages).toEqual([1, 2]);
 				expect(result.relatedEntityGroups).toEqual([
-					expect.objectContaining({ entities: [expect.objectContaining({ externalId: "2" })] }),
-					expect.objectContaining({ entities: [expect.objectContaining({ externalId: "3" })] }),
+					objectContaining({ entities: [objectContaining({ externalId: "2" })] }),
+					objectContaining({ entities: [objectContaining({ externalId: "3" })] }),
 				]);
 				return undefined;
 			}),

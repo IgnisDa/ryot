@@ -3,6 +3,7 @@ import { Result } from "@ryot-app/plugin-kit/effect";
 import { castDate, literal } from "@ryot-app/plugin-kit/ryotql";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -151,14 +152,14 @@ describe("complete activity history recipes", () => {
 		for (const name of ["events", "collectionEvents"]) {
 			expect(next.document.queries[name]?.where).toMatchObject({
 				type: "and",
-				predicates: expect.arrayContaining([
+				predicates: arrayContaining([
 					{
 						type: "or",
-						predicates: expect.arrayContaining([
+						predicates: arrayContaining([
 							{
 								operator: "lt",
 								type: "comparison",
-								left: expect.objectContaining({ field: "occurredAt" }),
+								left: objectContaining({ field: "occurredAt" }),
 								right: castDate(literal(flatReviewEventRow.occurredAt)),
 							},
 						]),

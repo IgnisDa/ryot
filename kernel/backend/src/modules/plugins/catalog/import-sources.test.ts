@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
@@ -158,7 +159,7 @@ describe("revision-backed import sources", () => {
 				expect(
 					(yield* catalog.listForUser(owner)).map(({ source }) => [source.slug, source.pluginId]),
 				).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						["shared-alpha", privatePlugin.pluginId],
 						["shared-zeta", privatePlugin.pluginId],
 						["shared-alpha", system.pluginId],

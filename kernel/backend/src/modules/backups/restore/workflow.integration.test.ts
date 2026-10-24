@@ -5,6 +5,7 @@ import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
@@ -332,7 +333,7 @@ layer(operationsLayer)((test) => {
 			});
 			const completed = yield* repository.getRunById(payload);
 			expect(completed).toMatchObject({ progress: 100, failure: null, status: "completed" });
-			expect(completed?.finishedAt).toEqual(expect.any(String));
+			expect(completed?.finishedAt).toEqual(anyOf(String));
 			yield* operations.cleanup(payload, archiveLocator);
 			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);

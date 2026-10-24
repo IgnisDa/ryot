@@ -3,6 +3,7 @@ import {
 	encodeEntityWatchClientMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { OAUTH_IMPERSONATION_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Duration, Effect, Result } from "effect";
 
 import {
@@ -126,7 +127,7 @@ describe("interest authorization", () => {
 			const socket = yield* openInterestWebSocketScoped({
 				client: makeSession(undefined, { "X-Api-Key": apiKey }),
 			});
-			expect(socket.ready.sessionId).toEqual(expect.any(String));
+			expect(socket.ready.sessionId).toEqual(anyOf(String));
 		}),
 	);
 

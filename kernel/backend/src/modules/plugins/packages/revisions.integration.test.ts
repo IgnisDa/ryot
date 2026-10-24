@@ -9,6 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Context, Effect, Layer, Redacted, Ref, Result } from "effect";
 import { assert, describe } from "vitest";
@@ -527,7 +528,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										({ id, encryptedPayload }) => [id, encryptedPayload === null],
 									),
 								).toEqual(
-									expect.arrayContaining([
+									arrayContaining([
 										[configRevisionId, false],
 										[replacedConfigRevisionId, false],
 									]),

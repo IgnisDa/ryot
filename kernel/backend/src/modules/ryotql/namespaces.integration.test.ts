@@ -27,6 +27,7 @@ import {
 	schemaOwnerJoin,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { eq as dbEq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
@@ -291,7 +292,7 @@ layer(databaseLayer)((test) => {
 						.where(dbEq(tables.userSavedViewEffective.slug, "all-bottles")),
 				);
 				expect(views).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						{
 							pluginId: a.pluginId,
 							id: builtinSavedViewId(owner, definitionOwner(a.pluginId), "all-bottles"),
@@ -706,19 +707,19 @@ layer(databaseLayer)((test) => {
 						context,
 					);
 					expect(user.data["nameOnly"]).toMatchObject({
-						items: expect.arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
+						items: arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
 					});
 					const complete = user.data["complete"];
 					assert(complete?.type === "rows");
 					expect(complete.items).toHaveLength(2);
 					expect(user.data["complete"]).toMatchObject({
-						items: expect.arrayContaining([
-							expect.objectContaining({
+						items: arrayContaining([
+							objectContaining({
 								name: `old ${label}`,
 								pluginId: own.pluginId,
 								pluginRevisionId: own.revisionId,
 							}),
-							expect.objectContaining({
+							objectContaining({
 								name: `current ${label}`,
 								pluginId: foreign.pluginId,
 								pluginRevisionId: currentForeign.revisionId,
@@ -747,12 +748,9 @@ layer(databaseLayer)((test) => {
 							items: [{ userWritePolicy: "source-owner" }],
 						});
 						expect(user.data["complete"]).toMatchObject({
-							items: expect.arrayContaining([
-								expect.objectContaining({
-									pluginId: own.pluginId,
-									userWritePolicy: "source-owner",
-								}),
-								expect.objectContaining({ userWritePolicy: null, pluginId: foreign.pluginId }),
+							items: arrayContaining([
+								objectContaining({ pluginId: own.pluginId, userWritePolicy: "source-owner" }),
+								objectContaining({ userWritePolicy: null, pluginId: foreign.pluginId }),
 							]),
 						});
 					}
@@ -854,9 +852,9 @@ layer(databaseLayer)((test) => {
 				)).data["definitions"];
 				assert(pinned?.type === "rows");
 				expect(pinned.items).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						{ name: "Fixture", owner: a.pluginId, revision: a.revisionId },
-						{ owner: b.pluginId, name: "Current bottle", revision: expect.any(String) },
+						{ owner: b.pluginId, name: "Current bottle", revision: anyOf(String) },
 					]),
 				);
 				expect(pinned.items).toHaveLength(2);

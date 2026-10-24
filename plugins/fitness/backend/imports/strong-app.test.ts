@@ -1,3 +1,4 @@
+import { closeTo, objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { parseCsvText } from "./csv";
@@ -127,7 +128,7 @@ describe("adaptStrongAppRows", () => {
 			);
 			expect(result.item).toBeUndefined();
 			expect(result.failures).toEqual([
-				expect.objectContaining({ message: `Could not parse workout duration "${duration}"` }),
+				objectContaining({ message: `Could not parse workout duration "${duration}"` }),
 			]);
 		},
 	);
@@ -190,7 +191,7 @@ describe("adaptStrongAppRows", () => {
 			{
 				name: "Bench Press",
 				kind: "reps_and_weight",
-				sets: [{ reps: 5, setLot: "normal", weight: expect.closeTo(100, 5) }],
+				sets: [{ reps: 5, setLot: "normal", weight: closeTo(100, 5) }],
 			},
 			{
 				name: "Run Km",
@@ -216,12 +217,12 @@ describe("adaptStrongAppRows", () => {
 
 		expect(result.item).toBeUndefined();
 		expect(result.failures).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Row 1",
 				message: 'Weight values need a unit label; use "Weight (kg)" or "Weight (lbs)"',
 			}),
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 1,
 				sourceLabel: "Row 2",
 				message:
@@ -240,12 +241,12 @@ describe("adaptStrongAppRows", () => {
 
 		expect(result.item).toBeUndefined();
 		expect(result.failures).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Exercise: Mystery",
 				message: "Could not determine exercise kind from 1 sets",
 			}),
-			expect.objectContaining({
+			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Empty (2026-01-01 10:00:00)",
 				message: "Workout has no importable exercises",

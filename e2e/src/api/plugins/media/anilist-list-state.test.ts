@@ -3,6 +3,7 @@ import { flatByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecy
 import type { ListStateProperties } from "@ryot-app/media-plugin/shared/list-state";
 import { listStateSnapshotsRecipe } from "@ryot-app/media-plugin/shared/list-state-recipes";
 import { mangaRecipes } from "@ryot-app/media-plugin/shared/manga-recipes";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -318,9 +319,9 @@ describe("AniList list-state media queries", () => {
 						: [],
 				);
 				expect(animeListStates).toEqual(
-					expect.arrayContaining([
-						expect.objectContaining({ animeEpisode: 1, state: "complete", sourceEntryId: "entry" }),
-						expect.objectContaining({
+					arrayContaining([
+						objectContaining({ animeEpisode: 1, state: "complete", sourceEntryId: "entry" }),
+						objectContaining({
 							animeEpisode: 0,
 							state: "in_progress",
 							sourceEntryId: "entry",
@@ -329,7 +330,7 @@ describe("AniList list-state media queries", () => {
 					]),
 				);
 				expect(mangaListStates).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						mangaVolume: 0,
 						mangaChapter: 0,
 						state: "on_hold",

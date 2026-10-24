@@ -1,4 +1,5 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import {
@@ -309,7 +310,7 @@ describe("sandbox async flow", () => {
 			expect(() => requireCompletedSandboxValue(result)).toThrow(/\[execute\] intentional/);
 			expect(result.error).toMatchObject({
 				phase: "execute",
-				message: expect.stringContaining("intentional"),
+				message: stringContaining("intentional"),
 			});
 			expect(result.error?.line).toBeGreaterThan(0);
 			expect(result.error?.column).toBeGreaterThan(0);
@@ -339,7 +340,7 @@ describe("sandbox async flow", () => {
 			assertCompleted(result, "deep sandbox job");
 			expect(result.error).toMatchObject({
 				phase: "execute",
-				message: expect.stringContaining("deep intentional"),
+				message: stringContaining("deep intentional"),
 			});
 			expect(result.error?.stack?.split("\n").length).toBeGreaterThan(10);
 			expect(result.error?.stack).not.toContain("data:application/javascript");

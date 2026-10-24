@@ -1,4 +1,5 @@
 import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -25,7 +26,7 @@ describe("RyotQL collections tracer", () => {
 
 			expect(result.pageInfo).toEqual({ limit: 10, hasMore: false, nextCursor: null });
 			expect(result.items.map((item) => item.id)).toEqual(
-				expect.arrayContaining(collections.map((collection) => collection.id)),
+				arrayContaining(collections.map((collection) => collection.id)),
 			);
 			expect(result.items.map((item) => item.name)).toEqual([
 				"RyotQL Collection One",

@@ -17,6 +17,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import {
 	Cause,
 	Context,
@@ -1318,11 +1319,11 @@ httpCase(
 			expect(yield* harness.clockNames).toEqual([]);
 			const logs = yield* harness.logs;
 			expect(logs).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						logLevel: "Trace",
 						message: "sandbox HTTP admission claimed",
-						annotations: expect.objectContaining({
+						annotations: objectContaining({
 							status: "admitted",
 							policyKey: "provider",
 							origin: providerOrigin,
@@ -1796,7 +1797,7 @@ describe("sandbox HTTP redirects admit every matched hop", () => {
 				const events = yield* harness.events;
 				const target = events.indexOf(`http:GET ${providerOrigin}/data`);
 				expect(events.slice(0, target)).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						`resolve:${providerOrigin}:fail`,
 						`resolve:${providerOrigin}:fail`,
 						"claim:admitted",

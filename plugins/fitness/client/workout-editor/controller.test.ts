@@ -8,6 +8,7 @@ import {
 import { RyotScheduleService } from "@ryot-app/plugin-client-sdk/schedule";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Fiber, Layer } from "effect";
 import * as Deferred from "effect/Deferred";
 import { TestClock } from "effect/testing";
@@ -408,7 +409,7 @@ describe("workout editor controller", () => {
 				expect(events[0]).toBe("write");
 				const executionKey = "fitness-workout-editor:draft-1:execution";
 				expect(requests).toContainEqual(
-					expect.objectContaining({ key: executionKey, action: "schedule" }),
+					objectContaining({ key: executionKey, action: "schedule" }),
 				);
 
 				harness.controller.change((current) => ({
@@ -430,9 +431,7 @@ describe("workout editor controller", () => {
 
 				harness.controller.change((current) => ({ ...current, executionCountdown: undefined }));
 				yield* harness.controller.flush();
-				expect(requests).toContainEqual(
-					expect.objectContaining({ action: "cancel", key: executionKey }),
-				);
+				expect(requests).toContainEqual(objectContaining({ action: "cancel", key: executionKey }));
 				const recovered = createController({
 					target,
 					pluginId,
@@ -444,9 +443,7 @@ describe("workout editor controller", () => {
 						}),
 				});
 				yield* recovered.controller.load();
-				expect(requests).toContainEqual(
-					expect.objectContaining({ action: "cancel", key: executionKey }),
-				);
+				expect(requests).toContainEqual(objectContaining({ action: "cancel", key: executionKey }));
 			}),
 	);
 

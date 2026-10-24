@@ -1,5 +1,6 @@
 import { assert, expect, it, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
@@ -56,7 +57,7 @@ it("warms every supported file of an authorized lazy artifact without importing 
 	expect(plan.modulepreloads).toContain(`${prefix}module.js`);
 	expect(plan.stylesheets).toContain(`${prefix}module.css`);
 	expect(plan.preloads).toEqual(
-		expect.arrayContaining([
+		arrayContaining([
 			{ as: "font", type: "font/woff2", href: `${prefix}font.woff2` },
 			{ as: "image", type: "image/svg+xml", href: `${prefix}icon.svg` },
 			{ as: "fetch", type: "application/wasm", href: `${prefix}helper.wasm` },

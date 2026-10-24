@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Schema } from "effect";
 
@@ -70,7 +71,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("plugin sandbox compilation", (test
 				),
 			);
 			expect(dynamic).toMatchObject({
-				diagnostics: [expect.objectContaining({ message: "Dynamic imports are not allowed" })],
+				diagnostics: [objectContaining({ message: "Dynamic imports are not allowed" })],
 			});
 		}),
 	);
@@ -355,9 +356,9 @@ export const nondeterministic = typeof Effect.clockWith;
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_WORKFLOW_DETERMINISM",
-					message: expect.stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
+					message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
 				}),
 			]);
 		}),
@@ -406,9 +407,9 @@ export default defineWorkflow({
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_WORKFLOW_DETERMINISM",
-					message: expect.stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
+					message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
 				}),
 			]);
 		}),
@@ -439,7 +440,7 @@ export default defineOperation({
 			]).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_DEFINITION",
 					message: 'Plugin declaration kind "workflow" must use the matching definition helper',
 				}),
@@ -471,7 +472,7 @@ export default defineProvider({
 			]).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_DEFINITION",
 					message:
 						'Provider definition operation "details" does not match plugin declaration "search"',
@@ -610,7 +611,7 @@ export default defineProvider({ manifest, operation: "${operation}", run: () => 
 					[{ kind: "provider", providerOperation: operation, entry: "provider.sandbox.ts" }],
 				).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						code: "RYOT_MANIFEST",
 						message: "Only translate providers must declare translationInputs",
 					}),
@@ -638,7 +639,7 @@ export default defineOperation({ manifest, drivers: { main } });
 			]).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_DEFINITION",
 					message: "defineDriver is obsolete; export one direct definition helper call instead",
 				}),
@@ -690,7 +691,7 @@ export default defineProvider({
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_MANIFEST",
 					file: "move-search.sandbox.ts",
 					message: "Manifest values must be JSON-safe literals",

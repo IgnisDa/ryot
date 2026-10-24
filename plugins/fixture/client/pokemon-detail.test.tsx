@@ -6,6 +6,7 @@ import {
 	entityPageContext,
 	mountPluginPage,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { waitFor } from "@testing-library/dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -48,10 +49,10 @@ describe("Pokemon detail page", () => {
 				page.queryRequests("pokemon").map((request) => request.document.queries.pokemon),
 			).toEqual(
 				["pokemon-1", "pokemon-2"].map((entityId): unknown =>
-					expect.objectContaining({
-						where: expect.objectContaining({
-							predicates: expect.arrayContaining([
-								expect.objectContaining({ right: { type: "literal", value: entityId } }),
+					objectContaining({
+						where: objectContaining({
+							predicates: arrayContaining([
+								objectContaining({ right: { type: "literal", value: entityId } }),
 							]),
 						}),
 					}),

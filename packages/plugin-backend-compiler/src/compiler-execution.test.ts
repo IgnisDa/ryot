@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import { compileSandboxPackageEntries } from "./compiler-builtins";
@@ -47,10 +48,10 @@ export default defineWorkflow({
 				).pipe(Effect.flip);
 				expect(standalone.diagnostics).toEqual(packaged.diagnostics);
 				expect(standalone.diagnostics).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						file: "script.ts",
 						code: "RYOT_WORKFLOW_DETERMINISM",
-						message: expect.stringContaining(message),
+						message: stringContaining(message),
 					}),
 				]);
 			}),
@@ -380,7 +381,7 @@ export default defineAutomation({
 							).pipe(Effect.asVoid)
 				).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual(
-					expect.arrayContaining([expect.objectContaining({ code: "RYOT_CAPABILITY" })]),
+					arrayContaining([objectContaining({ code: "RYOT_CAPABILITY" })]),
 				);
 			}),
 	);
@@ -402,9 +403,7 @@ export default defineAutomation({
 								{ kind: "script", entry: "backend/entry.sandbox.ts" },
 							]).pipe(Effect.asVoid)
 				).pipe(Effect.flip);
-				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({ code: "RYOT_MANIFEST_SIZE" }),
-				]);
+				expect(failure.diagnostics).toEqual([objectContaining({ code: "RYOT_MANIFEST_SIZE" })]);
 			}),
 	);
 	test.effect("rejects an unbounded executable target", () =>

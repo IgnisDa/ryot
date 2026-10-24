@@ -12,6 +12,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { Effect, Result, Schema } from "effect";
 
@@ -238,7 +239,7 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "pick-entity-screen",
 							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),
@@ -286,7 +287,7 @@ describe("entity browser", () => {
 				),
 			);
 			expect(page.clientMessages()).not.toContainEqual(
-				expect.objectContaining({ type: "pick-entity-screen" }),
+				objectContaining({ type: "pick-entity-screen" }),
 			);
 		}),
 	);
@@ -359,7 +360,7 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							initialQuery: "example",
 							type: "pick-entity-screen",
 							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
@@ -385,7 +386,7 @@ describe("entity browser", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "pick-entity-screen",
 							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 						}),

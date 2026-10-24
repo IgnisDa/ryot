@@ -8,6 +8,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { eq, inArray } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
@@ -121,7 +122,7 @@ layer(
 				const executed = yield* recordedEntries;
 				expect(executed).toEqual([
 					{
-						sql: expect.stringContaining("with ordinality"),
+						sql: stringContaining("with ordinality"),
 						params: [
 							'["global-entities","plugin-1","person","provider-1"]',
 							'["global-entities",null,"person","provider-1"]',
@@ -562,7 +563,7 @@ layer(
 				});
 				const [params] = yield* recordedEntries;
 				expect(params).toEqual(
-					expect.arrayContaining(["external-id", "record", "example", "open-library"]),
+					arrayContaining(["external-id", "record", "example", "open-library"]),
 				);
 				expect(params).not.toContain("archived-provider-db-id");
 			}),

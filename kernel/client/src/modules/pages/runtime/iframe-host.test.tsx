@@ -18,6 +18,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import type { ReactNode } from "react";
@@ -478,7 +479,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							requestId: "reminders-changed",
 							type: "manage-reminders-screen-result",
 						}),
@@ -499,7 +500,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							requestId: "reminders-cancelled",
 							type: "manage-reminders-screen-result",
 						}),
@@ -546,7 +547,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({ type: "document", documentKey: "page-2" }),
+						objectContaining({ type: "document", documentKey: "page-2" }),
 					),
 				),
 			);
@@ -555,7 +556,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() => flush());
 
 			expect(bridge.messages).not.toContainEqual(
-				expect.objectContaining({ requestId: "reminders-stale" }),
+				objectContaining({ requestId: "reminders-stale" }),
 			);
 			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
 		}),
@@ -577,12 +578,10 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
 							documentKey: "page-2",
-							page: expect.objectContaining({
-								target: expect.objectContaining({ path: "page-2" }),
-							}),
+							page: objectContaining({ target: objectContaining({ path: "page-2" }) }),
 						}),
 					),
 				),
@@ -624,7 +623,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({ type: "document", documentKey: "page-2" }),
+						objectContaining({ type: "document", documentKey: "page-2" }),
 					),
 				),
 			);

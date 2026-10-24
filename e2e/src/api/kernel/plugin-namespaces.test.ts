@@ -1,6 +1,7 @@
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
@@ -138,14 +139,14 @@ describe("plugin namespaces", () => {
 						}),
 					);
 					expect(aRows).toEqual([
-						expect.objectContaining({
+						objectContaining({
 							owner: a.pluginId,
 							name: "A1 bottle",
 							properties: { strength: "forty", opaque: packages.externalId },
 						}),
 					]);
 					expect(bRows).toEqual([
-						expect.objectContaining({
+						objectContaining({
 							owner: b.pluginId,
 							name: "B1 bottle",
 							properties: { strength: 40, opaque: packages.externalId },
@@ -177,7 +178,7 @@ describe("plugin namespaces", () => {
 					for (const entries of [imports, integrations]) {
 						expect(entries).toHaveLength(2);
 						expect(entries.map(({ reference }) => reference)).toEqual(
-							expect.arrayContaining([
+							arrayContaining([
 								{ slug: "import", owner: { kind: "plugin", pluginId: a.pluginId } },
 								{ slug: "import", owner: { kind: "plugin", pluginId: b.pluginId } },
 							]),

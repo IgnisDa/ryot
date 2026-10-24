@@ -4,6 +4,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining, stringMatching } from "@ryot-app/testing/matchers";
 import { TestClock } from "effect/testing";
 
 import {
@@ -456,8 +457,8 @@ describe("Komga yank", () => {
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toEqual([
-				expect.objectContaining({ events: [], ownershipProvider: "komga" }),
-				expect.objectContaining({ events: [], ownershipProvider: "komga" }),
+				objectContaining({ events: [], ownershipProvider: "komga" }),
+				objectContaining({ events: [], ownershipProvider: "komga" }),
 			]);
 		}),
 	);
@@ -569,8 +570,8 @@ describe("YouTube Music yank", () => {
 			expect(progressValues(yield* run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
 			expect(progressValues(yield* run("2026-01-01T23:55:00.000Z"))).toEqual([]);
 			expect([...claims]).toEqual([
-				expect.stringMatching(/:v1:2026-01-01:seen$/),
-				expect.stringMatching(/:v1:2026-01-01:completed$/),
+				stringMatching(/:v1:2026-01-01:seen$/),
+				stringMatching(/:v1:2026-01-01:completed$/),
 			]);
 		}),
 	);

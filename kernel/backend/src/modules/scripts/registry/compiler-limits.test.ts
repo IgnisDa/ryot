@@ -1,6 +1,7 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import { SandboxCompiler } from "./compiler";
@@ -26,7 +27,7 @@ layer(SandboxCompiler.layer)((test) => {
 			]) {
 				const failure = yield* compile(source).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({ file: "script.ts", code: "RYOT_SOURCE_SIZE" }),
+					objectContaining({ file: "script.ts", code: "RYOT_SOURCE_SIZE" }),
 				]);
 			}
 		}),
@@ -49,7 +50,7 @@ layer(SandboxCompiler.layer)((test) => {
 					validSource.replace("Plain value", `${name}${overflow}`),
 				).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
+					objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
 				]);
 			}
 		}),
@@ -70,7 +71,7 @@ layer(SandboxCompiler.layer)((test) => {
 				expect(jsonByteLength(keys)).toBeGreaterThan(SANDBOX_LIMITS.compiler.manifestBytes);
 				const failure = yield* compile(source).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
+					objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
 				]);
 			}),
 	);
@@ -117,7 +118,7 @@ layer(SandboxCompiler.layer)((test) => {
 			const failure = yield* compile(source).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({ file: "script.ts", code: "RYOT_COMPILED_SIZE" }),
+				objectContaining({ file: "script.ts", code: "RYOT_COMPILED_SIZE" }),
 			]);
 		}),
 	);

@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { assert, describe, expect, it } from "vitest";
 
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
@@ -265,7 +266,7 @@ describe("workout editor save", () => {
 				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
 						baselines: [{ entityId, revision: 7 }],
-						changes: expect.arrayContaining([
+						changes: arrayContaining([
 							{
 								kind: "update",
 								itemIdentity: "occurrence-update:occurrence-0",
@@ -275,7 +276,7 @@ describe("workout editor save", () => {
 										entityId: exerciseId,
 										properties: { remove: [], set: { exerciseOrder: 1 } },
 									},
-									expected: expect.objectContaining({
+									expected: objectContaining({
 										properties: {
 											exerciseOrder: 0,
 											provenance: "legacy",
@@ -354,7 +355,7 @@ describe("workout editor save", () => {
 				for (const [oldOrder, eventId] of [original.id, second.id].entries()) {
 					expect(command).toMatchObject({
 						events: {
-							changes: expect.arrayContaining([
+							changes: arrayContaining([
 								{
 									kind: "update",
 									itemIdentity: `occurrence-update:anchor-${oldOrder}`,
@@ -364,19 +365,19 @@ describe("workout editor save", () => {
 											entityId: exerciseId,
 											properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } },
 										},
-										expected: expect.objectContaining({
+										expected: objectContaining({
 											sessionEntityId: entityId,
 											properties: occurrences[oldOrder]?.properties,
 										}),
 									},
 								},
-								expect.objectContaining({
+								objectContaining({
 									kind: "update",
-									item: expect.objectContaining({
+									item: objectContaining({
 										eventId,
-										patch: expect.objectContaining({
-											properties: expect.objectContaining({
-												set: expect.objectContaining({ exerciseOrder: 1 - oldOrder }),
+										patch: objectContaining({
+											properties: objectContaining({
+												set: objectContaining({ exerciseOrder: 1 - oldOrder }),
 											}),
 										}),
 									}),
@@ -420,7 +421,7 @@ describe("workout editor save", () => {
 				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
 						baselines: [{ entityId, revision: 7 }],
-						changes: [expect.objectContaining({ kind: "delete", eventId: original.id })],
+						changes: [objectContaining({ kind: "delete", eventId: original.id })],
 						creates: [
 							{
 								session: { kind: "root" },
@@ -616,7 +617,7 @@ describe("workout editor save", () => {
 								kind: "update",
 								item: {
 									eventId: "set-1",
-									patch: { properties: { remove: expect.arrayContaining(["note"]) } },
+									patch: { properties: { remove: arrayContaining(["note"]) } },
 								},
 							},
 						],

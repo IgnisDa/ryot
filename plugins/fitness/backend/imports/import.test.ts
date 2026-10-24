@@ -16,6 +16,7 @@ import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 import { afterEach, assert, expect, it } from "vitest";
 
@@ -641,10 +642,10 @@ it("pins the admitted OpenScale timezone through normalization and application",
 		runImport("open_scale", "dateTime,Weight\n2026-04-01 08:00:00,75").pipe(
 			Effect.map((result) => {
 				expect(result.requests).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						kind: "activity",
-						args: expect.objectContaining({
-							input: expect.objectContaining({ action: "normalize", timezone: "Asia/Kolkata" }),
+						args: objectContaining({
+							input: objectContaining({ action: "normalize", timezone: "Asia/Kolkata" }),
 						}),
 					}),
 				);
@@ -810,7 +811,7 @@ it("rejects an admitted parser pin that does not match the source before collect
 					expect(envelope).toMatchObject({
 						requests: [],
 						state: "failed",
-						error: expect.stringContaining("plan does not match"),
+						error: stringContaining("plan does not match"),
 					});
 				}),
 			),

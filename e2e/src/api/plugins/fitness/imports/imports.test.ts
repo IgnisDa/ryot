@@ -1,5 +1,6 @@
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -109,15 +110,15 @@ describe("OpenScale Import E2E", () => {
 			]);
 			expect(completedRun.activities.every(({ state }) => state === "completed")).toBe(true);
 			expect(completedRun.activities).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						completed: 3,
 						unit: "records",
 						kind: "preparing",
 						state: "completed",
 						id: "normalization",
 					}),
-					expect.objectContaining({
+					objectContaining({
 						completed: 3,
 						kind: "writing",
 						id: "application",
@@ -267,16 +268,16 @@ describe("OpenScale Import E2E", () => {
 
 			expect(runData.issues.items).toHaveLength(2);
 			expect(runData.issues.items.map(({ data }) => data)).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						recordKind: "measurements",
 						reason: { key: null, code: "input-transformation-failed" },
-						attribution: expect.objectContaining({ sourceLabel: "Row 2", sourceIdentifier: "2" }),
+						attribution: objectContaining({ sourceLabel: "Row 2", sourceIdentifier: "2" }),
 					}),
-					expect.objectContaining({
+					objectContaining({
 						recordKind: "measurements",
 						reason: { key: null, code: "input-transformation-failed" },
-						attribution: expect.objectContaining({
+						attribution: objectContaining({
 							sourceLabel: "2026-01-03 08:00",
 							sourceIdentifier: "2026-01-03T08:00:00.000Z",
 						}),

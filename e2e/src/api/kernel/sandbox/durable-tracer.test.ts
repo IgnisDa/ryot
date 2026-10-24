@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -203,7 +204,7 @@ describe("universal durable sandbox tracer", () => {
 			expect(value.claim).toEqual({ claimed: true });
 			expect(value.events).toEqual({
 				count: 1,
-				outcomes: [{ index: 0, status: "written", eventId: expect.any(String) }],
+				outcomes: [{ index: 0, status: "written", eventId: anyOf(String) }],
 			});
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);

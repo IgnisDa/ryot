@@ -1,6 +1,7 @@
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -552,7 +553,7 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 					throw new Error("Expected workflow target condition");
 				}
 				expect(dialect.sqlToQuery(condition.getSQL()).params).toEqual(
-					expect.arrayContaining(["revision-1", "plugin.child", "child-v1"]),
+					arrayContaining(["revision-1", "plugin.child", "child-v1"]),
 				);
 
 				yield* database.respondWith(

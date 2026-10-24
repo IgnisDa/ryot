@@ -2,6 +2,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -134,7 +135,7 @@ describe("Reset user for credential user", () => {
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 
 			const accepted = yield* requestUserReset(userId);
-			expect(accepted).toEqual({ operationId: expect.any(String) });
+			expect(accepted).toEqual({ operationId: anyOf(String) });
 
 			const oldSession = yield* Effect.flip(
 				listPluginsWithHeaders({ Authorization: `Bearer ${authToken}` }),

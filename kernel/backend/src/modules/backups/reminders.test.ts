@@ -1,6 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { AutomationTriggerId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Stream } from "effect";
 
@@ -132,10 +133,10 @@ layer(services)((test) => {
 				);
 				expect(exported.records.reminders).toHaveLength(5);
 				expect(exported.records.reminders).toContainEqual(
-					expect.objectContaining({ id: "source-cancelled", replacementId: "source-scheduled" }),
+					objectContaining({ id: "source-cancelled", replacementId: "source-scheduled" }),
 				);
 				expect(exported.records.entityDependencies).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						name: "Global parent",
 						id: globalParentEntityId,
 						identity: { kind: "unmanaged" },

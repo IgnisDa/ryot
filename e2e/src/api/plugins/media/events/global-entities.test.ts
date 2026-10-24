@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -68,9 +69,9 @@ describe("POST /events with global entities", () => {
 				count: 2,
 				failure: { index: 1, reason: { code: "invalid-properties" } },
 				outcomes: [
-					{ index: 0, status: "written", eventId: expect.any(String) },
+					{ index: 0, status: "written", eventId: anyOf(String) },
 					{ index: 1, status: "failed", reason: { code: "invalid-properties" } },
-					{ index: 2, status: "written", eventId: expect.any(String) },
+					{ index: 2, status: "written", eventId: anyOf(String) },
 				],
 			});
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);

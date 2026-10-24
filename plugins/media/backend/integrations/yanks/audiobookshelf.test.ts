@@ -3,6 +3,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 
 import {
 	execution,
@@ -304,7 +305,7 @@ describe("Audiobookshelf yank", () => {
 				expect(result.entityGroups[0]).toMatchObject({ itemIndex: 1 });
 				expect(result.failures).toHaveLength(5);
 				expect(result.failures).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						itemIndex: 0,
 						stage: "source_fetch",
 						sourceIdentifier: "broken-progress",
@@ -312,7 +313,7 @@ describe("Audiobookshelf yank", () => {
 					}),
 				);
 				expect(result.failures).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						itemIndex: 2,
 						stage: "input_transformation",
 						sourceIdentifier: "missing-media",
@@ -320,7 +321,7 @@ describe("Audiobookshelf yank", () => {
 					}),
 				);
 				expect(result.failures).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						itemIndex: 3,
 						stage: "input_transformation",
 						sourceIdentifier: "missing-ids",
@@ -328,7 +329,7 @@ describe("Audiobookshelf yank", () => {
 					}),
 				);
 				expect(result.failures).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						itemIndex: 4,
 						stage: "source_fetch",
 						sourceIdentifier: "podcast-id/episode-id",
@@ -336,7 +337,7 @@ describe("Audiobookshelf yank", () => {
 					}),
 				);
 				expect(result.failures).toContainEqual(
-					expect.objectContaining({
+					objectContaining({
 						itemIndex: 5,
 						stage: "input_transformation",
 						sourceIdentifier: "missing-episode",
@@ -426,7 +427,7 @@ describe("Audiobookshelf yank", () => {
 			expect(owned).toHaveLength(102);
 			expect(result.failures).toHaveLength(2);
 			expect(result.failures).toContainEqual(
-				expect.objectContaining({
+				objectContaining({
 					itemIndex: 101,
 					stage: "source_fetch",
 					sourceIdentifier: "broken",
@@ -434,7 +435,7 @@ describe("Audiobookshelf yank", () => {
 				}),
 			);
 			expect(result.failures).toContainEqual(
-				expect.objectContaining({
+				objectContaining({
 					itemIndex: 103,
 					stage: "source_fetch",
 					sourceIdentifier: "malformed",

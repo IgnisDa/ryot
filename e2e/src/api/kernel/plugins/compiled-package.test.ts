@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -44,7 +45,7 @@ it.live("installs a system built-in view whose slug matches another user's custo
 					.pipe(Effect.orDie),
 		);
 		expect((yield* getSavedView(owner.client, custom.reference)).id).toBe(custom.id);
-		expect(installed.activePluginRevisionId).toEqual(expect.any(String));
+		expect(installed.activePluginRevisionId).toEqual(anyOf(String));
 	}),
 );
 

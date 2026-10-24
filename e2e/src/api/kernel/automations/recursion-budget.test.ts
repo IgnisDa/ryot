@@ -5,6 +5,7 @@ import {
 	EventSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -463,7 +464,7 @@ describe("automation recursion budgets", () => {
 				code: "automation-limit-reached",
 			});
 			expect(blocked.blockedReason?.omittedHooks).toEqual(
-				expect.arrayContaining([{ pluginId: plugin.pluginId, hookSlug: recursiveHookSlug }]),
+				arrayContaining([{ pluginId: plugin.pluginId, hookSlug: recursiveHookSlug }]),
 			);
 			expect(yield* listAutomationRuns({ triggerId: blocked.id })).toEqual([]);
 

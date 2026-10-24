@@ -13,6 +13,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -319,7 +320,7 @@ layer(retryLayer())((test) => {
 				yield* fixture.reconcilerRequest(entityId, "rerun");
 				expect((yield* fixture.runs).filter((id) => id === failed.id)).toEqual([failed.id]);
 				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
-					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+					objectContaining({ enrichmentRequestId: anyOf(String) }),
 				);
 				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
 					enrichmentRequestId: null,
@@ -346,7 +347,7 @@ layer(retryLayer())((test) => {
 			]) {
 				const entityId = yield* fixture.seed(input);
 				expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
-					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+					objectContaining({ enrichmentRequestId: anyOf(String) }),
 				);
 				expect(yield* fixture.latest(entityId)).toMatchObject({
 					level: "full",
@@ -392,7 +393,7 @@ layer(retryLayer())((test) => {
 			});
 
 			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
-				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				objectContaining({ enrichmentRequestId: anyOf(String) }),
 			);
 			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual({
 				enrichmentRequestId: null,
@@ -410,7 +411,7 @@ layer(retryLayer())((test) => {
 			const fixture = yield* RetryFixture;
 			const cancelled = yield* fixture.seed({ state: "cancelled", externalId: "cancelled" });
 			expect(yield* retry(owner, cancelled, fixture.pluginId)).toEqual(
-				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				objectContaining({ enrichmentRequestId: anyOf(String) }),
 			);
 			for (const input of [
 				{ failed: false, externalId: "not-failed" },
@@ -455,7 +456,7 @@ layer(retryLayer())((test) => {
 					enrichmentRequestId: null,
 				});
 				expect(yield* retry(owner, entityId, fixture.pluginId, "translation")).toEqual(
-					expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+					objectContaining({ enrichmentRequestId: anyOf(String) }),
 				);
 				expect(yield* retry(owner, entityId, fixture.pluginId, "translation")).toEqual({
 					enrichmentRequestId: null,
@@ -540,7 +541,7 @@ layer(retryLayer(owner.id))((test) => {
 			const fixture = yield* RetryFixture;
 			const entityId = yield* fixture.seed({ userId: owner.id, externalId: "private" });
 			expect(yield* retry(owner, entityId, fixture.pluginId)).toEqual(
-				expect.objectContaining({ enrichmentRequestId: expect.any(String) }),
+				objectContaining({ enrichmentRequestId: anyOf(String) }),
 			);
 			expect(yield* fixture.latest(entityId)).toMatchObject({ scopeUserId: owner.id });
 		}),

@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -70,7 +71,7 @@ describe("notification subscription catalog and rules", () => {
 			]);
 			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
 			expect(rules.map((rule) => rule.signalSchemaSlug)).toEqual(
-				expect.arrayContaining(catalog.map((schema) => schema.slug)),
+				arrayContaining(catalog.map((schema) => schema.slug)),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
 		}),

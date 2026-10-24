@@ -25,6 +25,7 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Context, Effect, Exit, Layer, Ref, Schema, Scope } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -1524,7 +1525,7 @@ layer(harnessLayer({ blocked: "request" }))((test) => {
 			Effect.gen(function* () {
 				const h = yield* EventCreateHarness;
 				expect((yield* run()).failure).toMatchObject({
-					reason: { triggerId: expect.any(String), code: "automation-limit-reached" },
+					reason: { triggerId: anyOf(String), code: "automation-limit-reached" },
 				});
 				expect(yield* h.created).toEqual([]);
 				const warning = {
@@ -1769,7 +1770,7 @@ layer(harnessLayer({ noHooks: true, blocked: "request", blockedRatings: [2] }))(
 				count: 0,
 				failure: {
 					index: 0,
-					reason: { triggerId: expect.any(String), code: "automation-limit-reached" },
+					reason: { triggerId: anyOf(String), code: "automation-limit-reached" },
 				},
 			});
 			expect(result.outcomes.map(({ index, status }) => [index, status])).toEqual([

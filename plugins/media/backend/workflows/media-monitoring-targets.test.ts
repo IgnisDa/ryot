@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
@@ -75,7 +76,7 @@ describe("media monitoring targets", () => {
 					expect(nodes).toContain(field);
 				}
 				expect(nodes).not.toContainEqual(
-					expect.objectContaining({ table: "entity", alias: "mediaLibrary" }),
+					objectContaining({ table: "entity", alias: "mediaLibrary" }),
 				);
 				expect(nodes).not.toContain("show-season");
 			}),

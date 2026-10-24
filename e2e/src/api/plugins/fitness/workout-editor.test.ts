@@ -6,6 +6,7 @@ import {
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
+import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
 import { DateTime, Effect, Struct } from "effect";
 
 import {
@@ -259,7 +260,7 @@ describe("Workout editor E2E", () => {
 				const editInput = operationInput(editData);
 				const saved = yield* saveWorkoutEditor(client, editInput);
 				assertCondition(saved.kind === "saved", "Expected the historical workout edit to save");
-				expect(saved.sets).toEqual([{ eventId: originalSet.id, clientId: expect.any(String) }]);
+				expect(saved.sets).toEqual([{ eventId: originalSet.id, clientId: anyOf(String) }]);
 
 				const replay = yield* saveWorkoutEditor(client, editInput);
 				expect(replay).toEqual(saved);
@@ -382,7 +383,7 @@ describe("Workout editor E2E", () => {
 			expect(
 				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
 			).toEqual(
-				expect.arrayContaining([
+				arrayContaining([
 					[secondSet.id, 0],
 					[firstSet.id, 1],
 				]),

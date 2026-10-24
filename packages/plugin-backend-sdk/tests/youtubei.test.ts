@@ -5,6 +5,7 @@ import {
 	createYoutubeMusicClient,
 	type YoutubeiHost,
 } from "@ryot-app/plugin-backend-sdk/youtubei";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { describe, expect, test } from "vitest";
 
 let approvedDependencyRuntimeCalls = 0;
@@ -243,7 +244,7 @@ describe("Youtubei sandbox adapter", () => {
 				yield* Effect.promise(() =>
 					expect(
 						fetch("https://example.com/resource", { headers: { "invalid header": "value" } }),
-					).rejects.toMatchObject({ cause: expect.any(TypeError) }),
+					).rejects.toMatchObject({ cause: anyOf(TypeError) }),
 				);
 				expect(requests).toEqual([]);
 			}),

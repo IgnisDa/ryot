@@ -3,6 +3,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import type { Path } from "effect";
 import { Effect, FileSystem, Layer, Schema } from "effect";
@@ -98,7 +99,7 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 					assert(result._tag === "Failure");
 					expect(result.failure).toMatchObject({
 						_tag: "PluginValidationError",
-						issues: [expect.stringContaining("Duplicate bundled package identity")],
+						issues: [stringContaining("Duplicate bundled package identity")],
 					});
 				}),
 			),

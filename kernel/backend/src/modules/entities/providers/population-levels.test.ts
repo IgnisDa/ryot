@@ -5,6 +5,7 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -294,9 +295,7 @@ layer(populationDatabaseLayer())((test) => {
 					return { targetEntityId: leaf.id, sourceEntityId: child.id };
 				});
 				expect(yield* relationships("part-part")).toEqual(
-					expect.arrayContaining(
-						expectedEdges.map((edge): unknown => expect.objectContaining(edge)),
-					),
+					arrayContaining(expectedEdges.map((edge): unknown => objectContaining(edge))),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
 
@@ -321,9 +320,7 @@ layer(populationDatabaseLayer())((test) => {
 				assert(fresh?.populatedAt);
 				expect(fresh.relatedPopulatedAt).toEqual(fresh.populatedAt);
 				expect(yield* relationships("part-part")).toEqual(
-					expect.arrayContaining(
-						expectedEdges.map((edge): unknown => expect.objectContaining(edge)),
-					),
+					arrayContaining(expectedEdges.map((edge): unknown => objectContaining(edge))),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
 				for (const child of children) {

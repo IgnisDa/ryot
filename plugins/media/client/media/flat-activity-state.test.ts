@@ -1,3 +1,4 @@
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -87,9 +88,7 @@ describe("flat media activity state", () => {
 			],
 		});
 
-		expect(labelsOf(view)).toEqual(
-			expect.arrayContaining(["Put this item on hold", "Stopped the item"]),
-		);
+		expect(labelsOf(view)).toEqual(arrayContaining(["Put this item on hold", "Stopped the item"]));
 	});
 
 	it("carries the consumption source on progress rows only", () => {

@@ -1,5 +1,11 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
+import {
+	arrayContaining,
+	objectContaining,
+	stringContaining,
+	stringMatching,
+} from "@ryot-app/testing/matchers";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -213,14 +219,14 @@ describe("Measurements E2E", () => {
 			});
 
 			expect(result.items).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					metricId,
 					unit: "kg",
 					value: 75.5,
 					comment: "Morning",
 					metricKey: "weight",
 					metricName: "Weight",
-					occurredAt: expect.stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
+					occurredAt: stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
 				}),
 			]);
 		}),
@@ -240,7 +246,7 @@ describe("Measurements E2E", () => {
 			expect(failure.reason).toMatchObject({
 				code: "runtime-failed",
 				diagnostics: [
-					{ severity: "error", message: expect.stringContaining("Measurement entry not found") },
+					{ severity: "error", message: stringContaining("Measurement entry not found") },
 				],
 			});
 			expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(1);
@@ -281,7 +287,7 @@ describe("Measurements E2E", () => {
 			const foreignLog = yield* Effect.flip(logMeasurementReadings(otherClient, logged));
 			assertTaggedError(foreignLog, "PluginInvocationError");
 			expect(foreignLog.reason).toMatchObject({
-				diagnostics: [{ message: expect.stringContaining("Measurement metric not found") }],
+				diagnostics: [{ message: stringContaining("Measurement metric not found") }],
 			});
 			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2, status: "saved" });
 			expect(yield* listReadings()).toEqual([
@@ -311,7 +317,7 @@ describe("Measurements E2E", () => {
 			const foreignEdit = yield* Effect.flip(updateMeasurementReadings(otherClient, edited));
 			assertTaggedError(foreignEdit, "PluginInvocationError");
 			expect(foreignEdit.reason).toMatchObject({
-				diagnostics: [{ message: expect.stringContaining("Measurement entry not found") }],
+				diagnostics: [{ message: stringContaining("Measurement entry not found") }],
 			});
 			expect(yield* updateMeasurementReadings(client, edited)).toEqual({ count: 3 });
 			expect(yield* listReadings()).toEqual([
@@ -360,8 +366,8 @@ describe("Measurements E2E", () => {
 				measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
 			);
 			expect(summary.items).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						unit: "kg",
 						key: "weight",
 						firstAt: null,
@@ -369,7 +375,7 @@ describe("Measurements E2E", () => {
 						latestAt: null,
 						latestValue: null,
 					}),
-					expect.objectContaining({
+					objectContaining({
 						firstAt: null,
 						rangeCount: 0,
 						unit: "points",
@@ -377,7 +383,7 @@ describe("Measurements E2E", () => {
 						latestValue: null,
 						key: "custom_metric",
 					}),
-					expect.objectContaining({
+					objectContaining({
 						unit: null,
 						firstAt: null,
 						rangeCount: 0,

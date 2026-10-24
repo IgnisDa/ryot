@@ -1,4 +1,5 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { companyRecipes } from "./company-recipes";
@@ -33,7 +34,7 @@ describe("credit pagination recipes", () => {
 			{ direction: "asc", expr: { field: "id" } },
 		]);
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
-			expect.arrayContaining(["roles", "character"]),
+			arrayContaining(["roles", "character"]),
 		);
 		expect(JSON.stringify(query.where)).toContain("person-to-movie");
 		expect(JSON.stringify(query.where)).toContain("movie-1");

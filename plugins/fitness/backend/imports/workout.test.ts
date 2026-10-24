@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { expect, it } from "vitest";
 
 import { toWorkoutWriteItem } from "./workout";
@@ -51,7 +52,7 @@ it.each([0, 3723])(
 			startedAt: "2026-01-01T08:00:00.000Z",
 		});
 		expect(item.entities).toContainEqual(
-			expect.objectContaining({
+			objectContaining({
 				alias: "workout",
 				properties: {
 					activeDuration,

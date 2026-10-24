@@ -6,6 +6,7 @@ import {
 	type PluginBackgroundOperationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -465,7 +466,7 @@ describe("background submission tray", () => {
 			tray.reserve({ target: media, binding: binding(), request: request("next-2") })?.start();
 			yield* drain;
 			expect(keys()).not.toContain("Logged ok1");
-			expect(keys()).toEqual(expect.arrayContaining(["Logged pending-1", "Logged pending-2"]));
+			expect(keys()).toEqual(arrayContaining(["Logged pending-1", "Logged pending-2"]));
 
 			const callsBefore = test.calls.length;
 			expect(tray.reserve({ target: media, binding: binding(), request: request("full") })).toBe(
@@ -525,7 +526,7 @@ describe("background submission tray", () => {
 				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
 				yield* drain;
 				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(
-					expect.arrayContaining(["Logged k1", "Logged k2"]),
+					arrayContaining(["Logged k1", "Logged k2"]),
 				);
 			}),
 	);

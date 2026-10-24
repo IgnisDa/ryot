@@ -8,6 +8,7 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { entitySchemaRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Schema } from "effect";
 
 import {
@@ -163,7 +164,7 @@ describe("plugin revision scopes", () => {
 					label: "A1",
 					scriptId: script.id,
 					config: { writerMarker: "before" },
-					definitions: [expect.objectContaining({ slug: "bottle" })],
+					definitions: [objectContaining({ slug: "bottle" })],
 				});
 				const result = yield* Schema.decodeUnknownEffect(
 					Schema.Struct({

@@ -16,6 +16,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Result, Schema } from "effect";
 
 import {
@@ -98,7 +99,7 @@ describe("plugin namespace authority", () => {
 				expect(terminal.status).toBe("completed");
 				expect(terminal.failureReason).toBeNull();
 				expect(terminal.summary).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						{
 							unit: "entities",
 							recordKind: "bottle",
@@ -265,7 +266,7 @@ describe("plugin namespace authority", () => {
 			);
 			expect(messages).toHaveLength(2);
 			expect(messages.map(({ body }) => body)).toEqual(
-				expect.arrayContaining([
+				arrayContaining([
 					{ title: "Ryot", body: "A1 tasting" },
 					{ title: "Ryot", body: "B1 tasting" },
 				]),

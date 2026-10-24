@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -89,7 +90,7 @@ describe("Definitions E2E", () => {
 				}),
 			);
 			expect(providers.items).toContainEqual(
-				expect.objectContaining({ providerName, providerId: provider.providerId }),
+				objectContaining({ providerName, providerId: provider.providerId }),
 			);
 
 			const outsider = yield* createAuthenticatedClient();
@@ -125,7 +126,7 @@ describe("Definitions E2E", () => {
 			expect(collectionSchema).toBeDefined();
 			expect(collectionSchema?.pluginId).toBeNull();
 			expect(schemas).toContainEqual(
-				expect.objectContaining({ slug: "movie", pluginId: mediaPlugin?.pluginId }),
+				objectContaining({ slug: "movie", pluginId: mediaPlugin?.pluginId }),
 			);
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
@@ -166,7 +167,7 @@ describe("Definitions E2E", () => {
 			);
 
 			expect(selected.map((plugin) => plugin.packageId)).toEqual(
-				expect.arrayContaining(["ryot/fitness", "ryot/media"]),
+				arrayContaining(["ryot/fitness", "ryot/media"]),
 			);
 			expect(selected).toHaveLength(2);
 			expect(

@@ -4,6 +4,7 @@ import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/im
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -176,12 +177,12 @@ it.effect(
 				},
 			]);
 			expect(result.executions).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					lane: "background",
 					executionId: `${rootPayload.runId}-import`,
 					scriptId: ingestionTestSource.workflowScriptId,
 					pluginRevision: ingestionTestSource.pluginRevision,
-					input: expect.objectContaining({
+					input: objectContaining({
 						sourcePayloadHandle: "durable-input-handle",
 						plan: { selection: {}, operation: "fixture" },
 					}),
@@ -196,7 +197,7 @@ it.effect("resumes a running root without replacing executable pins", () =>
 	Effect.gen(function* () {
 		const result = yield* rootCase("running");
 		expect(result.executions).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				scriptId: ingestionTestSource.workflowScriptId,
 				pluginRevision: ingestionTestSource.pluginRevision,
 			}),

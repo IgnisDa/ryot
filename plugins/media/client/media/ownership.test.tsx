@@ -3,6 +3,7 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { fireEvent, getByLabelText, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
@@ -53,7 +54,7 @@ const ownershipRequest = (request: MediaOwnershipSetInput) => ({
 	input: request,
 	packageId: "ryot/media",
 	slug: "media-ownership-set",
-	idempotencyKey: expect.any(String),
+	idempotencyKey: anyOf(String),
 	label: request.owned ? "Marked as owned" : "Marked as not owned",
 });
 

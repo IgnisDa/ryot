@@ -19,6 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -385,7 +386,7 @@ layer(
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					entitySchemaSlug: "group",
 					providerId: "provider-group-alpha",
 					entityScope: { type: "global", userId: "trusted-user" },
@@ -467,7 +468,7 @@ layer(
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					ordinal: 0,
 					batchId: "batch",
 					captureId: "capture",
@@ -617,7 +618,7 @@ layer(
 					"population-reference-item-1",
 				]);
 				expect(yield* dispatches.payloads).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						level: "full",
 						mode: "refresh",
 						externalId: "record-1",
@@ -625,19 +626,16 @@ layer(
 						providerId: "provider-record-catalog",
 						executionId: "population-reference-item-0",
 						entityScope: { userId: null, type: "global" },
-						command: expect.objectContaining({
+						command: objectContaining({
 							itemIdentity: "kernel:provider-entity-population:0",
-							causation: expect.objectContaining({
+							causation: objectContaining({
 								source: "provider-refresh",
 								executionId: "population-reference-item-0",
 								providerExecutionId: "population-reference-item-0",
 							}),
 						}),
 					}),
-					expect.objectContaining({
-						externalId: "record-2",
-						executionId: "population-reference-item-1",
-					}),
+					objectContaining({ externalId: "record-2", executionId: "population-reference-item-1" }),
 				]);
 			}),
 	);

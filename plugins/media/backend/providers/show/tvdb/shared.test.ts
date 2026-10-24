@@ -1,6 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
@@ -140,7 +141,7 @@ describe("show.tvdb sandbox script", () => {
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requested).toEqual(
-						expect.arrayContaining([
+						arrayContaining([
 							"/v4/seasons/101/extended",
 							"/v4/seasons/102/extended",
 							"/v4/seasons/103/extended",

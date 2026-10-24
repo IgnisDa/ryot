@@ -11,6 +11,7 @@ import {
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "@ryot-app/media-plugin/shared/show-recipes";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -1021,7 +1022,7 @@ describe("Media RyotQL query recipe results", () => {
 				{ seasonNumber: 1, watchedTotal: 1 },
 			]);
 			expect(identity).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					kind: "parent",
 					seasonNumber: null,
 					episodeNumber: null,

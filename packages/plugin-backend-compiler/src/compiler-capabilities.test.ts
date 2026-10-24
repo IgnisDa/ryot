@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { type TypeScriptProjectAccess, withTypeScriptProject } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
@@ -889,33 +890,33 @@ export default defineWorkflow({
 
 		expect(results[0]?.diagnostics).toEqual([]);
 		expect(results[1]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "SDK host indexing requires statically finite operation names",
 			}),
 		]);
 		expect(results[2]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "SDK hosts cannot escape to unresolved or external functions",
 			}),
 		]);
 		expect(results[3]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message:
 					"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
 			}),
 		]);
 		expect(results[4]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message:
 					"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
 			}),
 		]);
 		expect(results[5]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "SDK helper forwarding must preserve resolved host operation types",
 			}),
@@ -963,7 +964,7 @@ export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "htt
 		);
 
 		expect(outcome.asyncResult.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "Asynchronous module initialization is unsupported",
 			}),
@@ -971,7 +972,7 @@ export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "htt
 		expect(outcome.budgetFailure).toBeInstanceOf(PluginBackendCompilerFailure);
 		if (outcome.budgetFailure instanceof PluginBackendCompilerFailure) {
 			expect(outcome.budgetFailure.diagnostics).toEqual([
-				expect.objectContaining({ code: "RYOT_ANALYSIS_LIMIT" }),
+				objectContaining({ code: "RYOT_ANALYSIS_LIMIT" }),
 			]);
 		}
 	}),
@@ -1001,13 +1002,13 @@ export default initialized;
 
 		expect(results.map(({ diagnostics }) => diagnostics)).toEqual([
 			[
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_DEPENDENCY",
 					message: "Effect execution during module initialization is unsupported",
 				}),
 			],
 			[
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_DEPENDENCY",
 					message: "Effect execution during module initialization is unsupported",
 				}),
@@ -1100,13 +1101,13 @@ export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "htt
 		);
 
 		expect(results[0]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "Effect execution during module initialization is unsupported",
 			}),
 		]);
 		expect(results[1]?.diagnostics).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				code: "RYOT_DEPENDENCY",
 				message: "Asynchronous module initialization is unsupported",
 			}),

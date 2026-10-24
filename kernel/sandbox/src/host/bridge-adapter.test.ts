@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
@@ -90,7 +91,7 @@ describe("bindSandboxHostFunctions", () => {
 
 			expect(result).toMatchObject({
 				success: false,
-				error: expect.stringContaining("not configured"),
+				error: stringContaining("not configured"),
 				data: { keys: ["apiToken"], code: "missing-required-config" },
 			});
 		}),

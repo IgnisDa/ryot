@@ -15,6 +15,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Result } from "effect";
 import { Base64 } from "effect/encoding";
 
@@ -225,7 +226,7 @@ describe("Native data JSON imports", () => {
 			const { run } = yield* startDataJsonImport(user, input);
 			assertCompleted(run, "mixed-schema data JSON import");
 			expect(run.summary).toEqual(
-				expect.arrayContaining([
+				arrayContaining([
 					{
 						unit: "entities",
 						recordKind: "entity",
@@ -329,7 +330,7 @@ describe("Native data JSON imports", () => {
 				});
 				assertCompleted(run, "partially failed data JSON import");
 				expect(run.summary).toEqual(
-					expect.arrayContaining([
+					arrayContaining([
 						{
 							unit: "entities",
 							recordKind: "entity",
@@ -346,7 +347,7 @@ describe("Native data JSON imports", () => {
 				const detail = yield* getImportRun(user.client, runId, undefined, 10);
 				expect(detail.issues.items).toHaveLength(2);
 				expect(detail.issues.items.map(({ data }) => data.attribution?.sourceIdentifier)).toEqual(
-					expect.arrayContaining(["invalid-entity", "dependent-event"]),
+					arrayContaining(["invalid-entity", "dependent-event"]),
 				);
 				expect(yield* listImportedEntityNames(user.client, graph.entityA.schemaId)).toEqual([]);
 				expect(yield* listImportedEntityNames(user.client, graph.entityB.schemaId)).toEqual([

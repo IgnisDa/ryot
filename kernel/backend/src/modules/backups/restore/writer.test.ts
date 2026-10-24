@@ -29,6 +29,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
@@ -1194,11 +1195,11 @@ layer(restoreWriterLayer())((test) => {
 			const timestamp = DateTime.toDate(DateTime.makeUnsafe("2026-08-23T12:00:00.000Z"));
 			expect(event).toEqual({
 				userId: "user-id",
+				id: anyOf(String),
 				entityId: entity.id,
 				createdAt: timestamp,
 				updatedAt: timestamp,
 				occurredAt: timestamp,
-				id: expect.any(String),
 				orderKey: "source-event",
 				eventSchemaSlug: "review",
 				eventSchemaPluginId: null,

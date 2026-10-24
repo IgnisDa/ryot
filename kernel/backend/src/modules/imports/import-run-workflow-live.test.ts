@@ -6,6 +6,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -134,7 +135,7 @@ it.effect(
 		Effect.gen(function* () {
 			const result = yield* rootCase("running", true, "none");
 			expect(result.calls).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					lane: "background",
 					scriptId: "script-1",
 					executionId: "run-1-import",

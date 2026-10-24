@@ -1,3 +1,4 @@
+import { anyOf } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { adaptHardcoverCsv } from "./hardcover";
@@ -65,7 +66,7 @@ describe("adaptHardcoverCsv", () => {
 		const result = adaptHardcoverCsv(csv);
 
 		expect(result.entityGroups[0]?.events).toEqual([
-			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: expect.any(String) },
+			{ properties: {}, occurredAt: anyOf(String), eventSchemaSlug: "backlog" },
 		]);
 		expect(result.failures).toEqual([
 			{ itemIndex: 1, sourceLabel: "Broken Book", message: "Empty Hardcover Book ID" },

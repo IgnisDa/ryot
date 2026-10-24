@@ -5,6 +5,7 @@ import {
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { AuthoredEntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
+import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
@@ -78,7 +79,7 @@ it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.client).toEqual({
 		homeView: null,
-		entities: expect.any(Object),
+		entities: anyOf(Object),
 		apiVersion: CLIENT_API_VERSION,
 		analyticsSections: {
 			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
@@ -560,7 +561,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("media-library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-media-library");
 	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "media-library")).toEqual(
-		expect.objectContaining({ userState: { deniedOperations: ["clear", "merge"] } }),
+		objectContaining({ userState: { deniedOperations: ["clear", "merge"] } }),
 	);
 	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
 	expect(sortBy(Object.keys(mediaPlugin.configSchema.fields))).toEqual(
@@ -860,7 +861,7 @@ it("declares the complete media-owned source", () => {
 		{ name: "All Video Game Franchises", entitySchemaSlug: "video-game-group" },
 	]);
 	expect(mediaPlugin.providers.find(({ slug }) => slug === "book.google-books")).toEqual(
-		expect.objectContaining({ rootEntitySchemaSlug: "book" }),
+		objectContaining({ rootEntitySchemaSlug: "book" }),
 	);
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug).sort()).toEqual(
 		[...mediaLibraryEligibleEntitySchemaSlugs, "genre"].sort(),
@@ -1114,7 +1115,7 @@ it("binds media history reconciliation to lifecycle changes and status signals",
 		delivery: "required",
 		executionScope: "user",
 		scriptSlug: "automation.reconcile-media-history",
-		targets: expect.arrayContaining(
+		targets: arrayContaining(
 			["create", "update", "delete"].flatMap((operation) => [
 				{
 					operation,

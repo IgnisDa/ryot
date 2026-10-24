@@ -1,3 +1,4 @@
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { expect, it } from "vitest";
 
 import {
@@ -20,16 +21,16 @@ it("pages workouts containing the exercise before the anchor and excludes the cu
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "workout-cursor" });
 	expect(query.output.orderBy).toMatchObject([
-		{ direction: "desc", expr: expect.objectContaining({ type: "cast", target: "date" }) },
+		{ direction: "desc", expr: objectContaining({ type: "cast", target: "date" }) },
 		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "historyWorkout" } },
 	]);
 	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
-		expect.arrayContaining(["id", "name", "startedAt", "comment"]),
+		arrayContaining(["id", "name", "startedAt", "comment"]),
 	);
 	expect(query.where).toMatchObject({
 		type: "and",
-		predicates: expect.arrayContaining([
-			expect.objectContaining({
+		predicates: arrayContaining([
+			objectContaining({
 				operator: "lt",
 				type: "comparison",
 				right: {
@@ -38,22 +39,22 @@ it("pages workouts containing the exercise before the anchor and excludes the cu
 					expr: { type: "literal", value: "2026-02-01T10:00:00.000Z" },
 				},
 			}),
-			expect.objectContaining({
+			objectContaining({
 				operator: "neq",
 				type: "comparison",
 				right: { type: "literal", value: "workout-current" },
 			}),
-			expect.objectContaining({
+			objectContaining({
 				type: "exists",
-				query: expect.objectContaining({
+				query: objectContaining({
 					from: { table: "event", alias: "historyWorkoutSet" },
-					where: expect.objectContaining({
-						predicates: expect.arrayContaining([
-							expect.objectContaining({
+					where: objectContaining({
+						predicates: arrayContaining([
+							objectContaining({
 								right: { type: "literal", value: "exercise-1" },
 								left: { type: "column", field: "entityId", tableAlias: "historyWorkoutSet" },
 							}),
-							expect.objectContaining({
+							objectContaining({
 								right: { field: "id", type: "column", tableAlias: "historyWorkout" },
 								left: { type: "column", field: "sessionEntityId", tableAlias: "historyWorkoutSet" },
 							}),
@@ -81,12 +82,12 @@ it("pages exercise set events in exercise and set order with the recorded kind a
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "set-cursor" });
 	expect(query.output.orderBy).toMatchObject([
-		{ direction: "asc", expr: expect.objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: expect.objectContaining({ type: "cast", target: "number" }) },
+		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
+		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
 		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "historySet" } },
 	]);
 	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
-		expect.arrayContaining([
+		arrayContaining([
 			"id",
 			"exerciseId",
 			"occurredAt",
@@ -104,12 +105,12 @@ it("pages exercise set events in exercise and set order with the recorded kind a
 	);
 	expect(query.where).toMatchObject({
 		type: "and",
-		predicates: expect.arrayContaining([
-			expect.objectContaining({
+		predicates: arrayContaining([
+			objectContaining({
 				right: { type: "literal", value: "exercise-1" },
 				left: { type: "column", field: "entityId", tableAlias: "historySet" },
 			}),
-			expect.objectContaining({
+			objectContaining({
 				right: { type: "literal", value: "workout-1" },
 				left: { type: "column", field: "sessionEntityId", tableAlias: "historySet" },
 			}),
@@ -135,13 +136,13 @@ it("pages all matching prior occurrences by descending session time and stable s
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "previous-set-cursor" });
 	expect(query.output.orderBy).toMatchObject([
-		{ direction: "desc", expr: expect.objectContaining({ type: "cast", target: "date" }) },
+		{ direction: "desc", expr: objectContaining({ type: "cast", target: "date" }) },
 		{
 			direction: "asc",
 			expr: { type: "column", field: "sessionEntityId", tableAlias: "previousWorkoutSet" },
 		},
-		{ direction: "asc", expr: expect.objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: expect.objectContaining({ type: "cast", target: "number" }) },
+		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
+		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
 		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "previousWorkoutSet" } },
 	]);
 	const where = JSON.stringify(query.where);

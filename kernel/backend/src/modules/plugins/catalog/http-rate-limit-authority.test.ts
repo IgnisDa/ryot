@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionOwner, identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { stringMatching } from "@ryot-app/testing/matchers";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#testing/effect";
@@ -36,7 +37,7 @@ layer(
 			expect(yield* authority.resolve("https://API.EXAMPLE.COM:443/path?q=1")).toEqual({
 				matched: true,
 				origin: "https://api.example.com",
-				hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+				hash: stringMatching(/^[a-f0-9]{64}$/),
 				declaration: {
 					requests: 5,
 					intervalMs: 1_000,

@@ -3,6 +3,7 @@ import {
 	pluginBackendCompilerDiagnostic,
 } from "@ryot-app/plugin-backend-compiler/diagnostics";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -63,7 +64,7 @@ describe("sandbox limits", () => {
 			expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toBeNull();
 		}
 		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toMatchObject({
-			message: expect.stringContaining("1000 host calls"),
+			message: stringContaining("1000 host calls"),
 			reason: { code: "execution-limit", operation: "getCachedValue" },
 		});
 
@@ -72,7 +73,7 @@ describe("sandbox limits", () => {
 			expect(consumeSandboxHostCall(httpBudget, "httpCall")).toBeNull();
 		}
 		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toMatchObject({
-			message: expect.stringContaining("50 httpCall calls"),
+			message: stringContaining("50 httpCall calls"),
 			reason: { operation: "httpCall", code: "execution-limit" },
 		});
 

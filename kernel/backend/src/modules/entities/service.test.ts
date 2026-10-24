@@ -29,6 +29,7 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
@@ -771,7 +772,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const blocked = expect.objectContaining({
+					const blocked = objectContaining({
 						hasRequiredHooks: true,
 						code: "automation-limit-reached",
 					});
@@ -1075,9 +1076,7 @@ describe("EntitiesService committed lifecycle", () => {
 				);
 				assert(batchReceipt);
 				for (const trigger of [...eventDeletes, ...eventBatches]) {
-					expect(batchReceipt.dispatch).toContainEqual(
-						expect.objectContaining({ triggerId: trigger.id }),
-					);
+					expect(batchReceipt.dispatch).toContainEqual(objectContaining({ triggerId: trigger.id }));
 				}
 				const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
 				expect(yield* service.deleteByIds([recordSession.entity.id], lifecycle)).toEqual(deleted);
@@ -2700,7 +2699,7 @@ describe("EntitiesService committed lifecycle", () => {
 				);
 				expect(global.results).toEqual([
 					{ status: "upserted", wasInserted: false, entityId: "global-plugin" },
-					{ wasInserted: true, status: "upserted", entityId: expect.any(String) },
+					{ wasInserted: true, status: "upserted", entityId: anyOf(String) },
 					{ status: "skipped" },
 				]);
 				const ensured = yield* service.ensureUserEntities(

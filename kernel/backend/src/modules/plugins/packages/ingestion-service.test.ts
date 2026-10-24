@@ -7,6 +7,7 @@ import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
@@ -861,7 +862,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 			const ingestion = yield* PluginIngestionService;
 
 			expect(yield* ingestion.listPlugins()).toEqual([
-				expect.objectContaining({ packageId: fixtureManifest().metadata.packageId }),
+				objectContaining({ packageId: fixtureManifest().metadata.packageId }),
 			]);
 
 			const removed = yield* ingestion.uninstallPlugin(
@@ -872,7 +873,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
 			expect(yield* fake.published).toEqual([
-				expect.objectContaining({ channel: redisKeys.pluginCatalogChannel }),
+				objectContaining({ channel: redisKeys.pluginCatalogChannel }),
 			]);
 		});
 	});
@@ -1152,7 +1153,7 @@ layer(makeLayer({ cached: true }))((test) => {
 				"publish",
 			]);
 			expect(yield* fake.published).toEqual([
-				expect.objectContaining({ channel: redisKeys.pluginCatalogChannel }),
+				objectContaining({ channel: redisKeys.pluginCatalogChannel }),
 			]);
 		}),
 	);
@@ -1249,7 +1250,7 @@ layer(makeLayer())((test) => {
 				const failure = failureOf(exit);
 				expect(failure).toMatchObject({
 					_tag: "PluginRequestError",
-					reason: { code: testCase.reasonCode, diagnostics: expect.any(Array) },
+					reason: { code: testCase.reasonCode, diagnostics: anyOf(Array) },
 				});
 			}),
 		);

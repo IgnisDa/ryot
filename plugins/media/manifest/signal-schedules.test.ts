@@ -1,6 +1,7 @@
 import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import { table } from "@ryot-app/ryotql";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -92,7 +93,7 @@ describe("media signal schedules", () => {
 			predicate.type === "and" ? predicate.predicates : [predicate],
 		);
 		expect(nested).toContainEqual(
-			expect.objectContaining({
+			objectContaining({
 				operator: "gt",
 				type: "comparison",
 				right: { value: 0, type: "literal" },

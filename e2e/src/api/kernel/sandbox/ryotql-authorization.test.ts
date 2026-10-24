@@ -23,6 +23,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import type { RyotQLResponse, TestPluginScript } from "~/fixtures/kernel";
@@ -728,7 +729,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const pluginEntities = rowsFromProbe("Plugin entities", "entities");
 			expect(pluginEntities).toHaveLength(2);
 			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).toEqual(
-				expect.arrayContaining([globalRoot.id, globalTarget.id]),
+				arrayContaining([globalRoot.id, globalTarget.id]),
 			);
 			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).not.toContain(userARoot.id);
 			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).not.toContain(userBRoot.id);

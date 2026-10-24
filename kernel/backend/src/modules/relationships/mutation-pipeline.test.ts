@@ -14,6 +14,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
@@ -341,10 +342,7 @@ describe("Relationship set-based mutation pipeline", () => {
 							["noop", unchanged.id],
 						]) {
 							expect(itemResults).toContainEqual(
-								expect.objectContaining({
-									operation,
-									relationship: expect.objectContaining({ id }),
-								}),
+								objectContaining({ operation, relationship: objectContaining({ id }) }),
 							);
 						}
 						expect(

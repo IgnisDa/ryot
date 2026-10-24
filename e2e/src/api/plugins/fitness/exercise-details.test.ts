@@ -1,5 +1,6 @@
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details-recipes";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -94,8 +95,8 @@ describe("Exercise details recipe E2E", () => {
 			expect(details.exercise).toMatchObject({
 				id: exerciseId,
 				name: "Details bench",
+				userId: anyOf(String),
 				kind: "reps_and_weight",
-				userId: expect.any(String),
 			});
 			expect(details.totals).toMatchObject({
 				sets: 4,

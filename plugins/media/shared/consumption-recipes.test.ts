@@ -1,6 +1,7 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { mediaConsumptionBenchmarkCases } from "../benchmarks/consumption";
@@ -70,12 +71,12 @@ describe("canonical consumption reads", () => {
 			if (disabled) {
 				expect(previous?.where).toMatchObject({
 					type: "and",
-					predicates: expect.arrayContaining([guard]),
+					predicates: arrayContaining([guard]),
 				});
 			} else {
 				expect(previous?.where).not.toMatchObject({
 					type: "and",
-					predicates: expect.arrayContaining([guard]),
+					predicates: arrayContaining([guard]),
 				});
 			}
 		},

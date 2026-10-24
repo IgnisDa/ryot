@@ -1,3 +1,4 @@
+import { anyOf, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -34,7 +35,7 @@ describe("sandbox filesystem grants", () => {
 			expect(result.value).toBeNull();
 			expect(result.error).toMatchObject({
 				phase: "execute",
-				message: expect.stringContaining("Sandbox execution exceeds 1000 host calls"),
+				message: stringContaining("Sandbox execution exceeds 1000 host calls"),
 			});
 		}),
 	);
@@ -58,7 +59,7 @@ describe("sandbox filesystem grants", () => {
 			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "scratch result boundary");
-			expect(result.value).toEqual({ chunkHandles: [expect.any(String)] });
+			expect(result.value).toEqual({ chunkHandles: [anyOf(String)] });
 			expect(result).not.toHaveProperty("harvest");
 		}),
 	);

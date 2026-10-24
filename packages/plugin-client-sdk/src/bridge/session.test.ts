@@ -10,6 +10,7 @@ import {
 	type ClientPageContext,
 	type PluginBridgeInit,
 } from "@ryot-app/plugin-client-contract";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
@@ -1340,7 +1341,7 @@ describe("plugin Effect request engine", () => {
 					requestId: "background-operation-1",
 					type: "background-operation-request",
 				},
-				expect.objectContaining({ idempotencyKey: "key-2", requestId: "background-operation-2" }),
+				objectContaining({ idempotencyKey: "key-2", requestId: "background-operation-2" }),
 			]);
 			expect(requests[1]).toMatchObject({ label: `${"Ep".repeat(59)}E…` });
 			expect(yield* Fiber.join(oversized)).toMatchObject({ failure: { reason: "invalid-input" } });

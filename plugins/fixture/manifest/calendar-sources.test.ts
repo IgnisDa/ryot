@@ -1,4 +1,5 @@
 import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -8,7 +9,7 @@ describe("fixture calendar sources", () => {
 	it("declares one instant Pokemon source that the manifest schema accepts", () => {
 		const manifest = Schema.decodeSync(AuthoredPluginManifest)(fixturePlugin);
 		expect(manifest.calendarSources).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				caption: "source",
 				startAt: "addedAt",
 				precision: "instant",

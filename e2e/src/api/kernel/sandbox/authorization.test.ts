@@ -1,3 +1,4 @@
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import type { TestPluginScript } from "~/fixtures/kernel";
@@ -52,7 +53,7 @@ describe("sandbox capability authorization", () => {
 			assert(result.status === "failed", "Expected denied capability cron to fail");
 			expect(result.result).toMatchObject({
 				status: "completed",
-				error: { phase: "execute", message: expect.stringContaining("getUserPreferences") },
+				error: { phase: "execute", message: stringContaining("getUserPreferences") },
 			});
 		}),
 	);

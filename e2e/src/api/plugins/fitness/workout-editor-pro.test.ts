@@ -1,5 +1,6 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutEditorLinksRecipe } from "@ryot-app/fitness-plugin/workout-editor-recipes";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
 import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
@@ -223,17 +224,14 @@ describe("Workout editor with a valid Pro key", () => {
 				workoutEditorLinksRecipe({ reference, workoutId: repeated.entityId }),
 			);
 			expect(repeatedLinks.items).toContainEqual(
-				expect.objectContaining({
-					slug: "workout-repeated-from",
-					targetEntityId: sourceWorkout.entityId,
-				}),
+				objectContaining({ slug: "workout-repeated-from", targetEntityId: sourceWorkout.entityId }),
 			);
 			const templateLinks = yield* executeRyotQLRecipe(
 				client,
 				workoutEditorLinksRecipe({ reference, workoutId: fromTemplate.entityId }),
 			);
 			expect(templateLinks.items).toContainEqual(
-				expect.objectContaining({
+				objectContaining({
 					slug: "workout-to-workout-template",
 					targetEntityId: sourceTemplate.entityId,
 				}),

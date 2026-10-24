@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./resolve-episodes.sandbox";
@@ -99,10 +100,10 @@ describe("resolve episodes operation", () => {
 			const query = documents[0]?.queries["episodes"];
 			expect(query?.where).toMatchObject({
 				type: "and",
-				predicates: expect.arrayContaining([
+				predicates: arrayContaining([
 					{
 						type: "and",
-						predicates: expect.arrayContaining([
+						predicates: arrayContaining([
 							{
 								operator: "eq",
 								type: "comparison",
@@ -113,7 +114,7 @@ describe("resolve episodes operation", () => {
 					},
 					{
 						type: "and",
-						predicates: expect.arrayContaining([
+						predicates: arrayContaining([
 							{
 								operator: "eq",
 								type: "comparison",
@@ -124,7 +125,7 @@ describe("resolve episodes operation", () => {
 					},
 					{
 						type: "and",
-						predicates: expect.arrayContaining([
+						predicates: arrayContaining([
 							{
 								operator: "eq",
 								type: "comparison",

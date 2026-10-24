@@ -66,6 +66,7 @@ import {
 import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Option, Result } from "effect";
@@ -1810,8 +1811,8 @@ layer(catalogDatabaseLayer)((test) => {
 					id: "owner",
 					image: null,
 					name: "Owner",
+					createdAt: anyOf(String),
 					email: "owner@example.test",
-					createdAt: expect.any(String),
 					twoFactorStatus: { enabled: false, available: true },
 					preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 				},

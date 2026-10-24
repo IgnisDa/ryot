@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { IntegrationId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { IngestionCaptures } from "#modules/imports/capture-service";
@@ -340,7 +341,7 @@ it.effect(
 			).pipe(Effect.provideContext(test.context));
 			expect(test.calls.map((call) => call.method)).toEqual(["evaluate", "admit", "envelope"]);
 			expect(test.calls[1]?.input).toMatchObject({
-				acceptedAt: expect.any(Date),
+				acceptedAt: anyOf(Date),
 				accountGeneration: ingestionTestScope.accountGeneration,
 				blockReasons: [{ key: "token", code: "configuration-required" }],
 			});

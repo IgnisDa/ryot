@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
 import {
@@ -200,7 +201,7 @@ describe("flat media detail screen", () => {
 					entityId: "media-1",
 					pluginId: "media-owner",
 					operation: "population",
-					idempotencyKey: expect.any(String),
+					idempotencyKey: anyOf(String),
 				});
 				expect(requests[1]).toEqual(requests[0]);
 				unmount();
@@ -337,7 +338,7 @@ describe("flat media detail screen", () => {
 							entityId: "media-1",
 							pluginId: "media-owner",
 							operation: "population",
-							idempotencyKey: expect.any(String),
+							idempotencyKey: anyOf(String),
 						},
 					]),
 				),
@@ -374,7 +375,7 @@ describe("flat media detail screen", () => {
 							entityId: "media-1",
 							pluginId: "media-owner",
 							operation: "translation",
-							idempotencyKey: expect.any(String),
+							idempotencyKey: anyOf(String),
 						},
 					]),
 				),
@@ -524,7 +525,7 @@ describe("flat media overview", () => {
 							entityId: "media-1",
 							pluginId: "media-owner",
 							operation: "population",
-							idempotencyKey: expect.any(String),
+							idempotencyKey: anyOf(String),
 						},
 					]),
 				),

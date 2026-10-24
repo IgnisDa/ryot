@@ -10,6 +10,7 @@ import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type { LibrarySearchHit, LibrarySearchResult } from "@ryot-app/ryotql-recipes/saved-views";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Fiber, Result } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -197,8 +198,8 @@ describe("command center destinations", () => {
 		const options = destinationOptions({ catalog, navigation });
 		const labels = options.map(({ label }) => label);
 
-		expect(labels).toEqual(expect.arrayContaining(["Queue", "Favorites", "Fixture", "Settings"]));
-		expect(labels).toEqual(expect.arrayContaining(["Preferences", "Backups", "Customize sidebar"]));
+		expect(labels).toEqual(arrayContaining(["Queue", "Favorites", "Fixture", "Settings"]));
+		expect(labels).toEqual(arrayContaining(["Preferences", "Backups", "Customize sidebar"]));
 		expect(labels).not.toContain("Secret");
 		expect(labels).not.toContain("Hidden");
 		expect(options.find(({ label }) => label === "Favorites")?.href).toBe("/e/col-1");

@@ -9,6 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Cause, Effect, Fiber, Metric } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -72,11 +73,11 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 
 		expect(result).toEqual(entity);
 		expect(calls).toEqual([
-			expect.objectContaining({
+			objectContaining({
 				name: "ProviderEntityPopulationWorkflow",
-				options: expect.objectContaining({
+				options: objectContaining({
 					executionId: `${executionId}-provider-population`,
-					payload: expect.objectContaining({ level: "base", mode: "ensure" }),
+					payload: objectContaining({ level: "base", mode: "ensure" }),
 				}),
 			}),
 			{ options: { executionId }, name: "provider-import-completion" },
@@ -246,18 +247,18 @@ layer(mutationAdmissionTestLayer)((it) => {
 				);
 				expect(phases).toHaveLength(3);
 				expect(phases).toEqual(
-					expect.arrayContaining([
-						expect.objectContaining({
-							state: expect.objectContaining({ count: 1 }),
-							attributes: expect.objectContaining({ phase: "population", outcome: "interrupted" }),
+					arrayContaining([
+						objectContaining({
+							state: objectContaining({ count: 1 }),
+							attributes: objectContaining({ phase: "population", outcome: "interrupted" }),
 						}),
-						expect.objectContaining({
-							state: expect.objectContaining({ count: 1 }),
-							attributes: expect.objectContaining({ outcome: "success", phase: "population" }),
+						objectContaining({
+							state: objectContaining({ count: 1 }),
+							attributes: objectContaining({ outcome: "success", phase: "population" }),
 						}),
-						expect.objectContaining({
-							state: expect.objectContaining({ count: 1 }),
-							attributes: expect.objectContaining({
+						objectContaining({
+							state: objectContaining({ count: 1 }),
+							attributes: objectContaining({
 								outcome: "success",
 								phase: "provider-import-automation",
 							}),

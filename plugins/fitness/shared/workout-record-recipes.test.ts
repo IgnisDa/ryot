@@ -1,3 +1,4 @@
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -78,12 +79,12 @@ describe("workout record recipes", () => {
 		expect(query.joins).toHaveLength(2);
 		expect(query.where).toMatchObject({
 			type: "and",
-			predicates: expect.arrayContaining([
-				expect.objectContaining({
+			predicates: arrayContaining([
+				objectContaining({
 					right: { type: "literal", value: "workout-1" },
 					left: { type: "column", field: "sessionEntityId", tableAlias: "workoutSetContextEvent" },
 				}),
-				expect.objectContaining({
+				objectContaining({
 					right: { type: "literal", value: "workout-set" },
 					left: { type: "column", field: "eventSchemaSlug", tableAlias: "workoutSetContextEvent" },
 				}),

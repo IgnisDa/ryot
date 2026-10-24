@@ -20,6 +20,7 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 import { assert } from "vitest";
@@ -689,7 +690,7 @@ layer(
 			const fake = yield* FakeOperationDependencies;
 			expect(yield* invoke({ packageId: PRIVATE_PACKAGE_ID })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					lane: "interactive",
 					scriptId: "install-private-user-1-script",
 					subject: {
@@ -709,7 +710,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 			const fake = yield* FakeOperationDependencies;
 			expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					subject: {
 						type: "user",
 						userId: USER_ONE,
@@ -825,7 +826,7 @@ layer(
 					yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
 				expect(yield* fake.captured).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						subject: {
 							type: "user",
 							userId: USER_ONE,
@@ -960,7 +961,7 @@ layer(
 				yield* invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 			).toBe("ok");
 			expect(yield* fake.captured).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					scriptId: "install-private-user-1-script",
 					subject: {
 						type: "user",

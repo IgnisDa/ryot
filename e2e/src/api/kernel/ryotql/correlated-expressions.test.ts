@@ -29,6 +29,7 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -236,7 +237,7 @@ describe("RyotQL correlated expressions", () => {
 			expect(requireRyotQLValue(advanced, "totalLessons")).toBe(2);
 			expect(requireRyotQLValue(advanced, "completedLessons")).toBe(2);
 			expect(requireRyotQLValue(advanced, "completionRatio")).toBe(1);
-			expect(requireRyotQLValue(advanced, "latestCompletionAt")).toEqual(expect.any(String));
+			expect(requireRyotQLValue(advanced, "latestCompletionAt")).toEqual(anyOf(String));
 			expect(requireRyotQLValue(advanced, "firstModuleName")).toBe("Advanced Course Module 1");
 			expect(requireRyotQLValue(advanced, "lessonCount")).toBe(2);
 			expect(requireRyotQLValue(advanced, "distinctLessonCount")).toBe(2);

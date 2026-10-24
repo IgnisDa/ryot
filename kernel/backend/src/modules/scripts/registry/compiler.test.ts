@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import { SandboxCompiler } from "./compiler";
@@ -112,10 +113,10 @@ layer(SandboxCompiler.layer)((test) => {
 					),
 				).pipe(Effect.flip);
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						file: "script.ts",
 						code: "RYOT_WORKFLOW_DETERMINISM",
-						message: expect.stringContaining(expression.slice(0, -2)),
+						message: stringContaining(expression.slice(0, -2)),
 					}),
 				]);
 			}),
@@ -163,7 +164,7 @@ layer(SandboxCompiler.layer)((test) => {
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual(
-				expect.arrayContaining([expect.objectContaining({ code: "TS2322", severity: "error" })]),
+				arrayContaining([objectContaining({ code: "TS2322", severity: "error" })]),
 			);
 		}),
 	);
@@ -185,10 +186,10 @@ layer(SandboxCompiler.layer)((test) => {
 				const failure = yield* compile(`import "${specifier}";\n${validSource}`).pipe(Effect.flip);
 
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						line: 1,
 						code: "RYOT_IMPORT",
-						message: expect.stringContaining(`Import "${specifier}" is not allowed`),
+						message: stringContaining(`Import "${specifier}" is not allowed`),
 					}),
 				]);
 			}
@@ -204,10 +205,7 @@ layer(SandboxCompiler.layer)((test) => {
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
-					code: "RYOT_IMPORT",
-					message: "Dynamic imports are not allowed",
-				}),
+				objectContaining({ code: "RYOT_IMPORT", message: "Dynamic imports are not allowed" }),
 			]);
 		}),
 	);
@@ -224,7 +222,7 @@ layer(SandboxCompiler.layer)((test) => {
 				const failure = yield* compile(`${validSource}\n${generatedModule}`).pipe(Effect.flip);
 
 				expect(failure.diagnostics).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						code: "RYOT_IMPORT",
 						message: "Generated module loading and workers are not allowed",
 					}),
@@ -242,7 +240,7 @@ layer(SandboxCompiler.layer)((test) => {
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_IMPORT",
 					message: "CommonJS require calls are not allowed",
 				}),
@@ -259,7 +257,7 @@ layer(SandboxCompiler.layer)((test) => {
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					code: "RYOT_MANIFEST",
 					message: "Manifest values must be JSON-safe literals",
 				}),

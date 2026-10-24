@@ -3,6 +3,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { BackupRunId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -56,7 +57,7 @@ describe("backup lifecycle", () => {
 				completed.startedAt,
 				completed.finishedAt,
 			]) {
-				expect(timestamp).toEqual(expect.any(String));
+				expect(timestamp).toEqual(anyOf(String));
 				expect(Number.isNaN(Date.parse(timestamp ?? ""))).toBe(false);
 			}
 
@@ -232,7 +233,7 @@ describe("backup lifecycle", () => {
 			);
 			expect(resolved).toHaveLength(1);
 			expect(resolved[0]?.asset).toEqual(targetLocator);
-			expect(resolved[0]?.expiresAt).toEqual(expect.any(String));
+			expect(resolved[0]?.expiresAt).toEqual(anyOf(String));
 			expect(Number.isNaN(Date.parse(resolved[0]?.expiresAt ?? ""))).toBe(false);
 			const targetDownload = yield* webRequest(
 				new URL(resolved[0]?.downloadUrl ?? "", `${getApiUrl()}/`),

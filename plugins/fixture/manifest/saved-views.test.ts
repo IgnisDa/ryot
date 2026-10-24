@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { fixturePlugin } from "./plugin";
@@ -38,7 +39,7 @@ describe("fixture saved-view presentations", () => {
 			(selection) => "key" in selection && selection.key === "presentationArtwork",
 		);
 		expect(artwork).toMatchObject({
-			expr: expect.objectContaining({ type: "jsonPath", path: ["images", 0] }),
+			expr: objectContaining({ type: "jsonPath", path: ["images", 0] }),
 		});
 	});
 

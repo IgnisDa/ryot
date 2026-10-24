@@ -1,6 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { anyOf, arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Schema } from "effect";
@@ -333,11 +334,11 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						success: true,
 						pendingInline: [],
 						executionId: input.executionId,
-						timing: { totalMs: expect.any(Number), executionMs: expect.any(Number) },
+						timing: { totalMs: anyOf(Number), executionMs: anyOf(Number) },
 						value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
 						recovery: {
 							instance: "user/core",
-							pinHash: expect.any(String),
+							pinHash: anyOf(String),
 							executionId: input.executionId,
 						},
 					});
@@ -350,7 +351,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						success: false,
 						error: {
 							phase: "input",
-							message: expect.stringContaining("Definition input validation failed"),
+							message: stringContaining("Definition input validation failed"),
 						},
 					});
 					expect(control.calls).toHaveLength(1);
@@ -592,7 +593,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				yield* fs.writeFileString(artifactPath, "granted inline artifact");
 				const compiled = yield* compileTestScript(grantedInlineDefinitionSource);
 				expect(compiled.manifest.capabilities).toEqual(
-					expect.arrayContaining(["artifact-read", "getCachedValue"]),
+					arrayContaining(["artifact-read", "getCachedValue"]),
 				);
 				const settled: Array<ReadonlyArray<unknown>> = [];
 				const runGranted = (executionId: string, named: boolean) =>

@@ -11,6 +11,7 @@ import {
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
@@ -196,7 +197,7 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer))
 			yield* installations.provisionSystemInstallationsForUser(userId);
 			const provisioned = yield* savedViews.listForBackup(userId);
 			expect(provisioned).toContainEqual(
-				expect.objectContaining({
+				objectContaining({
 					reference: { kind: "plugin", slug: "catalog", pluginId: installed.pluginId },
 					renderer: { kind: "plugin", exportName: "catalog", pluginId: installed.pluginId },
 				}),

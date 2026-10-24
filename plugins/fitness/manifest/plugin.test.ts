@@ -3,6 +3,7 @@ import {
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -334,15 +335,15 @@ it("declares the complete fitness-owned source", () => {
 					position: 1,
 					type: "string",
 					label: "Timezone",
+					description: anyOf(String),
 					format: { kind: "timezone" },
 					validation: { required: true },
-					description: expect.any(String),
 				},
 				uploadToken: {
 					position: 0,
 					type: "string",
 					label: expected.label,
-					description: expect.any(String),
+					description: anyOf(String),
 					validation: { minLength: 1, required: true },
 					format: { kind: "upload", allowedFileExtensions: ["csv"] },
 				},

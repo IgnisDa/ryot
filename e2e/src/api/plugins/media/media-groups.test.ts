@@ -1,3 +1,4 @@
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -87,7 +88,7 @@ describe("media group entity schemas", () => {
 
 			const fields = movieGroup.propertiesSchema.fields;
 			expect(Object.keys(fields)).toEqual(
-				expect.arrayContaining(["images", "parts", "description", "sourceUrl"]),
+				arrayContaining(["images", "parts", "description", "sourceUrl"]),
 			);
 		}),
 	);

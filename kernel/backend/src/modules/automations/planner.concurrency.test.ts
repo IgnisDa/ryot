@@ -5,6 +5,7 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
@@ -321,7 +322,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				).pipe(Effect.flip, Effect.ensuring(Deferred.succeed(release, undefined)));
 				expect(failure).toMatchObject({
 					_tag: "DbError",
-					message: expect.stringContaining("canceling statement due to statement timeout"),
+					message: stringContaining("canceling statement due to statement timeout"),
 				});
 				yield* Fiber.join(holder);
 			}),

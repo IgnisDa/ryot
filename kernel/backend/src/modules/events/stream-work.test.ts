@@ -26,6 +26,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
 	Context,
@@ -3241,7 +3242,7 @@ layer(streamWorkTestLayer)((test) => {
 					expect(seeded.streamRevision).toBe(7);
 					expect(seeded.accountToken).toBe(accountToken);
 					expect((yield* controls.workflowCalls).slice(beforeCalls)).toContainEqual(
-						expect.objectContaining({ inTransaction: false, executionId: seeded.currentJobId }),
+						objectContaining({ inTransaction: false, executionId: seeded.currentJobId }),
 					);
 					yield* Deferred.succeed(firstRelease, undefined);
 					yield* Deferred.await(secondEntered);

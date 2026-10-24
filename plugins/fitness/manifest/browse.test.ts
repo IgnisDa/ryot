@@ -3,6 +3,7 @@ import {
 	browseIssue,
 } from "@ryot-app/kernel-backend/modules/definitions/browse-validation";
 import { revisionDefinitions } from "@ryot-app/kernel-backend/modules/definitions/source";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { fitnessPlugin } from "./plugin";
@@ -37,7 +38,7 @@ describe("fitness browse declarations", () => {
 		expect(browse("exercise")[1]).toMatchObject({
 			type: "enum",
 			label: "Level",
-			choices: expect.arrayContaining([{ value: "beginner", label: "beginner" }]),
+			choices: arrayContaining([{ value: "beginner", label: "beginner" }]),
 		});
 		expect(browse("exercise")[4]).toMatchObject({
 			kind: "relationship",

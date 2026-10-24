@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 import { assert, describe } from "vitest";
@@ -318,25 +319,22 @@ describe("user lifecycle persistence cleanup", () => {
 							).toEqual([]);
 
 							expect(yield* db.select().from(tables.user)).toEqual([
-								expect.objectContaining({ id: "recipient" }),
+								objectContaining({ id: "recipient" }),
 							]);
 							expect(yield* db.select().from(tables.automationRun)).toEqual([
-								expect.objectContaining({
-									id: "recipient-shared-run",
-									executionUserId: "recipient",
-								}),
+								objectContaining({ id: "recipient-shared-run", executionUserId: "recipient" }),
 							]);
 							expect(yield* db.select().from(tables.automationRunAttempt)).toEqual([
-								expect.objectContaining({ id: "recipient-attempt", runId: "recipient-shared-run" }),
+								objectContaining({ id: "recipient-attempt", runId: "recipient-shared-run" }),
 							]);
 							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([
 								{ userId: "recipient", triggerId: "shared-trigger" },
 							]);
 							expect(yield* db.select().from(tables.automationTrigger)).toEqual([
-								expect.objectContaining({ scopeUserId: null, id: "shared-trigger" }),
+								objectContaining({ scopeUserId: null, id: "shared-trigger" }),
 							]);
 							expect(yield* db.select().from(tables.pluginConfigRevision)).toEqual([
-								expect.objectContaining({ ownerUserId: null, pluginInstallationId: null }),
+								objectContaining({ ownerUserId: null, pluginInstallationId: null }),
 							]);
 							expect(
 								yield* db

@@ -10,6 +10,7 @@ import {
 	workoutTemplateListRecipe,
 } from "@ryot-app/fitness-plugin/query-recipes";
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -256,16 +257,16 @@ describe("Workout Templates E2E", () => {
 					},
 				});
 				expect(savedViewSource.output.fields).toEqual(
-					expect.arrayContaining([
-						expect.objectContaining({
+					arrayContaining([
+						objectContaining({
 							key: "entityId",
 							expr: { field: "id", type: "column", tableAlias: "entity" },
 						}),
-						expect.objectContaining({
+						objectContaining({
 							key: "ownerPluginId",
 							expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 						}),
-						expect.objectContaining({
+						objectContaining({
 							key: "entitySchemaSlug",
 							expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 						}),
@@ -277,15 +278,15 @@ describe("Workout Templates E2E", () => {
 					},
 					where: {
 						type: "and",
-						predicates: expect.arrayContaining([
-							expect.objectContaining({
+						predicates: arrayContaining([
+							objectContaining({
 								type: "and",
-								predicates: expect.arrayContaining([
-									expect.objectContaining({
+								predicates: arrayContaining([
+									objectContaining({
 										right: { type: "literal", value: "workout-template" },
 										left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 									}),
-									expect.objectContaining({
+									objectContaining({
 										right: { type: "pluginId", reference: { pluginId, kind: "local" } },
 										left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 									}),

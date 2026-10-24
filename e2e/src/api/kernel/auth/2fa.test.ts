@@ -1,4 +1,5 @@
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { objectContaining, stringMatching } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -66,9 +67,7 @@ describe("Two-factor sign-in flow", () => {
 				code: backupCode,
 				twoFactorToken: secondSignIn.twoFactorToken,
 			});
-			expect(reuse.error).toEqual(
-				expect.objectContaining({ message: expect.stringMatching(/invalid/i) }),
-			);
+			expect(reuse.error).toEqual(objectContaining({ message: stringMatching(/invalid/i) }));
 		}),
 	);
 

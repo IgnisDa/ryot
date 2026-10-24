@@ -32,6 +32,7 @@ import {
 	PluginBridgeLocation,
 } from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { anyOf, anything, objectContaining } from "@ryot-app/testing/matchers";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
@@ -457,9 +458,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({
+							page: objectContaining({
 								target: {
 									kind: "saved-view",
 									reference: { kind: "custom", savedViewId: "second-view" },
@@ -524,7 +525,7 @@ describe("client page routes", () => {
 				range: { kind: "all-time" },
 			});
 			expect(view.getDocumentLoads()).toBe(1);
-			expect(bridge.messages).not.toContainEqual(expect.objectContaining({ type: "document" }));
+			expect(bridge.messages).not.toContainEqual(objectContaining({ type: "document" }));
 		}),
 	);
 
@@ -558,7 +559,7 @@ describe("client page routes", () => {
 				),
 			);
 			expect(preparations).toBe(1);
-			expect(bridge.messages).not.toContainEqual(expect.objectContaining({ type: "document" }));
+			expect(bridge.messages).not.toContainEqual(objectContaining({ type: "document" }));
 		}),
 	);
 
@@ -1511,7 +1512,7 @@ describe("client page routes", () => {
 			});
 			expect(view.operations).toEqual([
 				{
-					scope: expect.anything(),
+					scope: anything(),
 					contentHash: "source-plugin-1",
 					request: {
 						operationSlug: "log",
@@ -1550,7 +1551,7 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							outcome: "success",
 							requestId: "collection-1",
 							type: "collection-result",
@@ -1582,11 +1583,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({
-								target: expect.objectContaining({ entityId: "entity-1" }),
-							}),
+							page: objectContaining({ target: objectContaining({ entityId: "entity-1" }) }),
 						}),
 					),
 				),
@@ -1604,11 +1603,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({
-								target: expect.objectContaining({ entityId: "entity-2" }),
-							}),
+							page: objectContaining({ target: objectContaining({ entityId: "entity-2" }) }),
 						}),
 					),
 				),
@@ -1673,7 +1670,7 @@ describe("client page routes", () => {
 			expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(bridge.messages).toContainEqual(expect.objectContaining({ type: "document" })),
+					expect(bridge.messages).toContainEqual(objectContaining({ type: "document" })),
 				),
 			);
 
@@ -1686,9 +1683,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({ settings: { defaultLayout: "list" } }),
+							page: objectContaining({ settings: { defaultLayout: "list" } }),
 						}),
 					),
 				),
@@ -1777,11 +1774,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({
-								target: expect.objectContaining({ path: "/details" }),
-							}),
+							page: objectContaining({ target: objectContaining({ path: "/details" }) }),
 						}),
 					),
 				),
@@ -1821,11 +1816,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
-						expect.objectContaining({
+						objectContaining({
 							type: "document",
-							page: expect.objectContaining({
-								target: expect.objectContaining({ path: "/details" }),
-							}),
+							page: objectContaining({ target: objectContaining({ path: "/details" }) }),
 						}),
 					),
 				),
@@ -2044,7 +2037,7 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2/entries")),
 			);
-			expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
+			expect(view.router.state.location.state.ryotEntryKey).toEqual(anyOf(String));
 			expect(view.router.state.location.state.ryotEntryKey).not.toBe(initialNavigation.key);
 
 			view.unmount();

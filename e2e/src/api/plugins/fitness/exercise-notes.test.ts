@@ -1,3 +1,4 @@
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -33,7 +34,7 @@ const expectRejected = (operation: ReturnType<typeof createExerciseNote>, messag
 		assertTaggedError(failure, "PluginInvocationError");
 		expect(failure.reason).toMatchObject({
 			code: "runtime-failed",
-			diagnostics: [{ severity: "error", message: expect.stringContaining(message) }],
+			diagnostics: [{ severity: "error", message: stringContaining(message) }],
 		});
 	});
 

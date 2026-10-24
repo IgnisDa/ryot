@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -21,14 +22,14 @@ const replace = (entityIds: readonly string[], foregroundIds: readonly string[])
 describe("entity-watches socket messages", () => {
 	it("decodes every client message and deduplicates command IDs", () => {
 		expect(decodeEntityWatchClientMessage('{"type":"authenticate","ticket":"ticket"}')).toEqual(
-			expect.objectContaining({ success: { ticket: "ticket", type: "authenticate" } }),
+			objectContaining({ success: { ticket: "ticket", type: "authenticate" } }),
 		);
 		expect(
 			decodeEntityWatchClientMessage(
 				'{"type":"replace","revision":1,"entityIds":["entity-2","entity-1","entity-2"],"foregroundIds":["entity-1","entity-1"]}',
 			),
 		).toEqual(
-			expect.objectContaining({
+			objectContaining({
 				success: {
 					revision: 1,
 					type: "replace",
@@ -38,7 +39,7 @@ describe("entity-watches socket messages", () => {
 			}),
 		);
 		expect(decodeEntityWatchClientMessage('{"type":"pong","nonce":"nonce"}')).toEqual(
-			expect.objectContaining({ success: { type: "pong", nonce: "nonce" } }),
+			objectContaining({ success: { type: "pong", nonce: "nonce" } }),
 		);
 	});
 
@@ -85,9 +86,7 @@ describe("entity-watches socket messages", () => {
 		};
 		const frame = encodeEntityWatchClientMessage(message);
 		expect(new TextEncoder().encode(frame).byteLength).toBe(21513);
-		expect(decodeEntityWatchClientMessage(frame)).toEqual(
-			expect.objectContaining({ success: message }),
-		);
+		expect(decodeEntityWatchClientMessage(frame)).toEqual(objectContaining({ success: message }));
 	});
 
 	it("round-trips client and server text frames", () => {
@@ -104,7 +103,7 @@ describe("entity-watches socket messages", () => {
 		});
 
 		expect(decodeEntityWatchClientMessage(client)).toEqual(
-			expect.objectContaining({
+			objectContaining({
 				success: {
 					revision: 1,
 					type: "replace",
@@ -114,7 +113,7 @@ describe("entity-watches socket messages", () => {
 			}),
 		);
 		expect(decodeEntityWatchServerMessage(server)).toEqual(
-			expect.objectContaining({
+			objectContaining({
 				success: { entityId: "entity-1", reason: "translated", type: "entity-updated" },
 			}),
 		);

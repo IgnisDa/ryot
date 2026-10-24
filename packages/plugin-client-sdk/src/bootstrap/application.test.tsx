@@ -12,6 +12,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -452,7 +453,7 @@ describe("bootstrapClientPlugin", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(messages).toContainEqual(
-						expect.objectContaining({ requestId: "operation-1", type: "operation-request" }),
+						objectContaining({ requestId: "operation-1", type: "operation-request" }),
 					),
 				),
 			);

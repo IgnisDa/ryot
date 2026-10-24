@@ -1,3 +1,4 @@
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -651,23 +652,20 @@ describe("RyotQL builders", () => {
 			throw new Error("Expected conjunction");
 		}
 		expect(query.where.predicates).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ operator: "gt", type: "comparison" }),
-				expect.objectContaining({ type: "contains" }),
-				expect.objectContaining({ type: "not" }),
+			arrayContaining([
+				objectContaining({ operator: "gt", type: "comparison" }),
+				objectContaining({ type: "contains" }),
+				objectContaining({ type: "not" }),
 				{ type: "or", predicates: [] },
 			]),
 		);
 		expect(query.output.fields).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
+			arrayContaining([
+				objectContaining({
 					key: "score",
-					expr: expect.objectContaining({ type: "cast", target: "number" }),
+					expr: objectContaining({ type: "cast", target: "number" }),
 				}),
-				expect.objectContaining({
-					key: "fallback",
-					expr: expect.objectContaining({ type: "coalesce" }),
-				}),
+				objectContaining({ key: "fallback", expr: objectContaining({ type: "coalesce" }) }),
 			]),
 		);
 	});
@@ -694,39 +692,21 @@ describe("RyotQL builders", () => {
 			}),
 		).toMatchObject({
 			output: {
-				fields: expect.arrayContaining([
-					expect.objectContaining({
-						key: "concat",
-						expr: expect.objectContaining({ type: "concat" }),
-					}),
-					expect.objectContaining({
-						key: "conditional",
-						expr: expect.objectContaining({ type: "conditional" }),
-					}),
-					expect.objectContaining({
+				fields: arrayContaining([
+					objectContaining({ key: "concat", expr: objectContaining({ type: "concat" }) }),
+					objectContaining({ key: "conditional", expr: objectContaining({ type: "conditional" }) }),
+					objectContaining({
 						key: "title",
-						expr: expect.objectContaining({ name: "titleCase", type: "transform" }),
+						expr: objectContaining({ name: "titleCase", type: "transform" }),
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "kebab",
-						expr: expect.objectContaining({ name: "kebabCase", type: "transform" }),
+						expr: objectContaining({ name: "kebabCase", type: "transform" }),
 					}),
-					expect.objectContaining({
-						key: "round",
-						expr: expect.objectContaining({ type: "round" }),
-					}),
-					expect.objectContaining({
-						key: "floor",
-						expr: expect.objectContaining({ type: "floor" }),
-					}),
-					expect.objectContaining({
-						key: "integer",
-						expr: expect.objectContaining({ type: "integer" }),
-					}),
-					expect.objectContaining({
-						key: "notNull",
-						expr: expect.objectContaining({ type: "isNotNull" }),
-					}),
+					objectContaining({ key: "round", expr: objectContaining({ type: "round" }) }),
+					objectContaining({ key: "floor", expr: objectContaining({ type: "floor" }) }),
+					objectContaining({ key: "integer", expr: objectContaining({ type: "integer" }) }),
+					objectContaining({ key: "notNull", expr: objectContaining({ type: "isNotNull" }) }),
 				]),
 			},
 		});
@@ -815,21 +795,18 @@ describe("RyotQL builders", () => {
 			query: { where: related.where, from: { table: "event", alias: "event" } },
 		});
 		expect(query.output.fields).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					key: "latest",
-					expr: expect.objectContaining({ type: "first" }),
-				}),
-				expect.objectContaining({
+			arrayContaining([
+				objectContaining({ key: "latest", expr: objectContaining({ type: "first" }) }),
+				objectContaining({
 					key: "distinct",
-					expr: expect.objectContaining({
+					expr: objectContaining({
 						type: "aggregate",
 						aggregation: { function: "countDistinct", expr: column(event, "entityId") },
 					}),
 				}),
-				expect.objectContaining({
+				objectContaining({
 					key: "arithmetic",
-					expr: expect.objectContaining({ operator: "add", type: "arithmetic" }),
+					expr: objectContaining({ operator: "add", type: "arithmetic" }),
 				}),
 			]),
 		);

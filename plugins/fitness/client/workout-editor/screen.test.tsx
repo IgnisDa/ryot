@@ -11,6 +11,7 @@ import {
 	routeLocation,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act } from "react";
 
@@ -394,7 +395,7 @@ describe("WorkoutEditorScreen", () => {
 						expect(page.clientMessages()).toContainEqual({
 							mode: "replace",
 							type: "navigate",
-							target: expect.objectContaining({ path: "/workout-editor" }),
+							target: objectContaining({ path: "/workout-editor" }),
 						});
 					}),
 				);
@@ -1314,7 +1315,7 @@ describe("WorkoutEditorScreen", () => {
 					waitFor(() => {
 						answerPending();
 						expect(page.clientMessages()).toContainEqual(
-							expect.objectContaining({
+							objectContaining({
 								dismissed: true,
 								requestId: "dismiss-defaults",
 								type: "dismiss-overlay-result",
@@ -1332,7 +1333,7 @@ describe("WorkoutEditorScreen", () => {
 					waitFor(() => {
 						answerPending();
 						expect(page.clientMessages()).toContainEqual(
-							expect.objectContaining({
+							objectContaining({
 								dismissed: true,
 								requestId: "dismiss-set",
 								type: "dismiss-overlay-result",

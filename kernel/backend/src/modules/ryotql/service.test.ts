@@ -62,6 +62,7 @@ import {
 import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
@@ -403,11 +404,7 @@ layer(
 					throw new Error("Expected rows cursor");
 				}
 				expect(result.items).toEqual([{ id: "entity-1" }]);
-				expect(result.pageInfo).toEqual({
-					limit: 1,
-					hasMore: true,
-					nextCursor: expect.any(String),
-				});
+				expect(result.pageInfo).toEqual({ limit: 1, hasMore: true, nextCursor: anyOf(String) });
 
 				yield* service.executeForUser("user-1", null, "kernel", {
 					queries: {

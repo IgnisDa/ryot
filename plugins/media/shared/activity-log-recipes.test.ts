@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
@@ -82,10 +83,10 @@ describe("media activity log context recipe", () => {
 		expect(entityNodes).toContainEqual({ type: "literal", value: "show-episode" });
 		expect(entityNodes).toContainEqual({ type: "literal", value: "podcast-episode" });
 		expect(entityNodes).toContainEqual(
-			expect.objectContaining({ type: "column", field: "sessionEntityId" }),
+			objectContaining({ type: "column", field: "sessionEntityId" }),
 		);
 		expect(recentNodes).not.toContainEqual(
-			expect.objectContaining({ type: "column", field: "sessionEntityId" }),
+			objectContaining({ type: "column", field: "sessionEntityId" }),
 		);
 		expect(queries["entityConsumedOn"]?.output).toMatchObject({ limit: 10, type: "aggregate" });
 		expect(queries["recentConsumedOn"]?.output).toMatchObject({ limit: 5, type: "aggregate" });
@@ -156,8 +157,8 @@ describe("show season episode choices recipe", () => {
 		expect(nodes).not.toContainEqual({ type: "currentDate" });
 		expect(recipe.document.queries["episodes"]?.output).toMatchObject({
 			orderBy: [
-				{ direction: "asc", expr: expect.objectContaining({ type: "cast", target: "number" }) },
-				{ direction: "asc", expr: expect.objectContaining({ field: "id" }) },
+				{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
+				{ direction: "asc", expr: objectContaining({ field: "id" }) },
 			],
 		});
 	});
@@ -200,17 +201,17 @@ describe("episodic earlier unwatched recipe", () => {
 	it("limits a show to regular, aired, not-yet-complete episodes before the selected one", () => {
 		const nodes = ryotqlDocumentNodes([showRecipe.document.queries["episodes"]?.where]);
 		expect(nodes).toContainEqual({ type: "literal", value: "complete" });
-		expect(nodes).toContainEqual(expect.objectContaining({ operator: "neq", type: "comparison" }));
+		expect(nodes).toContainEqual(objectContaining({ operator: "neq", type: "comparison" }));
 		expect(nodes).toContainEqual({ type: "currentDate" });
 		expect(nodes).toContainEqual(
-			expect.objectContaining({
+			objectContaining({
 				operator: "gt",
 				type: "comparison",
 				right: { value: 0, type: "literal" },
 			}),
 		);
 		expect(nodes).toContainEqual({ type: "literal", value: "episode-5" });
-		expect(nodes).toContainEqual(expect.objectContaining({ type: "first" }));
+		expect(nodes).toContainEqual(objectContaining({ type: "first" }));
 	});
 
 	it("orders a show across seasons and a podcast by episode number", () => {

@@ -8,6 +8,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Result, Schema, Struct } from "effect";
 
 import {
@@ -299,9 +300,7 @@ describe("Workout records E2E", () => {
 				editedNewerItems[0],
 				"Expected the newer workout set after historical edit",
 			);
-			expect(editedNewerSet.personalBests).toEqual(
-				expect.arrayContaining(["reps", "one_rm", "volume"]),
-			);
+			expect(editedNewerSet.personalBests).toEqual(arrayContaining(["reps", "one_rm", "volume"]));
 			expect(editedNewerSet.personalBests).not.toContain("weight");
 
 			const olderBaseline = yield* loadWorkoutBaseline(client, olderWorkoutId);

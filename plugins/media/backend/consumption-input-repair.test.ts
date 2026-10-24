@@ -4,6 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { objectContaining } from "@ryot-app/testing/matchers";
 
 import type { HistoryCorrection } from "../shared/history-correction";
 import definition, { manifest } from "./consumption-input-repair.sandbox";
@@ -246,7 +247,7 @@ it.effect("resets stale episode evidence without rewriting the source or frozen 
 			"replace:checkpoint",
 		]);
 		expect(test.commands[0]?.events.changes).not.toContainEqual(
-			expect.objectContaining({ itemIdentity: "replace:basis" }),
+			objectContaining({ itemIdentity: "replace:basis" }),
 		);
 		expect(test.queryKeys.map((keys) => keys[0])).toEqual([
 			"mediaLibrary",

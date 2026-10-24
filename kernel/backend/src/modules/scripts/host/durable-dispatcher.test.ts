@@ -5,6 +5,7 @@ import {
 	SANDBOX_HOST_EXECUTION_POLICY,
 	sandboxDurableHostDispatchStrategy,
 } from "@ryot-app/sandbox/host/host-execution-policy";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -65,16 +66,16 @@ it("classifies every bridge host capability exactly once", () => {
 		ensureUserEntities: { dispatch: "service-workflow" },
 		sendNotification: { dispatch: "notification-workflow" },
 		requestEventStreamWork: { dispatch: "service-workflow" },
-		updateUserSettings: { dispatch: "activity", resultBytes: expect.any(Number) },
+		updateUserSettings: { dispatch: "activity", resultBytes: anyOf(Number) },
 	});
 	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toMatchObject({
 		dispatch: "activity",
-		resultBytes: expect.any(Number),
+		resultBytes: anyOf(Number),
 	});
 	expect(SANDBOX_HOST_EXECUTION_POLICY.verifyManagedAssets).toMatchObject({
 		dispatch: "activity",
-		wireBytes: expect.any(Number),
-		resultBytes: expect.any(Number),
+		wireBytes: anyOf(Number),
+		resultBytes: anyOf(Number),
 	});
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
 });

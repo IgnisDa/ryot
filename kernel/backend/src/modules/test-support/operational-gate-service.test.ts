@@ -10,6 +10,7 @@ import {
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -209,7 +210,7 @@ layer(workflowLoadLayer())((test) => {
 								entitySchemaSlug: gateInput.entitySchemaSlug,
 								externalId: `${gateInput.identifierPrefix}-0`,
 								command: {
-									occurredAt: expect.any(String),
+									occurredAt: anyOf(String),
 									itemIdentity: '["workflow-load",0]',
 									accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 									causation: {
@@ -316,13 +317,13 @@ layer(workflowLoadLayer())((test) => {
 				"execution-1",
 			]);
 			expect(yield* fake.updates).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					completed: 2,
 					exactTotal: 2,
 					state: "completed",
 					unit: "workflow executions",
 				}),
-				expect.objectContaining({ status: "completed", scope: expect.objectContaining({ runId }) }),
+				objectContaining({ status: "completed", scope: objectContaining({ runId }) }),
 			]);
 		}),
 	);

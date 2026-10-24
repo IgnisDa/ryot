@@ -13,6 +13,7 @@ import {
 	pluginId,
 	table,
 } from "@ryot-app/ryotql";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -117,7 +118,7 @@ describe("calendar recipes", () => {
 			type: "and",
 			predicates: [
 				source.query.where,
-				expect.objectContaining({ type: "or" }),
+				objectContaining({ type: "or" }),
 				gte(start, castDate(literal("2026-03-01T00:00:00.000Z"))),
 				lt(start, castDate(literal("2026-04-01T00:00:00.000Z"))),
 			],

@@ -6,6 +6,7 @@ import {
 	exerciseTargetsRecipe,
 	targetListRecipe,
 } from "@ryot-app/fitness-plugin/taxonomy-recipes";
+import { arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -268,7 +269,7 @@ describe("Fitness taxonomy E2E", () => {
 			);
 			expect(listedExercise.equipment).toHaveLength(2);
 			expect(listedExercise.equipment.map(({ id }) => id)).toEqual(
-				expect.arrayContaining([anchoredBands.id, workoutMat.id]),
+				arrayContaining([anchoredBands.id, workoutMat.id]),
 			);
 			const omittedRoleTarget = requirePresent(
 				graphBeforeRejections[0].items.find(({ name }) => name === "Plantar fascia"),
@@ -414,7 +415,7 @@ describe("Fitness taxonomy E2E", () => {
 				instructions: ["Press the bar with control."],
 			});
 			expect(populated.properties.images).toEqual([
-				{ type: "remote", url: expect.stringContaining("e2e-taxonomy.jpg") },
+				{ type: "remote", url: stringContaining("e2e-taxonomy.jpg") },
 			]);
 
 			const ownerTargets = yield* executeRyotQLRecipe(
@@ -494,7 +495,7 @@ describe("Fitness taxonomy E2E", () => {
 				}),
 			);
 			expect(otherUserTargets.items.map(({ name }) => name)).toEqual(
-				expect.arrayContaining(["Chest", "Triceps"]),
+				arrayContaining(["Chest", "Triceps"]),
 			);
 			expect(otherUserTargets.items.map(({ name }) => name)).not.toContain(privateTargetName);
 			expect(otherUserEquipment.items.map(({ name }) => name)).toContain("Barbell");

@@ -8,6 +8,7 @@ import type {
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
@@ -274,11 +275,7 @@ layer(
 			expect(storedRun.preparedRelease).toMatchObject({
 				plan: releasePlan,
 				requiresProKey: true,
-				state: {
-					keyId: expect.any(String),
-					nonce: expect.any(String),
-					ciphertext: expect.any(String),
-				},
+				state: { keyId: anyOf(String), nonce: anyOf(String), ciphertext: anyOf(String) },
 			});
 			expect(stableStringify(storedRun.preparedRelease)).not.toContain(marker);
 			expect(stableStringify(storedRun.preparedRelease)).not.toContain("Pacific/Auckland");

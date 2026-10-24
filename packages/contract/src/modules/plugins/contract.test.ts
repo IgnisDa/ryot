@@ -1,3 +1,4 @@
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -31,7 +32,7 @@ describe("PluginsGroup", () => {
 		const encoded = encodePluginCatalogInvalidatedMessage({ userId: UserId.make("user-1") });
 		expect(encoded).toBe('{"userId":"user-1"}');
 		expect(decodePluginCatalogInvalidatedMessage(encoded)).toEqual(
-			expect.objectContaining({ success: { userId: "user-1" } }),
+			objectContaining({ success: { userId: "user-1" } }),
 		);
 	});
 

@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { anyOf } from "@ryot-app/testing/matchers";
 import {
 	fireEvent,
 	getByLabelText,
@@ -88,7 +89,7 @@ it.live(
 						label: "Review",
 						packageId: "ryot/media",
 						slug: "media-review-create",
-						idempotencyKey: expect.any(String),
+						idempotencyKey: anyOf(String),
 						input: { rating: 82.5, isSpoiler: true, entityId: "media-1", text: "Great ending" },
 					},
 				]);
@@ -141,7 +142,7 @@ it.live("saves with Enter in the rating field without submitting a native form",
 					label: "Review",
 					packageId: "ryot/media",
 					slug: "media-review-create",
-					idempotencyKey: expect.any(String),
+					idempotencyKey: anyOf(String),
 					input: { rating: 80, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 				},
 			]);
@@ -219,7 +220,7 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 						label: "Review",
 						packageId: "ryot/media",
 						slug: "media-review-create",
-						idempotencyKey: expect.any(String),
+						idempotencyKey: anyOf(String),
 						input: { rating: 0, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 					},
 				]);
@@ -299,7 +300,7 @@ it.live("keeps the draft and allows another try when the shell refuses the revie
 					label: "Review",
 					packageId: "ryot/media",
 					slug: "media-review-create",
-					idempotencyKey: expect.any(String),
+					idempotencyKey: anyOf(String),
 					input: { rating: null, text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
 				})),
 			);

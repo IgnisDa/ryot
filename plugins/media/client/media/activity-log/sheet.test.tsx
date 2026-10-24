@@ -3,6 +3,7 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
 import {
 	fireEvent,
 	getByLabelText,
@@ -203,9 +204,9 @@ const press = (scope: HTMLElement, name: string) =>
 const submitted = (mounted: ReturnType<typeof mountLog>, count = 1) =>
 	eventually(() => expect(mounted.requests).toHaveLength(count));
 
-const operation = (entry: unknown, submissionId: unknown = expect.any(String)) => ({
+const operation = (entry: unknown, submissionId: unknown = anyOf(String)) => ({
+	label: anyOf(String),
 	packageId: "ryot/media",
-	label: expect.any(String),
 	slug: "media-activity-log",
 	idempotencyKey: submissionId,
 	input: { entry, submissionId, submittedAt: SUBMITTED_AT },
@@ -622,7 +623,7 @@ it.live("edits zero-page progress dates and sources without rewriting stored pag
 						sessionEntityId: null,
 						properties: mounted.properties,
 						occurredAt: mounted.record.occurredAt,
-						absentProperties: expect.arrayContaining(["progressPercent"]),
+						absentProperties: arrayContaining(["progressPercent"]),
 					},
 				},
 			});

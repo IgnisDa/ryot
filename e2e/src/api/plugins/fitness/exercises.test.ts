@@ -3,6 +3,7 @@ import {
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
+import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -54,7 +55,7 @@ describe("Exercises E2E", () => {
 				exerciseSchema.providers.find(
 					({ providerSlug }) => providerSlug === "exercise.free-exercise-db",
 				),
-			).toMatchObject({ name: "Free Exercise DB", providerId: expect.any(String) });
+			).toMatchObject({ name: "Free Exercise DB", providerId: anyOf(String) });
 			expect(exerciseSchema.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
 				label: "Images",
@@ -112,16 +113,16 @@ describe("Exercises E2E", () => {
 				},
 			});
 			expect(savedViewSource.output.fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						key: "entityId",
 						expr: { field: "id", type: "column", tableAlias: "entity" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "ownerPluginId",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "entitySchemaSlug",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
@@ -129,29 +130,27 @@ describe("Exercises E2E", () => {
 			);
 			expect(savedViewSource.where).toMatchObject({
 				type: "and",
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
+				predicates: arrayContaining([
+					objectContaining({
 						type: "and",
-						predicates: expect.arrayContaining([
-							expect.objectContaining({
+						predicates: arrayContaining([
+							objectContaining({
 								right: { type: "literal", value: "exercise" },
 								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 							}),
-							expect.objectContaining({
+							objectContaining({
 								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
 								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 							}),
 						]),
 					}),
-					expect.objectContaining({
+					objectContaining({
 						type: "exists",
-						query: expect.objectContaining({
-							where: expect.objectContaining({
-								predicates: expect.arrayContaining([
-									expect.objectContaining({
-										right: { type: "literal", value: "in-fitness-library" },
-									}),
-									expect.objectContaining({ right: { type: "literal", value: "fitness-library" } }),
+						query: objectContaining({
+							where: objectContaining({
+								predicates: arrayContaining([
+									objectContaining({ right: { type: "literal", value: "in-fitness-library" } }),
+									objectContaining({ right: { type: "literal", value: "fitness-library" } }),
 								]),
 							}),
 						}),

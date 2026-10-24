@@ -15,6 +15,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { column, field, rows, table } from "@ryot-app/ryotql";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
@@ -840,7 +841,7 @@ describe("EntityEditorService", () => {
 				},
 			});
 			expect(yield* submitEdit(failing, "atomic-update", update).pipe(Effect.flip)).toMatchObject({
-				message: expect.stringContaining("injected"),
+				message: stringContaining("injected"),
 			});
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);

@@ -1,3 +1,4 @@
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
@@ -112,7 +113,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 			expect(events.map((event) => event.properties)).toEqual(
-				expect.arrayContaining([{ dateUnknown: true }, {}]),
+				arrayContaining([{ dateUnknown: true }, {}]),
 			);
 		}),
 	);
@@ -211,7 +212,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
 			expect(events.map((event) => event.properties)).toEqual(
-				expect.arrayContaining([{ rating: 5, text: "Even better" }, { rating: 4 }]),
+				arrayContaining([{ rating: 5, text: "Even better" }, { rating: 4 }]),
 			);
 		}),
 	);

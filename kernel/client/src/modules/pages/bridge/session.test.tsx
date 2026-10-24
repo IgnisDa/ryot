@@ -41,6 +41,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { waitFor } from "@testing-library/dom";
 import { Deferred, Effect, Fiber, Schema } from "effect";
 
@@ -1834,7 +1835,7 @@ describe("plugin bridge", () => {
 				),
 			);
 
-			expect(received).not.toContainEqual(expect.objectContaining({ requestId: "asset-0" }));
+			expect(received).not.toContainEqual(objectContaining({ requestId: "asset-0" }));
 			expect(failures).toEqual([]);
 		}),
 	);
@@ -3224,7 +3225,7 @@ describe("plugin bridge", () => {
 				),
 			);
 
-			expect(received).not.toContainEqual(expect.objectContaining({ requestId: "query-0" }));
+			expect(received).not.toContainEqual(objectContaining({ requestId: "query-0" }));
 			expect(failures).toEqual([]);
 		}),
 	);

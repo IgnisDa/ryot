@@ -2,6 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { stringMatching } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
@@ -296,7 +297,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						sleeperAwake = anchors.length >= 2;
 						expect(
 							yield* service.claim(declaration, pending[0] ?? ticket("none", "x"), "stale"),
-						).toMatchObject({ status: expect.stringMatching(/^(rejected|unknown)$/) });
+						).toMatchObject({ status: stringMatching(/^(rejected|unknown)$/) });
 					}
 
 					const gaps = anchors.slice(1).map((anchor, index) => anchor - (anchors[index] ?? 0));

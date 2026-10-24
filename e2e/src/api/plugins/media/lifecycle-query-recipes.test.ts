@@ -17,6 +17,7 @@ import {
 } from "@ryot-app/media-plugin/shared/podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -1308,11 +1309,11 @@ describe("Media lifecycle list recipes", () => {
 				}),
 			);
 			expect(shows.items).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					id: show.id,
 					state: "in_progress",
 					latestActivityAt: "2026-06-03T01:00:00.000Z",
-					nextUp: expect.objectContaining({ id: second.id, seasonNumber: 1 }),
+					nextUp: objectContaining({ id: second.id, seasonNumber: 1 }),
 				}),
 			]);
 
@@ -1326,10 +1327,10 @@ describe("Media lifecycle list recipes", () => {
 				}),
 			);
 			expect(podcasts.items).toEqual([
-				expect.objectContaining({
+				objectContaining({
 					id: podcast.id,
 					latestActivityAt: "2026-06-03T02:00:00.000Z",
-					nextUp: expect.objectContaining({ id: newest.id, seasonNumber: null }),
+					nextUp: objectContaining({ id: newest.id, seasonNumber: null }),
 				}),
 			]);
 

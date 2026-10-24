@@ -1,5 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -394,7 +395,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* installedPlugins.waitFor({ state: "visible" });
 		expect(
 			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
-		).toEqual(expect.arrayContaining(["ryot/fitness", "ryot/media", installed.packageId]));
+		).toEqual(arrayContaining(["ryot/fitness", "ryot/media", installed.packageId]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();

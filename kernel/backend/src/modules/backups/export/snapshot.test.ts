@@ -25,6 +25,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Schema } from "effect";
 
@@ -752,7 +753,7 @@ layer(privateRecordsExportLayer())((test) => {
 					privateKey,
 				]);
 				expect(prepared.records.privatePlugins).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						key: privateKey,
 						compiledScripts: [],
 						contentHash: privateSourceHash,
@@ -762,7 +763,7 @@ layer(privateRecordsExportLayer())((test) => {
 				]);
 				expect(prepared.records.privatePlugins[0]).not.toHaveProperty("files");
 				expect(prepared.records.savedViews).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						sortOrder: 4,
 						isHidden: true,
 						slug: "retained-view",
@@ -774,7 +775,7 @@ layer(privateRecordsExportLayer())((test) => {
 					{ isHidden: true, pluginKey: privateKey, slug: "retained-dates" },
 				]);
 				expect(prepared.records.entities).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						id: "private-entity",
 						entitySchemaPluginKey: privateKey,
 						properties: { title: "Private title", relatedEntityId: "private-entity" },
@@ -819,7 +820,7 @@ layer(privateRecordsExportLayer())((test) => {
 					},
 				]);
 				expect(prepared.records.integrations).toEqual([
-					expect.objectContaining({
+					objectContaining({
 						packageKey: privateKey,
 						configuredSecretPaths: ["/credentials/token"],
 						providerSpecifics: { credentials: {}, endpoint: "local" },

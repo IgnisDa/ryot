@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
+import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -114,7 +115,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				baseExperience: 112,
 				abilities: ["Static", "Lightning Rod"],
 				sourceUrl: "https://pokeapi.co/api/v2/pokemon/pikachu",
-				images: [{ type: "remote", url: expect.stringContaining("official-artwork/25.png") }],
+				images: [{ type: "remote", url: stringContaining("official-artwork/25.png") }],
 			});
 
 			const views = yield* listSavedViews(client, { pluginId });
@@ -143,16 +144,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				},
 			});
 			expect(source.output.fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						key: "entityId",
 						expr: { field: "id", type: "column", tableAlias: "entity" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "ownerPluginId",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "entitySchemaSlug",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
@@ -160,8 +161,8 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			);
 			expect(source.where).toMatchObject({
 				type: "and",
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
+				predicates: arrayContaining([
+					objectContaining({
 						right: { type: "literal", value: schema.id },
 						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
@@ -178,7 +179,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				{ displayKind: "number", field: "baseExperience", label: "Base Experience" },
 			]);
 			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["entityId", "name", "image", "ownerPluginId", "entitySchemaSlug"]),
+				arrayContaining(["entityId", "name", "image", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),
 	);
@@ -310,16 +311,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				},
 			});
 			expect(source.output.fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+				arrayContaining([
+					objectContaining({
 						key: "entityId",
 						expr: { field: "id", type: "column", tableAlias: "entity" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "ownerPluginId",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
-					expect.objectContaining({
+					objectContaining({
 						key: "entitySchemaSlug",
 						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
@@ -327,8 +328,8 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			);
 			expect(source.where).toMatchObject({
 				type: "and",
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
+				predicates: arrayContaining([
+					objectContaining({
 						right: { type: "literal", value: schema.id },
 						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
@@ -345,7 +346,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				{ field: "generation", label: "Generation", displayKind: "text" },
 			]);
 			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["entityId", "name", "ownerPluginId", "entitySchemaSlug"]),
+				arrayContaining(["entityId", "name", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),
 	);
