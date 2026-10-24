@@ -118,8 +118,8 @@ that cleanup must respect.
 | --- | --- | --- | --- | --- |
 | 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
 | 12 | Done | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Use fixed UTC instants with selectable IANA zones, five-minute default scans and bounded overdue catch-up. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Restore and convert unfinished historical work as inactive Needs scheduling records. |
-| 13 | Done | **Add release-day notifications** | 4; existing monitoring/subscriptions | Calendar sources declare delivery; a kernel worker notifies monitored releases once per occurrence and recipient on the recipient's reporting-timezone day with two-day catch-up and provider freshness deferral. Display and refresh stay separate from delivery. See the Order 13 acceptance record below. |
-| 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
+| 13 | Done | **Add release-day notifications** | 4; existing monitoring/subscriptions | Media signal schedules (row 14) declare release delivery; a kernel worker notifies monitored releases once per occurrence and recipient on the recipient's reporting-timezone day with two-day catch-up and provider freshness deferral. Display and refresh stay separate from delivery. See the Order 13 acceptance record below. |
+| 14 | Done | **Add stale-progress and newly-available-episode alerts** | 1 and 13 | Plugin signal schedules replace Calendar source delivery as the one date-driven notification mechanism. Pro-gated in-progress/on-hold nudges fire once per stale period at 7/14 days; unmonitored caught-up shows and podcasts get “more episodes available” instead of a Completed→Watchlist move. Monitoring is never enabled implicitly. See the Order 14 acceptance record below. |
 
 Reminders are independent of the upcoming feed and can proceed in parallel with row 11. Row 13
 settled its own timezone, missing-date and freshness rules, so it no longer waits for row 11.
@@ -573,6 +573,47 @@ Validation on **2026-10-28**:
 - One additive migration adds `check_after` and two partial indexes. No compatibility path, version
   change or type-checker bypass was added. This item is **Done**.
 
+### Phase 3 Order 14 acceptance — Signal schedules, stale progress and available episodes
+
+Accepted behavior: plugins declare **signal schedules**, the single mechanism for date-driven
+notifications; Calendar sources are display-only again. A schedule is a RyotQL row query over an
+entity subject with a due date, occurrence key, signal properties, optional `delayDays`, provider
+freshness and `requiresProKey`. The frequent `signal-schedules` worker runs each subscribed user's
+effective schedules on their reporting-timezone day with two catch-up days, skips Pro-gated schedules
+without a validated server key, and records each `(user, plugin, schedule, occurrence)` in
+`signal_schedule_delivery` with the signal plan. See `kernel/backend/src/modules/signal-schedules/README.md`.
+
+Media declares eight schedules: the four Order 13 release schedules (unchanged behavior), stale
+**in progress** after 7 days and **on hold** after 14 days without lifecycle activity, and **episodes
+available** for show and podcast series. Stale nudges read the stored library summary's lifecycle
+state and latest activity, key the occurrence by that activity (one nudge per stale period; new
+activity starts another), require Pro, and are on by default like other subscriptions. Items that went
+stale before the catch-up window are not nudged. "New episodes of X are available" goes to unmonitored
+caught-up series when the stored next airing arrives; monitored series already get `media.released`.
+It only sees episodes Ryot already knows, because unmonitored data is not refreshed. Anime has no
+caught-up state and is not covered. Monitoring is never enabled implicitly.
+
+Owners: contract `PluginSignalSchedule` and shared `ryotql/row-source` query helpers; kernel
+`definitions/signal-schedules` materialization and row-source validation, `signal-schedules`
+worker/repository and test-support scan; `@ryot-app/ryotql-recipes/signal-schedules`; Media
+`manifest/signal-schedules.ts`, `media.progress-stale` and `media.episodes-available` signals and
+formatter. Generated migration: `kernel/backend/src/drizzle/20261029122906_signal_schedules/`.
+
+Validation on **2026-10-29**:
+
+- Affected package checks passed before tests; contract, recipes, kernel and Media tests passed (46
+  Turbo tasks), including manifest schedule rules, materialization/field-kind validation, delayed
+  bounds, the schedule recipe, Media schedule declarations, formatter cases and projected properties.
+- E2E: `api/plugins/media/scheduled-notifications.test.ts` passed (3): the Order 13 release case, no
+  stale nudge without a Pro key, and with Pro exactly one 7-day in-progress and one 14-day on-hold
+  nudge, with 4-, 8- and 30-day items silent and a repeat scan sending nothing. Media (4) and Fitness
+  (1) `calendar-sources.test.ts` also passed. "Episodes available" has no e2e: a stored next airing only
+  becomes due on a later day.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,964 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**. Earlier full runs found the
+  stale Media input-projection inventory expectation (fixed) and Fitness DOM `waitFor` timeouts under
+  load that passed on rerun.
+
 ### Phase 3 Order 13 acceptance — Release-day notifications
 
 Accepted behavior: monitored show episodes, podcast episodes, anime airings and flat media releases
@@ -583,16 +624,12 @@ are skipped. Monitoring applies only to provider-backed media, so the root must 
 provider check within 72 hours; otherwise delivery waits for the monitoring sweep. Unmonitored
 library items, disabled subscriptions and missing dates send nothing.
 
-Calendar sources are the single declaration of dated items. A source's optional `delivery` names an
-actor-audience signal, occurrence, eligibility and property fields, and optional freshness. The kernel
-`calendar-deliveries` frequent worker queries each subscribed user's sources, plans the signal with a
-deterministic execution ID and records the occurrence in `calendar_delivery` in the same transaction.
-A recorded occurrence is not sent again when its date moves. Delivery uses the shared notification
-admission, recovery and outcome path. See `kernel/backend/src/modules/calendar-sources/README.md`.
+Order 14 moved the declarations from a Calendar source `delivery` block to Media signal schedules
+that reuse the same queries; the behavior above is unchanged. A recorded occurrence is not sent again
+when its date moves. Delivery uses the shared notification admission, recovery and outcome path.
 
-Owners: contract `CalendarSourceDelivery`; kernel definitions, `calendar-sources` worker/repository
-and test-support scan; `@ryot-app/ryotql-recipes/calendar` delivery recipe; Media calendar sources,
-`media.released` signal and formatter. Generated migration:
+Owners: Media signal schedules, `media.released` signal and formatter, and the kernel signal schedule
+worker (see Order 14). The original migration is
 `kernel/backend/src/drizzle/20261029110548_calendar_deliveries/`.
 
 Validation on **2026-10-29**:
@@ -600,7 +637,7 @@ Validation on **2026-10-29**:
 - Affected package checks passed before tests. Affected package tests passed (46 Turbo tasks), including
   new delivery bounds, recipe, definition-validation, Media source and formatter cases. A first run hit
   load timeouts in the unchanged backend compiler suite; it passed alone and in the rerun.
-- E2E: `api/plugins/media/release-notifications.test.ts` passed. A stale monitored release is held, the
+- E2E: the release case now in `api/plugins/media/scheduled-notifications.test.ts` passed. A stale monitored release is held, the
   monitoring sweep refresh releases it once, a repeat scan sends nothing and an unmonitored library
   release is silent. `api/plugins/media/calendar-sources.test.ts` (4) and
   `api/plugins/media/media-monitoring/media-entity-update-signals.test.ts` (2) also passed.
@@ -689,7 +726,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
 | Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, server-owned reordering with revision-fenced pagination and shared haptics, plus member-type filters and sorts declared by plugin schemas and a date-added filter. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
-| Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job. |
+| Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job; unmonitored caught-up series get a “more episodes available” notification. |
 | Custom metadata/person/group | Covered | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, groups, show seasons/episodes and podcast episodes. Atomic saves compare loaded entity/relationship baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Children are deleted only without history. Duplicate actions are deferred. |
 | Genres | Covered; reshaped | `genre` entities, local `genre.media-catalog` identities and typed `<schema>-to-genre` links; provider population, migration, any/all/none filters, pickers and private custom genres. No standalone V1 genre-list/detail page is shipped. |
 | Creator and group associations | Covered | Typed ordered relationships, creator credit rails and paged credit modals, group member screens; character names retained on person credits. Custom media and credit-bearing groups edit incoming credits; groups edit their members. |
@@ -874,12 +911,12 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `AddEntitiesToCollection`, `RemoveEntitiesFromCollection` | Membership commands/workflows plus import/host batches; covered without preserving the V1 job API. |
 | `HandleEntityAddedToCollectionEvent` | Membership events and typed fields exist. V1's automatic learning of string/string-array `possible_values` is absent; choices are explicitly configured. |
 | `BulkMetadataProgressUpdate`, `HandleOnSeenComplete` | Media activity batches, source writers and required completion hooks; reshaped. No V1 default-collection side effects. |
-| `HandleMetadataEligibleForSmartCollectionMoving` | Live episodic coverage replaces the state correction. No Completed→Watchlist collection move or corresponding notification. |
+| `HandleMetadataEligibleForSmartCollectionMoving` | Live episodic coverage replaces the state correction. No Completed→Watchlist collection move; `media.episodes-available` replaces its notification for unmonitored caught-up series (Order 14). |
 | Refresh monitored metadata and people | Media monitoring sweep, provider refresh and semantic detectors; covered. |
 | Reminder notification + removal | Covered/reshaped: independent entity reminders use the frequent scheduler, durable delivery outcomes and explicit cancellation/history removal. Ordinary collection membership is unchanged. |
 | `recalculate_calendar_events` | Replaced by query-time Calendar sources over populated entities and airing arrays; no missing materializer. |
-| Notify users for released media | Covered/reshaped: the frequent `calendar-deliveries` worker reads Calendar source delivery declarations; no calendar table (Order 13). |
-| Outdated seen-entry notifications | Missing 7-day in-progress / 14-day on-hold nudge producer; V1 gated this on Pro. |
+| Notify users for released media | Covered/reshaped: the frequent `signal-schedules` worker runs Media release schedules; no calendar table (Orders 13–14). |
+| Outdated seen-entry notifications | Covered/reshaped: Pro-gated 7-day in-progress / 14-day on-hold signal schedules nudge once per stale period instead of daily (Order 14). |
 | `regenerate_user_summaries`, `RecalculateUserActivitiesAndSummary` | On-demand domain recipes and projections cover part of the result; no full V1 daily activity/summary reconstruction. |
 | Integration sync to Owned collection | Ownership sync annotates Media library links during integration application; covered/reshaped. |
 | `remove_useless_data` | Reshaped: the frequent `entity-graph-collection` cron deletes unused provider entities, children and genres by declared composition/reference retention, and receipt and background-work retention prune replay records. Legacy cache/access-link rows no longer exist. |
@@ -918,9 +955,9 @@ an exact kernel/plugin signal identity, not V1 platform-specific event filters.
 | Episode images / episode name / release-date changes | Media detector signals exist; show-date and publish-year paths are explicit. Season-zero special episodes are excluded from these episode-change detectors. |
 | Review posted | Reshaped: author-only `review.created`, no public/cross-user model. |
 | Reminder | Covered by kernel `reminder.due`, shared subscriptions and durable per-channel delivery. Uncertain sends are not automatically repeated. |
-| Metadata published today | Covered by Media `media.released` from Calendar source delivery: monitored shows, podcasts, anime airings and flat releases, excluding season-zero specials. |
-| Stale in-progress/on-hold | Missing. |
-| Completed show moved back to Watchlist | Missing literal move/alert; lifecycle correction is derived. |
+| Metadata published today | Covered by Media `media.released` signal schedules: monitored shows, podcasts, anime airings and flat releases, excluding season-zero specials. |
+| Stale in-progress/on-hold | Covered by Pro-gated Media `media.progress-stale`, once per stale period. |
+| Completed show moved back to Watchlist | Reshaped: no collection move; unmonitored caught-up shows and podcasts get `media.episodes-available` when their next known episode airs. |
 
 Evidence: `crates/models/enum/src/notification_enums.rs`;
 `plugins/{media,fitness}/manifest/schemas/signal.ts`;
@@ -939,9 +976,7 @@ resolved export, genre, Calendar, editor or projection work.
 ### Notification producers
 
 1. Release-day alerts to monitoring users are implemented (Order 13).
-2. In-progress/on-hold nudges (V1: 7/14 days, Pro-only).
-3. Decide whether a derived “more episodes to watch” alert replaces the literal
-   Completed→Watchlist notification. No current producer does so.
+2. In-progress/on-hold nudges and “more episodes available” alerts are implemented (Order 14).
 
 ### Retention and metadata freshness
 
