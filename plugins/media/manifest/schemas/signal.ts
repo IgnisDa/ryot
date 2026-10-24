@@ -231,6 +231,29 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		},
 		{
 			catalogState: "active",
+			slug: "media.released",
+			name: "Media Released",
+			audiencePolicy: { kind: "actor" },
+			notificationHookSlug: "media.notification",
+			propertiesSchema: {
+				unknownKeys: "strict",
+				fields: {
+					entityName: requiredString("Entity name", "Released media name"),
+					seasonNumber: {
+						type: "integer",
+						label: "Season number",
+						description: "Optional season number",
+					},
+					episodeNumber: {
+						type: "integer",
+						label: "Episode number",
+						description: "Optional episode number",
+					},
+				},
+			},
+		},
+		{
+			catalogState: "active",
 			slug: "media.episode.discovered",
 			name: "Media Episode Discovered",
 			notificationHookSlug: "media.notification",

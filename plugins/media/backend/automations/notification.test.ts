@@ -69,6 +69,17 @@ it.each([
 		{ episodeNumber: 3, entityName: "Podcast" },
 		"Episode image changed for EP3 in Podcast",
 	],
+	["media.released", { entityName: "Dune" }, "Dune has been released today"],
+	[
+		"media.released",
+		{ seasonNumber: 2, episodeNumber: 5, entityName: "Severance" },
+		"S2E5 of Severance has been released today",
+	],
+	[
+		"media.released",
+		{ episodeNumber: 12, entityName: "Frieren" },
+		"EP12 of Frieren has been released today",
+	],
 ] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
 	return Effect.runPromise(

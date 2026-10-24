@@ -132,6 +132,17 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
 		return `Episode image changed for ${episode} in ${stringProperty(signal.properties, "entityName")}`;
 	}
+	if (signal.signalSchemaSlug === "media.released") {
+		const episodeNumber = optionalNumberProperty(signal.properties, "episodeNumber");
+		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
+		const entityName = stringProperty(signal.properties, "entityName");
+		if (episodeNumber === null) {
+			return `${entityName} has been released today`;
+		}
+		const episode =
+			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
+		return `${episode} of ${entityName} has been released today`;
+	}
 	throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
 };
 

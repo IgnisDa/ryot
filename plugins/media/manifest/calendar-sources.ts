@@ -1,10 +1,15 @@
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type {
+	Predicate,
+	ScalarExpression,
+	TableReference,
+} from "@ryot-app/contract/modules/ryotql/language";
+import { EntitySchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	castDate,
 	castNumber,
+	castText,
 	coalesce,
 	column,
 	concat,
@@ -12,6 +17,7 @@ import {
 	entitySchemaPredicate,
 	eq,
 	field,
+	gt,
 	gte,
 	inArray,
 	isNull,
@@ -40,6 +46,39 @@ import { flatMediaSchemaSlugs } from "../shared/media-schema-slugs";
 import { mediaEntitySchemas } from "./schemas/entity";
 
 const self = { kind: "self" } as const;
+
+const RELEASE_SIGNAL = SignalSchemaSlug.make("media.released");
+
+const PROVIDER_FRESHNESS_HOURS = 72;
+
+const deliveryFields = (
+	root: TableReference,
+	occurrence: ScalarExpression,
+	extra: readonly Predicate[] = [],
+) => [
+	field("deliveryOccurrence", occurrence),
+	field("deliveryEntityName", column(root, "name")),
+	field(
+		"deliveryEligible",
+		asTrue(and(libraryLinkExists(root, `${root.alias}Monitoring`, "media-monitoring"), ...extra)),
+	),
+	field(
+		"deliveryConfirmedAt",
+		conditional(
+			isNull(column(root, "providerId")),
+			literal(null),
+			coalesce(column(root, "providerCheckedAt"), castDate(literal("1970-01-01T00:00:00.000Z"))),
+		),
+	),
+];
+
+const releaseDelivery = (properties: Readonly<Record<string, string>> = {}) => ({
+	signal: RELEASE_SIGNAL,
+	eligible: "deliveryEligible",
+	occurrence: "deliveryOccurrence",
+	properties: { entityName: "deliveryEntityName", ...properties },
+	freshness: { confirmedAt: "deliveryConfirmedAt", maxAgeHours: PROVIDER_FRESHNESS_HOURS },
+});
 
 const asTrue = (predicate: Parameters<typeof conditional>[0]) =>
 	conditional(predicate, literal(true), literal(false));
@@ -71,6 +110,8 @@ const episodeSource = (
 	return {
 		parent,
 		episode,
+		seasonNumber,
+		episodeNumber,
 		state: episodeDisplayStateExpression(episode, parent, "calendarEpisodeState"),
 		caption: seasonNumber
 			? concat(literal("S"), seasonNumber, literal(" · E"), episodeNumber)
@@ -101,6 +142,13 @@ const episodeFields = (source: ReturnType<typeof episodeSource>) => [
 		),
 	),
 	field("done", asTrue(eq(source.state, literal("complete")))),
+	field("episodeNumber", source.episodeNumber),
+	...(source.seasonNumber ? [field("seasonNumber", source.seasonNumber)] : []),
+	...deliveryFields(
+		source.parent,
+		column(source.episode, "id"),
+		source.seasonNumber ? [gt(source.seasonNumber, literal(0))] : [],
+	),
 ];
 
 const showEpisodes = () => {
@@ -116,6 +164,7 @@ const showEpisodes = () => {
 		name: "Show episodes",
 		subject: subjectOf("show", ["show"]),
 		query: { ...source.query, output: { type: "rows", fields: episodeFields(source) } },
+		delivery: releaseDelivery({ seasonNumber: "seasonNumber", episodeNumber: "episodeNumber" }),
 	} satisfies PluginCalendarSource;
 };
 
@@ -131,6 +180,7 @@ const podcastEpisodes = () => {
 		slug: "podcast-episodes",
 		name: "Podcast episodes",
 		subject: subjectOf("podcast", ["podcast"]),
+		delivery: releaseDelivery({ episodeNumber: "episodeNumber" }),
 		query: { ...source.query, output: { type: "rows", fields: episodeFields(source) } },
 	} satisfies PluginCalendarSource;
 };
@@ -156,6 +206,7 @@ const animeAirings = () => {
 		slug: "anime-airings",
 		name: "Anime airings",
 		subject: subjectOf("anime", ["anime"]),
+		delivery: releaseDelivery({ episodeNumber: "episodeNumber" }),
 		query: {
 			from: anime,
 			joins: [element],
@@ -169,6 +220,11 @@ const animeAirings = () => {
 				fields: [
 					field("startAt", airingAt),
 					field("caption", concat(literal("Episode "), episodeNumber)),
+					field("episodeNumber", episodeNumber),
+					...deliveryFields(
+						anime,
+						concat(column(anime, "id"), literal(":"), castText(episodeNumber)),
+					),
 					field("art", preferredMediaImageExpression(anime)),
 					field(
 						"done",
@@ -214,18 +270,10 @@ const releases = () => {
 		precision: "date",
 		startAt: "startAt",
 		caption: "caption",
+		delivery: releaseDelivery(),
 		subject: subjectOf("entity", flatMediaSchemaSlugs),
 		query: {
 			from: entity,
-			output: {
-				type: "rows",
-				fields: [
-					field("startAt", publishDate(entity)),
-					field("caption", caption),
-					field("art", preferredMediaImageExpression(entity)),
-					field("done", asTrue(eq(lifecycle.state, literal("complete")))),
-				],
-			},
 			where: and(
 				schemaOwnerPredicate(entity, "entitySchemaPluginId", self),
 				inArray(
@@ -234,6 +282,16 @@ const releases = () => {
 				),
 				libraryLinkExists(entity, "calendarReleaseLibrary", "in-media-library"),
 			),
+			output: {
+				type: "rows",
+				fields: [
+					field("startAt", publishDate(entity)),
+					field("caption", caption),
+					...deliveryFields(entity, column(entity, "id")),
+					field("art", preferredMediaImageExpression(entity)),
+					field("done", asTrue(eq(lifecycle.state, literal("complete")))),
+				],
+			},
 		},
 	} satisfies PluginCalendarSource;
 };
