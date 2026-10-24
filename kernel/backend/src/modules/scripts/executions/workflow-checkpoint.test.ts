@@ -341,13 +341,8 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 						if (cached) {
 							return new Workflow.Complete({ exit: cached });
 						}
-						const encoded: Effect.Effect<
-							unknown,
-							SandboxRunError,
-							Scope.Scope | WorkflowEngine | WorkflowInstance | Layer.Success<typeof dependencies>
-						> = activity.executeEncoded;
 						const context = yield* Layer.build(dependencies);
-						const exit = yield* encoded.pipe(
+						const exit = yield* activity.executeEncoded.pipe(
 							Effect.catch((error: unknown) =>
 								Schema.decodeUnknownEffect(SandboxRunError)(error).pipe(
 									Effect.orDie,

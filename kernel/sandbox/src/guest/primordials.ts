@@ -3,7 +3,7 @@ const reflectApply = Reflect.apply;
 const arrayIsArray = Array.isArray;
 const arrayBufferIsView = ArrayBuffer.isView.bind(ArrayBuffer);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-const uint8ArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
+const uint8ArrayPrototype: unknown = Object.getPrototypeOf(Uint8Array.prototype);
 let sealed = false;
 
 export const isBoolean = (value: unknown): value is boolean => typeof value === "boolean";

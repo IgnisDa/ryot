@@ -1,9 +1,10 @@
+import { Schema } from "@ryot-app/plugin-kit/effect";
 import { describe, expect, it } from "vitest";
 
 import {
 	allocateConsumptionObservation,
 	type ConsumptionAllocation,
-	type ConsumptionObservation,
+	ConsumptionObservation,
 	type ConsumptionRunCursor,
 	consumptionRunForObservation,
 	emptyConsumptionAllocationState,
@@ -259,7 +260,9 @@ describe("canonical consumption allocation", () => {
 	});
 	it("keeps frozen values through serialization and ignores current provider data", () => {
 		const history = [movie("first", { progressPercent: 50 }), movie("done", {}, true)];
-		const restored: typeof history = JSON.parse(JSON.stringify(history));
+		const restored = Schema.decodeSync(Schema.fromJsonString(Schema.Array(ConsumptionObservation)))(
+			JSON.stringify(history),
+		);
 		expect(allocate(restored)).toEqual(allocate(history));
 		expect(amounts(allocate(restored), "minutes")).toEqual([100, 100]);
 	});

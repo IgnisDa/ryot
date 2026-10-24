@@ -102,8 +102,12 @@ export const performOidcSignIn = (
 				),
 			}),
 		);
-		const step1Data: { url?: string; redirect?: boolean } = yield* attempt(() =>
-			step1Response.json(),
+		const step1Data = yield* attempt((): Promise<unknown> => step1Response.json()).pipe(
+			Effect.flatMap((body) =>
+				mapAuthError(
+					Schema.decodeUnknownEffect(Schema.Struct({ url: Schema.optional(Schema.String) }))(body),
+				),
+			),
 		);
 		const authorizeUrl = requirePresent(
 			step1Data.url,

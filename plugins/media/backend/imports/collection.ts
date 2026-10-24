@@ -559,9 +559,10 @@ export const collectMediaJson = Effect.fn(function* (
 		rows: unknown[],
 		eventOffset: number,
 	) => { nextEventOffset?: number } & MediaIntegrationAdapterResult,
-	key = "uploadToken",
+	artifactKey?: string,
 	mapRecord?: (row: unknown, itemIndex: number) => MediaSourceRecord[],
 ) {
+	const key = artifactKey ?? "uploadToken";
 	if (input.header === "closed") {
 		const range = yield* readMediaSourceRange({
 			key,

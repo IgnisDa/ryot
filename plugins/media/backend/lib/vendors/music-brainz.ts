@@ -1,6 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 
@@ -40,10 +40,7 @@ export const fetchCoverArtUrl = (
 			} catch {
 				return null;
 			}
-			const images = asRecord(payload)?.["images"];
-			if (!Array.isArray(images)) {
-				return null;
-			}
+			const images = asArray(asRecord(payload)?.["images"]);
 			const frontImage = images.find((image) => asRecord(image)?.["front"] === true) ?? images[0];
 			const front = asRecord(frontImage);
 			if (!front) {

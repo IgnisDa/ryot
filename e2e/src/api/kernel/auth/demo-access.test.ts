@@ -419,7 +419,7 @@ describe("shared demo access acceptance", () => {
 				});
 
 				const standardResponse = yield* callHostedAuth(ownerSessionCookie, request);
-				const standardBody = yield* Effect.promise(() => standardResponse.json());
+				const standardBody: unknown = yield* Effect.promise(() => standardResponse.json());
 				expect(standardResponse.status).not.toBe(403);
 				expect(standardBody).not.toMatchObject({ code: "DEMO_OPERATION_PROTECTED" });
 				if ("expectedStandardStatus" in request) {

@@ -8,6 +8,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -545,13 +546,8 @@ const eventInput = (
 });
 
 const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
-	const properties = input.properties;
-	if (
-		properties === null ||
-		typeof properties !== "object" ||
-		Array.isArray(properties) ||
-		typeof Reflect.get(properties, "marker") !== "string"
-	) {
+	const marker = isObjectRecord(input.properties) ? input.properties["marker"] : undefined;
+	if (typeof marker !== "string") {
 		throw new Error("Fixture event requires a string marker");
 	}
 	return {
@@ -560,12 +556,12 @@ const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 		operation: "create",
 		draft: {
 			sessionEntityId: null,
+			properties: { marker },
 			entityId: input.entityId,
 			eventSchemaSlug: input.eventSchemaSlug,
 			eventSchemaPluginId: lifecyclePluginId(),
 			entitySchemaPluginId: lifecyclePluginId(),
 			entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
-			properties: { marker: Reflect.get(properties, "marker") },
 			occurredAt: requirePresent(input.occurredAt, "Fixture event requires occurredAt"),
 		},
 	};

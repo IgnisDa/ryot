@@ -59,7 +59,7 @@ defineScript({
 			const requiredApiKey: JsonValue = pluginConfig.apiKey;
 			const optionalLanguage: JsonValue | undefined = pluginConfig.language;
 			// @ts-expect-error config reads do not expose unrequested keys.
-			const unrequestedApiToken: JsonValue | undefined = pluginConfig.apiToken;
+			void pluginConfig.apiToken;
 			const preferences = yield* host.getUserPreferences();
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
@@ -70,7 +70,6 @@ defineScript({
 			void pluginConfig;
 			void requiredApiKey;
 			void optionalLanguage;
-			void unrequestedApiToken;
 			void disableIntegrations;
 			void allowNsfw;
 			void saved;

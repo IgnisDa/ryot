@@ -19,7 +19,7 @@ import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { createUserRelationshipSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -213,9 +213,10 @@ export const mergeProperties = (existing: unknown, incoming: unknown) => {
 	const values = isObjectRecord(incoming) ? incoming : {};
 	const merged = { ...current, ...values };
 	for (const [key, value] of Object.entries(values)) {
-		if (Array.isArray(value) && Array.isArray(current[key])) {
+		const previous = current[key];
+		if (isUnknownArray(value) && isUnknownArray(previous)) {
 			const seen = new Set<string>();
-			merged[key] = [...current[key], ...value].filter((item) => {
+			merged[key] = [...previous, ...value].filter((item) => {
 				const encoded = stableStringify(item);
 				if (seen.has(encoded)) {
 					return false;

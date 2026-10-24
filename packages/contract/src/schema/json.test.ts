@@ -10,7 +10,8 @@ class JsonLike {
 describe("JsonValue", () => {
 	it("accepts canonical values, null-prototype records, and shared references", () => {
 		const shared = { enabled: true };
-		const nullPrototype = Object.assign(Object.create(null), { value: shared });
+		const nullPrototype = { value: shared };
+		Reflect.setPrototypeOf(nullPrototype, null);
 		const value = { left: shared, right: nullPrototype, list: [null, "text", 42, false] };
 
 		expect(isJsonValue(value)).toBe(true);

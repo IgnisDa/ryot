@@ -237,7 +237,8 @@ describe("Local auth disabled (API B)", () => {
 			const oauthResponse = yield* Fiber.join(tokenResponse);
 			expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
 			const body: unknown = Option.getOrThrow(yield* signInRequest.postDataJSON);
-			const oauthQuery = body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
+			const oauthQuery: unknown =
+				body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
 			expect(typeof oauthQuery).toBe("string");
 			expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
 			expect(stateCookieObserved).toBe(true);

@@ -306,8 +306,12 @@ const logDetailSample = (
 
 export const getLatestReportSequence = (connection: SqlConnection.Connection) =>
 	Effect.gen(function* () {
-		const rows = yield* connection.execute(reportSequenceSql, [], undefined);
-		const row = rows[0];
+		const rows: ReadonlyArray<unknown> = yield* connection.execute(
+			reportSequenceSql,
+			[],
+			undefined,
+		);
+		const [row] = rows;
 		if (row === undefined) {
 			return yield* Effect.die(new Error("Unexpected: report sequence query returned no rows"));
 		}

@@ -19,7 +19,7 @@ import type {
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -80,7 +80,7 @@ class CompileScope extends Map<string, CompileTable> {
 
 	constructor(ancestors?: CompileScope) {
 		super(ancestors);
-		this.relations = ancestors?.relations ?? new Map();
+		this.relations = ancestors?.relations ?? new Map<string, SqlFragment>();
 	}
 }
 
@@ -2083,11 +2083,15 @@ const reconstructInclude = (
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 ): IncludeResult => {
-	if (!isObjectRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
+	if (
+		!isObjectRecord(raw) ||
+		!isUnknownArray(raw["items"]) ||
+		typeof raw["hasMore"] !== "boolean"
+	) {
 		throw new Error(`RyotQL received an invalid include value for '${include.key}'`);
 	}
 	const items = raw["items"].map((item): RowItem => {
-		if (!Array.isArray(item)) {
+		if (!isUnknownArray(item)) {
 			throw new Error(`RyotQL received an invalid include row for '${include.key}'`);
 		}
 		const scope = buildScope(include, executionScope, "", ancestors);

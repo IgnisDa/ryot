@@ -24,7 +24,7 @@ export const startFakeHttpServerScoped = (
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
 				const reqUrl = new URL(request.url);
-				const body = yield* Effect.tryPromise(() => request.json()).pipe(
+				const body = yield* Effect.tryPromise((): Promise<unknown> => request.json()).pipe(
 					Effect.orElseSucceed(() => null),
 				);
 				recorded.push({

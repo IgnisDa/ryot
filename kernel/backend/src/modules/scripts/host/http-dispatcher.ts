@@ -214,7 +214,7 @@ const networkAttemptLogLevel = (result: WorkflowDurableResult) => {
 	if (result.state === "success") {
 		return "Debug" as const;
 	}
-	const status =
+	const status: unknown =
 		result.error.data && typeof result.error.data === "object"
 			? Reflect.get(result.error.data, "status")
 			: undefined;

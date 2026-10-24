@@ -28,7 +28,7 @@ const pgStringField = (cause: unknown, field: keyof PgErrorLike) => {
 	if (!cause || typeof cause !== "object") {
 		return undefined;
 	}
-	const value = Reflect.get(cause, field);
+	const value: unknown = Reflect.get(cause, field);
 	return typeof value === "string" ? value : undefined;
 };
 

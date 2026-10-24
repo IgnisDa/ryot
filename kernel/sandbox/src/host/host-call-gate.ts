@@ -231,11 +231,11 @@ const safeHostFailure = (error: unknown) => {
 	if (error instanceof Schema.SchemaError || typeof error !== "object" || error === null) {
 		return hostFailure(failureMessage);
 	}
-	const message = Reflect.get(error, "message");
+	const message: unknown = Reflect.get(error, "message");
 	if (typeof message !== "string") {
 		return hostFailure(failureMessage);
 	}
-	const data = Reflect.get(error, "data");
+	const data: unknown = Reflect.get(error, "data");
 	return isJsonValue(data) ? hostFailure(message, data) : hostFailure(message);
 };
 

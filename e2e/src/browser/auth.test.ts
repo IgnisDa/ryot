@@ -41,7 +41,8 @@ it.live("signs up through the hosted OAuth flow", () =>
 		const request = Option.getOrThrow(yield* Fiber.join(signupRequestFiber));
 		const oauthResponse = Option.getOrThrow(yield* Fiber.join(tokenResponseFiber));
 		const body: unknown = Option.getOrThrow(yield* request.postDataJSON);
-		const oauthQuery = body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
+		const oauthQuery: unknown =
+			body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
 		expect(typeof oauthQuery).toBe("string");
 		expect(oauthResponse.ok()).toBe(true);
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });

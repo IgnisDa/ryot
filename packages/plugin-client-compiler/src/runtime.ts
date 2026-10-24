@@ -144,8 +144,11 @@ export const buildClientRuntime = Effect.gen(function* () {
 		],
 	}).pipe(Effect.mapError((error) => failure(error.message)));
 	const bootstrapFileName = "entry-bootstrap.js";
-	const entries: Record<string, string> = Object.fromEntries([
-		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => [specifier, `entry-${index}.js`]),
+	const entries = Object.fromEntries([
+		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index): [string, string] => [
+			specifier,
+			`entry-${index}.js`,
+		]),
 		["bootstrap", bootstrapFileName],
 	]);
 
@@ -181,7 +184,7 @@ export const buildClientRuntime = Effect.gen(function* () {
 								: "asset-[hash][extname]",
 					},
 					input: Object.fromEntries([
-						...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => [
+						...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index): [string, string] => [
 							String(index),
 							path.resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
 						]),

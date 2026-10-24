@@ -117,7 +117,7 @@ const requestClientId = (ctx: {
 }) => {
 	for (const value of [ctx.query, ctx.body]) {
 		if (value !== null && typeof value === "object") {
-			const clientId = Reflect.get(value, "client_id");
+			const clientId: unknown = Reflect.get(value, "client_id");
 			if (typeof clientId === "string") {
 				return clientId;
 			}
@@ -403,7 +403,9 @@ const makeAuthInstance = (args: {
 				update: {
 					before: (update, context) => {
 						const current = context?.context.session?.session;
-						const deadline = current ? Reflect.get(current, "impersonationExpiresAt") : undefined;
+						const deadline: unknown = current
+							? Reflect.get(current, "impersonationExpiresAt")
+							: undefined;
 						if (!(deadline instanceof Date)) {
 							return Promise.resolve({ data: update });
 						}

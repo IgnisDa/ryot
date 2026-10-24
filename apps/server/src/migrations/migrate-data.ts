@@ -7,7 +7,7 @@ import {
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { MutationReceipts } from "@ryot-app/kernel-backend/modules/mutations/receipts";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
-import { Clock, Effect } from "effect";
+import { Clock, Effect, Schema } from "effect";
 
 import {
 	buildCollectionEntityMigrationSql,
@@ -142,12 +142,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const migratedUserRows = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
-			const rows: ReadonlyArray<{ id: string }> = yield* connection.execute(
+			const rows: ReadonlyArray<unknown> = yield* connection.execute(
 				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
 				[],
 				undefined,
 			);
-			return rows;
+			return yield* Effect.orDie(
+				Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ id: Schema.String })))(rows),
+			);
 		}),
 	);
 	const userIds = migratedUserRows.map(({ id }) => id);

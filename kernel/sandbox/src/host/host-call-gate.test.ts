@@ -7,6 +7,7 @@ import {
 	workflowHostRequestSchema,
 	workflowReplayJournalEntrySchema,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { anyOf } from "@ryot-app/testing/matchers";
 import {
 	Cause,
 	Deferred,
@@ -476,7 +477,7 @@ layer(gateLayer)((test) => {
 			expect(journalReads).toHaveLength(2_048);
 			expect(frameValue(journalReads[0] ?? first)).toMatchObject({
 				offset: 0,
-				totalBytes: expect.any(Number),
+				totalBytes: anyOf(Number),
 			});
 			expect(frameValue(journalReadLimit)).toMatchObject({ success: false });
 			expect(frameValue(afterJournalLimit)).toMatchObject({ data: null, success: true });
@@ -756,7 +757,7 @@ layer(gateLayer)((test) => {
 			if (typeof readValue !== "object" || readValue === null || Array.isArray(readValue)) {
 				throw new Error("expected a journal range result");
 			}
-			const encoded = Reflect.get(readValue, "data");
+			const encoded: unknown = Reflect.get(readValue, "data");
 			if (typeof encoded !== "string") {
 				throw new Error("expected base64 journal data");
 			}
@@ -1148,7 +1149,7 @@ layer(gateLayer)((test) => {
 				totalBytes: smallBytes + largeBytes,
 			});
 			assert(typeof remainder === "object" && remainder !== null);
-			const data = Reflect.get(remainder, "data");
+			const data: unknown = Reflect.get(remainder, "data");
 			assert(typeof data === "string");
 			expect(base64DecodedLength(data)).toBe(10);
 

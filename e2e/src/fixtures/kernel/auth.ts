@@ -11,6 +11,7 @@ import {
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Clock, Effect, Schema } from "effect";
@@ -53,6 +54,11 @@ export const responseCookie = (response: Response) =>
 		.map((cookie) => cookie.split(";", 1)[0])
 		.filter((cookie): cookie is string => cookie !== undefined)
 		.join("; ");
+
+const responseRedirectUrl = (data: unknown) => {
+	const url = isObjectRecord(data) ? data["url"] : undefined;
+	return typeof url === "string" ? url : null;
+};
 
 const getServerFrontendOrigin = (baseUrl: string) =>
 	Effect.gen(function* () {
@@ -280,10 +286,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 		}
 		if (!response.headers.has("location")) {
 			const data: unknown = yield* Effect.promise(() => response.json());
-			const redirectUrl =
-				data !== null && typeof data === "object" && typeof Reflect.get(data, "url") === "string"
-					? Reflect.get(data, "url")
-					: null;
+			const redirectUrl = responseRedirectUrl(data);
 			if (redirectUrl) {
 				return {
 					data,
@@ -359,10 +362,7 @@ export const completeTwoFactorSignIn = (
 		if (!response.headers.has("location")) {
 			const data: unknown = yield* Effect.promise(() => response.json());
 			const sessionCookie = responseCookie(response) || undefined;
-			const redirectUrl =
-				data !== null && typeof data === "object" && typeof Reflect.get(data, "url") === "string"
-					? Reflect.get(data, "url")
-					: null;
+			const redirectUrl = responseRedirectUrl(data);
 			if (!redirectUrl) {
 				return {
 					data,

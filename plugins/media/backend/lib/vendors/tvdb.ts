@@ -186,11 +186,10 @@ export const bcp47ToTvdb = (language: string) => {
 
 const getTranslationRecord = (payload: null | UnknownRecord) => {
 	const data = payload?.["data"];
-	if (Array.isArray(data)) {
-		const primary = data.find((entry) => asRecord(entry)?.["isPrimary"] === true);
-		return asRecord(primary ?? data[0]);
-	}
-	return asRecord(data);
+	const entries = asArray(data);
+	return asRecord(
+		entries.find((entry) => asRecord(entry)?.["isPrimary"] === true) ?? entries[0] ?? data,
+	);
 };
 
 export const getTranslationFields = (payload: null | UnknownRecord) => {

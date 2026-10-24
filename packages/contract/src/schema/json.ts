@@ -46,7 +46,7 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
 				return true;
 			}
 
-			const prototype = Object.getPrototypeOf(current);
+			const prototype: unknown = Object.getPrototypeOf(current);
 			if (prototype !== Object.prototype && prototype !== null) {
 				return false;
 			}

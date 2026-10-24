@@ -84,7 +84,7 @@ const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
 const nativeUint8Array = globalThis.Uint8Array;
 const nativeBigInt = globalThis.BigInt;
-const objectCreate = Object.create;
+const objectCreate: (prototype: null) => Record<string, unknown> = Object.create;
 const objectDefineProperty = Object.defineProperty;
 const objectKeys = Object.keys;
 const objectHasOwn = Object.hasOwn;
@@ -740,7 +740,7 @@ const createHost = (
 	bridge: SandboxInvocationBridge,
 	journal: undefined | WorkflowReplayJournal,
 ) => {
-	const host: Record<string, unknown> = objectCreate(null);
+	const host = objectCreate(null);
 	const budget: SandboxHostCallBudget = { http: 0, total: 0, userSettingsWrites: 0 };
 	const callHost = (name: string, args: ReadonlyArray<unknown>) => {
 		const budgetError = chargeHostCall(budget, name);
@@ -934,7 +934,7 @@ const createDurableHost = (
 		});
 	};
 
-	const host: Record<string, unknown> = objectCreate(null);
+	const host = objectCreate(null);
 	for (let index = 0; index < executionMetadata.capabilities.length; index += 1) {
 		const name = executionMetadata.capabilities[index];
 		if (name === undefined || name === "artifact-read" || name === "scratch") {

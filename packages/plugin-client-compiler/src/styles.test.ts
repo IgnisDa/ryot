@@ -17,7 +17,10 @@ const diagnose = Effect.fnUntraced(function* (sourceFiles: Readonly<Record<strin
 		sourceFiles: textSources,
 		parsedFiles: analysis.sourceFiles,
 		files: Object.fromEntries([
-			...Object.entries(sourceFiles).map(([path, contents]) => [path, encoder.encode(contents)]),
+			...Object.entries(sourceFiles).map(([path, contents]): [string, Uint8Array] => [
+				path,
+				encoder.encode(contents),
+			]),
 			["x.css", encoder.encode("")],
 			["client/x.css", encoder.encode("")],
 			["shared/x.ts", encoder.encode("")],

@@ -277,7 +277,9 @@ export const installTestProviders = <Key extends string>(
 			relationshipSchemas: input.relationshipSchemas,
 			scripts: Record.values(declarations).flatMap(({ scripts }) => scripts),
 			providers: Record.values(declarations).map(({ provider }) => provider),
-			files: Object.assign({}, ...Record.values(declarations).map(({ files }) => files)),
+			files: Object.fromEntries(
+				Record.values(declarations).flatMap(({ files }) => Object.entries(files)),
+			),
 			entitySchemas:
 				input.entitySchemas ??
 				[

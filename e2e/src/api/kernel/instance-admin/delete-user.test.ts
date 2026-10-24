@@ -3,6 +3,7 @@ import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
 
 import {
@@ -145,8 +146,8 @@ describe("Delete user", () => {
 				{ method: "DELETE", headers: adminHeaders(userClient) },
 			);
 			expect(acceptedResponse.status).toBe(202);
-			const body = yield* Effect.promise(() => acceptedResponse.json());
-			expect(body).toEqual({ operationId: expect.any(String) });
+			const body: unknown = yield* Effect.promise(() => acceptedResponse.json());
+			expect(body).toEqual({ operationId: anyOf(String) });
 			const accepted: DeleteUserOperation = yield* Schema.decodeUnknownEffect(
 				UserLifecycleRequestResponse,
 			)(body);
