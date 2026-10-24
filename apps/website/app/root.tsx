@@ -77,6 +77,8 @@ export const links: LinksFunction = () => {
 	];
 };
 
+export const loader = () => ({ copyrightYear: new Date().getFullYear() });
+
 export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
 	if (isRouteErrorResponse(props.error) && props.error.status === 404) {
 		return (
@@ -105,7 +107,7 @@ export function ErrorBoundary(props: Route.ErrorBoundaryProps) {
 	);
 }
 
-export default function App() {
+export default function App(props: Route.ComponentProps) {
 	const location = useLocation();
 
 	const isActivePage = (path: string) => {
@@ -261,7 +263,7 @@ export default function App() {
 									</div>
 								</div>
 								<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
-									<p>&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.</p>
+									<p>&copy; {props.loaderData.copyrightYear} Ryot. All Rights Reserved.</p>
 								</div>
 							</div>
 						</footer>

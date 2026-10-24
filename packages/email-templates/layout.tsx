@@ -15,6 +15,8 @@ import type { ReactNode } from "react";
 
 type LayoutProps = { headingText: string; children: ReactNode };
 
+const copyrightYear = new Date().getFullYear();
+
 const Layout = (props: LayoutProps) => (
 	<Html>
 		<Head />
@@ -39,7 +41,7 @@ const Layout = (props: LayoutProps) => (
 					<Section className="py-7 text-paragraph-gray">{props.children}</Section>
 					<Hr className="border-[#dfe1e4] my-6" />
 					<Link href="https://ryot.io" className="text-sm text-[#b4becc]">
-						Ryot &copy; {new Date().getFullYear()}
+						Ryot &copy; {copyrightYear}
 					</Link>
 				</Container>
 			</Body>
