@@ -15,8 +15,8 @@ import {
 	column,
 	defineRecipe,
 	type Recipe,
-	type SelectedRow,
 	selectedField,
+	type SelectedRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
@@ -34,18 +34,9 @@ const sourceSelection = {
 	name: selectedField(column(source, "name"), PluginImportSource.fields.name),
 	pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
 	packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
-	installationId: selectedField(
-		column(source, "installationId"),
-		Schema.NullOr(Schema.String),
-	),
-	inputSchema: selectedField(
-		column(source, "inputSchema"),
-		PluginImportSource.fields.inputSchema,
-	),
-	description: selectedField(
-		column(source, "description"),
-		PluginImportSource.fields.description,
-	),
+	installationId: selectedField(column(source, "installationId"), Schema.NullOr(Schema.String)),
+	inputSchema: selectedField(column(source, "inputSchema"), PluginImportSource.fields.inputSchema),
+	description: selectedField(column(source, "description"), PluginImportSource.fields.description),
 	workflowSlug: selectedField(
 		column(source, "workflowSlug"),
 		PluginImportSource.fields.workflowSlug,
@@ -91,6 +82,14 @@ export const evaluateImportSourceReadiness = (
 
 export const importSourcesRecipe = defineRecipe(
 	(input: { readonly after?: string; readonly limit: number }) => ({
+		queries: {
+			sources: selectedRows(source, {
+				after: input.after,
+				limit: input.limit,
+				selection: sourceSelection,
+				orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
+			}),
+		},
 		map: ({ sources }) =>
 			Result.try(() => ({
 				...sources,
@@ -100,14 +99,6 @@ export const importSourcesRecipe = defineRecipe(
 					readiness: evaluateImportSourceReadiness(item),
 				})),
 			})),
-		queries: {
-			sources: selectedRows(source, {
-				after: input.after,
-				limit: input.limit,
-				orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
-				selection: sourceSelection,
-			}),
-		},
 	}),
 );
 

@@ -401,11 +401,11 @@ const makeTokenService = (
 		access,
 		logout,
 		userInfo,
-		accessToken: (origin, forceRefresh) =>
-			Effect.flatMap(access(origin, forceRefresh), ({ result }) => Effect.fromResult(result)),
 		authorization,
 		rejectAuthorization,
 		completeAuthorization,
+		accessToken: (origin, forceRefresh) =>
+			Effect.flatMap(access(origin, forceRefresh), ({ result }) => Effect.fromResult(result)),
 		clear: (origin) =>
 			Effect.all([clearTokens(origin).pipe(Effect.ignore), storage.clearPending(origin)], {
 				discard: true,

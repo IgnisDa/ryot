@@ -127,7 +127,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 						.findRevisionScript(input.pluginRevision.revisionId, slug)
 						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
 				: null;
-			if (!script || script.providerId !== input.providerId || script.metadata.kind !== "provider") {
+			if (
+				!script ||
+				script.providerId !== input.providerId ||
+				script.metadata.kind !== "provider"
+			) {
 				return yield* new SandboxRunError({
 					kind: "missing-artifact",
 					message: `Pinned provider ${input.operation} script is unavailable`,

@@ -51,10 +51,7 @@ const profile = {
 	name: "Restored profile",
 	preferences: { language: null, disableIntegrations: true },
 };
-const archiveLocator = {
-	intentId: "restore-intent",
-	key: "temporary/restore.zip",
-};
+const archiveLocator = { intentId: "restore-intent", key: "temporary/restore.zip" };
 const failure = new BackupWorkflowError({
 	failure: { operation: "restore", code: "unexpected-failure" },
 });

@@ -7,8 +7,8 @@ export const makeOAuthTokenServiceStub = (
 	overrides: Partial<OAuthTokenService["Service"]> = {},
 ): OAuthTokenService["Service"] => ({
 	clear: () => Effect.void,
-	access: () => Effect.die("not used"),
 	logout: () => Effect.succeed(null),
+	access: () => Effect.die("not used"),
 	userInfo: () => Effect.succeed(null),
 	authorization: makeAuthorizationState(),
 	accessToken: () => Effect.succeed(null),

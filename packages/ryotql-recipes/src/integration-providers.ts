@@ -13,8 +13,8 @@ import {
 	column,
 	defineRecipe,
 	type Recipe,
-	type SelectedRow,
 	selectedField,
+	type SelectedRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
@@ -44,14 +44,8 @@ const providerSelection = {
 	lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
 	packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
 	scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
-	installationId: selectedField(
-		column(provider, "installationId"),
-		Schema.NullOr(Schema.String),
-	),
-	supportsOwnershipSync: selectedField(
-		column(provider, "supportsOwnershipSync"),
-		Schema.Boolean,
-	),
+	installationId: selectedField(column(provider, "installationId"), Schema.NullOr(Schema.String)),
+	supportsOwnershipSync: selectedField(column(provider, "supportsOwnershipSync"), Schema.Boolean),
 	readinessConnections: selectedField(
 		column(provider, "readinessConnections"),
 		readinessConnections,
@@ -105,6 +99,14 @@ export const evaluateIntegrationProviderReadiness = (
 
 export const integrationProvidersRecipe = defineRecipe(
 	(input: { readonly after?: string; readonly limit: number }) => ({
+		queries: {
+			providers: selectedRows(provider, {
+				after: input.after,
+				limit: input.limit,
+				selection: providerSelection,
+				orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
+			}),
+		},
 		map: ({ providers }) =>
 			Result.try(() => ({
 				...providers,
@@ -119,14 +121,6 @@ export const integrationProvidersRecipe = defineRecipe(
 					),
 				})),
 			})),
-		queries: {
-			providers: selectedRows(provider, {
-				after: input.after,
-				limit: input.limit,
-				orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
-				selection: providerSelection,
-			}),
-		},
 	}),
 );
 

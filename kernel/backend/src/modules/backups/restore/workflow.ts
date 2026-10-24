@@ -35,10 +35,7 @@ const RestoreBackupWorkflowPayload = Schema.Struct({
 });
 type RestoreBackupWorkflowPayload = typeof RestoreBackupWorkflowPayload.Type;
 
-const ClaimedArchive = Schema.Struct({
-	key: Schema.String,
-	intentId: Schema.String,
-});
+const ClaimedArchive = Schema.Struct({ key: Schema.String, intentId: Schema.String });
 type ClaimedArchive = typeof ClaimedArchive.Type;
 
 export class BackupWorkflowError extends Schema.TaggedError<
@@ -204,10 +201,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.status === "completed") {
 						return yield* Effect.void;
 					}
-					const source = yield* objectStorage.openObject({
-						key: archive.key,
-						type: "local",
-					});
+					const source = yield* objectStorage.openObject({ type: "local", key: archive.key });
 					const validated = yield* validateArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,
 					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));

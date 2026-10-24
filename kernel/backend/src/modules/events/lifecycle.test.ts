@@ -58,6 +58,7 @@ import type { DomainWriteChecks } from "#modules/entities/write-context";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
+import { pinReferences, seedPinTargets } from "#modules/mutations/receipts.test-support";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
@@ -630,23 +631,14 @@ describe("Event lifecycle PostgreSQL", () => {
 						...eventCreateBatchInput(invalidInput),
 						ownerUserId: userId,
 					});
+					yield* seedPinTargets();
 					const candidateId = `receipt-candidate-${emptyDecision.id}`;
 					yield* session.transaction(
 						receipts.beginBatch({
 							maxItems: 200,
 							identity: emptyDecision,
 							pins: [
-								{
-									id: candidateId,
-									payload: { hook: "batch" },
-									references: {
-										pluginId: null,
-										scopeUserId: userId,
-										sandboxScriptId: null,
-										pluginRevisionId: null,
-										pluginConfigRevisionId: null,
-									},
-								},
+								{ id: candidateId, payload: { hook: "batch" }, references: pinReferences(userId) },
 							],
 						}),
 					);

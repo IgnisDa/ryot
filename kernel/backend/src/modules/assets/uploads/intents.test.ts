@@ -518,7 +518,7 @@ layer(makeUploadIntentsLayer({ provider: "s3" }))((test) => {
 					state: "claimed",
 					claimId: "first-claim",
 					leaseExpiresAt: 86_500,
-					completion: { token: completion.token, expiresAt: 900 },
+					completion: { expiresAt: 900, token: completion.token },
 				});
 				expect(storedClaim).not.toHaveProperty("expiresAt");
 				yield* TestClock.adjust("1000 seconds");

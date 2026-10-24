@@ -79,9 +79,9 @@ export type MutationReceiptIdentity = typeof MutationReceiptIdentity.Type;
 
 const MutationBatchPinReferences = Schema.Struct({
 	pluginId: PluginId,
-	scopeUserId: Schema.NullOr(UserId),
 	sandboxScriptId: Schema.String,
 	pluginRevisionId: Schema.String,
+	scopeUserId: Schema.NullOr(UserId),
 	pluginConfigRevisionId: Schema.NullOr(Schema.String),
 });
 export type MutationBatchPin<Payload> = {

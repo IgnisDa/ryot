@@ -232,7 +232,11 @@ const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
 		throw new Error("Redis returned an invalid entity interest command outcome");
 	}
 	const [status, rawRevision, ...rawPending] = result;
-	if (status === "missing-session" || status === "revision-mismatch" || status === "limit-exceeded") {
+	if (
+		status === "missing-session" ||
+		status === "revision-mismatch" ||
+		status === "limit-exceeded"
+	) {
 		return { status };
 	}
 	const revision = Number(rawRevision);

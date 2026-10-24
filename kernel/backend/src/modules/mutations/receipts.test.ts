@@ -5,7 +5,6 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
-	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
@@ -19,7 +18,6 @@ import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
 import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -28,6 +26,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import type { MutationReceiptIdentity } from "./receipts";
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
+import { pinReferences, seedPinTargets } from "./receipts.test-support";
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
 const owner = UserId.make("receipt-owner");
@@ -66,13 +65,6 @@ const record = (receipt: MutationReceiptIdentity) => ({
 	identity: receipt,
 	result: { entityId },
 });
-const pinReferences = (scopeUserId: UserId | null) => ({
-	scopeUserId,
-	pluginConfigRevisionId: null,
-	pluginId: PluginId.make("receipt-pin-plugin"),
-	sandboxScriptId: "receipt-pin-script",
-	pluginRevisionId: "receipt-pin-revision",
-});
 const batchPins = (
 	prefix: string,
 	count: number,
@@ -85,44 +77,6 @@ const batchPins = (
 	}));
 const receiptInsertStatements = (spans: ReadonlyArray<Tracer.Span>) =>
 	recordedStatements(spans).filter((text) => text.startsWith('insert into "mutation_receipt"'));
-
-const seedPinTargets = Effect.fn(function* () {
-	const session = yield* DatabaseSession;
-	const { pluginId, sandboxScriptId, pluginRevisionId } = pinReferences(null);
-	yield* session.run((db) =>
-		Effect.gen(function* () {
-			const manifest = fixtureManifest();
-			yield* db
-				.insert(tables.plugin)
-				.values({ id: pluginId, status: "disabled", packageId: manifest.metadata.packageId })
-				.onConflictDoNothing();
-			const existing = yield* db
-				.select({ id: tables.pluginRevision.id })
-				.from(tables.pluginRevision)
-				.where(eq(tables.pluginRevision.id, pluginRevisionId));
-			if (existing.length === 0) {
-				yield* insertPluginRevision(db, {
-					manifest,
-					pluginId,
-					id: pluginRevisionId,
-					contentHash: "receipt-pin-hash",
-				});
-			}
-			yield* db
-				.insert(tables.sandboxScript)
-				.values({
-					pluginRevisionId,
-					id: sandboxScriptId,
-					name: "Pinned",
-					slug: "pinned",
-					contentHash: "hash",
-					compiledCode: "code",
-					metadata: { kind: "automation", runtimeImports: [] },
-				})
-				.onConflictDoNothing();
-		}),
-	);
-});
 
 const seedAccount = Effect.fn(function* (account: typeof setAccount) {
 	const session = yield* DatabaseSession;
@@ -516,8 +470,8 @@ layer(
 				yield* seedPinTargets();
 				const pins = [null, account.userId].map((scopeUserId, index) => ({
 					id: `canonical-pin-${index}`,
-					payload: { snapshot: `snapshot-${index}` },
 					references: pinReferences(scopeUserId),
+					payload: { snapshot: `snapshot-${index}` },
 				}));
 				yield* session.transaction(
 					Effect.gen(function* () {
@@ -578,8 +532,8 @@ layer(
 				for (const { count, expectedInserts } of [
 					{ count: 0, expectedInserts: 1 },
 					{ count: 3, expectedInserts: 2 },
-					{ count: insertChunkSize(tables.mutationReceipt), expectedInserts: 2 },
-					{ count: insertChunkSize(tables.mutationReceipt) + 1, expectedInserts: 3 },
+					{ expectedInserts: 2, count: insertChunkSize(tables.mutationReceipt) },
+					{ expectedInserts: 3, count: insertChunkSize(tables.mutationReceipt) + 1 },
 				]) {
 					const batch = receipts.batchIdentity({
 						resource: "entity",

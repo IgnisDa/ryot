@@ -14,10 +14,6 @@ export const notificationChannel = snakeCase.table(
 		description: text().notNull(),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamptz().defaultNow().notNull(),
-		channel: text("platform")
-			.notNull()
-			.$type<NotificationChannelKind>()
-			.generatedAlwaysAs(sql`platform_specifics->>'kind'`),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -26,6 +22,10 @@ export const notificationChannel = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		channelSpecifics: jsonb("platform_specifics").notNull().$type<NotificationChannelSpecifics>(),
+		channel: text("platform")
+			.notNull()
+			.$type<NotificationChannelKind>()
+			.generatedAlwaysAs(sql`platform_specifics->>'kind'`),
 	},
 	(table) => [
 		index("notification_channel_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),

@@ -552,8 +552,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						expect(
 							pins.find(({ references }) => references.pluginId === installed.pluginId),
 						).toMatchObject({
-							payload: { scriptSlug: "fixture.automation", scriptContentHash: script.contentHash },
 							references: { sandboxScriptId: script.id, pluginRevisionId: installed.revisionId },
+							payload: { scriptSlug: "fixture.automation", scriptContentHash: script.contentHash },
 						});
 					}
 					const fresh: Tracer.Span[] = [];
