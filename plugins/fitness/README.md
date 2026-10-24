@@ -77,6 +77,7 @@ shared recipes:
 | `measurementSeriesRecipe`        | Average plus count series, so zero-filled empty buckets are distinguishable; metric batches respect the query limit |
 | `measurementEntryListRecipe`     | Newest-first entry pages, with all child pages loaded before display and month grouping                             |
 | `measurementEntryReadingsRecipe` | Cursor-paged children of one entry, without a total-child limit                                                     |
+| `measurementPageReadingsRecipe`  | Cursor-paged children of every entry on a loaded page, loaded in one query                                          |
 
 Ranges through 1Y use daily buckets; All uses bounded weekly buckets. Trend lines smooth bucket
 averages. Loaded rows remain during pagination; malformed/repeated cursors fail rather than loop.

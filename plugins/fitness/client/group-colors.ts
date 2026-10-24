@@ -6,3 +6,5 @@ export const supersetColorVariable = (color: string, options?: { readonly soft?:
 	groupColorVariable(supersetColor(color), options);
 
 export const supersetLetter = (index: number) => String.fromCharCode(65 + (index % 26));
+
+export const supersetName = (index: number) => `Superset ${supersetLetter(index)}`;

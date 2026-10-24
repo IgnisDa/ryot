@@ -6,7 +6,7 @@ import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
 } from "../../shared/workout-editor-draft";
-import { supersetColorVariable, supersetLetter } from "../group-colors";
+import { supersetColorVariable, supersetName } from "../group-colors";
 import { supersetOf } from "./draft-ops";
 
 type Superset = WorkoutEditorDraft["supersets"][number];
@@ -21,7 +21,7 @@ export const supersetNames = (draft: WorkoutEditorDraft) => {
 	for (const occurrence of draft.occurrences) {
 		const group = supersetOf(draft, occurrence.clientId);
 		if (group !== undefined && !names.has(group.clientId)) {
-			names.set(group.clientId, `Superset ${supersetLetter(names.size)}`);
+			names.set(group.clientId, supersetName(names.size));
 		}
 	}
 	return names;

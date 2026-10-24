@@ -134,7 +134,6 @@ const openPage = (
 		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 		readonly readingsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 		readonly entryReadingsPage?: (
-			entryId: string,
 			after: string | undefined,
 		) => ReturnType<typeof rows> | null | undefined;
 	} = {},
@@ -165,11 +164,15 @@ const openPage = (
 		},
 	});
 	const answered = new Set<string>();
-	const entryReadings = new Map<string, unknown>();
+	const entryReadings = new Map<string, readonly Record<string, unknown>[]>();
 	const rememberEntries = (entries: ReturnType<typeof rows>) => {
 		for (const entry of entries.items) {
 			assert(typeof entry.id === "string");
-			entryReadings.set(entry.id, entry.readings);
+			assert(Array.isArray(entry.readings));
+			entryReadings.set(
+				entry.id,
+				entry.readings.map((child) => Object.assign({}, child, { entryId: entry.id })),
+			);
 		}
 	};
 	rememberEntries(logRows);
@@ -199,19 +202,9 @@ const openPage = (
 				}
 				const children = request.document.queries.readings;
 				if (children !== undefined) {
-					assert(children.where?.type === "and");
-					const session = children.where.predicates[0];
-					assert(
-						session?.type === "comparison" &&
-							session.right.type === "literal" &&
-							typeof session.right.value === "string",
-					);
 					if (options.entryReadingsPage !== undefined) {
 						assert(children.output.type === "rows");
-						const childPage = options.entryReadingsPage(
-							session.right.value,
-							children.output.pagination.after,
-						);
+						const childPage = options.entryReadingsPage(children.output.pagination.after);
 						if (childPage === undefined) {
 							answered.delete(request.requestId);
 							continue;
@@ -222,9 +215,7 @@ const openPage = (
 						}
 						data.readings = childPage;
 					} else {
-						const readings = entryReadings.get(session.right.value);
-						assert(Array.isArray(readings));
-						data.readings = rows(readings);
+						data.readings = rows([...entryReadings.values()].flat());
 					}
 				}
 				page.replyQuery(request.requestId, { outcome: "success", response: { data } });
@@ -286,6 +277,7 @@ describe("measurements page", () => {
 				const children = Array.from({ length: 101 }, (_, index) => ({
 					value: index,
 					id: `child-${index}`,
+					entryId: "large-entry",
 					metricId: index === 0 ? "weight" : `metric-${index}`,
 				}));
 				const { page, answerPending } = openPage(metrics, {
@@ -297,7 +289,7 @@ describe("measurements page", () => {
 							nextCursor: "older-entries",
 						});
 					},
-					entryReadingsPage: (_, after) => {
+					entryReadingsPage: (after) => {
 						if (after === undefined) {
 							return rows(children.slice(0, 100), { hasMore: true, nextCursor: "last-child" });
 						}

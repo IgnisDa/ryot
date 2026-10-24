@@ -4,8 +4,8 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { TemplatePropertiesSchema } from "../../shared/workout-editor-properties";
 import { workoutEditorEntityRecipe } from "../../shared/workout-editor-recipes";
+import { normalizeTemplatePlan } from "../../shared/workout-editor-source";
 import { type EditorExercise, readEditorExercises } from "../workout-editor/queries";
 
 export type TemplateExercise = EditorExercise & {
@@ -23,30 +23,8 @@ const loadTemplate = Effect.fnUntraced(function* (client: RyotClient, entityId: 
 	if (entity === null) {
 		return yield* new RyotClientError("invalid-input");
 	}
-	const decoded = Schema.decodeUnknownResult(TemplatePropertiesSchema)(entity.properties);
-	if (decoded._tag === "Failure") {
-		return { kind: "blocked" } as const;
-	}
-	const plan = {
-		...decoded.success,
-		exercises: decoded.success.exercises
-			.map((occurrence) =>
-				Object.assign({}, occurrence, {
-					sets: [...occurrence.sets].sort((left, right) => left.setOrder - right.setOrder),
-				}),
-			)
-			.sort((left, right) => left.exerciseOrder - right.exerciseOrder),
-	};
-	const orders = new Set(plan.exercises.map(({ exerciseOrder }) => exerciseOrder));
-	if (
-		orders.size !== plan.exercises.length ||
-		plan.exercises.some(
-			({ sets, exerciseId }) =>
-				exerciseId.length === 0 ||
-				new Set(sets.map(({ setOrder }) => setOrder)).size !== sets.length,
-		) ||
-		plan.supersets?.some(({ exercises }) => exercises.some((order) => !orders.has(order)))
-	) {
+	const plan = normalizeTemplatePlan(entity.properties);
+	if (plan === undefined) {
 		return { kind: "blocked" } as const;
 	}
 	const exercises = yield* readEditorExercises(client, [

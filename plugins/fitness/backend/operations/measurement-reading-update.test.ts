@@ -255,4 +255,30 @@ describe("measurement reading update operation", () => {
 			expect(writes).toEqual(emptyWrites());
 		}),
 	);
+
+	it.live("writes no events when the entry compare-and-set fails", () =>
+		Effect.gen(function* () {
+			const writes = emptyWrites();
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: executeMeasurementRyotql,
+				updateUserEntity: () => Effect.die("stale entry"),
+				deleteEvents: (ids) => Effect.sync(() => ({ count: writes.deletes.push(ids) })),
+				updateEvents: (items) => Effect.sync(() => ({ count: writes.updates.push(items) })),
+				createEvents: (items) =>
+					Effect.sync(() => ({ outcomes: [], count: writes.creates.push(items) })),
+			});
+
+			const exit = yield* Effect.exit(
+				runSandboxTestScript(
+					updateDefinition,
+					{ occurredAt, entryId: "entry-1", values: [{ value: 0, metricId: "weight" }] },
+					host,
+					execution,
+				),
+			);
+
+			expect(exit._tag).toBe("Failure");
+			expect(writes).toEqual(emptyWrites());
+		}),
+	);
 });

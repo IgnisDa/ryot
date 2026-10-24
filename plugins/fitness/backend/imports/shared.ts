@@ -11,12 +11,11 @@ import { parseCsvText } from "./csv";
 import { adaptHevyRows, hevyWorkoutKey } from "./hevy";
 import { fitnessFailureOperationId } from "./identity";
 import { toMeasurementWriteItem } from "./measurement";
-import { adaptOpenScaleRows, type OpenScaleNormalizedItem } from "./open-scale";
+import { adaptOpenScaleRow } from "./open-scale";
 import type { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { FitnessRecord } from "./schemas";
 import { adaptStrongAppRows, strongAppWorkoutKey } from "./strong-app";
 import { toWorkoutWriteItem } from "./workout";
-import type { WorkoutImportItem } from "./workout-domain";
 
 const PAGE_BYTES = 512 * 1024;
 const RECORD_BYTES = 3 * 1024 * 1024;
@@ -337,16 +336,31 @@ const normalize = Effect.fn(function* (
 		const rows = group.flatMap((record) =>
 			record.row ? [{ row: record.row, itemIndex: record.itemIndex }] : [],
 		);
-		let result: ReturnType<typeof adaptHevyRows> | ReturnType<typeof adaptOpenScaleRows>;
-		if (source === "hevy") {
-			result = adaptHevyRows(rows, input.timezone);
-		} else if (source === "strong_app") {
-			result = adaptStrongAppRows(rows, input.timezone);
-		} else {
-			result = adaptOpenScaleRows(rows, Object.keys(rows[0]?.row ?? {}), input.timezone);
-		}
+		const openScaleRow = rows[0];
+		const { item, failures, writeItem } = (() => {
+			if (source === "open_scale") {
+				const adapted =
+					openScaleRow === undefined
+						? { failures: [] }
+						: adaptOpenScaleRow(openScaleRow, Object.keys(openScaleRow.row), input.timezone);
+				return {
+					item: adapted.item,
+					failures: adapted.failures,
+					writeItem: adapted.item && toMeasurementWriteItem(adapted.item),
+				};
+			}
+			const adapted =
+				source === "hevy"
+					? adaptHevyRows(rows, input.timezone)
+					: adaptStrongAppRows(rows, input.timezone);
+			return {
+				item: adapted.item,
+				failures: adapted.failures,
+				writeItem: adapted.item && toWorkoutWriteItem(adapted.item),
+			};
+		})();
 		const unit = source === "open_scale" ? "measurements" : "workouts";
-		for (const failure of result.failures) {
+		for (const failure of failures) {
 			const failureUnit = "unit" in failure ? failure.unit : unit;
 			records.push({
 				itemIndex: failure.itemIndex,
@@ -361,9 +375,7 @@ const normalize = Effect.fn(function* (
 				],
 			});
 		}
-		const appendItem = (item: WorkoutImportItem | OpenScaleNormalizedItem) => {
-			const writeItem =
-				"exercises" in item ? toWorkoutWriteItem(item) : toMeasurementWriteItem(item);
+		if (item !== undefined && writeItem !== undefined) {
 			if (
 				genericImportItemIntents(writeItem).length > 1000 ||
 				encoder.encode(encodeItem(writeItem)).length > RECORD_BYTES
@@ -384,21 +396,14 @@ const normalize = Effect.fn(function* (
 						},
 					],
 				});
-				return;
+			} else {
+				records.push({
+					failures: [],
+					item: writeItem,
+					itemIndex: item.itemIndex,
+					key: String(item.itemIndex).padStart(12, "0"),
+				});
 			}
-			records.push({
-				failures: [],
-				item: writeItem,
-				itemIndex: item.itemIndex,
-				key: String(item.itemIndex).padStart(12, "0"),
-			});
-		};
-		if ("items" in result) {
-			for (const item of result.items) {
-				appendItem(item);
-			}
-		} else if (result.item) {
-			appendItem(result.item);
 		}
 		group = [];
 		groupBytes = 2;

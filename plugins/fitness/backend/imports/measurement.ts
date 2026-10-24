@@ -2,7 +2,7 @@ import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/import
 
 import { measurementMetricUnit } from "../../shared/measurement-metrics";
 import {
-	measurementEntryProperties,
+	measurementEntryEntity,
 	measurementMetricProperties,
 	measurementReadingProperties,
 } from "../../shared/measurement-properties";
@@ -41,10 +41,8 @@ export const toMeasurementWriteItem = (
 			{
 				scope: "user",
 				alias: "entry",
-				name: "Measurement",
 				operationId: operationId("entry"),
-				entitySchemaSlug: "measurement-entry",
-				properties: measurementEntryProperties(recordedAt, comment),
+				...measurementEntryEntity(recordedAt, comment),
 			},
 			...statistics.map((statistic, index) => {
 				const unit = measurementMetricUnit(statistic.key);

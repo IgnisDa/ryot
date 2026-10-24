@@ -3,10 +3,9 @@ import { DateTime, Duration, Option, Result } from "@ryot-app/plugin-backend-sdk
 import { milesToKilometers, poundsToKilograms } from "../../shared/workout-units";
 import { readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
-	determineWorkoutExerciseKind,
+	buildWorkoutItem,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
-	type WorkoutImportExercise,
 	type WorkoutImportSet,
 } from "./workout-domain";
 
@@ -183,45 +182,12 @@ export const adaptStrongAppRows = (
 		return { failures };
 	}
 
-	const exercisesByName = new Map<string, StrongAppRow[]>();
-	for (const row of parsedRows) {
-		const exerciseRows = exercisesByName.get(row.exerciseName) ?? [];
-		exerciseRows.push(row);
-		exercisesByName.set(row.exerciseName, exerciseRows);
-	}
-
-	const exercises: WorkoutImportExercise[] = [];
-	for (const [exerciseName, exerciseRows] of exercisesByName) {
-		const sets = exerciseRows.map(toWorkoutSet);
-		const kind = determineWorkoutExerciseKind(sets);
-		if (!kind) {
-			failures.push({
-				unit: "exercises",
-				sourceLabel: `Exercise: ${exerciseName}`,
-				sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
-				itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
-				message: `Could not determine exercise kind from ${sets.length} sets`,
-			});
-			continue;
-		}
-		exercises.push({ kind, sets, name: exerciseName });
-	}
-
-	if (exercises.length === 0) {
-		failures.push({
-			sourceLabel,
-			unit: "workouts",
-			sourceIdentifier,
-			itemIndex: firstRow.itemIndex,
-			message: "Workout has no importable exercises",
-		});
-		return { failures };
-	}
-
-	return {
+	return buildWorkoutItem({
 		failures,
+		rows: parsedRows,
+		toSet: toWorkoutSet,
+		exerciseName: (row) => row.exerciseName,
 		item: {
-			exercises,
 			sourceLabel,
 			sourceIdentifier,
 			name: firstRow.workoutName,
@@ -233,5 +199,5 @@ export const adaptStrongAppRows = (
 				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.success)),
 			),
 		},
-	};
+	});
 };

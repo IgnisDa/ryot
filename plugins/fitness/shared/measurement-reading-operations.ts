@@ -6,6 +6,8 @@ export const measurementReadingLogOperationSlug = "measurement-reading-log";
 export const measurementReadingUpdateOperationSlug = "measurement-reading-update";
 export const measurementReadingDeleteOperationSlug = "measurement-reading-delete";
 
+export const MEASUREMENT_EVENT_BATCH_SIZE = 100;
+
 export const MeasurementEntry = Schema.Struct({
 	occurredAt: IsoTimestamp,
 	comment: Schema.optional(Schema.Trim),
@@ -25,7 +27,9 @@ export type MeasurementEntry = typeof MeasurementEntry.Type;
 
 export const MeasurementReadingLogInput = Schema.Struct({
 	...MeasurementEntry.fields,
-	values: MeasurementEntry.fields.values.pipe(Schema.check(Schema.isMaxLength(100))),
+	values: MeasurementEntry.fields.values.pipe(
+		Schema.check(Schema.isMaxLength(MEASUREMENT_EVENT_BATCH_SIZE)),
+	),
 	...SubmissionEnvelope.fields,
 });
 

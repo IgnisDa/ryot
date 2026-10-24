@@ -2,7 +2,7 @@ import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/c
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
 	ExerciseMergeInputSchema,
@@ -47,38 +47,6 @@ const swapTemplateExercise = (
 		: null;
 };
 
-const loadAll = <Item, Error>(
-	load: (
-		after: string | undefined,
-	) => Effect.Effect<
-		{
-			readonly items: ReadonlyArray<Item>;
-			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
-		},
-		Error
-	>,
-) =>
-	Effect.gen(function* () {
-		const items: Item[] = [];
-		const cursors = new Set<string>();
-		let after: string | undefined;
-		let hasMore = true;
-		while (hasMore) {
-			const page = yield* load(after);
-			items.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore) {
-				const cursor = page.pageInfo.nextCursor;
-				if (cursor === null || cursors.has(cursor)) {
-					return yield* Effect.die("Exercise merge pagination did not advance");
-				}
-				cursors.add(cursor);
-				after = cursor;
-			}
-		}
-		return items;
-	});
-
 export default defineOperation({
 	manifest,
 	input: ExerciseMergeInputSchema,
@@ -104,7 +72,7 @@ export default defineOperation({
 				return { kind: "kind-mismatch" } as const;
 			}
 
-			const links = yield* loadAll((after) =>
+			const links = yield* readAllRyotqlPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
 					exerciseMergeLinksRecipe({ after, mergeFrom, reference }),
@@ -129,7 +97,7 @@ export default defineOperation({
 
 			yield* host.mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug: "exercise" });
 
-			const templates = yield* loadAll((after) =>
+			const templates = yield* readAllRyotqlPages((after) =>
 				executeRyotqlRecipe(host.executeRyotql, exerciseMergeTemplatesRecipe({ after, reference })),
 			);
 			for (const template of templates) {

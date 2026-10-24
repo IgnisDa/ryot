@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptOpenScaleCsv } from "./open-scale";
+import { parseCsvText } from "./csv";
+import { adaptOpenScaleRow } from "./open-scale";
+
+const adaptOpenScaleCsv = (csvText: string, timezone: string) => {
+	const { rows, headers } = parseCsvText(csvText);
+	if (headers.length === 0) {
+		throw new Error("OpenScale CSV is empty or has no header row");
+	}
+	const results = rows.map((row, itemIndex) =>
+		adaptOpenScaleRow({ row, itemIndex }, headers, timezone),
+	);
+	return {
+		failures: results.flatMap(({ failures }) => failures),
+		items: results.flatMap(({ item }) => (item === undefined ? [] : [item])),
+	};
+};
 
 describe("adaptOpenScaleCsv", () => {
 	it("normalizes statistics and skips date/comment columns", () => {

@@ -4,7 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
-	measurementEntryProperties,
+	measurementEntryEntity,
 	measurementReadingProperties,
 } from "../../shared/measurement-properties";
 import {
@@ -30,11 +30,7 @@ export default defineOperation({
 				host.executeRyotql,
 			);
 			const { entityId: entryId } = yield* host.createUserEntity(
-				{
-					name: "Measurement",
-					entitySchemaSlug: "measurement-entry",
-					properties: measurementEntryProperties(occurredAt, comment),
-				},
+				measurementEntryEntity(occurredAt, comment),
 				{ submittedAt, idempotencyKey: `${submissionId}:entry` },
 			);
 			return yield* host

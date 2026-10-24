@@ -1,55 +1,48 @@
-const numberedPage = (name: string, stem: string) => {
+const isNumberedPage = (name: string, stem: string) => {
 	if (!name.startsWith(stem) || !name.endsWith(".json")) {
-		return undefined;
+		return false;
 	}
 	const suffix = name.slice(stem.length, -".json".length);
 	if (!suffix) {
-		return 0;
+		return true;
 	}
 	if (!suffix.startsWith("-")) {
-		return undefined;
+		return false;
 	}
 	const page = Number.parseInt(suffix.slice(1), 10);
-	return Number.isSafeInteger(page) && page >= 0 && String(page) === suffix.slice(1)
-		? page
-		: undefined;
+	return Number.isSafeInteger(page) && page >= 0 && String(page) === suffix.slice(1);
 };
 export const classifyTraktExportName = (path: string) => {
 	const name = path.split(/[\\/]/).pop() ?? "";
-	const metadata = numberedPage(name, "lists-lists");
-	if (metadata !== undefined) {
-		return { name, page: metadata, kind: { order: 0, type: "list-metadata" } } as const;
+	if (isNumberedPage(name, "lists-lists")) {
+		return { name, kind: { type: "list-metadata" } } as const;
 	}
 	for (const mediaType of ["movies", "shows", "seasons", "episodes"] as const) {
 		for (const [prefix, kind] of [
-			["ratings", { order: 2, type: "rating" }],
-			["comments", { order: 3, type: "comment" }],
+			["ratings", { type: "rating" }],
+			["comments", { type: "comment" }],
 		] as const) {
-			const page = numberedPage(name, `${prefix}-${mediaType}`);
-			if (page !== undefined) {
-				return { name, page, kind };
+			if (isNumberedPage(name, `${prefix}-${mediaType}`)) {
+				return { name, kind };
 			}
 		}
 	}
 	for (const mediaType of ["movies", "shows"] as const) {
-		const page = numberedPage(name, `collection-${mediaType}`);
-		if (page !== undefined) {
-			return { name, page, kind: { order: 4, type: "collection" } } as const;
+		if (isNumberedPage(name, `collection-${mediaType}`)) {
+			return { name, kind: { type: "collection" } } as const;
 		}
 	}
-	const history = numberedPage(name, "watched-history");
-	if (history !== undefined) {
-		return { name, page: history, kind: { order: 1, type: "history" } } as const;
+	if (isNumberedPage(name, "watched-history")) {
+		return { name, kind: { type: "history" } } as const;
 	}
 	for (const list of ["watchlist", "favorites"] as const) {
-		const page = numberedPage(name, `lists-${list}`);
-		if (page !== undefined) {
-			return { name, page, kind: { order: 5, type: "system-list" } } as const;
+		if (isNumberedPage(name, `lists-${list}`)) {
+			return { name, kind: { type: "system-list" } } as const;
 		}
 	}
 	const match = name.match(/^lists-list-(\d+)-.+\.json$/);
 	const id = match?.[1] ? Number.parseInt(match[1], 10) : Number.NaN;
 	return Number.isSafeInteger(id)
-		? ({ name, page: 0, kind: { id, order: 6, type: "custom-list" } } as const)
+		? ({ name, kind: { id, type: "custom-list" } } as const)
 		: undefined;
 };

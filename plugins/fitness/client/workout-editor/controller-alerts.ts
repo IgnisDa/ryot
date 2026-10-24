@@ -2,6 +2,7 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { PluginDeviceRequest, PluginDeviceResult } from "@ryot-app/plugin-client-sdk/plugin";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import type { ExpectedCountdowns } from "./actions";
 import type {
 	ReadySnapshot,
 	TimerName,
@@ -15,8 +16,6 @@ type TimerSnapshot = {
 	readonly key: string;
 	readonly audible: boolean;
 };
-
-type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
 const timerNames = ["execution", "rest"] as const;
 const warningOffsets = [3000, 2000, 1000];

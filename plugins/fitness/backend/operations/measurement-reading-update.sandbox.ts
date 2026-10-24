@@ -9,6 +9,7 @@ import {
 	measurementReadingProperties,
 } from "../../shared/measurement-properties";
 import {
+	MEASUREMENT_EVENT_BATCH_SIZE,
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
 } from "../../shared/measurement-reading-operations";
@@ -54,11 +55,17 @@ export default defineOperation({
 					});
 				}
 			}
+			yield* host.updateUserEntity({
+				name: entry.name,
+				entityId: entryId,
+				properties: measurementEntryProperties(occurredAt, comment),
+				expected: { name: entry.name, updatedAt: entry.updatedAt, properties: entry.properties },
+			});
 			let count = 0;
-			for (const batch of chunk(updates, 100)) {
+			for (const batch of chunk(updates, MEASUREMENT_EVENT_BATCH_SIZE)) {
 				count += (yield* host.updateEvents(batch)).count;
 			}
-			for (const batch of chunk([...pending], 100)) {
+			for (const batch of chunk([...pending], MEASUREMENT_EVENT_BATCH_SIZE)) {
 				const created = yield* host.createEvents(
 					batch.map(([metricId, value]) => ({
 						occurredAt,
@@ -70,15 +77,9 @@ export default defineOperation({
 				);
 				count += created.count;
 			}
-			for (const batch of chunk(removed, 100)) {
+			for (const batch of chunk(removed, MEASUREMENT_EVENT_BATCH_SIZE)) {
 				count += (yield* host.deleteEvents(batch)).count;
 			}
-			yield* host.updateUserEntity({
-				name: entry.name,
-				entityId: entryId,
-				properties: measurementEntryProperties(occurredAt, comment),
-				expected: { name: entry.name, updatedAt: entry.updatedAt, properties: entry.properties },
-			});
 			return { count };
 		}),
 });

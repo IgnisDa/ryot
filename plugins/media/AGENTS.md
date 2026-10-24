@@ -9,4 +9,3 @@
 - Episode lists use cursor-paged top-level row queries, not includes. Container totals come from aggregates, not loaded pages. Episode ordering is presentation-only; lifecycle uses default seasons.
 - Keep activity vocabulary and notification formatters plugin-owned. Track durations are seconds; time-total measures are minutes.
 - Use canonical sync selections, UI SDK sync/art primitives, and SDK managed assets; do not hand-code sync columns or asset lifecycle.
-- Fill the frame-owned hero box without adding safe-area or bar offsets.

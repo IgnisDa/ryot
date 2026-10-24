@@ -8,6 +8,7 @@ import {
 	eventReadRecipe,
 	executeRyotqlRecipe,
 	field,
+	readAllRyotqlPages,
 	rows,
 	table,
 	userMediaLibraryRecipe,
@@ -109,4 +110,40 @@ describe("RyotQL sandbox SDK", () => {
 			),
 		).resolves.toBe(1);
 	});
+});
+
+const pageOf = (items: number[], nextCursor: string | null) =>
+	Effect.succeed({ items, pageInfo: { nextCursor, hasMore: nextCursor !== null } });
+
+describe("readAllRyotqlPages", () => {
+	it("concatenates pages until the cursor ends", () => {
+		const afters: Array<string | undefined> = [];
+		const pages = new Map([
+			[undefined, pageOf([1], "a")],
+			["a", pageOf([2], "b")],
+			["b", pageOf([3], null)],
+		]);
+		return expect(
+			Effect.runPromise(
+				readAllRyotqlPages((after) => {
+					afters.push(after);
+					return pages.get(after) ?? Effect.die("unexpected cursor");
+				}),
+			).then((items) => ({ items, afters })),
+		).resolves.toEqual({ items: [1, 2, 3], afters: [undefined, "a", "b"] });
+	});
+
+	it("dies when a cursor repeats", () =>
+		expect(
+			Effect.runPromiseExit(readAllRyotqlPages(() => pageOf([1], "a"))).then(({ _tag }) => _tag),
+		).resolves.toBe("Failure"));
+
+	it("dies when a continuing page has no cursor", () =>
+		expect(
+			Effect.runPromiseExit(
+				readAllRyotqlPages(() =>
+					Effect.succeed({ items: [1], pageInfo: { hasMore: true, nextCursor: null } }),
+				),
+			).then(({ _tag }) => _tag),
+		).resolves.toBe("Failure"));
 });

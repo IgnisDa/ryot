@@ -319,12 +319,20 @@ export const completeWorkoutSet = (
 	if (
 		next.restCountdown !== undefined &&
 		(Date.parse(next.restCountdown.deadline) <= (input.observedAt ?? input.now) ||
-			(input.observedAt !== undefined && input.observedAt - input.now >= 1500))
+			(input.observedAt !== undefined &&
+				input.observedAt - input.now >= COUNTDOWN_FEEDBACK_WINDOW_MS))
 	) {
 		next = { ...next, restCountdown: undefined };
 	}
 	return advanceWorkout({ ...next, pendingRest: undefined }, input.occurrenceId);
 };
+
+export type ExpectedCountdowns = {
+	readonly executionClientId?: string;
+	readonly restClientId?: string;
+};
+
+export const COUNTDOWN_FEEDBACK_WINDOW_MS = 1500;
 
 export const reconcileWorkoutTimers = (
 	draft: WorkoutEditorDraft,
@@ -332,8 +340,7 @@ export const reconcileWorkoutTimers = (
 	input: {
 		readonly settings: Partial<WorkoutRestSettings>;
 		readonly prompt: boolean;
-		readonly expected?:
-			{ readonly executionClientId?: string; readonly restClientId?: string } | undefined;
+		readonly expected?: ExpectedCountdowns | undefined;
 	},
 ) => {
 	let next = invalidateWorkoutCountdowns(draft).draft;
@@ -363,14 +370,14 @@ export const reconcileWorkoutTimers = (
 				occurrenceId: execution.occurrenceId,
 				timerId: `${execution.clientId}:rest`,
 			});
-			feedback = completed !== next && now - deadline < 1500;
+			feedback = completed !== next && now - deadline < COUNTDOWN_FEEDBACK_WINDOW_MS;
 			next = completed === next ? { ...next, executionCountdown: undefined } : completed;
 		}
 		if (restExpired) {
 			if (next.restCountdown === rest) {
 				next = { ...next, restCountdown: undefined };
 			}
-			feedback ||= now - Date.parse(rest.deadline) < 1500;
+			feedback ||= now - Date.parse(rest.deadline) < COUNTDOWN_FEEDBACK_WINDOW_MS;
 		}
 	}
 	return { feedback, draft: next, changed: next !== draft };

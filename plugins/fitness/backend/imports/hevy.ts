@@ -3,10 +3,9 @@ import { DateTime, Option, Result } from "@ryot-app/plugin-backend-sdk/effect";
 import { poundsToKilograms } from "../../shared/workout-units";
 import { readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
-	determineWorkoutExerciseKind,
+	buildWorkoutItem,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
-	type WorkoutImportExercise,
 	type WorkoutImportSet,
 } from "./workout-domain";
 
@@ -209,46 +208,13 @@ export const adaptHevyRows = (
 
 	const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
 	const endedAt = Option.isSome(endedAtParsed) ? DateTime.formatIso(endedAtParsed.value) : null;
-	const exercisesByName = new Map<string, HevyRow[]>();
-	for (const row of parsedRows) {
-		const exerciseRows = exercisesByName.get(row.exerciseTitle) ?? [];
-		exerciseRows.push(row);
-		exercisesByName.set(row.exerciseTitle, exerciseRows);
-	}
-
-	const exercises: WorkoutImportExercise[] = [];
-	for (const [exerciseName, exerciseRows] of exercisesByName) {
-		const sets = exerciseRows.map(toWorkoutSet);
-		const kind = determineWorkoutExerciseKind(sets);
-		if (!kind) {
-			failures.push({
-				unit: "exercises",
-				sourceLabel: `Exercise: ${exerciseName}`,
-				sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
-				itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
-				message: `Could not determine exercise kind from ${sets.length} sets`,
-			});
-			continue;
-		}
-		exercises.push({ kind, sets, name: exerciseName });
-	}
-
-	if (exercises.length === 0) {
-		failures.push({
-			sourceLabel,
-			unit: "workouts",
-			sourceIdentifier,
-			itemIndex: firstRow.itemIndex,
-			message: "Workout has no importable exercises",
-		});
-		return { failures };
-	}
-
-	return {
+	return buildWorkoutItem({
 		failures,
+		rows: parsedRows,
+		toSet: toWorkoutSet,
+		exerciseName: (row) => row.exerciseTitle,
 		item: {
 			endedAt,
-			exercises,
 			sourceLabel,
 			sourceIdentifier,
 			name: firstRow.title,
@@ -256,5 +222,5 @@ export const adaptHevyRows = (
 			comment: firstRow.description ?? null,
 			startedAt: DateTime.formatIso(startedAt.value),
 		},
-	};
+	});
 };
