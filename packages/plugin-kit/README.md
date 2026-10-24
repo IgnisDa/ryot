@@ -164,6 +164,9 @@ The `ryotql` shim exports query builders, `IsoDateString`, and event expressions
 recipes. The `effect` shim exports `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`, not
 `Effect`. The `schema` shim supplies shared schemas/brands and `roundHalfUp`; `compression` supplies
 `deflateSync`/`inflateSync`. Backend compilation reuses runtime modules to avoid duplicate bundles.
+Shared reporting recipes import the neutral helpers from `@ryot-app/plugin-kit/schema` and resolve
+selections with the supplied clock during execution. Compiled client code can use the reporting
+exports from `@ryot-app/plugin-client-sdk/plugin`.
 
 Only sources reachable from a declared client or sandbox entry are checked. A plugin with no client
 entry can therefore leave otherwise unreachable shared files unchecked.
