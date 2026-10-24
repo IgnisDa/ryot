@@ -82,6 +82,10 @@ activation uses the same ingestion lock. Retained executions use exact revision/
 not current environment values. Automation hooks use stable plugin ID and authored hook slug;
 scripts resolve by immutable revision ID, script slug, and content hash.
 
+Ingestion readiness uses configured-key metadata from the exact revision and configuration owner,
+without decrypting values. It checks availability, not ciphertext authentication. Startup validates
+retained encryption-key references; execution configuration reads still authenticate ciphertext.
+
 ## User preferences
 
 `userSettingsSchema` declares non-secret per-user preferences. `plugin_installation.user_settings`
