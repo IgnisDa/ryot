@@ -144,6 +144,14 @@ describe("YouTube Music on the full sidecar", () => {
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",
+					providers: [
+						{
+							slug: providerSlug,
+							name: "YouTube Music",
+							information: { source: "e2e" },
+							rootEntitySchemaSlug: schemaSlug,
+						},
+					],
 					entitySchemas: [
 						{
 							icon: "file",
@@ -159,15 +167,6 @@ describe("YouTube Music on the full sidecar", () => {
 							intervalMs: 1_000,
 							origins: [new URL(http.url).origin],
 							key: `e2e.youtube-music.${crypto.randomUUID()}`,
-						},
-					],
-					providers: [
-						{
-							slug: providerSlug,
-							name: "YouTube Music",
-							information: { source: "e2e" },
-							rootEntitySchemaSlug: schemaSlug,
-							operations: { search: searchSlug, details: detailsSlug },
 						},
 					],
 					files: {
