@@ -119,7 +119,11 @@ const runImpersonationClientFlow = (
 		expect(claims["impersonation"]).toMatchObject({ expiresAt: deadline });
 
 		const current = yield* getUserSettings(target.client);
-		expect(current.preferences).toEqual({ language: null, disableIntegrations: false });
+		expect(current.preferences).toEqual({
+			language: null,
+			reportingTimeZone: null,
+			disableIntegrations: false,
+		});
 		const language = clientId === OAUTH_IMPERSONATION_NATIVE_CLIENT_ID ? "fr" : "es";
 		yield* updateUserSettingsPreferences(impersonation.client, {
 			language,
@@ -127,10 +131,12 @@ const runImpersonationClientFlow = (
 		});
 		expect((yield* getUserSettings(impersonation.client)).preferences).toEqual({
 			language,
+			reportingTimeZone: null,
 			disableIntegrations: true,
 		});
 		expect((yield* getUserSettings(target.client)).preferences).toEqual({
 			language,
+			reportingTimeZone: null,
 			disableIntegrations: true,
 		});
 
@@ -181,6 +187,7 @@ const runImpersonationClientFlow = (
 		);
 		expect((yield* getUserSettings(refreshedClient)).preferences).toEqual({
 			language,
+			reportingTimeZone: null,
 			disableIntegrations: true,
 		});
 	});

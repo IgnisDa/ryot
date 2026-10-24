@@ -8,6 +8,7 @@ import {
 	refreshUserAvatar,
 	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
+import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -21,14 +22,104 @@ describe("user settings", () => {
 			expect(initial.id).toBe(userId);
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
-			expect(initial.preferences).toEqual({ language: null, disableIntegrations: false });
+			expect(initial.preferences).toEqual({
+				language: null,
+				reportingTimeZone: null,
+				disableIntegrations: false,
+			});
 
 			yield* updateUserSettingsPreferences(client, { language: "es", disableIntegrations: true });
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
+				reportingTimeZone: null,
 				disableIntegrations: true,
 			});
+		}),
+	);
+
+	it.live("validates reporting time zones and keeps preference updates account-scoped", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const defaultPreferences = {
+				language: null,
+				reportingTimeZone: null,
+				disableIntegrations: false,
+			};
+			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
+
+			yield* updateUserSettingsPreferences(owner.client, { reportingTimeZone: "Asia/Kolkata" });
+			yield* updateUserSettingsPreferences(owner.client, { language: "fr" });
+			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
+				language: "fr",
+				disableIntegrations: false,
+				reportingTimeZone: "Asia/Kolkata",
+			});
+
+			const invalidZone = yield* Effect.flip(
+				updateUserSettingsPreferences(owner.client, { reportingTimeZone: "+05:30" }),
+			);
+			assertTaggedError(invalidZone, "SchemaError");
+
+			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
+				language: "fr",
+				disableIntegrations: false,
+				reportingTimeZone: "Asia/Kolkata",
+			});
+			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
+		}),
+	);
+
+	it.live("initializes the reporting time zone once without resetting other preferences", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			yield* updateUserSettingsPreferences(client, { language: "fr" });
+			yield* updateUserSettingsPreferences(client, { reportingTimeZone: null });
+			expect((yield* getUserSettings(client)).preferences).toEqual({
+				language: "fr",
+				reportingTimeZone: null,
+				disableIntegrations: false,
+			});
+
+			yield* Effect.all(
+				[
+					updateUserSettingsPreferences(client, {
+						initializeReportingTimeZone: "America/New_York",
+					}),
+					updateUserSettingsPreferences(client, { initializeReportingTimeZone: "Asia/Tokyo" }),
+				],
+				{ concurrency: 2 },
+			);
+			const initialized = yield* getUserSettings(client);
+			const winningTimeZone = initialized.preferences.reportingTimeZone;
+			expect(["America/New_York", "Asia/Tokyo"]).toContain(winningTimeZone);
+			expect(initialized.preferences.language).toBe("fr");
+			expect(initialized.preferences.disableIntegrations).toBe(false);
+
+			yield* updateUserSettingsPreferences(client, {
+				initializeReportingTimeZone: "Europe/Berlin",
+			});
+			expect((yield* getUserSettings(client)).preferences.reportingTimeZone).toBe(winningTimeZone);
+
+			yield* updateUserSettingsPreferences(client, { language: "es", reportingTimeZone: "UTC" });
+			expect((yield* getUserSettings(client)).preferences).toEqual({
+				language: "es",
+				reportingTimeZone: "UTC",
+				disableIntegrations: false,
+			});
+
+			yield* updateUserSettingsPreferences(client, {
+				initializeReportingTimeZone: "America/New_York",
+			});
+			const settings = yield* getUserSettings(client);
+			expect(settings.preferences).toEqual({
+				language: "es",
+				reportingTimeZone: "UTC",
+				disableIntegrations: false,
+			});
+			expect(settings.preferences).not.toHaveProperty("initializeReportingTimeZone");
 		}),
 	);
 
@@ -61,6 +152,7 @@ describe("user settings", () => {
 			yield* updateUserSettingsPreferences(client, { language: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: null,
+				reportingTimeZone: null,
 				disableIntegrations: true,
 			});
 			const refreshed = yield* session();
