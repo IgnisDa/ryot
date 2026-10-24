@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { parseReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type {
@@ -487,6 +488,43 @@ describe("client page routes", () => {
 					]),
 				),
 			);
+		}),
+	);
+
+	it.live("preserves analytics JSON selections through saved-view location updates", () =>
+		Effect.gen(function* () {
+			const reporting = '{"range":{"kind":"all-time"},"comparison":"none","grouping":"year"}';
+			const section = '["local-owner","activity"]';
+			const search = new URLSearchParams({ section, reporting });
+			const view = mount({ entry: `/v/k/analytics?${search}` });
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			expect(view.router.state.location.search).toMatchObject({
+				section: ["local-owner", "activity"],
+				reporting: { grouping: "year", comparison: "none", range: { kind: "all-time" } },
+			});
+			bridge.port.postMessage({
+				mode: "replace",
+				type: "page-search",
+				update: { section: '["other-owner","activity"]' },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.search).toMatchObject({
+						section: ["other-owner", "activity"],
+						reporting: { grouping: "year", comparison: "none", range: { kind: "all-time" } },
+					}),
+				),
+			);
+			expect(parseReportingSelection(view.router.state.location.searchStr)).toEqual({
+				grouping: "year",
+				comparison: "none",
+				range: { kind: "all-time" },
+			});
+			expect(view.getDocumentLoads()).toBe(1);
+			expect(bridge.messages).not.toContainEqual(expect.objectContaining({ type: "document" }));
 		}),
 	);
 

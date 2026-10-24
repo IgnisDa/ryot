@@ -19,6 +19,7 @@ const document: ClientCompositionDocument = {
 	],
 	descriptor: {
 		application: "page",
+		analyticsSections: [],
 		entry: { binding: "Home", specifier: "@ryot-app/plugins/presentation/home" },
 		automaticRegistry: [
 			{

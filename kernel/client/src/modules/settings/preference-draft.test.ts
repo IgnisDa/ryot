@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 
-const preferences = { language: null, disableIntegrations: false };
+const preferences = { language: null, reportingTimeZone: null, disableIntegrations: false };
 
 describe("user settings preference draft", () => {
 	it("does not treat the empty language field as a change from provider default", () => {
@@ -12,7 +12,9 @@ describe("user settings preference draft", () => {
 	});
 
 	it("only includes a changed language preference", () => {
-		expect(preferencePayload(preferences, { language: " es " })).toEqual({ language: "es" });
+		expect(
+			preferencePayload(preferences, { ...makePreferenceDraft(preferences), language: " es " }),
+		).toEqual({ language: "es" });
 	});
 
 	it("clears an existing language when the field is blank", () => {

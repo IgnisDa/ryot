@@ -155,7 +155,7 @@ export const userSettings: UserSettingsResult = {
 	name: "Test User",
 	id: UserId.make("user-1"),
 	email: "user@ryot.example",
-	preferences: { language: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: "UTC", disableIntegrations: false },
 };
 
 export const makeUserSettingsStub = (overrides: Partial<AccountApi["Service"]> = {}) =>
@@ -440,6 +440,7 @@ export const clientCompositionDocument = (
 	descriptor: {
 		application: "page",
 		automaticRegistry: [],
+		analyticsSections: [],
 		entry: { binding: "default", specifier: "@ryot-app/kernel-renderers/fixture" },
 	},
 	metadata: {

@@ -95,6 +95,63 @@ const read = (
 ) => pluginUserSettingsOutcome({ api, scope, contributors, currentScope, request: { pluginId } });
 
 describe("plugin user settings bridge read", () => {
+	it.effect("returns only reporting preferences and rejects a changed account", () =>
+		Effect.gen(function* () {
+			let current = scope;
+			let zone: null | string = "Asia/Tokyo";
+			let switchAccount = false;
+			const input = {
+				scope,
+				contributors,
+				currentScope: () => current,
+				request: { kind: "reporting" as const },
+				api: {
+					execute: () =>
+						Effect.sync(() => {
+							if (switchAccount) {
+								current = otherScope;
+							}
+							return {
+								data: {
+									user: {
+										type: "rows" as const,
+										pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+										items: [
+											{
+												image: null,
+												id: "user-1",
+												name: "Private name",
+												email: "private@example.com",
+												preferences: {
+													language: "en",
+													reportingTimeZone: zone,
+													disableIntegrations: true,
+												},
+											},
+										],
+									},
+								},
+							};
+						}),
+				},
+			};
+			expect(yield* pluginUserSettingsOutcome(input)).toEqual({
+				outcome: "success",
+				settings: { timeZone: "Asia/Tokyo" },
+			});
+			zone = null;
+			expect(yield* pluginUserSettingsOutcome(input)).toEqual({
+				outcome: "success",
+				settings: { timeZone: "UTC" },
+			});
+			switchAccount = true;
+			expect(yield* pluginUserSettingsOutcome(input)).toEqual({
+				outcome: "failure",
+				reason: "invalid-request",
+			});
+		}),
+	);
+
 	it.effect("reads contributing plugins with defaults and refuses installed non-contributors", () =>
 		Effect.gen(function* () {
 			const { api, executed } = makeApi();

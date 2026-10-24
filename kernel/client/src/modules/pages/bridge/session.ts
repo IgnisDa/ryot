@@ -673,7 +673,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function handleUserSettings(request: PluginBridgeUserSettingsRequest) {
 		runRequest(request.requestId, "user-settings", () =>
-			options.onUserSettings({ pluginId: request.pluginId }),
+			options.onUserSettings(
+				"kind" in request ? { kind: request.kind } : { pluginId: request.pluginId },
+			),
 		);
 	}
 

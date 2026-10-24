@@ -1,10 +1,11 @@
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 
-export type PreferenceDraft = { readonly language: string };
+export type PreferenceDraft = { readonly language: string; readonly reportingTimeZone: string };
 
 export const makePreferenceDraft = (preferences: UserPreferences): PreferenceDraft => ({
 	language: preferences.language ?? "",
+	reportingTimeZone: preferences.reportingTimeZone ?? "UTC",
 });
 
 export const preferencePayload = (
@@ -12,5 +13,9 @@ export const preferencePayload = (
 	draft: PreferenceDraft,
 ): UpdateUserPreferencesBody => {
 	const language = draft.language.trim() || null;
-	return language === initial.language ? {} : { language };
+	const reportingTimeZone = draft.reportingTimeZone.trim();
+	return {
+		...(language === initial.language ? {} : { language }),
+		...(reportingTimeZone === (initial.reportingTimeZone ?? "UTC") ? {} : { reportingTimeZone }),
+	};
 };

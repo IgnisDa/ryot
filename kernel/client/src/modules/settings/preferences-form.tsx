@@ -1,5 +1,6 @@
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/utils";
 import {
 	Button,
 	Select,
@@ -123,6 +124,39 @@ export function PreferencesForm(props: {
 									/>
 								)}
 							</form.Field>
+							<form.Field
+								name="reportingTimeZone"
+								validators={[
+									{
+										triggers: ["change", "blur"],
+										run: ({ value }) =>
+											isNamedTimeZone(value.trim()) ? undefined : "Enter a valid IANA time zone.",
+									},
+								]}
+							>
+								{(field) => (
+									<div className="flex flex-col gap-2">
+										<label className="flex flex-col gap-2 text-sm">
+											<span>Reporting time zone</span>
+											<TextField
+												value={field.value}
+												placeholder="America/New_York"
+												disabled={props.disabled === true || isSubmitting}
+												onChange={(event) => {
+													field.handleChange(event.currentTarget.value);
+													changed();
+												}}
+											/>
+										</label>
+										<p className="text-xs text-text-muted">
+											Sets reporting days and comparisons. Travel does not change this setting.
+										</p>
+										{field.errors.length > 0 && (
+											<StatusMessage tone="error">Enter a valid IANA time zone.</StatusMessage>
+										)}
+									</div>
+								)}
+							</form.Field>
 						</div>
 					</div>
 				)}
@@ -132,13 +166,15 @@ export function PreferencesForm(props: {
 					<StatusMessage tone="error">Could not save preferences. Try again.</StatusMessage>
 				)}
 				{saved && <StatusMessage tone="success">Preferences saved.</StatusMessage>}
-				<form.Subscribe selector={(state) => [state.isDirty, state.isSubmitting] as const}>
-					{([isDirty, isSubmitting]) => (
+				<form.Subscribe
+					selector={(state) => [state.isDirty, state.isSubmitting, state.canSubmit] as const}
+				>
+					{([isDirty, isSubmitting, canSubmit]) => (
 						<Button
 							type="submit"
 							variant="primary"
 							className="min-w-32"
-							disabled={props.disabled === true || !isDirty || isSubmitting}
+							disabled={props.disabled === true || !isDirty || isSubmitting || !canSubmit}
 						>
 							{isSubmitting ? "Saving..." : "Save changes"}
 						</Button>

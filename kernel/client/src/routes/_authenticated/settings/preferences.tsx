@@ -28,6 +28,7 @@ function PreferencesRoute() {
 			<PreferencesForm
 				disabled={isDemo}
 				preferences={preferences.data}
+				key={preferences.data.reportingTimeZone ?? "unset"}
 				onSave={(payload) => updatePreferences.mutateEffect(payload)}
 			/>
 		);
@@ -46,8 +47,8 @@ function PreferencesRoute() {
 					<Appearance theme={theme} />
 				</SettingsSection>
 				<SettingsSection
-					title="Language"
-					detail="Choose the preferred language for translated entity names and details. Availability depends on the provider."
+					title="Language and reporting"
+					detail="Choose the entity language and account reporting time zone. Translation availability depends on the provider."
 				>
 					{isDemo && <DemoProtectionMessage />}
 					{content}

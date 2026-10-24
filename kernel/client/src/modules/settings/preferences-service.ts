@@ -1,5 +1,7 @@
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
-import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import type {
+	UserPreferences,
+	UserPreferencesPatch,
+} from "@ryot-app/contract/schema/user-preferences";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
@@ -15,7 +17,7 @@ export const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHos
 );
 
 export const updatePreferencesMutation = createRyotMutation<
-	UpdateUserPreferencesBody,
+	UserPreferencesPatch,
 	void,
 	KernelHostServices
 >(({ input, client, hostServices }) =>
@@ -30,6 +32,20 @@ export const updatePreferencesMutation = createRyotMutation<
 							hostServices.runtime.runSync(EntityWatchService).reconnect(hostServices.scope),
 						),
 			),
+			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
+			Effect.mapError(() => new RyotClientError("transport")),
+		),
+);
+
+export const initializeReportingTimeZoneMutation = createRyotMutation<
+	string,
+	void,
+	KernelHostServices
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(AccountApi)
+		.updatePreferences(hostServices.scope, { payload: { initializeReportingTimeZone: input } })
+		.pipe(
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 			Effect.mapError(() => new RyotClientError("transport")),
 		),

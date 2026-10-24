@@ -1,3 +1,4 @@
+import { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	sameDeclaration,
@@ -41,17 +42,28 @@ const entityBrowserSettings = (prepared: PreparedClientPage) => {
 
 type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;
 
-const validateSavedViewSearch = (search: Record<string, unknown>) => ({
-	add: search.add === true || search.add === "true" ? true : undefined,
-	q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
-	sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
-	layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
-	search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
-	dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
-	filters: typeof search.filters === "string" && search.filters !== "" ? search.filters : undefined,
-	entityId:
-		typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
-});
+const validateSavedViewSearch = (search: Record<string, unknown>) => {
+	const reporting = Schema.decodeUnknownResult(Schema.Union([Schema.String, ReportingSelection]))(
+		search.reporting,
+	);
+	const section = Schema.decodeUnknownResult(
+		Schema.Union([Schema.String, Schema.Tuple([Schema.String, Schema.String])]),
+	)(search.section);
+	return {
+		section: Result.isSuccess(section) ? section.success : undefined,
+		add: search.add === true || search.add === "true" ? true : undefined,
+		reporting: Result.isSuccess(reporting) ? reporting.success : undefined,
+		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
+		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
+		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
+		dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+		filters:
+			typeof search.filters === "string" && search.filters !== "" ? search.filters : undefined,
+		entityId:
+			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
+	};
+};
 
 export const savedViewRouteOptions = {
 	gcTime: 0,

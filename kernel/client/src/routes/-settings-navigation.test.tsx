@@ -19,6 +19,7 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
+import { deviceReportingTimeZone } from "#/modules/settings/reporting-time-zone";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
@@ -187,7 +188,7 @@ describe("authenticated route gate", () => {
 		}),
 	);
 	it.live(
-		"owns one interest session across loader revalidation and releases it on unmount without fetching preferences",
+		"owns one interest session across loader revalidation and releases it on unmount with one cached preferences read",
 		() =>
 			Effect.gen(function* () {
 				let settingsReads = 0;
@@ -206,13 +207,63 @@ describe("authenticated route gate", () => {
 					}),
 				);
 				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(1)));
 				expect(view.interestEvents).toEqual(["acquire"]);
 				yield* Effect.promise(() => view.router.invalidate());
 				expect(view.interestEvents).toEqual(["acquire"]);
-				expect(settingsReads).toBe(0);
+				expect(settingsReads).toBe(1);
 				view.unmount();
 				expect(view.interestEvents).toEqual(["acquire", "release"]);
 			}),
+	);
+	it.live.each([
+		{ state: "unset", reportingTimeZone: null },
+		{ state: "preset", reportingTimeZone: "Pacific/Auckland" },
+	])("initializes only an unset account reporting time zone ($state)", ({ reportingTimeZone }) =>
+		Effect.gen(function* () {
+			const saved: UpdateUserPreferencesBody[] = [];
+			let current = {
+				...userSettings,
+				preferences: { ...userSettings.preferences, reportingTimeZone },
+			};
+			const expectedTimeZone =
+				reportingTimeZone ??
+				deviceReportingTimeZone(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+			const expectedWrites =
+				reportingTimeZone === null ? [{ initializeReportingTimeZone: expectedTimeZone }] : [];
+			const view = mountView(
+				"/settings",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					updatePreferences: (_scope, request) =>
+						Effect.sync(() => {
+							saved.push(request.payload);
+							current = {
+								...current,
+								preferences: {
+									...current.preferences,
+									reportingTimeZone: request.payload.initializeReportingTimeZone ?? null,
+								},
+							};
+						}),
+				}),
+				undefined,
+				makeUserSettingsQueries(() => current),
+			);
+			yield* Effect.gen(function* () {
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(expectedWrites)));
+				expect(current.preferences.reportingTimeZone).toBe(expectedTimeZone);
+				yield* Effect.promise(() => view.router.invalidate());
+				expect(saved).toEqual(expectedWrites);
+				expect(view.interestEvents).toEqual(["acquire"]);
+				view.unmount();
+			}).pipe(Effect.ensuring(view.runtime.disposeEffect));
+		}),
 	);
 	it.live.each([
 		"/",
@@ -1014,10 +1065,10 @@ describe("preferences settings", () => {
 			);
 
 			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-			expect(screen.getByRole("heading", { name: "Language" })).not.toBeNull();
+			expect(screen.getByRole("heading", { name: "Language and reporting" })).not.toBeNull();
 			expect(
 				screen.getByText(
-					"Choose the preferred language for translated entity names and details. Availability depends on the provider.",
+					"Choose the entity language and account reporting time zone. Translation availability depends on the provider.",
 				),
 			).not.toBeNull();
 			expect(screen.queryByRole("switch")).toBeNull();
@@ -1063,6 +1114,39 @@ describe("preferences settings", () => {
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				true,
 			);
+		}),
+	);
+
+	it.live("validates and saves the account reporting timezone without changing language", () =>
+		Effect.gen(function* () {
+			const saved: UpdateUserPreferencesBody[] = [];
+			mountPreferences(
+				makeUserSettingsStub({
+					updatePreferences: (_scope, request) =>
+						Effect.sync(() => {
+							saved.push(request.payload);
+						}),
+				}),
+			);
+			const input = yield* Effect.promise(() =>
+				screen.findByRole("textbox", { name: "Reporting time zone" }),
+			);
+			fireEvent.change(input, { target: { value: "+05:30" } });
+			yield* Effect.promise(() => screen.findByText("Enter a valid IANA time zone."));
+			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+				true,
+			);
+			fireEvent.change(input, { target: { value: "Asia/Kolkata" } });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled"),
+					).toBe(false),
+				),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+			yield* Effect.promise(() => screen.findByText("Preferences saved."));
+			expect(saved).toEqual([{ reportingTimeZone: "Asia/Kolkata" }]);
 		}),
 	);
 

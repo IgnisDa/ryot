@@ -6,6 +6,7 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import { initialSchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { pluginInstallationUserSettingsRecipe } from "@ryot-app/ryotql-recipes/plugin-user-settings";
+import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { Effect, Result } from "effect";
 
 import type { RyotQLApi } from "#/api/ryotql";
@@ -27,7 +28,30 @@ export const pluginUserSettingsOutcome = (input: {
 			const current = input.currentScope();
 			return current !== undefined && apiScopeKey(current) === apiScopeKey(input.scope);
 		};
-		if (!isCurrent() || !hasPluginContributor(input.contributors, input.request.pluginId)) {
+		if (!isCurrent()) {
+			return invalidRequest;
+		}
+		if ("kind" in input.request) {
+			const recipe = userSettingsRecipe();
+			const response = yield* Effect.result(
+				input.api.execute(input.scope, { payload: recipe.document }),
+			);
+			if (!isCurrent()) {
+				return invalidRequest;
+			}
+			if (Result.isFailure(response)) {
+				return transport;
+			}
+			const decoded = recipe.decode(response.success);
+			if (Result.isFailure(decoded)) {
+				return transport;
+			}
+			return {
+				outcome: "success",
+				settings: { timeZone: decoded.success.preferences.reportingTimeZone ?? "UTC" },
+			} as const;
+		}
+		if (!hasPluginContributor(input.contributors, input.request.pluginId)) {
 			return invalidRequest;
 		}
 		const recipe = pluginInstallationUserSettingsRecipe({ pluginId: input.request.pluginId });

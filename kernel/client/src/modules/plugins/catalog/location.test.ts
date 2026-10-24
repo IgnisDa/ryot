@@ -101,6 +101,12 @@ describe("plugin logical locations", () => {
 				catalog,
 			),
 		).toEqual({ replace: false, href: "/settings/import-data" });
+		expect(
+			toNavigationRequest(
+				{ mode: "push", type: "navigate", target: { kind: "kernel-page", page: "preferences" } },
+				catalog,
+			),
+		).toEqual({ replace: false, href: "/settings/preferences" });
 	});
 
 	it("rejects route traversal and an empty entity ID", () => {
