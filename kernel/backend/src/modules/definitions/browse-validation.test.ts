@@ -1,4 +1,5 @@
 import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import { castNumber, castText, column, jsonPath, literal, table } from "@ryot-app/ryotql";
 import { expect, it } from "vitest";
 
@@ -13,6 +14,19 @@ const rating: BrowseField = {
 	sort: { ascending: "Lowest rated", descending: "Highest rated" },
 	expression: castNumber(jsonPath(column(subject, "properties"), "rating")),
 };
+
+const sorted = (expression: ScalarExpression) => ({
+	browse: {
+		fields: [
+			{
+				expression,
+				key: "added",
+				kind: "sort" as const,
+				sort: { ascending: "Old", descending: "New" },
+			},
+		],
+	},
+});
 
 const issue = (...fields: readonly BrowseField[]) => browseIssue({ fields });
 
@@ -101,4 +115,19 @@ it("requires a key shared across entity schemas to keep its kind and type", () =
 			},
 		]),
 	).toBe("Browse field 'rating' differs between entity schemas movie and show");
+});
+
+it("requires sort-only fields sharing a key to sort the same kind", () => {
+	expect(
+		browseConsistencyIssue([
+			{ slug: "movie", ...sorted(column(subject, "createdAt")) },
+			{ slug: "show", ...sorted(column(subject, "updatedAt")) },
+		]),
+	).toBeUndefined();
+	expect(
+		browseConsistencyIssue([
+			{ slug: "movie", ...sorted(column(subject, "createdAt")) },
+			{ slug: "show", ...sorted(column(subject, "name")) },
+		]),
+	).toBe("Browse field 'added' differs between entity schemas movie and show");
 });

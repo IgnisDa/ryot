@@ -16,7 +16,13 @@ import {
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { type BrowseSchema, browseTargets, compileSort, nameSortTarget } from "./browse";
+import {
+	type BrowseSchema,
+	browseTargets,
+	compileSort,
+	entitySchemaBrowseRecipe,
+	nameSortTarget,
+} from "./browse";
 
 const subject = table("entity", "subject");
 const entity = table("entity", "member");
@@ -177,5 +183,32 @@ describe("sort compilation", () => {
 			ascending(id),
 		]);
 		expect(Result.isFailure(compileSort(sorts, "rating", id))).toBe(true);
+	});
+});
+
+describe("schema browse loading", () => {
+	it("keeps requested schemas without a visible definition so their members stay excluded", () => {
+		const recipe = entitySchemaBrowseRecipe({
+			schemas: [
+				{ slug: "movie", pluginId: "media" },
+				{ slug: "removed", pluginId: "gone" },
+			],
+		});
+		const movie = schema("movie", "media", [rating("rating")]);
+		const loaded = Result.getOrThrow(
+			recipe.decode({
+				data: {
+					schemas: {
+						type: "rows",
+						items: [movie],
+						pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+					},
+				},
+			}),
+		);
+		expect(loaded).toEqual([movie, { browse: null, slug: "removed", pluginId: "gone" }]);
+		expect(browseTargets(loaded, entity, new Set()).filters[0]?.branches).toEqual([
+			{ value: property(entity, "rating"), when: or(local("movie", "media")) },
+		]);
 	});
 });

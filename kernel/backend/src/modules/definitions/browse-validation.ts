@@ -24,6 +24,13 @@ const expectedKinds: Record<FilterValueType, string> = {
 	"enum-list": "json",
 };
 
+const subjectExpressionKind = (expression: ScalarExpression) =>
+	queryExpressionKind(
+		{ from: { table: "entity", alias: BROWSE_SUBJECT_ALIAS } },
+		expression,
+		savedViewDataSourceAccess,
+	);
+
 const expressionIssue = (
 	key: string,
 	expression: ScalarExpression,
@@ -36,11 +43,7 @@ const expressionIssue = (
 	if (error) {
 		return `browse field '${key}' expression is invalid: ${error}`;
 	}
-	const kind = queryExpressionKind(
-		{ from: { table: "entity", alias: BROWSE_SUBJECT_ALIAS } },
-		expression,
-		savedViewDataSourceAccess,
-	);
+	const kind = subjectExpressionKind(expression);
 	return accepts(kind) ? undefined : `browse field '${key}' expression has kind '${kind}'`;
 };
 
@@ -98,6 +101,9 @@ export const browseIssue = (browse: EntitySchemaBrowse): string | undefined => {
 const browseFieldShape = (browseField: BrowseField) => {
 	if (browseField.kind === "value") {
 		return `value:${browseField.type}`;
+	}
+	if (browseField.kind === "sort") {
+		return `sort:${subjectExpressionKind(browseField.expression)}`;
 	}
 	return browseField.kind === "relationship"
 		? `relationship:${browseField.direction}`

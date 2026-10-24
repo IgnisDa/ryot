@@ -293,11 +293,14 @@ export const entitySchemaBrowseRecipe = defineRecipe(
 	}) => ({
 		map: ({ schemas }) =>
 			Result.succeed(
-				input.schemas.flatMap((requested) =>
-					schemas.items.filter(
+				input.schemas.flatMap((requested): readonly BrowseSchema[] => {
+					const rows = schemas.items.filter(
 						(row) => row.slug === requested.slug && row.pluginId === requested.pluginId,
-					),
-				),
+					);
+					return rows.length > 0
+						? rows
+						: [{ browse: null, slug: requested.slug, pluginId: requested.pluginId }];
+				}),
 			),
 		queries: {
 			schemas: selectedRows(definitions, {
