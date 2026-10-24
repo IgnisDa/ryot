@@ -10,7 +10,6 @@ import {
 	SavedViewBadRequest,
 	type SavedViewRenderer,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { ClientRendererId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Result, Schema } from "effect";
 
@@ -160,12 +159,6 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 const settingsIncompatible = (message: string) =>
 	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
 
-type CustomRendererRecord = {
-	readonly id: string;
-	readonly publishedRevision: number | null;
-	readonly publishedDefinition: { readonly settingsSchema: AppSchema } | null;
-};
-
 type PluginPageRecord = { readonly settingsSchema: AppSchema };
 
 export const isEntityBrowserRenderer = (renderer: {
@@ -179,70 +172,56 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	renderer: SavedViewRenderer,
 	settings: Readonly<Record<string, unknown>>,
 	dataSources: RyotQLDocument | null,
-	customRenderer: CustomRendererRecord | null,
 	pluginPage: PluginPageRecord | null = null,
 ) {
-	if (renderer.kind === "kernel" && renderer.name === "calendar") {
-		return yield* settingsIncompatible("Calendar views are kernel built-ins only");
-	}
-	if (isEntityBrowserRenderer(renderer)) {
-		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
-		return null;
-	}
-	if (renderer.kind === "kernel" && renderer.name === "results-table") {
-		yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
-		return null;
-	}
-	if (dataSources !== null) {
-		const { error: semanticError } = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
-		if (semanticError) {
-			return yield* settingsIncompatible(semanticError);
-		}
-		for (const [name, query] of Object.entries(dataSources.queries)) {
-			if (query.output.type === "rows" && "after" in query.output.pagination) {
-				return yield* settingsIncompatible(
-					`Stored data source '${name}' must not contain a cursor`,
-				);
+	switch (renderer.kind) {
+		case "kernel":
+			switch (renderer.name) {
+				case "calendar":
+					return yield* settingsIncompatible("Calendar views are kernel built-ins only");
+				case "entity-browser":
+				case "collection-browser":
+					return yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
+				case "results-table":
+					return yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
 			}
-		}
+		case "plugin":
+			if (dataSources !== null) {
+				const { error: semanticError } = validateRyotQLDocument(
+					dataSources,
+					savedViewDataSourceAccess,
+				);
+				if (semanticError) {
+					return yield* settingsIncompatible(semanticError);
+				}
+				for (const [name, query] of Object.entries(dataSources.queries)) {
+					if (query.output.type === "rows" && "after" in query.output.pagination) {
+						return yield* settingsIncompatible(
+							`Stored data source '${name}' must not contain a cursor`,
+						);
+					}
+				}
+			}
+			if (!pluginPage) {
+				return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
+			}
+			yield* parseAppSchemaProperties({
+				properties: settings,
+				kind: "Saved view settings",
+				propertiesSchema: pluginPage.settingsSchema,
+			}).pipe(
+				Effect.mapError(
+					(error) =>
+						new SavedViewBadRequest({
+							reason: {
+								code: "settings-incompatible",
+								message: formatPropertyIssues(error.issues),
+							},
+						}),
+				),
+			);
 	}
-	if (renderer.kind === "plugin") {
-		if (!pluginPage) {
-			return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
-		}
-		yield* parseAppSchemaProperties({
-			properties: settings,
-			kind: "Saved view settings",
-			propertiesSchema: pluginPage.settingsSchema,
-		}).pipe(
-			Effect.mapError(
-				(error) =>
-					new SavedViewBadRequest({
-						reason: { code: "settings-incompatible", message: formatPropertyIssues(error.issues) },
-					}),
-			),
-		);
-		return null;
-	}
-	if (!customRenderer) {
-		return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
-	}
-	if (!customRenderer.publishedDefinition || customRenderer.publishedRevision === null) {
-		return yield* new SavedViewBadRequest({ reason: { code: "renderer-unpublished" } });
-	}
-	yield* parseAppSchemaProperties({
-		properties: settings,
-		kind: "Saved view settings",
-		propertiesSchema: customRenderer.publishedDefinition.settingsSchema,
-	}).pipe(
-		Effect.mapError(
-			(error) =>
-				new SavedViewBadRequest({
-					reason: { code: "settings-incompatible", message: formatPropertyIssues(error.issues) },
-				}),
-		),
-	);
-	return ClientRendererId.make(customRenderer.id);
+	return undefined;
 });
 
 export const validateResultsTableSavedViewDefinition = Effect.fn(

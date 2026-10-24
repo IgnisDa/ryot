@@ -81,6 +81,16 @@ it.effect("accepts a canonical entity-browser definition", () =>
 	validateEntityBrowserSavedViewDefinition({ dataSources, settings: browserSettings }),
 );
 
+it.effect("validates both kernel browser renderers without returning a renderer ID", () =>
+	Effect.gen(function* () {
+		for (const name of ["entity-browser", "collection-browser"] as const) {
+			expect(
+				yield* validateSavedViewDefinition({ name, kind: "kernel" }, browserSettings, dataSources),
+			).toBeUndefined();
+		}
+	}),
+);
+
 const rejectsBrowserSettings = (
 	settings: EntityBrowserSavedViewSettings,
 	message: string,
@@ -226,41 +236,104 @@ it.effect("rejects relationship filter fields on results tables", () =>
 	}),
 );
 
-it.effect("accepts a canonical results-table definition", () => {
-	const settings = {
-		pageSize: 20,
-		sourceName: "entities",
-		rowKeyFields: ["entityId"],
-		entityLink: { entityIdField: "entityId" },
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
-	} satisfies ResultsTableSavedViewSettings;
-	return validateResultsTableSavedViewDefinition({ settings, dataSources });
-});
+it.effect("accepts a canonical results-table definition", () =>
+	Effect.gen(function* () {
+		const settings = {
+			pageSize: 20,
+			sourceName: "entities",
+			rowKeyFields: ["entityId"],
+			entityLink: { entityIdField: "entityId" },
+			columns: [{ label: "Name", field: "name", displayKind: "text" }],
+		} satisfies ResultsTableSavedViewSettings;
+		yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
+		expect(
+			yield* validateSavedViewDefinition(
+				{ kind: "kernel", name: "results-table" },
+				settings,
+				dataSources,
+			),
+		).toBeUndefined();
+	}),
+);
+
+const pluginRenderer = { pluginId: "plugin-id", exportName: "summary", kind: "plugin" as const };
+const pluginPage = {
+	settingsSchema: {
+		unknownKeys: "strict" as const,
+		fields: {
+			title: {
+				label: "Title",
+				type: "string" as const,
+				description: "Summary title",
+				validation: { required: true as const },
+			},
+		},
+	},
+};
 
 it.effect("authorizes plugin page renderers and validates their settings", () =>
 	Effect.gen(function* () {
-		const renderer = { pluginId: "plugin-id", exportName: "summary", kind: "plugin" as const };
-		const page = {
-			settingsSchema: {
-				unknownKeys: "strict" as const,
-				fields: {
-					title: {
-						label: "Title",
-						type: "string" as const,
-						description: "Summary title",
-						validation: { required: true as const },
-					},
-				},
-			},
-		};
-		expect(yield* validateSavedViewDefinition(renderer, { title: "Home" }, null, null, page)).toBe(
-			null,
+		for (const source of [null, dataSources]) {
+			expect(
+				yield* validateSavedViewDefinition(pluginRenderer, { title: "Home" }, source, pluginPage),
+			).toBeUndefined();
+		}
+		const exit = yield* Effect.exit(
+			validateSavedViewDefinition(pluginRenderer, {}, null, pluginPage),
 		);
-		const exit = yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null, null, page));
 		assertExitFails(
 			exit,
 			new SavedViewBadRequest({
 				reason: { message: "title: is missing", code: "settings-incompatible" },
+			}),
+		);
+	}),
+);
+
+it.effect("rejects plugin renderers without an available page export", () =>
+	Effect.gen(function* () {
+		assertExitFails(
+			yield* Effect.exit(validateSavedViewDefinition(pluginRenderer, { title: "Home" }, null)),
+			new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
+		);
+	}),
+);
+
+it.effect("validates plugin data sources and rejects stored cursors", () =>
+	Effect.gen(function* () {
+		const missing = table("missing-table", "missing");
+		const invalid = yield* validateSavedViewDefinition(
+			pluginRenderer,
+			{ title: "Home" },
+			document({ invalid: rows(missing, { fields: [] }) }),
+			pluginPage,
+		).pipe(Effect.flip);
+		expect(invalid.reason.code).toBe("settings-incompatible");
+		const source = dataSources.queries.entities;
+		assertExitFails(
+			yield* Effect.exit(
+				validateSavedViewDefinition(
+					pluginRenderer,
+					{ title: "Home" },
+					{
+						queries: {
+							entities: {
+								...source,
+								output: {
+									...source.output,
+									pagination: { ...source.output.pagination, after: "next" },
+								},
+							},
+						},
+					},
+					pluginPage,
+				),
+			),
+			new SavedViewBadRequest({
+				reason: {
+					code: "settings-incompatible",
+					message: "Stored data source 'entities' must not contain a cursor",
+				},
 			}),
 		);
 	}),
@@ -306,12 +379,9 @@ it.effect("rejects the kernel calendar renderer for user-owned views", () =>
 				message: "Calendar views are kernel built-ins only",
 			},
 		});
+		assertExitFails(yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null)), failure);
 		assertExitFails(
-			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null, null)),
-			failure,
-		);
-		assertExitFails(
-			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, dataSources, null)),
+			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, dataSources)),
 			failure,
 		);
 	}),

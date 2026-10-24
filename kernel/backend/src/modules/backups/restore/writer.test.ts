@@ -848,7 +848,6 @@ it.effect(
 				renderer,
 				{ label: 42 },
 				provenanceQuery,
-				null,
 				page,
 			).pipe(Effect.flip);
 			expect(settingsError.reason.code).toBe("settings-incompatible");
@@ -858,7 +857,6 @@ it.effect(
 				renderer,
 				{ label: "valid" },
 				document({ invalid: rows(invalidTable, { fields: [] }) }),
-				null,
 				page,
 			).pipe(Effect.flip);
 			expect(sourceError.reason).toMatchObject({ code: "settings-incompatible" });
@@ -870,7 +868,6 @@ it.effect("rejects unavailable plugin renderers through the canonical rule", () 
 		{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
 		{},
 		provenanceQuery,
-		null,
 	).pipe(
 		Effect.flip,
 		Effect.tap((error) => Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found"))),

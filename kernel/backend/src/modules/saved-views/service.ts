@@ -97,7 +97,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				renderer,
 				settings,
 				dataSources,
-				null,
 				page?.kind === "page" ? page : null,
 			);
 			if (page?.kind === "page") {
