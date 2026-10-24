@@ -11,7 +11,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Result } from "effect";
 
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { compileClientPluginModule } from "./module";
@@ -351,6 +351,156 @@ it.layer(emittedLayer("export default {};"))("authored AST import policy", (test
 			expect(failure.diagnostics).toEqual([
 				expect.objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
 			]);
+		}),
+	);
+});
+
+const untrustedClientImport = (specifier: string) =>
+	`Import "${specifier}" is not allowed; client plugins may only import React and Ryot client SDK entry points`;
+const clientImportDiagnostic = (message: string) => ({
+	message,
+	line: 1,
+	column: 1,
+	severity: "error",
+	file: "client/value.ts",
+	code: "RYOT_CLIENT_IMPORT",
+});
+const compileClientValue = (source: string) =>
+	compileClientPluginModule({
+		...emittedInput,
+		files: { ...emittedInput.files, "client/value.ts": bytes(source) },
+	});
+
+it.layer(emittedLayer("export default {};"))("authored client import forms", (test) => {
+	test.effect.each([
+		{
+			source: 'import effect = require("effect");',
+			messages: [untrustedClientImport("effect")],
+		},
+		{
+			source: 'export namespace Loader { import effect = require("effect"); }',
+			messages: [untrustedClientImport("effect")],
+		},
+		{
+			source: 'declare module "virtual" { export * from "effect"; }',
+			messages: [untrustedClientImport("effect")],
+		},
+		{ source: 'export * from "effect";', messages: [untrustedClientImport("effect")] },
+		{
+			source: 'export type Value = typeof import("effect");',
+			messages: [untrustedClientImport("effect")],
+		},
+		{
+			source: 'export function load() { return import("react"); }',
+			messages: ["Dynamic imports and Vite import-glob features are not allowed"],
+		},
+		{
+			source: 'export function asset() { return new URL("./missing.svg", import.meta.url); }',
+			messages: ['Asset URL "./missing.svg" is not allowed'],
+		},
+		{
+			source: [
+				'import effect = require("effect");',
+				'export * from "zod";',
+				'export type Loaded = typeof import("lodash");',
+				'export const load = () => import("react");',
+			].join("\n"),
+			messages: [
+				untrustedClientImport("effect"),
+				untrustedClientImport("zod"),
+				untrustedClientImport("lodash"),
+				"Dynamic imports and Vite import-glob features are not allowed",
+			],
+		},
+	])("rejects $source before Vite", ({ source, messages }) =>
+		Effect.gen(function* () {
+			const failure = yield* compileClientValue(source).pipe(
+				Effect.provideService(
+					ViteBuildService,
+					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
+				),
+				Effect.flip,
+			);
+			expect(failure.diagnostics).toEqual(messages.map(clientImportDiagnostic));
+		}),
+	);
+
+	test.effect.each([
+		{
+			path: "shared/value.ts",
+			declared: true,
+			source: 'import card from "@ryot-app/plugins/media/card"; export { card };',
+			message:
+				'Import "@ryot-app/plugins/media/card" is not allowed; plugin shared sources may only import Ryot plugin kit entry points',
+		},
+		...[
+			"@ryot-app/plugins/media",
+			"@ryot-app/plugins/media/a/b",
+			"@ryot-app/plugins/Media/x",
+		].map((specifier) => ({
+			path: "client/value.ts",
+			declared: true,
+			source: `import card from "${specifier}"; export { card };`,
+			message: `Public plugin import "${specifier}" is not present in the authorized export map`,
+		})),
+		{
+			path: "client/value.ts",
+			declared: false,
+			source: 'import card from "@ryot-app/plugins/constructor/x"; export { card };',
+			message:
+				'Public plugin import "@ryot-app/plugins/constructor/x" is not present in the authorized export map',
+		},
+		{
+			path: "client/value.ts",
+			declared: false,
+			source: 'export type Value = import("@ryot-app/plugins/undeclared/x").T;',
+			message:
+				'Public plugin import "@ryot-app/plugins/undeclared/x" is not present in the authorized export map',
+		},
+	])("rejects plugin import $source in $path before Vite", ({ path, declared, source, message }) =>
+		Effect.gen(function* () {
+			const failure = yield* compileClientPluginModule({
+				...emittedInput,
+				files: { ...emittedInput.files, [path]: bytes(source) },
+				...(declared
+					? { pluginDependencies: { media: { scope: "user" as const, packageId: dependencyPackageId } } }
+					: {}),
+			}).pipe(
+				Effect.provideService(
+					ViteBuildService,
+					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
+				),
+				Effect.flip,
+			);
+			expect(failure.diagnostics).toEqual([
+				{
+					message,
+					file: path,
+					line: 1,
+					column: 1,
+					severity: "error",
+					code: "RYOT_CLIENT_IMPORT",
+				},
+			]);
+		}),
+	);
+
+	test.effect("accepts an approved import type expression in client sources", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compileClientValue(
+				'export type Value = import("react").ReactNode;',
+			);
+			expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
+		}),
+	);
+
+	test.effect("leaves type reference directives to the TypeScript project", () =>
+		Effect.gen(function* () {
+			const result = yield* compileClientValue(
+				'/// <reference types="react" />\nexport const value = 1;',
+			).pipe(Effect.result);
+			const diagnostics = Result.isFailure(result) ? result.failure.diagnostics : [];
+			expect(diagnostics.filter(({ code }) => code === "RYOT_CLIENT_IMPORT")).toEqual([]);
 		}),
 	);
 });
