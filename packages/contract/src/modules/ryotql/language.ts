@@ -32,7 +32,7 @@ const JsonPathSegment = Schema.Union([Schema.String, Schema.Finite]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
 const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
 const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
-const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month"]);
+const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month", "year"]);
 
 export type JsonElementExpression = { readonly type: "jsonElement" };
 
@@ -88,6 +88,8 @@ export type ScalarExpression =
 	| { readonly type: "round"; readonly expr: ScalarExpression }
 	| { readonly type: "integer"; readonly expr: ScalarExpression }
 	| { readonly type: "isNotNull"; readonly expr: ScalarExpression }
+	| { readonly timeZone: string; readonly type: "localDate"; readonly expr: ScalarExpression }
+	| { readonly timeZone: string; readonly type: "localHour"; readonly expr: ScalarExpression }
 	| { readonly type: "concat"; readonly values: readonly [ScalarExpression, ...ScalarExpression[]] }
 	| {
 			readonly type: "coalesce";
@@ -204,6 +206,16 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("integer") }),
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
 		strictStruct({ expr: ScalarExpression, type: Schema.Literal("round") }),
+		strictStruct({
+			expr: ScalarExpression,
+			timeZone: Schema.String,
+			type: Schema.Literal("localDate"),
+		}),
+		strictStruct({
+			expr: ScalarExpression,
+			timeZone: Schema.String,
+			type: Schema.Literal("localHour"),
+		}),
 		strictStruct({
 			expr: ScalarExpression,
 			bucket: DateBucketUnit,
@@ -447,7 +459,7 @@ const TimeSeriesRange = strictStruct({ endAt: Schema.String, startAt: Schema.Str
 const TimeSeriesTime = strictStruct({
 	expr: ScalarExpression,
 	range: TimeSeriesRange,
-	bucket: Schema.Literals(["hour", "day", "week", "month"]),
+	bucket: DateBucketUnit,
 }).annotate({ identifier: "RyotQLTimeSeriesTime" });
 
 export const TimeSeriesOutput = strictStruct({
@@ -538,6 +550,8 @@ const languageMapper = (mapping: LanguageMapping) => {
 			case "jsonPath":
 			case "isNotNull":
 			case "transform":
+			case "localDate":
+			case "localHour":
 			case "dateBucket":
 				return { ...value, expr: expression(value.expr) };
 			case "first":

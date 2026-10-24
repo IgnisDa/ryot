@@ -198,6 +198,9 @@ describe("RyotQLDocument", () => {
 			{ expr: value, type: "integer" },
 			{ expr: value, type: "isNotNull" },
 			{ bucket: "day", expr: createdAt, type: "dateBucket", timeZone: "America/New_York" },
+			{ bucket: "year", expr: createdAt, type: "dateBucket", timeZone: "America/New_York" },
+			{ expr: createdAt, type: "localDate", timeZone: "America/New_York" },
+			{ expr: createdAt, type: "localHour", timeZone: "America/New_York" },
 			{ type: "currentDate" },
 		] as const;
 
@@ -223,7 +226,7 @@ describe("RyotQLDocument", () => {
 		for (const expr of [
 			{ values: [], type: "concat" },
 			{
-				bucket: "year",
+				bucket: "quarter",
 				type: "dateBucket",
 				timeZone: "America/New_York",
 				expr: { type: "column", field: "createdAt", tableAlias: "entity" },
@@ -343,7 +346,7 @@ describe("RyotQLDocument", () => {
 			},
 			{
 				type: "timeSeries",
-				time: { ...time, bucket: "year" },
+				time: { ...time, bucket: "quarter" },
 				measure: { aggregation: { function: "count" } },
 			},
 			{ time, limit: 10, type: "timeSeries", measure: { aggregation: { function: "count" } } },
@@ -480,6 +483,30 @@ describe("RyotQLDocument", () => {
 			queries: {
 				collections: {
 					joins: [{ expr: { condition: { expr: { type: "pluginId", reference: local } } } }],
+				},
+			},
+		});
+		const localDateDocument = Schema.decodeUnknownSync(RyotQLDocument)(
+			makeDocument({
+				timeZone: "UTC",
+				type: "localDate",
+				expr: {
+					type: "conditional",
+					whenTrue: { type: "currentDate" },
+					whenFalse: { type: "currentDate" },
+					condition: {
+						operator: "eq",
+						type: "comparison",
+						right: { type: "literal", value: "plugin-a" },
+						left: { type: "pluginId", reference: { kind: "self" } },
+					},
+				},
+			}),
+		);
+		expect(mapPluginIdentityReferences(localDateDocument, () => local)).toMatchObject({
+			queries: {
+				entities: {
+					output: { fields: [{ expr: { expr: { condition: { left: { reference: local } } } } }] },
 				},
 			},
 		});
