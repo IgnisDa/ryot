@@ -1,5 +1,6 @@
-import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { isNamedTimeZone } from "@ryot-app/plugin-kit/schema";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -212,10 +213,7 @@ export const YoutubeMusicSettings = Schema.Struct({
 	),
 	timezone: Schema.Trim.pipe(
 		Schema.check(
-			Schema.makeFilter(
-				(value) =>
-					Option.isSome(DateTime.zoneMakeNamed(value)) || "timezone must be an IANA time zone",
-			),
+			Schema.makeFilter((value) => isNamedTimeZone(value) || "timezone must be an IANA time zone"),
 		),
 	),
 });

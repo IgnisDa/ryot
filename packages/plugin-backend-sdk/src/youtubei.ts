@@ -1,5 +1,5 @@
 import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Innertube, Platform, type Types } from "youtubei.js/web";
 
 import type { ScriptHost } from "./core/script-host";
@@ -86,28 +86,6 @@ export const createYoutubeMusicClient = (
 		),
 	).pipe(Effect.map(wrapClient));
 
-const utcOffsetMinutes = (timeZone: string, date: Date) => {
-	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		day: "numeric",
-		hour: "numeric",
-		year: "numeric",
-		hourCycle: "h23",
-		month: "numeric",
-		minute: "numeric",
-	}).formatToParts(date);
-	const part = (type: Intl.DateTimeFormatPartTypes) =>
-		Number(parts.find((entry) => entry.type === type)?.value);
-	const zoned = Date.UTC(
-		part("year"),
-		part("month") - 1,
-		part("day"),
-		part("hour"),
-		part("minute"),
-	);
-	return (zoned - Math.floor(date.getTime() / 60_000) * 60_000) / 60_000;
-};
-
 export const createYoutubeHistoryClient = (
 	host: YoutubeiHost,
 	authCookie: string,
@@ -129,7 +107,9 @@ export const createYoutubeHistoryClient = (
 			getHistory: () =>
 				Effect.tryPromise(() =>
 					withApprovedDependencyRuntime(() => {
-						client.session.context.client.utcOffsetMinutes = utcOffsetMinutes(timezone, new Date());
+						client.session.context.client.utcOffsetMinutes =
+							DateTime.zonedOffset(DateTime.makeZonedUnsafe(new Date(), { timeZone: timezone })) /
+							60_000;
 						return client.actions.execute("/browse", {
 							client: "YTMUSIC",
 							params: "oggECgIIAQ%3D%3D",
