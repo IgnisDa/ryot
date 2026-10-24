@@ -5,11 +5,13 @@ import {
 	castDate,
 	column,
 	count,
+	dateBucket,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
 	eventSchemaPredicate,
 	first,
+	groupAscending,
 	gte,
 	inArray,
 	isNotNull,
@@ -17,14 +19,16 @@ import {
 	JsonValue,
 	latestEventField,
 	literal,
+	lt,
 	minimum,
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
+	selectedAggregate,
 	selectedField,
+	selectedMeasure,
 	selectedOptionalRow,
 	selectedRows,
-	selectedTimeSeries,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
@@ -32,6 +36,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { property, propertyNumber } from "./entity-selections";
 
 export const MEASUREMENT_SERIES_BATCH_SIZE = 5;
+export const MEASUREMENT_SERIES_BUCKET_LIMIT = 900;
 
 export const measurementPinRelationshipSchemaSlug = "measurement-metric-pinned";
 
@@ -39,8 +44,9 @@ const nullableString = Schema.NullOr(Schema.String);
 
 export const measurementSummaryRecipe = defineRecipe(
 	(input: {
-		readonly rangeStart: string;
 		readonly after?: string | undefined;
+		readonly rangeEnd?: string | undefined;
+		readonly rangeStart?: string | undefined;
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const metric = table("entity", "metric");
@@ -82,15 +88,6 @@ export const measurementSummaryRecipe = defineRecipe(
 							}),
 							Schema.NullOr(Schema.Finite),
 						),
-						rangeCount: selectedField(
-							count(reading, {
-								where: and(
-									metricReadings,
-									gte(column(reading, "occurredAt"), castDate(literal(input.rangeStart))),
-								),
-							}),
-							Schema.Finite,
-						),
 						pinnedAt: selectedField(
 							first(pin, {
 								select: column(pin, "createdAt"),
@@ -106,6 +103,20 @@ export const measurementSummaryRecipe = defineRecipe(
 							}),
 							nullableString,
 						),
+						rangeCount: selectedField(
+							count(reading, {
+								where: and(
+									metricReadings,
+									...(input.rangeStart === undefined
+										? []
+										: [gte(column(reading, "occurredAt"), castDate(literal(input.rangeStart)))]),
+									...(input.rangeEnd === undefined
+										? []
+										: [lt(column(reading, "occurredAt"), castDate(literal(input.rangeEnd)))]),
+								),
+							}),
+							Schema.Finite,
+						),
 					},
 				}),
 			},
@@ -115,33 +126,36 @@ export const measurementSummaryRecipe = defineRecipe(
 
 const seriesQueries = (input: SeriesInput) => {
 	const reading = table("event", "seriesReading");
-	const base = {
-		endAt: input.endAt,
-		bucket: input.bucket,
-		startAt: input.startAt,
-		time: column(reading, "occurredAt"),
-	};
-	const selection = { value: Schema.Finite, endAt: Schema.String, startAt: Schema.String };
-	return input.metricIds.flatMap((metricId, index) => {
+	return input.metricIds.map((metricId, index) => {
 		const where = and(
 			schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
 			eq(column(reading, "entityId"), literal(metricId)),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
+			gte(column(reading, "occurredAt"), castDate(literal(input.startAt))),
+			lt(column(reading, "occurredAt"), castDate(literal(input.endAt))),
 		);
 		return [
-			[
-				`average${index}`,
-				selectedTimeSeries(reading, {
-					...base,
-					where,
-					selection,
-					measure: { function: "average", expr: propertyNumber(reading, "value") },
-				}),
-			],
-			[
-				`count${index}`,
-				selectedTimeSeries(reading, { ...base, where, selection, measure: { function: "count" } }),
-			],
+			`average${index}`,
+			selectedAggregate(reading, {
+				where,
+				orderBy: [groupAscending("at")],
+				limit: MEASUREMENT_SERIES_BUCKET_LIMIT,
+				measures: {
+					value: selectedMeasure(
+						{ function: "average", expr: propertyNumber(reading, "value") },
+						Schema.Finite,
+					),
+				},
+				groupBy: {
+					at: selectedField(
+						dateBucket(column(reading, "occurredAt"), {
+							bucket: input.bucket,
+							timeZone: input.timeZone,
+						}),
+						Schema.String,
+					),
+				},
+			}),
 		] as const;
 	});
 };
@@ -149,9 +163,10 @@ const seriesQueries = (input: SeriesInput) => {
 type SeriesInput = {
 	readonly endAt: string;
 	readonly startAt: string;
-	readonly bucket: "day" | "week";
+	readonly timeZone: string;
 	readonly metricIds: readonly string[];
 	readonly reference: PluginIdentityReference;
+	readonly bucket: "day" | "week" | "year" | "month";
 };
 
 export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
@@ -160,16 +175,13 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 		Result.all(
 			input.metricIds.map((metricId, index) => {
 				const averages = results[`average${index}`];
-				const counts = results[`count${index}`];
-				if (averages === undefined || counts === undefined) {
+				if (averages === undefined) {
 					return Result.fail(new Error("Measurement series response is incomplete"));
 				}
-				return Result.succeed({
-					metricId,
-					points: averages.buckets.flatMap(({ value, startAt }, bucketIndex) =>
-						(counts.buckets[bucketIndex]?.value ?? 0) > 0 ? [{ value, at: startAt }] : [],
-					),
-				});
+				if (averages.pageInfo?.hasMore) {
+					return Result.fail(new Error("Measurement series response is truncated"));
+				}
+				return Result.succeed({ metricId, points: averages.items });
 			}),
 		),
 }));

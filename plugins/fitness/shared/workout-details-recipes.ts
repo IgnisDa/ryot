@@ -33,10 +33,11 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
+import { workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
 import { workoutSelection, workoutTemplateInclude } from "./query-recipes";
-import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
 import { WorkoutSetLotSchema } from "./workout-set";
+import type { WorkoutTaxonomy } from "./workout-taxonomy-recipes";
 import { DurationUnitSchema } from "./workout-units";
 
 type Table = ReturnType<typeof table>;
@@ -85,11 +86,11 @@ const repeatedFromInclude = (workout: Table) => {
 };
 
 const setMeasurementsSelection = (set: Table) => ({
-	reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
+	volume: selectedField(workoutSetVolume(set), nullableNumber),
+	reps: selectedField(workoutSetMetric(set, "reps"), nullableNumber),
 	weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
-	volume: selectedField(projectionNumber(set, "volume"), nullableNumber),
-	duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
-	distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
+	duration: selectedField(workoutSetMetric(set, "duration"), nullableNumber),
+	distance: selectedField(workoutSetMetric(set, "distance"), nullableNumber),
 	exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), nullableNumber),
 });
 
@@ -143,10 +144,6 @@ export const workoutDetailsExercisesRecipe = defineRecipe(
 					limit: 100,
 					after: input.after,
 					orderBy: [ascending(column(exercise, "id"))],
-					include: {
-						targets: exerciseTargetInclude(exercise),
-						equipment: exerciseEquipmentInclude(exercise),
-					},
 					joins: [
 						join(
 							"inner",
@@ -318,6 +315,7 @@ export const workoutDetailsRecipe = defineRecipe(
 );
 
 export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRecipe>> & {
+	readonly taxonomy: readonly WorkoutTaxonomy[];
 	readonly exercises: {
 		readonly items: ReadonlyArray<
 			DetailsExercise & {

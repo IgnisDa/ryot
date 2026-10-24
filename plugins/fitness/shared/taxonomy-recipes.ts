@@ -103,6 +103,7 @@ export const exerciseTargetInclude = (exercise: Table) => {
 		),
 		orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
 		selection: {
+			id: selectedField(column(target, "id"), Schema.String),
 			name: selectedField(column(target, "name"), Schema.String),
 			role: selectedField(property(relationship, "role"), Schema.NullOr(exerciseTargetRoleSchema)),
 		},

@@ -13,6 +13,7 @@ import {
 	first,
 	groupAscending,
 	gte,
+	isNotNull,
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
@@ -39,8 +40,12 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
-import { effectiveTaxonomyLink } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
+import {
+	occurrenceHasTaxonomy,
+	occurrenceSets,
+	recordedMuscleSetWeight,
+} from "./workout-taxonomy-recipes";
 
 type Reference = PluginIdentityReference;
 
@@ -48,12 +53,12 @@ const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const templateSlug = "workout-to-workout-template";
 const MUSCLE_TARGET_LIMIT = 100;
-const SECONDARY_WEIGHT = 0.5;
 
 export const muscleActivityRecipe = defineRecipe(
 	(input: { readonly weekStartAt: string; readonly reference: Reference }) => {
 		const set = table("event", "muscleSet");
-		const link = table("relationship", "muscleLink");
+		const link = table("event", "muscleOccurrence");
+		const workout = table("entity", "muscleWorkout");
 		const target = table("entity", "muscleTarget");
 		return {
 			map: ({ activity }) =>
@@ -87,40 +92,42 @@ export const muscleActivityRecipe = defineRecipe(
 							"left",
 							link,
 							and(
-								eq(column(link, "targetEntityId"), column(target, "id")),
-								relationshipSchemaPredicate(link, "exercise-targets", input.reference),
-								effectiveTaxonomyLink(link),
+								occurrenceHasTaxonomy(link, target, "targets"),
+								schemaOwnerPredicate(link, "eventSchemaPluginId", input.reference),
+								eq(column(link, "eventSchemaSlug"), literal("workout-exercise")),
 							),
 						),
 						join(
 							"left",
-							set,
+							workout,
 							and(
-								eq(column(set, "entityId"), column(link, "sourceEntityId")),
-								schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
-								eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+								eq(column(workout, "id"), column(link, "sessionEntityId")),
+								entitySchemaPredicate(workout, "workout", input.reference),
 							),
 						),
+						join("left", set, occurrenceSets(set, link)),
 					],
 					measures: {
 						lastTrainedAt: selectedMeasure(
-							{ function: "maximum", expr: column(set, "occurredAt") },
+							{
+								function: "maximum",
+								expr: conditional(
+									isNotNull(column(set, "id")),
+									propertyDate(workout, "startedAt"),
+									literal(null),
+								),
+							},
 							nullableString,
 						),
 						weeklySets: selectedMeasure(
 							{
 								function: "sum",
 								expr: conditional(
-									gte(column(set, "occurredAt"), castDate(literal(input.weekStartAt))),
-									conditional(
-										eq(property(link, "role"), literal("stabilizer")),
-										literal(0),
-										conditional(
-											eq(property(link, "role"), literal("secondary")),
-											literal(SECONDARY_WEIGHT),
-											literal(1),
-										),
+									and(
+										isNotNull(column(set, "id")),
+										gte(propertyDate(workout, "startedAt"), castDate(literal(input.weekStartAt))),
 									),
+									recordedMuscleSetWeight(link, target),
 									literal(0),
 								),
 							},
@@ -157,6 +164,7 @@ export const recentPersonalBestsRecipe = defineRecipe(
 		const set = table("event", "recordSet");
 		const exercise = table("entity", "recordExercise");
 		const countedSet = table("event", "recordCountSet");
+		const countedWorkout = table("entity", "recordCountWorkout");
 		const withRecords = (source: ReturnType<typeof table>) =>
 			and(
 				schemaOwnerPredicate(source, "eventSchemaPluginId", input.reference),
@@ -167,19 +175,27 @@ export const recentPersonalBestsRecipe = defineRecipe(
 			map: ({ recent, recentCount }) =>
 				Result.succeed({ items: recent.items, recentCount: recentCount.count }),
 			queries: {
-				recentCount: selectedAggregate(countedSet, {
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
-					where: and(
-						withRecords(countedSet),
-						gte(column(countedSet, "occurredAt"), castDate(literal(input.since))),
-					),
-				}),
 				recent: selectedRows(set, {
 					limit: input.limit,
 					where: withRecords(set),
 					selection: recentPersonalBestSelection(set, exercise),
 					orderBy: [descending(column(set, "occurredAt")), descending(column(set, "id"))],
 					joins: [join("inner", exercise, eq(column(set, "entityId"), column(exercise, "id")))],
+				}),
+				recentCount: selectedAggregate(countedSet, {
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
+					joins: [
+						join(
+							"inner",
+							countedWorkout,
+							eq(column(countedSet, "sessionEntityId"), column(countedWorkout, "id")),
+						),
+					],
+					where: and(
+						withRecords(countedSet),
+						entitySchemaPredicate(countedWorkout, "workout", input.reference),
+						gte(propertyDate(countedWorkout, "startedAt"), castDate(literal(input.since))),
+					),
 				}),
 			},
 		};

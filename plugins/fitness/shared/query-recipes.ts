@@ -14,6 +14,7 @@ import {
 	jsonPath,
 	JsonValue,
 	literal,
+	lt,
 	type Recipe,
 	selectedField,
 	selectedInclude,
@@ -147,6 +148,7 @@ export const exerciseListRecipe = defineRecipe(
 export const measurementEntryListRecipe = defineRecipe(
 	(
 		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+			endAt?: string | undefined;
 			startAt?: string | undefined;
 			readonly reference: PluginIdentityReference;
 		},
@@ -170,6 +172,9 @@ export const measurementEntryListRecipe = defineRecipe(
 						...(input.startAt === undefined
 							? []
 							: [gte(propertyDate(entry, "occurredAt"), castDate(literal(input.startAt)))]),
+						...(input.endAt === undefined
+							? []
+							: [lt(propertyDate(entry, "occurredAt"), castDate(literal(input.endAt)))]),
 					),
 				}),
 			},

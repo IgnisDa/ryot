@@ -20,7 +20,6 @@ import {
 	isNotNull,
 	IsoDateString,
 	join,
-	jsonArrayCount,
 	jsonArrayExists,
 	literal,
 	lt,
@@ -37,7 +36,7 @@ import {
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference, ReportingPeriod } from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -47,6 +46,13 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
+import {
+	personalBestAwardCount,
+	projectionCoverageMeasures,
+	projectionsReady,
+	projectionStatusCount,
+	workoutSetVolume,
+} from "./fitness-metrics";
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
@@ -54,7 +60,7 @@ import { PersonalBestSchema } from "./workout-records";
 export type WorkoutFilterPredicate = ReturnType<typeof and>;
 type Table = ReturnType<typeof table>;
 type Reference = PluginIdentityReference;
-type Range = { readonly endAt: string; readonly startAt: string };
+type Range = Pick<ReportingPeriod, "endAt" | "startAt">;
 
 export const WORKOUT_LIST_PAGE_SIZE = 20;
 
@@ -71,15 +77,15 @@ const workoutSets = (set: Table, workout: Table) =>
 		eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 	);
 
-const personalBestCount = (set: Table) => jsonArrayCount(projectionProperty(set, "personalBests"));
-
 export const workoutTotals = (workout: Table, setAlias: string) => {
 	const set = table("event", setAlias);
 	const sets = workoutSets(set, workout);
 	return {
 		setCount: count(set, { where: sets }),
-		personalBests: sum(set, personalBestCount(set), { where: sets }),
-		exerciseCount: countDistinct(set, column(set, "entityId"), { where: sets }),
+		personalBests: sum(set, personalBestAwardCount(set), { where: sets }),
+		failedSets: sum(set, projectionStatusCount(set, "failed"), { where: sets }),
+		pendingSets: sum(set, projectionStatusCount(set, "pending"), { where: sets }),
+		exerciseCount: countDistinct(set, propertyNumber(set, "exerciseOrder"), { where: sets }),
 	};
 };
 
@@ -116,16 +122,28 @@ const workoutWhere = (
 		...(filter === undefined ? [] : [filter]),
 	);
 
-const inRange = (workout: Table, range: Range) =>
+const inRange = (workout: Table, range: Partial<Range>) =>
 	and(
-		gte(startedAt(workout), castDate(literal(range.startAt))),
-		lt(startedAt(workout), castDate(literal(range.endAt))),
+		...(range.startAt === undefined
+			? []
+			: [gte(startedAt(workout), castDate(literal(range.startAt)))]),
+		...(range.endAt === undefined ? [] : [lt(startedAt(workout), castDate(literal(range.endAt)))]),
 	);
 
 const workoutVolume = (workout: Table) => {
 	const set = table("event", "volumeWorkoutSet");
+	const pending = count(set, {
+		where: and(workoutSets(set, workout), eq(column(set, "projectionStatus"), literal("pending"))),
+	});
+	const failed = count(set, {
+		where: and(workoutSets(set, workout), eq(column(set, "projectionStatus"), literal("failed"))),
+	});
 	return selectedField(
-		sum(set, projectionNumber(set, "volume"), { where: workoutSets(set, workout) }),
+		conditional(
+			and(eq(pending, literal(0)), eq(failed, literal(0))),
+			sum(set, workoutSetVolume(set), { where: workoutSets(set, workout) }),
+			literal(null),
+		),
 		nullableNumber,
 	);
 };
@@ -219,6 +237,8 @@ export const workoutCardsRecipe = defineRecipe(
 						...item,
 						sets: included.items,
 						template: template.items[0] ?? null,
+						volume: projectionsReady(item) ? item.volume : null,
+						personalBests: projectionsReady(item) ? item.personalBests : null,
 					})),
 				}),
 			queries: {
@@ -241,7 +261,9 @@ export const workoutCardsRecipe = defineRecipe(
 						id: selectedField(column(workout, "id"), Schema.String),
 						setCount: selectedField(totals.setCount, Schema.Finite),
 						name: selectedField(column(workout, "name"), Schema.String),
+						failedSets: selectedField(totals.failedSets, nullableNumber),
 						startedAt: selectedField(startedAt(workout), nullableString),
+						pendingSets: selectedField(totals.pendingSets, nullableNumber),
 						exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
 						personalBests: selectedField(totals.personalBests, nullableNumber),
 						endedAt: selectedField(propertyDate(workout, "endedAt"), nullableString),
@@ -329,7 +351,7 @@ export const workoutExerciseTargetsRecipe = defineRecipe(
 const sumMeasure = (expr: Parameters<typeof conditional>[1]) =>
 	selectedMeasure({ expr, function: "sum" }, nullableNumber);
 
-const workoutMeasures = (workout: Table) => ({
+export const workoutMeasures = (workout: Table) => ({
 	workouts: selectedMeasure({ function: "count" }, Schema.Finite),
 	activeDuration: sumMeasure(propertyNumber(workout, "activeDuration")),
 	timedWorkouts: sumMeasure(
@@ -337,14 +359,15 @@ const workoutMeasures = (workout: Table) => ({
 	),
 });
 
-const setMeasures = (set: Table) => ({
-	personalBests: sumMeasure(personalBestCount(set)),
-	volume: sumMeasure(projectionNumber(set, "volume")),
+export const setMeasures = (set: Table) => ({
+	...projectionCoverageMeasures(set),
+	volume: sumMeasure(workoutSetVolume(set)),
+	personalBests: sumMeasure(personalBestAwardCount(set)),
 });
 
-const rangeSources = (
+export const workoutRangeSources = (
 	reference: Reference,
-	range: Range,
+	range: Partial<Range>,
 	alias: string,
 	search = "",
 	filter?: WorkoutFilterPredicate,
@@ -366,7 +389,7 @@ const rangeSources = (
 };
 
 const rangeTotals = (reference: Reference, range: Range, alias: string) => {
-	const sources = rangeSources(reference, range, alias);
+	const sources = workoutRangeSources(reference, range, alias);
 	return [
 		selectedAggregate(sources.workout, {
 			where: sources.workoutWhere,
@@ -390,7 +413,7 @@ const rangeBuckets = (
 	},
 	alias: string,
 ) => {
-	const sources = rangeSources(reference, range, alias, range.search, range.filter);
+	const sources = workoutRangeSources(reference, range, alias, range.search, range.filter);
 	const groupBy = (workout: Table) => ({
 		at: selectedField(
 			dateBucket(startedAt(workout), { bucket: range.bucket, timeZone: range.timeZone }),
@@ -421,10 +444,10 @@ type WorkoutTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeo
 
 const combineTotals = (workouts: WorkoutTotals, sets: SetTotals) => ({
 	...workouts,
-	volume: sets.volume ?? 0,
-	personalBests: sets.personalBests ?? 0,
+	activeDuration: workouts.activeDuration,
 	timedWorkouts: workouts.timedWorkouts ?? 0,
-	activeDuration: workouts.activeDuration ?? 0,
+	volume: projectionsReady(sets) ? (sets.volume ?? 0) : null,
+	personalBests: projectionsReady(sets) ? (sets.personalBests ?? 0) : null,
 });
 
 const combineBuckets = (
@@ -434,7 +457,10 @@ const combineBuckets = (
 	const setTotals = new Map(sets.items.map((item) => [item.at, item]));
 	return workouts.items.map(({ at, ...item }) => ({
 		at,
-		...combineTotals(item, setTotals.get(at) ?? { volume: null, personalBests: null }),
+		...combineTotals(
+			item,
+			setTotals.get(at) ?? { volume: null, failedSets: 0, pendingSets: 0, personalBests: null },
+		),
 	}));
 };
 
@@ -460,7 +486,7 @@ export const workoutWeeksRecipe = defineRecipe(
 );
 
 const latestRecordQuery = (reference: Reference, range: Range) => {
-	const sources = rangeSources(reference, range, "record");
+	const sources = workoutRangeSources(reference, range, "record");
 	const exercise = table("entity", "recordExercise");
 	return selectedRows(sources.set, {
 		limit: 1,
@@ -512,10 +538,12 @@ export const workoutSummaryRecipe = defineRecipe(
 			},
 			map: (results) =>
 				Result.succeed({
-					latestRecord: results.latestRecord.items[0] ?? null,
 					days: combineBuckets(results.dayWorkouts, results.daySets),
 					current: combineTotals(results.currentWorkouts, results.currentSets),
 					previous: combineTotals(results.previousWorkouts, results.previousSets),
+					latestRecord: projectionsReady(results.currentSets)
+						? (results.latestRecord.items[0] ?? null)
+						: null,
 				}),
 		};
 	},

@@ -10,7 +10,10 @@ import {
 	workoutWeeksRecipe,
 } from "./workout-list-recipes";
 
-const aggregate = (items: readonly Record<string, unknown>[]) => ({ items, type: "aggregate" });
+const aggregate = (items: readonly Record<string, unknown>[]) => ({
+	type: "aggregate",
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
+});
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
 const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({
 	workouts,
@@ -19,6 +22,33 @@ const workoutTotals = (workouts: number, activeDuration: null | number, timedWor
 });
 
 describe("workoutWeeksRecipe", () => {
+	it("keeps workout counts and entered duration while derived totals are pending or failed", () => {
+		const recipe = workoutWeeksRecipe({
+			...range,
+			search: "",
+			timeZone: "UTC",
+			reference: { kind: "self" },
+		});
+		for (const coverage of [
+			{ failedSets: 0, pendingSets: 1 },
+			{ failedSets: 1, pendingSets: 0 },
+		]) {
+			const decoded = Result.getOrThrow(
+				recipe.decode({
+					data: {
+						workouts: aggregate([{ ...workoutTotals(1, 600, 1), at: range.startAt }]),
+						sets: aggregate([{ ...coverage, volume: 500, personalBests: 1, at: range.startAt }]),
+					},
+				}),
+			);
+			expect(decoded[0]).toMatchObject({
+				workouts: 1,
+				volume: null,
+				activeDuration: 600,
+				personalBests: null,
+			});
+		}
+	});
 	it("merges set totals into workout weeks and zero-fills weeks without sets", () => {
 		const recipe = workoutWeeksRecipe({
 			...range,
@@ -51,7 +81,7 @@ describe("workoutWeeksRecipe", () => {
 				workouts: 1,
 				personalBests: 0,
 				timedWorkouts: 0,
-				activeDuration: 0,
+				activeDuration: null,
 				at: "2026-10-12T00:00:00.000Z",
 			},
 		]);
@@ -92,7 +122,13 @@ describe("workoutSummaryRecipe", () => {
 		expect(decoded).toEqual({
 			days: [],
 			latestRecord: null,
-			previous: { volume: 0, workouts: 0, personalBests: 0, timedWorkouts: 0, activeDuration: 0 },
+			previous: {
+				volume: 0,
+				workouts: 0,
+				personalBests: 0,
+				timedWorkouts: 0,
+				activeDuration: null,
+			},
 			current: {
 				workouts: 3,
 				volume: 12000,

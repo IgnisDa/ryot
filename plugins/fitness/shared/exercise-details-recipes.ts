@@ -46,6 +46,12 @@ import {
 	exerciseLevelSchema,
 	exerciseMechanicSchema,
 } from "./exercise-kinds";
+import {
+	projectionCoverageMeasures,
+	projectionsReady,
+	workoutSetMetric,
+	workoutSetVolume,
+} from "./fitness-metrics";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { membershipField, membershipPropertiesSchema } from "./workout-exercise-recipes";
@@ -86,7 +92,10 @@ const bestWeightAtLeast = (set: Table, reps: number) =>
 	numberMeasure(
 		"maximum",
 		conditional(
-			gte(propertyNumber(set, "reps"), literal(reps)),
+			and(
+				eq(property(set, "exerciseKind"), literal("reps_and_weight")),
+				gte(workoutSetMetric(set, "reps"), literal(reps)),
+			),
 			propertyNumber(set, "weight"),
 			literal(null),
 		),
@@ -94,28 +103,34 @@ const bestWeightAtLeast = (set: Table, reps: number) =>
 
 const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const set = table("event", "totalsSet");
+	const workout = table("entity", "totalsWorkout");
 	const [one, five, eight, twelve, thirty] = bestWeightRepThresholds;
 	return selectedAggregate(set, {
-		where: exerciseSets(reference, set, exerciseId),
+		joins: [setWorkoutJoin(set, workout)],
+		where: and(
+			exerciseSets(reference, set, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
+		),
 		measures: {
 			weightForReps1: bestWeightAtLeast(set, one),
+			...projectionCoverageMeasures(set),
 			weightForReps5: bestWeightAtLeast(set, five),
 			weightForReps8: bestWeightAtLeast(set, eight),
 			weightForReps12: bestWeightAtLeast(set, twelve),
 			weightForReps30: bestWeightAtLeast(set, thirty),
-			reps: numberMeasure("sum", propertyNumber(set, "reps")),
+			volume: numberMeasure("sum", workoutSetVolume(set)),
+			reps: numberMeasure("sum", workoutSetMetric(set, "reps")),
 			sets: selectedMeasure({ function: "count" }, Schema.Finite),
-			volume: numberMeasure("sum", projectionNumber(set, "volume")),
-			duration: numberMeasure("sum", propertyNumber(set, "duration")),
-			distance: numberMeasure("sum", propertyNumber(set, "distance")),
+			duration: numberMeasure("sum", workoutSetMetric(set, "duration")),
+			distance: numberMeasure("sum", workoutSetMetric(set, "distance")),
 			warmUpSets: countWhen(eq(property(set, "setLot"), literal("warm_up"))),
 			failureSets: countWhen(eq(property(set, "setLot"), literal("failure"))),
 			lastAt: selectedMeasure(
-				{ function: "maximum", expr: column(set, "occurredAt") },
+				{ function: "maximum", expr: propertyDate(workout, "startedAt") },
 				nullableString,
 			),
 			firstAt: selectedMeasure(
-				{ function: "minimum", expr: column(set, "occurredAt") },
+				{ function: "minimum", expr: propertyDate(workout, "startedAt") },
 				nullableString,
 			),
 			sessions: selectedMeasure(
@@ -128,26 +143,32 @@ const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => 
 
 const monthsQuery = (reference: PluginIdentityReference, exerciseId: string, timeZone: string) => {
 	const set = table("event", "monthsSet");
+	const workout = table("entity", "monthsWorkout");
 	return selectedAggregate(set, {
 		limit: 1000,
 		orderBy: [groupAscending("month")],
-		where: exerciseSets(reference, set, exerciseId),
+		joins: [setWorkoutJoin(set, workout)],
+		where: and(
+			exerciseSets(reference, set, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
+		),
 		groupBy: {
 			month: selectedField(
-				dateBucket(column(set, "occurredAt"), { timeZone, bucket: "month" }),
+				dateBucket(propertyDate(workout, "startedAt"), { timeZone, bucket: "month" }),
 				IsoDateString,
 			),
 		},
 		measures: {
-			reps: numberMeasure("sum", propertyNumber(set, "reps")),
-			volume: numberMeasure("sum", projectionNumber(set, "volume")),
-			maxReps: numberMeasure("maximum", propertyNumber(set, "reps")),
-			duration: numberMeasure("sum", propertyNumber(set, "duration")),
-			distance: numberMeasure("sum", propertyNumber(set, "distance")),
+			volume: numberMeasure("sum", workoutSetVolume(set)),
+			...projectionCoverageMeasures(set),
+			reps: numberMeasure("sum", workoutSetMetric(set, "reps")),
+			maxReps: numberMeasure("maximum", workoutSetMetric(set, "reps")),
 			maxPace: numberMeasure("maximum", projectionNumber(set, "pace")),
+			duration: numberMeasure("sum", workoutSetMetric(set, "duration")),
+			distance: numberMeasure("sum", workoutSetMetric(set, "distance")),
 			maxOneRm: numberMeasure("maximum", projectionNumber(set, "oneRm")),
 			maxWeight: numberMeasure("maximum", propertyNumber(set, "weight")),
-			maxDuration: numberMeasure("maximum", propertyNumber(set, "duration")),
+			maxDuration: numberMeasure("maximum", workoutSetMetric(set, "duration")),
 			sessions: selectedMeasure(
 				{ function: "countDistinct", expr: column(set, "sessionEntityId") },
 				Schema.Finite,
@@ -196,13 +217,14 @@ const personalBestsQuery = (reference: PluginIdentityReference, exerciseId: stri
 		selection: {
 			...workoutOf(workout),
 			id: selectedField(column(set, "id"), Schema.String),
-			reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
+			volume: selectedField(workoutSetVolume(set), nullableNumber),
+			reps: selectedField(workoutSetMetric(set, "reps"), nullableNumber),
 			occurredAt: selectedField(column(set, "occurredAt"), Schema.String),
 			oneRm: selectedField(projectionNumber(set, "oneRm"), nullableNumber),
 			weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
-			volume: selectedField(projectionNumber(set, "volume"), nullableNumber),
-			duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
-			distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
+			duration: selectedField(workoutSetMetric(set, "duration"), nullableNumber),
+			distance: selectedField(workoutSetMetric(set, "distance"), nullableNumber),
+			exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 			personalBests: selectedField(
 				projectionProperty(set, "personalBests"),
 				Schema.Array(PersonalBestSchema),
@@ -260,6 +282,7 @@ const sessionsQuery = (reference: PluginIdentityReference, exerciseId: string) =
 					duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
 					distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
 					setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
+					exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 					setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 				},
 			}),
@@ -389,6 +412,17 @@ export const exerciseDetailsRecipe = defineRecipe(
 		readonly exerciseId: string;
 		readonly reference: PluginIdentityReference;
 	}) => ({
+		queries: {
+			notes: notesQuery(input.reference, input.exerciseId),
+			totals: totalsQuery(input.reference, input.exerciseId),
+			exercise: exerciseQuery(input.reference, input.exerciseId),
+			sessions: sessionsQuery(input.reference, input.exerciseId),
+			setNotes: setNotesQuery(input.reference, input.exerciseId),
+			topWorkout: topWorkoutQuery(input.reference, input.exerciseId),
+			workoutNotes: workoutNotesQuery(input.reference, input.exerciseId),
+			personalBests: personalBestsQuery(input.reference, input.exerciseId),
+			months: monthsQuery(input.reference, input.exerciseId, input.timeZone),
+		},
 		map: ({
 			notes,
 			months,
@@ -401,27 +435,21 @@ export const exerciseDetailsRecipe = defineRecipe(
 			personalBests,
 		}) =>
 			Result.succeed({
-				totals,
 				notes: notes.items,
-				months: months.items,
 				sessions: sessions.items,
 				setNotes: setNotes.items,
 				exercise: exercise ?? null,
 				workoutNotes: workoutNotes.items,
-				personalBests: personalBests.items,
 				topWorkout: topWorkout.items[0] ?? null,
+				personalBests: projectionsReady(totals) ? personalBests.items : [],
+				totals: { ...totals, volume: projectionsReady(totals) ? totals.volume : null },
+				months: months.items.map((month) => ({
+					...month,
+					volume: projectionsReady(month) ? month.volume : null,
+					maxPace: projectionsReady(month) ? month.maxPace : null,
+					maxOneRm: projectionsReady(month) ? month.maxOneRm : null,
+				})),
 			}),
-		queries: {
-			notes: notesQuery(input.reference, input.exerciseId),
-			totals: totalsQuery(input.reference, input.exerciseId),
-			exercise: exerciseQuery(input.reference, input.exerciseId),
-			sessions: sessionsQuery(input.reference, input.exerciseId),
-			setNotes: setNotesQuery(input.reference, input.exerciseId),
-			topWorkout: topWorkoutQuery(input.reference, input.exerciseId),
-			workoutNotes: workoutNotesQuery(input.reference, input.exerciseId),
-			personalBests: personalBestsQuery(input.reference, input.exerciseId),
-			months: monthsQuery(input.reference, input.exerciseId, input.timeZone),
-		},
 	}),
 );
 
