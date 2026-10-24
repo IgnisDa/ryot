@@ -36,7 +36,6 @@ import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
-import { EntitiesService } from "#/modules/entities/service";
 import { ImportsService } from "#/modules/imports/service";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
@@ -321,13 +320,6 @@ export const InstanceAdminRouteStubs = Layer.mergeAll(
 		start: () => Effect.succeed("https://ryot.example/oauth/impersonate#ticket=test"),
 	}),
 );
-
-export const makeEntityRouteStub = (
-	loadRouteProvenance: EntitiesService["Service"]["loadRouteProvenance"] = () =>
-		Effect.die("not used"),
-) => Layer.succeed(EntitiesService, { loadRouteProvenance });
-
-export const EntityRouteStubs = makeEntityRouteStub();
 
 export const SavedViewRouteStubs = Layer.mergeAll(
 	Layer.succeed(ManagedAssetsService, {

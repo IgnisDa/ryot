@@ -17,7 +17,6 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
-	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -80,7 +79,6 @@ const mountTwoFactor = (
 			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
-			EntityRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: () => Effect.succeed(config),

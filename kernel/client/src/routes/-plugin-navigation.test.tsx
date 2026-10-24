@@ -40,7 +40,6 @@ import type { CollectionsApi } from "#/api/collections";
 import { PagesApi } from "#/api/pages";
 import { KernelApiTestLayer, makeCollectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
-import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
@@ -255,7 +254,6 @@ function mount(options: {
 			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
-			Layer.succeed(EntitiesService, { loadRouteProvenance: () => Effect.die("not used") }),
 			makePublicApiStub(),
 			KernelApiTestLayer,
 			events.layer,
