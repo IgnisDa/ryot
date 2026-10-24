@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import {
 	ByteSize,
 	Clock,
@@ -48,7 +49,7 @@ const user: CurrentUserValue = {
 };
 
 const makeRedisClient = (): RedisService["Service"]["client"] =>
-	Object.assign(Object.create(Redis.prototype), { duplicate: makeRedisClient });
+	derivedFake(Redis.prototype, { duplicate: makeRedisClient });
 
 const cleanupIntentId = "intent-id";
 const intentLock = redisKeys.uploadIntentLock(cleanupIntentId);

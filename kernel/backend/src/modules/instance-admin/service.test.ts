@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/instance-admin/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
@@ -36,12 +37,12 @@ class FakeInstanceAdminAuth extends Context.Service<
 
 const makeRedisMock = () =>
 	makeRedisService({
-		client: Object.assign(Object.create(null), {
+		client: partialFake<RedisService["Service"]["client"]>({
 			del: () => Promise.resolve(0),
 			eval: () => Promise.resolve(0),
 			get: () => Promise.resolve(null),
 			set: () => Promise.resolve("OK"),
-			duplicate: () => Object.create(null),
+			duplicate: () => partialFake<RedisService["Service"]["client"]>({}),
 		}),
 	});
 
@@ -61,7 +62,7 @@ const fakeAuthLayer = (errors: {
 			const createdAccount = yield* Ref.make<null | Record<string, unknown>>(null);
 			return Context.make(
 				AuthService,
-				Object.assign(Object.create(null), {
+				partialFake<AuthService["Service"]>({
 					currentUser: () => Effect.die("unused"),
 					purgeApiKeyCaches: () => Effect.die("unused"),
 					deleteUserSessions: () => Ref.set(sessionsDeleted, true),
@@ -93,15 +94,13 @@ const fakeAuthLayer = (errors: {
 	);
 
 const selectingDatabaseLayer = (rows: ReadonlyArray<object>) =>
-	fakeDatabaseSession(
-		Object.assign(Object.create(null), {
-			select: () => ({
-				from: () => ({
-					where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
-				}),
+	fakeDatabaseSession({
+		select: () => ({
+			from: () => ({
+				where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
 			}),
 		}),
-	);
+	});
 
 const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	resetUser: () => Effect.die("unused"),
@@ -121,7 +120,12 @@ const instanceAdminLayer = (options: {
 				makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
 				fakeAuthLayer(options.errors ?? {}),
 				Layer.succeed(RedisService, makeRedisMock()),
-				Layer.mock(EntitiesService)({ create: () => Effect.succeed(Object.create(null)) }),
+				Layer.mock(EntitiesService)({
+					create: () =>
+						Effect.succeed(
+							partialFake<Effect.Success<ReturnType<EntitiesService["Service"]["create"]>>>({}),
+						),
+				}),
 				Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
 				Layer.mock(SavedViewsService)({}),
 				Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),

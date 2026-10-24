@@ -1,4 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
@@ -48,7 +49,7 @@ const fakeRepositoryLayer = Layer.effectContext(
 		return Context.make(
 			PagesRepository,
 			PagesRepository.of(
-				Object.assign(Object.create(null), {
+				partialFake<PagesRepository["Service"]>({
 					findComposition: () => Ref.get(row),
 					createComposition: (input: Omit<CompositionRow, "createdAt">) =>
 						Ref.update(writes, (all) => [...all, input.compositionKey]).pipe(
@@ -72,7 +73,7 @@ const compositionLayer = ClientPageCompositionService.layer.pipe(
 			Layer.succeed(
 				ImageClientArtifacts,
 				ImageClientArtifacts.of(
-					Object.assign(Object.create(null), {
+					partialFake<ImageClientArtifacts["Service"]>({
 						runtime: { entries: { sdk: "runtime.js", bootstrap: "bootstrap.js" } },
 					}),
 				),

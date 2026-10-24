@@ -2,6 +2,7 @@ import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -359,7 +360,9 @@ const resetIdentityLayer = Layer.unwrap(
 									: "created-disabled",
 							),
 						),
-						Effect.as(Object.create(null)),
+						Effect.as(
+							partialFake<Effect.Success<ReturnType<AuthService["Service"]["createAuthUser"]>>>({}),
+						),
 					),
 			}),
 			Layer.mock(ObjectStorageService)({}),

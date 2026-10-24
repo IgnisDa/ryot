@@ -1,5 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -66,7 +67,7 @@ export const recordingDatabaseLayer = (options: { readonly holdLocks?: RegExp } 
 					params,
 				);
 			};
-			const recordingClient: PgClient.PgClient = Object.assign(Object.create(client), { unsafe });
+			const recordingClient: PgClient.PgClient = derivedFake(client, { unsafe });
 			const session = yield* DatabaseSession.make.pipe(
 				Effect.provideService(PgClient.PgClient, recordingClient),
 			);

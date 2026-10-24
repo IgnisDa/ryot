@@ -1,5 +1,7 @@
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
+import { partialFake } from "@ryot-app/testing/fakes";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { Workflow } from "effect/workflow";
@@ -34,7 +36,7 @@ export const fakeDatabaseSession = (
 	database: object,
 	overrides: Partial<DatabaseSession["Service"]> = {},
 ): Layer.Layer<DatabaseSession> => {
-	const executor = Object.assign(Object.create(null), database);
+	const executor = partialFake<EffectPgDatabase>(database);
 	const active = Context.Reference<boolean>("test/FakeDatabaseSessionTransaction", {
 		defaultValue: () => false,
 	});
@@ -113,8 +115,7 @@ export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
 export const makeRedisService = (
 	overrides: Partial<RedisService["Service"]> = {},
 ): RedisService["Service"] =>
-	Object.assign(Object.create(null), {
-		client: undefined,
+	partialFake<RedisService["Service"]>({
 		del: () => Effect.die("unused"),
 		get: () => Effect.die("unused"),
 		set: () => Effect.die("unused"),

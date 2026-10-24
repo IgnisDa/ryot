@@ -3,6 +3,7 @@ import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Stream } from "effect";
@@ -332,7 +333,7 @@ layer(
 const failingSpoolCleanupFileSystem = Layer.effect(
 	FileSystem.FileSystem,
 	Effect.map(FileSystem.FileSystem, (fs) =>
-		Object.assign(Object.create(fs), { remove: () => Effect.die("spool cleanup failed") }),
+		derivedFake(fs, { remove: () => Effect.die("spool cleanup failed") }),
 	),
 ).pipe(Layer.provide(BunFileSystem.layer));
 

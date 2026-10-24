@@ -10,6 +10,7 @@ import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import {
 	Cause,
 	Deferred,
@@ -202,7 +203,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		Layer.succeed(
 			RedisService,
 			makeRedisService({
-				client: Object.assign(Object.create(null), {
+				client: partialFake<RedisService["Service"]["client"]>({
 					callBuffer: (
 						_command: string,
 						_script: string,

@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import { Cause, Clock, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import Redis from "ioredis";
 
@@ -69,28 +70,25 @@ const makeLayer = () =>
 			const values = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 			const expiries = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
 			const runPromise = Effect.runPromiseWith(yield* Effect.context());
-			const client: RedisService["Service"]["client"] = Object.assign(
-				Object.create(Redis.prototype),
-				{
-					eval: (_script: string, _keyCount: number, key: string) =>
-						runPromise(
-							Ref.modify(values, (current) => {
-								const next = new Map(current);
-								next.delete(key);
-								return [current.get(key) ?? null, next];
-							}),
-						),
-					set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) =>
-						runPromise(
-							Ref.update(values, (current) => new Map(current).set(key, value)).pipe(
-								Effect.andThen(
-									Ref.update(expiries, (current) => new Map(current).set(key, ttlSeconds)),
-								),
-								Effect.as("OK"),
+			const client: RedisService["Service"]["client"] = derivedFake(Redis.prototype, {
+				eval: (_script: string, _keyCount: number, key: string) =>
+					runPromise(
+						Ref.modify(values, (current) => {
+							const next = new Map(current);
+							next.delete(key);
+							return [current.get(key) ?? null, next];
+						}),
+					),
+				set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) =>
+					runPromise(
+						Ref.update(values, (current) => new Map(current).set(key, value)).pipe(
+							Effect.andThen(
+								Ref.update(expiries, (current) => new Map(current).set(key, ttlSeconds)),
 							),
+							Effect.as("OK"),
 						),
-				},
-			);
+					),
+			});
 			const repository = Layer.mock(AuthRepository)({
 				findUserById: (userId) =>
 					Ref.update(userReads, (reads) => [...reads, userId]).pipe(Effect.andThen(Ref.get(user))),

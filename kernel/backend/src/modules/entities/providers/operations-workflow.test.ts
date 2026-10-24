@@ -20,6 +20,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { partialFake } from "@ryot-app/testing/fakes";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -101,9 +103,7 @@ const database = DatabaseSession.of({
 	acquireUserWriteLock: () => Effect.void,
 	isTransactionActive: Effect.sync(() => inTransaction),
 	run: (statement) =>
-		mapDatabaseErrors(
-			statement(Object.assign(Object.create(null), { execute: () => Effect.void })),
-		),
+		mapDatabaseErrors(statement(partialFake<EffectPgDatabase>({ execute: () => Effect.void }))),
 	transaction: (work) =>
 		Effect.suspend(() => {
 			inTransaction = true;

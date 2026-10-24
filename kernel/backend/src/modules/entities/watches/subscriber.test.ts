@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref } from "effect";
 import Redis from "ioredis";
 
@@ -12,16 +13,14 @@ import { EntityWatchProgression } from "./progression";
 import { EntityWatchStore } from "./store";
 import { EntityWatchSubscriber } from "./subscriber";
 
-const subscriber = Object.assign(Object.create(Redis.prototype), {
+const subscriber = derivedFake(Redis.prototype, {
 	on: () => subscriber,
 	quit: () => Promise.resolve("OK"),
 	subscribe: () => Promise.resolve(1),
 	removeAllListeners: () => subscriber,
-}) satisfies Redis;
+});
 
-const client = Object.assign(Object.create(Redis.prototype), {
-	duplicate: () => subscriber,
-}) satisfies Redis;
+const client = derivedFake(Redis.prototype, { duplicate: () => subscriber });
 
 type MarkPendingInput = Parameters<EntityWatchStore["Service"]["markPending"]>[0];
 

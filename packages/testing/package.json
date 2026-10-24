@@ -27,6 +27,10 @@
 			"types": "./src/effect-assertions.ts",
 			"default": "./src/effect-assertions.ts"
 		},
+		"./fakes": {
+			"types": "./src/fakes.ts",
+			"default": "./src/fakes.ts"
+		},
 		"./recording-tracer": {
 			"types": "./src/recording-tracer.ts",
 			"default": "./src/recording-tracer.ts"

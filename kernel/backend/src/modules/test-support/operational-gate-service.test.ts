@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -249,7 +250,7 @@ layer(
 				Effect.succeed([{ deadlocks: 0, waiting_advisory_locks: 0, lock_waiting_connections: 0 }]),
 		}),
 		redis: makeRedisService({
-			client: Object.assign(Object.create(null), {
+			client: partialFake<RedisService["Service"]["client"]>({
 				hkeys: (key: string) => {
 					journalReads.push(key);
 					return Promise.resolve(projections.get(key) ?? []);

@@ -1,6 +1,8 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { partialFake } from "@ryot-app/testing/fakes";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -52,7 +54,7 @@ const bootstrapLayer = (options?: {
 					const provisioned = yield* Ref.make<ReadonlyArray<UserId>>([]);
 					const defaultRules = yield* Ref.make<ReadonlyArray<UserId>>([]);
 					const userRows = [{ bootstrapCompletedAt: options?.bootstrapCompletedAt ?? null }];
-					const db = Object.assign(Object.create(null), {
+					const db = {
 						execute: () => Effect.succeed({}),
 						update: () => ({
 							set: () => ({ where: () => append(order)("complete").pipe(Effect.as({})) }),
@@ -76,9 +78,11 @@ const bootstrapLayer = (options?: {
 								};
 							},
 						}),
-					});
+					};
 					return Layer.mergeAll(
-						fakeDatabaseSession(db, { run: (statement) => mapDatabaseErrors(statement(db)) }),
+						fakeDatabaseSession(db, {
+							run: (statement) => mapDatabaseErrors(statement(partialFake<EffectPgDatabase>(db))),
+						}),
 						Layer.mock(PluginUserBootstrapDispatcher)({
 							dispatchAll: (inputUserId) =>
 								Effect.gen(function* () {

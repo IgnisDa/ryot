@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ReusableCapabilityGrantStore } from "#modules/pages/bundles/reusable-capability-grants";
@@ -28,7 +29,7 @@ const fakeRedisLayer = Layer.effectContext(
 			set: (key, value) => Ref.update(data, (all) => new Map(all).set(key, value)),
 			releaseLease: (key, value) =>
 				Ref.update(data, (all) => (all.get(key) === value ? without(key)(all) : all)),
-			client: Object.assign(Object.create(null), {
+			client: partialFake<RedisService["Service"]["client"]>({
 				ttl: (key: string) => run(Effect.map(Ref.get(data), (all) => (all.has(key) ? 900 : -2))),
 				set: (key: string, value: string) =>
 					run(

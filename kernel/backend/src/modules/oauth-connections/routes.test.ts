@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { AuthMiddleware } from "@ryot-app/contract/auth-middleware";
 import { OAuthConnectionsGroup } from "@ryot-app/contract/modules/oauth-connections/contract";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Effect, Layer, Ref } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApi, HttpApiBuilder } from "effect/http-api";
@@ -14,7 +15,7 @@ it.effect("redirects provider callbacks without caching, referrers, or provider 
 	Effect.gen(function* () {
 		const received = yield* Ref.make<ReadonlyArray<unknown>>([]);
 		const services = Layer.mergeAll(
-			Layer.succeed(AuthMiddleware, Object.create(null)),
+			Layer.succeed(AuthMiddleware, partialFake<AuthMiddleware["Service"]>({})),
 			Layer.mock(OAuthConnectionsService)({
 				callback: (path, query) =>
 					Ref.update(received, (all) => [...all, { path, query }]).pipe(

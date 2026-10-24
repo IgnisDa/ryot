@@ -8,6 +8,7 @@ import {
 	type UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -52,7 +53,7 @@ const serviceLayer = () =>
 					>([]);
 					return Context.make(
 						AuthService,
-						Object.assign(Object.create(null), {
+						partialFake<AuthService["Service"]>({
 							updateUserImage: (userId: UserId, image: string) =>
 								Ref.update(imageUpdates, (all) => [...all, { image, userId }]),
 							updateUserPreferences: (userId: UserId, preferences: UserPreferencesPatch) =>

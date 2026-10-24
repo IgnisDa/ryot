@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Duration, Effect, Fiber, Layer, MutableRef, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
@@ -74,7 +75,7 @@ const runtimeHostLayer = Layer.unwrap(
 		const read = (key: string) => MutableRef.get(values.ref).get(key) ?? null;
 		const write = (key: string, value: string) =>
 			MutableRef.update(values.ref, (all) => new Map(all).set(key, value));
-		const client = Object.assign(Object.create(null), {
+		const client = partialFake<RedisService["Service"]["client"]>({
 			get: (key: string) => Promise.resolve(read(key)),
 			set: (key: string, value: string, ...options: ReadonlyArray<unknown>) =>
 				run(
@@ -86,7 +87,7 @@ const runtimeHostLayer = Layer.unwrap(
 						return "OK";
 					}),
 				),
-		}) satisfies RedisService["Service"]["client"];
+		});
 		const redis = makeRedisService({
 			client,
 			get: (key) => Effect.map(Ref.get(values), (all) => all.get(key) ?? null),

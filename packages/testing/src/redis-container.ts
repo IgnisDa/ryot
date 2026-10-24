@@ -1,14 +1,14 @@
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 const redisPort = 6379;
 
 export type StartedRedisContainer = { url: string; container: StartedTestContainer };
 
-export class RedisContainerError extends Data.TaggedError("RedisContainerError")<{
-	readonly cause: unknown;
-	readonly message: string;
-}> {}
+export class RedisContainerError extends Schema.TaggedError<
+	RedisContainerError,
+	{ readonly brand: unique symbol }
+>()("RedisContainerError", { cause: Schema.Unknown, message: Schema.String }) {}
 
 const containerError = (message: string, cause: unknown) =>
 	new RedisContainerError({ cause, message });

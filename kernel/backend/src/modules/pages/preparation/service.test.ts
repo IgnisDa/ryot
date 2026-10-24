@@ -7,6 +7,7 @@ import {
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -189,7 +190,7 @@ const pagesLayer = PagesService.layer.pipe(
 			Layer.succeed(
 				EntitiesRepository,
 				EntitiesRepository.of(
-					Object.assign(Object.create(null), {
+					partialFake<EntitiesRepository["Service"]>({
 						getClientPageEntityForUser: () => Effect.succeed(null),
 					}),
 				),
@@ -201,7 +202,7 @@ const pagesLayer = PagesService.layer.pipe(
 					return Context.make(
 						PagesRepository,
 						PagesRepository.of(
-							Object.assign(Object.create(null), {
+							partialFake<PagesRepository["Service"]>({
 								findHomeSavedView: () => Ref.get(home),
 								findPreparedTarget: (_userId: unknown, reference: SavedViewReference) =>
 									Ref.get(views).pipe(
@@ -226,7 +227,7 @@ const pagesLayer = PagesService.layer.pipe(
 					return Context.make(
 						PluginRuntimeResolver,
 						PluginRuntimeResolver.of(
-							Object.assign(Object.create(null), {
+							partialFake<PluginRuntimeResolver["Service"]>({
 								listPluginsAvailableToUser: () => Ref.get(available),
 								resolveUserPackage: (_userId: unknown, packageId: string) =>
 									Effect.map(Ref.get(available), (current) => {
@@ -243,7 +244,7 @@ const pagesLayer = PagesService.layer.pipe(
 			Layer.succeed(
 				ImageClientArtifacts,
 				ImageClientArtifacts.of(
-					Object.assign(Object.create(null), {
+					partialFake<ImageClientArtifacts["Service"]>({
 						renderers: new Map(),
 						runtime: { artifact: { hash: runtimeHash }, entries: { bootstrap: "bootstrap.js" } },
 					}),

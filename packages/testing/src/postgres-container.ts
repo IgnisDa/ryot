@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { Data, Effect, Fiber, FileSystem, Layer, Path, Stream } from "effect";
+import { Effect, Fiber, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { Wait } from "testcontainers";
 
 export type StartedPostgresContainer = {
@@ -12,10 +12,10 @@ export type StartedPostgresContainer = {
 	logs: Effect.Effect<void, PostgresContainerError>;
 };
 
-export class PostgresContainerError extends Data.TaggedError("PostgresContainerError")<{
-	readonly cause: unknown;
-	readonly message: string;
-}> {}
+export class PostgresContainerError extends Schema.TaggedError<
+	PostgresContainerError,
+	{ readonly brand: unique symbol }
+>()("PostgresContainerError", { cause: Schema.Unknown, message: Schema.String }) {}
 
 const platformLayer = Layer.merge(BunFileSystem.layer, BunPath.layer);
 

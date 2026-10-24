@@ -23,6 +23,7 @@ import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Deferred, Effect, type Exit, Layer, Metric, Ref, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -347,7 +348,7 @@ layer(
 
 const makeProjectionRedis = () =>
 	makeRedisService({
-		client: Object.assign(Object.create(null), {
+		client: partialFake<RedisService["Service"]["client"]>({
 			eval: () => Promise.resolve(1),
 			hgetall: () => Promise.resolve({}),
 			callBuffer: () => Promise.resolve(1),
@@ -1126,7 +1127,7 @@ const inlineWorkflowLayer = (executionId: string, principal?: ScriptExecutionPri
 					Layer.succeed(
 						RedisService,
 						makeRedisService({
-							client: Object.assign(Object.create(null), {
+							client: partialFake<RedisService["Service"]["client"]>({
 								hmget: (key: string, ...fields: string[]) => redisClient.hmget(key, ...fields),
 								eval: (script: string, keys: number, key: string, ...args: string[]) =>
 									redisClient.eval(script, keys, key, ...args),

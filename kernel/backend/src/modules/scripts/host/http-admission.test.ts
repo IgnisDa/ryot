@@ -1,6 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
@@ -123,7 +124,7 @@ const admitAll = Effect.fnUntraced(function* (
 	instances: ReadonlyArray<Admission>,
 	declaration: ProviderHttpAdmissionDeclaration,
 	tickets: ReadonlyArray<ProviderHttpTicket>,
-	count = tickets.length,
+	count: number = tickets.length,
 ) {
 	const pending = [...tickets];
 	const admitted: Array<ProviderHttpTicket> = [];
@@ -631,9 +632,9 @@ layer(Layer.empty)((test) => {
 	test.effect("strictly validates Lua replies", () =>
 		Effect.gen(function* () {
 			for (const { message, response } of invalidResponses) {
-				const client = Object.assign(Object.create(null), {
+				const client = partialFake<RedisService["Service"]["client"]>({
 					eval: () => Promise.resolve(response),
-				}) satisfies Client;
+				});
 				const service = yield* makeProviderHttpAdmission().pipe(
 					Effect.provideService(RedisService, makeRedisService({ client })),
 				);

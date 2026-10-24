@@ -6,6 +6,7 @@ import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { describe } from "vitest";
@@ -61,7 +62,7 @@ const makeLayer = (input?: { readonly definitions?: DefinitionSnapshot }) => {
 			const persists = yield* Ref.make(0);
 			return Context.make(
 				PluginRepository,
-				Object.assign(Object.create(null), {
+				partialFake<PluginRepository["Service"]>({
 					lockIngestion: () => Effect.void,
 					listPortablePluginMetadata: () => Effect.succeed([]),
 					persist: () => Ref.update(persists, (count) => count + 1).pipe(Effect.as("plugin-id")),

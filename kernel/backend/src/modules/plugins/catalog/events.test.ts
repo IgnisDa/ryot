@@ -4,6 +4,7 @@ import {
 	encodePluginCatalogInvalidatedMessage,
 } from "@ryot-app/contract/modules/plugins/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { derivedFake } from "@ryot-app/testing/fakes";
 import {
 	Context,
 	Deferred,
@@ -232,16 +233,14 @@ const recoveringSubscriberLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const subscriptions = yield* Ref.make(0);
 		const runPromise = Effect.runPromiseWith(yield* Effect.context());
-		const redisSubscriber = Object.assign(Object.create(Redis.prototype), {
+		const redisSubscriber = derivedFake(Redis.prototype, {
 			on: () => redisSubscriber,
 			quit: () => Promise.resolve("OK"),
 			removeAllListeners: () => redisSubscriber,
 			subscribe: () =>
 				runPromise(Ref.update(subscriptions, (count) => count + 1).pipe(Effect.as(2))),
-		}) satisfies Redis;
-		const client = Object.assign(Object.create(Redis.prototype), {
-			duplicate: () => redisSubscriber,
-		}) satisfies Redis;
+		});
+		const client = derivedFake(Redis.prototype, { duplicate: () => redisSubscriber });
 		return Context.make(RedisService, makeRedisService({ client })).pipe(
 			Context.add(RedisSubscriptions, Ref.get(subscriptions)),
 		);
@@ -296,7 +295,7 @@ layer(
 it.effect("fails subscriber layer acquisition when the initial Redis subscription fails", () => {
 	let quitCalls = 0;
 	let removeListenerCalls = 0;
-	const redisSubscriber = Object.assign(Object.create(Redis.prototype), {
+	const redisSubscriber = derivedFake(Redis.prototype, {
 		on: () => redisSubscriber,
 		subscribe: () => Promise.reject(new Error("redis unavailable")),
 		quit: () => {
@@ -307,10 +306,8 @@ it.effect("fails subscriber layer acquisition when the initial Redis subscriptio
 			removeListenerCalls += 1;
 			return redisSubscriber;
 		},
-	}) satisfies Redis;
-	const client = Object.assign(Object.create(Redis.prototype), {
-		duplicate: () => redisSubscriber,
-	}) satisfies Redis;
+	});
+	const client = derivedFake(Redis.prototype, { duplicate: () => redisSubscriber });
 	const dependencies = Layer.mergeAll(
 		PluginCatalogHub.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),

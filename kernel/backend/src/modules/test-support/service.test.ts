@@ -12,6 +12,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -77,7 +78,7 @@ const makeServiceLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
-				Layer.succeed(PgClient.PgClient, Object.create(null)),
+				Layer.succeed(PgClient.PgClient, partialFake<PgClient.PgClient>({})),
 				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
 				Layer.mock(LifecycleExecution)({
 					after: () => Effect.die("unused"),

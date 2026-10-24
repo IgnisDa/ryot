@@ -24,6 +24,7 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert } from "vitest";
 
@@ -90,17 +91,17 @@ type PersistedRelationship = Effect.Success<
 	ReturnType<RelationshipsService["Service"]["persistPreparedUserDelete"]>
 >["result"];
 
-const preparedEventDelete: PreparedEventDelete = Object.create(null);
-const preparedEventMoveReferences: PreparedEventMoveReferences = Object.create(null);
-const persistedRelationship: PersistedRelationship = Object.create(null);
+const preparedEventDelete = partialFake<PreparedEventDelete>({});
+const preparedEventMoveReferences = partialFake<PreparedEventMoveReferences>({});
+const persistedRelationship = partialFake<PersistedRelationship>({});
 type PreparedRelationshipCreate = Effect.Success<
 	ReturnType<RelationshipsService["Service"]["prepareUserCreate"]>
 >;
 type PreparedRelationshipDelete = Effect.Success<
 	ReturnType<RelationshipsService["Service"]["prepareUserDelete"]>
 >;
-const preparedRelationshipCreate: PreparedRelationshipCreate = Object.create(null);
-const preparedRelationshipDelete: PreparedRelationshipDelete = Object.create(null);
+const preparedRelationshipCreate = partialFake<NonNullable<PreparedRelationshipCreate>>({});
+const preparedRelationshipDelete = partialFake<NonNullable<PreparedRelationshipDelete>>({});
 
 const eventReferencesFor = (
 	input: { readonly entityIds: ReadonlyArray<EntityId> },
