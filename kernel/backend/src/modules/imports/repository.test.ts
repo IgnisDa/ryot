@@ -5,7 +5,9 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { ImportsRepository } from "./repository";
 
@@ -54,7 +56,12 @@ const makeRepositoryLayer = (conflict: DbError) =>
 					return fakeDatabaseSession({
 						execute: () => Effect.void,
 						select: () => ({
-							from: () => ({ where: () => ({ limit: () => Effect.succeed([{ id: userId }]) }) }),
+							from: () => ({
+								where: () => ({
+									for: () => Effect.succeed([{ id: userId }]),
+									limit: () => Effect.succeed([{ id: userId }]),
+								}),
+							}),
 						}),
 						insert: () => ({
 							values: () => ({
@@ -98,6 +105,61 @@ layer(makeRepositoryLayer(otherConstraintFailure))((test) => {
 				yield* Effect.exit(database.transaction(repository.createIntegrationRunIfIdle(admission))),
 				otherConstraintFailure,
 			);
+		}),
+	);
+});
+
+layer(
+	ImportsRepository.layer.pipe(
+		Layer.provideMerge(isolatedDatabaseLayer("imports_disabled_yank_admission")),
+	),
+)((test) => {
+	test.effect("rejects yank run admission for a disabled user", () =>
+		Effect.gen(function* () {
+			const repository = yield* ImportsRepository;
+			const database = yield* DatabaseSession;
+			const disabledUserId = UserId.make("disabled-admission-user");
+			const disabledIntegrationId = IntegrationId.make("disabled-admission-integration");
+			yield* database.run((db) =>
+				db
+					.insert(tables.user)
+					.values({
+						name: "Disabled",
+						id: disabledUserId,
+						email: "disabled-admission@example.test",
+						disabledAt: new Date("2026-09-23T00:00:00.000Z"),
+					}),
+			);
+			yield* database.run((db) =>
+				db
+					.insert(tables.integration)
+					.values({
+						lot: "sink",
+						isDisabled: false,
+						provider: "data-json",
+						providerSpecifics: {},
+						userId: disabledUserId,
+						id: disabledIntegrationId,
+						pluginInstallationId: null,
+						clientProviderSpecifics: {},
+						webhookToken: "disabled-admission-webhook",
+						extraSettings: { disableOnContinuousErrors: false },
+					}),
+			);
+
+			const run = yield* database.transaction(
+				repository.createIntegrationRunIfIdle({
+					source: "theta",
+					inputSummary: {},
+					userId: disabledUserId,
+					integrationId: disabledIntegrationId,
+					pluginInstallationId: "unused-installation",
+				}),
+			);
+			expect(run).toBeNull();
+			expect(
+				yield* database.run((db) => db.select({ id: tables.importRun.id }).from(tables.importRun)),
+			).toEqual([]);
 		}),
 	);
 });

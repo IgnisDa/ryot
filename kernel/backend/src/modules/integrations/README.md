@@ -12,6 +12,10 @@ New yank runs and recovery runs share this worklist; unreleasable owners do not 
 Release retains expiry, cancellation, account-generation, readiness, and pinned-input checks. Child
 workflows retain each run's original execution ID.
 
+Yank admission excludes disabled accounts and rechecks the account under its transaction lock.
+Recovery cancels disabled accounts' outstanding runs before pinning or dispatch and uses normal
+settlement to release retained inputs and pins.
+
 Admission itself still reads the enabled yank integrations as one collection. The worklist does not
 make that read bounded. Deliveries created after the cutoff wait for a later sync.
 

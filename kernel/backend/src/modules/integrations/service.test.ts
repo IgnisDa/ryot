@@ -22,6 +22,7 @@ import {
 } from "#lib/domain/managed-asset-writes.test-support";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
+import { ingestionTestRun, ingestionTestScope } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
@@ -142,6 +143,7 @@ class FakeIntegrationDependencies extends Context.Service<
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);
 const mockImports = Layer.mock(ImportsService);
+const mockImportRepository = Layer.mock(ImportsRepository);
 const mockOAuthConnections = Layer.mock(OAuthConnectionsService);
 const mockReadiness = Layer.mock(IngestionReadinessService);
 const mockDataAdmission = Layer.mock(DataImportAdmission);
@@ -159,13 +161,13 @@ const makeServiceLayer = (options: {
 		readiness?: MockOverrides<typeof mockReadiness>;
 		repository?: MockOverrides<typeof mockRepository>;
 		dataAdmission?: MockOverrides<typeof mockDataAdmission>;
+		importRepository?: MockOverrides<typeof mockImportRepository>;
 	};
 }) =>
 	integrationsServiceLayer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				options.database ?? mutationAdmissionTestLayer,
-				Layer.mock(ImportsRepository)({}),
 				Layer.mock(IngestionExecution)({}),
 				Layer.mock(IngestionRetirement)({}),
 				mockProKey(options.proKey ?? true),
@@ -203,6 +205,7 @@ const makeServiceLayer = (options: {
 								storedIntegration: Ref.get(stored),
 							}),
 							mockImports(dependencies.imports ?? {}),
+							mockImportRepository(dependencies.importRepository ?? {}),
 							mockOAuthConnections({ bindIntegrationSettings: () => Effect.void }),
 							mockCatalog(dependencies.catalog ?? {}),
 							mockReadiness(dependencies.readiness ?? {}),
@@ -657,6 +660,73 @@ describe("prepareYankRuns", () => {
 		test.effect("waits without admitting when the executable is unavailable", () =>
 			Effect.gen(function* () {
 				expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toBeUndefined();
+			}),
+		);
+	});
+});
+
+describe("releaseRecoveryRun", () => {
+	const scope = ingestionTestScope;
+	const integrationId = makeIntegration().id;
+	for (const [status, pinned] of [
+		["blocked", false],
+		["pending", false],
+		["pending", true],
+		["cancelling", true],
+	] as const) {
+		layer(
+			makeServiceLayer({
+				dependencies: ({ record }) => ({
+					repository: { isUserDisabled: () => Effect.succeed(true) },
+					ingestion: {
+						expire: () => Effect.succeed(false),
+						settle: (input, terminal) =>
+							record("settle", { scope: input, status: terminal }).pipe(Effect.as(true)),
+					},
+					importRepository: {
+						cancelIngestion: (input) =>
+							record("cancel", input).pipe(Effect.as(status !== "cancelling")),
+						getIngestionRunControl: () =>
+							Effect.succeed(
+								ingestionTestRun({
+									status,
+									integrationId,
+									plan: pinned ? ingestionTestRun().plan : null,
+									pins: pinned ? ingestionTestRun().pins : null,
+								}),
+							),
+					},
+				}),
+			}),
+		)((test) => {
+			test.effect(`cancels a disabled account's ${status} run with pins=${pinned}`, () =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(yield* service.releaseRecoveryRun({ ...scope, integrationId })).toBe(false);
+					expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([
+						{ input: scope, method: "cancel" },
+						{ method: "settle", input: { scope, status: "cancelled" } },
+					]);
+				}),
+			);
+		});
+	}
+	layer(
+		makeServiceLayer({
+			dependencies: () => ({
+				repository: { isUserDisabled: () => Effect.succeed(false) },
+				ingestion: { expire: () => Effect.succeed(false), inputReady: () => Effect.succeed(true) },
+				importRepository: {
+					getIngestionRunControl: () => Effect.succeed(ingestionTestRun({ status: "pending" })),
+				},
+			}),
+		}),
+	)((test) => {
+		test.effect("releases an active account's pinned pending run", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* (yield* IntegrationsService).releaseRecoveryRun({ ...scope, integrationId }),
+				).toBe(true);
 			}),
 		);
 	});

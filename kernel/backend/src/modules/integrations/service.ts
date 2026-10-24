@@ -712,6 +712,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						return false;
 					}
 					const control = yield* importRepository.getIngestionRunControl(scope);
+					if (yield* repository.isUserDisabled({ userId: run.userId })) {
+						yield* importRepository.cancelIngestion(scope);
+						yield* ingestion.settle(scope, "cancelled");
+						return false;
+					}
 					if (control?.status === "cancelling") {
 						yield* ingestion.settle(scope, "cancelled");
 						return false;

@@ -12,7 +12,7 @@ import {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -355,6 +355,12 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			)(function* (input: { userId: UserId }) {
 				return (yield* auth.getUserPreferences(input.userId))?.disableIntegrations === true;
 			});
+			const isUserDisabled = Effect.fn("IntegrationsRepository.isUserDisabled")(function* (input: {
+				userId: UserId;
+			}) {
+				const user = yield* auth.findUserById(input.userId);
+				return user?.disabledAt !== null;
+			});
 
 			const listEnabledYankIntegrations = Effect.fn(
 				"IntegrationsRepository.listEnabledYankIntegrations",
@@ -363,6 +369,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 					eq(schema.integration.lot, "yank"),
 					eq(schema.integration.isDisabled, false),
 					eq(schema.integration.retiring, false),
+					isNull(schema.user.disabledAt),
 				];
 				if (input.userId !== null) {
 					conditions.push(eq(schema.integration.userId, input.userId));
@@ -371,6 +378,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 					db
 						.select(integrationSelection)
 						.from(schema.integration)
+						.innerJoin(schema.user, eq(schema.user.id, schema.integration.userId))
 						.where(and(...conditions))
 						.orderBy(desc(schema.integration.createdAt)),
 				);
@@ -628,6 +636,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				updateForUser,
 				deleteForUser,
 				getByIdAnyUser,
+				isUserDisabled,
 				beginRetirement,
 				getClientForUser,
 				getByWebhookToken,

@@ -230,6 +230,19 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				pluginInstallationId: string;
 				inputSummary: Record<string, unknown>;
 			}) {
+				yield* database.requireTransaction;
+				yield* lockPluginIngestionShared(database);
+				yield* database.acquireUserWriteLock(input.userId);
+				const [user] = yield* database.run((db) =>
+					db
+						.select({ id: schema.user.id })
+						.from(schema.user)
+						.where(and(eq(schema.user.id, input.userId), isNull(schema.user.disabledAt)))
+						.for("share"),
+				);
+				if (!user) {
+					return null;
+				}
 				return yield* createIntegrationRun({ ...input, integrationLot: "yank" }).pipe(
 					Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
 						Effect.succeed(null),
