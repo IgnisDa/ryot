@@ -46,17 +46,16 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			),
 		);
 		const inspection = inspectSandboxSource(project.sourceFile);
-		const hasTypeErrors = project.diagnostics.some(
+		const typeErrors = project.diagnostics.filter(
 			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
 		);
 		const validated = yield* validateSandboxEntry({
 			execution: project.execution,
 			sourceFiles: project.sourceFiles,
 			inspected: { source, inspection, entry: SANDBOX_SOURCE_FILE, sourceFile: project.sourceFile },
-			validateTypes: hasTypeErrors
+			validateTypes: typeErrors.length
 				? sandboxCompilationFailure(
-						project.diagnostics
-							.filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
+						typeErrors
 							.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
 							.map((diagnostic) =>
 								toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),

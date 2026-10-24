@@ -24,9 +24,9 @@
 | B13-R1 | Implemented | Generation-fenced control reads omit report aggregation. `858b8a3762`; media fixture follow-up `ac5ecfa99a`. |
 | F01-R1 | Implemented | Nullable override merge patches preserve omitted fields. `a9166361ae`. |
 | B10-R1 | Implemented | Four shared typed pinned-definition projections include policy fields. `f0dfc38ce3`. |
-| P07-R2 | Implemented | Top-level client/shared regions determine authority and traversal floors; nested region-name tests and real module compilation pass. See this finding's `audit:` commit. |
-| P06-R1 | Implemented | Shared validated-entry stage enforces workflow policy through standalone and package paths while preserving adapter diagnostics and relative-import rules. See this finding's `audit:` commit. |
-| P07-R1 | Implemented | Reuse authored TypeScript ASTs for import and asset policy; multiline imports cannot bypass shared authority, and inert text does not trigger policy. See this finding's `audit:` commit. |
+| P07-R2 | Implemented | Top-level client/shared regions determine authority and traversal floors. `30b575897a`. |
+| P06-R1 | Implemented | Shared validated-entry stage enforces workflow policy through standalone and package paths while preserving adapter diagnostics and relative-import rules. `6c068ac196`. |
+| P07-R1 | Implemented | Authored ASTs enforce import and asset policy without multiline bypasses or inert-text false positives. `123aa8be21`. |
 | C01-R1 | Pending | Fence late authentication refresh completion. |
 | B04-R1 | Pending | One account bootstrap identity owner. |
 | B19-R1 | Pending | Agree on selected home/route targets during preparation and freshness checks. |
@@ -125,10 +125,13 @@
 - Post-cleanup e2e: four files, 22 tests passed: `workout-editor.test.ts`, `workout-editor-reads.test.ts`, `fitness-workout-editor.test.ts`, and `fitness-workout-interactions.test.ts`.
 - Shipped artifacts rebuilt; configuration documentation regenerated with no tracked changes. Excluded apps unchanged. No push performed.
 
-### Batch 2: P07-R2, P06-R1, P07-R1 — active
+### Batch 2: P07-R2, P06-R1, P07-R1 — accepted
 
 - P07-R2: client compiler check passed; all four test files and 64 tests passed. Covers nested `client/shared`, `client/client`, `shared/client`, and `shared/shared` paths, traversal rejection, assets, and real Vite compilation.
 - P06-R1: backend compiler check passed; seven files, 64 tests passed. Worker-facing compiler, worker, limits, and built-in suites passed: four files, 22 tests. Native runner integration passed: one file, 23 tests. Backend and sandbox checks passed. Native workflow fixtures now use the deterministic SDK entrypoint.
-- P07-R1: client compiler check passed; all four files and 79 tests passed. Covers multiline imports/re-exports, type imports, SDK boundaries, dynamic imports/globs, static and invalid asset URLs, inert text, generated declarations, and deterministic artifacts. Batch-wide validation pending.
+- P07-R1: client compiler check passed; all four files and 79 tests passed. Covers multiline imports/re-exports, type imports, SDK boundaries, dynamic imports/globs, static and invalid asset URLs, inert text, generated declarations, and deterministic artifacts.
+- Cleanup from `ac5ecfa99a`: removed the repeated standalone type-error scan and a single-use type alias (net one line removed). Kept the standalone project adapter and diagnostic ordering because their behavior differs intentionally. No added suppressions or bypass casts.
+- Final repository-wide `bun run check`: passed across 30 projects. Final `bun turbo --filter='!@ryot-app/e2e' test`: passed, 51/51 tasks.
+- Affected e2e: `e2e/src/api/kernel/plugins/compiled-package.test.ts`, two tests passed. Shipped artifacts rebuilt. Excluded apps unchanged. No push performed.
 
 Next after this batch: authenticated-state ownership (C01-R1), subject to the existing dependency order.
