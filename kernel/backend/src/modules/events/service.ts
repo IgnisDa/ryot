@@ -418,7 +418,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			input: EventIdentityInput,
 			before: AutomationEventSnapshot,
 			cascadeEntityIds?: ReadonlyArray<EntityId>,
-			lock = false,
+			lock?: boolean,
 		) {
 			if (!cascadeEntityIds) {
 				return yield* writeChecks
@@ -654,7 +654,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				propertiesSchema: AppSchema;
 				eventSchemaFingerprint: CatalogDefinitionFingerprint;
 			},
-			commit = false,
+			commit?: boolean,
 		) {
 			if (
 				draftInput.eventSchemaSlug !== before.eventSchemaSlug ||
@@ -667,8 +667,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}
 			const scope = yield* resolveEventScopes({
 				userId,
-				commit,
 				command,
+				commit: commit ?? false,
 				item: { ...draftInput, sessionEntityId: draftInput.sessionEntityId ?? undefined },
 			}).pipe(
 				Effect.catchTag("EventCreateItemError", (error) => Effect.fail(eventCreateFailure(error))),
@@ -975,7 +975,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			input: EventIdentityInput,
 			commandInput: DomainLifecycleCommand,
 			move?: UpdateEventEntityReferencesInput,
-			inline = false,
+			inline?: boolean,
 			cascadeEntityIds?: ReadonlyArray<EntityId>,
 		): Effect.fn.Return<
 			null | PreparedEventMutationResult,
@@ -1627,71 +1627,70 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				warnings: yield* execution.dispatch([...recorded.dispatch, ...batch]),
 			};
 		});
-		const edit = Effect.fn("EventsService.edit")(function* (
-			submitted: UpdateEventItem,
-			userId: UserId,
-			command: DomainLifecycleCommand,
-		) {
-			yield* assertRootTransaction;
-			const input = { userId, eventId: submitted.eventId };
-			const mutation = { submitted, operation: "edit" as const };
-			return yield* retryFieldPreconditionStale(
-				Effect.gen(function* () {
-					const replay = yield* replaySingle(input, command, mutation);
-					if (replay) {
-						return replay;
-					}
-					const prepared = yield* prepareUpdate(submitted, userId, command);
-					if (!prepared) {
-						const racedReplay = yield* replaySingle(input, command, mutation);
-						if (racedReplay) {
-							return racedReplay;
+		const edit = Effect.fn("EventsService.edit")(
+			function* (submitted: UpdateEventItem, userId: UserId, command: DomainLifecycleCommand) {
+				yield* assertRootTransaction;
+				const input = { userId, eventId: submitted.eventId };
+				const mutation = { submitted, operation: "edit" as const };
+				return yield* retryFieldPreconditionStale(
+					Effect.gen(function* () {
+						const replay = yield* replaySingle(input, command, mutation);
+						if (replay) {
+							return replay;
 						}
-						return yield* new EventNotFound({
-							reason: { code: "event-not-found", eventId: submitted.eventId },
-						});
-					}
-					const work = yield* transaction(
-						withBatch(command, persist(prepared[preparedEventUpdate])),
-					);
-					return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
-				}),
-				userId,
-				(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
-			);
-		});
-		const deleteOne = Effect.fn("EventsService.delete")(function* (
-			input: EventIdentityInput,
-			command: DomainLifecycleCommand,
-		) {
-			yield* assertRootTransaction;
-			const mutation = { operation: "delete" as const };
-			return yield* retryFieldPreconditionStale(
-				Effect.gen(function* () {
-					const replay = yield* replaySingle(input, command, mutation);
-					if (replay) {
-						return replay;
-					}
-					const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
-					if (!prepared) {
-						const racedReplay = yield* replaySingle(input, command, mutation);
-						if (racedReplay) {
-							return racedReplay;
+						const prepared = yield* prepareUpdate(submitted, userId, command);
+						if (!prepared) {
+							const racedReplay = yield* replaySingle(input, command, mutation);
+							if (racedReplay) {
+								return racedReplay;
+							}
+							return yield* new EventNotFound({
+								reason: { code: "event-not-found", eventId: submitted.eventId },
+							});
 						}
-						return yield* new EventNotFound({
-							reason: { eventId: input.eventId, code: "event-not-found" },
-						});
-					}
-					const work =
-						"_tag" in prepared
-							? prepared.work
-							: yield* transaction(withBatch(command, persist(prepared)));
-					return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
-				}),
-				input.userId,
-				(eventId) => (eventId === input.eventId ? input.expected : undefined),
-			);
-		});
+						const work = yield* transaction(
+							withBatch(command, persist(prepared[preparedEventUpdate])),
+						);
+						return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+					}),
+					userId,
+					(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
+				);
+			},
+			(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
+		);
+		const deleteOne = Effect.fn("EventsService.delete")(
+			function* (input: EventIdentityInput, command: DomainLifecycleCommand) {
+				yield* assertRootTransaction;
+				const mutation = { operation: "delete" as const };
+				return yield* retryFieldPreconditionStale(
+					Effect.gen(function* () {
+						const replay = yield* replaySingle(input, command, mutation);
+						if (replay) {
+							return replay;
+						}
+						const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
+						if (!prepared) {
+							const racedReplay = yield* replaySingle(input, command, mutation);
+							if (racedReplay) {
+								return racedReplay;
+							}
+							return yield* new EventNotFound({
+								reason: { eventId: input.eventId, code: "event-not-found" },
+							});
+						}
+						const work =
+							"_tag" in prepared
+								? prepared.work
+								: yield* transaction(withBatch(command, persist(prepared)));
+						return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+					}),
+					input.userId,
+					(eventId) => (eventId === input.eventId ? input.expected : undefined),
+				);
+			},
+			(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
+		);
 		const batchReplay = Effect.fnUntraced(function* (
 			input:
 				| {

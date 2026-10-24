@@ -378,7 +378,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							},
 							itemCommand(command, `relationship:${relationship.id}:create`),
 						)
-						.pipe(Effect.catchTags({ RelationshipBadRequest: relationshipFailure("merge") }));
+						.pipe(
+							Effect.catchTags({
+								RelationshipNotFound: relationshipFailure("merge"),
+								RelationshipBadRequest: relationshipFailure("merge"),
+							}),
+						);
 				}
 
 				const deletion = yield* relationships
@@ -395,7 +400,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						},
 						itemCommand(command, `relationship:${relationship.id}:delete`),
 					)
-					.pipe(Effect.catchTags({ RelationshipBadRequest: relationshipFailure("merge") }));
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: relationshipFailure("merge"),
+							RelationshipBadRequest: relationshipFailure("merge"),
+						}),
+					);
 				return { create, deletion };
 			});
 
@@ -499,7 +509,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							},
 							itemCommand(command, `relationship:${relationship.id}:delete`),
 						)
-						.pipe(Effect.catchTags({ RelationshipBadRequest: relationshipFailure("clear") }));
+						.pipe(
+							Effect.catchTags({
+								RelationshipNotFound: relationshipFailure("clear"),
+								RelationshipBadRequest: relationshipFailure("clear"),
+							}),
+						);
 					if (prepared) {
 						preparedRelationships.push(prepared);
 					}
@@ -540,7 +555,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 										command,
 										identity: ["relationships"],
 									})
-									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
+									.pipe(
+										Effect.catchTags({
+											RelationshipNotFound: relationshipFailure("clear"),
+											RelationshipBadRequest: relationshipFailure("clear"),
+										}),
+									);
 								relationshipDispatch.push(...work.dispatch);
 							}
 							const result = {
@@ -862,7 +882,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 											index: relationshipIndex++,
 											identity: ["relationships"],
 										})
-										.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+										.pipe(
+											Effect.catchTags({
+												RelationshipNotFound: relationshipFailure("merge"),
+												RelationshipBadRequest: relationshipFailure("merge"),
+											}),
+										);
 									relationshipDispatch.push(...work.dispatch);
 								}
 								if (prepared.deletion) {
@@ -872,7 +897,12 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 											index: relationshipIndex++,
 											identity: ["relationships"],
 										})
-										.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+										.pipe(
+											Effect.catchTags({
+												RelationshipNotFound: relationshipFailure("merge"),
+												RelationshipBadRequest: relationshipFailure("merge"),
+											}),
+										);
 									relationshipDispatch.push(...work.dispatch);
 									movedRelationshipsCount += 1;
 								}
@@ -910,6 +940,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					mergeEntityUserData(user.id, payload, { ...command, writeContext: null }).pipe(
 						Effect.catchTags({
 							EventStale: stateConflict,
+							DomainWriteConflict: Effect.die,
 							EventBadRequest: eventMutationFailure,
 							LifecyclePersistenceError: lifecyclePersistenceFailure,
 						}),

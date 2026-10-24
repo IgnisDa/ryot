@@ -60,7 +60,7 @@ import {
 } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { principalOwner } from "#modules/scripts/authorization/principal";
-import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 import { trimToNull } from "#platform/validation";
 
@@ -310,6 +310,8 @@ const globalUpsertReceipt = (
 			})),
 		},
 	});
+const cascadeEventChanged = () =>
+	new DbError({ message: "Event changed while cascade deletion was prepared" });
 const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
 	error instanceof MutationReceiptIdentityConflict
 		? bad("mutation-conflict", "Command identity was reused with different entity input")
@@ -405,9 +407,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					return yield* work;
 				}),
 			).pipe(
-				Effect.mapError((error) =>
-					error instanceof DatabaseSessionStateError ? enclosingTransaction() : error,
-				),
+				Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
 			);
 
 		const entitySchema = Effect.fnUntraced(function* (
@@ -472,7 +472,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			scopeUserId: null | UserId,
 			owner: DefinitionOwner,
 			lifecycle: DomainLifecycleCommand,
-			commit = false,
+			commit?: boolean,
 			verified?: null | DomainWritePin,
 		) {
 			const entitySchemaPluginId = definitionOwnerPluginId(owner);
@@ -894,9 +894,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const planCreate = Effect.fnUntraced(function* (
 			input: CreateEntityInput,
 			updateExisting?: boolean,
-			receiptKind = updateExisting === undefined ? "entity:create" : "entity:upsert",
+			receiptKind: string = updateExisting === undefined ? "entity:create" : "entity:upsert",
 			receiptInput: unknown = createReceiptInput(input, updateExisting),
-			deferPlanning = false,
+			deferPlanning?: boolean,
 		) {
 			if (
 				input.scope === "user" &&
@@ -1107,8 +1107,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				),
 				(entry) =>
 					Schema.decodeEffect(DomainLifecycleCommand)(entry.item.lifecycle).pipe(
-						Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
-						Effect.map((lifecycle) => ({ ...entry, lifecycle })),
+						Effect.mapBoth({
+							onSuccess: (lifecycle) => ({ ...entry, lifecycle }),
+							onFailure: () => bad("mutation-conflict", "Invalid lifecycle command"),
+						}),
 					),
 			);
 			const recorded = yield* lookupReceipts(
@@ -1298,7 +1300,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					);
 					return {
 						entity: recorded.result.entity,
-						warnings: yield* execution.dispatch([...recorded.dispatch, ...batch]),
+						warnings: yield* execution
+							.dispatch([...recorded.dispatch, ...batch])
+							.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
 					};
 				}
 			}
@@ -1497,285 +1501,299 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const batch = yield* entityBatchPlans(batchScope);
 			return { entity: persisted.result.entity, dispatch: [...persisted.dispatch, ...batch] };
 		});
-		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
-			ids: readonly [EntityId, ...EntityId[]],
-			lifecycle: DomainLifecycleCommand,
-			target?: {
-				readonly userId: UserId;
-				readonly preserveHistory?: boolean;
-				readonly entitySchema: EntitySchemaReference;
-			},
-		) {
-			yield* assertOwner;
-			const orderedIds = [...new Set(ids)].sort();
-			const matchesTarget = (
-				current: NonNullable<Effect.Success<ReturnType<typeof repository.getMutationEntity>>>,
-			) =>
-				!target ||
-				(current.userId === target.userId &&
-					current.entity.entitySchemaSlug === target.entitySchema.slug &&
-					current.entity.entitySchemaPluginId ===
-						definitionOwnerPluginId(target.entitySchema.owner));
-			for (const entityId of orderedIds) {
-				const current = yield* repository.getMutationEntity(entityId);
-				if (current) {
-					if (!matchesTarget(current)) {
-						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
-					}
-					yield* writeChecks
-						.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
-						.pipe(Effect.mapError(writeFailure));
-				}
-			}
-			const aggregateReceipt = mutationReceiptIdentity({
-				scopeUserId: null,
-				command: lifecycle,
-				commandKind: "entity:delete-batch",
-				ownerUserId: mutationReceiptOwner(lifecycle, null),
-				input: {
-					entityIds: orderedIds,
-					target: target ?? null,
-					writeContext: lifecycle.writeContext,
+		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(
+			function* (
+				ids: readonly [EntityId, ...EntityId[]],
+				lifecycle: DomainLifecycleCommand,
+				target?: {
+					readonly userId: UserId;
+					readonly preserveHistory?: boolean;
+					readonly entitySchema: EntitySchemaReference;
 				},
-			});
-			const aggregateResult = Schema.Struct({ deletedCount: Schema.Finite });
-			const existingBatch = yield* receipts
-				.peek(aggregateReceipt, aggregateResult)
-				.pipe(Effect.mapError(receiptConflict));
-			if (existingBatch) {
-				return {
-					deletedCount: existingBatch.result.deletedCount,
-					warnings: yield* execution.dispatch(existingBatch.dispatch),
-				};
-			}
-			const eventIdentities = yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
-			if (target?.preserveHistory === true && eventIdentities.length > 0) {
-				return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
-			}
-			const preparedEvents: PreparedEventDelete[] = [];
-			const accounts = new Map<
-				UserId,
-				Effect.Success<ReturnType<typeof receipts.currentAccount>>
-			>();
-			if (lifecycle.accountGeneration !== null) {
-				accounts.set(lifecycle.accountGeneration.userId, lifecycle.accountGeneration);
-			}
-			for (const identity of eventIdentities) {
-				let account = accounts.get(identity.userId);
-				if (account === undefined) {
-					account = yield* receipts.currentAccount(identity.userId);
-					accounts.set(identity.userId, account);
-				}
-				const eventCommand = itemCommand(
-					{ ...lifecycle, accountGeneration: account },
-					`${identity.userId}:${identity.eventId}:cascade-delete`,
-				);
-				const preparedEvent = yield* events.prepareEntityCascadeDelete(
-					identity,
-					orderedIds,
-					eventCommand,
-				);
-				if (!preparedEvent) {
-					return yield* new DbError({
-						message: "Event changed while cascade deletion was prepared",
-					});
-				}
-				preparedEvents.push(preparedEvent);
-			}
-			const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
-				Effect.gen(function* () {
-					const command = itemCommand(lifecycle, entityId);
-					const receiptInput = {
-						entityId,
-						target: target ?? null,
-						requestedIds: orderedIds,
-						writeContext: lifecycle.writeContext,
-					};
-					for (const scopeUserId of lifecycle.causation.initiator.kind === "user"
-						? [null, lifecycle.causation.initiator.id]
-						: [null]) {
-						const replay = yield* receipts
-							.peek(
-								mutationReceiptIdentity({
-									command,
-									scopeUserId,
-									input: receiptInput,
-									commandKind: "entity:delete",
-									ownerUserId: mutationReceiptOwner(command, scopeUserId),
-								}),
-								EntityDeleteResult,
-							)
-							.pipe(Effect.mapError(receiptConflict));
-						if (replay) {
-							return { replay, scopeUserId, prepared: null };
-						}
-					}
+			) {
+				yield* assertOwner;
+				const orderedIds = [...new Set(ids)].sort();
+				const matchesTarget = (
+					current: NonNullable<Effect.Success<ReturnType<typeof repository.getMutationEntity>>>,
+				) =>
+					!target ||
+					(current.userId === target.userId &&
+						current.entity.entitySchemaSlug === target.entitySchema.slug &&
+						current.entity.entitySchemaPluginId ===
+							definitionOwnerPluginId(target.entitySchema.owner));
+				for (const entityId of orderedIds) {
 					const current = yield* repository.getMutationEntity(entityId);
-					if (!current) {
-						return null;
+					if (current) {
+						if (!matchesTarget(current)) {
+							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+						}
+						yield* writeChecks
+							.check(
+								lifecycle,
+								definitionOwner(current.entity.entitySchemaPluginId),
+								current.userId,
+							)
+							.pipe(Effect.mapError(writeFailure));
 					}
-					if (!matchesTarget(current)) {
-						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
-					}
-					const before = snapshot(current.entity);
-					yield* validateExistingEntity(current.entity, current.userId, command);
-					const validated = yield* validateDraft(
-						draftOf(before),
-						current.userId,
-						definitionOwner(current.entity.entitySchemaPluginId),
-						command,
-					);
-					yield* writeChecks
-						.check(command, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
-						.pipe(Effect.mapError(writeFailure));
-					const pending = yield* planMutation({
-						before,
-						entityId,
-						receiptInput,
-						lifecycle: command,
-						operation: "delete",
-						draft: validated.draft,
-						scopeUserId: current.userId,
-						receiptKind: "entity:delete",
-						entitySchemaPluginId: validated.entitySchemaPluginId,
-						entitySchemaFingerprint: validated.entitySchemaFingerprint,
-					});
-					return {
-						replay: null,
-						scopeUserId: current.userId,
-						prepared: yield* acceptedMutation(yield* applyMutationPolicies(pending)),
-					};
-				}),
-			);
-			const committed = yield* transaction(
-				Effect.gen(function* () {
-					const writeContext = lifecycle.writeContext;
-					let scopeUserId: null | UserId = null;
-					if (writeContext?.pluginRevision?.scope === "user") {
-						scopeUserId = writeContext.pluginRevision.ownerId;
-					}
-					const settled = prepared.filter((item) => item !== null);
-					const pending = settled.flatMap((item, index) =>
-						item.replay ? [] : [{ index, input: item.prepared }],
-					);
-					const pins = yield* verifyWrites([
-						{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) },
-						...pending.map(({ input }) => preparedWriteCheck(input)),
-					]);
-					const previous = yield* receipts
-						.lookup(aggregateReceipt, aggregateResult)
-						.pipe(Effect.mapError(receiptConflict));
-					if (previous) {
-						return { dispatch: previous.dispatch, deletedCount: previous.result.deletedCount };
-					}
-					const recorded = yield* lookupReceipts(
-						pending.map(({ input }) => input.receipt),
-						EntityDeleteResult,
-					).pipe(
-						Effect.mapError((error) =>
-							error instanceof MutationReceiptIdentityConflict
-								? bad(
-										"mutation-conflict",
-										"Command identity was reused with a different entity payload",
-									)
-								: error,
-						),
-					);
-					const eventGroupStates = yield* events.captureEventGroupBatch({
-						items: preparedEvents,
+				}
+				const aggregateReceipt = mutationReceiptIdentity({
+					scopeUserId: null,
+					command: lifecycle,
+					commandKind: "entity:delete-batch",
+					ownerUserId: mutationReceiptOwner(lifecycle, null),
+					input: {
 						entityIds: orderedIds,
-					});
-					yield* repository.lockMutationKeys(orderedIds);
-					const rows = yield* repository.getMutationEntities(orderedIds, true);
-					const currentEventIdentities =
-						yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
-					if (!same(eventIdentities, currentEventIdentities)) {
-						return yield* new DbError({
-							message: "Entity event references changed while deletion policies ran",
-						});
+						target: target ?? null,
+						writeContext: lifecycle.writeContext,
+					},
+				});
+				const aggregateResult = Schema.Struct({ deletedCount: Schema.Finite });
+				const existingBatch = yield* receipts
+					.peek(aggregateReceipt, aggregateResult)
+					.pipe(Effect.mapError(receiptConflict));
+				if (existingBatch) {
+					return {
+						deletedCount: existingBatch.result.deletedCount,
+						warnings: yield* execution.dispatch(existingBatch.dispatch),
+					};
+				}
+				const eventIdentities = yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+				if (target?.preserveHistory === true && eventIdentities.length > 0) {
+					return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
+				}
+				const preparedEvents: PreparedEventDelete[] = [];
+				const accounts = new Map<
+					UserId,
+					Effect.Success<ReturnType<typeof receipts.currentAccount>>
+				>();
+				if (lifecycle.accountGeneration !== null) {
+					accounts.set(lifecycle.accountGeneration.userId, lifecycle.accountGeneration);
+				}
+				for (const identity of eventIdentities) {
+					let account = accounts.get(identity.userId);
+					if (account === undefined) {
+						account = yield* receipts.currentAccount(identity.userId);
+						accounts.set(identity.userId, account);
 					}
-					const eventBatchScope = { command: lifecycle, identity: ["cascade-events"] };
-					const eventDecision = yield* planner.prepareBatch({
-						...eventBatchScope,
-						resource: "event",
-						scopes: [...new Set(eventIdentities.map(({ userId }) => userId))],
-					});
-					const batchScope = { command: lifecycle, identity: ["deletes"] };
-					const decision = yield* planner.prepareBatch({
-						...batchScope,
-						resource: "entity",
-						scopes: settled.map((item) => item.scopeUserId),
-					});
-					const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
-						Effect.gen(function* () {
-							const eventUserId = eventIdentities[index]?.userId;
-							const groupState =
-								eventUserId === undefined ? undefined : eventGroupStates.get(eventUserId);
-							if (groupState === undefined) {
-								return yield* new DbError({ message: "Event group cascade scope is unavailable" });
+					const eventCommand = itemCommand(
+						{ ...lifecycle, accountGeneration: account },
+						`${identity.userId}:${identity.eventId}:cascade-delete`,
+					);
+					const preparedEvent = yield* events.prepareEntityCascadeDelete(
+						identity,
+						orderedIds,
+						eventCommand,
+					);
+					if (!preparedEvent) {
+						return yield* cascadeEventChanged();
+					}
+					preparedEvents.push(preparedEvent);
+				}
+				const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
+					Effect.gen(function* () {
+						const command = itemCommand(lifecycle, entityId);
+						const receiptInput = {
+							entityId,
+							target: target ?? null,
+							requestedIds: orderedIds,
+							writeContext: lifecycle.writeContext,
+						};
+						for (const scopeUserId of lifecycle.causation.initiator.kind === "user"
+							? [null, lifecycle.causation.initiator.id]
+							: [null]) {
+							const replay = yield* receipts
+								.peek(
+									mutationReceiptIdentity({
+										command,
+										scopeUserId,
+										input: receiptInput,
+										commandKind: "entity:delete",
+										ownerUserId: mutationReceiptOwner(command, scopeUserId),
+									}),
+									EntityDeleteResult,
+								)
+								.pipe(Effect.mapError(receiptConflict));
+							if (replay) {
+								return { replay, scopeUserId, prepared: null };
 							}
-							return yield* events.persistPreparedDelete(item, {
-								...eventDecision,
-								index,
-								groupState,
-								command: lifecycle,
-								identity: eventBatchScope.identity,
+						}
+						const current = yield* repository.getMutationEntity(entityId);
+						if (!current) {
+							return null;
+						}
+						if (!matchesTarget(current)) {
+							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+						}
+						const before = snapshot(current.entity);
+						yield* validateExistingEntity(current.entity, current.userId, command);
+						const validated = yield* validateDraft(
+							draftOf(before),
+							current.userId,
+							definitionOwner(current.entity.entitySchemaPluginId),
+							command,
+						);
+						yield* writeChecks
+							.check(command, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+							.pipe(Effect.mapError(writeFailure));
+						const pending = yield* planMutation({
+							before,
+							entityId,
+							receiptInput,
+							lifecycle: command,
+							operation: "delete",
+							draft: validated.draft,
+							scopeUserId: current.userId,
+							receiptKind: "entity:delete",
+							entitySchemaPluginId: validated.entitySchemaPluginId,
+							entitySchemaFingerprint: validated.entitySchemaFingerprint,
+						});
+						return {
+							replay: null,
+							scopeUserId: current.userId,
+							prepared: yield* acceptedMutation(yield* applyMutationPolicies(pending)),
+						};
+					}),
+				);
+				const committed = yield* transaction(
+					Effect.gen(function* () {
+						const writeContext = lifecycle.writeContext;
+						let scopeUserId: null | UserId = null;
+						if (writeContext?.pluginRevision?.scope === "user") {
+							scopeUserId = writeContext.pluginRevision.ownerId;
+						}
+						const settled = prepared.filter((item) => item !== null);
+						const pending = settled.flatMap((item, index) =>
+							item.replay ? [] : [{ index, input: item.prepared }],
+						);
+						const pins = yield* verifyWrites([
+							{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) },
+							...pending.map(({ input }) => preparedWriteCheck(input)),
+						]);
+						const previous = yield* receipts
+							.lookup(aggregateReceipt, aggregateResult)
+							.pipe(Effect.mapError(receiptConflict));
+						if (previous) {
+							return { dispatch: previous.dispatch, deletedCount: previous.result.deletedCount };
+						}
+						const recorded = yield* lookupReceipts(
+							pending.map(({ input }) => input.receipt),
+							EntityDeleteResult,
+						).pipe(
+							Effect.mapError((error) =>
+								error instanceof MutationReceiptIdentityConflict
+									? bad(
+											"mutation-conflict",
+											"Command identity was reused with a different entity payload",
+										)
+									: error,
+							),
+						);
+						const eventGroupStates = yield* events.captureEventGroupBatch({
+							items: preparedEvents,
+							entityIds: orderedIds,
+						});
+						yield* repository.lockMutationKeys(orderedIds);
+						const rows = yield* repository.getMutationEntities(orderedIds, true);
+						const currentEventIdentities =
+							yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+						if (!same(eventIdentities, currentEventIdentities)) {
+							return yield* new DbError({
+								message: "Entity event references changed while deletion policies ran",
 							});
-						}),
-					);
-					const eventBatch = yield* planner.planBatch({ ...eventBatchScope, resource: "event" });
-					const persisted = pending.flatMap(({ index, input }, position) =>
-						recorded[position]
-							? []
-							: [{ input, batchIndex: index, pin: pins(preparedWriteCheck(input)) }],
-					);
-					yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
-					const written = yield* persistDeletes.persistMany(persisted, decision, rows);
-					for (const groupState of eventGroupStates.values()) {
-						yield* events.validateEventGroups(groupState);
-					}
-					yield* insertReceipts(written.records);
-					const results = new Map<number, CommittedLifecycleWork<null>>();
-					for (const [position, { index }] of pending.entries()) {
-						const replay = recorded[position];
-						if (replay) {
-							results.set(index, { result: replay.result, dispatch: replay.dispatch });
 						}
-					}
-					for (const [position, { batchIndex }] of persisted.entries()) {
-						const work = written.results[position];
-						if (work) {
-							results.set(batchIndex, work);
+						const eventBatchScope = { command: lifecycle, identity: ["cascade-events"] };
+						const eventDecision = yield* planner.prepareBatch({
+							...eventBatchScope,
+							resource: "event",
+							scopes: [...new Set(eventIdentities.map(({ userId }) => userId))],
+						});
+						const batchScope = { command: lifecycle, identity: ["deletes"] };
+						const decision = yield* planner.prepareBatch({
+							...batchScope,
+							resource: "entity",
+							scopes: settled.map((item) => item.scopeUserId),
+						});
+						const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
+							Effect.gen(function* () {
+								const eventUserId = eventIdentities[index]?.userId;
+								const groupState =
+									eventUserId === undefined ? undefined : eventGroupStates.get(eventUserId);
+								if (groupState === undefined) {
+									return yield* new DbError({
+										message: "Event group cascade scope is unavailable",
+									});
+								}
+								return yield* events.persistPreparedDelete(item, {
+									...eventDecision,
+									index,
+									groupState,
+									command: lifecycle,
+									identity: eventBatchScope.identity,
+								});
+							}),
+						);
+						const eventBatch = yield* planner.planBatch({ ...eventBatchScope, resource: "event" });
+						const persisted = pending.flatMap(({ index, input }, position) =>
+							recorded[position]
+								? []
+								: [{ input, batchIndex: index, pin: pins(preparedWriteCheck(input)) }],
+						);
+						yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
+						const written = yield* persistDeletes.persistMany(persisted, decision, rows);
+						for (const groupState of eventGroupStates.values()) {
+							yield* events.validateEventGroups(groupState);
 						}
-					}
-					const saved = yield* Effect.forEach(settled, (item, index) => {
-						const work = item.replay
-							? { result: item.replay.result, dispatch: item.replay.dispatch }
-							: results.get(index);
-						return work ? Effect.succeed(work) : Effect.die("Entity delete is missing its result");
-					});
-					const batch = yield* entityBatchPlans(batchScope);
-					const dispatch = [
-						...eventSaved.flatMap((item) => item.dispatch),
-						...eventBatch,
-						...saved.flatMap((item) => item.dispatch),
-						...batch,
-					];
-					const deletedCount = saved.length;
-					yield* receipts.insert({
-						dispatch,
-						result: { deletedCount },
-						identity: aggregateReceipt,
-					});
-					return { dispatch, deletedCount };
-				}),
-				[...accounts.values()],
-			);
-			const warnings = yield* execution
-				.dispatch(committed.dispatch)
-				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-			return { warnings, deletedCount: committed.deletedCount };
-		});
+						yield* insertReceipts(written.records);
+						const results = new Map<number, CommittedLifecycleWork<null>>();
+						for (const [position, { index }] of pending.entries()) {
+							const replay = recorded[position];
+							if (replay) {
+								results.set(index, { result: replay.result, dispatch: replay.dispatch });
+							}
+						}
+						for (const [position, { batchIndex }] of persisted.entries()) {
+							const work = written.results[position];
+							if (work) {
+								results.set(batchIndex, work);
+							}
+						}
+						const saved = yield* Effect.forEach(settled, (item, index) => {
+							const work = item.replay
+								? { result: item.replay.result, dispatch: item.replay.dispatch }
+								: results.get(index);
+							return work
+								? Effect.succeed(work)
+								: Effect.die("Entity delete is missing its result");
+						});
+						const batch = yield* entityBatchPlans(batchScope);
+						const dispatch = [
+							...eventSaved.flatMap((item) => item.dispatch),
+							...eventBatch,
+							...saved.flatMap((item) => item.dispatch),
+							...batch,
+						];
+						const deletedCount = saved.length;
+						yield* receipts.insert({
+							dispatch,
+							result: { deletedCount },
+							identity: aggregateReceipt,
+						});
+						return { dispatch, deletedCount };
+					}),
+					[...accounts.values()],
+				);
+				const warnings = yield* execution.dispatch(committed.dispatch);
+				return { warnings, deletedCount: committed.deletedCount };
+			},
+			(effect) =>
+				effect.pipe(
+					Effect.catchTags({
+						EventBadRequest: Effect.die,
+						LifecyclePersistenceError: Effect.die,
+						EventStale: () => Effect.fail(cascadeEventChanged()),
+					}),
+				),
+		);
 		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
 			userId: UserId,
 			items: ReadonlyArray<EnsureUserEntityItem>,

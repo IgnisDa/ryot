@@ -499,7 +499,12 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 							return { result, dispatch };
 						}),
 					)
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+					.pipe(
+						Effect.catchTags({
+							DatabaseSessionStateError: Effect.die,
+							LifecyclePersistenceError: Effect.die,
+						}),
+					),
 			});
 			yield* lifecycle
 				.dispatch(committed.dispatch)

@@ -511,10 +511,11 @@ const projectionBindingsLayer = Layer.unwrap(
 		const current = yield* Ref.make<null | undefined | ProjectionBinding>(undefined);
 		return Layer.merge(
 			Layer.succeed(ProjectionBindings, {
-				resolve: Effect.fnUntraced(function* (input) {
-					const binding = yield* Ref.get(current);
-					return binding === undefined ? yield* bindings.resolve(input) : binding;
-				}),
+				resolve: (input) =>
+					Effect.gen(function* () {
+						const binding = yield* Ref.get(current);
+						return binding === undefined ? yield* bindings.resolve(input) : binding;
+					}),
 			}),
 			Layer.succeed(ProjectionBindingControl, { set: (binding) => Ref.set(current, binding) }),
 		);
@@ -1746,7 +1747,7 @@ layer(streamWorkTestLayer)((test) => {
 				const controls = yield* StreamWorkControls;
 				expect((yield* streams.get(source.id))?.currentJobId).toBeNull();
 				const root = yield* claimInputRepair(source);
-				expect((yield* streams.listCandidates()).some(({ id }) => id === source.id)).toBe(false);
+				expect((yield* streams.listCandidates(100)).some(({ id }) => id === source.id)).toBe(false);
 				yield* service.reconcile();
 				expect((yield* streams.get(source.id))?.currentJobId).toBeNull();
 				yield* processInputRepair(root, null);
@@ -2473,11 +2474,13 @@ layer(streamWorkTestLayer)((test) => {
 				assert(before);
 				yield* controls.setProcessor(id, () =>
 					Effect.gen(function* () {
-						yield* eventService.edit(
-							{ eventId, patch: { properties: { remove: [], set: { rating: 2 } } } },
-							userId,
-							command("ordinary-source-edit"),
-						);
+						yield* eventService
+							.edit(
+								{ eventId, patch: { properties: { remove: [], set: { rating: 2 } } } },
+								userId,
+								command("ordinary-source-edit"),
+							)
+							.pipe(Effect.orDie);
 						return page(eventId, 9, "stale-result");
 					}),
 				);
@@ -2507,7 +2510,9 @@ layer(streamWorkTestLayer)((test) => {
 			assert(before);
 			yield* controls.setProcessor(id, () =>
 				Effect.gen(function* () {
-					yield* eventService.delete({ userId, eventId }, command("delete-stream-source"));
+					yield* eventService
+						.delete({ userId, eventId }, command("delete-stream-source"))
+						.pipe(Effect.orDie);
 					return { done: false, updates: [], checkpoint: { cursor: "deleted" } };
 				}),
 			);
@@ -2716,7 +2721,9 @@ layer(streamWorkTestLayer)((test) => {
 			yield* service.reconcile();
 			yield* controls.setProcessor(source.id, () =>
 				Effect.gen(function* () {
-					yield* events.delete({ userId, eventId: adjustment.id }, command("sibling-delete"));
+					yield* events
+						.delete({ userId, eventId: adjustment.id }, command("sibling-delete"))
+						.pipe(Effect.orDie);
 					return { ...page(source.eventId, 99, "stale"), done: true };
 				}),
 			);
@@ -2847,6 +2854,7 @@ layer(streamWorkTestLayer)((test) => {
 						Effect.provideService(DatabaseSession, session),
 						Effect.provideService(EventsRepository, events),
 						Effect.provideService(StreamWorkFixture, source.fixture),
+						Effect.orDie,
 					);
 					return waitingOutput;
 				}),

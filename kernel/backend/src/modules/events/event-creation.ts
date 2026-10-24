@@ -340,10 +340,10 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		});
 		const precheck = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
 			check(command, owner).pipe(
-				Effect.catchIf(
-					(error) => error._tag !== "DbError" || error.code === undefined,
-					() => Effect.void,
-				),
+				Effect.catchTags({
+					DomainWriteConflict: () => Effect.void,
+					DbError: (error) => (error.code === undefined ? Effect.void : Effect.fail(error)),
+				}),
 			);
 		for (const item of input.items) {
 			const entity = referenceOf(EntityId.make(item.entityId.trim()));

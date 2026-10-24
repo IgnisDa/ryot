@@ -120,8 +120,8 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 
 			const arrange = Effect.fn("RelationshipProjectionService.arrange")(function* (
 				id: string,
-				retry = false,
-				fillMissing = false,
+				retry?: boolean,
+				fillMissing?: boolean,
 			) {
 				const candidate = yield* repository.get(id);
 				if (!candidate) {
@@ -245,18 +245,20 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				if (!binding) {
 					return yield* new DbError({ message: "Relationship projection binding is unavailable" });
 				}
-				const admitted = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* background.lockAccount(binding.accountGeneration);
-						yield* authorize;
-						yield* repository.lockInputs(key.userId);
-						const id = yield* repository.bind(key, binding.persisted);
-						if (sourceEntityIds !== null) {
-							yield* repository.mark(key, sourceEntityIds);
-						}
-						return { id, jobId: yield* arrange(id, true, sourceEntityIds === null) };
-					}),
-				);
+				const admitted = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* background.lockAccount(binding.accountGeneration);
+							yield* authorize;
+							yield* repository.lockInputs(key.userId);
+							const id = yield* repository.bind(key, binding.persisted);
+							if (sourceEntityIds !== null) {
+								yield* repository.mark(key, sourceEntityIds);
+							}
+							return { id, jobId: yield* arrange(id, true, sourceEntityIds === null) };
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 				if (admitted.jobId) {
 					yield* background.dispatch(admitted.jobId);
 				}
@@ -372,15 +374,15 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						Effect.flatMap((properties) =>
 							Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(properties),
 						),
-						Effect.map((properties) => ({
-							properties,
-							relationshipId: item.relationshipId,
-							revision: claim.revisions[item.relationshipId] ?? 0,
-						})),
-						Effect.mapError(
-							() =>
+						Effect.mapBoth({
+							onFailure: () =>
 								new DbError({ message: "Projection output does not match its declared schema" }),
-						),
+							onSuccess: (properties) => ({
+								properties,
+								relationshipId: item.relationshipId,
+								revision: claim.revisions[item.relationshipId] ?? 0,
+							}),
+						}),
 					),
 				);
 				const key = {

@@ -576,17 +576,20 @@ describe("Event lifecycle PostgreSQL", () => {
 										? input.command.causation.initiator.id
 										: null,
 							});
-							return receipts.beginBatch({ identity, pins: [], maxItems: 200 }).pipe(
-								Effect.mapError((error) =>
-									error instanceof DbError
-										? error
-										: new DbError({ message: "Conflicting batch command" }),
-								),
-								Effect.map((decision) => ({
-									id: identity.id,
-									hasCandidates: decision.candidateCount > 0,
-								})),
-							);
+							return receipts
+								.beginBatch({ identity, pins: [], maxItems: 200 })
+								.pipe(
+									Effect.mapBoth({
+										onSuccess: (decision) => ({
+											id: identity.id,
+											hasCandidates: decision.candidateCount > 0,
+										}),
+										onFailure: (error) =>
+											error instanceof DbError
+												? error
+												: new DbError({ message: "Conflicting batch command" }),
+									}),
+								);
 						},
 					});
 					const batchInput = (id: string, system = false) => {
@@ -1119,10 +1122,11 @@ describe("Event lifecycle PostgreSQL", () => {
 					warnings: [],
 					eventId: null,
 				});
-				const result = yield* Effect.promise(() =>
-					observer.query(
-						`SELECT payload FROM automation_trigger WHERE category = 'change' AND operation <> 'batch' ORDER BY operation DESC`,
-					),
+				const result = yield* Effect.promise(
+					(): Promise<{ readonly rows: ReadonlyArray<unknown> }> =>
+						observer.query(
+							`SELECT payload FROM automation_trigger WHERE category = 'change' AND operation <> 'batch' ORDER BY operation DESC`,
+						),
 				);
 				expect(result.rows).toHaveLength(2);
 				const batches = yield* Effect.promise(() =>
@@ -1134,13 +1138,16 @@ describe("Event lifecycle PostgreSQL", () => {
 					{ items: 1, item: "delete" },
 					{ items: 1, item: "update" },
 				]);
-				expect(result.rows[0]?.["payload"]).toMatchObject({
+				const [updated, deleted] = yield* Schema.decodeUnknownEffect(
+					Schema.Array(Schema.Struct({ payload: Schema.Record(Schema.String, Schema.Unknown) })),
+				)(result.rows);
+				expect(updated?.payload).toMatchObject({
 					after: snapshot,
 					operation: "update",
 					before: { entityId, sessionEntityId: entityId, updatedAt: created.createdAt },
 				});
-				expect(result.rows[0]?.["payload"]?.["after"]).toEqual(snapshot);
-				expect(result.rows[1]?.["payload"]).toEqual({
+				expect(updated?.payload["after"]).toEqual(snapshot);
+				expect(deleted?.payload).toEqual({
 					before: snapshot,
 					resource: "event",
 					category: "change",
@@ -1370,15 +1377,17 @@ describe("Event lifecycle PostgreSQL", () => {
 						executePolicy: () =>
 							Effect.gen(function* () {
 								if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
-									yield* session.transaction(
-										repository.updateEventEntityReferences({
-											userId,
-											mergeInto: movedId,
-											mergeFrom: entityId,
-											eventId: EventId.make("batch-stale"),
-											updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
-										}),
-									);
+									yield* session
+										.transaction(
+											repository.updateEventEntityReferences({
+												userId,
+												mergeInto: movedId,
+												mergeFrom: entityId,
+												eventId: EventId.make("batch-stale"),
+												updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+											}),
+										)
+										.pipe(Effect.orDie);
 								}
 								return { action: "allow" as const };
 							}),

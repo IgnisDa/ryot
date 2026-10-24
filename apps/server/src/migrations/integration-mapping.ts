@@ -29,12 +29,14 @@ const LegacyIntegrationSettings = Schema.Struct({
 export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSettings")(function* (
 	connection: SqlConnection.Connection,
 ) {
-	const rows = yield* connection.execute(
+	const rows: ReadonlyArray<unknown> = yield* connection.execute(
 		`SELECT oi.id, oi.lot, oi.user_id AS "userId", oi.provider, ${legacyProviderSpecificsSql("oi")} AS settings FROM "old_integration" oi WHERE oi.provider <> 'generic_json' ORDER BY oi.id`,
 		[],
 		undefined,
 	);
-	return yield* Effect.orDie(Schema.decodeEffect(Schema.Array(LegacyIntegrationSettings))(rows));
+	return yield* Effect.orDie(
+		Schema.decodeUnknownEffect(Schema.Array(LegacyIntegrationSettings))(rows),
+	);
 });
 
 export const buildIntegrationMigrationSql = (input: {

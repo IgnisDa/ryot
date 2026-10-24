@@ -1261,7 +1261,7 @@ layer(
 									properties: { newer: "present", title: "Concurrent" },
 								}),
 							)
-							.pipe(Effect.as({ action: "allow" as const })),
+							.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
 				}),
 			);
 			expect(

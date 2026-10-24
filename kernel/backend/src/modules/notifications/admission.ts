@@ -56,31 +56,33 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 					});
 				}
 				const now = yield* DateTime.nowAsDate;
-				const id = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* receipts.admitAccount(input.accountGeneration);
-						if (
-							!(yield* sources.authorize({
-								runId: input.sourceRunId,
-								accountGeneration: input.accountGeneration,
-							}))
-						) {
-							return yield* new DbError({
-								message: "Notification source has been cancelled or settled",
+				const id = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* receipts.admitAccount(input.accountGeneration);
+							if (
+								!(yield* sources.authorize({
+									runId: input.sourceRunId,
+									accountGeneration: input.accountGeneration,
+								}))
+							) {
+								return yield* new DbError({
+									message: "Notification source has been cancelled or settled",
+								});
+							}
+							const source = yield* repository.lookupSource(input);
+							if (source.existing) {
+								return source.id;
+							}
+							const selected = yield* channels.listEnabledForUser({
+								userId: input.userId,
+								limit: NOTIFICATION_CHANNEL_LIMIT + 1,
 							});
-						}
-						const source = yield* repository.lookupSource(input);
-						if (source.existing) {
+							yield* repository.insert({ ...source, now, admission: input, channels: selected });
 							return source.id;
-						}
-						const selected = yield* channels.listEnabledForUser({
-							userId: input.userId,
-							limit: NOTIFICATION_CHANNEL_LIMIT + 1,
-						});
-						yield* repository.insert({ ...source, now, admission: input, channels: selected });
-						return source.id;
-					}),
-				);
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 				yield* dispatch(id, input.accountGeneration, `${id}-delivery`).pipe(
 					Effect.catchCause((cause) =>
 						Effect.logWarning("Notification admitted; dispatch deferred", cause),
