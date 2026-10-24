@@ -1,5 +1,8 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
+import {
+	decodeCollectionFields,
+	type KeyedCollectionField,
+} from "@ryot-app/contract/modules/collections/fields";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -49,11 +52,7 @@ import {
 	CollectionMembershipWorkflow,
 	type CollectionMembershipWorkflowPayload,
 } from "./collection-membership-workflow";
-import {
-	collectionMembershipSchema,
-	prepareCollectionFields,
-	storedCollectionFields,
-} from "./fields";
+import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
 import { CollectionsRepository } from "./repository";
 import { toCollectionResponse } from "./service-support";
 
@@ -260,7 +259,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				}
 				const name = yield* requireName(payload.name);
 				const stored = yield* Effect.fromResult(
-					storedCollectionFields(storedMembershipFields(current.properties)),
+					decodeCollectionFields(storedMembershipFields(current.properties)),
 				).pipe(
 					Effect.mapError(
 						() => new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }),

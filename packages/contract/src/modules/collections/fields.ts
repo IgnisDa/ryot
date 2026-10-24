@@ -122,7 +122,22 @@ export const collectionFieldsToAppSchema = (
 	),
 });
 
-export const collectionFieldIssues = (field: CollectionField, index: number) => {
+export const normalizeCollectionField = (field: CollectionField): CollectionField => {
+	const description = field.description?.trim();
+	return {
+		type: field.type,
+		required: field.required,
+		label: field.label.trim(),
+		...(field.key === undefined ? {} : { key: field.key }),
+		...(description ? { description } : {}),
+		...(field.choices === undefined
+			? {}
+			: { choices: field.choices.map((choice) => choice.trim()) }),
+		...(field.defaultValue === undefined ? {} : { defaultValue: field.defaultValue }),
+	};
+};
+
+const collectionFieldIssues = (field: CollectionField, index: number) => {
 	const path = (...segments: ReadonlyArray<string>) => ["fields", String(index), ...segments];
 	const issues: Array<ReadonlyArray<string>> = [];
 	if (field.label === "" || field.label.length > collectionFieldLimits.labelLength) {
@@ -152,7 +167,7 @@ export const collectionFieldIssues = (field: CollectionField, index: number) => 
 	return issues;
 };
 
-export const collectionFieldDefaultIssues = (field: KeyedCollectionField, index: number) => {
+const collectionFieldDefaultIssues = (field: KeyedCollectionField, index: number) => {
 	if (field.defaultValue === undefined) {
 		return [];
 	}
@@ -163,33 +178,52 @@ export const collectionFieldDefaultIssues = (field: KeyedCollectionField, index:
 	return parsed.success ? [] : [["fields", String(index), "defaultValue"]];
 };
 
-export const decodeCollectionFields = (
-	input: unknown,
-): Result.Result<ReadonlyArray<KeyedCollectionField>, string> => {
-	const decoded = Schema.decodeUnknownResult(Schema.Array(KeyedCollectionField))(input);
-	if (Result.isFailure(decoded)) {
-		return Result.fail("Invalid collection field declarations");
-	}
-	const fields = decoded.success;
+export const keyedCollectionFieldIssues = (
+	fields: ReadonlyArray<KeyedCollectionField>,
+	isAcceptedKey: (key: string) => boolean = () => true,
+) => {
+	const issues: Array<ReadonlyArray<string>> =
+		fields.length > collectionFieldLimits.fields ? [["fields"]] : [];
 	const keys = new Set<string>();
-	if (fields.length > collectionFieldLimits.fields) {
-		return Result.fail("Too many collection fields");
-	}
 	for (const [index, field] of fields.entries()) {
+		issues.push(...collectionFieldIssues(field, index));
 		if (
 			field.key.trim() === "" ||
 			keys.has(field.key) ||
 			reservedCollectionFieldKeys.has(field.key) ||
-			field.label !== field.label.trim() ||
-			(field.description !== undefined &&
-				(field.description === "" || field.description !== field.description.trim())) ||
-			field.choices?.some((choice) => choice !== choice.trim()) ||
-			collectionFieldIssues(field, index).length > 0 ||
-			collectionFieldDefaultIssues(field, index).length > 0
+			!isAcceptedKey(field.key)
 		) {
-			return Result.fail("Invalid collection field declaration");
+			issues.push(["fields", String(index), "key"]);
 		}
 		keys.add(field.key);
+	}
+	if (issues.length === 0) {
+		issues.push(...fields.flatMap(collectionFieldDefaultIssues));
+	}
+	return issues;
+};
+
+const isNormalizedCollectionField = (field: KeyedCollectionField) => {
+	const normalized = normalizeCollectionField(field);
+	return (
+		normalized.label === field.label &&
+		normalized.description === field.description &&
+		(normalized.choices ?? []).every((choice, index) => choice === field.choices?.[index])
+	);
+};
+
+export const decodeCollectionFields = (
+	input: unknown,
+): Result.Result<ReadonlyArray<KeyedCollectionField>, string> => {
+	const decoded = Schema.decodeUnknownResult(Schema.Array(KeyedCollectionField))(
+		input === undefined ? [] : input,
+	);
+	if (Result.isFailure(decoded)) {
+		return Result.fail("Invalid collection field declarations");
+	}
+	const fields = decoded.success;
+	if (!fields.every(isNormalizedCollectionField) || keyedCollectionFieldIssues(fields).length > 0) {
+		return Result.fail("Invalid collection field declaration");
 	}
 	return Result.succeed(fields);
 };

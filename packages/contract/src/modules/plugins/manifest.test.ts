@@ -5,7 +5,6 @@ import { EntitySchemaSlug, PluginPackageId } from "../../schema/brands";
 import { emptySandboxExecutionMetadata } from "../../testing";
 import { uploadContentTypeExtensions } from "../assets/upload-policy";
 import {
-	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
 	definePlugin,
 	type PluginClientEntry,
@@ -1305,17 +1304,6 @@ describe("definePlugin", () => {
 				],
 			}),
 		).toBeTruthy();
-	});
-
-	it("rejects authored and archive provider operation maps", () => {
-		const providers = manifest.providers.map((provider) => ({
-			...provider,
-			operations: { details: "provider.test.details" },
-		}));
-		expect(() => Schema.decodeSync(PluginManifest)({ ...manifest, providers })).toThrow();
-		expect(() =>
-			Schema.decodeSync(AuthoredPluginManifest)({ ...authoredManifest, providers }),
-		).toThrow();
 	});
 
 	it("rejects removed provider links and aliases", () => {

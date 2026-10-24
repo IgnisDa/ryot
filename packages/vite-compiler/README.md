@@ -13,7 +13,7 @@ resolved package sources; normal Vite filesystem and package resolution remains 
 `generated` callback can calculate file contents from the workspace paths, such as stylesheet source
 roots. Acquisition exclusively creates a fresh root with owner-only access, registers cleanup before
 preparation, validates both namespaces, and writes files exclusively before returning the handle.
-There is no incremental staging API. Existing addressed directories, files, and symlinks are rejected
+Existing addressed directories, files, and symlinks are rejected
 without changing them. Parent directories are trusted supervisor/compiler locations; private roots
 do not isolate code running as the same OS user. The standard Effect `FileSystem` service supplies
 filesystem access; the workspace is removed on acquisition failure or when its owning scope closes.

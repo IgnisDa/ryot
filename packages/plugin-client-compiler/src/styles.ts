@@ -6,6 +6,7 @@ import * as ts from "typescript/unstable/ast";
 
 import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
 import { type ClientPluginCompilerDiagnostic, clientPluginCompilerDiagnostic } from "./diagnostics";
+import { isClientSourcePath, isSharedSourcePath } from "./planning";
 
 const isSharedSource = (path: string) => path.startsWith("shared/");
 
@@ -13,12 +14,12 @@ const resolveRelative = (importer: string, specifier: string) =>
 	posixPath.join(posixPath.dirname(importer), specifier);
 
 const allowedRelativeRoot = (importer: string, resolved: string) =>
-	isSharedSource(importer)
-		? resolved.startsWith("shared/")
-		: resolved.startsWith("client/") || resolved.startsWith("shared/");
+	isSharedSourcePath(importer)
+		? isSharedSourcePath(resolved)
+		: isClientSourcePath(resolved) || isSharedSourcePath(resolved);
 
 const traversesSourceRoot = (importer: string, specifier: string) => {
-	const rootDepth = isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0;
+	const rootDepth = isSharedSourcePath(importer) || importer.endsWith(".css") ? 1 : 0;
 	let depth = posixPath.dirname(importer).split("/").filter(Boolean).length;
 	for (const part of specifier.split("/")) {
 		if (part === "..") {

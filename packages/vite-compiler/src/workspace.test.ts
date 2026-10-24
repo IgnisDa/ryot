@@ -1,6 +1,6 @@
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { describe, expect, it, layer } from "@effect/vitest";
-import { Deferred, Effect, Fiber, FileSystem, Layer, Path, Result } from "effect";
+import { Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Result } from "effect";
 
 import {
 	acquireCompilerWorkspace,
@@ -289,11 +289,11 @@ describe("compiler workspace", () => {
 				}),
 		);
 
-		test.effect("cleans callback failures before the caller recovers", () =>
+		test.effect("cleans callback throws before the caller observes the defect", () =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const owner = yield* acquireCompilerWorkspace();
-				const failure = yield* Effect.flip(
+				const exit = yield* Effect.exit(
 					acquireCompilerWorkspace({
 						parentPath: owner.sourcePath,
 						generated: () => {
@@ -301,7 +301,7 @@ describe("compiler workspace", () => {
 						},
 					}),
 				);
-				expect(failure.reason).toBe("invalid-input");
+				expect(Exit.hasDies(exit)).toBe(true);
 				expect(yield* fs.readDirectory(owner.sourcePath)).toEqual([]);
 			}),
 		);
