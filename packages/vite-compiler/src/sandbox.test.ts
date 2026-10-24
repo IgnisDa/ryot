@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { describe, expect, it, layer } from "@effect/vitest";
-import { Effect, Layer, Result } from "effect";
+import { Effect, Layer, Result, Schema } from "effect";
 
 import {
 	auditSandboxEsmOutput,
@@ -18,6 +18,17 @@ const fakeLayer = (fileName: string) =>
 		BunFileSystem.layer,
 		fakeViteBuildLayer(() => Effect.succeed(emitted(fileName))),
 	);
+
+const DefaultEntryModule = Schema.Struct({
+	named: Schema.String,
+	default: Schema.declare((value): value is () => unknown => typeof value === "function"),
+});
+
+const importDefaultEntry = (javascript: string) =>
+	Effect.promise(
+		(): Promise<unknown> =>
+			import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`),
+	).pipe(Effect.flatMap(Schema.decodeUnknownEffect(DefaultEntryModule)));
 
 const emitted = (fileName: string, code = "export const value = 1;") => ({
 	output: [{ code, fileName, type: "chunk" }],
@@ -192,12 +203,7 @@ describe("Sandbox ESM build", () => {
 					approvedExternalSpecifiers: new Set(),
 					entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
 				});
-				const module = yield* Effect.promise(
-					() =>
-						import(
-							`data:text/javascript;base64,${Buffer.from(result.javascript).toString("base64")}`
-						),
-				);
+				const module = yield* importDefaultEntry(result.javascript);
 				expect(module.named).toBe("named");
 				expect(module.default()).toBe("default");
 			}),
@@ -249,12 +255,7 @@ describe("Sandbox ESM build", () => {
 					entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
 				});
 				expect(result.javascript).not.toContain("sourceMappingURL");
-				const module = yield* Effect.promise(
-					() =>
-						import(
-							`data:text/javascript;base64,${Buffer.from(result.javascript).toString("base64")}`
-						),
-				);
+				const module = yield* importDefaultEntry(result.javascript);
 				expect(module.named).toBe("named");
 				expect(module.default()).toBe("default");
 			}),

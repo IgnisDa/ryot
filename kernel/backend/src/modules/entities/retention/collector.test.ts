@@ -75,7 +75,7 @@ const installGraphPlugin = Effect.fn(function* () {
 			.where(eq(tables.sandboxProvider.pluginId, pluginId)),
 	);
 	assert(provider);
-	const entity = Effect.fn(function* (checkAfter = due) {
+	const entity = Effect.fn(function* (checkAfter: Date = due) {
 		const id = crypto.randomUUID();
 		yield* (yield* DatabaseSession).run((db) =>
 			db

@@ -35,7 +35,7 @@ export default defineOperation({
 				"Only reviews can be edited here.",
 			);
 			if (target === undefined) {
-				return yield* Effect.fail(new OperationRejectedError("This review no longer exists."));
+				return yield* new OperationRejectedError({ message: "This review no longer exists." });
 			}
 			yield* requireDeclaredProperties(
 				target,

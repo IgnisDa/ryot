@@ -66,7 +66,10 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 						? message.sessionId
 						: null;
 				if (typeof reporter === "function") {
-					void Promise.allSettled([reporter({ serialized, bridgeSessionId })]);
+					const reported: unknown = Reflect.apply(reporter, undefined, [
+						{ serialized, bridgeSessionId },
+					]);
+					void Promise.allSettled([reported]);
 				}
 			};
 
@@ -84,7 +87,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 				transferOrOptions?: Transferable[] | StructuredSerializeOptions,
 			) {
 				report(message, false);
-				return Reflect.apply(
+				Reflect.apply(
 					originalPostMessage,
 					this,
 					transferOrOptions === undefined ? [message] : [message, transferOrOptions],
@@ -646,7 +649,7 @@ export default function Home() {
 			const popup = await opened;
 			await popup.waitForURL(destination);
 			await popup.waitForLoadState("domcontentloaded");
-			expect(await popup.evaluate(() => window.opener)).toBeNull();
+			expect(await popup.evaluate((): unknown => window.opener)).toBeNull();
 			expect(await popup.evaluate(() => document.referrer)).toBe("");
 			expect(referrers).toEqual([undefined]);
 			await popup.close();

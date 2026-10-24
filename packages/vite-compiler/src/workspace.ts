@@ -125,25 +125,11 @@ const createWorkspaceRoot = Effect.fn("createWorkspaceRoot")(function* (
 const validateInputs = (
 	inputs: readonly WorkspaceFile[],
 ): Result.Result<WorkspaceFile[], ViteCompilerError> => {
-	if (!Array.isArray(inputs)) {
-		return Result.fail(viteCompilerError("invalid-input", "Workspace inputs must be an array"));
-	}
 	const files: WorkspaceFile[] = [];
 	for (const input of inputs) {
-		if (typeof input !== "object" || input === null || !("path" in input)) {
-			return Result.fail(viteCompilerError("invalid-input", "Workspace input must be a file"));
-		}
 		const validatedPath = validateRelativePath(input.path);
 		if (Result.isFailure(validatedPath)) {
 			return Result.fail(validatedPath.failure);
-		}
-		if (typeof input.contents !== "string" && !(input.contents instanceof Uint8Array)) {
-			return Result.fail(
-				viteCompilerError(
-					"invalid-input",
-					`Workspace file contents are not supported: ${validatedPath.success}`,
-				),
-			);
 		}
 		files.push({ contents: input.contents, path: validatedPath.success });
 	}

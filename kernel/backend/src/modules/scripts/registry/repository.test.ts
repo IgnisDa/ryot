@@ -155,7 +155,7 @@ const pinDatabaseLayer = (rows: PinRows) =>
 					Effect.andThen(Ref.get(response)),
 					Effect.map((current) => current(table, condition)),
 				);
-			const database = Object.assign(Object.create(null), {
+			const database = {
 				select: () => ({
 					from: (table: unknown) => {
 						const builder = {
@@ -167,7 +167,7 @@ const pinDatabaseLayer = (rows: PinRows) =>
 						return builder;
 					},
 				}),
-			});
+			};
 			return Layer.merge(
 				fakeDatabaseSession(database),
 				Layer.succeed(PinDatabase, {
@@ -190,7 +190,7 @@ const pinRepositoryLayer = SandboxRepository.layer.pipe(
 const getPin = Effect.fnUntraced(function* (
 	row: null | typeof pluginPinRow,
 	expectedRevision?: Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">,
-	storedConfig = config,
+	storedConfig: typeof config = config,
 ) {
 	yield* (yield* PinDatabase).respondWith(pinRows(row, storedConfig));
 	return yield* (yield* SandboxRepository).getScriptPin(

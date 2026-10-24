@@ -133,7 +133,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	const manifest = yield* decodePluginManifest(source.manifest);
 	yield* validateIntegrationProviderSettingsSchemas(manifest);
 	yield* validateImportSourceInputSchemas(manifest);
-	if (!Array.isArray(source.compiledScripts)) {
+	if (source.compiledScripts === undefined) {
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
 	const compiledByEntry = new Map(source.compiledScripts.map((script) => [script.entry, script]));

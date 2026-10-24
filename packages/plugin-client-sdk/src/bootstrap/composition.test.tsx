@@ -371,10 +371,8 @@ describe("composition bootstrap", () => {
 			const options = recorded.pages[0]?.options;
 			const registrations = options?.entityPresentations;
 			expect(registrations).toHaveLength(2);
-			if (!Array.isArray(registrations)) {
-				return;
-			}
-			const [grid, list] = registrations;
+			const [grid, list] = registrations ?? [];
+			assert(grid && list);
 			expect(grid).toMatchObject({ layout: "grid", ownerPluginId: "owner" });
 			yield* Effect.promise(() => expect(grid.load()).resolves.toBe(presentation));
 			expect(recorded.stylesheets).toEqual(["/a.css", "/b.css"]);
@@ -412,10 +410,10 @@ const registrationsFor = (
 		const [page] = recorded.pages;
 		const options = page?.options;
 		const registrations = options?.entityPresentations;
-		if (!Array.isArray(registrations) || registrations.length !== 1) {
+		const [registration] = registrations ?? [];
+		if (registration === undefined || registrations?.length !== 1) {
 			throw new Error("Expected one presentation registration");
 		}
-		const [registration] = registrations;
 		return { recorded, load: () => registration.load() };
 	});
 

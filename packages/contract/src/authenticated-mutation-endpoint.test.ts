@@ -1,4 +1,5 @@
 import { Context } from "effect";
+import { HttpApi } from "effect/http-api";
 import { describe, expect, it } from "vitest";
 
 import { AuthMiddleware } from "./auth-middleware";
@@ -15,17 +16,19 @@ import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
 
 describe("authenticated mutation endpoints", () => {
 	it("carry an explicit demo policy through the assembled contract", () => {
-		for (const group of Object.values(AppContract.groups)) {
-			for (const endpoint of Object.values(group.endpoints)) {
+		HttpApi.reflect(AppContract, {
+			onGroup: () => undefined,
+			onEndpoint: ({ endpoint }) => {
 				if (
-					!endpoint.middlewares.has(AuthMiddleware) ||
-					!["PUT", "POST", "PATCH", "DELETE"].includes(endpoint.method)
+					endpoint.middlewares.has(AuthMiddleware) &&
+					["PUT", "POST", "PATCH", "DELETE"].includes(endpoint.method)
 				) {
-					continue;
+					expect(endpoint.annotations.mapUnsafe.has(DemoAccessPolicy.key), endpoint.path).toBe(
+						true,
+					);
 				}
-				expect(endpoint.annotations.mapUnsafe.has(DemoAccessPolicy.key), endpoint.path).toBe(true);
-			}
-		}
+			},
+		});
 
 		expect(Context.get(PluginsGroup.endpoints.install.annotations, DemoAccessPolicy)).toBe(
 			"protected",

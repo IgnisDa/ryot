@@ -18,7 +18,7 @@ class RecordedConditions extends Context.Service<
 const recordingDatabaseLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const conditions = yield* Ref.make<ReadonlyArray<Condition>>([]);
-		const database = Object.assign(Object.create(null), {
+		const database = {
 			select: () => ({
 				from: (table: unknown) => ({
 					where: (condition: Condition) => ({
@@ -29,7 +29,7 @@ const recordingDatabaseLayer = Layer.unwrap(
 					}),
 				}),
 			}),
-		});
+		};
 		return Layer.merge(
 			fakeDatabaseSession(database),
 			Layer.succeed(RecordedConditions, { conditions: Ref.get(conditions) }),
@@ -97,18 +97,16 @@ const customRow = (id: string, settings: Record<string, unknown>) => ({
 	renderer: { kind: "kernel", name: "entity-browser" },
 });
 
-const listingDatabaseLayer = fakeDatabaseSession(
-	Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				where: () => ({
-					orderBy: () =>
-						Effect.succeed([customRow("valid", { pageSize: 20 }), customRow("legacy", {})]),
-				}),
+const listingDatabaseLayer = fakeDatabaseSession({
+	select: () => ({
+		from: () => ({
+			where: () => ({
+				orderBy: () =>
+					Effect.succeed([customRow("valid", { pageSize: 20 }), customRow("legacy", {})]),
 			}),
 		}),
 	}),
-);
+});
 
 layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(listingDatabaseLayer)))((test) => {
 	test.effect("lists views whose settings the renderer schema rejects without decoding them", () =>

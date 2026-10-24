@@ -45,8 +45,9 @@ export const evaluateIngestionReadiness = (input: {
 		input.settings === undefined
 			? undefined
 			: Object.fromEntries([
-					...Object.entries(input.settingsSchema.fields).flatMap(([key, property]) =>
-						property.defaultValue === undefined ? [] : [[key, property.defaultValue]],
+					...Object.entries(input.settingsSchema.fields).flatMap(
+						([key, property]): Array<readonly [string, unknown]> =>
+							property.defaultValue === undefined ? [] : [[key, property.defaultValue]],
 					),
 					...Object.entries(input.settings).filter(([, value]) => value !== undefined),
 				]);

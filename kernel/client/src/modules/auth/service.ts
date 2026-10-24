@@ -73,7 +73,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		});
 		const settledSession = Effect.fn("AuthService.settledSession")(function* (
 			origin: ServerOrigin,
-			forceRefresh = false,
+			forceRefresh?: boolean,
 		) {
 			const session = tokens.authorization.forServer(origin);
 			let refresh = forceRefresh;

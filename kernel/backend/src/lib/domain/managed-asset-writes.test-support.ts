@@ -14,7 +14,7 @@ export const managedAssetProperty = {
 	validation: { asset: true },
 } as const satisfies AppPropertyDefinition;
 
-export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId, retired = false) {
+export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId, retired?: boolean) {
 	const session = yield* DatabaseSession;
 	const locator: ManagedAssetLocator = {
 		type: "s3",

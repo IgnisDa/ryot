@@ -20,13 +20,17 @@ const dateToString = uncurry(nativeDate.prototype, "toString", isString);
 const numberToString = uncurry(Number.prototype, "toString", isString);
 const nativeFunction = globalThis.Function;
 const nativeProxy = globalThis.Proxy;
-const reflectConstruct = Reflect.construct;
-const reflectGet = Reflect.get;
+const reflectConstruct: (
+	target: Function,
+	args: ArrayLike<unknown>,
+	newTarget?: Function,
+) => object = Reflect.construct;
+const reflectGet: (target: object, key: PropertyKey, receiver?: unknown) => unknown = Reflect.get;
 const objectDefineProperty = Object.defineProperty;
 const objectSetPrototypeOf = Object.setPrototypeOf;
 const objectGetOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 const reflectDeleteProperty = Reflect.deleteProperty;
-const generatorFunction = Object.getPrototypeOf(function* () {}).constructor;
+const generatorFunction = function* () {}.constructor;
 
 const blockedWorkflowNondeterminism = (name: string) => () => {
 	throw new nativeError("Workflow code cannot use ambient nondeterminism: " + name);
@@ -164,7 +168,7 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 };
 
 export const approvedDependencyRuntime = makeApprovedDependencyRuntime();
-const asyncFunction = Object.getPrototypeOf(approvedDependencyRuntime.withGlobals).constructor;
+const asyncFunction = approvedDependencyRuntime.withGlobals.constructor;
 configureApprovedDependencyRuntime(approvedDependencyRuntime.withGlobals);
 
 export const disableCodeGeneration = () => {

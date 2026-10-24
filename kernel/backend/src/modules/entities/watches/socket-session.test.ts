@@ -20,8 +20,8 @@ import { EntityWatchInvalidTicket, EntityWatchTicketService } from "./ticket-ser
 
 const makeSocket = Effect.fn(function* (
 	readyWriteGate?: Deferred.Deferred<void>,
-	failReadyWrite = false,
-	autoPong = false,
+	failReadyWrite?: boolean,
+	autoPong?: boolean,
 ) {
 	const opened = yield* Deferred.make<void>();
 	const inbound = yield* Queue.unbounded<null | string | Uint8Array>();

@@ -265,7 +265,7 @@ export const signInWithPassword = (email: string, password: string, baseUrl = ge
 		if (response.status >= 400) {
 			const payload: unknown = yield* Effect.promise(() => response.json());
 			const message = ["message", "error_description", "error", "code"]
-				.map((key) =>
+				.map((key): unknown =>
 					payload !== null && typeof payload === "object" ? Reflect.get(payload, key) : null,
 				)
 				.find((value): value is string => typeof value === "string");

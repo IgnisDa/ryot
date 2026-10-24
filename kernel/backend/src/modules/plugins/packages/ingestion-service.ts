@@ -66,7 +66,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			);
 			const validateSystemSet = Effect.fn("PluginIngestionService.validateSystemSet")(function* (
 				plugins: ReadonlyArray<SystemSetEntry>,
-				validateCompiledScripts = true,
+				validateCompiledScripts?: boolean,
 			) {
 				const kernel = yield* definitions.readKernelSource;
 				const snapshot = yield* Effect.try({
@@ -81,7 +81,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							Effect.andThen(validateIntegrationProviderSettingsSchemas(plugin.manifest)),
 							Effect.andThen(validateImportSourceInputSchemas(plugin.manifest)),
 							Effect.andThen(
-								validateCompiledScripts ? validatePluginExecutableScripts(plugin) : Effect.void,
+								validateCompiledScripts === false
+									? Effect.void
+									: validatePluginExecutableScripts(plugin),
 							),
 						),
 					{ discard: true },

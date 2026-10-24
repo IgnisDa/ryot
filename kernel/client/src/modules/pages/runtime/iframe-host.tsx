@@ -42,6 +42,7 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import clsx from "clsx";
 import { Effect } from "effect";
 import {
@@ -514,10 +515,11 @@ export function PageIframeHost(props: {
 		}
 	}
 	useEffect(() => {
-		const onBootstrapReady = (event: MessageEvent) => {
+		const onBootstrapReady = (event: MessageEvent<unknown>) => {
 			if (
 				event.source === frame.current?.contentWindow &&
-				event.data?.type === CLIENT_BRIDGE_BOOTSTRAP_READY
+				isObjectRecord(event.data) &&
+				event.data["type"] === CLIENT_BRIDGE_BOOTSTRAP_READY
 			) {
 				connect();
 			}

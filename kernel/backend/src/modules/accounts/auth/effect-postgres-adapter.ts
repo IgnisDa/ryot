@@ -227,16 +227,6 @@ export const effectPostgresAuthAdapter = (args: {
 					runOperation((db) =>
 						Effect.asVoid(db.delete(getTable(model)).where(makeWhere(model, where, getFieldName))),
 					),
-				deleteMany: ({ model, where }) =>
-					runOperation((db) =>
-						Effect.map(
-							db
-								.delete(getTable(model))
-								.where(makeWhere(model, where, getFieldName))
-								.returning(),
-							(rows) => rows.length,
-						),
-					),
 				count: ({ model, where }) =>
 					runOperation((db) =>
 						Effect.map(
@@ -258,6 +248,17 @@ export const effectPostgresAuthAdapter = (args: {
 							(rows) => rows.length,
 						),
 					),
+				deleteMany: ({ model, where }) =>
+					runOperation((db) => {
+						const table = getTable(model);
+						return Effect.map(
+							db
+								.delete(table)
+								.where(makeWhere(model, where, getFieldName))
+								.returning(getColumns(table)),
+							(rows) => rows.length,
+						);
+					}),
 				create: ({ data, model }) =>
 					runOperation((db) =>
 						Effect.map(db.insert(getTable(model)).values(data).returning(), (rows) => {
@@ -278,7 +279,7 @@ export const effectPostgresAuthAdapter = (args: {
 							.where(makeWhere(model, where, getFieldName))
 							.limit(1);
 						return Effect.map(
-							db.delete(table).where(inArray(id, target)).returning(),
+							db.delete(table).where(inArray(id, target)).returning(getColumns(table)),
 							(rows) => rows[0] ?? null,
 						);
 					});

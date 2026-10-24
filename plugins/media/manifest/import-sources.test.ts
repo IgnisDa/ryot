@@ -1,3 +1,4 @@
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert, expect, it } from "vitest";
 
 import { mediaPlugin } from "./plugin";
@@ -60,19 +61,20 @@ it("declares strict, positioned input schemas and export documentation for every
 it("declares every upload field with its extensions and required state", () => {
 	const uploads = Object.fromEntries(
 		mediaPlugin.importSources.flatMap((source) =>
-			Object.entries(source.inputSchema.fields).flatMap(([field, property]) =>
-				property.type === "string" && property.format?.kind === "upload"
-					? [
-							[
-								`${source.slug}.${field}`,
-								{
-									minLength: property.validation?.minLength,
-									required: property.validation?.required === true,
-									extensions: property.format.allowedFileExtensions,
-								},
-							],
-						]
-					: [],
+			Object.entries<AppSchema["fields"][string]>(source.inputSchema.fields).flatMap(
+				([field, property]) =>
+					property.type === "string" && property.format?.kind === "upload"
+						? [
+								[
+									`${source.slug}.${field}`,
+									{
+										minLength: property.validation?.minLength,
+										required: property.validation?.required === true,
+										extensions: property.format.allowedFileExtensions,
+									},
+								],
+							]
+						: [],
 			),
 		),
 	);

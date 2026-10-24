@@ -20,7 +20,7 @@ export const createWorkoutIosActivitySynchronizer = (
 	const synchronize = Effect.fnUntraced(function* (
 		draft: undefined | WorkoutEditorDraft,
 		names: ReadonlyMap<string, string>,
-		imperial = false,
+		imperial?: boolean,
 	) {
 		if (unavailable) {
 			return;
@@ -78,7 +78,7 @@ export const createWorkoutIosActivitySynchronizer = (
 		draft: undefined | WorkoutEditorDraft,
 		names: ReadonlyMap<string, string>,
 		saved: boolean,
-		imperial = false,
+		imperial?: boolean,
 	) {
 		lastPublished = undefined;
 		if (draft?.mode.kind !== "live" || unavailable) {

@@ -341,7 +341,7 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 			const revokeRun = Effect.fn("NotificationDeliveryRepository.revokeRun")(function* (
 				runId: string,
 				now: Date,
-				eraseContent = false,
+				eraseContent?: boolean,
 			) {
 				yield* requireTransaction;
 				const rows = yield* listForRun(runId);

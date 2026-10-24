@@ -264,7 +264,23 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					accountGeneration: dispatchInput.accountGeneration,
 					...(dispatchInput.integrationId ? { integrationId: dispatchInput.integrationId } : {}),
 				};
-				const pin = yield* scripts.getScriptPin(dispatchInput.scriptId, undefined, subject);
+				const pin = yield* scripts
+					.getScriptPin(dispatchInput.scriptId, undefined, subject)
+					.pipe(
+						Effect.catchTag("SandboxRunError", (error) =>
+							Effect.fail(
+								error.data?.code === "package-identity-conflict"
+									? new PluginConflictError({
+											reason: {
+												packageId: input.packageId,
+												code: "package-identity-conflict",
+												pluginId: PluginId.make(resolved.plugin.id),
+											},
+										})
+									: operationNotFound,
+							),
+						),
+					);
 				if (
 					!pin?.pluginRevision ||
 					pin.pluginRevision.id !== resolved.plugin.id ||

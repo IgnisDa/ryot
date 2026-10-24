@@ -218,7 +218,7 @@ export const httpSuccess = (body: JsonValue) =>
 export const httpFailure = (message = "request failed") => Effect.fail({ message });
 
 export const toRecord = (value: unknown): Record<string, unknown> =>
-	isObjectRecord(value) ? value : Object.create(null);
+	isObjectRecord(value) ? value : {};
 
 export const containmentRyotql =
 	(containers: Readonly<Record<string, string>> = {}) =>

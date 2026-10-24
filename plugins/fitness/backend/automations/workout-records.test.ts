@@ -153,7 +153,7 @@ describe("workout start change", () => {
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(requests).toEqual(
-						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
+						["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
 							expect.objectContaining({
 								request: { entityId, eventSchemaSlug: "workout-set" },
 								reference: expect.objectContaining({
@@ -216,7 +216,7 @@ describe("workout record automation", () => {
 					expect(result).toBeNull();
 					expect(requests).toHaveLength(3);
 					expect(requests).toEqual(
-						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
+						["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
 							expect.objectContaining({
 								request: { entityId, eventSchemaSlug: "workout-set" },
 								reference: expect.objectContaining({

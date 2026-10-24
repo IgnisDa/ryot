@@ -23,7 +23,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
-import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt as table } from "#schema/tables/automations";
 
@@ -178,10 +178,8 @@ const atomic = <A, E, R>(session: DatabaseSession["Service"], effect: Effect.Eff
 	session
 		.transaction(effect)
 		.pipe(
-			Effect.mapError((error) =>
-				error instanceof DatabaseSessionStateError
-					? conflict("Automation attempt transaction already active")
-					: error,
+			Effect.catchTag("DatabaseSessionStateError", () =>
+				Effect.fail(conflict("Automation attempt transaction already active")),
 			),
 		);
 

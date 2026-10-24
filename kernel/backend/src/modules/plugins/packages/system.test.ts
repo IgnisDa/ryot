@@ -25,7 +25,7 @@ const withRoot = <A, E>(
 const writeArchive = Effect.fn("writeArchive")(function* (
 	root: string,
 	name: string,
-	publisher = "test",
+	publisher: string,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const base = fixtureManifest(PluginPackageId.make(`${publisher}/${name}`));
@@ -89,7 +89,7 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 			withRoot((root) =>
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
-					yield* writeArchive(root, "first");
+					yield* writeArchive(root, "first", "test");
 					yield* fs.writeFile(
 						`${root}/test/second.zip`,
 						yield* fs.readFile(`${root}/test/first.zip`),

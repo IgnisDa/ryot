@@ -114,7 +114,7 @@ layer(
 				db.insert(tables.eventStreamWork).values(streams.map(({ id }) => ({ ...work, id }))),
 			);
 
-			const first = yield* repository.listCandidates();
+			const first = yield* repository.listCandidates(100);
 			expect(first.map(({ id }) => id)).toEqual(streams.slice(0, 100).map(({ id }) => id));
 			const last = first.at(-1);
 			assert(last);

@@ -14,7 +14,7 @@ import { Array as Arr, Context, Duration, Effect, Layer, Result, Schema } from "
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { insertChunkSize } from "#platform/db/bind-parameters";
-import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
 import { userLifecycleOperation } from "#schema/tables/user-lifecycle";
@@ -183,10 +183,10 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 					: session
 							.transaction(work)
 							.pipe(
-								Effect.mapError((error) =>
-									error instanceof DatabaseSessionStateError
-										? new DbError({ message: "Mutation admission transaction could not start" })
-										: error,
+								Effect.catchTag("DatabaseSessionStateError", () =>
+									Effect.fail(
+										new DbError({ message: "Mutation admission transaction could not start" }),
+									),
 								),
 							),
 			);

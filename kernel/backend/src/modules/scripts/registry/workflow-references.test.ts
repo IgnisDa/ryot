@@ -104,7 +104,7 @@ const makeRegisterLayer = (options: {
 					}),
 				}),
 			};
-			const executor = Object.assign(Object.create(null), db);
+			const executor = db;
 			return SandboxWorkflowReferenceRepository.layer.pipe(
 				Layer.provideMerge(
 					Layer.merge(

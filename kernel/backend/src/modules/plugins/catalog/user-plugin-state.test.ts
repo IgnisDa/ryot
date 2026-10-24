@@ -112,7 +112,7 @@ const insertConfig = Effect.fn(function* (config: {
 	);
 });
 
-const install = Effect.fn(function* (world: World, userId = world.userId) {
+const install = Effect.fn(function* (world: World, userId: World["userId"] = world.userId) {
 	const id = `installation-${crypto.randomUUID()}`;
 	yield* (yield* DatabaseSession).run((db) =>
 		db

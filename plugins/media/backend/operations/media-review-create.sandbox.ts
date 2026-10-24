@@ -58,7 +58,7 @@ export default defineOperation({
 				reviewTargetRecipe(input.entityId),
 			);
 			if (target === undefined) {
-				return yield* Effect.fail(new OperationRejectedError("Review target not found"));
+				return yield* new OperationRejectedError({ message: "Review target not found" });
 			}
 			return yield* host.createEvents([
 				{

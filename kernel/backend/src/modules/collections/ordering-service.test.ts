@@ -165,7 +165,10 @@ const orderedMemberIds = Effect.fnUntraced(function* (collectionId: EntityId) {
 	);
 });
 
-const orderRevision = Effect.fnUntraced(function* (collectionId: EntityId, userId = ownerId) {
+const orderRevision = Effect.fnUntraced(function* (
+	collectionId: EntityId,
+	userId: UserId = ownerId,
+) {
 	const collections = yield* CollectionsRepository;
 	const revision = yield* collections.getOrderRevision(collectionId, userId);
 	assert(revision !== null);

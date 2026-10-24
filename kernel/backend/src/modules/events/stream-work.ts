@@ -117,7 +117,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					);
 			const arrange = Effect.fn("EventStreamWorkService.arrange")(function* (
 				id: string,
-				retry = false,
+				retry?: boolean,
 			) {
 				const candidate = yield* repository.get(id);
 				if (!candidate) {

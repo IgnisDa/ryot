@@ -172,8 +172,10 @@ export const calculateRenewalDate = (planType: TPlanTypes, baseDate?: Date | Day
 
 export const getCustomerFromCookie = (request: Request) =>
 	Effect.gen(function* () {
-		const cookie = yield* fromPromise(() => websiteAuthCookie.parse(request.headers.get("cookie")));
-		if (!cookie || Object.keys(cookie).length === 0) {
+		const cookie = yield* fromPromise((): Promise<unknown> =>
+			websiteAuthCookie.parse(request.headers.get("cookie")),
+		);
+		if (!cookie || (typeof cookie === "object" && Object.keys(cookie).length === 0)) {
 			return null;
 		}
 		const customerId = z.string().parse(cookie);
@@ -241,8 +243,8 @@ export const verifyTurnstileToken = (input: { token: string; remoteIp?: string }
 				}),
 			);
 
-			const jsonData = yield* fromPromise(() => response.json());
-			return jsonData.success === true;
+			const jsonData = yield* fromPromise((): Promise<unknown> => response.json());
+			return z.object({ success: z.literal(true) }).safeParse(jsonData).success;
 		}).pipe(
 			Effect.catch((error) =>
 				Effect.gen(function* () {

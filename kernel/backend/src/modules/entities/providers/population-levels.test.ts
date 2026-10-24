@@ -294,7 +294,9 @@ layer(populationDatabaseLayer())((test) => {
 					return { targetEntityId: leaf.id, sourceEntityId: child.id };
 				});
 				expect(yield* relationships("part-part")).toEqual(
-					expect.arrayContaining(expectedEdges.map((edge) => expect.objectContaining(edge))),
+					expect.arrayContaining(
+						expectedEdges.map((edge): unknown => expect.objectContaining(edge)),
+					),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
 
@@ -319,7 +321,9 @@ layer(populationDatabaseLayer())((test) => {
 				assert(fresh?.populatedAt);
 				expect(fresh.relatedPopulatedAt).toEqual(fresh.populatedAt);
 				expect(yield* relationships("part-part")).toEqual(
-					expect.arrayContaining(expectedEdges.map((edge) => expect.objectContaining(edge))),
+					expect.arrayContaining(
+						expectedEdges.map((edge): unknown => expect.objectContaining(edge)),
+					),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
 				for (const child of children) {

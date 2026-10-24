@@ -23,7 +23,7 @@ import {
 	writePrecondition,
 } from "./media-activity-edits";
 
-const reject = (message: string) => Effect.fail(new OperationRejectedError(message));
+const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
 	timeSpent: "Time spent",

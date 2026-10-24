@@ -47,7 +47,7 @@ describe("Pokemon detail page", () => {
 			expect(
 				page.queryRequests("pokemon").map((request) => request.document.queries.pokemon),
 			).toEqual(
-				["pokemon-1", "pokemon-2"].map((entityId) =>
+				["pokemon-1", "pokemon-2"].map((entityId): unknown =>
 					expect.objectContaining({
 						where: expect.objectContaining({
 							predicates: expect.arrayContaining([

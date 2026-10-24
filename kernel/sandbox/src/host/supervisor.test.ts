@@ -492,13 +492,10 @@ const awaitRecoveryCall = (
 			: Effect.succeed(call);
 	});
 
-const runMarker = (run: RunFrame) =>
-	typeof run.input === "object" && run.input !== null
-		? Reflect.get(run.input, "marker")
-		: undefined;
-
-const inputMarker = (input: RunFrame["input"]) =>
+const inputMarker = (input: RunFrame["input"]): unknown =>
 	typeof input === "object" && input !== null ? Reflect.get(input, "marker") : undefined;
+
+const runMarker = (run: RunFrame) => inputMarker(run.input);
 
 const sentRunFrames = (connection: RecordedConnection) =>
 	connection.sent.filter((frame): frame is RunFrame => frame.type === "run");

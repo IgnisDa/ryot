@@ -26,7 +26,7 @@ import {
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
-import { Context, Effect, FileSystem, Layer, Ref } from "effect";
+import { Context, Effect, FileSystem, Layer, Ref, Schema } from "effect";
 
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -1088,10 +1088,13 @@ layer(eventPagesExportLayer)((test) => {
 				"/events/event-2/properties/token",
 			]);
 			const fs = yield* FileSystem.FileSystem;
-			const written = (yield* fs.readFileString(eventPagesPath))
-				.trimEnd()
-				.split("\n")
-				.map((line) => JSON.parse(line));
+			const written = yield* Effect.forEach(
+				(yield* fs.readFileString(eventPagesPath)).trimEnd().split("\n"),
+				(line) =>
+					Schema.decodeEffect(
+						Schema.fromJsonString(Schema.Struct({ id: Schema.String, properties: Schema.Unknown })),
+					)(line),
+			);
 			expect(written.map(({ id }) => id)).toEqual(["event-1", "event-2"]);
 			expect(written.map(({ properties }) => properties)).toEqual([
 				{ note: "first", poster: { type: "local", key: "sha-permanent/event-1.bin" } },

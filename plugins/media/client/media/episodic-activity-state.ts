@@ -263,8 +263,8 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 	for (const watch of watchDays) {
 		const day = days.get(watch.day) ?? {
 			source: undefined,
-			episodes: new Map(),
 			latest: watch.lastWatchedAt,
+			episodes: new Map<string, MediaEpisodicWatchedEpisode>(),
 		};
 		if (!day.episodes.has(watch.episodeId)) {
 			day.episodes.set(watch.episodeId, {

@@ -42,7 +42,7 @@ export default defineOperation({
   output: Schema.String,
   run: (input) =>
     input.mode === "reject"
-      ? Effect.fail(new OperationRejectedError("Every episode must belong to the selected parent"))
+      ? Effect.fail(new OperationRejectedError({ message: "Every episode must belong to the selected parent" }))
       : Effect.fail(new Error("Unexpected failure")),
 });
 `;

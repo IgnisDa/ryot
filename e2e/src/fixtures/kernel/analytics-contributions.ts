@@ -70,7 +70,7 @@ export const analyticsContributionPackage = (
 
 export const installAnalyticsContribution = Effect.fn(function* (
 	client: Client,
-	source = analyticsContributionPackage(),
+	source: PluginPackageInput = analyticsContributionPackage(),
 ) {
 	const pluginPackage = yield* compilePluginPackage(source);
 	const installed = yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });

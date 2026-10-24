@@ -399,7 +399,7 @@ const importCompiledModule = (specifier: string) => {
 		} satisfies RunnerPhaseFailure);
 	}
 	return Effect.tryPromise({
-		try: () => import(specifier),
+		try: (): Promise<unknown> => import(specifier),
 		catch: (error) => ({ error, phase: "load" }) satisfies RunnerPhaseFailure,
 	});
 };
@@ -1322,7 +1322,9 @@ const runInvocation = Effect.fnUntraced(function* (
 	}
 	const module = yield* importCompiledModule(specifier);
 	const value = yield* executeDefinition(
-		module.default,
+		typeof module === "object" && module !== null && "default" in module
+			? module.default
+			: undefined,
 		invocation,
 		metadata,
 		bridge,

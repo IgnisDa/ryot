@@ -143,7 +143,7 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 				return rows.length > 0;
 			});
 			const pending = Effect.fn("BackgroundWorkRepository.pending")(function* (
-				limit = 100,
+				limit: number,
 				after?: string,
 			) {
 				const scopeColumns = {

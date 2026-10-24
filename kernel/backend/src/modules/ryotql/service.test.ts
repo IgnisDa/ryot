@@ -94,7 +94,7 @@ const makeServiceLayer = (
 				Effect.gen(function* () {
 					const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
 					const dialect = new PgDialect();
-					const db = Object.assign(Object.create(null), {
+					const db = {
 						execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 							const statement = dialect.sqlToQuery(query).sql;
 							return Ref.update(recorded, (all) => [...all, statement]).pipe(
@@ -105,7 +105,7 @@ const makeServiceLayer = (
 								),
 							);
 						},
-					});
+					};
 					return Layer.merge(
 						fakeDatabaseSession(db, { transaction: (work) => mapDatabaseErrors(work) }),
 						Layer.succeed(RecordedStatements, { statements: Ref.get(recorded) }),

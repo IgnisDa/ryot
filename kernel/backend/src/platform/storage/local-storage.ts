@@ -226,7 +226,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				key: string,
 				stream: Stream.Stream<Uint8Array, unknown>,
 				contentLength: string | undefined,
-				maxBytes = UPLOAD_MAX_FILE_BYTES,
+				maxBytes: number = UPLOAD_MAX_FILE_BYTES,
 			) {
 				const { target } = yield* resolvePath(key);
 				const declaredLength = contentLength === undefined ? null : Number(contentLength);
@@ -273,7 +273,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				key: string,
 				stream: Stream.Stream<Uint8Array, unknown>,
 				contentLength: string | undefined,
-				maxBytes = UPLOAD_MAX_FILE_BYTES,
+				maxBytes: number = UPLOAD_MAX_FILE_BYTES,
 			) {
 				const { staged, target } = yield* writeStagedObject(key, stream, contentLength, maxBytes);
 				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
@@ -301,7 +301,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				key: string,
 				stream: Stream.Stream<Uint8Array, unknown>,
 				contentLength: string | undefined,
-				maxBytes = UPLOAD_MAX_FILE_BYTES,
+				maxBytes: number = UPLOAD_MAX_FILE_BYTES,
 			) {
 				const { staged, target } = yield* writeStagedObject(key, stream, contentLength, maxBytes);
 				return yield* fs.link(staged, target).pipe(

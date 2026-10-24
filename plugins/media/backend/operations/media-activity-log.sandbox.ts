@@ -42,7 +42,7 @@ import {
 } from "../../shared/media-activity-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
-const reject = (message: string) => Effect.fail(new OperationRejectedError(message));
+const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
 
 const EPISODE_MEMBERSHIP_PAGE_SIZE = 100;
 

@@ -261,8 +261,8 @@ describe("compiler workspace", () => {
 								}).pipe(
 									Effect.provideService(FileSystem.FileSystem, {
 										...fs,
-										writeFileString: Effect.fnUntraced(
-											function* (destination, contents, writeOptions) {
+										writeFileString: (destination, contents, writeOptions) =>
+											Effect.gen(function* () {
 												if (destination.endsWith("/generated/fail.ts")) {
 													staged =
 														(yield* fs.readFileString(`${root}/source/a.ts`)) === "already staged";
@@ -273,8 +273,7 @@ describe("compiler workspace", () => {
 													);
 												}
 												return yield* fs.writeFileString(destination, contents, writeOptions);
-											},
-										),
+											}),
 									}),
 								),
 							);

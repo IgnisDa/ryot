@@ -106,7 +106,7 @@ const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
 		properties: { related: { entity: "related" } },
 	},
 });
-const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
+const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	let run = ingestionTestRun();
 	const receipts: ReturnType<typeof ingestionTestReceipt>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();

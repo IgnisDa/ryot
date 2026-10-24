@@ -1,4 +1,9 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type {
+	AggregateResult,
+	RowsResult,
+	RyotQLResult,
+} from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
@@ -22,12 +27,12 @@ afterEach(disposePluginBridges);
 const HOUR_MS = 3_600_000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
 
-const rows = (items: readonly Record<string, unknown>[], nextCursor: null | string = null) => ({
+const rows = (items: RowsResult["items"], nextCursor: null | string = null): RowsResult => ({
 	items,
 	type: "rows" as const,
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 });
-const aggregate = (items: readonly Record<string, number>[]) => ({
+const aggregate = (items: readonly Record<string, number>[]): AggregateResult => ({
 	type: "aggregate" as const,
 	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
@@ -126,7 +131,7 @@ const respond = (queries: Queries, answers: Answers) => {
 		return { total: aggregate([{ workouts: answers.total ?? 0 }]) };
 	}
 	return Object.fromEntries(
-		Object.keys(queries).map((key) => {
+		Object.keys(queries).map((key): [string, RyotQLResult] => {
 			if (key === "latestRecord") {
 				return [key, rows([])];
 			}

@@ -320,7 +320,9 @@ export const shippedPluginTestProviders = (
 			const declarations = Record.fromEntries(attached);
 			const compiled = yield* compilePluginPackage({
 				files: encodePluginSourceFiles(
-					Object.assign({}, ...Record.values(declarations).map(({ files }) => files)),
+					Object.fromEntries(
+						Record.values(declarations).flatMap(({ files }) => Object.entries(files)),
+					),
 				),
 				manifest: testPluginManifest({
 					pluginSlug: `attached-providers-${crypto.randomUUID()}`,

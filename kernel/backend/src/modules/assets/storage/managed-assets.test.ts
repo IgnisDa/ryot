@@ -121,7 +121,7 @@ const makeLifecycleDatabaseLayer = (initiallyActive: boolean) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const active = yield* Ref.make(initiallyActive);
-			const transaction = Object.assign(Object.create(null), {
+			const transaction = {
 				execute: () => Effect.void,
 				select: () => ({
 					from: () => ({
@@ -133,7 +133,7 @@ const makeLifecycleDatabaseLayer = (initiallyActive: boolean) =>
 						}),
 					}),
 				}),
-			});
+			};
 			return LifecycleWriteGuard.layer.pipe(
 				Layer.provideMerge(
 					Layer.merge(

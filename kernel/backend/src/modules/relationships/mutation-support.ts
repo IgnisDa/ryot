@@ -48,7 +48,7 @@ import {
 	CatalogDefinitionFingerprint,
 	type PluginRuntimeResolver,
 } from "#modules/plugins/catalog/runtime-resolver";
-import { type DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import type { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 
 import {
@@ -232,12 +232,12 @@ export const rootTransaction =
 	(session: DatabaseSession["Service"]) =>
 	<A, E, R>(work: Effect.Effect<A, E, R>) =>
 		runRootTransaction(session, work).pipe(
-			Effect.mapError((error) =>
-				error instanceof DatabaseSessionStateError
-					? new DbError({
-							message: "Relationship lifecycle mutations require a root transaction boundary",
-						})
-					: error,
+			Effect.catchTag("DatabaseSessionStateError", () =>
+				Effect.fail(
+					new DbError({
+						message: "Relationship lifecycle mutations require a root transaction boundary",
+					}),
+				),
 			),
 		);
 
@@ -263,6 +263,8 @@ export const itemCommand = (
 export type UserEntityScopes = Effect.Success<
 	ReturnType<EntitiesRepository["Service"]["getEntityScopesForUser"]>
 >;
+
+export const emptyUserEntityScopes = (): UserEntityScopes => new Map();
 
 export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 	scopes: UserEntityScopes,

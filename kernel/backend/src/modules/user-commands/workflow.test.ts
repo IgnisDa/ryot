@@ -26,6 +26,7 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import {
 	command,
 	relationshipDatabaseLayer,
@@ -149,7 +150,7 @@ const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 };
 
 const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
-	source = revisionPackage("atomic", "fixture", "record"),
+	source: NormalizedPlugin = revisionPackage("atomic", "fixture", "record"),
 ) {
 	const installed = yield* installRevisionPackage(source, userId);
 	const session = yield* DatabaseSession;

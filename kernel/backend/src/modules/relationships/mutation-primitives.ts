@@ -38,6 +38,7 @@ import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-r
 import { isCollectionMember } from "./collection-order";
 import {
 	badProperties,
+	emptyUserEntityScopes,
 	equal,
 	mergeProperties,
 	type Mutation,
@@ -207,7 +208,7 @@ export const makeRelationshipMutationPrimitives = ({
 		const pinned = declared ? { ...declared, pluginId: active.pluginId } : active;
 		if (mutation.input.scope === "user") {
 			yield* validateUserRelationshipEntities(
-				reads.users.get(mutation.input.userId) ?? new Map(),
+				reads.users.get(mutation.input.userId) ?? emptyUserEntityScopes(),
 				mutation.input,
 				{ ...pinned, userWritePolicy: active.userWritePolicy ?? pinned.userWritePolicy },
 				mutation.input.userId,

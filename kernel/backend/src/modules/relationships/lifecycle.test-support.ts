@@ -116,7 +116,7 @@ export const ownedEndpoints = Effect.fnUntraced(function* (
 
 export const installPolicyFixture = Effect.fn(function* (
 	owner: null | UserId = userId,
-	afterHooks = false,
+	afterHooks?: boolean,
 ) {
 	const fixture = revisionPackage(
 		"relationship-policy-scope",

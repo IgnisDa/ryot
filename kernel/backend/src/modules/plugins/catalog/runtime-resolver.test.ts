@@ -1139,7 +1139,7 @@ describe("provider eligibility", () => {
 		};
 	});
 
-	const installProvider = Effect.fn(function* (packageValue = revisionPackage()) {
+	const installProvider = Effect.fn(function* (packageValue: NormalizedPlugin = revisionPackage()) {
 		const runtime = yield* PluginRuntimeResolver;
 		const installed = yield* installRevisionPackage(packageValue);
 		const provider = yield* runtime.findSchemaProviderByReference({

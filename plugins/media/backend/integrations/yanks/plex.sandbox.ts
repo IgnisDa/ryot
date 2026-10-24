@@ -68,7 +68,12 @@ const Cursor = Schema.Struct({
 const cursorJson = Schema.fromJsonString(Cursor);
 
 const refFor = (item: typeof Item.Type, lot: "show" | "movie"): null | ImportEntityRef => {
-	const ids = Object.fromEntries((item.Guid ?? []).map(({ id }) => id.split("://")));
+	const ids = Object.fromEntries(
+		(item.Guid ?? []).map(({ id }): readonly [string, string | undefined] => {
+			const [provider = "", value] = id.split("://");
+			return [provider, value];
+		}),
+	);
 	return movieOrShowImportRef({
 		entitySchemaSlug: lot,
 		sourceLabel: item.title,

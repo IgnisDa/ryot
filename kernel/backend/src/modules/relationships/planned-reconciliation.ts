@@ -30,6 +30,7 @@ import {
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
+	emptyUserEntityScopes,
 	itemCommand,
 	parseProperties,
 	type PlannedRelationshipReconciliationResult,
@@ -134,7 +135,7 @@ export const makePlannedRelationshipReconciliation = (
 							]),
 							scope.userId,
 						)
-					: new Map();
+					: emptyUserEntityScopes();
 			const seen = new Set<string>();
 			const desired: Array<
 				{

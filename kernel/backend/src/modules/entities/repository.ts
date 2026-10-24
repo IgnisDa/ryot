@@ -1089,7 +1089,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 			const getMutationEntity = Effect.fn("EntitiesRepository.getMutationEntity")(function* (
 				entityId: EntityId,
-				lock = false,
+				lock?: boolean,
 			) {
 				const [row] = yield* session.run((db) => {
 					const query = db
@@ -1108,7 +1108,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 			const getMutationEntities = Effect.fn("EntitiesRepository.getMutationEntities")(function* (
 				entityIds: ReadonlyArray<EntityId>,
-				lock = false,
+				lock?: boolean,
 			) {
 				const rows = yield* Effect.forEach(
 					chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE),

@@ -275,7 +275,10 @@ export const action = ({ request }: Route.ActionArgs) =>
 
 export default function Index() {
 	const fetcher = useFetcher();
-	const resetFetcher = useFetcher();
+	const resetFetcher = useFetcher<typeof action>();
+	const resetError =
+		resetFetcher.data && "error" in resetFetcher.data ? resetFetcher.data.error : null;
+	const resetLink = resetFetcher.data && "resetUrl" in resetFetcher.data ? resetFetcher.data : null;
 	const [paddle, setPaddle] = useState<Paddle>();
 	const loaderData = useLoaderData<typeof loader>();
 
@@ -391,23 +394,19 @@ export default function Index() {
 										</Button>
 									</resetFetcher.Form>
 								</div>
-								{resetFetcher.data?.error ? (
-									<p className="text-red-500 text-sm mt-1">{resetFetcher.data.error}</p>
-								) : null}
-								{resetFetcher.data?.resetUrl ? (
+								{resetError ? <p className="text-red-500 text-sm mt-1">{resetError}</p> : null}
+								{resetLink ? (
 									<div className="mt-2 space-y-1">
-										<p className="text-xs text-muted-foreground">
-											Login email: {resetFetcher.data.email}
-										</p>
+										<p className="text-xs text-muted-foreground">Login email: {resetLink.email}</p>
 										<div className="flex items-center gap-2">
 											<p className="text-xs text-muted-foreground break-all">
-												{resetFetcher.data.resetUrl}
+												{resetLink.resetUrl}
 											</p>
 											<button
 												type="button"
 												className="text-xs underline cursor-pointer shrink-0"
 												onClick={() => {
-													void navigator.clipboard.writeText(resetFetcher.data.resetUrl);
+													void navigator.clipboard.writeText(resetLink.resetUrl);
 													toast.success("Reset link copied to clipboard");
 												}}
 											>

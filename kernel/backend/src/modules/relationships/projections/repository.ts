@@ -355,7 +355,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			});
 
 			const listCandidates = Effect.fn("RelationshipProjectionRepository.listCandidates")(
-				function* (limit = 100, after?: string, userId?: string) {
+				function* (limit: number, after?: string, userId?: string) {
 					return yield* session.run((db) =>
 						db
 							.select({ id: schema.relationshipProjectionWork.id })

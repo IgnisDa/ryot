@@ -65,7 +65,7 @@ export default defineOperation({
 		Effect.gen(function* () {
 			const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe(input.entityId));
 			if (target === undefined) {
-				return yield* Effect.fail(new OperationRejectedError("Media activity is unavailable"));
+				return yield* new OperationRejectedError({ message: "Media activity is unavailable" });
 			}
 			return yield* host.requestUserWork(
 				startHistoryCorrection({

@@ -25,7 +25,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const auth = yield* AuthRepository;
 			const findEntityById = Effect.fn("TranslationsRepository.findEntityById")(function* (
 				entityId: EntityId,
-				lock = false,
+				lock?: boolean,
 			) {
 				const [row] = yield* session.run((db) => {
 					const query = db
@@ -39,7 +39,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			});
 			const findEntityForUser = Effect.fn("TranslationsRepository.findEntityForUser")(function* (
 				input: { userId: UserId; entityId: EntityId },
-				lock = false,
+				lock?: boolean,
 			) {
 				const [row] = yield* session.run((db) => {
 					const query = db

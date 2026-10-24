@@ -104,7 +104,7 @@ export type EditTarget = {
 	readonly properties: { readonly [key: string]: Schema.Json };
 };
 
-const reject = (message: string) => Effect.fail(new OperationRejectedError(message));
+const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
 
 /**
  * Visible records of the allowed media schemas among `ids`. A visible record of any other schema

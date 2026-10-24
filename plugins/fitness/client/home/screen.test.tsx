@@ -1,4 +1,9 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type {
+	AggregateResult,
+	RowsResult,
+	RyotQLResult,
+} from "@ryot-app/contract/modules/ryotql/language";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -33,12 +38,12 @@ const pageContext: ClientPageContext = {
 const HOUR_MS = 3_600_000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
 
-const rows = (items: readonly Record<string, unknown>[]) => ({
+const rows = (items: RowsResult["items"]): RowsResult => ({
 	items,
 	type: "rows" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
-const aggregate = (items: readonly Record<string, unknown>[]) => ({
+const aggregate = (items: AggregateResult["items"]): AggregateResult => ({
 	type: "aggregate" as const,
 	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
@@ -182,7 +187,7 @@ const respond = (
 		};
 	}
 	return Object.fromEntries(
-		names.map((key) => {
+		names.map((key): [string, RyotQLResult] => {
 			if (key.startsWith("average")) {
 				return [key, aggregate([{ value: 73.6, at: hoursAgo(24) }])];
 			}

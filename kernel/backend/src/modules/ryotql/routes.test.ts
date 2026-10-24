@@ -62,7 +62,7 @@ const routesLayer = Layer.unwrap(
 			accessClass: "standard",
 		});
 		const record = (entry: string) => Ref.update(authenticated, (all) => [...all, entry]);
-		const db = Object.assign(Object.create(null), { execute: () => Effect.succeed([]) });
+		const db = { execute: () => Effect.succeed([]) };
 		const database = fakeDatabaseSession(db, { transaction: (work) => mapDatabaseErrors(work) });
 		const auth = makeAuthMiddleware(
 			{

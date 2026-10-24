@@ -538,7 +538,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 			});
 
 			const listCandidates = Effect.fn("EventStreamRepository.listCandidates")(function* (
-				limit = 100,
+				limit: number,
 				after?: string,
 			) {
 				return yield* session.run((db) =>
@@ -849,7 +849,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				revision: number,
 				checkpoint: JsonValue,
 				done: boolean,
-				waitingForInputs = false,
+				waitingForInputs?: boolean,
 			) {
 				yield* requireTransaction;
 				if (!(yield* currentClaim(id, jobId, revision))) {

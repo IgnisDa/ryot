@@ -58,7 +58,7 @@ const recordingSessionLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const events = yield* Ref.make<ReadonlyArray<string>>([]);
 		const record = (event: string) => Ref.update(events, (all) => [...all, event]);
-		const database = Object.assign(Object.create(null), {
+		const database = {
 			execute: () => record("lock"),
 			select: () => ({
 				from: () => ({
@@ -68,7 +68,7 @@ const recordingSessionLayer = Layer.unwrap(
 					}),
 				}),
 			}),
-		});
+		};
 		return Layer.merge(
 			fakeDatabaseSession(database),
 			Layer.succeed(RecordedDatabaseEvents, { events: Ref.get(events) }),

@@ -33,7 +33,7 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 	mockPluginRuntime({ ...overrides });
 
 const repositoryWithDatabase = (db: object, pluginRuntime = makePluginRuntime()) => {
-	const database = Object.assign(Object.create(null), db);
+	const database = db;
 	return Layer.merge(
 		EntitiesRepository.layer.pipe(
 			Layer.provide(

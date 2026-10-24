@@ -20,9 +20,9 @@ function assertApiError(error: unknown): asserts error is APIError {
 }
 
 const gateLayer = (rows: ReadonlyArray<UserRow>, active = false) => {
-	const database = Object.assign(Object.create(null), {
+	const database = {
 		select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed(rows) }) }) }),
-	});
+	};
 	return SessionCreationGate.layer.pipe(
 		Layer.provide(
 			Layer.merge(

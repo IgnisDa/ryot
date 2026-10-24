@@ -134,7 +134,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			command: DomainWriteCommand,
 			owner: DefinitionOwner,
 			scopeUserId: null | string,
-			lock = false,
+			lock?: boolean,
 		) {
 			if (lock) {
 				yield* session.requireTransaction.pipe(

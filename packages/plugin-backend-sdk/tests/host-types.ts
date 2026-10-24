@@ -228,7 +228,7 @@ defineAutomationPolicy({
 		// @ts-expect-error policy hosts do not expose workflow execution.
 		void host.executeWorkflow;
 		// @ts-expect-error policy hosts expose only policy-safe methods.
-		host.httpCall("GET", "https://example.com");
+		void host.httpCall;
 		return Effect.succeed({
 			items: _input.items.map(({ itemIdentity }) => ({
 				itemIdentity,
