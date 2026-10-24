@@ -1,4 +1,4 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
@@ -123,6 +123,12 @@ layer(compositionLayer)((test) => {
 			const compositions = yield* ClientPageCompositionService;
 			const stored = yield* compositions.getOrMaterialize(graph);
 			expect(yield* repository.writes).toEqual([graph.compositionKey]);
+			expect(stored.identity).toEqual(graph.identity);
+			assert(stored.identity.application === "page");
+			expect(stored.manifest.descriptor).toMatchObject({
+				application: "page",
+				entry: stored.identity.entry,
+			});
 			expect(stored.compositionHash).toBe(sha256Hex(stableStringify(stored.manifest)));
 			expect(stored.manifest.imports["sdk"]).toEqual({
 				file: "runtime.js",

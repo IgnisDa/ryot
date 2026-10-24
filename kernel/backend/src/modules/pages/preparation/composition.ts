@@ -65,9 +65,11 @@ export const composeClientPage = (input: {
 			}
 		}
 	}
-	const module = (specifier: string): ClientCompositionModuleReference => {
-		const binding = bindings.get(specifier);
-		if (!binding) {
+	const module = (
+		specifier: string,
+		binding = bindings.get(specifier),
+	): ClientCompositionModuleReference => {
+		if (!binding || bindings.get(specifier) !== binding) {
 			throw new Error(`Client composition export is missing: ${specifier}`);
 		}
 		return { binding, specifier };
@@ -84,46 +86,31 @@ export const composeClientPage = (input: {
 				.map(({ name }) => file(hash, name)),
 		),
 	}));
-	const routes = identity.routeRegistry;
 	let descriptor: ClientPageCompositionManifest["descriptor"];
 	if (identity.application === "plugin-route") {
-		if (!routes) {
-			throw new Error("Plugin-route composition is missing its route registry");
-		}
+		const routes = identity.routes;
 		descriptor = {
 			automaticRegistry,
 			application: "plugin-route",
 			routes: {
-				...(routes.home === undefined ? {} : { home: module(routes.home) }),
-				routes: routes.routes.map(({ path, exportSpecifier }) => ({
+				...(routes.home === undefined
+					? {}
+					: { home: module(routes.home.specifier, routes.home.binding) }),
+				routes: routes.routes.map(({ path, module: reference }) => ({
 					path,
-					module: module(exportSpecifier),
+					module: module(reference.specifier, reference.binding),
 				})),
-				...(routes.notFound ? { notFound: module(routes.notFound) } : {}),
+				...(routes.notFound
+					? { notFound: module(routes.notFound.specifier, routes.notFound.binding) }
+					: {}),
 			},
 		};
 	} else {
-		const contributor = identity.contributors.find(
-			(item) =>
-				item.namespace === identity.entry.contributor &&
-				(item.kind !== "kernel-renderer" || item.entry === identity.entry.path),
-		);
-		if (!contributor) {
-			throw new Error("Client page entry is missing its contributor");
-		}
-		const specifier =
-			contributor.kind === "kernel-renderer"
-				? `@ryot-app/kernel-renderers/${contributor.name}`
-				: identity.selectedExports.find((candidate) => {
-						const declaration = contributor.exports.find(
-							({ name }) => candidate === pluginExportSpecifier(contributor, name),
-						);
-						return declaration?.entry === identity.entry.path && declaration.kind === "page";
-					});
-		if (!specifier) {
-			throw new Error("Client page entry does not match a selected export");
-		}
-		descriptor = { automaticRegistry, application: "page", entry: module(specifier) };
+		descriptor = {
+			automaticRegistry,
+			application: "page",
+			entry: module(identity.entry.specifier, identity.entry.binding),
+		};
 	}
 	return {
 		imports,

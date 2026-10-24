@@ -160,18 +160,23 @@ export const ClientCompositionPresentationRegistration = strictStruct({
 export type ClientCompositionPresentationRegistration =
 	typeof ClientCompositionPresentationRegistration.Type;
 
-export const ClientPageCompositionIdentity = strictStruct({
+const ClientCompositionRoutes = strictStruct({
+	home: Schema.optional(ClientCompositionModuleReference),
+	notFound: Schema.optional(ClientCompositionModuleReference),
+	routes: Schema.Array(
+		strictStruct({ path: Schema.String, module: ClientCompositionModuleReference }),
+	),
+});
+
+const ClientPageCompositionIdentityBase = {
 	format: Schema.Int,
 	name: Schema.String,
 	apiVersion: Schema.Int,
 	bridgeVersion: Schema.Int,
 	compilerVersion: Schema.Int,
 	runtimeArtifactHash: Schema.String,
-	selectedExports: Schema.Array(Schema.String),
 	eagerArtifactHashes: Schema.Array(Schema.String),
-	application: Schema.Literals(["page", "plugin-route"]),
 	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
-	entry: strictStruct({ path: Schema.String, contributor: Schema.String }),
 	kernelAutomaticFallback: Schema.NullOr(
 		strictStruct({
 			runtimeVersion: Schema.Int,
@@ -179,19 +184,10 @@ export const ClientPageCompositionIdentity = strictStruct({
 			layouts: Schema.Tuple([Schema.Literal("grid"), Schema.Literal("list")]),
 		}),
 	),
-	routeRegistry: Schema.NullOr(
-		strictStruct({
-			home: Schema.optional(Schema.String),
-			notFound: Schema.optional(Schema.String),
-			routes: Schema.Array(strictStruct({ path: Schema.String, exportSpecifier: Schema.String })),
-		}),
-	),
 	contributors: Schema.Array(
 		Schema.Union([
 			strictStruct({
 				name: Schema.String,
-				entry: Schema.String,
-				namespace: Schema.String,
 				sourceHash: Schema.String,
 				artifactHash: Schema.String,
 				kind: Schema.Literal("kernel-renderer"),
@@ -200,7 +196,6 @@ export const ClientPageCompositionIdentity = strictStruct({
 			}),
 			strictStruct({
 				pluginId: PluginId,
-				namespace: Schema.String,
 				revisionId: Schema.String,
 				contentHash: Schema.String,
 				packageId: PluginPackageId,
@@ -212,7 +207,19 @@ export const ClientPageCompositionIdentity = strictStruct({
 			}),
 		]),
 	),
-});
+};
+export const ClientPageCompositionIdentity = Schema.Union([
+	strictStruct({
+		...ClientPageCompositionIdentityBase,
+		application: Schema.Literal("page"),
+		entry: ClientCompositionModuleReference,
+	}),
+	strictStruct({
+		...ClientPageCompositionIdentityBase,
+		routes: ClientCompositionRoutes,
+		application: Schema.Literal("plugin-route"),
+	}),
+]);
 export type ClientPageCompositionIdentity = typeof ClientPageCompositionIdentity.Type;
 
 const clientCompositionDescriptor = <Registration extends Schema.Top>(registration: Registration) =>
@@ -223,15 +230,9 @@ const clientCompositionDescriptor = <Registration extends Schema.Top>(registrati
 			automaticRegistry: Schema.Array(registration),
 		}),
 		strictStruct({
+			routes: ClientCompositionRoutes,
 			application: Schema.Literal("plugin-route"),
 			automaticRegistry: Schema.Array(registration),
-			routes: strictStruct({
-				home: Schema.optional(ClientCompositionModuleReference),
-				notFound: Schema.optional(ClientCompositionModuleReference),
-				routes: Schema.Array(
-					strictStruct({ path: Schema.String, module: ClientCompositionModuleReference }),
-				),
-			}),
 		}),
 	]);
 

@@ -20,7 +20,6 @@ export const presentationReference = {
 export const identity = (): ClientPageCompositionIdentity => ({
 	name: "Page",
 	application: "page",
-	routeRegistry: null,
 	kernelAutomaticFallback: null,
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
@@ -28,8 +27,7 @@ export const identity = (): ClientPageCompositionIdentity => ({
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	eagerArtifactHashes: ["a".repeat(64), "b".repeat(64)],
-	selectedExports: [pluginExportSpecifier(pageReference, "main")],
-	entry: { path: "client/main.tsx", contributor: "page-namespace" },
+	entry: { binding: "main", specifier: pluginExportSpecifier(pageReference, "main") },
 	automaticRegistry: [
 		{
 			layout: "grid",
@@ -46,7 +44,6 @@ export const identity = (): ClientPageCompositionIdentity => ({
 			contentHash: "source",
 			pluginDependencies: {},
 			revisionId: "page-revision",
-			namespace: "page-namespace",
 			pluginId: PluginId.make("page-id"),
 			clientArtifactHash: "b".repeat(64),
 			exports: [
@@ -66,7 +63,6 @@ export const identity = (): ClientPageCompositionIdentity => ({
 			pluginDependencies: {},
 			clientArtifactHash: "c".repeat(64),
 			revisionId: "presentation-revision",
-			namespace: "presentation-namespace",
 			pluginId: PluginId.make("presentation-id"),
 			exports: [
 				{
