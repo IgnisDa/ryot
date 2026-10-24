@@ -1,5 +1,8 @@
 import type { ClientRendererDefinition } from "@ryot-app/contract/modules/pages/schemas";
-import { CALENDAR_KERNEL_RENDERER_DISPLAY_NAME } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	ANALYTICS_KERNEL_RENDERER_DISPLAY_NAME,
+	CALENDAR_KERNEL_RENDERER_DISPLAY_NAME,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 
 import { kernelRendererSources } from "./sources.generated";
@@ -18,6 +21,11 @@ const BROWSER_PATHS = [
 
 const RESULTS_TABLE_PATHS = [
 	"client/browser-states.tsx",
+] as const satisfies readonly KernelRendererPath[];
+
+const ANALYTICS_PATHS = [
+	"client/analytics-controls.tsx",
+	"client/collection-analytics.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const COLLECTION_PATHS = [
@@ -98,3 +106,14 @@ export const kernelCalendarRenderer = renderer(
 	[],
 	false,
 );
+
+const analyticsRenderer = renderer(
+	ANALYTICS_KERNEL_RENDERER_DISPLAY_NAME,
+	"client/analytics.tsx",
+	ANALYTICS_PATHS,
+	false,
+);
+export const kernelAnalyticsRenderer = {
+	...analyticsRenderer,
+	definition: { ...analyticsRenderer.definition, analyticsSections: true },
+};

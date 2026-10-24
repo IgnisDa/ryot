@@ -1,7 +1,7 @@
 # Kernel Renderers
 
 The saved-view and collection renderers the kernel ships: `entity-browser`, `collection-browser`,
-`results-table`, `calendar`, and `collection-detail`. They are ordinary
+`results-table`, `calendar`, `analytics`, and `collection-detail`. They are ordinary
 client-plugin sources — typechecked, formatted, linted, and unit-tested here — not string literals
 embedded in backend code.
 
@@ -106,3 +106,19 @@ the subject name, caption, time (blank for date-only), and done mark, and links 
 `calendarSources.setVisibility`; the server persists the hidden state and the host refreshes.
 The renderer display name is `CALENDAR_KERNEL_RENDERER_DISPLAY_NAME` from the contract, which the
 kernel host compares to gate that capability, so kernel renderer display names must stay unique.
+
+## Analytics
+
+The kernel `analytics` saved view uses declarative client analytics sections from the composition.
+Its `/v/k/analytics` location stores the shared selection in `reporting` and the exact owner/section
+tuple in `section`. The renderer reads the authenticated reporting timezone, owns the page title and
+section navigation, and mounts only the selected section. An absent or unknown `section` selects the
+permanent kernel collection-review section, including when there are no plugin contributors. Shared
+controls and section choices push page-search history. Unavailable modules, reporting-preference
+failures, and per-section load/render failures have separate states. Plugin sections receive
+`AnalyticsSectionProps` from the client SDK and own their data queries and retries.
+
+Collection reviews load current/previous totals and the timezone-grouped trend separately from
+cursor-paged contributing records. Each load has its own retry. Totals include rating-only reviews;
+bounded trend results report truncation. Record continuation retains the first page's resolved
+period, while a refresh resolves rolling dates again from the supplied clock.
