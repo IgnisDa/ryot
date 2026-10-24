@@ -3,6 +3,8 @@ import type {
 	AppStringPropertyReference,
 } from "@ryot-app/contract/schema/property-schema";
 
+import { calendarDateField, consumptionBasisField } from "./consumption";
+
 const text = (label: string, reference?: AppStringPropertyReference) => ({
 	label,
 	description: label,
@@ -37,6 +39,14 @@ const schema = (fields: AppSchema["fields"], optional: readonly string[] = []): 
 
 export const historyCorrectionEventSchemas = [
 	{
+		slug: "consumption-dependency",
+		name: "Consumption correction dependency",
+		propertiesSchema: schema({
+			subjectEntityId: entity("Consumption output entity"),
+			correctionSubjectEntityId: entity("Correction subject"),
+		}),
+	},
+	{
 		name: "History correction",
 		slug: "history-correction",
 		propertiesSchema: schema(
@@ -62,6 +72,7 @@ export const historyCorrectionEventSchemas = [
 					items: event("New activity"),
 				},
 				phase: choices("Phase", [
+					"dependencies",
 					"audit",
 					"progress",
 					"prune",
@@ -87,10 +98,13 @@ export const historyCorrectionEventSchemas = [
 				runKey: text("Last reconciliation"),
 				silent: boolean("Silent correction"),
 				sourceEventId: event("Progress source"),
+				expectedCalendarDate: calendarDateField,
 				subjectEntityId: entity("History subject"),
+				expectedSourceRun: text("Expected source run"),
 				frozen: boolean("Retained completion evidence"),
 				expectedOrderKey: text("Expected source order"),
 				rule: choices("Rule", ["progress", "coverage"]),
+				expectedConsumptionBasis: consumptionBasisField,
 				expectedDateUnknown: boolean("Expected unknown date"),
 				expectedConsumedOn: text("Expected consumption source"),
 				status: choices("Status", ["building", "active", "inactive", "suppressed", "overridden"]),
@@ -109,6 +123,12 @@ export const historyCorrectionEventSchemas = [
 					label: "Expected source creation time",
 					description: "Expected source creation time",
 				},
+				expectedTimeSpent: {
+					type: "number",
+					validation: { minimum: 0 },
+					label: "Expected recorded minutes",
+					description: "Cumulative minutes from the closing progress observation",
+				},
 			},
 			[
 				"sourceEventId",
@@ -116,6 +136,10 @@ export const historyCorrectionEventSchemas = [
 				"expectedOccurredAt",
 				"expectedConsumedOn",
 				"expectedDateUnknown",
+				"expectedCalendarDate",
+				"expectedConsumptionBasis",
+				"expectedTimeSpent",
+				"expectedSourceRun",
 				"expectedOrderKey",
 				"expectedOrderCreatedAt",
 			],

@@ -61,6 +61,15 @@ export const mediaUserStatePolicy = (slug: string): PluginEntityUserStatePolicy 
 				entitySchemaSlug: EntitySchemaSlug.make("media-library"),
 			},
 		})),
+		...["subjectEntityId", "correctionSubjectEntityId"].map((subjectProperty) => ({
+			subjectProperty,
+			resetOnMerge: true,
+			eventSchema: {
+				owner: { kind: "self" as const },
+				slug: EventSchemaSlug.make("consumption-dependency"),
+				entitySchemaSlug: EntitySchemaSlug.make("media-library"),
+			},
+		})),
 		...["add-entity-to-collection", "remove-entity-from-collection"].map((eventSlug) => ({
 			subjectProperty: "entityId",
 			eventSchema: {

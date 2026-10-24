@@ -80,6 +80,9 @@ it("declares the complete media-owned source", () => {
 		homeView: null,
 		entities: expect.any(Object),
 		apiVersion: CLIENT_API_VERSION,
+		analyticsSections: {
+			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
+		},
 		routes: {
 			"/": "media-home",
 			"/book/new": "media-entity-editor",
@@ -197,6 +200,11 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/podcast-card-presentation.ts",
+			},
+			"media-analytics": {
+				kind: "analytics-section",
+				automaticEntityPresentations: false,
+				entry: "client/analytics/section.tsx",
 			},
 			"audiobook-row": {
 				kind: "presentation",

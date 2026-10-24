@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import { consumedItemField, withConsumptionFacts } from "./consumption";
 import { historyCorrectionEventSchemas } from "./history-correction";
 import {
 	animePropertiesSchema,
@@ -58,7 +59,6 @@ const progressPercentPropertiesSchema = (): AppSchema => ({
 		progressPercent: {
 			type: "number" as const,
 			label: "Progress percent",
-			normalize: { round: { scale: 2 } },
 			validation: { maximum: 100, exclusiveMinimum: 0 },
 			description: "Percentage of the media completed so far (0 to 100)",
 		},
@@ -70,6 +70,19 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 		return progressPercentPropertiesSchema();
 	}
 	switch (entitySchemaSlug) {
+		case "book":
+		case "comic-book":
+			return {
+				fields: {
+					...progressPercentPropertiesSchema().fields,
+					progressPages: {
+						type: "number",
+						label: "Pages reached",
+						validation: { minimum: 0 },
+						description: "Exact cumulative pages in this run",
+					},
+				},
+			};
 		case "anime":
 			return {
 				fields: {
@@ -302,7 +315,20 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{
 		name: "Progress",
 		slug: "progress",
-		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+		propertiesSchema: withConsumptionFacts(
+			withStartedOn(
+				withTimeSpent({
+					fields: {
+						...progressPropertiesSchemaByEntity(entitySchemaSlug).fields,
+						dateUnknown: {
+							type: "boolean",
+							label: "Date unknown",
+							description: "No reliable consumption date",
+						},
+					},
+				}),
+			),
+		),
 	},
 	{
 		name: "Review",
@@ -313,20 +339,20 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		name: "Dropped",
 		slug: "dropped",
 		propertiesSchema: withStartedOn(
-			withTimeSpent(statusPropertiesSchemaByEntity(entitySchemaSlug)),
+			withTimeSpent(withConsumptionFacts(statusPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
 		name: "On Hold",
 		slug: "on_hold",
 		propertiesSchema: withStartedOn(
-			withTimeSpent(statusPropertiesSchemaByEntity(entitySchemaSlug)),
+			withTimeSpent(withConsumptionFacts(statusPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
 		name: "Complete",
 		slug: "complete",
-		propertiesSchema: {
+		propertiesSchema: withConsumptionFacts({
 			fields: {
 				...consumedOnField,
 				timeSpent: timeSpentField,
@@ -349,10 +375,24 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					description: "Stable identity of the completion evidence",
 				},
 			},
-		},
+		}),
 	},
 	...(entitySchemaSlug === "anime" || entitySchemaSlug === "manga"
-		? [listStateEventSchema(entitySchemaSlug)]
+		? [
+				listStateEventSchema(entitySchemaSlug),
+				{
+					name: "Item consumed",
+					slug: "item-complete",
+					propertiesSchema: withConsumptionFacts({
+						fields: {
+							...consumedOnField,
+							timeSpent: timeSpentField,
+							startedOn: startedOnField,
+							consumedItem: consumedItemField(entitySchemaSlug),
+						},
+					}),
+				},
+			]
 		: []),
 ];
 

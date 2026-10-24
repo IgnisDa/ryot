@@ -29,6 +29,10 @@ import { mediaCalendarSources } from "./calendar-sources";
 import { mediaConfigSchema } from "./config";
 import { mediaProviders } from "./providers";
 import { mediaSavedViews } from "./saved-views";
+import {
+	hasConsumptionProjection,
+	mediaConsumptionProjection,
+} from "./schemas/consumption-projection";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
@@ -49,7 +53,22 @@ const entitySchemas = mediaEntitySchemas().map(
 		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
 			? Object.assign({}, browsed, { userState: mediaUserStatePolicy(schema.slug) })
 			: browsed;
-		return editor === undefined ? definition : Object.assign({}, definition, { editor });
+		const projected = [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].some(
+			(slug) => slug === schema.slug,
+		)
+			? Object.assign({}, definition, {
+					eventSchemas: definition.eventSchemas.map((event) =>
+						hasConsumptionProjection(event.slug)
+							? Object.assign({}, event, {
+									projection: mediaConsumptionProjection(
+										definition.eventSchemas.map((value) => value.slug),
+									),
+								})
+							: event,
+					),
+				})
+			: definition;
+		return editor === undefined ? projected : Object.assign({}, projected, { editor });
 	},
 );
 
@@ -630,6 +649,9 @@ export const mediaPlugin = definePlugin({
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
 		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
+		analyticsSections: {
+			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
+		},
 		routes: {
 			"/": "media-home",
 			...Object.fromEntries(
@@ -651,6 +673,11 @@ export const mediaPlugin = definePlugin({
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/media-card-presentation.ts",
+			},
+			"media-analytics": {
+				kind: "analytics-section",
+				automaticEntityPresentations: false,
+				entry: "client/analytics/section.tsx",
 			},
 			"media-home": {
 				kind: "page",
@@ -939,12 +966,46 @@ export const mediaPlugin = definePlugin({
 			name: "Reconcile media history",
 			slug: "media.reconcile-history",
 			scriptSlug: "automation.reconcile-media-history",
-			targets: ["progress", "complete", "backlog", "on_hold", "dropped"].flatMap((slug) =>
+			targets: [
+				"progress",
+				"complete",
+				"item-complete",
+				"backlog",
+				"on_hold",
+				"dropped",
+				"review",
+				"list-state",
+				"add-to-media-library",
+			].flatMap((slug) =>
 				eventSlugs(slug).flatMap((qualified) =>
 					(["create", "update", "delete"] as const).map((operation) =>
 						Object.assign({}, eventHookTarget(qualified), { operation }),
 					),
 				),
+			),
+		},
+		{
+			position: 200,
+			stage: "before",
+			slug: "media.consumption",
+			name: "Retain consumption evidence",
+			scriptSlug: "policy.media-consumption",
+			targets: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].flatMap(
+				(entity) => {
+					const events =
+						entity === "show" || entity === "podcast" ? ["complete"] : ["progress", "complete"];
+					if (!entity.endsWith("-episode")) {
+						events.push("dropped", "on_hold");
+					}
+					if (entity === "anime" || entity === "manga") {
+						events.push("item-complete");
+					}
+					return events.flatMap((event) =>
+						(["create", "update"] as const).map((operation) =>
+							Object.assign({}, eventHookTarget(`${entity}:${event}`), { operation }),
+						),
+					);
+				},
 			),
 		},
 		{
