@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { ReportingTimeZone } from "../modules/analytics/reporting";
 import { strictStruct } from "./utils";
 
 const StoredLanguage = Schema.String.pipe(
@@ -9,6 +10,7 @@ const StoredLanguage = Schema.String.pipe(
 export const userPreferenceFields = {
 	disableIntegrations: Schema.Boolean,
 	language: Schema.NullOr(Schema.String),
+	reportingTimeZone: Schema.NullOr(ReportingTimeZone),
 };
 
 export const UserPreferences = strictStruct({
@@ -19,11 +21,13 @@ export type UserPreferences = typeof UserPreferences.Type;
 
 export const UserPreferencesPatch = strictStruct({
 	language: Schema.optional(userPreferenceFields.language),
+	reportingTimeZone: Schema.optional(userPreferenceFields.reportingTimeZone),
 	disableIntegrations: Schema.optional(userPreferenceFields.disableIntegrations),
 });
 export type UserPreferencesPatch = typeof UserPreferencesPatch.Type;
 
 export const defaultUserPreferences: UserPreferences = {
 	language: null,
+	reportingTimeZone: null,
 	disableIntegrations: false,
 };

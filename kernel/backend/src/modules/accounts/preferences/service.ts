@@ -15,14 +15,19 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				user: CurrentUserValue,
 				body: UpdateUserPreferencesBody,
 			) {
-				if (Object.keys(body).length === 0) {
+				const { initializeReportingTimeZone, ...patch } = body;
+				if (initializeReportingTimeZone !== undefined) {
+					yield* auth.initializeReportingTimeZone(user.id, initializeReportingTimeZone);
+					return;
+				}
+				if (Object.keys(patch).length === 0) {
 					return;
 				}
 				yield* auth.updateUserPreferences(user.id, {
-					...body,
-					...(body.language === undefined
+					...patch,
+					...(patch.language === undefined
 						? {}
-						: { language: body.language === null ? null : body.language.trim() || null }),
+						: { language: patch.language === null ? null : patch.language.trim() || null }),
 				});
 			});
 			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (

@@ -1,12 +1,13 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	defaultUserPreferences,
 	type UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 
@@ -25,6 +26,9 @@ class FakeAuthSettings extends Context.Service<
 	FakeAuthSettings,
 	{
 		readonly imageUpdates: Effect.Effect<ReadonlyArray<{ image: string; userId: UserId }>>;
+		readonly initializations: Effect.Effect<
+			ReadonlyArray<{ userId: UserId; reportingTimeZone: string }>
+		>;
 		readonly preferenceUpdates: Effect.Effect<
 			ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
 		>;
@@ -42,6 +46,9 @@ const serviceLayer = () =>
 					const imageUpdates = yield* Ref.make<ReadonlyArray<{ image: string; userId: UserId }>>(
 						[],
 					);
+					const initializations = yield* Ref.make<
+						ReadonlyArray<{ userId: UserId; reportingTimeZone: string }>
+					>([]);
 					return Context.make(
 						AuthService,
 						Object.assign(Object.create(null), {
@@ -49,10 +56,13 @@ const serviceLayer = () =>
 								Ref.update(imageUpdates, (all) => [...all, { image, userId }]),
 							updateUserPreferences: (userId: UserId, preferences: UserPreferencesPatch) =>
 								Ref.update(preferenceUpdates, (all) => [...all, { userId, preferences }]),
+							initializeReportingTimeZone: (userId: UserId, reportingTimeZone: string) =>
+								Ref.update(initializations, (all) => [...all, { userId, reportingTimeZone }]),
 						}),
 					).pipe(
 						Context.add(FakeAuthSettings, {
 							imageUpdates: Ref.get(imageUpdates),
+							initializations: Ref.get(initializations),
 							preferenceUpdates: Ref.get(preferenceUpdates),
 						}),
 					);
@@ -62,10 +72,60 @@ const serviceLayer = () =>
 	);
 
 layer(serviceLayer())((test) => {
+	test.effect("routes initialization to the conditional writer without a preference patch", () =>
+		Effect.gen(function* () {
+			const service = yield* UserSettingsService;
+			const user = makeUser({ ...defaultUserPreferences, reportingTimeZone: "America/New_York" });
+			const body = yield* Schema.decodeEffect(UpdateUserPreferencesBody)({
+				initializeReportingTimeZone: "Asia/Kolkata",
+			});
+			yield* service.updatePreferences(user, body);
+			expect(yield* (yield* FakeAuthSettings).initializations).toEqual([
+				{ userId: user.id, reportingTimeZone: "Asia/Kolkata" },
+			]);
+			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([]);
+			yield* service.updatePreferences(user, { reportingTimeZone: "Pacific/Auckland" });
+			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+				{ userId: user.id, preferences: { reportingTimeZone: "Pacific/Auckland" } },
+			]);
+		}),
+	);
+});
+
+layer(serviceLayer())((test) => {
+	test.effect("rejects invalid and mixed initialization requests before dispatch", () =>
+		Effect.gen(function* () {
+			const service = yield* UserSettingsService;
+			for (const body of [
+				{ initializeReportingTimeZone: "+05:30" },
+				{ initializeReportingTimeZone: "Not/AZone" },
+				{ initializeReportingTimeZone: null },
+				{ language: "fr", initializeReportingTimeZone: "UTC" },
+				{ reportingTimeZone: "Asia/Kolkata", initializeReportingTimeZone: "UTC" },
+			]) {
+				const exit = yield* Schema.decodeUnknownEffect(UpdateUserPreferencesBody)(body).pipe(
+					Effect.flatMap((decoded) =>
+						service.updatePreferences(makeUser(defaultUserPreferences), decoded),
+					),
+					Effect.exit,
+				);
+				expect(exit._tag).toBe("Failure");
+			}
+			expect(yield* (yield* FakeAuthSettings).initializations).toEqual([]);
+			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([]);
+		}),
+	);
+});
+
+layer(serviceLayer())((test) => {
 	test.effect("sends only changed fields even when CurrentUser is stale", () =>
 		Effect.gen(function* () {
 			const service = yield* UserSettingsService;
-			const user = makeUser({ language: "es", disableIntegrations: false });
+			const user = makeUser({
+				language: "es",
+				reportingTimeZone: null,
+				disableIntegrations: false,
+			});
 			yield* service.updatePreferences(user, { disableIntegrations: true });
 			yield* service.updatePreferences(user, { language: null, disableIntegrations: false });
 			yield* service.updatePreferences(user, { language: "  fr  " });
