@@ -40,8 +40,11 @@ import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-w
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
 import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/workflow";
-import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
-import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
+import {
+	BackupServicesLive,
+	BackupWorkflowOperationsLive,
+	RestoreBackupWorkflowDefinitionsProvidedLive,
+} from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import {
 	CollectionMembershipWorkflowDefinitionsLive,
@@ -77,8 +80,10 @@ import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventsServiceLive,
+	EventStreamLifecycleWorkProvidedLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
+import { EventProjectionInputReadinessLive } from "#modules/events/projection-readiness";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -134,6 +139,7 @@ import {
 	RelationshipProjectionServiceLive,
 	RelationshipsServiceLive,
 } from "#modules/relationships/layer";
+import { RelationshipProjectionInputFenceLive } from "#modules/relationships/projections/repository";
 import { ReminderEntityLifecycleLive } from "#modules/reminders/entity-lifecycle";
 import {
 	ReminderNotificationSourcePolicyLive,
@@ -173,7 +179,7 @@ import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
-import { ProjectionFinalizerLive } from "./projection-finalizer";
+import { ProjectionFinalizerLive, ProjectionRecoveryLive } from "./projection-finalizer";
 import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
@@ -215,6 +221,11 @@ const ApplicationInfrastructureLive = Layer.merge(PersistedQueueLive, WorkflowEn
 const ContentLifecycleRepositoriesLive = Layer.merge(
 	PluginRepository.layer,
 	DefinitionRepository.layer,
+);
+
+const ProjectionInputsLive = Layer.merge(
+	RelationshipProjectionInputFenceLive,
+	EventProjectionInputReadinessLive,
 );
 
 // One reference keeps a single sandbox runtime with ingestion staging for every consumer.
@@ -284,6 +295,9 @@ const ServicesLive = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
+	Layer.provideMerge(
+		EventStreamLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive)),
+	),
 );
 
 const ServicesWithTestSupportLive = Layer.merge(
@@ -292,6 +306,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 ).pipe(
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
+	Layer.provideMerge(ProjectionInputsLive),
 );
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
@@ -317,7 +332,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	DataImportWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
 	IngestionCaptureWorkflowDefinitionsProvidedLive,
-	RestoreBackupWorkflowDefinitionsLive,
+	RestoreBackupWorkflowDefinitionsProvidedLive,
 	UserLifecycleWorkflowDefinitionsLive,
 	UserBootstrapWorkflowDefinitionsLive,
 	PluginInstallationWorkflowDefinitionsLive,
@@ -368,7 +383,12 @@ const RuntimeWorkLive = Layer.merge(
 	FrequentCronWorkflowDefinitionsLive,
 );
 
-const RuntimeLive = Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);
+const RuntimeLive = Layer.mergeAll(
+	RuntimeWorkLive,
+	ServerLive,
+	RuntimeSchedulersLive,
+	ProjectionRecoveryLive.pipe(Layer.provide(RuntimeWorkLive)),
+);
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
@@ -383,6 +403,10 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationMigrationLive,
 	IntegrationsRepository.layer,
 ).pipe(
+	Layer.provideMerge(
+		EventStreamLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive)),
+	),
+	Layer.provideMerge(ProjectionInputsLive),
 	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
 	Layer.provideMerge(WorkflowEngineLive),

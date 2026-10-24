@@ -144,7 +144,8 @@ const hostDatabaseLayer = Layer.mergeAll(
 	seededDatabase,
 	Layer.mock(LifecyclePlanner)(
 		withLifecycleBatchPlanning({
-			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
+			plan: ({ trigger }) =>
+				Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true, backgroundJobIds: [] }),
 		}),
 	),
 	Layer.mock(LifecycleExecution)({
@@ -371,6 +372,10 @@ const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"][
 			failed: () => Effect.die("Unexpected EventStreamWorkService.failed"),
 			process: () => Effect.die("Unexpected EventStreamWorkService.process"),
 			reconcile: () => Effect.die("Unexpected EventStreamWorkService.reconcile"),
+			admitChange: () => Effect.die("Unexpected EventStreamWorkService.admitChange"),
+			processInputRepair: () => Effect.die("Unexpected EventStreamWorkService.processInputRepair"),
+			inputRepairCompleted: () =>
+				Effect.die("Unexpected EventStreamWorkService.inputRepairCompleted"),
 		}),
 	);
 
