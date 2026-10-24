@@ -4,7 +4,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser, refreshImpersonationOAuthTokens } from "~/fixtures/kernel";
 import { assertCondition, requirePresent } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getAdminAccessToken, getFrontendUrl } from "~/support/harness-target";
 
@@ -16,7 +16,7 @@ const viewports = [
 const openSettingsFromWorkspace = (page: Playwright.Page, frontendUrl: string, isMobile: boolean) =>
 	Effect.gen(function* () {
 		if (isMobile) {
-			yield* page.getByRole("button", { name: "Open navigation" }).click();
+			yield* pluginFrame(page).getByRole("button", { name: "Open navigation" }).click();
 			yield* page.getByTestId("mobile-drawer").getByRole("link", { name: "Open settings" }).click();
 		} else {
 			yield* page.getByRole("link", { name: "Open settings" }).click();
@@ -64,6 +64,9 @@ for (const { label, viewport } of viewports) {
 			yield* actions.waitFor({ state: "visible" });
 			yield* actions.click();
 			yield* page.getByRole("menuitem", { exact: true, name: "Impersonate user" }).click();
+			const impersonationLink = page.getByLabel("Impersonation link", { exact: true });
+			yield* impersonationLink.waitFor({ state: "visible" });
+			yield* page.goto(yield* impersonationLink.inputValue());
 
 			const shell = page.getByTestId("authenticated-shell");
 			const banner = page.getByRole("status").and(page.getByTestId("impersonation-banner"));

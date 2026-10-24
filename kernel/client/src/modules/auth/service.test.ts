@@ -2,6 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
@@ -66,23 +67,35 @@ const authLayer = (
 				tokens.accessToken ?? (() => Effect.succeed(null)),
 			);
 			const recordClear = (name: string) => Ref.update(clears, (all) => [...all, name]);
+			const authorization = makeAuthorizationState();
 			const tokenService: OAuthTokenService["Service"] = {
+				authorization,
 				rejectAuthorization: () => Effect.die("not used"),
 				completeAuthorization: () => Effect.die("not used"),
-				clear: (server) =>
-					recordClear("clear-auth").pipe(Effect.andThen(tokens.clear?.(server) ?? Effect.void)),
-				userInfo: (server) =>
+				userInfo: (server, originating) =>
 					Ref.update(userInfoCalls, (count) => count + 1).pipe(
-						Effect.andThen(tokens.userInfo?.(server) ?? Effect.succeed(null)),
+						Effect.andThen(tokens.userInfo?.(server, originating) ?? Effect.succeed(null)),
 					),
-				logout: (server, redirectUri) =>
-					Ref.update(logouts, (all) => [...all, { redirectUri, origin: server }]).pipe(
-						Effect.andThen(tokens.logout?.(server, redirectUri) ?? Effect.succeed(null)),
+				clear: (server) =>
+					recordClear("clear-auth").pipe(
+						Effect.andThen(Effect.sync(() => authorization.forServer(server).replace(null))),
+						Effect.andThen(tokens.clear?.(server) ?? Effect.void),
 					),
 				accessToken: (server, forceRefresh) =>
 					Ref.update(accessTokenCalls, (count) => count + 1).pipe(
 						Effect.andThen(Ref.get(accessToken)),
 						Effect.flatMap((behavior) => behavior(server, forceRefresh)),
+					),
+				logout: (server, redirectUri) =>
+					Ref.update(logouts, (all) => [...all, { redirectUri, origin: server }]).pipe(
+						Effect.andThen(tokens.logout?.(server, redirectUri) ?? Effect.succeed(null)),
+						Effect.tap((url) =>
+							Effect.sync(() => {
+								if (url === null || new URL(url).searchParams.get("state") !== "impersonation") {
+									authorization.forServer(server).replace(null);
+								}
+							}),
+						),
 					),
 			};
 			return Layer.merge(

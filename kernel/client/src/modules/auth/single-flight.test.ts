@@ -1,25 +1,19 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
-import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
+import { makeSingleFlight } from "#/modules/auth/single-flight";
 
-const origin = decodeServerOrigin("https://example.com");
-const oneOrigin = decodeServerOrigin("https://one.test");
-const twoOrigin = decodeServerOrigin("https://two.test");
-const equivalentOrigin = decodeServerOrigin("https://example.com/");
-
-describe("origin single flight", () => {
-	it.effect("shares one run across concurrent callers for the same origin", () => {
+describe("authorization single flight", () => {
+	it.effect("shares one run across concurrent callers", () => {
 		let runs = 0;
 		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<string, never>();
+			const flight = makeSingleFlight<string, never>();
 			const compute = Effect.promise(() => {
 				runs += 1;
 				return Promise.resolve("value");
 			});
 			const results = yield* Effect.all(
-				Array.from({ length: 4 }, () => flight(origin, compute)),
+				Array.from({ length: 4 }, () => flight(compute)),
 				{ concurrency: "unbounded" },
 			);
 
@@ -28,48 +22,30 @@ describe("origin single flight", () => {
 		});
 	});
 
-	it.effect("keys separate origins independently", () => {
+	it.effect("keeps independent authorization flights separate", () => {
 		const seen: string[] = [];
 		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<string, never>();
-			const run = (server: typeof origin) =>
-				flight(
-					server,
-					Effect.sync(() => (seen.push(server), server)),
-				);
+			const first = makeSingleFlight<string, never>();
+			const second = makeSingleFlight<string, never>();
 
-			expect(yield* Effect.all([run(oneOrigin), run(twoOrigin)])).toEqual([
-				"https://one.test",
-				"https://two.test",
-			]);
-			expect(seen).toEqual(["https://one.test", "https://two.test"]);
+			expect(
+				yield* Effect.all([
+					first(Effect.sync(() => (seen.push("one"), "one"))),
+					second(Effect.sync(() => (seen.push("two"), "two"))),
+				]),
+			).toEqual(["one", "two"]);
+			expect(seen).toEqual(["one", "two"]);
 		});
 	});
 
-	it.effect("treats equivalent origins as one key", () => {
+	it.effect("releases completed work so a later caller starts fresh work", () => {
 		let runs = 0;
 		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<string, never>();
-			const compute = Effect.promise(() => {
-				runs += 1;
-				return Promise.resolve("value");
-			});
-			yield* Effect.all([flight(origin, compute), flight(equivalentOrigin, compute)], {
-				concurrency: "unbounded",
-			});
-
-			expect(runs).toBe(1);
-		});
-	});
-
-	it.effect("releases the key so a later caller starts fresh work", () => {
-		let runs = 0;
-		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<number, never>();
+			const flight = makeSingleFlight<number, never>();
 			const compute = Effect.sync(() => (runs += 1));
 
-			expect(yield* flight(origin, compute)).toBe(1);
-			expect(yield* flight(origin, compute)).toBe(2);
+			expect(yield* flight(compute)).toBe(1);
+			expect(yield* flight(compute)).toBe(2);
 			expect(runs).toBe(2);
 		});
 	});
@@ -79,10 +55,9 @@ describe("origin single flight", () => {
 		const finished = Deferred.makeUnsafe<void>();
 		const completed: string[] = [];
 		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<string, never>();
+			const flight = makeSingleFlight<string, never>();
 			const fiber = yield* Effect.forkChild(
 				flight(
-					origin,
 					Effect.gen(function* () {
 						yield* Deferred.await(release);
 						completed.push("done");
@@ -104,18 +79,14 @@ describe("origin single flight", () => {
 		const release = Deferred.makeUnsafe<void>();
 		let runs = 0;
 		return Effect.gen(function* () {
-			const flight = makeOriginSingleFlight<string, never>();
+			const flight = makeSingleFlight<string, never>();
 			const compute = Effect.gen(function* () {
 				runs += 1;
 				yield* Deferred.await(release);
 				return "value";
 			});
-			const abandoned = yield* Effect.forkChild(flight(origin, compute), {
-				startImmediately: true,
-			});
-			const surviving = yield* Effect.forkChild(flight(origin, compute), {
-				startImmediately: true,
-			});
+			const abandoned = yield* Effect.forkChild(flight(compute), { startImmediately: true });
+			const surviving = yield* Effect.forkChild(flight(compute), { startImmediately: true });
 
 			yield* Fiber.interrupt(abandoned);
 			yield* Deferred.succeed(release, undefined);

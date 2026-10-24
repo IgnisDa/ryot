@@ -231,6 +231,15 @@ kernel banner shows the target and fixed expiry; stop and expiry return to locke
 restoring the previous login. Web tabs reload on session identity changes, but not token rotation;
 authenticated requests reject stale user scopes.
 
+`OAuthTokenService` owns one authorization record per server, including the session snapshot and
+refresh/UserInfo flights. New authorizations replace the handle; token rotation retains it. Clears
+invalidate it, and only the originating current handle can persist rotated tokens or publish a
+profile. Storage mutations are serialized per server without holding the lock across HTTP requests.
+`AuthService` projects that same record. Detached work survives navigation cancellation but cannot
+restore a cleared login or overwrite a replacement login's tokens, profile, or access class.
+Temporary storage read failures can be retried. An explicit clear disables in-memory restoration
+until a new authorization commits, even if storage deletion fails.
+
 ## Assets
 
 `assets/icon-only.png` drives app and web icons, `assets/logo.png` drives adaptive foregrounds and

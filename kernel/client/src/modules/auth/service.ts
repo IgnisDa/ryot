@@ -3,8 +3,8 @@ import type { AccessClass, ImpersonationSession } from "@ryot-app/contract/oauth
 import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
+import type { Authorization } from "#/modules/auth/authorization";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
-import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
 import type { OAuthTokenError } from "#/modules/auth/token-service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
@@ -44,105 +44,95 @@ export const toAuthSessionState = (session: SettledAuthSession) =>
 const isLostAuthorization = (error: OAuthTokenError) =>
 	error.reason === "invalid-grant" || error.reason === "missing-authorization";
 
-const makeSessionStore = () => {
-	let snapshot: AuthSessionSnapshot = { status: "pending" };
-	const listeners = new Set<() => void>();
-	return {
-		set: (next: AuthSessionSnapshot) => {
-			snapshot = next;
-			listeners.forEach((listener) => listener());
-		},
-		store: {
-			getSnapshot: () => snapshot,
-			subscribe: (listener: () => void) => {
-				listeners.add(listener);
-				return () => {
-					listeners.delete(listener);
-				};
-			},
-		},
-	};
-};
-
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
 		const storage = yield* ClientStorage;
 		const tokens = yield* OAuthTokenService;
 		const runtimeClient = yield* RuntimeOAuthClientService;
-		const sessions = new Map<ServerOrigin, ReturnType<typeof makeSessionStore>>();
-		const resolutions = makeOriginSingleFlight<SettledAuthSession, OAuthTokenError>();
-		const getSession = (origin: ServerOrigin) => {
-			const existing = sessions.get(origin);
-			if (existing) {
-				return existing;
-			}
-			const created = makeSessionStore();
-			sessions.set(origin, created);
-			return created;
-		};
-		const resolveUserInfo = (canonical: ServerOrigin) =>
-			Effect.gen(function* () {
-				const user = yield* tokens
-					.userInfo(canonical)
-					.pipe(
-						Effect.catchTag("OAuthTokenError", (error) =>
-							isLostAuthorization(error) ? Effect.succeed(null) : Effect.fail(error),
-						),
-					);
-				const snapshot: SettledAuthSession = user
-					? {
-							status: "authenticated",
-							accessClass: user.accessClass,
-							user: {
-								id: user.sub,
-								email: user.email ?? "",
-								image: user.picture ?? null,
-								name: user.name ?? user.email ?? user.sub,
-							},
-							...(user.impersonation === undefined ? {} : { impersonation: user.impersonation }),
-						}
-					: { status: "missing" };
-				getSession(canonical).set(snapshot);
-				return snapshot;
-			});
+		const resolveUserInfo = Effect.fnUntraced(function* (
+			canonical: ServerOrigin,
+			authorization: Authorization,
+		) {
+			const user = yield* tokens
+				.userInfo(canonical, authorization)
+				.pipe(
+					Effect.catchTag("OAuthTokenError", (error) =>
+						isLostAuthorization(error) ? Effect.succeed(null) : Effect.fail(error),
+					),
+				);
+			const snapshot: SettledAuthSession = user
+				? {
+						status: "authenticated",
+						accessClass: user.accessClass,
+						user: {
+							id: user.sub,
+							email: user.email ?? "",
+							image: user.picture ?? null,
+							name: user.name ?? user.email ?? user.sub,
+						},
+						...(user.impersonation === undefined ? {} : { impersonation: user.impersonation }),
+					}
+				: { status: "missing" };
+			tokens.authorization.forServer(canonical).publish(authorization, snapshot);
+			return snapshot;
+		});
 		const settledSession = Effect.fn("AuthService.settledSession")(function* (
 			origin: ServerOrigin,
 			forceRefresh = false,
 		) {
-			const session = getSession(origin);
-			const cached = session.store.getSnapshot();
-			const probe = yield* tokens.accessToken(origin).pipe(
-				Effect.map((token): AuthorizationProbe => ({
-					kind: token === null ? "unauthorized" : "authorized",
-				})),
-				Effect.catchTag("OAuthTokenError", (error) => {
-					if (isLostAuthorization(error)) {
-						return Effect.succeed<AuthorizationProbe>({ kind: "unauthorized" });
-					}
-					if (cached.status === "pending") {
-						return Effect.fail(error);
-					}
-					return Effect.succeed<AuthorizationProbe>({ fallback: cached, kind: "indeterminate" });
-				}),
-			);
-			if (probe.kind === "indeterminate") {
-				return probe.fallback;
-			}
-			if (probe.kind === "unauthorized") {
-				const snapshot: SettledAuthSession = { status: "missing" };
-				if (cached.status !== "missing") {
-					session.set(snapshot);
+			const session = tokens.authorization.forServer(origin);
+			let refresh = forceRefresh;
+			for (;;) {
+				const authorization = session.current;
+				const cached = session.store.getSnapshot();
+				const probeResult = yield* tokens.accessToken(origin).pipe(
+					Effect.map((token): AuthorizationProbe => ({
+						kind: token === null ? "unauthorized" : "authorized",
+					})),
+					Effect.catchTag("OAuthTokenError", (error) => {
+						if (isLostAuthorization(error)) {
+							return Effect.succeed<AuthorizationProbe>({ kind: "unauthorized" });
+						}
+						if (cached.status === "pending") {
+							return Effect.fail(error);
+						}
+						return Effect.succeed<AuthorizationProbe>({ fallback: cached, kind: "indeterminate" });
+					}),
+					Effect.result,
+				);
+				if (!session.isCurrent(authorization)) {
+					refresh = false;
+					continue;
 				}
-				return snapshot;
+				if (probeResult._tag === "Failure") {
+					return yield* probeResult.failure;
+				}
+				const probe = probeResult.success;
+				if (probe.kind === "indeterminate") {
+					return probe.fallback;
+				}
+				if (probe.kind === "unauthorized") {
+					const snapshot: SettledAuthSession = { status: "missing" };
+					if (cached.status !== "missing") {
+						session.publish(authorization, snapshot);
+					}
+					return snapshot;
+				}
+				if (!refresh && cached.status === "authenticated") {
+					return cached;
+				}
+				const resolved = yield* authorization
+					.resolution(resolveUserInfo(origin, authorization))
+					.pipe(Effect.result);
+				if (!session.isCurrent(authorization)) {
+					refresh = false;
+					continue;
+				}
+				return resolved._tag === "Failure" ? yield* resolved.failure : resolved.success;
 			}
-			if (!forceRefresh && cached.status === "authenticated") {
-				return cached;
-			}
-			return yield* resolutions(origin, resolveUserInfo(origin));
 		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (origin: ServerOrigin) {
 			yield* tokens.clear(origin);
-			getSession(origin).set({ status: "missing" });
 		});
 		const signOut = Effect.fn("AuthService.signOut")(function* (origin: ServerOrigin) {
 			const client = yield* runtimeClient
@@ -156,12 +146,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				return false;
 			}
 			const endSessionUrl = yield* tokens.logout(origin, client.logoutUri);
-			const impersonating =
-				endSessionUrl !== null &&
-				new URL(endSessionUrl).searchParams.get("state") === "impersonation";
-			if (!impersonating) {
-				getSession(origin).set({ status: "missing" });
-			}
 			if (!endSessionUrl) {
 				return false;
 			}
@@ -188,7 +172,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			clearSession,
 			changeServer,
 			settledSession,
-			session: (origin: ServerOrigin) => getSession(origin).store,
+			session: (origin: ServerOrigin) => tokens.authorization.forServer(origin).store,
 		};
 	}),
 }) {

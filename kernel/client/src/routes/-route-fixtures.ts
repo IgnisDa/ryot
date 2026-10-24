@@ -27,6 +27,7 @@ import { makeAccountApi, makeInstanceAdminApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -244,6 +245,7 @@ export const makeOAuthRouteStubs = (
 			clear: () => Effect.void,
 			logout: () => Effect.succeed(null),
 			userInfo: () => Effect.succeed(null),
+			authorization: makeAuthorizationState(),
 			accessToken: () => Effect.succeed(null),
 			rejectAuthorization: () => Effect.die("not used"),
 			completeAuthorization: () => Effect.die("not used"),

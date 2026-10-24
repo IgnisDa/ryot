@@ -13,7 +13,7 @@
 
 ## Status
 
-**8 implemented, 0 in progress, 75 pending; 3 excluded.**
+**9 implemented, 0 in progress, 74 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -27,7 +27,7 @@
 | P07-R2 | Implemented | Top-level client/shared regions determine authority and traversal floors. `30b575897a`. |
 | P06-R1 | Implemented | Shared validated-entry stage enforces workflow policy through standalone and package paths while preserving adapter diagnostics and relative-import rules. `6c068ac196`. |
 | P07-R1 | Implemented | Authored ASTs enforce import and asset policy without multiline bypasses or inert-text false positives. `123aa8be21`. |
-| C01-R1 | Pending | Fence late authentication refresh completion. |
+| C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. See this finding's `audit:` commit. |
 | B04-R1 | Pending | One account bootstrap identity owner. |
 | B19-R1 | Pending | Agree on selected home/route targets during preparation and freshness checks. |
 | B07-R2 | Pending | Commit restore data and completion bookkeeping together. |
@@ -134,4 +134,13 @@
 - Final repository-wide `bun run check`: passed across 30 projects. Final `bun turbo --filter='!@ryot-app/e2e' test`: passed, 51/51 tasks.
 - Affected e2e: `e2e/src/api/kernel/plugins/compiled-package.test.ts`, two tests passed. Shipped artifacts rebuilt. Excluded apps unchanged. No push performed.
 
-Next after this batch: authenticated-state ownership (C01-R1), subject to the existing dependency order.
+### Batch 3: C01-R1 — accepted
+
+- One authorization record per server owns the session snapshot and refresh/UserInfo flights. Only current handles can publish profiles or commit tokens. Per-server storage locks exclude HTTP work. Rotation retains identity; clear and replacement invalidate detached predecessor work.
+- Clear also blocks stale stored credentials from being restored in memory after deletion failure. Code exchanges must retain their pending transaction and originating authority. Impersonation tokens remain until the hosted logout callback; wire and storage schemas are unchanged.
+- Client check passed; all 135 client test files and 1,034 tests passed. The 19 auth files contain 121 passing tests, including Deferred-controlled clear, replacement, stale invalid-grant, forced-refresh isolation, late UserInfo, subscription order, rotation, and origin-isolation regressions.
+- Repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
+- Affected browser e2e: signup and desktop/mobile impersonation passed (two files, three tests). Corrected stale test assumptions: open the generated impersonation link, and use the plugin iframe's mobile navigation trigger. No impersonation product behavior changed.
+- Main-session cleanup from `113ec24ff5` removed redundant single-flight wrapping and origin-keyed work; no new suppressions or bypass casts. Shipped client rebuilt; excluded apps unchanged. No push performed.
+
+Next ranked finding: B04-R1 (account bootstrap identity ownership).

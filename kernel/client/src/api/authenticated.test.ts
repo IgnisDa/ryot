@@ -9,6 +9,7 @@ import {
 	makeAuthenticatedApi,
 } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -22,6 +23,7 @@ const tokens = (
 	clear: () => Effect.void,
 	logout: () => Effect.succeed(null),
 	userInfo: () => Effect.succeed(null),
+	authorization: makeAuthorizationState(),
 	rejectAuthorization: () => Effect.die("not used"),
 	completeAuthorization: () => Effect.die("not used"),
 });
