@@ -269,7 +269,7 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 			throw new TypeError_(`Invalid header name: ${name}`);
 		return text;
 	};
-	const normalizeValue = (value) => String_(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, "");
+	const normalizeValue = (value) => String_(value).replaceAll(/^[\t\n\r ]+|[\t\n\r ]+$/g, "");
 
 	class Headers {
 		#entries = [];

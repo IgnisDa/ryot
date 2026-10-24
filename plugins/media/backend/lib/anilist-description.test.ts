@@ -116,7 +116,7 @@ describe("AniList descriptions", () => {
 			expect(rendered("details p").length).toBe(paragraphs);
 			const prose = spoilerControls.clone();
 			prose.find("summary, button").remove();
-			const concealedText = prose.first().text().replace(/\s+/g, " ").trim();
+			const concealedText = prose.first().text().replaceAll(/\s+/g, " ").trim();
 			if (paragraphs > 0) {
 				expect(
 					prose

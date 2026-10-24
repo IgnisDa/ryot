@@ -59,7 +59,7 @@ const bundleDiagnostic = (message: string, file = SANDBOX_SOURCE_FILE) => ({
 });
 
 const exactAlias = (specifier: string) =>
-	new RegExp(`^${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+	new RegExp(`^${specifier.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 
 const sdkAliases = (sdkEntries: Readonly<Record<string, string>>) =>
 	bundledSdkImports.map((specifier) => ({

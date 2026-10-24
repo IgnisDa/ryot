@@ -2,7 +2,13 @@ import type { Element, Root as HastRoot, RootContent as HastRootContent } from "
 import { raw } from "hast-util-raw";
 import { toMdast } from "hast-util-to-mdast";
 import type { BlockContent, Nodes, PhrasingContent, Root } from "mdast";
-import { directiveFromMarkdown, directiveToMarkdown } from "mdast-util-directive";
+import {
+	type ContainerDirective,
+	directiveFromMarkdown,
+	directiveToMarkdown,
+	type LeafDirective,
+	type TextDirective,
+} from "mdast-util-directive";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { toHast } from "mdast-util-to-hast";
 import { toMarkdown } from "mdast-util-to-markdown";
@@ -207,8 +213,8 @@ export const normalizeMarkdown = (input: string, options?: { baseUrl?: string })
 		toHast(parsed, {
 			allowDangerousHtml: true,
 			handlers: {
-				leafDirective: (state, node) => state.all(node),
-				textDirective: (state, node) =>
+				leafDirective: (state, node: LeafDirective) => state.all(node),
+				textDirective: (state, node: TextDirective) =>
 					node.name === "spoiler"
 						? {
 								type: "element",
@@ -217,7 +223,7 @@ export const normalizeMarkdown = (input: string, options?: { baseUrl?: string })
 								properties: { dataRyotSpoiler: "inline" },
 							}
 						: state.all(node),
-				containerDirective: (state, node) =>
+				containerDirective: (state, node: ContainerDirective) =>
 					node.name === "spoiler"
 						? {
 								tagName: "div",
@@ -249,9 +255,9 @@ export const normalizeMarkdown = (input: string, options?: { baseUrl?: string })
 				children: textContent(
 					htmlText(node)
 						.split("\n")
-						.map((line) => line.replace(/[ \t\f\r]+/g, " ").trim())
+						.map((line) => line.replaceAll(/[ \t\f\r]+/g, " ").trim())
 						.join("\n")
-						.replace(/^\n+|\n+$/g, ""),
+						.replaceAll(/^\n+|\n+$/g, ""),
 				),
 			}),
 			div: (state, node) =>

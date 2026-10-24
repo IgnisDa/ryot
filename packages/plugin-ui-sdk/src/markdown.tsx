@@ -84,7 +84,7 @@ export function markdownPlainText(text: string): string {
 		extensions: [directive()],
 		mdastExtensions: [directiveFromMarkdown()],
 	});
-	return previewMarkdown(tree).replace(/\s+/g, " ").trim();
+	return previewMarkdown(tree).replaceAll(/\s+/g, " ").trim();
 }
 
 function InlineSpoiler(props: { readonly children: ReactNode }) {

@@ -49,7 +49,7 @@ export const adaptGoodreadsCsv = (
 		const title = row["Title"]?.trim();
 		const sourceLabel = title?.length ? title : `Goodreads row ${itemIndex + 1}`;
 		const rawIsbn = (row["ISBN13"] ?? "").trim();
-		const stripped = rawIsbn.replace(/^=/, "").replace(/^"|"$/g, "");
+		const stripped = rawIsbn.replace(/^=/, "").replaceAll(/^"|"$/g, "");
 		if (stripped && !/^\d+$/.test(stripped)) {
 			failures.push({
 				itemIndex,

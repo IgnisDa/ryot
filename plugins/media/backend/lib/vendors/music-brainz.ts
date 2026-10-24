@@ -118,6 +118,6 @@ export const getPublishYear = (dateValue: unknown) => {
 };
 
 export const buildLuceneQuery = (query: string, fields: readonly string[]) => {
-	const escaped = query.replace(/([+\-!(){}[\]^"~*?:\\/])/g, "\\$1");
+	const escaped = query.replaceAll(/([+\-!(){}[\]^"~*?:\\/])/g, "\\$1");
 	return fields.map((field) => `${field}:(${escaped})`).join(" OR ");
 };

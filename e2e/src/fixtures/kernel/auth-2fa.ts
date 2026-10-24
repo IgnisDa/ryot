@@ -42,7 +42,7 @@ function generateTotpWindowCodes(secret: string) {
 }
 
 function decodeBase32(value: string) {
-	const normalized = value.toUpperCase().replace(/=+$/u, "").replace(/\s+/gu, "");
+	const normalized = value.toUpperCase().replace(/=+$/u, "").replaceAll(/\s+/gu, "");
 	return Buffer.from(base32.parse(normalized, { loose: true }));
 }
 

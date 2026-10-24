@@ -269,8 +269,8 @@ const buildStagedEntry = Effect.fn("buildSandboxEsmEntry")(function* (
 			"sourceMappingURL=data:application/json;charset=utf-8;base64,",
 			"sourceMappingURL=data:application/json;base64,",
 		)
-		.replace(/^\/\/#region .*\/source\/(.+)$/gm, "//#region $1")
-		.replace(/^\/\/#region .*\/generated\/(.+)$/gm, "//#region ryot:generated/$1");
+		.replaceAll(/^\/\/#region .*\/source\/(.+)$/gm, "//#region $1")
+		.replaceAll(/^\/\/#region .*\/generated\/(.+)$/gm, "//#region ryot:generated/$1");
 	const runtimeImports = yield* Effect.fromResult(
 		auditSandboxEsmOutput(
 			javascript,

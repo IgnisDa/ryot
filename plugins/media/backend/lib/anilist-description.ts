@@ -107,7 +107,7 @@ export const normalizeAnilistDescription = Effect.fn("normalizeAnilistDescriptio
 	}
 	const html = yield* Effect.try({
 		catch: () => new MediaSandboxError({ message: "description conversion failed" }),
-		try: () => legacySpoilerHtml(nativeSpoilerHtml(input.trim().replace(/\r\n?/g, "\n"))),
+		try: () => legacySpoilerHtml(nativeSpoilerHtml(input.trim().replaceAll(/\r\n?/g, "\n"))),
 	});
 	return yield* normalizeRichDescription(html, baseUrl);
 });

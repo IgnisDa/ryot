@@ -3,10 +3,10 @@ import { gzipSync } from "node:zlib";
 import { DateTime, Effect, FileSystem, Path } from "effect";
 
 import { requirePresent } from "~/support/assertions";
-import { getSharedHarnessTarget } from "~/support/harness-target";
+import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
 
 export const seedServerLog = Effect.fn("seedServerLog")(function* (
-	target = getSharedHarnessTarget(),
+	target: HarnessTarget = getSharedHarnessTarget(),
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -15,7 +15,7 @@ export const seedServerLog = Effect.fn("seedServerLog")(function* (
 	const text = `retained-e2e-log-${crypto.randomUUID()}\n`;
 	const bytes = gzipSync(text);
 	const timestamp = DateTime.formatIso(yield* DateTime.now)
-		.replace(/[-:T]/g, "")
+		.replaceAll(/[-:T]/g, "")
 		.slice(0, 12);
 	for (let index = 500; index < 1000; index += 1) {
 		const name = `${timestamp.slice(0, 8)}-${timestamp.slice(8)}-${index}-${activeName}.gz`;

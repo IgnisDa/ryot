@@ -7,7 +7,7 @@ import {
 } from "#/modules/auth/token-identity";
 
 const jwt = (claims: unknown) =>
-	`header.${btoa(JSON.stringify(claims)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
+	`header.${btoa(JSON.stringify(claims)).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_")}.signature`;
 
 const tokenSet = (accessToken: string) =>
 	JSON.stringify(

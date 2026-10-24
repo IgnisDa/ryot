@@ -2,7 +2,7 @@ export const normalizeIsbn = (value: string) => {
 	const trimmed = value.trim();
 	const withoutFormula =
 		trimmed.startsWith('="') && trimmed.endsWith('"') ? trimmed.slice(2, -1) : trimmed;
-	return withoutFormula.toUpperCase().replace(/[^0-9X]/g, "");
+	return withoutFormula.toUpperCase().replaceAll(/[^0-9X]/g, "");
 };
 
 const isValidIsbn10 = (value: string) =>

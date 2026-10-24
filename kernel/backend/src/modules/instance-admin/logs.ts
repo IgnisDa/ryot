@@ -14,7 +14,7 @@ type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
 
 const unavailable = () => new ServerLogsNotFound({ reason: { code: "log-file-unavailable" } });
 const failed = () => new ServerLogsFailure({ reason: { code: "log-read-failed" } });
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (value: string) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const fileId = (name: string, stat: FileSystem.File.Info) =>
 	Base64Url.encode(new TextEncoder().encode(`${name}\0${stat.dev}\0${Option.getOrNull(stat.ino)}`));
 

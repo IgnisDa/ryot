@@ -22,7 +22,7 @@ const normalizeHeader = (value: string) =>
 	value
 		.trim()
 		.toLowerCase()
-		.replace(/[\s_-]+/g, "");
+		.replaceAll(/[\s_-]+/g, "");
 
 const readCell = (row: Record<string, string>, aliases: string[]) => {
 	for (const [key, value] of Object.entries(row)) {

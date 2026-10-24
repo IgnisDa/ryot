@@ -49,7 +49,7 @@ const assertWellFormedXml = (xml: string) => {
 	let previous: string;
 	do {
 		previous = withoutOpaqueBlocks;
-		withoutOpaqueBlocks = previous.replace(
+		withoutOpaqueBlocks = previous.replaceAll(
 			/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>/g,
 			"",
 		);
@@ -91,7 +91,7 @@ const lifecycle = (status: string) => {
 	const normalized = status
 		.trim()
 		.toLowerCase()
-		.replace(/[^a-z]+/g, " ")
+		.replaceAll(/[^a-z]+/g, " ")
 		.trim();
 	if (["reading", "watching"].includes(normalized)) {
 		return "progress" as const;

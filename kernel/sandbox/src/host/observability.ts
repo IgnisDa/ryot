@@ -18,11 +18,11 @@ const bearerTextPattern = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 
 const redactDiagnosticText = (value: string) =>
 	value
-		.replace(
+		.replaceAll(
 			sensitiveTextPattern,
 			(_match, key: string, separator: string) => `${key}${separator}${redactedValue}`,
 		)
-		.replace(bearerTextPattern, `Bearer ${redactedValue}`);
+		.replaceAll(bearerTextPattern, `Bearer ${redactedValue}`);
 
 const redactValue = (value: unknown, key?: string): unknown => {
 	if (key && sensitiveAttributePattern.test(key)) {

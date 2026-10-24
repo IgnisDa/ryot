@@ -58,7 +58,7 @@ const catalogEntry = (target: BackgroundSubmissionTarget) =>
 const catalog: PluginClientCatalog = [catalogEntry(media)];
 
 const sessionToken = (jti: string) =>
-	`header.${btoa(JSON.stringify({ jti, sub: "user-1", sid: "session-1" })).replace(/=/g, "")}.signature`;
+	`header.${btoa(JSON.stringify({ jti, sub: "user-1", sid: "session-1" })).replaceAll("=", "")}.signature`;
 
 const request = (key: string, label = `Logged ${key}`): PluginBackgroundOperationRequest => ({
 	label,

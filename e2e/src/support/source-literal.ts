@@ -6,7 +6,7 @@ const unsafeSourceCharacters: Record<string, string> = {
 };
 
 export const sourceLiteral = (value: unknown) =>
-	JSON.stringify(value).replace(
+	JSON.stringify(value).replaceAll(
 		/[<>\u2028\u2029]/g,
 		(character) => unsafeSourceCharacters[character] ?? character,
 	);

@@ -2,13 +2,13 @@ import type { Stream } from "effect";
 import { HttpServerResponse } from "effect/http";
 
 const encodedFileName = (fileName: string) =>
-	encodeURIComponent(fileName).replace(
+	encodeURIComponent(fileName).replaceAll(
 		/[!'()*]/g,
 		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
 	);
 
 const fallbackFileName = (fileName: string) =>
-	fileName.replace(/[\r\n"\\]/g, "_").replace(/[^\x20-\x7e]/g, "_");
+	fileName.replaceAll(/[\r\n"\\]/g, "_").replaceAll(/[^\x20-\x7e]/g, "_");
 
 export const streamDownloadResponse = (
 	stream: Stream.Stream<Uint8Array, unknown>,

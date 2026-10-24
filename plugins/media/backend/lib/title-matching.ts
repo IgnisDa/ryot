@@ -22,7 +22,7 @@ const SHOW_WITH_EPISODE_BONUS = 0.5;
 const RESULT_POSITION_BONUS_BASE = 0.05;
 const NORMALIZED_EXACT_MATCH_BONUS = 0.6;
 const normalizeForExact = (value: string): string =>
-	value.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+	value.replaceAll(/[^a-zA-Z0-9]/g, "").toLowerCase();
 
 const tokenize = (value: string): Set<string> =>
 	new Set(

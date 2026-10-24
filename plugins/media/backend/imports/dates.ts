@@ -2,7 +2,7 @@ import { DateTime, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { ImportMediaEvent } from "./schemas";
 
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value: string) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 type CapturedKey = keyof Captured;
 

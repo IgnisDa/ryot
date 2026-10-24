@@ -15,7 +15,7 @@ import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-lay
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const unusedHttp = HttpClient.make(() => Effect.die("not used"));
 const bearerToken = (sub: string) =>
-	`header.${btoa(JSON.stringify({ sub })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
+	`header.${btoa(JSON.stringify({ sub })).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_")}.signature`;
 const tokens = (accessToken: OAuthTokenService["Service"]["accessToken"]) =>
 	makeOAuthTokenServiceStub({ accessToken });
 

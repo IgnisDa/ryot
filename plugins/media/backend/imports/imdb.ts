@@ -66,7 +66,10 @@ export const adaptImdbCsv = (csvText: string, importedAt = nowIso()) => {
 			? (parseDateWithFormat(dateRated, "YYYY-MM-DD") ??
 				parseDateWithFormat(dateRated, "YYYY/MM/DD"))
 			: null;
-		if (dateRated && (!completedOn || completedOn.slice(0, 10) !== dateRated.replace(/\//g, "-"))) {
+		if (
+			dateRated &&
+			(!completedOn || completedOn.slice(0, 10) !== dateRated.replaceAll("/", "-"))
+		) {
 			failures.push({
 				itemIndex,
 				sourceLabel,

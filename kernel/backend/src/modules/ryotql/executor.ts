@@ -603,7 +603,10 @@ const likePattern = (
 ): SqlFragment => {
 	const leading = match === "contains" ? "%" : "";
 	if (operand.type === "literal" && typeof operand.value === "string") {
-		const escaped = operand.value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+		const escaped = operand.value
+			.replaceAll("\\", "\\\\")
+			.replaceAll("%", "\\%")
+			.replaceAll("_", "\\_");
 		return sql`${`${leading}${escaped}%`}`;
 	}
 	const escaped = sql`replace(replace(replace(${compileExpression(operand, scope)}, ${"\\"}, ${"\\\\"}), ${"%"}, ${"\\%"}), ${"_"}, ${"\\_"})`;
@@ -836,7 +839,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 				const fields = sql.join(
 					Object.entries(table.fields).map(
 						([field, catalogField]) =>
-							sql`${catalogField.resolve({ language: scope.language, sqlAlias: "definition_read" })} AS ${identifier(field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))}`,
+							sql`${catalogField.resolve({ language: scope.language, sqlAlias: "definition_read" })} AS ${identifier(field.replaceAll(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))}`,
 					),
 					sql`, `,
 				);

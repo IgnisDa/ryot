@@ -21,7 +21,7 @@ const episodeId = (payload: unknown, provider: string) =>
 		[provider],
 	]);
 
-const normalizedTitle = (value: unknown) => textValue(value)?.toLowerCase().replace(/\s+/g, " ");
+const normalizedTitle = (value: unknown) => textValue(value)?.toLowerCase().replaceAll(/\s+/g, " ");
 
 export const findEmbyShow = Effect.fnUntraced(function* (payload: unknown, host: LookupHost) {
 	const seriesId = firstPathText(payload, [

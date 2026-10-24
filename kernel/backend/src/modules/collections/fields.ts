@@ -13,7 +13,7 @@ import { Result } from "effect";
 const slugOf = (label: string) => {
 	const slug = label
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
+		.replaceAll(/[^a-z0-9]+/g, "-")
 		.replace(/^[^a-z]+/, "")
 		.replace(/-+$/, "");
 	return slug === "" ? "field" : slug;

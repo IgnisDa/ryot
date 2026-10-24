@@ -1,5 +1,5 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
@@ -128,6 +128,16 @@ export const makeIgdbRequest = (host: IgdbHost, path: string, body: string) =>
 					})),
 					Effect.flatMap((response) =>
 						decodeJsonResponse(response.body, "IGDB").pipe(
+							Effect.flatMap((data) =>
+								Schema.decodeUnknownEffect(Schema.Array(Schema.Unknown))(data).pipe(
+									Effect.mapError(
+										() =>
+											new MediaSandboxError({
+												message: `IGDB ${path} returned unexpected response format`,
+											}),
+									),
+								),
+							),
 							Effect.map((data) => ({ data, headers: response.headers })),
 						),
 					),
@@ -157,7 +167,7 @@ export const buildPagination = (
 export const toSlug = (value: string) =>
 	value
 		.toLowerCase()
-		.replace(/[^a-z0-9\s-]/g, "")
+		.replaceAll(/[^a-z0-9\s-]/g, "")
 		.trim()
-		.replace(/\s+/g, "-")
-		.replace(/-+/g, "-");
+		.replaceAll(/\s+/g, "-")
+		.replaceAll(/-+/g, "-");

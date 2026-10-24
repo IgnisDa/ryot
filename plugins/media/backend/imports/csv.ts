@@ -1,7 +1,7 @@
 import { parse } from "@ryot-app/plugin-backend-sdk/papaparse";
 
 export const parseCsvText = (text: string, delimiter = "") => {
-	const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+	const normalized = text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 	if (normalized.length === 0) {
 		return { rows: [], headers: [] };
 	}

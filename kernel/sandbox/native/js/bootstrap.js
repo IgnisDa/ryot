@@ -306,7 +306,7 @@
 	};
 
 	const atob = (input) => {
-		let text = String_(input).replace(/[\t\n\f\r ]/g, "");
+		let text = String_(input).replaceAll(/[\t\n\f\r ]/g, "");
 		if (text.length % 4 === 0) {
 			text = text.replace(/==?$/, "");
 		}
@@ -623,14 +623,14 @@
 
 	const formEncode = (text) =>
 		encodeURIComponent(text)
-			.replace(/%20/g, "+")
-			.replace(/[!'()~]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+			.replaceAll('%20', "+")
+			.replaceAll(/[!'()~]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
 
 	const formDecode = (text) => {
 		try {
-			return decodeURIComponent(text.replace(/\+/g, " "));
+			return decodeURIComponent(text.replaceAll('+', " "));
 		} catch {
-			return text.replace(/\+/g, " ");
+			return text.replaceAll('+', " ");
 		}
 	};
 

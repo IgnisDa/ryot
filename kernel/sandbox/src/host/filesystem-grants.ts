@@ -8,7 +8,7 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 import { SANDBOX_LIMITS } from "../protocol/limits";
 
 export const sanitizeSandboxExecutionSegment = (executionId: string) =>
-	executionId.replace(/[^a-zA-Z0-9._-]/g, "-");
+	executionId.replaceAll(/[^a-zA-Z0-9._-]/g, "-");
 
 const filesystemGrantCapabilities = new Set<string>(FILESYSTEM_GRANT_SANDBOX_CAPABILITIES);
 

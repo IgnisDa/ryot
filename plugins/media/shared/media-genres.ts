@@ -1,7 +1,7 @@
 export const mediaGenreProviderSlug = "genre.media-catalog";
 
 const normalizeName = (value: string) =>
-	value.normalize("NFC").trim().replace(/\s+/gu, " ").toLowerCase();
+	value.normalize("NFC").trim().replaceAll(/\s+/gu, " ").toLowerCase();
 
 const names = [
 	"Action",
@@ -84,7 +84,7 @@ export const mediaGenre = (value: string) => {
 		externalId,
 		name:
 			displayNames.get(externalId) ??
-			externalId.replace(/(^|\s)(\p{L})/gu, (match) => match.toUpperCase()),
+			externalId.replaceAll(/(^|\s)(\p{L})/gu, (match) => match.toUpperCase()),
 	};
 };
 

@@ -55,7 +55,7 @@ const normalizeLifecycleValue = (value: string) =>
 	value
 		.trim()
 		.toLowerCase()
-		.replace(/[\s_]+/g, "-");
+		.replaceAll(/[\s_]+/g, "-");
 
 export const normalizeLifecycleStatus = (value: string) => {
 	const normalized = normalizeLifecycleValue(value);
@@ -96,7 +96,7 @@ export const isLifecycleAlias = (value: string) => normalizeLifecycleStatus(valu
 export const toTitleCaseWords = (value: string) =>
 	value
 		.trim()
-		.replace(/[_-]+/g, " ")
+		.replaceAll(/[_-]+/g, " ")
 		.split(/\s+/)
 		.filter(Boolean)
 		.map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())

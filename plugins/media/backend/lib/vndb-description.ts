@@ -4,7 +4,7 @@ import { MediaSandboxError } from "./failures";
 import { normalizeRichDescription } from "./rich-description";
 
 const escapeHtml = (text: string): string =>
-	text.replace(/[&<>"']/g, (character) => {
+	text.replaceAll(/[&<>"']/g, (character) => {
 		switch (character) {
 			case "&":
 				return "&amp;";
@@ -19,7 +19,7 @@ const escapeHtml = (text: string): string =>
 		}
 	});
 
-const literalHtml = (text: string): string => escapeHtml(text).replace(/\n/g, "<br>");
+const literalHtml = (text: string): string => escapeHtml(text).replaceAll("\n", "<br>");
 
 const linkHtml = (url: string, label: string): string =>
 	`<a href="${escapeHtml(url)}">${label}</a>`;
@@ -171,7 +171,7 @@ export const normalizeVndbDescription = Effect.fn("normalizeVndbDescription")(fu
 		return null;
 	}
 	const html = yield* Effect.try({
-		try: () => vndbHtml(input.trim().replace(/\r\n?/g, "\n")),
+		try: () => vndbHtml(input.trim().replaceAll(/\r\n?/g, "\n")),
 		catch: () => new MediaSandboxError({ message: "description conversion failed" }),
 	});
 	return yield* normalizeRichDescription(html, baseUrl);

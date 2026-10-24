@@ -22,7 +22,7 @@ const origin = decodeServerOrigin("https://ryot.example");
 const now = 1_800_000_000_000;
 
 const encodeJwtPart = (value: unknown) =>
-	btoa(JSON.stringify(value)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+	btoa(JSON.stringify(value)).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
 
 const idToken = (nonce: string) => {
 	return `${encodeJwtPart({ alg: "none" })}.${encodeJwtPart({ nonce })}.signature`;

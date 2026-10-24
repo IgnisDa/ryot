@@ -13,7 +13,7 @@ export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(functi
 	readonly label: string;
 	readonly extraEnv?: Record<string, string | undefined>;
 }) {
-	const bucketName = `ryot-${input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+	const bucketName = `ryot-${input.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
 	const [infrastructure, port] = yield* Effect.all(
 		[startCoreTestInfrastructure({ bucketName }), Effect.promise(() => getPort())],
 		{ concurrency: "unbounded" },

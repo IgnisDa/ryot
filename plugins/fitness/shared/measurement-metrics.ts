@@ -24,10 +24,10 @@ export const measurementMetricKey = (name: string) =>
 	name
 		.toLowerCase()
 		.trim()
-		.replace(/\s+/g, "_")
-		.replace(/[^a-z0-9_]/g, "")
-		.replace(/_+/g, "_")
-		.replace(/^_|_$/g, "");
+		.replaceAll(/\s+/g, "_")
+		.replaceAll(/[^a-z0-9_]/g, "")
+		.replaceAll(/_+/g, "_")
+		.replaceAll(/^_|_$/g, "");
 
 export type MetricSort = "az" | "recent" | "changed";
 type Points = readonly MeasurementSeries["points"][number][];

@@ -63,11 +63,11 @@ const collapseSpaces = (value: string): string =>
 const splitSegments = (title: string): string[] =>
 	title
 		.split(":")
-		.map((segment) => collapseSpaces(segment.trim().replace(/^["']|["']$/g, "")))
+		.map((segment) => collapseSpaces(segment.trim().replaceAll(/^["']|["']$/g, "")))
 		.filter(Boolean);
 
 const wordToNumber = (word: string): number | undefined => {
-	const normalized = word.trim().toLowerCase().replace(/-/g, " ");
+	const normalized = word.trim().toLowerCase().replaceAll("-", " ");
 	const tokens = normalized.split(/\s+/).filter((token) => token && token !== "and");
 	if (tokens.length === 0) {
 		return undefined;
@@ -120,7 +120,7 @@ const interpretNumeric = (token: string): number | undefined => {
 };
 
 const parseNumberToken = (token: string): number | undefined => {
-	const trimmed = token.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "").trim();
+	const trimmed = token.replaceAll(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "").trim();
 	if (!trimmed) {
 		return undefined;
 	}
@@ -266,11 +266,11 @@ const cleanTitle = (title: string): string => {
 
 	for (;;) {
 		const next = cleaned
-			.replace(/: :/g, ":")
-			.replace(/  +/g, " ")
-			.replace(/:+$/g, "")
-			.replace(/\(+$/g, "")
-			.replace(/\)+$/g, "")
+			.replaceAll(": :", ":")
+			.replaceAll(/  +/g, " ")
+			.replaceAll(/:+$/g, "")
+			.replaceAll(/\(+$/g, "")
+			.replaceAll(/\)+$/g, "")
 			.trimEnd();
 		if (next === cleaned) {
 			return collapseSpaces(next);

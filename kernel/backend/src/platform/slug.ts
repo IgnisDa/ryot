@@ -3,7 +3,7 @@ export const slugify = (value: string) =>
 		.replaceAll("_", "-")
 		.trim()
 		.toLowerCase()
-		.replace(/\s+/g, "-")
-		.replace(/[^a-z0-9-]/g, "")
-		.replace(/-+/g, "-")
-		.replace(/^-+|-+$/g, "");
+		.replaceAll(/\s+/g, "-")
+		.replaceAll(/[^a-z0-9-]/g, "")
+		.replaceAll(/-+/g, "-")
+		.replaceAll(/^-+|-+$/g, "");
