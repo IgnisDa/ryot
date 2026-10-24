@@ -128,21 +128,23 @@ export const useRyotInfiniteQuery = <
 	}
 	const { client, schedule, hostServices } = context;
 	const inputKey = JSON.stringify(input);
+	const enabled = options.enabled !== false;
 	const identity = useMemo(
 		() => ({
 			query,
 			client,
+			enabled,
 			registry,
 			inputKey,
 			mode: options.mode,
 			initialPageParam: options.initialPageParam,
 		}),
-		[query, registry, client, inputKey, options.mode, options.initialPageParam],
+		[query, registry, client, enabled, inputKey, options.mode, options.initialPageParam],
 	);
 	const result = usePagination<Page, Param>({
+		enabled,
 		identity,
 		mode: options.mode,
-		enabled: options.enabled,
 		initialPageParam: options.initialPageParam,
 		getNextPageParam: options.getNextPageParam,
 		load: (param, refresh) =>
@@ -167,7 +169,7 @@ export const useRyotInfiniteQuery = <
 				);
 			}),
 	});
-	usePageRefresh(() => (options.enabled === false ? Effect.void : result.refresh()));
+	usePageRefresh(() => (enabled ? result.refresh() : Effect.void));
 	const interests =
 		result.pages.length === 0
 			? [
@@ -189,7 +191,7 @@ export const useRyotInfiniteQuery = <
 		blocked: false,
 		identity: inputKey,
 		onRefresh: result.refresh,
-		enabled: query.entityWatch !== undefined && options.enabled !== false,
+		enabled: query.entityWatch !== undefined && enabled,
 		interest: {
 			visible: [...new Set(interests.flatMap((interest) => interest?.visible ?? []))],
 			foreground: [...new Set(interests.flatMap((interest) => interest?.foreground ?? []))],

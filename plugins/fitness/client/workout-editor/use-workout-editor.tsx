@@ -210,6 +210,9 @@ export const useWorkoutEditor = (target: PluginNavigationTarget) => {
 		sounds: session.sounds,
 		controller: session.controller,
 		saving: isWorkoutEditorSaving(snapshot),
-		saved: snapshot.saveState.phase === "saved" ? snapshot.saveState.result.entityId : undefined,
+		saved:
+			snapshot.saveState.phase === "acknowledged" || snapshot.saveState.phase === "saved"
+				? snapshot.saveState.result.entityId
+				: undefined,
 	};
 };
