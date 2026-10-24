@@ -211,7 +211,7 @@ export const useWorkoutEditor = (target: PluginNavigationTarget) => {
 		controller: session.controller,
 		saving: isWorkoutEditorSaving(snapshot),
 		saved:
-			snapshot.saveState.phase === "acknowledged-awaiting-cleanup"
+			snapshot.saveState.phase === "saved"
 				? snapshot.saveState.result.entityId
 				: undefined,
 	};

@@ -13,6 +13,7 @@ import {
 	column,
 	defineRecipe,
 	type Recipe,
+	type SelectedRow,
 	selectedField,
 	selectedRows,
 	table,
@@ -30,15 +31,51 @@ const readinessConnections = Schema.Array(
 	}),
 );
 
+const providerSelection = {
+	id: selectedField(column(provider, "id"), Schema.String),
+	slug: selectedField(column(provider, "slug"), Schema.String),
+	name: selectedField(column(provider, "name"), Schema.String),
+	hasScript: selectedField(column(provider, "hasScript"), Schema.Boolean),
+	plan: selectedField(column(provider, "plan"), Schema.NullOr(SourcePlan)),
+	description: selectedField(column(provider, "description"), Schema.String),
+	settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
+	pluginId: selectedField(column(provider, "pluginId"), Schema.NullOr(PluginId)),
+	requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
+	lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
+	packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
+	scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
+	installationId: selectedField(
+		column(provider, "installationId"),
+		Schema.NullOr(Schema.String),
+	),
+	supportsOwnershipSync: selectedField(
+		column(provider, "supportsOwnershipSync"),
+		Schema.Boolean,
+	),
+	readinessConnections: selectedField(
+		column(provider, "readinessConnections"),
+		readinessConnections,
+	),
+	pluginScope: selectedField(
+		column(provider, "pluginScope"),
+		Schema.NullOr(Schema.Literals(["system", "user"])),
+	),
+	readinessMetadata: selectedField(
+		column(provider, "readinessMetadata"),
+		Schema.NullOr(IngestionReadinessMetadata),
+	),
+};
+
 export const evaluateIntegrationProviderReadiness = (
-	item: {
-		readonly hasScript: boolean;
-		readonly scriptSlug: string | null;
-		readonly settingsSchema: AppSchema;
-		readonly readinessMetadata: IngestionReadinessMetadata | null;
-		readonly plan: SourcePlan | null;
-		readonly readinessConnections: typeof readinessConnections.Type;
-	},
+	item: Pick<
+		SelectedRow<typeof providerSelection>,
+		| "hasScript"
+		| "scriptSlug"
+		| "settingsSchema"
+		| "readinessMetadata"
+		| "plan"
+		| "readinessConnections"
+	>,
 	settings?: Readonly<Record<string, unknown>>,
 	integrationId?: string,
 ) =>
@@ -87,40 +124,7 @@ export const integrationProvidersRecipe = defineRecipe(
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
-				selection: {
-					id: selectedField(column(provider, "id"), Schema.String),
-					slug: selectedField(column(provider, "slug"), Schema.String),
-					name: selectedField(column(provider, "name"), Schema.String),
-					hasScript: selectedField(column(provider, "hasScript"), Schema.Boolean),
-					plan: selectedField(column(provider, "plan"), Schema.NullOr(SourcePlan)),
-					description: selectedField(column(provider, "description"), Schema.String),
-					settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
-					pluginId: selectedField(column(provider, "pluginId"), Schema.NullOr(PluginId)),
-					requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
-					lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
-					packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
-					scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
-					installationId: selectedField(
-						column(provider, "installationId"),
-						Schema.NullOr(Schema.String),
-					),
-					supportsOwnershipSync: selectedField(
-						column(provider, "supportsOwnershipSync"),
-						Schema.Boolean,
-					),
-					readinessConnections: selectedField(
-						column(provider, "readinessConnections"),
-						readinessConnections,
-					),
-					pluginScope: selectedField(
-						column(provider, "pluginScope"),
-						Schema.NullOr(Schema.Literals(["system", "user"])),
-					),
-					readinessMetadata: selectedField(
-						column(provider, "readinessMetadata"),
-						Schema.NullOr(IngestionReadinessMetadata),
-					),
-				},
+				selection: providerSelection,
 			}),
 		},
 	}),

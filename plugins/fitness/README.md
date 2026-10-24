@@ -67,7 +67,7 @@ collapse state remain draft-local. Session flow uses timestamps, not configured 
 Each user-owned `measurement-metric` has a name, stable key, and optional unit. Its
 `measurement-reading` events carry value and occurrence time for analytics. Each submission or
 import row creates a user-owned `measurement-entry` containing time and optional comment; its
-readings reference it through `sessionEntityId`. Equal timestamps never imply shared identity.
+readings reference it through `sessionEntityId`.
 All Measurements uses only page-context name/icon and these
 shared recipes:
 
@@ -102,7 +102,7 @@ overrides the original offset.
 the entry and committed readings without duplication;
 partial/skipped writes retain input for retry. Cancelling never rolls back committed readings.
 
-Update/delete resolve the caller-owned entry by ID, not client-supplied reading IDs. Update loads all
+Update/delete resolve the caller-owned entry by ID. Update loads all
 children, validates event and metric schemas/visibility, patches kept readings, creates added values,
 deletes cleared values, then updates entry time/comment. Event writes use batches of at most 100,
 including imported entries larger than 100 values. These are separate calls: partial failure may

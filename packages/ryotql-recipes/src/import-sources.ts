@@ -15,6 +15,7 @@ import {
 	column,
 	defineRecipe,
 	type Recipe,
+	type SelectedRow,
 	selectedField,
 	selectedRows,
 	table,
@@ -24,14 +25,54 @@ import { Result, Schema } from "effect";
 const source = table("importSource", "source");
 const exportHelp = Schema.NullOr(PluginImportExportHelp);
 
+const sourceSelection = {
+	id: selectedField(column(source, "id"), Schema.String),
+	exportHelp: selectedField(column(source, "exportHelp"), exportHelp),
+	plan: selectedField(column(source, "plan"), Schema.NullOr(SourcePlan)),
+	isStartable: selectedField(column(source, "isStartable"), Schema.Boolean),
+	slug: selectedField(column(source, "slug"), PluginImportSource.fields.slug),
+	name: selectedField(column(source, "name"), PluginImportSource.fields.name),
+	pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
+	packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
+	installationId: selectedField(
+		column(source, "installationId"),
+		Schema.NullOr(Schema.String),
+	),
+	inputSchema: selectedField(
+		column(source, "inputSchema"),
+		PluginImportSource.fields.inputSchema,
+	),
+	description: selectedField(
+		column(source, "description"),
+		PluginImportSource.fields.description,
+	),
+	workflowSlug: selectedField(
+		column(source, "workflowSlug"),
+		PluginImportSource.fields.workflowSlug,
+	),
+	pluginScope: selectedField(
+		column(source, "pluginScope"),
+		Schema.NullOr(Schema.Literals(["system", "user"])),
+	),
+	missingPluginConfigKeys: selectedField(
+		column(source, "missingPluginConfigKeys"),
+		Schema.Array(Schema.String),
+	),
+	readinessMetadata: selectedField(
+		column(source, "readinessMetadata"),
+		Schema.NullOr(IngestionReadinessMetadata),
+	),
+	requiredPluginConfigKeys: selectedField(
+		column(source, "requiredPluginConfigKeys"),
+		SandboxExecutionMetadata.fields.requiredPluginConfigKeys,
+	),
+};
+
 export const evaluateImportSourceReadiness = (
-	item: {
-		readonly isStartable: boolean;
-		readonly workflowSlug: string;
-		readonly inputSchema: typeof PluginImportSource.fields.inputSchema.Type;
-		readonly readinessMetadata: IngestionReadinessMetadata | null;
-		readonly plan: SourcePlan | null;
-	},
+	item: Pick<
+		SelectedRow<typeof sourceSelection>,
+		"isStartable" | "workflowSlug" | "inputSchema" | "readinessMetadata" | "plan"
+	>,
 	settings?: Readonly<Record<string, unknown>>,
 ) => {
 	const readiness =
@@ -64,48 +105,7 @@ export const importSourcesRecipe = defineRecipe(
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
-				selection: {
-					id: selectedField(column(source, "id"), Schema.String),
-					exportHelp: selectedField(column(source, "exportHelp"), exportHelp),
-					plan: selectedField(column(source, "plan"), Schema.NullOr(SourcePlan)),
-					isStartable: selectedField(column(source, "isStartable"), Schema.Boolean),
-					slug: selectedField(column(source, "slug"), PluginImportSource.fields.slug),
-					name: selectedField(column(source, "name"), PluginImportSource.fields.name),
-					pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
-					packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
-					installationId: selectedField(
-						column(source, "installationId"),
-						Schema.NullOr(Schema.String),
-					),
-					inputSchema: selectedField(
-						column(source, "inputSchema"),
-						PluginImportSource.fields.inputSchema,
-					),
-					description: selectedField(
-						column(source, "description"),
-						PluginImportSource.fields.description,
-					),
-					workflowSlug: selectedField(
-						column(source, "workflowSlug"),
-						PluginImportSource.fields.workflowSlug,
-					),
-					pluginScope: selectedField(
-						column(source, "pluginScope"),
-						Schema.NullOr(Schema.Literals(["system", "user"])),
-					),
-					missingPluginConfigKeys: selectedField(
-						column(source, "missingPluginConfigKeys"),
-						Schema.Array(Schema.String),
-					),
-					readinessMetadata: selectedField(
-						column(source, "readinessMetadata"),
-						Schema.NullOr(IngestionReadinessMetadata),
-					),
-					requiredPluginConfigKeys: selectedField(
-						column(source, "requiredPluginConfigKeys"),
-						SandboxExecutionMetadata.fields.requiredPluginConfigKeys,
-					),
-				},
+				selection: sourceSelection,
 			}),
 		},
 	}),

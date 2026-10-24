@@ -66,6 +66,18 @@ const initialSnapshot: WorkoutEditorControllerSnapshot = {
 	saveState: { phase: "idle" },
 };
 
+const settledSaveState = (
+	current: WorkoutEditorControllerSnapshot,
+): WorkoutEditorControllerSnapshot["saveState"] => {
+	const { saveState } = current;
+	if (saveState.phase !== "acknowledged") {
+		return { phase: "idle" };
+	}
+	return current.status === "empty"
+		? { phase: "saved", result: saveState.result }
+		: { ...saveState, cleaning: false };
+};
+
 const isReady = (snapshot: WorkoutEditorControllerSnapshot): snapshot is ReadySnapshot =>
 	snapshot.status === "ready";
 
@@ -548,12 +560,12 @@ export const createWorkoutEditorController = (
 				publish({
 					...snapshot,
 					saveState:
-						acknowledged.phase === "acknowledged-awaiting-cleanup"
+						acknowledged.phase === "acknowledged"
 							? { ...acknowledged, cleaning: true }
 							: { phase: "in-flight" },
 				});
 				return yield* Effect.gen(function* () {
-					if (acknowledged.phase === "acknowledged-awaiting-cleanup") {
+					if (acknowledged.phase === "acknowledged") {
 						yield* removeDraft(true);
 						return acknowledged.result;
 					}
@@ -588,7 +600,7 @@ export const createWorkoutEditorController = (
 					if (result.kind === "saved") {
 						publish({
 							...snapshot,
-							saveState: { result, cleaning: true, phase: "acknowledged-awaiting-cleanup" },
+							saveState: { result, cleaning: true, phase: "acknowledged" },
 						});
 						yield* removeDraft(true);
 					} else if (isReady(snapshot)) {
@@ -601,10 +613,7 @@ export const createWorkoutEditorController = (
 						Effect.sync(() =>
 							publish({
 								...snapshot,
-								saveState:
-									snapshot.saveState.phase === "acknowledged-awaiting-cleanup"
-										? { ...snapshot.saveState, cleaning: false }
-										: { phase: "idle" },
+								saveState: settledSaveState(snapshot),
 							}),
 						),
 					),
