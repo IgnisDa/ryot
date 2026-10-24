@@ -33,13 +33,14 @@ class RecordedFetches extends Context.Service<
 >()("test/RecordedFetches") {}
 
 const successfulResponse: ResponseForRequest = ({ url }) => {
-	if (url.includes("api.telegram.org")) {
+	const { hostname } = new URL(url);
+	if (hostname === "api.telegram.org") {
 		return Response.json({ ok: true });
 	}
-	if (url.includes("pushover.net")) {
+	if (hostname === "api.pushover.net") {
 		return Response.json({ status: 1 });
 	}
-	if (url.includes("pushsafer.com")) {
+	if (hostname === "www.pushsafer.com") {
 		return Response.json({ status: 1 });
 	}
 	return new Response("", { status: 200 });
@@ -203,10 +204,11 @@ layer(
 layer(
 	deliveryTestLayer({
 		respond: ({ url }) => {
-			if (url.includes("api.telegram.org")) {
+			const { hostname } = new URL(url);
+			if (hostname === "api.telegram.org") {
 				return Response.json({ ok: false });
 			}
-			if (url.includes("pushover.net")) {
+			if (hostname === "api.pushover.net") {
 				return Response.json({ status: 0 });
 			}
 			return Response.json({ status: 0 });
@@ -238,10 +240,11 @@ layer(
 layer(
 	deliveryTestLayer({
 		respond: ({ url }) => {
-			if (url.includes("api.telegram.org")) {
+			const { hostname } = new URL(url);
+			if (hostname === "api.telegram.org") {
 				return Response.json({});
 			}
-			if (url.includes("pushover.net")) {
+			if (hostname === "api.pushover.net") {
 				return Response.json({ status: "1" });
 			}
 			return Response.json({ status: 2 });
