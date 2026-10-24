@@ -3,15 +3,7 @@ import { Cause, Effect, Exit, Option, Redacted } from "effect";
 import { IpNetwork } from "effect/net";
 
 import { AppConfig } from "#platform/config/service";
-import { makeConfigProviderLayer } from "#testing/effect";
-
-const environmentLayer = (values: Readonly<Record<string, unknown>> = {}) =>
-	makeConfigProviderLayer({
-		REDIS_URL: "unused",
-		DATABASE_URL: "unused",
-		SERVER_ADMIN_ACCESS_TOKEN: "unused",
-		...values,
-	});
+import { makeRequiredConfigLayer } from "#testing/effect";
 
 const loaded = Effect.exit(AppConfig.make);
 
@@ -23,10 +15,7 @@ const systemEnvironmentLayer = (
 		readonly logRotationInterval?: string;
 	} = {},
 ) =>
-	makeConfigProviderLayer({
-		REDIS_URL: "unused",
-		DATABASE_URL: "unused",
-		SERVER_ADMIN_ACCESS_TOKEN: "unused",
+	makeRequiredConfigLayer({
 		...(options.logFile === undefined ? {} : { SERVER_LOG_FILE: options.logFile }),
 		...(options.logLevel === undefined ? {} : { SERVER_LOG_LEVEL: options.logLevel }),
 		...(options.logRotationSize === undefined
@@ -38,7 +27,7 @@ const systemEnvironmentLayer = (
 	});
 
 const otlpEndpointLayer = (endpoint: string) =>
-	environmentLayer({ OTEL_EXPORTER_OTLP_ENDPOINT: endpoint });
+	makeRequiredConfigLayer({ OTEL_EXPORTER_OTLP_ENDPOINT: endpoint });
 
 describe("system log config", () => {
 	layer(systemEnvironmentLayer())((test) => {
@@ -125,7 +114,7 @@ describe("system log config", () => {
 });
 
 describe("validateSystemConfig sandbox capacity", () => {
-	layer(environmentLayer())((test) => {
+	layer(makeRequiredConfigLayer())((test) => {
 		test.effect("passes with default sandbox capacity", () =>
 			Effect.gen(function* () {
 				expect(Exit.isSuccess(yield* loaded)).toBe(true);
@@ -140,7 +129,7 @@ describe("validateSystemConfig sandbox capacity", () => {
 		[9, 5, false],
 	] as const) {
 		layer(
-			environmentLayer({
+			makeRequiredConfigLayer({
 				DATABASE_POOL_MAX: poolMax,
 				SANDBOX_WORKER_CONCURRENCY: workerConcurrency,
 			}),
@@ -173,7 +162,7 @@ describe("validateSystemConfig sandbox capacity", () => {
 			"SANDBOX_IMPORT_CONCURRENCY",
 			"SANDBOX_MEMORY_BUDGET_MIB",
 		]) {
-			layer(environmentLayer({ [key]: value }))((test) => {
+			layer(makeRequiredConfigLayer({ [key]: value }))((test) => {
 				test.effect(`rejects ${key} ${value}`, () =>
 					Effect.gen(function* () {
 						const result = yield* loaded;
@@ -190,7 +179,7 @@ describe("validateSystemConfig sandbox capacity", () => {
 });
 
 describe("FRONTEND_URL validation", () => {
-	layer(environmentLayer({ FRONTEND_URL: "https://ryot.example/" }))((test) => {
+	layer(makeRequiredConfigLayer({ FRONTEND_URL: "https://ryot.example/" }))((test) => {
 		test.effect("normalizes an absolute HTTP origin", () =>
 			Effect.gen(function* () {
 				const result = yield* loaded;
@@ -205,7 +194,7 @@ describe("FRONTEND_URL validation", () => {
 		"http://192.168.1.50:8000",
 		"http://localhost:3005",
 	]) {
-		layer(environmentLayer({ FRONTEND_URL: frontendUrl }))((test) => {
+		layer(makeRequiredConfigLayer({ FRONTEND_URL: frontendUrl }))((test) => {
 			test.effect(`accepts plain-HTTP origin ${frontendUrl} for self-hosters without TLS`, () =>
 				Effect.gen(function* () {
 					const result = yield* loaded;
@@ -225,7 +214,7 @@ describe("FRONTEND_URL validation", () => {
 		"https://ryot.example?query=yes",
 		"https://ryot.example#fragment",
 	]) {
-		layer(environmentLayer({ FRONTEND_URL: frontendUrl }))((test) => {
+		layer(makeRequiredConfigLayer({ FRONTEND_URL: frontendUrl }))((test) => {
 			test.effect(`rejects non-origin value ${frontendUrl}`, () =>
 				Effect.gen(function* () {
 					const result = yield* loaded;
@@ -310,14 +299,11 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 });
 
 const egressAllowedNetworksLayer = (value: string) =>
-	environmentLayer({ SERVER_EGRESS_ALLOWED_NETWORKS: value });
+	makeRequiredConfigLayer({ SERVER_EGRESS_ALLOWED_NETWORKS: value });
 
 describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 	layer(
-		makeConfigProviderLayer({
-			REDIS_URL: "unused",
-			DATABASE_URL: "unused",
-			SERVER_ADMIN_ACCESS_TOKEN: "unused",
+		makeRequiredConfigLayer({
 			SERVER_EGRESS_ALLOWED_NETWORKS: " 127.0.0.1/32, ::1/128 ,10.0.0.0/8,fd00::/8,0.0.0.0/0",
 		}),
 	)((test) => {
@@ -361,7 +347,7 @@ describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 
 describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 	for (const values of [{}, { OTEL_EXPORTER_OTLP_HEADERS: "" }]) {
-		layer(environmentLayer(values))((test) => {
+		layer(makeRequiredConfigLayer(values))((test) => {
 			test.effect("keeps absent or empty deployment headers disabled", () =>
 				Effect.gen(function* () {
 					const result = yield* loaded;
@@ -372,7 +358,7 @@ describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 		});
 	}
 	layer(
-		environmentLayer({
+		makeRequiredConfigLayer({
 			OTEL_EXPORTER_OTLP_HEADERS: "x-api-key=abc123 , authorization=Basic dXNlcj1wdw==,",
 		}),
 	)((test) => {
@@ -396,7 +382,7 @@ describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 		["  ", "it is set but contains no headers"],
 		[",", "it is set but contains no headers"],
 	] as const) {
-		layer(environmentLayer({ OTEL_EXPORTER_OTLP_HEADERS: value }))((test) => {
+		layer(makeRequiredConfigLayer({ OTEL_EXPORTER_OTLP_HEADERS: value }))((test) => {
 			test.effect(`rejects malformed headers: '${value}'`, () =>
 				Effect.gen(function* () {
 					const result = yield* loaded;
@@ -412,7 +398,10 @@ describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 
 describe("automation configuration", () => {
 	layer(
-		environmentLayer({ AUTOMATIONS_RETRY_WINDOW_DAYS: 8, AUTOMATIONS_HISTORY_RETENTION_DAYS: 7 }),
+		makeRequiredConfigLayer({
+			AUTOMATIONS_RETRY_WINDOW_DAYS: 8,
+			AUTOMATIONS_HISTORY_RETENTION_DAYS: 7,
+		}),
 	)((test) => {
 		test.effect("rejects history retention shorter than the retry window", () =>
 			Effect.gen(function* () {
@@ -422,7 +411,7 @@ describe("automation configuration", () => {
 	});
 
 	for (const values of [{ AUTOMATIONS_MAX_DEPTH: 1.5 }, { AUTOMATIONS_MAX_RUNS: 10001 }]) {
-		layer(environmentLayer(values))((test) => {
+		layer(makeRequiredConfigLayer(values))((test) => {
 			test.effect("rejects unbounded or fractional recursion limits", () =>
 				Effect.gen(function* () {
 					expect(Exit.isFailure(yield* loaded)).toBe(true);
@@ -461,7 +450,7 @@ describe("normalized optional credentials", () => {
 						return unset === "empty" ? [[key, ""]] : [];
 					}),
 				);
-				layer(environmentLayer(values))((test) => {
+				layer(makeRequiredConfigLayer(values))((test) => {
 					test.effect(`${name} mask ${mask} with ${unset} fields`, () =>
 						Effect.gen(function* () {
 							const result = yield* loaded;
@@ -498,7 +487,7 @@ describe("normalized optional credentials", () => {
 	}
 	for (const complete of [false, true]) {
 		layer(
-			environmentLayer({
+			makeRequiredConfigLayer({
 				USERS_DISABLE_LOCAL_AUTH: true,
 				...(complete
 					? {
@@ -542,7 +531,7 @@ describe("normalized optional credentials", () => {
 					return unset === "empty" ? [[key, ""]] : [];
 				}),
 			);
-			layer(environmentLayer({ ...values, FILE_STORAGE_S3_REGION: "" }))((test) => {
+			layer(makeRequiredConfigLayer({ ...values, FILE_STORAGE_S3_REGION: "" }))((test) => {
 				test.effect(
 					`S3 mask ${mask} with ${unset} fields retains complete credentials or local fallback`,
 					() =>

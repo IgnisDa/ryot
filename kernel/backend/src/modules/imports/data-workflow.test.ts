@@ -111,7 +111,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 	const receipts: ReturnType<typeof ingestionTestReceipt>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
 	const projections: IngestionBatch[] = [];
-	const starts: Parameters<ImportsRepository["Service"]["advanceBatch"]>[] = [];
+	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 	const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
 	const records = [
 		event("written"),
@@ -188,7 +188,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 			recordIssue: () => Effect.succeed(true),
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
-			advanceBatch: (...input) =>
+			startBatch: (...input) =>
 				Effect.sync(() => {
 					starts.push(input);
 					return true;
@@ -256,8 +256,8 @@ it.effect(
 			expect(first.failedKeys).toEqual(["failed-dependency"]);
 			expect(replay).toEqual(first);
 			expect(test.starts).toEqual([
-				[ingestionTestScope, "segment", "applying"],
-				[ingestionTestScope, "segment", "applying"],
+				[ingestionTestScope, "segment"],
+				[ingestionTestScope, "segment"],
 			]);
 			expect(test.receipts.map((receipt) => receipt.itemIdentity)).toEqual([
 				ingestionItemIdentity(ingestionTestScope.runId, "data:event:written"),

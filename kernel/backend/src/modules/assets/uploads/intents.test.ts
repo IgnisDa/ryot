@@ -77,7 +77,6 @@ class FakeUploadStore extends Context.Service<
 		readonly leased: Effect.Effect<ReadonlyArray<string>>;
 		readonly released: Effect.Effect<ReadonlyArray<string>>;
 		readonly deletedKeys: Effect.Effect<ReadonlyArray<string>>;
-		readonly selectedKinds: Effect.Effect<ReadonlyArray<string>>;
 		readonly removedMembers: Effect.Effect<ReadonlyArray<string>>;
 		readonly storedValues: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly deletedObjects: Effect.Effect<ReadonlyArray<ManagedAssetLocator>>;
@@ -108,7 +107,6 @@ const makeUploadIntentsLayer = (options: {
 					const leased = yield* Ref.make<ReadonlyArray<string>>([]);
 					const released = yield* Ref.make<ReadonlyArray<string>>([]);
 					const deletedKeys = yield* Ref.make<ReadonlyArray<string>>([]);
-					const selectedKinds = yield* Ref.make<ReadonlyArray<string>>([]);
 					const removedMembers = yield* Ref.make<ReadonlyArray<string>>([]);
 					const stored = yield* Ref.make<ReadonlyMap<string, string>>(
 						new Map(
@@ -131,6 +129,7 @@ const makeUploadIntentsLayer = (options: {
 					const indexed = yield* Ref.make<
 						ReadonlyArray<{ key: string; score: number; member: string }>
 					>([]);
+					const expiries = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
 					const store = (key: string, value: string) =>
 						Ref.update(stored, (all) => new Map(all).set(key, value));
 					const stat = Effect.gen(function* () {
@@ -153,7 +152,6 @@ const makeUploadIntentsLayer = (options: {
 							storedValues: Ref.get(stored),
 							deletedKeys: Ref.get(deletedKeys),
 							tokenWrites: Ref.get(tokenWrites),
-							selectedKinds: Ref.get(selectedKinds),
 							registrations: Ref.get(registrations),
 							awaitStat: Deferred.await(statEntered),
 							removedMembers: Ref.get(removedMembers),
@@ -167,9 +165,6 @@ const makeUploadIntentsLayer = (options: {
 								renewLease: () => Effect.succeed(true),
 								zrem: (_key, ...members) => append(removedMembers, ...members),
 								zadd: (_key, score, member) => append(reindexed, { score, member }),
-								get: (key) => Ref.get(stored).pipe(Effect.map((all) => all.get(key) ?? null)),
-								setAndRemoveFromIndex: (key, value, _indexKey, member) =>
-									store(key, value).pipe(Effect.andThen(append(removedMembers, member))),
 								setAndIndex: (key, value, indexKey, score, member) =>
 									Ref.update(stored, (all) => new Map(all).set(key, value)).pipe(
 										Effect.andThen(append(indexed, { score, member, key: indexKey })),
@@ -200,6 +195,14 @@ const makeUploadIntentsLayer = (options: {
 												.map((key) => key.slice("ryot:upload:intent:".length)),
 										),
 									),
+								get: (key) =>
+									Effect.gen(function* () {
+										const expiry = (yield* Ref.get(expiries)).get(key);
+										if (expiry !== undefined && expiry <= (yield* Clock.currentTimeMillis)) {
+											return null;
+										}
+										return (yield* Ref.get(stored)).get(key) ?? null;
+									}),
 								del: (...keys) =>
 									append(deletedKeys, ...keys).pipe(
 										Effect.andThen(
@@ -228,6 +231,18 @@ const makeUploadIntentsLayer = (options: {
 										Effect.andThen(append(indexed, { score, member, key: indexKey })),
 										Effect.andThen(append(tokenWrites, { ttl, key: tokenKey })),
 									),
+								setAndRemoveFromIndex: (key, value, _indexKey, member, ttlSeconds) =>
+									store(key, value).pipe(
+										Effect.andThen(
+											Effect.gen(function* () {
+												const now = yield* Clock.currentTimeMillis;
+												yield* Ref.update(expiries, (all) =>
+													new Map(all).set(key, now + ttlSeconds * 1000),
+												);
+											}),
+										),
+										Effect.andThen(append(removedMembers, member)),
+									),
 							}),
 						),
 						mockManagedAssets({
@@ -237,9 +252,8 @@ const makeUploadIntentsLayer = (options: {
 								),
 						}),
 						mockObjectStorage({
+							permanentStorageProvider: Effect.succeed(options.provider ?? "local"),
 							openObject: () => Effect.succeed(Stream.make(new Uint8Array([1, 2, 3]))),
-							selectStorageProvider: (kind) =>
-								append(selectedKinds, kind).pipe(Effect.as(options.provider ?? "local")),
 							deleteObject: (locator) =>
 								append(deletedObjects, locator).pipe(
 									Effect.andThen(
@@ -309,7 +323,6 @@ layer(makeUploadIntentsLayer({}))((test) => {
 				});
 				const stored = yield* fake.storedValues;
 				expect(result.uploadUrl).toMatch(new RegExp(`^/uploads/local/${result.intentId}`));
-				expect(yield* fake.selectedKinds).toEqual(["permanent"]);
 				expect(yield* fake.indexed).toHaveLength(1);
 				expect(stored.get(redisKeys.uploadIntent(result.intentId))).toContain('"provider":"local"');
 				expect(stored.get(redisKeys.uploadIntent(result.intentId))).toContain(
@@ -419,7 +432,10 @@ for (const provider of ["local", "s3"] as const) {
 					yield* TestClock.adjust("1000 seconds");
 					yield* service.cleanupPendingIntents(100);
 					expect(yield* fake.deletedObjects).toEqual([]);
-					expect(yield* service.completeUploadIntent(user, intent.intentId)).toEqual(completion);
+					assertExitFails(
+						yield* Effect.exit(service.completeUploadIntent(user, intent.intentId)),
+						new UploadBadRequest({ reason: { code: "intent-expired", intentId: intent.intentId } }),
+					);
 					assertExitFails(
 						yield* Effect.exit(
 							service.putLocalIntent(
@@ -462,7 +478,7 @@ layer(makeUploadIntentsLayer({ provider: "s3" }))((test) => {
 				expect(yield* fake.writes).toHaveLength(1);
 				const completion = yield* service.completeUploadIntent(user, intent.intentId);
 				assert("token" in completion);
-				expect(completion.expiresAt).toBe(900);
+				expect(completion.expiresAt).toBe("1970-01-01T00:15:00.000Z");
 				expect(yield* service.completeUploadIntent(user, intent.intentId)).toEqual(completion);
 				assertExitFails(
 					yield* Effect.exit(
@@ -498,11 +514,11 @@ layer(makeUploadIntentsLayer({ provider: "s3" }))((test) => {
 					claimedRecord,
 				);
 				expect(storedClaim).toMatchObject({
-					completion,
 					claimedAt: 100,
 					state: "claimed",
 					claimId: "first-claim",
 					leaseExpiresAt: 86_500,
+					completion: { token: completion.token, expiresAt: 900 },
 				});
 				expect(storedClaim).not.toHaveProperty("expiresAt");
 				yield* TestClock.adjust("1000 seconds");

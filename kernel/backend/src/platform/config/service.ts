@@ -96,6 +96,21 @@ const otlpEndpointError = (endpoint: string) => {
 	return undefined;
 };
 
+const parseOptional = <I, A>(
+	name: string,
+	value: Option.Option<I>,
+	parse: (value: I) => Result.Result<A, string>,
+) =>
+	Option.match(value, {
+		onNone: () => Effect.succeed(Option.none<A>()),
+		onSome: (input) => {
+			const parsed = parse(input);
+			return Result.isFailure(parsed)
+				? Effect.fail(configError(`${name} is invalid: ${parsed.failure}.`))
+				: Effect.succeed(Option.some(parsed.success));
+		},
+	});
+
 const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, string> => {
 	const headers: Record<string, string> = {};
 	for (const [index, entry] of value.split(",").entries()) {
@@ -199,32 +214,17 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 			}
 		}
 
-		const headers = yield* Option.match(otlp.headers, {
-			onNone: () => Effect.succeed(Option.none<Redacted.Redacted<Record<string, string>>>()),
-			onSome: (value) =>
-				Effect.gen(function* () {
-					const parsed = parseOtlpHeaders(Redacted.value(value));
-					if (Result.isFailure(parsed)) {
-						return yield* Effect.fail(
-							configError(`OTEL_EXPORTER_OTLP_HEADERS is invalid: ${parsed.failure}.`),
-						);
-					}
-					return Option.some(Redacted.make(parsed.success));
-				}),
-		});
-		const egressAllowedNetworks = yield* Option.match(config.server.egressAllowedNetworks, {
-			onNone: () => Effect.succeed([]),
-			onSome: (value) =>
-				Effect.gen(function* () {
-					const parsed = parseEgressAllowedNetworks(value);
-					if (Result.isFailure(parsed)) {
-						return yield* Effect.fail(
-							configError(`SERVER_EGRESS_ALLOWED_NETWORKS is invalid: ${parsed.failure}.`),
-						);
-					}
-					return parsed.success;
-				}),
-		});
+		const headers = yield* parseOptional("OTEL_EXPORTER_OTLP_HEADERS", otlp.headers, (value) =>
+			Result.map(parseOtlpHeaders(Redacted.value(value)), Redacted.make),
+		);
+		const egressAllowedNetworks = Option.getOrElse(
+			yield* parseOptional(
+				"SERVER_EGRESS_ALLOWED_NETWORKS",
+				config.server.egressAllowedNetworks,
+				parseEgressAllowedNetworks,
+			),
+			() => [],
+		);
 
 		if (logging.file.path.trim().length === 0) {
 			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
@@ -247,11 +247,10 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 		}
 
 		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
-		const oidcSetCount = [
-			isNonEmpty(clientId),
-			isNonEmpty(issuerUrl),
-			isNonEmptyRedacted(clientSecret),
-		].filter(Boolean).length;
+		const hasClientId = isNonEmpty(clientId);
+		const hasIssuerUrl = isNonEmpty(issuerUrl);
+		const hasClientSecret = isNonEmptyRedacted(clientSecret);
+		const oidcSetCount = [hasClientId, hasIssuerUrl, hasClientSecret].filter(Boolean).length;
 
 		if (oidcSetCount > 0 && oidcSetCount < 3) {
 			return yield* Effect.fail(
@@ -262,7 +261,7 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 		}
 
 		const oidc =
-			isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret)
+			hasClientId && hasIssuerUrl && hasClientSecret
 				? Option.some({
 						clientId: clientId.value,
 						issuerUrl: issuerUrl.value,
@@ -278,11 +277,10 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 		}
 
 		const { user, server, password } = config.server.smtp;
-		const smtpSetCount = [
-			isNonEmpty(server),
-			isNonEmptyRedacted(user),
-			isNonEmptyRedacted(password),
-		].filter(Boolean).length;
+		const hasServer = isNonEmpty(server);
+		const hasUser = isNonEmptyRedacted(user);
+		const hasPassword = isNonEmptyRedacted(password);
+		const smtpSetCount = [hasServer, hasUser, hasPassword].filter(Boolean).length;
 		if (smtpSetCount > 0 && smtpSetCount < 3) {
 			return yield* Effect.fail(
 				configError(
@@ -291,7 +289,7 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 			);
 		}
 		const smtp =
-			isNonEmpty(server) && isNonEmptyRedacted(user) && isNonEmptyRedacted(password)
+			hasServer && hasUser && hasPassword
 				? Option.some({
 						user: user.value,
 						server: server.value,

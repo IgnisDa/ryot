@@ -239,7 +239,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							preflightDefinitions,
 							validated.manifest.requiredPlugins,
 						);
-						const provider = yield* objectStorage.selectStorageProvider("permanent");
+						const provider = yield* objectStorage.permanentStorageProvider;
 						for (const asset of validated.assets) {
 							if (stagedBySha.has(asset.sha256)) {
 								continue;

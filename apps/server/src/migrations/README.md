@@ -55,6 +55,12 @@ and reject deterministic entity or relationship ID conflicts. No genre string pr
 | Integrations              | Resolve providers from the exact active media revision, validate current settings, attach the owner's installation, and reuse each sink's legacy integration ID as its webhook token so existing sink URLs keep working. Migrate unexpired debounce and YouTube Music cache rows as persistent Redis claims with remaining expiry.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Report and skip removed `generic_json`; other unknown providers/settings fail. Omit trigger, recipient, run, attempt, and notification history. Ambiguous or unresolved cache targets are reported and skipped. Set `RYOT_PLUGIN__RYOT__MEDIA__PROGRESS_UPDATE_THRESHOLD_HOURS` separately if the old non-default threshold must survive claim expiry.                                                                                                                                                                          |
 | Notifications/preferences | Convert supported notification specifics; map `display_nsfw` to the exact Media installation's `allowNsfw` user setting with V1's `true` default, and map each `preferences.general.watch_providers` `{lot, values}` entry to that lot's Media `consumedOn<Type>` user setting (trimmed values in V1 order; lots V1 does not list keep the schema defaults). Keep `disableIntegrations` and `language` in kernel user preferences. Map feature flags to built-in saved-view disabled state using exact installation IDs. Media flags control lot, people/company, and group views; fitness flags control fitness views; the collections and calendar flags control their kernel views.                                                                                                                                                                                                                                                             | Drop credential-bearing descriptions and event filters. Provider languages start as global `null`; Audible marketplace is provider identity and is not migrated as a preference. Feature flags affect view disablement only. Drop `disable_watch_providers`. Omit empty or blank watch provider values, case-insensitive duplicates, values over 100 characters, and values past a lot's 30th, reporting each count as a warning. Abort on an unknown lot or a watch provider list that is not `{lot, values}` entries of text. |
 
+Media `user_to_entity` memberships also create sessionless `add-to-media-library` events, including
+custom titles, people, companies, and media groups. Events use the library relationship's creation
+time, empty properties, and a deterministic relationship-derived ID. Restarts backfill missing
+events even when the relationship already exists, without duplicating events or changing library
+annotations. Fitness and collection memberships receive no Media library event.
+
 Legacy `Watchlist` collection memberships also create `backlog` events for Media titles, including
 custom titles. Each event keeps the membership's creation time, empty properties, and a deterministic
 membership-derived ID, so later activity takes precedence and restarts do not duplicate events.
@@ -158,6 +164,12 @@ non-title members and other collections create no backlog events, normal collect
 remain, and later lifecycle activity retains precedence. An interrupted restart with legacy tables
 present must leave backlog event counts and IDs unchanged.
 
+For Media library mapping, compare each migrated `user_to_entity` library relationship with exactly
+one sessionless `add-to-media-library` event of the same user, source entity, and creation time.
+Include custom titles, people, companies, and media groups. Verify Fitness and collection rows
+produce no Media library event. An interrupted restart must backfill an absent event for an existing
+relationship, leave existing annotations unchanged, and preserve event counts and IDs on later runs.
+
 Use disposable PostgreSQL, Redis, and object storage. `just restore-db` clears its configured database,
 Redis, and S3 bucket; the asset phase also deletes copied legacy keys after commit. Never use production
 storage for validation. Rebuild shipped plugin archives and run server assembly before migration-only
@@ -182,3 +194,11 @@ with one detail per offending value retaining its original text. Keep recorded z
 intervals unchanged. Exercise memberships without settings must remain free of invented overrides.
 For an interrupted-run check, stop after the preference phase commits, change a stored choice in that
 isolated database, and restart with legacy tables present; the completed phase must not replace it.
+
+For the workout-set record pass, verify on a dump with more than 1,000 sets:
+
+- Sets scan in ID order across batches and seed exactly one stream per distinct owner and exercise.
+- Equal exercises within a batch share one stream; zero and missing values survive, and warning details name the offending record.
+- A malformed set (missing session, workout, user match, exercise, valid timestamps, supported kind, or valid values) aborts naming its event, user, and exercise.
+- An incomplete patch write aborts, and an empty scan writes no streams or patches.
+- Patching sets never rewrites `occurred_at`, `created_at`, or `updated_at`.

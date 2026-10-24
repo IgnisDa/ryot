@@ -432,16 +432,20 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							: [],
 					),
 				);
+				const installationById = new Map(allStoredInstallations.map((state) => [state.id, state]));
+				const requireInstallation = (installationId: string | null, message: string) => {
+					if (installationId === null) {
+						return Effect.succeed(null);
+					}
+					const installation = installationById.get(installationId);
+					return installation ? Effect.succeed(installation) : badRequest(message);
+				};
 				const viewRecords: ArchiveSavedView[] = (yield* Effect.forEach(storedViews, (view) =>
 					Effect.gen(function* () {
-						const installation = allStoredInstallations.find(
-							(state) => state.id === view.pluginInstallationId,
+						const installation = yield* requireInstallation(
+							view.pluginInstallationId,
+							"Backup saved view references unavailable plugin installation",
 						);
-						if (view.pluginInstallationId !== null && !installation) {
-							return yield* badRequest(
-								"Backup saved view references unavailable plugin installation",
-							);
-						}
 						const viewPluginId = installation?.pluginId ?? null;
 						const definitionPluginId =
 							view.isBuiltin && view.reference.kind === "plugin" ? view.reference.pluginId : null;
@@ -598,20 +602,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							};
 						}),
 				);
-				const installationById = new Map(storedInstallations.map((state) => [state.id, state]));
 				const integrationRecords: ArchiveIntegration[] = yield* Effect.forEach(
 					storedIntegrations,
 					(integration) =>
 						Effect.gen(function* () {
-							const installation =
-								integration.pluginInstallationId === null
-									? null
-									: installationById.get(integration.pluginInstallationId);
-							if (integration.pluginInstallationId !== null && !installation) {
-								return yield* badRequest(
-									`Backup integration '${integration.id}' references unavailable plugin installation`,
-								);
-							}
+							const installation = yield* requireInstallation(
+								integration.pluginInstallationId,
+								`Backup integration '${integration.id}' references unavailable plugin installation`,
+							);
 							return {
 								id: integration.id,
 								lot: integration.lot,

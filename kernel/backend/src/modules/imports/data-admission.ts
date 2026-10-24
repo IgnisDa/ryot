@@ -151,20 +151,14 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 				user: CurrentUserValue,
 				runId: ImportRunId,
 			) {
-				const control = yield* repository.getRunControlForUser({ runId, userId: user.id });
-				if (control?.status === "pending") {
-					const run = yield* repository
-						.getIngestionRunControl({
-							runId,
-							userId: user.id,
-							accountGeneration: user.accountGeneration,
-						})
-						.pipe(Effect.orDie);
-					if (!run) {
-						return yield* new ImportRequestError({
-							reason: { field: null, code: "invalid-input" },
-						});
-					}
+				const run = yield* repository
+					.getIngestionRunControl({
+						runId,
+						userId: user.id,
+						accountGeneration: user.accountGeneration,
+					})
+					.pipe(Effect.orDie);
+				if (run?.status === "pending") {
 					const command = rootLifecycleCommand({
 						source: "import",
 						lane: "background",

@@ -103,10 +103,9 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				);
 			});
 
-			const selectStorageProvider = (kind: "permanent" | "temporary") =>
-				Effect.succeed(
-					kind === "permanent" && s3Service.isConfigured ? ("s3" as const) : ("local" as const),
-				);
+			const permanentStorageProvider = Effect.succeed(
+				s3Service.isConfigured ? ("s3" as const) : ("local" as const),
+			);
 
 			const statObject = Effect.fn("ObjectStorageService.statObject")(function* (
 				locator: ManagedAssetLocator,
@@ -157,7 +156,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				deleteObject,
 				writeObjectIfAbsent,
 				resolveLocalDownload,
-				selectStorageProvider,
+				permanentStorageProvider,
 			};
 		}),
 	},

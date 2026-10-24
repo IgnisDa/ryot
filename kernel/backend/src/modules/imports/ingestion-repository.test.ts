@@ -774,7 +774,7 @@ layer(
 							for (let ordinal = 0; ordinal < size; ordinal++) {
 								const item = { ...batch, ordinal, id: `control-batch-${ordinal}` };
 								yield* repository.registerBatch(scope, item, [], batchOwner);
-								yield* repository.advanceBatch(scope, item.id, "applying");
+								yield* repository.startBatch(scope, item.id);
 								yield* repository.projectBatch(scope, { ...item, summary, state: "applied" });
 								yield* repository.putActivity(scope, {
 									wait: null,
@@ -968,7 +968,7 @@ layer(
 			const spans: Tracer.Span[] = [];
 			expect(
 				yield* session
-					.transaction(repository.advanceBatch(scope, batch.id, "applying"))
+					.transaction(repository.startBatch(scope, batch.id))
 					.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 			).toBe(true);
 			const updates = spans.flatMap((span) => {
@@ -980,16 +980,10 @@ layer(
 				{ data: { ...batch, state: "applying" } },
 			]);
 			expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
-			expect(yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying"))).toBe(
-				false,
-			);
-			expect(
-				yield* session.transaction(repository.advanceBatch(scope, "missing", "applying")),
-			).toBe(false);
+			expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
+			expect(yield* session.transaction(repository.startBatch(scope, "missing"))).toBe(false);
 			yield* session.transaction(repository.projectBatch(scope, { ...batch, state: "applied" }));
-			expect(yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying"))).toBe(
-				false,
-			);
+			expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
 			expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
 		}),
 	);
@@ -1002,9 +996,7 @@ layer(
 			yield* session.transaction(repository.publishCapture(scope, capture));
 			yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
 			expect(yield* repository.cancelIngestion(scope)).toBe(true);
-			const exit = yield* Effect.exit(
-				session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-			);
+			const exit = yield* Effect.exit(session.transaction(repository.startBatch(scope, batch.id)));
 			assertExitFails(exit, new DbError({ message: "Ingestion owner is not active" }));
 			expect(yield* repository.listBatches(scope)).toEqual([{ data: batch }]);
 			expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
@@ -1022,7 +1014,7 @@ layer(
 				session.transaction(
 					Effect.gen(function* () {
 						yield* repository.registerBatch(scope, batch, [], batchOwner);
-						expect(yield* repository.advanceBatch(scope, batch.id, "applying")).toBe(true);
+						expect(yield* repository.startBatch(scope, batch.id)).toBe(true);
 						return yield* error;
 					}),
 				),
@@ -1045,12 +1037,8 @@ layer(
 				expect(
 					yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner)),
 				).toBe(false);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(true);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(false);
+				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(true);
+				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
 				expect(
 					(yield* Effect.exit(
 						session.transaction(

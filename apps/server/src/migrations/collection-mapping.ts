@@ -316,7 +316,7 @@ const legacyTemplateFieldSql = `
 		WHEN field.lot = 'Number'
 			THEN '{"type": "number"}'::jsonb
 				|| CASE WHEN field.default_value ~ '^-?[0-9]+(\\.[0-9]+)?$'
-					THEN CASE WHEN abs(field.default_value::numeric) <= 1.7976931348623157e308
+					THEN CASE WHEN abs(field.default_value::numeric) <= ${Number.MAX_VALUE}
 						THEN jsonb_build_object('defaultValue', field.default_value::numeric)
 						ELSE '{}'::jsonb END
 					ELSE '{}'::jsonb

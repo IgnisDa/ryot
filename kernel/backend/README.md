@@ -48,7 +48,8 @@ Detailed behavior belongs to [automations](src/modules/automations/README.md),
 Assets split upload intents in `modules/assets/uploads/`, permanent storage and managed records in
 `modules/assets/storage/`, and file delivery in `modules/assets/routes.ts`. Temporary storage is
 ephemeral local working space. Permanent uploads prefer fully configured S3 and otherwise use
-persistent local storage.
+persistent local storage. A completed permanent upload intent replays its result only for the
+upload URL window.
 
 Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its
 `ryot:sandbox:*` recovery and quarantine keys. See the [entity-watch protocol](src/modules/entities/watches/README.md)
