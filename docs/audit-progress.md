@@ -15,7 +15,7 @@
 
 ## Status
 
-**56 implemented, 0 in progress, 27 pending; 3 excluded.**
+**57 implemented, 0 in progress, 26 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -47,7 +47,7 @@
 | C06-R2 | Implemented | Provider-keyed options query owns the form and submitted-search snapshot; search waits for successful option loading, while no-options providers are immediate and active import stays outside. See this finding's audit commit. |
 | B16-R1 | Implemented | Use relational execution and retention references with snapshot JSON; derive execution user from scope and preserve retention/replay. See this finding's audit commit. |
 | B16-R2 | Implemented | Predecode candidate rows in bounded chunks of 1,000 before inserting them. See this finding's audit commit. |
-| B06-R1 | Pending | Materialize distinct pins and accepted automation runs as sets. |
+| B06-R1 | Implemented | Materialize distinct pins and accepted automation runs set-wise, memoize distinct revision slugs, preserve ordering, and verify. See this finding's audit commit. |
 | P01-R1 | Implemented | Generated provider tuples are the sole script/operation bindings, scoped to active or retained revisions. See this finding's audit commit. |
 | B09-R1 | Implemented | Persist ordered collection fields canonically, compile them one way, and trim all 25 JavaScript whitespace characters in SQL. See this finding's audit commit. |
 | F04-R2 | Implemented | Use stable measurement-entry IDs, preserve complete child pages and session-linked analytics, and update/delete by entry ID while retaining OpenScale legacy producers. See this finding's audit commit. |
@@ -222,3 +222,4 @@
 - B11-R1: scoped checks passed before 79 tests across six files; read-only review passed. Removed projection-worker exemption and owner-work-ID threading while retaining locks.
 - B22-R1: scoped checks passed before 50 tests across nine files; SQL validation covered six changed and four unchanged small/large cases; read-only review passed. Reorder persistence is set-wise and atomic from the locked validated plan.
 - B21-R1: four package checks passed before 179 backend, 61 media, 18 contract, and three RyotQL tests; read-only review passed. Validation returns the expanded document and error/value; binding retains aliases without re-expansion. No compatibility/drain machinery or development reset was added.
+- B06-R1: scoped checks passed before 46 tests across five files, after fixing the P2 review finding; no extra review round. Column-count-aware chunks stay below 32,767 parameters; 4,000 runs use three inserts in one transaction, and late conflicts roll back.

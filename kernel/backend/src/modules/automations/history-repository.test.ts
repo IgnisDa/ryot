@@ -175,33 +175,35 @@ const seedRun = (
 			AutomationTriggerId.make("trigger"),
 		);
 		assert(trigger?.payload);
-		yield* (yield* AutomationRunRepository).insertQueued(
-			yield* Schema.decodeUnknownEffect(AutomationRun)({
-				id,
-				stage,
-				hookName: id,
-				hookSlug: id,
-				startedAt: null,
-				attemptCount: 0,
-				executionUserId,
-				finishedAt: null,
-				skipReason: null,
-				status: "queued",
-				nextAttemptAt: null,
-				triggerId: "trigger",
-				sandboxScriptId: "script",
-				scriptContentHash: "hash",
-				scriptSlug: "kernel.notify",
-				queuedAt: now.toISOString(),
-				pluginId: pin?.pluginId ?? null,
-				artifactsExpireAt: "2026-09-16T00:00:00.000Z",
-				pluginRevisionId: pin?.pluginRevisionId ?? null,
-				delivery: stage === "before" ? "policy" : "async",
-				pluginConfigRevisionId: pin?.pluginConfigRevisionId ?? null,
-				retryPolicy: stage === "before" ? null : DEFAULT_AUTOMATION_RETRY_POLICY,
-			}),
-			trigger.payload,
-		);
+		yield* (yield* AutomationRunRepository).insertQueued({
+			triggerPayload: trigger.payload,
+			runs: [
+				yield* Schema.decodeUnknownEffect(AutomationRun)({
+					id,
+					stage,
+					hookName: id,
+					hookSlug: id,
+					startedAt: null,
+					attemptCount: 0,
+					executionUserId,
+					finishedAt: null,
+					skipReason: null,
+					status: "queued",
+					nextAttemptAt: null,
+					triggerId: "trigger",
+					sandboxScriptId: "script",
+					scriptContentHash: "hash",
+					scriptSlug: "kernel.notify",
+					queuedAt: now.toISOString(),
+					pluginId: pin?.pluginId ?? null,
+					artifactsExpireAt: "2026-09-16T00:00:00.000Z",
+					pluginRevisionId: pin?.pluginRevisionId ?? null,
+					delivery: stage === "before" ? "policy" : "async",
+					pluginConfigRevisionId: pin?.pluginConfigRevisionId ?? null,
+					retryPolicy: stage === "before" ? null : DEFAULT_AUTOMATION_RETRY_POLICY,
+				}),
+			],
+		});
 		yield* (yield* DatabaseSession).run((db) =>
 			db
 				.update(automationRun)

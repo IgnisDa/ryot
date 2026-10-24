@@ -17,6 +17,7 @@ import {
 	and,
 	asc,
 	eq,
+	getTableColumns,
 	gt,
 	inArray,
 	isNotNull,
@@ -32,6 +33,12 @@ import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { DatabaseSession } from "#platform/db/session";
 import { automationRun as table } from "#schema/tables/automations";
 import { pluginRevision } from "#schema/tables/core";
+
+// The SQL driver's Bind encoder limits parameter counts to signed 16-bit values.
+const statementParameterLimit = 32_767;
+const insertChunkSize = Math.floor(
+	statementParameterLimit / Object.keys(getTableColumns(table)).length,
+);
 
 const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
 	code: "policy-chain-stopped",
@@ -136,36 +143,6 @@ export const redactAutomationHistoryPayload = (
 	return Schema.decodeUnknownSync(JsonValue)(result);
 };
 
-const historyPayload = Effect.fn(function* (
-	session: DatabaseSession["Service"],
-	run: Pick<AutomationRun, "pluginId" | "pluginRevisionId">,
-	payload: AutomationTriggerPayload,
-) {
-	const { pluginRevisionId } = run;
-	const [manifest] =
-		pluginRevisionId === null
-			? []
-			: yield* session.run((db) =>
-					db
-						.select({
-							entitySchemas: sql<
-								PinnedSchemas["entitySchemas"]
-							>`coalesce(${pluginRevision.entitySchemas}, '[]'::jsonb)`,
-							signalSchemas: sql<
-								PinnedSchemas["signalSchemas"]
-							>`coalesce(${pluginRevision.signalSchemas}, '[]'::jsonb)`,
-							relationshipSchemas: sql<
-								PinnedSchemas["relationshipSchemas"]
-							>`coalesce(${pluginRevision.relationshipSchemas}, '[]'::jsonb)`,
-						})
-						.from(pluginRevision)
-						.where(eq(pluginRevision.id, pluginRevisionId)),
-				);
-	const redacted = redactAutomationHistoryPayload(payload, manifest ?? null, run.pluginId);
-	const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
-	return { historyPayloadTruncated: truncated, historyPayload: truncated ? null : redacted };
-});
-
 const immutableFields = (run: AutomationRun) => ({
 	id: run.id,
 	stage: run.stage,
@@ -193,53 +170,130 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				const [row] = yield* session.run((db) => db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
-			const insertQueued = Effect.fn(function* (
-				input: AutomationRun,
-				triggerPayload: AutomationTriggerPayload,
-			) {
-				const value = yield* decodeStoredSchema(
-					input,
-					AutomationRun,
+			const insertQueued = Effect.fn(function* (input: {
+				runs: ReadonlyArray<AutomationRun>;
+				triggerPayload: AutomationTriggerPayload;
+			}) {
+				const values = yield* decodeStoredSchema(
+					input.runs,
+					Schema.Array(AutomationRun),
 					"Invalid queued automation run",
 				);
 				if (
-					value.status !== "queued" ||
-					value.attemptCount !== 0 ||
-					value.startedAt !== null ||
-					value.finishedAt !== null ||
-					value.nextAttemptAt !== null ||
-					value.skipReason !== null ||
-					value.sandboxScriptId === null
+					values.some(
+						(value) =>
+							value.status !== "queued" ||
+							value.attemptCount !== 0 ||
+							value.startedAt !== null ||
+							value.finishedAt !== null ||
+							value.nextAttemptAt !== null ||
+							value.skipReason !== null ||
+							value.sandboxScriptId === null,
+					)
 				) {
 					return yield* new DbError({
 						message:
 							"New automation runs must be queued with a pinned script and no execution state",
 					});
 				}
-				const history = yield* historyPayload(session, value, triggerPayload);
-				yield* session.run((db) =>
-					db
-						.insert(table)
-						.values({
-							...value,
-							...history,
-							startedAt: null,
-							finishedAt: null,
-							nextAttemptAt: null,
-							queuedAt: DateTime.toDate(DateTime.makeUnsafe(value.queuedAt)),
-							artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(value.artifactsExpireAt)),
-						})
-						.onConflictDoNothing(),
-				);
-				const stored = yield* findById(value.id);
-				if (
-					!stored ||
-					stableStringify(immutableFields(stored)) !== stableStringify(immutableFields(value)) ||
-					(stored.sandboxScriptId !== null && stored.sandboxScriptId !== value.sandboxScriptId)
-				) {
-					return yield* new DbError({ message: `Automation run identity conflict: ${value.id}` });
+				if (!values.length) {
+					return [];
 				}
-				return stored;
+				const revisionIds = [
+					...new Set(
+						values.flatMap(({ pluginRevisionId }) =>
+							pluginRevisionId === null ? [] : [pluginRevisionId],
+						),
+					),
+				];
+				const revisions = revisionIds.length
+					? yield* session.run((db) =>
+							db
+								.select({
+									id: pluginRevision.id,
+									entitySchemas: sql<
+										PinnedSchemas["entitySchemas"]
+									>`coalesce(${pluginRevision.entitySchemas}, '[]'::jsonb)`,
+									signalSchemas: sql<
+										PinnedSchemas["signalSchemas"]
+									>`coalesce(${pluginRevision.signalSchemas}, '[]'::jsonb)`,
+									relationshipSchemas: sql<
+										PinnedSchemas["relationshipSchemas"]
+									>`coalesce(${pluginRevision.relationshipSchemas}, '[]'::jsonb)`,
+								})
+								.from(pluginRevision)
+								.where(inArray(pluginRevision.id, revisionIds)),
+						)
+					: [];
+				const schemas = new Map(revisions.map((revision) => [revision.id, revision]));
+				const histories = new Map<
+					string,
+					Pick<typeof table.$inferSelect, "historyPayloadTruncated" | "historyPayload">
+				>();
+				const rows = values.map((value) => {
+					const key = stableStringify([value.pluginRevisionId, value.pluginId]);
+					let history = histories.get(key);
+					if (!history) {
+						const manifest =
+							value.pluginRevisionId === null
+								? null
+								: (schemas.get(value.pluginRevisionId) ?? null);
+						const redacted = redactAutomationHistoryPayload(
+							input.triggerPayload,
+							manifest,
+							value.pluginId,
+						);
+						const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
+						history = {
+							historyPayloadTruncated: truncated,
+							historyPayload: truncated ? null : redacted,
+						};
+						histories.set(key, history);
+					}
+					return {
+						...value,
+						...history,
+						startedAt: null,
+						finishedAt: null,
+						nextAttemptAt: null,
+						queuedAt: DateTime.toDate(DateTime.makeUnsafe(value.queuedAt)),
+						artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(value.artifactsExpireAt)),
+					};
+				});
+				for (let offset = 0; offset < rows.length; offset += insertChunkSize) {
+					yield* session.run((db) =>
+						db
+							.insert(table)
+							.values(rows.slice(offset, offset + insertChunkSize))
+							.onConflictDoNothing(),
+					);
+				}
+				const storedRows = yield* session.run((db) =>
+					db
+						.select()
+						.from(table)
+						.where(
+							inArray(
+								table.id,
+								values.map(({ id }) => id),
+							),
+						),
+				);
+				const storedRuns = yield* Effect.forEach(storedRows, decodeRow);
+				const byId = new Map(storedRuns.map((run) => [run.id, run]));
+				return yield* Effect.forEach(values, (value) => {
+					const stored = byId.get(value.id);
+					if (
+						!stored ||
+						stableStringify(immutableFields(stored)) !== stableStringify(immutableFields(value)) ||
+						(stored.sandboxScriptId !== null && stored.sandboxScriptId !== value.sandboxScriptId)
+					) {
+						return Effect.fail(
+							new DbError({ message: `Automation run identity conflict: ${value.id}` }),
+						);
+					}
+					return Effect.succeed(stored);
+				});
 			});
 			const listByTrigger = Effect.fn(function* (triggerId: AutomationTriggerId) {
 				const rows = yield* session.run((db) =>
