@@ -43,11 +43,14 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	localHour,
+	lt,
 	lte,
 	maximum,
 	measure,
 	measureDescending,
 	not,
+	or,
 	round,
 	rows,
 	star,
@@ -111,6 +114,229 @@ const makeServiceLayer = (
 			),
 		),
 	);
+
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"shares projection freshness and correlated ranking work within one SQL statement",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const sourceScope = {
+					where: and(
+						eq(column(source, "entityId"), column(subject, "id")),
+						eq(column(source, "projectionStatus"), literal("ready")),
+					),
+				};
+				const total = sum(
+					source,
+					castNumber(jsonPath(column(source, "projection"), "score")),
+					sourceScope,
+				);
+				yield* service.executeForUser("user-1", null, "plugin", {
+					queries: {
+						ranking: rows(subject, {
+							orderBy: [descending(total)],
+							fields: [
+								field("total", total),
+								field("sameTotal", total),
+								field("count", count(source, sourceScope)),
+								field("events", countDistinct(source, column(source, "id"), sourceScope)),
+								field("entities", countDistinct(source, column(source, "entityId"), sourceScope)),
+								field(
+									"sessions",
+									countDistinct(source, column(source, "sessionEntityId"), sourceScope),
+								),
+							],
+						}),
+					},
+				});
+				const statements = yield* (yield* RecordedStatements).statements;
+				const statement = statements.find((value) =>
+					value.includes('"projectionStreams" AS MATERIALIZED'),
+				);
+				assert(statement);
+				expect(statement.match(/from event_stream_work w/g)).toHaveLength(1);
+				expect(statement.match(/SUM\(/g)).toHaveLength(1);
+				expect(statement.match(/COUNT\(/g)).toHaveLength(4);
+				expect(statement.match(/SELECT \* FROM "event"/g)).toHaveLength(1);
+				expect(statement).toContain('"orderValue0"."value" AS "f0v"');
+				expect(statement).toContain('"orderValue0"."value" AS "o0"');
+			}),
+	);
+
+	test.effect("compiles timezone-aware hour and year groups in SQL", () =>
+		Effect.gen(function* () {
+			const entity = table("entity", "entity");
+			const service = yield* RyotQLService;
+			yield* service.executeForUser("user-1", null, "kernel", {
+				queries: {
+					hours: aggregate(entity, {
+						limit: 24,
+						orderBy: [groupDescending("hour")],
+						measures: [measure("count", { function: "count" })],
+						groupBy: [
+							field(
+								"hour",
+								localHour(column(entity, "createdAt"), { timeZone: "America/New_York" }),
+							),
+						],
+					}),
+					years: aggregate(entity, {
+						limit: 100,
+						orderBy: [groupDescending("year")],
+						measures: [measure("count", { function: "count" })],
+						groupBy: [
+							field(
+								"year",
+								dateBucket(column(entity, "createdAt"), {
+									bucket: "year",
+									timeZone: "Pacific/Auckland",
+								}),
+							),
+						],
+					}),
+				},
+			});
+			const statements = yield* (yield* RecordedStatements).statements;
+			expect(
+				statements.some((statement) =>
+					statement.includes('extract(hour from (t0."created_at" AT TIME ZONE'),
+				),
+			).toBe(true);
+			expect(
+				statements.some((statement) => statement.includes('date_trunc($1, t0."created_at", $2)')),
+			).toBe(true);
+		}),
+	);
+
+	test.effect("shares one narrow bounded source without lifting outer join predicates", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const subject = table("entity", "subject");
+			const source = table("event", "source");
+			const window = table("entity", "window");
+			const at = castDate(jsonPath(column(window, "properties"), "at"));
+			const query = {
+				joins: [
+					join(
+						"inner",
+						window,
+						and(
+							eq(column(source, "sessionEntityId"), column(window, "id")),
+							eq(column(window, "entitySchemaSlug"), literal("batch")),
+						),
+					),
+				],
+				where: and(
+					gte(at, castDate(literal("2026-01-01"))),
+					lt(at, castDate(literal("2026-02-01"))),
+					eq(column(source, "entityId"), column(subject, "id")),
+					or(eq(column(subject, "id"), literal("a")), eq(column(window, "id"), literal("b"))),
+				),
+			};
+			yield* service.executeForUser("user-1", null, "plugin", {
+				queries: {
+					rows: rows(subject, {
+						fields: [
+							field("count", count(source, query)),
+							field(
+								"sum",
+								sum(source, castNumber(jsonPath(column(source, "properties"), "score")), query),
+							),
+						],
+					}),
+				},
+			});
+			const statements = yield* (yield* RecordedStatements).statements;
+			const statement = statements.at(-1);
+			assert(statement);
+			expect(statement.match(/"aggregateSource\d+" AS MATERIALIZED/g)).toHaveLength(1);
+			const projected = statement.slice(0, statement.indexOf(" FROM "));
+			for (const name of ["properties", "id", "content_generation", "entity_schema_slug"]) {
+				expect(projected).toContain(`"c1_t1"."${name}"`);
+			}
+			expect(projected).not.toContain("*");
+			expect(statement).toContain('INNER JOIN "aggregateSource0" c1_t1 ON');
+			const lateral = statement.slice(statement.indexOf("CROSS JOIN LATERAL"));
+			expect(lateral).toContain('c1_t0."entity_id" = t0."id"');
+			expect(lateral).toContain('c1_t0."session_entity_id" = c1_t1."id"');
+			expect(lateral).toContain('t0."id" =');
+			expect(lateral).not.toContain("c1_t1.properties");
+			expect(lateral).not.toContain('c1_t1."entity_schema_slug"');
+		}),
+	);
+
+	test.effect(
+		"keeps unbounded, nullable, conditional and subquery ranges on the existing path",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const before = yield* (yield* RecordedStatements).statements;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const window = table("entity", "window");
+				const at = column(source, "occurredAt");
+				const lower = gte(at, castDate(literal("2026-01-01")));
+				const upper = lt(at, castDate(literal("2026-02-01")));
+				const correlated = eq(column(source, "entityId"), column(subject, "id"));
+				const conditionalAt = conditional(isNotNull(column(subject, "id")), at, literal(null));
+				const nestedAt = first(window, {
+					select: column(window, "createdAt"),
+					orderBy: [ascending(column(window, "id"))],
+				});
+				for (const query of [
+					{ where: and(lower, correlated) },
+					{ where: and(upper, correlated) },
+					{ where: and(or(lower), upper, correlated) },
+					{
+						where: and(
+							lower,
+							lt(column(subject, "createdAt"), castDate(literal("2026-02-01"))),
+							correlated,
+						),
+					},
+					{
+						where: and(
+							gte(conditionalAt, castDate(literal("2026-01-01"))),
+							lt(conditionalAt, castDate(literal("2026-02-01"))),
+							correlated,
+						),
+					},
+					{ where: and(lower, lt(at, nestedAt), correlated) },
+					{
+						where: and(
+							lower,
+							upper,
+							correlated,
+							eq(column(source, "projectionStatus"), literal("ready")),
+						),
+					},
+					{
+						where: and(lower, upper, correlated),
+						joins: [
+							join("left", window, eq(column(source, "sessionEntityId"), column(window, "id"))),
+						],
+					},
+					{
+						where: and(lower, upper, correlated),
+						joins: [jsonElementsJoin("inner", "entry", column(source, "properties"))],
+					},
+				]) {
+					yield* service.executeForUser("user-1", null, "plugin", {
+						queries: { rows: rows(subject, { fields: [field("count", count(source, query))] }) },
+					});
+				}
+				const statements = yield* (yield* RecordedStatements).statements;
+				expect(
+					statements
+						.slice(before.length)
+						.every((statement) => !statement.includes('"aggregateSource')),
+				).toBe(true);
+			}),
+	);
+});
 
 layer(makeServiceLayer())((test) => {
 	test.effect("executes named queries sequentially in one configured transaction", () => {
@@ -343,7 +569,7 @@ layer(makeServiceLayer())((test) => {
 			name: "User",
 			id: UserId.make("user-1"),
 			email: "user@example.com",
-			preferences: { language: null, disableIntegrations: false },
+			preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 		};
 		return Effect.gen(function* () {

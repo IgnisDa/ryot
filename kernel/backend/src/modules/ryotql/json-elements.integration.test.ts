@@ -8,11 +8,14 @@ import type {
 } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
 import {
+	and,
 	ascending,
 	castDate,
+	castNumber,
 	column,
 	conditional,
 	count,
+	countDistinct,
 	descending,
 	eq,
 	field,
@@ -22,11 +25,16 @@ import {
 	include,
 	isNotNull,
 	join,
+	jsonArrayCount,
+	jsonElement,
 	jsonElementsJoin,
 	jsonPath,
 	literal,
+	maximum,
+	minimum,
 	pluginId,
 	rows,
+	sum,
 	table,
 } from "@ryot-app/ryotql";
 import { Effect, Layer } from "effect";
@@ -163,6 +171,132 @@ const executeRows = (query: RyotQLDocument["queries"][string]) =>
 	});
 
 layer(databaseLayer)((test) => {
+	test.effect("counts complete arrays without changing filtered counts or non-array handling", () =>
+		Effect.gen(function* () {
+			const result = yield* executeRows(
+				rows(entity, {
+					fields: [
+						field("id", column(entity, "id")),
+						field("all", jsonArrayCount(items)),
+						field(
+							"filtered",
+							jsonArrayCount(items, gte(castNumber(jsonPath(jsonElement(), "rank")), literal(2))),
+						),
+					],
+				}),
+			);
+			expect(result.items).toEqual([
+				{ all: 0, id: "empty", filtered: 0 },
+				{ all: 0, filtered: 0, id: "missing" },
+				{ all: 0, id: "null", filtered: 0 },
+				{ all: 1, filtered: 0, id: "null-element" },
+				{ all: 0, filtered: 0, id: "object" },
+				{ all: 0, filtered: 0, id: "scalar" },
+				{ all: 0, id: "text", filtered: 0 },
+				{ all: 3, id: "three", filtered: 2 },
+				{ all: 2, id: "two", filtered: 1 },
+			]);
+		}),
+	);
+
+	test.effect("fuses sibling measures while separating predicates, nesting and cursor values", () =>
+		Effect.gen(function* () {
+			const source = table("entity", "source");
+			const nested = table("entity", "nested");
+			const entry = jsonElementsJoin(
+				"inner",
+				"entry",
+				jsonPath(column(source, "properties"), "items"),
+			);
+			const where = eq(column(source, "id"), column(entity, "id"));
+			const query = { where, joins: [entry] };
+			const rank = castNumber(jsonPath(column(entry, "value"), "rank"));
+			const total = sum(source, rank, query);
+			const values: RowItem[] = [];
+			let after: string | undefined;
+			do {
+				const page = yield* executeRows(
+					rows(entity, {
+						after,
+						limit: 1,
+						orderBy: [descending(total)],
+						where: inArray(column(entity, "id"), [
+							literal("three"),
+							literal("two"),
+							literal("empty"),
+						]),
+						fields: [
+							field("id", column(entity, "id")),
+							field("sum", total),
+							field("count", count(source, query)),
+							field("distinct", countDistinct(source, rank, query)),
+							field("sources", countDistinct(source, column(source, "id"), query)),
+							field("minimum", minimum(source, startsAt(entry), query)),
+							field("maximum", maximum(source, startsAt(entry), query)),
+							field(
+								"filtered",
+								count(source, { joins: [entry], where: and(where, gte(rank, literal(2))) }),
+							),
+							field(
+								"nested",
+								sum(
+									source,
+									count(nested, { where: eq(column(nested, "id"), column(source, "id")) }),
+									{ where },
+								),
+							),
+							field("visible", count(source)),
+							field("visibleSum", sum(source, literal(1), { joins: [] })),
+						],
+					}),
+				);
+				values.push(...page.items);
+				after = page.pageInfo.nextCursor ?? undefined;
+			} while (after);
+			expect(values).toEqual([
+				{
+					sum: 6,
+					count: 3,
+					nested: 1,
+					sources: 1,
+					visible: 9,
+					id: "three",
+					distinct: 3,
+					filtered: 2,
+					visibleSum: 9,
+					minimum: "2026-01-01T00:00:00.000Z",
+					maximum: "2026-03-03T00:00:00.000Z",
+				},
+				{
+					sum: 3,
+					count: 2,
+					id: "two",
+					nested: 1,
+					sources: 1,
+					visible: 9,
+					distinct: 2,
+					filtered: 1,
+					minimum: null,
+					maximum: null,
+					visibleSum: 9,
+				},
+				{
+					count: 0,
+					sum: null,
+					nested: 1,
+					sources: 0,
+					visible: 9,
+					id: "empty",
+					distinct: 0,
+					filtered: 0,
+					minimum: null,
+					maximum: null,
+					visibleSum: 9,
+				},
+			]);
+		}),
+	);
+
 	test.effect("emits one row per visible array element and none for non-array values", () =>
 		Effect.gen(function* () {
 			const result = yield* executeRows(

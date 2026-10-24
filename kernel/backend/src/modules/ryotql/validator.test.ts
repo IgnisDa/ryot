@@ -33,6 +33,8 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	localDate,
+	localHour,
 	maximum,
 	measure,
 	measureDescending,
@@ -1190,14 +1192,52 @@ it("validates timezone-aware date bucket expressions", () => {
 	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
 	expect(validateRyotQLDocument(query(currentDate()), userAccess).error).toBeNull();
 	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toBe(
-		"Query 'entities': Date buckets require a date expression",
+		"Query 'entities': Date operations require a date expression",
 	);
 	expect(
 		validateRyotQLDocument(query(column(entity, "createdAt"), "Invalid/Zone"), userAccess).error,
-	).toBe("Query 'entities': Invalid date bucket time zone 'Invalid/Zone'");
+	).toBe("Query 'entities': Invalid date operation time zone 'Invalid/Zone'");
 	expect(
 		validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"), userAccess).error,
-	).toBe("Query 'entities': Invalid date bucket time zone '+05:30'");
+	).toBe("Query 'entities': Invalid date operation time zone '+05:30'");
+});
+
+it("validates local hour inputs and types the result as numeric", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof localHour>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				where: eq(localHour(expr, { timeZone }), literal(3)),
+				fields: [field("hour", localHour(expr, { timeZone }))],
+			}),
+		});
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toContain(
+		"require a date expression",
+	);
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"), userAccess).error,
+	).toContain("Invalid date operation time zone");
+});
+
+it("validates local date inputs and accepts null", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof localDate>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				fields: [field("day", localDate(expr, { timeZone }))],
+				where: eq(localDate(expr, { timeZone }), literal("2024-02-29")),
+			}),
+		});
+
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(literal(null)), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toContain(
+		"require a date expression",
+	);
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "Invalid/Zone"), userAccess).error,
+	).toContain("Invalid date operation time zone");
 });
 
 it("types currentDate as a date operand", () => {

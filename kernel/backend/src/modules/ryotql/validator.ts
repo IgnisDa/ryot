@@ -107,7 +107,7 @@ const validateExpression = (
 	if (expr.type === "cast") {
 		return validateExpression(expr.expr, scope, correlatedDepth, executionScope, elementDepth);
 	}
-	if (expr.type === "dateBucket") {
+	if (expr.type === "dateBucket" || expr.type === "localHour" || expr.type === "localDate") {
 		const expressionError = validateExpression(
 			expr.expr,
 			scope,
@@ -118,12 +118,13 @@ const validateExpression = (
 		if (expressionError) {
 			return expressionError;
 		}
-		if (expressionKind(expr.expr, scope, executionScope) !== "date") {
-			return "Date buckets require a date expression";
+		const kind = expressionKind(expr.expr, scope, executionScope);
+		if (kind !== "date" && !(expr.type === "localDate" && kind === "null")) {
+			return "Date operations require a date expression";
 		}
 		return isNamedTimeZone(expr.timeZone)
 			? null
-			: `Invalid date bucket time zone '${expr.timeZone}'`;
+			: `Invalid date operation time zone '${expr.timeZone}'`;
 	}
 	if (expr.type === "coalesce") {
 		return (
@@ -705,7 +706,7 @@ const addTimeSeriesBucket = (
 	if (bucket === "week") {
 		return DateTime.addDuration(value, Duration.days(7));
 	}
-	return DateTime.add(value, { months: 1 });
+	return DateTime.add(value, bucket === "year" ? { years: 1 } : { months: 1 });
 };
 
 const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {

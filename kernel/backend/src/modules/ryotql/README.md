@@ -81,7 +81,7 @@ JSON arrays use `jsonElement` plus the `jsonExists`, `jsonFirst`, and `jsonCount
 
 A `jsonElements` join (`{ type: "jsonElements", mode, alias, expr }`) instead emits one row per item of a JSON array. `expr` must be a JSON expression over aliases already in scope and is field-checked with the same audience and credential rules as any other expression. The alias exposes only `value` (the item, null for a JSON null) and `ordinal` (its 1-based position), wildcards included. With `mode: "inner"`, an empty, missing, null, object, or scalar value yields no rows, so the parent row drops out, including when `expr` reads a left-joined table that matched nothing. With `mode: "left"`, such a parent appears once with `value` and `ordinal` null; non-empty arrays behave as in `inner`. These joins count toward the join limit and are allowed in roots, includes, and correlated queries.
 
-`dateBucket` accepts hour, day, week, or month plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. Invalid zones and non-date inputs fail validation.
+`dateBucket` accepts hour, day, week, month, or year plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. `localHour` accepts a date expression and IANA zone and returns the local hour from 0 through 23, so repeated DST hours share one hourly category. `localDate` accepts a date or null expression and IANA zone and returns the local calendar date as `YYYY-MM-DD` text, preserving null input. Date-only intent must be explicit in the input expression; RyotQL does not infer source precision. Invalid zones and non-date inputs fail validation. Date-only source evidence must not be passed to hourly activity measures.
 
 `currentDate` takes no operands and returns the server's current UTC day as a date at UTC midnight, the same shape as `castDate` of a date-only string, so `castDate(publishDate) <= currentDate()` is a plain date comparison. It is evaluated once per statement.
 
@@ -123,7 +123,7 @@ Root and correlated aggregates support count, count distinct, sum, average, mini
 
 Ungrouped aggregates return one item without page info. Grouped aggregates require group fields, limit, and ordering by group or measure key. They do not support cursors or arbitrary-expression ordering; JSON groups cannot order. The limit counts unique combinations of all group fields. Results use `{ items, pageInfo: { limit, hasMore } }`.
 
-Time series apply one count, sum, average, minimum, or maximum measure. The time expression is a physical date or explicit date cast; `[startAt, endAt)` is half-open. Hour/day/week/month buckets align in UTC, weeks start Monday, and empty buckets return zero. Multiple measures or series, custom units, and pagination are unsupported.
+Time series apply one count, sum, average, minimum, or maximum measure. The time expression is a physical date or explicit date cast; `[startAt, endAt)` is half-open. Hour/day/week/month/year buckets align in UTC, weeks start Monday, and empty buckets return zero. Multiple measures or series, custom units, and pagination are unsupported. Reporting in an account timezone uses grouped `dateBucket` aggregates instead of changing UTC time-series labels.
 
 ## Limits
 

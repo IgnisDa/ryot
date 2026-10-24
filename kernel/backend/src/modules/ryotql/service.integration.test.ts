@@ -22,18 +22,35 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import {
+	aggregate,
 	and,
 	ascending,
+	castDate,
+	castNumber,
 	column,
+	conditional,
 	contains,
+	dateBucket,
 	descending,
+	eq as queryEq,
 	field,
+	groupAscending,
+	gte,
 	inArray,
+	join,
+	jsonElementsJoin,
+	jsonPath,
 	literal,
+	localDate,
+	localHour,
+	lt,
+	measure,
 	not,
+	or,
 	rows,
 	star,
 	startsWith,
+	sum,
 	table,
 } from "@ryot-app/ryotql";
 import {
@@ -734,6 +751,158 @@ type Reader = "admin" | { readonly userId: string; readonly audience: RyotQLAudi
 const owner = { userId: "owner", audience: "kernel" } as const;
 
 layer(catalogDatabaseLayer)((test) => {
+	test.effect("groups repeated local hours and calendar years in PostgreSQL", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const timeZone = "America/New_York";
+			const response = yield* service.executeForUser("owner", null, "kernel", {
+				queries: {
+					rows: rows(table("user", "account"), {
+						fields: [
+							field(
+								"beforeGap",
+								localHour(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
+							),
+							field("afterGap", localHour(castDate(literal("2024-03-10T07:30:00Z")), { timeZone })),
+							field(
+								"firstHour",
+								localHour(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
+							),
+							field(
+								"secondHour",
+								localHour(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
+							),
+							field(
+								"year",
+								dateBucket(castDate(literal("2024-01-01T02:00:00Z")), { timeZone, bucket: "year" }),
+							),
+						],
+					}),
+				},
+			});
+			expect(rowsOf(response).items).toEqual([
+				{
+					afterGap: 3,
+					beforeGap: 1,
+					firstHour: 1,
+					secondHour: 1,
+					year: "2023-01-01T05:00:00.000Z",
+				},
+			]);
+		}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("returns local calendar dates across zones and supports RyotQL operations", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const users = table("user", "account");
+			const timeZone = "America/New_York";
+			const sameInstant = castDate(literal("2024-03-01T00:30:00Z"));
+			const response = yield* service.executeForAdmin({
+				queries: {
+					rows: rows(users, {
+						limit: 1,
+						fields: [
+							field("utc", localDate(sameInstant, { timeZone: "UTC" })),
+							field("pacific", localDate(sameInstant, { timeZone: "America/Los_Angeles" })),
+							field(
+								"beforeGap",
+								localDate(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
+							),
+							field("afterGap", localDate(castDate(literal("2024-03-10T07:30:00Z")), { timeZone })),
+							field(
+								"firstRepeatedHour",
+								localDate(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
+							),
+							field(
+								"secondRepeatedHour",
+								localDate(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
+							),
+							field(
+								"leapDay",
+								localDate(castDate(literal("2024-02-29T23:30:00Z")), { timeZone: "UTC" }),
+							),
+							field("missing", localDate(literal(null), { timeZone: "UTC" })),
+						],
+					}),
+				},
+			});
+			expect(rowsOf(response).items).toEqual([
+				{
+					missing: null,
+					utc: "2024-03-01",
+					pacific: "2024-02-29",
+					leapDay: "2024-02-29",
+					afterGap: "2024-03-10",
+					beforeGap: "2024-03-10",
+					firstRepeatedHour: "2024-11-03",
+					secondRepeatedHour: "2024-11-03",
+				},
+			]);
+
+			const filterDate = localDate(sameInstant, { timeZone: "America/Los_Angeles" });
+			const filtered = yield* service.executeForAdmin({
+				queries: {
+					rows: rows(users, {
+						orderBy: [ascending(column(users, "id"))],
+						fields: [field("id", column(users, "id"))],
+						where: queryEq(filterDate, literal("2024-02-29")),
+					}),
+				},
+			});
+			expect(rowsOf(filtered).items).toEqual([
+				{ id: "mixed" },
+				{ id: "other" },
+				{ id: "owner" },
+				{ id: "plain" },
+			]);
+
+			const createdDay = localDate(column(users, "createdAt"), { timeZone: "UTC" });
+			const pages = yield* collectPages(
+				rows(users, {
+					orderBy: [ascending(createdDay)],
+					fields: [field("id", column(users, "id")), field("day", createdDay)],
+				}),
+			);
+			expect(pages.map((row) => row["id"])).toEqual(["mixed", "other", "owner", "plain"]);
+
+			const grouped = yield* service.executeForAdmin({
+				queries: {
+					groups: aggregate(users, {
+						limit: 10,
+						orderBy: [groupAscending("day")],
+						groupBy: [field("day", createdDay)],
+						measures: [measure("count", { function: "count" })],
+					}),
+				},
+			});
+			expect(grouped.data["groups"]).toMatchObject({
+				type: "aggregate",
+				items: [{ count: 4, day: pages[0]?.["day"] }],
+			});
+
+			const choices = jsonElementsJoin("inner", "choice", literal(["date-only", "instant"]));
+			const sameDay = conditional(
+				queryEq(column(choices, "ordinal"), literal(1)),
+				literal("2024-02-29"),
+				localDate(castDate(literal("2024-02-29T12:00:00Z")), { timeZone: "UTC" }),
+			);
+			const distinct = yield* service.executeForAdmin({
+				queries: {
+					days: aggregate(users, {
+						joins: [choices],
+						measures: [measure("count", { expr: sameDay, function: "countDistinct" })],
+					}),
+				},
+			});
+			expect(distinct.data["days"]).toEqual({ type: "aggregate", items: [{ count: 1 }] });
+		}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
 	test.effect(
 		"hides projection data and readiness when its installation is unhealthy or plugin is inactive",
 		() =>
@@ -775,12 +944,12 @@ layer(catalogDatabaseLayer)((test) => {
 						.insert(eventStreamWork)
 						.values({
 							completedRevision: 1,
-							accountToken: "generation",
 							id: "projection-gate-stream",
 							outputSchema: { fields: {} },
 							processorScriptId: "processor",
 							pluginRevisionId: "system-plugin-revision",
 							pluginPin: { configRevisionId: "system-env" },
+							accountToken: sql`(select account_generation from "user" where id = 'owner')`,
 						}),
 				);
 				yield* session.run((db) =>
@@ -795,6 +964,66 @@ layer(catalogDatabaseLayer)((test) => {
 				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
 					{ id: "projection-gate", projection: { score: 4 }, projectionStatus: "ready" },
 				]);
+				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
+					{ properties: { score: 4 } },
+				]);
+				yield* session.run((db) =>
+					db
+						.update(eventStream)
+						.set({ revision: 2 })
+						.where(eq(eventStream.id, "projection-gate-stream")),
+				);
+				expect(yield* readRows(owner, "event", ["projection", "projectionStatus"])).toEqual([
+					{ projection: null, projectionStatus: "pending" },
+				]);
+				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
+					{ properties: null },
+				]);
+				yield* session.run((db) =>
+					db
+						.update(eventStream)
+						.set({ revision: 1 })
+						.where(eq(eventStream.id, "projection-gate-stream")),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(entity)
+						.values({
+							userId: "owner",
+							name: "Moved source",
+							entitySchemaSlug: "record",
+							id: "projection-gate-moved",
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.update(event)
+						.set({ entityId: "projection-gate-moved" })
+						.where(eq(event.id, "projection-gate")),
+				);
+				expect(yield* readRows(owner, "event", ["projection"])).toEqual([{ projection: null }]);
+				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
+					{ properties: null },
+				]);
+				yield* session.run((db) =>
+					db
+						.update(event)
+						.set({ entityId: "stream-entity-owner" })
+						.where(eq(event.id, "projection-gate")),
+				);
+				yield* session.run((db) =>
+					db
+						.update(eventStreamWork)
+						.set({ accountToken: "retired" })
+						.where(eq(eventStreamWork.id, "projection-gate-stream")),
+				);
+				expect(yield* readRows(owner, "event", ["projection"])).toEqual([{ projection: null }]);
+				yield* session.run((db) =>
+					db
+						.update(eventStreamWork)
+						.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
+						.where(eq(eventStreamWork.id, "projection-gate-stream")),
+				);
 				yield* session.run((db) =>
 					db
 						.update(pluginInstallation)
@@ -816,6 +1045,218 @@ layer(catalogDatabaseLayer)((test) => {
 				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
 					{ projection: null, id: "projection-gate", projectionStatus: "none" },
 				]);
+			}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"shares current private projection bindings across metrics and ranked cursor pages",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const service = yield* RyotQLService;
+				const ids = ["rank-a", "rank-b", "rank-c", "rank-d", "rank-empty"];
+				yield* session.run((db) =>
+					db
+						.update(pluginInstallation)
+						.set({ health: "ready" })
+						.where(eq(pluginInstallation.id, "owner-private")),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(definitionEventSchema)
+						.values({
+							position: 1,
+							slug: "projected",
+							name: "Projected",
+							id: "private-projected",
+							entitySchemaId: "private-entity",
+							propertiesSchema: { fields: {} },
+							projection: {
+								scriptSlug: "processor",
+								inputs: [{ scope: "entity", eventSchemaSlug: "projected" }],
+								propertiesSchema: {
+									fields: { score: { type: "number", label: "Score", description: "Score" } },
+								},
+							},
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(entity)
+						.values(
+							ids.map((id) => ({
+								id,
+								name: id,
+								userId: "owner",
+								entitySchemaSlug: "private-entity",
+								entitySchemaPluginId: "private-plugin",
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(backgroundWork)
+						.values({
+							payload: {},
+							scope: "rank-d",
+							userId: "owner",
+							status: "failed",
+							id: "rank-failed",
+							key: "rank-failed",
+							accountToken: "unused",
+							inputHash: "rank-failed",
+							pluginId: "private-plugin",
+							purpose: "event-projection",
+						}),
+				);
+				for (const [index, id] of ids.slice(0, 4).entries()) {
+					yield* session.run((db) =>
+						db
+							.insert(event)
+							.values({
+								occurredAt,
+								entityId: id,
+								userId: "owner",
+								id: `${id}-event`,
+								eventSchemaSlug: "projected",
+								eventSchemaPluginId: "private-plugin",
+							}),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(eventStream)
+							.values({
+								id,
+								revision: 1,
+								entityId: id,
+								userId: "owner",
+								eventSchemaSlug: "projected",
+								eventSchemaPluginId: "private-plugin",
+							}),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(eventStreamWork)
+							.values({
+								id,
+								outputSchema: { fields: {} },
+								processorScriptId: "processor",
+								completedRevision: index < 2 ? 1 : null,
+								pluginRevisionId: "private-plugin-revision",
+								currentJobId: index === 3 ? "rank-failed" : null,
+								pluginPin: { configRevisionId: "private-config" },
+								accountToken: sql`(select account_generation from "user" where id = 'owner')`,
+							}),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(eventProjection)
+							.values({
+								streamId: id,
+								eventId: `${id}-event`,
+								properties: { score: index < 2 ? 8 : 100 },
+							}),
+					);
+				}
+				const source = table("event", "source");
+				const subjects = table("entity", "subjects");
+				const score = castNumber(jsonPath(column(source, "projection"), "score"));
+				const rankingQuery = (baseline: boolean) => {
+					const range = and(
+						gte(column(source, "occurredAt"), castDate(literal("1969-01-01"))),
+						lt(column(source, "occurredAt"), castDate(literal("1971-01-01"))),
+					);
+					const total = sum(source, score, {
+						where: and(
+							baseline ? or(range) : range,
+							queryEq(column(source, "entityId"), column(subjects, "id")),
+						),
+					});
+					return rows(subjects, {
+						orderBy: [descending(total)],
+						where: inArray(column(subjects, "id"), ids.map(literal)),
+						fields: [field("id", column(subjects, "id")), field("total", total)],
+					});
+				};
+				const ranking = rankingQuery(false);
+				expect(yield* collectPages(ranking, owner)).toEqual(
+					yield* collectPages(rankingQuery(true), owner),
+				);
+				expect(yield* collectPages(ranking, owner)).toEqual([
+					{ total: 8, id: "rank-a" },
+					{ total: 8, id: "rank-b" },
+					{ total: null, id: "rank-c" },
+					{ total: null, id: "rank-d" },
+					{ total: null, id: "rank-empty" },
+				]);
+				expect(yield* collectPages(ranking, other)).toEqual([]);
+				expect(
+					(yield* service.executeForUser("owner", null, "plugin", {
+						queries: {
+							totals: aggregate(source, {
+								measures: [
+									measure("sum", { expr: score, function: "sum" }),
+									measure("max", { expr: score, function: "maximum" }),
+								],
+							}),
+						},
+					})).data["totals"],
+				).toEqual({ type: "aggregate", items: [{ max: 8, sum: 16 }] });
+				expect(yield* readRows(owner, "event", ["id", "projectionStatus"])).toEqual([
+					{ id: "rank-a-event", projectionStatus: "ready" },
+					{ id: "rank-b-event", projectionStatus: "ready" },
+					{ id: "rank-c-event", projectionStatus: "pending" },
+					{ id: "rank-d-event", projectionStatus: "failed" },
+				]);
+				expect(
+					rowsOf(
+						yield* service.executeForUser("owner", null, "kernel", {
+							queries: {
+								rows: rows(subjects, {
+									orderBy: [ascending(column(subjects, "id"))],
+									where: queryEq(column(subjects, "id"), literal("rank-empty")),
+									fields: [
+										field("status", column(source, "projectionStatus")),
+										field("value", column(source, "projection")),
+									],
+									joins: [
+										join(
+											"left",
+											source,
+											queryEq(column(source, "entityId"), column(subjects, "id")),
+										),
+									],
+								}),
+							},
+						}),
+					).items,
+				).toEqual([{ value: null, status: "none" }]);
+				for (const patch of [
+					{ pluginPin: { configRevisionId: "system-env" } },
+					{
+						pluginRevisionId: "system-plugin-revision",
+						pluginPin: { configRevisionId: "private-config" },
+					},
+					{ accountToken: "retired", pluginRevisionId: "private-plugin-revision" },
+				]) {
+					yield* session.run((db) =>
+						db.update(eventStreamWork).set(patch).where(eq(eventStreamWork.id, "rank-a")),
+					);
+					expect(
+						(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"]))[0],
+					).toEqual({ projection: null, id: "rank-a-event", projectionStatus: "pending" });
+					expect((yield* readRows(owner, "eventProjection", ["properties"], "eventId"))[0]).toEqual(
+						{ properties: null },
+					);
+					const ranked = yield* collectPages(ranking, owner);
+					expect(ranked).toEqual(yield* collectPages(rankingQuery(true), owner));
+					expect(ranked.find((row) => row["id"] === "rank-a")).toEqual({
+						total: null,
+						id: "rank-a",
+					});
+				}
 			}),
 	);
 });
@@ -1015,12 +1456,16 @@ const readRows = Effect.fn(function* (
 	reader: Reader,
 	tableName: string,
 	fieldNames: readonly string[],
+	primaryKey = "id",
 ) {
 	const service = yield* RyotQLService;
 	const source = table(tableName, "source");
 	const document = {
 		queries: {
-			rows: rows(source, { fields: fieldNames.map((name) => field(name, column(source, name))) }),
+			rows: rows(source, {
+				orderBy: [ascending(column(source, primaryKey))],
+				fields: fieldNames.map((name) => field(name, column(source, name))),
+			}),
 		},
 	};
 	return rowsOf(
@@ -1330,7 +1775,7 @@ layer(catalogDatabaseLayer)((test) => {
 					email: "owner@example.test",
 					createdAt: expect.any(String),
 					twoFactorStatus: { enabled: false, available: true },
-					preferences: { language: null, disableIntegrations: false },
+					preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 				},
 			]);
 			expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([

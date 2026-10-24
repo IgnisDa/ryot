@@ -48,6 +48,9 @@ export const scalarExpressionKind = <Scope>(
 	if (expr.type === "dateBucket" || expr.type === "currentDate") {
 		return "date";
 	}
+	if (expr.type === "localDate") {
+		return "text";
+	}
 	if (expr.type === "jsonPath") {
 		return "json";
 	}
@@ -81,6 +84,7 @@ export const scalarExpressionKind = <Scope>(
 	}
 	if (
 		expr.type === "arithmetic" ||
+		expr.type === "localHour" ||
 		expr.type === "floor" ||
 		expr.type === "integer" ||
 		expr.type === "round"
