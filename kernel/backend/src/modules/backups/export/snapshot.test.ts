@@ -5,11 +5,15 @@ import { expect, it, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	ListedSavedView,
+	ResultsTableSavedViewSettings,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	PluginPackageId,
+	SavedViewId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -558,169 +562,172 @@ const storedSystemPlugin = (id: string, packageId: PluginPackageId, contentHash:
 	},
 });
 
-const privateRecordsExportLayer = withExportReads((reads) =>
-	Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				Layer.mock(BackupExportRepository, {
-					listSavedViewOverrides: () =>
-						Effect.succeed([
-							{
-								userId,
-								revision: 1,
-								sortOrder: 4,
-								isHidden: true,
-								slug: "retained-view",
-								pluginId: "private-plugin-id",
-							},
-						]),
-					listCalendarSourceOverrides: () =>
-						Effect.succeed([
-							{ userId, isHidden: true, slug: "retained-dates", pluginId: "private-plugin-id" },
-							{ userId, isHidden: true, slug: "removed-dates", pluginId: "private-plugin-id" },
-							{ userId, isHidden: true, slug: "retained-dates", pluginId: "removed-plugin-id" },
-						]),
-				}),
-				databaseLayer,
-				BunFileSystem.layer,
-				Layer.mock(DefinitionRepository, {
-					getUserSnapshot: (_userId, options) =>
-						Ref.update(reads.definitionReads, (count) => count + 1).pipe(
-							Effect.andThen(
-								Effect.sync(() => {
-									expect(options.listed).toBe(true);
-									return effectiveDefinitions;
-								}),
+const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
+	withExportReads((reads) =>
+		Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					Layer.mock(BackupExportRepository, {
+						listSavedViewOverrides: () =>
+							Effect.succeed([
+								{
+									userId,
+									revision: 1,
+									sortOrder: 4,
+									isHidden: true,
+									slug: "retained-view",
+									pluginId: "private-plugin-id",
+								},
+							]),
+						listCalendarSourceOverrides: () =>
+							Effect.succeed([
+								{ userId, isHidden: true, slug: "retained-dates", pluginId: "private-plugin-id" },
+								{ userId, isHidden: true, slug: "removed-dates", pluginId: "private-plugin-id" },
+								{ userId, isHidden: true, slug: "retained-dates", pluginId: "removed-plugin-id" },
+							]),
+					}),
+					databaseLayer,
+					BunFileSystem.layer,
+					Layer.mock(DefinitionRepository, {
+						getUserSnapshot: (_userId, options) =>
+							Ref.update(reads.definitionReads, (count) => count + 1).pipe(
+								Effect.andThen(
+									Effect.sync(() => {
+										expect(options.listed).toBe(true);
+										return effectiveDefinitions;
+									}),
+								),
 							),
-						),
-				}),
-				Layer.mock(AuthRepository, {
-					getPortableProfile: () =>
-						Effect.succeed({
-							image: null,
-							name: "Owner",
-							preferences: { language: null, disableIntegrations: false },
-						}),
-				}),
-				Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
-				Layer.mock(IntegrationsRepository, {
-					listForBackup: () =>
-						Effect.succeed([
-							{
-								userId,
-								isDisabled: false,
-								id: "integration-1",
-								name: "Private push",
-								lot: "push" as const,
-								syncOwnership: false,
-								minimumProgress: "2",
-								lastFinishedAt: null,
-								maximumProgress: "95",
-								provider: "private-push",
-								pluginInstallationId: "installation-private",
-								createdAt: new Date("2026-08-24T12:00:00.000Z"),
-								updatedAt: new Date("2026-08-24T12:00:00.000Z"),
-								extraSettings: { disableOnContinuousErrors: true },
-								providerSpecifics: {
-									endpoint: "local",
-									credentials: { token: "integration-secret" },
+					}),
+					Layer.mock(AuthRepository, {
+						getPortableProfile: () =>
+							Effect.succeed({
+								image: null,
+								name: "Owner",
+								preferences: { language: null, disableIntegrations: false },
+							}),
+					}),
+					Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
+					Layer.mock(IntegrationsRepository, {
+						listForBackup: () =>
+							Effect.succeed([
+								{
+									userId,
+									isDisabled: false,
+									id: "integration-1",
+									name: "Private push",
+									lot: "push" as const,
+									syncOwnership: false,
+									minimumProgress: "2",
+									lastFinishedAt: null,
+									maximumProgress: "95",
+									provider: "private-push",
+									pluginInstallationId: "installation-private",
+									createdAt: new Date("2026-08-24T12:00:00.000Z"),
+									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
+									extraSettings: { disableOnContinuousErrors: true },
+									providerSpecifics: {
+										endpoint: "local",
+										credentials: { token: "integration-secret" },
+									},
 								},
-							},
-						]),
-				}),
-				Layer.mock(EntitiesRepository, {
-					listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
-					listGlobalEntitiesByIdsForBackup: (ids) =>
-						Ref.set(reads.embeddedDependencyIds, ids).pipe(Effect.as([])),
-					listUserEntitiesForBackup: () =>
-						Effect.succeed([
-							{
-								provider: null,
-								externalId: null,
-								populatedAt: null,
-								id: "private-entity",
-								name: "Private entity",
-								entitySchemaSlug: "private-record",
-								entitySchemaPluginId: "private-plugin-id",
-								createdAt: new Date("2026-08-24T12:00:00.000Z"),
-								updatedAt: new Date("2026-08-24T12:00:00.000Z"),
-								properties: {
-									token: "entity-secret",
-									title: "Private title",
-									relatedEntityId: "private-entity",
+							]),
+					}),
+					Layer.mock(EntitiesRepository, {
+						listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
+						listGlobalEntitiesByIdsForBackup: (ids) =>
+							Ref.set(reads.embeddedDependencyIds, ids).pipe(Effect.as([])),
+						listUserEntitiesForBackup: () =>
+							Effect.succeed([
+								{
+									provider: null,
+									externalId: null,
+									populatedAt: null,
+									id: "private-entity",
+									name: "Private entity",
+									entitySchemaSlug: "private-record",
+									entitySchemaPluginId: "private-plugin-id",
+									createdAt: new Date("2026-08-24T12:00:00.000Z"),
+									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
+									properties: {
+										token: "entity-secret",
+										title: "Private title",
+										relatedEntityId: "private-entity",
+									},
 								},
-							},
-						]),
-				}),
-				Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed([]) }),
-				Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
-				Layer.mock(RelationshipsRepository, {
-					listUserRelationshipsForBackup: () => Effect.succeed([]),
-				}),
-				Layer.mock(AutomationsRepository, {
-					listNotificationSubscriptionsForBackup: () =>
-						Effect.succeed([
-							{
-								userId,
-								metadata: null,
-								isActive: true,
-								signalSchemaPluginId: null,
-								createdAt: privateTimestamp.toISOString(),
-								updatedAt: privateTimestamp.toISOString(),
-								id: NotificationSubscriptionId.make("default-rule"),
-								signalSchemaSlug: SignalSchemaSlug.make("default.signal"),
-							},
-							{
-								userId,
-								metadata: null,
-								isActive: false,
-								signalSchemaPluginId: null,
-								createdAt: privateTimestamp.toISOString(),
-								updatedAt: privateTimestamp.toISOString(),
-								id: NotificationSubscriptionId.make("changed-rule"),
-								signalSchemaSlug: SignalSchemaSlug.make("changed.signal"),
-							},
-						]),
-				}),
-				Layer.mock(ManagedAssetsService, { verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-				Layer.mock(PluginRepository, {
-					listCompiledPackageArtifacts: () =>
-						Effect.succeed({ compiledScripts: [], compiledClient: privateCompiledClient }),
-					listActiveSystemPlugins: () =>
-						Effect.succeed([
-							storedSystemPlugin("default-plugin-id", defaultPackageId, "b".repeat(64)),
-							storedSystemPlugin("system-plugin-id", systemPackageId, "a".repeat(64)),
-						]),
-					listPrivateForUser: () =>
-						Effect.succeed([
-							{
-								scripts: [],
-								ownerId: userId,
-								scope: "user" as const,
-								id: "private-plugin-id",
-								status: "active" as const,
-								manifest: privateManifest,
-								contentHash: privateSourceHash,
-								activationId: "private-activation",
-								packageId: privateManifest.metadata.packageId,
-							},
-						]),
-				}),
-				Layer.mock(PluginInstallationRepository, {
-					listHydratedForUser: () =>
-						Effect.succeed([
-							configuredSystemInstallation,
-							defaultSystemInstallation,
-							unavailableSystemInstallation,
-							privateInstallation,
-						]),
-				}),
+							]),
+					}),
+					Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed(savedViews) }),
+					Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
+					Layer.mock(RelationshipsRepository, {
+						listUserRelationshipsForBackup: () => Effect.succeed([]),
+					}),
+					Layer.mock(AutomationsRepository, {
+						listNotificationSubscriptionsForBackup: () =>
+							Effect.succeed([
+								{
+									userId,
+									metadata: null,
+									isActive: true,
+									signalSchemaPluginId: null,
+									createdAt: privateTimestamp.toISOString(),
+									updatedAt: privateTimestamp.toISOString(),
+									id: NotificationSubscriptionId.make("default-rule"),
+									signalSchemaSlug: SignalSchemaSlug.make("default.signal"),
+								},
+								{
+									userId,
+									metadata: null,
+									isActive: false,
+									signalSchemaPluginId: null,
+									createdAt: privateTimestamp.toISOString(),
+									updatedAt: privateTimestamp.toISOString(),
+									id: NotificationSubscriptionId.make("changed-rule"),
+									signalSchemaSlug: SignalSchemaSlug.make("changed.signal"),
+								},
+							]),
+					}),
+					Layer.mock(ManagedAssetsService, {
+						verifyManagedAssetOwnership: () => Effect.succeed([]),
+					}),
+					Layer.mock(PluginRepository, {
+						listCompiledPackageArtifacts: () =>
+							Effect.succeed({ compiledScripts: [], compiledClient: privateCompiledClient }),
+						listActiveSystemPlugins: () =>
+							Effect.succeed([
+								storedSystemPlugin("default-plugin-id", defaultPackageId, "b".repeat(64)),
+								storedSystemPlugin("system-plugin-id", systemPackageId, "a".repeat(64)),
+							]),
+						listPrivateForUser: () =>
+							Effect.succeed([
+								{
+									scripts: [],
+									ownerId: userId,
+									scope: "user" as const,
+									id: "private-plugin-id",
+									status: "active" as const,
+									manifest: privateManifest,
+									contentHash: privateSourceHash,
+									activationId: "private-activation",
+									packageId: privateManifest.metadata.packageId,
+								},
+							]),
+					}),
+					Layer.mock(PluginInstallationRepository, {
+						listHydratedForUser: () =>
+							Effect.succeed([
+								configuredSystemInstallation,
+								defaultSystemInstallation,
+								unavailableSystemInstallation,
+								privateInstallation,
+							]),
+					}),
+				),
 			),
 		),
-	),
-);
+	);
 
-layer(privateRecordsExportLayer)((test) => {
+layer(privateRecordsExportLayer())((test) => {
 	test.effect(
 		"exports private records from their persisted package when effective ownership differs",
 		() =>
@@ -780,6 +787,13 @@ layer(privateRecordsExportLayer)((test) => {
 					"/credentials/token",
 					"/accounts/0/token",
 				]);
+				expect(prepared.redactions).toContain(
+					'/installations/["user","test~1fixture"]/config/credentials/token',
+				);
+				expect(prepared.records.installations[1]).not.toHaveProperty("id");
+				expect(prepared.redactions.some((path) => path.includes("installation-private"))).toBe(
+					false,
+				);
 				expect(prepared.records.installations[1]).not.toHaveProperty("activeConfigRevisionId");
 				expect(prepared.records.installations[1]).toMatchObject({
 					hiddenIntent: false,
@@ -809,6 +823,39 @@ layer(privateRecordsExportLayer)((test) => {
 					{ version: "1.0.0", packageId: systemPackageId, contentHash: "a".repeat(64) },
 				]);
 			}),
+	);
+});
+
+const danglingViewId = SavedViewId.make("dangling-view");
+layer(
+	privateRecordsExportLayer([
+		{
+			icon: "box",
+			sortOrder: 0,
+			settings: {},
+			isHidden: false,
+			isBuiltin: false,
+			dataSources: null,
+			id: danglingViewId,
+			name: "Dangling workspace",
+			slug: "dangling-workspace",
+			createdAt: "2026-08-24T12:00:00.000Z",
+			updatedAt: "2026-08-24T12:00:00.000Z",
+			pluginInstallationId: "missing-installation",
+			renderer: { kind: "kernel", name: "results-table" },
+			reference: { kind: "custom", savedViewId: danglingViewId },
+		},
+	]),
+)((test) => {
+	test.effect("rejects a missing source workspace instead of exporting an unassociated view", () =>
+		Effect.gen(function* () {
+			yield* ensureInstallationUserSettingsColumn();
+			const snapshot = yield* BackupExportSnapshot;
+			assertExitFails(
+				yield* Effect.exit(snapshot.prepareExportSnapshot(userId, privateRecordsEventsPath)),
+				new BadRequest({ message: "Backup saved view references unavailable plugin installation" }),
+			);
+		}),
 	);
 });
 

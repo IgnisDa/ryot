@@ -359,7 +359,7 @@ export const rewriteAssetLocatorForArchive = (
 	sha256: string,
 ): AssetLocator => (locator.type === "remote" ? locator : { key: sha256, type: locator.type });
 
-const escapePointer = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
+export const escapePointer = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
 const redactProperty = (
 	definition: AppPropertyDefinition,

@@ -162,7 +162,6 @@ export const ArchiveSavedViewReference = Schema.Union([
 export type ArchiveSavedViewReference = typeof ArchiveSavedViewReference.Type;
 
 export const ArchiveInstallation = strictStruct({
-	id: Schema.String,
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
 	config: DataRecordProperties,
@@ -272,7 +271,6 @@ const savedViewFields = {
 	updatedAt: DataRecordTimestamp,
 	pluginKey: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
-	installationId: Schema.NullOr(Schema.String),
 	settings: Schema.Record(Schema.String, JsonValue),
 	renderer: Schema.Union([
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
@@ -365,19 +363,15 @@ export const ArchiveIntegration = strictStruct({
 	name: Schema.NullOr(Schema.String),
 	providerSpecifics: DataRecordProperties,
 	packageKey: Schema.NullOr(Schema.String),
-	installationId: Schema.NullOr(Schema.String),
 	lot: Schema.Literals(["yank", "sink", "push"]),
 	lastFinishedAt: Schema.NullOr(DataRecordTimestamp),
 	configuredSecretPaths: Schema.Array(Schema.String),
 	extraSettings: strictStruct({ disableOnContinuousErrors: Schema.Boolean }),
 }).pipe(
 	Schema.check(
-		Schema.makeFilter((record) =>
-			record.packageKey === null
-				? record.provider === dataJsonSource &&
-					record.lot === "sink" &&
-					record.installationId === null
-				: record.installationId !== null,
+		Schema.makeFilter(
+			(record) =>
+				record.packageKey !== null || (record.provider === dataJsonSource && record.lot === "sink"),
 		),
 	),
 );

@@ -818,7 +818,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					].map((plugin) => [plugin.id, plugin]),
 				);
 				const installationIdByKey = new Map<string, string>();
-				const installationIdById = new Map<string, string>();
 				const customViewIds = new Map(
 					records.savedViews
 						.filter((view) => view.kind === "custom")
@@ -899,7 +898,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						return yield* badRequest("Backup plugin installation could not be restored");
 					}
 					installationIdByKey.set(state.packageKey, restored.id);
-					installationIdById.set(state.id, restored.id);
 					installationActivations.push({
 						id: restored.id,
 						...lifecycle,
@@ -924,14 +922,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						integration,
 						plugin?.integrationProviders,
 					);
-					let pluginInstallationId: string | null | undefined;
-					if (integration.packageKey === null) {
-						pluginInstallationId = null;
-					} else if (integration.installationId === null) {
-						pluginInstallationId = undefined;
-					} else {
-						pluginInstallationId = installationIdById.get(integration.installationId);
-					}
+					const pluginInstallationId =
+						integration.packageKey === null
+							? null
+							: installationIdByKey.get(integration.packageKey);
 					if (
 						!settingsSchema ||
 						pluginInstallationId === undefined ||
@@ -1297,8 +1291,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						continue;
 					}
 					const pluginInstallationId =
-						view.installationId === null ? null : installationIdById.get(view.installationId);
-					if (view.installationId !== null && !pluginInstallationId) {
+						view.pluginKey === null ? null : installationIdByKey.get(view.pluginKey);
+					if (view.pluginKey !== null && !pluginInstallationId) {
 						return yield* badRequest("Backup saved view installation mapping is invalid");
 					}
 					let renderer: SavedViewRenderer;
@@ -1381,7 +1375,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (state.homeSavedView === null) {
 						continue;
 					}
-					const installationId = installationIdById.get(state.id);
+					const installationId = installationIdByKey.get(state.packageKey);
 					const home = state.homeSavedView;
 					let reference: SavedViewReference;
 					if (home.kind === "custom") {

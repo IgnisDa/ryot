@@ -44,6 +44,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { archiveError } from "../archive/error";
 import {
 	collectReferencedPluginKeys,
+	escapePointer,
 	exportQueryPluginReferences,
 	exportRendererSettings,
 	redactSchemaSecrets,
@@ -436,6 +437,11 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						const installation = allStoredInstallations.find(
 							(state) => state.id === view.pluginInstallationId,
 						);
+						if (view.pluginInstallationId !== null && !installation) {
+							return yield* badRequest(
+								"Backup saved view references unavailable plugin installation",
+							);
+						}
 						const viewPluginId = installation?.pluginId ?? null;
 						const definitionPluginId =
 							view.isBuiltin && view.reference.kind === "plugin" ? view.reference.pluginId : null;
@@ -467,7 +473,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									renderer,
 									kind: "custom" as const,
 									isBuiltin: false as const,
-									installationId: view.pluginInstallationId,
 									dataSources: yield* exportQueryPluginReferences(
 										view.dataSources,
 										portablePackages,
@@ -567,7 +572,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						Effect.gen(function* () {
 							const plugin = installedPlugins.find(({ id }) => id === state.pluginId);
 							return {
-								id: state.id,
 								configuredSecretPaths: [],
 								sortOrder: state.sortOrder,
 								hiddenIntent: state.isHidden,
@@ -621,7 +625,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								maximumProgress: integration.maximumProgress,
 								createdAt: integration.createdAt.toISOString(),
 								updatedAt: integration.updatedAt.toISOString(),
-								installationId: integration.pluginInstallationId,
 								lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
 								providerSpecifics: decodeArchiveJsonObject(integration.providerSpecifics),
 								packageKey: installation
@@ -995,7 +998,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							exportedInstallations.push({ ...state, config: {}, configuredSecretPaths: [] });
 							continue;
 						}
-						const configPath = `/installations/${state.id}/config`;
+						const configPath = `/installations/${escapePointer(state.packageKey)}/config`;
 						const config = yield* transformProperties(
 							state.config,
 							plugin.configSchema,
