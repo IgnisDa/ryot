@@ -91,7 +91,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
 | 4 | Done | **Add explicit provider refresh** | Existing population/enrichment workflows | Successful provider data can be refreshed from Media detail screens with progress, failure and retry controls. Shared bounded admission, write fences, current-language translation refresh, and successful-check freshness evidence preserve saved data and user intent. See the Order 4 acceptance record below. |
 | 5 | Done | **Add collection member reordering** | Existing memberships and rank reads | Server-owned moves, sparse integer ranks, transactional respacing, revision-fenced pagination, retry-safe submissions and shared pointer/keyboard controls with haptics are shipped. Real dump migrations preserve complete collection order. See the Order 5 acceptance record below. |
-| 6 | Pending | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
+| 6 | Done | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Media and Fitness entity schemas declare source, lifecycle state, rating, date and activity filters and sorts; entity browsers and collection detail compile search, count and pages from them without kernel branches on plugin IDs. Stored library summaries keep V2's cycle-aware state. See the Order 6 acceptance record below. |
 | 7 | Done | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
 | 8 | Done | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Ship one confirmed destructive **Remove from library** action that clears the caller's history, reviews, annotations, monitoring, collection memberships and correction evidence, including child data. Preserve metadata and structural links. Already-running and future imports/integrations may restore data normally; add no exclusion state. Merge keeps same-schema/identity rules, destination conflict values and explicit records; missing or ambiguous child mappings reject before any writes with actionable errors. See the Order 8 acceptance record below. |
 
@@ -345,7 +345,7 @@ freshness window and require completed inventory where needed. No daily partial 
 
 Owners: kernel entity enrichment, provider population and localization; contract entity schemas;
 client bridge/SDK; Media detail controls and summary recipes. Generated migration:
-`kernel/backend/src/drizzle/20261028062846_cynical_stick/`. No user guide was added, as requested.
+`kernel/backend/src/drizzle/20261028091824_mixed_viper/`. No user guide was added, as requested.
 
 Validation on **2026-10-27**:
 
@@ -388,7 +388,7 @@ entity deletion locks and collection-revision trigger, RyotQL catalog/collection
 bridge/SDK and collection renderer. Haptic requests are owner-neutral through the existing device
 capability; other device actions retain plugin ownership checks. User documentation:
 `apps/docs/src/concepts/collections.md`. Migration:
-`kernel/backend/src/drizzle/20261028062846_cynical_stick/` (collection order trigger:
+`kernel/backend/src/drizzle/20261028091824_mixed_viper/` (collection order trigger:
 `kernel/backend/src/platform/db/collection-order.ts`).
 
 Validation on **2026-10-27**:
@@ -418,6 +418,65 @@ Validation on **2026-10-27**:
   with all **47 focused tests passed**. Final repository `bun run check` passed again, followed by
   `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**, no failures. No timeout or
   capacity limit was raised. This item is **Done**.
+
+### Phase 1, Order 6 — Everyday library and collection browsing acceptance
+
+Accepted behavior: plugin entity schemas declare their filters and sorts in `browse.fields`;
+entity-browser saved views no longer carry `filterFields` or `sortChoices`. The entity browser and
+collection detail build filters, sorts, search, counts and every page from those declarations.
+Fields with the same plugin and key merge across schemas; keys from different plugins stay separate.
+A member whose schema does not declare a field never matches its filter and sorts last. Sorts offer
+both labelled directions, nulls last, with the entity ID as final tiebreaker. Every browser has a
+Name sort and the Collections filter; collection detail keeps collection order and date-added sorts,
+adds a Date added filter, and its reorder mode stays unfiltered. "Is empty" and "is not empty" read
+"is not set" and "is set". There is no random sort and no V1 filter preset.
+
+Media titles filter by Status (cycle-aware, including Caught up for shows and podcasts), Times
+completed, Your rating, Last completed, Recent activity (the default sort), Release date, Date added
+to library, Source, Provider rating, Owned and Monitored, plus the existing year, genre and adult
+filters. People, companies and groups add Source, Your rating, Birth date, Founded year, Credits and
+Parts. Fitness exercises add Last performed and Times performed beside the existing exercise
+filters; workout templates sort by Created and Name.
+
+Per-title user data comes from a kernel-generic relationship projection on `in-media-library`, not
+from relationship properties. The Media processor reuses the lifecycle expressions, so state
+semantics are unchanged; Media hooks request recomputation after history, review, list-state,
+membership, merge/clear, import and provider inventory changes. Reconciliation fills missing or
+stale summaries after startup, restore or plugin upgrade, and backups exclude them. Reads gate on
+the current plugin revision, configuration and a ready installation; a stale summary reads null
+until reprocessed. The processor reads only entity IDs and schema slugs before computing summaries,
+so batches of shows stay within the sandbox query result limit. Install validation rejects browse
+fields whose expression kind does not match their type or whose shared key differs between schemas.
+
+Owners: relationship projection contract, storage, processing and RyotQL fields
+(`kernel/backend/src/modules/relationships/README.md`), browse contract and definition validation,
+`packages/ryotql-recipes` browse/filter/sort compilation, kernel renderers, Media `browse.ts` and
+library summary, Fitness `browse.ts`. User documentation: `apps/docs/src/concepts/collections.md`
+and the plugin-kit **Browse Fields** section. Migration runbook: `apps/server/src/migrations/README.md`.
+
+Validation on **2026-10-28**:
+
+- Affected package checks passed before tests. Browse validation, recipe, renderer, relationship
+  projection and Media summary suites pass. API/browser acceptance passed **77 tests** across 12 affected files, including a
+  new All Movies case that filters by status and sorts by rating.
+- Migration-only then normal startup passed for `tmp/file.sql` and `tmp/file2.sql`. All **28,393**
+  and **38,996** library summaries of enabled accounts are ready and equal live computation; a
+  restart changes no summary revision and starts no projection work. Disabled accounts run no
+  plugin work, so file2's **42,467** memberships of 112 disabled accounts stay unsummarized. On
+  file2 the first run exposed processor batches over the 1 MiB result limit for 17 users; the
+  processor now reads only IDs and schema slugs.
+- Warm query times through the shipped recipes for the two largest enabled file2 libraries: movies,
+  books and their largest collections (up to 14.7k members) take **2–192 ms** for every filter, sort
+  and count. file.sql's 28,179-member collection opens in 5–8 ms, filters by Status in 97 ms and
+  takes 287–582 ms for the other filters and sorts. Small definition tables are not auto-analyzed,
+  so a fresh dump can plan the Source filter badly (3.7 s) until `ANALYZE` (587 ms). All Shows'
+  default order and In progress filter take **0.7–1.0 s**; filtering and sorting take about 100 ms
+  and the rest is existing per-row episode-progress card fields. This cost is accepted.
+- Main-session review findings were fixed: unloaded member types keep their schema condition, and
+  sort-only fields sharing a key must sort the same kind. Cleanup removed redundant comments and
+  helpers. Repository-wide `bun run check`: **38 successful tasks**, **30 projects / 7,636 files**. `bun turbo --filter='!@ryot-app/e2e'
+test`: **51 successful tasks**, no failures. No compatibility path, version change or type-checker bypass was added. This
+  item is **Done**.
 
 ### Phase 1 Order 8 acceptance — Media removal and merge
 
@@ -552,13 +611,13 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Eleven media lots | Covered | Media schemas for book, comic-book, anime, movie, show, manga, audiobook, podcast, video-game, music and visual-novel; type-owned detail screens and presentations. |
 | Provider search, details, person/company/group lookup | Reshaped | Provider operations, `/entity-providers/search`, queued `/entity-providers/imports`, entity watches, and RyotQL. Search and library import are distinct. Providers are plugin-owned, not kernel scripts. |
 | Browser-extension metadata lookup | Covered | Media `metadata-lookup`, integration-authenticated and restricted to the browser-extension integration; TMDB movies before shows. Extension uses `apps/browser-extension/src/lib/contract-client.ts`. |
-| User media/people/group lists | Partial | Built-in saved views, generic entity browser, text search, collection and genre filters, type-specific presentations. The default sort is activity for titles, credit count for creators, parts for groups. Not every V1 filter/sort is exposed. |
+| User media/people/group lists | Partial | Built-in saved views and the generic entity browser with search plus schema-declared filters and sorts: status, times completed, rating, completion/activity/release/added dates, source, owned and monitored for titles; source, rating and dates for creators. The default sort is activity for titles, credit count for creators, parts for groups. No random sort or V1 filter presets. |
 | Media-library admission | Reshaped | Required Media entity/import/event/collection hooks add `in-media-library`; new memberships record `add-to-media-library`. Library membership is persistent intent, not a materialized set of V1 reasons. No reason recomputation/removal sweep. |
 | Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
 | Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
 | Correct/delete existing history or reviews | Covered | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Media-owned completion evidence and atomic reconciliation repair derived records, preserve explicit overrides and deletion suppressions, and keep corrections silent. |
 | Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
-| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, and server-owned reordering with revision-fenced pagination and shared haptics. Richer domain browsing remains in Order 6. Details below. |
+| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, server-owned reordering with revision-fenced pagination and shared haptics, plus member-type filters and sorts declared by plugin schemas and a date-added filter. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
 | Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job. |
 | Custom metadata/person/group | Covered | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, groups, show seasons/episodes and podcast episodes. Atomic saves compare loaded entity/relationship baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Children are deleted only without history. Duplicate actions are deferred. |
@@ -837,12 +896,10 @@ resolved export, genre, Calendar, editor or projection work.
   absolute end. Sparse integer ranks, on-demand respacing, collection-scoped locks, revision-fenced
   pages and immutable retry identities preserve order. The collection detail's unfiltered reorder
   mode uses shared drag/keyboard handles and haptics; ordinary member-field edits preserve position.
-- **Remaining V1 browse controls:** current collection detail supports name/type/member-field
-  and cross-collection filtering, plus collection order/name/add-date sorts. It does not expose
-  V1's media/exercise-specific filters and rating/consumption/date/random sorts as a complete set.
-  Built-in Media views expose year/provider-rating/NSFW/genres/collections, but no equivalent
-  full source/state/rated-unrated/date-range filter and sort selection; `sortChoices` is empty.
-  Generic RyotQL expressibility alone does not close the client gap.
+- **Browse controls:** entity browsers and collection detail use filters and sorts declared by each
+  member type's schema, including Media lifecycle state, ratings, completion/activity/release dates
+  and source, and Fitness exercise activity. Members of other types never match a domain filter and
+  sort last. There is no random sort and no V1 filter preset.
 - **Recommendations:** per-collection candidate search/page UI and a reusable Media-owned
   recipe are absent. User home recommendations deliberately use the latest useful completion,
   rather than V1's random set of up to ten library sources with candidate oversampling and
