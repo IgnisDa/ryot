@@ -128,11 +128,12 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
-export const KernelPage = Schema.Literals(["import-data", "plugin-preferences"]);
+export const KernelPage = Schema.Literals(["import-data", "plugin-preferences", "preferences"]);
 
 export type KernelPage = Schema.Schema.Type<typeof KernelPage>;
 
 export const kernelPagePaths = {
+	preferences: "/settings/preferences",
 	"import-data": "/settings/import-data",
 	"plugin-preferences": "/settings/plugin-preferences",
 } as const satisfies Record<KernelPage, string>;

@@ -539,15 +539,24 @@ export type PluginUserSettingsBridgeErrorReason = Schema.Schema.Type<
 	typeof PluginUserSettingsBridgeErrorReason
 >;
 
-export const PluginUserSettingsRequest = strictStruct({ pluginId: PluginId });
+const userSettingsRequestVariants = [
+	strictStruct({ pluginId: PluginId }),
+	strictStruct({ kind: Schema.Literal("reporting") }),
+] as const;
+
+export const PluginUserSettingsRequest = Schema.Union(userSettingsRequestVariants);
 
 export type PluginUserSettingsRequest = Schema.Schema.Type<typeof PluginUserSettingsRequest>;
 
-export const PluginBridgeUserSettingsRequest = strictStruct({
-	...PluginUserSettingsRequest.fields,
-	requestId: Schema.String,
-	type: Schema.Literal("user-settings-request"),
-});
+export const PluginBridgeUserSettingsRequest = Schema.Union(
+	userSettingsRequestVariants.map((variant) =>
+		strictStruct({
+			...variant.fields,
+			requestId: Schema.String,
+			type: Schema.Literal("user-settings-request"),
+		}),
+	),
+);
 
 export type PluginBridgeUserSettingsRequest = Schema.Schema.Type<
 	typeof PluginBridgeUserSettingsRequest
