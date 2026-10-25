@@ -202,7 +202,13 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 							return null;
 						}
 						const formatter = yield* runs.findById(AutomationRunId.make(row.formatterRunId));
-						if (!formatter || Date.parse(formatter.artifactsExpireAt) <= now.getTime()) {
+						if (
+							!formatter ||
+							DateTime.isLessThanOrEqualTo(
+								DateTime.makeUnsafe(formatter.artifactsExpireAt),
+								DateTime.fromDateUnsafe(now),
+							)
+						) {
 							yield* settle(row, now, "failed", "formatter-expired");
 						} else if (formatter.status === "succeeded") {
 							yield* settle(row, now, "failed", "admission-missing");

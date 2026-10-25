@@ -139,7 +139,9 @@ export class BackupsService extends Context.Service<BackupsService>()(
 					if (run.status !== "completed" || !run.expiresAt) {
 						return yield* new BackupBadRequest({ reason: { code: "export-has-no-artifact" } });
 					}
-					if (Date.parse(run.expiresAt) <= (yield* DateTime.nowAsDate).getTime()) {
+					if (
+						DateTime.isLessThanOrEqualTo(DateTime.makeUnsafe(run.expiresAt), yield* DateTime.now)
+					) {
 						return yield* new BackupNotFound({ reason: { code: "artifact-expired" } });
 					}
 					const artifact = yield* mapDbToInternal(repository.getArtifactById({ runId, userId }));

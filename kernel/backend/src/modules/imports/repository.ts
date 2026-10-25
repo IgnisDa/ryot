@@ -27,7 +27,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema, Struct } from "effect";
+import { Context, DateTime, Duration, Effect, Layer, Schema, Struct } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
@@ -44,6 +44,8 @@ import {
 import type { IngestionRecoveryCursor } from "./runtime/recovery-cursor";
 import { ImportSourceState } from "./runtime/source-state";
 import { ImportRunError } from "./runtime/workflow-errors";
+
+const BLOCKED_IMPORT_WINDOW = Duration.weeks(1);
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
@@ -821,7 +823,12 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							integrationLot: "sink",
 							createdAt: input.acceptedAt,
 							accountGeneration: input.accountGeneration.token,
-							blockDeadline: new Date(input.acceptedAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+							blockDeadline: DateTime.toDateUtc(
+								DateTime.addDuration(
+									DateTime.fromDateUnsafe(input.acceptedAt),
+									BLOCKED_IMPORT_WINDOW,
+								),
+							),
 						})
 						.returning(),
 				);
