@@ -456,7 +456,7 @@ describe("Media consumption projection and reporting", () => {
 					suppressedEpisodes,
 					"minutes",
 				);
-				expect(suppressed.current.items.filter(({ mediaType }) => mediaType === "show")).toEqual(
+				expect(suppressed.current.types.filter(({ mediaType }) => mediaType === "show")).toEqual(
 					[],
 				);
 				expect(suppressedEpisodeMinutes.total).toBe(50);
@@ -487,7 +487,7 @@ describe("Media consumption projection and reporting", () => {
 					"minutes",
 				);
 				expect(editedEpisodeMinutes.total).toBe(50);
-				expect(edited.current.items.filter(({ mediaType }) => mediaType === "show")).toEqual([]);
+				expect(edited.current.types.filter(({ mediaType }) => mediaType === "show")).toEqual([]);
 				expect(requireMediaConsumptionGroup(edited, "show-episode").episodeCompletions).toBe(2);
 				expect(
 					(yield* historyEventsFor(client, show.show.id)).filter(

@@ -149,17 +149,10 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			name: "Review count and rating by media category",
 		});
 		expect(
-			yield* reviewTable
-				.getByRole("row", { name: "Book" })
-				.getByRole("cell")
-				.allTextContents(),
+			yield* reviewTable.getByRole("row", { name: "Book" }).getByRole("cell").allTextContents(),
 		).toEqual(["1 reviews", "1 ratings", "0 /100", "Unknown", "Unknown", "Unknown"]);
 		expect(
-			yield* reviewTable
-				.getByRole("row", { name: "Movie" })
-				.getByRole("cell")
-				.nth(2)
-				.innerText(),
+			yield* reviewTable.getByRole("row", { name: "Movie" }).getByRole("cell").nth(2).innerText(),
 		).toBe("80 /100");
 		const initialSummary = yield* summary.innerText();
 		expect(initialSummary).toContain(
@@ -696,7 +689,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			);
 		}
 		expect(corrected.previous).toEqual(fixture.report.previous);
-		expect(corrected.reviews).toEqual(fixture.report.reviews);
+		expect(corrected.current.reviews).toEqual(fixture.report.current.reviews);
 		const correctedRecords = yield* executeRyotQLRecipe(
 			fixture.account.client,
 			mediaAnalyticsRecordsRecipe({ ...input, now }),

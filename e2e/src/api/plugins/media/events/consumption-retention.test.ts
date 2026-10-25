@@ -195,11 +195,11 @@ describe("Media consumption evidence retention", () => {
 			const targetBook = requireMediaConsumptionGroup(after, "book");
 			expect((yield* mediaConsumptionMeasure(targetBook, "pages")).total).toBe(300);
 			expect(targetBook.titleCompletions).toBe(2);
-			expect(after.current.items).toEqual(before.current.items);
+			expect(after.current.types).toEqual(before.current.types);
 
 			const sourceFiltered = yield* waitForReport(client, reference, allTime, source.entityId);
 			expect(sourceFiltered.processing).toBe("ready");
-			expect(sourceFiltered.current.items).toEqual([]);
+			expect(sourceFiltered.current.types).toEqual([]);
 			const targetEvents = yield* historyEventsFor(client, target.entityId);
 			expect(yield* historyEventsFor(client, source.entityId)).toEqual([]);
 			expect(targetEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
@@ -277,7 +277,7 @@ describe("Media consumption evidence retention", () => {
 			yield* settledHistoryCorrection(client, userId);
 			const afterClear = yield* waitForReport(client, reference);
 			expect(afterClear.processing).toBe("ready");
-			expect(afterClear.current.items).toEqual([]);
+			expect(afterClear.current.types).toEqual([]);
 
 			for (const entity of [show.show, ...show.seasons, ...show.episodes]) {
 				expect((yield* getEntity(client, entity.id)).id).toBe(entity.id);
@@ -289,7 +289,7 @@ describe("Media consumption evidence retention", () => {
 
 			const replay = yield* clearEntityUserData(client, show.show.id, clearReceipt);
 			expect(replay).toEqual(cleared);
-			expect((yield* waitForReport(client, reference)).current.items).toEqual([]);
+			expect((yield* waitForReport(client, reference)).current.types).toEqual([]);
 
 			const freshSourceRun = `after-clear-${yield* randomUuid}`;
 			const freshCompletion = yield* waitForCreateEvents(
@@ -319,7 +319,7 @@ describe("Media consumption evidence retention", () => {
 			expect((yield* mediaConsumptionMeasure(episodeGroup, "minutes")).total).toBe(20);
 			expect(episodeGroup.episodeCompletions).toBe(1);
 			expect(episodeGroup.titleCompletions).toBe(0);
-			expect(freshReport.current.items.filter(({ mediaType }) => mediaType === "show")).toEqual([]);
+			expect(freshReport.current.types.filter(({ mediaType }) => mediaType === "show")).toEqual([]);
 		}),
 	);
 
@@ -491,7 +491,7 @@ describe("Media consumption evidence retention", () => {
 				expect(targetAllTimePages).toEqual(sourceAllTimePages);
 				expect(targetAllTimeBook.titleCompletions).toBe(2);
 				expect(targetAllTime.unknownDate).toBe(1);
-				expect(targetAllTime.current.items).toEqual(sourceAllTime.current.items);
+				expect(targetAllTime.current.types).toEqual(sourceAllTime.current.types);
 				const targetJan2 = yield* waitForReport(
 					target.client,
 					targetReference,
@@ -501,7 +501,7 @@ describe("Media consumption evidence retention", () => {
 				const targetJan2Pages = yield* mediaConsumptionMeasure(targetJan2Book, "pages");
 				expect(targetJan2Pages).toEqual(sourceJan2Pages);
 				expect(targetJan2.unknownDate).toBe(1);
-				expect(targetJan2.current.items).toEqual(sourceJan2.current.items);
+				expect(targetJan2.current.types).toEqual(sourceJan2.current.types);
 			}),
 	);
 });

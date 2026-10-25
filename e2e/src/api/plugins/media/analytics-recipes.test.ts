@@ -44,7 +44,7 @@ const analyticsInput = (
 	reference: fixture.reference,
 	selection: fixture.reportingSelection,
 });
-const sum = <Row,>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>
+const sum = <Row>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>
 	rows.reduce((total, row) => total + (value(row) ?? 0), 0);
 
 const pagingInstants = Array.from({ length: 101 }, (_, index) =>
@@ -141,53 +141,51 @@ describe("Media analytics supplemental SQL recipes", () => {
 		}),
 	);
 
-	it.live(
-		"decodes local-bucket trends with calendar and instant days, and timed hours",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* createMediaAnalyticsFixture();
-				const { client } = fixture.account;
-				const input = analyticsInput(fixture);
-				const trend = yield* executeRyotQLRecipe(client, mediaAnalyticsTrendRecipe(input));
-				expect(
-					trend.current.items.map(({ at, activeObservations }) => ({ at, activeObservations })),
-				).toEqual([
-					{ at: "2026-09-02", activeObservations: 3 },
-					{ at: "2026-09-04", activeObservations: 1 },
-					{ at: "2026-09-05", activeObservations: 1 },
-				]);
-				expect(trend.current.items).toEqual(
-					expect.arrayContaining(
-						fixture.expectedSourceValues.consistency.map(({ day, events }) =>
-							expect.objectContaining({ at: day, activeObservations: events }),
-						),
+	it.live("decodes local-bucket trends with calendar and instant days, and timed hours", () =>
+		Effect.gen(function* () {
+			const fixture = yield* createMediaAnalyticsFixture();
+			const { client } = fixture.account;
+			const input = analyticsInput(fixture);
+			const trend = yield* executeRyotQLRecipe(client, mediaAnalyticsTrendRecipe(input));
+			expect(
+				trend.current.items.map(({ at, activeObservations }) => ({ at, activeObservations })),
+			).toEqual([
+				{ at: "2026-09-02", activeObservations: 3 },
+				{ at: "2026-09-04", activeObservations: 1 },
+				{ at: "2026-09-05", activeObservations: 1 },
+			]);
+			expect(trend.current.items).toEqual(
+				expect.arrayContaining(
+					fixture.expectedSourceValues.consistency.map(({ day, events }) =>
+						expect.objectContaining({ at: day, activeObservations: events }),
 					),
-				);
-				expect(sum(trend.current.items, (row) => row.titleCompletions)).toBe(3);
-				expect(sum(trend.current.items, (row) => row.pagesRecorded)).toBe(40);
-				expect(sum(trend.current.items, (row) => row.pagesEstimated)).toBe(60);
-				expect(sum(trend.current.items, (row) => row.episodesRecorded)).toBe(1);
-				expect(sum(trend.current.items, (row) => row.minutesMissing)).toBe(1);
-				expect(trend.previous?.items).toEqual([]);
-				const bookTrend = yield* executeRyotQLRecipe(
-					client,
-					mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" }),
-				);
-				expect(bookTrend.current.items.map(({ at }) => at)).toEqual(["2026-09-02", "2026-09-04"]);
-				const hours = yield* executeRyotQLRecipe(client, mediaAnalyticsHoursRecipe(input));
-				expect(hours).toMatchObject([
-					{
-						hour: 18,
-						minutesKnown: 1,
-						minutesMissing: 1,
-						minutesRecorded: 0,
-						titleCompletions: 2,
-						minutesEstimated: 0,
-						activeObservations: 2,
-					},
-					{ hour: 19, episodesKnown: 1, titleCompletions: 0, episodesRecorded: 1 },
-				]);
-			}),
+				),
+			);
+			expect(sum(trend.current.items, (row) => row.titleCompletions)).toBe(3);
+			expect(sum(trend.current.items, (row) => row.pagesRecorded)).toBe(40);
+			expect(sum(trend.current.items, (row) => row.pagesEstimated)).toBe(60);
+			expect(sum(trend.current.items, (row) => row.episodesRecorded)).toBe(1);
+			expect(sum(trend.current.items, (row) => row.minutesMissing)).toBe(1);
+			expect(trend.previous?.items).toEqual([]);
+			const bookTrend = yield* executeRyotQLRecipe(
+				client,
+				mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" }),
+			);
+			expect(bookTrend.current.items.map(({ at }) => at)).toEqual(["2026-09-02", "2026-09-04"]);
+			const hours = yield* executeRyotQLRecipe(client, mediaAnalyticsHoursRecipe(input));
+			expect(hours).toMatchObject([
+				{
+					hour: 18,
+					minutesKnown: 1,
+					minutesMissing: 1,
+					minutesRecorded: 0,
+					titleCompletions: 2,
+					minutesEstimated: 0,
+					activeObservations: 2,
+				},
+				{ hour: 19, episodesKnown: 1, titleCompletions: 0, episodesRecorded: 1 },
+			]);
+		}),
 	);
 
 	it.live("orders rankings and pages more than 100 filtered source records with real cursors", () =>
