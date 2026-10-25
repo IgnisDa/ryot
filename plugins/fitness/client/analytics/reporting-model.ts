@@ -51,16 +51,17 @@ export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
 	"unitSystem" | "energyUnit"
 >;
+export type AnalyticsInput = Omit<RecipeInput, "reporting"> & {
+	readonly timeZone: TimeZone;
+	readonly selection: ReportingSelection;
+};
 export type WorkoutDrillRequest = {
 	readonly title: string;
 	readonly periodCaption: string;
 	readonly filter?: AnalyticsFilter;
 	readonly selection: ReportingSelection;
 };
-export type AnalyticsInput = { readonly timeZone: TimeZone; readonly selection: ReportingSelection } & Omit<
-	Parameters<typeof fitnessAnalyticsTotalsRecipe>[0],
-	"reporting"
->;
+type RecipeInput = Parameters<typeof fitnessAnalyticsTotalsRecipe>[0];
 
 export const metricDisplay = (
 	metric: keyof typeof fitnessMetricDefinitions,
