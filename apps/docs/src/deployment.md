@@ -7,6 +7,16 @@ import variables from "./variables";
 The easiest way to deploy Ryot is using [docker compose](./index.md#installation). Here
 is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
+## Reverse proxies
+
+Ryot does not require `FRONTEND_URL` for proxy form submissions. Configure your
+reverse proxy to forward the public `Host` header and `X-Forwarded-Proto`. The
+bundled Caddy proxy trusts upstream proxies on loopback and private networks by
+default. For a public proxy, set `CADDY_TRUSTED_PROXIES` to a space-separated
+replacement list of trusted proxy IPs or CIDRs, for example
+`private_ranges 203.0.113.10/32`. Trusted proxies must overwrite client-supplied
+forwarding headers. Use narrow trusted ranges on shared or untrusted networks.
+
 ## Railway
 
 1. Click on "+ New Project" on your dashboard and select "Empty project".

@@ -5754,7 +5754,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mjackson/node-fetch-server@npm:^0.2.0":
+"@mjackson/node-fetch-server@npm:0.2.0, @mjackson/node-fetch-server@npm:^0.2.0":
   version: 0.2.0
   resolution: "@mjackson/node-fetch-server@npm:0.2.0"
   checksum: 10/49d677bfe1d1c49ceb92660a712e2aa25cf83fd064928d4d0a89771e53be7625a12dd7c45ff8a88e74e86a60cc3b6ebec753df5e0bac1d7cf81ec84e576048f7
@@ -7042,11 +7042,11 @@ __metadata:
     "@mantine/modals": "npm:8.3.14"
     "@mantine/notifications": "npm:8.3.14"
     "@mjackson/form-data-parser": "npm:0.9.1"
+    "@mjackson/node-fetch-server": "npm:0.2.0"
     "@mjcdev/react-body-highlighter": "npm:0.0.4"
     "@react-router/dev": "npm:7.18.4"
     "@react-router/fs-routes": "npm:7.18.4"
     "@react-router/node": "npm:7.18.4"
-    "@react-router/serve": "npm:7.18.4"
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
@@ -7061,12 +7061,14 @@ __metadata:
     "@types/react-dom": "npm:19.2.3"
     "@types/uuid": "npm:11.0.0"
     clsx: "npm:2.1.1"
+    compression: "npm:1.8.1"
     cookie: "npm:1.1.1"
     crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.19"
     dotenv: "npm:17.3.1"
     embla-carousel: "npm:8.6.0"
     embla-carousel-react: "npm:8.6.0"
+    express: "npm:4.21.2"
     filesize: "npm:11.0.13"
     graphql: "npm:16.12.0"
     graphql-request: "npm:7.4.0"
@@ -7079,6 +7081,7 @@ __metadata:
     js-cookie: "npm:3.0.5"
     lodash: "npm:4.17.23"
     mantine-datatable: "npm:8.3.13"
+    morgan: "npm:1.10.1"
     nuqs: "npm:2.8.8"
     postcss: "npm:8.5.6"
     postcss-preset-mantine: "npm:1.18.0"
@@ -10643,7 +10646,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"compression@npm:^1.8.1":
+"compression@npm:1.8.1, compression@npm:^1.8.1":
   version: 1.8.1
   resolution: "compression@npm:1.8.1"
   dependencies:
@@ -12641,7 +12644,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"express@npm:^4.19.2":
+"express@npm:4.21.2, express@npm:^4.19.2":
   version: 4.21.2
   resolution: "express@npm:4.21.2"
   dependencies:
@@ -16418,7 +16421,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"morgan@npm:^1.10.1":
+"morgan@npm:1.10.1, morgan@npm:^1.10.1":
   version: 1.10.1
   resolution: "morgan@npm:1.10.1"
   dependencies:
