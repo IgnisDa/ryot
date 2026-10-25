@@ -3,7 +3,6 @@ import {
 	and,
 	ascending,
 	castText,
-	coalesce,
 	column,
 	conditional,
 	count,
@@ -51,23 +50,18 @@ export const recordedTargetRole = (occurrence: Table, target: Table) =>
 		select: castText(jsonPath(jsonElement(), "role")),
 	});
 
-export const recordedMuscleSetWeight = (occurrence: Table, target: Table) =>
-	coalesce(
-		jsonArrayFirst(propertyJson(occurrence, "targets"), {
-			orderBy: [ascending(targetIdentity())],
-			where: eq(targetIdentity(), column(target, "id")),
-			select: conditional(
-				eq(castText(jsonPath(jsonElement(), "role")), literal("stabilizer")),
-				literal(muscleSetWeight("stabilizer")),
-				conditional(
-					eq(castText(jsonPath(jsonElement(), "role")), literal("secondary")),
-					literal(muscleSetWeight("secondary")),
-					literal(muscleSetWeight("primary")),
-				),
-			),
-		}),
-		literal(muscleSetWeight("primary")),
+export const recordedMuscleSetWeight = (occurrence: Table, target: Table) => {
+	const role = recordedTargetRole(occurrence, target);
+	return conditional(
+		eq(role, literal("stabilizer")),
+		literal(muscleSetWeight("stabilizer")),
+		conditional(
+			eq(role, literal("secondary")),
+			literal(muscleSetWeight("secondary")),
+			literal(muscleSetWeight("primary")),
+		),
 	);
+};
 
 export const occurrenceSets = (set: Table, occurrence: Table) =>
 	and(
@@ -80,8 +74,8 @@ export const occurrenceSets = (set: Table, occurrence: Table) =>
 		eq(property(set, "exerciseKind"), property(occurrence, "exerciseKind")),
 	);
 
-export const workoutEvidenceRevisionRecipe = defineRecipe((workoutId: string) => {
-	const scope = table("eventScope", "workoutEvidenceScope");
+export const workoutEventScopeRevisionRecipe = defineRecipe((workoutId: string) => {
+	const scope = table("eventScope", "workoutEventScope");
 	return {
 		map: ({ scope: revision }) => Result.succeed(revision?.revision ?? 0),
 		queries: {

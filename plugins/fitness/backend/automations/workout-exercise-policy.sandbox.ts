@@ -5,7 +5,6 @@ import {
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
@@ -17,11 +16,7 @@ export const manifest = defineManifest({
 	slug: "policy.workout-exercise",
 	name: "Freeze workout taxonomy",
 	inputProjection: {
-		event: {
-			entityProperties: ["kind"],
-			sessionEntityProperties: ["startedAt"],
-			properties: ["exerciseOrder", "exerciseKind", "targets", "equipment", "provenance"],
-		},
+		event: { entityProperties: ["kind"], sessionEntityProperties: ["startedAt"], properties: [] },
 	},
 });
 
@@ -33,7 +28,7 @@ export default defineAutomationPolicy({
 			for (const { payload, itemIdentity } of items) {
 				if (
 					payload.resource !== "event" ||
-					payload.operation === "delete" ||
+					payload.operation !== "create" ||
 					payload.draft.eventSchemaSlug !== "workout-exercise"
 				) {
 					results.push({ itemIdentity, decision: { action: "allow" } });
@@ -56,20 +51,6 @@ export default defineAutomationPolicy({
 					results.push({
 						itemIdentity,
 						decision: { action: "reject", reason: "workout_exercise_context_missing" },
-					});
-					continue;
-				}
-				if (payload.operation === "update") {
-					const changed =
-						draft.sessionEntityId !== payload.before.sessionEntityId ||
-						["exerciseKind", "targets", "equipment", "provenance"].some(
-							(key) => !jsonValueEquals(draft.properties[key], payload.before.properties[key]),
-						);
-					results.push({
-						itemIdentity,
-						decision: changed
-							? { action: "reject", reason: "workout_taxonomy_immutable" }
-							: { action: "allow" },
 					});
 					continue;
 				}

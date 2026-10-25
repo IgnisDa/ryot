@@ -218,7 +218,7 @@ const harness = (
 };
 
 describe("workout editor save", () => {
-	it("rejects ambiguous or mismatched occurrence evidence before committing", () =>
+	it("rejects occurrence evidence that disagrees with its sets before committing", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const occurrence: WorkoutEditorEvent = {
@@ -232,17 +232,15 @@ describe("workout editor save", () => {
 						exerciseKind: "reps_and_weight",
 					},
 				};
-				for (const occurrences of [
-					[occurrence, { ...occurrence, id: EventId.make("duplicate") }],
-					[{ ...occurrence, entityId: EntityId.make("different-exercise") }],
-				]) {
-					const { host, calls } = harness({ baseline, occurrences });
-					expect(yield* definition.run(yield* input(true), host)).toMatchObject({
-						kind: "invalid",
-						code: "invalid-source",
-					});
-					expect(calls.filter(({ method }) => method === "commit")).toEqual([]);
-				}
+				const { host, calls } = harness({
+					baseline,
+					occurrences: [{ ...occurrence, entityId: EntityId.make("different-exercise") }],
+				});
+				expect(yield* definition.run(yield* input(true), host)).toMatchObject({
+					kind: "invalid",
+					code: "invalid-source",
+				});
+				expect(calls.filter(({ method }) => method === "commit")).toEqual([]);
 			}),
 		));
 
@@ -277,10 +275,7 @@ describe("workout editor save", () => {
 								itemIdentity: "occurrence-update:occurrence-0",
 								item: {
 									eventId: "occurrence-0",
-									patch: {
-										entityId: exerciseId,
-										properties: { remove: [], set: { exerciseOrder: 1 } },
-									},
+									patch: { properties: { remove: [], set: { exerciseOrder: 1 } } },
 									expected: objectContaining({
 										properties: {
 											exerciseOrder: 0,
@@ -366,10 +361,7 @@ describe("workout editor save", () => {
 									itemIdentity: `occurrence-update:anchor-${oldOrder}`,
 									item: {
 										eventId: `anchor-${oldOrder}`,
-										patch: {
-											entityId: exerciseId,
-											properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } },
-										},
+										patch: { properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } } },
 										expected: objectContaining({
 											sessionEntityId: entityId,
 											properties: occurrences[oldOrder]?.properties,
@@ -685,7 +677,7 @@ describe("workout editor save", () => {
 				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
 			}),
 		));
-	it("retains historical set identity and completion when replacing with a same-kind exercise", () =>
+	it("recaptures occurrence taxonomy and retains historical set identity when replacing with a same-kind exercise", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const source = yield* input(true);
@@ -719,16 +711,25 @@ describe("workout editor save", () => {
 				});
 				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
+						creates: [
+							{
+								eventSchemaSlug: "workout-exercise",
+								itemIdentity: "occurrence:occurrence-1",
+								entity: { kind: "existing", entityId: replacementId },
+								properties: {
+									targets: [],
+									equipment: [],
+									exerciseOrder: 0,
+									provenance: "recorded",
+									exerciseKind: "reps_and_weight",
+								},
+							},
+						],
 						changes: [
 							{
-								kind: "update",
-								item: {
-									eventId: "occurrence-0",
-									patch: {
-										entityId: replacementId,
-										properties: { remove: [], set: { exerciseOrder: 0 } },
-									},
-								},
+								kind: "delete",
+								eventId: "occurrence-0",
+								itemIdentity: "occurrence-delete:occurrence-0",
 							},
 							{
 								kind: "update",

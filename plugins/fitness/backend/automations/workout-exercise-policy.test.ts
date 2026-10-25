@@ -137,17 +137,14 @@ it.effect("captures identities and roles once per occurrence", () =>
 	}),
 );
 
-it.effect("retains evidence on reorder and rejects historical taxonomy replacement", () =>
+it.effect("allows occurrence updates without reading taxonomy", () =>
 	Effect.gen(function* () {
-		const noReads = defineSandboxTestHost(manifest, {});
 		expect(
-			(yield* definition.run(yield* input("update", { exerciseOrder: 2 }), noReads)).items[0]
-				?.decision,
+			(yield* definition.run(
+				yield* input("update", { exerciseOrder: 2 }),
+				defineSandboxTestHost(manifest, {}),
+			)).items[0]?.decision,
 		).toEqual({ action: "allow" });
-		expect(
-			(yield* definition.run(yield* input("update", { equipment: ["new-equipment"] }), noReads))
-				.items[0]?.decision,
-		).toEqual({ action: "reject", reason: "workout_taxonomy_immutable" });
 	}),
 );
 

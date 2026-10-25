@@ -50,7 +50,7 @@ import {
 	workoutSetEditableFields,
 } from "../../shared/workout-set";
 import {
-	workoutEvidenceRevisionRecipe,
+	workoutEventScopeRevisionRecipe,
 	workoutOccurrencesRecipe,
 } from "../../shared/workout-taxonomy-recipes";
 
@@ -652,13 +652,13 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	const updates: UpdateEventItem[] = [];
 	const creates: Array<UserCommandInput["events"]["creates"][number]> = [];
 	const occurrenceChanges: Array<UserCommandInput["events"]["changes"][number]> = [];
-	let evidenceRevision: number | undefined;
+	let scopeRevision: number | undefined;
 	if (data.kind === "workout") {
 		const recorded: Array<Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number]> = [];
 		if (baseline) {
-			evidenceRevision = yield* executeRyotqlRecipe(
+			scopeRevision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEvidenceRevisionRecipe(baseline.entity.id),
+				workoutEventScopeRevisionRecipe(baseline.entity.id),
 			);
 			let after: string | undefined;
 			do {
@@ -679,9 +679,6 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				}
 				after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
 			} while (after !== undefined);
-		}
-		if (new Set(recorded.map((item) => item.properties.exerciseOrder)).size !== recorded.length) {
-			return yield* invalid("invalid-source");
 		}
 		const retainedOccurrences = new Set<string>();
 		for (const [exerciseOrder, occurrence] of data.occurrences.entries()) {
@@ -708,20 +705,16 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				) {
 					return yield* invalid("invalid-source");
 				}
+			}
+			if (previous && previous.entityId === occurrence.exerciseId) {
 				retainedOccurrences.add(previous.id);
-				if (
-					previous.entityId !== occurrence.exerciseId ||
-					previous.properties.exerciseOrder !== exerciseOrder
-				) {
+				if (previous.properties.exerciseOrder !== exerciseOrder) {
 					occurrenceChanges.push({
 						kind: "update",
 						itemIdentity: `occurrence-update:${previous.id}`,
 						item: {
 							eventId: previous.id,
-							patch: {
-								entityId: occurrence.exerciseId,
-								properties: { remove: [], set: { exerciseOrder } },
-							},
+							patch: { properties: { remove: [], set: { exerciseOrder } } },
 							expected: {
 								kind: "fields",
 								absentProperties: [],
@@ -848,8 +841,8 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		},
 		events: {
 			creates,
-			...(baseline && evidenceRevision !== undefined
-				? { baselines: [{ revision: evidenceRevision, entityId: baseline.entity.id }] }
+			...(baseline && scopeRevision !== undefined
+				? { baselines: [{ revision: scopeRevision, entityId: baseline.entity.id }] }
 				: {}),
 			changes: [
 				...occurrenceChanges,
