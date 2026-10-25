@@ -38,6 +38,10 @@
 		"./recording-tracer": {
 			"types": "./src/recording-tracer.ts",
 			"default": "./src/recording-tracer.ts"
+		},
+		"./random": {
+			"types": "./src/random.ts",
+			"default": "./src/random.ts"
 		}
 	},
 	"scripts": {
