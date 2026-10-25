@@ -55,8 +55,9 @@ export const Route = createFileRoute("/_authenticated")({
 								service.setLastWorkspace(context.scope, selected.pluginId),
 							);
 						}
-						// oxlint-disable-next-line typescript/only-throw-error
-						throw redirect({ replace: true, href: pluginPath(selected.packageId) });
+						return yield* Effect.fail(
+							redirect({ replace: true, href: pluginPath(selected.packageId) }),
+						);
 					}
 				}
 				return { isPro, catalog, navigation, rememberedPluginId };
