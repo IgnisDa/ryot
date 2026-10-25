@@ -118,8 +118,7 @@ const validateExpression = (
 		if (expressionError) {
 			return expressionError;
 		}
-		const kind = expressionKind(expr.expr, scope, executionScope);
-		if (kind !== "date" && !(expr.type === "localDate" && kind === "null")) {
+		if (expressionKind(expr.expr, scope, executionScope) !== "date") {
 			return "Date operations require a date expression";
 		}
 		return isNamedTimeZone(expr.timeZone)

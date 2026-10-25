@@ -1220,7 +1220,7 @@ it("validates local hour inputs and types the result as numeric", () => {
 	).toContain("Invalid date operation time zone");
 });
 
-it("validates local date inputs and accepts null", () => {
+it("validates local date inputs", () => {
 	const entity = table("entity", "entity");
 	const query = (expr: Parameters<typeof localDate>[0], timeZone = "America/New_York") =>
 		document({
@@ -1231,7 +1231,10 @@ it("validates local date inputs and accepts null", () => {
 		});
 
 	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
-	expect(validateRyotQLDocument(query(literal(null)), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(castDate(literal(null))), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(literal(null)), userAccess).error).toContain(
+		"require a date expression",
+	);
 	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toContain(
 		"require a date expression",
 	);

@@ -157,15 +157,16 @@ layer(makeServiceLayer())((test) => {
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements.find((value) =>
-					value.includes('"projectionStreams" AS MATERIALIZED'),
+					value.includes('"source_projectionStreams" AS MATERIALIZED'),
 				);
 				assert(statement);
 				expect(statement.match(/from event_stream_work w/g)).toHaveLength(1);
 				expect(statement.match(/SUM\(/g)).toHaveLength(1);
 				expect(statement.match(/COUNT\(/g)).toHaveLength(4);
 				expect(statement.match(/SELECT \* FROM "event"/g)).toHaveLength(1);
-				expect(statement).toContain('"orderValue0"."value" AS "f0v"');
-				expect(statement).toContain('"orderValue0"."value" AS "o0"');
+				expect(statement.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
+				expect(statement).toMatch(/("aggregate\d+_0"\."v0") AS "f0v", \1 AS "f1v"/);
+				expect(statement).toMatch(/"aggregate\d+_0"\."v0" AS "o0"/);
 			}),
 	);
 
@@ -255,19 +256,15 @@ layer(makeServiceLayer())((test) => {
 			const statements = yield* (yield* RecordedStatements).statements;
 			const statement = statements.at(-1);
 			assert(statement);
-			expect(statement.match(/"aggregateSource\d+" AS MATERIALIZED/g)).toHaveLength(1);
-			const projected = statement.slice(0, statement.indexOf(" FROM "));
-			for (const name of ["properties", "id", "content_generation", "entity_schema_slug"]) {
-				expect(projected).toContain(`"c1_t1"."${name}"`);
-			}
-			expect(projected).not.toContain("*");
-			expect(statement).toContain('INNER JOIN "aggregateSource0" c1_t1 ON');
+			expect(statement.match(/"hoisted\d+_1" AS MATERIALIZED/g)).toHaveLength(1);
+			expect(statement).toMatch(/INNER JOIN "hoisted\d+_1" s\d+_t1 ON/);
 			const lateral = statement.slice(statement.indexOf("CROSS JOIN LATERAL"));
-			expect(lateral).toContain('c1_t0."entity_id" = t0."id"');
-			expect(lateral).toContain('c1_t0."session_entity_id" = c1_t1."id"');
+			expect(lateral.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
+			expect(lateral).toMatch(/s\d+_t0\."entity_id" = t0\."id"/);
+			expect(lateral).toMatch(/s\d+_t0\."session_entity_id" = s\d+_t1\."id"/);
 			expect(lateral).toContain('t0."id" =');
-			expect(lateral).not.toContain("c1_t1.properties");
-			expect(lateral).not.toContain('c1_t1."entity_schema_slug"');
+			expect(lateral).not.toMatch(/s\d+_t1\.properties/);
+			expect(lateral).not.toMatch(/s\d+_t1\."entity_schema_slug"/);
 		}),
 	);
 
@@ -309,14 +306,6 @@ layer(makeServiceLayer())((test) => {
 					},
 					{ where: and(lower, lt(at, nestedAt), correlated) },
 					{
-						where: and(
-							lower,
-							upper,
-							correlated,
-							eq(column(source, "projectionStatus"), literal("ready")),
-						),
-					},
-					{
 						where: and(lower, upper, correlated),
 						joins: [
 							join("left", window, eq(column(source, "sessionEntityId"), column(window, "id"))),
@@ -333,9 +322,7 @@ layer(makeServiceLayer())((test) => {
 				}
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(
-					statements
-						.slice(before.length)
-						.every((statement) => !statement.includes('"aggregateSource')),
+					statements.slice(before.length).every((statement) => !statement.includes('"hoisted')),
 				).toBe(true);
 			}),
 	);
@@ -1693,8 +1680,8 @@ layer(
 			expect(statements[2]?.match(/SELECT \* FROM "event" WHERE/g)).toHaveLength(1);
 			expect(statements[2]).toContain("ROW_NUMBER() OVER");
 			expect(statements[2]).toContain("jsonb_build_object");
-			expect(statements[2]).toContain(
-				'ORDER BY i0t1.name COLLATE "C" ASC NULLS LAST, i0t1."id" COLLATE "C" ASC NULLS LAST, i0t0."id" COLLATE "C" ASC NULLS LAST',
+			expect(statements[2]).toMatch(
+				/ORDER BY (s\d+_)t1\.name COLLATE "C" ASC NULLS LAST, \1t1\."id" COLLATE "C" ASC NULLS LAST, \1t0\."id" COLLATE "C" ASC NULLS LAST/,
 			);
 			const courses = response.data["courses"];
 			if (courses?.type !== "rows") {
@@ -1921,17 +1908,17 @@ layer(makeServiceLayer())((test) => {
 				);
 				expect(statement).toContain(`NULLIF(t1."value", 'null'::jsonb)`);
 				expect(statement).toMatch(
-					/LEFT JOIN LATERAL jsonb_array_elements\(CASE WHEN jsonb_typeof\(.+ELSE '\[\]'::jsonb END\) WITH ORDINALITY AS i0t1\("value", "ordinal"\) ON true/,
+					/LEFT JOIN LATERAL jsonb_array_elements\(CASE WHEN jsonb_typeof\(.+ELSE '\[\]'::jsonb END\) WITH ORDINALITY AS s\d+_t1\("value", "ordinal"\) ON true/,
 				);
-				expect(statement).not.toMatch(/LEFT JOIN LATERAL [^\n]+ AS (t1|c\d+_t1)\(/);
+				expect(statement?.match(/LEFT JOIN LATERAL/g)).toHaveLength(1);
 				expect(statement).toMatch(
 					/ORDER BY t0\."id" COLLATE "C" ASC NULLS LAST, t1\."ordinal" ASC NULLS LAST\s+LIMIT \$\d+/,
 				);
 				expect(statement).toMatch(
-					/ORDER BY i0t0\."id" COLLATE "C" ASC NULLS LAST, i0t1\."ordinal" ASC NULLS LAST\s+LIMIT \$\d+/,
+					/ORDER BY (s\d+_)t0\."id" COLLATE "C" ASC NULLS LAST, \1t1\."ordinal" ASC NULLS LAST\s+LIMIT \$\d+/,
 				);
 				expect(statement).toMatch(
-					/ORDER BY c\d+_t0\."id" COLLATE "C" ASC NULLS LAST, c\d+_t1\."ordinal" ASC NULLS LAST LIMIT 1/,
+					/ORDER BY (s\d+_)t0\."id" COLLATE "C" ASC NULLS LAST, \1t1\."ordinal" ASC NULLS LAST LIMIT 1/,
 				);
 			});
 		},

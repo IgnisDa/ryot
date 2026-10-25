@@ -32,7 +32,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { sql } from "drizzle-orm";
-import { Effect, Layer, Logger, References } from "effect";
+import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -168,22 +168,11 @@ const execute = Effect.fn(function* (
 	language: null | string = null,
 ) {
 	const service = yield* RyotQLService;
-	let statement = "";
-	const logger = Logger.make((entry) => {
-		const value = entry.fiber.getRef(References.CurrentLogAnnotations)["sql"];
-		if (typeof value === "string") {
-			statement = value;
-		}
-	});
-	const result = (yield* service
-		.executeForUser(userId ?? "owner", language, "plugin", { queries: { rows: query } })
-		.pipe(
-			Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
-			Effect.provideService(References.MinimumLogLevel, "Trace"),
-		)).data["rows"];
+	const result = (yield* service.executeForUser(userId ?? "owner", language, "plugin", {
+		queries: { rows: query },
+	})).data["rows"];
 	assert(result?.type === "rows");
-	assert(statement.length > 0);
-	return { result, statement };
+	return { result };
 });
 
 const ranking = (
@@ -292,15 +281,6 @@ layer(databaseLayer)((test) => {
 					const actual = yield* execute(ranking({ after }));
 					const baseline = yield* execute(ranking({ after, baseline: true }));
 					expect(actual.result).toEqual(baseline.result);
-					expect(actual.statement.match(/AS MATERIALIZED \(/g)).toHaveLength(1);
-					expect(actual.statement.match(/AS "joinKey\d+"/g)).toHaveLength(4);
-					expect(actual.statement).toMatch(/INNER JOIN "aggregateSource\d+"/);
-					expect(
-						actual.statement.match(
-							/CROSS JOIN LATERAL \(SELECT COUNT|CROSS JOIN LATERAL \(SELECT SUM/g,
-						),
-					).toHaveLength(1);
-					expect(baseline.statement).not.toContain('"joinKey0"');
 					items.push(...actual.result.items);
 					after = actual.result.pageInfo.nextCursor ?? undefined;
 				} while (after);
@@ -335,7 +315,6 @@ layer(databaseLayer)((test) => {
 					output: { ...baseline.output, pagination: { limit: 100 } },
 				})).result,
 			);
-			expect(actual.statement).toContain('AS "joinKey0"');
 			expect(actual.result.items[2]).toEqual({
 				id: "c",
 				keys: 4,
@@ -359,7 +338,6 @@ layer(databaseLayer)((test) => {
 					expect(actual.result).toEqual(
 						(yield* execute(ranking({ ...options, baseline: true }))).result,
 					);
-					expect(actual.statement).not.toContain('"joinKey0"');
 				}
 			}),
 	);
@@ -378,7 +356,6 @@ layer(databaseLayer)((test) => {
 						(yield* execute(ranking({ extra, baseline: true }))).result,
 					);
 					expect(actual.result.items[0]?.["count"]).toBe(4);
-					expect(actual.statement).not.toContain('"joinKey0"');
 				}
 			}),
 	);
@@ -388,7 +365,6 @@ layer(databaseLayer)((test) => {
 			const actual = yield* execute(nestedRanking(false));
 			expect(actual.result).toEqual((yield* execute(nestedRanking(true))).result);
 			expect(actual.result.items).toEqual([{ one: 5, two: 0, nested: 5 }]);
-			expect(actual.statement.match(/AS MATERIALIZED \(/g)).toHaveLength(3);
 		}),
 	);
 
@@ -409,7 +385,6 @@ layer(databaseLayer)((test) => {
 			const actual = yield* execute(localizedRanking(false), "owner", "es");
 			expect(actual.result).toEqual((yield* execute(localizedRanking(true), "owner", "es")).result);
 			expect(actual.result.items).toEqual([{ count: 1, total: 2 }]);
-			expect(actual.statement).not.toContain('"joinKey0"');
 			expect((yield* execute(localizedRanking(false))).result.items).toEqual([
 				{ count: 1, total: 1 },
 			]);

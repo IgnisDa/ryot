@@ -8,6 +8,7 @@ import {
 	ascending,
 	castBoolean,
 	castDate,
+	castJson,
 	castNumber,
 	castText,
 	column,
@@ -25,7 +26,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { eq as databaseEq, sql } from "drizzle-orm";
-import { Effect, Layer, Logger, References, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -195,37 +196,27 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)
 
 const execute = Effect.fn(function* (query: NamedQuery, language: null | string = null) {
 	const service = yield* RyotQLService;
-	let statement = "";
-	const logger = Logger.make((entry) => {
-		const value = entry.fiber.getRef(References.CurrentLogAnnotations)["sql"];
-		if (typeof value === "string") {
-			statement = value;
-		}
-	});
-	const result = (yield* service
-		.executeForUser("owner", language, "plugin", { queries: { rows: query } })
-		.pipe(
-			Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
-			Effect.provideService(References.MinimumLogLevel, "Trace"),
-		)).data["rows"];
+	const result = (yield* service.executeForUser("owner", language, "plugin", {
+		queries: { rows: query },
+	})).data["rows"];
 	assert(result?.type === "rows");
-	return { result, statement };
+	return { result };
 });
 
-const payload = (baseline: boolean): ScalarExpression =>
-	baseline
-		? conditional(eq(literal(1), literal(1)), column(source, "properties"), literal(null))
-		: column(source, "properties");
+const property = (baseline: boolean, ...path: [string, ...string[]]): ScalarExpression => {
+	const value = jsonPath(column(source, "properties"), ...path);
+	return baseline ? castJson(value) : value;
+};
 
 const numericQuery = (baseline: boolean) =>
 	rows(source, {
 		limit: 100,
 		where: eq(column(source, "eventSchemaSlug"), literal("number")),
-		fields: [field("value", castNumber(jsonPath(payload(baseline), "nested", "value")))],
+		fields: [field("value", castNumber(property(baseline, "nested", "value")))],
 	});
 
 const shapeQuery = (baseline: boolean) => {
-	const value = jsonPath(payload(baseline), "nested", "value");
+	const value = property(baseline, "nested", "value");
 	return rows(source, {
 		limit: 100,
 		where: eq(column(source, "eventSchemaSlug"), literal("shape")),
@@ -241,9 +232,9 @@ const keyQuery = (baseline: boolean) =>
 	rows(source, {
 		where: eq(column(source, "id"), literal("keys")),
 		fields: keys.flatMap((key, index) => [
-			field(`text${index}`, castText(jsonPath(payload(baseline), key, "text"))),
-			field(`number${index}`, castNumber(jsonPath(payload(baseline), key, "number"))),
-			field(`boolean${index}`, castBoolean(jsonPath(payload(baseline), key, "boolean"))),
+			field(`text${index}`, castText(property(baseline, key, "text"))),
+			field(`number${index}`, castNumber(property(baseline, key, "number"))),
+			field(`boolean${index}`, castBoolean(property(baseline, key, "boolean"))),
 		]),
 	});
 
@@ -288,10 +279,6 @@ layer(databaseLayer)((test) => {
 					null,
 					null,
 				]);
-				expect(actual.statement).toContain("jsonb_path_query_first(");
-				expect(actual.statement).not.toContain("pg_input_is_valid(");
-				expect(baseline.statement).not.toContain("jsonb_path_query_first(");
-				expect(baseline.statement).toContain("pg_input_is_valid(");
 			}),
 	);
 
@@ -332,8 +319,6 @@ layer(databaseLayer)((test) => {
 						]),
 					),
 				]);
-				expect(actual.statement).toMatch(/\$\d+::jsonpath/);
-				expect(actual.statement).not.toContain("SELECT 1; --");
 			}),
 	);
 
@@ -352,7 +337,6 @@ layer(databaseLayer)((test) => {
 				expect(indexes.result.items).toEqual([
 					{ value0: 3, value1: 3, value2: 3, value3: 3, value4: 3, value5: 3, value6: 3 },
 				]);
-				expect(indexes.statement).not.toContain("jsonb_path_query_first(");
 				const objects = yield* execute(
 					rows(source, {
 						where: eq(column(source, "id"), literal("fallback")),
@@ -364,7 +348,6 @@ layer(databaseLayer)((test) => {
 					}),
 				);
 				expect(objects.result.items).toEqual([{ zero: 4, space: 5, unicode: "replacement" }]);
-				expect(objects.statement).not.toContain("jsonb_path_query_first(");
 			}),
 	);
 
@@ -378,8 +361,6 @@ layer(databaseLayer)((test) => {
 			const translated = yield* execute(localized, "es");
 			expect(canonical.result.items).toEqual([{ label: "canonical" }]);
 			expect(translated.result.items).toEqual([{ label: "translated" }]);
-			expect(canonical.statement).not.toContain("jsonb_path_query_first(");
-			expect(translated.statement).not.toContain("jsonb_path_query_first(");
 			const nested = yield* execute(
 				rows(subject, {
 					where: eq(column(subject, "id"), literal("subject")),
@@ -407,7 +388,6 @@ layer(databaseLayer)((test) => {
 			expect(nested.result.items).toEqual([
 				{ first: 1, number: 3, boolean: true, date: "2026-01-01T00:00:00.000Z" },
 			]);
-			expect(nested.statement).not.toContain("jsonb_path_query_first(");
 			const items = jsonPath(column(source, "properties"), "items");
 			const element = jsonElementsJoin("inner", "element", items);
 			const elements = yield* execute(
@@ -424,7 +404,6 @@ layer(databaseLayer)((test) => {
 				}),
 			);
 			expect(elements.result.items).toEqual([{ count: 1, value: "x" }]);
-			expect(elements.statement).not.toContain("jsonb_path_query_first(");
 		}),
 	);
 

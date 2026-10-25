@@ -826,7 +826,7 @@ layer(catalogDatabaseLayer)((test) => {
 								"leapDay",
 								localDate(castDate(literal("2024-02-29T23:30:00Z")), { timeZone: "UTC" }),
 							),
-							field("missing", localDate(literal(null), { timeZone: "UTC" })),
+							field("missing", localDate(castDate(literal(null)), { timeZone: "UTC" })),
 						],
 					}),
 				},

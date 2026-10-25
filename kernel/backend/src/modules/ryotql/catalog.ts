@@ -28,24 +28,28 @@ export type CatalogField = {
 	readonly demoReadable?: false;
 	readonly kind: CatalogFieldKind;
 	readonly access?: "admin" | "kernel";
-	readonly sourceColumns?: readonly string[];
 	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
+};
+
+export type CatalogSource = (context: {
+	readonly userId: null | string;
+	readonly fields: ReadonlySet<string>;
+	readonly source: ReturnType<typeof sql>;
+	readonly relation: (name: string) => ReturnType<typeof sql>;
+}) => {
+	readonly from: ReturnType<typeof sql>;
+	readonly ctes: Readonly<Record<string, ReturnType<typeof sql>>>;
 };
 
 export type CatalogTable = {
 	readonly name: string;
+	readonly source?: CatalogSource;
 	readonly visibility: CatalogVisibility;
 	// Small per-user catalogs: an include reads one materialized copy instead of re-evaluating the
 	// view for every parent row.
 	readonly materializedInIncludes?: true;
 	readonly primaryKey: readonly [string, ...string[]];
 	readonly fields: Readonly<Record<string, CatalogField>>;
-	readonly source?: (context: {
-		readonly userId: null | string;
-		readonly fields: ReadonlySet<string>;
-		readonly source: ReturnType<typeof sql>;
-		readonly relations: Map<string, ReturnType<typeof sql>>;
-	}) => ReturnType<typeof sql>;
 };
 
 type ExpandedCatalogSelections = {
@@ -166,7 +170,6 @@ const pluginClientApiVersion = pluginActiveRevisionField(
 const localizedEntityName: CatalogField = {
 	kind: "text",
 	nullable: false,
-	sourceColumns: ["id", "name", "content_generation"],
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.name`)
@@ -176,7 +179,6 @@ const localizedEntityName: CatalogField = {
 const localizedEntityProperties: CatalogField = {
 	kind: "json",
 	nullable: false,
-	sourceColumns: ["id", "properties", "content_generation"],
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.properties`)
@@ -330,43 +332,42 @@ const eventProjectionStreams = (userId: null | string) => sql`
 	left join background_work j on j.id = w.current_job_id
 	where ${userId == null ? sql`true` : sql`s.user_id = ${userId}`}`;
 
-const projectionStreamsSource = (context: Parameters<NonNullable<CatalogTable["source"]>>[0]) => {
-	context.relations.set("projectionStreams", eventProjectionStreams(context.userId));
-	return sql.identifier("projectionStreams");
-};
-
-const eventSource: NonNullable<CatalogTable["source"]> = (context) => {
+const eventSource: CatalogSource = (context) => {
 	const value = context.fields.has("projection");
 	const status = context.fields.has("projectionStatus");
 	if (!value && !status) {
-		return context.source;
+		return { ctes: {}, from: context.source };
 	}
-	const streams = projectionStreamsSource(context);
-	if (status) {
-		context.relations.set(
-			"projectionDeclarations",
-			sql`
-			select distinct d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
-			from user_event_schema d where d.is_effective and d.projection is not null
-			and ${context.userId === null ? sql`true` : sql`d.user_id = ${context.userId}`}
-		`,
-		);
-	}
-	return sql`(select e.*
-		${value ? sql`, p.properties as projection_value` : sql``}
-		${status ? sql`, coalesce(s.status, case when d.slug is not null then 'pending' else 'none' end) as projection_status` : sql``}
-		from ${context.source} e
-		left join ${streams} s on s.user_id = e.user_id and s.entity_id = e.entity_id
-			and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug
-		${value ? sql`left join event_projection p on p.event_id = e.id and p.stream_id = s.id and s.status = 'ready'` : sql``}
-		${
-			status
-				? sql`left join entity subject on subject.id = e.entity_id
-			left join "projectionDeclarations" d on d.user_id = e.user_id and d.entity_schema_slug = subject.entity_schema_slug
-				and d.plugin_id is not distinct from e.event_schema_plugin_id and d.slug = e.event_schema_slug`
-				: sql``
-		}
-	)`;
+	const streams = context.relation("projectionStreams");
+	const declarations = context.relation("projectionDeclarations");
+	return {
+		ctes: {
+			projectionStreams: eventProjectionStreams(context.userId),
+			...(status
+				? {
+						projectionDeclarations: sql`
+						select distinct d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
+						from user_event_schema d where d.is_effective and d.projection is not null
+						and ${context.userId === null ? sql`true` : sql`d.user_id = ${context.userId}`}`,
+					}
+				: {}),
+		},
+		from: sql`(select e.*
+			${value ? sql`, p.properties as projection_value` : sql``}
+			${status ? sql`, coalesce(s.status, case when d.slug is not null then 'pending' else 'none' end) as projection_status` : sql``}
+			from ${context.source} e
+			left join ${streams} s on s.user_id = e.user_id and s.entity_id = e.entity_id
+				and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug
+			${value ? sql`left join event_projection p on p.event_id = e.id and p.stream_id = s.id and s.status = 'ready'` : sql``}
+			${
+				status
+					? sql`left join entity subject on subject.id = e.entity_id
+				left join ${declarations} d on d.user_id = e.user_id and d.entity_schema_slug = subject.entity_schema_slug
+					and d.plugin_id is not distinct from e.event_schema_plugin_id and d.slug = e.event_schema_slug`
+					: sql``
+			}
+		)`,
+	};
 };
 
 const event: CatalogTable = {
@@ -441,15 +442,18 @@ const eventProjection: CatalogTable = {
 	},
 	source: (context) => {
 		if (!context.fields.has("properties")) {
-			return context.source;
+			return { ctes: {}, from: context.source };
 		}
-		const streams = projectionStreamsSource(context);
-		return sql`(select p.*, case when s.id is not null then p.properties end as projection_value
-			from ${context.source} p
-			inner join event e on e.id = p.event_id
-			left join ${streams} s on s.id = p.stream_id and s.status = 'ready'
-				and s.user_id = e.user_id and s.entity_id = e.entity_id
-				and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug)`;
+		const streams = context.relation("projectionStreams");
+		return {
+			ctes: { projectionStreams: eventProjectionStreams(context.userId) },
+			from: sql`(select p.*, case when s.id is not null then p.properties end as projection_value
+				from ${context.source} p
+				inner join event e on e.id = p.event_id
+				left join ${streams} s on s.id = p.stream_id and s.status = 'ready'
+					and s.user_id = e.user_id and s.entity_id = e.entity_id
+					and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug)`,
+		};
 	},
 };
 

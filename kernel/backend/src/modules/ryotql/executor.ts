@@ -4,9 +4,7 @@ import type {
 	AggregateOutput,
 	AggregateResult,
 	AggregationSpec,
-	CorrelatedQuerySet,
 	FieldSelection,
-	Include,
 	IncludeResult,
 	NamedQuery,
 	Predicate,
@@ -32,27 +30,39 @@ import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
 	canAccessCatalogTable,
 	type CatalogTable,
-	getCatalogTable,
 	jsonElementsTable,
 	resolveCatalogField,
 	type RyotQLExecutionScope,
 } from "./catalog";
-import { type KindResolver, scalarExpressionKind, type ScalarKind } from "./expression-kind";
+import { scalarExpressionKind, type ScalarKind } from "./expression-kind";
+import {
+	type AliasScope,
+	childScope,
+	conjuncts,
+	correlatedAliasScope,
+	jsonKeyColumn,
+	kindResolver,
+	lookupTable,
+	type PlannedScope,
+	type PlannedTable,
+	planQuery,
+	planScopes,
+	type QuerySet,
+} from "./planner";
 import type { ExpandedInclude, ExpandedNamedQuery, ExpandedRowsOutput } from "./validator";
 
 type SqlFragment = ReturnType<typeof sql>;
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
+type CastTarget = Extract<ScalarExpression, { type: "cast" }>["target"];
 type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
 type Order = { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" };
-type QuerySet = Include | CorrelatedQuerySet | Pick<NamedQuery, "from" | "joins" | "where">;
 type RowsQuery = Omit<ExpandedNamedQuery, "output"> & { readonly output: ExpandedRowsOutput };
-type CompileTable = {
-	readonly alias: string;
-	readonly fields: Set<string>;
-	readonly table: CatalogTable;
-	readonly joinedNullable: boolean;
-	readonly executionScope: RyotQLExecutionScope;
-	computedKeys?: ReadonlyMap<string, SqlFragment>;
+type Context = {
+	readonly fused: boolean;
+	readonly hoisted: boolean;
+	readonly scope: PlannedScope;
+	readonly elementDepth: number;
+	readonly element: string | undefined;
 };
 type CursorValue =
 	| { readonly value: null; readonly kind: "null" }
@@ -61,28 +71,6 @@ type CursorValue =
 	| { readonly kind: "json"; readonly value: unknown }
 	| { readonly value: number; readonly kind: "number" }
 	| { readonly value: boolean; readonly kind: "boolean" };
-class CompileScope extends Map<string, CompileTable> {
-	fuseAggregates = false;
-	readonly relations: Map<string, SqlFragment>;
-	readonly bindings = new Map<
-		string,
-		{ readonly value: SqlFragment; readonly source: SqlFragment }
-	>();
-	readonly aggregates = new Map<
-		string,
-		{
-			readonly alias: string;
-			readonly scope: CompileScope;
-			readonly query: CorrelatedQuerySet;
-			readonly measures: Map<string, { readonly alias: string; readonly value: SqlFragment }>;
-		}
-	>();
-
-	constructor(ancestors?: CompileScope) {
-		super(ancestors);
-		this.relations = ancestors?.relations ?? new Map<string, SqlFragment>();
-	}
-}
 
 const CURSOR_VERSION = 1;
 const encodeJson = (value: unknown) =>
@@ -93,99 +81,35 @@ const identifier = (value: string): SqlFragment => sql`${sql.identifier(value)}`
 const qualifiedIdentifier = (table: string, column: string): SqlFragment =>
 	sql`${sql.identifier(table)}.${sql.identifier(column)}`;
 
-let jsonElementAliasCounter = 0;
-const jsonElementAliasStack: string[] = [];
+const rootContext = (scope: PlannedScope): Context => ({
+	scope,
+	fused: true,
+	hoisted: true,
+	elementDepth: 0,
+	element: undefined,
+});
 
-const withJsonElementAlias = <A>(alias: string, compile: () => A): A => {
-	jsonElementAliasStack.push(alias);
-	try {
-		return compile();
-	} finally {
-		jsonElementAliasStack.pop();
+const correlatedContext = (ctx: Context, query: Parameters<typeof childScope>[1]): Context => ({
+	...ctx,
+	fused: true,
+	scope: childScope(ctx.scope, query),
+});
+
+const ownerScope = (scope: PlannedScope, alias: string): PlannedScope => {
+	let current: undefined | PlannedScope = scope;
+	while (current) {
+		if (current.tables.has(alias)) {
+			return current;
+		}
+		current = current.parent;
 	}
+	throw new Error(`RyotQL compiler received unknown alias '${alias}'`);
 };
 
-const requireJsonElementAlias = () => {
-	const alias = jsonElementAliasStack.at(-1);
-	if (!alias) {
-		throw new Error("RyotQL compiler received a JSON element outside an array operator");
-	}
-	return alias;
-};
+const resolveField = (scope: AliasScope, alias: string, field: string) =>
+	resolveCatalogField(lookupTable(scope, alias).table, field, scope.execution);
 
-const requireTable = (name: string) => {
-	const table = getCatalogTable(name);
-	if (!table) {
-		throw new Error(`RyotQL compiler received unknown table '${name}'`);
-	}
-	return table;
-};
-
-const requireCompileTable = (scope: CompileScope, alias: string) => {
-	const table = scope.get(alias);
-	if (!table) {
-		throw new Error(`RyotQL compiler received unknown alias '${alias}'`);
-	}
-	return table;
-};
-
-const scopeExecution = (scope: CompileScope) => {
-	const executionScope = scope.values().next().value?.executionScope;
-	if (!executionScope) {
-		throw new Error("RyotQL compiler received an empty scope");
-	}
-	return executionScope;
-};
-
-const scopeLanguage = (scope: CompileScope) => {
-	const executionScope = scopeExecution(scope);
-	return executionScope.type === "user" ? executionScope.language : null;
-};
-
-const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => {
-	const executionScope = scopeExecution(ancestors);
-	const scope = new CompileScope(ancestors);
-	scope.set(query.from.alias, {
-		executionScope,
-		fields: new Set(),
-		joinedNullable: false,
-		alias: `kind${ancestors.size}_t0`,
-		table: requireTable(query.from.table),
-	});
-	(query.joins ?? []).forEach((join, index) => {
-		const alias = `kind${ancestors.size}_t${index + 1}`;
-		scope.set(
-			join.type === "jsonElements" ? join.alias : join.table.alias,
-			join.type === "jsonElements"
-				? {
-						alias,
-						executionScope,
-						fields: new Set(),
-						table: jsonElementsTable,
-						joinedNullable: join.mode === "left",
-					}
-				: {
-						alias,
-						executionScope,
-						fields: new Set(),
-						joinedNullable: true,
-						table: requireTable(join.table.table),
-					},
-		);
-	});
-	return scope;
-};
-
-const resolveCompileField = (compileTable: CompileTable, field: string) =>
-	resolveCatalogField(compileTable.table, field, compileTable.executionScope);
-
-const kindResolver: KindResolver<CompileScope> = {
-	correlated: (query, scope) => expressionScope(query, scope),
-	column: (expr, scope) =>
-		resolveCompileField(requireCompileTable(scope, expr.tableAlias), expr.field)?.kind,
-};
-
-const expressionKind = (expr: ScalarExpression, scope: CompileScope): ScalarKind => {
+const expressionKind = (expr: ScalarExpression, scope: AliasScope): ScalarKind => {
 	const kind = scalarExpressionKind(expr, scope, kindResolver);
 	if (!kind) {
 		throw new Error("RyotQL compiler could not infer an expression kind");
@@ -210,7 +134,7 @@ const compileLiteral = (expr: Extract<ScalarExpression, { type: "literal" }>): S
 	return sql`${serialized}::jsonb`;
 };
 
-const castSqlType = (target: Extract<ScalarExpression, { type: "cast" }>["target"]) => {
+const castSqlType = (target: CastTarget) => {
 	if (target === "number") {
 		return "double precision";
 	}
@@ -220,13 +144,9 @@ const castSqlType = (target: Extract<ScalarExpression, { type: "cast" }>["target
 	return target === "json" ? "jsonb" : target;
 };
 
-const typedNull = (target: Extract<ScalarExpression, { type: "cast" }>["target"]) =>
-	sql.raw(`NULL::${castSqlType(target)}`);
+const typedNull = (target: CastTarget) => sql.raw(`NULL::${castSqlType(target)}`);
 
-const safeInputValid = (
-	value: SqlFragment,
-	target: Extract<ScalarExpression, { type: "cast" }>["target"],
-) => {
+const safeInputValid = (value: SqlFragment, target: CastTarget) => {
 	const valid = sql`pg_input_is_valid(${value}, ${castSqlType(target)})`;
 	if (target === "number") {
 		return sql`(${valid} AND lower(btrim(${value})) NOT IN ('nan', 'infinity', '+infinity', '-infinity', 'inf', '+inf', '-inf'))`;
@@ -237,7 +157,7 @@ const safeInputValid = (
 	return valid;
 };
 
-const inlineCastOperand = (expr: ScalarExpression, scope: CompileScope): boolean => {
+const inlineCastOperand = (expr: ScalarExpression, scope: AliasScope): boolean => {
 	if (expr.type === "literal" || expr.type === "jsonElement") {
 		return true;
 	}
@@ -245,111 +165,101 @@ const inlineCastOperand = (expr: ScalarExpression, scope: CompileScope): boolean
 		return inlineCastOperand(expr.expr, scope);
 	}
 	return (
-		expr.type === "column" &&
-		resolveCompileField(requireCompileTable(scope, expr.tableAlias), expr.field)?.column !==
-			undefined
+		expr.type === "column" && resolveField(scope, expr.tableAlias, expr.field)?.column !== undefined
 	);
 };
 
 const bindCastOperand = (
 	expr: ScalarExpression,
-	scope: CompileScope,
+	ctx: Context,
 	operand: SqlFragment,
 	cast: (value: SqlFragment) => SqlFragment,
 ) =>
-	inlineCastOperand(expr, scope)
+	inlineCastOperand(expr, ctx.scope)
 		? cast(operand)
 		: // Subquery operands stay bound; scalar columns must remain visible to join planning.
 			sql`(SELECT ${cast(sql.raw("cast_operand.value"))} FROM (SELECT ${operand} AS value OFFSET 0) cast_operand)`;
 
-const compileJsonValue = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
-	const compiled = compileExpression(expr, scope);
-	const kind = expressionKind(expr, scope);
-	if (kind === "json") {
-		return sql`NULLIF(${compiled}, 'null'::jsonb)`;
-	}
+const compileJsonValue = (expr: ScalarExpression, ctx: Context): SqlFragment => {
+	const kind = expressionKind(expr, ctx.scope);
 	if (kind === "null") {
 		return sql`NULL::jsonb`;
 	}
-	return sql`to_jsonb(${compiled})`;
+	const compiled = compileExpression(expr, ctx);
+	return kind === "json" ? sql`NULLIF(${compiled}, 'null'::jsonb)` : sql`to_jsonb(${compiled})`;
 };
+
+// Integer-like segments also address array indexes in jsonb_extract_path, so only plain object
+// keys use the single-call typed JSON path.
+const strictObjectPath = (path: Extract<ScalarExpression, { type: "jsonPath" }>["path"]) =>
+	path.every(
+		(segment) =>
+			typeof segment === "string" &&
+			segment.isWellFormed() &&
+			!segment.includes("\0") &&
+			!/^\s*[+-]?\d+\s*$/.test(segment),
+	)
+		? `strict $${path.map((segment) => `.${JSON.stringify(segment)}`).join("")}`
+		: undefined;
 
 const compileTypedJsonPathCast = (
 	expr: Extract<ScalarExpression, { type: "cast" }>,
-	scope: CompileScope,
+	ctx: Context,
 ): undefined | SqlFragment => {
 	if (
 		(expr.target !== "text" && expr.target !== "boolean" && expr.target !== "number") ||
 		expr.expr.type !== "jsonPath" ||
-		expr.expr.expr.type !== "column" ||
-		expr.expr.path.some(
-			(segment) =>
-				typeof segment !== "string" ||
-				!segment.isWellFormed() ||
-				segment.includes("\0") ||
-				/^\s*[+-]?\d+\s*$/.test(segment),
-		)
+		expressionKind(expr.expr.expr, ctx.scope) !== "json"
 	) {
 		return undefined;
 	}
-	const operand = expr.expr;
-	const column = expr.expr.expr;
-	const table = requireCompileTable(scope, column.tableAlias);
-	const field = resolveCompileField(table, column.field);
-	if (
-		field?.kind !== "json" ||
-		field.column === undefined ||
-		table.computedKeys?.has(stableStringify(expr)) ||
-		(scope.bindings.size > 0 &&
-			(scope.bindings.has(stableStringify(operand)) || scope.bindings.has(stableStringify(column))))
-	) {
+	const path = strictObjectPath(expr.expr.path);
+	if (path === undefined) {
 		return undefined;
 	}
 	const kind = expr.target === "text" ? "string" : expr.target;
-	const path = `strict $${operand.path.map((segment) => `.${JSON.stringify(segment)}`).join("")} ? (@.type() == "${kind}")${expr.target === "number" ? ".double()" : ""}`;
-	const value = sql`(jsonb_path_query_first(${compileExpression(column, scope)}, ${path}::jsonpath, '{}'::jsonb, true) #>> '{}')`;
+	const typed = `${path} ? (@.type() == "${kind}")${expr.target === "number" ? ".double()" : ""}`;
+	const value = sql`(jsonb_path_query_first(${compileExpression(expr.expr.expr, ctx)}, ${typed}::jsonpath, '{}'::jsonb, true) #>> '{}')`;
 	return expr.target === "text" ? value : sql`${value}::${sql.raw(castSqlType(expr.target))}`;
 };
 
 const compileCast = (
 	expr: Extract<ScalarExpression, { type: "cast" }>,
-	scope: CompileScope,
+	ctx: Context,
 ): SqlFragment => {
-	const sourceKind = expressionKind(expr.expr, scope);
+	const sourceKind = expressionKind(expr.expr, ctx.scope);
 	if (expr.target === "json") {
-		return compileJsonValue(expr.expr, scope);
+		return compileJsonValue(expr.expr, ctx);
 	}
 	if (expr.expr.type === "first" && sourceKind === "json") {
 		const first = expr.expr;
-		return compileFirst(first, scope, (childScope) =>
-			compileCast({ type: "cast", expr: first.select, target: expr.target }, childScope),
+		return compileFirst(first, ctx, (childCtx) =>
+			compileCast({ type: "cast", expr: first.select, target: expr.target }, childCtx),
 		);
 	}
 	if (expr.expr.type === "coalesce" && sourceKind === "json") {
-		const branchScope = new CompileScope(scope);
 		const branches = expr.expr.values.map(
 			(value) =>
-				sql`WHEN ${compileJsonValue(value, branchScope)} IS NOT NULL THEN ${compileCast(
+				sql`WHEN ${compileJsonValue(value, ctx)} IS NOT NULL THEN ${compileCast(
 					{ expr: value, type: "cast", target: expr.target },
-					branchScope,
+					ctx,
 				)}`,
 		);
 		return sql`CASE ${sql.join(branches, sql` `)} ELSE ${typedNull(expr.target)} END`;
 	}
-	const typedPath = compileTypedJsonPathCast(expr, scope);
+	const typedPath = compileTypedJsonPathCast(expr, ctx);
 	if (typedPath) {
 		return typedPath;
 	}
-	const source = compileExpression(expr.expr, scope);
 	if (sourceKind === expr.target) {
-		return source;
+		return compileExpression(expr.expr, ctx);
 	}
 	if (sourceKind === "json") {
 		if (expr.target === "text") {
 			return bindCastOperand(
 				expr.expr,
-				scope,
-				compileJsonValue(expr.expr, scope),
+				ctx,
+				compileJsonValue(expr.expr, ctx),
 				(value) => sql`CASE WHEN jsonb_typeof(${value}) = 'string' THEN (${value} #>> '{}') END`,
 			);
 		}
@@ -360,7 +270,7 @@ const compileCast = (
 			jsonType = "string";
 		}
 		const sqlType = castSqlType(expr.target);
-		return bindCastOperand(expr.expr, scope, compileJsonValue(expr.expr, scope), (value) => {
+		return bindCastOperand(expr.expr, ctx, compileJsonValue(expr.expr, ctx), (value) => {
 			const text = sql`(${value} #>> '{}')`;
 			const valid = expr.target === "boolean" ? sql`true` : safeInputValid(text, expr.target);
 			return sql`(CASE WHEN jsonb_typeof(${value}) = ${jsonType} AND ${valid} THEN ${text} END)::${sql.raw(sqlType)}`;
@@ -370,37 +280,37 @@ const compileCast = (
 		const sqlType = castSqlType(expr.target);
 		return bindCastOperand(
 			expr.expr,
-			scope,
-			source,
+			ctx,
+			compileExpression(expr.expr, ctx),
 			(value) =>
 				sql`(CASE WHEN ${safeInputValid(value, expr.target)} THEN ${value} END)::${sql.raw(sqlType)}`,
 		);
 	}
 	if (expr.target === "text") {
-		return compileTextValue(expr.expr, scope);
+		return compileTextValue(expr.expr, ctx);
 	}
 	return typedNull(expr.target);
 };
 
-const compileTextValue = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
-	const kind = expressionKind(expr, scope);
+const compileTextValue = (expr: ScalarExpression, ctx: Context): SqlFragment => {
+	const kind = expressionKind(expr, ctx.scope);
 	if (kind === "null") {
 		return sql`NULL::text`;
 	}
 	if (kind === "json") {
-		return sql`NULLIF((${compileJsonValue(expr, scope)} #>> '{}'), 'null')`;
+		return sql`NULLIF((${compileJsonValue(expr, ctx)} #>> '{}'), 'null')`;
 	}
 	if (kind === "text") {
-		return compileExpression(expr, scope);
+		return compileExpression(expr, ctx);
 	}
-	return sql`(${compileExpression(expr, scope)})::text`;
+	return sql`(${compileExpression(expr, ctx)})::text`;
 };
 
 const compileTextTransform = (
 	expr: Extract<ScalarExpression, { type: "transform" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
-	const value = compileTextValue(expr.expr, scope);
+	const value = compileTextValue(expr.expr, ctx);
 	const camelCase = sql`regexp_replace(${value}, ${String.raw`([a-z0-9])([A-Z])`}, ${String.raw`\1 \2`}, 'g')`;
 	if (expr.name === "titleCase") {
 		return sql`initcap(regexp_replace(${camelCase}, ${"[^A-Za-z0-9]+"}, ${" "}, 'g'))`;
@@ -411,22 +321,19 @@ const compileTextTransform = (
 
 const compileConditional = (
 	expr: Extract<ScalarExpression, { type: "conditional" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
-	const kind = expressionKind(expr, scope);
-	const branchScope = new CompileScope(scope);
+	const json = expressionKind(expr, ctx.scope) === "json";
 	const compileBranch = (branch: ScalarExpression) =>
-		kind === "json"
-			? compileJsonValue(branch, branchScope)
-			: compileExpression(branch, branchScope);
-	return sql`CASE WHEN ${compilePredicate(expr.condition, scope)} THEN ${compileBranch(expr.whenTrue)} ELSE ${compileBranch(expr.whenFalse)} END`;
+		json ? compileJsonValue(branch, ctx) : compileExpression(branch, ctx);
+	return sql`CASE WHEN ${compilePredicate(expr.condition, ctx)} THEN ${compileBranch(expr.whenTrue)} ELSE ${compileBranch(expr.whenFalse)} END`;
 };
 
 const compileUnary = (
 	expr: Extract<ScalarExpression, { type: "floor" | "round" | "integer" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
-	const value = compileCast({ type: "cast", expr: expr.expr, target: "number" }, scope);
+	const value = compileCast({ type: "cast", expr: expr.expr, target: "number" }, ctx);
 	if (expr.type === "round") {
 		return sql`round(${value})`;
 	}
@@ -438,10 +345,10 @@ const compileUnary = (
 
 const compileArithmetic = (
 	expr: Extract<ScalarExpression, { type: "arithmetic" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
-	const left = compileCast({ type: "cast", expr: expr.left, target: "number" }, scope);
-	const right = compileCast({ type: "cast", expr: expr.right, target: "number" }, scope);
+	const left = compileCast({ type: "cast", expr: expr.left, target: "number" }, ctx);
+	const right = compileCast({ type: "cast", expr: expr.right, target: "number" }, ctx);
 	if (expr.operator === "divide") {
 		return sql`((${left}) / NULLIF((${right}), 0))`;
 	}
@@ -454,17 +361,33 @@ const compileArithmetic = (
 	return sql`((${left}) ${operator} (${right}))`;
 };
 
-const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
-	const bound = scope.bindings.size > 0 ? scope.bindings.get(stableStringify(expr)) : undefined;
-	if (bound) {
-		return bound.value;
+const fusedAggregate = (
+	expr: Extract<ScalarExpression, { type: "aggregate" }>,
+	ctx: Context,
+): undefined | SqlFragment => {
+	if (!ctx.fused) {
+		return undefined;
 	}
-	const keyColumn = sourceJoinKeyColumn(expr);
-	const computed = keyColumn
-		? requireCompileTable(scope, keyColumn.tableAlias).computedKeys?.get(stableStringify(expr))
-		: undefined;
-	if (computed) {
-		return computed;
+	const group = ctx.scope.groups.get(stableStringify(expr.query));
+	const measure = group?.measures.get(stableStringify(expr.aggregation));
+	return group && measure ? qualifiedIdentifier(group.alias, measure.alias) : undefined;
+};
+
+const hoistedKey = (expr: ScalarExpression, ctx: Context): undefined | SqlFragment => {
+	const column = ctx.hoisted ? jsonKeyColumn(expr) : undefined;
+	if (!column) {
+		return undefined;
+	}
+	const owner = ownerScope(ctx.scope, column.tableAlias);
+	const key = owner.hoisted.get(column.tableAlias)?.keys.get(stableStringify(expr));
+	const table = owner.tables.get(column.tableAlias);
+	return key && table ? qualifiedIdentifier(table.sqlAlias, key.column) : undefined;
+};
+
+const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment => {
+	const key = hoistedKey(expr, ctx);
+	if (key) {
+		return key;
 	}
 	if (expr.type === "pluginId") {
 		if (expr.reference.kind !== "local") {
@@ -476,105 +399,99 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 		return compileLiteral(expr);
 	}
 	if (expr.type === "cast") {
-		return compileCast(expr, scope);
+		return compileCast(expr, ctx);
 	}
 	if (expr.type === "currentDate") {
 		return sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
 	}
 	if (expr.type === "dateBucket") {
-		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, scope)}, ${expr.timeZone})`;
+		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, ctx)}, ${expr.timeZone})`;
 	}
 	if (expr.type === "localDate") {
-		const value =
-			expressionKind(expr.expr, scope) === "null"
-				? typedNull("date")
-				: compileExpression(expr.expr, scope);
-		return sql`to_char(${value} AT TIME ZONE ${expr.timeZone}, 'YYYY-MM-DD')`;
+		return sql`to_char(${compileExpression(expr.expr, ctx)} AT TIME ZONE ${expr.timeZone}, 'YYYY-MM-DD')`;
 	}
 	if (expr.type === "localHour") {
-		return sql`extract(hour from (${compileExpression(expr.expr, scope)} AT TIME ZONE ${expr.timeZone}))`;
+		return sql`extract(hour from (${compileExpression(expr.expr, ctx)} AT TIME ZONE ${expr.timeZone}))`;
 	}
 	if (expr.type === "exists") {
-		return compileExists(expr, scope);
+		return compileExists(expr, ctx);
 	}
 	if (expr.type === "arithmetic") {
-		return compileArithmetic(expr, scope);
+		return compileArithmetic(expr, ctx);
 	}
 	if (expr.type === "concat") {
 		return sql`concat(${sql.join(
-			expr.values.map((value) => compileTextValue(value, scope)),
+			expr.values.map((value) => compileTextValue(value, ctx)),
 			sql`, `,
 		)})`;
 	}
 	if (expr.type === "conditional") {
-		return compileConditional(expr, scope);
+		return compileConditional(expr, ctx);
 	}
 	if (expr.type === "transform") {
-		return compileTextTransform(expr, scope);
+		return compileTextTransform(expr, ctx);
 	}
 	if (expr.type === "isNotNull") {
-		return sql`(${compileExpression(expr.expr, scope)} IS NOT NULL)`;
+		return sql`(${compileExpression(expr.expr, ctx)} IS NOT NULL)`;
 	}
 	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
-		return compileUnary(expr, scope);
+		return compileUnary(expr, ctx);
 	}
 	if (expr.type === "aggregate") {
-		return compileAggregate(expr, scope);
+		return fusedAggregate(expr, ctx) ?? compileAggregate(expr, ctx);
 	}
 	if (expr.type === "first") {
-		return compileFirst(expr, scope, (childScope) => compileExpression(expr.select, childScope));
+		return compileFirst(expr, ctx, (childCtx) => compileExpression(expr.select, childCtx));
 	}
 	if (expr.type === "jsonPath") {
-		return sql`NULLIF(jsonb_extract_path(${compileJsonValue(expr.expr, scope)}, ${sql.join(
+		return sql`NULLIF(jsonb_extract_path(${compileJsonValue(expr.expr, ctx)}, ${sql.join(
 			expr.path.map((segment) => sql`${String(segment)}`),
 			sql`, `,
 		)}), 'null'::jsonb)`;
 	}
 	if (expr.type === "jsonElement") {
-		return sql.raw(`${requireJsonElementAlias()}.elem`);
+		if (ctx.element === undefined) {
+			throw new Error("RyotQL compiler received a JSON element outside an array operator");
+		}
+		return sql.raw(`${ctx.element}.elem`);
 	}
 	if (expr.type === "jsonExists") {
-		return compileJsonArrayExists(expr, scope);
+		return compileJsonArrayExists(expr, ctx);
 	}
 	if (expr.type === "jsonFirst") {
-		return compileJsonArrayFirst(expr, scope);
+		return compileJsonArrayFirst(expr, ctx);
 	}
 	if (expr.type === "jsonCount") {
-		return compileJsonArrayCount(expr, scope);
+		return compileJsonArrayCount(expr, ctx);
 	}
 	if (expr.type === "coalesce") {
-		const kind = expressionKind(expr, scope);
-		const branchScope = new CompileScope(scope);
-		return kind === "json"
-			? sql`COALESCE(${sql.join(
-					expr.values.map((value) => compileJsonValue(value, branchScope)),
-					sql`, `,
-				)})`
-			: sql`COALESCE(${sql.join(
-					expr.values.map((value) => compileExpression(value, branchScope)),
-					sql`, `,
-				)})`;
+		const json = expressionKind(expr, ctx.scope) === "json";
+		return sql`COALESCE(${sql.join(
+			expr.values.map((value) =>
+				json ? compileJsonValue(value, ctx) : compileExpression(value, ctx),
+			),
+			sql`, `,
+		)})`;
 	}
-	const compileTable = requireCompileTable(scope, expr.tableAlias);
-	compileTable.fields.add(expr.field);
-	const field = resolveCompileField(compileTable, expr.field);
+	const table = lookupTable(ctx.scope, expr.tableAlias);
+	const field = resolveCatalogField(table.table, expr.field, ctx.scope.execution);
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
-	const execution = scopeExecution(scope);
+	const execution = ctx.scope.execution;
 	return field.resolve({
-		sqlAlias: compileTable.alias,
-		language: scopeLanguage(scope),
+		sqlAlias: table.sqlAlias,
 		userId: execution.type === "user" ? execution.userId : null,
+		language: execution.type === "user" ? execution.language : null,
 	});
 };
 
-const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolean => {
+const expressionNullable = (expr: ScalarExpression, ctx: Context): boolean => {
 	if (expr.type === "literal") {
 		return expr.value === null;
 	}
 	if (expr.type === "localDate") {
-		return expressionNullable(expr.expr, scope);
+		return expressionNullable(expr.expr, ctx);
 	}
 	if (
 		expr.type === "pluginId" ||
@@ -587,8 +504,8 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 		return false;
 	}
 	if (expr.type === "column") {
-		const table = requireCompileTable(scope, expr.tableAlias);
-		const field = resolveCompileField(table, expr.field);
+		const table = lookupTable(ctx.scope, expr.tableAlias);
+		const field = resolveCatalogField(table.table, expr.field, ctx.scope.execution);
 		return (
 			table.joinedNullable ||
 			(!table.table.primaryKey.includes(expr.field) && (field?.nullable ?? true))
@@ -599,7 +516,7 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 
 const likePattern = (
 	operand: ScalarExpression,
-	scope: CompileScope,
+	ctx: Context,
 	match: "contains" | "startsWith",
 ): SqlFragment => {
 	const leading = match === "contains" ? "%" : "";
@@ -610,20 +527,16 @@ const likePattern = (
 			.replaceAll("_", "\\_");
 		return sql`${`${leading}${escaped}%`}`;
 	}
-	const escaped = sql`replace(replace(replace(${compileExpression(operand, scope)}, ${"\\"}, ${"\\\\"}), ${"%"}, ${"\\%"}), ${"_"}, ${"\\_"})`;
+	const escaped = sql`replace(replace(replace(${compileExpression(operand, ctx)}, ${"\\"}, ${"\\\\"}), ${"%"}, ${"\\%"}), ${"_"}, ${"\\_"})`;
 	return sql`(${leading} || ${escaped} || ${"%"})`;
 };
 
-const compilePredicate = (
-	predicate: Predicate,
-	scope: CompileScope,
-	total = false,
-): SqlFragment => {
+const compilePredicate = (predicate: Predicate, ctx: Context, total = false): SqlFragment => {
 	if (predicate.type === "exists") {
-		return compileExists(predicate, scope);
+		return compileExists(predicate, ctx);
 	}
 	if (predicate.type === "jsonExists") {
-		return compileJsonArrayExists(predicate, scope);
+		return compileJsonArrayExists(predicate, ctx);
 	}
 	if (predicate.type === "comparison") {
 		const operators = {
@@ -636,15 +549,15 @@ const compilePredicate = (
 		};
 		const operator = operators[predicate.operator];
 		if (
-			expressionKind(predicate.left, scope) === "json" &&
-			expressionKind(predicate.right, scope) === "json"
+			expressionKind(predicate.left, ctx.scope) === "json" &&
+			expressionKind(predicate.right, ctx.scope) === "json"
 		) {
-			const jsonComparison = sql`${compileJsonValue(predicate.left, scope)} ${operator} ${compileJsonValue(predicate.right, scope)}`;
+			const jsonComparison = sql`${compileJsonValue(predicate.left, ctx)} ${operator} ${compileJsonValue(predicate.right, ctx)}`;
 			return total ? sql`COALESCE(${jsonComparison}, false)` : jsonComparison;
 		}
-		const comparison = sql`${compileExpression(predicate.left, scope)} ${operator} ${compileExpression(predicate.right, scope)}`;
+		const comparison = sql`${compileExpression(predicate.left, ctx)} ${operator} ${compileExpression(predicate.right, ctx)}`;
 		return total &&
-			(expressionNullable(predicate.left, scope) || expressionNullable(predicate.right, scope))
+			(expressionNullable(predicate.left, ctx) || expressionNullable(predicate.right, ctx))
 			? sql`COALESCE(${comparison}, false)`
 			: comparison;
 	}
@@ -654,48 +567,47 @@ const compilePredicate = (
 		}
 		const separator = predicate.type === "and" ? sql` AND ` : sql` OR `;
 		return sql`(${sql.join(
-			predicate.predicates.map((value) => compilePredicate(value, scope, total)),
+			predicate.predicates.map((value) => compilePredicate(value, ctx, total)),
 			separator,
 		)})`;
 	}
 	if (predicate.type === "not") {
-		return sql`(NOT ${compilePredicate(predicate.predicate, scope, true)})`;
+		return sql`(NOT ${compilePredicate(predicate.predicate, ctx, true)})`;
 	}
 	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
 		const operator = predicate.type === "isNull" ? sql`IS NULL` : sql`IS NOT NULL`;
-		return sql`(${compileExpression(predicate.expr, scope)} ${operator})`;
+		return sql`(${compileExpression(predicate.expr, ctx)} ${operator})`;
 	}
 	if (predicate.type === "contains") {
-		if (expressionKind(predicate.left, scope) === "json") {
-			const containment = sql`${compileJsonValue(predicate.left, scope)} @> ${compileJsonValue(predicate.right, scope)}`;
+		if (expressionKind(predicate.left, ctx.scope) === "json") {
+			const containment = sql`${compileJsonValue(predicate.left, ctx)} @> ${compileJsonValue(predicate.right, ctx)}`;
 			return total ? sql`COALESCE(${containment}, false)` : containment;
 		}
-		const match = sql`${compileExpression(predicate.left, scope)} COLLATE "C" ILIKE ${likePattern(predicate.right, scope, "contains")}`;
+		const match = sql`${compileExpression(predicate.left, ctx)} COLLATE "C" ILIKE ${likePattern(predicate.right, ctx, "contains")}`;
 		return total ? sql`COALESCE(${match}, false)` : match;
 	}
 	if (predicate.type === "startsWith") {
-		const match = sql`${compileExpression(predicate.left, scope)} COLLATE "C" ILIKE ${likePattern(predicate.right, scope, "startsWith")}`;
+		const match = sql`${compileExpression(predicate.left, ctx)} COLLATE "C" ILIKE ${likePattern(predicate.right, ctx, "startsWith")}`;
 		return total ? sql`COALESCE(${match}, false)` : match;
 	}
 	const membership = predicate satisfies Extract<Predicate, { type: "in" }>;
 	if (membership.values.length === 0) {
 		return sql`false`;
 	}
-	const kind = expressionKind(membership.expr, scope);
-	if (kind === "json") {
-		const jsonMembership = sql`${compileJsonValue(membership.expr, scope)} IN (${sql.join(
-			membership.values.map((value) => compileJsonValue(value, scope)),
+	if (expressionKind(membership.expr, ctx.scope) === "json") {
+		const jsonMembership = sql`${compileJsonValue(membership.expr, ctx)} IN (${sql.join(
+			membership.values.map((value) => compileJsonValue(value, ctx)),
 			sql`, `,
 		)})`;
 		return total ? sql`COALESCE(${jsonMembership}, false)` : jsonMembership;
 	}
-	const comparison = sql`${compileExpression(membership.expr, scope)} IN (${sql.join(
-		membership.values.map((value) => compileExpression(value, scope)),
+	const comparison = sql`${compileExpression(membership.expr, ctx)} IN (${sql.join(
+		membership.values.map((value) => compileExpression(value, ctx)),
 		sql`, `,
 	)})`;
 	return total &&
-		(expressionNullable(membership.expr, scope) ||
-			membership.values.some((value) => expressionNullable(value, scope)))
+		(expressionNullable(membership.expr, ctx) ||
+			membership.values.some((value) => expressionNullable(value, ctx)))
 		? sql`COALESCE(${comparison}, false)`
 		: comparison;
 };
@@ -859,42 +771,42 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 		: sql`(SELECT * FROM ${identifier(table.name)})`;
 };
 
-const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
+const runtimeKindSql = (value: SqlFragment) =>
+	sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
+
+const outputKind = (expr: ScalarExpression, ctx: Context): SqlFragment => {
 	if (expr.type === "jsonPath") {
-		const value = compileExpression(expr, scope);
-		return sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
+		return runtimeKindSql(compileExpression(expr, ctx));
 	}
-	if (expr.type === "conditional" && expressionKind(expr, scope) === "json") {
-		const value = compileJsonValue(expr, scope);
-		return sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
+	if (expr.type === "conditional" && expressionKind(expr, ctx.scope) === "json") {
+		return runtimeKindSql(compileJsonValue(expr, ctx));
 	}
-	if (expr.type === "coalesce" && expressionKind(expr, scope) === "json") {
-		const branchScope = new CompileScope(scope);
-		const cases = expr.values.map((value) => {
-			const json = compileJsonValue(value, branchScope);
-			return sql`WHEN ${json} IS NOT NULL THEN ${outputKind(value, branchScope)}`;
-		});
+	if (expr.type === "coalesce" && expressionKind(expr, ctx.scope) === "json") {
+		const cases = expr.values.map(
+			(value) =>
+				sql`WHEN ${compileJsonValue(value, ctx)} IS NOT NULL THEN ${outputKind(value, ctx)}`,
+		);
 		return sql`CASE ${sql.join(cases, sql` `)} ELSE 'null' END`;
 	}
 	if (expr.type === "first") {
-		return sql`COALESCE(${compileFirst(expr, scope, (childScope) => outputKind(expr.select, childScope))}, 'null')`;
+		return sql`COALESCE(${compileFirst(expr, ctx, (childCtx) => outputKind(expr.select, childCtx))}, 'null')`;
 	}
 	if (expr.type === "jsonFirst") {
-		return sql`COALESCE(${compileJsonArrayFirst(expr, scope, () => outputKind(expr.select, scope))}, 'null')`;
+		return sql`COALESCE(${compileJsonArrayFirst(expr, ctx, (elementCtx) => outputKind(expr.select, elementCtx))}, 'null')`;
 	}
-	const kind = expressionKind(expr, scope);
+	const kind = expressionKind(expr, ctx.scope);
 	if (kind === "null") {
 		return sql`'null'`;
 	}
-	return sql`CASE WHEN ${compileExpression(expr, scope)} IS NULL THEN 'null' ELSE ${sql.raw(`'${kind}'`)} END`;
+	return sql`CASE WHEN ${compileExpression(expr, ctx)} IS NULL THEN 'null' ELSE ${sql.raw(`'${kind}'`)} END`;
 };
 
-const hasRuntimeOutputKind = (expr: ScalarExpression, scope: CompileScope): boolean => {
+const hasRuntimeOutputKind = (expr: ScalarExpression, scope: AliasScope): boolean => {
 	if (expr.type === "jsonPath") {
 		return true;
 	}
 	if (expr.type === "first") {
-		return hasRuntimeOutputKind(expr.select, expressionScope(expr.query, scope));
+		return hasRuntimeOutputKind(expr.select, correlatedAliasScope(expr.query, scope));
 	}
 	if (expr.type === "jsonFirst") {
 		return hasRuntimeOutputKind(expr.select, scope);
@@ -907,504 +819,147 @@ const hasRuntimeOutputKind = (expr: ScalarExpression, scope: CompileScope): bool
 
 const compileOutputColumns = (
 	expr: ScalarExpression,
-	scope: CompileScope,
+	ctx: Context,
 	valueAlias: string,
 	kindAlias: string,
 ) => {
-	const value = sql`${compileExpression(expr, scope)} AS ${identifier(valueAlias)}`;
-	return hasRuntimeOutputKind(expr, scope)
-		? [value, sql`${outputKind(expr, scope)} AS ${identifier(kindAlias)}`]
+	const value = sql`${compileExpression(expr, ctx)} AS ${identifier(valueAlias)}`;
+	return hasRuntimeOutputKind(expr, ctx.scope)
+		? [value, sql`${outputKind(expr, ctx)} AS ${identifier(kindAlias)}`]
 		: [value];
 };
 
-const buildScope = (
-	query: QuerySet,
-	executionScope: RyotQLExecutionScope,
-	prefix: string,
-	ancestors?: CompileScope,
-) => {
-	const root = requireTable(query.from.table);
-	const scope = new CompileScope(ancestors);
-	scope.fuseAggregates = true;
-	scope.set(query.from.alias, {
-		table: root,
-		executionScope,
-		fields: new Set(),
-		alias: `${prefix}t0`,
-		joinedNullable: false,
-	});
-	(query.joins ?? []).forEach((join, index) => {
-		const alias = `${prefix}t${index + 1}`;
-		if (join.type === "jsonElements") {
-			scope.set(join.alias, {
-				alias,
-				executionScope,
-				fields: new Set(),
-				table: jsonElementsTable,
-				joinedNullable: join.mode === "left",
-			});
-			return;
-		}
-		scope.set(join.table.alias, {
-			alias,
-			executionScope,
-			fields: new Set(),
-			joinedNullable: join.type === "left",
-			table: requireTable(join.table.table),
-		});
-	});
-	return scope;
-};
+const relation = (name: string) => identifier(`source_${name}`);
 
-const catalogSource = (table: CompileTable, scope: CompileScope) => {
-	const source = authorizedTable(table.table, table.executionScope);
+const catalogSource = (table: PlannedTable, execution: RyotQLExecutionScope) => {
+	const source = authorizedTable(table.table, execution);
 	return (
 		table.table.source?.({
 			source,
+			relation,
 			fields: table.fields,
-			relations: scope.relations,
-			userId: table.executionScope.type === "user" ? table.executionScope.userId : null,
-		}) ?? source
+			userId: execution.type === "user" ? execution.userId : null,
+		}) ?? { ctes: {}, from: source }
 	);
 };
 
-const withRelations = (scope: CompileScope, query: SqlFragment, extra: SqlFragment[] = []) => {
-	const relations = [
-		...[...scope.relations].map(
+const tableSource = (scope: PlannedScope, alias: string, table: PlannedTable) => {
+	const hoisted = scope.hoisted.get(alias);
+	return hoisted ? identifier(hoisted.name) : catalogSource(table, scope.execution).from;
+};
+
+const statementCtes = (root: PlannedScope) => {
+	const ctes = new Map<string, SqlFragment>();
+	const scopes = planScopes(root);
+	for (const scope of scopes) {
+		for (const table of scope.tables.values()) {
+			if (!table.table.source) {
+				continue;
+			}
+			for (const [name, body] of Object.entries(catalogSource(table, scope.execution).ctes)) {
+				ctes.set(`source_${name}`, body);
+			}
+		}
+	}
+	for (const scope of scopes) {
+		const ctx: Context = { ...rootContext(scope), fused: false, hoisted: false };
+		for (const [alias, hoisted] of scope.hoisted) {
+			const table = lookupTable(scope, alias);
+			const columns = [
+				sql.raw(`${table.sqlAlias}.*`),
+				...[...hoisted.keys.values()].map(
+					(key) => sql`${compileExpression(key.expr, ctx)} AS ${identifier(key.column)}`,
+				),
+			];
+			const local = hoisted.local.map((predicate) => compilePredicate(predicate, ctx));
+			ctes.set(
+				hoisted.name,
+				sql`SELECT ${sql.join(columns, sql`, `)} FROM ${catalogSource(table, scope.execution).from} ${sql.raw(table.sqlAlias)}${
+					local.length > 0 ? sql` WHERE ${sql.join(local, sql` AND `)}` : sql``
+				}`,
+			);
+		}
+		const materialized = scope.tables.values().next().value;
+		if (scope.materializedRoot !== undefined && materialized) {
+			ctes.set(
+				scope.materializedRoot,
+				sql`SELECT * FROM ${authorizedTable(materialized.table, scope.execution)} "materialized"`,
+			);
+		}
+	}
+	return ctes;
+};
+
+const withCtes = (root: PlannedScope, query: SqlFragment, extra: readonly SqlFragment[] = []) => {
+	const ctes = [
+		...[...statementCtes(root)].map(
 			([name, source]) => sql`${identifier(name)} AS MATERIALIZED (${source})`,
 		),
 		...extra,
 	];
-	return relations.length > 0 ? sql`WITH ${sql.join(relations, sql`, `)} ${query}` : query;
-};
-
-const predicateConjuncts = (predicate: Predicate): Predicate[] =>
-	predicate.type === "and" ? predicate.predicates.flatMap(predicateConjuncts) : [predicate];
-
-const sourceFieldColumns = (table: CompileTable, field: string) => {
-	const resolved = resolveCompileField(table, field);
-	return resolved?.column === undefined ? resolved?.sourceColumns : [resolved.column];
-};
-
-const sourceLocalExpression = (
-	expr: ScalarExpression,
-	alias: string | undefined,
-	scope: CompileScope,
-): boolean => {
-	if (expr.type === "literal" || expr.type === "pluginId" || expr.type === "currentDate") {
-		return true;
-	}
-	if (expr.type === "cast" || expr.type === "jsonPath") {
-		return sourceLocalExpression(expr.expr, alias, scope);
-	}
-	return (
-		expr.type === "column" &&
-		expr.tableAlias === alias &&
-		sourceFieldColumns(requireCompileTable(scope, alias), expr.field) !== undefined
-	);
-};
-
-const sourceLocalPredicate = (
-	predicate: Predicate,
-	alias: string,
-	scope: CompileScope,
-): boolean => {
-	if (predicate.type === "and" || predicate.type === "or") {
-		return predicate.predicates.every((value) => sourceLocalPredicate(value, alias, scope));
-	}
-	if (predicate.type === "not") {
-		return sourceLocalPredicate(predicate.predicate, alias, scope);
-	}
-	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-		return sourceLocalExpression(predicate.expr, alias, scope);
-	}
-	if (predicate.type === "in") {
-		return (
-			sourceLocalExpression(predicate.expr, alias, scope) &&
-			predicate.values.every((value) => sourceLocalExpression(value, alias, scope))
-		);
-	}
-	return (
-		(predicate.type === "comparison" ||
-			predicate.type === "contains" ||
-			predicate.type === "startsWith") &&
-		sourceLocalExpression(predicate.left, alias, scope) &&
-		sourceLocalExpression(predicate.right, alias, scope)
-	);
-};
-
-const sourceDateBound = (predicate: Predicate, alias: string, scope: CompileScope) => {
-	if (
-		predicate.type !== "comparison" ||
-		predicate.operator === "eq" ||
-		predicate.operator === "neq"
-	) {
-		return undefined;
-	}
-	for (const { value, bound, reversed } of [
-		{ reversed: false, value: predicate.left, bound: predicate.right },
-		{ reversed: true, bound: predicate.left, value: predicate.right },
-	]) {
-		if (
-			sourceLocalExpression(value, alias, scope) &&
-			!sourceLocalExpression(value, undefined, scope) &&
-			sourceLocalExpression(bound, undefined, scope) &&
-			expressionKind(value, scope) === "date" &&
-			expressionKind(bound, scope) === "date"
-		) {
-			return {
-				key: stableStringify(value),
-				lower: (predicate.operator === "gt" || predicate.operator === "gte") !== reversed,
-			};
-		}
-	}
-	return undefined;
-};
-
-const sourceJoinKeyColumn = (expr: ScalarExpression) =>
-	expr.type === "cast" &&
-	expr.target !== "json" &&
-	expr.expr.type === "jsonPath" &&
-	expr.expr.expr.type === "column"
-		? expr.expr.expr
-		: undefined;
-
-const sourceJoinKeys = (expr: ScalarExpression): ScalarExpression[] => {
-	if (expr.type === "coalesce") {
-		return expr.values.flatMap(sourceJoinKeys);
-	}
-	return sourceJoinKeyColumn(expr) ? [expr] : [];
-};
-
-type QueryValue = Predicate | ScalarExpression;
-
-const queryValueChildren = (value: QueryValue): undefined | readonly QueryValue[] => {
-	if ("query" in value || value.type === "conditional") {
-		return undefined;
-	}
-	if (value.type === "comparison" || value.type === "contains" || value.type === "startsWith") {
-		return [value.left, value.right];
-	}
-	if (value.type === "and" || value.type === "or") {
-		return value.predicates;
-	}
-	if (value.type === "not") {
-		return [value.predicate];
-	}
-	if (value.type === "in") {
-		return [value.expr, ...value.values];
-	}
-	if ("expr" in value) {
-		return [value.expr];
-	}
-	if (value.type === "coalesce" || value.type === "concat") {
-		return value.values;
-	}
-	if (value.type === "arithmetic") {
-		return [value.left, value.right];
-	}
-	if (value.type === "jsonExists" || value.type === "jsonFirst" || value.type === "jsonCount") {
-		return [
-			value.array,
-			...(value.where ? [value.where] : []),
-			...(value.type === "jsonFirst"
-				? [value.select, ...value.orderBy.map((order) => order.expr)]
-				: []),
-		];
-	}
-	return [];
-};
-
-const materializeAggregateJoinKeys = (query: QuerySet, scope: CompileScope) => {
-	const joins = query.joins ?? [];
-	if (joins.some((join) => join.type !== "inner")) {
-		return undefined;
-	}
-	const references = [
-		query.from,
-		...joins.flatMap((join) => (join.type === "inner" ? [join.table] : [])),
-	];
-	const aliases = new Set(references.map((reference) => reference.alias));
-	const predicates = [
-		...(query.where ? predicateConjuncts(query.where) : []),
-		...joins.flatMap((join) => (join.type === "inner" ? predicateConjuncts(join.on) : [])),
-	];
-	const nodes: QueryValue[] = [];
-	const collect = (value: QueryValue): boolean => {
-		const children = queryValueChildren(value);
-		nodes.push(value);
-		return children?.every(collect) ?? false;
-	};
-	if (
-		!predicates.every(collect) ||
-		!nodes.some((node) => node.type === "column" && !aliases.has(node.tableAlias)) ||
-		nodes.some(
-			(node) =>
-				node.type === "column" && requireCompileTable(scope, node.tableAlias).joinedNullable,
-		) ||
-		nodes.some(
-			(node) =>
-				node.type === "comparison" &&
-				node.operator === "eq" &&
-				node.left.type === "column" &&
-				node.right.type === "column" &&
-				aliases.has(node.left.tableAlias) !== aliases.has(node.right.tableAlias) &&
-				[node.left, node.right].every(
-					(column) =>
-						resolveCompileField(requireCompileTable(scope, column.tableAlias), column.field)
-							?.column !== undefined,
-				),
-		)
-	) {
-		return undefined;
-	}
-	for (const reference of references) {
-		const bounds = nodes.flatMap((node) => {
-			const bound =
-				node.type === "comparison" ? sourceDateBound(node, reference.alias, scope) : undefined;
-			return bound ? [bound] : [];
-		});
-		if (
-			bounds.some((bound) =>
-				bounds.some((other) => bound.key === other.key && bound.lower !== other.lower),
-			)
-		) {
-			return undefined;
-		}
-	}
-	for (const reference of references) {
-		const table = requireCompileTable(scope, reference.alias);
-		const keys = new Map<string, ScalarExpression>();
-		for (const join of joins) {
-			if (join.type !== "inner") {
-				continue;
-			}
-			for (const predicate of predicateConjuncts(join.on)) {
-				if (predicate.type !== "comparison" || predicate.operator !== "eq") {
-					continue;
-				}
-				for (const [operand, other] of [
-					[predicate.left, predicate.right],
-					[predicate.right, predicate.left],
-				] as const) {
-					if (
-						!references.some(
-							(otherSource) =>
-								otherSource.alias !== reference.alias &&
-								!sourceLocalExpression(other, undefined, scope) &&
-								sourceLocalExpression(other, otherSource.alias, scope),
-						)
-					) {
-						continue;
-					}
-					for (const expr of sourceJoinKeys(operand)) {
-						const column = sourceJoinKeyColumn(expr);
-						const field = column ? resolveCompileField(table, column.field) : undefined;
-						if (column?.tableAlias === reference.alias && field?.kind === "json" && field.column) {
-							keys.set(stableStringify(expr), expr);
-						}
-					}
-				}
-			}
-		}
-		if (keys.size === 0) {
-			continue;
-		}
-		const fields = new Set(table.fields);
-		const required = (value: QueryValue): void => {
-			if (value.type === "cast" && keys.has(stableStringify(value))) {
-				return;
-			}
-			if (value.type === "column" && value.tableAlias === reference.alias) {
-				fields.add(value.field);
-			}
-			queryValueChildren(value)?.forEach(required);
-		};
-		predicates.forEach(required);
-		if ([...keys.values()].some((expr) => fields.has(sourceJoinKeyColumn(expr)?.field ?? ""))) {
-			continue;
-		}
-		const columns = new Set<string>();
-		if (
-			![...fields].every((field) => {
-				const dependencies = sourceFieldColumns(table, field);
-				dependencies?.forEach((column) => columns.add(column));
-				return dependencies !== undefined;
-			}) ||
-			[...keys.values()].some((expr) => {
-				const column = sourceJoinKeyColumn(expr);
-				const payload = column ? resolveCompileField(table, column.field)?.column : undefined;
-				return payload !== undefined && columns.has(payload);
-			})
-		) {
-			continue;
-		}
-		const physicalColumns = [...columns].map((column) => qualifiedIdentifier(table.alias, column));
-		const projectedKeys = [...keys].map(([key, expr], index) => {
-			let name = `joinKey${index}`;
-			while (columns.has(name)) {
-				name += "_";
-			}
-			columns.add(name);
-			return { key, name, value: compileExpression(expr, scope) };
-		});
-		const local = predicates
-			.filter((predicate) => sourceLocalPredicate(predicate, reference.alias, scope))
-			.map((predicate) => compilePredicate(predicate, scope));
-		fields.forEach((field) => table.fields.add(field));
-		const source = catalogSource(table, scope);
-		const name = `aggregateSource${scope.relations.size}`;
-		scope.relations.set(
-			name,
-			sql`SELECT ${sql.join(
-				[
-					...physicalColumns,
-					...projectedKeys.map((key) => sql`${key.value} AS ${identifier(key.name)}`),
-				],
-				sql`, `,
-			)} FROM ${source} ${identifier(table.alias)} ${local.length > 0 ? sql`WHERE ${sql.join(local, sql` AND `)}` : sql``}`,
-		);
-		table.computedKeys = new Map(
-			projectedKeys.map((key) => [key.key, qualifiedIdentifier(table.alias, key.name)]),
-		);
-		return { table, source: identifier(name), predicates: new Set<Predicate>() };
-	}
-	return undefined;
-};
-
-const materializeAggregateRange = (
-	query: QuerySet,
-	scope: CompileScope,
-	predicates: ReadonlyMap<Predicate, SqlFragment>,
-) => {
-	const joins = query.joins ?? [];
-	if (joins.some((join) => join.type !== "inner")) {
-		return undefined;
-	}
-	const references = [
-		query.from,
-		...joins.flatMap((join) => (join.type === "inner" ? [join.table] : [])),
-	];
-	for (const reference of references) {
-		const local = [...predicates].filter(([predicate]) =>
-			sourceLocalPredicate(predicate, reference.alias, scope),
-		);
-		const bounds = local.flatMap(([predicate]) => {
-			const bound = sourceDateBound(predicate, reference.alias, scope);
-			return bound ? [bound] : [];
-		});
-		if (
-			!bounds.some((bound) =>
-				bounds.some((other) => bound.key === other.key && bound.lower !== other.lower),
-			)
-		) {
-			continue;
-		}
-		const table = requireCompileTable(scope, reference.alias);
-		const columns = new Set<string>();
-		let physical = true;
-		for (const field of table.fields) {
-			const dependencies = sourceFieldColumns(table, field);
-			if (dependencies === undefined) {
-				physical = false;
-				break;
-			}
-			for (const column of dependencies) {
-				columns.add(column);
-			}
-		}
-		if (!physical) {
-			continue;
-		}
-		const source = catalogSource(table, scope);
-		const name = `aggregateSource${scope.relations.size}`;
-		scope.relations.set(
-			name,
-			sql`SELECT ${sql.join(
-				[...columns].map((column) => qualifiedIdentifier(table.alias, column)),
-				sql`, `,
-			)} FROM ${source} ${identifier(table.alias)} WHERE ${sql.join(
-				local.map(([, value]) => value),
-				sql` AND `,
-			)}`,
-		);
-		return {
-			table,
-			source: identifier(name),
-			predicates: new Set(local.map(([predicate]) => predicate)),
-		};
-	}
-	return undefined;
+	return ctes.length > 0 ? sql`WITH ${sql.join(ctes, sql`, `)} ${query}` : query;
 };
 
 const querySetSql = (
 	query: QuerySet,
-	scope: CompileScope,
+	ctx: Context,
 	additionalConditions: readonly SqlFragment[] = [],
-	rootSource?: SqlFragment,
-	materializeRange = false,
 ): SqlFragment => {
-	const root = requireCompileTable(scope, query.from.alias);
-	const keyed = materializeRange ? materializeAggregateJoinKeys(query, scope) : undefined;
-	const joinScope = new CompileScope(scope);
-	const predicates = new Map<Predicate, SqlFragment>();
-	const compileCondition = (predicate: Predicate, conditionScope: CompileScope) => {
-		const conjuncts = materializeRange ? predicateConjuncts(predicate) : [predicate];
-		for (const conjunct of conjuncts) {
-			predicates.set(conjunct, compilePredicate(conjunct, conditionScope));
-		}
-		return conjuncts;
-	};
-	const joinConditions = (query.joins ?? []).map((join) =>
-		join.type === "jsonElements"
-			? compileExpression(join.expr, joinScope)
-			: compileCondition(join.on, joinScope),
+	const { scope } = ctx;
+	const joinCtx: Context = { ...ctx, fused: false };
+	const hoistedPredicates = new Set(
+		[...scope.hoisted.values()].flatMap((hoisted) =>
+			hoisted.local.map((predicate) => stableStringify(predicate)),
+		),
 	);
-	const where = query.where ? compileCondition(query.where, scope) : [];
-	const aggregates = [...scope.aggregates.values()].map((group) => {
-		const source = querySetSql(group.query, group.scope, [], undefined, true);
-		const measures = [...group.measures.values()].map(
-			({ alias, value }) => sql`${value} AS ${identifier(alias)}`,
+	const condition = (predicate: Predicate, conditionCtx: Context) => {
+		if (hoistedPredicates.size === 0) {
+			return compilePredicate(predicate, conditionCtx);
+		}
+		const remaining = conjuncts(predicate).filter(
+			(conjunct) => !hoistedPredicates.has(stableStringify(conjunct)),
 		);
-		return sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${source}) ${identifier(group.alias)}`;
-	});
-	const materialized =
-		keyed ?? (materializeRange ? materializeAggregateRange(query, scope, predicates) : undefined);
-	const conditionSql = (conjuncts: readonly Predicate[]) => {
-		const values = conjuncts.flatMap((predicate) => {
-			const value = predicates.get(predicate);
-			return value && !materialized?.predicates.has(predicate) ? [value] : [];
-		});
-		return values.length > 0 ? sql`(${sql.join(values, sql` AND `)})` : sql`true`;
+		return remaining.length > 0
+			? sql`(${sql.join(
+					remaining.map((conjunct) => compilePredicate(conjunct, conditionCtx)),
+					sql` AND `,
+				)})`
+			: sql`true`;
 	};
-	const joins = (query.joins ?? []).map((join, index) => {
-		const condition = joinConditions[index];
+	const root = lookupTable(scope, query.from.alias);
+	const rootSource =
+		scope.materializedRoot === undefined
+			? tableSource(scope, query.from.alias, root)
+			: identifier(scope.materializedRoot);
+	const joins = (query.joins ?? []).map((join) => {
 		if (join.type === "jsonElements") {
-			const elements = requireCompileTable(scope, join.alias);
-			const array = condition;
-			const source = sql`jsonb_array_elements(CASE WHEN jsonb_typeof(${array}) = 'array' THEN ${array} ELSE '[]'::jsonb END) WITH ORDINALITY AS ${sql.raw(elements.alias)}(${identifier("value")}, ${identifier("ordinal")})`;
+			const elements = lookupTable(scope, join.alias);
+			const array = compileExpression(join.expr, joinCtx);
+			const source = sql`jsonb_array_elements(CASE WHEN jsonb_typeof(${array}) = 'array' THEN ${array} ELSE '[]'::jsonb END) WITH ORDINALITY AS ${sql.raw(elements.sqlAlias)}(${identifier("value")}, ${identifier("ordinal")})`;
 			return join.mode === "inner"
 				? sql`CROSS JOIN LATERAL ${source}`
 				: sql`LEFT JOIN LATERAL ${source} ON true`;
 		}
-		const joined = requireCompileTable(scope, join.table.alias);
+		const joined = lookupTable(scope, join.table.alias);
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
-		const source =
-			materialized?.table === joined ? materialized.source : catalogSource(joined, scope);
-		if (!Array.isArray(condition)) {
-			throw new Error("RyotQL compiler received a table join without predicates");
-		}
-		return sql`${joinType} ${source} ${sql.raw(joined.alias)} ON ${conditionSql(condition)}`;
+		return sql`${joinType} ${tableSource(scope, join.table.alias, joined)} ${sql.raw(joined.sqlAlias)} ON ${condition(join.on, joinCtx)}`;
 	});
-	const conditions = [...(query.where ? [conditionSql(where)] : []), ...additionalConditions];
+	const aggregates = [...scope.groups.values()].map((group) => {
+		const groupCtx: Context = { ...ctx, scope: group.scope };
+		const measures = [...group.measures.values()].map(
+			({ alias, aggregation }) =>
+				sql`${compileAggregation(aggregation, groupCtx)} AS ${identifier(alias)}`,
+		);
+		return sql`CROSS JOIN LATERAL (SELECT ${sql.join(measures, sql`, `)} ${querySetSql(group.query, groupCtx)}) ${identifier(group.alias)}`;
+	});
+	const conditions = [
+		...(query.where ? [condition(query.where, ctx)] : []),
+		...additionalConditions,
+	];
 	return sql`
-		FROM ${rootSource ?? (materialized?.table === root ? materialized.source : catalogSource(root, scope))} ${sql.raw(root.alias)}
+		FROM ${rootSource} ${sql.raw(root.sqlAlias)}
 		${sql.join(joins, sql` `)}
 		${sql.join(aggregates, sql` `)}
-		${sql.join(
-			[...scope.bindings.values()].map(({ source }) => source),
-			sql` `,
-		)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
 };
@@ -1424,21 +979,23 @@ const orderSql = (
 		sql`, `,
 	);
 
-const expressionOrderSql = (
-	orders: readonly { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" }[],
-	scope: CompileScope,
-) =>
+const expressionOrderSql = (orders: readonly Order[], ctx: Context) =>
 	sql.join(
 		orders.map((order) => {
-			const expression = compileExpression(order.expr, scope);
-			const collation = expressionKind(order.expr, scope) === "text" ? sql` COLLATE "C"` : sql``;
+			const expression = compileExpression(order.expr, ctx);
+			const collation =
+				expressionKind(order.expr, ctx.scope) === "text" ? sql` COLLATE "C"` : sql``;
 			const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
 			return sql`${expression}${collation} ${direction} NULLS LAST`;
 		}),
 		sql`, `,
 	);
 
-const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): Order[] => {
+const appendPrimaryKeyOrders = (
+	query: QuerySet,
+	scope: PlannedScope,
+	requested: readonly Order[],
+): Order[] => {
 	const joins = query.joins ?? [];
 	const keyOrders = (alias: string, table: CatalogTable) =>
 		table.primaryKey
@@ -1452,7 +1009,7 @@ const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): O
 		...[
 			...joins.flatMap((join) => (join.type === "jsonElements" ? [] : [join.table])),
 			query.from,
-		].flatMap((reference) => keyOrders(reference.alias, requireTable(reference.table))),
+		].flatMap((reference) => keyOrders(reference.alias, lookupTable(scope, reference.alias).table)),
 		...joins.flatMap((join) =>
 			join.type === "jsonElements" ? keyOrders(join.alias, jsonElementsTable) : [],
 		),
@@ -1570,7 +1127,7 @@ const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
 const compileCursorPredicate = (
 	orders: readonly Order[],
 	values: readonly CursorValue[],
-	scope: CompileScope,
+	ctx: Context,
 ) => {
 	const terms: SqlFragment[] = [];
 	for (const [index, order] of orders.entries()) {
@@ -1583,18 +1140,18 @@ const compileCursorPredicate = (
 			if (!prefixValue) {
 				throw new Error("RyotQL compiler received a cursor with missing order values");
 			}
-			const expression = compileExpression(prefixOrder.expr, scope);
+			const expression = compileExpression(prefixOrder.expr, ctx);
 			return prefixValue.kind === "null"
 				? sql`${expression} IS NOT DISTINCT FROM NULL`
 				: sql`${expression} IS NOT DISTINCT FROM ${cursorSqlValue(prefixValue)}`;
 		});
-		const expression = compileExpression(order.expr, scope);
+		const expression = compileExpression(order.expr, ctx);
 		const value = cursorSqlValue(current);
 		const orderedExpression = current.kind === "text" ? sql`${expression} COLLATE "C"` : expression;
 		const orderedValue = current.kind === "text" ? sql`${value} COLLATE "C"` : value;
 		const operator = order.direction === "asc" ? sql`>` : sql`<`;
 		const orderedComparison = sql`${orderedExpression} ${operator} ${orderedValue}`;
-		const comparison = expressionNullable(order.expr, scope)
+		const comparison = expressionNullable(order.expr, ctx)
 			? sql`(${orderedComparison} OR ${expression} IS NULL)`
 			: orderedComparison;
 		terms.push(
@@ -1604,187 +1161,111 @@ const compileCursorPredicate = (
 	return terms.length === 0 ? sql`false` : sql`(${sql.join(terms, sql` OR `)})`;
 };
 
-const correlatedScope = (query: CorrelatedQuerySet, ancestors: CompileScope) =>
-	buildScope(query, scopeExecution(ancestors), `c${ancestors.size}_`, ancestors);
-
-const compileExists = (
-	expr: Extract<ScalarExpression, { type: "exists" }>,
-	ancestors: CompileScope,
-) => {
-	const scope = correlatedScope(expr.query, ancestors);
-	return sql`EXISTS (SELECT 1 ${querySetSql(expr.query, scope)})`;
-};
+const compileExists = (expr: Extract<ScalarExpression, { type: "exists" }>, ctx: Context) =>
+	sql`EXISTS (SELECT 1 ${querySetSql(expr.query, correlatedContext(ctx, expr.query))})`;
 
 const compileFirst = (
 	expr: Extract<ScalarExpression, { type: "first" }>,
-	ancestors: CompileScope,
-	select: (scope: CompileScope) => SqlFragment,
+	ctx: Context,
+	select: (ctx: Context) => SqlFragment,
 ) => {
-	const scope = correlatedScope(expr.query, ancestors);
-	const orders = appendPrimaryKeyOrders(expr.query, expr.orderBy);
-	const value = select(scope);
-	const ordering = expressionOrderSql(orders, scope);
-	return sql`(SELECT ${value} ${querySetSql(expr.query, scope)} ORDER BY ${ordering} LIMIT 1)`;
+	const childCtx = correlatedContext(ctx, expr.query);
+	const orders = appendPrimaryKeyOrders(expr.query, childCtx.scope, expr.orderBy);
+	return sql`(SELECT ${select(childCtx)} ${querySetSql(expr.query, childCtx)} ORDER BY ${expressionOrderSql(orders, childCtx)} LIMIT 1)`;
 };
 
-const compileAggregate = (
-	expr: Extract<ScalarExpression, { type: "aggregate" }>,
-	ancestors: CompileScope,
-) => {
-	if (ancestors.fuseAggregates && jsonElementAliasStack.length === 0) {
-		const key = stableStringify({
-			from: expr.query.from,
-			joins: expr.query.joins ?? [],
-			where: expr.query.where ?? null,
-		});
-		let group = ancestors.aggregates.get(key);
-		if (!group) {
-			group = {
-				query: expr.query,
-				measures: new Map(),
-				scope: correlatedScope(expr.query, ancestors),
-				alias: `aggregate${ancestors.size}_${ancestors.aggregates.size}`,
-			};
-			ancestors.aggregates.set(key, group);
-		}
-		const measureKey = stableStringify(expr.aggregation);
-		let measure = group.measures.get(measureKey);
-		if (!measure) {
-			measure = {
-				alias: `v${group.measures.size}`,
-				value: compileAggregation(expr.aggregation, group.scope),
-			};
-			group.measures.set(measureKey, measure);
-		}
-		return qualifiedIdentifier(group.alias, measure.alias);
-	}
-	const scope = correlatedScope(expr.query, ancestors);
-	const value = compileAggregation(expr.aggregation, scope);
-	return sql`(SELECT ${value} ${querySetSql(expr.query, scope)})`;
+const compileAggregate = (expr: Extract<ScalarExpression, { type: "aggregate" }>, ctx: Context) => {
+	const childCtx = correlatedContext(ctx, expr.query);
+	return sql`(SELECT ${compileAggregation(expr.aggregation, childCtx)} ${querySetSql(expr.query, childCtx)})`;
 };
 
-const compileJsonArrayFrom = (
-	array: ScalarExpression,
-	scope: CompileScope,
-): { readonly alias: string; readonly from: SqlFragment } => {
-	const arraySql = compileExpression(array, scope);
-	const alias = `j${jsonElementAliasCounter++}`;
+const compileJsonArrayFrom = (array: ScalarExpression, ctx: Context) => {
+	const arraySql = compileExpression(array, ctx);
+	const alias = `j${ctx.elementDepth}`;
 	return {
-		alias,
+		elementCtx: { ...ctx, element: alias, elementDepth: ctx.elementDepth + 1 },
 		from: sql`jsonb_array_elements(CASE WHEN jsonb_typeof(${arraySql}) = 'array' THEN ${arraySql} ELSE '[]'::jsonb END) AS ${sql.raw(alias)}(elem)`,
 	};
 };
 
 const compileJsonArrayExists = (
 	expr: Extract<ScalarExpression, { type: "jsonExists" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
-	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
-	return withJsonElementAlias(alias, () =>
-		expr.where
-			? sql`EXISTS (SELECT 1 FROM ${from} WHERE ${compilePredicate(expr.where, scope)})`
-			: sql`EXISTS (SELECT 1 FROM ${from})`,
-	);
+	const { from, elementCtx } = compileJsonArrayFrom(expr.array, ctx);
+	return expr.where
+		? sql`EXISTS (SELECT 1 FROM ${from} WHERE ${compilePredicate(expr.where, elementCtx)})`
+		: sql`EXISTS (SELECT 1 FROM ${from})`;
 };
 
 const compileJsonArrayFirst = (
 	expr: Extract<ScalarExpression, { type: "jsonFirst" }>,
-	scope: CompileScope,
-	select?: () => SqlFragment,
+	ctx: Context,
+	select: (ctx: Context) => SqlFragment = (elementCtx) =>
+		compileExpression(expr.select, elementCtx),
 ) => {
-	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
-	return withJsonElementAlias(alias, () => {
-		const selectSql = select ? select() : compileExpression(expr.select, scope);
-		const where = expr.where ? sql`WHERE ${compilePredicate(expr.where, scope)}` : sql``;
-		return sql`(SELECT ${selectSql} FROM ${from} ${where} ORDER BY ${expressionOrderSql(expr.orderBy, scope)} LIMIT 1)`;
-	});
+	const { from, elementCtx } = compileJsonArrayFrom(expr.array, ctx);
+	const where = expr.where ? sql`WHERE ${compilePredicate(expr.where, elementCtx)}` : sql``;
+	return sql`(SELECT ${select(elementCtx)} FROM ${from} ${where} ORDER BY ${expressionOrderSql(expr.orderBy, elementCtx)} LIMIT 1)`;
 };
 
 const compileJsonArrayCount = (
 	expr: Extract<ScalarExpression, { type: "jsonCount" }>,
-	scope: CompileScope,
+	ctx: Context,
 ) => {
 	if (!expr.where) {
 		return bindCastOperand(
 			expr.array,
-			scope,
-			compileExpression(expr.array, scope),
+			ctx,
+			compileExpression(expr.array, ctx),
 			(array) =>
 				sql`(CASE WHEN jsonb_typeof(${array}) = 'array' THEN jsonb_array_length(${array}) ELSE 0 END)::double precision`,
 		);
 	}
-	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
-	return withJsonElementAlias(alias, () => {
-		const where = expr.where ? sql`WHERE ${compilePredicate(expr.where, scope)}` : sql``;
-		return sql`(SELECT COUNT(*)::double precision FROM ${from} ${where})`;
-	});
+	const { from, elementCtx } = compileJsonArrayFrom(expr.array, ctx);
+	return sql`(SELECT COUNT(*)::double precision FROM ${from} WHERE ${compilePredicate(expr.where, elementCtx)})`;
 };
 
-const compileAggregation = (
-	aggregation: AggregationSpec,
-	scope: CompileScope,
-	numericMinMax = false,
-) => {
-	let value: SqlFragment;
+const compileAggregation = (aggregation: AggregationSpec, ctx: Context, numericMinMax = false) => {
 	if (aggregation.function === "count") {
-		value = sql`COUNT(*)::double precision`;
-	} else if (aggregation.function === "countDistinct") {
-		value = sql`COUNT(DISTINCT ${compileExpression(aggregation.expr, scope)})::double precision`;
-	} else if (
-		aggregation.function === "sum" ||
-		aggregation.function === "average" ||
-		numericMinMax
-	) {
-		const operand = compileCast({ type: "cast", target: "number", expr: aggregation.expr }, scope);
-		if (aggregation.function === "sum") {
-			value = sql`SUM(${operand})`;
-		} else if (aggregation.function === "average") {
-			value = sql`AVG(${operand})`;
-		} else if (aggregation.function === "minimum") {
-			value = sql`MIN(${operand})`;
-		} else {
-			value = sql`MAX(${operand})`;
-		}
-	} else {
-		const operand = compileExpression(aggregation.expr, scope);
-		value = aggregation.function === "minimum" ? sql`MIN(${operand})` : sql`MAX(${operand})`;
+		return sql`COUNT(*)::double precision`;
 	}
-	return value;
+	if (aggregation.function === "countDistinct") {
+		return sql`COUNT(DISTINCT ${compileExpression(aggregation.expr, ctx)})::double precision`;
+	}
+	if (aggregation.function === "sum" || aggregation.function === "average" || numericMinMax) {
+		const operand = compileCast({ type: "cast", target: "number", expr: aggregation.expr }, ctx);
+		if (aggregation.function === "sum") {
+			return sql`SUM(${operand})`;
+		}
+		if (aggregation.function === "average") {
+			return sql`AVG(${operand})`;
+		}
+		return aggregation.function === "minimum" ? sql`MIN(${operand})` : sql`MAX(${operand})`;
+	}
+	const operand = compileExpression(aggregation.expr, ctx);
+	return aggregation.function === "minimum" ? sql`MIN(${operand})` : sql`MAX(${operand})`;
 };
 
-const compileInclude = (
-	include: ExpandedInclude,
-	executionScope: RyotQLExecutionScope,
-	ancestors: CompileScope,
-	path: readonly number[],
-	hoisted: SqlFragment[],
-): SqlFragment => {
-	const scope = buildScope(include, executionScope, `i${path.join("_")}`, ancestors);
-	const root = requireCompileTable(scope, include.from.alias);
-	let rootSource: undefined | SqlFragment;
-	if (root.table.materializedInIncludes) {
-		rootSource = identifier(`i${path.join("_")}source`);
-		hoisted.push(sql`${rootSource} AS MATERIALIZED ${authorizedTable(root.table, executionScope)}`);
-	}
-	const orders = appendPrimaryKeyOrders(include, include.orderBy);
-	const orderMetadata = orders.map((order) => ({
-		direction: order.direction,
-		kind: expressionKind(order.expr, scope),
-	}));
-	const ordering = orderSql(orderMetadata);
-	const queryOrdering = expressionOrderSql(orders, scope);
+const compileInclude = (include: ExpandedInclude, ctx: Context): SqlFragment => {
+	const includeCtx = correlatedContext(ctx, include);
+	const orders = appendPrimaryKeyOrders(include, includeCtx.scope, include.orderBy);
+	const ordering = orderSql(
+		orders.map((order) => ({
+			direction: order.direction,
+			kind: expressionKind(order.expr, includeCtx.scope),
+		})),
+	);
 	const fieldValues = include.fields.flatMap((field) =>
-		hasRuntimeOutputKind(field.expr, scope)
-			? [compileExpression(field.expr, scope), outputKind(field.expr, scope)]
-			: [compileExpression(field.expr, scope)],
+		hasRuntimeOutputKind(field.expr, includeCtx.scope)
+			? [compileExpression(field.expr, includeCtx), outputKind(field.expr, includeCtx)]
+			: [compileExpression(field.expr, includeCtx)],
 	);
-	const nestedValues = (include.include ?? []).map((nested, index) =>
-		compileInclude(nested, executionScope, scope, [...path, index], hoisted),
-	);
-	const itemValues = [...fieldValues, ...nestedValues];
-	const item = sql`jsonb_build_array(${sql.join(itemValues, sql`, `)})`;
+	const nestedValues = (include.include ?? []).map((nested) => compileInclude(nested, includeCtx));
+	const item = sql`jsonb_build_array(${sql.join([...fieldValues, ...nestedValues], sql`, `)})`;
 	const orderColumns = orders.map(
-		(order, index) => sql`${compileExpression(order.expr, scope)} AS ${identifier(`o${index}`)}`,
+		(order, index) =>
+			sql`${compileExpression(order.expr, includeCtx)} AS ${identifier(`o${index}`)}`,
 	);
 	const columns = [sql`${item} AS "item"`, ...orderColumns];
 
@@ -1801,103 +1282,64 @@ const compileInclude = (
 			SELECT "orderedIncludeRows".*, ROW_NUMBER() OVER (ORDER BY ${ordering}) AS "includeIndex"
 			FROM (
 				SELECT ${sql.join(columns, sql`, `)}
-				${querySetSql(include, scope, [], rootSource)}
-				ORDER BY ${queryOrdering}
+				${querySetSql(include, includeCtx)}
+				ORDER BY ${expressionOrderSql(orders, includeCtx)}
 				LIMIT ${include.limit + 1}
 			) "orderedIncludeRows"
 		) "indexedIncludeRows"
 	)`;
 };
 
-const compileCursorColumn = (expr: ScalarExpression, scope: CompileScope) => {
-	const value = compileExpression(expr, scope);
-	return expressionKind(expr, scope) === "date"
+const compileCursorColumn = (expr: ScalarExpression, ctx: Context) => {
+	const value = compileExpression(expr, ctx);
+	return expressionKind(expr, ctx.scope) === "date"
 		? sql`to_char(${value} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
 		: value;
 };
 
-const containsAggregate = (expr: ScalarExpression): boolean => {
-	if (expr.type === "aggregate") {
-		return true;
-	}
-	if ("expr" in expr) {
-		return containsAggregate(expr.expr);
-	}
-	if (expr.type === "coalesce" || expr.type === "concat") {
-		return expr.values.some(containsAggregate);
-	}
-	if (expr.type === "arithmetic") {
-		return containsAggregate(expr.left) || containsAggregate(expr.right);
-	}
-	if (expr.type === "conditional") {
-		return containsAggregate(expr.whenTrue) || containsAggregate(expr.whenFalse);
-	}
-	return false;
-};
-
-const bindAggregateOrders = (orders: ReadonlyArray<Order>, scope: CompileScope) => {
-	for (const { expr } of orders) {
-		const key = stableStringify(expr);
-		if (!containsAggregate(expr) || scope.bindings.has(key)) {
-			continue;
-		}
-		const value = compileExpression(expr, scope);
-		const alias = `orderValue${scope.bindings.size}`;
-		scope.bindings.set(key, {
-			value: qualifiedIdentifier(alias, "value"),
-			// Keep the correlated aggregate shared by output, ordering, and cursor predicates.
-			source: sql`CROSS JOIN LATERAL (SELECT ${value} AS value OFFSET 0) ${identifier(alias)}`,
-		});
-	}
-};
-
 const compileRowsQuery = (
 	query: RowsQuery,
-	executionScope: RyotQLExecutionScope,
+	plan: PlannedScope,
+	orders: readonly Order[],
 	cursor: undefined | readonly CursorValue[],
 ): SqlFragment => {
-	const scope = buildScope(query, executionScope, "");
-	const orders = appendPrimaryKeyOrders(query, query.output.orderBy);
-	bindAggregateOrders(orders, scope);
+	const ctx = rootContext(plan);
 	const fieldColumns = query.output.fields.flatMap((field, index) =>
-		compileOutputColumns(field.expr, scope, `f${index}v`, `f${index}k`),
+		compileOutputColumns(field.expr, ctx, `f${index}v`, `f${index}k`),
 	);
 	const orderColumns = orders.map(
-		(order, index) => sql`${compileCursorColumn(order.expr, scope)} AS ${identifier(`o${index}`)}`,
+		(order, index) => sql`${compileCursorColumn(order.expr, ctx)} AS ${identifier(`o${index}`)}`,
 	);
-	const hoisted: SqlFragment[] = [];
 	const includeColumns = (query.output.include ?? []).map(
-		(include, index) =>
-			sql`${compileInclude(include, executionScope, scope, [index], hoisted)} AS ${identifier(`i${index}`)}`,
+		(include, index) => sql`${compileInclude(include, ctx)} AS ${identifier(`i${index}`)}`,
 	);
 	const columns = [...fieldColumns, ...includeColumns, ...orderColumns];
-	const pagination = query.output.pagination;
-	const queryOrdering = expressionOrderSql(orders, scope);
-	const cursorCondition = cursor ? [compileCursorPredicate(orders, cursor, scope)] : [];
-
-	const statement = sql`
+	const cursorCondition = cursor ? [compileCursorPredicate(orders, cursor, ctx)] : [];
+	return withCtes(
+		plan,
+		sql`
 		SELECT ${sql.join(columns, sql`, `)}
-		${querySetSql(query, scope, cursorCondition)}
-		ORDER BY ${queryOrdering}
-		LIMIT ${pagination.limit + 1}
-	`;
-	return withRelations(scope, statement, hoisted);
+		${querySetSql(query, ctx, cursorCondition)}
+		ORDER BY ${expressionOrderSql(orders, ctx)}
+		LIMIT ${query.output.pagination.limit + 1}
+	`,
+	);
 };
 
-const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExecutionScope) => {
-	const scope = buildScope(query, executionScope, "");
+const compileAggregateQuery = (query: AggregateQuery, plan: PlannedScope) => {
+	const ctx = rootContext(plan);
 	const groups = query.output.groupBy ?? [];
 	const groupColumns = groups.flatMap((group, index) =>
-		compileOutputColumns(group.expr, scope, `g${index}v`, `g${index}k`),
+		compileOutputColumns(group.expr, ctx, `g${index}v`, `g${index}k`),
 	);
 	const measureColumns = query.output.measures.map(
 		(measure, index) =>
-			sql`${compileAggregation(measure.aggregation, scope)} AS ${identifier(`m${index}`)}`,
+			sql`${compileAggregation(measure.aggregation, ctx)} AS ${identifier(`m${index}`)}`,
 	);
 	if (groups.length === 0) {
-		return withRelations(
-			scope,
-			sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, scope)}`,
+		return withCtes(
+			plan,
+			sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, ctx)}`,
 		);
 	}
 	if (query.output.limit === undefined || query.output.orderBy === undefined) {
@@ -1905,7 +1347,7 @@ const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExec
 	}
 	let groupOrdinal = 1;
 	const groupOrdinals = groups.flatMap((group) => {
-		const count = hasRuntimeOutputKind(group.expr, scope) ? 2 : 1;
+		const count = hasRuntimeOutputKind(group.expr, plan) ? 2 : 1;
 		return Array.from({ length: count }, () => groupOrdinal++);
 	});
 	const groupIndexes = new Map(groups.map((group, index) => [group.key, index]));
@@ -1921,20 +1363,20 @@ const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExec
 		const group = groupIndex === undefined ? undefined : groups[groupIndex];
 		const value = identifier(group === undefined ? `m${measureIndex}` : `g${groupIndex}v`);
 		const collation =
-			group !== undefined && expressionKind(group.expr, scope) === "text"
+			group !== undefined && expressionKind(group.expr, plan) === "text"
 				? sql` COLLATE "C"`
 				: sql``;
 		const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
 		return sql`${value}${collation} ${direction} NULLS LAST`;
 	});
-	return withRelations(
-		scope,
+	return withCtes(
+		plan,
 		sql`
 		SELECT * FROM (
 			SELECT
 				${sql.join([...groupColumns, ...measureColumns], sql`, `)},
 				COUNT(*) OVER()::integer AS "totalGroups"
-			${querySetSql(query, scope)}
+			${querySetSql(query, ctx)}
 			GROUP BY ${sql.join(
 				groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
 				sql`, `,
@@ -1945,7 +1387,6 @@ const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExec
 	`,
 	);
 };
-
 const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], string> = {
 	day: "1 day",
 	hour: "1 hour",
@@ -1999,10 +1440,10 @@ const canonicalTimeSeriesBoundary = (value: string) => {
 	return DateTime.formatIso(parsed.value);
 };
 
-const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLExecutionScope) => {
-	const scope = buildScope(query, executionScope, "");
-	const time = compileExpression(query.output.time.expr, scope);
-	const measure = compileAggregation(query.output.measure.aggregation, scope, true);
+const compileTimeSeriesQuery = (query: TimeSeriesQuery, plan: PlannedScope) => {
+	const ctx = rootContext(plan);
+	const time = compileExpression(query.output.time.expr, ctx);
+	const measure = compileAggregation(query.output.measure.aggregation, ctx, true);
 	const endAt = canonicalTimeSeriesBoundary(query.output.time.range.endAt);
 	const startAt = canonicalTimeSeriesBoundary(query.output.time.range.startAt);
 	const { bucket } = query.output.time;
@@ -2015,11 +1456,11 @@ const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLEx
 	const range = sql`(${time} >= ${startAt}::timestamptz AND ${time} < ${endAt}::timestamptz)`;
 	const aggregate = sql`"timeSeriesAggregate" AS (
 			SELECT ${timeSeriesBucketStart(bucket, time)} AS "bucketStart", ${measure} AS "value"
-			${querySetSql(query, scope, [range])}
+			${querySetSql(query, ctx, [range])}
 			GROUP BY 1
 		)`;
-	return withRelations(
-		scope,
+	return withCtes(
+		plan,
 		sql`
 		SELECT
 			("timeSeriesGrid"."bucketStart" AT TIME ZONE 'UTC') AS "startAt",
@@ -2058,7 +1499,7 @@ const isFieldKind = (value: unknown): value is ScalarKind =>
 
 const reconstructKind = (
 	expr: ScalarExpression,
-	scope: CompileScope,
+	scope: AliasScope,
 	value: unknown,
 	runtimeKind: unknown,
 ) => {
@@ -2081,9 +1522,9 @@ const reconstructKind = (
 const reconstructInclude = (
 	raw: unknown,
 	include: ExpandedInclude,
-	executionScope: RyotQLExecutionScope,
-	ancestors: CompileScope,
+	parent: PlannedScope,
 ): IncludeResult => {
+	const scope = childScope(parent, include);
 	if (
 		!isObjectRecord(raw) ||
 		!isUnknownArray(raw["items"]) ||
@@ -2095,7 +1536,6 @@ const reconstructInclude = (
 		if (!isUnknownArray(item)) {
 			throw new Error(`RyotQL received an invalid include row for '${include.key}'`);
 		}
-		const scope = buildScope(include, executionScope, "", ancestors);
 		let offset = 0;
 		const fields = include.fields.map((field) => {
 			const value = item[offset++];
@@ -2107,10 +1547,7 @@ const reconstructInclude = (
 		});
 		const nested = (include.include ?? []).map(
 			(child, index) =>
-				[
-					child.key,
-					reconstructInclude(item[offset + index], child, executionScope, scope),
-				] as const,
+				[child.key, reconstructInclude(item[offset + index], child, scope)] as const,
 		);
 		return Object.fromEntries([...fields, ...nested]);
 	});
@@ -2119,7 +1556,7 @@ const reconstructInclude = (
 
 const aggregationMeasureKind = (
 	measure: AggregateMeasure,
-	scope: CompileScope,
+	scope: AliasScope,
 ): undefined | ScalarKind => {
 	if (measure.aggregation.function === "minimum" || measure.aggregation.function === "maximum") {
 		return scalarExpressionKind(measure.aggregation.expr, scope, kindResolver);
@@ -2131,7 +1568,7 @@ const reconstructAggregateItem = (
 	row: Readonly<Record<string, unknown>>,
 	groups: readonly FieldSelection[],
 	measures: readonly AggregateMeasure[],
-	scope: CompileScope,
+	scope: AliasScope,
 ) => {
 	const grouped = groups.map((group, index) => {
 		const value = row[`g${index}v`];
@@ -2162,17 +1599,11 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	db: EffectPgDatabase,
 	budget: undefined | RyotQLResultBudget,
 ) {
-	const raw = yield* executeSql(
-		compileAggregateQuery(query, executionScope),
-		queryName,
-		db,
-		budget,
-	);
-	const rows = raw;
+	const plan = planQuery(query, executionScope);
+	const rows = yield* executeSql(compileAggregateQuery(query, plan), queryName, db, budget);
 	const groups = query.output.groupBy ?? [];
-	const scope = buildScope(query, executionScope, "");
 	const items = rows.map((row) =>
-		reconstructAggregateItem(row, groups, query.output.measures, scope),
+		reconstructAggregateItem(row, groups, query.output.measures, plan),
 	);
 	if (groups.length === 0) {
 		return { items, type: "aggregate" } satisfies AggregateResult;
@@ -2197,7 +1628,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 	budget: undefined | RyotQLResultBudget,
 ) {
 	const raw = yield* executeSql(
-		compileTimeSeriesQuery(query, executionScope),
+		compileTimeSeriesQuery(query, planQuery(query, executionScope)),
 		queryName,
 		db,
 		budget,
@@ -2239,9 +1670,9 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		);
 	}
 	const rowsQuery = { ...query, output: query.output };
-	const scope = buildScope(rowsQuery, executionScope, "");
-	const orders = appendPrimaryKeyOrders(rowsQuery, rowsQuery.output.orderBy);
-	const orderKinds = orders.map((order) => expressionKind(order.expr, scope));
+	const plan = planQuery(rowsQuery, executionScope);
+	const orders = appendPrimaryKeyOrders(rowsQuery, plan, rowsQuery.output.orderBy);
+	const orderKinds = orders.map((order) => expressionKind(order.expr, plan));
 	const orderDirections = orders.map((order) => order.direction);
 	const ownerIdentity = sha256Hex(
 		yield* encodeJson({
@@ -2259,25 +1690,23 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 				ownerIdentity,
 			)
 		: undefined;
-	const raw = yield* executeSql(
-		compileRowsQuery(rowsQuery, executionScope, cursor),
+	const rows = yield* executeSql(
+		compileRowsQuery(rowsQuery, plan, orders, cursor),
 		queryName,
 		db,
 		budget,
 	);
-	const rows = raw;
 	const { limit } = rowsQuery.output.pagination;
 	const hasMore = rows.length > limit;
 	const returnedRows = rows.slice(0, limit);
 	const items = returnedRows.map((row) => {
 		const fields = rowsQuery.output.fields.map((field, index) => {
 			const value = row[`f${index}v`];
-			const kind = reconstructKind(field.expr, scope, value, row[`f${index}k`]);
+			const kind = reconstructKind(field.expr, plan, value, row[`f${index}k`]);
 			return [field.key, normalizeValue(value, kind)] as const;
 		});
 		const include = (rowsQuery.output.include ?? []).map(
-			(entry, index) =>
-				[entry.key, reconstructInclude(row[`i${index}`], entry, executionScope, scope)] as const,
+			(entry, index) => [entry.key, reconstructInclude(row[`i${index}`], entry, plan)] as const,
 		);
 		return Object.fromEntries([...fields, ...include]);
 	});
