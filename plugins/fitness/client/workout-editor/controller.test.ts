@@ -1,5 +1,5 @@
 import { describe, expect, it, layer } from "@effect/vitest";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type PluginDeviceRequest,
 	PluginId,
@@ -447,7 +447,12 @@ describe("workout editor controller", () => {
 			}),
 	);
 
-	layer(RyotScheduleService.layer.pipe(Layer.provideMerge(TestClock.layer())))((test) => {
+	layer(
+		RyotScheduleService.layer.pipe(
+			Layer.provide(SecureRandom.layerWebCrypto),
+			Layer.provideMerge(TestClock.layer()),
+		),
+	)((test) => {
 		test.effect(
 			"pulses once per second in the final three seconds and cancels them when paused",
 			() =>

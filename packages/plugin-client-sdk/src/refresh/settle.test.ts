@@ -1,12 +1,15 @@
 import { describe, expect, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { RyotScheduleService } from "../schedule";
 import { advanceRyotSchedule } from "../testing";
 import { createSettleTracker } from "./settle";
 
+const scheduleLayer = Layer.provide(RyotScheduleService.layer, SecureRandom.layerWebCrypto);
+
 describe("createSettleTracker", () => {
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("does not mark projection refreshes as population settling", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -69,7 +72,7 @@ describe("createSettleTracker", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("restarts an entity's ring when it settles again", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -89,7 +92,7 @@ describe("createSettleTracker", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("ignores a commit with nothing staged and stops working once disposed", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;

@@ -28,6 +28,7 @@ import {
 	type PluginRyotQLOutcome,
 } from "@ryot-app/plugin-client-contract";
 import * as Clock from "effect/Clock";
+import { SecureRandom } from "effect/crypto";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -163,7 +164,7 @@ export const createTestRyotClock = (
 		// Keep the test clock in the output so clock adjustments reach the same harness-owned instance.
 		Layer.provideMerge(
 			makeRyotPluginLayer(client, navigation, RyotScheduleService.layer),
-			TestClock.layer({ warningDelay: "1 hour" }),
+			Layer.merge(TestClock.layer({ warningDelay: "1 hour" }), SecureRandom.layerWebCrypto),
 		),
 	);
 	const clock = runtime.runSync(Clock.Clock);
@@ -173,7 +174,7 @@ export const createTestRyotClock = (
 				bootstrapClient,
 				bootstrapNavigation,
 				Layer.provide(RyotScheduleService.layer, Layer.succeed(Clock.Clock, clock)),
-			),
+			).pipe(Layer.provide(SecureRandom.layerWebCrypto)),
 		),
 	);
 	return {

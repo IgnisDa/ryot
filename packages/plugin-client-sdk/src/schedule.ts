@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
+import type { SecureRandom } from "effect/crypto";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
@@ -13,7 +14,10 @@ import * as Layer from "effect/Layer";
 export type RyotSchedule = {
 	readonly now: () => number;
 	readonly after: (delayMs: number, run: () => void) => () => void;
-	readonly run: (work: Effect.Effect<void>, onExit: () => void) => () => void;
+	readonly run: (
+		work: Effect.Effect<void, never, SecureRandom.SecureRandom>,
+		onExit: () => void,
+	) => () => void;
 };
 
 export class RyotScheduleService extends Context.Service<RyotScheduleService, RyotSchedule>()(
@@ -26,7 +30,9 @@ export class RyotScheduleService extends Context.Service<RyotScheduleService, Ry
 			const scope = yield* Effect.scope;
 			// Captured so forked sleeps run on this layer's clock. A bare `Effect.runFork` would fork
 			// on the global runtime and silently use the live clock, defeating `TestClock`.
-			const runCallback = Effect.runCallbackWith(yield* Effect.context());
+			const runCallback = Effect.runCallbackWith(
+				yield* Effect.context<SecureRandom.SecureRandom>(),
+			);
 			return {
 				now: () => clock.currentTimeMillisUnsafe(),
 				run: (work, onExit) =>

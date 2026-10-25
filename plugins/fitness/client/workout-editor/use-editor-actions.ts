@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -104,7 +104,7 @@ export function useEditorActions(input: {
 			: undefined;
 	const muted = editorDraft?.localPreferences?.muteSounds ?? context?.settings.muteSounds ?? false;
 
-	const run = (effect: Effect.Effect<unknown, unknown>) =>
+	const run = (effect: Effect.Effect<unknown, unknown, SecureRandom.SecureRandom>) =>
 		schedule.run(
 			effect.pipe(
 				Effect.match({
@@ -148,12 +148,13 @@ export function useEditorActions(input: {
 		}
 		run(
 			Effect.gen(function* () {
+				const submissionId = yield* SecureRandom.SecureRandom.use((random) => random.uuidV4());
 				const result = yield* controller.save((latest) =>
 					Effect.gen(function* () {
 						const candidate = finishWorkoutDraft(latest.draft, schedule.now());
 						const built = buildWorkoutEditorSaveInput(
 							candidate,
-							{ submissionId: crypto.randomUUID(), submittedAt: toIso(schedule.now()) },
+							{ submissionId, submittedAt: toIso(schedule.now()) },
 							{
 								restSettings: latest.context.settings,
 								unitSystem: latest.context.settings.unitSystem,
@@ -530,9 +531,9 @@ export function useEditorActions(input: {
 					return;
 				}
 				const loaded = yield* loadEditorSource(client, {
-					draftId: crypto.randomUUID(),
 					entityId: current.draft.mode.entityId,
 					kind: current.draft.mode.kind === "historical" ? "workout" : "template",
+					draftId: yield* SecureRandom.SecureRandom.use((random) => random.uuidV4()),
 				});
 				if (loaded.kind === "blocked") {
 					setMessage(

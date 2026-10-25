@@ -15,6 +15,7 @@ import { Modal } from "@ryot-app/plugin-ui-sdk";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { useEffect, useState } from "react";
 
 import { RyotClientError } from "../client/errors";
@@ -377,7 +378,7 @@ describe("bootstrapClientPlugin", () => {
 					Layer.mergeAll(
 						RyotClientService.layer(client),
 						RyotNavigationService.layer(navigation),
-						RyotScheduleService.layer,
+						Layer.provide(RyotScheduleService.layer, SecureRandom.layerWebCrypto),
 						Layer.effectDiscard(
 							Effect.addFinalizer(() =>
 								Effect.sync(() => {

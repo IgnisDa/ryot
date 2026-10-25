@@ -1,5 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { expect, layer } from "@effect/vitest";
+import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId, type PluginIosLiveActivityRequest } from "@ryot-app/plugin-client-sdk/plugin";
 import { Deferred } from "effect";
 
@@ -13,10 +13,11 @@ import { createWorkoutIosActivitySynchronizer } from "./ios-live-activity-sync";
 const names = new Map([["exercise-1", "Bench Press"]]);
 const now = Date.parse(startTime);
 const publicationSchedule = Effect.gen(function* () {
-	const run = Effect.runCallbackWith(yield* Effect.context());
+	const run = Effect.runCallbackWith(yield* Effect.context<SecureRandom.SecureRandom>());
 	return {
 		after: () => () => undefined,
-		run: (work: Effect.Effect<void>, onExit: () => void) => run(work, { onExit }),
+		run: (work: Effect.Effect<void, never, SecureRandom.SecureRandom>, onExit: () => void) =>
+			run(work, { onExit }),
 	};
 });
 const countdown = {
@@ -28,7 +29,7 @@ const countdown = {
 	exerciseId: exerciseOccurrence("reps").exerciseId,
 };
 
-describe("workout iOS Live Activity", () => {
+layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 	it("projects display units and ignores private notes, media, and measurements", () => {
 		const draft = liveDraft({
 			comment: "private",

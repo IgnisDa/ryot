@@ -1,5 +1,6 @@
 import { describe, expect, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import type { EntityUpdate } from "../client/adapter";
 import { RyotScheduleService } from "../schedule";
@@ -9,8 +10,10 @@ import { createSettleTracker } from "./settle";
 
 const populated = (entityId: string): EntityUpdate => ({ entityId, reason: "populated" });
 
+const scheduleLayer = Layer.provide(RyotScheduleService.layer, SecureRandom.layerWebCrypto);
+
 describe("createEntityRefresh", () => {
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("admits already-batched demand with queued updates and accepts later hints", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -34,7 +37,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("retains already-batched demand while blocked without adding another delay", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -59,7 +62,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("batches and dedupes the hints that land inside one window", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -89,7 +92,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("keeps completion reasons when enrichment status arrives in the same window", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -113,7 +116,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("refreshes enrichment status without adding or extending settle highlights", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -158,7 +161,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("delivers an empty batch for a hint that carries no update", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -176,7 +179,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("keeps blocked updates queued and merges them with newer ones", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -201,7 +204,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("drops queued work once disposed", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -220,7 +223,7 @@ describe("createEntityRefresh", () => {
 		);
 	});
 
-	layer(RyotScheduleService.layer)((test) => {
+	layer(scheduleLayer)((test) => {
 		test.effect("interrupts a running refresh and discards later hints on disposal", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;

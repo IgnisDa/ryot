@@ -1,4 +1,5 @@
 import * as Context from "effect/Context";
+import { SecureRandom } from "effect/crypto";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 
@@ -20,6 +21,8 @@ export type RyotPluginRuntime = ManagedRuntime.ManagedRuntime<
 	never
 >;
 
+type ScheduleLayer = Layer.Layer<RyotScheduleService, never, SecureRandom.SecureRandom>;
+
 export class RyotClientService extends Context.Service<RyotClientService, RyotClient>()(
 	"@ryot-app/plugin-client-sdk/runtime/runtime/RyotClientService",
 ) {
@@ -33,20 +36,28 @@ export class RyotNavigationService extends Context.Service<
 	static readonly layer = (navigation: PluginRouterNavigation) => Layer.succeed(this, navigation);
 }
 
-const makeRyotLayer = (client: RyotClient, schedule: Layer.Layer<RyotScheduleService>) =>
+const makeRyotLayer = (client: RyotClient, schedule: ScheduleLayer) =>
 	Layer.mergeAll(RyotClientService.layer(client), schedule);
 
 export const makeRyotPluginLayer = (
 	client: RyotClient,
 	navigation: PluginRouterNavigation,
-	schedule: Layer.Layer<RyotScheduleService>,
+	schedule: ScheduleLayer,
 ) => Layer.mergeAll(makeRyotLayer(client, schedule), RyotNavigationService.layer(navigation));
 
 export const makeRyotRuntime = (client: RyotClient): RyotRuntime =>
-	ManagedRuntime.make(makeRyotLayer(client, RyotScheduleService.layer));
+	ManagedRuntime.make(
+		makeRyotLayer(client, RyotScheduleService.layer).pipe(
+			Layer.provide(SecureRandom.layerWebCrypto),
+		),
+	);
 
 export const makeRyotPluginRuntime = (
 	client: RyotClient,
 	navigation: PluginRouterNavigation,
 ): RyotPluginRuntime =>
-	ManagedRuntime.make(makeRyotPluginLayer(client, navigation, RyotScheduleService.layer));
+	ManagedRuntime.make(
+		makeRyotPluginLayer(client, navigation, RyotScheduleService.layer).pipe(
+			Layer.provide(SecureRandom.layerWebCrypto),
+		),
+	);

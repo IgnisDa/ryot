@@ -370,7 +370,9 @@ boundary. Batch drain delays continue to use `RyotSchedule` and its TestClock-ba
 
 `RyotSchedule` supplies clock reads, delayed callbacks, and scoped refresh Effects from the
 provider's Effect runtime. `after` returns cancellation and `run` returns interruption; disposal
-interrupts pending work. Callback defects reach the plugin fatal path.
+interrupts pending work. Callback defects reach the plugin fatal path. `run` work may require
+`SecureRandom` (exported from `./effect`) for identifiers; the live runtimes provide Web Crypto, and
+`makeRyotPluginLayer` leaves it to the caller.
 
 Tests use `createTestRyotClock` and advance time rather than faking timers. Bootstrapped page tests
 pass the harness's `bootstrap` to `mountPluginPage`; pages own their runtime/schedule scopes while
