@@ -16,7 +16,7 @@ export const ImpersonationEndedMessage = Schema.fromJsonString(
 	Schema.Struct({ sessionId: Schema.String }),
 );
 
-export const ProjectionsUpdatedMessage = Schema.fromJsonString(Schema.Struct({ userId: UserId }));
+export const DerivedDataUpdatedMessage = Schema.fromJsonString(Schema.Struct({ userId: UserId }));
 
 export const WorkflowExecutionNotificationMessage = Schema.fromJsonString(WorkflowIdentity);
 
@@ -31,8 +31,8 @@ export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginCatalogChannel: "ryot:plugins:catalog",
 	uploadIntentExpiry: "ryot:upload:intents:expiry",
-	projectionsUpdatedChannel: "ryot:projections:updated",
 	pluginCatalogUserChannel: "ryot:plugins:catalog:user",
+	derivedDataUpdatedChannel: "ryot:derived-data:updated",
 	impersonationEndedChannel: "ryot:auth:impersonation-ended",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
@@ -218,9 +218,11 @@ export class RedisService extends Context.Service<RedisService>()(
 }
 
 /** A non-durable hint; clients also refresh on reconnect, so a lost publication only delays refresh. */
-export const publishProjectionsUpdated = (redis: RedisService["Service"], userId: UserId) =>
-	Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId }).pipe(
-		Effect.flatMap((message) => redis.publish(redisKeys.projectionsUpdatedChannel, message)),
-		Effect.catchCause((cause) => Effect.logWarning("Projection refresh publication failed", cause)),
+export const publishDerivedDataUpdated = (redis: RedisService["Service"], userId: UserId) =>
+	Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId }).pipe(
+		Effect.flatMap((message) => redis.publish(redisKeys.derivedDataUpdatedChannel, message)),
+		Effect.catchCause((cause) =>
+			Effect.logWarning("Derived data refresh publication failed", cause),
+		),
 		Effect.asVoid,
 	);

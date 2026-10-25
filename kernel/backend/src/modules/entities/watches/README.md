@@ -22,14 +22,14 @@ Client frames:
 
 Server frames:
 
-| `type`                | Fields                                                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `ready`               | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                            |
-| `applied`             | `revision`                                                                                    |
-| `rejected`            | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                 |
-| `entity-updated`      | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `enrichment-updated` |
-| `projections-updated` | none                                                                                          |
-| `ping`                | `nonce`                                                                                       |
+| `type`                 | Fields                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `ready`                | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                            |
+| `applied`              | `revision`                                                                                    |
+| `rejected`             | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                 |
+| `entity-updated`       | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `enrichment-updated` |
+| `derived-data-updated` | none                                                                                          |
+| `ping`                 | `nonce`                                                                                       |
 
 After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
 
@@ -43,7 +43,7 @@ Priority chooses the population level. Pending interest requests `base` when vis
 
 Population and translation failures appear in their status objects. Reconciliation returns `enrichment-updated` for status refresh rather than treating missing data as proof of an active or terminal population. Translated still wins when completion hints coalesce.
 
-`projections-updated` is sent to every session of a user after one of that user's event-stream or relationship projection steps completes or fails, independent of entity interest, because aggregate reads cannot declare the entities they cover. Event-stream and relationship projection workers publish the user ID on the non-durable `ryot:projections:updated` channel; each backend writes the frame to its local sessions for that user, and a session coalesces pending frames into one. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
+`derived-data-updated` is sent to every session of a user after one of that user's background jobs (user scripts and event-stream or relationship projection steps) settles, independent of entity interest, because aggregate and status reads cannot declare the entities they cover. Background-work settlement publishes the user ID on the non-durable `ryot:derived-data:updated` channel; each backend forwards it to its local sessions for that user. Each session writes at most one frame per three seconds: the first update is written immediately, and updates during the interval collapse into one frame at its end, so the final state always arrives. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
 
 ## Lifetime And Delivery
 

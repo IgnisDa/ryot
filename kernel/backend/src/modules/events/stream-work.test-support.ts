@@ -397,6 +397,7 @@ export const streamWorkTestLayer = Layer.unwrap(
 			engineLayer,
 			WorkflowExecutionNotifications.layer,
 			makeAppConfigLayer(),
+			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		);
 		const baseBackgroundLayer = BackgroundWorkService.layer.pipe(Layer.provide(sharedDependencies));
 		const backgroundLayer = Layer.effect(
@@ -417,10 +418,6 @@ export const streamWorkTestLayer = Layer.unwrap(
 				};
 			}),
 		).pipe(Layer.provide(Layer.merge(baseBackgroundLayer, sharedDependencies)));
-		const redisLayer = Layer.succeed(
-			RedisService,
-			makeRedisService({ publish: () => Effect.succeed(0) }),
-		);
 		const serviceLayer = Layer.mergeAll(
 			EventStreamWorkService.layer,
 			RelationshipProjectionService.layer,
@@ -436,7 +433,6 @@ export const streamWorkTestLayer = Layer.unwrap(
 					RelationshipSchemaReaderLive.pipe(Layer.provide(sharedDependencies)),
 				),
 			),
-			Layer.provide(redisLayer),
 		);
 		const lifecycleWorkLayer = EventStreamLifecycleWorkLive.pipe(
 			Layer.provide(Layer.merge(serviceLayer, backgroundLayer)),
@@ -447,7 +443,6 @@ export const streamWorkTestLayer = Layer.unwrap(
 		);
 		const eventsServiceLayer = Layer.merge(EventsService.layer, EventMutations.layer).pipe(
 			Layer.provideMerge(Layer.merge(sharedDependencies, lifecycleLayer)),
-			Layer.provide(redisLayer),
 		);
 		const controlsLayer = Layer.succeed(StreamWorkControls, {
 			workflowCalls: Ref.get(workflowCalls),

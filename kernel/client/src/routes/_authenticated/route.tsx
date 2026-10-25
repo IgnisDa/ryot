@@ -1,6 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { useEffect } from "react";
 
 import { PublicApi } from "#/api/public";
@@ -120,15 +120,18 @@ function AuthenticatedLayout() {
 			),
 		[runtime, serverUrl, userId],
 	);
-	useEffect(
-		() =>
-			runtime.runSync(
-				Effect.map(EntityWatchService, (service) =>
-					service.onProjectionsUpdated({ userId, serverUrl }, ryot.mutationCompleted.hint),
+	useEffect(() => {
+		const controller = new AbortController();
+		runtime.runFork(
+			Effect.flatMap(EntityWatchService, (service) =>
+				Stream.runForEach(service.derivedDataUpdates({ userId, serverUrl }), () =>
+					Effect.sync(ryot.mutationCompleted.hint),
 				),
 			),
-		[runtime, ryot, serverUrl, userId],
-	);
+			{ signal: controller.signal },
+		);
+		return () => controller.abort();
+	}, [runtime, ryot, serverUrl, userId]);
 	return (
 		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>

@@ -5,7 +5,7 @@ import { derivedFake } from "@ryot-app/testing/fakes";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import Redis from "ioredis";
 
-import { ProjectionsUpdatedMessage, RedisService } from "#platform/redis";
+import { DerivedDataUpdatedMessage, RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService } from "#testing/effect";
 
 import { LocalInterestSessions } from "./connections";
@@ -177,7 +177,7 @@ layer(
 		sessionUsers: { "owner-session": "owner", "other-session": "other" },
 	}),
 )((test) => {
-	test.effect("routes scoped enrichment and projection updates only to the owning user", () =>
+	test.effect("routes scoped enrichment and derived-data updates only to the owning user", () =>
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
 			const interestSubscriber = yield* EntityWatchSubscriber;
@@ -197,13 +197,13 @@ layer(
 					UserId.make("owner"),
 				),
 			);
-			yield* interestSubscriber.dispatchProjectionsUpdated(
-				yield* Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId: UserId.make("owner") }),
+			yield* interestSubscriber.dispatchDerivedDataUpdated(
+				yield* Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId: UserId.make("owner") }),
 			);
 
 			expect(ownerFrames).toEqual([
 				{ type: "entity-updated", entityId: "global-entity", reason: "enrichment-updated" },
-				{ type: "projections-updated" },
+				{ type: "derived-data-updated" },
 			]);
 			expect(otherFrames).toEqual([]);
 			expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);

@@ -2,8 +2,8 @@ import {
 	decodeEntityWatchClientMessage,
 	encodeEntityWatchServerMessage,
 	type EntityWatchClientMessage,
+	type EntityWatchDerivedDataUpdatedMessage,
 	type EntityWatchEntityUpdatedMessage,
-	type EntityWatchProjectionsUpdatedMessage,
 	type EntityWatchServerMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
@@ -23,6 +23,7 @@ import { EntityWatchInvalidTicket, EntityWatchTicketService } from "./ticket-ser
 const ENTITY_WATCH_HEARTBEAT_TIMEOUT = Duration.seconds(10);
 const ENTITY_WATCH_HEARTBEAT_INTERVAL = Duration.seconds(25);
 const ENTITY_WATCH_AUTHENTICATION_TIMEOUT = Duration.seconds(5);
+const DERIVED_DATA_UPDATED_INTERVAL = Duration.seconds(3);
 
 const INBOUND_QUEUE_CAPACITY = 16;
 const NORMAL_CLOSE = new Socket.CloseEvent(1000);
@@ -49,10 +50,10 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 ) {
 	let accepting = true;
 	let closed = false;
-	let projectionsUpdated = false;
 	const completions = new Map<string, Completion>();
 	const controls = yield* Queue.unbounded<Control>();
 	const wake = yield* Queue.dropping<void>(1);
+	const derivedDataUpdates = yield* Queue.dropping<void>(1);
 	const stopped = yield* Deferred.make<void>();
 	const shutdown = yield* Deferred.make<void>();
 
@@ -76,13 +77,12 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 			Deferred.await(stopped).pipe(Effect.as(false)),
 		);
 	});
-	const enqueueCompletion = (completion: Completion | EntityWatchProjectionsUpdatedMessage) => {
+	const enqueueCompletion = (completion: Completion | EntityWatchDerivedDataUpdatedMessage) => {
 		if (!accepting) {
 			return;
 		}
-		if ("type" in completion && completion.type === "projections-updated") {
-			projectionsUpdated = true;
-			signal();
+		if ("type" in completion && completion.type === "derived-data-updated") {
+			Queue.offerUnsafe(derivedDataUpdates, undefined);
 			return;
 		}
 		const message = "message" in completion ? completion.message : completion;
@@ -112,7 +112,13 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 				);
 			}),
 		);
+	const throttleDerivedDataUpdates = Queue.take(derivedDataUpdates).pipe(
+		Effect.andThen(Effect.suspend(() => enqueue({ type: "derived-data-updated" }))),
+		Effect.andThen(Effect.sleep(DERIVED_DATA_UPDATED_INTERVAL)),
+		Effect.forever,
+	);
 	const run = Effect.gen(function* () {
+		yield* Effect.forkChild(throttleDerivedDataUpdates);
 		while (!closed) {
 			yield* Queue.take(wake);
 			while (!closed) {
@@ -128,11 +134,6 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 					if (control.value.written !== undefined) {
 						yield* Deferred.succeed(control.value.written, undefined);
 					}
-					continue;
-				}
-				if (projectionsUpdated) {
-					projectionsUpdated = false;
-					yield* write(yield* serverFrame({ type: "projections-updated" }));
 					continue;
 				}
 				const completion = completions.entries().next().value;
@@ -157,7 +158,6 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 	);
 	const stop = Effect.suspend(() => {
 		accepting = false;
-		projectionsUpdated = false;
 		completions.clear();
 		if (closed) {
 			return signalShutdown;

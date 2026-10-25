@@ -35,9 +35,11 @@ import { BackgroundWorkExecutorLive } from "#modules/scripts/executions/backgrou
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
+import { DerivedDataUpdatedMessage, redisKeys, RedisService } from "#platform/redis";
 import { backgroundWork } from "#schema/tables/background-work";
 import * as tables from "#schema/tables/combined";
 import {
+	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 	workflowEngineTestLayer,
@@ -256,7 +258,10 @@ class UserWorkChildCalls extends Context.Service<
 
 class UserWorkHostCalls extends Context.Service<
 	UserWorkHostCalls,
-	{ readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>> }
+	{
+		readonly publications: Effect.Effect<ReadonlyArray<string>>;
+		readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>>;
+	}
 >()("@ryot-app/kernel-backend/modules/scripts/executions/user-work.test/UserWorkHostCalls") {}
 
 const userWorkHostLayer = () =>
@@ -266,6 +271,7 @@ const userWorkHostLayer = () =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const dispatches = yield* Ref.make<ReadonlyArray<DispatchRecord>>([]);
+					const publications = yield* Ref.make<ReadonlyArray<string>>([]);
 					const engine = makeWorkflowEngine({
 						execute: (workflow, options) =>
 							Effect.gen(function* () {
@@ -277,9 +283,21 @@ const userWorkHostLayer = () =>
 								return options.executionId;
 							}),
 					});
-					return Layer.merge(
+					return Layer.mergeAll(
 						Layer.succeed(WorkflowEngine, engine),
-						Layer.succeed(UserWorkHostCalls, { dispatches: Ref.get(dispatches) }),
+						Layer.succeed(
+							RedisService,
+							makeRedisService({
+								publish: (channel, message) =>
+									Ref.update(publications, (all) => [...all, `${channel} ${message}`]).pipe(
+										Effect.as(0),
+									),
+							}),
+						),
+						Layer.succeed(UserWorkHostCalls, {
+							dispatches: Ref.get(dispatches),
+							publications: Ref.get(publications),
+						}),
 					);
 				}),
 			),
@@ -327,7 +345,6 @@ const runBody = (id: string, execute: () => Effect.Effect<unknown, DbError>) => 
 		Effect.provideService(BackgroundWorkExecutor, { execute }),
 		Effect.provideService(BackgroundWorkProjectionFinalizer, {
 			publish: () => Effect.die("Unexpected projection output"),
-			failed: () => Effect.die("Unexpected projection failure"),
 			prepare: () => Effect.die("User-script work must not prepare projections"),
 		}),
 		Effect.provideService(WorkflowInstance, instance),
@@ -354,7 +371,6 @@ const userWorkWorkflowLayer = () =>
 					Layer.succeed(BackgroundWorkProjectionFinalizer, {
 						prepare: () => Effect.die("User-script work must not prepare projections"),
 						publish: () => Effect.die("User-script work must not publish projections"),
-						failed: () => Effect.die("User-script work must not finalize projections"),
 					}),
 				),
 			),
@@ -378,7 +394,13 @@ const userWorkWorkflowLayer = () =>
 				);
 			}),
 		),
-	).pipe(Layer.provideMerge(workflowEngineTestLayer), Layer.provideMerge(userWorkDatabaseLayer()));
+	).pipe(
+		Layer.provideMerge(workflowEngineTestLayer),
+		Layer.provideMerge(
+			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
+		),
+		Layer.provideMerge(userWorkDatabaseLayer()),
+	);
 
 layer(userWorkDatabaseLayer())((test) => {
 	test.effect("replays an identical user-work request as one durable row", () =>
@@ -575,7 +597,7 @@ layer(userWorkHostLayer())((test) => {
 					{ inTransaction: false, executionId: first.workId, workflow: "BackgroundWorkWorkflow" },
 				]);
 
-				yield* work.finish(first.workId, "succeeded");
+				yield* work.finish({ id: first.workId, userId: fixture.userId }, "succeeded");
 				expect(yield* host.requestUserWork(runInput(fixture), request, workReference)).toEqual(
 					first,
 				);
@@ -665,7 +687,7 @@ layer(userWorkHostLayer())((test) => {
 				inTransaction: false,
 				workflow: "BackgroundWorkWorkflow",
 			});
-			yield* work.finish(id, "failed");
+			yield* work.finish({ id, userId: fixture.userId }, "failed");
 		}),
 	);
 
@@ -730,11 +752,16 @@ layer(userWorkHostLayer())((test) => {
 			yield* admitQueued(fixture, first, scope);
 			yield* admitQueued(fixture, second, scope);
 			yield* work.dispatch(first);
+			const calls = yield* UserWorkHostCalls;
+			const before = yield* calls.publications;
 
 			yield* runBody(first, () => Effect.fail(new DbError({ message: "boom" })));
 			expect(yield* workStatus(first)).toBe("failed");
 			expect(yield* workStatus(second)).toBe("running");
 			expect(yield* workflowCallsFor(second)).toEqual([second]);
+			expect((yield* calls.publications).slice(before.length)).toEqual([
+				`${redisKeys.derivedDataUpdatedChannel} ${yield* Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId: fixture.userId })}`,
+			]);
 		}),
 	);
 
@@ -749,11 +776,16 @@ layer(userWorkHostLayer())((test) => {
 			yield* admitQueued(fixture, second, scope);
 			yield* work.dispatch(first);
 			yield* expireWrapper(first);
+			const calls = yield* UserWorkHostCalls;
+			const before = yield* calls.publications;
 
 			yield* work.recover();
 			expect(yield* workStatus(first)).toBe("failed");
 			expect(yield* workStatus(second)).toBe("running");
 			expect(yield* workflowCallsFor(second)).toEqual([second]);
+			expect((yield* calls.publications).slice(before.length)).toContain(
+				`${redisKeys.derivedDataUpdatedChannel} ${yield* Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId: fixture.userId })}`,
+			);
 		}),
 	);
 
@@ -918,7 +950,6 @@ layer(userWorkHostLayer())((test) => {
 					}),
 					Effect.provideService(BackgroundWorkProjectionFinalizer, {
 						publish: () => Effect.die("Unexpected projection output"),
-						failed: () => Effect.die("Unexpected projection failure"),
 						prepare: () => Effect.die("User-script work must not prepare projections"),
 					}),
 					Effect.provideService(WorkflowInstance, suspended),
@@ -937,7 +968,6 @@ layer(userWorkHostLayer())((test) => {
 				Effect.provideService(BackgroundWorkExecutor, { execute: () => Effect.succeed(null) }),
 				Effect.provideService(BackgroundWorkProjectionFinalizer, {
 					publish: () => Effect.die("Unexpected projection output"),
-					failed: () => Effect.die("Unexpected projection failure"),
 					prepare: () => Effect.die("User-script work must not prepare projections"),
 				}),
 				Effect.provideService(WorkflowInstance, resumed),
@@ -993,7 +1023,7 @@ layer(userWorkHostLayer())((test) => {
 				);
 				expect(yield* repository.get(id)).toMatchObject({ status: "failed" });
 				expect(yield* repository.start(id)).toBeNull();
-				expect(yield* work.finish(id, "succeeded")).toBe(false);
+				expect(yield* work.finish({ id, userId: fixture.userId }, "succeeded")).toBe(false);
 				expect(
 					(yield* references.listReferences(fixture.pluginId)).some(
 						({ executionId }) => executionId === id,

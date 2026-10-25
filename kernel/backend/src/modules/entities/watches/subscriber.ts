@@ -2,8 +2,8 @@ import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-wa
 import { Cause, Context, Effect, FiberSet, Layer, Option, Result, Schema } from "effect";
 
 import {
+	DerivedDataUpdatedMessage,
 	ImpersonationEndedMessage,
-	ProjectionsUpdatedMessage,
 	redisKeys,
 	RedisService,
 } from "#platform/redis";
@@ -23,7 +23,7 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 			const channels = [
 				redisKeys.entityUpdatedChannel,
 				redisKeys.impersonationEndedChannel,
-				redisKeys.projectionsUpdatedChannel,
+				redisKeys.derivedDataUpdatedChannel,
 			];
 			const progression = yield* EntityWatchProgression;
 
@@ -75,12 +75,12 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 				}
 			});
 
-			const dispatchProjectionsUpdated = Effect.fn(
-				"EntityWatchSubscriber.dispatchProjectionsUpdated",
+			const dispatchDerivedDataUpdated = Effect.fn(
+				"EntityWatchSubscriber.dispatchDerivedDataUpdated",
 			)(function* (raw: string) {
-				const decoded = Schema.decodeOption(ProjectionsUpdatedMessage)(raw);
+				const decoded = Schema.decodeOption(DerivedDataUpdatedMessage)(raw);
 				if (Option.isSome(decoded)) {
-					yield* sessions.projectionsUpdated(decoded.value.userId);
+					yield* sessions.derivedDataUpdated(decoded.value.userId);
 				}
 			});
 
@@ -90,8 +90,8 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 					runFork(dispatch(message).pipe(Effect.catchCause(Effect.logWarning)));
 				} else if (incoming === redisKeys.impersonationEndedChannel) {
 					runFork(dispatchImpersonationEnded(message).pipe(Effect.catchCause(Effect.logWarning)));
-				} else if (incoming === redisKeys.projectionsUpdatedChannel) {
-					runFork(dispatchProjectionsUpdated(message));
+				} else if (incoming === redisKeys.derivedDataUpdatedChannel) {
+					runFork(dispatchDerivedDataUpdated(message));
 				}
 			});
 			subscriber.on("ready", () => {
@@ -104,7 +104,7 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 				),
 			);
 
-			return { dispatch, dispatchProjectionsUpdated };
+			return { dispatch, dispatchDerivedDataUpdated };
 		}),
 	},
 ) {

@@ -24,7 +24,6 @@ import { DomainWriteChecks } from "#modules/entities/write-context";
 import { sameRevisionPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
-import { publishProjectionsUpdated, RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
@@ -51,7 +50,6 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const relationshipSchemas = yield* RelationshipSchemaReader;
 			const background = yield* BackgroundWorkService;
 			const bindings = yield* ProjectionBindings;
-			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 
 			const currentBinding = Effect.fn("RelationshipProjectionService.currentBinding")(function* (
@@ -334,9 +332,9 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 					relationshipSchemaPluginId: claim.pluginPin.id,
 					relationshipSchemaSlug: claim.input.relationshipSchemaSlug,
 				};
-				const published = yield* makeActivity({
+				yield* makeActivity({
 					error: DbError,
-					success: Schema.Boolean,
+					success: Schema.Void,
 					name: "publish-relationship-projection",
 					execute: session
 						.transaction(
@@ -346,7 +344,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 									yield* repository.release(claim.id, claim.jobId);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
-									return false;
+									return undefined;
 								}
 								const binding = yield* currentBinding(key);
 								if (!binding) {
@@ -359,7 +357,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 									yield* repository.bind(key, binding.persisted);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
-									return false;
+									return undefined;
 								}
 								yield* assets
 									.lock(
@@ -379,28 +377,12 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 								yield* repository.release(claim.id, claim.jobId);
 								yield* background.settle(job.id, "succeeded");
 								yield* arrange(claim.id);
-								return true;
+								return undefined;
 							}),
 						)
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				});
-				if (published) {
-					yield* publishProjectionsUpdated(redis, claim.accountGeneration.userId);
-				}
 				return undefined;
-			});
-
-			const failed = Effect.fn("RelationshipProjectionService.failed")(function* (
-				job: BackgroundWorkInput,
-			) {
-				const claim = yield* Schema.decodeUnknownEffect(RelationshipProjectionClaim)(
-					job.featureInput,
-				).pipe(
-					Effect.mapError(
-						() => new DbError({ message: "Invalid persisted relationship projection claim" }),
-					),
-				);
-				yield* publishProjectionsUpdated(redis, claim.accountGeneration.userId);
 			});
 
 			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* () {
@@ -449,7 +431,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				);
 			});
 
-			return { failed, process, request, reconcile, requestForAllUsers };
+			return { process, request, reconcile, requestForAllUsers };
 		}),
 	},
 ) {

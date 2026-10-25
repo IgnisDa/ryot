@@ -12,8 +12,6 @@ export const ProjectionFinalizerLive = Layer.effect(
 		return {
 			prepare: (job) =>
 				job.purpose === "event-projection" ? events.prepare(job) : Effect.succeed(job),
-			failed: (job) =>
-				job.purpose === "relationship-projection" ? relationships.failed(job) : events.failed(job),
 			publish: (job, output) =>
 				job.purpose === "relationship-projection"
 					? relationships.process(job, output)

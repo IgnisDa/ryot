@@ -16,7 +16,7 @@ import { TestClock } from "effect/testing";
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
 import { testRedisServiceLayer } from "#testing/redis";
 
-import { LocalInterestSessions } from "./connections";
+import { type LocalInterestSessionEnqueue, LocalInterestSessions } from "./connections";
 import { InterestService } from "./service";
 import { runEntityWatchSocketSession } from "./socket-session";
 import { EntityWatchStore } from "./store";
@@ -110,6 +110,7 @@ class FakeSessionDependencies extends Context.Service<
 		readonly replacements: Effect.Effect<number>;
 		readonly replaceStarted: Effect.Effect<void>;
 		readonly activity: Effect.Effect<ReadonlyArray<string>>;
+		readonly sessionEnqueue: Effect.Effect<LocalInterestSessionEnqueue>;
 	}
 >()(
 	"@ryot-app/kernel-backend/modules/entities/watches/socket-session.test/FakeSessionDependencies",
@@ -133,6 +134,7 @@ const makeLayer = (
 				const reconciliationGate = yield* Deferred.make<void>();
 				const replaceGate = yield* Deferred.make<void>();
 				const replaceStarted = yield* Deferred.make<void>();
+				const sessionEnqueue = yield* Deferred.make<LocalInterestSessionEnqueue>();
 				const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
 				return Layer.mergeAll(
 					Layer.mock(EntityWatchTicketService)({
@@ -197,17 +199,22 @@ const makeLayer = (
 					}),
 					Layer.mock(LocalInterestSessions)({
 						remove: (sessionId) => record(`remove:${sessionId}`),
-						add: (sessionId, _userId, _enqueue, revocation) =>
-							record(
-								revocation === undefined
-									? `add:${sessionId}`
-									: `add:${sessionId}:auth:${revocation.authSessionId}`,
+						add: (sessionId, _userId, enqueue, revocation) =>
+							Deferred.succeed(sessionEnqueue, enqueue).pipe(
+								Effect.andThen(
+									record(
+										revocation === undefined
+											? `add:${sessionId}`
+											: `add:${sessionId}:auth:${revocation.authSessionId}`,
+									),
+								),
 							),
 					}),
 					Layer.succeed(FakeSessionDependencies, {
 						activity: Ref.get(activity),
 						replacements: Ref.get(replacements),
 						replaceStarted: Deferred.await(replaceStarted),
+						sessionEnqueue: Deferred.await(sessionEnqueue),
 					}),
 				);
 			}),
@@ -743,6 +750,39 @@ describe("entity interest socket session", () => {
 						`remove:${ready.sessionId}`,
 						`close:${ready.sessionId}`,
 					]);
+				}),
+			),
+		);
+	});
+
+	layer(makeLayer())((test) => {
+		test.effect("writes derived-data updates at most once per interval, leading and trailing", () =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const fake = yield* FakeSessionDependencies;
+					const socket = yield* makeSocket();
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+					yield* Deferred.await(socket.opened);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
+					expect((yield* socket.nextMessage()).type).toBe("ready");
+					const enqueue = yield* fake.sessionEnqueue;
+
+					enqueue({ type: "derived-data-updated" });
+					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+					enqueue({ type: "derived-data-updated" });
+					enqueue({ type: "derived-data-updated" });
+					yield* TestClock.adjust("2999 millis");
+					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+
+					yield* TestClock.adjust("1 millis");
+					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+					yield* TestClock.adjust("3 seconds");
+					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+
+					enqueue({ type: "derived-data-updated" });
+					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+					yield* socket.remoteClose;
+					yield* Fiber.await(fiber);
 				}),
 			),
 		);

@@ -50,8 +50,7 @@ Publication requires the canonical job to be running and still current, rechecks
 processor binding. It writes only notes whose revision still matches the claim. It releases the
 work, settles the job, and admits the next step while dirty notes remain, all in one transaction.
 A changed binding is rebound instead: every note of the work advances its revision and the step is
-re-admitted. After publication, or when a step fails, the service publishes the user-scoped
-projections-updated hint.
+re-admitted. Background-work settlement publishes the user-scoped derived-data-updated hint.
 
 RyotQL exposes `relationship.projection` only when the note is current, the account generation is current and enabled, and the work's plugin
 revision and configuration pin match an active plugin with a ready installation. The gate is

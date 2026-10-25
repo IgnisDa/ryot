@@ -11,6 +11,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
+import { publishDerivedDataUpdated, RedisService } from "#platform/redis";
 import { asIndependentWorkflowRoot } from "#platform/workflow/scope";
 
 import { BackgroundWorkInput } from "./model";
@@ -32,6 +33,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const redis = yield* RedisService;
 			const repository = yield* BackgroundWorkRepository;
 			const references = yield* SandboxWorkflowReferenceRepository;
 			const receipts = yield* MutationReceipts.make;
@@ -107,10 +109,17 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				yield* references.release(id);
 				return changed;
 			});
-			const finish = (id: string, status: "failed" | "succeeded", error: null | string = null) =>
-				session
-					.transaction(settle(id, status, error))
+			const finish = Effect.fn("BackgroundWorkService.finish")(function* (
+				job: { readonly id: string; readonly userId: UserId },
+				status: "failed" | "succeeded",
+				error: null | string = null,
+			) {
+				const changed = yield* session
+					.transaction(settle(job.id, status, error))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+				yield* publishDerivedDataUpdated(redis, job.userId);
+				return changed;
+			});
 			const launch = Effect.fn("BackgroundWorkService.launch")(function* (job: {
 				id: string;
 				userId: string;
@@ -125,7 +134,9 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 					.pipe(
 						Effect.as(null),
 						Effect.catchTag("DbError", (error) =>
-							finish(job.id, "failed", error.message).pipe(Effect.as(error)),
+							finish({ id: job.id, userId: UserId.make(job.userId) }, "failed", error.message).pipe(
+								Effect.as(error),
+							),
 						),
 					);
 				if (rejected) {
@@ -147,7 +158,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				yield* session.requireRoot.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 				let failure: null | DbError = null;
 				for (;;) {
-					const head = yield* session
+					const { head, settledExpired } = yield* session
 						.transaction(
 							Effect.gen(function* () {
 								yield* repository.lockScope(key);
@@ -157,20 +168,26 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 									current.workflowStatus !== "failed" &&
 									current.workflowStatus !== "succeeded"
 								) {
-									return current.job;
+									return { head: current.job, settledExpired: false };
 								}
-								if (current) {
-									yield* settle(
-										current.job.id,
-										"failed",
-										"Background workflow ended before settlement",
-									);
-								}
+								const expiredSettled = current
+									? yield* settle(
+											current.job.id,
+											"failed",
+											"Background workflow ended before settlement",
+										)
+									: false;
 								const claimed = yield* repository.claim(key);
-								return claimed ? yield* repository.get(claimed) : null;
+								return {
+									settledExpired: expiredSettled,
+									head: claimed ? yield* repository.get(claimed) : null,
+								};
 							}),
 						)
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+					if (settledExpired) {
+						yield* publishDerivedDataUpdated(redis, UserId.make(key.userId));
+					}
 					if (!head) {
 						break;
 					}

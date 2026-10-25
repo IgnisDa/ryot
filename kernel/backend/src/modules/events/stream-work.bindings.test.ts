@@ -134,7 +134,7 @@ layer(streamWorkTestLayer)((test) => {
 			const beforeAdmissionCalls = yield* controls.admissionCalls;
 			const beforeWorkflowCalls = yield* controls.workflowCalls;
 			const reconciliation = Effect.gen(function* () {
-				yield* background.finish(healthyBeforeJobId, "succeeded");
+				yield* background.finish({ userId, id: healthyBeforeJobId }, "succeeded");
 				yield* session.run((db) =>
 					db
 						.update(tables.eventStreamWork)

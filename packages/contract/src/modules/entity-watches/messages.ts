@@ -115,11 +115,11 @@ export const EntityWatchEntityUpdatedMessage = Schema.Struct({
 });
 export type EntityWatchEntityUpdatedMessage = typeof EntityWatchEntityUpdatedMessage.Type;
 
-/** A refresh hint that computed results changed somewhere in the session user's data. */
-export const EntityWatchProjectionsUpdatedMessage = Schema.Struct({
-	type: Schema.Literal("projections-updated"),
+/** A refresh hint that derived data or background work changed somewhere in the session user's data. */
+export const EntityWatchDerivedDataUpdatedMessage = Schema.Struct({
+	type: Schema.Literal("derived-data-updated"),
 });
-export type EntityWatchProjectionsUpdatedMessage = typeof EntityWatchProjectionsUpdatedMessage.Type;
+export type EntityWatchDerivedDataUpdatedMessage = typeof EntityWatchDerivedDataUpdatedMessage.Type;
 
 export const EntityWatchPingMessage = Schema.Struct({
 	nonce: Schema.String,
@@ -141,7 +141,7 @@ export const EntityWatchServerMessage = Schema.Union([
 	EntityWatchAppliedMessage,
 	EntityWatchRejectedMessage,
 	EntityWatchEntityUpdatedMessage,
-	EntityWatchProjectionsUpdatedMessage,
+	EntityWatchDerivedDataUpdatedMessage,
 ]);
 export type EntityWatchServerMessage = typeof EntityWatchServerMessage.Type;
 

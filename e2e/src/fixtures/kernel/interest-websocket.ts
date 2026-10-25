@@ -147,7 +147,7 @@ export const openInterestWebSocket = (
 				send({ type: "pong", nonce: message.nonce });
 				return;
 			}
-			if (message.type === "projections-updated") {
+			if (message.type === "derived-data-updated") {
 				return;
 			}
 			if (message.type === "entity-updated") {

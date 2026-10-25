@@ -58,15 +58,12 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 		success: Schema.Void,
 		execute: service
 			.finish(
-				id,
+				{ id, userId: started.accountGeneration.userId },
 				result._tag === "Success" ? "succeeded" : "failed",
 				result._tag === "Failure" ? unknownToMessage(result.cause) : null,
 			)
 			.pipe(Effect.asVoid),
 	});
-	if (result._tag === "Failure" && projected) {
-		yield* projection.failed(started);
-	}
 	yield* service
 		.dispatch(id)
 		.pipe(

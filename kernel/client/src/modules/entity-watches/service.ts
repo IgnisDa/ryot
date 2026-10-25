@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { EntityWatch, RyotClient } from "@ryot-app/plugin-client-sdk";
 import type { Fiber } from "effect";
-import { Context, Effect, FiberHandle, Layer, Match, Result } from "effect";
+import { Context, Effect, FiberHandle, Layer, Match, PubSub, Result, Stream } from "effect";
 
 import { EntityWatchApi, entityWatchSocketUrl } from "#/api/entity-watches";
 import { type ApiScope, apiScopeKey } from "#/api/scope";
@@ -30,27 +30,16 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 			const io = yield* EntityWatchTransport;
 			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
 			const declarations = new Map<string, Set<Owner>>();
-			const projectionListeners = new Map<string, Set<() => void>>();
-			const projectionsUpdated = (key: string) => {
-				for (const listener of projectionListeners.get(key) ?? []) {
-					try {
-						listener();
-					} catch {
-						/* A listener must not stop transport. */
-					}
-				}
+			const derivedData = yield* PubSub.unbounded<string>();
+			const derivedDataUpdated = (key: string) => {
+				PubSub.publishUnsafe(derivedData, key);
 			};
-			const onProjectionsUpdated = (scope: ApiScope, listener: () => void) => {
+			const derivedDataUpdates = (scope: ApiScope) => {
 				const key = apiScopeKey(scope);
-				const listeners = projectionListeners.get(key) ?? new Set();
-				projectionListeners.set(key, listeners);
-				listeners.add(listener);
-				return () => {
-					listeners.delete(listener);
-					if (!listeners.size && projectionListeners.get(key) === listeners) {
-						projectionListeners.delete(key);
-					}
-				};
+				return Stream.fromPubSub(derivedData).pipe(
+					Stream.filter((updated) => updated === key),
+					Stream.map(() => undefined),
+				);
 			};
 			let active:
 				| undefined
@@ -326,7 +315,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 												}
 												ready = true;
 												if (connectedBefore) {
-													projectionsUpdated(key);
+													derivedDataUpdated(key);
 												}
 												connectedBefore = true;
 												failures = revision = 0;
@@ -356,7 +345,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 												send({ nonce, type: "pong" });
 											}),
 											Match.when({ type: "rejected" }, failed),
-											Match.when({ type: "projections-updated" }, () => projectionsUpdated(key)),
+											Match.when({ type: "derived-data-updated" }, () => derivedDataUpdated(key)),
 											Match.when({ type: "entity-updated" }, (message) => {
 												for (const owner of declarations.get(key) ?? []) {
 													if (!isCurrent()) {
@@ -433,13 +422,12 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				Effect.sync(() => {
 					active?.release();
 					declarations.clear();
-					projectionListeners.clear();
-				}),
+				}).pipe(Effect.andThen(PubSub.shutdown(derivedData))),
 			);
 			return {
 				watch,
 				acquire,
-				onProjectionsUpdated,
+				derivedDataUpdates,
 				refresh: (scope: ApiScope) => {
 					if (active?.key === apiScopeKey(scope)) {
 						active.refresh();

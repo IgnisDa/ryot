@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { EntityUpdate } from "@ryot-app/plugin-client-sdk";
 import { act, render } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Effect, Fiber, Layer, ManagedRuntime, Schema, Stream } from "effect";
 import { createElement, StrictMode, useEffect } from "react";
 
 import { ServerOrigin } from "#/api/origin";
@@ -789,26 +789,33 @@ describe("entity interest session", () => {
 		}),
 	);
 
-	it.live("notifies projection listeners on projection frames and reconnects", () =>
+	it.live("streams derived-data updates for the scope on frames and reconnects", () =>
 		Effect.gen(function* () {
 			const test = setup();
-			let notified = 0;
-			const stop = test.service.onProjectionsUpdated(scope, () => notified++);
-			test.service.onProjectionsUpdated({ ...scope, userId: "other" }, () => notified--);
+			const received: string[] = [];
+			const record = (label: string, target: typeof scope) =>
+				Stream.runForEach(test.service.derivedDataUpdates(target), () =>
+					Effect.sync(() => received.push(label)),
+				).pipe(Effect.forkChild);
+			const current = yield* record("current", scope);
+			yield* record("other", { ...scope, userId: "other" });
+			yield* Effect.yieldNow;
 			test.service.acquire(scope);
 			yield* Effect.promise(() => settle());
 			test.socket().ready();
-			expect(notified).toBe(0);
-			test.socket().frame({ type: "projections-updated" });
-			expect(notified).toBe(1);
+			test.socket().frame({ type: "derived-data-updated" });
+			yield* Effect.promise(() => settle());
+			expect(received).toEqual(["current"]);
 			test.socket().dispatchEvent(new CloseEvent("close", { code: 4001 }));
 			test.advance(1000);
 			yield* Effect.promise(() => settle());
 			test.socket().ready();
-			expect(notified).toBe(2);
-			stop();
-			test.socket().frame({ type: "projections-updated" });
-			expect(notified).toBe(2);
+			yield* Effect.promise(() => settle());
+			expect(received).toEqual(["current", "current"]);
+			yield* Fiber.interrupt(current);
+			test.socket().frame({ type: "derived-data-updated" });
+			yield* Effect.promise(() => settle());
+			expect(received).toEqual(["current", "current"]);
 		}),
 	);
 

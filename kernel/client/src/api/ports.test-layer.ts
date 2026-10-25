@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Stream } from "effect";
 
 import { AccountApi } from "#/api/account";
 import { AutomationHistoryApi } from "#/api/automation-history";
@@ -39,7 +39,7 @@ export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Se
 		refresh: () => {},
 		reconnect: () => {},
 		acquire: () => () => {},
-		onProjectionsUpdated: () => () => {},
+		derivedDataUpdates: () => Stream.empty,
 		watch: () => ({ update: () => {}, dispose: () => {} }),
 		...overrides,
 	});

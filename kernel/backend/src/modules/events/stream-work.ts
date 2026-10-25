@@ -39,7 +39,6 @@ import {
 } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
-import { publishProjectionsUpdated, RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
@@ -83,7 +82,6 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const eventSchemas = yield* EventSchemaReader;
 			const background = yield* BackgroundWorkService;
 			const bindings = yield* ProjectionBindings;
-			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const claimFor = (
 				work: NonNullable<Effect.Success<ReturnType<typeof repository.prepare>>>,
@@ -414,9 +412,9 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						),
 					),
 				);
-				const published = yield* makeActivity({
+				yield* makeActivity({
 					error: DbError,
-					success: Schema.Boolean,
+					success: Schema.Void,
 					name: "publish-projection",
 					execute: session
 						.transaction(
@@ -442,7 +440,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 								) {
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(workClaim.id);
-									return false;
+									return undefined;
 								}
 								const source = yield* entities.getEntityScopeForUser({
 									userId: workClaim.accountGeneration.userId,
@@ -492,7 +490,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 									});
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(workClaim.id);
-									return false;
+									return undefined;
 								}
 								yield* assets
 									.lock(
@@ -533,19 +531,14 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 								if (!output.done) {
 									yield* arrange(workClaim.id);
 								}
-								return output.done;
+								return undefined;
 							}),
 						)
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				});
-				if (published) {
-					yield* publishProjectionsUpdated(redis, workClaim.accountGeneration.userId);
-				}
 				return undefined;
 			});
 
-			const failed = (job: BackgroundWorkInput) =>
-				publishProjectionsUpdated(redis, job.accountGeneration.userId);
 			const bindDeclaration = Effect.fn("EventStreamWorkService.bindDeclaration")(function* (
 				declaration: EventStreamBindingDeclaration,
 				scriptSlug: string,
@@ -638,7 +631,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				}
 				yield* background.admitCandidates("Projection stream", repository.listCandidates, arrange);
 			});
-			return { failed, prepare, process, request, reconcile, admitChange };
+			return { prepare, process, request, reconcile, admitChange };
 		}),
 	},
 ) {

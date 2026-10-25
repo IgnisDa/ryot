@@ -268,7 +268,7 @@ layer(streamWorkTestLayer)((test) => {
 			const source = yield* seedStream("failed-job-retry");
 			const before = yield* streams.get(source.id);
 			assert(before?.currentJobId);
-			yield* background.finish(before.currentJobId, "failed", "Processor failed");
+			yield* background.finish({ userId, id: before.currentJobId }, "failed", "Processor failed");
 			yield* service.request({
 				pluginPin: source.fixture.pluginPin,
 				accountGeneration: source.fixture.accountGeneration,

@@ -1,13 +1,13 @@
 import { notFound } from "@ryot-app/contract/errors";
 import type {
+	EntityWatchDerivedDataUpdatedMessage,
 	EntityWatchEntityUpdatedMessage,
-	EntityWatchProjectionsUpdatedMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 export type LocalInterestSessionEnqueue = (
-	message: EntityWatchEntityUpdatedMessage | EntityWatchProjectionsUpdatedMessage,
+	message: EntityWatchEntityUpdatedMessage | EntityWatchDerivedDataUpdatedMessage,
 ) => void;
 type LocalInterestSessionRevocation = {
 	readonly authSessionId: string;
@@ -54,11 +54,11 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 				});
 			const enqueue = (sessionId: string, message: EntityWatchEntityUpdatedMessage) =>
 				Effect.sync(() => sessions.get(sessionId)?.enqueue(message));
-			const projectionsUpdated = (userId: UserId) =>
+			const derivedDataUpdated = (userId: UserId) =>
 				Effect.sync(() => {
 					for (const session of sessions.values()) {
 						if (session.userId === userId) {
-							session.enqueue({ type: "projections-updated" });
+							session.enqueue({ type: "derived-data-updated" });
 						}
 					}
 				});
@@ -74,7 +74,7 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 				yield* Effect.forEach(closeCallbacks, (close) => close(), { discard: true });
 			});
 
-			return { add, remove, enqueue, closeAuthSession, projectionsUpdated };
+			return { add, remove, enqueue, closeAuthSession, derivedDataUpdated };
 		}),
 	},
 ) {

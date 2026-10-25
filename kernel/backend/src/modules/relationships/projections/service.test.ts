@@ -12,7 +12,7 @@ import {
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -33,7 +33,7 @@ import {
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { ProjectionsUpdatedMessage, redisKeys, RedisService } from "#platform/redis";
+import { RedisService } from "#platform/redis";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -109,11 +109,6 @@ type ProjectionBinding = NonNullable<
 	Effect.Success<ReturnType<ProjectionBindings["Service"]["resolve"]>>
 >;
 
-class ProjectionControls extends Context.Service<
-	ProjectionControls,
-	{ hints: Effect.Effect<ReadonlyArray<string>> }
->()("@ryot-app/kernel-backend/modules/relationships/projections/service.test/ProjectionControls") {}
-
 class ProjectionFixture extends Context.Service<
 	ProjectionFixture,
 	{
@@ -152,52 +147,37 @@ const fixtureLayer = Layer.effect(
 	}),
 ).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(2)));
 
-const testLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const hints = yield* Ref.make<ReadonlyArray<string>>([]);
-		const engineLayer = Layer.succeed(
-			WorkflowEngine,
-			makeWorkflowEngine({ execute: (_workflow, options) => Effect.succeed(options.executionId) }),
-		);
-		const shared = Layer.mergeAll(
-			fixtureLayer,
-			engineLayer,
-			WorkflowExecutionNotifications.layer,
-			makeAppConfigLayer(),
-		);
-		const bindingsLayer = Layer.unwrap(
-			Effect.gen(function* () {
-				const fixture = yield* ProjectionFixture;
-				const binding: ProjectionBinding = {
-					principal: fixture.principal,
-					pluginPin: fixture.pluginPin,
-					accountGeneration: fixture.accountGeneration,
-				};
-				return Layer.merge(
-					Layer.succeed(ProjectionBindings, { resolve: () => Effect.succeed(binding) }),
-					Layer.succeed(ProjectionControls, { hints: Ref.get(hints) }),
-				);
-			}),
-		).pipe(Layer.provide(fixtureLayer));
-		const redisLayer = Layer.succeed(
-			RedisService,
-			makeRedisService({
-				publish: (channel, message) =>
-					Ref.update(hints, (all) => [...all, `${channel} ${message}`]).pipe(Effect.as(0)),
-			}),
-		);
-		const dependencies = Layer.mergeAll(
-			shared,
-			bindingsLayer,
-			redisLayer,
-			RelationshipProjectionRepository.layer.pipe(Layer.provide(shared)),
-			BackgroundWorkService.layer.pipe(Layer.provide(shared)),
-			DomainWriteChecksLive.pipe(Layer.provide(shared)),
-			RelationshipSchemaReaderLive.pipe(Layer.provide(shared)),
-		);
-		return RelationshipProjectionService.layer.pipe(Layer.provideMerge(dependencies));
-	}),
+const engineLayer = Layer.succeed(
+	WorkflowEngine,
+	makeWorkflowEngine({ execute: (_workflow, options) => Effect.succeed(options.executionId) }),
 );
+const shared = Layer.mergeAll(
+	fixtureLayer,
+	engineLayer,
+	WorkflowExecutionNotifications.layer,
+	makeAppConfigLayer(),
+	Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
+);
+const bindingsLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const fixture = yield* ProjectionFixture;
+		const binding: ProjectionBinding = {
+			principal: fixture.principal,
+			pluginPin: fixture.pluginPin,
+			accountGeneration: fixture.accountGeneration,
+		};
+		return Layer.succeed(ProjectionBindings, { resolve: () => Effect.succeed(binding) });
+	}),
+).pipe(Layer.provide(fixtureLayer));
+const dependencies = Layer.mergeAll(
+	shared,
+	bindingsLayer,
+	RelationshipProjectionRepository.layer.pipe(Layer.provide(shared)),
+	BackgroundWorkService.layer.pipe(Layer.provide(shared)),
+	DomainWriteChecksLive.pipe(Layer.provide(shared)),
+	RelationshipSchemaReaderLive.pipe(Layer.provide(shared)),
+);
+const testLayer = RelationshipProjectionService.layer.pipe(Layer.provideMerge(dependencies));
 
 const command = (id: string, writeContext: ScriptExecutionPrincipal) => ({
 	...rootLifecycleCommand({
@@ -334,7 +314,7 @@ const jobStatus = (id: string) =>
 	});
 
 layer(testLayer)((test) => {
-	test.effect("projects requested relationships and publishes refresh hints", () =>
+	test.effect("projects requested relationships", () =>
 		Effect.gen(function* () {
 			const { sources, fixture } = yield* seedLinks("requested", 2);
 			const [first, second] = sources;
@@ -375,9 +355,6 @@ layer(testLayer)((test) => {
 			expect(
 				(yield* (yield* RelationshipProjectionRepository).get(workId))?.currentJobId,
 			).toBeNull();
-			expect(yield* (yield* ProjectionControls).hints).toEqual([
-				`${redisKeys.projectionsUpdatedChannel} ${yield* Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId })}`,
-			]);
 		}),
 	);
 });

@@ -27,7 +27,6 @@ export class BackgroundWorkExecutor extends Context.Service<
 export class BackgroundWorkProjectionFinalizer extends Context.Service<
 	BackgroundWorkProjectionFinalizer,
 	{
-		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
 		prepare: (job: BackgroundWorkInput) => Effect.Effect<null | BackgroundWorkInput, DbError>;
 		publish: (
 			job: BackgroundWorkInput,

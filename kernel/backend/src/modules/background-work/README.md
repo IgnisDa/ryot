@@ -43,6 +43,10 @@ settlement, and any continuation admission atomically. Dispatch follows the tran
 
 ## Recovery and settlement
 
+Every settlement through the workflow, a rejected launch, or recovery of an ended wrapper publishes
+the user-scoped derived-data-updated hint after commit (see [entity
+interest](../entities/watches/README.md)), so open pages refresh job status and projection output.
+
 Recovery keyset-pages running rows and scopes whose oldest queued row has no running sibling, at
 most 100 heads per page, then dispatches each distinct scope in that page once. Queued rows behind a
 running head are never selected individually, so they cannot crowd out heads. A wrapper that is
