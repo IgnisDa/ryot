@@ -54,14 +54,14 @@ const readReview = (client: Parameters<typeof listEventsForEntity>[0], entityId:
 const snapshot = (
 	entityId: string,
 	event: Effect.Success<ReturnType<typeof readReview>>,
-): MediaReviewUpdateInput["expected"] =>
-	Schema.decodeUnknownSync(MediaEventSnapshot)({
+): Effect.Effect<MediaReviewUpdateInput["expected"]> =>
+	Schema.decodeUnknownEffect(MediaEventSnapshot)({
 		entityId,
 		properties: event.properties,
 		occurredAt: event.occurredAt,
 		sessionEntityId: event.sessionEntityId ?? null,
 		absentProperties: ["text", "isSpoiler", "rating"].filter((key) => !(key in event.properties)),
-	});
+	}).pipe(Effect.orDie);
 
 describe("Media rating-only reviews", () => {
 	it.live("creates, reads, edits and deletes a rating with replay-safe writes", () =>
@@ -106,7 +106,7 @@ describe("Media rating-only reviews", () => {
 				isSpoiler: false,
 				eventId: original.id,
 				submittedAt: nowIso(),
-				expected: snapshot(entityId, original),
+				expected: yield* snapshot(entityId, original),
 			};
 			for (let attempt = 0; attempt < 2; attempt++) {
 				expect(
@@ -165,7 +165,7 @@ describe("Media rating-only reviews", () => {
 						eventId: original.id,
 						submittedAt: nowIso(),
 						submissionId: crypto.randomUUID(),
-						expected: snapshot(entityId, original),
+						expected: yield* snapshot(entityId, original),
 					});
 					expect((yield* readReview(client, entityId)).properties).toEqual({
 						animeEpisode: 3,
@@ -209,7 +209,7 @@ describe("Media rating-only reviews", () => {
 				eventId: original.id,
 				submittedAt: nowIso(),
 				submissionId: crypto.randomUUID(),
-				expected: snapshot(entityId, original),
+				expected: yield* snapshot(entityId, original),
 			};
 			const emptyEdit = yield* Effect.flip(
 				invokeEncodedOperation(client, updateReview, { ...edit, text: "   ", rating: null }),

@@ -14,7 +14,7 @@ import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
-const encodeString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+const encodeString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 
 it.live("flushes large device drafts before navigation and restores scoped return shortcuts", () =>
 	Effect.gen(function* () {
@@ -52,7 +52,7 @@ import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { useEffect, useRef, useState } from "react";
 
-const packageId = PluginPackageId.make(${encodeString(manifest.metadata.packageId)});
+const packageId = PluginPackageId.make(${yield* encodeString(manifest.metadata.packageId)});
 export default function Home() {
   const client = useRyot();
   const { pluginId } = client.pluginIdentity(packageId);

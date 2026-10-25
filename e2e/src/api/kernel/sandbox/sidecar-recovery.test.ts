@@ -17,7 +17,7 @@ import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const userCoreProcess = Effect.fnUntraced(function* (backendPid: number) {
 	const command = Bun.spawn(["ps", "-axo", "pid,ppid,args"], { stdout: "pipe" });
@@ -64,7 +64,7 @@ describe("sandbox sidecar recovery", () => {
 				source: `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-export const manifest = defineManifest({ kind: "script", name: "Sidecar fatal builtin", slug: ${encodeJson(slug)} });
+export const manifest = defineManifest({ kind: "script", name: "Sidecar fatal builtin", slug: ${yield* encodeJson(slug)} });
 export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Unknown,
   run: () => Effect.sync(() => new Array(2 ** 28).fill(0)),
 });`,
@@ -94,7 +94,9 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Un
 				Effect.gen(function* () {
 					const detail = yield* getImportRun(client, run.id, undefined, 100);
 					if (detail.run?.status === "failed" || detail.run?.status === "completed") {
-						throw new Error(`Import ended before the provider checkpoint: ${encodeJson(detail)}`);
+						throw new Error(
+							`Import ended before the provider checkpoint: ${yield* encodeJson(detail)}`,
+						);
 					}
 					return (yield* checkpoints) === 1 ? true : null;
 				}),

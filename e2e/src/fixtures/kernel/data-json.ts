@@ -18,7 +18,8 @@ import { createRelationshipSchema } from "./relationship-schemas";
 type Integration = ContractSuccess<"integrations", "create">;
 type AuthenticatedClient = Effect.Success<ReturnType<typeof createAuthenticatedClient>>;
 
-const encodeDataDocument = Schema.encodeSync(Schema.fromJsonString(DataJsonDocument));
+const encodeDataDocument = (document: DataJsonDocument) =>
+	Schema.encodeEffect(Schema.fromJsonString(DataJsonDocument))(document).pipe(Effect.orDie);
 
 export const createDataJsonSchemaGraph = (client: Client) =>
 	Effect.gen(function* () {
@@ -89,7 +90,7 @@ export const submitDataJsonImport = (
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadImportFile(
 			user.client,
-			encodeDataDocument(document),
+			yield* encodeDataDocument(document),
 			"data.json",
 			"application/json",
 		);
@@ -128,10 +129,11 @@ export const sendDataWebhook = (
 			"Expected data JSON integration detail",
 		);
 		const webhookToken = requirePresent(detail.webhookToken, "Expected data JSON webhook token");
+		const payload = yield* encodeDataDocument(document);
 		const response = yield* client.call((c) =>
 			c.integrations.webhook({
+				payload,
 				params: { webhookToken },
-				payload: encodeDataDocument(document),
 				headers: { "idempotency-key": submissionKey },
 			}),
 		);

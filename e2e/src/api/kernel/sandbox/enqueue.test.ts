@@ -18,11 +18,16 @@ import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 const postEnqueue = (body: unknown) =>
-	webRequest(`${getApiUrl()}/test-support/sandbox/enqueue`, {
-		method: "POST",
-		body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(body),
-		headers: { ...adminHeaders(getApiClient()), "Content-Type": "application/json" },
-	});
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(body).pipe(
+		Effect.orDie,
+		Effect.flatMap((json) =>
+			webRequest(`${getApiUrl()}/test-support/sandbox/enqueue`, {
+				body: json,
+				method: "POST",
+				headers: { ...adminHeaders(getApiClient()), "Content-Type": "application/json" },
+			}),
+		),
+	);
 
 describe("sandbox enqueue by script ID", () => {
 	it.live("returns 404 when the scriptId does not exist", () =>

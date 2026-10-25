@@ -2,6 +2,7 @@ import {
 	decodeEntityWatchServerMessage,
 	encodeEntityWatchClientMessage,
 	type EntityWatchAppliedMessage,
+	type EntityWatchClientMessage,
 	type EntityWatchEntityUpdatedMessage,
 	type EntityWatchReadyMessage,
 	type EntityWatchRejectedMessage,
@@ -94,9 +95,14 @@ export const openInterestWebSocket = (
 			}
 			listeners.clear();
 		};
+		const send = (message: EntityWatchClientMessage) =>
+			Result.match(encodeEntityWatchClientMessage(message), {
+				onFailure: fail,
+				onSuccess: (frame) => socket.send(frame),
+			});
 
 		socket.addEventListener("open", () => {
-			socket.send(encodeEntityWatchClientMessage({ ticket, type: "authenticate" }));
+			send({ ticket, type: "authenticate" });
 		});
 		socket.addEventListener("error", () => {
 			fail(new Error("Entity interest WebSocket failed"));
@@ -138,7 +144,7 @@ export const openInterestWebSocket = (
 				return;
 			}
 			if (message.type === "ping") {
-				socket.send(encodeEntityWatchClientMessage({ type: "pong", nonce: message.nonce }));
+				send({ type: "pong", nonce: message.nonce });
 				return;
 			}
 			if (message.type === "entity-updated") {
@@ -201,7 +207,7 @@ export const openInterestWebSocket = (
 							reject: (error) => resume(Effect.die(error)),
 							resolve: (value) => resume(Effect.succeed(value)),
 						});
-						socket.send(encodeEntityWatchClientMessage({ ...message, revision: commandRevision }));
+						send({ ...message, revision: commandRevision });
 						return Effect.sync(() => {
 							acknowledgements.delete(commandRevision);
 						});

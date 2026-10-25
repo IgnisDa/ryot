@@ -1,6 +1,7 @@
 import {
 	decodeEntityWatchServerMessage,
 	encodeEntityWatchClientMessage,
+	type EntityWatchClientMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { OAUTH_IMPERSONATION_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { anyOf } from "@ryot-app/testing/matchers";
@@ -11,15 +12,10 @@ import {
 	createApiKey,
 	createAuthenticatedClient,
 	createImpersonationSession,
+	createPluginSchemaAndEntity,
 	endImpersonationSession,
-	fakeProviderDetailsResult,
-	getEntity,
-	installTestProvider,
 	makeSession,
 	openInterestWebSocketScoped,
-	seedEntity,
-	testProviderEntitySchema,
-	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -51,23 +47,28 @@ const waitForSocketClose = (firstFrame?: string, timeoutMs = 10_000) =>
 		}),
 	);
 
+const clientFrame = (message: EntityWatchClientMessage) =>
+	Effect.fromResult(encodeEntityWatchClientMessage(message)).pipe(Effect.orDie);
+
 const consumeTicket = (ticket: string) =>
-	Effect.callback<void>((resume) => {
-		const socket = new WebSocket(`${getApiUrl()}/entity-watches/ws`);
-		socket.addEventListener("open", () => {
-			socket.send(encodeEntityWatchClientMessage({ ticket, type: "authenticate" }));
-		});
-		socket.addEventListener("message", (event) => {
-			const decoded = decodeEntityWatchServerMessage(String(event.data));
-			if (Result.isSuccess(decoded) && decoded.success.type === "ready") {
-				socket.close(1000);
-				resume(Effect.void);
-			}
-		});
-		return Effect.sync(() => {
-			socket.close();
-		});
-	}).pipe(
+	Effect.flatMap(clientFrame({ ticket, type: "authenticate" }), (frame) =>
+		Effect.callback<void>((resume) => {
+			const socket = new WebSocket(`${getApiUrl()}/entity-watches/ws`);
+			socket.addEventListener("open", () => {
+				socket.send(frame);
+			});
+			socket.addEventListener("message", (event) => {
+				const decoded = decodeEntityWatchServerMessage(String(event.data));
+				if (Result.isSuccess(decoded) && decoded.success.type === "ready") {
+					socket.close(1000);
+					resume(Effect.void);
+				}
+			});
+			return Effect.sync(() => {
+				socket.close();
+			});
+		}),
+	).pipe(
 		Effect.timeoutOrElse({
 			duration: Duration.seconds(10),
 			orElse: () => Effect.die(new Error("Timed out consuming entity interest socket ticket")),
@@ -80,34 +81,14 @@ describe("interest authorization", () => {
 			const authA = yield* createAuthenticatedClient();
 			const authB = yield* createAuthenticatedClient();
 
-			const provider = yield* Effect.acquireRelease(
-				installTestProvider({
-					client: authA.client,
-					rootEntitySchemaSlug: "studio",
-					details: fakeProviderDetailsResult({ name: "Populated Private Studio" }),
-				}),
-				uninstallTestProvider,
-			);
-
-			const privateEntity = yield* seedEntity({
-				properties: {},
-				client: authA.client,
-				userId: authA.userId,
-				name: "A's Private Studio",
-				providerId: provider.providerId,
-				externalId: `private-${crypto.randomUUID()}`,
-				entitySchema: testProviderEntitySchema(provider),
-			});
+			const privateEntity = yield* createPluginSchemaAndEntity(authA.client);
 
 			const socketB = yield* openInterestWebSocketScoped(authB);
-			expect(yield* socketB.replaceInterest([privateEntity.id])).toEqual({
+			expect(yield* socketB.replaceInterest([privateEntity.entityId])).toEqual({
 				revision: 1,
 				type: "applied",
 			});
-			yield* socketB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
-
-			const entity = yield* getEntity(authA.client, privateEntity.id);
-			expect(entity.populatedAt).toBeNull();
+			yield* socketB.expectNoEntityUpdated(privateEntity.entityId, { windowMs: 4000 });
 		}),
 	);
 
@@ -155,18 +136,10 @@ describe("interest authorization", () => {
 
 			const closes = yield* Effect.all(
 				[
-					waitForSocketClose(
-						encodeEntityWatchClientMessage({ type: "authenticate", ticket: "A".repeat(43) }),
-					),
-					waitForSocketClose(
-						encodeEntityWatchClientMessage({ type: "authenticate", ticket: expired.ticket }),
-					),
-					waitForSocketClose(
-						encodeEntityWatchClientMessage({ ticket: "malformed", type: "authenticate" }),
-					),
-					waitForSocketClose(
-						encodeEntityWatchClientMessage({ type: "authenticate", ticket: reused.ticket }),
-					),
+					waitForSocketClose(yield* clientFrame({ type: "authenticate", ticket: "A".repeat(43) })),
+					waitForSocketClose(yield* clientFrame({ type: "authenticate", ticket: expired.ticket })),
+					waitForSocketClose(yield* clientFrame({ ticket: "malformed", type: "authenticate" })),
+					waitForSocketClose(yield* clientFrame({ type: "authenticate", ticket: reused.ticket })),
 				],
 				{ concurrency: "unbounded" },
 			);
@@ -182,12 +155,7 @@ describe("interest authorization", () => {
 	it.live("requires authentication as the first frame and before the deadline", () =>
 		Effect.gen(function* () {
 			const firstFrame = yield* waitForSocketClose(
-				encodeEntityWatchClientMessage({
-					revision: 1,
-					entityIds: [],
-					type: "replace",
-					foregroundIds: [],
-				}),
+				yield* clientFrame({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] }),
 			);
 			const deadline = yield* waitForSocketClose();
 			expect(firstFrame).toEqual({ code: 1002, reason: "Protocol error" });

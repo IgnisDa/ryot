@@ -10,7 +10,8 @@ import {
 	testPluginManifest,
 } from "./test-plugin";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = (value: unknown) =>
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(Effect.orDie);
 
 export const installSidecarRecoveryImport = (client: Client, checkpointUrl: string) =>
 	Effect.gen(function* () {
@@ -48,10 +49,22 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 				},
 			],
 		});
-		const chunks = [committedName, recoveredName].map((name, index) => ({
-			name: `chunk-${index}.json`,
-			contents: encodeJson({ failures: [], items: [item(name, index)] }),
-		}));
+		const chunks = yield* Effect.forEach([committedName, recoveredName], (name, index) =>
+			Effect.map(encodeJson({ failures: [], items: [item(name, index)] }), (contents) => ({
+				contents,
+				name: `chunk-${index}.json`,
+			})),
+		);
+		const literals = yield* Effect.all({
+			chunks: encodeJson(chunks),
+			chunkSlug: encodeJson(chunkSlug),
+			checkpoint: encodeJson(checkpoint),
+			detailsSlug: encodeJson(detailsSlug),
+			recoveredName: encodeJson(recoveredName),
+			enterUrl: encodeJson(`${checkpointUrl}/enter`),
+			workflowScriptSlug: encodeJson(workflowScriptSlug),
+			checkpointUrl: encodeJson(`${checkpointUrl}/checkpoint`),
+		});
 		const workflowEntry = "backend/scripts/import.sandbox.ts";
 		const chunkEntry = "backend/scripts/chunks.sandbox.ts";
 		const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
@@ -160,22 +173,22 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
-export const manifest = defineManifest({ kind: "script", name: "Sidecar recovery chunks", slug: ${encodeJson(chunkSlug)} });
+export const manifest = defineManifest({ kind: "script", name: "Sidecar recovery chunks", slug: ${literals.chunkSlug} });
 export default defineScript({ manifest, input: Schema.Struct({}), output: sandboxScratchManifestSchema,
-  run: () => writeScratchChunks(${encodeJson(chunks)}),
+  run: () => writeScratchChunks(${literals.chunks}),
 });`,
 				[detailsEntry]: `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
-export const manifest = defineManifest({ kind: "provider", name: "Sidecar recovery details", slug: ${encodeJson(detailsSlug)} });
+export const manifest = defineManifest({ kind: "provider", name: "Sidecar recovery details", slug: ${literals.detailsSlug} });
 export default defineProvider({ manifest, operation: "details",
   run: (input, host, execution) => Effect.gen(function* () {
-    yield* host.httpCall("POST", ${encodeJson(`${checkpointUrl}/enter`)}, { body: JSON.stringify({ input, startedAt: execution.startedAt, scriptId: execution.sandboxScriptId }), headers: { "content-type": "application/json" } });
-    yield* host.httpCall("GET", ${encodeJson(`${checkpointUrl}/checkpoint`)});
-    yield* host.log([{ level: "info", message: ${encodeJson(checkpoint)} }]);
+    yield* host.httpCall("POST", ${literals.enterUrl}, { body: JSON.stringify({ input, startedAt: execution.startedAt, scriptId: execution.sandboxScriptId }), headers: { "content-type": "application/json" } });
+    yield* host.httpCall("GET", ${literals.checkpointUrl});
+    yield* host.log([{ level: "info", message: ${literals.checkpoint} }]);
     yield* Effect.sleep("20 seconds");
-    return { name: ${encodeJson(recoveredName)}, properties: {} };
+    return { name: ${literals.recoveredName}, properties: {} };
   }),
 });`,
 				[workflowEntry]: `
@@ -184,8 +197,8 @@ import {
   genericImportWorkflowInputSchema, genericImportWorkflowResultSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "workflow", name: "Sidecar recovery import", slug: ${encodeJson(workflowScriptSlug)} });
-const chunks = defineScriptReference({ scriptSlug: ${encodeJson(chunkSlug)}, input: Schema.Struct({}), output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }) });
+export const manifest = defineManifest({ kind: "workflow", name: "Sidecar recovery import", slug: ${literals.workflowScriptSlug} });
+const chunks = defineScriptReference({ scriptSlug: ${literals.chunkSlug}, input: Schema.Struct({}), output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }) });
 export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchema, output: genericImportWorkflowResultSchema,
   run: (input, replay) => Effect.gen(function* () {
     const written = yield* replay.activity("chunks", chunks, {});

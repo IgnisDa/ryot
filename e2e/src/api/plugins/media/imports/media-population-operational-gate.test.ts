@@ -132,16 +132,22 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				yield* Effect.sleep(POLL_INTERVAL);
 			}
 
-			const resultCounts = finalResults.map((run) => {
-				const outputs = run.executions.map((execution) => {
-					expect(execution.status).toBe("completed");
-					return Schema.decodeUnknownSync(MediaImportPopulationWorkflowOutput)(execution.output);
-				});
-				const results = outputs.flatMap((output) => output.results);
-				expect(results).toHaveLength(ITEM_COUNT);
-				expect(results.filter(({ status }) => status !== "completed").slice(0, 5)).toEqual([]);
-				return results.length;
-			});
+			const resultCounts = yield* Effect.forEach(finalResults, (run) =>
+				Effect.map(
+					Effect.forEach(run.executions, (execution) => {
+						expect(execution.status).toBe("completed");
+						return Schema.decodeUnknownEffect(MediaImportPopulationWorkflowOutput)(
+							execution.output,
+						);
+					}),
+					(outputs) => {
+						const results = outputs.flatMap((output) => output.results);
+						expect(results).toHaveLength(ITEM_COUNT);
+						expect(results.filter(({ status }) => status !== "completed").slice(0, 5)).toEqual([]);
+						return results.length;
+					},
+				),
+			);
 			const sandboxExecutionCount =
 				finalPressure.sandbox.totalExecutions - baseline.sandbox.totalExecutions;
 			const deadlockCount = finalPressure.database.deadlocks - baseline.database.deadlocks;

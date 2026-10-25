@@ -137,18 +137,18 @@ export const installTestSupportSystemPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
+		const compiledClient =
+			pluginPackage.compiledClient === undefined
+				? undefined
+				: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+						pluginPackage.compiledClient,
+					).pipe(Effect.orDie);
 		return yield* getApiClient(input.target).adminCall((c) =>
 			c.testSupport.installSystemPlugin({
 				payload: {
 					manifest: pluginPackage.manifest,
 					compiledScripts: pluginPackage.compiledScripts,
-					...(pluginPackage.compiledClient === undefined
-						? {}
-						: {
-								compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
-									pluginPackage.compiledClient,
-								),
-							}),
+					...(compiledClient === undefined ? {} : { compiledClient }),
 				},
 			}),
 		);
@@ -163,6 +163,12 @@ export const updateTestSupportSystemPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
+		const compiledClient =
+			pluginPackage.compiledClient === undefined
+				? undefined
+				: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+						pluginPackage.compiledClient,
+					).pipe(Effect.orDie);
 		return yield* getApiClient(input.target).adminCall((contract) =>
 			contract.testSupport.updateSystemPlugin({
 				params: { pluginId: input.pluginId },
@@ -170,13 +176,7 @@ export const updateTestSupportSystemPlugin = (
 					contentHash: input.contentHash,
 					manifest: pluginPackage.manifest,
 					compiledScripts: pluginPackage.compiledScripts,
-					...(pluginPackage.compiledClient === undefined
-						? {}
-						: {
-								compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
-									pluginPackage.compiledClient,
-								),
-							}),
+					...(compiledClient === undefined ? {} : { compiledClient }),
 				},
 			}),
 		);

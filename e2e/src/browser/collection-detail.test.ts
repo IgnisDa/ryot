@@ -8,7 +8,7 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
-const encodeFilter = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeFilter = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 it.live("reorders a kernel collection and opens memberships without member fields", () =>
 	Effect.gen(function* () {
@@ -426,7 +426,7 @@ it.live("filters collection members by a membership property from the URL", () =
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		const filters = Buffer.from(
-			encodeFilter({ value: 4, operator: "gte", field: "membership.rating" }),
+			yield* encodeFilter({ value: 4, operator: "gte", field: "membership.rating" }),
 		).toString("base64url");
 		yield* page.goto(`${frontendUrl}/e/${collection.id}?filters=${filters}`);
 		const detail = page.locator("iframe").contentFrame();

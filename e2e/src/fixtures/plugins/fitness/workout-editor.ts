@@ -74,7 +74,10 @@ export const loadWorkoutBaseline = (
 			workoutEditorSetsRecipe({ after, reference, workoutId: entityId }),
 		);
 		const baseline: WorkoutEditorBaseline = { sets, entity };
-		return { baseline, conflictToken: encodeWorkoutEditorBaseline(baseline) };
+		const conflictToken = yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)).pipe(
+			Effect.orDie,
+		);
+		return { baseline, conflictToken };
 	});
 
 export const editTarget = (loaded: {

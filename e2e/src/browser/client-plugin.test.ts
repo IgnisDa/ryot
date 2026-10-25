@@ -25,7 +25,7 @@ import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: null | string };
 
-const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 const privateAccessKey = /\/api\/page-bundles\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
@@ -605,7 +605,7 @@ export default function Home() {
   const [outcome, setOutcome] = useState("idle");
   return <PluginScreenFrame title="External links">
     <button onClick={() => {
-      void Effect.runPromise(client.links.open({ url: ${encodeJsonString(destination)} }).pipe(
+      void Effect.runPromise(client.links.open({ url: ${yield* encodeJsonString(destination)} }).pipe(
         Effect.match({ onSuccess: (value) => setOutcome(value.outcome), onFailure: (error) => setOutcome(error.reason) }),
       ));
     }}>Open external link</button>
