@@ -20,7 +20,11 @@ import { projectRelationshipIngestionReceipt } from "#modules/relationships/muta
 import { DatabaseSession } from "#platform/db/session";
 
 import { IngestionCaptures } from "./capture-service";
-import { ingestionItemIdentity, summarizeIngestionOutcomes } from "./outcomes";
+import {
+	genericImportOperationIdentity,
+	ingestionItemIdentity,
+	summarizeIngestionOutcomes,
+} from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
@@ -89,7 +93,7 @@ export const genericIngestionOperations = (
 						{
 							...intent.outcome,
 							operationId: intent.operationId,
-							itemIdentity: ingestionItemIdentity(runId, intent.operationId),
+							itemIdentity: genericImportOperationIdentity(runId, item, intent.operationId),
 							attribution: intent.attribution ?? {
 								recordId: item.recordId,
 								sourceLabel: item.sourceLabel,

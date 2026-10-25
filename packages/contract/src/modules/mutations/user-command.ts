@@ -18,6 +18,7 @@ export const UserCommand = strictStruct({
 			source: CommandEntityReference,
 			target: CommandEntityReference,
 			relationshipSchemaSlug: Schema.NonEmptyString,
+			itemIdentity: Schema.optional(Schema.NonEmptyString),
 			propertiesMode: Schema.Literals(["merge", "replace"]),
 		}),
 	),
@@ -25,6 +26,7 @@ export const UserCommand = strictStruct({
 		properties,
 		name: Schema.NonEmptyString,
 		entitySchemaSlug: Schema.NonEmptyString,
+		itemIdentity: Schema.optional(Schema.NonEmptyString),
 		target: Schema.Union([
 			strictStruct({ kind: Schema.Literal("create") }),
 			strictStruct({

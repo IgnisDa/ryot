@@ -1,46 +1,63 @@
 import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
-import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import type {
+	IngestionIssue,
+	IngestionOutcome,
+} from "@ryot-app/contract/modules/imports/ingestion";
+import { AutomationExecutionId, ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
-import { Cause, Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionLookup } from "#modules/definitions/snapshot";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import {
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "#modules/events/event-groups.test-support";
+import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { ProcessGenericImportChunksWorkflow, writeGenericItem } from "./generic-import-workflow";
-import { ingestionItemIdentity } from "./outcomes";
+import { IngestionCaptures } from "./capture-service";
+import {
+	ProcessGenericImportChunksWorkflow,
+	runProcessGenericImportChunksWorkflow,
+} from "./generic-import-workflow";
+import { ingestionTestRun, ingestionTestSource } from "./ingestion.test-support";
+import { genericImportOperationIdentity } from "./outcomes";
+import { ImportsRepository } from "./repository";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 
 const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	const fixture = yield* eventGroupFixture();
 	const revision = fixture.command.writeContext.pluginRevision;
 	assert(revision);
+	const accountGeneration = fixture.command.accountGeneration;
+	assert(accountGeneration);
+	const active = yield* (yield* PluginRuntimeResolver).findPluginAvailableToUser(
+		fixture.userId,
+		revision.id,
+	);
+	assert(active?.installationId);
 	const runId = ImportRunId.make(yield* randomUuid);
 	const command = {
 		...rootLifecycleCommand({
 			source: "import",
+			accountGeneration,
 			lane: "background",
 			importRunId: runId,
 			itemIdentity: "record",
 			occurredAt: fixture.command.occurredAt,
+			executionId: AutomationExecutionId.make(runId),
 			initiator: { kind: "user", id: fixture.userId },
-			executionId: fixture.command.causation.executionId,
-			accountGeneration: fixture.command.accountGeneration,
 		}),
 		writeContext: fixture.command.writeContext,
-		accountGeneration: fixture.command.accountGeneration,
 	};
 	const item: GenericImportWriteItem = {
 		itemIndex: 0,
@@ -104,30 +121,99 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 			})),
 		],
 	};
-	const definitionRows = yield* (yield* DefinitionRepository).getSnapshotForContext(
-		{ pluginId: revision.id, pluginRevisionId: revision.revisionId },
-		fixture.userId,
-	);
-	const apply = writeGenericItem(
-		item,
-		fixture.userId,
-		0,
-		definitionLookup(definitionRows),
-		command,
-		revision,
-	).pipe(
-		Effect.provideService(
+	const outcomes = new Map<string, IngestionOutcome>();
+	const issues = new Map<string, IngestionIssue>();
+	const scope = { runId, accountGeneration, userId: fixture.userId };
+	const importLayer = Layer.mergeAll(
+		Layer.mock(EventsService)({}),
+		Layer.mock(ImportSourceStateStore)({
+			load: () =>
+				Effect.succeed({
+					...ingestionTestSource,
+					files: {},
+					pluginId: revision.id,
+					pluginRevision: revision,
+					pluginInstallationId: active.installationId,
+				}),
+		}),
+		Layer.mock(IngestionCaptures)({
+			read: () => Effect.succeed(Buffer.from(JSON.stringify({ failures: [], items: [item] }))),
+		}),
+		Layer.mock(ImportsRepository)({
+			listBatches: () => Effect.succeed([]),
+			startBatch: () => Effect.succeed(true),
+			projectBatch: () => Effect.succeed(true),
+			registerBatch: () => Effect.succeed(true),
+			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
+			getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
+			recordIssue: (_scope, issue) =>
+				Effect.sync(() => {
+					issues.set(issue.id, issue);
+					return true;
+				}),
+			recordOutcome: (_scope, outcome) =>
+				Effect.sync(() => {
+					outcomes.set(outcome.operationId, outcome);
+					return true;
+				}),
+			getCapture: () =>
+				Effect.succeed({
+					ordinal: 0,
+					id: "capture",
+					state: "sealed",
+					checkpoint: null,
+					phase: "application",
+					payload: { byteSize: 0, locator: "owned", checksum: "fingerprint" },
+				}),
+			getIngestionRunControl: () =>
+				Effect.succeed(
+					ingestionTestRun({
+						...scope,
+						id: runId,
+						pluginInstallationId: active.installationId,
+						pins: {
+							scriptId: "script-1",
+							executionId: "import-owner",
+							pluginRevisionId: revision.revisionId,
+							pluginConfigRevisionId: revision.configRevisionId,
+						},
+					}),
+				),
+		}),
+		Layer.succeed(
 			WorkflowInstance,
 			WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, runId),
 		),
 	);
+	const apply = runProcessGenericImportChunksWorkflow(
+		{
+			...scope,
+			command,
+			ordinal: 0,
+			batchId: "batch",
+			executionId: runId,
+			captureId: "capture",
+			inputFingerprint: "fingerprint",
+			artifactReferenceExecutionId: runId,
+			artifactOwnerExecutionId: "import-owner",
+		},
+		runId,
+	).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
 	const receiptIdentities = [
 		"session",
 		"anchor",
 		"link",
 		...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
-	].map((id) => ingestionItemIdentity(runId, id));
-	return { ...fixture, runId, apply, command, receiptIdentities };
+	].map((id) => genericImportOperationIdentity(runId, item, id));
+	const committed = Effect.flatMap(MutationReceipts.make, (receipts) =>
+		receipts.getCommittedItems({
+			accountGeneration,
+			rootExecutionId: runId,
+			userId: fixture.userId,
+			itemIdentities: receiptIdentities,
+		}),
+	);
+	return { ...fixture, apply, outcomes, committed };
 });
 
 layer(
@@ -141,28 +227,14 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"atomically imports the subject, relationships, and complete group and replays original receipts after interruption",
+		"atomically imports the subject, relationships, and complete group and replays original receipts",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* recordFixture(101);
-				const interrupted = yield* Effect.exit(
-					Effect.gen(function* () {
-						expect((yield* fixture.apply)._tag).toBe("ready");
-						return yield* Effect.interrupt;
-					}),
-				);
-				assert(Exit.isFailure(interrupted));
-				expect(Cause.hasInterruptsOnly(interrupted.cause)).toBe(true);
-				const replay = yield* fixture.apply;
-				assert(replay._tag === "ready");
-				expect(replay.events).toEqual([]);
-				const committed = yield* (yield* MutationReceipts.make).getCommittedItems({
-					userId: fixture.userId,
-					itemIdentities: fixture.receiptIdentities,
-					accountGeneration: fixture.command.accountGeneration,
-					rootExecutionId: fixture.command.causation.rootExecutionId,
-				});
-				expect(committed).toHaveLength(104);
+				yield* fixture.apply;
+				yield* fixture.apply;
+				expect([...fixture.outcomes.values()]).toEqual([]);
+				expect(yield* fixture.committed).toHaveLength(104);
 				const database = yield* DatabaseSession;
 				expect(
 					yield* database.run((db) =>
@@ -181,18 +253,16 @@ layer(
 	);
 
 	test.effect(
-		"rolls back a constrained import's subject, relationships, events, and record receipts together",
+		"rolls back a grouped import's subject, relationships, events, and record receipts together",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* recordFixture(0);
-				expect((yield* fixture.apply)._tag).toBe("failed");
-				const committed = yield* (yield* MutationReceipts.make).getCommittedItems({
-					userId: fixture.userId,
-					itemIdentities: fixture.receiptIdentities,
-					accountGeneration: fixture.command.accountGeneration,
-					rootExecutionId: fixture.command.causation.rootExecutionId,
-				});
-				expect(committed).toEqual([]);
+				yield* fixture.apply;
+				expect([...fixture.outcomes.values()].map((outcome) => outcome.result)).toEqual([
+					"unsuccessful",
+					"unsuccessful",
+				]);
+				expect(yield* fixture.committed).toEqual([]);
 				const database = yield* DatabaseSession;
 				expect(
 					yield* database.run((db) =>

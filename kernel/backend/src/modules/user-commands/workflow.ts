@@ -75,16 +75,13 @@ const Payload = Schema.Struct({
 	userId: UserId,
 	input: UserCommand,
 	command: DomainLifecycleCommand,
-	itemIdentities: Schema.optional(
-		Schema.Struct({
-			entity: Schema.String,
-			relationships: Schema.Array(Schema.String),
-			events: Schema.Record(Schema.String, Schema.String),
-		}),
-	),
 });
 const identity = ({ command }: { command: DomainLifecycleCommand }) =>
 	`${command.causation.executionId}:${command.itemIdentity}`;
+const itemCommand = (command: DomainLifecycleCommand, itemIdentity: string) => ({
+	...command,
+	itemIdentity: `${command.itemIdentity}:${itemIdentity}`,
+});
 
 export const UserCommandWorkflow = Workflow.make("UserCommandWorkflow", {
 	error: Failure,
@@ -209,13 +206,11 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 				executionId,
 			);
 			const receiptIdentity = mutationReceiptIdentity({
+				input: payload.input,
 				command: payload.command,
 				ownerUserId: payload.userId,
 				scopeUserId: payload.userId,
 				commandKind: "user-command:commit",
-				input: payload.itemIdentities
-					? { input: payload.input, itemIdentities: payload.itemIdentities }
-					: payload.input,
 			});
 			const existing = yield* receipts
 				.peek(receiptIdentity, UserCommandResult)
@@ -233,10 +228,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			}
 			const rawEntity = yield* UserEntityPreparationWorkflow.execute({
 				...payload,
-				command: {
-					...payload.command,
-					itemIdentity: payload.itemIdentities?.entity ?? `${payload.command.itemIdentity}:entity`,
-				},
+				command: itemCommand(payload.command, payload.input.entity.itemIdentity ?? "entity"),
 			});
 			const entity = yield* restoreUserEntitySave(rawEntity);
 			const changes: EventMutationChange[] = [
@@ -275,12 +267,10 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					relationship,
 					entity: rawEntity,
 					userId: payload.userId,
-					command: {
-						...payload.command,
-						itemIdentity:
-							payload.itemIdentities?.relationships[index] ??
-							`${payload.command.itemIdentity}:relationship:${index}`,
-					},
+					command: itemCommand(
+						payload.command,
+						relationship.itemIdentity ?? `relationship:${index}`,
+					),
 				});
 				if (prepared) {
 					preparedRelations.push(prepared);
@@ -292,10 +282,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 				command: DomainLifecycleCommand;
 			}> = [];
 			for (let offset = 0; offset < changes.length; offset += 50) {
-				const command = {
-					...payload.command,
-					itemIdentity: `${payload.command.itemIdentity}:events:${offset}`,
-				};
+				const command = itemCommand(payload.command, `events:${offset}`);
 				const prepared = yield* makeActivity({
 					error: Failure,
 					success: PreparedEventChanges,
@@ -303,11 +290,10 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					execute: session
 						.transaction(
 							events.prepare({
-								command,
 								userId: payload.userId,
 								positionOffset: offset,
+								command: payload.command,
 								changes: changes.slice(offset, offset + 50),
-								itemIdentities: payload.itemIdentities?.events ?? {},
 								proposedEntities: { [entity.entityId]: rawEntity.mutation.draft },
 							}),
 						)

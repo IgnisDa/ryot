@@ -17,14 +17,18 @@ entity, relationships, and event changes, and records the result and dispatch pl
 Asset uploads and storage are separate from the command transaction. A command may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.
 
+Every command item derives its receipt identity as `<command itemIdentity>:<item itemIdentity>`.
+Event creates and changes carry a required `itemIdentity`; the entity and each relationship may
+carry one and otherwise use `entity` and `relationship:<index>`.
+
 Event policy items retain their unique `itemIdentity` through preparation and policy results. Event
 preparation is chunked at 50 items, while accepted changes are committed together with the rest of
 the command. The result pairs each written event ID with its item identity and returns the root entity
 ID. Repeated event identities or duplicate existing event IDs are rejected.
 
 Declared event-group constraints are captured once for the complete prepared command and checked only
-after all event pages commit within its transaction. The generic import owner uses this same command
-and preserves the original per-intent receipt identities; it does not create a parallel event writer.
+after all event pages commit within its transaction. The generic import owner uses this same command,
+setting item identities to its operation IDs; it does not create a parallel event writer.
 
 ## Replay and optimistic baselines
 

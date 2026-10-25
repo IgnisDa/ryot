@@ -3,6 +3,7 @@ import type {
 	IngestionOutcome,
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 
 export const ingestionItemIdentity = (
@@ -16,6 +17,30 @@ export const ingestionOperationCommand = <Command extends LifecycleCommand>(
 ): Command => ({
 	...command,
 	itemIdentity: ingestionItemIdentity(command.causation.importRunId, operationId),
+});
+
+const genericImportRecordOperationId = (item: GenericImportWriteItem) =>
+	item.entities.find((entity) => entity.alias === item.subjectEntityAlias)?.operationId ??
+	item.recordId;
+
+export const genericImportRecordCommand = <Command extends LifecycleCommand>(
+	command: Command,
+	item: GenericImportWriteItem,
+): Command => ingestionOperationCommand(command, genericImportRecordOperationId(item));
+
+export const genericImportOperationIdentity = (
+	runId: LifecycleCommand["causation"]["importRunId"],
+	item: GenericImportWriteItem,
+	operationId: string,
+) => `${ingestionItemIdentity(runId, genericImportRecordOperationId(item))}:${operationId}`;
+
+export const genericImportOperationCommand = <Command extends LifecycleCommand>(
+	command: Command,
+	item: GenericImportWriteItem,
+	operationId: string,
+): Command => ({
+	...command,
+	itemIdentity: genericImportOperationIdentity(command.causation.importRunId, item, operationId),
 });
 
 export const summarizeIngestionOutcomes = (

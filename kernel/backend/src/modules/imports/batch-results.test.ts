@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import type {
 	IngestionBatch,
 	IngestionOutcome,
@@ -18,7 +18,7 @@ import {
 	ingestionTestReceipt,
 	ingestionTestScope,
 } from "./ingestion.test-support";
-import { ingestionItemIdentity } from "./outcomes";
+import { genericImportOperationIdentity, ingestionItemIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 
 const batch: IngestionBatch = {
@@ -83,8 +83,16 @@ it.effect(
 	"reconciles a late committed receipt before cancellation and returns only attributed event completion facts",
 	() =>
 		Effect.gen(function* () {
+			const [item] = chunk.items;
+			assert(item);
 			const receipts = [
-				ingestionTestReceipt("committed", "event:create", { processed: [], eventId: "event-1" }),
+				{
+					...ingestionTestReceipt("committed", "event:create", {
+						processed: [],
+						eventId: "event-1",
+					}),
+					itemIdentity: genericImportOperationIdentity(ingestionTestScope.runId, item, "committed"),
+				},
 			];
 			const outcomes = new Map(
 				[
