@@ -776,8 +776,24 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				},
 			);
 
-			const discover = Effect.fn("EventStreamRepository.discover")(function* (limit: number) {
-				yield* requireTransaction;
+			const discoverableAccounts = session
+				.run((db) =>
+					db.execute<{ userId: string }>(
+						sql`
+					select distinct i.user_id as "userId" from plugin_installation i
+					join "user" u on u.id = i.user_id and u.disabled_at is null
+					join plugin p on p.id = i.plugin_id and p.status = 'active'
+					where i.health = 'ready' and i.uninstalled_at is null
+					order by "userId"
+				`,
+						"objects",
+					),
+				)
+				.pipe(Effect.map((rows) => rows.map(({ userId }) => userId)));
+
+			const undiscovered = Effect.fn("EventStreamRepository.undiscovered")(function* (
+				userId: string,
+			) {
 				const rows = yield* session.run((db) =>
 					db.execute<{
 						userId: string;
@@ -786,7 +802,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						eventSchemaPluginId: string;
 					}>(
 						sql`
-					with targets as (${requiredProjectionTargets()})
+					with targets as (${requiredProjectionTargets(userId)})
 					select distinct "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId" from targets
 					join "user" u on u.id = targets."userId" and u.disabled_at is null
 					join plugin p on p.id = targets."eventSchemaPluginId" and p.status = 'active'
@@ -797,13 +813,32 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						and s.entity_id = targets."entityId" and s.event_schema_plugin_id = targets."eventSchemaPluginId"
 						and s.event_schema_slug = targets."eventSchemaSlug")
 					order by "userId", "entityId", "eventSchemaPluginId", "eventSchemaSlug"
-					limit ${limit}
 				`,
 						"objects",
 					),
 				);
-				yield* ensureAndLockStreams(rows.map(toStreamKey));
-				return rows.length;
+				return rows.map(toStreamKey);
+			});
+
+			const discover = Effect.fn("EventStreamRepository.discover")(function* (
+				keys: ReadonlyArray<StreamKey>,
+			) {
+				yield* requireTransaction;
+				const entityIds = [...new Set(keys.map(({ entityId }) => entityId))].sort();
+				if (entityIds.length === 0) {
+					return 0;
+				}
+				const existing = yield* session.run((db) =>
+					db
+						.select({ id: schema.entity.id })
+						.from(schema.entity)
+						.where(inArray(schema.entity.id, entityIds))
+						.orderBy(asc(schema.entity.id))
+						.for("key share"),
+				);
+				const retained = new Set(existing.map(({ id }) => id));
+				return (yield* ensureAndLockStreams(keys.filter(({ entityId }) => retained.has(entityId))))
+					.length;
 			});
 
 			const prepare = Effect.fn("EventStreamRepository.prepare")(function* (id: string) {
@@ -902,6 +937,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				request,
 				discover,
 				inputRepair,
+				undiscovered,
 				currentClaim,
 				lockForEvents,
 				supersededJobs,
@@ -911,6 +947,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				sourceCandidates,
 				bindingCandidates,
 				postponeCandidate,
+				discoverableAccounts,
 				lockSourceReferences,
 				inputRepairCandidates,
 				lockSourceReferencesForEvents,

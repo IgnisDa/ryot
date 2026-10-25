@@ -477,8 +477,8 @@ const streamRepositoryImplementationLayer = Layer.effect(
 		const session = yield* DatabaseSession;
 		return {
 			...repository,
-			discover: (limit: Parameters<typeof repository.discover>[0]) =>
-				recorder.beforeDiscovery.pipe(Effect.andThen(repository.discover(limit))),
+			discover: (keys: Parameters<typeof repository.discover>[0]) =>
+				recorder.beforeDiscovery.pipe(Effect.andThen(repository.discover(keys))),
 			prepare: (id: Parameters<typeof repository.prepare>[0]) =>
 				Effect.gen(function* () {
 					yield* recorder.record({

@@ -885,13 +885,15 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			);
 			const reconcile = Effect.fn("EventStreamWorkService.reconcile")(function* () {
 				yield* reconcileKnownStreams();
-				for (;;) {
-					const discovered = yield* session.transaction(repository.discover(100));
-					if (discovered > 0) {
-						yield* reconcileKnownStreams();
-					}
-					if (discovered < 100) {
-						break;
+				for (const userId of yield* repository.discoverableAccounts) {
+					const missing = yield* repository.undiscovered(userId);
+					for (let offset = 0; offset < missing.length; offset += 100) {
+						const discovered = yield* session.transaction(
+							repository.discover(missing.slice(offset, offset + 100)),
+						);
+						if (discovered > 0) {
+							yield* reconcileKnownStreams();
+						}
 					}
 				}
 			});

@@ -187,7 +187,9 @@ fence in the same transaction. Reusing the root across streams does not advance 
 relationship readiness. It includes retained input and mapping-only targets even before their streams
 exist; a missing/unbound stream cannot count as complete. Readiness requires exact current account,
 installation, processor and repair pins/epoch, successful roots, completed current stream revisions,
-and no active trusted silent user-script roots or descendants. It takes no stream locks.
+and no active trusted silent user-script roots or descendants. It takes no stream locks. Readiness
+first checks the account's existing projection streams and derives the full relation from history
+only when they are all ready.
 
 A processor that depends on asynchronous source repair must verify retained readiness evidence before
 returning `done: true`. Read that evidence and its current source-scope revision in one RyotQL
@@ -235,7 +237,8 @@ for common admission, dispatch, and recovery ownership.
 
 Restore passes session and property references into stream seeding and takes reference locks before
 inserting historical events. Reconciliation also discovers missing target streams from current
-declarations and retained inputs in batches of 100. Mapping evidence alone can seed a target stream;
+declarations and retained inputs. It derives each enabled account's missing targets once, then seeds
+them in pages of 100, skipping entities deleted since that read. Mapping evidence alone can seed a target stream;
 an output event need not exist yet. Discovery inserts missing stream identities without advancing
 existing revisions, then ordinary binding reconciliation admits the current processor. Invalidation
 updates all affected revisions atomically; the 100-update processor page bound does not truncate

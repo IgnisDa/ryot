@@ -486,7 +486,59 @@ analysis. Order 16 remains In progress until the complete usable screen and all 
 
 ### Latest checkpoint
 
-#### Current status — 2026-10-30
+#### Current status — 2026-10-30 (replacement-environment run)
+
+Order 16 remains **IN PROGRESS** only for real-dump normal-runtime readiness, which the owner moved
+to a VM. Every other acceptance gate in this document has passing evidence on current sources.
+
+- **Base.** Runs used `60844dfb4b` (after the `[schema-sync]` commits) plus the kernel events change
+  below. Migrations ran from an isolated worktree with clean environments and the documented
+  `order16_run` parameters; build passed 8/8 tasks and assembly passed.
+- **E2E.** All 18 Order 16 files pass serially, one Turbo run each (73 tests, no cache replays):
+  Media API recipes 4/4, with entity ranking in 167.0 seconds under the unchanged 180-second budget;
+  Media paging 1/1; Home links 2/2; Media browser 2/2; Fitness browser 1/1; Fitness interactions 2/2;
+  Analytics 3/3; reporting charts 1/1; reporting preferences 1/1; contributions 4/4; user settings
+  6/6; backup round trip 8/8; Fitness evidence 7/7; consumption 4/4; consumption retention 3/3;
+  activity writers 13/13; imports 2/2; integrations 5/5. The earlier ranking timeout no longer
+  reproduces; no fixture, timeout, writer or assertion changed.
+- **file migration.** Migration-only exited 0 in 80 seconds. Exact comparison passes for every
+  canonical record (66,188 Media, 52,926 Fitness, 2,090 evidence, 35 parent; zero missing, changed or
+  extra); manual minutes 1,847/1,847. Persisted-schema validation passes 121,239/121,239. Silence,
+  event-group and foreign-key gates pass. All 43 original assets pass byte/owner proof. Migration-only
+  restart exits 0 and leaves events, reports, details and schemas unchanged.
+- **file2 migration.** Migration-only exited 0 in 9 minutes 26 seconds. Exact comparison passes for
+  every canonical record (628,797 Media, 15,746 Fitness, 287,659 evidence, 5,322 parent; 25,978
+  documented omissions); manual minutes 404,219/404,219. Schema validation passes 937,524/937,524.
+  Silence, group and foreign-key gates pass. Asset verification reports exactly the 107 waived
+  unavailable originals and no other failure. Restart stability passes with zero differences.
+- **Normal-runtime stall fixed.** On real history, startup never became ready. Projection readiness
+  rederived every required target from the account's entire history on each relationship-projection
+  step while holding the account's input lock (5 seconds standalone, up to 15 minutes under load).
+  Discovery rederived all accounts' targets once per 100 streams. After 40 minutes, file had 267 of
+  119,260 streams. Readiness now checks existing streams first and derives the full relation only when
+  they are all ready. Discovery derives each enabled account's missing targets once and seeds pages of
+  100. Mapping fanout reads only the source users' mapping events. Readiness semantics are unchanged.
+  Focused backend tests pass 66/66 and the kernel backend check passes.
+- **Remaining throughput limit.** With the fix, file reconciliation progressed steadily (5,768 streams
+  in about 25 minutes) but slowly. Media hosts every history-correction event on the account's Media
+  Library entity, and source-reference locks (`FOR NO KEY UPDATE`) plus that entity's scope revision
+  serialize all correction writes for one account. Sampling showed nearly every active connection
+  waiting on that entity row. One-time catch-up after migrating a 60,000-title account is estimated at
+  10–16 hours. Ordinary single-title writes recompute only that title in seconds, and different
+  accounts do not block each other. The owner kept this design. Redesigning correction storage or the
+  kernel lock protocol remains out of scope.
+- **Pending on the VM.** The owner stopped local runtimes on this development machine and will deploy
+  this commit to a VM. Approximately 15 hours later, verify: enabled event and relationship projections
+  ready with zero pending/failed work; disabled accounts ran no plugin work; strict live Media/Fitness
+  comparisons against source expectations; and stopped-runtime stability of source facts and reports.
+  Use the kit's `gates.py runtime` and `accept.py runtime-stability` checks, or equivalent SQL, against
+  the VM databases. Mark Order 16 Done only after these pass.
+
+Evidence is under `order16-runtime/claude-20261030-01/` in the approved temporary directory. Kit
+captures used the replacement kit `order16-acceptance-kit/recreated-20261030-1gh3vrcc/`. Local
+targets keep their migrated data with containers stopped; nothing was deleted.
+
+#### Prior status — 2026-10-30 (morning)
 
 Order 16 remains **IN PROGRESS**. Post-cleanup acceptance is blocked at Media API 3/4: entity ranking
 exceeds the unchanged 180-second budget. The later post-cleanup browser files, build/freeze, fresh

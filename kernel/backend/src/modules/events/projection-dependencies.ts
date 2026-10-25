@@ -53,6 +53,7 @@ export const projectionDependencyTargets = (sources: ReturnType<typeof sql>) => 
 		from event mapping
 		join mapping_schemas schema on schema.plugin_id = mapping.event_schema_plugin_id
 			and schema.event_schema_slug = mapping.event_schema_slug
+		where mapping.user_id in (select distinct user_id from sources)
 	), mapping_edges as (
 		select distinct declaration.declaration_id, declaration.input_index, mapping.user_id,
 			mapping.properties->>(declaration.dependency->'through'->>'sourceProperty') as source_reference,

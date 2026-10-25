@@ -1,5 +1,5 @@
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { ProjectionInputReadiness } from "#modules/background-work/model";
@@ -7,22 +7,26 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { projectionDependencyTargets } from "./projection-dependencies";
 
-export const requiredProjectionTargets = (userId?: string) => sql`
-	with dependencies as (${projectionDependencyTargets(sql`
-		select 0 as source_index, source.user_id, source.entity_id, source.session_entity_id,
-			source.event_schema_slug, source.event_schema_plugin_id, source.properties
-		from event source ${userId === undefined ? sql`` : sql`where source.user_id = ${userId}`}
-	`)})
-	select distinct "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId" from dependencies
-	union
-	select s.user_id, s.entity_id, s.event_schema_slug, s.event_schema_plugin_id
+const projectionStreamTargets = (userId: string) => sql`
+	select s.user_id as "userId", s.entity_id as "entityId", s.event_schema_slug as "eventSchemaSlug",
+		s.event_schema_plugin_id as "eventSchemaPluginId"
 	from event_stream s
 	join entity subject on subject.id = s.entity_id
 	join plugin p on p.id = s.event_schema_plugin_id
 	join definition_entity_schema e on e.plugin_revision_id = p.active_revision_id
 		and e.slug = subject.entity_schema_slug and subject.entity_schema_plugin_id = p.id
 	join definition_event_schema d on d.entity_schema_id = e.id and d.slug = s.event_schema_slug
-	where d.projection is not null ${userId === undefined ? sql`` : sql`and s.user_id = ${userId}`}`;
+	where d.projection is not null and s.user_id = ${userId}`;
+
+export const requiredProjectionTargets = (userId: string) => sql`
+	with dependencies as (${projectionDependencyTargets(sql`
+		select 0 as source_index, source.user_id, source.entity_id, source.session_entity_id,
+			source.event_schema_slug, source.event_schema_plugin_id, source.properties
+		from event source where source.user_id = ${userId}
+	`)})
+	select distinct "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId" from dependencies
+	union
+	${projectionStreamTargets(userId)}`;
 
 export class EventProjectionReadinessRepository extends Context.Service<EventProjectionReadinessRepository>()(
 	"EventProjectionReadinessRepository",
@@ -33,10 +37,12 @@ export class EventProjectionReadinessRepository extends Context.Service<EventPro
 				ready: Effect.fn("EventProjectionInputReadiness.ready")(function* (
 					account: AccountGeneration,
 				) {
-					const [result] = yield* session.run((db) =>
-						db.execute<{ ready: boolean }>(
-							sql`
-					with required as (${requiredProjectionTargets(account.userId)})
+					const readyFor = (targets: SQL) =>
+						session
+							.run((db) =>
+								db.execute<{ ready: boolean }>(
+									sql`
+					with required as (${targets})
 					select exists (select 1 from "user" u where u.id = ${account.userId}
 						and u.account_generation = ${account.token} and u.disabled_at is null)
 					and not exists (
@@ -93,10 +99,14 @@ export class EventProjectionReadinessRepository extends Context.Service<EventPro
 								and root.payload->'execution'->'subject'->'accountGeneration' = root.payload->'featureInput'->'accountGeneration'
 							)), false)
 					) as ready`,
-							"objects",
-						),
+									"objects",
+								),
+							)
+							.pipe(Effect.map(([result]) => result?.ready === true));
+					return (
+						(yield* readyFor(projectionStreamTargets(account.userId))) &&
+						(yield* readyFor(requiredProjectionTargets(account.userId)))
 					);
-					return result?.ready === true;
 				}),
 			};
 		}),

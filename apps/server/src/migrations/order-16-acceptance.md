@@ -5,7 +5,23 @@ Anime/Manga items, parent correction evidence, and Fitness occurrence snapshots 
 Production processor/readiness and writer audits remain in progress with their owners. No real-dump
 migration, archive build, or server assembly has run. The analytics plan and migration runbook were read.
 
-### Current execution checkpoint — 2026-10-30
+### Current execution checkpoint — 2026-10-30 (replacement run)
+
+Both replacement targets were migrated from current sources, with results in the
+[analytics plan](../../../../docs/order-16-analytics-plan.md#current-status--2026-10-30-replacement-environment-run).
+`file` and `file2` pass migration-only exact comparison, persisted-schema validation, silence, event-group
+and foreign-key gates, and completed-restart stability. File passes all 43 asset proofs. File2 reports
+exactly its 107 waived unavailable originals. Normal startup no longer stalls in discovery or readiness,
+but one-time Media correction catch-up for a large account takes hours, so the owner moved runtime
+readiness to a VM.
+
+On the VM, deploy this commit with clean PostgreSQL, Redis and storage. Restore each dump into its own
+database, run migration-only mode, then start normally and leave it running. After reconciliation,
+run the runtime gates while the process is alive. Then stop it and run runtime stability against the
+completed-restart snapshot. Local evidence is under `order16-runtime/claude-20261030-01/`. The local
+targets keep their migrated data with containers stopped.
+
+### Prior execution checkpoint — 2026-10-30 (morning)
 
 Post-cleanup acceptance is blocked at Media API 3/4: entity ranking exceeds the unchanged 180-second
 budget. Later post-cleanup browser files, coordinated build/freeze, fresh expectations, and both
