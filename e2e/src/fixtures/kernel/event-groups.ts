@@ -32,19 +32,9 @@ const entitySchemas: EntitySchemas = [
 					},
 				},
 				eventGroup: {
-					scope: "session",
 					keyProperties: ["position"],
-					immutableFields: ["sessionEntityId"],
 					immutableProperties: ["kind", "evidence"],
-					dependents: [
-						{
-							minimumCount: 1,
-							matchEntity: true,
-							preserveMatch: true,
-							eventSchemaSlug: "member",
-							matchProperties: ["position", "kind"],
-						},
-					],
+					dependents: [{ eventSchemaSlug: "member", matchProperties: ["position", "kind"] }],
 				},
 			},
 			{

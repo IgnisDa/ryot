@@ -21,19 +21,9 @@ import { DatabaseSession } from "#platform/db/session";
 import { EventGroupConstraints } from "./event-group-constraints";
 
 const declaration: PluginEventGroup = {
-	scope: "session",
 	keyProperties: ["position"],
-	immutableFields: ["sessionEntityId"],
 	immutableProperties: ["kind", "evidence"],
-	dependents: [
-		{
-			minimumCount: 1,
-			matchEntity: true,
-			preserveMatch: true,
-			eventSchemaSlug: "member",
-			matchProperties: ["position", "kind"],
-		},
-	],
+	dependents: [{ eventSchemaSlug: "member", matchProperties: ["position", "kind"] }],
 };
 const run = (statement: SQL) =>
 	Effect.flatMap(DatabaseSession, (database) => database.run((db) => db.execute(statement)));

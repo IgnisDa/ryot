@@ -55,18 +55,10 @@ export const fitnessEntitySchemas = [
 				name: "Recorded exercise occurrence",
 				propertiesSchema: workoutExercisePropertiesSchema,
 				eventGroup: {
-					scope: "session",
 					keyProperties: ["exerciseOrder"],
-					immutableFields: ["sessionEntityId"],
 					immutableProperties: ["exerciseKind", "targets", "equipment", "provenance"],
 					dependents: [
-						{
-							minimumCount: 1,
-							matchEntity: true,
-							preserveMatch: true,
-							eventSchemaSlug: "workout-set",
-							matchProperties: ["exerciseOrder", "exerciseKind"],
-						},
+						{ eventSchemaSlug: "workout-set", matchProperties: ["exerciseOrder", "exerciseKind"] },
 					],
 				},
 			},
@@ -77,7 +69,6 @@ export const fitnessEntitySchemas = [
 				projection: {
 					scriptSlug: "script.workout-record-step",
 					propertiesSchema: workoutRecordPropertiesSchema,
-					inputs: [{ scope: "entity", eventSchemaSlug: "workout-set" }],
 				},
 			},
 			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },

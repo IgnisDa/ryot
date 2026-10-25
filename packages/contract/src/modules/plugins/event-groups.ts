@@ -8,15 +8,10 @@ const propertyNames = Schema.Array(Schema.NonEmptyString).check(
 );
 
 export const PluginEventGroup = strictStruct({
-	scope: Schema.Literal("session"),
 	immutableProperties: propertyNames,
 	keyProperties: propertyNames.check(Schema.isMinLength(1)),
-	immutableFields: Schema.Tuple([Schema.Literal("sessionEntityId")]),
 	dependents: Schema.NonEmptyArray(
 		strictStruct({
-			minimumCount: Schema.Literal(1),
-			matchEntity: Schema.Literal(true),
-			preserveMatch: Schema.Literal(true),
 			eventSchemaSlug: Schema.NonEmptyString,
 			matchProperties: propertyNames.check(Schema.isMinLength(1)),
 		}),
