@@ -9,6 +9,8 @@ const batchSize = 500;
 
 const SeededStream = Schema.Struct({ ...StreamKeySchema.fields, id: Schema.String });
 
+const decodeStreamKeys = Schema.decodeUnknownEffect(Schema.Array(StreamKeySchema));
+
 const projectedStreamKeysSql = (hasCursor: boolean) => `
 SELECT DISTINCT ev."user_id" AS "userId", ev."entity_id" AS "entityId",
 	ev."event_schema_slug" AS "eventSchemaSlug", ev."event_schema_plugin_id" AS "eventSchemaPluginId"
@@ -45,7 +47,7 @@ export const seedProjectedEventStreams = Effect.fn("seedProjectedEventStreams")(
 				: [cursor.userId, cursor.entityId, cursor.eventSchemaPluginId, cursor.eventSchemaSlug],
 			undefined,
 		);
-		const keys = yield* Schema.decodeEffect(Schema.Array(StreamKeySchema))(rows).pipe(Effect.orDie);
+		const keys = yield* decodeStreamKeys(rows).pipe(Effect.orDie);
 		if (keys.length === 0) {
 			return;
 		}
