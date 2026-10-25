@@ -51,7 +51,6 @@ const itemAt = <Item,>(items: readonly Item[], index: number): Item => {
 const rankingRow = () => ({
 	sets: 3,
 	workouts: 1,
-	evidenceSets: 3,
 	weightedSets: 2,
 	name: "Upper back",
 	exerciseOccurrences: 2,

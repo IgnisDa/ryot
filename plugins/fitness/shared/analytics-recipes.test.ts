@@ -7,7 +7,6 @@ import {
 	fitnessAnalyticsTrendRecipe,
 	fitnessMeasurementTrendRecipe,
 	fitnessWorkoutStartsByHourRecipe,
-	historicalFitnessRankingRecipe,
 } from "./analytics-recipes";
 
 const recipe = fitnessAnalyticsTotalsRecipe({
@@ -21,13 +20,12 @@ const recipe = fitnessAnalyticsTotalsRecipe({
 	},
 });
 const aggregate = (item: Record<string, unknown>) => ({ items: [item], type: "aggregate" });
-const decode = (pendingSets: number, failedSets = 0, matchedRows = 4, distinctSets = 4) =>
+const decode = (pendingSets: number, failedSets = 0) =>
 	Result.getOrThrow(
 		recipe.decode({
 			data: {
 				entries: aggregate({ entries: 2 }),
 				readings: aggregate({ readings: 5 }),
-				evidenceIntegrity: aggregate({ matchedRows, distinctSets }),
 				workouts: aggregate({
 					workouts: 3,
 					calories: 0,
@@ -55,12 +53,6 @@ const decode = (pendingSets: number, failedSets = 0, matchedRows = 4, distinctSe
 	);
 
 describe("fitness analytics totals", () => {
-	it("rejects duplicate evidence instead of returning inflated totals", () => {
-		expect(() => decode(0, 0, 5)).toThrow("Workout occurrence evidence is ambiguous");
-	});
-	it("rejects disagreement between metric and integrity counts", () => {
-		expect(() => decode(0, 0, 5, 5)).toThrow("Workout occurrence evidence is ambiguous");
-	});
 	it("keeps zero duration, missing coverage, set time and planned rest separate", () => {
 		const totals = decode(0);
 		expect(totals.activeDuration).toBe(0);
@@ -98,37 +90,14 @@ const input = {
 } as const;
 
 describe("fitness analytics trends", () => {
-	it("rejects ranking set fanout from duplicate occurrence evidence", () => {
-		const ranking = historicalFitnessRankingRecipe({ ...input, kind: "targets" });
-		const result = ranking.decode({
-			data: {
-				ranking: {
-					type: "rows",
-					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-					items: [
-						{
-							sets: 10,
-							workouts: 1,
-							id: "target",
-							name: "Target",
-							evidenceSets: 5,
-							weightedSets: 10,
-							exerciseOccurrences: 2,
-						},
-					],
-				},
-			},
-		});
-		expect(Result.isFailure(result)).toBe(true);
-	});
-	it("hides partial derived buckets and preserves entered measurements and truncation", () => {
+	it("hides partial derived buckets and preserves entered measurements", () => {
 		for (const metric of ["volume", "repetitions"] as const) {
 			const result = Result.getOrThrow(
 				fitnessAnalyticsTrendRecipe({ ...input, metric }).decode({
 					data: {
-						trend: {
+						setTrend: {
 							type: "aggregate",
-							pageInfo: { limit: 1000, hasMore: true },
+							pageInfo: { limit: 366, hasMore: false },
 							items: [
 								{
 									value: 500,
@@ -143,13 +112,30 @@ describe("fitness analytics trends", () => {
 					},
 				}),
 			);
-			expect(result.hasMore).toBe(true);
 			expect(result.points[0]?.value).toBe(metric === "volume" ? null : 500);
 			expect(result.period).toMatchObject({
 				endAt: "2026-11-02T05:00:00.000Z",
 				startAt: "2026-10-26T04:00:00.000Z",
 			});
 		}
+	});
+	it("reads workout metrics without set projection coverage", () => {
+		const trend = fitnessAnalyticsTrendRecipe({ ...input, metric: "activeDuration" });
+		expect(Object.keys(trend.document.queries)).toEqual(["workoutTrend"]);
+		const result = Result.getOrThrow(
+			trend.decode({
+				data: {
+					workoutTrend: {
+						type: "aggregate",
+						pageInfo: { limit: 366, hasMore: false },
+						items: [{ value: 60, knownValues: 1, observations: 1, at: "2026-11-01T04:00:00.000Z" }],
+					},
+				},
+			}),
+		);
+		expect(result.points).toEqual([
+			{ value: 60, knownValues: 1, observations: 1, at: "2026-11-01T04:00:00.000Z" },
+		]);
 	});
 	it("reports workout starts in 24 hours without claiming timed sets", () => {
 		const result = Result.getOrThrow(
@@ -177,7 +163,7 @@ describe("fitness analytics trends", () => {
 				data: {
 					trend: {
 						type: "aggregate",
-						pageInfo: { limit: 1000, hasMore: false },
+						pageInfo: { limit: 366, hasMore: false },
 						items: [
 							{ value: 0, unit: "kg", readings: 1, at: "2026-10-29T04:00:00.000Z" },
 							{ value: 70, unit: "kg", readings: 2, at: "2026-11-01T04:00:00.000Z" },

@@ -59,12 +59,9 @@ const pageResponse = (
 		},
 	},
 });
-const trendResponse = (
-	points: readonly Readonly<Record<string, JsonValue>>[],
-	hasMore = false,
-) => ({
+const trendResponse = (points: readonly Readonly<Record<string, JsonValue>>[]) => ({
 	data: {
-		trend: { items: points, type: "aggregate" as const, pageInfo: { hasMore, limit: 1000 } },
+		trend: { items: points, type: "aggregate" as const, pageInfo: { limit: 366, hasMore: false } },
 	},
 });
 const reading = (
@@ -176,7 +173,9 @@ const chooseMetric = (
 			screen.findByRole("button", { name: metricOptionName(name) }),
 		);
 		fireEvent.click(option);
-		yield* Effect.promise(() => waitFor(() => expect(page.queryRequests("trend")).toHaveLength(1)));
+		yield* Effect.promise(() =>
+			waitFor(() => expect(page.queryRequests("trend")).not.toHaveLength(0)),
+		);
 		yield* Effect.promise(() =>
 			waitFor(() => expect(page.queryRequests("readings")).toHaveLength(1)),
 		);
@@ -347,24 +346,14 @@ describe("Fitness analytics measurements", () => {
 			const page = mountMeasurements(clock, comparisonSelection);
 			try {
 				yield* chooseMetric(page, "Weight", metric("weight", "Weight", "kg"));
-				const currentRequest = page.queryRequests("trend")[0];
-				expect(currentRequest).toBeDefined();
-				if (currentRequest === undefined) {
-					return;
-				}
-				page.replyQuery(currentRequest.requestId, {
-					outcome: "success",
-					response: trendResponse([trendPoint("2026-03-01T05:00:00.000Z", 8, 2, "kg")]),
-				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("trend")).toHaveLength(2)),
 				);
-				const previousRequest = page.queryRequests("trend")[1];
-				expect(previousRequest).toBeDefined();
-				if (previousRequest === undefined) {
-					return;
-				}
-				page.replyQuery(previousRequest.requestId, {
+				replyRequest(page, "trend", 0, {
+					outcome: "success",
+					response: trendResponse([trendPoint("2026-03-01T05:00:00.000Z", 8, 2, "kg")]),
+				});
+				replyRequest(page, "trend", 1, {
 					outcome: "success",
 					response: trendResponse([
 						trendPoint("2026-01-01", 2, 1, "kg"),
@@ -400,13 +389,10 @@ describe("Fitness analytics measurements", () => {
 				yield* chooseMetric(page, "Weight", metric("weight", "Weight", "kg"));
 				replyRequest(page, "trend", 0, {
 					outcome: "success",
-					response: trendResponse(
-						[
-							trendPoint("2026-03-01T05:00:00.000Z", 8, 2, "kg"),
-							trendPoint("2026-03-02T05:00:00.000Z", 16, 1, "lb"),
-						],
-						true,
-					),
+					response: trendResponse([
+						trendPoint("2026-03-01T05:00:00.000Z", 8, 2, "kg"),
+						trendPoint("2026-03-02T05:00:00.000Z", 16, 1, "lb"),
+					]),
 				});
 				replyRequest(page, "readings", 0, {
 					outcome: "success",

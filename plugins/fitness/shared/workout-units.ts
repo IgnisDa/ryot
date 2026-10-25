@@ -34,3 +34,28 @@ export const kilocaloriesToEnergy = (kilocalories: number, unit: EnergyUnit) =>
 	unit === "kJ" ? kilocalories * KILOJOULES_PER_KILOCALORIE : kilocalories;
 export const energyToKilocalories = (energy: number, unit: EnergyUnit) =>
 	unit === "kJ" ? energy / KILOJOULES_PER_KILOCALORIE : energy;
+
+export type ConvertedMeasure = "weight" | "volume" | "energy" | "distance";
+type DisplayPreferences = { readonly unitSystem: UnitSystem; readonly energyUnit: EnergyUnit };
+
+export const displayMeasure = (
+	measure: ConvertedMeasure,
+	value: number,
+	preferences: DisplayPreferences,
+) => {
+	const imperial = preferences.unitSystem === "imperial";
+	if (measure === "energy") {
+		return {
+			unit: preferences.energyUnit,
+			value: kilocaloriesToEnergy(value, preferences.energyUnit),
+		};
+	}
+	if (measure === "distance") {
+		return imperial ? { unit: "mi", value: kilometersToMiles(value) } : { value, unit: "km" };
+	}
+	const weightUnit = imperial ? "lb" : "kg";
+	return {
+		value: imperial ? kilogramsToPounds(value) : value,
+		unit: measure === "volume" ? `${weightUnit} × reps` : weightUnit,
+	};
+};

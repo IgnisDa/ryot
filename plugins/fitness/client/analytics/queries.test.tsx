@@ -39,7 +39,6 @@ const response = {
 	data: {
 		entries: aggregate({ entries: 0 }),
 		readings: aggregate({ readings: 0 }),
-		evidenceIntegrity: aggregate({ matchedRows: 0, distinctSets: 0 }),
 		workouts: aggregate({
 			workouts: 0,
 			activeDays: 0,
@@ -139,7 +138,7 @@ describe("fitness analytics section queries", () => {
 					),
 				).toBe(true);
 				for (const request of page.queryRequests()) {
-					expect(Object.keys(request.document.queries)).toHaveLength(5);
+					expect(Object.keys(request.document.queries)).toHaveLength(4);
 					page.replyQuery(request.requestId, { response, outcome: "success" });
 				}
 				yield* Effect.promise(() =>
@@ -470,7 +469,6 @@ describe("fitness analytics query lifetime", () => {
 						response: {
 							data: {
 								...response.data,
-								evidenceIntegrity: aggregate({ matchedRows: 1, distinctSets: 1 }),
 								sets: aggregate({ ...response.data.sets.items[0], sets: 1, pendingSets: 1 }),
 							},
 						},

@@ -1,10 +1,11 @@
-import { resolveReportingSelection, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	REPORTING_BUCKET_LIMIT,
+	resolveReportingSelection,
+	type TimeZone,
+} from "@ryot-app/plugin-client-sdk/plugin";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
-import {
-	MEASUREMENT_SERIES_BUCKET_LIMIT,
-	type MeasurementSummary,
-} from "../../shared/measurement-recipes";
+import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { formatNumber } from "../workout/format";
 import type { MeasurementLogEntry } from "./queries";
 
@@ -58,11 +59,11 @@ export const seriesWindow = (
 	const earliest = firstTimes.length === 0 ? now.getTime() - DAY_MS : Math.min(...firstTimes);
 	const spanDays = (now.getTime() - earliest) / DAY_MS;
 	const coarseBucket =
-		spanDays / 28 <= MEASUREMENT_SERIES_BUCKET_LIMIT ? ("month" as const) : ("year" as const);
+		spanDays / 28 <= REPORTING_BUCKET_LIMIT ? ("month" as const) : ("year" as const);
 	return {
 		endAt,
 		startAt: new Date(earliest).toISOString(),
-		bucket: spanDays / 7 <= MEASUREMENT_SERIES_BUCKET_LIMIT ? ("week" as const) : coarseBucket,
+		bucket: spanDays / 7 <= REPORTING_BUCKET_LIMIT ? ("week" as const) : coarseBucket,
 	};
 };
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -30,24 +30,26 @@ const daySelection: AnalyticsScope["selection"] = {
 };
 const aggregate = (
 	items: readonly Record<string, null | number | string>[],
-	hasMore = false,
 ): {
 	readonly type: "aggregate";
 	readonly items: readonly Record<string, null | number | string>[];
 	readonly pageInfo: { readonly limit: number; readonly hasMore: boolean };
-} => ({ items, type: "aggregate", pageInfo: { hasMore, limit: 1000 } });
+} => ({ items, type: "aggregate", pageInfo: { limit: 366, hasMore: false } });
 const trendResponse = (
 	points: readonly Record<string, null | number | string>[],
-	hasMore = false,
-) => ({ data: { trend: aggregate(points, hasMore) } });
-const hourResponse = (starts = 3) => ({ data: { hours: aggregate([{ starts, hour: 8 }], false) } });
+	key: "setTrend" | "workoutTrend" = "workoutTrend",
+) => ({ data: { [key]: aggregate(points) } });
+const hourResponse = (starts = 3) => ({ data: { hours: aggregate([{ starts, hour: 8 }]) } });
 const workoutPoint = (at: string, value: null | number) => ({
 	at,
 	value,
-	failedSets: 0,
-	pendingSets: 0,
 	observations: 1,
 	knownValues: value === null ? 0 : 1,
+});
+const setPoint = (at: string, value: null | number) => ({
+	...workoutPoint(at, value),
+	failedSets: 0,
+	pendingSets: 0,
 });
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -114,7 +116,7 @@ const answerInitial = Effect.fnUntraced(function* (
 					? { outcome: "failure", reason: "query-failed" }
 					: { outcome: "success", response: hourResponse() },
 			);
-		} else if ("trend" in request.document.queries) {
+		} else if ("workoutTrend" in request.document.queries) {
 			const text = yield* documentText(request.document);
 			page.replyQuery(request.requestId, {
 				outcome: "success",
@@ -124,17 +126,6 @@ const answerInitial = Effect.fnUntraced(function* (
 		}
 	}
 });
-
-const answerOneTrend = (
-	page: ReturnType<typeof mountPluginPage>,
-	requestIndex: number,
-	response: ReturnType<typeof trendResponse>,
-) => {
-	const request = page.queryRequests("trend")[requestIndex];
-	if (request !== undefined) {
-		page.replyQuery(request.requestId, { response, outcome: "success" });
-	}
-};
 
 describe("Fitness analytics workout charts", () => {
 	it.live(
@@ -187,10 +178,17 @@ describe("Fitness analytics workout charts", () => {
 						screen.findByRole("radio", { name: "Weight volume" }),
 					);
 					fireEvent.click(volumeOption);
-					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("trend")).toHaveLength(3)),
+					const volumeRequest = yield* Effect.promise(() =>
+						waitFor(() => {
+							const request = page.queryRequests("setTrend")[0];
+							assert(request);
+							return request;
+						}),
 					);
-					answerOneTrend(page, 2, trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", null)]));
+					page.replyQuery(volumeRequest.requestId, {
+						outcome: "success",
+						response: trendResponse([setPoint("2026-03-01T00:00:00.000Z", null)], "setTrend"),
+					});
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(
@@ -283,7 +281,7 @@ describe("Fitness analytics workout charts", () => {
 			try {
 				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
 				yield* answerInitial(page, answered, {
-					trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)], true),
+					trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)]),
 				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -295,7 +293,7 @@ describe("Fitness analytics workout charts", () => {
 				expect(
 					screen.getByRole("img", { name: /^Workout starts · 2026-07-03 – 2026-12-31$/ }),
 				).toBeDefined();
-				expect(page.queryRequests("trend")).toHaveLength(2);
+				expect(page.queryRequests("workoutTrend")).toHaveLength(2);
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());
@@ -355,7 +353,7 @@ describe("Fitness analytics workout charts", () => {
 					}
 					page.replyQuery(retry.requestId, { outcome: "success", response: hourResponse(7) });
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("trend")).toHaveLength(4)),
+						waitFor(() => expect(page.queryRequests("workoutTrend")).toHaveLength(4)),
 					);
 					expect(screen.getAllByText("2 workouts").length).toBeGreaterThan(0);
 					expect(page.queryRequests("hours")).toHaveLength(3);

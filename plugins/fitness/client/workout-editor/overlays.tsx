@@ -48,10 +48,10 @@ const historySetsQuery = createRyotQuery<
 
 const historySetText = (set: WorkoutHistorySetResult["items"][number], imperial: boolean) =>
 	[
-		set.weight === null ? null : formatMeasure(set.weight, "kg", imperial),
+		set.weight === null ? null : formatMeasure(set.weight, "weight", imperial),
 		set.reps === null ? null : formatMeasure(set.reps, "reps"),
-		set.duration === null ? null : formatMeasure(set.duration, "seconds"),
-		set.distance === null ? null : formatMeasure(set.distance, "km", imperial),
+		set.duration === null ? null : formatMeasure(set.duration, "duration"),
+		set.distance === null ? null : formatMeasure(set.distance, "distance", imperial),
 		set.rpe === null ? null : `RPE ${set.rpe}`,
 		set.note ? `“${set.note}”` : null,
 	]

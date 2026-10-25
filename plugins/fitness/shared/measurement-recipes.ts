@@ -32,13 +32,15 @@ import {
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
+import {
+	type PluginIdentityReference,
+	REPORTING_BUCKET_LIMIT,
+	type TimeZone,
+} from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyNumber } from "./entity-selections";
 
 export const MEASUREMENT_SERIES_BATCH_SIZE = 5;
-export const MEASUREMENT_SERIES_BUCKET_LIMIT = 900;
-
 export const measurementPinRelationshipSchemaSlug = "measurement-metric-pinned";
 
 const nullableString = Schema.NullOr(Schema.String);
@@ -138,8 +140,8 @@ const seriesQueries = (input: SeriesInput) => {
 			`average${index}`,
 			selectedAggregate(reading, {
 				where,
+				limit: REPORTING_BUCKET_LIMIT,
 				orderBy: [groupAscending("at")],
-				limit: MEASUREMENT_SERIES_BUCKET_LIMIT,
 				measures: {
 					value: selectedMeasure(
 						{ function: "average", expr: propertyNumber(reading, "value") },

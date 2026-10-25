@@ -1,7 +1,6 @@
 import {
 	formatExactValue,
 	periodCaption,
-	type Reported,
 	type TimeZone,
 	useRyotViewport as usePluginViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
@@ -32,6 +31,7 @@ import {
 } from "./queries";
 import {
 	type AnalyticsScope,
+	type Compared,
 	type MeasurementMetric,
 	type MeasurementReading,
 	type MeasurementTrend,
@@ -145,32 +145,45 @@ function SelectedMeasurement(props: {
 	);
 }
 
-function PreviousMeasurementTrend(props: {
+function MeasurementTrendPanel(props: {
 	readonly smooth: boolean;
 	readonly compact: boolean;
 	readonly scope: AnalyticsScope;
 	readonly metric: SelectedMetric;
-	readonly current: Reported<MeasurementTrend>;
+	readonly onSmoothChange: (smooth: boolean) => void;
 }) {
-	const previous = useRyotQuery(measurementTrendQuery, {
-		period: "previous",
+	const trend = useRyotQuery(measurementTrendQuery, {
 		metricId: props.metric.id,
 		reference: props.scope.owner,
 		timeZone: props.scope.timeZone,
 		selection: props.scope.selection,
 	});
 	return (
-		<div className="flex min-w-0 flex-col gap-3">
-			<QueryStatus query={previous} onRetry={previous.refetch} label="previous-period comparison" />
-			<TrendChart
-				metric={props.metric}
-				smooth={props.smooth}
-				compact={props.compact}
-				current={props.current}
-				previous={previous.data}
-				timeZone={props.scope.timeZone}
+		<section aria-label="Measurement trend" className="flex min-w-0 flex-col gap-3">
+			<h2 className="text-heading font-semibold text-text">Measurement trend</h2>
+			<Checkbox
+				checked={props.smooth}
+				label="Smooth bucket averages (3/7-point)"
+				onChange={(event) => props.onSmoothChange(event.currentTarget.checked)}
 			/>
-		</div>
+			{props.smooth ? (
+				<p className="text-xs text-text-muted">
+					Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points,
+					does not cross missing buckets or unit changes, and leaves exact readings unchanged.
+				</p>
+			) : null}
+			<QueryStatus query={trend} onRetry={trend.refetch} label="measurement trend">
+				{(data) => (
+					<TrendChart
+						trend={data}
+						metric={props.metric}
+						smooth={props.smooth}
+						compact={props.compact}
+						timeZone={props.scope.timeZone}
+					/>
+				)}
+			</QueryStatus>
+		</section>
 	);
 }
 
@@ -179,12 +192,12 @@ function TrendChart(props: {
 	readonly compact: boolean;
 	readonly timeZone: TimeZone;
 	readonly metric: SelectedMetric;
-	readonly current: Reported<MeasurementTrend>;
-	readonly previous?: undefined | Reported<MeasurementTrend>;
+	readonly trend: Compared<MeasurementTrend>;
 }) {
-	const { smooth, current, previous, timeZone } = props;
+	const { smooth, timeZone } = props;
+	const { current, previous } = props.trend;
 	const model = useMemo(
-		() => measurementTrendModel(current, previous ?? null, timeZone, smooth),
+		() => measurementTrendModel(current, previous, timeZone, smooth),
 		[current, previous, smooth, timeZone],
 	);
 	const chartPoints = (buckets: NonNullable<typeof model.previous>) =>
@@ -205,74 +218,18 @@ function TrendChart(props: {
 					timeZone={props.timeZone}
 					current={chartPoints(model.current)}
 					ariaLabel={`${props.metric.name} bucket averages`}
-					label={`${props.metric.name} · Bucket averages · ${periodCaption(props.current.period)}`}
+					label={`${props.metric.name} · Bucket averages · ${periodCaption(current.period)}`}
 					previous={
-						props.previous === undefined || model.previous === null
+						previous === null || model.previous === null
 							? undefined
 							: {
 									points: chartPoints(model.previous),
-									label: `Previous · ${periodCaption(props.previous.period)}`,
+									label: `Previous · ${periodCaption(previous.period)}`,
 								}
 					}
 				/>
 			)}
 		</div>
-	);
-}
-
-function MeasurementTrendPanel(props: {
-	readonly smooth: boolean;
-	readonly compact: boolean;
-	readonly scope: AnalyticsScope;
-	readonly metric: SelectedMetric;
-	readonly onSmoothChange: (smooth: boolean) => void;
-}) {
-	const input = {
-		metricId: props.metric.id,
-		period: "current" as const,
-		reference: props.scope.owner,
-		timeZone: props.scope.timeZone,
-		selection: props.scope.selection,
-	};
-	const current = useRyotQuery(measurementTrendQuery, input);
-	const compare =
-		props.scope.selection.range.kind !== "all-time" && props.scope.selection.comparison !== "none";
-	return (
-		<section aria-label="Measurement trend" className="flex min-w-0 flex-col gap-3">
-			<h2 className="text-heading font-semibold text-text">Measurement trend</h2>
-			<Checkbox
-				checked={props.smooth}
-				label="Smooth bucket averages (3/7-point)"
-				onChange={(event) => props.onSmoothChange(event.currentTarget.checked)}
-			/>
-			{props.smooth ? (
-				<p className="text-xs text-text-muted">
-					Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points,
-					does not cross missing buckets or unit changes, and leaves exact readings unchanged.
-				</p>
-			) : null}
-			<QueryStatus query={current} onRetry={current.refetch} label="measurement trend">
-				{(data) =>
-					compare ? (
-						<PreviousMeasurementTrend
-							current={data}
-							scope={props.scope}
-							metric={props.metric}
-							smooth={props.smooth}
-							compact={props.compact}
-						/>
-					) : (
-						<TrendChart
-							current={data}
-							metric={props.metric}
-							smooth={props.smooth}
-							compact={props.compact}
-							timeZone={props.scope.timeZone}
-						/>
-					)
-				}
-			</QueryStatus>
-		</section>
 	);
 }
 

@@ -9,7 +9,6 @@ import {
 	type MeasurementTrend,
 	measurementTrendModel,
 	metricDisplay,
-	smoothMeasurementBuckets,
 	trendBuckets,
 	workoutTrendModel,
 } from "./reporting-model";
@@ -30,9 +29,7 @@ const customPeriod = (startDate: string, endDate: string, timeZone = TimeZone.ma
 	).current;
 const trend = (overrides: Partial<AnalyticsTrend> = {}): AnalyticsTrend => ({
 	points: [],
-	hasMore: false,
 	grouping: "day",
-	unit: "workouts",
 	metric: "workouts",
 	period: customPeriod("2024-02-28", "2024-03-02"),
 	...overrides,
@@ -50,7 +47,6 @@ const measurement = (
 	overrides: Partial<MeasurementTrend> = {},
 ): MeasurementTrend => ({
 	points,
-	hasMore: false,
 	grouping: "day",
 	metricId: "weight",
 	period: customPeriod("2024-02-28", "2024-03-02"),
@@ -89,14 +85,9 @@ describe("exact quantities and comparisons", () => {
 	});
 	it("converts both workout periods without replacing prior dates or unknown volume", () => {
 		const model = workoutTrendModel(
+			trend({ metric: "volume", points: [point("2024-02-28T00:00:00Z", 0.45359237)] }),
 			trend({
 				metric: "volume",
-				unit: "kg × repetitions",
-				points: [point("2024-02-28T00:00:00Z", 0.45359237)],
-			}),
-			trend({
-				metric: "volume",
-				unit: "kg × repetitions",
 				points: [point("2024-02-24T00:00:00Z", 0)],
 				period: customPeriod("2024-02-24", "2024-02-27"),
 			}),
@@ -117,7 +108,7 @@ describe("measurement averages", () => {
 			{ value: 2, unit: "kg", readings: 3, at: "2024-02-29T00:00:00Z" },
 			{ value: 8, unit: "kg", readings: 1, at: "2024-03-02T00:00:00Z" },
 		]);
-		const smooth = smoothMeasurementBuckets(trendBuckets(data, TimeZone.make("UTC")));
+		const smooth = measurementTrendModel(data, null, TimeZone.make("UTC"), true).current;
 		expect(smooth.map(({ value }) => value)).toEqual([0, 1, null, 8]);
 		expect(smooth[1]?.source).toEqual(data.points[1]);
 		expect(smooth[1]?.smoothing).toBe(3);
@@ -135,7 +126,7 @@ describe("measurement averages", () => {
 			})),
 			{ period: customPeriod("2024-01-01", "2024-02-14") },
 		);
-		const smooth = smoothMeasurementBuckets(trendBuckets(data, TimeZone.make("UTC")));
+		const smooth = measurementTrendModel(data, null, TimeZone.make("UTC"), true).current;
 		expect(smooth.at(-1)).toMatchObject({ value: 41, smoothing: 7, source: { value: 44 } });
 	});
 	it("does not overlay measurements with different units", () => {

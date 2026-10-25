@@ -131,9 +131,7 @@ describe("workout details model", () => {
 		const groups = buildExerciseGroups(
 			workoutDetails({ exercises: [workoutExercise({ sets: [workoutSet({ volume })] })] }),
 		);
-		expect(groups[0]).toMatchObject({
-			card: { total: { value: volume, unit: "kg × repetitions" } },
-		});
+		expect(groups[0]).toMatchObject({ card: { total: { value: volume, measure: "volume" } } });
 	});
 
 	it("does not turn a missing ready projection into zero volume", () => {
@@ -170,7 +168,7 @@ describe("workout details model", () => {
 				}),
 			);
 			expect(groups[0]).toMatchObject({
-				card: { comparison: null, total: { value: 600, unit: "kg × repetitions" } },
+				card: { comparison: null, total: { value: 600, measure: "volume" } },
 			});
 		}
 	});

@@ -2,7 +2,6 @@ import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
-import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
 import { supersetColor } from "../../shared/superset-colors";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell } from "../asset-urls";
@@ -181,10 +180,9 @@ export function ExerciseCardView(props: {
 					{card.kind === "reps_and_weight" && (card.total === null || !computedReady) ? (
 						<span className="text-[15px] text-text-muted">Unknown</span>
 					) : null}
-					{card.total === null ||
-					(card.total.unit === fitnessMetricDefinitions.volume.unit && !computedReady) ? null : (
+					{card.total === null || (card.total.measure === "volume" && !computedReady) ? null : (
 						<span className="font-semibold text-[15px] text-text">
-							{formatMeasure(card.total.value, card.total.unit, props.imperial)}
+							{formatMeasure(card.total.value, card.total.measure, props.imperial)}
 						</span>
 					)}
 					{card.comparison === null || !computedReady ? null : (
@@ -194,7 +192,7 @@ export function ExerciseCardView(props: {
 								card.comparison.delta > 0 ? "text-success" : "text-text-muted",
 							)}
 						>
-							{formatSignedMeasure(card.comparison.delta, card.comparison.unit, props.imperial)}
+							{formatSignedMeasure(card.comparison.delta, card.comparison.measure, props.imperial)}
 							{card.comparison.delta === 0
 								? ""
 								: ` vs ${formatShortDate(card.comparison.previousStartedAt, props.workoutStartedAt)}`}
@@ -278,7 +276,7 @@ function SetTable(props: {
 				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
 					showOneRm && set.recordStatus === "ready" && set.oneRm !== null
-						? `${formatMeasure(set.oneRm, "kg", props.imperial)} 1RM`
+						? `${formatMeasure(set.oneRm, "weight", props.imperial)} 1RM`
 						: null,
 					set.rpe === null ? null : `RPE ${formatNumber(set.rpe)}`,
 				].filter((part) => part !== null);
@@ -323,7 +321,7 @@ function SetTable(props: {
 									<span role="cell" className="text-text-muted">
 										{set.recordStatus !== "ready" || set.oneRm === null
 											? "—"
-											: formatMeasure(set.oneRm, "kg", props.imperial)}
+											: formatMeasure(set.oneRm, "weight", props.imperial)}
 									</span>
 								) : null}
 								{showRpe ? (

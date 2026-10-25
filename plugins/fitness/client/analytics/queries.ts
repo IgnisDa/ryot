@@ -2,7 +2,9 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type Reported,
 	reportingExecution,
+	type ReportingSelection,
 	selectionForPeriod,
+	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, type ReportingPageParam } from "@ryot-app/plugin-client-sdk/react";
 
@@ -19,10 +21,10 @@ import { measurementSummaryRecipe } from "../../shared/measurement-recipes";
 import {
 	type AnalyticsInput,
 	type AnalyticsRanking,
-	type AnalyticsSummary,
 	type AnalyticsTotals,
 	type AnalyticsTrend,
 	type AnalyticsWorkouts,
+	type Compared,
 	consistencySelection,
 	type MeasurementMetrics,
 	type MeasurementReadings,
@@ -36,30 +38,34 @@ export const analyticsPageInput = <Input>(
 	page: ReportingPageParam,
 ): PageInput<Input> => ({ ...input, page });
 
-export const analyticsSummaryQuery = createRyotQuery<AnalyticsInput, AnalyticsSummary>(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const previous = reporting.resolved.previous;
-			const results = yield* Effect.all(
-				{
-					current: client.data.query(fitnessAnalyticsTotalsRecipe({ ...input, now })),
-					previous:
-						previous === null
-							? Effect.succeed(null)
-							: client.data.query(
-									fitnessAnalyticsTotalsRecipe({
-										...input,
-										now,
-										selection: selectionForPeriod(input.selection, previous),
-									}),
-								),
-				},
-				{ concurrency: 2 },
-			);
-			return { ...results, reporting };
-		}),
+const compared = <Data, Failure>(
+	input: { readonly timeZone: TimeZone; readonly selection: ReportingSelection },
+	now: number,
+	read: (selection: ReportingSelection) => Effect.Effect<Data, Failure>,
+): Effect.Effect<Compared<Data>, Failure> =>
+	Effect.gen(function* () {
+		const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
+		const previous = reporting.resolved.previous;
+		const results = yield* Effect.all(
+			{
+				current: read(input.selection),
+				previous:
+					previous === null
+						? Effect.succeed(null)
+						: read(selectionForPeriod(reporting.selection, previous)),
+			},
+			{ concurrency: 2 },
+		);
+		return { ...results, reporting };
+	});
+
+export const analyticsSummaryQuery = createRyotQuery<AnalyticsInput, Compared<AnalyticsTotals>>(
+	({ input, client, schedule }) => {
+		const now = schedule.now();
+		return compared(input, now, (selection) =>
+			client.data.query(fitnessAnalyticsTotalsRecipe({ ...input, now, selection })),
+		);
+	},
 	{
 		cancelOnUnmount: true,
 		refreshWhile: ({ data }) =>
@@ -67,30 +73,22 @@ export const analyticsSummaryQuery = createRyotQuery<AnalyticsInput, AnalyticsSu
 	},
 );
 
-export const analyticsTotalsQuery = createRyotQuery<AnalyticsInput, Reported<AnalyticsTotals>>(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const result = yield* client.data.query(fitnessAnalyticsTotalsRecipe({ ...input, now }));
-			return { ...result, reporting };
-		}),
-	{ cancelOnUnmount: true, refreshWhile: ({ data }) => data.pendingSets > 0 },
-);
+const trendPending = (trend: null | AnalyticsTrend) =>
+	trend?.points.some((point) => (point.pendingSets ?? 0) > 0) ?? false;
+
 export const analyticsTrendQuery = createRyotQuery<
 	Omit<Parameters<typeof fitnessAnalyticsTrendRecipe>[0], "now">,
-	Reported<AnalyticsTrend>
+	Compared<AnalyticsTrend>
 >(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const result = yield* client.data.query(fitnessAnalyticsTrendRecipe({ ...input, now }));
-			return { ...result, reporting };
-		}),
+	({ input, client, schedule }) => {
+		const now = schedule.now();
+		return compared(input, now, (selection) =>
+			client.data.query(fitnessAnalyticsTrendRecipe({ ...input, now, selection })),
+		);
+	},
 	{
 		cancelOnUnmount: true,
-		refreshWhile: ({ data }) => data.points.some((point) => (point.pendingSets ?? 0) > 0),
+		refreshWhile: ({ data }) => trendPending(data.current) || trendPending(data.previous),
 	},
 );
 export const workoutStartsByHourQuery = createRyotQuery<AnalyticsInput, Reported<WorkoutHours>>(
@@ -146,15 +144,14 @@ export const analyticsWorkoutsQuery = createRyotQuery<
 );
 export const measurementTrendQuery = createRyotQuery<
 	Omit<Parameters<typeof fitnessMeasurementTrendRecipe>[0], "now">,
-	Reported<MeasurementTrend>
+	Compared<MeasurementTrend>
 >(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const result = yield* client.data.query(fitnessMeasurementTrendRecipe({ ...input, now }));
-			return { ...result, reporting };
-		}),
+	({ input, client, schedule }) => {
+		const now = schedule.now();
+		return compared(input, now, (selection) =>
+			client.data.query(fitnessMeasurementTrendRecipe({ ...input, now, selection })),
+		);
+	},
 	{ cancelOnUnmount: true },
 );
 export const analyticsRankingQuery = createRyotQuery<

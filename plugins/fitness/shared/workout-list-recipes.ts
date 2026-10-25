@@ -2,7 +2,6 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	conditional,
 	contains,
@@ -15,7 +14,6 @@ import {
 	eq,
 	first,
 	groupAscending,
-	gte,
 	inArray,
 	isNotNull,
 	IsoDateString,
@@ -35,6 +33,7 @@ import {
 	selectedRows,
 	sum,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import type {
 	PluginIdentityReference,
@@ -124,14 +123,6 @@ const workoutWhere = (
 		entitySchemaPredicate(workout, "workout", reference),
 		...(search === "" ? [] : [contains(column(workout, "name"), literal(search))]),
 		...(filter === undefined ? [] : [filter]),
-	);
-
-const inRange = (workout: Table, range: Partial<Range>) =>
-	and(
-		...(range.startAt === undefined
-			? []
-			: [gte(startedAt(workout), castDate(literal(range.startAt)))]),
-		...(range.endAt === undefined ? [] : [lt(startedAt(workout), castDate(literal(range.endAt)))]),
 	);
 
 const workoutVolume = (workout: Table) => {
@@ -371,14 +362,17 @@ export const setMeasures = (set: Table) => ({
 
 export const workoutRangeSources = (
 	reference: Reference,
-	range: Partial<Range>,
+	range: null | Range,
 	alias: string,
 	search = "",
 	filter?: WorkoutFilterPredicate,
 ) => {
 	const workout = table("entity", rangeWorkoutAlias(alias));
 	const set = table("event", `${alias}Set`);
-	const workouts = and(workoutWhere(workout, reference, search, filter), inRange(workout, range));
+	const workouts = and(
+		workoutWhere(workout, reference, search, filter),
+		withinPeriod(startedAt(workout), range),
+	);
 	return {
 		set,
 		workout,

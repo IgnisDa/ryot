@@ -117,7 +117,7 @@ const standaloneQueries = (page: ReturnType<typeof mountSection>, queryKey: stri
 
 const waitForTrendRequest = (page: ReturnType<typeof mountSection>, index: number) =>
 	waitFor(() => {
-		const request = page.queryRequests("trend")[index];
+		const request = page.queryRequests("workoutTrend")[index];
 		assert(request);
 		return request;
 	});
@@ -131,7 +131,6 @@ const targetRankingResponse = {
 				{
 					sets: 3,
 					workouts: 1,
-					evidenceSets: 3,
 					weightedSets: 2,
 					id: "target-back",
 					name: "Upper back",
@@ -159,7 +158,7 @@ describe("fitness analytics section", () => {
 
 					replySettings(page, settingsRequest.requestId, preferences);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("trend").length).toBeGreaterThan(0)),
+						waitFor(() => expect(page.queryRequests("workoutTrend").length).toBeGreaterThan(0)),
 					);
 					expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 					expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Fitness");
@@ -265,9 +264,9 @@ describe("fitness analytics section", () => {
 				const firstSettings = yield* Effect.promise(() => waitForSettingsRequest(page));
 				replySettings(page, firstSettings.requestId, preferences);
 				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("trend").length).toBeGreaterThan(0)),
+					waitFor(() => expect(page.queryRequests("workoutTrend").length).toBeGreaterThan(0)),
 				);
-				const initialTrendCount = page.queryRequests("trend").length;
+				const initialTrendCount = page.queryRequests("workoutTrend").length;
 				const firstTrendRequest = yield* Effect.promise(() => waitForTrendRequest(page, 0));
 
 				act(() => {
@@ -306,7 +305,7 @@ describe("fitness analytics section", () => {
 				);
 				yield* Effect.promise(() =>
 					waitFor(() => {
-						const requests = page.queryRequests("trend");
+						const requests = page.queryRequests("workoutTrend");
 						const latest = requests.at(-1);
 						assert(latest);
 						expect(queryText(latest)).toContain("fitness-other");

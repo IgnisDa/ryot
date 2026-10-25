@@ -207,10 +207,10 @@ const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) =
 	{
 		reps: (row) => (row.reps === null ? null : formatNumber(row.reps)),
 		time: (row) => (row.duration === null ? null : formatDuration(row.duration)),
-		one_rm: (row) => (row.oneRm === null ? null : formatMeasure(row.oneRm, "kg")),
-		weight: (row) => (row.weight === null ? null : formatMeasure(row.weight, "kg")),
+		one_rm: (row) => (row.oneRm === null ? null : formatMeasure(row.oneRm, "weight")),
+		weight: (row) => (row.weight === null ? null : formatMeasure(row.weight, "weight")),
 		volume: (row) => (row.volume === null ? null : formatMetric(row.volume, "kg-reps")),
-		distance: (row) => (row.distance === null ? null : formatMeasure(row.distance, "km")),
+		distance: (row) => (row.distance === null ? null : formatMeasure(row.distance, "distance")),
 		pace: (row) =>
 			row.distance === null || row.duration === null || row.duration === 0
 				? null
@@ -365,7 +365,7 @@ function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
 							{reps} {reps === 1 ? "rep" : "reps"}
 						</span>
 						<span className="font-semibold text-[16px] text-text tabular-nums">
-							{formatMeasure(weight, "kg")}
+							{formatMeasure(weight, "weight")}
 						</span>
 					</li>
 				))}

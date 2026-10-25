@@ -19,24 +19,28 @@ import {
 import { exerciseKinds } from "./exercise-kinds";
 import type { WorkoutDetails } from "./workout-details-recipes";
 import { requiredWorkoutMeasurementsByKind } from "./workout-set";
+import type { ConvertedMeasure } from "./workout-units";
 
 type Table = ReturnType<typeof table>;
 
 export const fitnessMetricDefinitions = {
 	sets: { unit: "sets", label: "Sets" },
-	distance: { unit: "km", label: "Distance" },
 	workouts: { unit: "workouts", label: "Workouts" },
-	calories: { unit: "kcal", label: "Recorded energy" },
+	distance: { label: "Distance", measure: "distance" },
+	volume: { measure: "volume", label: "Weight volume" },
 	setDuration: { unit: "seconds", label: "Set duration" },
 	plannedRest: { unit: "seconds", label: "Planned rest" },
+	calories: { measure: "energy", label: "Recorded energy" },
 	repetitions: { unit: "repetitions", label: "Repetitions" },
-	volume: { label: "Weight volume", unit: "kg × repetitions" },
 	personalBests: { unit: "awards", label: "Personal-best awards" },
 	personalBestSets: { unit: "sets", label: "Sets with personal bests" },
 	measurementEntries: { unit: "entries", label: "Measurement entries" },
 	activeDuration: { unit: "seconds", label: "Recorded active duration" },
 	measurementReadings: { unit: "readings", label: "Measurement readings" },
-} as const;
+} as const satisfies Record<
+	string,
+	{ readonly label: string } & ({ readonly unit: string } | { readonly measure: ConvertedMeasure })
+>;
 
 export const workoutSetMetric = (set: Table, metric: "reps" | "distance" | "duration") =>
 	conditional(

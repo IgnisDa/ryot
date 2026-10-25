@@ -23,14 +23,10 @@ import type {
 	historicalFitnessRankingRecipe,
 } from "../../shared/analytics-recipes";
 import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
-import { rollingAverage, trendWindow } from "../../shared/measurement-metrics";
+import { smoothRuns } from "../../shared/measurement-metrics";
 import type { measurementSummaryRecipe } from "../../shared/measurement-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
-import {
-	kilocaloriesToEnergy,
-	kilogramsToPounds,
-	kilometersToMiles,
-} from "../../shared/workout-units";
+import { type ConvertedMeasure, displayMeasure } from "../../shared/workout-units";
 
 export type AnalyticsScope = AnalyticsSectionProps;
 export type AnalyticsTrendPoint = AnalyticsTrend["points"][number];
@@ -51,14 +47,11 @@ export type AnalyticsMetric = Parameters<typeof fitnessAnalyticsTrendRecipe>[0][
 export type MeasurementReadings = Recipe.Success<typeof fitnessMeasurementReadingsRecipe>;
 export type AnalyticsInput = Omit<Parameters<typeof fitnessAnalyticsTotalsRecipe>[0], "now">;
 
+export type Compared<Data> = Reported<{ readonly current: Data; readonly previous: null | Data }>;
 export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
 	"unitSystem" | "energyUnit"
 >;
-export type AnalyticsSummary = Reported<{
-	readonly current: AnalyticsTotals;
-	readonly previous: null | AnalyticsTotals;
-}>;
 export type WorkoutDrillRequest = {
 	readonly title: string;
 	readonly periodCaption: string;
@@ -70,22 +63,15 @@ export const metricDisplay = (
 	metric: keyof typeof fitnessMetricDefinitions,
 	value: null | number,
 	preferences: AnalyticsDisplayPreferences,
-) => {
-	let unit: string = fitnessMetricDefinitions[metric].unit;
-	let quantity = value;
-	if (metric === "volume") {
-		unit = preferences.unitSystem === "imperial" ? "lb × reps" : "kg × reps";
-		if (preferences.unitSystem === "imperial") {
-			quantity = value === null ? null : kilogramsToPounds(value);
-		}
-	} else if (metric === "distance" && preferences.unitSystem === "imperial") {
-		unit = "mi";
-		quantity = value === null ? null : kilometersToMiles(value);
-	} else if (metric === "calories") {
-		unit = preferences.energyUnit;
-		quantity = value === null ? null : kilocaloriesToEnergy(value, preferences.energyUnit);
+): { readonly unit: string; readonly value: null | number } => {
+	const definition: { readonly unit: string } | { readonly measure: ConvertedMeasure } =
+		fitnessMetricDefinitions[metric];
+	if (!("measure" in definition)) {
+		return { value, unit: definition.unit };
 	}
-	return { unit, value: quantity };
+	return value === null
+		? { value, unit: displayMeasure(definition.measure, 0, preferences).unit }
+		: displayMeasure(definition.measure, value, preferences);
 };
 
 export type TrendBucket<Point> = {
@@ -122,6 +108,12 @@ export const trendBuckets = <Point extends { readonly at: string; readonly value
 		};
 	});
 
+const trendBucketDetail = (point: AnalyticsTrendPoint) => {
+	const known = `${point.knownValues ?? 0} of ${point.observations} with a value`;
+	const unavailable = (point.pendingSets ?? 0) + (point.failedSets ?? 0);
+	return unavailable === 0 ? known : `${known}; ${unavailable} sets still processing or failed`;
+};
+
 export const workoutTrendModel = (
 	current: AnalyticsTrend,
 	previous: null | AnalyticsTrend,
@@ -136,60 +128,18 @@ export const workoutTrendModel = (
 		).map((bucket) =>
 			Object.assign({}, bucket, {
 				value: metricDisplay(trend.metric, bucket.value, preferences).value,
-				detail:
-					bucket.source === null
-						? bucket.detail
-						: `${bucket.source.observations} observations; ${bucket.source.knownValues ?? 0} known values; ${bucket.source.pendingSets ?? 0} pending sets; ${bucket.source.failedSets ?? 0} failed sets`,
+				detail: bucket.source === null ? bucket.detail : trendBucketDetail(bucket.source),
 			}),
 		);
 	const comparable =
 		previous !== null &&
 		previous.metric === current.metric &&
-		previous.unit === current.unit &&
 		previous.grouping === current.grouping;
 	return {
 		current: build(current),
 		previous: comparable ? build(previous) : null,
 		unit: metricDisplay(current.metric, null, preferences).unit,
 	};
-};
-
-export const smoothMeasurementBuckets = (
-	buckets: ReadonlyArray<TrendBucket<MeasurementTrend["points"][number]>>,
-) => {
-	const result: Array<
-		{ readonly smoothing: 3 | 7 | null } & TrendBucket<MeasurementTrend["points"][number]>
-	> = buckets.map((bucket) => Object.assign({}, bucket, { smoothing: null }));
-	let start = 0;
-	while (start < result.length) {
-		const first = result[start];
-		if (first?.value == null) {
-			start++;
-			continue;
-		}
-		let end = start + 1;
-		while (
-			end < result.length &&
-			result[end]?.value !== null &&
-			result[end]?.source?.unit === first.source?.unit
-		) {
-			end++;
-		}
-		const run = result
-			.slice(start, end)
-			.flatMap(({ at, value }) => (value === null ? [] : [{ at, value }]));
-		const smoothed = rollingAverage(run);
-		const smoothing = trendWindow(run.length);
-		for (let index = start; index < end; index++) {
-			const bucket = result[index];
-			const point = smoothed[index - start];
-			if (bucket !== undefined && point !== undefined) {
-				result[index] = { ...bucket, smoothing, value: point.value };
-			}
-		}
-		start = end;
-	}
-	return result;
 };
 
 export const measurementTrendModel = (
@@ -202,7 +152,7 @@ export const measurementTrendModel = (
 		const buckets = trendBuckets(trend, timeZone);
 		return (
 			smooth
-				? smoothMeasurementBuckets(buckets)
+				? smoothRuns(buckets, (left, right) => left.source?.unit !== right.source?.unit)
 				: buckets.map((bucket) => Object.assign({}, bucket, { smoothing: null }))
 		).map((bucket) =>
 			Object.assign({}, bucket, {

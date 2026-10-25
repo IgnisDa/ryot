@@ -44,36 +44,59 @@ export const rollingAverage = (points: Points): Points => {
 	});
 };
 
+/** Smooths runs of known values; a run also ends where `breaks` separates adjacent known points. */
+export const smoothRuns = <Point extends { readonly at: string; readonly value: null | number }>(
+	points: readonly Point[],
+	breaks: (previous: Point, next: Point) => boolean,
+): ReadonlyArray<Point & { readonly smoothing: 3 | 7 | null }> => {
+	const result: Array<Point & { readonly smoothing: 3 | 7 | null }> = [];
+	let run: Array<{ readonly point: Point; readonly value: number }> = [];
+	const flush = () => {
+		const smoothing = trendWindow(run.length);
+		const averages = rollingAverage(run.map(({ point, value }) => ({ value, at: point.at })));
+		run.forEach(({ point }, index) =>
+			result.push({ ...point, smoothing, value: averages[index]?.value ?? null }),
+		);
+		run = [];
+	};
+	for (const point of points) {
+		const previous = run.at(-1)?.point;
+		if (point.value === null) {
+			flush();
+			result.push({ ...point, smoothing: null });
+			continue;
+		}
+		if (previous !== undefined && breaks(previous, point)) {
+			flush();
+		}
+		run.push({ point, value: point.value });
+	}
+	flush();
+	return result;
+};
+
 export const smoothMeasurementSeries = (
 	points: readonly TrendPoint[],
 	{ bucket, timeZone }: SeriesCalendar,
 ): readonly TrendPoint[] => {
-	const adjacent = (previous: string, next: string) =>
-		addCalendarUnits(localDateOf(previous, timeZone), bucket, 1) === localDateOf(next, timeZone);
-	const trend: TrendPoint[] = [];
-	let run: MeasurementSeries["points"][number][] = [];
-	const flush = () => {
-		trend.push(...rollingAverage(run));
-		run = [];
-	};
-	for (const point of points) {
-		if (point.value === null) {
-			flush();
-			trend.push(point);
-			continue;
-		}
-		const previous = run.at(-1);
-		if (previous !== undefined && !adjacent(previous.at, point.at)) {
-			flush();
-			trend.push({
-				value: null,
-				at: new Date((Date.parse(previous.at) + Date.parse(point.at)) / 2).toISOString(),
-			});
-		}
-		run.push({ at: point.at, value: point.value });
-	}
-	flush();
-	return trend;
+	const adjacent = (previous: TrendPoint, next: TrendPoint) =>
+		addCalendarUnits(localDateOf(previous.at, timeZone), bucket, 1) ===
+		localDateOf(next.at, timeZone);
+	return smoothRuns(points, (left, right) => !adjacent(left, right)).flatMap(
+		({ at, value }, index) => {
+			const previous = points[index - 1];
+			const point = { at, value };
+			return previous?.value != null && value !== null && !adjacent(previous, point)
+				? [
+						{
+							value: null,
+							at: new Date((Date.parse(previous.at) + Date.parse(at)) / 2).toISOString(),
+						},
+						point,
+					]
+				: [point];
+		},
+	);
 };
 
 export type MetricRow = {

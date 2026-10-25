@@ -83,7 +83,7 @@ export type Metric = {
 	readonly unit: MetricUnit;
 	readonly value: (month: Month) => null | number;
 };
-type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "kg-reps" | "sessions";
+type MetricUnit = "kmh" | "reps" | "weight" | "kg-reps" | "distance" | "duration" | "sessions";
 
 type MetricKey =
 	| "pace"
@@ -115,15 +115,15 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		value: (month) => month.maxReps,
 	},
 	distance: {
-		unit: "km",
 		key: "distance",
+		unit: "distance",
 		label: "Distance",
 		title: "Distance per month",
 		value: (month) => month.distance,
 	},
 	duration: {
-		unit: "seconds",
 		key: "duration",
+		unit: "duration",
 		label: "Set duration",
 		title: "Time per month",
 		value: (month) => month.duration,
@@ -136,14 +136,14 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		value: (month) => month.sessions,
 	},
 	maxWeight: {
-		unit: "kg",
+		unit: "weight",
 		label: "Weight",
 		key: "maxWeight",
 		value: (month) => month.maxWeight,
 		title: "Heaviest weight per month",
 	},
 	maxDuration: {
-		unit: "seconds",
+		unit: "duration",
 		key: "maxDuration",
 		label: "Longest set",
 		title: "Longest set per month",
@@ -157,9 +157,9 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		value: (month) => (projectionsReady(month) ? month.volume : null),
 	},
 	oneRm: {
-		unit: "kg",
 		key: "oneRm",
 		label: "1RM",
+		unit: "weight",
 		title: "Est. one-rep max per month",
 		value: (month) => (projectionsReady(month) ? month.maxOneRm : null),
 	},

@@ -1,9 +1,10 @@
 import { clockFormat } from "@ryot-app/plugin-ui-sdk";
 
 import type { ExerciseKind } from "../../shared/exercise-kinds";
-import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
-import { kilogramsToPounds, kilometersToMiles } from "../../shared/workout-units";
-import type { MeasureUnit, WorkoutSet } from "./details-model";
+import { displayMeasure } from "../../shared/workout-units";
+import type { WorkoutSet } from "./details-model";
+
+export type Measure = "reps" | "weight" | "volume" | "distance" | "duration";
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const volumeFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 20 });
@@ -36,27 +37,27 @@ export const formatExerciseMeta = (exercise: {
 		...exercise.equipment.map((equipment) => equipment.name),
 	].join(" · ");
 
-export const formatMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
-	if (unit === fitnessMetricDefinitions.volume.unit) {
-		return `${volumeFormat.format(imperial ? kilogramsToPounds(value) : value)} ${imperial ? "lb" : "kg"} × reps`;
-	}
-	if (unit === "seconds") {
+export const formatMeasure = (value: number, measure: Measure, imperial = false) => {
+	if (measure === "duration") {
 		return formatDuration(value);
 	}
-	if (imperial && unit === "kg") {
-		return `${formatNumber(kilogramsToPounds(value))} lb`;
+	if (measure === "reps") {
+		return `${formatNumber(value)} reps`;
 	}
-	if (imperial && unit === "km") {
-		return `${formatNumber(kilometersToMiles(value))} mi`;
-	}
-	return unit === "reps" ? `${formatNumber(value)} reps` : `${formatNumber(value)} ${unit}`;
+	const display = displayMeasure(measure, value, {
+		energyUnit: "kcal",
+		unitSystem: imperial ? "imperial" : "metric",
+	});
+	const formatted =
+		measure === "volume" ? volumeFormat.format(display.value) : formatNumber(display.value);
+	return `${formatted} ${display.unit}`;
 };
 
-export const formatSignedMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
+export const formatSignedMeasure = (value: number, measure: Measure, imperial = false) => {
 	if (value === 0) {
 		return "Same as last time";
 	}
-	const magnitude = formatMeasure(Math.abs(value), unit, imperial);
+	const magnitude = formatMeasure(Math.abs(value), measure, imperial);
 	return value > 0 ? `+${magnitude}` : `−${magnitude}`;
 };
 
@@ -66,7 +67,7 @@ const weightReps = (set: SetMeasures, imperial: boolean) => {
 	if (set.weight === null || set.weight === 0) {
 		return set.reps === null ? "" : `${formatNumber(set.reps)} reps`;
 	}
-	return `${formatMeasure(set.weight, "kg", imperial)}${set.reps === null ? "" : ` × ${formatNumber(set.reps)}`}`;
+	return `${formatMeasure(set.weight, "weight", imperial)}${set.reps === null ? "" : ` × ${formatNumber(set.reps)}`}`;
 };
 
 export const formatSetMain = (
@@ -86,7 +87,7 @@ export const formatSetMain = (
 			duration = `${formatNumber(set.duration / 60)} min`;
 		}
 	}
-	const distance = set.distance === null ? null : formatMeasure(set.distance, "km", imperial);
+	const distance = set.distance === null ? null : formatMeasure(set.distance, "distance", imperial);
 	if (kind === "reps_and_weight") {
 		return weightReps(set, imperial);
 	}

@@ -268,10 +268,13 @@ export function AnalyticsSummary({
 					previousCaption={previousCaption}
 				/>
 			</div>
-			<p className="text-[12.5px] text-text-muted">
-				Taxonomy coverage: {current.missingTaxonomySets} sets lack occurrence evidence;{" "}
-				{current.legacyTaxonomySets} sets use legacy export-time taxonomy.
-			</p>
+			{current.missingTaxonomySets + current.legacyTaxonomySets === 0 ? null : (
+				<p className="text-[12.5px] text-text-muted">
+					Muscles and equipment: {current.missingTaxonomySets} sets have none recorded;{" "}
+					{current.legacyTaxonomySets} migrated sets use the exercise's muscles and equipment at
+					migration time.
+				</p>
+			)}
 		</section>
 	);
 }

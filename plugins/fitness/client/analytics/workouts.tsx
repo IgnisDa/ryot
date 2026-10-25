@@ -1,7 +1,6 @@
 import {
 	formatExactValue,
 	periodCaption,
-	type Reported,
 	type ReportingPeriod,
 	selectionForPeriod,
 	type TimeZone,
@@ -23,6 +22,7 @@ import {
 	type AnalyticsMetric,
 	type AnalyticsScope,
 	type AnalyticsTrend,
+	type Compared,
 	consistencyModel,
 	type WorkoutDrillRequest,
 	workoutTrendModel,
@@ -43,7 +43,7 @@ const analyticsMetrics: readonly AnalyticsMetric[] = [
 const isAnalyticsMetric = (value: string): value is AnalyticsMetric =>
 	analyticsMetrics.some((metric) => metric === value);
 
-type TrendQueryResult = RyotQueryResult<Reported<AnalyticsTrend>>;
+type TrendQueryResult = RyotQueryResult<Compared<AnalyticsTrend>>;
 
 type AnalyticsInput = {
 	readonly reference: AnalyticsScope["owner"];
@@ -89,33 +89,6 @@ export function AnalyticsWorkouts({
 }
 
 const formatWorkouts = (value: number) => formatExactValue(value, "workouts");
-
-function ComparedTrend(props: {
-	readonly compact: boolean;
-	readonly input: AnalyticsInput;
-	readonly metric: AnalyticsMetric;
-	readonly current: TrendQueryResult;
-	readonly preferences: AnalyticsDisplayPreferences;
-	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
-}) {
-	const previous = useRyotQuery(analyticsTrendQuery, {
-		...props.input,
-		period: "previous",
-		metric: props.metric,
-	});
-	return (
-		<TrendChart
-			previous={previous}
-			metric={props.metric}
-			compact={props.compact}
-			current={props.current}
-			timeZone={props.input.timeZone}
-			preferences={props.preferences}
-			selection={props.input.selection}
-			onOpenWorkouts={props.onOpenWorkouts}
-		/>
-	);
-}
 
 function HourlyRegion(props: { readonly compact: boolean; readonly input: AnalyticsInput }) {
 	const result = useRyotQuery(workoutStartsByHourQuery, props.input);
@@ -183,13 +156,7 @@ function TrendRegion(props: {
 	readonly onMetricChange: (metric: AnalyticsMetric) => void;
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
-	const current = useRyotQuery(analyticsTrendQuery, {
-		...props.input,
-		period: "current",
-		metric: props.metric,
-	});
-	const hasPreviousPeriod =
-		props.input.selection.comparison !== "none" && props.input.selection.range.kind !== "all-time";
+	const trend = useRyotQuery(analyticsTrendQuery, { ...props.input, metric: props.metric });
 	return (
 		<Card className="flex min-w-0 flex-col gap-4">
 			<header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
@@ -216,26 +183,15 @@ function TrendRegion(props: {
 					}))}
 				/>
 			</header>
-			{hasPreviousPeriod ? (
-				<ComparedTrend
-					current={current}
-					input={props.input}
-					metric={props.metric}
-					compact={props.compact}
-					preferences={props.preferences}
-					onOpenWorkouts={props.onOpenWorkouts}
-				/>
-			) : (
-				<TrendChart
-					current={current}
-					metric={props.metric}
-					compact={props.compact}
-					timeZone={props.input.timeZone}
-					preferences={props.preferences}
-					selection={props.input.selection}
-					onOpenWorkouts={props.onOpenWorkouts}
-				/>
-			)}
+			<TrendChart
+				trend={trend}
+				metric={props.metric}
+				compact={props.compact}
+				timeZone={props.input.timeZone}
+				preferences={props.preferences}
+				selection={props.input.selection}
+				onOpenWorkouts={props.onOpenWorkouts}
+			/>
 		</Card>
 	);
 }
@@ -243,19 +199,17 @@ function TrendRegion(props: {
 function TrendChart(props: {
 	readonly compact: boolean;
 	readonly timeZone: TimeZone;
+	readonly trend: TrendQueryResult;
 	readonly metric: AnalyticsMetric;
-	readonly current: TrendQueryResult;
-	readonly previous?: TrendQueryResult;
 	readonly selection: AnalyticsScope["selection"];
 	readonly preferences: AnalyticsDisplayPreferences;
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
-	const currentTrend = props.current.data;
-	const previousTrend = props.previous?.data ?? null;
+	const data = props.trend.data;
 	const model =
-		currentTrend === undefined
+		data === undefined
 			? null
-			: workoutTrendModel(currentTrend, previousTrend, props.timeZone, props.preferences);
+			: workoutTrendModel(data.current, data.previous, props.timeZone, props.preferences);
 	const unit = model?.unit ?? "";
 	const formatValue = useCallback((value: number) => formatExactValue(value, unit), [unit]);
 	const { selection, onOpenWorkouts } = props;
@@ -269,34 +223,25 @@ function TrendChart(props: {
 		[onOpenWorkouts, selection],
 	);
 	return (
-		<div className="flex min-w-0 flex-col gap-3">
-			{props.previous === undefined ? null : (
-				<QueryStatus
-					query={props.previous}
-					label="previous-period trend"
-					onRetry={props.previous.refetch}
-				/>
-			)}
-			<QueryStatus query={props.current} label="workout trend" onRetry={props.current.refetch}>
-				{(data) =>
-					model === null ? null : (
-						<PeriodTrendChart
-							onSelect={openBucket}
-							current={model.current}
-							compact={props.compact}
-							formatValue={formatValue}
-							timeZone={props.timeZone}
-							label={periodCaption(data.period)}
-							ariaLabel={`${fitnessMetricDefinitions[props.metric].label} by workout-start period`}
-							previous={
-								previousTrend === null || model.previous === null
-									? undefined
-									: { points: model.previous, label: periodCaption(previousTrend.period) }
-							}
-						/>
-					)
-				}
-			</QueryStatus>
-		</div>
+		<QueryStatus query={props.trend} label="workout trend" onRetry={props.trend.refetch}>
+			{({ current, previous }) =>
+				model === null ? null : (
+					<PeriodTrendChart
+						onSelect={openBucket}
+						current={model.current}
+						compact={props.compact}
+						formatValue={formatValue}
+						timeZone={props.timeZone}
+						label={periodCaption(current.period)}
+						ariaLabel={`${fitnessMetricDefinitions[props.metric].label} by workout-start period`}
+						previous={
+							previous === null || model.previous === null
+								? undefined
+								: { points: model.previous, label: periodCaption(previous.period) }
+						}
+					/>
+				)
+			}
+		</QueryStatus>
 	);
 }

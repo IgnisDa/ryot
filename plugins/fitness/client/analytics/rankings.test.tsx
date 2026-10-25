@@ -52,7 +52,7 @@ const rankingRow = (
 	sets = 0,
 	exerciseOccurrences = 0,
 	workouts = 0,
-) => ({ id, name, sets, workouts, weightedSets, evidenceSets: sets, exerciseOccurrences });
+) => ({ id, name, sets, workouts, weightedSets, exerciseOccurrences });
 
 const rankingResponse = (
 	nextCursor: null | string,

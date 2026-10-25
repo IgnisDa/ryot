@@ -96,13 +96,13 @@ describe("measurementPeriod and seriesWindow", () => {
 		const window = seriesWindow(
 			"All",
 			now,
-			[summary("a", { firstAt: "1990-01-01T00:00:00.000Z" })],
+			[summary("a", { firstAt: "2000-01-01T00:00:00.000Z" })],
 			TimeZone.make("UTC"),
 		);
 		expect(window).toEqual({
 			bucket: "month",
 			endAt: now.toISOString(),
-			startAt: "1990-01-01T00:00:00.000Z",
+			startAt: "2000-01-01T00:00:00.000Z",
 		});
 	});
 });
@@ -144,7 +144,6 @@ describe("buildMetricRows", () => {
 			const analytics = measurementTrendModel(
 				{
 					period: null,
-					hasMore: false,
 					grouping: bucket,
 					metricId: "weight",
 					points: averages.map((point) => Object.assign({}, point, { unit: "kg", readings: 1 })),

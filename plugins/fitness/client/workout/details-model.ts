@@ -1,7 +1,6 @@
 import type { ExerciseKind } from "../../shared/exercise-kinds";
 import {
 	elapsedWorkoutSeconds,
-	fitnessMetricDefinitions,
 	type MuscleSource,
 	summarizeRecordedSets,
 } from "../../shared/fitness-metrics";
@@ -9,18 +8,15 @@ import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
 import type { WorkoutTaxonomy } from "../../shared/workout-taxonomy-recipes";
 import { supersetLetter } from "../group-colors";
-import { parseDate } from "./format";
+import { type Measure, parseDate } from "./format";
 
 export type WorkoutSet = WorkoutExercise["sets"]["items"][number];
-export type MeasureUnit =
-	"kg" | "km" | "reps" | "seconds" | typeof fitnessMetricDefinitions.volume.unit;
 export type WorkoutTimeline = {
 	readonly restSeconds: number;
 	readonly segments: readonly TimelineSegment[];
 };
 export type WorkoutExercise = WorkoutDetails["exercises"]["items"][number] &
 	Pick<WorkoutTaxonomy, "targets" | "equipment">;
-
 export type TimelineSegment = {
 	readonly key: string;
 	readonly label: string;
@@ -58,44 +54,40 @@ export type ExerciseCard = {
 	readonly supersetTag: null | string;
 	readonly sets: readonly WorkoutSet[];
 	readonly recordStatus: WorkoutSet["recordStatus"];
-	readonly total: null | { readonly value: number; readonly unit: MeasureUnit };
+	readonly total: null | { readonly value: number; readonly measure: CardMeasure };
 	readonly media: undefined | NonNullable<WorkoutDetails["exerciseMedia"]>[number];
 	readonly comparison: null | {
 		readonly delta: number;
-		readonly unit: MeasureUnit;
+		readonly measure: CardMeasure;
 		readonly previousStartedAt: string;
 	};
 };
+
+type CardMeasure = Exclude<Measure, "weight">;
 
 type PreviousSet = WorkoutExercise["previousSets"]["items"][number];
 
 type Measured = Pick<PreviousSet, "reps" | "volume" | "distance" | "duration">;
 
-const measureUnitByKind: Record<ExerciseKind, MeasureUnit> = {
+const measureByKind: Record<ExerciseKind, CardMeasure> = {
 	reps: "reps",
-	duration: "seconds",
+	duration: "duration",
 	reps_and_duration: "reps",
-	distance_and_duration: "km",
-	reps_and_duration_and_distance: "km",
-	reps_and_weight: fitnessMetricDefinitions.volume.unit,
+	reps_and_weight: "volume",
+	distance_and_duration: "distance",
+	reps_and_duration_and_distance: "distance",
 };
 
-const measureOf = (set: Measured, unit: MeasureUnit) => {
-	if (unit === fitnessMetricDefinitions.volume.unit) {
+const measureOf = (set: Measured, measure: CardMeasure) => {
+	if (measure === "volume") {
 		return "recordStatus" in set && set.recordStatus === "ready" ? set.volume : null;
 	}
-	if (unit === "km") {
-		return set.distance;
-	}
-	if (unit === "reps") {
-		return set.reps;
-	}
-	return set.duration;
+	return set[measure];
 };
 
-const sumMeasure = (sets: readonly Measured[], unit: MeasureUnit) =>
+const sumMeasure = (sets: readonly Measured[], measure: CardMeasure) =>
 	sets.reduce<null | number>((total, set) => {
-		const value = measureOf(set, unit);
+		const value = measureOf(set, measure);
 		return total === null || value === null ? null : total + value;
 	}, 0);
 
@@ -133,23 +125,23 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 				(item) => item.exerciseId === exercise.id && item.exerciseOrder === order,
 			);
 			const kind = sets[0]?.exerciseKind ?? null;
-			const unit = kind === null ? null : measureUnitByKind[kind];
-			let value = unit === null ? null : sumMeasure(sets, unit);
-			if (unit === fitnessMetricDefinitions.volume.unit) {
+			const measure = kind === null ? null : measureByKind[kind];
+			let value = measure === null ? null : sumMeasure(sets, measure);
+			if (measure === "volume") {
 				value = sets.some((set) => set.volume === null) ? null : summarizeRecordedSets(sets).volume;
 			}
-			const previous = unit === null ? null : sumMeasure(exercise.previousSets.items, unit);
+			const previous = measure === null ? null : sumMeasure(exercise.previousSets.items, measure);
 			const superset = supersets.find(({ orders }) => orders.includes(order));
 			const previousStartedAt = exercise.previousWorkoutStartedAt;
 			const comparison =
-				unit !== null &&
+				measure !== null &&
 				value !== null &&
 				previous !== null &&
 				cardRecordStatus(sets) === "ready" &&
 				previousStartedAt !== null &&
 				exercise.previousSets.items.length > 0 &&
 				occurrenceCount.get(exercise.id) === 1
-					? { unit, previousStartedAt, delta: value - previous }
+					? { measure, previousStartedAt, delta: value - previous }
 					: null;
 			return {
 				kind,
@@ -158,7 +150,7 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 				comparison,
 				key: `${order}:${exercise.id}`,
 				recordStatus: cardRecordStatus(sets),
-				total: unit === null || value === null ? null : { unit, value },
+				total: measure === null || value === null ? null : { value, measure },
 				media: workout.exerciseMedia?.find(({ exerciseOrder }) => exerciseOrder === order),
 				notes:
 					workout.exerciseNotes?.find(({ exerciseOrder }) => exerciseOrder === order)?.notes ?? [],
@@ -204,9 +196,7 @@ export const summarizeWorkout = (
 		: metrics.volume;
 	const volumeDeltas = groups
 		.flatMap(groupCards)
-		.flatMap((card) =>
-			card.comparison?.unit === fitnessMetricDefinitions.volume.unit ? [card.comparison.delta] : [],
-		);
+		.flatMap((card) => (card.comparison?.measure === "volume" ? [card.comparison.delta] : []));
 	return {
 		volume,
 		sets: metrics.sets,

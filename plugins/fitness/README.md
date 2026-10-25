@@ -46,8 +46,9 @@ The strict properties are:
 ```
 
 Each array has at most 100 items. `policy.workout-exercise` captures applicable effective
-taxonomy links on creation and rejects overflow rather than truncating. Updates retain the frozen
-assignments. All target/equipment IDs are declared `entity-id` references, so ordinary backup
+taxonomy links on creation and rejects overflow rather than truncating; it allows updates, whose
+immutability the kernel event group enforces. Replacing an occurrence's exercise deletes its anchor
+and creates a new one so the replacement's taxonomy is captured; position-only moves update it. All target/equipment IDs are declared `entity-id` references, so ordinary backup
 dependency discovery, restore remapping, user-data rewriting and provider retention see them.
 The event owner participates in exercise merge; the session reference participates in workout
 deletion. There is no per-set copy of the taxonomy.
@@ -58,6 +59,8 @@ assignments at workout time. Runtime capture uses `"recorded"`, including captur
 Use workout start for the occurrence's ordering timestamp; this is not timed-set evidence.
 
 `fitness-metrics.ts`, `workout-list-recipes.ts` and `analytics-recipes.ts` define shared metrics.
+Metric definitions carry either a fixed unit or a converted measure; `displayMeasure` in
+`workout-units.ts` is the only storage-to-display unit converter.
 Analytics totals expose active-duration and energy coverage, entries separately from readings,
 and personal-best awards separately from awarded sets. Missing active duration remains null;
 planned rest and set duration are separate quantities. Weight volume uses the existing kind-aware
@@ -82,15 +85,15 @@ equally named targets remain separate.
 timestamps do not become query cache keys. Its inputs retain `reference`; a section passes its
 explicit `owner` as that reference, so ownership is part of the cache key.
 
-| Recipe                             | Additional input                                                        | Result                                                                               | Named queries |
-| ---------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------- |
-| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                                                       | Counts, entered measurements, derived metrics, missing-data and taxonomy coverage    | 5             |
-| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `period: "current" \| "previous"`, optional `filter` | Sparse buckets with unit, observations, known values, projection coverage, `hasMore` | 1             |
-| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                                                       | 24 reporting-timezone bins labeled **Workout starts**                                | 1             |
-| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after`                                      | 100-row cursor page of retained-taxonomy counts and weighted sets                    | 1             |
-| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`                                              | 100-row cursor page, newest workout start first                                      | 1             |
-| `fitnessMeasurementTrendRecipe`    | `metricId`, optional `period`                                           | Sparse average buckets with reading count, metric unit and `hasMore`                 | 1             |
-| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`                                            | 100-row cursor page of readings, unit, occurrence time and entry ID                  | 1             |
+| Recipe                             | Additional input                   | Result                                                                                 | Named queries |
+| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- | ------------- |
+| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and taxonomy coverage      | 4             |
+| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations and known values; set metrics add projection coverage | 1             |
+| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                                  | 1             |
+| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                      | 1             |
+| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                        | 1             |
+| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                              | 1             |
+| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID                    | 1             |
 
 `filter` is `{ kind: "exercises" | "targets" | "equipment", id }`. It filters sets and their
 workouts; measurement counts in the totals remain independent of workout filters. Trend metrics
@@ -99,7 +102,9 @@ planned rest and personal-best awards. Units come from `fitnessMetricDefinitions
 
 Workout trends and hours use workout starts even when imported set timestamps are fallback values.
 Measurement trends use reading times and keep metrics separate. Missing buckets remain absent;
-recorded zero remains zero. A missing previous period returns no points. The client lays sparse
+recorded zero remains zero. Trend and summary queries run the previous period as a second recipe
+execution over `selectionForPeriod`, inside the same client query, and skip it when the selection
+has no previous period. Trend queries are capped at `REPORTING_BUCKET_LIMIT`. The client lays sparse
 buckets onto the shared `calendarBuckets` grid; `resolveReportingSelection` keeps every grouping
 within the shared bucket limit, and all-time groups by year. Paged results continue through
 `reportingPageParam`, which pins the first page's resolved period.
@@ -107,16 +112,12 @@ within the shared bucket limit, and all-time groups by year. Paged results conti
 Totals, workout cards and exercise aggregates read projection coverage with their values. Pending
 or failed coverage hides volume and personal-best results without hiding entered measurements.
 The separate processing poll supplies status text, but cannot make an incomplete aggregate ready.
-Totals use an exact occurrence left join by user, plugin, session, exercise, order and recorded kind.
-The metric aggregate counts joined rows. A separate count-only `evidenceIntegrity` aggregate uses
-the same source, joins and filters, without projection reads. Its joined-row count must equal both
-its distinct-set count and the metric set count before decoding totals. Both run in the existing
-document's repeatable-read snapshot; the left join retains sets with missing evidence, and duplicate
-matches fail instead of inflating metrics. Summary comparisons remain separate five-query documents.
-Rankings also reject duplicate matched sets and reuse their joined occurrence for taxonomy filters.
+Totals left join each set's occurrence by user, plugin, session, exercise, order and recorded kind
+for taxonomy coverage; the kernel's unique anchor positions keep that join one-to-one. Rankings reuse
+their joined occurrence for taxonomy filters.
 
-The editor fences evidence reads with the workout event-scope revision and rejects duplicate
-occurrence positions or evidence that disagrees with the original set owner/kind. The manifest's
+The editor fences evidence reads with the workout event-scope revision and rejects evidence that
+disagrees with the original set owner/kind. The manifest's
 session-scoped `eventGroup` keys anchors by `exerciseOrder`; sets must match the anchor's exercise,
 order and recorded kind. The kernel validates final state in the commit transaction, including
 unique positions, nonempty anchors, immutable session/taxonomy/kind/provenance and retained set-to-anchor
@@ -298,7 +299,9 @@ budgets. The draft's retained submission freezes data, baseline, ID, and timesta
 settings changes. The save command commits the entity, sets, relationships, and any new-workout
 completion event atomically; asset uploads are separate.
 
-Templates store plans without execution events. Results distinguish completion, conflicts, validation,
+New sets need not be confirmed: creates and historical edits save unconfirmed sets at their supplied
+time, while the live editor requires confirmation before finishing. Templates store plans without
+execution events. Results distinguish completion, conflicts, validation,
 and Pro gates. A known business rejection from the atomic command unlocks edits; uncertain transport
 results retain the immutable retry.
 

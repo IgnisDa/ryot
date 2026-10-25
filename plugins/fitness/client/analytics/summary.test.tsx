@@ -76,7 +76,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		data: {
 			entries: aggregate({ entries: value.measurementEntries }),
 			readings: aggregate({ readings: value.measurementReadings }),
-			evidenceIntegrity: aggregate({ matchedRows: value.sets, distinctSets: value.sets }),
 			workouts: aggregate({
 				workouts: value.workouts,
 				calories: value.calories,
@@ -196,7 +195,7 @@ describe("Fitness analytics summary UI", () => {
 				).toBeDefined();
 				expect(
 					screen.getByText(
-						"Taxonomy coverage: 3 sets lack occurrence evidence; 1 sets use legacy export-time taxonomy.",
+						"Muscles and equipment: 3 sets have none recorded; 1 migrated sets use the exercise's muscles and equipment at migration time.",
 					),
 				).toBeDefined();
 				expect(screen.getAllByText(/1 pending sets · 1 failed sets/).length).toBeGreaterThan(0);

@@ -4,14 +4,10 @@ import { Button, Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
-import { fitnessMetricDefinitions, type MuscleCount } from "../../shared/fitness-metrics";
+import type { MuscleCount } from "../../shared/fitness-metrics";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
-import {
-	type EnergyUnit,
-	kilocaloriesToEnergy,
-	kilogramsToPounds,
-} from "../../shared/workout-units";
+import { displayMeasure, type EnergyUnit } from "../../shared/workout-units";
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
@@ -170,12 +166,18 @@ function WorkoutActions(props: {
 	);
 }
 
+const displayedStat = (display: { readonly unit: string; readonly value: number }) => ({
+	unit: display.unit,
+	value: formatNumber(display.value),
+});
+
 const summaryStats = (
 	workout: WorkoutDetails,
 	summary: WorkoutSummary,
 	imperial: boolean,
 	energyUnit: EnergyUnit,
 ) => {
+	const preferences = { energyUnit, unitSystem: imperial ? "imperial" : "metric" } as const;
 	const stats: ReadonlyArray<Stat | null> = [
 		{
 			label: "Active duration",
@@ -191,13 +193,12 @@ const summaryStats = (
 		summary.volume !== null && summary.volume > 0
 			? {
 					label: "Volume",
-					unit: imperial ? "lb × repetitions" : "kg × repetitions",
-					value: formatNumber(imperial ? kilogramsToPounds(summary.volume) : summary.volume),
+					...displayedStat(displayMeasure("volume", summary.volume, preferences)),
 					tone: summary.volumeDelta !== null && summary.volumeDelta > 0 ? "success" : undefined,
 					detail:
 						summary.volumeDelta === null
 							? null
-							: `${formatSignedMeasure(summary.volumeDelta, fitnessMetricDefinitions.volume.unit, imperial)} vs previous sessions`,
+							: `${formatSignedMeasure(summary.volumeDelta, "volume", imperial)} vs previous sessions`,
 				}
 			: null,
 		{
@@ -220,8 +221,7 @@ const summaryStats = (
 		workout.caloriesBurnt !== null && workout.caloriesBurnt >= 0
 			? {
 					label: "Energy",
-					unit: energyUnit,
-					value: formatNumber(kilocaloriesToEnergy(workout.caloriesBurnt, energyUnit)),
+					...displayedStat(displayMeasure("energy", workout.caloriesBurnt, preferences)),
 				}
 			: null,
 	];
