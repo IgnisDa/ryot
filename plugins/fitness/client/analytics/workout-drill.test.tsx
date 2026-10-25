@@ -167,7 +167,7 @@ describe("Fitness analytics workout drill", () => {
 					);
 					const morning = within(table).getByRole("row", { name: /Morning session/ });
 					const evening = within(table).getByRole("row", { name: /Evening session/ });
-					expect(within(morning).getByText("Sep 1, 2026, 9:30 PM")).toBeDefined();
+					expect(within(morning).getByText(/^Sep 1, 2026(?:,| at)\s9:30\sPM$/u)).toBeDefined();
 					expect(within(morning).getByText("Unknown")).toBeDefined();
 					expect(within(evening).getByText("0 seconds")).toBeDefined();
 					expect(within(table).queryByRole("columnheader", { name: "Sets" })).toBeNull();

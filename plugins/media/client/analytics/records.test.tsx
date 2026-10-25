@@ -308,7 +308,7 @@ describe("Media analytics records drill", () => {
 					).toBeDefined();
 					const dateRow = within(table).getByRole("row", { name: /Unknown date source/ });
 					expect(within(dateRow).getByText("Unknown date")).toBeDefined();
-					expect(within(dateRow).queryByText("Sep 4, 2026, 10:00 AM")).toBeNull();
+					expect(within(dateRow).queryByText(/^Sep 4, 2026(?:,| at)\s10:00\sAM$/u)).toBeNull();
 					const instantRow = within(table).getByRole("row", { name: /Instant date source/ });
 					expect(within(instantRow).getByText(/Sep 3, 2026/)).toBeDefined();
 					expect(within(instantRow).getByText(/10:30 PM/)).toBeDefined();

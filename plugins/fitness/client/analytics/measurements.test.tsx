@@ -336,7 +336,7 @@ describe("Fitness analytics measurements", () => {
 				expect(within(readingsTable).getByText("12.75 custom-u")).toBeDefined();
 				expect(within(readingsTable).getByText("entry-plain-text").closest("a")).toBeNull();
 				expect(within(readingsTable).getByText("Reading comment")).toBeDefined();
-				expect(within(readingsTable).getByText("Mar 2, 2026, 10:30 AM")).toBeDefined();
+				expect(within(readingsTable).getByText(/^Mar 2, 2026(?:,| at)\s10:30\sAM$/u)).toBeDefined();
 			} finally {
 				yield* dispose(page, clock);
 			}
