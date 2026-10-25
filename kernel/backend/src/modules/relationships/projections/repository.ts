@@ -368,12 +368,12 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			return {
 				bind,
 				mark,
+				fill,
 				prepare,
 				publish,
 				release,
 				reserve,
 				claimable,
-				fill,
 				currentClaim,
 				get: readState,
 				listCandidates,

@@ -611,11 +611,7 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 							Effect.succeed({
 								image: null,
 								name: "Owner",
-								preferences: {
-									language: null,
-									reportingTimeZone: UTC,
-									disableIntegrations: false,
-								},
+								preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 							}),
 					}),
 					Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),

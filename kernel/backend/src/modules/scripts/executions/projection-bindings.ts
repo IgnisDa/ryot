@@ -17,6 +17,14 @@ import { DatabaseSession } from "#platform/db/session";
 import { ScriptExecutionPrincipal, type ScriptPluginRevision } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
 
+export type ProjectionBindingRecord = {
+	readonly accountToken: string;
+	readonly pluginPin: JsonValue;
+	readonly outputSchema: AppSchema;
+	readonly pluginRevisionId: string;
+	readonly processorScriptId: string;
+};
+
 export class ProjectionBindings extends Context.Service<
 	ProjectionBindings,
 	{
@@ -34,14 +42,6 @@ export class ProjectionBindings extends Context.Service<
 		>;
 	}
 >()("@ryot-app/kernel-backend/modules/scripts/executions/projection-bindings/ProjectionBindings") {}
-
-export type ProjectionBindingRecord = {
-	readonly accountToken: string;
-	readonly pluginPin: JsonValue;
-	readonly outputSchema: AppSchema;
-	readonly pluginRevisionId: string;
-	readonly processorScriptId: string;
-};
 
 export const sameProjectionBinding = (
 	left: ProjectionBindingRecord,

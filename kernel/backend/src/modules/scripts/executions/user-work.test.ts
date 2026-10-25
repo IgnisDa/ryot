@@ -326,9 +326,9 @@ const runBody = (id: string, execute: () => Effect.Effect<unknown, DbError>) => 
 	return runBackgroundWorkWorkflow({ id }).pipe(
 		Effect.provideService(BackgroundWorkExecutor, { execute }),
 		Effect.provideService(BackgroundWorkProjectionFinalizer, {
-			prepare: () => Effect.die("User-script work must not prepare projections"),
 			publish: () => Effect.die("Unexpected projection output"),
 			failed: () => Effect.die("Unexpected projection failure"),
+			prepare: () => Effect.die("User-script work must not prepare projections"),
 		}),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
@@ -917,9 +917,9 @@ layer(userWorkHostLayer())((test) => {
 							}),
 					}),
 					Effect.provideService(BackgroundWorkProjectionFinalizer, {
-						prepare: () => Effect.die("User-script work must not prepare projections"),
 						publish: () => Effect.die("Unexpected projection output"),
 						failed: () => Effect.die("Unexpected projection failure"),
+						prepare: () => Effect.die("User-script work must not prepare projections"),
 					}),
 					Effect.provideService(WorkflowInstance, suspended),
 					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(suspended)),
@@ -936,9 +936,9 @@ layer(userWorkHostLayer())((test) => {
 			yield* runBackgroundWorkWorkflow({ id }).pipe(
 				Effect.provideService(BackgroundWorkExecutor, { execute: () => Effect.succeed(null) }),
 				Effect.provideService(BackgroundWorkProjectionFinalizer, {
-					prepare: () => Effect.die("User-script work must not prepare projections"),
 					publish: () => Effect.die("Unexpected projection output"),
 					failed: () => Effect.die("Unexpected projection failure"),
+					prepare: () => Effect.die("User-script work must not prepare projections"),
 				}),
 				Effect.provideService(WorkflowInstance, resumed),
 				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(resumed)),

@@ -502,12 +502,12 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								dirtyFrom: null,
 								checkpoint: null,
 								completedRevision: null,
-								currentJobId: retainedQueuedJob(schema.eventStreamWork.currentJobId),
 								pluginPin: input.pluginPin,
 								accountToken: input.accountToken,
 								outputSchema: input.outputSchema,
 								pluginRevisionId: input.pluginRevisionId,
 								processorScriptId: input.processorScriptId,
+								currentJobId: retainedQueuedJob(schema.eventStreamWork.currentJobId),
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
 					);

@@ -78,11 +78,11 @@ const reserveJob = (
 						.insert(tables.backgroundWork)
 						.values({
 							userId,
+							status,
 							pluginId,
 							id: jobId,
 							scope: id,
 							key: jobId,
-							status,
 							payload: {},
 							purpose: "event-projection",
 							inputHash: "test-input-hash",

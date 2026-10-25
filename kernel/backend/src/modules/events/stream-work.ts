@@ -673,7 +673,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					}
 				}
 			});
-			return { failed, prepare, process, request, admitChange, reconcile };
+			return { failed, prepare, process, request, reconcile, admitChange };
 		}),
 	},
 ) {

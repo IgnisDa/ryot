@@ -134,9 +134,9 @@ export type LifecycleBatchChange = {
 
 export type LifecycleBatchInput = {
 	readonly commandInput?: unknown;
+	readonly command: LifecycleCommand;
 	readonly identity: ReadonlyArray<string>;
 	readonly resource: LifecycleBatchResource;
-	readonly command: LifecycleCommand;
 };
 
 export class LifecyclePersistenceError extends Schema.TaggedError<
