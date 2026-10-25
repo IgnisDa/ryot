@@ -885,7 +885,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			);
 			const reconcile = Effect.fn("EventStreamWorkService.reconcile")(function* () {
 				yield* reconcileKnownStreams();
-				for (const userId of yield* repository.discoverableAccounts) {
+				for (const userId of yield* repository.discoverableAccounts()) {
 					const missing = yield* repository.undiscovered(userId);
 					for (let offset = 0; offset < missing.length; offset += 100) {
 						const discovered = yield* session.transaction(

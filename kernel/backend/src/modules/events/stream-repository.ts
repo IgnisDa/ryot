@@ -776,20 +776,23 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				},
 			);
 
-			const discoverableAccounts = session
-				.run((db) =>
-					db.execute<{ userId: string }>(
-						sql`
-					select distinct i.user_id as "userId" from plugin_installation i
-					join "user" u on u.id = i.user_id and u.disabled_at is null
-					join plugin p on p.id = i.plugin_id and p.status = 'active'
-					where i.health = 'ready' and i.uninstalled_at is null
-					order by "userId"
-				`,
-						"objects",
-					),
-				)
-				.pipe(Effect.map((rows) => rows.map(({ userId }) => userId)));
+			const discoverableAccounts = Effect.fn("EventStreamRepository.discoverableAccounts")(
+				function* () {
+					const rows = yield* session.run((db) =>
+						db.execute<{ userId: string }>(
+							sql`
+						select distinct i.user_id as "userId" from plugin_installation i
+						join "user" u on u.id = i.user_id and u.disabled_at is null
+						join plugin p on p.id = i.plugin_id and p.status = 'active'
+						where i.health = 'ready' and i.uninstalled_at is null
+						order by "userId"
+					`,
+							"objects",
+						),
+					);
+					return rows.map(({ userId }) => userId);
+				},
+			);
 
 			const undiscovered = Effect.fn("EventStreamRepository.undiscovered")(function* (
 				userId: string,
