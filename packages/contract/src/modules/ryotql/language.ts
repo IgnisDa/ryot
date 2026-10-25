@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Function, Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
@@ -579,7 +579,7 @@ const languageMapper = (mapping: LanguageMapping) => {
 					whenFalse: expression(value.whenFalse),
 				};
 			default:
-				throw new Error(`Unknown RyotQL expression: ${String(value satisfies never)}`);
+				return Function.absurd(value);
 		}
 	}
 	function predicate(value: Predicate): Predicate {
@@ -607,7 +607,7 @@ const languageMapper = (mapping: LanguageMapping) => {
 					...(value.where === undefined ? {} : { where: predicate(value.where) }),
 				};
 			default:
-				throw new Error(`Unknown RyotQL predicate: ${String(value satisfies never)}`);
+				return Function.absurd(value);
 		}
 	}
 	return { field, ordering, querySet, expression, aggregation };
@@ -670,7 +670,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 					},
 				};
 			default:
-				throw new Error(`Unknown RyotQL output: ${String(output satisfies never)}`);
+				return Function.absurd(output);
 		}
 	}
 	return {

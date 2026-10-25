@@ -8,6 +8,7 @@ import type {
 	TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Function } from "effect";
 
 import {
 	type CatalogTable,
@@ -143,7 +144,7 @@ const operands = (node: Node): Operands => {
 		case "conditional":
 			return { element: [], row: [node.condition, node.whenTrue, node.whenFalse] };
 		default:
-			throw new Error(String(node satisfies never));
+			return Function.absurd(node);
 	}
 };
 
