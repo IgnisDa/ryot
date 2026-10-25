@@ -1,8 +1,5 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
-import {
-	identityTupleKey,
-	type PluginIdentityReference,
-} from "@ryot-app/contract/modules/plugins/references";
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -51,7 +48,7 @@ export const useAnalyticsSections = () => useContext(AnalyticsSectionsContext);
 
 export const analyticsSectionKey = (
 	section: Pick<AnalyticsSectionRegistration, "slug" | "ownerPluginId">,
-) => identityTupleKey(section.ownerPluginId, section.slug);
+) => `${section.ownerPluginId}/${section.slug}`;
 
 class SectionBoundary extends Component<
 	{ readonly retry: () => void; readonly children: ReactNode },

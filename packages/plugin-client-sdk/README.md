@@ -94,12 +94,18 @@ is reflected on the next page refresh. Writes go through backend operations; the
 `client.reportingPreferences` (an Effect) and `useReportingPreferences()` read only the account's
 reporting `timeZone`. This narrow authenticated capability is available to renderers and plugins
 without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
-Compiled client sources import the shared `ReportingSelection` schema and type, `CalendarDate`,
-`ReportingRange`, `ReportingGrouping`, and selection helpers (`reportingSelectionKey`,
-`parseReportingSelection`, `reportingSelectionSearch`, `defaultReportingSelection`, and
-`resolveReportingSelection`) from `@ryot-app/plugin-client-sdk/plugin`. These use the canonical
-analytics reporting definitions. Resolve the selection's half-open local-calendar boundaries with
-`resolveReportingSelection(selection, { now: schedule.now(), timeZone })` during execution.
+Compiled client sources import the canonical reporting definitions from
+`@ryot-app/plugin-client-sdk/plugin`: the `ReportingSelection` schema and its parts, URL encoding
+(`reportingSearchParams`, `parseReportingSearch`, `reportingRangeOptions`), and execution helpers.
+`reportingExecution(selection, { now: schedule.now(), timeZone })` resolves half-open local-calendar
+boundaries during execution and pins the resolved period as a custom `selection`; return it as
+`Reported<Data>` so drills and later pages reuse that period. `resolveReportingSelection` coarsens
+grouping so every bounded period stays within `REPORTING_BUCKET_LIMIT` buckets, and all-time groups
+by year. `calendarBuckets` lays out every bucket of a period (or of the data's extent for all time)
+with its points, so charts never page or truncate buckets. `selectionForPeriod`, `periodCaption`,
+`comparisonCaption`, `formatExactValue`, and `compareValues` are the shared reporting vocabulary.
+Infinite reporting queries use `reportingPageParam` from `@ryot-app/plugin-client-sdk/react` as
+`getNextPageParam` and read `page?.selection ?? selection`.
 
 Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
 `null`, while inaccessible or malformed stored JSON fails without removing the original value.

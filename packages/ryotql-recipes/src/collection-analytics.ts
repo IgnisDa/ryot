@@ -1,6 +1,7 @@
-import type {
-	ReportingPeriod,
-	ResolvedReportingSelection,
+import {
+	REPORTING_BUCKET_LIMIT,
+	type ReportingPeriod,
+	type ResolvedReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
 import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import {
@@ -25,8 +26,6 @@ import { Result, Schema } from "effect";
 import { IsoDateString } from "./codecs";
 import { eventOrderDescending } from "./event-expressions";
 import { withinPeriod } from "./periods";
-
-export const COLLECTION_REVIEW_BUCKET_LIMIT = 1000;
 
 export const collectionReviewAnalyticsRecipe = defineRecipe(
 	(input: { readonly reporting: ResolvedReportingSelection }) => {
@@ -62,8 +61,8 @@ export const collectionReviewAnalyticsRecipe = defineRecipe(
 				buckets: selectedAggregate(review, {
 					joins,
 					measures,
+					limit: REPORTING_BUCKET_LIMIT,
 					orderBy: [groupAscending("at")],
-					limit: COLLECTION_REVIEW_BUCKET_LIMIT,
 					where: inPeriod(input.reporting.current),
 					groupBy: {
 						at: selectedField(

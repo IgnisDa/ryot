@@ -4,8 +4,8 @@ import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import {
 	analyticsSectionKey,
 	type AnalyticsSectionProps,
+	reportingSearchParams,
 	type ReportingSelection,
-	reportingSelectionSearch,
 	TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -37,6 +37,13 @@ const FixtureSection = ({ owner, timeZone, selection }: AnalyticsSectionProps) =
 		{owner.pluginId} / {selection.range.kind} / {timeZone}
 	</p>
 );
+
+const reportingSearch = (selection: ReportingSelection) =>
+	new URLSearchParams(
+		Object.entries(reportingSearchParams(selection)).flatMap(([key, value]) =>
+			value === null ? [] : [[key, value]],
+		),
+	);
 
 const pageSearchUpdates = (page: ReturnType<typeof mountPluginPage>) =>
 	page.clientMessages().flatMap((message) => (message.type === "page-search" ? [message] : []));
@@ -205,13 +212,11 @@ it.effect(
 					},
 				],
 			});
-			const search = new URLSearchParams(
-				reportingSelectionSearch({
-					grouping: "year",
-					comparison: "none",
-					range: { kind: "all-time" },
-				}),
-			);
+			const search = reportingSearch({
+				grouping: "year",
+				comparison: "none",
+				range: { kind: "all-time" },
+			});
 			search.set(
 				"section",
 				analyticsSectionKey({ slug: "activity", ownerPluginId: PluginId.make("second-local") }),
@@ -327,7 +332,7 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 			comparison: "previous-period",
 			range: { days: 90, kind: "rolling" },
 		} as const;
-		const firstSearch = new URLSearchParams(reportingSelectionSearch(firstSelection));
+		const firstSearch = reportingSearch(firstSelection);
 		firstSearch.set("section", "contributor/activity");
 		const page = mountControls(`?${firstSearch}`);
 		yield* Effect.promise(() => answerPreferences(page));
@@ -345,7 +350,7 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 			comparison: "none",
 			range: { offset: -1, unit: "month", kind: "calendar" },
 		} as const;
-		const backSearch = new URLSearchParams(reportingSelectionSearch(backSelection));
+		const backSearch = reportingSearch(backSelection);
 		backSearch.set("section", "contributor/activity");
 		page.navigate(routeLocation("/v/k/analytics", `?${backSearch}`), {
 			index: 0,
@@ -359,13 +364,11 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 			}),
 		);
 
-		const allTime = new URLSearchParams(
-			reportingSelectionSearch({
-				grouping: "year",
-				range: { kind: "all-time" },
-				comparison: "previous-period",
-			}),
-		);
+		const allTime = reportingSearch({
+			grouping: "month",
+			range: { kind: "all-time" },
+			comparison: "previous-period",
+		});
 		page.navigate(routeLocation("/v/k/analytics", `?${allTime}`), {
 			index: 1,
 			key: "analytics-all-time",
@@ -377,6 +380,9 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 					screen.getByRole("button", { name: "Compare with: None" }).getAttribute("disabled"),
 				).not.toBeNull();
 				expect(screen.getByText("No comparison for all time.")).toBeDefined();
+				expect(
+					screen.getByRole("button", { name: "Group by: Year" }).getAttribute("disabled"),
+				).not.toBeNull();
 			}),
 		);
 	}),
@@ -393,8 +399,8 @@ it.effect("keeps the committed range and query input in sync across range histor
 			...thirtyDaySelection,
 			range: { days: 7, kind: "rolling" },
 		};
-		const thirtyDaySearch = `?${reportingSelectionSearch(thirtyDaySelection)}`;
-		const sevenDaySearch = `?${reportingSelectionSearch(sevenDaySelection)}`;
+		const thirtyDaySearch = `?${reportingSearch(thirtyDaySelection)}`;
+		const sevenDaySearch = `?${reportingSearch(sevenDaySelection)}`;
 		const page = mountControls(thirtyDaySearch);
 		yield* Effect.promise(() => answerPreferences(page));
 		yield* Effect.promise(() =>
@@ -414,7 +420,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		);
 		const update = pageSearchUpdates(page).at(-1);
 		expect(update?.mode).toBe("push");
-		expect(typeof update?.update["reporting"]).toBe("string");
+		expect(update?.update).toMatchObject({ range: "rolling-7" });
 		page.navigate(routeLocation("/v/k/analytics", sevenDaySearch), {
 			index: 1,
 			key: "analytics-seven-days",
@@ -463,7 +469,7 @@ it.effect("does not navigate for invalid custom dates and pushes valid dates onl
 			comparison: "previous-period",
 			range: { days: 30, kind: "rolling" },
 		} as const;
-		const search = new URLSearchParams(reportingSelectionSearch(selection));
+		const search = reportingSearch(selection);
 		search.set("section", "contributor/activity");
 		const page = mountControls(`?${search}`);
 		yield* Effect.promise(() => answerPreferences(page));
@@ -490,16 +496,13 @@ it.effect("does not navigate for invalid custom dates and pushes valid dates onl
 			waitFor(() => {
 				const update = pageSearchUpdates(page).at(-1);
 				expect(update?.mode).toBe("push");
-				expect(Object.keys(update?.update ?? {})).toEqual(["reporting"]);
-				const reporting = update?.update["reporting"];
-				expect(typeof reporting).toBe("string");
-				if (typeof reporting === "string") {
-					expect(JSON.parse(reporting)).toEqual({
-						grouping: "day",
-						comparison: "previous-period",
-						range: { kind: "custom", endDate: "2025-03-04", startDate: "2025-03-02" },
-					});
-				}
+				expect(update?.update).toEqual({
+					group: "day",
+					range: "custom",
+					end: "2025-03-04",
+					start: "2025-03-02",
+					compare: "previous-period",
+				});
 			}),
 		);
 	}),
@@ -516,8 +519,8 @@ it.effect("discards custom date edits when history returns to committed URL sele
 			...rollingSelection,
 			range: { kind: "custom", endDate: "2025-03-04", startDate: "2025-03-02" },
 		};
-		const rollingSearch = `?${reportingSelectionSearch(rollingSelection)}`;
-		const customSearch = `?${reportingSelectionSearch(customSelection)}`;
+		const rollingSearch = `?${reportingSearch(rollingSelection)}`;
+		const customSearch = `?${reportingSearch(customSelection)}`;
 		const page = mountControls(rollingSearch);
 		yield* Effect.promise(() => answerPreferences(page));
 		yield* Effect.promise(() => screen.findByRole("button", { name: "Date range: Last 30 days" }));
@@ -574,7 +577,7 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 			comparison: "none",
 			range: { days: 30, kind: "rolling" },
 		} as const;
-		const search = new URLSearchParams(reportingSelectionSearch(selection));
+		const search = reportingSearch(selection);
 		const firstSection = analyticsSectionKey({
 			slug: "activity",
 			ownerPluginId: PluginId.make("first-local"),
@@ -612,21 +615,18 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 			waitFor(() => {
 				const update = pageSearchUpdates(page).at(-1);
 				expect(update?.mode).toBe("push");
-				expect(Object.keys(update?.update ?? {})).toEqual(["reporting"]);
-				const reporting = update?.update["reporting"];
-				expect(typeof reporting).toBe("string");
-				if (typeof reporting === "string") {
-					expect(JSON.parse(reporting)).toEqual({
-						grouping: "auto",
-						comparison: "previous-period",
-						range: { days: 30, kind: "rolling" },
-					});
-					search.set("reporting", reporting);
-					page.navigate(routeLocation("/v/k/analytics", `?${search}`), {
-						index: 1,
-						key: "analytics-comparison",
-					});
-				}
+				expect(update?.update).toEqual({
+					end: null,
+					start: null,
+					group: "auto",
+					range: "rolling-30",
+					compare: "previous-period",
+				});
+				search.set("compare", "previous-period");
+				page.navigate(routeLocation("/v/k/analytics", `?${search}`), {
+					index: 1,
+					key: "analytics-comparison",
+				});
 			}),
 		);
 		yield* Effect.promise(() =>
@@ -640,21 +640,7 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 			waitFor(() => {
 				const update = pageSearchUpdates(page).at(-1);
 				expect(update?.mode).toBe("push");
-				expect(Object.keys(update?.update ?? {})).toEqual(["reporting"]);
-				const reporting = update?.update["reporting"];
-				expect(typeof reporting).toBe("string");
-				if (typeof reporting === "string") {
-					expect(JSON.parse(reporting)).toEqual({
-						grouping: "month",
-						comparison: "previous-period",
-						range: { days: 30, kind: "rolling" },
-					});
-					search.set("reporting", reporting);
-					page.navigate(routeLocation("/v/k/analytics", `?${search}`), {
-						index: 2,
-						key: "analytics-grouping",
-					});
-				}
+				expect(update?.update).toMatchObject({ group: "month", compare: "previous-period" });
 			}),
 		);
 

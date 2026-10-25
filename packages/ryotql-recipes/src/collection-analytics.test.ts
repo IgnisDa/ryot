@@ -1,11 +1,13 @@
-import type { ResolvedReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import {
+	REPORTING_BUCKET_LIMIT,
+	type ResolvedReportingSelection,
+} from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-	COLLECTION_REVIEW_BUCKET_LIMIT,
 	collectionReviewAnalyticsRecipe,
 	collectionReviewRecordsRecipe,
 } from "./collection-analytics";
@@ -183,7 +185,7 @@ describe("collection review analytics", () => {
 		});
 		expect(buckets?.where).toEqual(current?.where);
 		expect(buckets?.output).toMatchObject({
-			limit: COLLECTION_REVIEW_BUCKET_LIMIT,
+			limit: REPORTING_BUCKET_LIMIT,
 			orderBy: [{ key: "at", direction: "asc" }],
 			groupBy: [
 				{

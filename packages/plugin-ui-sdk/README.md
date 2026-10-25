@@ -84,7 +84,7 @@ reduced motion inside its document, not through kernel-only CSS.
 | `Switch` / `Checkbox` / `Radio` | Switch applies immediately; checkbox/radio belong to saved forms.                                                                                                                                                                                                                                                                                    |
 | `SegmentedControl` / `Tabs`     | A few modes versus one object's content areas; `fill` spreads segments across the row. Tabs callers render the matching `tabpanel` and supplied label IDs.                                                                                                                                                                                           |
 | `Card` / `RowGroup`             | Real objects versus divided settings/fact rows.                                                                                                                                                                                                                                                                                                      |
-| `Badge` / `Notice`              | Status uses text, not color alone; danger notices are alerts. `StatusMessage` `action` adds one inline follow-up such as a retry. `EmptyState`/`Skeleton` cover empty/loading content.                                                                                                                                                               |
+| `Badge` / `Notice`              | Status uses text, not color alone; danger notices are alerts. `StatusMessage` `action` adds one inline follow-up such as a retry. `QueryStatus` renders a query's first-load and failed-refresh states. `EmptyState`/`Skeleton` cover empty/loading content.                                                                                         |
 | `Dialog`                        | Choose compact sheets and pass safe-area padding. `closeIcon={null}` requires footer decisions; touch users cannot rely on tooltips.                                                                                                                                                                                                                 |
 | `ActionDock`                    | Mount through the floating root, pass bottom inset, and pad scrolled content.                                                                                                                                                                                                                                                                        |
 | `Stepper`                       | Integer stepping; `clockFormat` adapts seconds to `m:ss`.                                                                                                                                                                                                                                                                                            |
@@ -123,9 +123,8 @@ from the caller; all component styles use scannable Tailwind utilities and theme
 ## Charts
 
 `./charts` wraps chart dependencies; plugins import Ryot components, not TanStack directly.
-`CalendarHeatmap` uses a zero level plus five positive bands of the maximum, fixed row ordering, and
-portaled tooltips outside its scroller. `RankedBarList` keeps labels/values as wrapping-aware HTML.
-`Sparkline` is chrome-free with area fill and a highlighted last point.
+`RankedBarList` keeps labels/values as wrapping-aware HTML. `Sparkline` is chrome-free with area fill
+and a highlighted last point.
 
 `TimeSeriesChart` uses epoch milliseconds and calendar ticks. Reading marks own focus/tooltips;
 bands, trends, and comparisons are decorative. Callers compute trends; comparisons use a separate
@@ -133,66 +132,33 @@ right axis for potentially different units. Root theme variables also apply to p
 `TimeSeriesPoint` uses `{ at, value }`; `value: null` marks a missing-data line break, not zero.
 Points may represent observations or caller-labelled bucket averages.
 
-`PeriodTrendChart` compares the same metric and unit on one shared, zero-inclusive axis. Current
-values use solid lines/filled points; the previous period uses dashed lines/open points. Supply
-ordered `buckets: PeriodTrendBucket[]`, each `{ at, value, detail?, comparison?: { at, value, detail? } }`.
-`value: null` is missing, while `0` is recorded zero. Include missing buckets so lines have visible
-gaps. Each comparison is explicitly aligned to its current bucket; the chart does not infer calendar
-alignment from elapsed milliseconds. Supply `label` and, when comparing, `comparisonLabel` with the
-actual reporting ranges. `at` accepts an ISO instant or `YYYY-MM-DD`; instants display in `timeZone`,
-while calendar dates retain their original day. The x axis uses equally spaced reporting buckets,
-not elapsed time. Do not use this component for irregular raw measurement observations.
+The reporting charts (`PeriodTrendChart`, `HourlyHistogram`, `CalendarHeatmap`) take `ariaLabel`,
+bridged `compact`, and a stable (module-level or memoized) `formatValue(number)` including units,
+which keys the chart definition. `value: null` is missing, while `0` is
+a recorded zero. Each renders an expandable exact-value table, built only while open, that lists
+every value and its `detail` context. Charts are generic over the caller's point type: optional
+`onSelect` receives that point from chart selection (Arrow keys inspect, Enter selects) and from the
+exact table's record buttons. Charts render data only; owning sections show query status with
+`QueryStatus`.
 
-`HourlyHistogram` accepts `buckets: HourlyHistogramBucket[]`, each `{ hour, value, detail? }`, and
-`periodLabel` describing both attribution and actual reporting range. Hours are unique integers
-0–23, already aggregated by the query in `timeZone`. The chart always lays out 24 local hours;
-omitted hours are missing, not zero. Supply explicit zeros for known empty hours. Repeated DST hours
-contribute to the same local-hour bucket. Date-only and undated records must be excluded upstream.
+`PeriodTrendChart` compares the same metric and unit on one shared, zero-inclusive axis. `current`
+and optional `previous: { label, points }` are ordered buckets aligned by index; a longer previous
+period extends the x axis and its extra buckets appear in the tooltip and exact table. Current
+values use solid lines/filled points; the previous period uses dashed lines/open points. Include
+missing buckets so lines have visible gaps. `at` accepts an ISO instant or `YYYY-MM-DD`; instants
+display in the reporting `timeZone`, while calendar dates retain their original day. Build buckets
+with `calendarBuckets` from the client SDK.
 
-Both reporting components require `ariaLabel`, bridged `compact`, validated IANA `timeZone`, and
-`formatValue(number)` including units. They use the installed TanStack 0.18.0 renderer, responsive
-width, compact tick density, shared theme tokens, portaled keyboard/pointer tooltips, and static
-geometry/tooltips without motion. `detail` carries domain-owned estimate and missing-data context.
-The expandable exact-value table preserves all values and context. Optional `onSelect` receives
-`(point, "current" | "comparison")` for trends or `(bucket)` for hours; it handles chart selection
-and exact-table record buttons. Arrow keys inspect buckets; Enter selects. Touch selection uses the
-same callback, so callers can use the exact table when they want to inspect before opening records.
-`state="pending" | "failed"` replaces stale chart values with a fixed-height status; `onRetry` enables
-the failed-state action. Omit `state` for ready data. For background refresh with still-valid values,
-retain ready data and show refresh status in the owning section. Empty, missing-only, single-point,
-and all-zero data remain distinct.
+`HourlyHistogram` accepts `{ hour, value, detail? }` buckets already aggregated in `timeZone` and a
+`periodLabel` describing attribution and range. It always lays out 24 local hours; omitted hours
+are missing, not zero, and repeated DST hours share one bucket.
 
-Minimal same-axis prototype:
-
-```tsx
-<PeriodTrendChart
-  compact={compact}
-  ariaLabel="Recorded minutes"
-  timeZone="America/Los_Angeles"
-  label="1–3 September 2026"
-  comparisonLabel="1–3 August 2026"
-  formatValue={(value) => `${value} min`}
-  buckets={[
-    { at: "2026-09-01", value: 12.25, comparison: { at: "2026-08-01", value: 8 } },
-    { at: "2026-09-02", value: null, detail: "Duration missing", comparison: { at: "2026-08-02", value: 0 } },
-    { at: "2026-09-03", value: 0, comparison: { at: "2026-08-03", value: 4, detail: "Estimated" } },
-  ]}
-/>
-<HourlyHistogram
-  compact={compact}
-  ariaLabel="Hourly observations"
-  timeZone="America/Los_Angeles"
-  periodLabel="Exact observations · 1–3 September 2026"
-  formatValue={(value) => `${value} observations`}
-  buckets={Array.from({ length: 24 }, (_, hour) => ({ hour, value: hour === 12 ? 8 : 0 }))}
-/>
-```
+`CalendarHeatmap` lays out the supplied `{ date, value }` days as week columns with month labels,
+a zero level plus five positive bands of the maximum, and portaled tooltips outside its scroller.
+Supply every day to show; missing dates and `null` values render as blank cells.
 
 DOM tests cover these wrappers' semantics, timezone labels, exact values, keyboard inspection and
-selection. Visual acceptance belongs in the real plugin iframe: use the browser harness described
-in `e2e/README.md`, at compact/desktop widths, in both themes and reduced motion. The existing
-`src/browser/fitness-measurements.test.ts` exercises the measurement host; new reporting wrappers need
-a fixture/contribution using these exports before the orchestrator's focused browser acceptance.
+selection. Visual acceptance uses the browser harness described in `e2e/README.md`.
 
 ## Sync Marks
 

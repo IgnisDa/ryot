@@ -20,8 +20,7 @@ export const packageValidationSource = (
 ) => {
 	const imports = [
 		`import type { ComponentType } from "react";`,
-		`import type { EntityPresentationDefinition } from "@ryot-app/plugin-client-sdk/plugin";`,
-		`import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";`,
+		`import type { AnalyticsSectionProps, EntityPresentationDefinition } from "@ryot-app/plugin-client-sdk/plugin";`,
 	];
 	for (const [index, [, declaration]] of sortBy(
 		Object.entries(publicExports),

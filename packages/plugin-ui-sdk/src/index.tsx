@@ -42,6 +42,7 @@ export type { MultiSelectChoice } from "./multi-select";
 export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
 export { groupColors, groupColorVariable } from "./group-colors";
+export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 export { DestructiveConfirmation } from "./destructive-confirmation";
 export { revealOffset, useFocusedFieldVisibility } from "./focused-field";

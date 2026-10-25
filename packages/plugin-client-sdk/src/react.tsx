@@ -8,7 +8,6 @@ export { usePluginStorage, type PluginStorageState } from "./queries/storage";
 export { renderSchemaAsset, useSchemaAssetUpload } from "./assets/schema-form";
 export { usePagination, useRyotInfiniteQuery } from "./queries/pagination-hook";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";
-export { nextPageCursor, paginationItems, PaginationError } from "./queries/pagination";
 export { usePluginUserSettings, useReportingPreferences } from "./queries/user-settings";
 export { useAssetUrl, useManagedAssetUrl, ManagedAssetProvider } from "./assets/provider";
 export {
@@ -31,6 +30,13 @@ export {
 	usePluginIdentity,
 	usePluginNavigation,
 } from "./queries/provider";
+export {
+	nextPageCursor,
+	paginationItems,
+	PaginationError,
+	reportingPageParam,
+	type ReportingPageParam,
+} from "./queries/pagination";
 export {
 	useRyotQuery,
 	useRyotMutation,

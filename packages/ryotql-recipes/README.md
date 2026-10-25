@@ -17,11 +17,11 @@ collections and memberships are selected with explicit kernel predicates.
 `collectionReviewAnalyticsRecipe` in `collection-analytics` owns collection review reporting.
 It takes a resolved reporting selection, counts all kernel collection review events (including
 rating-only records), and returns `current`, nullable `previous` (not queried without a comparison
-period), and `buckets` with `{ at, count }` items and aggregate `pageInfo`. Buckets are bounded by
-`COLLECTION_REVIEW_BUCKET_LIMIT`. Periods use the caller's half-open
-instant boundaries; a null current period means all time. Buckets use the selected grouping and
-reporting timezone. Totals remain complete when bucket results have `hasMore`; callers must surface
-that truncation or choose a coarser grouping. Domain plugins report their own reviews separately.
+period), and `buckets` with `{ at, count }` items. Bucket queries are limited to
+`REPORTING_BUCKET_LIMIT`, which `resolveReportingSelection` already keeps every grouping within.
+Periods use the caller's half-open instant boundaries; a null current period means all time.
+Buckets use the selected grouping and reporting timezone. Domain plugins report their own reviews
+separately.
 `collectionReviewRecordsRecipe` reads the contributing kernel review records for a nullable period,
 including rating-only records. Its row cursor follows descending occurrence time, creation time, and
 event ID. Consumers page these records with SDK pagination; aggregate buckets do not have cursors.

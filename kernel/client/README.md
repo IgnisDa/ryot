@@ -69,8 +69,9 @@ Saved-view search, filters, sort, and layout changes update the active document'
 preparing a new page. Leaving the route discards its loader cache, so returning reads the current
 view and device layout. Explicit invalidation still reloads the prepared page.
 
-Analytics uses this same saved-view location path. Its `reporting` selection and `section` owner/slug
-tuple survive the router's JSON search parsing, in-place updates, and history restoration.
+Analytics uses this same saved-view location path. The route validates only its own search keys;
+renderer-owned parameters such as the analytics selection pass through in-place updates and history
+restoration unchanged.
 
 Document-declared page shortcuts register in the kernel realm alongside iframe registrations and
 are removed when the bridge closes. The desktop sidebar and mobile drawer share the authenticated

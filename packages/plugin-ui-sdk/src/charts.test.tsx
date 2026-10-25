@@ -1,3 +1,4 @@
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import {
 	HourlyHistogram,
 	PeriodTrendChart,
 	type PeriodTrendChartProps,
+	type PeriodTrendPoint,
 	RankedBarList,
 	Sparkline,
 	TimeSeriesChart,
@@ -15,14 +17,19 @@ import {
 	type TimeSeriesPoint,
 } from "./charts";
 
-const renderHeatmap = (days: ReadonlyArray<CalendarHeatmapDay>, weekStart: 0 | 1 = 1) =>
+const renderHeatmap = (
+	days: ReadonlyArray<CalendarHeatmapDay>,
+	weekStart: 0 | 1 = 1,
+	onSelect?: (day: CalendarHeatmapDay) => void,
+) =>
 	render(
 		<CalendarHeatmap
 			days={days}
 			compact={false}
+			onSelect={onSelect}
 			ariaLabel="Activity"
 			weekStart={weekStart}
-			formatTooltip={(day) => `${day.value} on ${day.date}`}
+			formatValue={(value) => `${value} events`}
 		/>,
 	);
 
@@ -34,13 +41,14 @@ const cellOn = (container: HTMLElement, date: string) =>
 	container.querySelector(`.ts-chart__rect rect[data-ts-key$=":${date}"]`);
 
 describe("CalendarHeatmap", () => {
-	it("pads missing dates between the earliest and latest day into whole weeks", () => {
+	it("spans whole weeks between the earliest and latest day and leaves missing and unknown days blank", () => {
 		const { container } = renderHeatmap([
 			{ value: 3, date: "2026-09-25" },
+			{ value: null, date: "2026-09-03" },
 			{ value: 1, date: "2026-09-02" },
 		]);
 
-		expect(cellsOf(container)).toHaveLength(24);
+		expect(cellsOf(container)).toHaveLength(2);
 		expect(screen.getByRole("img", { name: "Activity" }).getAttribute("viewBox")).toBe(
 			"0 0 60 105",
 		);
@@ -106,7 +114,25 @@ describe("CalendarHeatmap", () => {
 
 		fireEvent.focus(screen.getByRole("img", { name: "Activity" }));
 
-		expect(screen.getByText("4 on 2026-09-21")).toBeDefined();
+		expect(screen.getByText("4 events · Sep 21, 2026")).toBeDefined();
+	});
+
+	it("lists exact values, including unknown days, with record links for known days", () => {
+		const selected: string[] = [];
+		renderHeatmap(
+			[
+				{ value: 4, date: "2026-09-21" },
+				{ value: null, date: "2026-09-22" },
+			],
+			1,
+			(day) => selected.push(day.date),
+		);
+		fireEvent.click(screen.getByText("View exact values"));
+		const table = screen.getByRole("table", { name: "Activity exact values" });
+		expect(within(table).getByText("Not recorded")).toBeDefined();
+		expect(within(table).getAllByRole("button")).toHaveLength(1);
+		fireEvent.click(within(table).getByRole("button", { name: /Sep 21, 2026/ }));
+		expect(selected).toEqual(["2026-09-21"]);
 	});
 
 	it("renders nothing without days", () => {
@@ -359,27 +385,26 @@ describe("TimeSeriesChart", () => {
 	});
 });
 
-const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps> = {}) =>
+const losAngeles = TimeZone.make("America/Los_Angeles");
+
+const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps<PeriodTrendPoint>> = {}) =>
 	render(
 		<PeriodTrendChart
 			compact={false}
+			timeZone={losAngeles}
 			label="Current period"
 			ariaLabel="Recorded activity"
-			timeZone="America/Los_Angeles"
-			comparisonLabel="Previous period"
 			formatValue={(value) => `${value} minutes`}
-			buckets={[
-				{
-					value: 12.25,
-					at: "2026-09-02T01:00:00Z",
-					comparison: { value: 12.25, detail: "Estimated", at: "2026-08-02T01:00:00Z" },
-				},
-				{
-					value: null,
-					at: "2026-09-03T01:00:00Z",
-					detail: "Duration missing",
-					comparison: { value: 0, at: "2026-08-03T01:00:00Z" },
-				},
+			previous={{
+				label: "Previous period",
+				points: [
+					{ value: 12.25, detail: "Estimated", at: "2026-08-02T01:00:00Z" },
+					{ value: 0, at: "2026-08-03T01:00:00Z" },
+				],
+			}}
+			current={[
+				{ value: 12.25, at: "2026-09-02T01:00:00Z" },
+				{ value: null, at: "2026-09-03T01:00:00Z", detail: "Duration missing" },
 				{ value: 0, at: "2026-09-04T01:00:00Z" },
 			]}
 			{...overrides}
@@ -409,42 +434,56 @@ describe("PeriodTrendChart", () => {
 		expect(tooltip.textContent).toContain("0 minutes");
 	});
 
-	it("keeps calendar dates fixed and provides record links for each period in the exact table", () => {
+	it("keeps calendar dates fixed and returns the caller's point for each period", () => {
 		const selected: string[] = [];
-		renderPeriodTrend({
-			onSelect: (point, period) => selected.push(`${period}:${point.at}`),
-			buckets: [{ value: 0, at: "2026-09-02", comparison: { value: 2, at: "2026-08-02" } }],
-		});
+		const current = [{ value: 0, at: "2026-09-02", id: "current-bucket" }];
+		const previous = [
+			{ value: 2, at: "2026-08-02", id: "previous-bucket" },
+			{ value: 3, at: "2026-08-03", id: "extra-bucket" },
+		];
+		render(
+			<PeriodTrendChart
+				compact={false}
+				current={current}
+				timeZone={losAngeles}
+				label="Current period"
+				ariaLabel="Recorded activity"
+				formatValue={(value) => `${value} minutes`}
+				previous={{ points: previous, label: "Previous period" }}
+				onSelect={(point, period) => selected.push(`${period}:${point.id}`)}
+			/>,
+		);
 		fireEvent.click(screen.getByText("View exact values"));
 		const table = screen.getByRole("table", { name: "Recorded activity exact values" });
 		expect(table.textContent).toContain("Sep 2, 2026");
+		expect(within(table).getAllByRole("row")).toHaveLength(4);
 		fireEvent.click(within(table).getByRole("button", { name: /Current period/ }));
-		fireEvent.click(within(table).getByRole("button", { name: /Previous period/ }));
-		expect(selected).toEqual(["current:2026-09-02", "comparison:2026-08-02"]);
+		for (const button of within(table).getAllByRole("button", { name: /Previous period/ })) {
+			fireEvent.click(button);
+		}
+		expect(selected).toEqual([
+			"current:current-bucket",
+			"previous:previous-bucket",
+			"previous:extra-bucket",
+		]);
 	});
 
 	it("draws a single recorded zero and distinguishes missing-only from empty data", () => {
-		const single = renderPeriodTrend({ buckets: [{ value: 0, at: "2026-09-02" }] });
+		const single = renderPeriodTrend({
+			previous: undefined,
+			current: [{ value: 0, at: "2026-09-02" }],
+		});
 		expect(single.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
 		single.unmount();
-		const missing = renderPeriodTrend({ buckets: [{ value: null, at: "2026-09-02" }] });
+		const missing = renderPeriodTrend({
+			previous: undefined,
+			current: [{ value: null, at: "2026-09-02" }],
+		});
 		expect(screen.getByText("No recorded values. Missing data is not zero.")).toBeDefined();
 		expect(missing.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(0);
 		missing.unmount();
-		renderPeriodTrend({ buckets: [] });
+		renderPeriodTrend({ current: [], previous: undefined });
 		expect(screen.getByText("No data in this period.")).toBeDefined();
-	});
-
-	it("hides stale values while pending or failed and supports retry", () => {
-		const pending = renderPeriodTrend({ state: "pending" });
-		expect(screen.getByRole("status").textContent).toBe("Preparing chart…");
-		expect(screen.queryByRole("img")).toBeNull();
-		pending.unmount();
-		const retries: string[] = [];
-		renderPeriodTrend({ state: "failed", onRetry: () => retries.push("retry") });
-		expect(screen.getByRole("alert").textContent).toBe("Unable to load chart.");
-		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-		expect(retries).toEqual(["retry"]);
 	});
 });
 
@@ -454,8 +493,8 @@ describe("HourlyHistogram", () => {
 		render(
 			<HourlyHistogram
 				compact={true}
-				timeZone="Asia/Kolkata"
 				ariaLabel="Hourly activity"
+				timeZone={TimeZone.make("Asia/Kolkata")}
 				periodLabel="Observations · September 2026"
 				formatValue={(value) => `${value} observations`}
 				onSelect={(bucket) => selected.push(bucket.hour)}

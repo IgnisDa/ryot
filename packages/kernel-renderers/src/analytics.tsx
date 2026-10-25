@@ -1,9 +1,9 @@
 import {
 	AnalyticsSection,
 	analyticsSectionKey,
-	parseReportingSelection,
+	parseReportingSearch,
+	reportingSearchParams,
 	type ReportingSelection,
-	reportingSelectionSearch,
 	useAnalyticsSections,
 	usePageContext,
 	usePluginLocation,
@@ -30,15 +30,12 @@ export default function AnalyticsPage() {
 	const sections = useAnalyticsSections();
 	const preferences = useReportingPreferences();
 	const { compact, safeAreaBottom } = useRyotViewport();
-	const selection = parseReportingSelection(location.search);
+	const selection = parseReportingSearch(location.search);
+	const selectionParams = reportingSearchParams(selection);
 	const requested = new URLSearchParams(location.search).get("section");
 	const active = sections.find((section) => analyticsSectionKey(section) === requested);
-	const updateSelection = (next: ReportingSelection) => {
-		const reporting = new URLSearchParams(reportingSelectionSearch(next)).get("reporting");
-		if (reporting !== null) {
-			ryot.navigation.pageSearch.push({ reporting });
-		}
-	};
+	const updateSelection = (next: ReportingSelection) =>
+		ryot.navigation.pageSearch.push(reportingSearchParams(next));
 	let content: ReactNode;
 	if (!isActiveScreen) {
 		content = null;
@@ -84,9 +81,9 @@ export default function AnalyticsPage() {
 					<AnalyticsControls
 						compact={compact}
 						selection={selection}
-						locationSearch={location.search}
 						onSelectionChange={updateSelection}
 						timeZone={preferences.data.timeZone}
+						key={Object.values(selectionParams).join("|")}
 					/>
 				)}
 				{sections.length > 0 && (

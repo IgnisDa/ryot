@@ -153,8 +153,8 @@ export function PreferencesForm(props: {
 										<p className="text-xs text-text-muted">
 											Sets reporting days and comparisons. Travel does not change this setting.
 										</p>
-										{field.errors.length > 0 && (
-											<StatusMessage tone="error">Enter a valid IANA time zone.</StatusMessage>
+										{field.errors[0] && (
+											<StatusMessage tone="error">{field.errors[0].message}</StatusMessage>
 										)}
 									</div>
 								)}

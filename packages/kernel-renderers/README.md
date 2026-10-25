@@ -110,8 +110,9 @@ kernel host compares to gate that capability, so kernel renderer display names m
 ## Analytics
 
 The kernel `analytics` saved view uses declarative client analytics sections from the composition.
-Its `/v/k/analytics` location stores the shared selection in `reporting` and the exact owner/section
-tuple in `section`. The renderer reads the authenticated reporting timezone, owns the page title and
+Its `/v/k/analytics` location stores the shared selection as flat `range`, `start`, `end`, `compare`,
+and `group` parameters and the selected section as `section=<pluginId>/<slug>`; the renderer owns
+these parameters and the saved-view route passes them through untouched. The renderer reads the authenticated reporting timezone, owns the page title and
 section navigation, and mounts only the selected section. An absent or unknown `section` selects the
 permanent kernel collection-review section, including when there are no plugin contributors. Shared
 controls and section choices push page-search history. Unavailable modules, reporting-preference
@@ -120,5 +121,5 @@ failures, and per-section load/render failures have separate states. Plugin sect
 
 Collection reviews load current/previous totals and the timezone-grouped trend separately from
 cursor-paged contributing records. Each load has its own retry. Totals include rating-only reviews;
-bounded trend results report truncation. Record continuation retains the first page's resolved
+the trend fills every calendar bucket of the period with zeros for days without reviews. Record continuation retains the first page's resolved
 period, while a refresh resolves rolling dates again from the supplied clock.
