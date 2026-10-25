@@ -55,6 +55,9 @@ const AnilistRoot = Schema.Struct({
 	),
 });
 const decodeRoot = Schema.decodeEffect(Schema.fromJsonString(AnilistRoot));
+const decodeCustomListIds = Schema.decodeResult(
+	Schema.fromJsonString(Schema.Array(Schema.Unknown)),
+);
 const decodeList = Schema.decodeUnknownResult(AnilistList);
 const decodeReview = Schema.decodeUnknownResult(AnilistReview);
 const decodeFavorite = Schema.decodeUnknownResult(AnilistFavorite);
@@ -96,8 +99,8 @@ const parseCustomListIds = (value: null | string | undefined) => {
 	if (!raw) {
 		return [];
 	}
-	const parsed = Result.try(() => JSON.parse(raw) as unknown);
-	return Result.isSuccess(parsed) && Array.isArray(parsed.success)
+	const parsed = decodeCustomListIds(raw);
+	return Result.isSuccess(parsed)
 		? parsed.success.filter(
 				(entry): entry is number => typeof entry === "number" && Number.isInteger(entry),
 			)

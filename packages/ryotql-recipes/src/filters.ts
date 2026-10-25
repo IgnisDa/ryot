@@ -464,6 +464,7 @@ export const filterOperatorsFor = (field: FilterFieldSpec): readonly FilterOpera
 	field.kind === "value" ? filterOperators[field.type] : linkFilterOperators;
 
 const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
+const decodeJson = Schema.decodeResult(Schema.fromJsonString(Schema.Unknown));
 
 const leniently = (node: unknown, fields: readonly FilterFieldSpec[]): Filter | undefined => {
 	if (!isObjectRecord(node)) {
@@ -504,10 +505,10 @@ export const decodeFilterParam = (
 	if (Result.isFailure(text)) {
 		return undefined;
 	}
-	return Result.match(
-		Result.try({ catch: (error) => error, try: () => JSON.parse(text.success) as unknown }),
-		{ onFailure: () => undefined, onSuccess: (node) => leniently(node, fields) },
-	);
+	return Result.match(decodeJson(text.success), {
+		onFailure: () => undefined,
+		onSuccess: (node) => leniently(node, fields),
+	});
 };
 
 export const encodeFilterParam = (filter: Filter | undefined): null | string =>

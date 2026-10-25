@@ -1,4 +1,4 @@
-import { Option, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { parseCsvText } from "./csv";
 import { consumptionDatePrecision, nowIso, parseDateTime, parseDateWithFormat } from "./dates";
@@ -29,14 +29,16 @@ const GrouveeStatusEntry = Schema.Struct({
 	status: Schema.optional(Schema.NullOr(Schema.String)),
 });
 type GrouveeStatusEntry = typeof GrouveeStatusEntry.Type;
-const decodeDateEntries = Schema.decodeUnknownOption(Schema.Array(GrouveeDateEntry));
-const decodeStatusEntries = Schema.decodeUnknownOption(Schema.Array(GrouveeStatusEntry));
-const decodeShelfRecord = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown));
+const decodeDateEntries = Schema.decodeOption(
+	Schema.fromJsonString(Schema.Array(GrouveeDateEntry)),
+);
+const decodeStatusEntries = Schema.decodeOption(
+	Schema.fromJsonString(Schema.Array(GrouveeStatusEntry)),
+);
+const decodeShelfRecord = Schema.decodeOption(
+	Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+);
 
-const parseJson = (value: string) => {
-	const parsed = Result.try(() => JSON.parse(value.trim()) as unknown);
-	return Result.isFailure(parsed) ? undefined : parsed.success;
-};
 const parseGrouveeDate = (value: null | string | undefined) => {
 	const raw = value?.trim();
 	return !raw || raw === "None"
@@ -44,20 +46,12 @@ const parseGrouveeDate = (value: null | string | undefined) => {
 		: (parseDateTime(raw, ["YYYY-MM-DDTHH:mm:ss[Z]", "YYYY-MM-DDTHH:mm:ssZ"]) ??
 				parseDateWithFormat(raw, "YYYY-MM-DD"));
 };
-const parseShelfNames = (value: string) => {
-	const parsed = parseJson(value);
-	return parsed === undefined
-		? []
-		: Option.match(decodeShelfRecord(parsed), { onNone: () => [], onSome: Object.keys });
-};
-const parseDateEntries = (value: string): ReadonlyArray<GrouveeDateEntry> => {
-	const parsed = parseJson(value);
-	return parsed === undefined ? [] : Option.getOrElse(decodeDateEntries(parsed), () => []);
-};
-const parseStatusEntries = (value: string): ReadonlyArray<GrouveeStatusEntry> => {
-	const parsed = parseJson(value);
-	return parsed === undefined ? [] : Option.getOrElse(decodeStatusEntries(parsed), () => []);
-};
+const parseShelfNames = (value: string) =>
+	Option.match(decodeShelfRecord(value), { onNone: () => [], onSome: Object.keys });
+const parseDateEntries = (value: string): ReadonlyArray<GrouveeDateEntry> =>
+	Option.getOrElse(decodeDateEntries(value), () => []);
+const parseStatusEntries = (value: string): ReadonlyArray<GrouveeStatusEntry> =>
+	Option.getOrElse(decodeStatusEntries(value), () => []);
 const getShelfLifecycle = (shelf: string) => {
 	if (shelf === "Played") {
 		return "complete" as const;

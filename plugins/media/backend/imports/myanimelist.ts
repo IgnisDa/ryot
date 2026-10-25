@@ -1,11 +1,10 @@
-import { Result } from "@ryot-app/plugin-backend-sdk/effect";
+import { Option, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	COMMON_HTML,
 	CURRENCY,
 	EntityDecoder,
 	XMLParser,
 } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -22,7 +21,6 @@ import {
 import type { MediaImportAdapterFailure } from "./schemas";
 
 type MyanimelistLot = "anime" | "manga";
-type MyanimelistXmlItem = Record<string, string | undefined>;
 
 const createParser = () =>
 	new XMLParser({
@@ -35,12 +33,15 @@ const createParser = () =>
 		}),
 	});
 
-const isXmlItem = (value: unknown): value is MyanimelistXmlItem => {
-	const record = asRecord(value);
-	return (
-		record !== null &&
-		Object.values(record).every((entry) => entry === undefined || typeof entry === "string")
-	);
+const MyanimelistItems = Schema.Array(Schema.Record(Schema.String, Schema.String));
+type MyanimelistXmlItem = (typeof MyanimelistItems.Type)[number];
+const decodeLotItems = {
+	anime: Schema.decodeUnknownOption(
+		Schema.Struct({ myanimelist: Schema.Struct({ anime: MyanimelistItems }) }),
+	),
+	manga: Schema.decodeUnknownOption(
+		Schema.Struct({ myanimelist: Schema.Struct({ manga: MyanimelistItems }) }),
+	),
 };
 
 const assertWellFormedXml = (xml: string) => {
@@ -76,13 +77,16 @@ const assertWellFormedXml = (xml: string) => {
 
 const lotItems = (xmlText: string, lot: MyanimelistLot) => {
 	assertWellFormedXml(xmlText);
-	const document = createParser().parse(xmlText) as unknown;
-	const root = asRecord(asRecord(document)?.["myanimelist"]);
-	if (root === null) {
-		return [];
-	}
-	const items = root[lot];
-	return Array.isArray(items) && items.every(isXmlItem) ? items : [];
+	const document: unknown = createParser().parse(xmlText);
+	return lot === "anime"
+		? Option.match(decodeLotItems.anime(document), {
+				onNone: () => [],
+				onSome: (decoded) => decoded.myanimelist.anime,
+			})
+		: Option.match(decodeLotItems.manga(document), {
+				onNone: () => [],
+				onSome: (decoded) => decoded.myanimelist.manga,
+			});
 };
 
 const text = (item: MyanimelistXmlItem, tag: string) => item[tag]?.trim() ?? "";

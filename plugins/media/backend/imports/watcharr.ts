@@ -52,7 +52,7 @@ const WatcharrItem = Schema.Struct({
 });
 
 const decodeWatcharrItem = Schema.decodeUnknownResult(WatcharrItem);
-const decodeWatcharrActivityData = Schema.decodeUnknownResult(WatcharrActivityData);
+const decodeWatcharrActivityData = Schema.decodeResult(Schema.fromJsonString(WatcharrActivityData));
 
 const normalizeOccurredAt = (value: null | string | undefined, fallback: string) =>
 	parseDateInput(value) ?? fallback;
@@ -70,11 +70,7 @@ const episodeWatchDates = (activities: ReadonlyArray<WatcharrActivity>) => {
 		if (!activity.type.includes("EPISODE") || !activityData) {
 			continue;
 		}
-		const parsed = Result.try(() => JSON.parse(activityData) as unknown);
-		if (Result.isFailure(parsed)) {
-			continue;
-		}
-		const decoded = decodeWatcharrActivityData(parsed.success);
+		const decoded = decodeWatcharrActivityData(activityData);
 		if (
 			Result.isSuccess(decoded) &&
 			decoded.success.season !== undefined &&
@@ -114,24 +110,19 @@ const entitySchemaSlugForContentType = (contentType: string) => {
 };
 
 export const adaptWatcharrExportBatch = (
-	jsonText: string,
+	rows: ReadonlyArray<unknown>,
 	start: number,
 	limit: number,
 	importedAt = nowIso(),
 	eventStart = 0,
 	eventLimit = Number.MAX_SAFE_INTEGER,
 ) => {
-	const parsed = JSON.parse(jsonText) as unknown;
-	if (!Array.isArray(parsed)) {
-		throw new Error("Watcharr export must be a JSON array");
-	}
-
 	const failures: MediaImportAdapterFailure[] = [];
 	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
-	const end = Math.min(parsed.length, start + limit);
+	const end = Math.min(rows.length, start + limit);
 	let nextEventOffset = 0;
 	for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
-		const parsedItem = decodeWatcharrItem(parsed[itemIndex]);
+		const parsedItem = decodeWatcharrItem(rows[itemIndex]);
 		if (Result.isFailure(parsedItem)) {
 			failures.push({ itemIndex, message: "Watcharr item is malformed" });
 			continue;
@@ -251,7 +242,7 @@ export const adaptWatcharrExportBatch = (
 	return {
 		failures,
 		nextEventOffset,
-		totalItems: parsed.length,
+		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groups.values()),
 	};
 };

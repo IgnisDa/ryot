@@ -11,7 +11,7 @@ describe("adaptWatcharrExportBatch", () => {
 		[0, null],
 	])("imports a ten-point rating of %s as %s", (score, rating) => {
 		const result = adaptWatcharrExportBatch(
-			JSON.stringify([
+			[
 				{
 					thoughts: "",
 					rating: score,
@@ -19,7 +19,7 @@ describe("adaptWatcharrExportBatch", () => {
 					status: "PLANNED",
 					content: { tmdbId: 10, type: "movie", title: "Arrival" },
 				},
-			]),
+			],
 			0,
 			25,
 		);
@@ -33,7 +33,7 @@ describe("adaptWatcharrExportBatch", () => {
 	});
 
 	it("preserves movie lifecycle, review, collection, and show episode assertions", () => {
-		const exportJson = JSON.stringify([
+		const exportRows = [
 			{
 				rating: 7,
 				pinned: true,
@@ -65,9 +65,9 @@ describe("adaptWatcharrExportBatch", () => {
 					},
 				],
 			},
-		]);
+		];
 
-		const result = adaptWatcharrExportBatch(exportJson, 0, 25);
+		const result = adaptWatcharrExportBatch(exportRows, 0, 25);
 
 		expect(result.totalItems).toBe(2);
 		expect(result.failures).toEqual([]);
@@ -106,7 +106,7 @@ describe("adaptWatcharrExportBatch", () => {
 
 	it("records malformed and unsupported source items within the requested batch", () => {
 		const result = adaptWatcharrExportBatch(
-			JSON.stringify([
+			[
 				{ pinned: true },
 				{
 					rating: 0,
@@ -117,7 +117,7 @@ describe("adaptWatcharrExportBatch", () => {
 					watchedEpisodes: [],
 					content: { tmdbId: 99, title: "Odd", type: "podcast" },
 				},
-			]),
+			],
 			0,
 			25,
 		);
