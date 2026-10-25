@@ -1,9 +1,11 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import {
 	Clock,
@@ -444,6 +446,7 @@ const dependencyLayer = Layer.mergeAll(
 	quarantineLayer,
 	recoveryStoreLayer,
 	TestClock.layer(),
+	BunCrypto.layerSecureRandom,
 );
 
 const getConnection = (harness: HarnessService, instance: string, afterGeneration = 0) => {
@@ -616,7 +619,7 @@ const startRun = (
 				prepare: options.prepare ?? makePrepare(harness),
 				pinHash: options.pinHash ?? sha256Hex(moduleSource),
 				lane: options.runLane ?? options.lane ?? "interactive",
-				executionId: options.executionId ?? crypto.randomUUID(),
+				executionId: options.executionId ?? (yield* randomUuid),
 			});
 		}),
 	);
@@ -986,9 +989,9 @@ supervisorTest("probes unattributed crash candidates one at a time", () =>
 			const principalA = makePrincipal([], "recovery-candidate-a");
 			const principalB = makePrincipal([], "recovery-candidate-b");
 			const principalThird = makePrincipal([], "recovery-fresh-third");
-			const executionA = crypto.randomUUID();
-			const executionB = crypto.randomUUID();
-			const executionThird = crypto.randomUUID();
+			const executionA = yield* randomUuid;
+			const executionB = yield* randomUuid;
+			const executionThird = yield* randomUuid;
 			const inputA = { marker: "candidate-a", journal: { committed: "candidate-a" } };
 			const inputB = { marker: "candidate-b", journal: { committed: "candidate-b" } };
 			const inputThird = { marker: "fresh-third", journal: { committed: "fresh" } };
@@ -1072,8 +1075,8 @@ supervisorTest("attributes an exclusive probe only to its crashing candidate", (
 		Effect.gen(function* () {
 			const principalA = makePrincipal([], "exclusive-candidate-a");
 			const principalB = makePrincipal([], "exclusive-candidate-b");
-			const executionA = crypto.randomUUID();
-			const executionB = crypto.randomUUID();
+			const executionA = yield* randomUuid;
+			const executionB = yield* randomUuid;
 			const inputA = { marker: "candidate-a" };
 			const inputB = { marker: "candidate-b" };
 			const fiberA = yield* startRun(supervisor, harness, [], {
@@ -1166,8 +1169,8 @@ supervisorTest("attributes an exclusive probe only to its crashing candidate", (
 supervisorTest("preserves retry budgets and committed work in collateral recovery", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
-			const victimPrincipal = makePrincipal([], `recovery-victim-${crypto.randomUUID()}`);
-			const victimExecutionId = crypto.randomUUID();
+			const victimPrincipal = makePrincipal([], `recovery-victim-${yield* randomUuid}`);
+			const victimExecutionId = yield* randomUuid;
 			const pinHash = sha256Hex(moduleSource);
 			const victimInput = {
 				marker: "collateral-victim",
@@ -1955,8 +1958,8 @@ supervisorTest("prevents admission deadlock through memory lock order", () =>
 					lease,
 					lane: "background",
 					prepare: makePrepare(harness),
+					executionId: yield* randomUuid,
 					pinHash: sha256Hex(moduleSource),
-					executionId: crypto.randomUUID(),
 					principal: owned("alice", "alice-script"),
 				})
 				.pipe(Effect.forkScoped({ startImmediately: true }));

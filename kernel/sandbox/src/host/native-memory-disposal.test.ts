@@ -1,10 +1,22 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Option, Path, Queue } from "effect";
+import {
+	Cause,
+	Deferred,
+	Effect,
+	Exit,
+	Fiber,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	Queue,
+} from "effect";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxSidecarAdmission } from "./admission";
@@ -210,7 +222,9 @@ const nextCall = Effect.fnUntraced(function* (
 	}
 });
 
-layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
+layer(Layer.provideMerge(nativeMemoryLayer, BunCrypto.layerSecureRandom), {
+	excludeTestServices: true,
+})((test) => {
 	test.effect("preserves large pinned journal prefixes through bounded journal read frames", () =>
 		Effect.scoped(
 			Effect.gen(function* () {

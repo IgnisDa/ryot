@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { anyOf, arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -301,7 +301,9 @@ const makeRunInput = (
 	...(grants === undefined ? {} : { grants }),
 });
 
-layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
+layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
+	excludeTestServices: true,
+})((test) => {
 	test.effect(
 		"preserves definition results and host dispatch through the real native service",
 		() => {

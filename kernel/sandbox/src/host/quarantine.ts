@@ -2,6 +2,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import type { SandboxTrust } from "./authority";
 import { SandboxCrashStore } from "./crash-store";
@@ -49,13 +50,14 @@ export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuar
 	"@ryot-app/sandbox/host/quarantine/SandboxSidecarQuarantine",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const store = yield* SandboxCrashStore;
 			const open = Effect.fn("SandboxSidecarQuarantine.open")(function* (
 				principal: SandboxPrincipal,
 				trust: typeof SandboxTrust.Type,
 			) {
 				const identities = yield* identitiesFor(principal, trust);
-				const owner = crypto.randomUUID();
+				const owner = yield* random.uuidV4();
 				const result = yield* store.acquire(identities, owner).pipe(Effect.mapError(unavailable));
 				if (result !== "allowed" && result !== "probation") {
 					return yield* new SandboxRunError({
@@ -76,7 +78,7 @@ export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuar
 					identities,
 					probation: result === "probation",
 					recordCrash: store
-						.strike(identities, crypto.randomUUID())
+						.strike(identities, yield* random.uuidV4())
 						.pipe(Effect.mapError(unavailable), Effect.asVoid),
 					survived:
 						result === "probation"

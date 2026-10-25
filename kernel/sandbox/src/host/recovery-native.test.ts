@@ -1,10 +1,11 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Deferred, Effect, Fiber, Queue, Schema } from "effect";
+import { Deferred, Effect, Fiber, Layer, Queue, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxInvocationSchema, type SidecarRunFrame } from "../protocol/messages";
@@ -330,7 +331,9 @@ const unavailableCrashStoreFailsClosed = Effect.scoped(
 	}),
 );
 
-layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
+layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
+	excludeTestServices: true,
+})((test) => {
 	test.effect("blocks owner plugin rotation after a crash quarantine", () =>
 		Effect.scoped(
 			Effect.gen(function* () {

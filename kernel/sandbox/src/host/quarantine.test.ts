@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
@@ -53,7 +54,7 @@ const sessions = Effect.gen(function* () {
 	});
 });
 
-layer(quarantineLayer)((test) => {
+layer(Layer.provideMerge(quarantineLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect("charges the plugin owner and content identities", () =>
 		Effect.scoped(
 			Effect.gen(function* () {

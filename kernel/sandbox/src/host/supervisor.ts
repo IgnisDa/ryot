@@ -18,6 +18,7 @@ import {
 	Scope,
 	Semaphore,
 } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
 import {
@@ -167,6 +168,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 	"@ryot-app/sandbox/host/supervisor/SandboxSidecarSupervisor",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const config = yield* SandboxHostConfig;
 			const hostCallScope = yield* SandboxHostCallScope;
 			const client = yield* SandboxSidecarClient;
@@ -358,13 +360,17 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				reason: SidecarGenerationError["reason"],
 				culprit?: string,
 			) =>
-				new SidecarGenerationError({
-					reason,
-					culprit,
-					eventId: crypto.randomUUID(),
-					instance: entry.key.instance,
-					generation: generation.connection.generation,
-				});
+				Effect.map(
+					random.uuidV4(),
+					(eventId) =>
+						new SidecarGenerationError({
+							reason,
+							culprit,
+							eventId,
+							instance: entry.key.instance,
+							generation: generation.connection.generation,
+						}),
+				);
 			const scheduleClose = (
 				entry: Instance,
 				generation: Generation,
@@ -403,7 +409,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						yield* scheduleClose(
 							entry,
 							generation,
-							failureFor(
+							yield* failureFor(
 								entry,
 								generation,
 								"exit",
@@ -413,7 +419,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						return undefined;
 					}
 					if (frame.type === "ready" || frame.type === "part") {
-						yield* scheduleClose(entry, generation, failureFor(entry, generation, "transport"));
+						yield* scheduleClose(
+							entry,
+							generation,
+							yield* failureFor(entry, generation, "transport"),
+						);
 						return undefined;
 					}
 					const run = generation.runs.get(frame.handle);
@@ -484,7 +494,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								Effect.catchCause(() =>
 									generation.closing
 										? Effect.void
-										: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
+										: Effect.flatMap(failureFor(entry, generation, "transport"), (failure) =>
+												scheduleClose(entry, generation, failure),
+											),
 								),
 							);
 					yield* hostCallScope.bound(run.gate.dispatch(frame, deliver)).pipe(
@@ -510,7 +522,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						catchNonInterrupt(() =>
 							generation.closing
 								? Effect.void
-								: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
+								: Effect.flatMap(failureFor(entry, generation, "transport"), (failure) =>
+										scheduleClose(entry, generation, failure),
+									),
 						),
 						Effect.ensuring(settle),
 						Effect.forkIn(run.scope),
@@ -607,12 +621,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						yield* recordSandboxSidecarEvent({ ...entry.key, event: "ready", reason: "ready" });
 						yield* receive(entry, generation).pipe(
 							Effect.catch(() =>
-								scheduleClose(
-									entry,
-									generation,
+								Effect.flatMap(
 									generation.draining && generation.runs.size === 0
-										? undefined
+										? Effect.undefined
 										: failureFor(entry, generation, "transport"),
+									(failure) => scheduleClose(entry, generation, failure),
 								),
 							),
 							Effect.forkIn(scope),
@@ -628,7 +641,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									clockNow - generation.readyAt >= SANDBOX_LIMITS.sidecar.stableMs &&
 									entry.healthyEpoch === undefined
 								) {
-									entry.healthyEpoch = crypto.randomUUID();
+									entry.healthyEpoch = yield* random.uuidV4();
 								}
 								if (
 									idle(entry, generation) &&
@@ -659,7 +672,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							instance: key.instance,
 							generation: generation.connection.generation,
 						});
-						const handle = crypto.randomUUID().replaceAll("-", "");
+						const handle = (yield* random.uuidV4()).replaceAll("-", "");
 						logical.handle = handle;
 						logical.ticket ??= handle;
 						const prepared = yield* options.prepare({
@@ -706,7 +719,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								yield* closeGeneration(
 									entry,
 									generation,
-									failureFor(entry, generation, "backstop"),
+									yield* failureFor(entry, generation, "backstop"),
 								);
 							}
 							return undefined;
@@ -768,10 +781,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									})
 									.pipe(
 										Effect.catch(() =>
-											closeGeneration(
-												entry,
-												generation,
-												failureFor(entry, generation, "transport"),
+											Effect.flatMap(failureFor(entry, generation, "transport"), (failure) =>
+												closeGeneration(entry, generation, failure),
 											),
 										),
 									);
@@ -928,7 +939,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}
 							if (Result.isSuccess(result)) {
 								if (result.success.done.outcome.status === "completed") {
-									entry.healthyEpoch = crypto.randomUUID();
+									entry.healthyEpoch = yield* random.uuidV4();
 								}
 								yield* protectedLease.protection.survived;
 								return { ...result.success, recovery };
@@ -978,7 +989,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							yield* closeGeneration(
 								entry,
 								entry.current,
-								failureFor(entry, entry.current, "shutdown"),
+								yield* failureFor(entry, entry.current, "shutdown"),
 							);
 						}
 					}

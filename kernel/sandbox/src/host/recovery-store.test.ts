@@ -1,5 +1,7 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer } from "effect";
 
 import {
@@ -20,10 +22,10 @@ const storeLayer = Layer.unwrap(
 );
 
 const acquireIdentity = Effect.acquireRelease(
-	Effect.sync(() => ({
+	Effect.map(randomUuid, (uuid) => ({
 		pinHash: "a".repeat(64),
+		instance: `instance-${uuid}`,
 		executionId: testExecutionId("recovery"),
-		instance: `instance-${crypto.randomUUID()}`,
 	})),
 	({ executionId }) =>
 		Effect.gen(function* () {
@@ -32,7 +34,7 @@ const acquireIdentity = Effect.acquireRelease(
 		}),
 );
 
-layer(storeLayer)((test) => {
+layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect("counts concurrent distinct and duplicate collateral events atomically", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
