@@ -32,10 +32,7 @@ import {
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { readWorkoutExerciseEvidence } from "~/fixtures/plugins/fitness/analytics-evidence";
-import {
-	createKindChangingExerciseFixture,
-	saveHistoricalWorkoutData,
-} from "~/fixtures/plugins/fitness/workout-records";
+import { createKindChangingExerciseFixture } from "~/fixtures/plugins/fitness/workout-records";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -111,7 +108,7 @@ describe("Workout records E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const workoutStartedAt = "2026-06-02T10:00:00.000Z";
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
-				const created = yield* saveHistoricalWorkoutData(
+				const created = yield* saveWorkoutData(
 					client,
 					workoutData({
 						startedAt: workoutStartedAt,
@@ -230,7 +227,7 @@ describe("Workout records E2E", () => {
 			const storedNewerSet = yield* storedWorkoutSet(client, exerciseId, newerEventId);
 			expect(isoString(storedNewerSet.occurredAt)).toBe(newerConfirmedAt);
 
-			const olderCreate = yield* saveHistoricalWorkoutData(
+			const olderCreate = yield* saveWorkoutData(
 				client,
 				workoutData({
 					startedAt: olderStartedAt,
@@ -470,7 +467,7 @@ describe("Workout records E2E", () => {
 				const laterStartedAt = "2026-06-02T10:00:00.000Z";
 				const { exerciseId } = yield* createExerciseEntityFixture(client, { kind: "reps" });
 				const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-				const earlierCreated = yield* saveHistoricalWorkoutData(
+				const earlierCreated = yield* saveWorkoutData(
 					client,
 					workoutData({
 						startedAt: earlierStartedAt,
@@ -491,7 +488,7 @@ describe("Workout records E2E", () => {
 				);
 				assertCondition(earlierCreated.kind === "saved", "Expected the earlier workout to save");
 				expect(earlierCreated.sets).toHaveLength(1);
-				const laterCreated = yield* saveHistoricalWorkoutData(
+				const laterCreated = yield* saveWorkoutData(
 					client,
 					workoutData({
 						startedAt: laterStartedAt,
@@ -601,7 +598,7 @@ describe("Workout records E2E", () => {
 				providerId: fixture.providerId,
 				properties: { kind: "reps_and_weight" },
 			});
-			const earlierCreated = yield* saveHistoricalWorkoutData(
+			const earlierCreated = yield* saveWorkoutData(
 				client,
 				workoutData({
 					startedAt: earlierStartedAt,
@@ -646,7 +643,7 @@ describe("Workout records E2E", () => {
 			expect(
 				yield* readWorkoutExerciseEvidence(client, exerciseId, earlierCreated.entityId),
 			).toEqual(weightedEvidenceBefore);
-			const laterCreated = yield* saveHistoricalWorkoutData(
+			const laterCreated = yield* saveWorkoutData(
 				client,
 				workoutData({
 					startedAt: laterStartedAt,

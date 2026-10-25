@@ -16,7 +16,7 @@ export const manifest = defineManifest({
 	slug: "policy.workout-exercise",
 	name: "Freeze workout taxonomy",
 	inputProjection: {
-		event: { entityProperties: ["kind"], sessionEntityProperties: ["startedAt"], properties: [] },
+		event: { properties: [], entityProperties: ["kind"], sessionEntityProperties: ["startedAt"] },
 	},
 });
 

@@ -154,7 +154,6 @@ export const WorkoutEditorSaveOutputSchema = Schema.Union([
 			"invalid-source",
 			"invalid-time",
 			"missing-measurement",
-			"unconfirmed-set",
 			"unrelated-event",
 			"invalid-measurement",
 			"invalid-exercise-kind",

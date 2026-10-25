@@ -519,9 +519,6 @@ const validateWorkoutOccurrences = Effect.fn("validateWorkoutOccurrences")(funct
 				return yield* invalid("invalid-exercise-kind");
 			}
 			if (!original) {
-				if (data.target.kind === "create" && set.confirmedAt === undefined) {
-					return yield* invalid("unconfirmed-set");
-				}
 				const required = requiredWorkoutMeasurementsByKind[set.exerciseKind];
 				if (required.some((key) => !Object.hasOwn(set.measurements, key))) {
 					return yield* invalid("missing-measurement");

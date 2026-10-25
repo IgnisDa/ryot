@@ -15,23 +15,6 @@ import { assertCondition } from "~/support/assertions";
 import { startIsolatedApiServer } from "~/support/isolated-harness";
 
 import { findFitnessEntitySchema } from "./exercises";
-import {
-	editTarget,
-	loadWorkoutBaseline,
-	saveWorkoutData,
-	type WorkoutData,
-} from "./workout-editor";
-
-export const saveHistoricalWorkoutData = Effect.fn("saveHistoricalWorkoutData")(function* (
-	client: Client,
-	data: WorkoutData,
-) {
-	assertCondition(data.target.kind === "create", "Expected a new historical fixture workout");
-	const empty = yield* saveWorkoutData(client, { ...data, supersets: [], occurrences: [] });
-	assertCondition(empty.kind === "saved", "Expected the empty historical workout to save");
-	const baseline = yield* loadWorkoutBaseline(client, empty.entityId);
-	return yield* saveWorkoutData(client, { ...data, target: editTarget(baseline) });
-});
 
 export const createKindChangingExerciseFixture = Effect.fn("createKindChangingExerciseFixture")(
 	function* () {

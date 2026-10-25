@@ -485,6 +485,38 @@ describe("workout editor save", () => {
 				});
 			}),
 		));
+	it("creates a workout with unconfirmed historical sets at their supplied time", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = yield* input();
+				assert(source.data.kind === "workout");
+				const { host, calls } = harness();
+				const result = yield* definition.run(
+					{
+						...source,
+						data: {
+							...source.data,
+							occurrences: source.data.occurrences.map((occurrence) =>
+								Object.assign({}, occurrence, {
+									sets: occurrence.sets.map((set) =>
+										Object.assign({}, set, { confirmedAt: undefined }),
+									),
+								}),
+							),
+						},
+					},
+					host,
+				);
+				expect(result).toMatchObject({ kind: "saved" });
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: {
+						creates: arrayContaining([
+							objectContaining({ occurredAt: setTime, itemIdentity: "set:client-set-1" }),
+						]),
+					},
+				});
+			}),
+		));
 	it("verifies both media kinds attached to workout occurrences", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
@@ -711,6 +743,17 @@ describe("workout editor save", () => {
 				});
 				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
+						changes: [
+							{
+								kind: "delete",
+								eventId: "occurrence-0",
+								itemIdentity: "occurrence-delete:occurrence-0",
+							},
+							{
+								kind: "update",
+								item: { eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
+							},
+						],
 						creates: [
 							{
 								eventSchemaSlug: "workout-exercise",
@@ -723,17 +766,6 @@ describe("workout editor save", () => {
 									provenance: "recorded",
 									exerciseKind: "reps_and_weight",
 								},
-							},
-						],
-						changes: [
-							{
-								kind: "delete",
-								eventId: "occurrence-0",
-								itemIdentity: "occurrence-delete:occurrence-0",
-							},
-							{
-								kind: "update",
-								item: { eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
 							},
 						],
 					},
