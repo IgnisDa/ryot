@@ -324,8 +324,8 @@ export const first = (
 ): FirstExpression => ({
 	type: "first",
 	select: input.select,
+	orderBy: input.orderBy,
 	query: correlatedQuery(from, input),
-	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
 });
 
 export const jsonElement = (): JsonElementExpression => ({ type: "jsonElement" });
@@ -347,7 +347,7 @@ export const jsonArrayFirst = (
 	array,
 	type: "jsonFirst",
 	select: input.select,
-	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
+	orderBy: input.orderBy,
 	...(input.where ? { where: input.where } : {}),
 });
 
@@ -417,7 +417,7 @@ export const include = (
 	limit: input.limit,
 	fields: [...input.fields],
 	...(input.where ? { where: input.where } : {}),
-	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
+	orderBy: input.orderBy,
 	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
 	...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
 });
@@ -550,6 +550,7 @@ const decodeValue = <A, I>(value: unknown, codec: Schema.Codec<A, I>, fieldName:
 const fromEntries = <const T extends Readonly<Record<string, unknown>>>(
 	entries: readonly (readonly [keyof T, unknown])[],
 ): T =>
+	// Each entry is decoded by the codec its key declares; TypeScript cannot map runtime entries onto a generic keyed type.
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	Object.fromEntries(entries) as T;
 
@@ -920,13 +921,11 @@ export const aggregate = (
 	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
 	output: {
 		type: "aggregate",
-		measures: [...input.measures] as [AggregateMeasure, ...AggregateMeasure[]],
+		measures: input.measures,
 		...(input.limit !== undefined ? { limit: input.limit } : {}),
 		...(input.after !== undefined ? { after: input.after } : {}),
 		...(input.groupBy && input.groupBy.length > 0 ? { groupBy: [...input.groupBy] } : {}),
-		...(input.orderBy && input.orderBy.length > 0
-			? { orderBy: [...input.orderBy] as [AggregateOrderBy, ...AggregateOrderBy[]] }
-			: {}),
+		...(input.orderBy && input.orderBy.length > 0 ? { orderBy: input.orderBy } : {}),
 	},
 });
 
