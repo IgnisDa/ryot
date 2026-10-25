@@ -6,20 +6,17 @@ This is the approved engineering plan for Order 16 in
 [the V1 → V2 gap analysis](v1-v2-port-gap-analysis.md#phase-4--discovery-analytics-and-lower-priority-account-controls).
 It is reference material. Maintained user documentation belongs in `apps/docs`.
 
-Planning and code research completed on **2026-10-28**. The owner approved all recommendations
-and the five final decision groups recorded below. **Implementation is in progress.** No checks,
-performance benchmarks, browser acceptance or real-dump migrations were run during planning.
+Planning and code research completed on **2026-10-28**, and the owner approved all
+recommendations and the five final decision groups recorded below. Order 16 is implemented in the
+`[o16]` commits. A follow-up redesign in the `[v1-v2-port-gap-o16-followup]` commits replaced the
+readiness gating and workaround machinery: processing state comes from projection status, recipes
+take the resolved reporting selection, values are never hidden behind processing state, and shared
+reporting queries, copy and tables live in the plugin SDKs. **Order 16 remains in progress** until
+the redesigned code passes end-to-end acceptance and real-dump migration validation; the evidence
+below predates the redesign.
 
-Implementation started from base commit `7df5abd4dcde2ad88efbf72b416fe97a4db20116`. The initial
-modified paths `docs/order-12-entity-reminders-plan.md`, `docs/v1-v2-port-gap-analysis.md` and
-`plugins/fitness/client/measurements/screen.test.tsx` are preserved. At the initial handoff, source
-facts, query/chart gates, shared hosting/reporting and migration work were delegated and no
-acceptance gates were complete. Later scoped results and current open gates are recorded below.
-
-The handoff checkout was at `3665e1ed23563a5af1eecb2a0ec60419251ab9fa`, with concurrent uncommitted
-Order 12 notification work, migration changes and documentation changes. Inspect the current working
-tree before editing and preserve that work. Paths describe the researched checkout; proposed files
-and declarations are identified as such. Recheck nearby code that changed after this research.
+Paths describe the researched checkout; proposed files and declarations are identified as such.
+Recheck nearby code before relying on a path.
 
 No product decision remains open. Query performance, exact internal schema design and a chart
 prototype are early implementation gates, not reasons to ask the owner to approve the same product
@@ -93,7 +90,7 @@ backups and e2e. Follow root ownership, Effect, testing, validation and cleanup 
 | Fitness taxonomy             | `plugins/fitness/shared/{home-recipes,taxonomy-recipes}.ts` currently reads live target/equipment links. Recording must capture historical assignments for analytics.                                                                                                                                                                                             |
 | Measurements                 | `plugins/fitness/shared/measurement-recipes.ts` and `client/measurements/`. One entry may contain several readings. Current series distinguish missing buckets using counts; retain that behavior.                                                                                                                                                                |
 | Projection scope             | `kernel/backend/src/modules/events/README.md`, its `{stream-work,stream-repository,projection-repository}.ts` modules, and `packages/contract/src/modules/events/stream-work.ts`. A stream currently targets one entity and one event schema; output publication enforces that scope.                                                                             |
-| Reporting language           | `kernel/backend/src/modules/ryotql/README.md`, `packages/contract/src/modules/ryotql/language.ts`. `dateBucket` supports timezone-aware hour/day/week/month; `timeSeries` aligns in UTC; year and local hour-of-day operations need investigation/extension.                                                                                                      |
+| Reporting language           | `kernel/backend/src/modules/ryotql/README.md`, `packages/contract/src/modules/ryotql/language.ts`. `dateBucket` supports timezone-aware hour/day/week/month; year and local hour-of-day operations need investigation/extension. The UTC-aligned `timeSeries` operation has since been removed.                                                                   |
 | Preferences                  | `packages/contract/src/schema/user-preferences.ts` currently has language and integration-disable preferences, but no reporting timezone. Use the existing validated account preference write owner.                                                                                                                                                              |
 | Shared charts                | `packages/plugin-ui-sdk/src/charts.tsx` supplies heatmap, ranked bars, sparkline and measurement-oriented time series. `TimeSeriesChart` uses a separate comparison axis and device-local date formatting; analytics needs same-unit period comparison and explicit reporting timezone.                                                                           |
 | Duplicated heatmap           | `plugins/fitness/client/workouts/summary.tsx` contains a separate heatmap. Consolidate equivalent rendering through the shared chart primitives while preserving the metric selected by each view.                                                                                                                                                                |
@@ -321,8 +318,8 @@ Rebuild the shared runtime, kernel renderer sources, plugin artifacts and server
 - Extend generic RyotQL date support where required for years and timezone-aware hour-of-day
   aggregation. Update schemas, builders, validation, compilation and tests together. Do not load all
   hourly history into the browser to derive 24 buckets.
-- Use timezone-aware aggregates for multi-measure charts. Current `timeSeries` is UTC-aligned;
-  converting only its labels does not repair its bucket boundaries.
+- Use timezone-aware grouped aggregates for multi-measure charts and lay them onto the client
+  `calendarBuckets` grid; the removed UTC-aligned `timeSeries` could not supply local boundaries.
 - Plan query partitioning within 10 named queries and 1,000 grouped results. Multiple media types
   multiply group counts. Coarsen or partition long ranges and handle `hasMore` explicitly.
 - Rankings may show a bounded top list with a complete paged drill-down. Grouped aggregates have no
@@ -482,14 +479,15 @@ Update Media/Fitness and shared architecture READMEs where behavior changes, add
 documentation in `apps/docs`, and record the approved exclusions and Order 16 acceptance in the gap
 analysis. Order 16 remains In progress until the complete usable screen and all remaining gates pass.
 
-## Partial implementation evidence — 2026-10-29
+## Implementation evidence before the follow-up redesign — 2026-10-29
 
 ### Latest checkpoint
 
 #### Current status — 2026-10-30 (replacement-environment run)
 
-Order 16 remains **IN PROGRESS** only for real-dump normal-runtime readiness, which the owner moved
-to a VM. Every other acceptance gate in this document has passing evidence on current sources.
+At this checkpoint Order 16 was in progress only for real-dump normal-runtime readiness, which the
+owner moved to a VM. The follow-up redesign has since changed these sources, so this evidence does
+not validate the current code.
 
 - **Base.** Runs used `60844dfb4b` (after the `[schema-sync]` commits) plus the kernel events change
   below. Migrations ran from an isolated worktree with clean environments and the documented
@@ -516,8 +514,7 @@ to a VM. Every other acceptance gate in this document has passing evidence on cu
   step while holding the account's input lock (5 seconds standalone, up to 15 minutes under load).
   Discovery rederived all accounts' targets once per 100 streams. After 40 minutes, file had 267 of
   119,260 streams. Readiness now checks existing streams first and derives the full relation only when
-  they are all ready. Discovery derives each enabled account's missing targets once and seeds pages of
-  100. Mapping fanout reads only the source users' mapping events. Readiness semantics are unchanged.
+  they are all ready. Discovery derives each enabled account's missing targets once and seeds pages of 100. Mapping fanout reads only the source users' mapping events. Readiness semantics are unchanged.
   Focused backend tests pass 66/66 and the kernel backend check passes.
 - **Remaining throughput limit.** With the fix, file reconciliation progressed steadily (5,768 streams
   in about 25 minutes) but slowly. Media hosts every history-correction event on the account's Media
@@ -1088,11 +1085,9 @@ validation is claimed.
 - Earlier generic direct multi-input projection work had 56 tests pass. Through reverse-reference
   runtime, phantom-lock, and restore tests were then incomplete.
 
-Order 16 remains **IN PROGRESS**. Full UI/runtime and consolidated acceptance, broader browser
-acceptance, restore/retention, real-dump migrations and restart, cleanup, and final repository
-validation remain pending. The owner-accepted current Media speed is not a p95 result and does not
-close the separate correctness/readiness gates.
-No commits were made.
+At that earlier checkpoint, full UI/runtime and consolidated acceptance, broader browser acceptance,
+restore/retention, real-dump migrations and restart, cleanup, and final repository validation were
+pending. The owner-accepted Media speed was not a p95 result.
 
 ## Appendix — implementation evidence moved from source READMEs
 

@@ -164,7 +164,8 @@ readiness fix. Order 12 is Done.
 
 The approved [Order 16 implementation plan](order-16-analytics-plan.md) records the unified Analytics
 destination, partial-consumption and historical-snapshot rules, reporting timezone, Fitness semantics,
-chart design, implementation gates and validation requirements. Implementation has not started.
+chart design, implementation gates and validation requirements. It is implemented, then redesigned
+in the follow-up cleanup; end-to-end and real-dump validation of the redesigned code are pending.
 
 ### Differences that need a decision, not an automatic implementation slot
 
@@ -770,7 +771,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
 | Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). |
-| Analytics | Partial | Media activity heatmap/counts/minutes/reviews, per-entity consumption summaries; Fitness summaries/history/measurements. No unified V1 analytics screen or full metric set. |
+| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. End-to-end and real-dump validation of the follow-up redesign are pending. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
@@ -794,7 +795,7 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Personal bests, derived set stats, history repair | Covered; reshaped | `script.workout-record-step`, event-stream projections, changed-set/context hooks, durable reconciliation and freshness checks. Rebuilds derived stats by exercise and recorded kind, without deleting/recreating workouts or replaying historical notifications. |
 | Exercise reviews/notes | Covered; reshaped | Private exercise `review` events, note create/update/delete and detail UI. No public reviews, comments or likes. |
 | Measurement logging/list/edit/delete/charts | Covered; reshaped | Metric entities, entry entities and session-linked reading events; dynamic metrics, pinning, composer, trends and paged history. Names on V1 measurement entries are not retained; time and comments are. Multi-call reading edits may partially commit. |
-| Fitness analytics | Partial | Workouts period comparisons, consistency/streaks, volume/counts, personal bests, muscle activity and measurement series. Not the complete V1 cross-domain daily/hourly analytics payload. |
+| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. Validation of the follow-up redesign is pending. |
 | Strong, Hevy, OpenScale imports | Covered | Fitness-owned sources and bounded import workflows; chronological processing and unit normalization. Strong provides active duration, Hevy leaves it unknown; OpenScale reuses normalized metrics. |
 | Native workout experience | Additional V2 behavior | Shared Capacitor client, native rest alerts/haptics/screen-awake control, device-local recovery, iOS Live Activities. This is not server reminder delivery. |
 
@@ -1087,11 +1088,10 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
 
 ### Analytics and upcoming feeds
 
-- There is no full V1 analytics replacement assembling all media counts and type-specific
-  durations/pages, fitness reps/weight/distance/rest/calories/bests, per-hour timelines,
-  exercise/muscle/equipment frequency rankings and automatic day/month/year grouping. Current
-  Media home activity, Fitness home/workout summaries, measurement series and per-entity
-  consumption totals cover subsets. No `daily_user_activity` table is required merely for parity.
+- The Order 16 Analytics destination replaces V1 analytics with Media consumption counts and
+  type-specific quantities, Fitness reps/weight/distance/rest/calories/bests, per-hour activity,
+  exercise/muscle/equipment rankings and day/week/month/year grouping, read from grouped RyotQL
+  aggregates. No `daily_user_activity` table exists. Validation of the follow-up redesign is pending.
 - Calendar and the upcoming feed are built (row 11). The home **Upcoming** rail covers every
   dated Media source with a days-ahead window and one-per-title deduplication. V1's alternative
   "next N items" mode is not reproduced: the rail always shows the soonest 20 in the window.
@@ -1219,7 +1219,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
 | `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands and server-owned reordering with client controls; collection recommendations remain absent. |
-| `statistics` | `user_analytics_parameters`, `user_analytics` | — | Partial domain analytics, not a complete unified replacement. |
+| `statistics` | `user_analytics_parameters`, `user_analytics` | — | Not migrated; Order 16 Analytics computes from canonical history. |
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
 | `miscellaneous/tracking` | `user_calendar_events`, `user_upcoming_calendar_events` | `delete_seen_item`, `update_seen_item`, `deploy_bulk_metadata_progress_update` | Calendar sources, home Upcoming rail and activity commands; edit/delete are implemented. |
