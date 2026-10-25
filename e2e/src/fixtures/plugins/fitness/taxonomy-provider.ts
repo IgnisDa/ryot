@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, FileSystem, Path } from "effect";
 
 import type { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
@@ -62,7 +63,7 @@ export const attachFitnessTaxonomyProvider = (
 			fs.readFileString(path.join(fitnessRoot, "shared/exercise-kinds.ts")),
 			fs.readFileString(path.join(fitnessRoot, "shared/taxonomy.ts")),
 		]);
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const exerciseName = `E2E Taxonomy Exercise ${suffix}`;
 		const providerSlug = `exercise.e2e-free-exercise-db-${suffix}`;
 		const detailsScriptSlug = `${providerSlug}.details`;

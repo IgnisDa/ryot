@@ -1,5 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -28,7 +29,7 @@ describe("custom Media editor", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { schema } = yield* findMediaEntitySchema(client, "movie");
-				const name = `Dated custom movie ${crypto.randomUUID()}`;
+				const name = `Dated custom movie ${yield* randomUuid}`;
 				const created = yield* createEntity(client, {
 					name,
 					entitySchema: schema.reference,
@@ -38,7 +39,7 @@ describe("custom Media editor", () => {
 				const entity = yield* getEntity(client, created.id);
 				const request: EditorRequest = {
 					submittedAt: nowIso(),
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					submission: {
 						name,
 						action: "save",
@@ -70,7 +71,7 @@ describe("custom Media editor", () => {
 				});
 				const explicit: EditorRequest = {
 					submittedAt: nowIso(),
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					submission: {
 						...request.submission,
 						properties: { ...updated.properties, publishDate: "2030-01-01" },
@@ -112,17 +113,17 @@ describe("custom Media editor", () => {
 				const movie = yield* createEntity(owner.client, {
 					properties: {},
 					entitySchema: schema.reference,
-					name: `Custom movie ${crypto.randomUUID()}`,
+					name: `Custom movie ${yield* randomUuid}`,
 				});
 				const genre = yield* createEntity(owner.client, {
 					properties: {},
 					entitySchema: genreSchema.reference,
-					name: `Custom genre ${crypto.randomUUID()}`,
+					name: `Custom genre ${yield* randomUuid}`,
 				});
 				const empty = [{ targets: [], relationshipSchemaSlug: "movie-to-genre" }];
 				const request: EditorRequest = {
 					submittedAt: nowIso(),
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					submission: {
 						action: "save",
 						relationships: empty,
@@ -162,7 +163,7 @@ describe("custom Media editor", () => {
 				);
 				const fresh: EditorRequest = {
 					...request,
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					submission: {
 						...request.submission,
 						target: {
@@ -201,7 +202,7 @@ describe("custom Media editor", () => {
 			const person = yield* createEntity(client, {
 				properties: {},
 				entitySchema: personSchema.reference,
-				name: `Custom person ${crypto.randomUUID()}`,
+				name: `Custom person ${yield* randomUuid}`,
 			});
 			const credit = { order: 1, roles: ["Director"], character: "Narrator" };
 			const created = yield* client.call((c) =>

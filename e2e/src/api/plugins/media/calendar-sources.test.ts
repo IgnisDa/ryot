@@ -3,6 +3,7 @@ import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
 } from "@ryot-app/ryotql-recipes/calendar";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
 
 import {
@@ -98,7 +99,7 @@ describe("Media calendar sources", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const complete = yield* eventSlug(client, "show-episode", "complete");
 			const { show, episodes } = yield* seedShow(client, {
-				name: `Calendar Show ${crypto.randomUUID()}`,
+				name: `Calendar Show ${yield* randomUuid}`,
 				properties: { images: [coverImage("show.jpg")] },
 				seasons: [
 					{ seasonNumber: 0, episodes: [{ episodeNumber: 1, publishDate: "2026-09-20" }] },
@@ -114,7 +115,7 @@ describe("Media calendar sources", () => {
 			});
 			yield* seedShow(client, {
 				inLibrary: false,
-				name: `Calendar Outside Show ${crypto.randomUUID()}`,
+				name: `Calendar Outside Show ${yield* randomUuid}`,
 				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1, publishDate: "2026-09-08" }] }],
 			});
 			const episode = (seasonNumber: number, episodeNumber: number) => {
@@ -165,7 +166,7 @@ describe("Media calendar sources", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const complete = yield* eventSlug(client, "podcast-episode", "complete");
 			const { podcast, episodes } = yield* seedPodcast(client, {
-				name: `Calendar Podcast ${crypto.randomUUID()}`,
+				name: `Calendar Podcast ${yield* randomUuid}`,
 				properties: { images: [coverImage("podcast.jpg")] },
 				episodes: [
 					{ episodeNumber: 7, publishDate: "2026-09-03", images: [coverImage("pod-ep.jpg")] },
@@ -208,8 +209,8 @@ describe("Media calendar sources", () => {
 				userId: null,
 				providerId: null,
 				entitySchemaSlug: schema.id,
-				name: `Calendar Anime ${crypto.randomUUID()}`,
-				externalId: `calendar-anime-${crypto.randomUUID()}`,
+				name: `Calendar Anime ${yield* randomUuid}`,
+				externalId: `calendar-anime-${yield* randomUuid}`,
 				properties: {
 					publishDate: "2026-09-12",
 					images: [coverImage("anime.jpg")],

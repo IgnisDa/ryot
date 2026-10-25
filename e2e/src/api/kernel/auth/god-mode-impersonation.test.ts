@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -213,7 +214,7 @@ describe("Instance Admin impersonation", () => {
 			expect(wrongAdmin.reason.code).toBe("admin-access-required");
 
 			const unknownUser = yield* Effect.flip(
-				startUserImpersonation(`missing-${crypto.randomUUID()}`, authorization),
+				startUserImpersonation(`missing-${yield* randomUuid}`, authorization),
 			);
 			assertTaggedError(unknownUser, "InstanceAdminNotFound");
 			expect(unknownUser.reason.code).toBe("user-not-found");

@@ -1,5 +1,6 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { EntitySchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -205,7 +206,7 @@ describe("isolated import durability", () => {
 			const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 			const port = yield* Effect.promise(() => getPort());
 			const origin = `http://127.0.0.1:${port}`;
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = `e2e-import-durability-${suffix}`;
 			const pluginPackageId = testPluginPackageId();
 			const sourceSlug = `e2e_import_durability_${suffix.replaceAll("-", "_")}`;

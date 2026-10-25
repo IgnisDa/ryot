@@ -1,4 +1,5 @@
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -46,7 +47,7 @@ const seedMovieWithReview = (client: Client) =>
 			providerId: null,
 			entitySchemaSlug: schema.id,
 			name: "Exercise note movie",
-			externalId: `exercise-note-movie-${crypto.randomUUID()}`,
+			externalId: `exercise-note-movie-${yield* randomUuid}`,
 		});
 		const review = requireEventSchemaBySlug(
 			yield* listEventSchemas(client, schema.reference),
@@ -170,7 +171,7 @@ describe("Fitness exercise notes", () => {
 				providerId: null,
 				entitySchemaSlug: schema.id,
 				name: "Exercise note target movie",
-				externalId: `exercise-note-target-${crypto.randomUUID()}`,
+				externalId: `exercise-note-target-${yield* randomUuid}`,
 			});
 
 			yield* expectRejected(

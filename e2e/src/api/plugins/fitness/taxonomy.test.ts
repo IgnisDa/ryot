@@ -7,6 +7,7 @@ import {
 	targetListRecipe,
 } from "@ryot-app/fitness-plugin/taxonomy-recipes";
 import { arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -68,7 +69,7 @@ describe("Fitness taxonomy E2E", () => {
 				findFitnessRelationshipSchema(owner.client, "exercise-targets"),
 				findFitnessRelationshipSchema(owner.client, "exercise-uses-equipment"),
 			]);
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const exercise = yield* createEntity(owner.client, {
 				entitySchema: exerciseSchema.reference,
 				properties: { kind: "reps_and_weight" },
@@ -361,7 +362,7 @@ describe("Fitness taxonomy E2E", () => {
 			expect(root.id).toBe(seeded.id);
 			expect(root.populatedAt).toBeNull();
 
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const privateTargetName = `Private provider target ${suffix}`;
 			const privateEquipmentName = `Private provider equipment ${suffix}`;
 			const privateTarget = yield* createEntity(client, {

@@ -1,4 +1,5 @@
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { TestPluginScript } from "~/fixtures/kernel";
@@ -13,7 +14,7 @@ import { assert, describe, expect, it } from "~/support/effect-test";
 describe("sandbox capability authorization", () => {
 	it.live("denies user-only host functions to system cron scripts", () =>
 		Effect.gen(function* () {
-			const scriptSlug = `system-denied-${crypto.randomUUID()}`;
+			const scriptSlug = `system-denied-${yield* randomUuid}`;
 			const installed = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",

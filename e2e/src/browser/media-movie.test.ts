@@ -1,5 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -51,7 +52,7 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 it.live("renders a populated Movie detail with its collection rail", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Browser Tracer Movie ${suffix}`;
 		const siblingName = `Browser Tracer Sequel ${suffix}`;
 		const collectionName = `Browser Tracer Collection ${suffix}`;
@@ -189,7 +190,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 it.live("keeps the collection rail for a Movie with no credits or recommendations", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Bare Tracer Movie ${suffix}`;
 		const siblingName = `Bare Tracer Sequel ${suffix}`;
 		const collectionName = `Bare Tracer Collection ${suffix}`;
@@ -234,7 +235,7 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 it.live("renders the Movie presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Row Tracer Movie ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
@@ -366,7 +367,7 @@ it.live("filters All Movies by status and sorts them by rating", () =>
 it.live("logs a finished Movie from the Log activity sheet without a reload", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Logger Tracer Movie ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
@@ -423,7 +424,7 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 it.live("suggests the user's Where you consume list in the Log activity sheet and grows it", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Source Tracer Movie ${suffix}`;
 		const source = `Source ${suffix.slice(0, 8)}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
@@ -491,7 +492,7 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 it.live("fits an untracked Movie detail and its Log activity sheet to a phone width", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Phone Tracer Movie ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {

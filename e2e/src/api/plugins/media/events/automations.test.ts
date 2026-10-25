@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -338,14 +339,14 @@ describe("Event automations", () => {
 				providerId: null,
 				name: "Podcast with Episode 1",
 				entitySchemaSlug: podcastSchema.id,
-				externalId: `podcast-${crypto.randomUUID()}`,
+				externalId: `podcast-${yield* randomUuid}`,
 			});
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
 				name: "Podcast Episode 1",
 				entitySchemaSlug: podcastEpisodeSchema.id,
-				externalId: `podcast-episode-${crypto.randomUUID()}`,
+				externalId: `podcast-episode-${yield* randomUuid}`,
 				properties: {
 					runtime: null,
 					episodeNumber: 1,

@@ -1,4 +1,5 @@
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -22,9 +23,7 @@ it.live("signs up through the hosted OAuth flow", () =>
 
 		const mode = page.getByRole("group", { name: "Authentication mode" });
 		yield* mode.getByRole("button", { exact: true, name: "Sign up" }).click();
-		yield* page
-			.getByLabel("Email address")
-			.fill(`browser-signup-${crypto.randomUUID()}@example.com`);
+		yield* page.getByLabel("Email address").fill(`browser-signup-${yield* randomUuid}@example.com`);
 		yield* page.getByLabel("Password").fill("password123");
 		const signupRequestFiber = yield* page.eventStream("request").pipe(
 			Stream.filter((request) => new URL(request.url()).pathname === "/api/auth/sign-up/email"),

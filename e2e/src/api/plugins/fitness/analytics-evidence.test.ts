@@ -4,6 +4,7 @@ import {
 	exerciseEquipmentRecipe,
 	exerciseTargetsRecipe,
 } from "@ryot-app/fitness-plugin/taxonomy-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Result } from "effect";
 
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -601,8 +602,8 @@ it.live(
 			expect(
 				yield* deleteWorkout(client, {
 					submittedAt: nowIso(),
+					submissionId: yield* randomUuid,
 					entityId: deletedWorkout.entityId,
-					submissionId: crypto.randomUUID(),
 				}),
 			).toEqual({ entityId: deletedWorkout.entityId });
 

@@ -1,6 +1,7 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -569,8 +570,8 @@ it.live("opens an external link from a sandbox click through host authority", ()
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const pluginSlug = `external-link-${crypto.randomUUID()}`;
-		const destination = `${frontendUrl}/e2e-external-link-${crypto.randomUUID()}`;
+		const pluginSlug = `external-link-${yield* randomUuid}`;
+		const destination = `${frontendUrl}/e2e-external-link-${yield* randomUuid}`;
 		const { id: installationId } = yield* installPrivatePluginPackage({
 			client,
 			config: {},

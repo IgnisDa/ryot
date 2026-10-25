@@ -1,5 +1,6 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -27,7 +28,7 @@ export const createWorkoutEntityFixture = (
 
 		const workout = yield* createEntity(client, {
 			entitySchema: workoutSchema.reference,
-			name: options.name ?? `Workout ${crypto.randomUUID()}`,
+			name: options.name ?? `Workout ${yield* randomUuid}`,
 			properties: {
 				endedAt: options.endedAt ?? "2026-04-27T11:00:00Z",
 				startedAt: options.startedAt ?? "2026-04-27T10:00:00Z",

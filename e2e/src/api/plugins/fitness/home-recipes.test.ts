@@ -1,5 +1,6 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { muscleActivityRecipe } from "@ryot-app/fitness-plugin/home-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -36,7 +37,7 @@ describe("Home muscle activity recipe", () => {
 				);
 				const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 				const targetLink = yield* findFitnessRelationshipSchema(client, "exercise-targets");
-				const suffix = crypto.randomUUID();
+				const suffix = yield* randomUuid;
 				const name = `Activity target ${suffix}`;
 				const shared = yield* seedEntity({
 					name,
@@ -100,7 +101,7 @@ describe("Home muscle activity recipe", () => {
 							recordingClient,
 							workoutData({
 								startedAt: occurredAt,
-								name: `Activity workout ${suffix} ${crypto.randomUUID()}`,
+								name: `Activity workout ${suffix} ${yield* randomUuid}`,
 								endedAt: DateTime.formatIso(
 									DateTime.add(DateTime.makeUnsafe(occurredAt), { hours: 1 }),
 								),

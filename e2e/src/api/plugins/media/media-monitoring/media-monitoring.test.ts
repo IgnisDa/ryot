@@ -1,5 +1,6 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -233,7 +234,7 @@ describe("media monitoring endpoints", () => {
 					properties: { seasonNumber: 1 },
 					providerId: provider.providerId,
 					entitySchemaSlug: seasonSchemaId,
-					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
+					externalId: `media-monitoring-season-${yield* randomUuid}`,
 				}),
 				seedMediaEntity({
 					target,
@@ -241,7 +242,7 @@ describe("media monitoring endpoints", () => {
 					providerId: provider.providerId,
 					entitySchemaSlug: episodeSchemaId,
 					properties: { seasonNumber: 1, episodeNumber: 1 },
-					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
+					externalId: `media-monitoring-episode-${yield* randomUuid}`,
 				}),
 				seedMediaEntity({
 					target,
@@ -249,7 +250,7 @@ describe("media monitoring endpoints", () => {
 					properties: {},
 					entitySchemaSlug: groupSchemaId,
 					providerId: provider.providerId,
-					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
+					externalId: `media-monitoring-group-${yield* randomUuid}`,
 				}),
 				seedMediaEntity({
 					properties: {},
@@ -273,7 +274,7 @@ describe("media monitoring endpoints", () => {
 					providerId: null,
 					name: "Incomplete Movie",
 					entitySchemaSlug: movieSchemaId,
-					externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
+					externalId: `media-monitoring-incomplete-${yield* randomUuid}`,
 				}),
 			]);
 			extraGlobalEntityIds.push(

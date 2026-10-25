@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -207,7 +208,7 @@ afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 it.live("automatically populates and translates entities rendered by a saved view", () =>
 	Effect.gen(function* () {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const schemaSlug = `browser-interest-${id}`;
 		const translatedName = `Registro traducido ${id}`;
 		const installer = yield* createAuthenticatedClient();
@@ -295,7 +296,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 
 it.live("keeps source data visible when the provider has no translation", () =>
 	Effect.gen(function* () {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const schemaSlug = `browser-translating-${id}`;
 		const sourceName = `Untranslated record ${id}`;
 		const installer = yield* createAuthenticatedClient();
@@ -502,7 +503,7 @@ it.live(
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			const { client } = user;
-			const id = crypto.randomUUID();
+			const id = yield* randomUuid;
 			const match = yield* createExerciseEntityFixture(client, { name: `Filter match ${id}` });
 			yield* createExerciseEntityFixture(client, { name: `Filter other muscle ${id}` });
 			yield* createExerciseEntityFixture(client, { level: "expert", name: `Filter expert ${id}` });

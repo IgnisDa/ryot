@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { unzipSync } from "fflate";
 
@@ -23,7 +24,7 @@ export const readBackupEvidenceSection = (
 	);
 
 export const installBackupEvidencePlugin = Effect.fn(function* () {
-	const suffix = crypto.randomUUID();
+	const suffix = yield* randomUuid;
 	const entitySchemaSlug = EntitySchemaSlug.make(`evidence-record-${suffix}`);
 	const eventSchemaSlug = EventSchemaSlug.make(`evidence-captured-${suffix}`);
 	const providerSlug = `evidence-provider-${suffix}`;

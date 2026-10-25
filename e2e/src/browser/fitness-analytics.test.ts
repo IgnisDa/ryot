@@ -3,6 +3,7 @@ import {
 	reportingSelectionSearch,
 } from "@ryot-app/contract/modules/analytics/reporting";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Option, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -75,7 +76,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		});
 		const page = yield* context.newPage;
 		const frameElement = analyticsFrame(page);
-		const screenshotId = crypto.randomUUID();
+		const screenshotId = yield* randomUuid;
 
 		yield* signInThroughHostedOAuth(page, fixture.account.email, fixture.account.password, {
 			entryPath,

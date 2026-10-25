@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -88,10 +89,7 @@ it.live(
 for (const reducedMotion of ["reduce", "no-preference"] as const) {
 	it.live(`brings the next superset exercise into view with motion ${reducedMotion}`, () =>
 		Effect.gen(function* () {
-			const names = [
-				`Superset first ${crypto.randomUUID()}`,
-				`Superset next ${crypto.randomUUID()}`,
-			];
+			const names = [`Superset first ${yield* randomUuid}`, `Superset next ${yield* randomUuid}`];
 			const { frame, picker } = yield* startWorkoutWith(names, reducedMotion);
 			yield* picker.waitFor({ state: "hidden" });
 			for (const name of names) {
@@ -139,7 +137,7 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 		`progresses, collapses and scrolls above the floating timer with motion ${reducedMotion}`,
 		() =>
 			Effect.gen(function* () {
-				const names = [`First ${crypto.randomUUID()}`, `Next ${crypto.randomUUID()}`];
+				const names = [`First ${yield* randomUuid}`, `Next ${yield* randomUuid}`];
 				const { page, frame } = yield* startWorkoutWith(names, reducedMotion);
 				const first = frame.getByRole("region", { exact: true, name: names[0] });
 				const next = frame.getByRole("region", { exact: true, name: names[1] });

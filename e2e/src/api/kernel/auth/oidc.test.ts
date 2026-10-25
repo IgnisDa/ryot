@@ -4,6 +4,7 @@ import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import getPort from "get-port";
@@ -227,7 +228,7 @@ describe("Local auth disabled (API B)", () => {
 				Effect.forkChild({ startImmediately: true }),
 			);
 
-			const username = `browser-${crypto.randomUUID()}`;
+			const username = `browser-${yield* randomUuid}`;
 			mockServer.setNextClaims({ sub: username, name: username, email: `${username}@example.com` });
 			yield* page.goto(`${frontendUrl}/auth`);
 
@@ -268,7 +269,7 @@ describe("Local auth disabled (API B)", () => {
 describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in produces a valid session", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			yield* listPlugins(targetA(), sessionToken);
 		}),
@@ -276,7 +277,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 
 	it.live("first-time OIDC sign-in creates a user row", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 			yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			expect(yield* countUsersByEmail(targetA(), `${username}@example.com`)).toBe(1);
 		}),
@@ -284,7 +285,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 
 	it.live("first-time OIDC sign-in bootstraps the user with plugin state", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			expect(yield* listPluginCount(targetA(), sessionToken)).toBeGreaterThan(0);
 		}),
@@ -292,7 +293,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 
 	it.live("first-time OIDC sign-in bootstraps the user with the default notification rules", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 
 			const headers = { Authorization: `Bearer ${sessionToken}` };
@@ -315,7 +316,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 describe("OIDC idempotency (API A)", () => {
 	it.live("pre-provisioned OIDC identity reuses the existing user", () =>
 		Effect.gen(function* () {
-			const username = `legacy-${crypto.randomUUID()}`;
+			const username = `legacy-${yield* randomUuid}`;
 			const email = `${username}@example.com`;
 			const client = makeSession(targetA());
 			const provisioned = yield* client.adminCall((c) =>
@@ -334,7 +335,7 @@ describe("OIDC idempotency (API A)", () => {
 
 	it.live("repeated OIDC sign-in with same identity reuses the same user row", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 
 			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const token2 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
@@ -347,7 +348,7 @@ describe("OIDC idempotency (API A)", () => {
 
 	it.live("bootstrap idempotency: plugin count is the same after two sign-ins", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 
 			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const firstCount = yield* listPluginCount(targetA(), token1);
@@ -378,7 +379,7 @@ describe("Registration gating for OIDC (API C)", () => {
 
 	it.live("first-time OIDC sign-in is rejected when registration is disabled", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
+			const username = `user-${yield* randomUuid}`;
 			const apiUrl = getApiUrlC();
 
 			const { response: step3Response } = yield* performOidcSignIn(

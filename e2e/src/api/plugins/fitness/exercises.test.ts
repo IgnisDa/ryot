@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -188,7 +189,7 @@ describe("Exercises E2E", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
-				const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
+				const exerciseName = `Listed Exercise ${yield* randomUuid}`;
 				yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
 				const exercise = requirePresent(
 					(yield* executeRyotQLRecipe(
@@ -392,7 +393,7 @@ describe("Exercises E2E", () => {
 				mergeFrom: source.id,
 				mergeInto: target.id,
 				submittedAt: nowIso(),
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 			};
 
 			const error = yield* Effect.flip(

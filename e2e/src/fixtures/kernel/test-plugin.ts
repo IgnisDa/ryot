@@ -20,6 +20,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Schema } from "effect";
 
@@ -359,7 +360,7 @@ export const installTestPlugin = (
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
 		const target = testPluginOwnerTarget(input);
-		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
+		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${yield* randomUuid}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
 			packageId: input.packageId,
@@ -460,7 +461,7 @@ export const installTestPluginBundle = (
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);
 		const target = testPluginOwnerTarget(input);
-		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
+		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${yield* randomUuid}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
 			crons: input.crons,

@@ -1,4 +1,5 @@
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "./auth";
@@ -15,7 +16,7 @@ const encodeJson = (value: unknown) =>
 
 export const installSidecarRecoveryImport = (client: Client, checkpointUrl: string) =>
 	Effect.gen(function* () {
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const entitySchemaSlug = `sidecar-recovery-${suffix}`;
 		const providerSlug = `${entitySchemaSlug}.provider`;
 		const detailsSlug = `${providerSlug}.details`;

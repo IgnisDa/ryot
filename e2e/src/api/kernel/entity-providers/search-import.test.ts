@@ -1,4 +1,5 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -43,7 +44,7 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
-			const companyProviderSlug = `company-${crypto.randomUUID()}`;
+			const companyProviderSlug = `company-${yield* randomUuid}`;
 			({
 				book: bookProvider,
 				anime: animeProvider,

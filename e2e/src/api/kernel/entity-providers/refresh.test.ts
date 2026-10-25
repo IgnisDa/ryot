@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect } from "effect";
 
 import {
@@ -54,8 +55,8 @@ it.live(
 				userId: null,
 				properties: {},
 				name: "Saved record",
+				externalId: yield* randomUuid,
 				providerId: provider.providerId,
-				externalId: crypto.randomUUID(),
 				entitySchema: testProviderEntitySchema(provider),
 			});
 			yield* setEntityPopulatedAt(seeded.id, "2026-01-01T00:00:00.000Z");
@@ -76,7 +77,7 @@ it.live(
 			const socket = yield* openInterestWebSocketScoped(first);
 			yield* socket.replaceInterest([seeded.id]);
 			expect((yield* getEntity(first.client, seeded.id)).name).toBe("Saved record");
-			const key = crypto.randomUUID();
+			const key = yield* randomUuid;
 			const submit = (client: typeof first.client, idempotencyKey: string) =>
 				client.call((contract) =>
 					contract.entities.requestEnrichment({
@@ -95,7 +96,7 @@ it.live(
 				"refresh reached provider",
 				Effect.sync(() => (upstream.requests.length === 1 ? true : null)),
 			);
-			const joined = yield* submit(second.client, crypto.randomUUID());
+			const joined = yield* submit(second.client, yield* randomUuid);
 			expect(joined.enrichmentRequestId).not.toBeNull();
 			expect((yield* getEntity(first.client, seeded.id)).populationStatus).toEqual({
 				state: "running",
@@ -118,7 +119,7 @@ it.live(
 			}
 			expect(yield* membership()).toEqual(before);
 			expect(yield* submit(first.client, key)).toEqual(accepted);
-			yield* submit(first.client, crypto.randomUUID());
+			yield* submit(first.client, yield* randomUuid);
 			yield* pollUntil(
 				"cooldown request completed",
 				getEntity(first.client, seeded.id).pipe(
@@ -152,8 +153,8 @@ it.live("keeps successful saved data when an explicit refresh fails", () =>
 			userId: null,
 			properties: {},
 			name: "Saved record",
+			externalId: yield* randomUuid,
 			providerId: provider.providerId,
-			externalId: crypto.randomUUID(),
 			entitySchema: testProviderEntitySchema(provider),
 		});
 		yield* setEntityPopulatedAt(seeded.id, "2026-01-01T00:00:00.000Z");
@@ -163,7 +164,7 @@ it.live("keeps successful saved data when an explicit refresh fails", () =>
 				action: "refresh" as const,
 				pluginId: provider.pluginId,
 				operation: "population" as const,
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 			},
 		};
 		const accepted = yield* auth.client.call((contract) =>
@@ -207,8 +208,8 @@ it.live("refreshes the current-language overlay even when canonical content is u
 			properties,
 			userId: null,
 			name: "Canonical record",
+			externalId: yield* randomUuid,
 			providerId: provider.providerId,
-			externalId: crypto.randomUUID(),
 			entitySchema: testProviderEntitySchema(provider),
 		});
 		yield* setEntityPopulatedAt(seeded.id, "2026-01-01T00:00:00.000Z");

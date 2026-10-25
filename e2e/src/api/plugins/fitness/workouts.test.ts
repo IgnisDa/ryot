@@ -19,6 +19,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -232,8 +233,8 @@ describe("Workouts E2E", () => {
 					contentType: "video/mp4",
 				});
 				const workout = yield* createEntity(client, {
+					name: `Workout ${yield* randomUuid}`,
 					entitySchema: workoutSchema.reference,
-					name: `Workout ${crypto.randomUUID()}`,
 					properties: {
 						videos: [video],
 						images: [image],

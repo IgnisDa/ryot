@@ -2,6 +2,7 @@ import {
 	instanceAdminUsersRecipe,
 	userLifecycleOperationRecipe,
 } from "@ryot-app/ryotql-recipes/instance-admin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Option, Queue, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -57,7 +58,7 @@ it.live("joins creation and reset bootstrap for each recreated account generatio
 				target,
 				manifest: testPluginManifest({
 					packageId: testPluginPackageId(),
-					pluginSlug: `bootstrap-identity-${crypto.randomUUID()}`,
+					pluginSlug: `bootstrap-identity-${yield* randomUuid}`,
 					userBootstrap: [
 						{ scriptSlug, slug: "record-identity", description: "Record bootstrap identity" },
 					],

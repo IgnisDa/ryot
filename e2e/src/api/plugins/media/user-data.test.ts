@@ -12,6 +12,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -189,13 +190,13 @@ const customShowTree = (client: Client) =>
 		]);
 		const show = yield* saveCustomEntity(client, {
 			entitySchema: showSchema.schema.reference,
-			name: `Edited custom show ${crypto.randomUUID()}`,
+			name: `Edited custom show ${yield* randomUuid}`,
 			properties: { productionStatus: "Ended", description: "Show metadata" },
 		});
 		assertCondition(show.output.kind === "saved", "Expected custom show to save");
 		const season = yield* saveCustomEntity(client, {
 			entitySchema: seasonSchema.schema.reference,
-			name: `Edited custom season ${crypto.randomUUID()}`,
+			name: `Edited custom season ${yield* randomUuid}`,
 			properties: { seasonNumber: 1, description: "Season metadata" },
 			relationships: [
 				{
@@ -207,7 +208,7 @@ const customShowTree = (client: Client) =>
 		assertCondition(season.output.kind === "saved", "Expected custom season to save");
 		const episode = yield* saveCustomEntity(client, {
 			entitySchema: episodeSchema.schema.reference,
-			name: `Edited custom episode ${crypto.randomUUID()}`,
+			name: `Edited custom episode ${yield* randomUuid}`,
 			properties: { seasonNumber: 1, episodeNumber: 1, description: "Episode metadata" },
 			relationships: [
 				{
@@ -248,7 +249,7 @@ describe("Media entity user data HTTP operations", () => {
 				const other = yield* createAuthenticatedClient();
 				const tree = yield* seedShow(client, {
 					inLibrary: false,
-					name: `Clear source ${crypto.randomUUID()}`,
+					name: `Clear source ${yield* randomUuid}`,
 					properties: { productionStatus: "Ended", description: "Show metadata survives" },
 					seasons: [
 						{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
@@ -257,7 +258,7 @@ describe("Media entity user data HTTP operations", () => {
 				});
 				const entities = treeEntities(tree);
 				const collection = yield* createCollection(client, {
-					name: `Clear collection ${crypto.randomUUID()}`,
+					name: `Clear collection ${yield* randomUuid}`,
 				});
 				for (const entity of entities) {
 					yield* client.call((contract) =>
@@ -303,7 +304,7 @@ describe("Media entity user data HTTP operations", () => {
 				const detachedEpisode = yield* createEntity(client, {
 					entitySchema: episodeSchema.reference,
 					properties: detachedEpisodeProperties,
-					name: `Detached clear episode ${crypto.randomUUID()}`,
+					name: `Detached clear episode ${yield* randomUuid}`,
 				});
 				yield* createEventFixture(client, {
 					entityId: detachedEpisode.id,
@@ -321,8 +322,8 @@ describe("Media entity user data HTTP operations", () => {
 					providerId: null,
 					target: client.target,
 					entitySchemaSlug: peer.schema.id,
-					externalId: `clear-relationship-${crypto.randomUUID()}`,
-					name: `Clear relationship target ${crypto.randomUUID()}`,
+					externalId: `clear-relationship-${yield* randomUuid}`,
+					name: `Clear relationship target ${yield* randomUuid}`,
 				});
 				const mediaRelationships = yield* listRelationshipSchemas(client, {
 					owner: showSchema.reference.owner,
@@ -357,7 +358,7 @@ describe("Media entity user data HTTP operations", () => {
 				] as const) {
 					yield* logMediaActivity(client, {
 						submittedAt: nowIso(),
-						submissionId: crypto.randomUUID(),
+						submissionId: yield* randomUuid,
 						entry: {
 							kind: "episodes",
 							parentEntityId: tree.show.id,
@@ -385,7 +386,7 @@ describe("Media entity user data HTTP operations", () => {
 				expect(
 					detachedEpisodeEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "review"),
 				).toBe(true);
-				const clearRequest = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+				const clearRequest = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 				const cleared = yield* clearEntityUserData(client, tree.show.id, clearRequest);
 				expect(cleared.entityId).toBe(tree.show.id);
 				expect(cleared.deletedEventsCount).toBeGreaterThan(0);
@@ -461,7 +462,7 @@ describe("Media entity user data HTTP operations", () => {
 
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: tree.show.id,
@@ -496,19 +497,19 @@ describe("Media entity user data HTTP operations", () => {
 				inLibrary: false,
 				seasons: inventory,
 				properties: { productionStatus: "Ended" },
-				name: `Merge source ${crypto.randomUUID()}`,
+				name: `Merge source ${yield* randomUuid}`,
 			});
 			const target = yield* seedShow(client, {
 				inLibrary: false,
 				properties: { productionStatus: "Ended" },
-				name: `Merge target ${crypto.randomUUID()}`,
+				name: `Merge target ${yield* randomUuid}`,
 				seasons: [
 					{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
 					{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }] },
 				],
 			});
 			const collection = yield* createCollection(client, {
-				name: `Merge collection ${crypto.randomUUID()}`,
+				name: `Merge collection ${yield* randomUuid}`,
 				fields: [
 					{ type: "text", required: false, label: "Source note" },
 					{ type: "text", required: false, label: "Target note" },
@@ -554,7 +555,7 @@ describe("Media entity user data HTTP operations", () => {
 			] as const) {
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: source.show.id,
@@ -575,12 +576,12 @@ describe("Media entity user data HTTP operations", () => {
 			const equalReviewSlug = requireEventSchemaBySlug(episodeEvents, "review").id;
 			const detachedSource = yield* createEntity(client, {
 				entitySchema: episodeSchema.reference,
-				name: `Detached source episode ${crypto.randomUUID()}`,
+				name: `Detached source episode ${yield* randomUuid}`,
 				properties: { seasonNumber: 1, episodeNumber: 2, description: "Retained source episode" },
 			});
 			const detachedTarget = yield* createEntity(client, {
 				entitySchema: episodeSchema.reference,
-				name: `Detached destination episode ${crypto.randomUUID()}`,
+				name: `Detached destination episode ${yield* randomUuid}`,
 				properties: {
 					seasonNumber: 1,
 					episodeNumber: 2,
@@ -661,7 +662,7 @@ describe("Media entity user data HTTP operations", () => {
 				mergeFrom: EntityId.make(source.show.id),
 				mergeInto: EntityId.make(target.show.id),
 			};
-			const submission = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+			const submission = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 			const merged = yield* mergeEntityUserData(client, request, submission);
 			expect(merged.mergeFrom).toBe(source.show.id);
 			expect(merged.mergeInto).toBe(target.show.id);
@@ -780,13 +781,13 @@ describe("Media entity user data HTTP operations", () => {
 				const source = yield* seedShow(client, {
 					inLibrary: false,
 					properties: { productionStatus: "Ended" },
-					name: `Mapping source ${crypto.randomUUID()}`,
+					name: `Mapping source ${yield* randomUuid}`,
 					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }] }],
 				});
 				const target = yield* seedShow(client, {
 					inLibrary: false,
 					properties: { productionStatus: "Ended" },
-					name: `Mapping target ${crypto.randomUUID()}`,
+					name: `Mapping target ${yield* randomUuid}`,
 					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 				});
 				yield* insertLibraryMembership(client, {
@@ -799,7 +800,7 @@ describe("Media entity user data HTTP operations", () => {
 				});
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: source.show.id,
@@ -820,7 +821,7 @@ describe("Media entity user data HTTP operations", () => {
 					"show-episode",
 				);
 				const originalTargetEvents = yield* eventsForTree(client, target);
-				const operationSubmissionId = crypto.randomUUID();
+				const operationSubmissionId = yield* randomUuid;
 				expect(
 					yield* client.call((contract) =>
 						contract.plugins.invoke({
@@ -865,13 +866,13 @@ describe("Media entity user data HTTP operations", () => {
 					seasonNumber: 1,
 					seasonId: targetSeason.id,
 					episode: { episodeNumber: 2 },
-					suffix: `mapping-retry-${crypto.randomUUID()}`,
+					suffix: `mapping-retry-${yield* randomUuid}`,
 				});
 				const retryRequest = {
 					mergeFrom: EntityId.make(source.show.id),
 					mergeInto: EntityId.make(target.show.id),
 				};
-				const retrySubmission = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+				const retrySubmission = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 				const merged = yield* mergeEntityUserData(client, retryRequest, retrySubmission);
 				expect(merged.mergeFrom).toBe(source.show.id);
 				const matchingEventIds = new Set(
@@ -886,12 +887,12 @@ describe("Media entity user data HTTP operations", () => {
 					seasonNumber: 1,
 					seasonId: targetSeason.id,
 					episode: { episodeNumber: 2 },
-					suffix: `mapping-duplicate-${crypto.randomUUID()}`,
+					suffix: `mapping-duplicate-${yield* randomUuid}`,
 				});
 				const ambiguousSource = yield* seedShow(client, {
 					inLibrary: false,
 					properties: { productionStatus: "Ended" },
-					name: `Ambiguous source ${crypto.randomUUID()}`,
+					name: `Ambiguous source ${yield* randomUuid}`,
 					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 2 }] }],
 				});
 				yield* insertLibraryMembership(client, {
@@ -900,7 +901,7 @@ describe("Media entity user data HTTP operations", () => {
 				});
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: ambiguousSource.show.id,
@@ -958,7 +959,7 @@ describe("Media entity user data HTTP operations", () => {
 					});
 				}
 				yield* settledHistoryCorrection(client, userId);
-				const clearRequest = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+				const clearRequest = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 				const [showEntity, seasonEntity, episodeEntity] = tree.entities;
 				assertCondition(
 					showEntity !== undefined && seasonEntity !== undefined && episodeEntity !== undefined,

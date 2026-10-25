@@ -12,6 +12,7 @@ import {
 	showSeasonsRecipe,
 } from "@ryot-app/media-plugin/shared/show-recipes";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -53,7 +54,7 @@ const seedPodcastFixture = (client: Client, episodeCount: number) =>
 		const reference: MediaReference = { pluginId, kind: "local" };
 		const { podcast, episodes } = yield* seedPodcast(client, {
 			inLibrary: false,
-			name: `Query Recipe Podcast ${crypto.randomUUID()}`,
+			name: `Query Recipe Podcast ${yield* randomUuid}`,
 			episodes: Array.from({ length: episodeCount }, (_, index) => ({
 				episodeNumber: index + 1,
 				properties: { publishDate: null, runtime: 30 + index, description: `Episode ${index + 1}` },
@@ -109,7 +110,7 @@ const seedActivityShowFixture = (client: Client) =>
 		const reference: MediaReference = { pluginId, kind: "local" };
 		const { show, episodes } = yield* seedShow(client, {
 			inLibrary: false,
-			name: `Activity Show ${crypto.randomUUID()}`,
+			name: `Activity Show ${yield* randomUuid}`,
 			properties: { totalSeasons: 1, totalEpisodes: 2 },
 			seasons: [
 				{ seasonNumber: 1, episodes: [activityEpisode(1), activityEpisode(2)] },
@@ -176,7 +177,7 @@ describe("Media RyotQL query recipe results", () => {
 			const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(episodeEventSchemas, "progress");
 			const completeEventSchema = requireEventSchemaBySlug(episodeEventSchemas, "complete");
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const show = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
@@ -370,9 +371,9 @@ describe("Media RyotQL query recipe results", () => {
 			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 			const reference: MediaReference = { pluginId, kind: "local" };
 			const collection = yield* createCollection(client, {
-				name: `Summary Collection ${crypto.randomUUID()}`,
+				name: `Summary Collection ${yield* randomUuid}`,
 			});
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const show = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
@@ -468,7 +469,7 @@ describe("Media RyotQL query recipe results", () => {
 				"company-to-show",
 				showSchema.reference.owner,
 			);
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const seedOverviewShow = (name: string, images: readonly Record<string, unknown>[]) =>
 				seedMediaEntity({
 					name,
@@ -617,7 +618,7 @@ describe("Media RyotQL query recipe results", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 			const reference: MediaReference = { pluginId, kind: "local" };
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const show = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
@@ -676,7 +677,7 @@ describe("Media RyotQL query recipe results", () => {
 				"person-to-music-group",
 				personSchema.reference.owner,
 			);
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const seedMovie = (name: string, publishYear: null | number) =>
 				seedMediaEntity({
 					name,
@@ -756,7 +757,7 @@ describe("Media RyotQL query recipe results", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const book = yield* createGlobalBookEntityFixture(client, {
-				name: `Summary Book ${crypto.randomUUID()}`,
+				name: `Summary Book ${yield* randomUuid}`,
 			});
 			const reference: MediaReference = { kind: "local", pluginId: book.pluginId };
 
@@ -781,7 +782,7 @@ describe("Media RyotQL query recipe results", () => {
 				showRecipes.summaryRecipe({
 					reference,
 					collectionLimit: 5,
-					entityId: `missing-${crypto.randomUUID()}`,
+					entityId: `missing-${yield* randomUuid}`,
 				}),
 			);
 

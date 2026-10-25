@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -55,7 +56,7 @@ describe("failed entity population", () => {
 					name: "Failing Studio",
 					providerId: provider.providerId,
 					entitySchema: testProviderEntitySchema(provider),
-					externalId: `e2e-population-failure-${crypto.randomUUID()}`,
+					externalId: `e2e-population-failure-${yield* randomUuid}`,
 				});
 
 				const socket = yield* openInterestWebSocketScoped(auth);
@@ -107,7 +108,7 @@ describe("failed entity population", () => {
 						result: fakeProviderDetailsResult({ name: POPULATED_NAME }),
 					}),
 				);
-				const idempotencyKey = crypto.randomUUID();
+				const idempotencyKey = yield* randomUuid;
 				const retry = () =>
 					client.call((contract) =>
 						contract.entities.requestEnrichment({
@@ -160,7 +161,7 @@ describe("failed entity population", () => {
 				name: "Over Budget Studio",
 				providerId: overBudget.providerId,
 				entitySchema: testProviderEntitySchema(overBudget),
-				externalId: `e2e-population-over-budget-${crypto.randomUUID()}`,
+				externalId: `e2e-population-over-budget-${yield* randomUuid}`,
 			});
 
 			const socket = yield* openInterestWebSocketScoped(auth);

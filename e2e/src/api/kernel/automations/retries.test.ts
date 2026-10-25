@@ -3,6 +3,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationHookSlug, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Duration, Effect, Option } from "effect";
 
 import {
@@ -450,7 +451,7 @@ describe("automation retries", () => {
 	it.live("rejects automatic HTTP retries without run-id idempotency", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = `e2e-unsafe-http-retry-${crypto.randomUUID()}`;
+			const pluginSlug = `e2e-unsafe-http-retry-${yield* randomUuid}`;
 			const packageId = testPluginPackageId();
 			const scriptSlug = `automation.${pluginSlug}`;
 			const entry = `backend/automations/${scriptSlug}.sandbox.ts`;
@@ -468,7 +469,7 @@ describe("automation retries", () => {
 							stage: "after",
 							delivery: "async",
 							name: "Unsafe HTTP retry",
-							slug: `unsafe-http-retry-${crypto.randomUUID()}`,
+							slug: `unsafe-http-retry-${yield* randomUuid}`,
 							targets: [
 								{ resource: "entity", operation: "create", entitySchemaSlug: RETRY_TARGET_SLUG },
 							],

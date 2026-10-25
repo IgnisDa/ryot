@@ -1,5 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -43,7 +44,7 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 it.live("renders a populated Book detail with its series rail and unlinked creators", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const bookName = `Browser Tracer Book ${suffix}`;
 		const siblingName = `Browser Tracer Sequel ${suffix}`;
 		const seriesName = `Browser Tracer Series ${suffix}`;
@@ -197,7 +198,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 it.live("renders the Book presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const bookName = `Row Tracer Book ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalBookWithSeries(client, {
@@ -241,7 +242,7 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 it.live("logs Book progress from the empty Activity tab without a reload", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const bookName = `Logger Tracer Book ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalBookWithSeries(client, {

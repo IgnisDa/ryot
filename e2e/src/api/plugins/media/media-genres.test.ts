@@ -5,6 +5,7 @@ import { entitySchemaBrowseRecipe } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import { entityBrowserRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Schema } from "effect";
 
 import {
@@ -72,7 +73,7 @@ describe("Media genres", () => {
 				owner: { pluginId, kind: "local" as const },
 			};
 
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const seedMovie = (name: string) =>
 				seedMediaEntity({
 					name,

@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Config, Effect, FileSystem, Schema } from "effect";
 
 import {
@@ -56,7 +57,7 @@ describe("sandbox sidecar recovery", () => {
 					"healthy user-scope provider preflight",
 				),
 			).toEqual({ externalId: fixture.suffix });
-			const slug = `sidecar-fatal-${crypto.randomUUID()}`;
+			const slug = `sidecar-fatal-${yield* randomUuid}`;
 			const installed = yield* installSandboxScriptScoped({
 				slug,
 				client,

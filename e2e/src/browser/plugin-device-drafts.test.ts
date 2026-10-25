@@ -1,5 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -21,7 +22,7 @@ it.live("flushes large device drafts before navigation and restores scoped retur
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const manifest = testPluginManifest({
-			pluginSlug: `device-draft-${crypto.randomUUID()}`,
+			pluginSlug: `device-draft-${yield* randomUuid}`,
 			clientDefinition: {
 				entities: {},
 				homeView: null,

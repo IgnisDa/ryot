@@ -1,4 +1,5 @@
 import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -51,7 +52,7 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const createdView = yield* createSavedView(client, {
-				name: `List Coverage ${crypto.randomUUID()}`,
+				name: `List Coverage ${yield* randomUuid}`,
 			});
 			const listedViews = yield* listSavedViews(client);
 			const listedViewIds = listedViews.map((view) => view.id);
@@ -325,7 +326,7 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* createSavedView(client, {
-				name: `Filtered View ${crypto.randomUUID()}`,
+				name: `Filtered View ${yield* randomUuid}`,
 			});
 			const createdView = yield* findSavedViewById(client, created.id);
 
@@ -345,16 +346,16 @@ describe("Saved views lifecycle E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const workspace = yield* installPluginScope(client);
 				const enabledCreated = yield* createSavedView(client, {
-					name: `Enabled Tracked ${crypto.randomUUID()}`,
+					name: `Enabled Tracked ${yield* randomUuid}`,
 					workspaceInstallationId: workspace.installationId,
 				});
 				const enabledTracked = yield* findSavedViewById(client, enabledCreated.id);
 				const disabledCreated = yield* createSavedView(client, {
-					name: `Disabled Tracked ${crypto.randomUUID()}`,
+					name: `Disabled Tracked ${yield* randomUuid}`,
 					workspaceInstallationId: workspace.installationId,
 				});
 				const disabledTracked = yield* findSavedViewById(client, disabledCreated.id);
-				yield* createSavedView(client, { name: `Standalone ${crypto.randomUUID()}` });
+				yield* createSavedView(client, { name: `Standalone ${yield* randomUuid}` });
 				yield* updateSavedView(client, disabledTracked.reference, {
 					isHidden: true,
 					workspaceInstallationId: workspace.installationId,
@@ -381,17 +382,17 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const workspace = yield* installPluginScope(client);
 			const firstCreated = yield* createSavedView(client, {
-				name: `Tracker View A ${crypto.randomUUID()}`,
+				name: `Tracker View A ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
 			const secondCreated = yield* createSavedView(client, {
-				name: `Tracker View B ${crypto.randomUUID()}`,
+				name: `Tracker View B ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const second = yield* findSavedViewById(client, secondCreated.id);
 			const standalone = yield* createSavedView(client, {
-				name: `Standalone View ${crypto.randomUUID()}`,
+				name: `Standalone View ${yield* randomUuid}`,
 			});
 
 			const reordered = yield* reorderSavedViews(client, {
@@ -414,17 +415,17 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const firstCreated = yield* createSavedView(client, {
-				name: `Top View A ${crypto.randomUUID()}`,
+				name: `Top View A ${yield* randomUuid}`,
 			});
 			const secondCreated = yield* createSavedView(client, {
-				name: `Top View B ${crypto.randomUUID()}`,
+				name: `Top View B ${yield* randomUuid}`,
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
 			const second = yield* findSavedViewById(client, secondCreated.id);
 			const workspace = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
+				name: `Tracked Scope View ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
-				name: `Tracked Scope View ${crypto.randomUUID()}`,
 			});
 
 			yield* reorderSavedViews(client, { references: [second.reference, first.reference] });
@@ -448,7 +449,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const workspace = yield* installPluginScope(client);
 			const movedCreated = yield* createSavedView(client, {
-				name: `Movable View ${crypto.randomUUID()}`,
+				name: `Movable View ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const movedView = yield* findSavedViewById(client, movedCreated.id);
@@ -481,7 +482,7 @@ describe("Saved views lifecycle E2E", () => {
 				"Top-level built-in saved view not found",
 			);
 			const customCreated = yield* createSavedView(client, {
-				name: `Mixed Scope View ${crypto.randomUUID()}`,
+				name: `Mixed Scope View ${yield* randomUuid}`,
 			});
 			const customView = yield* findSavedViewById(client, customCreated.id);
 
@@ -518,12 +519,12 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const workspace = yield* installPluginScope(client);
 			const trackedCreated = yield* createSavedView(client, {
-				name: `Scoped View ${crypto.randomUUID()}`,
+				name: `Scoped View ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const tracked = yield* findSavedViewById(client, trackedCreated.id);
 			const standaloneCreated = yield* createSavedView(client, {
-				name: `Top Scope View ${crypto.randomUUID()}`,
+				name: `Top Scope View ${yield* randomUuid}`,
 			});
 			const standalone = yield* findSavedViewById(client, standaloneCreated.id);
 

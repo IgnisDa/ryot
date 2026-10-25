@@ -6,6 +6,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -183,7 +184,7 @@ describe("automation recursion budgets", () => {
 	it.live("preserves parentage through replay and blocks descendants beyond depth eight", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = `e2e-recursion-${suffix}`;
 			const entitySchemaSlug = EntitySchemaSlug.make(`recursion-entity-${suffix}`);
 			const seedEventSchemaSlug = EventSchemaSlug.make(`recursion-seed-${suffix}`);
@@ -345,7 +346,7 @@ describe("automation recursion budgets", () => {
 					owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
 				},
 			});
-			const chainId = `chain-${crypto.randomUUID()}`;
+			const chainId = `chain-${yield* randomUuid}`;
 			expect(
 				yield* client.call((c) =>
 					c.events.create({
@@ -479,7 +480,7 @@ describe("automation recursion budgets", () => {
 	it.live("shares the root run budget across concurrent child fan-out", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = `e2e-fanout-${suffix}`;
 			const entitySchemaSlug = EntitySchemaSlug.make(`fanout-entity-${suffix}`);
 			const seedEventSchemaSlug = EventSchemaSlug.make(`fanout-seed-${suffix}`);

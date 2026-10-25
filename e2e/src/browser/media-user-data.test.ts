@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -42,8 +43,8 @@ const seedMovieWithUserData = (
 	Effect.gen(function* () {
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName: input.name,
-			siblingName: `Related movie ${crypto.randomUUID()}`,
-			collectionName: `Movie collection ${crypto.randomUUID()}`,
+			siblingName: `Related movie ${yield* randomUuid}`,
+			collectionName: `Movie collection ${yield* randomUuid}`,
 			movieProperties: { runtime: 101, publishYear: 2020, description: input.description },
 		});
 		const { schema } = yield* findMediaEntitySchema(client, "movie");
@@ -70,7 +71,7 @@ const seedMovieWithUserData = (
 it.live("cancels then confirms media-data removal while preserving metadata", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `User data Movie ${crypto.randomUUID()}`;
+		const name = `User data Movie ${yield* randomUuid}`;
 		const seeded = yield* seedMovieWithUserData(client, {
 			name,
 			rating: 83,
@@ -125,7 +126,7 @@ it.live("cancels then confirms media-data removal while preserving metadata", ()
 it.live("merges data through the same-schema entity picker and opens the destination", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const source = yield* seedMovieWithUserData(client, {
 			rating: 91,
 			name: `User data source ${suffix}`,
@@ -180,7 +181,7 @@ it.live("merges data through the same-schema entity picker and opens the destina
 it.live("keeps an episodic mapping conflict visible without changing either show", () =>
 	Effect.gen(function* () {
 		const { email, client, userId, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const source = yield* seedShow(client, {
 			inLibrary: false,
 			name: `Episodic source ${suffix}`,
@@ -203,7 +204,7 @@ it.live("keeps an episodic mapping conflict visible without changing either show
 		});
 		yield* logMediaActivity(client, {
 			submittedAt: nowIso(),
-			submissionId: crypto.randomUUID(),
+			submissionId: yield* randomUuid,
 			entry: {
 				kind: "episodes",
 				parentEntityId: source.show.id,

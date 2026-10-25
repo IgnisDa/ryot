@@ -1,5 +1,6 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { collectionMembersRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -57,7 +58,7 @@ describe("collection member ordering", () => {
 					entityId: firstMember.id,
 					collectionId: collection.id,
 					destination: { kind: "start" },
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					expectedRevision: first.orderRevision,
 					submittedAt: (yield* DateTime.nowAsDate).toISOString(),
 				},
@@ -75,7 +76,7 @@ describe("collection member ordering", () => {
 					...request.payload,
 					entityId: lastMember.id,
 					destination: { kind: "end" },
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					expectedRevision: moved.orderRevision,
 				},
 			};

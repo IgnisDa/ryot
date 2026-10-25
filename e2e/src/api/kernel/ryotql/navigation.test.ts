@@ -1,4 +1,5 @@
 import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -19,9 +20,9 @@ describe("RyotQL navigation", () => {
 		Effect.gen(function* () {
 			const first = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
-			const firstViewName = `First Navigation View ${crypto.randomUUID()}`;
-			const orderedViewName = `Ordered Navigation View ${crypto.randomUUID()}`;
-			const secondViewName = `Second Navigation View ${crypto.randomUUID()}`;
+			const firstViewName = `First Navigation View ${yield* randomUuid}`;
+			const orderedViewName = `Ordered Navigation View ${yield* randomUuid}`;
+			const secondViewName = `Second Navigation View ${yield* randomUuid}`;
 			const { builtinPlugin: selectedMediaWorkspace } = yield* findMediaEntitySchema(
 				first.client,
 				"book",
@@ -49,10 +50,10 @@ describe("RyotQL navigation", () => {
 			});
 			yield* createSavedView(second.client, { name: secondViewName });
 			const firstCollection = yield* createCollection(first.client, {
-				name: `First Navigation Collection ${crypto.randomUUID()}`,
+				name: `First Navigation Collection ${yield* randomUuid}`,
 			});
 			const secondCollection = yield* createCollection(second.client, {
-				name: `Second Navigation Collection ${crypto.randomUUID()}`,
+				name: `Second Navigation Collection ${yield* randomUuid}`,
 			});
 
 			const data = yield* executeRyotQLRecipe(first.client, navigationRecipe());

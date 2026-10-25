@@ -21,6 +21,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { requireObjectRecord } from "~/support/assertions";
@@ -106,12 +107,12 @@ export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const { reference, schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
 			name: "Test Item",
-			slug: `item-${crypto.randomUUID()}`,
+			slug: `item-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
 			name: "Finished",
 			entitySchema: reference,
-			slug: `finished-${crypto.randomUUID()}`,
+			slug: `finished-${yield* randomUuid}`,
 			propertiesSchema: {
 				fields: {
 					rating: {
@@ -141,12 +142,12 @@ export const createRuleEventFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const { reference } = yield* createPluginSchema(client, {
 			name: "Rule Test Item",
-			slug: `rule-item-${crypto.randomUUID()}`,
+			slug: `rule-item-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
 			name: "Progress Log",
 			entitySchema: reference,
-			slug: `progress-log-${crypto.randomUUID()}`,
+			slug: `progress-log-${yield* randomUuid}`,
 			propertiesSchema: {
 				rules: [
 					{

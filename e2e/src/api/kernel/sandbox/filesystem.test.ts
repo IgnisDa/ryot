@@ -1,4 +1,5 @@
 import { anyOf, stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -15,7 +16,7 @@ describe("sandbox filesystem grants", () => {
 	it.live("rejects scratch entry overflow at the host-call budget", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `scratch-entry-limit-${crypto.randomUUID()}`;
+			const slug = `scratch-entry-limit-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -43,7 +44,7 @@ describe("sandbox filesystem grants", () => {
 	it.live("does not expose harvested storage metadata in public sandbox results", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `scratch-result-boundary-${crypto.randomUUID()}`;
+			const slug = `scratch-result-boundary-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

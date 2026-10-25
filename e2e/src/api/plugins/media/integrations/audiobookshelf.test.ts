@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -29,7 +30,7 @@ describe("Audiobookshelf integration", () => {
 				schema.providers.find((candidate) => candidate.name === "Audible"),
 				"Expected Audible audiobook provider",
 			);
-			const externalId = `abs-${crypto.randomUUID()}`;
+			const externalId = `abs-${yield* randomUuid}`;
 			const audiobook = yield* seedMediaEntity({
 				externalId,
 				userId: null,

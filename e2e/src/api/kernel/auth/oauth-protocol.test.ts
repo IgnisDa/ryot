@@ -8,6 +8,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -129,7 +130,7 @@ describe("OAuth protocol enforcement", () => {
 				"OAuth authorization did not return a code",
 			);
 
-			const response = yield* exchangeCode(pending, code, crypto.randomUUID());
+			const response = yield* exchangeCode(pending, code, yield* randomUuid);
 
 			expect(response.status).toBe(401);
 			expect(yield* Effect.promise(() => response.json())).toMatchObject({

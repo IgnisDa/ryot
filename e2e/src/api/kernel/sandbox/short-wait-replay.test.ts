@@ -1,4 +1,5 @@
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect } from "effect";
 
 import {
@@ -91,9 +92,9 @@ const enqueueTrustedSandbox = (userId: string, scriptId: SandboxScriptId) =>
 describe("sandbox short waits and replay", () => {
 	it.live("short_and_long_sleeps_preserve_workflow_output", () =>
 		Effect.gen(function* () {
-			const pluginSlug = `e2e-short-wait-replay-${crypto.randomUUID()}`;
-			const shortSlug = `workflow.short-wait-${crypto.randomUUID()}`;
-			const longSlug = `workflow.long-wait-${crypto.randomUUID()}`;
+			const pluginSlug = `e2e-short-wait-replay-${yield* randomUuid}`;
+			const shortSlug = `workflow.short-wait-${yield* randomUuid}`;
+			const longSlug = `workflow.long-wait-${yield* randomUuid}`;
 			const shortEntry = `backend/scripts/${shortSlug}.sandbox.ts`;
 			const longEntry = `backend/scripts/${longSlug}.sandbox.ts`;
 			const plugin = yield* installSystemPluginScoped({
@@ -166,7 +167,7 @@ describe("sandbox short waits and replay", () => {
 				requestTimestamps.push(Date.now());
 				return Response.json({ ok: true });
 			});
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = `e2e-short-http-slots-${suffix}`;
 			const scriptSlug = `short-http-slots-${suffix}`;
 			const entry = `backend/scripts/${scriptSlug}.sandbox.ts`;

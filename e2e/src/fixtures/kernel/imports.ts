@@ -19,6 +19,7 @@ import {
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -402,162 +403,167 @@ export default defineScript({
 });
 `;
 
-export const installTestPartialResultCancellationImportPlugin = Effect.suspend(() => {
-	const suffix = crypto.randomUUID();
-	const entitySchemaSlug = `e2e-import-cancellation-${suffix}`;
-	const providerSlug = `${entitySchemaSlug}.provider`;
-	const source = `e2e_partial_result_cancellation_${suffix.replaceAll("-", "_")}`;
-	const workflowSlug = `partial-result-cancellation-${suffix}`;
-	const workflowScriptSlug = `workflow.e2e-partial-result-cancellation-${suffix}`;
-	const chunkScriptSlug = `import.e2e-partial-result-cancellation-chunk-${suffix}`;
-	const detailsScriptSlug = `${providerSlug}.details`;
-	const resolveScriptSlug = `${providerSlug}.resolve`;
-	const workflowEntry = `backend/scripts/${workflowSlug}.sandbox.ts`;
-	const chunkEntry = `backend/scripts/${chunkScriptSlug}.sandbox.ts`;
-	const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
-	const resolveEntry = `backend/providers/${providerSlug}/resolve.sandbox.ts`;
-	const namePrefix = `E2E partial cancellation ${suffix}`;
-	const committedNames = Array.from(
-		{ length: PARTIAL_RESULT_COMMITTED_ITEM_COUNT },
-		(_, index) => `${namePrefix} committed ${String(index + 1).padStart(2, "0")}`,
-	);
-	const blockedName = `${namePrefix} blocked`;
-	const laterName = `${namePrefix} later`;
-	const directItem = (name: string, itemIndex: number): GenericImportWriteItem => ({
-		itemIndex,
-		events: [],
-		relationships: [],
-		sourceLabel: name,
-		recordId: String(itemIndex),
-		subjectEntityAlias: "record",
-		sourceIdentifier: String(itemIndex),
-		entities: [
-			{
-				name,
-				properties: {},
-				alias: "record",
-				entitySchemaSlug,
-				operationId: `entity-${itemIndex}`,
-				outcome: { unit: "records", recordKind: "record" },
-			},
-		],
-	});
-	const items: GenericImportWriteItem[] = [
-		...committedNames.map(directItem),
-		{
-			...directItem(blockedName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
+export const installTestPartialResultCancellationImportPlugin = Effect.flatMap(
+	randomUuid,
+	(suffix) => {
+		const entitySchemaSlug = `e2e-import-cancellation-${suffix}`;
+		const providerSlug = `${entitySchemaSlug}.provider`;
+		const source = `e2e_partial_result_cancellation_${suffix.replaceAll("-", "_")}`;
+		const workflowSlug = `partial-result-cancellation-${suffix}`;
+		const workflowScriptSlug = `workflow.e2e-partial-result-cancellation-${suffix}`;
+		const chunkScriptSlug = `import.e2e-partial-result-cancellation-chunk-${suffix}`;
+		const detailsScriptSlug = `${providerSlug}.details`;
+		const resolveScriptSlug = `${providerSlug}.resolve`;
+		const workflowEntry = `backend/scripts/${workflowSlug}.sandbox.ts`;
+		const chunkEntry = `backend/scripts/${chunkScriptSlug}.sandbox.ts`;
+		const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
+		const resolveEntry = `backend/providers/${providerSlug}/resolve.sandbox.ts`;
+		const namePrefix = `E2E partial cancellation ${suffix}`;
+		const committedNames = Array.from(
+			{ length: PARTIAL_RESULT_COMMITTED_ITEM_COUNT },
+			(_, index) => `${namePrefix} committed ${String(index + 1).padStart(2, "0")}`,
+		);
+		const blockedName = `${namePrefix} blocked`;
+		const laterName = `${namePrefix} later`;
+		const directItem = (name: string, itemIndex: number): GenericImportWriteItem => ({
+			itemIndex,
+			events: [],
+			relationships: [],
+			sourceLabel: name,
+			recordId: String(itemIndex),
+			subjectEntityAlias: "record",
+			sourceIdentifier: String(itemIndex),
 			entities: [
 				{
+					name,
 					properties: {},
 					alias: "record",
 					entitySchemaSlug,
-					name: blockedName,
+					operationId: `entity-${itemIndex}`,
 					outcome: { unit: "records", recordKind: "record" },
-					operationId: `entity-${PARTIAL_RESULT_COMMITTED_ITEM_COUNT}`,
-					providerResolution: { providerSlug, value: "blocked", identifierType: "source-id" },
 				},
 			],
-		},
-		directItem(laterName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT + 1),
-	];
-	const detailsSource = providerSandboxSource({
-		delayMs: 120_000,
-		operation: "details",
-		slug: detailsScriptSlug,
-		result: { properties: {}, name: blockedName },
-		name: "E2E partial-result cancellation provider details",
-	});
-	const resolveSource = providerSandboxSource({
-		operation: "resolve",
-		slug: resolveScriptSlug,
-		result: { externalId: `blocked-${suffix}` },
-		name: "E2E partial-result cancellation provider resolve",
-	});
+		});
+		const items: GenericImportWriteItem[] = [
+			...committedNames.map(directItem),
+			{
+				...directItem(blockedName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
+				entities: [
+					{
+						properties: {},
+						alias: "record",
+						entitySchemaSlug,
+						name: blockedName,
+						outcome: { unit: "records", recordKind: "record" },
+						operationId: `entity-${PARTIAL_RESULT_COMMITTED_ITEM_COUNT}`,
+						providerResolution: { providerSlug, value: "blocked", identifierType: "source-id" },
+					},
+				],
+			},
+			directItem(laterName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT + 1),
+		];
+		const detailsSource = providerSandboxSource({
+			delayMs: 120_000,
+			operation: "details",
+			slug: detailsScriptSlug,
+			result: { properties: {}, name: blockedName },
+			name: "E2E partial-result cancellation provider details",
+		});
+		const resolveSource = providerSandboxSource({
+			operation: "resolve",
+			slug: resolveScriptSlug,
+			result: { externalId: `blocked-${suffix}` },
+			name: "E2E partial-result cancellation provider resolve",
+		});
 
-	return installTestPluginBundle({
-		scope: "system",
-		workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
-		providers: [
-			{
-				slug: providerSlug,
-				information: { source: "e2e" },
-				rootEntitySchemaSlug: entitySchemaSlug,
-				name: "E2E partial-result cancellation provider",
+		return installTestPluginBundle({
+			scope: "system",
+			workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+			providers: [
+				{
+					slug: providerSlug,
+					information: { source: "e2e" },
+					rootEntitySchemaSlug: entitySchemaSlug,
+					name: "E2E partial-result cancellation provider",
+				},
+			],
+			entitySchemas: [
+				{
+					icon: "file",
+					eventSchemas: [],
+					slug: entitySchemaSlug,
+					name: "E2E partial-result cancellation record",
+					propertiesSchema: { fields: {}, unknownKeys: "strict" },
+				},
+			],
+			importSources: [
+				{
+					slug: source,
+					workflowSlug,
+					name: "E2E partial-result cancellation import",
+					inputSchema: { fields: {}, unknownKeys: "strict" },
+					description: "Block after a durable generic-import progress checkpoint",
+				},
+			],
+			files: {
+				[detailsEntry]: detailsSource,
+				[resolveEntry]: resolveSource,
+				[chunkEntry]: partialResultCancellationChunkSource(chunkScriptSlug, items),
+				[workflowEntry]: partialResultCancellationWorkflowSource(
+					workflowScriptSlug,
+					chunkScriptSlug,
+				),
 			},
-		],
-		entitySchemas: [
-			{
-				icon: "file",
-				eventSchemas: [],
-				slug: entitySchemaSlug,
-				name: "E2E partial-result cancellation record",
-				propertiesSchema: { fields: {}, unknownKeys: "strict" },
-			},
-		],
-		importSources: [
-			{
-				slug: source,
-				workflowSlug,
-				name: "E2E partial-result cancellation import",
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Block after a durable generic-import progress checkpoint",
-			},
-		],
-		files: {
-			[detailsEntry]: detailsSource,
-			[resolveEntry]: resolveSource,
-			[chunkEntry]: partialResultCancellationChunkSource(chunkScriptSlug, items),
-			[workflowEntry]: partialResultCancellationWorkflowSource(workflowScriptSlug, chunkScriptSlug),
-		},
-		scripts: [
-			{
-				kind: "workflow",
-				capabilities: [],
-				entry: workflowEntry,
-				slug: workflowScriptSlug,
-				requiredPluginConfigKeys: [],
-				name: "E2E partial-result cancellation import",
-			},
-			{
-				kind: "script",
-				entry: chunkEntry,
-				slug: chunkScriptSlug,
-				capabilities: ["scratch"],
-				requiredPluginConfigKeys: [],
-				name: "E2E partial-result cancellation chunk",
-			},
-			{
-				providerSlug,
-				kind: "provider",
-				capabilities: [],
-				entry: detailsEntry,
-				slug: detailsScriptSlug,
-				providerOperation: "details",
-				requiredPluginConfigKeys: [],
-				name: "E2E partial-result cancellation provider details",
-			},
-			{
-				providerSlug,
-				kind: "provider",
-				capabilities: [],
-				entry: resolveEntry,
-				slug: resolveScriptSlug,
-				providerOperation: "resolve",
-				requiredPluginConfigKeys: [],
-				name: "E2E partial-result cancellation provider resolve",
-			},
-		],
-	}).pipe(
-		Effect.map((plugin) => ({
-			plugin,
-			source,
-			laterName,
-			blockedName,
-			committedNames,
-			entitySchemaSlug,
-		})),
-	);
-});
+			scripts: [
+				{
+					kind: "workflow",
+					capabilities: [],
+					entry: workflowEntry,
+					slug: workflowScriptSlug,
+					requiredPluginConfigKeys: [],
+					name: "E2E partial-result cancellation import",
+				},
+				{
+					kind: "script",
+					entry: chunkEntry,
+					slug: chunkScriptSlug,
+					capabilities: ["scratch"],
+					requiredPluginConfigKeys: [],
+					name: "E2E partial-result cancellation chunk",
+				},
+				{
+					providerSlug,
+					kind: "provider",
+					capabilities: [],
+					entry: detailsEntry,
+					slug: detailsScriptSlug,
+					providerOperation: "details",
+					requiredPluginConfigKeys: [],
+					name: "E2E partial-result cancellation provider details",
+				},
+				{
+					providerSlug,
+					kind: "provider",
+					capabilities: [],
+					entry: resolveEntry,
+					slug: resolveScriptSlug,
+					providerOperation: "resolve",
+					requiredPluginConfigKeys: [],
+					name: "E2E partial-result cancellation provider resolve",
+				},
+			],
+		}).pipe(
+			Effect.map((plugin) => ({
+				plugin,
+				source,
+				laterName,
+				blockedName,
+				committedNames,
+				entitySchemaSlug,
+			})),
+		);
+	},
+);
 
 const testImportPinningWorkflowSource = (scriptSlug: string) => `
 import {
@@ -590,8 +596,7 @@ export default defineWorkflow({
 });
 `;
 
-export const installTestImportPinningPlugin = Effect.suspend(() => {
-	const suffix = crypto.randomUUID();
+export const installTestImportPinningPlugin = Effect.flatMap(randomUuid, (suffix) => {
 	const source = `e2e_pinned_import_${suffix.replaceAll("-", "_")}`;
 	const workflowSlug = `pinning-import-${suffix}`;
 	const scriptSlug = `workflow.e2e-pinning-import-${suffix}`;

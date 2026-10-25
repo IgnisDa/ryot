@@ -24,6 +24,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import type { RyotQLResponse, TestPluginScript } from "~/fixtures/kernel";
@@ -169,7 +170,7 @@ const markerDocument = (externalId: string) => {
 describe("sandbox RyotQL pinned-plugin authorization", () => {
 	it.live("enforces plugin ownership across users, definitions, and nested queries", () =>
 		Effect.gen(function* () {
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const api = getApiClient();
 			const userIds: string[] = [];
 			const globalEntityIds: string[] = [];

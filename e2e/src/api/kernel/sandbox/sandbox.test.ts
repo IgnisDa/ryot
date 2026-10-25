@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -15,7 +16,7 @@ describe("sandbox result observability", () => {
 	it.live("completed result includes host observability logs and timing", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `observability-check-${crypto.randomUUID()}`;
+			const slug = `observability-check-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -49,7 +50,7 @@ describe("sandbox native failures", () => {
 	it.live("returns a structured script failure with bounded UTF-8 diagnostics", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `process-failure-${crypto.randomUUID()}`;
+			const slug = `process-failure-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

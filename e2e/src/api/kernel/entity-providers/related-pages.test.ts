@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Exit } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -93,7 +94,7 @@ beforeAll(() =>
 					},
 					studio: {
 						rootEntitySchemaSlug: "company",
-						slug: `studio-${crypto.randomUUID()}`,
+						slug: `studio-${yield* randomUuid}`,
 						details: studioDetails([movie("movie-1")], { page: 2 }),
 						relatedPages: pages(
 							[{ page: 2 }, "movie-2", { page: 3 }],
@@ -181,8 +182,8 @@ describe("paged related-entity groups", () => {
 		"populates every page in separate script runs and later removes dropped relationships",
 		() =>
 			Effect.gen(function* () {
-				const externalId = `studio-${crypto.randomUUID()}`;
-				const before = (yield* sampleOperationalPressure([crypto.randomUUID()])).sandbox
+				const externalId = `studio-${yield* randomUuid}`;
+				const before = (yield* sampleOperationalPressure([yield* randomUuid])).sandbox
 					.totalExecutions;
 
 				const company = yield* importStudio(externalId);
@@ -195,7 +196,7 @@ describe("paged related-entity groups", () => {
 						Effect.map((found) => (found.length === MOVIE_IDS.length ? found : null)),
 					),
 				);
-				const after = (yield* sampleOperationalPressure([crypto.randomUUID()])).sandbox
+				const after = (yield* sampleOperationalPressure([yield* randomUuid])).sandbox
 					.totalExecutions;
 				expect(after - before).toBeGreaterThanOrEqual(4);
 

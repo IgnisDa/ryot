@@ -1,4 +1,5 @@
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -13,7 +14,7 @@ const encodeFilter = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 it.live("reorders a kernel collection and opens memberships without member fields", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const collection = yield* createCollection(client, { name: `Order ${suffix}` });
 		const members = yield* Effect.forEach(["Alpha", "Beta", "Gamma"], (name) =>
 			createCollection(client, { name: `${name} ${suffix}` }),
@@ -93,7 +94,7 @@ it.live("manages collection memberships without closing after each change", () =
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const member = yield* createCollection(client, { name: `Member ${id}` });
 		const collection = yield* createCollection(client, {
 			name: `Collection ${id}`,
@@ -156,8 +157,8 @@ it.live("opens a kernel-owned collection instead of reporting an unavailable plu
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const memberName = `Member ${crypto.randomUUID()}`;
-		const collectionName = `Collection ${crypto.randomUUID()}`;
+		const memberName = `Member ${yield* randomUuid}`;
+		const collectionName = `Collection ${yield* randomUuid}`;
 		const member = yield* createCollection(client, { name: memberName });
 		const collection = yield* createCollection(client, { name: collectionName });
 		yield* client.call((contract) =>
@@ -197,7 +198,7 @@ it.live("shows an empty state for a collection without members", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const collectionName = `Empty ${crypto.randomUUID()}`;
+		const collectionName = `Empty ${yield* randomUuid}`;
 		const collection = yield* createCollection(client, { name: collectionName });
 
 		const browser = yield* Playwright.Browser;
@@ -222,7 +223,7 @@ it.live("browses collection members with membership properties", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const collectionName = `Browser collection ${id}`;
 		const alphaName = `Alpha member ${id}`;
 		const zuluName = `Zulu member ${id}`;
@@ -346,7 +347,7 @@ it.live("filters collection members by type and keeps the filter across reload",
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const collection = yield* createCollection(client, { name: `Typed collection ${id}` });
 		const nested = yield* createCollection(client, { name: `Nested collection ${id}` });
 		const { exerciseId } = yield* createExerciseEntityFixture(client, {
@@ -404,7 +405,7 @@ it.live("filters collection members by a membership property from the URL", () =
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const collection = yield* createCollection(client, {
 			name: `Rated collection ${id}`,
 			fields: [{ type: "number", label: "Rating", required: false }],

@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -27,7 +28,7 @@ const createPrivateProvider = Effect.fn("createPrivateProvider")(function* (clie
 	const provider = yield* Effect.acquireRelease(
 		installTestProvider({
 			client,
-			rootEntitySchemaSlug: `record-${crypto.randomUUID()}`,
+			rootEntitySchemaSlug: `record-${yield* randomUuid}`,
 			details: fakeProviderDetailsResult({ name: "External Entity" }),
 		}),
 		uninstallTestProvider,
@@ -97,7 +98,7 @@ describe("POST /entities", () => {
 					properties: {},
 					name: "External Entity",
 					entitySchema: reference,
-					externalId: `external-${crypto.randomUUID()}`,
+					externalId: `external-${yield* randomUuid}`,
 				}),
 			);
 
@@ -109,7 +110,7 @@ describe("POST /entities", () => {
 	it.live("rejects system provider provenance for a user-scoped creation", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const externalId = `global-conflict-${crypto.randomUUID()}`;
+			const externalId = `global-conflict-${yield* randomUuid}`;
 			const { schema, entity: global } = yield* createGlobalBookEntityFixture(client, {
 				externalId,
 			});

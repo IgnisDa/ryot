@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -33,7 +34,7 @@ const waitForReadySets = (client: Client, workoutId: string) =>
 it.live("guides a new user, then shows the launchpad once a workout exists", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/p/ryot/fitness");

@@ -3,6 +3,7 @@ import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references"
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -56,7 +57,7 @@ for (const testCase of cases) {
 				yield* createEntity(account.client, {
 					properties: {},
 					entitySchema: schema.reference,
-					name: `Home analytics link ${crypto.randomUUID()}`,
+					name: `Home analytics link ${yield* randomUuid}`,
 				});
 			}
 			const browser = yield* Playwright.Browser;

@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect } from "effect";
 
 import {
@@ -65,19 +66,19 @@ describe("Youtubei durable tracer", () => {
 					: Response.json({ ok: true }),
 			);
 			yield* Effect.addFinalizer(() => Deferred.succeed(secondRequestReleased, undefined));
-			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
+			const scriptSlug = `youtubei-tracer-${yield* randomUuid}`;
 			const entry = "backend/scripts/youtubei-tracer.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",
-					pluginSlug: `e2e-youtubei-tracer-${crypto.randomUUID()}`,
+					pluginSlug: `e2e-youtubei-tracer-${yield* randomUuid}`,
 					files: { [entry]: youtubeiSource({ slug: scriptSlug, name: "Youtubei tracer" }) },
 					httpRateLimits: [
 						{
 							requests: 1,
 							intervalMs: 2_000,
 							origins: [new URL(http.url).origin],
-							key: `e2e.youtubei-tracer.${crypto.randomUUID()}`,
+							key: `e2e.youtubei-tracer.${yield* randomUuid}`,
 						},
 					],
 					scripts: [

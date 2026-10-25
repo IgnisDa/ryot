@@ -2,6 +2,7 @@ import type { ContractPayload } from "@ryot-app/contract/client";
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect } from "effect";
 
 import { getUserSettings, updateUserSettingsPreferences } from "~/fixtures/kernel/account";
@@ -76,7 +77,7 @@ const createAnalyticsMediaEntity = Effect.fn("createAnalyticsMediaEntity")(funct
 	const entity = yield* createEntity(client, {
 		properties,
 		entitySchema: schema.reference,
-		name: `Analytics ${slug} ${crypto.randomUUID()}`,
+		name: `Analytics ${slug} ${yield* randomUuid}`,
 	});
 	return { ...entity, eventSchemas: yield* listEventSchemas(client, schema.reference) };
 });
@@ -113,7 +114,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 	const bookBasis = consumptionBasisFor("book", { pages: 100 });
 	const movieBasis = consumptionBasisFor("movie", {});
 	const animeBasis = consumptionBasisFor("anime", { episodes: 12 });
-	const bookRun = crypto.randomUUID();
+	const bookRun = yield* randomUuid;
 	const sourceEvents = [
 		{
 			entityId: book.id,
@@ -136,23 +137,19 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 			entityId: movie.id,
 			occurredAt: "2026-09-02T18:00:00.000Z",
 			eventSchemaSlug: requireEventSchemaBySlug(movie.eventSchemas, "complete").id,
-			properties: { timeSpent: 0, consumptionBasis: movieBasis, sourceRun: crypto.randomUUID() },
+			properties: { timeSpent: 0, consumptionBasis: movieBasis, sourceRun: yield* randomUuid },
 		},
 		{
 			entityId: movie.id,
 			occurredAt: "2026-09-05T18:00:00.000Z",
+			properties: { consumptionBasis: movieBasis, sourceRun: yield* randomUuid },
 			eventSchemaSlug: requireEventSchemaBySlug(movie.eventSchemas, "complete").id,
-			properties: { consumptionBasis: movieBasis, sourceRun: crypto.randomUUID() },
 		},
 		{
 			entityId: movie.id,
 			occurredAt: "2026-09-06T18:00:00.000Z",
 			eventSchemaSlug: requireEventSchemaBySlug(movie.eventSchemas, "complete").id,
-			properties: {
-				dateUnknown: true,
-				consumptionBasis: movieBasis,
-				sourceRun: crypto.randomUUID(),
-			},
+			properties: { dateUnknown: true, consumptionBasis: movieBasis, sourceRun: yield* randomUuid },
 		},
 		{
 			entityId: anime.id,
@@ -160,7 +157,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 			eventSchemaSlug: requireEventSchemaBySlug(anime.eventSchemas, "item-complete").id,
 			properties: {
 				consumptionBasis: animeBasis,
-				sourceRun: crypto.randomUUID(),
+				sourceRun: yield* randomUuid,
 				consumedItem: { position: 7, unit: "episodes" },
 			},
 		},

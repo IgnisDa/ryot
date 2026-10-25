@@ -1,4 +1,5 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -59,8 +60,8 @@ describe("hierarchical media entity-update signals", () => {
 	it.live("notifies content-count and publish-year changes for a monitored anime", () =>
 		Effect.gen(function* () {
 			const animeName = "Entity Update Anime";
-			const animeSlug = `anime.entity-update-e2e-${crypto.randomUUID()}`;
-			const animeExternalId = `entity-update-anime-${crypto.randomUUID()}`;
+			const animeSlug = `anime.entity-update-e2e-${yield* randomUuid}`;
+			const animeExternalId = `entity-update-anime-${yield* randomUuid}`;
 
 			const buildDetails = (episodes: number, publishYear: number) =>
 				fakeProviderDetailsResult({
@@ -120,12 +121,12 @@ describe("hierarchical media entity-update signals", () => {
 		() =>
 			Effect.gen(function* () {
 				const showName = "Entity Update Show";
-				const showSlug = `show.entity-update-e2e-${crypto.randomUUID()}`;
-				const showExternalId = `entity-update-show-${crypto.randomUUID()}`;
-				const seasonOneExternalId = `entity-update-season-1-${crypto.randomUUID()}`;
-				const episodeOneExternalId = `entity-update-episode-1-${crypto.randomUUID()}`;
-				const specialSeasonExternalId = `entity-update-season-0-${crypto.randomUUID()}`;
-				const specialEpisodeExternalId = `entity-update-special-1-${crypto.randomUUID()}`;
+				const showSlug = `show.entity-update-e2e-${yield* randomUuid}`;
+				const showExternalId = `entity-update-show-${yield* randomUuid}`;
+				const seasonOneExternalId = `entity-update-season-1-${yield* randomUuid}`;
+				const episodeOneExternalId = `entity-update-episode-1-${yield* randomUuid}`;
+				const specialSeasonExternalId = `entity-update-season-0-${yield* randomUuid}`;
+				const specialEpisodeExternalId = `entity-update-special-1-${yield* randomUuid}`;
 
 				const buildDetails = (input: {
 					specialName: string;

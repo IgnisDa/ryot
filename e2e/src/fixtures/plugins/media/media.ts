@@ -16,6 +16,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Random } from "effect";
 
 import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
@@ -254,7 +255,7 @@ export const seedShow = (
 ) =>
 	Effect.gen(function* () {
 		const schemas = yield* loadShowSeedSchemas(client);
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const show = yield* seedMediaEntity({
 			userId: null,
 			providerId: null,
@@ -341,7 +342,7 @@ export const seedPodcast = (
 			"podcast-to-podcast-episode",
 			owner,
 		).reference;
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const podcast = yield* seedMediaEntity({
 			userId: null,
 			providerId: null,
@@ -392,8 +393,8 @@ export const createGlobalBookEntityFixture = (
 			properties: {},
 			target: client.target,
 			entitySchemaSlug: schema.id,
-			name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
-			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
+			name: options.name ?? `Global Built-in Book ${yield* randomUuid}`,
+			externalId: options.externalId ?? `global-book-${yield* randomUuid}`,
 			providerId: requirePresent(schema.providers[0]?.providerId, "Missing book provider"),
 		});
 		return { entity, schema, pluginId };

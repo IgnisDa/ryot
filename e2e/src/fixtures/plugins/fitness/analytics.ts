@@ -18,6 +18,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Result, Schema } from "effect";
 
 import { getUserSettings, updateUserSettingsPreferences } from "~/fixtures/kernel/account";
@@ -133,7 +134,7 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 
 		const { exerciseId } = yield* createExerciseEntityFixture(client, {
 			kind: "reps_and_weight",
-			name: `Analytics exercise ${crypto.randomUUID()}`,
+			name: `Analytics exercise ${yield* randomUuid}`,
 		});
 		const taxonomy = yield* createWorkoutEvidenceTaxonomy(client, exerciseId, {
 			equipmentCount: 1,
@@ -195,7 +196,7 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 		const setIds = [...firstWorkout.sets, ...secondWorkout.sets].map(({ eventId }) => eventId);
 		const revisionsBeforeReadiness = yield* workoutEvidenceRevisions(client, workoutIds, reference);
 
-		const metricName = `Analytics widgets ${crypto.randomUUID()}`;
+		const metricName = `Analytics widgets ${yield* randomUuid}`;
 		const metric = yield* createMeasurementMetric(client, { unit: "widgets", name: metricName });
 		for (const { value, occurredAt } of measurementValues) {
 			const logged = yield* logMeasurementReadings(client, {

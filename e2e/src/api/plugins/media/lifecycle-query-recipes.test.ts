@@ -18,6 +18,7 @@ import {
 import { showRecipes, showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -720,7 +721,7 @@ describe("Media episodic lifecycle query recipes", () => {
 			Effect.gen(function* () {
 				const auth = yield* createAuthenticatedClient(target);
 				const schemas = yield* loadLifecycleSchemas(auth.client);
-				const suffix = crypto.randomUUID();
+				const suffix = yield* randomUuid;
 				const providerName = `Lifecycle Relationship Provider ${suffix}`;
 				const providerSlug = `show.lifecycle-relationship-${suffix}`;
 				const showExternalId = `lifecycle-relationship-show-${suffix}`;
@@ -1363,7 +1364,7 @@ describe("Media lifecycle list recipes", () => {
 				const { client } = yield* createAuthenticatedClient(target);
 				const { pluginId, schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 				const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
-				const suffix = crypto.randomUUID();
+				const suffix = yield* randomUuid;
 				const anime = yield* seedMediaEntity({
 					target,
 					userId: null,
@@ -1409,7 +1410,7 @@ describe("Media lifecycle list recipes", () => {
 			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 			const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
 			const movie = yield* seedMovie(schemas.movieSchemaId);
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const anime = yield* seedMediaEntity({
 				target,
 				userId: null,

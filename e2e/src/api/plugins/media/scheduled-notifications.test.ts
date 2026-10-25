@@ -1,5 +1,6 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -132,7 +133,7 @@ describe("Media scheduled notifications", () => {
 				Effect.gen(function* () {
 					const provider = yield* media.attachProvider({
 						rootEntitySchemaSlug: movieSchema.id,
-						slug: `movie.release-e2e-${crypto.randomUUID()}`,
+						slug: `movie.release-e2e-${yield* randomUuid}`,
 						details: fakeProviderDetailsResult({ name, properties: { publishDate: today } }),
 					});
 					return yield* seedMediaEntity({
@@ -141,11 +142,11 @@ describe("Media scheduled notifications", () => {
 						providerId: provider.providerId,
 						entitySchemaSlug: movieSchema.id,
 						properties: { publishDate: today },
-						externalId: `release-${crypto.randomUUID()}`,
+						externalId: `release-${yield* randomUuid}`,
 					});
 				});
-			const monitored = yield* seedMovie(`Monitored Release ${crypto.randomUUID()}`);
-			const unmonitored = yield* seedMovie(`Unmonitored Release ${crypto.randomUUID()}`);
+			const monitored = yield* seedMovie(`Monitored Release ${yield* randomUuid}`);
+			const unmonitored = yield* seedMovie(`Unmonitored Release ${yield* randomUuid}`);
 			yield* insertLibraryMembership(client, { mediaEntityId: unmonitored.id });
 			yield* enableMediaMonitoring(client, monitored.id);
 

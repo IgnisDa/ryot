@@ -15,6 +15,7 @@ import {
 	pluginUserSettingsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -165,7 +166,7 @@ describe("backup export and restore round trip", () => {
 						)?.providerId,
 						"Evidence provider is missing",
 					);
-					const externalId = `evidence-only-${crypto.randomUUID()}`;
+					const externalId = `evidence-only-${yield* randomUuid}`;
 					const globalReference = includeGlobalDependency
 						? yield* seedEntity({
 								providerId,
@@ -293,13 +294,13 @@ describe("backup export and restore round trip", () => {
 					timeSpent: 17,
 					progressPercent: 25,
 					calendarDate: "2026-02-03",
-					sourceRun: `dated-${crypto.randomUUID()}`,
+					sourceRun: `dated-${yield* randomUuid}`,
 					consumptionBasis: { total: 90, unit: "minutes", property: "runtime" },
 				},
 				{
 					dateUnknown: true,
 					progressPercent: 50,
-					sourceRun: `undated-${crypto.randomUUID()}`,
+					sourceRun: `undated-${yield* randomUuid}`,
 					consumptionBasis: { unit: "minutes", property: "runtime" },
 				},
 			];
@@ -498,7 +499,7 @@ describe("backup export and restore round trip", () => {
 				source.client,
 				workoutData({
 					startedAt: workoutStartedAt,
-					name: `Recorded workout ${crypto.randomUUID()}`,
+					name: `Recorded workout ${yield* randomUuid}`,
 					occurrences: [
 						workoutOccurrence(exercise.id, [
 							workoutSet({
@@ -653,7 +654,7 @@ describe("backup export and restore round trip", () => {
 
 	it.live("restores portable user state into a clean account exactly once", () =>
 		Effect.gen(function* () {
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = createPluginScope(`backup-round-trip-${suffix}`);
 			const entitySchemaSlug = `backup-entity-${suffix}`;
 			const eventSchemaSlug = `backup-event-${suffix}`;
@@ -1161,7 +1162,7 @@ describe("backup export and restore round trip", () => {
 
 	it.live("maps an existing global provider entity by portable natural identity", () =>
 		Effect.gen(function* () {
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const externalId = `backup-provider-entity-${suffix}`;
 			const pluginSlug = `backup-provider-plugin-${suffix}`;
 			const entitySchemaSlug = `backup-provider-entity-${suffix}`;
@@ -1319,7 +1320,7 @@ describe("backup export and restore round trip", () => {
 				isDisabled: false,
 				name: "Native backup webhook",
 			});
-			const name = `Restored data collection ${crypto.randomUUID()}`;
+			const name = `Restored data collection ${yield* randomUuid}`;
 			const runId = yield* sendDataWebhook(
 				target.client,
 				restoredIntegration,

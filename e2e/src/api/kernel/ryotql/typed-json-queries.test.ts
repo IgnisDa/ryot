@@ -27,6 +27,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -119,7 +120,7 @@ describe("RyotQL typed JSON entity queries", () => {
 					allBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), and()) }),
 					unknown: rows(entity, {
 						fields: [],
-						where: eq(schema, literal(`unknown-${crypto.randomUUID()}`)),
+						where: eq(schema, literal(`unknown-${yield* randomUuid}`)),
 					}),
 					bookCounts: aggregate(entity, {
 						where: eq(schema, literal(book.slug)),

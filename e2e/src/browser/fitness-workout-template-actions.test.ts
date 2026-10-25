@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -10,7 +11,7 @@ import { getFrontendUrl } from "~/support/harness-target";
 it.live("adds a workout template to a collection and confirms permanent deletion", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Template actions ${crypto.randomUUID()}`;
+		const name = `Template actions ${yield* randomUuid}`;
 		const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client, { name });
 		const collection = yield* client.call((c) =>
 			c.collections.create({ payload: { name: `Collection ${crypto.randomUUID()}` } }),

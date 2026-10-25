@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { ReminderId } from "@ryot-app/contract/schema/brands";
 import { remindersRecipe } from "@ryot-app/ryotql-recipes/reminders";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -8,7 +9,7 @@ import { executeRyotQLRecipe } from "./ryotql";
 
 export const reminderSubmission = Effect.gen(function* () {
 	return {
-		idempotencyKey: crypto.randomUUID(),
+		idempotencyKey: yield* randomUuid,
 		submittedAt: DateTime.formatIso(yield* DateTime.now),
 	};
 });

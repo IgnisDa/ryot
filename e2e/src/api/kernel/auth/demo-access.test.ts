@@ -15,6 +15,7 @@ import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Result, Schema } from "effect";
 import getPort from "get-port";
 
@@ -434,7 +435,7 @@ describe("shared demo access acceptance", () => {
 			const sessionCookie = yield* signInDemo();
 			const token = yield* getDemoToken(sessionCookie);
 			const demoClient = makeSession(harnessTarget, { Authorization: `Bearer ${token}` });
-			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
+			const missingProviderId = SandboxProviderId.make(yield* randomUuid);
 			const searchError = yield* Effect.flip(
 				searchProviderEntities(demoClient, {
 					page: 1,
@@ -515,7 +516,7 @@ describe("shared demo access acceptance", () => {
 				schema.reference.owner,
 			);
 
-			const entityName = `Demo protected entity ${crypto.randomUUID()}`;
+			const entityName = `Demo protected entity ${yield* randomUuid}`;
 			const entityError = yield* Effect.flip(
 				createEntity(demoClient, {
 					properties: {},

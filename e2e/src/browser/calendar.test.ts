@@ -1,4 +1,5 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -35,7 +36,7 @@ it.live("shows a new fixture entity today, navigates months, and keeps hidden st
 			}))[0],
 			"Fixture Pokemon schema was not registered",
 		);
-		const name = `Calendar Pokemon ${crypto.randomUUID()}`;
+		const name = `Calendar Pokemon ${yield* randomUuid}`;
 		yield* createEntity(client, {
 			name,
 			entitySchema: pokemonSchema.reference,

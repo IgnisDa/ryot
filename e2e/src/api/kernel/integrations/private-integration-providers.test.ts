@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -91,7 +92,7 @@ describe("private integration providers", () => {
 		Effect.gen(function* () {
 			const first = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const providerSlug = `e2e-shared-private-provider-${suffix}`;
 			const pluginSlug = `e2e-shared-private-integration-plugin-${suffix}`;
 			const packageId = testPluginPackageId();

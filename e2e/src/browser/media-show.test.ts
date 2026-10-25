@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -25,14 +26,14 @@ const openShow = (input: { email: string; showId: string; password: string }) =>
 const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
 	const { email, client, password } = yield* createAuthenticatedClient();
 	const seeded = yield* seedShow(client, {
-		name: `Activity Log Show ${crypto.randomUUID()}`,
+		name: `Activity Log Show ${yield* randomUuid}`,
 		seasons: [
 			{ seasonNumber: 1, episodes: [1, 2, 3, 4].map((episodeNumber) => ({ episodeNumber })) },
 		],
 	});
 	yield* logMediaActivity(client, {
 		submittedAt: nowIso(),
-		submissionId: crypto.randomUUID(),
+		submissionId: yield* randomUuid,
 		entry: {
 			kind: "episodes",
 			when: { kind: "now" },

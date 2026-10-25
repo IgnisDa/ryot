@@ -1,6 +1,7 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutEditorLinksRecipe } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
 import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
@@ -53,7 +54,7 @@ describe("Workout editor with a valid Pro key", () => {
 				).toBe(true);
 				const { exerciseId: weightedExerciseId } = yield* createExerciseEntityFixture(client);
 				const { exerciseId: exerciseOnlyId } = yield* createExerciseEntityFixture(client);
-				const name = `Partial Pro Template ${crypto.randomUUID()}`;
+				const name = `Partial Pro Template ${yield* randomUuid}`;
 				const template = templateData({
 					name,
 					occurrences: [
@@ -62,19 +63,19 @@ describe("Workout editor with a valid Pro key", () => {
 							videos: [],
 							notes: ["Keep controlled"],
 							exerciseId: weightedExerciseId,
-							clientId: `occurrence-${crypto.randomUUID()}`,
+							clientId: `occurrence-${yield* randomUuid}`,
 							sets: [
 								{
 									restTime: 0,
 									setLot: "normal",
 									measurements: { reps: 0 },
-									clientId: `set-${crypto.randomUUID()}`,
+									clientId: `set-${yield* randomUuid}`,
 								},
 								{
 									restTime: 0,
 									setLot: "warm_up",
 									measurements: { weight: 0 },
-									clientId: `set-${crypto.randomUUID()}`,
+									clientId: `set-${yield* randomUuid}`,
 								},
 							],
 						},
@@ -84,7 +85,7 @@ describe("Workout editor with a valid Pro key", () => {
 							images: [],
 							videos: [],
 							exerciseId: exerciseOnlyId,
-							clientId: `occurrence-${crypto.randomUUID()}`,
+							clientId: `occurrence-${yield* randomUuid}`,
 						},
 					],
 				});
@@ -115,19 +116,19 @@ describe("Workout editor with a valid Pro key", () => {
 								sourceExerciseOrder: 0,
 								notes: ["Keep controlled"],
 								exerciseId: weightedExerciseId,
-								clientId: `occurrence-${crypto.randomUUID()}`,
+								clientId: `occurrence-${yield* randomUuid}`,
 								sets: [
 									{
 										restTime: 0,
 										setLot: "normal",
 										measurements: { reps: 5 },
-										clientId: `set-${crypto.randomUUID()}`,
+										clientId: `set-${yield* randomUuid}`,
 									},
 									{
 										restTime: 0,
 										setLot: "warm_up",
 										measurements: { weight: 0 },
-										clientId: `set-${crypto.randomUUID()}`,
+										clientId: `set-${yield* randomUuid}`,
 									},
 								],
 							},
@@ -138,7 +139,7 @@ describe("Workout editor with a valid Pro key", () => {
 								videos: [],
 								sourceExerciseOrder: 1,
 								exerciseId: exerciseOnlyId,
-								clientId: `occurrence-${crypto.randomUUID()}`,
+								clientId: `occurrence-${yield* randomUuid}`,
 							},
 						],
 					}),
@@ -149,7 +150,7 @@ describe("Workout editor with a valid Pro key", () => {
 				expect(
 					yield* saveWorkoutEditor(client, {
 						...editInput,
-						submissionId: crypto.randomUUID(),
+						submissionId: yield* randomUuid,
 						submittedAt: DateTime.formatIso(yield* DateTime.now),
 					}),
 				).toEqual({ kind: "conflict" });
@@ -338,10 +339,10 @@ describe("Workout editor with a valid Pro key", () => {
 			});
 
 			const unownedImage: WorkoutData["images"] = [
-				{ type: "s3", key: `workouts/unowned-${crypto.randomUUID()}.jpg` },
+				{ type: "s3", key: `workouts/unowned-${yield* randomUuid}.jpg` },
 			];
 			const unownedVideo: WorkoutData["occurrences"][number]["videos"] = [
-				{ type: "local", key: `permanent/unowned-${crypto.randomUUID()}.mp4` },
+				{ type: "local", key: `permanent/unowned-${yield* randomUuid}.mp4` },
 			];
 			const refused = yield* saveWorkoutEditor(
 				client,

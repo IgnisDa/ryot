@@ -11,6 +11,7 @@ import {
 	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
@@ -427,7 +428,7 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
 		const password = "password123";
 		const authClient = createTestAuthClient(baseUrl);
-		const email = `test-${crypto.randomUUID()}@example.com`;
+		const email = `test-${yield* randomUuid}@example.com`;
 		const { data: signUpData, error: signUpError } = yield* Effect.promise(() =>
 			authClient.signUp.email({ email, password, name: "Test User" }),
 		);

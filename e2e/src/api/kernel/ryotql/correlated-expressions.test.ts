@@ -30,6 +30,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -439,7 +440,7 @@ describe("RyotQL correlated expressions", () => {
 			const eventSchema = yield* createEventSchema(client, {
 				entitySchema: reference,
 				name: "RyotQL Maximum Date Event",
-				slug: `ryotql-maximum-date-${crypto.randomUUID()}`,
+				slug: `ryotql-maximum-date-${yield* randomUuid}`,
 			});
 			const entity = yield* createEntityFixture(client, {
 				entitySchema: reference,

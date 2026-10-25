@@ -1,5 +1,6 @@
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -18,8 +19,8 @@ describe("sandbox integration reads", () => {
 	it.live("resolves current integration from trusted scope and filters integrations", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const slug = `integration-read-${crypto.randomUUID()}`;
-			const providerSlug = `integration-read-provider-${crypto.randomUUID()}`;
+			const slug = `integration-read-${yield* randomUuid}`;
+			const providerSlug = `integration-read-provider-${yield* randomUuid}`;
 			const plugin = yield* Effect.acquireRelease(
 				installTestPlugin({
 					client,

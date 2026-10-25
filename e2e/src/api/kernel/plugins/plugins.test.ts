@@ -2,6 +2,7 @@ import { EntityId, EventSchemaSlug, PluginId } from "@ryot-app/contract/schema/b
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import type { Client, TestPluginScript } from "~/fixtures/kernel";
@@ -55,7 +56,7 @@ describe("plugins", () => {
 		"retries a committed uninstall without removing a replacement under the same package identity",
 		() =>
 			Effect.gen(function* () {
-				const pluginSlug = `e2e-uninstall-retry-${crypto.randomUUID()}`;
+				const pluginSlug = `e2e-uninstall-retry-${yield* randomUuid}`;
 				const pluginPackage = {
 					files: {},
 					manifest: testPluginManifest({ pluginSlug, entitySchemas: [] }),
@@ -83,11 +84,11 @@ describe("plugins", () => {
 
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
 		Effect.gen(function* () {
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const eventSlug = `observed-${suffix}`;
 			const resultEventSlug = `automated-result-${suffix}`;
 			const pluginSlug = `e2e-lifecycle-${suffix}`;
-			const externalId = `plugin-entity-${crypto.randomUUID()}`;
+			const externalId = `plugin-entity-${yield* randomUuid}`;
 			const schemaSlug = `e2e-lifecycle-entity-${suffix}`;
 			const providerSlug = `e2e-lifecycle-provider-${suffix}`;
 			const automationSlug = `automation.e2e-lifecycle-${suffix}`;
@@ -527,7 +528,7 @@ export default defineAutomation({
 	it.live("allows user plugin installation and rejects non-admin system administration", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = `private-${crypto.randomUUID()}`;
+			const pluginSlug = `private-${yield* randomUuid}`;
 			const manifest = testPluginManifest({ pluginSlug, entitySchemas: [] });
 			const listed = yield* listPlugins(client);
 			expect(listed.every(({ scope }) => scope === "system")).toBe(true);

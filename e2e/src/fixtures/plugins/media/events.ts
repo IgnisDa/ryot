@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -64,8 +65,8 @@ export const createBuiltinMediaLifecycleFixture = (
 			userId: null,
 			target: client.target,
 			entitySchemaSlug: selectedSchema.id,
-			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
-			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
+			externalId: `${entitySchemaSlug}-${yield* randomUuid}`,
+			name: `Built-in ${entitySchemaSlug} ${yield* randomUuid}`,
 			properties: {
 				...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
 				...options.properties,

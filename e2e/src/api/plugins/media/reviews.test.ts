@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/media-plugin/shared/media-review-operations";
 import { movieRecipes } from "@ryot-app/media-plugin/shared/movie-recipes";
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -71,7 +72,7 @@ describe("Media rating-only reviews", () => {
 				entitySchemaSlug: "movie",
 			});
 			const input = { entityId, rating: 0, text: null, isSpoiler: false };
-			const idempotencyKey = crypto.randomUUID();
+			const idempotencyKey = yield* randomUuid;
 			expect(
 				yield* Effect.all(
 					[
@@ -98,7 +99,7 @@ describe("Media rating-only reviews", () => {
 			).toMatchObject([{ rating: 0, text: null, isSpoiler: null }]);
 			const original = yield* readReview(client, entityId);
 			expect(original.properties).toEqual({ rating: 0 });
-			const submissionId = crypto.randomUUID();
+			const submissionId = yield* randomUuid;
 			const edit = {
 				text: null,
 				rating: 100,
@@ -118,14 +119,14 @@ describe("Media rating-only reviews", () => {
 				invokeOperation(client, updateReview, {
 					...edit,
 					rating: 50,
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 				}),
 			);
 			assertTaggedError(stale, "PluginOperationRejected");
 			const deletion = {
 				eventId: original.id,
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 			};
 			for (let attempt = 0; attempt < 2; attempt++) {
 				expect(
@@ -164,7 +165,7 @@ describe("Media rating-only reviews", () => {
 						...content,
 						eventId: original.id,
 						submittedAt: nowIso(),
-						submissionId: crypto.randomUUID(),
+						submissionId: yield* randomUuid,
 						expected: yield* snapshot(entityId, original),
 					});
 					expect((yield* readReview(client, entityId)).properties).toEqual({
@@ -208,7 +209,7 @@ describe("Media rating-only reviews", () => {
 				isSpoiler: false,
 				eventId: original.id,
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				expected: yield* snapshot(entityId, original),
 			};
 			const emptyEdit = yield* Effect.flip(
@@ -220,7 +221,7 @@ describe("Media rating-only reviews", () => {
 			yield* invokeOperation(other, deleteReview, {
 				eventId: original.id,
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 			});
 			expect((yield* readReview(client, entityId)).properties).toEqual({ rating: 70 });
 			expect(

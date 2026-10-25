@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Exit } from "effect";
 
 import {
@@ -30,7 +31,7 @@ beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			auth = yield* createAuthenticatedClient();
-			const companyProviderSlug = `level-company-${crypto.randomUUID()}`;
+			const companyProviderSlug = `level-company-${yield* randomUuid}`;
 			({ anime: animeProvider, company: companyProvider } = yield* installTestProviders({
 				client: auth.client,
 				relationshipSchemas: [
@@ -79,7 +80,7 @@ afterAll(() => runPromise(uninstallTestProvider(companyProvider)));
 const importAnime = Effect.gen(function* () {
 	const { jobId } = yield* enqueueProviderEntityImport(auth.client, {
 		providerId: animeProvider.providerId,
-		externalId: `e2e-level-anime-${crypto.randomUUID()}`,
+		externalId: `e2e-level-anime-${yield* randomUuid}`,
 	});
 	const result = yield* pollProviderEntityImportResult(auth.client, jobId);
 	assertCompleted(result, "base-level anime import");

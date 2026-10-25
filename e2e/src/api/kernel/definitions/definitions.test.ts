@@ -7,6 +7,7 @@ import {
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -51,7 +52,7 @@ describe("Definitions E2E", () => {
 		Effect.gen(function* () {
 			const providerName = "Private provider";
 			const { client } = yield* createAuthenticatedClient();
-			const schemaSlug = `private-provider-entity-${crypto.randomUUID()}`;
+			const schemaSlug = `private-provider-entity-${yield* randomUuid}`;
 			const provider = yield* Effect.acquireRelease(
 				installTestProvider({
 					client,

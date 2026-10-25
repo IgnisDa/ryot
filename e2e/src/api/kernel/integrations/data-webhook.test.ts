@@ -1,6 +1,7 @@
 import type { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option } from "effect";
 
 import {
@@ -60,7 +61,7 @@ describe("Native data JSON webhooks", () => {
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
-			const name = `Webhook duplicate ${crypto.randomUUID()}`;
+			const name = `Webhook duplicate ${yield* randomUuid}`;
 			const document: DataJsonDocument = {
 				events: [],
 				relationships: [],
@@ -153,7 +154,7 @@ describe("Native data JSON webhooks", () => {
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
-			const name = `Cross-integration submission ${crypto.randomUUID()}`;
+			const name = `Cross-integration submission ${yield* randomUuid}`;
 			const document: DataJsonDocument = {
 				events: [],
 				relationships: [],
@@ -273,7 +274,7 @@ describe("Native data JSON webhooks", () => {
 			const entity = yield* createEntityFixture(client, {
 				properties: {},
 				entitySchema: graph.entityA.reference,
-				name: `Webhook event owner ${crypto.randomUUID()}`,
+				name: `Webhook event owner ${yield* randomUuid}`,
 			});
 			const integration = yield* Effect.acquireRelease(
 				createIntegration(client, {

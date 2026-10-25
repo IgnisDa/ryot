@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -15,7 +16,7 @@ import { getFrontendUrl } from "~/support/harness-target";
 it.live("adds a saved workout to an existing collection and confirms permanent deletion", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Workout actions ${crypto.randomUUID()}`;
+		const name = `Workout actions ${yield* randomUuid}`;
 		const { workoutId } = yield* createWorkoutEntityFixture(client, { name });
 		const collection = yield* client.call((c) =>
 			c.collections.create({
@@ -59,7 +60,7 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 it.live("narrows the workouts list by a Started filter and keeps it after reload", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const recent = `Recent workout ${suffix}`;
 		const old = `Old workout ${suffix}`;
 		const yesterday = DateTime.subtract(yield* DateTime.now, { days: 1 });
@@ -100,7 +101,7 @@ it.live("narrows the workouts list by a Started filter and keeps it after reload
 it.live("narrows the workouts list by an Exercises filter", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const startedAt = DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { days: 1 }));
 		const sets = [{ occurredAt: startedAt, properties: { reps: 5, weight: 100 } }];
 		const squat = yield* createExerciseEntityFixture(client, { name: `Squat ${suffix}` });

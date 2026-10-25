@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -59,7 +60,7 @@ describe("Episodic lifecycle sessions", () => {
 	it.live("clears the session for a season zero special", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
 				yield* Effect.all([
 					findMediaEntitySchema(client, "show"),
@@ -138,7 +139,7 @@ describe("Episodic lifecycle sessions", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const suffix = crypto.randomUUID();
+				const suffix = yield* randomUuid;
 				const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
 					yield* Effect.all([
 						findMediaEntitySchema(client, "show"),
@@ -232,7 +233,7 @@ describe("Episodic lifecycle sessions", () => {
 					providerId: null,
 					entitySchemaSlug: schema.id,
 					name: `Parent Session ${entitySchemaSlug}`,
-					externalId: `parent-session-${entitySchemaSlug}-${crypto.randomUUID()}`,
+					externalId: `parent-session-${entitySchemaSlug}-${yield* randomUuid}`,
 				});
 				const entityId = entity.id;
 				const onHoldEventSchemaSlug = requireEventSchemaBySlug(eventSchemas, "on_hold").id;

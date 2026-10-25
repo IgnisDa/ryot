@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -25,7 +26,7 @@ it.live("shows exercise history and manages private notes", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, {
 			name: `Detail bench ${id}`,
 		});
@@ -80,7 +81,7 @@ it.live("offers the same menu actions for global and custom exercises", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const { exerciseId: customId } = yield* createExerciseEntityFixture(client, {
 			name: `Custom action ${id}`,
 		});
@@ -130,7 +131,7 @@ it.live("adds the exercise to the current workout draft", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Draft add ${crypto.randomUUID()}`;
+		const name = `Draft add ${yield* randomUuid}`;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
 
 		const browser = yield* Playwright.Browser;
@@ -151,7 +152,7 @@ it.live("saves exercise preferences and focuses the note composer for a review",
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Preference ${crypto.randomUUID()}`;
+		const name = `Preference ${yield* randomUuid}`;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
 
 		const browser = yield* Playwright.Browser;
@@ -198,7 +199,7 @@ it.live("duplicates an exercise into a pre-filled editor and adds it to the libr
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name: `Dup source ${id}` });
 
 		const browser = yield* Playwright.Browser;
@@ -227,7 +228,7 @@ it.live("edits the name, targets, and images while keeping the kind read-only", 
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name: `Edit me ${id}` });
 		const { schema: targetSchema } = yield* findFitnessEntitySchema(client, "exercise-target");
 		yield* seedPopulatedEntity({
@@ -285,7 +286,7 @@ it.live("merges a custom exercise into another, moving history, records, and tem
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const { exerciseId: sourceId } = yield* createExerciseEntityFixture(client, {
 			name: `Merge source ${id}`,
 		});

@@ -1,5 +1,6 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
@@ -110,9 +111,9 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				timestamps.push(Date.now());
 				return Response.json({ ok: true });
 			});
-			const key = `e2e.global.${crypto.randomUUID()}`;
-			const slug = `global-rate-limit-${crypto.randomUUID()}`;
-			const pluginSlug = `e2e-global-rate-limit-${crypto.randomUUID()}`;
+			const key = `e2e.global.${yield* randomUuid}`;
+			const slug = `global-rate-limit-${yield* randomUuid}`;
+			const pluginSlug = `e2e-global-rate-limit-${yield* randomUuid}`;
 			const declaration = {
 				key,
 				requests: 1,
@@ -126,9 +127,9 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				httpRateLimits: [declaration],
 				url: `${http.url}/provider/catalog`,
 			});
-			const conflictingPluginName = `e2e-global-rate-limit-conflict-${crypto.randomUUID()}`;
+			const conflictingPluginName = `e2e-global-rate-limit-conflict-${yield* randomUuid}`;
 			const conflictingPackageId = testPluginPackageId();
-			const conflictingSlug = `global-rate-limit-conflict-${crypto.randomUUID()}`;
+			const conflictingSlug = `global-rate-limit-conflict-${yield* randomUuid}`;
 			const conflictingSource = httpCallSandboxSource({
 				slug: conflictingSlug,
 				url: `${http.url}/provider/conflict`,
@@ -206,7 +207,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				unmatchedTimestamps.push(Date.now());
 				return Response.json({ ok: true });
 			});
-			const matchedSlug = `retry-after-${crypto.randomUUID()}`;
+			const matchedSlug = `retry-after-${yield* randomUuid}`;
 			const matched = yield* installHttpScriptScoped({
 				failure: true,
 				slug: matchedSlug,
@@ -216,12 +217,12 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 					{
 						requests: 1,
 						intervalMs: 500,
-						key: `e2e.retry.${crypto.randomUUID()}`,
+						key: `e2e.retry.${yield* randomUuid}`,
 						origins: [new URL(retryServer.url).origin],
 					},
 				],
 			});
-			const unmatchedSlug = `retry-unmatched-${crypto.randomUUID()}`;
+			const unmatchedSlug = `retry-unmatched-${yield* randomUuid}`;
 			const unmatched = yield* installHttpScriptScoped({
 				slug: unmatchedSlug,
 				name: "Retry unmatched",
@@ -278,7 +279,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				timestamps.push(Date.now());
 				return new Response("rate limited", { status: 429 });
 			});
-			const slug = `unmatched-integration-${crypto.randomUUID()}`;
+			const slug = `unmatched-integration-${yield* randomUuid}`;
 			const plugin = yield* installHttpScriptScoped({
 				slug,
 				failure: true,
@@ -374,8 +375,8 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 		() =>
 			Effect.gen(function* () {
 				const http = requirePresent(httpServer, "Isolated HTTP server is not initialised");
-				const slug = `isolated-rate-limit-${crypto.randomUUID()}`;
-				const pluginSlug = `e2e-isolated-rate-limit-${crypto.randomUUID()}`;
+				const slug = `isolated-rate-limit-${yield* randomUuid}`;
+				const pluginSlug = `e2e-isolated-rate-limit-${yield* randomUuid}`;
 				const source = httpCallSandboxSource({
 					slug,
 					name: "Isolated global rate limit",
@@ -389,7 +390,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 							requests: 1,
 							intervalMs: 60_000,
 							origins: [new URL(http.url).origin],
-							key: `e2e.isolated.${crypto.randomUUID()}`,
+							key: `e2e.isolated.${yield* randomUuid}`,
 						},
 					],
 					scripts: [

@@ -1,4 +1,5 @@
 import { column, eq, literal, table } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -65,7 +66,7 @@ describe("saved view definitions", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* createSavedView(client, {
-				name: `Canonical View ${crypto.randomUUID()}`,
+				name: `Canonical View ${yield* randomUuid}`,
 			});
 			const stored = yield* findSavedViewById(client, created.id);
 			const fetched = yield* getSavedView(client, stored.reference);
@@ -118,7 +119,7 @@ describe("saved view definitions", () => {
 			});
 			const created = yield* createSavedView(client, {
 				dataSources,
-				name: `Unknown Schema View ${crypto.randomUUID()}`,
+				name: `Unknown Schema View ${yield* randomUuid}`,
 			});
 
 			const stored = yield* findSavedViewById(client, created.id);

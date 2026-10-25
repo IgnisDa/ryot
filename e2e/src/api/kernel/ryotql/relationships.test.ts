@@ -18,6 +18,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -96,7 +97,7 @@ describe("RyotQL relationship rows and includes", () => {
 					pluginSlug,
 					schemaName: "RyotQLRelationshipMember",
 				});
-				const relationshipSlug = `ryotql-membership-${crypto.randomUUID()}`;
+				const relationshipSlug = `ryotql-membership-${yield* randomUuid}`;
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					pluginSlug,
 					slug: relationshipSlug,
@@ -256,8 +257,8 @@ describe("RyotQL relationship rows and includes", () => {
 						},
 					},
 				});
-			const courseModuleSlug = `ryotql-course-module-${crypto.randomUUID()}`;
-			const moduleLessonSlug = `ryotql-module-lesson-${crypto.randomUUID()}`;
+			const courseModuleSlug = `ryotql-course-module-${yield* randomUuid}`;
+			const moduleLessonSlug = `ryotql-module-lesson-${yield* randomUuid}`;
 			const courseModuleSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				slug: courseModuleSlug,
@@ -275,7 +276,7 @@ describe("RyotQL relationship rows and includes", () => {
 				targetEntitySchemaSlug: lessonSchemaId,
 				sourceEntitySchemaSlug: moduleSchemaId,
 			});
-			const completionSlug = `ryotql-completion-${crypto.randomUUID()}`;
+			const completionSlug = `ryotql-completion-${yield* randomUuid}`;
 			const completionSchema = yield* createEventSchema(client, {
 				slug: completionSlug,
 				name: "RyotQL Completion",
@@ -455,8 +456,8 @@ describe("RyotQL relationship rows and includes", () => {
 				pluginSlug: userBPluginName,
 				schemaName: "RyotQLHiddenRelationship",
 			});
-			const ownRelationshipSlug = `ryotql-visible-${crypto.randomUUID()}`;
-			const otherRelationshipSlug = `ryotql-hidden-${crypto.randomUUID()}`;
+			const ownRelationshipSlug = `ryotql-visible-${yield* randomUuid}`;
+			const otherRelationshipSlug = `ryotql-hidden-${yield* randomUuid}`;
 			const ownRelationshipSchema = yield* createRelationshipSchema(userA.client, {
 				slug: ownRelationshipSlug,
 				pluginSlug: userAPluginName,

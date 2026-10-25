@@ -1,4 +1,5 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -102,7 +103,7 @@ describe("provider entity search", () => {
 describe("POST /entity-providers/imports — provider entity import", () => {
 	it.live("returns 404 when the provider does not exist", () =>
 		Effect.gen(function* () {
-			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
+			const missingProviderId = SandboxProviderId.make(yield* randomUuid);
 			const error = yield* Effect.flip(
 				providerClient.call((c) =>
 					c.entityProviders.import({
@@ -151,7 +152,7 @@ describe("POST /entity-providers/imports — provider entity import", () => {
 describe("GET /entity-providers/imports/:jobId — provider entity import result", () => {
 	it.live("preserves entity identity when the provider details script is reingested", () =>
 		Effect.gen(function* () {
-			const externalId = `e2e-reingestion-${crypto.randomUUID()}`;
+			const externalId = `e2e-reingestion-${yield* randomUuid}`;
 			const firstJob = yield* enqueueProviderEntityImport(providerClient, {
 				externalId,
 				providerId: provider.providerId,

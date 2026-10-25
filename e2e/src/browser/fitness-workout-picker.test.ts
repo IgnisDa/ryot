@@ -1,4 +1,5 @@
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -18,7 +19,7 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const { email, client, password } = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const libraryName = `Library exercise ${suffix}`;
 			const addedName = `Provider exercise ${suffix}`;
 			const providerName = `Offline exercises ${suffix}`;
@@ -71,7 +72,7 @@ it.live(
 it.live("opens the exercise editor named after the provider query from Create custom", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
-		const customName = `Custom exercise ${crypto.randomUUID()}`;
+		const customName = `Custom exercise ${yield* randomUuid}`;
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);

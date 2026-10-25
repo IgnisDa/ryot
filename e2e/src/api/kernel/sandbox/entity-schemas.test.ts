@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -15,7 +16,7 @@ describe("sandbox entity schema reads", () => {
 	it.live("reads deduplicated schemas in first-seen input order", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `get-entity-schemas-${crypto.randomUUID()}`;
+			const slug = `get-entity-schemas-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -56,7 +57,7 @@ describe("sandbox entity schema reads", () => {
 	it.live("fails entire batch when one schema does not exist", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `get-entity-schemas-missing-${crypto.randomUUID()}`;
+			const slug = `get-entity-schemas-missing-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

@@ -1,5 +1,6 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -75,7 +76,7 @@ describe("sandbox async flow", () => {
 	it.live("completes a script that returns a plain value", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `plain-value-${crypto.randomUUID()}`;
+			const slug = `plain-value-${yield* randomUuid}`;
 			const source = literalSandboxSource({ slug, value: 42, name: "Plain value" });
 			const script = yield* installSandboxScriptScoped({
 				slug,
@@ -114,7 +115,7 @@ describe("sandbox async flow", () => {
 	it.live("completes a script that uses httpCall", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `http-call-${crypto.randomUUID()}`;
+			const slug = `http-call-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -145,7 +146,7 @@ describe("sandbox async flow", () => {
 	it.live("preserves non-2xx httpCall response bodies", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `http-call-error-${crypto.randomUUID()}`;
+			const slug = `http-call-error-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -179,10 +180,10 @@ describe("sandbox async flow", () => {
 			const { slug, reference } = yield* createEntitySchema(client, {
 				pluginSlug,
 				name: "Sandbox Schema",
-				slug: `sandbox-schema-${crypto.randomUUID()}`,
+				slug: `sandbox-schema-${yield* randomUuid}`,
 			});
 			yield* createEntity(client, { properties: {}, name: "Test Entity", entitySchema: reference });
-			const sandboxSlug = `execute-ryotql-${crypto.randomUUID()}`;
+			const sandboxSlug = `execute-ryotql-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				client,
 				slug: sandboxSlug,
@@ -220,7 +221,7 @@ describe("sandbox async flow", () => {
 	it.live("reads declared installation config values in one batch", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `get-plugin-config-${crypto.randomUUID()}`;
+			const slug = `get-plugin-config-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -246,7 +247,7 @@ describe("sandbox async flow", () => {
 	it.live("omits missing optional plugin config", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
+			const slug = `undeclared-plugin-config-value-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -272,7 +273,7 @@ describe("sandbox async flow", () => {
 	it.live("completes a script that uses getUserPreferences", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `get-user-prefs-${crypto.randomUUID()}`;
+			const slug = `get-user-prefs-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -293,7 +294,7 @@ describe("sandbox async flow", () => {
 	it.live("returns a completed result when the script throws", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `throws-error-${crypto.randomUUID()}`;
+			const slug = `throws-error-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -322,7 +323,7 @@ describe("sandbox async flow", () => {
 	it.live("preserves the complete mapped stack for deep script errors", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `deep-throws-error-${crypto.randomUUID()}`;
+			const slug = `deep-throws-error-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

@@ -7,6 +7,7 @@ import {
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
 } from "@ryot-app/media-plugin/shared/analytics-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Clock, Effect, Option, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -201,7 +202,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* frame
 			.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
 			.waitFor({ state: "visible" });
-		const screenshotId = crypto.randomUUID();
+		const screenshotId = yield* randomUuid;
 		for (const visualCase of visualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
 			for (const colorScheme of colorSchemes) {

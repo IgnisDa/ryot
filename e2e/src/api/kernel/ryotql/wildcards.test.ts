@@ -11,6 +11,7 @@ import {
 	star,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -61,12 +62,12 @@ const isIncludeResult = (value: unknown): value is IncludeResult => {
 const createFixture = (client: Client, name: string) =>
 	Effect.gen(function* () {
 		const entitySchema = yield* createPluginEntitySchema(client, {
-			schemaName: `${name}-${crypto.randomUUID()}`,
+			schemaName: `${name}-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
 			name: `${name} Event`,
 			entitySchema: entitySchema.reference,
-			slug: `${name.toLowerCase()}-${crypto.randomUUID()}`,
+			slug: `${name.toLowerCase()}-${yield* randomUuid}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},

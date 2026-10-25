@@ -1,4 +1,5 @@
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -118,15 +119,15 @@ describe("universal durable sandbox tracer", () => {
 					? new Response("try later", { status: 503 })
 					: Response.json({ tracer: true }),
 			);
-			const operationSlug = `durable-tracer-${crypto.randomUUID()}`;
-			const childSlug = `durable-tracer-child-${crypto.randomUUID()}`;
+			const operationSlug = `durable-tracer-${yield* randomUuid}`;
+			const childSlug = `durable-tracer-child-${yield* randomUuid}`;
 			const operationEntry = "backend/scripts/durable-tracer.sandbox.ts";
 			const childEntry = "backend/scripts/durable-tracer-child.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					client,
 					entitySchemas: [ratedItemEntitySchema],
-					pluginSlug: `e2e-durable-tracer-${crypto.randomUUID()}`,
+					pluginSlug: `e2e-durable-tracer-${yield* randomUuid}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {
 						[childEntry]: childSource({ slug: childSlug, name: "Durable tracer child" }),

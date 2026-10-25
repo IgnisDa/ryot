@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -122,7 +123,7 @@ describe("POST /collections/memberships", () => {
 	it.live("does not add an unrelated global plugin entity to the media library", () =>
 		Effect.gen(function* () {
 			const pluginSlug = createPluginScope();
-			const schemaSlug = `schema-${crypto.randomUUID()}`;
+			const schemaSlug = `schema-${yield* randomUuid}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
 			const installedPlugin = yield* installTestPluginBundle({

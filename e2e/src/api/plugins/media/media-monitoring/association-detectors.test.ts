@@ -1,5 +1,6 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -54,12 +55,12 @@ beforeAll(() =>
 			movieSchemaId = movieSchema.id;
 			personProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: personSchemaId,
-				slug: `person.association-e2e-${crypto.randomUUID()}`,
+				slug: `person.association-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			movieProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: movieSchemaId,
-				slug: `movie.association-e2e-${crypto.randomUUID()}`,
+				slug: `movie.association-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -164,13 +165,13 @@ describe("dual-writer canonical identity", () => {
 			Effect.gen(function* () {
 				const dwMovieName = "Dual Writer Movie";
 				const dwPersonName = "Dual Writer Person";
-				const dwMovieSlug = `movie.dual-writer-e2e-${crypto.randomUUID()}`;
-				const dwMovieExternalId = `dual-writer-movie-${crypto.randomUUID()}`;
-				const dwPersonSlug = `person.dual-writer-e2e-${crypto.randomUUID()}`;
+				const dwMovieSlug = `movie.dual-writer-e2e-${yield* randomUuid}`;
+				const dwMovieExternalId = `dual-writer-movie-${yield* randomUuid}`;
+				const dwPersonSlug = `person.dual-writer-e2e-${yield* randomUuid}`;
 				const { client } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 				const personSchemaId = personSchema.id;
-				const dwPersonExternalId = `dual-writer-person-${crypto.randomUUID()}`;
+				const dwPersonExternalId = `dual-writer-person-${yield* randomUuid}`;
 
 				const dwPersonProvider = yield* media.attachProvider({
 					slug: dwPersonSlug,
@@ -272,13 +273,13 @@ describe("association lifecycle via cron refresh", () => {
 		Effect.gen(function* () {
 			const ruMovieName = "Role Update Movie";
 			const ruPersonName = "Role Update Person";
-			const ruMovieSlug = `movie.role-update-e2e-${crypto.randomUUID()}`;
-			const ruMovieExternalId = `role-update-movie-${crypto.randomUUID()}`;
-			const ruPersonSlug = `person.role-update-e2e-${crypto.randomUUID()}`;
+			const ruMovieSlug = `movie.role-update-e2e-${yield* randomUuid}`;
+			const ruMovieExternalId = `role-update-movie-${yield* randomUuid}`;
+			const ruPersonSlug = `person.role-update-e2e-${yield* randomUuid}`;
 			const { client } = yield* createAuthenticatedClient(target);
 			const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 			const personSchemaId = personSchema.id;
-			const ruPersonExternalId = `role-update-person-${crypto.randomUUID()}`;
+			const ruPersonExternalId = `role-update-person-${yield* randomUuid}`;
 
 			const buildPersonDetails = (roles: string[]) =>
 				fakeProviderDetailsResult({
@@ -389,10 +390,10 @@ describe("association lifecycle via cron refresh", () => {
 				const { client } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 				const personSchemaId = personSchema.id;
-				const drMovieSlug = `movie.delete-recreate-e2e-${crypto.randomUUID()}`;
-				const drMovieExternalId = `delete-recreate-movie-${crypto.randomUUID()}`;
-				const drPersonSlug = `person.delete-recreate-e2e-${crypto.randomUUID()}`;
-				const drPersonExternalId = `delete-recreate-person-${crypto.randomUUID()}`;
+				const drMovieSlug = `movie.delete-recreate-e2e-${yield* randomUuid}`;
+				const drMovieExternalId = `delete-recreate-movie-${yield* randomUuid}`;
+				const drPersonSlug = `person.delete-recreate-e2e-${yield* randomUuid}`;
+				const drPersonExternalId = `delete-recreate-person-${yield* randomUuid}`;
 
 				const movieRelatedEntity = {
 					name: drMovieName,

@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -17,7 +18,7 @@ describe("sandbox event schema reads", () => {
 	it.live("reads deduplicated schemas in first-seen input order", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `list-event-schemas-${crypto.randomUUID()}`;
+			const slug = `list-event-schemas-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -64,7 +65,7 @@ describe("sandbox event schema reads", () => {
 	it.live("fails entire batch when one schema does not exist", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `list-event-schemas-missing-${crypto.randomUUID()}`;
+			const slug = `list-event-schemas-missing-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

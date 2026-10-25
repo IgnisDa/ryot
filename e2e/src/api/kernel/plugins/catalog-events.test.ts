@@ -1,4 +1,5 @@
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -55,7 +56,7 @@ describe("plugin catalog events", () => {
 			yield* ownerEvents.waitForConnected();
 			yield* outsiderEvents.waitForConnected();
 
-			const variant = crypto.randomUUID();
+			const variant = yield* randomUuid;
 			const packageA = yield* fixtureClientPluginPackage("A", variant);
 			const installed = yield* installPrivatePluginPackage({
 				config: {},
@@ -87,8 +88,8 @@ describe("plugin catalog events", () => {
 			yield* reconnected.waitForConnected();
 			expect((yield* fixtureCatalogEntry(owner.client)).contentHash).not.toBe(after.contentHash);
 
-			const pluginSlug = `e2e-catalog-system-${crypto.randomUUID()}`;
-			const scriptSlug = `e2e-catalog-system-script-${crypto.randomUUID()}`;
+			const pluginSlug = `e2e-catalog-system-${yield* randomUuid}`;
+			const scriptSlug = `e2e-catalog-system-script-${yield* randomUuid}`;
 			const entry = "backend/scripts/catalog-events.sandbox.ts";
 			const name = "E2E catalog events system plugin";
 			const manifest = testPluginManifest({

@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { requireObjectRecord, requirePresent } from "~/support/assertions";
@@ -12,7 +13,7 @@ export const createCollection = (client: Client, options: CreateCollectionOption
 		const {
 			fields,
 			description = "A test collection",
-			name = `Test Collection ${crypto.randomUUID()}`,
+			name = `Test Collection ${yield* randomUuid}`,
 		} = options;
 
 		const collection = yield* client.call((c) =>

@@ -4,6 +4,7 @@ import { BackupRunId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands"
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -106,8 +107,8 @@ describe("backup lifecycle", () => {
 
 	it.live("round-trips a schema-declared managed asset into a clean account", () =>
 		Effect.gen(function* () {
-			const pluginSlug = createPluginScope(`backup-assets-${crypto.randomUUID()}`);
-			const schemaSlug = `backup-asset-${crypto.randomUUID()}`;
+			const pluginSlug = createPluginScope(`backup-assets-${yield* randomUuid}`);
+			const schemaSlug = `backup-asset-${yield* randomUuid}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
 			const propertiesSchema = {
@@ -157,7 +158,7 @@ describe("backup lifecycle", () => {
 			const source = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const assetBytes = new TextEncoder().encode(
-				`backup managed asset ${crypto.randomUUID()}\nsecond line\n`,
+				`backup managed asset ${yield* randomUuid}\nsecond line\n`,
 			);
 			const intent = yield* source.client.call((c) =>
 				c.uploads.createIntent({
@@ -177,7 +178,7 @@ describe("backup lifecycle", () => {
 				throw new Error("Expected a permanent asset locator");
 			}
 
-			const title = `Backup asset entity ${crypto.randomUUID()}`;
+			const title = `Backup asset entity ${yield* randomUuid}`;
 			const sourceEntity = yield* createEntity(source.client, {
 				name: title,
 				properties: { title, attachment: sourceLocator },

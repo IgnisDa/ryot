@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
 
 import {
@@ -54,7 +55,7 @@ describe("entity population via client-declared interest", () => {
 			const provenance = {
 				providerId: provider.providerId,
 				entitySchemaSlug: ENTITY_SCHEMA_SLUG,
-				externalId: `e2e-populate-${crypto.randomUUID()}`,
+				externalId: `e2e-populate-${yield* randomUuid}`,
 			};
 
 			const seeded = yield* seedEntity({
@@ -98,7 +99,7 @@ describe("entity population via client-declared interest", () => {
 				name: "Large partial root",
 				properties: { description },
 				providerId: provider.providerId,
-				externalId: `large-root-${crypto.randomUUID()}`,
+				externalId: `large-root-${yield* randomUuid}`,
 				entitySchema: testProviderEntitySchema(provider),
 			});
 			const stored = yield* getEntity(auth.client, seeded.id);
@@ -137,8 +138,8 @@ describe("entity population via client-declared interest", () => {
 				properties: {},
 				providerId: provider.providerId,
 				name: "Already Populated Studio",
+				externalId: `e2e-catchup-${yield* randomUuid}`,
 				entitySchema: testProviderEntitySchema(provider),
-				externalId: `e2e-catchup-${crypto.randomUUID()}`,
 			});
 
 			const socket = yield* openInterestWebSocketScoped(auth);
@@ -184,7 +185,7 @@ describe("entity population via client-declared interest", () => {
 			const provenance = {
 				providerId: provider.providerId,
 				entitySchemaSlug: ENTITY_SCHEMA_SLUG,
-				externalId: `e2e-replacement-${crypto.randomUUID()}`,
+				externalId: `e2e-replacement-${yield* randomUuid}`,
 			};
 			const entity = yield* seedEntity({
 				userId: null,

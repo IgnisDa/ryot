@@ -1,6 +1,7 @@
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -46,7 +47,7 @@ describe("sandbox RyotQL reads", () => {
 				name: "Second entity",
 				entitySchema: reference,
 			});
-			const slug = `ryotql-entities-${crypto.randomUUID()}`;
+			const slug = `ryotql-entities-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -87,7 +88,7 @@ describe("sandbox RyotQL reads", () => {
 	it.live("reads filtered events through executeRyotql", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `ryotql-events-${crypto.randomUUID()}`;
+			const slug = `ryotql-events-${yield* randomUuid}`;
 			const { scriptId, pluginId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -123,7 +124,7 @@ describe("sandbox RyotQL reads", () => {
 
 	it.live("runs a pinned system script through executeRyotql", () =>
 		Effect.gen(function* () {
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const pluginSlug = `e2e-ryotql-system-${suffix}`;
 			const providerSlug = `e2e-ryotql-system-provider-${suffix}`;
 			const providerScriptSlug = `${providerSlug}.details`;

@@ -2,6 +2,7 @@ import {
 	MAX_FOREGROUND_ENTITY_IDS,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, openInterestWebSocketScoped } from "~/fixtures/kernel";
@@ -21,7 +22,7 @@ describe("entity interest protocol", () => {
 				properties: {},
 				entitySchemaSlug: schema.id,
 				name: "Interest Limit Company",
-				externalId: `interest-limit-${crypto.randomUUID()}`,
+				externalId: `interest-limit-${yield* randomUuid}`,
 			});
 			const socket = yield* openInterestWebSocketScoped(auth);
 			expect(socket.ready.maxEntityIds).toBe(MAX_INTEREST_ENTITY_IDS);

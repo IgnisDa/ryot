@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -13,7 +14,7 @@ describe("kernel entity page E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const collection = yield* createCollection(client, {
-				name: `Collection ${crypto.randomUUID()}`,
+				name: `Collection ${yield* randomUuid}`,
 			});
 			const prepared = yield* client.call((contract) =>
 				contract.pages.prepare({

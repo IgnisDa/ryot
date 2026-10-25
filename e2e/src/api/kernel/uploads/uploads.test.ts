@@ -1,5 +1,6 @@
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { imagesField } from "@ryot-app/contract/schema/core";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, createEntity, createEntitySchema } from "~/fixtures/kernel";
@@ -65,7 +66,7 @@ describe("managed asset references", () => {
 			const { asset } = yield* uploadAndComplete("owned.png", "image/png");
 			const stranger = yield* createAuthenticatedClient();
 			const schema = yield* createEntitySchema(stranger.client, {
-				pluginSlug: `foreign-asset-${crypto.randomUUID()}`,
+				pluginSlug: `foreign-asset-${yield* randomUuid}`,
 				propertiesSchema: { fields: { images: imagesField("Attached images") } },
 			});
 			const rejected = yield* Effect.flip(

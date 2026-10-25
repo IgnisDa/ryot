@@ -20,6 +20,7 @@ import {
 	measureDescending,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -54,7 +55,7 @@ describe("RyotQL aggregate outputs", () => {
 			const eventSchema = yield* createEventSchema(client, {
 				entitySchema: reference,
 				name: "RyotQL Date Bucket Watch",
-				slug: `ryotql-date-bucket-watch-${crypto.randomUUID()}`,
+				slug: `ryotql-date-bucket-watch-${yield* randomUuid}`,
 				propertiesSchema: {
 					fields: {
 						timeSpent: { type: "integer", label: "Time spent", description: "Minutes watched" },
@@ -207,10 +208,7 @@ describe("RyotQL aggregate outputs", () => {
 					allLessons: aggregate(lesson, { measures, where: schemaFilter }),
 					emptyLessons: aggregate(lesson, {
 						measures,
-						where: eq(
-							column(lesson, "entitySchemaSlug"),
-							literal(`missing-${crypto.randomUUID()}`),
-						),
+						where: eq(column(lesson, "entitySchemaSlug"), literal(`missing-${yield* randomUuid}`)),
 					}),
 					difficultyGroups: aggregate(lesson, {
 						limit: 10,
@@ -342,14 +340,14 @@ describe("RyotQL aggregate outputs", () => {
 				name: "RyotQL Aggregate Visible Link",
 				targetEntitySchemaSlug: ownerSchema.schemaId,
 				sourceEntitySchemaSlug: ownerSchema.schemaId,
-				slug: `ryotql-aggregate-visible-${crypto.randomUUID()}`,
+				slug: `ryotql-aggregate-visible-${yield* randomUuid}`,
 			});
 			const otherRelationship = yield* createRelationshipSchema(other.client, {
 				pluginSlug: otherPluginName,
 				name: "RyotQL Aggregate Hidden Link",
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,
-				slug: `ryotql-aggregate-hidden-${crypto.randomUUID()}`,
+				slug: `ryotql-aggregate-hidden-${yield* randomUuid}`,
 			});
 			const ownerEntities = yield* Effect.forEach(
 				["Visible Source", "Visible Target One", "Visible Target Two"],

@@ -14,6 +14,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 import getPort from "get-port";
 
@@ -123,7 +124,7 @@ describe("Media history correction recovery", () => {
 				);
 			const original = yield* completions();
 			expect(original).toHaveLength(1);
-			const submissionId = crypto.randomUUID();
+			const submissionId = yield* randomUuid;
 			const input = { submissionId, entityId: movie.entityId };
 			const retry = yield* invokeOperation(client, historyCorrectionRetryRecipe, input, {
 				idempotencyKey: submissionId,

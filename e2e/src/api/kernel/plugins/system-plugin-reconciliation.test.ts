@@ -6,6 +6,7 @@ import {
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -241,7 +242,7 @@ describe("system plugin reconciliation", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient(target);
-				const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
+				const viewSlug = `e2e-shared-view-${yield* randomUuid}`;
 				const savedViews = [testPluginSavedView({ slug: viewSlug })];
 				const packageId = testPluginPackageId();
 				const shippedPackageId = testPluginPackageId();

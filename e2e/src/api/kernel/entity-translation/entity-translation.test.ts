@@ -1,4 +1,5 @@
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -220,7 +221,7 @@ describe("entity translation via client-declared interest", () => {
 				const child = yield* seedPopulatedEntity({
 					name: "Canonical child",
 					providerId: childProvider.providerId,
-					externalId: `child-${crypto.randomUUID()}`,
+					externalId: `child-${yield* randomUuid}`,
 					properties: {
 						position: 1,
 						parentExternalId: "parent-1",
@@ -319,7 +320,7 @@ describe("entity translation via client-declared interest", () => {
 				name: "Partial Pulp Fiction",
 				providerId: provider.providerId,
 				entitySchema: testProviderEntitySchema(provider),
-				externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
+				externalId: `e2e-translate-unpopulated-${yield* randomUuid}`,
 			});
 
 			yield* setUserLanguage(client, "es");

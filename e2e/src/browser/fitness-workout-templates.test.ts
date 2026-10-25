@@ -1,4 +1,5 @@
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -22,7 +23,7 @@ it.live(
 			const { target } = yield* workoutEditorProServer;
 			const { frontendUrl } = target;
 			const { email, client, password } = yield* createAuthenticatedClient(target);
-			const name = `Template acceptance ${crypto.randomUUID()}`;
+			const name = `Template acceptance ${yield* randomUuid}`;
 			const exerciseName = `Bench ${name}`;
 			const replacementName = `Press ${name}`;
 			yield* createExerciseEntityFixture(client, { name: exerciseName });

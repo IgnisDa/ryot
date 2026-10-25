@@ -1,4 +1,5 @@
 import { videoGameRecipes } from "@ryot-app/media-plugin/shared/video-game-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -38,7 +39,7 @@ describe("Video game relationships", () => {
 				"video-game-to-video-game",
 				schema.reference.owner,
 			);
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const seed = (name: string, publishYear: number) =>
 				seedMediaEntity({
 					userId: null,

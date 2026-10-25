@@ -1,5 +1,6 @@
 import { workoutEditorEntityRecipe } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { collectionPickerRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -81,7 +82,7 @@ it.live(
 			const submission = {
 				submittedAt: nowIso(),
 				entityId: olderWorkoutId,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 			};
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
@@ -135,7 +136,7 @@ it.live("rejects deletion of another user's workout and of an exercise", () =>
 		const { client: other } = yield* createAuthenticatedClient();
 		const { exerciseId } = yield* createExerciseEntityFixture(client);
 		const { workoutId } = yield* createWorkoutEntityFixture(client, { name: "Private workout" });
-		const submission = { submittedAt: nowIso(), submissionId: crypto.randomUUID() };
+		const submission = { submittedAt: nowIso(), submissionId: yield* randomUuid };
 		const foreign = yield* deleteWorkout(other, { ...submission, entityId: workoutId }).pipe(
 			Effect.flip,
 		);

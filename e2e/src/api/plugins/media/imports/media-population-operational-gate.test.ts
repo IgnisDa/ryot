@@ -1,5 +1,6 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -57,11 +58,11 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				}),
 			});
 			const baseline = yield* sampleOperationalPressure(
-				[`phase-3-baseline-${crypto.randomUUID()}`],
+				[`phase-3-baseline-${yield* randomUuid}`],
 				target,
 			);
 			const startedAt = yield* Clock.currentTimeMillis;
-			const prefix = crypto.randomUUID();
+			const prefix = yield* randomUuid;
 			const runs = yield* Effect.forEach(
 				[
 					{

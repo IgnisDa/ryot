@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -11,7 +12,7 @@ import { getFrontendUrl } from "~/support/harness-target";
 it.live("creates, edits and deletes a rating-only review from Movie detail", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const movieName = `Rating-only Movie ${suffix}`;
 		const { movie } = yield* seedGlobalMovieWithCollection(client, {
 			movieName,

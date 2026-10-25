@@ -1,5 +1,6 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -63,8 +64,8 @@ describe("company and media-group association variants", () => {
 		Effect.gen(function* () {
 			const movieName = "Association Variant Movie";
 			const companyName = "Association Variant Company";
-			const companyExternalId = `association-company-${crypto.randomUUID()}`;
-			const movieExternalId = `association-variant-movie-${crypto.randomUUID()}`;
+			const companyExternalId = `association-company-${yield* randomUuid}`;
+			const movieExternalId = `association-variant-movie-${yield* randomUuid}`;
 
 			const { client } = yield* createAuthenticatedClient(target);
 			const [{ schema: companySchema }, { schema: movieSchema }] = yield* Effect.all([
@@ -76,11 +77,11 @@ describe("company and media-group association variants", () => {
 			const companyProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: companySchemaId,
 				details: fakeProviderDetailsResult({ name: companyName }),
-				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
+				slug: `company.association-variant-e2e-${yield* randomUuid}`,
 			});
 			const movieProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: movieSchemaId,
-				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
+				slug: `movie.association-variant-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -137,9 +138,9 @@ describe("company and media-group association variants", () => {
 			const personName = "Media Group Person";
 			const companyName = "Media Group Company";
 			const musicGroupName = "Association Variant Album";
-			const personExternalId = `media-group-person-${crypto.randomUUID()}`;
-			const companyExternalId = `media-group-company-${crypto.randomUUID()}`;
-			const musicGroupExternalId = `media-group-album-${crypto.randomUUID()}`;
+			const personExternalId = `media-group-person-${yield* randomUuid}`;
+			const companyExternalId = `media-group-company-${yield* randomUuid}`;
+			const musicGroupExternalId = `media-group-album-${yield* randomUuid}`;
 
 			const { client } = yield* createAuthenticatedClient(target);
 			const [{ schema: personSchema }, { schema: companySchema }, { schema: musicGroupSchema }] =
@@ -153,17 +154,17 @@ describe("company and media-group association variants", () => {
 			const musicGroupSchemaId = musicGroupSchema.id;
 			const personProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: personSchemaId,
-				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
+				slug: `person.media-group-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			const companyProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: companySchemaId,
-				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
+				slug: `company.media-group-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const musicGroupProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: musicGroupSchemaId,
-				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
+				slug: `music-group.media-group-e2e-${yield* randomUuid}`,
 				details: fakeProviderDetailsResult({
 					name: musicGroupName,
 					relatedEntityGroups: [

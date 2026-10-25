@@ -3,6 +3,7 @@ import {
 	DataJsonDocument,
 	dataJsonSourceReference,
 } from "@ryot-app/contract/modules/imports/data-json";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -23,7 +24,7 @@ const encodeDataDocument = (document: DataJsonDocument) =>
 
 export const createDataJsonSchemaGraph = (client: Client) =>
 	Effect.gen(function* () {
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const pluginSlug = createPluginScope();
 		const entityA = yield* createPluginEntitySchema(client, {
 			pluginSlug,

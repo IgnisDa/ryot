@@ -1,4 +1,5 @@
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -15,14 +16,14 @@ it.live("allows custom-media genres but rejects personal genre overrides on prov
 		const genre = yield* createEntity(client, {
 			properties: {},
 			entitySchema: genreSchema.reference,
-			name: `Private Genre ${crypto.randomUUID()}`,
+			name: `Private Genre ${yield* randomUuid}`,
 		});
 		const { schema: bookSchema, entity: providerBook } =
 			yield* createGlobalBookEntityFixture(client);
 		const book = yield* createEntity(client, {
 			properties: {},
 			entitySchema: bookSchema.reference,
-			name: `Custom Book ${crypto.randomUUID()}`,
+			name: `Custom Book ${yield* randomUuid}`,
 		});
 		const relationshipSchema = {
 			owner: bookSchema.reference.owner,

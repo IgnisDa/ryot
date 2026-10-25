@@ -18,6 +18,7 @@ import type {
 	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Record } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -327,7 +328,7 @@ export const shippedPluginTestProviders = (
 					),
 				),
 				manifest: testPluginManifest({
-					pluginSlug: `attached-providers-${crypto.randomUUID()}`,
+					pluginSlug: `attached-providers-${yield* randomUuid}`,
 					scripts: Record.values(declarations).flatMap(({ scripts }) => scripts),
 					providers: Record.values(declarations).map(({ provider }) => provider),
 					entitySchemas: [

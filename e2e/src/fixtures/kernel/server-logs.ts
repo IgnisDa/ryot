@@ -1,5 +1,6 @@
 import { gzipSync } from "node:zlib";
 
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, FileSystem, Path } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -12,7 +13,7 @@ export const seedServerLog = Effect.fn("seedServerLog")(function* (
 	const path = yield* Path.Path;
 	const activePath = requirePresent(target.serverLogFile, "Server log path is unavailable");
 	const activeName = path.basename(activePath);
-	const text = `retained-e2e-log-${crypto.randomUUID()}\n`;
+	const text = `retained-e2e-log-${yield* randomUuid}\n`;
 	const bytes = gzipSync(text);
 	const timestamp = DateTime.formatIso(yield* DateTime.now)
 		.replaceAll(/[-:T]/g, "")

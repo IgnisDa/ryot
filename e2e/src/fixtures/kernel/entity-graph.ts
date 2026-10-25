@@ -1,5 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { HarnessTarget } from "~/support/harness-target";
@@ -144,14 +145,14 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 			},
 		},
 	});
-	const completeSlug = `filter-complete-${crypto.randomUUID()}`;
+	const completeSlug = `filter-complete-${yield* randomUuid}`;
 	const completeSchema = yield* createEventSchema(client, {
 		slug: completeSlug,
 		name: "Filter Complete",
 		entitySchema: lessonReference,
 	});
-	const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
-	const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
+	const courseModuleSlug = `filter-course-module-${yield* randomUuid}`;
+	const moduleLessonSlug = `filter-module-lesson-${yield* randomUuid}`;
 	const courseModuleSchema = yield* createRelationshipSchema(client, {
 		pluginSlug,
 		slug: courseModuleSlug,

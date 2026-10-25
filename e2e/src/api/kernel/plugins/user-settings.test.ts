@@ -2,6 +2,7 @@ import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
@@ -162,7 +163,7 @@ describe("plugin user settings", () => {
 			const owner = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
 			const outsider = yield* createAuthenticatedClient();
-			const pluginSlug = `e2e-user-settings-${crypto.randomUUID()}`;
+			const pluginSlug = `e2e-user-settings-${yield* randomUuid}`;
 			const firstPlugin = yield* installPreferencePrivatePlugin({
 				pluginSlug,
 				client: owner.client,

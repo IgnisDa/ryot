@@ -1,4 +1,5 @@
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
@@ -405,8 +406,8 @@ describe("Events built-in status schemas", () => {
 				providerId,
 				userId: null,
 				entitySchemaSlug: schema.id,
-				name: `Show Events ${crypto.randomUUID()}`,
-				externalId: `show-events-${crypto.randomUUID()}`,
+				name: `Show Events ${yield* randomUuid}`,
+				externalId: `show-events-${yield* randomUuid}`,
 				properties: {
 					images: [],
 					isNsfw: null,

@@ -3,6 +3,7 @@ import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -210,7 +211,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const schema = yield* createEntitySchema(client, {
 			name: "Browser controls",
-			pluginSlug: `browser-controls-${crypto.randomUUID()}`,
+			pluginSlug: `browser-controls-${yield* randomUuid}`,
 		});
 		const [alpha, zulu, excluded] = yield* Effect.all([
 			createEntity(client, {
@@ -304,7 +305,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		const installation = yield* installFixtureClientPlugin(client, "A", "", true);
 		const fallbackSchema = yield* createEntitySchema(client, {
 			name: "Lazy presentation fallback",
-			pluginSlug: `lazy-fallback-${crypto.randomUUID()}`,
+			pluginSlug: `lazy-fallback-${yield* randomUuid}`,
 		});
 		const fallback = yield* Effect.forEach(["01 Fallback", "02 Fallback"], (name) =>
 			createEntity(client, {
@@ -420,12 +421,12 @@ it.live(
 			const { email, client, password } = yield* createAuthenticatedClient();
 			const schema = yield* createEntitySchema(client, {
 				name: "Results table entity",
-				pluginSlug: `results-table-${crypto.randomUUID()}`,
+				pluginSlug: `results-table-${yield* randomUuid}`,
 			});
 			const eventSchema = yield* createEventSchema(client, {
 				name: "Results table event",
 				entitySchema: schema.reference,
-				slug: `results-table-event-${crypto.randomUUID()}`,
+				slug: `results-table-event-${yield* randomUuid}`,
 			});
 			const entity = yield* createEntity(client, {
 				name: "Shared results entity",
@@ -522,7 +523,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		});
 		const fallbackSchema = yield* createEntitySchema(client, {
 			name: "Mixed fallback",
-			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
+			pluginSlug: `mixed-fallback-${yield* randomUuid}`,
 		});
 		const fallbackEntities = yield* Effect.forEach(
 			["01 Alpha fallback", "02 Beta fallback"],

@@ -22,6 +22,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -202,7 +203,7 @@ describe("relationship source ownership", () => {
 
 			const customItem = yield* createEntity(client, {
 				properties: {},
-				name: `Custom catalog item ${crypto.randomUUID()}`,
+				name: `Custom catalog item ${yield* randomUuid}`,
 				entitySchema: { owner: providerOwner, slug: EntitySchemaSlug.make(ITEM_SCHEMA_SLUG) },
 			});
 			const customRelationship = yield* createRelationship(client, {

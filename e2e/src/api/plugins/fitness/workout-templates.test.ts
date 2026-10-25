@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/fitness-plugin/query-recipes";
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -404,7 +405,7 @@ describe("Workout Templates E2E", () => {
 			const workoutTemplate = yield* createEntity(client, {
 				properties: workoutTemplateProperties,
 				entitySchema: workoutTemplateSchema.reference,
-				name: `Workout Template ${crypto.randomUUID()}`,
+				name: `Workout Template ${yield* randomUuid}`,
 			});
 
 			const entity = yield* getEntity(client, workoutTemplate.id);
@@ -447,7 +448,7 @@ describe("Workout Templates E2E", () => {
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const { workoutTemplate, workoutTemplateId } =
 				yield* createWorkoutTemplateEntityFixture(client);
-			const workoutName = `Workout ${crypto.randomUUID()}`;
+			const workoutName = `Workout ${yield* randomUuid}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
 				entitySchema: workoutSchema.reference,
@@ -491,7 +492,7 @@ describe("Workout Templates E2E", () => {
 			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout-template");
 			const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client);
-			const workoutName = `Workout ${crypto.randomUUID()}`;
+			const workoutName = `Workout ${yield* randomUuid}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
 				entitySchema: workoutSchema.reference,

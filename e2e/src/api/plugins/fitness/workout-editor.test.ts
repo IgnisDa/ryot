@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
 import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Struct } from "effect";
 
 import {
@@ -75,7 +76,7 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 			endedAt,
 			startedAt,
 			exerciseId,
-			name: `Imported Workout ${crypto.randomUUID()}`,
+			name: `Imported Workout ${yield* randomUuid}`,
 			exerciseNotes: [{ exerciseOrder: 0, notes: ["Imported exercise note"] }],
 			properties: {
 				activeDuration: 2400,
@@ -151,8 +152,8 @@ describe("Workout editor E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(target);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const name = `Workout Editor Retry ${crypto.randomUUID()}`;
-			const submissionId = crypto.randomUUID();
+			const name = `Workout Editor Retry ${yield* randomUuid}`;
+			const submissionId = yield* randomUuid;
 			const input = operationInput(
 				workoutData({ name, occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 				submissionId,
@@ -266,7 +267,7 @@ describe("Workout editor E2E", () => {
 				expect(replay).toEqual(saved);
 				const stale = yield* saveWorkoutEditor(client, {
 					...editInput,
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				});
 				expect(stale).toEqual({ kind: "conflict" });
@@ -414,7 +415,7 @@ describe("Workout editor E2E", () => {
 			expect(
 				yield* updateExerciseOverrides(client, {
 					overrides: { normalRestTime: 0 },
-					exerciseId: EntityId.make(crypto.randomUUID()),
+					exerciseId: EntityId.make(yield* randomUuid),
 				}),
 			).toEqual({ kind: "missing-exercise" });
 			const membershipWorkout = yield* saveWorkoutData(
@@ -468,12 +469,12 @@ describe("Workout editor E2E", () => {
 						exerciseId,
 						images: [],
 						videos: [],
-						clientId: `occurrence-${crypto.randomUUID()}`,
+						clientId: `occurrence-${yield* randomUuid}`,
 						sets: [
 							{
 								setLot: "normal",
+								clientId: `set-${yield* randomUuid}`,
 								measurements: { reps: 8, weight: 30 },
-								clientId: `set-${crypto.randomUUID()}`,
 							},
 						],
 					},
@@ -629,7 +630,7 @@ describe("Workout editor E2E", () => {
 					entityId: workoutId,
 					endedAt: correctedEndedAt,
 					startedAt: correctedStartedAt,
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					activeDuration: { kind: "preserve" },
 					conflictToken: original.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
@@ -647,7 +648,7 @@ describe("Workout editor E2E", () => {
 					entityId: workoutId,
 					endedAt: correctedEndedAt,
 					startedAt: correctedStartedAt,
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					activeDuration: { seconds: 0, kind: "set" },
 					conflictToken: correctedBaseline.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
@@ -660,8 +661,8 @@ describe("Workout editor E2E", () => {
 					entityId: workoutId,
 					endedAt: correctedEndedAt,
 					startedAt: correctedStartedAt,
+					submissionId: yield* randomUuid,
 					activeDuration: { kind: "clear" },
-					submissionId: crypto.randomUUID(),
 					conflictToken: zeroBaseline.conflictToken,
 					submittedAt: DateTime.formatIso(yield* DateTime.now),
 				});
@@ -682,7 +683,7 @@ describe("Workout editor E2E", () => {
 					startedAt,
 					exerciseId,
 					timeoutMs: LARGE_WORKOUT_BUDGET.eventsMs,
-					name: `Workout Editor Pagination ${crypto.randomUUID()}`,
+					name: `Workout Editor Pagination ${yield* randomUuid}`,
 					sets: Array.from({ length: 101 }, (_, reps) => ({
 						occurredAt: setOccurredAt,
 						properties: { reps, weight: 20, setLot: "normal", exerciseKind: "reps_and_weight" },

@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -25,7 +26,7 @@ describe("saved views management", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 			const sourceCreated = yield* createSavedView(client, {
-				name: `Clone Source ${crypto.randomUUID()}`,
+				name: `Clone Source ${yield* randomUuid}`,
 			});
 			const source = yield* findSavedViewById(client, sourceCreated.id);
 			const cloned = yield* cloneSavedView(client, source.reference);
@@ -67,7 +68,7 @@ describe("saved views management", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, pluginId } = yield* createPluginEntitySchema(client, {
-				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
+				schemaName: `Saved View Workspace ${yield* randomUuid}`,
 			});
 			const workspace = requirePresent(
 				(yield* listInstalledPlugins(client)).find((row) => row.pluginId === pluginId),
@@ -76,12 +77,12 @@ describe("saved views management", () => {
 			const dataSources = buildSavedViewDataSources([schemaId], { pluginId, kind: "local" });
 			const firstCreated = yield* createSavedView(client, {
 				dataSources,
-				name: `Workspace A ${crypto.randomUUID()}`,
+				name: `Workspace A ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const secondCreated = yield* createSavedView(client, {
 				dataSources,
-				name: `Workspace B ${crypto.randomUUID()}`,
+				name: `Workspace B ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
@@ -108,7 +109,7 @@ describe("saved views management", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* createSavedView(client, {
-				name: `Disable Definition ${crypto.randomUUID()}`,
+				name: `Disable Definition ${yield* randomUuid}`,
 			});
 			const before = yield* findSavedViewById(client, created.id);
 			const disabled = yield* updateSavedView(client, before.reference, { isHidden: true });

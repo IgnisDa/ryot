@@ -1,6 +1,7 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -35,7 +36,7 @@ const MOVE_SAVED_VIEW_SLUG = "all-moves";
 const installFixture = (label: string) =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const pluginSlug = `fixture-${label}-${crypto.randomUUID()}`;
+		const pluginSlug = `fixture-${label}-${yield* randomUuid}`;
 		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
 		const installed = yield* Effect.acquireRelease(
 			installPrivatePluginPackage({ client, config: {}, pluginPackage }),

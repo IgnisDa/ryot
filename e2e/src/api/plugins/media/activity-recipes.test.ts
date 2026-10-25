@@ -1,6 +1,7 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -29,7 +30,7 @@ const seed = (client: Client, slug: string, properties: Record<string, unknown>)
 	Effect.gen(function* () {
 		const { schema, pluginId } = yield* findMediaEntitySchema(client, slug);
 		const eventSchemas = yield* listEventSchemas(client, schema.reference);
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const entity = yield* seedMediaEntity({
 			properties,
 			userId: null,

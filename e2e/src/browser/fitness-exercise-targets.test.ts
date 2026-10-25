@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -15,7 +16,7 @@ const targetPicker = (page: Playwright.Page) =>
 it.live("creates a private target inline while creating a custom exercise", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
-		const exerciseName = `Cuff raise ${crypto.randomUUID()}`;
+		const exerciseName = `Cuff raise ${yield* randomUuid}`;
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/exercises/new`);
@@ -48,7 +49,7 @@ it.live("creates a private target inline while creating a custom exercise", () =
 it.live("imports a not-yet-materialized catalog target and then lists it as existing", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const exerciseName = `Neck curl ${crypto.randomUUID()}`;
+		const exerciseName = `Neck curl ${yield* randomUuid}`;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name: exerciseName });
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);

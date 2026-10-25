@@ -1,5 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -19,7 +20,7 @@ const PIXEL_PNG = Buffer.from(
 it.live("creates a custom movie from the saved view's Create custom handoff", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
-		const movieName = `Custom movie ${crypto.randomUUID()}`;
+		const movieName = `Custom movie ${yield* randomUuid}`;
 		const page = yield* (yield* Playwright.Browser).newPage({
 			viewport: { width: 1280, height: 900 },
 		});
@@ -54,8 +55,8 @@ it.live("creates a custom movie from the saved view's Create custom handoff", ()
 it.live("creates a private genre inline and shows it on a custom movie", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
-		const movieName = `Custom movie ${crypto.randomUUID()}`;
-		const genreName = `Private genre ${crypto.randomUUID()}`;
+		const movieName = `Custom movie ${yield* randomUuid}`;
+		const genreName = `Private genre ${yield* randomUuid}`;
 		const page = yield* (yield* Playwright.Browser).newPage({
 			viewport: { width: 1280, height: 900 },
 		});
@@ -126,7 +127,7 @@ it.live("creates a private genre inline and shows it on a custom movie", () =>
 
 it.live("creates and edits a custom show without losing nested fields or image metadata", () =>
 	Effect.gen(function* () {
-		const showName = `Custom show ${crypto.randomUUID()}`;
+		const showName = `Custom show ${yield* randomUuid}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const page = yield* (yield* Playwright.Browser).newPage({
 			viewport: { width: 1280, height: 900 },
@@ -260,7 +261,7 @@ for (const [slug, label] of [
 		Effect.gen(function* () {
 			const { email, client, password } = yield* createAuthenticatedClient();
 			const { schema } = yield* findMediaEntitySchema(client, slug);
-			const name = `Custom ${slug} ${crypto.randomUUID()}`;
+			const name = `Custom ${slug} ${yield* randomUuid}`;
 			const entity = yield* createEntity(client, {
 				name,
 				entitySchema: schema.reference,
@@ -294,7 +295,7 @@ it.live("authors, tracks, and protects custom seasons and episodes from the Epis
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const { schema } = yield* findMediaEntitySchema(client, "show");
-		const showName = `Custom show ${crypto.randomUUID()}`;
+		const showName = `Custom show ${yield* randomUuid}`;
 		const show = yield* createEntity(client, {
 			name: showName,
 			properties: {},

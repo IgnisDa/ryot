@@ -1,4 +1,5 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -37,7 +38,7 @@ describe("sandbox enqueue by script ID", () => {
 			const error = yield* Effect.flip(
 				enqueueSandboxScript(userId, {
 					lane: "interactive",
-					scriptId: SandboxScriptId.make(crypto.randomUUID()),
+					scriptId: SandboxScriptId.make(yield* randomUuid),
 				}),
 			);
 
@@ -69,7 +70,7 @@ describe("sandbox enqueue by script ID", () => {
 	it.live("rejects caller-forged subject", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
-			const scriptId = crypto.randomUUID();
+			const scriptId = yield* randomUuid;
 
 			const subjectResponse = yield* postEnqueue({
 				scriptId,
@@ -84,7 +85,7 @@ describe("sandbox enqueue by script ID", () => {
 	it.live("rejects a runtime manifest that differs from installed metadata", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const slug = `runtime-manifest-mismatch-${crypto.randomUUID()}`;
+			const slug = `runtime-manifest-mismatch-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,

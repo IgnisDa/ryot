@@ -4,6 +4,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -176,7 +177,7 @@ describe("POST /collections", () => {
 	it.live("records a duplicate-name kernel collection import as an unsuccessful record", () =>
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
-			const name = `Imported Shelf ${crypto.randomUUID()}`;
+			const name = `Imported Shelf ${yield* randomUuid}`;
 			yield* createCollection(user.client, { name });
 
 			const { run } = yield* startDataJsonImport(user, {
@@ -385,7 +386,7 @@ describe("DELETE /collections", () => {
 			const foreign = yield* createCollection(owner, { name: "Owner Shelf" });
 			const { entityId: ownEntityId } = yield* createPluginSchemaAndEntity(client);
 			const { entity: global } = yield* createGlobalBookEntityFixture(client);
-			const missing = EntityId.make(`missing-${crypto.randomUUID()}`);
+			const missing = EntityId.make(`missing-${yield* randomUuid}`);
 
 			for (const target of [missing, global.id, ownEntityId, foreign.id]) {
 				const error = yield* Effect.flip(

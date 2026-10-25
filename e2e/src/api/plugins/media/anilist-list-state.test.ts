@@ -4,6 +4,7 @@ import type { ListStateProperties } from "@ryot-app/media-plugin/shared/list-sta
 import { listStateSnapshotsRecipe } from "@ryot-app/media-plugin/shared/list-state-recipes";
 import { mangaRecipes } from "@ryot-app/media-plugin/shared/manga-recipes";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -83,7 +84,7 @@ describe("AniList list-state media queries", () => {
 				const schemas = yield* loadListStateSchemas(client);
 				const animeReference = schemas.anime.reference;
 				const mangaReference = schemas.manga.reference;
-				const suffix = crypto.randomUUID();
+				const suffix = yield* randomUuid;
 				const [anime, manga] = yield* Effect.all([
 					seedMediaEntity({
 						userId: null,

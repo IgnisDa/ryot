@@ -1,4 +1,5 @@
 import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -64,7 +65,7 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 it.live("retains a competing historical edit instead of overwriting a newer save", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Competing edit ${crypto.randomUUID()}`;
+		const name = `Competing edit ${yield* randomUuid}`;
 		const { exerciseId } = yield* createExerciseEntityFixture(client);
 		const { workoutId } = yield* seedExerciseWorkout(client, {
 			name,
@@ -126,7 +127,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 it.live("retries a committed workout after a lost response and reload without duplicating it", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Recovery workout ${crypto.randomUUID()}`;
+		const name = `Recovery workout ${yield* randomUuid}`;
 		const first = `First ${name}`;
 		const second = `Second ${name}`;
 		for (const exerciseName of [first, second]) {
@@ -213,7 +214,7 @@ it.live("retries a committed workout after a lost response and reload without du
 it.live("repeats, recovers, saves and edits a workout through registered Fitness pages", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Browser workout ${crypto.randomUUID()}`;
+		const name = `Browser workout ${yield* randomUuid}`;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, { name: `Bench ${name}` });
 		const { workoutId } = yield* seedExerciseWorkout(client, {
 			name,
@@ -277,7 +278,7 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 it.live("starts workouts from list Add and templates while guarding another draft", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const name = `Template browser ${crypto.randomUUID()}`;
+		const name = `Template browser ${yield* randomUuid}`;
 		const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client, { name });
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();

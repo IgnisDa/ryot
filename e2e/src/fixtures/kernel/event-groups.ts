@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -73,17 +74,17 @@ export const createEventGroupFixture = (client: Client) =>
 		const { pluginId } = yield* installTestDefinitions({
 			client,
 			entitySchemas,
-			pluginSlug: `event-groups-${crypto.randomUUID()}`,
+			pluginSlug: `event-groups-${yield* randomUuid}`,
 		});
 		const owner = definitionOwner(pluginId);
 		const subject = yield* createEntity(client, {
 			properties: {},
-			name: `Subject ${crypto.randomUUID()}`,
+			name: `Subject ${yield* randomUuid}`,
 			entitySchema: { owner, slug: EntitySchemaSlug.make("subject") },
 		});
 		const session = yield* createEntity(client, {
 			properties: {},
-			name: `Session ${crypto.randomUUID()}`,
+			name: `Session ${yield* randomUuid}`,
 			entitySchema: { owner, slug: EntitySchemaSlug.make("session") },
 		});
 		return { subject, session, pluginId };

@@ -1,6 +1,7 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -392,10 +393,11 @@ describe("Reset link revocation", () => {
 			const userId = yield* getUserIdByEmail(email);
 			const token = yield* issueResetToken(userId);
 
+			const captureId = yield* randomUuid;
 			const forged = yield* Effect.promise(() =>
 				createTestAuthClient().requestPasswordReset(
 					{ email },
-					{ headers: { "x-ryot-reset-capture-id": crypto.randomUUID() } },
+					{ headers: { "x-ryot-reset-capture-id": captureId } },
 				),
 			);
 			expect(forged.error).toBeNull();

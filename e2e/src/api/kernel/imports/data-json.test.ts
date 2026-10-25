@@ -16,6 +16,7 @@ import {
 } from "@ryot-app/ryotql";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
 import { Base64 } from "effect/encoding";
 
@@ -75,8 +76,8 @@ describe("Native data JSON imports", () => {
 		() =>
 			Effect.gen(function* () {
 				const user = yield* createAuthenticatedClient();
-				const matchedSlug = `data-matched-${crypto.randomUUID()}`;
-				const missingSlug = `data-missing-${crypto.randomUUID()}`;
+				const matchedSlug = `data-matched-${yield* randomUuid}`;
+				const missingSlug = `data-missing-${yield* randomUuid}`;
 				const matched = yield* Effect.acquireRelease(
 					installTestProvider({
 						client: user.client,
@@ -183,8 +184,8 @@ describe("Native data JSON imports", () => {
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			const graph = yield* createDataJsonSchemaGraph(user.client);
-			const alphaName = `Data JSON alpha ${crypto.randomUUID()}`;
-			const betaName = `Data JSON beta ${crypto.randomUUID()}`;
+			const alphaName = `Data JSON alpha ${yield* randomUuid}`;
+			const betaName = `Data JSON beta ${yield* randomUuid}`;
 			const input: DataJsonDocument = {
 				relationships: [
 					{
@@ -299,7 +300,7 @@ describe("Native data JSON imports", () => {
 			Effect.gen(function* () {
 				const user = yield* createAuthenticatedClient();
 				const graph = yield* createDataJsonSchemaGraph(user.client);
-				const survivorName = `Data JSON survivor ${crypto.randomUUID()}`;
+				const survivorName = `Data JSON survivor ${yield* randomUuid}`;
 				const { run, runId } = yield* startDataJsonImport(user, {
 					relationships: [],
 					events: [
@@ -478,7 +479,7 @@ describe("Native data JSON imports", () => {
 	it.live("does not change an existing entity and rejects an entity owned by another user", () =>
 		Effect.gen(function* () {
 			const owner = yield* createAuthenticatedClient();
-			const schemaSlug = `data-json-existing-${crypto.randomUUID()}`;
+			const schemaSlug = `data-json-existing-${yield* randomUuid}`;
 			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
 				schemaSlug,
 				schemaName: "Data JSON existing owner",
@@ -578,7 +579,7 @@ describe("Native data JSON imports", () => {
 			if (!("key" in locator)) {
 				throw new Error("Expected a permanent managed asset locator");
 			}
-			const name = `Data JSON asset record ${crypto.randomUUID()}`;
+			const name = `Data JSON asset record ${yield* randomUuid}`;
 			const { run } = yield* startDataJsonImport(user, {
 				events: [],
 				relationships: [],

@@ -16,6 +16,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -134,8 +135,8 @@ describe("Media consumption evidence retention", () => {
 				properties: { pages: 200 },
 			});
 			const reference = yield* mediaReferenceForEntity(client, source.entityId);
-			const sourceRunA = `merge-source-${crypto.randomUUID()}`;
-			const sourceRunB = `merge-target-${crypto.randomUUID()}`;
+			const sourceRunA = `merge-source-${yield* randomUuid}`;
+			const sourceRunB = `merge-target-${yield* randomUuid}`;
 			const occurredAt = "2026-01-02T12:00:00.000Z";
 			const sourceProperties = {
 				sourceRun: sourceRunA,
@@ -185,7 +186,7 @@ describe("Media consumption evidence retention", () => {
 			};
 			yield* mergeEntityUserData(client, mergeRequest, {
 				submittedAt: nowIso(),
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 			});
 			yield* settledHistoryCorrection(client, userId);
 
@@ -222,7 +223,7 @@ describe("Media consumption evidence retention", () => {
 			const show = yield* seedShow(client, {
 				inLibrary: false,
 				properties: { productionStatus: "Ended" },
-				name: `Consumption clear ${crypto.randomUUID()}`,
+				name: `Consumption clear ${yield* randomUuid}`,
 				seasons: [
 					{
 						seasonNumber: 1,
@@ -270,7 +271,7 @@ describe("Media consumption evidence retention", () => {
 				)).total,
 			).toBe(50);
 
-			const clearReceipt = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+			const clearReceipt = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 			const cleared = yield* clearEntityUserData(client, show.show.id, clearReceipt);
 			expect(cleared.deletedEventsCount).toBeGreaterThan(0);
 			yield* settledHistoryCorrection(client, userId);
@@ -290,7 +291,7 @@ describe("Media consumption evidence retention", () => {
 			expect(replay).toEqual(cleared);
 			expect((yield* waitForReport(client, reference)).current.items).toEqual([]);
 
-			const freshSourceRun = `after-clear-${crypto.randomUUID()}`;
+			const freshSourceRun = `after-clear-${yield* randomUuid}`;
 			const freshCompletion = yield* waitForCreateEvents(
 				client,
 				yield* client.call((c) =>
@@ -329,7 +330,7 @@ describe("Media consumption evidence retention", () => {
 				const source = yield* createAuthenticatedClient();
 				const target = yield* createAuthenticatedClient();
 				const { schema: sourceBookSchema } = yield* findMediaEntitySchema(source.client, "book");
-				const bookName = `Custom consumption backup ${crypto.randomUUID()}`;
+				const bookName = `Custom consumption backup ${yield* randomUuid}`;
 				const book = yield* createEntity(source.client, {
 					name: bookName,
 					properties: { pages: 100 },
@@ -338,8 +339,8 @@ describe("Media consumption evidence retention", () => {
 				const eventSchemas = yield* listEventSchemas(source.client, sourceBookSchema.reference);
 				const progress = requireEventSchemaBySlug(eventSchemas, "progress");
 				const complete = requireEventSchemaBySlug(eventSchemas, "complete");
-				const sourceRunA = `restore-shared-${crypto.randomUUID()}`;
-				const sourceRunB = `restore-unknown-${crypto.randomUUID()}`;
+				const sourceRunA = `restore-shared-${yield* randomUuid}`;
+				const sourceRunB = `restore-unknown-${yield* randomUuid}`;
 				const eventFacts = [
 					{
 						eventSchemaSlug: progress.id,

@@ -18,6 +18,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -165,7 +166,7 @@ describe("Media history correction liveness", () => {
 				seasons: [{ seasonNumber: 1, episodes: episodes(70) }],
 			});
 			const reference = yield* mediaReferenceForEntity(client, show.show.id);
-			const submissionId = crypto.randomUUID();
+			const submissionId = yield* randomUuid;
 			yield* Effect.all(
 				[
 					logEveryEpisode(client, show),
@@ -296,7 +297,7 @@ describe("Media history correction liveness", () => {
 			const added = yield* seedShowEpisode(client, {
 				seasonId,
 				seasonNumber: 1,
-				suffix: crypto.randomUUID(),
+				suffix: yield* randomUuid,
 				episode: { episodeNumber: 61, publishDate: "2020-01-02" },
 			});
 			const afterAdd = yield* fingerprint();

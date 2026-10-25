@@ -1,5 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -44,7 +45,7 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 it.live("renders a populated Music detail with its album rail and no watch providers", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const trackName = `Browser Tracer Track ${suffix}`;
 		const siblingName = `Browser Tracer B Side ${suffix}`;
 		const albumName = `Browser Tracer Album ${suffix}`;
@@ -169,7 +170,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 it.live("renders the Music presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const trackName = `Row Tracer Track ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {

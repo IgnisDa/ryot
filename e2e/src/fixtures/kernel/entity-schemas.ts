@@ -11,6 +11,7 @@ import type {
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
@@ -42,7 +43,7 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 			pluginSlug,
 			icon = "book",
 			name = "Test Schema",
-			slug = `schema-${crypto.randomUUID()}`,
+			slug = `schema-${yield* randomUuid}`,
 			propertiesSchema = {
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 			},

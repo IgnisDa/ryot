@@ -1,4 +1,5 @@
 import { mediaActivityLogContextRecipe } from "@ryot-app/media-plugin/shared/activity-log-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -239,7 +240,7 @@ describe("Media history correction", () => {
 				});
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: show.show.id,
@@ -256,7 +257,7 @@ describe("Media history correction", () => {
 				);
 				yield* seedShowEpisode(client, {
 					seasonNumber: 1,
-					suffix: crypto.randomUUID(),
+					suffix: yield* randomUuid,
 					episode: { episodeNumber: 3, publishDate: "2020-01-03" },
 					seasonId: requirePresent(show.seasons[0], "Season missing").id,
 				});

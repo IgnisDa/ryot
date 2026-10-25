@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -135,8 +136,8 @@ describe("YouTube Music on the full sidecar", () => {
 	it.live("youtube_music_provider_runs_on_full_sidecar", () =>
 		Effect.gen(function* () {
 			const http = yield* startFakeHttpServerScoped(() => Response.json(songSearchResponse));
-			const providerSlug = `e2e-youtube-music-${crypto.randomUUID()}`;
-			const schemaSlug = `e2e-youtube-music-${crypto.randomUUID()}`;
+			const providerSlug = `e2e-youtube-music-${yield* randomUuid}`;
+			const schemaSlug = `e2e-youtube-music-${yield* randomUuid}`;
 			const searchEntry = `backend/providers/${providerSlug}/search.sandbox.ts`;
 			const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 			const searchSlug = `${providerSlug}.search`;
@@ -166,7 +167,7 @@ describe("YouTube Music on the full sidecar", () => {
 							requests: 10,
 							intervalMs: 1_000,
 							origins: [new URL(http.url).origin],
-							key: `e2e.youtube-music.${crypto.randomUUID()}`,
+							key: `e2e.youtube-music.${yield* randomUuid}`,
 						},
 					],
 					files: {

@@ -1,6 +1,7 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { ConsumedItem, ConsumptionBasis } from "@ryot-app/media-plugin/shared/consumption";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -162,7 +163,7 @@ describe("Media consumption projection and reporting", () => {
 					entitySchemaSlug: "movie",
 					properties: { runtime: 100 },
 				});
-				const sourceRun = crypto.randomUUID();
+				const sourceRun = yield* randomUuid;
 				const created = yield* client.call((c) =>
 					c.events.create({
 						payload: [
@@ -243,7 +244,7 @@ describe("Media consumption projection and reporting", () => {
 					},
 				]);
 
-				const unknownRun = crypto.randomUUID();
+				const unknownRun = yield* randomUuid;
 				const unknownFinish = yield* client.call((c) =>
 					c.events.create({
 						payload: [

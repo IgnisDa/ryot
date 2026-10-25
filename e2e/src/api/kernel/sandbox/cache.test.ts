@@ -1,4 +1,5 @@
 import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -154,8 +155,8 @@ describe("sandbox cache functions", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
-				const cacheKey = `cache-test-${crypto.randomUUID()}`;
-				const slug = `cache-round-trip-${crypto.randomUUID()}`;
+				const cacheKey = `cache-test-${yield* randomUuid}`;
+				const slug = `cache-round-trip-${yield* randomUuid}`;
 				const { scriptId } = yield* installSandboxScriptScoped({
 					slug,
 					client,
@@ -184,8 +185,8 @@ describe("sandbox cache functions", () => {
 	it.live("getCachedValue returns null for a key that was never set", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const missingKey = `cache-missing-${crypto.randomUUID()}`;
-			const slug = `cache-miss-${crypto.randomUUID()}`;
+			const missingKey = `cache-missing-${yield* randomUuid}`;
+			const slug = `cache-miss-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -207,8 +208,8 @@ describe("sandbox cache functions", () => {
 	it.live("claimPersistentValue persists an atomic claim across executions", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const cacheKey = `persistent-cache-test-${crypto.randomUUID()}`;
-			const slug = `persistent-cache-${crypto.randomUUID()}`;
+			const cacheKey = `persistent-cache-test-${yield* randomUuid}`;
+			const slug = `persistent-cache-${yield* randomUuid}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -244,8 +245,8 @@ describe("sandbox cache functions", () => {
 		Effect.gen(function* () {
 			const { client: clientA, userId: userIdA } = yield* createAuthenticatedClient();
 			const { client: clientB, userId: userIdB } = yield* createAuthenticatedClient();
-			const key = `provider-cache-${crypto.randomUUID()}`;
-			const cachedValue = `private-${crypto.randomUUID()}`;
+			const key = `provider-cache-${yield* randomUuid}`;
+			const cachedValue = `private-${yield* randomUuid}`;
 			const providerA = yield* installCacheProviderScoped(clientA, key, cachedValue);
 			const providerB = yield* installCacheProviderScoped(clientB, key, "other-provider-value");
 			const writerScriptId =

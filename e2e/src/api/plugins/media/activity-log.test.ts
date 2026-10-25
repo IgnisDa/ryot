@@ -4,6 +4,7 @@ import {
 	mediaActivityLogContextRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "@ryot-app/media-plugin/shared/activity-log-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -71,7 +72,7 @@ describe("Media activity log operation", () => {
 			expect(
 				yield* logMediaActivity(client, {
 					submittedAt,
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						timeSpent: 95,
 						kind: "complete",
@@ -95,7 +96,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "complete",
 					entityId: picked.entityId,
@@ -114,7 +115,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: { kind: "complete", when: { kind: "unknown" }, entityId: unknown.entityId },
 			});
 			const [unknownEvent] = yield* readEvents(client, unknown.entityId, "complete");
@@ -193,7 +194,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					entityId,
 					kind: "complete",
@@ -251,12 +252,12 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: { entityId, kind: "progress" },
 			});
 			yield* logMediaActivity(client, {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: { entityId, kind: "progress", progressPercent: 40, consumedOn: "Kindle" },
 			});
 
@@ -334,7 +335,7 @@ describe("Media activity log operation", () => {
 					expect(
 						yield* logMediaActivity(client, {
 							submittedAt: nowIso(),
-							submissionId: crypto.randomUUID(),
+							submissionId: yield* randomUuid,
 							entry: { status, kind: "status", entityId: target.entityId },
 						}),
 					).toEqual({ count: 1, status: "saved" });
@@ -468,7 +469,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
 					parentEntityId: showId,
@@ -501,7 +502,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
 					consumedOn: "Plex",
@@ -548,7 +549,7 @@ describe("Media activity log operation", () => {
 
 			yield* logMediaActivity(client, {
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
 					when: { kind: "now" },
@@ -627,7 +628,7 @@ describe("Media activity log operation", () => {
 				attempt({ position: 2, kind: "progress", entityId: movie.entityId }),
 				attempt({ kind: "progress", progressPercent: 50, entityId: anime.entityId }),
 				attempt({ kind: "progress", entityId: anime.entityId }),
-				attempt({ kind: "status", status: "dropped", entityId: crypto.randomUUID() }),
+				attempt({ kind: "status", status: "dropped", entityId: yield* randomUuid }),
 			];
 
 			for (const failure of yield* Effect.all(invalid)) {
@@ -667,13 +668,13 @@ describe("Media activity log operation", () => {
 			const submittedAt = nowIso();
 			const movieInput = {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: { kind: "complete", when: { kind: "now" }, entityId: movie.entityId },
 			} as const;
 			const episodeIds = [show.episodeId(1, 3), show.episodeId(1, 1), show.episodeId(1, 2)];
 			const showInput = {
 				submittedAt,
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
 					when: { kind: "now" },

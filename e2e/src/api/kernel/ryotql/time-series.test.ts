@@ -12,6 +12,7 @@ import {
 	table,
 	timeSeries,
 } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -47,7 +48,7 @@ describe("RyotQL time-series outputs", () => {
 				const eventSchema = yield* createEventSchema(client, {
 					entitySchema: reference,
 					name: "RyotQL Time Series Review",
-					slug: `ryotql-time-series-review-${crypto.randomUUID()}`,
+					slug: `ryotql-time-series-review-${yield* randomUuid}`,
 					propertiesSchema: {
 						fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 					},
@@ -177,7 +178,7 @@ describe("RyotQL time-series outputs", () => {
 					properties: { publishedAt: "not-a-date" },
 				}),
 			]);
-			const relationshipSlug = `ryotql-time-series-link-${crypto.randomUUID()}`;
+			const relationshipSlug = `ryotql-time-series-link-${yield* randomUuid}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				slug: relationshipSlug,

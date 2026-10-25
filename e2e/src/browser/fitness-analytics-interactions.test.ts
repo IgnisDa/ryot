@@ -5,6 +5,7 @@ import {
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessMeasurementReadingsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Clock, Effect, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -423,7 +424,7 @@ it.live(
 			expect(yield* rowWithName(refreshedReadingsTable, "Sep 2, 2026").innerText()).toContain(
 				"0 widgets",
 			);
-			const screenshotPath = `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/fitness-analytics-measurement-${crypto.randomUUID()}-compact.png`;
+			const screenshotPath = `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/fitness-analytics-measurement-${yield* randomUuid}-compact.png`;
 			yield* page.use((nativePage) =>
 				nativePage
 					.locator(iframeSelector)

@@ -1,4 +1,5 @@
 import { reminderReadinessRecipe } from "@ryot-app/ryotql-recipes/reminders";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -26,7 +27,7 @@ it.live("manages entity reminders from media and fitness pages", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const media = yield* seedGlobalMovieWithCollection(client, {
 			movieName: `Reminder movie ${suffix}`,
 			siblingName: `Reminder sibling ${suffix}`,
@@ -169,7 +170,7 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		const source = yield* createAuthenticatedClient();
 		const entity = yield* createCollection(source.client);
 		const originalDueAt = DateTime.formatIso(DateTime.addDuration(yield* DateTime.now, 86_400_000));
-		const message = `Backup reminder ${crypto.randomUUID()}`;
+		const message = `Backup reminder ${yield* randomUuid}`;
 		yield* createReminder(source.client, {
 			...(yield* reminderSubmission),
 			message,

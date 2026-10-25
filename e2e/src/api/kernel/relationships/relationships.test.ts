@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -33,7 +34,7 @@ const makeRelationshipFixture = (client: Client) =>
 		const relSchema = yield* createRelationshipSchema(client, {
 			pluginSlug,
 			name: "Test Relationship",
-			slug: `test-rel-${crypto.randomUUID()}`,
+			slug: `test-rel-${yield* randomUuid}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
@@ -122,7 +123,7 @@ describe("POST /relationships", () => {
 			const strictSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				name: "Strict Relationship",
-				slug: `strict-rel-${crypto.randomUUID()}`,
+				slug: `strict-rel-${yield* randomUuid}`,
 				propertiesSchema: {
 					fields: {
 						status: {

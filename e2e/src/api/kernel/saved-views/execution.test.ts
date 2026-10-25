@@ -19,6 +19,7 @@ import {
 	entityBrowserCountRecipe,
 	entityBrowserRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { DateTime, Effect, Schema } from "effect";
 
@@ -75,18 +76,18 @@ describe("saved views execution", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, pluginId, reference } = yield* createPluginEntitySchema(client, {
-				schemaName: `Saved View Count ${crypto.randomUUID()}`,
+				schemaName: `Saved View Count ${yield* randomUuid}`,
 			});
 			const workspace = requirePresent(
 				(yield* listInstalledPlugins(client)).find((plugin) => plugin.pluginId === pluginId),
 				"Saved-view workspace installation is missing",
 			);
 			const matchingNames = [
-				`Saved View Count Match One ${crypto.randomUUID()}`,
-				`Saved View Count Match Two ${crypto.randomUUID()}`,
+				`Saved View Count Match One ${yield* randomUuid}`,
+				`Saved View Count Match Two ${yield* randomUuid}`,
 			];
 			yield* Effect.forEach(
-				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`],
+				[...matchingNames, `Saved View Count Other ${yield* randomUuid}`],
 				(name) => createEntityFixture(client, { name, entitySchema: reference }),
 			);
 
@@ -109,7 +110,7 @@ describe("saved views execution", () => {
 			const settings = entityBrowserSettings(pluginId);
 			const created = yield* createSavedView(client, {
 				dataSources,
-				name: `Saved View Count ${crypto.randomUUID()}`,
+				name: `Saved View Count ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 				settings: {
 					...settings,
@@ -136,8 +137,8 @@ describe("saved views execution", () => {
 				providerId,
 				userId: null,
 				entitySchemaSlug: schema.id,
-				name: `Isolated All Shows ${crypto.randomUUID()}`,
-				externalId: `isolated-all-shows-${crypto.randomUUID()}`,
+				name: `Isolated All Shows ${yield* randomUuid}`,
+				externalId: `isolated-all-shows-${yield* randomUuid}`,
 				properties: {
 					images: [],
 					isNsfw: null,
@@ -167,7 +168,7 @@ describe("saved views execution", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, pluginId, reference } = yield* createPluginEntitySchema(client, {
-				schemaName: `Saved View Filter ${crypto.randomUUID()}`,
+				schemaName: `Saved View Filter ${yield* randomUuid}`,
 				propertiesSchema: {
 					fields: {
 						reps: { label: "Reps", description: "Reps", type: "integer" as const },
@@ -281,7 +282,7 @@ describe("saved views execution", () => {
 			const created = yield* createSavedView(client, {
 				settings,
 				dataSources,
-				name: `Saved View Filter ${crypto.randomUUID()}`,
+				name: `Saved View Filter ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 			});
 			const persisted = yield* findSavedViewById(client, created.id);
@@ -364,18 +365,18 @@ describe("saved views execution", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const workoutSchema = yield* createPluginEntitySchema(client, {
-				schemaName: `Session Workout ${crypto.randomUUID()}`,
+				schemaName: `Session Workout ${yield* randomUuid}`,
 			});
 			const { pluginId, pluginSlug } = workoutSchema;
 			const exerciseSchema = yield* createPluginEntitySchema(client, {
 				pluginSlug,
-				schemaName: `Session Exercise ${crypto.randomUUID()}`,
+				schemaName: `Session Exercise ${yield* randomUuid}`,
 			});
 			const otherSchema = yield* createPluginEntitySchema(client, {
 				pluginSlug,
-				schemaName: `Session Other ${crypto.randomUUID()}`,
+				schemaName: `Session Other ${yield* randomUuid}`,
 			});
-			const eventSlug = `logged-${crypto.randomUUID()}`;
+			const eventSlug = `logged-${yield* randomUuid}`;
 			for (const { reference } of [exerciseSchema, otherSchema]) {
 				yield* createEventSchema(client, {
 					name: "Logged",
@@ -440,7 +441,7 @@ describe("saved views execution", () => {
 			});
 			const created = yield* createSavedView(client, {
 				dataSources,
-				name: `Saved View Session ${crypto.randomUUID()}`,
+				name: `Saved View Session ${yield* randomUuid}`,
 				workspaceInstallationId: workspace.installationId,
 				settings: {
 					...entityBrowserSettings(pluginId),

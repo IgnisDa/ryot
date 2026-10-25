@@ -15,6 +15,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -39,7 +40,7 @@ const createFixture = (client: Client, name: string) =>
 		const eventSchema = yield* createEventSchema(client, {
 			name: `${name} Review`,
 			entitySchema: reference,
-			slug: `${name.toLowerCase()}-review-${crypto.randomUUID()}`,
+			slug: `${name.toLowerCase()}-review-${yield* randomUuid}`,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},

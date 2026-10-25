@@ -1,5 +1,6 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -83,13 +84,13 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 				}),
 			});
 			const baseline = yield* sampleOperationalPressure(
-				[`overlap-baseline-${crypto.randomUUID()}`],
+				[`overlap-baseline-${yield* randomUuid}`],
 				target,
 			);
 
 			for (const concurrency of CONCURRENCY_LEVELS) {
 				for (let repetition = 0; repetition < REPETITIONS; repetition += 1) {
-					const prefix = `overlap-${concurrency}-${repetition}-${crypto.randomUUID()}`;
+					const prefix = `overlap-${concurrency}-${repetition}-${yield* randomUuid}`;
 					const runs = yield* Effect.forEach(
 						Array.from({ length: concurrency }, (_, index) => index),
 						(index) =>
@@ -141,7 +142,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 			}
 
 			const finalPressure = yield* sampleOperationalPressure(
-				[`overlap-final-${crypto.randomUUID()}`],
+				[`overlap-final-${yield* randomUuid}`],
 				target,
 			);
 			expect(finalPressure.database.deadlocks - baseline.database.deadlocks).toBe(0);

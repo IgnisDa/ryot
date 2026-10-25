@@ -19,6 +19,7 @@ import {
 	notificationDeliveriesRecipe,
 	notificationOutcomeRecipe,
 } from "@ryot-app/ryotql-recipes/notification-delivery";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -361,7 +362,7 @@ describe("notification delivery", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const payload: ContractPayload<"notifications", "testChannels"> = {
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 				submittedAt: DateTime.formatIso(yield* DateTime.now),
 			};
 			const first = yield* client.call((c) => c.notifications.testChannels({ payload }));
@@ -405,7 +406,7 @@ describe("notification delivery", () => {
 			const saved = yield* saveWorkoutEditor(
 				client,
 				operationInput(
-					workoutData({ startedAt: now, name: `Zero Channel Workout ${crypto.randomUUID()}` }),
+					workoutData({ startedAt: now, name: `Zero Channel Workout ${yield* randomUuid}` }),
 					undefined,
 					now,
 				),

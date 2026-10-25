@@ -1,5 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { WorkoutExercisePropertiesSchema } from "@ryot-app/fitness-plugin/workout-taxonomy";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -43,7 +44,7 @@ export const createWorkoutEvidenceTaxonomy = (
 				const entity = yield* createEntity(client, {
 					properties: { kind: "muscle_region" },
 					entitySchema: targetSchema.schema.reference,
-					name: `Analytics evidence target ${crypto.randomUUID()}`,
+					name: `Analytics evidence target ${yield* randomUuid}`,
 				});
 				yield* createRelationship(client, {
 					targetEntityId: entity.id,
@@ -59,7 +60,7 @@ export const createWorkoutEvidenceTaxonomy = (
 				const entity = yield* createEntity(client, {
 					properties: {},
 					entitySchema: equipmentSchema.schema.reference,
-					name: `Analytics evidence equipment ${crypto.randomUUID()}`,
+					name: `Analytics evidence equipment ${yield* randomUuid}`,
 				});
 				yield* createRelationship(client, {
 					targetEntityId: entity.id,

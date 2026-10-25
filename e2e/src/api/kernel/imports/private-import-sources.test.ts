@@ -1,5 +1,6 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
@@ -62,7 +63,7 @@ describe("private import sources", () => {
 		Effect.gen(function* () {
 			const first = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
+			const suffix = yield* randomUuid;
 			const sourceSlug = `e2e-shared-private-import-${suffix}`;
 			const pluginSlug = `e2e-shared-private-import-plugin-${suffix}`;
 			const packageId = testPluginPackageId();

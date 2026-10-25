@@ -6,6 +6,7 @@ import {
 	stringContaining,
 	stringMatching,
 } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -94,7 +95,7 @@ describe("Measurements E2E", () => {
 				const input = {
 					comment: "Fasted",
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					occurredAt: "2026-10-01T07:30:00.000Z",
 					values: [
 						{ value: 0, metricId: weight.entityId },
@@ -123,7 +124,7 @@ describe("Measurements E2E", () => {
 				expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual(
 					original.items,
 				);
-				const concurrent = { ...input, submissionId: crypto.randomUUID() };
+				const concurrent = { ...input, submissionId: yield* randomUuid };
 				expect(
 					yield* Effect.all(
 						[

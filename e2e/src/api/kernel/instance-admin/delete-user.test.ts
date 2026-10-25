@@ -4,6 +4,7 @@ import { mediaPlugin } from "@ryot-app/media-plugin";
 import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
 import {
@@ -187,7 +188,7 @@ describe("Delete user automation data cleanup", () => {
 				owner: schema.reference.owner,
 				slug: SignalSchemaSlug.make("workout.created"),
 			};
-			const workoutName = `Delete User E2E Workout ${crypto.randomUUID()}`;
+			const workoutName = `Delete User E2E Workout ${yield* randomUuid}`;
 			const workout = yield* createEntity(userClient, {
 				name: workoutName,
 				entitySchema: schema.reference,
@@ -223,8 +224,8 @@ describe("Delete user automation data cleanup", () => {
 			Effect.gen(function* () {
 				const movieName = "Delete User E2E Movie";
 				const personName = "Delete User E2E Person";
-				const movieExternalId = `delete-user-movie-${crypto.randomUUID()}`;
-				const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
+				const movieExternalId = `delete-user-movie-${yield* randomUuid}`;
+				const personExternalId = `delete-user-person-${yield* randomUuid}`;
 
 				const { client: compilerClient } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(compilerClient, "person");
@@ -241,12 +242,12 @@ describe("Delete user automation data cleanup", () => {
 				);
 				const personProvider = yield* media.attachProvider({
 					rootEntitySchemaSlug: personSchemaId,
-					slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
+					slug: `person.delete-user-e2e-${yield* randomUuid}`,
 					details: fakeProviderDetailsResult({ name: personName }),
 				});
 				const movieProvider = yield* media.attachProvider({
 					rootEntitySchemaSlug: movieSchemaId,
-					slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
+					slug: `movie.delete-user-e2e-${yield* randomUuid}`,
 					details: fakeProviderDetailsResult({
 						name: movieName,
 						relatedEntityGroups: [

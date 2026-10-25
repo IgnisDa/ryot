@@ -1,4 +1,5 @@
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -26,14 +27,14 @@ import { webRequest } from "~/support/web-request";
 it.live("installs a system built-in view whose slug matches another user's custom view", () =>
 	Effect.gen(function* () {
 		const owner = yield* createAuthenticatedClient();
-		const view = yield* createSavedView(owner.client, { name: `Collision ${crypto.randomUUID()}` });
+		const view = yield* createSavedView(owner.client, { name: `Collision ${yield* randomUuid}` });
 		const custom = yield* findSavedViewById(owner.client, view.id);
 		const installed = yield* Effect.acquireRelease(
 			installTestSupportSystemPlugin({
 				files: {},
 				manifest: testPluginManifest({
 					packageId: testPluginPackageId(),
-					pluginSlug: `e2e-collision-${crypto.randomUUID()}`,
+					pluginSlug: `e2e-collision-${yield* randomUuid}`,
 					savedViews: [testPluginSavedView({ slug: custom.slug })],
 				}),
 			}),
@@ -53,7 +54,7 @@ it.live(
 	"compiles and installs synthetic backend and client sources without server compilation",
 	() =>
 		Effect.gen(function* () {
-			const pluginSlug = `e2e-compiled-package-${crypto.randomUUID()}`;
+			const pluginSlug = `e2e-compiled-package-${yield* randomUuid}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
 			const manifest = testPluginManifest({

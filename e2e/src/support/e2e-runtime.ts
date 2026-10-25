@@ -1,4 +1,4 @@
-import { BunPath } from "@effect/platform-bun";
+import { BunCrypto, BunPath } from "@effect/platform-bun";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { pluginClientCompilerPlatformLayer } from "@ryot-app/plugin-client-compiler";
 import { Effect, Layer } from "effect";
@@ -7,6 +7,7 @@ import { FetchHttpClient } from "effect/http";
 
 const e2eLayer = Layer.mergeAll(
 	BunPath.layer,
+	BunCrypto.layerSecureRandom,
 	FetchHttpClient.layer,
 	PlaywrightSpawner.layer(chromium),
 	pluginBackendCompilerPlatformLayer,

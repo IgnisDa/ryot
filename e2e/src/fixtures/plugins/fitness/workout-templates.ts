@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -34,7 +35,7 @@ export const createWorkoutTemplateEntityFixture = (
 			options.exerciseId ?? (yield* createExerciseEntityFixture(client)).exerciseId;
 		const workoutTemplate = yield* createEntity(client, {
 			entitySchema: workoutTemplateSchema.reference,
-			name: options.name ?? `Workout Template ${crypto.randomUUID()}`,
+			name: options.name ?? `Workout Template ${yield* randomUuid}`,
 			properties: {
 				comment: options.comment ?? "Upper body template",
 				supersets: [{ exercises: [0], color: "#84CC16" }],

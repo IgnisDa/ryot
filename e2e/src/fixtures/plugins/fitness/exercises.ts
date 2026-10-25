@@ -1,5 +1,6 @@
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import type { ExerciseKind } from "@ryot-app/fitness-plugin/exercise-kinds";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
@@ -41,7 +42,7 @@ export const createExerciseEntityFixture = (
 		const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 		const exercise = yield* createEntity(client, {
 			entitySchema: exerciseSchema.reference,
-			name: options.name ?? `Exercise ${crypto.randomUUID()}`,
+			name: options.name ?? `Exercise ${yield* randomUuid}`,
 			properties: {
 				level: options.level ?? "beginner",
 				kind: options.kind ?? "reps_and_weight",

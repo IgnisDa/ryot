@@ -2,6 +2,7 @@ import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { mediaActivityLogContextRecipe } from "@ryot-app/media-plugin/shared/activity-log-recipes";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -71,7 +72,7 @@ const customShowTree = Effect.fnUntraced(function* (client: Client) {
 	const showEntity = yield* createEntity(client, {
 		properties: {},
 		entitySchema: show.schema.reference,
-		name: `Custom show ${crypto.randomUUID()}`,
+		name: `Custom show ${yield* randomUuid}`,
 	});
 	const seasonId = yield* createChild(client, {
 		name: "Season 1",
@@ -151,7 +152,7 @@ describe("custom Media seasons and episodes", () => {
 				).toEqual([]);
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
+					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						when: { kind: "now" },
@@ -259,7 +260,7 @@ describe("custom Media seasons and episodes", () => {
 			assertCondition(watched !== undefined && unwatched !== undefined, "Expected two episodes");
 			yield* logMediaActivity(client, {
 				submittedAt: nowIso(),
-				submissionId: crypto.randomUUID(),
+				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
 					when: { kind: "now" },
@@ -289,7 +290,7 @@ describe("custom Media seasons and episodes", () => {
 			);
 			const payload = {
 				submittedAt: nowIso(),
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 				submission: deleteRequest(tree.episodeSchema, unwatched, target.updatedAt),
 			};
 			const replayDelete = client.call((c) => c.entities.saveEditor({ payload }));

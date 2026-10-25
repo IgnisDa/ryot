@@ -1,5 +1,6 @@
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import type { ExerciseKind } from "@ryot-app/fitness-plugin/exercise-kinds";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -34,7 +35,7 @@ export const saveHistoricalWorkoutData = Effect.fn("saveHistoricalWorkoutData")(
 
 export const createKindChangingExerciseFixture = Effect.fn("createKindChangingExerciseFixture")(
 	function* () {
-		const suffix = crypto.randomUUID();
+		const suffix = yield* randomUuid;
 		const { target } = yield* startIsolatedApiServer({ label: `Fitness records ${suffix}` });
 		const { client } = yield* createAuthenticatedClient(target);
 		const providers = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId, target);
@@ -61,7 +62,7 @@ export const createKindChangingExerciseFixture = Effect.fn("createKindChangingEx
 			}),
 		);
 		const refresh = Effect.fn("refreshRecordedExerciseKind")(function* (kind: ExerciseKind) {
-			const idempotencyKey = crypto.randomUUID();
+			const idempotencyKey = yield* randomUuid;
 			const accepted = yield* client.call((contract) =>
 				contract.entities.requestEnrichment({
 					params: { entityId: seeded.id },

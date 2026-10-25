@@ -1,5 +1,6 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -54,7 +55,7 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 
 it.live("automatically populates and translates a partial Show in the compiled Media detail", () =>
 	Effect.gen(function* () {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const translatedName = `Serie traducida ${id}`;
 		const translatedDescription = `Resumen de la serie ${id}.`;
 		const { email, client, password } = yield* createAuthenticatedClient(target);
@@ -104,7 +105,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 
 it.live("shows a failed Media population and repopulates it after Try again", () =>
 	Effect.gen(function* () {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const providerName = `Failing Provider ${id}`;
 		const populatedName = `Recovered Show ${id}`;
 		const { email, client, password } = yield* createAuthenticatedClient(target);
@@ -160,7 +161,7 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 
 it.live("opens a base-populated Media Movie and shows its credits once they arrive", () =>
 	Effect.gen(function* () {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		const personName = `Credited Person ${id}`;
 		const { email, client, password } = yield* createAuthenticatedClient(target);
 		const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");

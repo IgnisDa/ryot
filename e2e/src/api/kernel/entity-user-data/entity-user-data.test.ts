@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -206,7 +207,7 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 			const libraryEntityId = yield* getMediaLibraryEntityId(client);
 			const error = yield* Effect.flip(
 				clearEntityUserData(client, libraryEntityId, {
-					idempotencyKey: crypto.randomUUID(),
+					idempotencyKey: yield* randomUuid,
 					submittedAt: DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { days: 8 })),
 				}),
 			);
@@ -219,7 +220,7 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const libraryEntityId = yield* getMediaLibraryEntityId(client);
-			const payload = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+			const payload = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -235,7 +236,7 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 	it.live("rejects unauthenticated requests", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const payload = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+			const payload = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -255,8 +256,8 @@ describe("POST /entity-user-data/merge", () => {
 	it.live("moves user events and dedupes relationships from source to target", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
-			const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
+			const entitySchemaSlug = `merge-schema-${yield* randomUuid}`;
+			const eventSchemaSlug = `merged-event-${yield* randomUuid}`;
 			const { reference, pluginSlug } = yield* createPluginSchema(client, {
 				slug: entitySchemaSlug,
 			});
@@ -359,7 +360,7 @@ describe("POST /entity-user-data/merge", () => {
 				submittedAt: nowIso(),
 				mergeFrom: first.entityId,
 				mergeInto: second.entityId,
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: yield* randomUuid,
 			};
 
 			const error = yield* Effect.flip(

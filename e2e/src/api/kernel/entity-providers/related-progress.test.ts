@@ -1,4 +1,5 @@
 import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Deferred, Effect, Exit } from "effect";
 
 import {
@@ -45,8 +46,8 @@ describe("related population progress", () => {
 					{ discard: true },
 				),
 			);
-			const relatedProviderSlug = `related-${crypto.randomUUID()}`;
-			const prefix = crypto.randomUUID();
+			const relatedProviderSlug = `related-${yield* randomUuid}`;
+			const prefix = yield* randomUuid;
 			const related = (index: number) => ({
 				name: `Related record ${index}`,
 				externalId: `${prefix}-${index}`,
@@ -200,7 +201,7 @@ describe("related population progress", () => {
 				}),
 			);
 			retrying = true;
-			const idempotencyKey = crypto.randomUUID();
+			const idempotencyKey = yield* randomUuid;
 			const retries = yield* Effect.forEach(
 				[0, 1],
 				() =>

@@ -1,6 +1,7 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -96,7 +97,7 @@ describe("notification subscription catalog and rules", () => {
 			expect(inaccessible).toBeUndefined();
 			const nonexistent = yield* getNotificationSubscription(
 				owner.client,
-				`missing-${crypto.randomUUID()}`,
+				`missing-${yield* randomUuid}`,
 			);
 			expect(nonexistent).toBeUndefined();
 
@@ -164,7 +165,7 @@ describe("notification subscription catalog and rules", () => {
 				channelSpecifics: { key: "workout", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			const { schema } = yield* findFitnessEntitySchema(client, "workout");
-			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
+			const workoutName = `E2E Workout ${yield* randomUuid}`;
 			const workout = yield* createEntity(client, {
 				name: workoutName,
 				entitySchema: schema.reference,

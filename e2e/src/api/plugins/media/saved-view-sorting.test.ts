@@ -1,3 +1,4 @@
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import {
@@ -37,7 +38,7 @@ const seed = (
 			properties,
 			providerId: null,
 			entitySchemaSlug: schema.id,
-			externalId: `saved-view-sort-${crypto.randomUUID()}`,
+			externalId: `saved-view-sort-${yield* randomUuid}`,
 		});
 		return { ...entity, pluginId, reference: schema.reference };
 	});

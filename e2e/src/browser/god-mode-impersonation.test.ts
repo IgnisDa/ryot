@@ -1,4 +1,5 @@
 import { OAUTH_IMPERSONATION_WEB_CLIENT_ID, StoredTokenSet } from "@ryot-app/contract/oauth";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -123,7 +124,7 @@ for (const { label, viewport } of viewports) {
 			const refreshedTokenSetValue = yield* Schema.encodeEffect(
 				Schema.fromJsonString(StoredTokenSet),
 			)(refreshedTokenSet);
-			const documentSentinel = `e2e-document-${crypto.randomUUID()}`;
+			const documentSentinel = `e2e-document-${yield* randomUuid}`;
 			yield* siblingPage.evaluate((id) => {
 				const sentinel = document.createElement("span");
 				sentinel.id = id;
