@@ -1,3 +1,4 @@
+import { DateTime, Duration } from "@ryot-app/plugin-client-sdk/effect";
 import { localDateOf, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import {
@@ -384,11 +385,15 @@ export const bestWeightByReps = (totals: Totals) => {
 	});
 };
 
-const dayMs = 86_400_000;
-
 export const daysSince = (value: null | string, now: Date) => {
 	const date = parseDate(value);
-	return date === null ? null : Math.floor((now.getTime() - date.getTime()) / dayMs);
+	return date === null
+		? null
+		: Math.floor(
+				Duration.toDays(
+					DateTime.distance(DateTime.fromDateUnsafe(date), DateTime.fromDateUnsafe(now)),
+				),
+			);
 };
 
 export const isLapsed = (lastAt: null | string, now: Date) => {

@@ -1,3 +1,4 @@
+import { Array, DateTime, Duration } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	REPORTING_BUCKET_LIMIT,
 	resolveReportingSelection,
@@ -11,8 +12,7 @@ import type { MeasurementLogEntry } from "./queries";
 
 export type RangeKey = "1M" | "3M" | "1Y" | "All";
 
-export const DAY_MS = 86_400_000;
-export const STALE_AFTER_DAYS = 45;
+const STALE_AFTER = Duration.days(45);
 
 export const rangeOptions = [
 	{ days: 30, key: "1M", phrase: "30 days" },
@@ -52,17 +52,19 @@ export const seriesWindow = (
 	if (period !== null) {
 		return { endAt: period.endAt, bucket: "day" as const, startAt: period.startAt };
 	}
-	const endAt = now.toISOString();
+	const end = DateTime.fromDateUnsafe(now);
 	const firstTimes = summaries.flatMap(({ firstAt }) =>
-		firstAt === null ? [] : [Date.parse(firstAt)],
+		firstAt === null ? [] : [DateTime.makeUnsafe(firstAt)],
 	);
-	const earliest = firstTimes.length === 0 ? now.getTime() - DAY_MS : Math.min(...firstTimes);
-	const spanDays = (now.getTime() - earliest) / DAY_MS;
+	const earliest = Array.isArrayNonEmpty(firstTimes)
+		? Array.min(firstTimes, DateTime.Order)
+		: DateTime.subtract(end, { days: 1 });
+	const spanDays = Duration.toDays(DateTime.distance(earliest, end));
 	const coarseBucket =
 		spanDays / 28 <= REPORTING_BUCKET_LIMIT ? ("month" as const) : ("year" as const);
 	return {
-		endAt,
-		startAt: new Date(earliest).toISOString(),
+		endAt: DateTime.formatIso(end),
+		startAt: DateTime.formatIso(earliest),
 		bucket: spanDays / 7 <= REPORTING_BUCKET_LIMIT ? ("week" as const) : coarseBucket,
 	};
 };
@@ -80,7 +82,10 @@ export const selectPinnedMetrics = (summaries: readonly MeasurementSummary[]) =>
 		.map(({ summary }) => summary);
 
 export const isStale = (latestAt: string, now: Date) =>
-	now.getTime() - Date.parse(latestAt) > STALE_AFTER_DAYS * DAY_MS;
+	DateTime.isGreaterThan(
+		DateTime.fromDateUnsafe(now),
+		DateTime.addDuration(DateTime.makeUnsafe(latestAt), STALE_AFTER),
+	);
 
 export const unitSuffix = (unit: null | string) =>
 	unit === null || unit === "" ? "" : ` (${unit})`;
@@ -171,7 +176,7 @@ export const groupByMonth = (
 	timeZone: TimeZone,
 ): readonly MonthSection[] => {
 	const format = monthFormat(timeZone);
-	const sections: Array<{ label: string; groups: ReadingGroup[] }> = [];
+	const sections: { label: string; groups: ReadingGroup[] }[] = [];
 	for (const group of groups) {
 		const label = format.format(Date.parse(group.occurredAt));
 		const current = sections.at(-1);
