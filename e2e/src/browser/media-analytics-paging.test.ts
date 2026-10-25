@@ -1,5 +1,4 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { mediaAnalyticsRecordsRecipe } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -10,7 +9,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	analyticsSearch,
 	analyticsSection,
-	hasAnalyticsSelection,
+	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
@@ -22,14 +21,10 @@ import {
 } from "~/fixtures/plugins/media/consumption";
 import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertCondition, requirePresent, requireString } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 type MediaRecord = Recipe.Success<typeof mediaAnalyticsRecordsRecipe>["items"][number];
-
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
-	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
 
 const displayedRows = (table: Playwright.Locator) =>
 	table.evaluate((element) =>
@@ -203,7 +198,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			entryPath: `/v/k/analytics?${search}`,
 		});
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
-		const iframe = page.locator(iframeSelector);
+		const iframe = activePluginIframe(page);
 		const frame = iframe.contentFrame();
 		yield* frame.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).waitFor();
 		expect(yield* iframe.count).toBe(1);

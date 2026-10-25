@@ -39,3 +39,25 @@ export const waitForSearchParam = (page: Playwright.Page, value: null | string) 
 		);
 
 export const pluginFrame = (page: Playwright.Page) => page.locator("iframe:visible").contentFrame();
+
+export const activePluginIframe = (page: Playwright.Page) =>
+	page.locator('main > div:not([aria-hidden="true"]) iframe');
+
+export const termDefinition = (container: Playwright.Locator, term: string, index = 0) =>
+	container
+		.getByRole("term")
+		.and(container.getByText(term, { exact: true }))
+		.locator("xpath=..")
+		.getByRole("definition")
+		.nth(index);
+
+export const periodRow = (table: Playwright.Locator, period: string, date: string) =>
+	table.getByRole("row", { name: `${period} · ${date}` });
+
+export const desktopViewport = { width: 1280, height: 900 };
+export const compactViewport = { width: 390, height: 844 };
+export const colorSchemes: ReadonlyArray<"dark" | "light"> = ["light", "dark"];
+export const chartVisualCases = [
+	{ name: "desktop", chartHeight: 280, viewport: desktopViewport },
+	{ name: "compact", chartHeight: 200, viewport: compactViewport },
+];

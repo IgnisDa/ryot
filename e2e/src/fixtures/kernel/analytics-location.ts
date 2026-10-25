@@ -23,3 +23,6 @@ export const analyticsSearch = (
 export const hasAnalyticsSelection = (url: URL, selection: ReportingSelection) =>
 	url.pathname === "/v/k/analytics" &&
 	stableStringify(parseReportingSearch(url.search)) === stableStringify(selection);
+
+export const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
+	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;

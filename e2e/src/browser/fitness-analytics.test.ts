@@ -5,16 +5,20 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	analyticsSearch,
 	analyticsSection,
-	hasAnalyticsSelection,
+	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { createFitnessAnalyticsFixture } from "~/fixtures/plugins/fitness/analytics";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import {
+	activePluginIframe,
+	chartVisualCases,
+	colorSchemes,
+	desktopViewport,
+	periodRow,
+	signInThroughHostedOAuth,
+	termDefinition,
+} from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
-const analyticsFrame = (page: Playwright.Page) => page.locator(iframeSelector);
-const desktopViewport = { width: 1280, height: 900 };
-const colorSchemes: ReadonlyArray<"dark" | "light"> = ["light", "dark"];
 const currentWorkoutRows: ReadonlyArray<{ readonly date: string; readonly value: string }> = [
 	{ date: "Sep 2, 2026", value: "1 workouts" },
 	{ date: "Sep 4, 2026", value: "1 workouts" },
@@ -31,25 +35,6 @@ const hourRows: ReadonlyArray<{ readonly hour: string; readonly detail: string }
 	{ hour: "18:00–19:00", detail: "1 workouts · 1 workout starts in reporting hour 18" },
 ];
 
-const visualCases = [
-	{ name: "desktop", chartHeight: 280, viewport: desktopViewport },
-	{ name: "compact", chartHeight: 200, viewport: { width: 390, height: 844 } },
-];
-
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
-	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
-
-const summaryValue = (summary: Playwright.Locator, label: string) =>
-	summary
-		.getByRole("term")
-		.and(summary.getByText(label, { exact: true }))
-		.locator("xpath=..")
-		.getByRole("definition")
-		.first();
-
-const periodRow = (table: Playwright.Locator, period: string, date: string) =>
-	table.getByRole("row", { name: `${period} · ${date}` });
-
 it.live("smokes Fitness analytics summary and workout charts across viewports", () =>
 	Effect.gen(function* () {
 		const fixture = yield* createFitnessAnalyticsFixture();
@@ -63,7 +48,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 			timezoneId: "America/New_York",
 		});
 		const page = yield* context.newPage;
-		const frameElement = analyticsFrame(page);
+		const frameElement = activePluginIframe(page);
 
 		yield* signInThroughHostedOAuth(page, fixture.account.email, fixture.account.password, {
 			entryPath,
@@ -90,19 +75,19 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 
 		const summary = frame.getByRole("region", { exact: true, name: "Fitness analytics summary" });
 		yield* summary.waitFor({ state: "visible" });
-		expect(yield* summaryValue(summary, "Workouts").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Workouts").innerText()).toBe(
 			`${fixture.expectedSourceValues.workouts} workouts`,
 		);
-		expect(yield* summaryValue(summary, "Sets").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Sets").innerText()).toBe(
 			`${fixture.expectedSourceValues.sets} sets`,
 		);
-		expect(yield* summaryValue(summary, "Recorded active duration").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Recorded active duration").innerText()).toBe(
 			`${fixture.expectedSourceValues.activeDuration} seconds`,
 		);
-		expect(yield* summaryValue(summary, "Weight volume").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
 			`${fixture.expectedSourceValues.volume} kg × reps`,
 		);
-		expect(yield* summaryValue(summary, "Planned rest").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Planned rest").innerText()).toBe(
 			`${fixture.expectedSourceValues.plannedRest} seconds`,
 		);
 		expect(yield* frame.getByText("Reporting time zone: UTC", { exact: true }).count).toBe(1);
@@ -143,7 +128,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 			.getByText("Loading previous-period trend…", { exact: true })
 			.waitFor({ state: "hidden" });
 
-		for (const visualCase of visualCases) {
+		for (const visualCase of chartVisualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
 			for (const colorScheme of colorSchemes) {
 				yield* page.use((nativePage) =>
@@ -196,7 +181,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		);
 		yield* trendChart.waitFor({ state: "visible" });
 		yield* hourChart.waitFor({ state: "visible" });
-		expect(yield* summaryValue(summary, "Weight volume").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
 			`${fixture.expectedSourceValues.volume} kg × reps`,
 		);
 
@@ -266,7 +251,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 			expect(yield* row.count).toBe(1);
 			expect(yield* row.getByRole("cell").nth(1).innerText()).toContain(value);
 		}
-		expect(yield* summaryValue(summary, "Weight volume").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
 			`${fixture.expectedSourceValues.volume} kg × reps`,
 		);
 		yield* frame.getByText("View exact values", { exact: true }).first().click();

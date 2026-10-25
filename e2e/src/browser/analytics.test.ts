@@ -10,12 +10,9 @@ import {
 } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { listInstalledPlugins, updatePluginState } from "~/fixtures/kernel/plugins";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
-
-const analyticsFrame = (page: Playwright.Page) =>
-	page.locator('main > div:not([aria-hidden="true"]) iframe');
 
 const hasAnalyticsLocation = (
 	url: URL,
@@ -51,7 +48,7 @@ const createAccountWithoutContributors = Effect.fn(function* () {
 });
 
 const expectEmptyAnalytics = Effect.fn(function* (page: Playwright.Page) {
-	const frame = analyticsFrame(page);
+	const frame = activePluginIframe(page);
 	yield* frame
 		.contentFrame()
 		.getByRole("heading", { level: 1, exact: true, name: "Analytics" })
@@ -84,7 +81,7 @@ it.live(
 			yield* page.waitForURL(`${getFrontendUrl()}/v/k/analytics`);
 			yield* expectEmptyAnalytics(page);
 
-			const frame = analyticsFrame(page);
+			const frame = activePluginIframe(page);
 			expect(yield* frame.count).toBe(1);
 			expect(yield* frame.getAttribute("src")).toBeNull();
 			expect(yield* frame.getAttribute("srcdoc")).not.toBeNull();
@@ -108,7 +105,7 @@ it.live(
 
 			yield* savedViews.getByRole("link", { exact: true, name: "Calendar" }).click();
 			yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
-			const calendar = analyticsFrame(page).contentFrame();
+			const calendar = activePluginIframe(page).contentFrame();
 			yield* calendar.getByRole("heading", { level: 1, exact: true, name: "Calendar" }).waitFor();
 			yield* calendar.locator("body").click();
 			const modifier = yield* page.evaluate(() =>
@@ -143,7 +140,7 @@ it.live(
 			yield* signInThroughHostedOAuth(page, email, password, {
 				entryPath: `/v/k/analytics?${search}`,
 			});
-			const frame = analyticsFrame(page).contentFrame();
+			const frame = activePluginIframe(page).contentFrame();
 			yield* frame.getByRole("heading", { exact: true, name: "activity-initial" }).waitFor();
 			expect(yield* frame.getByTestId("analytics-owner").textContent()).toBe(installed.pluginId);
 			expect(yield* frame.locator("html").getAttribute("data-mounted-failure")).toBeNull();
@@ -215,7 +212,7 @@ it.live(
 			yield* reload.click();
 			yield* expectEmptyAnalytics(page);
 			expect(
-				yield* analyticsFrame(page)
+				yield* activePluginIframe(page)
 					.contentFrame()
 					.getByRole("button", { exact: true, name: "Fixture activity" }).count,
 			).toBe(0);
@@ -232,7 +229,7 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* expectEmptyAnalytics(page);
 
 		const drawer = page.getByRole("dialog", { name: "Navigation" });
-		yield* analyticsFrame(page)
+		yield* activePluginIframe(page)
 			.contentFrame()
 			.getByRole("button", { name: "Open navigation" })
 			.tap();
@@ -245,11 +242,11 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* drawer.waitFor({ state: "hidden" });
 		yield* page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
 		yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
-		yield* analyticsFrame(page)
+		yield* activePluginIframe(page)
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: "Calendar" })
 			.waitFor({ state: "visible" });
-		yield* analyticsFrame(page)
+		yield* activePluginIframe(page)
 			.contentFrame()
 			.getByRole("button", { name: "Open navigation" })
 			.tap();
@@ -270,7 +267,7 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* page.goto(`${getFrontendUrl()}${reportPath}`);
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, reportingSelection, { keep: "1" }));
 		yield* expectEmptyAnalytics(page);
-		const frame = analyticsFrame(page).contentFrame();
+		const frame = activePluginIframe(page).contentFrame();
 		const controls = frame.getByRole("region", { exact: true, name: "Analytics controls" });
 		yield* controls
 			.getByRole("button", { exact: true, name: "Date range: Custom dates" })

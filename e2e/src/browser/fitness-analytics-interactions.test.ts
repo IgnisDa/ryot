@@ -7,35 +7,26 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	analyticsSearch,
 	analyticsSection,
-	hasAnalyticsSelection,
+	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createFitnessAnalyticsFixture } from "~/fixtures/plugins/fitness/analytics";
 import { updateMeasurementReadings } from "~/fixtures/plugins/fitness/measurements";
 import { requirePresent } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import {
+	activePluginIframe,
+	compactViewport,
+	signInThroughHostedOAuth,
+	termDefinition,
+} from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
-const analyticsFrame = (page: Playwright.Page) => page.locator(iframeSelector);
-const compactViewport = { width: 390, height: 844 };
 const expectedMeasurementRows: ReadonlyArray<readonly [date: string, value: string]> = [
 	["Sep 2, 2026", "0 widgets"],
 	["Sep 4, 2026", "2.5 widgets"],
 	["Sep 7, 2026", "1.25 widgets"],
 ];
-
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
-	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
-
-const summaryValue = (summary: Playwright.Locator, label: string) =>
-	summary
-		.getByRole("term")
-		.and(summary.getByText(label, { exact: true }))
-		.locator("xpath=..")
-		.getByRole("definition")
-		.first();
 
 const rowWithName = (table: Playwright.Locator, name: string) => table.getByRole("row", { name });
 
@@ -51,7 +42,7 @@ const openFitnessAnalytics = Effect.gen(function* () {
 		timezoneId: TimeZone.make("America/New_York"),
 	});
 	const page = yield* context.newPage;
-	const iframe = analyticsFrame(page);
+	const iframe = activePluginIframe(page);
 
 	yield* signInThroughHostedOAuth(page, fixture.account.email, fixture.account.password, {
 		entryPath,
@@ -94,10 +85,10 @@ it.live(
 			const summary = frame.getByRole("region", { exact: true, name: "Fitness analytics summary" });
 			yield* summary.waitFor({ state: "visible" });
 			const initialSummary = yield* summary.innerText();
-			expect(yield* summaryValue(summary, "Measurement entries").innerText()).toBe(
+			expect(yield* termDefinition(summary, "Measurement entries").innerText()).toBe(
 				`${fixture.expectedSourceValues.measurementEntries} entries`,
 			);
-			expect(yield* summaryValue(summary, "Measurement readings").innerText()).toBe(
+			expect(yield* termDefinition(summary, "Measurement readings").innerText()).toBe(
 				`${fixture.expectedSourceValues.measurementReadings} readings`,
 			);
 			yield* frame.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
@@ -344,16 +335,16 @@ it.live(
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, fixture.reportingSelection, section),
 			);
-			const refreshedFrame = analyticsFrame(page).contentFrame();
+			const refreshedFrame = activePluginIframe(page).contentFrame();
 			const refreshedSummary = refreshedFrame.getByRole("region", {
 				exact: true,
 				name: "Fitness analytics summary",
 			});
 			yield* refreshedSummary.waitFor({ state: "visible" });
-			expect(yield* summaryValue(refreshedSummary, "Measurement entries").innerText()).toBe(
+			expect(yield* termDefinition(refreshedSummary, "Measurement entries").innerText()).toBe(
 				`${fixture.expectedSourceValues.measurementEntries} entries`,
 			);
-			expect(yield* summaryValue(refreshedSummary, "Measurement readings").innerText()).toBe(
+			expect(yield* termDefinition(refreshedSummary, "Measurement readings").innerText()).toBe(
 				`${fixture.expectedSourceValues.measurementReadings} readings`,
 			);
 			expect(yield* refreshedSummary.innerText()).toBe(initialSummary);
@@ -413,18 +404,12 @@ it.live(
 			expect(yield* rowWithName(refreshedReadingsTable, "Sep 2, 2026").innerText()).toContain(
 				"0 widgets",
 			);
-			yield* page.use((nativePage) =>
-				nativePage
-					.locator(iframeSelector)
-					.contentFrame()
-					.getByRole("img", {
-						exact: true,
-						name: `${fixture.measurementMetricName} bucket averages`,
-					})
-					.evaluate((plot) =>
-						plot.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }),
-					),
-			);
+			yield* refreshedFrame
+				.getByRole("img", { exact: true, name: `${fixture.measurementMetricName} bucket averages` })
+				.evaluate((plot) =>
+					plot.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }),
+				);
+
 			expect(
 				yield* refreshedFrame
 					.locator("html")
@@ -449,7 +434,7 @@ it.live(
 					bounds.right <= view.innerWidth
 				);
 			});
-			yield* analyticsFrame(page).waitForFunction((iframe) => {
+			yield* activePluginIframe(page).waitForFunction((iframe) => {
 				const view = iframe.ownerDocument.defaultView;
 				const bounds = iframe.getBoundingClientRect();
 				return view !== null && bounds.top >= 0 && bounds.bottom <= view.innerHeight;

@@ -8,11 +8,9 @@ import {
 	settledPrivateInstallation,
 } from "~/fixtures/kernel";
 import { reportingChartsPluginPackage } from "~/fixtures/kernel/reporting-charts";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
-
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 
 const visualCases = [
 	{ name: "desktop", compact: "wide", viewport: { width: 1280, height: 800 } },
@@ -35,7 +33,7 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 		yield* signInThroughHostedOAuth(page, email, password, { entryPath: fixturePath });
 		yield* page.goto(fixtureUrl);
 
-		const iframe = page.locator(iframeSelector);
+		const iframe = activePluginIframe(page);
 		const frame = iframe.contentFrame();
 		yield* frame
 			.getByRole("heading", { level: 1, exact: true, name: "Reporting charts" })

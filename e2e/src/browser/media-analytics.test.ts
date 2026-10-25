@@ -9,7 +9,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import {
 	analyticsSearch,
 	analyticsSection,
-	hasAnalyticsSelection,
+	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
@@ -19,18 +19,19 @@ import {
 } from "~/fixtures/plugins/media/consumption";
 import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { requirePresent } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import {
+	activePluginIframe,
+	chartVisualCases,
+	colorSchemes,
+	desktopViewport,
+	periodRow,
+	signInThroughHostedOAuth,
+	termDefinition,
+} from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 const currentRange = "2026-09-01 – 2026-09-07";
 const previousRange = "2026-08-25 – 2026-08-31";
-const desktopViewport = { width: 1280, height: 900 };
-const colorSchemes: ReadonlyArray<"dark" | "light"> = ["light", "dark"];
-const visualCases = [
-	{ name: "desktop", chartHeight: 280, viewport: desktopViewport },
-	{ name: "compact", chartHeight: 200, viewport: { width: 390, height: 844 } },
-];
 const periodDates = [
 	["Sep 1, 2026", "Aug 25, 2026"],
 	["Sep 2, 2026", "Aug 26, 2026"],
@@ -40,26 +41,6 @@ const periodDates = [
 	["Sep 6, 2026", "Aug 30, 2026"],
 	["Sep 7, 2026", "Aug 31, 2026"],
 ] satisfies ReadonlyArray<readonly [string, string]>;
-
-const analyticsFrame = (page: Playwright.Page) => page.locator(iframeSelector).contentFrame();
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
-	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
-const summaryValue = (summary: Playwright.Locator, label: string) =>
-	summary
-		.getByRole("term")
-		.and(summary.getByText(label, { exact: true }))
-		.locator("xpath=..")
-		.getByRole("definition")
-		.first();
-const summaryCoverage = (summary: Playwright.Locator, label: string) =>
-	summary
-		.getByRole("term")
-		.and(summary.getByText(label, { exact: true }))
-		.locator("xpath=..")
-		.getByRole("definition")
-		.nth(1);
-const periodRow = (table: Playwright.Locator, period: string, date: string) =>
-	table.getByRole("row", { name: `${period} · ${date}` });
 
 const openMediaAnalytics = Effect.fn("openMediaAnalytics")(function* () {
 	const fixture = yield* createMediaAnalyticsFixture();
@@ -76,13 +57,13 @@ const openMediaAnalytics = Effect.fn("openMediaAnalytics")(function* () {
 		entryPath: `/v/k/analytics?${search}`,
 	});
 	yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
-	const frameElement = page.locator(iframeSelector);
+	const frameElement = activePluginIframe(page);
 	const frame = frameElement.contentFrame();
 	yield* frame
 		.getByRole("heading", { level: 1, exact: true, name: "Analytics" })
 		.waitFor({ state: "visible" });
 	const summary = frame.getByRole("region", { exact: true, name: "Media analytics summary" });
-	yield* summaryValue(summary, "Active days")
+	yield* termDefinition(summary, "Active days")
 		.and(summary.getByText("3 days", { exact: true }))
 		.waitFor();
 	return { page, frame, summary, context, fixture, section, frameElement };
@@ -114,15 +95,15 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			["Episodes", "1 episodes"],
 			["Minutes", "≥ 0 minutes"],
 		] satisfies ReadonlyArray<readonly [string, string]>) {
-			expect(yield* summaryValue(summary, label).innerText()).toBe(value);
+			expect(yield* termDefinition(summary, label).innerText()).toBe(value);
 		}
-		expect(yield* summaryCoverage(summary, "Pages").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Pages", 1).innerText()).toBe(
 			"Known observations · 2 observations · Recorded · 40 pages · Estimated · 60 pages · Missing observations · 0 observations",
 		);
-		expect(yield* summaryCoverage(summary, "Episodes").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Episodes", 1).innerText()).toBe(
 			"Known observations · 1 observations · Recorded · 1 episodes · Estimated · 0 episodes · Missing observations · 0 observations",
 		);
-		expect(yield* summaryCoverage(summary, "Minutes").innerText()).toBe(
+		expect(yield* termDefinition(summary, "Minutes", 1).innerText()).toBe(
 			"Known observations · 1 observations · Recorded · 0 minutes · Estimated · 0 minutes · Missing observations · 1 observations",
 		);
 		expect(yield* summary.innerText()).toContain(
@@ -183,7 +164,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* frame
 			.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
 			.waitFor({ state: "visible" });
-		for (const visualCase of visualCases) {
+		for (const visualCase of chartVisualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
 			for (const colorScheme of colorSchemes) {
 				yield* page.use((nativePage) =>
@@ -652,8 +633,8 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		const reviewsBefore = yield* summary
 			.getByRole("table", { exact: true, name: "Review count and rating by media category" })
 			.innerText();
-		const minutesBefore = yield* summaryCoverage(summary, "Minutes").innerText();
-		const episodesBefore = yield* summaryCoverage(summary, "Episodes").innerText();
+		const minutesBefore = yield* termDefinition(summary, "Minutes", 1).innerText();
+		const episodesBefore = yield* termDefinition(summary, "Episodes", 1).innerText();
 		const progressId = requirePresent(
 			fixture.sourceEventIds[0],
 			"Expected the book progress source ID",
@@ -712,12 +693,12 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 
 		yield* page.reload;
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
-		const refreshedFrame = analyticsFrame(page);
+		const refreshedFrame = activePluginIframe(page).contentFrame();
 		const refreshedSummary = refreshedFrame.getByRole("region", {
 			exact: true,
 			name: "Media analytics summary",
 		});
-		yield* summaryCoverage(refreshedSummary, "Pages")
+		yield* termDefinition(refreshedSummary, "Pages", 1)
 			.and(
 				refreshedSummary.getByText(
 					"Known observations · 2 observations · Recorded · 50 pages · Estimated · 50 pages · Missing observations · 0 observations",
@@ -725,16 +706,16 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 				),
 			)
 			.waitFor();
-		expect(yield* summaryValue(refreshedSummary, "Pages").innerText()).toBe("100 pages");
-		expect(yield* summaryValue(refreshedSummary, "Active observations").innerText()).toBe(
+		expect(yield* termDefinition(refreshedSummary, "Pages").innerText()).toBe("100 pages");
+		expect(yield* termDefinition(refreshedSummary, "Active observations").innerText()).toBe(
 			"5 observations",
 		);
-		expect(yield* summaryValue(refreshedSummary, "Active days").innerText()).toBe("3 days");
-		expect(yield* summaryValue(refreshedSummary, "Distinct completed titles").innerText()).toBe(
+		expect(yield* termDefinition(refreshedSummary, "Active days").innerText()).toBe("3 days");
+		expect(yield* termDefinition(refreshedSummary, "Distinct completed titles").innerText()).toBe(
 			"2 titles",
 		);
-		expect(yield* summaryCoverage(refreshedSummary, "Minutes").innerText()).toBe(minutesBefore);
-		expect(yield* summaryCoverage(refreshedSummary, "Episodes").innerText()).toBe(episodesBefore);
+		expect(yield* termDefinition(refreshedSummary, "Minutes", 1).innerText()).toBe(minutesBefore);
+		expect(yield* termDefinition(refreshedSummary, "Episodes", 1).innerText()).toBe(episodesBefore);
 		expect(
 			yield* refreshedSummary
 				.getByRole("table", { exact: true, name: "Review count and rating by media category" })
@@ -847,7 +828,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			.waitFor({ state: "hidden" });
 		expect(yield* refreshedRankingTable.innerText()).toBe(retainedRankings);
 		expect(yield* refreshedRankingsTab.getAttribute("aria-selected")).toBe("true");
-		expect(yield* summaryValue(refreshedSummary, "Pages").innerText()).toBe("100 pages");
+		expect(yield* termDefinition(refreshedSummary, "Pages").innerText()).toBe("100 pages");
 		expect(hasAnalyticsLocation(new URL(page.url()), fixture.reportingSelection, section)).toBe(
 			true,
 		);

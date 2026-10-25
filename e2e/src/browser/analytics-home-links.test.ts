@@ -12,11 +12,10 @@ import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinPluginByPackage } from "~/fixtures/kernel/plugins";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
-const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 const analyticsPath = savedViewPath({ kind: "kernel", slug: "analytics" });
 const cases = [
 	{
@@ -69,7 +68,7 @@ for (const testCase of cases) {
 			expect(yield* page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe(
 				"America/New_York",
 			);
-			const home = page.locator(iframeSelector).contentFrame();
+			const home = activePluginIframe(page).contentFrame();
 			yield* home
 				.getByRole("heading", { level: 1, exact: true, name: testCase.homeTitle })
 				.waitFor();
@@ -86,7 +85,7 @@ for (const testCase of cases) {
 			expect(yield* link.getAttribute("href")).toBe(analyticsPath);
 			yield* link.click();
 			yield* page.waitForURL(`${getFrontendUrl()}${analyticsPath}`);
-			const iframe = page.locator(iframeSelector);
+			const iframe = activePluginIframe(page);
 			const analytics = iframe.contentFrame();
 			const controls = analytics.getByRole("region", { exact: true, name: "Analytics controls" });
 			yield* analytics.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).waitFor();
