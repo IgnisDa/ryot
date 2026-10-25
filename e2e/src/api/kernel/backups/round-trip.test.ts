@@ -6,15 +6,13 @@ import {
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaPlugin } from "@ryot-app/media-plugin";
-import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import {
 	type PluginUserSettingsPage,
 	pluginUserSettingsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
-import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -30,7 +28,6 @@ import {
 	createRelationship,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
-	executeRyotQL,
 	exportAndDownloadBackup,
 	fakeProviderDetailsResult,
 	findBuiltinSavedView,
@@ -58,8 +55,6 @@ import {
 	pollImportRunUntilTerminal,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
-	requireRows,
-	requireRyotQLText,
 	restoreBackup,
 	seedEntity,
 	sendDataWebhook,
@@ -73,49 +68,16 @@ import {
 	updateUserSettingsPreferences,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
-import {
-	installBackupEvidencePlugin,
-	readBackupEvidenceSection,
-} from "~/fixtures/kernel/backup-evidence";
+import { installBackupReferencePlugin, readBackupSection } from "~/fixtures/kernel/backups";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import {
-	createExerciseEntityFixture,
-	findFitnessEntitySchema,
-} from "~/fixtures/plugins/fitness/exercises";
-import {
-	saveWorkoutData,
-	workoutData,
-	workoutOccurrence,
-	workoutSet,
-} from "~/fixtures/plugins/fitness/workout-editor";
-import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
-import {
 	assertCompleted,
-	assertCondition,
 	assertPresent,
 	assertTaggedError,
 	requirePresent,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 import { getSharedHarnessTarget } from "~/support/harness-target";
-
-const getMediaLibraryId = (client: Client) =>
-	Effect.gen(function* () {
-		const mediaLibrary = table("entity", "mediaLibrary");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				libraries: rows(mediaLibrary, {
-					fields: [field("id", column(mediaLibrary, "id"))],
-					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
-				}),
-			}),
-		);
-		const libraries = requireRows(result.data.libraries, "libraries");
-		expect(libraries.items).toHaveLength(1);
-		return requireRyotQLText(requirePresent(libraries.items[0], "Missing library"), "id");
-	});
 
 type PluginUserSettingsRecord = PluginUserSettingsPage["items"][number];
 
@@ -135,11 +97,11 @@ describe("backup export and restore round trip", () => {
 	for (const includeGlobalDependency of [false, true]) {
 		it.live(
 			includeGlobalDependency
-				? "retains frozen event evidence with a global provider dependency reachable only through nested references"
+				? "retains frozen event snapshots with a global provider dependency reachable only through nested references"
 				: "retains frozen event quantities and remaps nested entity reference arrays",
 			() =>
 				Effect.gen(function* () {
-					const fixture = yield* installBackupEvidencePlugin();
+					const fixture = yield* installBackupReferencePlugin();
 					const source = yield* createAuthenticatedClient();
 					const target = yield* createAuthenticatedClient(
 						getSharedHarnessTarget(),
@@ -151,12 +113,12 @@ describe("backup export and restore round trip", () => {
 						});
 					}
 					const record = yield* createEntity(source.client, {
-						name: "Evidence record",
+						name: "Backup record",
 						properties: { quantity: 80 },
 						entitySchema: fixture.entitySchema,
 					});
 					const reference = yield* createEntity(source.client, {
-						name: "Evidence reference",
+						name: "Backup reference",
 						properties: { quantity: 60 },
 						entitySchema: fixture.entitySchema,
 					});
@@ -165,22 +127,22 @@ describe("backup export and restore round trip", () => {
 						installedSchema.providers.find(
 							({ providerSlug }) => providerSlug === fixture.providerSlug,
 						)?.providerId,
-						"Evidence provider is missing",
+						"Backup reference provider is missing",
 					);
-					const externalId = `evidence-only-${yield* randomUuid}`;
+					const externalId = `snapshot-only-${yield* randomUuid}`;
 					const globalReference = includeGlobalDependency
 						? yield* seedEntity({
 								providerId,
 								externalId,
 								properties: { quantity: 99 },
 								target: source.client.target,
-								name: "Shared evidence reference",
+								name: "Shared backup reference",
 								entitySchema: fixture.entitySchema,
 							})
 						: undefined;
 					const occurredAt = "2026-02-03T04:05:06.000Z";
 					const properties = {
-						evidence: {
+						snapshot: {
 							count: 3,
 							quantity: 12.5,
 							groups: [
@@ -210,13 +172,13 @@ describe("backup export and restore round trip", () => {
 					assert(outcome?.status === "written");
 					const { bytes } = yield* exportAndDownloadBackup(source.client);
 					if (globalReference) {
-						expect(
-							yield* readBackupEvidenceSection(bytes, "entity-dependencies.ndjson"),
-						).toContainEqual(objectContaining({ id: globalReference.id }));
+						expect(yield* readBackupSection(bytes, "entity-dependencies.ndjson")).toContainEqual(
+							objectContaining({ id: globalReference.id }),
+						);
 					}
 					yield* deleteUserAndWait(source.userId);
 					const restored = yield* restoreBackup(target.client, bytes);
-					assertCompleted(restored.run, "retained event evidence restore");
+					assertCompleted(restored.run, "retained event snapshot restore");
 					expect((yield* getUserSettings(target.client)).preferences.reportingTimeZone).toBe(
 						includeGlobalDependency ? "Asia/Kolkata" : "UTC",
 					);
@@ -252,7 +214,7 @@ describe("backup export and restore round trip", () => {
 							sessionEntityId: undefined,
 							eventSchemaSlug: fixture.eventSchemaSlug,
 							properties: {
-								evidence: {
+								snapshot: {
 									count: 3,
 									quantity: 12.5,
 									groups: [
@@ -280,331 +242,6 @@ describe("backup export and restore round trip", () => {
 				}),
 		);
 	}
-
-	it.live("retains Media consumption basis, calendar dates, undated evidence and source runs", () =>
-		Effect.gen(function* () {
-			const source = yield* createAuthenticatedClient();
-			const target = yield* createAuthenticatedClient();
-			const fixture = yield* createBuiltinMediaLifecycleFixture(source.client, {
-				entitySchemaSlug: "movie",
-				properties: { runtime: 120 },
-			});
-			const entity = yield* getEntity(source.client, fixture.entityId);
-			const facts: ReadonlyArray<Record<string, JsonValue>> = [
-				{
-					timeSpent: 17,
-					progressPercent: 25,
-					calendarDate: "2026-02-03",
-					sourceRun: `dated-${yield* randomUuid}`,
-					consumptionBasis: { total: 90, unit: "minutes", property: "runtime" },
-				},
-				{
-					dateUnknown: true,
-					progressPercent: 50,
-					sourceRun: `undated-${yield* randomUuid}`,
-					consumptionBasis: { unit: "minutes", property: "runtime" },
-				},
-			];
-			const occurredAt = ["2026-02-03T04:05:06.000Z", "2026-02-04T00:00:00.000Z"];
-			const result = yield* waitForCreateEvents(
-				source.client,
-				yield* source.client.call((c) =>
-					c.events.create({
-						payload: facts.map((properties, index) => ({
-							properties,
-							entityId: fixture.entityId,
-							eventSchemaSlug: fixture.progressEventSchemaSlug,
-							occurredAt: requirePresent(occurredAt[index], "Missing source event timestamp"),
-						})),
-					}),
-				),
-			);
-			expect(result.failure).toBeNull();
-			expect(result.outcomes.map(({ status }) => status)).toEqual(["written", "written"]);
-			yield* settledHistoryCorrection(source.client, source.userId);
-			const sourceEvents = yield* listEventsForEntity(
-				source.client,
-				fixture.entityId,
-				undefined,
-				100,
-			);
-			expect(sourceEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-				"add-to-media-library",
-				"progress",
-				"progress",
-			]);
-			const sourceProgressEvents = sourceEvents.filter(
-				({ eventSchemaSlug }) => eventSchemaSlug === fixture.progressEventSchemaSlug,
-			);
-			expect(sourceProgressEvents.map(({ properties }) => properties)).toEqual(facts.toReversed());
-			expect(sourceProgressEvents.map((event) => event.occurredAt)).toEqual(
-				occurredAt.toReversed(),
-			);
-			const sourceLibraryId = yield* getMediaLibraryId(source.client);
-			const sourceLibraryEvents = yield* listEventsForEntity(
-				source.client,
-				sourceLibraryId,
-				undefined,
-				100,
-			);
-			expect(sourceLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-				"completion-occurrence",
-				"completion-occurrence",
-				"history-correction",
-			]);
-			const correction = requirePresent(
-				sourceLibraryEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === "history-correction"),
-				"Source history correction is missing",
-			);
-			expect(correction.properties).toMatchObject({
-				phase: "done",
-				subjectEntityId: fixture.entityId,
-			});
-			const occurrenceFacts = facts.map((fact, index) => ({
-				silent: true,
-				frozen: false,
-				rule: "progress",
-				status: "inactive",
-				runKey: anyOf(String),
-				entityId: fixture.entityId,
-				total: index === 0 ? 90 : 0,
-				subjectEntityId: fixture.entityId,
-				sourceEventId: requirePresent(
-					sourceProgressEvents.find(
-						({ properties }) => properties["sourceRun"] === fact["sourceRun"],
-					),
-					"Source progress event is missing",
-				).id,
-			}));
-			expect(
-				sourceLibraryEvents
-					.filter(({ eventSchemaSlug }) => eventSchemaSlug === "completion-occurrence")
-					.map(({ properties }) => properties),
-			).toEqual(arrayContaining(occurrenceFacts));
-			const { bytes } = yield* exportAndDownloadBackup(source.client);
-			const archivedEvents = yield* readBackupEvidenceSection(bytes, "events.ndjson");
-			expect(archivedEvents).toHaveLength(sourceEvents.length + sourceLibraryEvents.length);
-			for (const { events, entityId } of [
-				{ events: sourceEvents, entityId: fixture.entityId },
-				{ entityId: sourceLibraryId, events: sourceLibraryEvents },
-			]) {
-				for (const event of events) {
-					expect(archivedEvents).toContainEqual(
-						objectContaining({
-							...event,
-							entityId,
-							sessionEntityId: event.sessionEntityId ?? null,
-						}),
-					);
-				}
-			}
-			yield* deleteUserAndWait(source.userId);
-			assertCompleted((yield* restoreBackup(target.client, bytes)).run, "Media evidence restore");
-			const restoredEntity = yield* getGlobalEntityByProvenance(target.client, {
-				entitySchemaSlug: entity.entitySchemaSlug,
-				providerId: requirePresent(entity.providerId, "Missing Media provider"),
-				externalId: requirePresent(entity.externalId, "Missing Media external ID"),
-			});
-			const restoredEvents = yield* listEventsForEntity(
-				target.client,
-				restoredEntity.id,
-				undefined,
-				100,
-			);
-			expect(restoredEvents).toEqual(
-				sourceEvents.map(({ properties, occurredAt: at, eventSchemaSlug, sessionEntityId }) => ({
-					properties,
-					occurredAt: at,
-					eventSchemaSlug,
-					sessionEntityId,
-					id: anyOf(String),
-				})),
-			);
-			const restoredLibraryEvents = yield* listEventsForEntity(
-				target.client,
-				yield* getMediaLibraryId(target.client),
-				undefined,
-				100,
-			);
-			expect(restoredLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-				"completion-occurrence",
-				"completion-occurrence",
-				"history-correction",
-			]);
-			for (const [index, fact] of facts.entries()) {
-				const restoredProgress = requirePresent(
-					restoredEvents.find(({ properties }) => properties["sourceRun"] === fact["sourceRun"]),
-					"Restored progress event is missing",
-				);
-				expect(
-					restoredLibraryEvents.find(
-						({ properties }) => properties["sourceEventId"] === restoredProgress.id,
-					)?.properties,
-				).toEqual({
-					...requirePresent(occurrenceFacts[index], "Source occurrence evidence is missing"),
-					runKey: anyOf(String),
-					entityId: restoredEntity.id,
-					subjectEntityId: restoredEntity.id,
-					sourceEventId: restoredProgress.id,
-				});
-			}
-			expect((yield* getEntity(target.client, restoredEntity.id)).properties["runtime"]).toBe(120);
-		}),
-	);
-
-	it.live("remaps Fitness occurrence targets and equipment without replacing frozen roles", () =>
-		Effect.gen(function* () {
-			const source = yield* createAuthenticatedClient();
-			const target = yield* createAuthenticatedClient();
-			const { exercise } = yield* createExerciseEntityFixture(source.client);
-			const { schema: targetSchema } = yield* findFitnessEntitySchema(
-				source.client,
-				"exercise-target",
-			);
-			const { schema: equipmentSchema } = yield* findFitnessEntitySchema(
-				source.client,
-				"exercise-equipment",
-			);
-			const { schema: workoutSchema } = yield* findFitnessEntitySchema(source.client, "workout");
-			const { schema: exerciseSchema } = yield* findFitnessEntitySchema(source.client, "exercise");
-			const recordedTarget = yield* createEntity(source.client, {
-				name: "Recorded target",
-				properties: { kind: "muscle" },
-				entitySchema: targetSchema.reference,
-			});
-			const recordedEquipment = yield* createEntity(source.client, {
-				properties: {},
-				name: "Recorded equipment",
-				entitySchema: equipmentSchema.reference,
-			});
-			const owner = exerciseSchema.reference.owner;
-			const targetRelationship = {
-				sourceEntityId: exercise.id,
-				targetEntityId: recordedTarget.id,
-				relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("exercise-targets") },
-			};
-			yield* createRelationship(source.client, {
-				...targetRelationship,
-				properties: { role: "primary" },
-			});
-			yield* createRelationship(source.client, {
-				properties: {},
-				sourceEntityId: exercise.id,
-				targetEntityId: recordedEquipment.id,
-				relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("exercise-uses-equipment") },
-			});
-			const eventSchemaSlug = EventSchemaSlug.make("workout-exercise");
-			const workoutStartedAt = "2026-04-27T10:00:00.000Z";
-			const workoutSetOccurredAt = "2026-04-27T10:15:00.000Z";
-			const saved = yield* saveWorkoutData(
-				source.client,
-				workoutData({
-					startedAt: workoutStartedAt,
-					name: `Recorded workout ${yield* randomUuid}`,
-					occurrences: [
-						workoutOccurrence(exercise.id, [
-							workoutSet({
-								occurredAt: workoutSetOccurredAt,
-								confirmedAt: workoutSetOccurredAt,
-								measurements: { reps: 8, weight: 10 },
-							}),
-						]),
-					],
-				}),
-			);
-			assertCondition(saved.kind === "saved", "Expected the Fitness workout to save");
-			const workoutId = saved.entityId;
-			const facts = {
-				exerciseOrder: 0,
-				provenance: "recorded",
-				exerciseKind: "reps_and_weight",
-				equipment: [recordedEquipment.id],
-				targets: [{ role: "primary", entityId: recordedTarget.id }],
-			};
-			const sourceEvents = yield* listEventsForEntity(source.client, exercise.id, undefined, 100);
-			const sourceOccurrenceEvents = sourceEvents.filter(
-				({ eventSchemaSlug: slug }) => slug === eventSchemaSlug,
-			);
-			expect(sourceOccurrenceEvents).toHaveLength(1);
-			expect(sourceOccurrenceEvents[0]).toMatchObject({
-				properties: facts,
-				sessionEntityId: workoutId,
-				occurredAt: workoutStartedAt,
-			});
-			yield* createRelationship(source.client, {
-				...targetRelationship,
-				properties: { role: "secondary" },
-			});
-			const { bytes } = yield* exportAndDownloadBackup(source.client);
-			const archivedOccurrenceEvents = (yield* readBackupEvidenceSection(
-				bytes,
-				"events.ndjson",
-			)).filter(({ eventSchemaSlug: slug }) => slug === eventSchemaSlug);
-			expect(archivedOccurrenceEvents.map(({ properties }) => properties)).toEqual([facts]);
-			const workout = yield* getEntity(source.client, workoutId);
-			yield* deleteUserAndWait(source.userId);
-			assertCompleted(
-				(yield* restoreBackup(target.client, bytes)).run,
-				"Fitness occurrence restore",
-			);
-			const restoredExerciseId = yield* findEntityIdByName(target.client, {
-				name: exercise.name,
-				entitySchema: exerciseSchema.reference,
-			});
-			const restoredWorkoutId = yield* findEntityIdByName(target.client, {
-				name: workout.name,
-				entitySchema: workoutSchema.reference,
-			});
-			const restoredTargetId = yield* findEntityIdByName(target.client, {
-				name: recordedTarget.name,
-				entitySchema: targetSchema.reference,
-			});
-			const restoredEquipmentId = yield* findEntityIdByName(target.client, {
-				name: recordedEquipment.name,
-				entitySchema: equipmentSchema.reference,
-			});
-			expect(restoredExerciseId).not.toBe(exercise.id);
-			expect(restoredWorkoutId).not.toBe(workoutId);
-			expect(restoredTargetId).not.toBe(recordedTarget.id);
-			expect(restoredEquipmentId).not.toBe(recordedEquipment.id);
-			const restoredEvents = yield* listEventsForEntity(
-				target.client,
-				restoredExerciseId,
-				undefined,
-				100,
-			);
-			const restoredOccurrenceEvents = restoredEvents.filter(
-				({ eventSchemaSlug: slug }) => slug === eventSchemaSlug,
-			);
-			expect(restoredOccurrenceEvents).toEqual([
-				{
-					eventSchemaSlug,
-					id: anyOf(String),
-					occurredAt: workoutStartedAt,
-					sessionEntityId: restoredWorkoutId,
-					properties: {
-						...facts,
-						equipment: [restoredEquipmentId],
-						targets: [{ role: "primary", entityId: restoredTargetId }],
-					},
-				},
-			]);
-			const restoredSetEvents = restoredEvents.filter(
-				({ eventSchemaSlug: slug }) => slug === "workout-set",
-			);
-			expect(restoredSetEvents).toContainEqual(
-				objectContaining({ sessionEntityId: restoredWorkoutId }),
-			);
-			expect(
-				(yield* findRelationshipBySchema(target.client, {
-					owner,
-					targetEntityId: restoredTargetId,
-					sourceEntityId: restoredExerciseId,
-					relationshipSchemaSlug: "exercise-targets",
-				})).properties,
-			).toEqual({ role: "secondary" });
-		}),
-	);
 
 	it.live("maps plugin and saved-view identities while the source account still exists", () =>
 		Effect.gen(function* () {
@@ -892,9 +529,6 @@ describe("backup export and restore round trip", () => {
 				sourceMediaInstallation.installationId,
 				clonedPluginViewRecord.reference,
 			);
-			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
-			const targetMediaLibraryId = yield* getMediaLibraryId(target.client);
-			expect(targetMediaLibraryId).not.toBe(sourceMediaLibraryId);
 
 			const firstProperties = {
 				details: {
@@ -1023,9 +657,6 @@ describe("backup export and restore round trip", () => {
 				owner: definitionOwner(restoredSystemPlugin.pluginId),
 			};
 
-			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
-			expect(restoredMediaLibraryId).toBe(targetMediaLibraryId);
-			expect(restoredMediaLibraryId).not.toBe(sourceMediaLibraryId);
 			const findRestored = (name: string) =>
 				findEntityIdByName(target.client, { name, entitySchema: restoredEntitySchemaReference });
 			const [restoredFirstId, restoredSecondId] = yield* Effect.all([

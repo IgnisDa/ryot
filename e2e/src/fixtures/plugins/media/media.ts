@@ -993,7 +993,7 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 		});
 	});
 
-const getMediaLibraryEntityId = (client: Client) =>
+export const getMediaLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
 		const mediaLibrary = table("entity", "mediaLibrary");
 		const result = yield* executeRyotQL(

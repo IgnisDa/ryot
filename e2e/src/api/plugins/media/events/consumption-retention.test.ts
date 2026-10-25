@@ -32,7 +32,7 @@ import {
 	restoreBackup,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
-import { readBackupEvidenceSection } from "~/fixtures/kernel/backup-evidence";
+import { readBackupSection } from "~/fixtures/kernel/backups";
 import { clearEntityUserData, mergeEntityUserData } from "~/fixtures/kernel/entity-user-data";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { mediaReferenceForEntity } from "~/fixtures/plugins/media/activity-log";
@@ -420,7 +420,7 @@ describe("Media consumption evidence retention", () => {
 					"Source history correction checkpoint is missing",
 				);
 				const { bytes } = yield* exportAndDownloadBackup(source.client);
-				const archivedEvents = yield* readBackupEvidenceSection(bytes, "events.ndjson");
+				const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
 				const archivedBookEvents = archivedEvents.filter((event) => event["entityId"] === book.id);
 				expect(archivedBookEvents).toHaveLength(sourceEvents.length);
 				expect(
