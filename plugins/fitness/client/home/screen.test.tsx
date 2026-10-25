@@ -45,8 +45,8 @@ const rows = (items: RowsResult["items"]): RowsResult => ({
 });
 const aggregate = (items: AggregateResult["items"]): AggregateResult => ({
 	type: "aggregate" as const,
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 
 const dayTotals = {

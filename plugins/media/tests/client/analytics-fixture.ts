@@ -42,7 +42,11 @@ const defaultTypes = [
 	analyticsTypeRow("book", "Book"),
 	analyticsTypeRow("show-episode", "Show episode"),
 ];
-const aggregate = (items: readonly Row[]) => ({ items, type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } });
+const aggregate = (items: readonly Row[]) => ({
+	items,
+	type: "aggregate",
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+});
 
 export const analyticsSummary = (
 	input: AnalyticsInput,

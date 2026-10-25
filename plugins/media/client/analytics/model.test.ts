@@ -78,8 +78,8 @@ const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalytics
 			data: {
 				current: {
 					type: "aggregate",
-					items: [{ ...zeroMeasures, ...book, pagesKnown: 3, at: startDate }],
 					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					items: [{ ...zeroMeasures, ...book, pagesKnown: 3, at: startDate }],
 				},
 			},
 		}),
@@ -195,7 +195,13 @@ describe("Media analytics presentation model", () => {
 	it("groups hours into a 24-hour grid without combining units", () => {
 		const hours = Result.getOrThrow(
 			mediaAnalyticsHoursRecipe({ ...input, now }).decode({
-				data: { hourly: { type: "aggregate", items: [{ ...zeroMeasures, ...book, hour: 1 }], pageInfo: { limit: 100, hasMore: false, nextCursor: null } } },
+				data: {
+					hourly: {
+						type: "aggregate",
+						items: [{ ...zeroMeasures, ...book, hour: 1 }],
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					},
+				},
 			}),
 		);
 		const model = hourlyModel(hours, "activeObservations", "ready");

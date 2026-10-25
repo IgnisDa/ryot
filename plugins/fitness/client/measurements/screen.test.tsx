@@ -55,11 +55,11 @@ const metrics = rows([
 
 const series = (counts: readonly number[], values: readonly number[]): AggregateResult => ({
 	type: "aggregate",
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 	items: counts.flatMap((count, index) => {
 		const value = values[index];
 		return count === 0 || value === undefined ? [] : [{ value, at: daysAgo(10 - index) }];
 	}),
-	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const reading = (

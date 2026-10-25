@@ -37,12 +37,20 @@ describe("media activity recipe", () => {
 	it("reads the empty sums of a quiet year as zero", () => {
 		const decoded = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
 			data: {
-				days: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
-				mediaTypes: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
 				reviews: { type: "aggregate", items: [{ reviews: 0 }] },
 				figures: {
 					type: "aggregate",
 					items: [{ minutes: null, finished: null, minutesMissing: null }],
+				},
+				days: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+				},
+				mediaTypes: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 				},
 			},
 		});

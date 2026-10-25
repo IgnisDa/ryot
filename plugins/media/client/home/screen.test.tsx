@@ -225,11 +225,19 @@ describe("home gate", () => {
 					const home = homeAdapter({
 						gate,
 						responses: {
-							days: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
-							mediaTypes: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
 							figures: {
 								type: "aggregate",
 								items: [{ finished: 1, minutes: 116, minutesMissing: 0 }],
+							},
+							days: {
+								items: [],
+								type: "aggregate",
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+							},
+							mediaTypes: {
+								items: [],
+								type: "aggregate",
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 							},
 							"trending.trending": rows([
 								{

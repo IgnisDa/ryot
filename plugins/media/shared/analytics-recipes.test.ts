@@ -33,7 +33,11 @@ const input = {
 		range: { days: 30, kind: "rolling" },
 	},
 } as const;
-const aggregate = (items: readonly unknown[]) => ({ items, type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } });
+const aggregate = (items: readonly unknown[]) => ({
+	items,
+	type: "aggregate",
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+});
 const rows = (items: readonly unknown[], nextCursor: null | string = null) => ({
 	items,
 	type: "rows",

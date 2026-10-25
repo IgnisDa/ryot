@@ -34,8 +34,8 @@ const rows = (items: RowsResult["items"], nextCursor: null | string = null): Row
 });
 const aggregate = (items: readonly Record<string, number>[]): AggregateResult => ({
 	type: "aggregate" as const,
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 const totals = { workouts: 1, timedWorkouts: 1, activeDuration: 3600 };
 
