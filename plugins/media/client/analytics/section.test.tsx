@@ -382,8 +382,8 @@ describe("media analytics section", () => {
 					response: {
 						data: {
 							ranking: {
-								type: "rows",
-								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								type: "aggregate",
+								pageInfo: { limit: 100, hasMore: false },
 								items: [
 									{
 										label: "Book",

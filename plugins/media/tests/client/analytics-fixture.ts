@@ -65,9 +65,9 @@ export const analyticsSummary = (
 			data: {
 				...period("current", options.current),
 				...period("previous", options.previous),
-				coverage: aggregate([
+				undated: aggregate([{ count: options.unknownDate ?? 0 }]),
+				processing: aggregate([
 					{
-						unknownDate: options.unknownDate ?? 0,
 						failed: options.processing === "failed" ? 1 : 0,
 						pending: options.processing === "pending" ? 1 : 0,
 					},

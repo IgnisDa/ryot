@@ -125,8 +125,8 @@ const waitForTrendRequest = (page: ReturnType<typeof mountSection>, index: numbe
 const targetRankingResponse = {
 	data: {
 		ranking: {
-			type: "rows" as const,
-			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+			type: "aggregate" as const,
+			pageInfo: { limit: 100, hasMore: false },
 			items: [
 				{
 					sets: 3,

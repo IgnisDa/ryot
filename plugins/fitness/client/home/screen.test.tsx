@@ -137,9 +137,10 @@ const respond = (
 	}
 	if (names.includes("activity")) {
 		return {
-			activity: aggregate([
-				{ id: "chest", name: "Chest", weeklySets: 4, lastTrainedAt: hoursAgo(24 * 4) },
-				{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
+			activity: aggregate([{ id: "chest", weeklySets: 4, lastTrainedAt: hoursAgo(24 * 4) }]),
+			targets: rows([
+				{ id: "chest", name: "Chest" },
+				{ id: "neck", name: "Neck" },
 			]),
 		};
 	}

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -61,14 +62,25 @@ const reportResponse = (pending = 0) => ({
 const cursorResponse = (
 	key: "ranking" | "records",
 	nextCursor: null | string,
-	items: readonly Record<string, unknown>[] = [],
+	items: readonly Record<string, JsonValue>[] = [],
 ) => ({
 	data: {
-		[key]: {
-			items,
-			type: "rows" as const,
-			pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
-		},
+		[key]:
+			key === "ranking"
+				? {
+						items,
+						type: "aggregate" as const,
+						pageInfo: {
+							limit: 100,
+							hasMore: nextCursor !== null,
+							...(nextCursor === null ? {} : { nextCursor }),
+						},
+					}
+				: {
+						items,
+						type: "rows" as const,
+						pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
+					},
 	},
 });
 

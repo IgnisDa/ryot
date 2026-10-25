@@ -56,8 +56,12 @@ const rankingResponse = (
 	data: {
 		ranking: {
 			items,
-			type: "rows" as const,
-			pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
+			type: "aggregate" as const,
+			pageInfo: {
+				limit: 100,
+				hasMore: nextCursor !== null,
+				...(nextCursor === null ? {} : { nextCursor }),
+			},
 		},
 	},
 });

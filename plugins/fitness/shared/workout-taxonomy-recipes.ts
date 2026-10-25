@@ -50,9 +50,11 @@ export const recordedTargetRole = (occurrence: Table, target: Table) =>
 		select: castText(jsonPath(jsonElement(), "role")),
 	});
 
-export const recordedMuscleSetWeight = (occurrence: Table, target: Table) => {
-	const role = recordedTargetRole(occurrence, target);
-	return conditional(
+export const recordedMuscleSetWeight = (occurrence: Table, target: Table) =>
+	muscleRoleSetWeight(recordedTargetRole(occurrence, target));
+
+export const muscleRoleSetWeight = (role: Parameters<typeof eq>[0]) =>
+	conditional(
 		eq(role, literal("stabilizer")),
 		literal(muscleSetWeight("stabilizer")),
 		conditional(
@@ -61,7 +63,6 @@ export const recordedMuscleSetWeight = (occurrence: Table, target: Table) => {
 			literal(muscleSetWeight("primary")),
 		),
 	);
-};
 
 export const occurrenceSets = (set: Table, occurrence: Table) =>
 	and(

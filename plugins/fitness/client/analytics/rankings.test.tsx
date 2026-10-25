@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -56,13 +57,17 @@ const rankingRow = (
 
 const rankingResponse = (
 	nextCursor: null | string,
-	items: readonly Record<string, unknown>[] = [],
+	items: readonly Record<string, JsonValue>[] = [],
 ) => ({
 	data: {
 		ranking: {
 			items,
-			type: "rows" as const,
-			pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
+			type: "aggregate" as const,
+			pageInfo: {
+				limit: 100,
+				hasMore: nextCursor !== null,
+				...(nextCursor === null ? {} : { nextCursor }),
+			},
 		},
 	},
 });

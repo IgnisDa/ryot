@@ -18,31 +18,29 @@ const aggregate = (items: readonly Record<string, unknown>[]) => ({ items, type:
 describe("muscleActivityRecipe", () => {
 	const recipe = muscleActivityRecipe({ reference, weekStartAt: "2026-10-14T00:00:00.000Z" });
 
-	it("uses one target aggregate", () => {
-		expect(Object.keys(recipe.document.queries)).toEqual(["activity"]);
+	it("lists targets and aggregates occurrences once by recorded target", () => {
+		const { queries } = recipe.document;
+		expect(Object.keys(queries)).toEqual(["targets", "activity"]);
+		expect(queries["activity"]?.from.alias).toBe("muscleOccurrence");
+		expect(JSON.stringify(queries["activity"]?.joins)).toContain("jsonElements");
+		expect(JSON.stringify(queries["activity"])).not.toContain('muscleTarget"');
 	});
 
-	it("normalizes null totals and orders never-trained then longest since first", () => {
+	it("merges untrained targets and orders never-trained then longest since first", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					targets: rows(
+						["back", "calves", "chest", "lats", "neck", "triceps"].map((id) => ({
+							id,
+							name: id[0]?.toUpperCase() + id.slice(1),
+						})),
+					),
 					activity: aggregate([
-						{
-							id: "chest",
-							name: "Chest",
-							weeklySets: 5,
-							lastTrainedAt: "2026-10-15T09:00:00.000Z",
-						},
-						{ id: "lats", name: "Lats", weeklySets: 2, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
-						{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
-						{
-							id: "triceps",
-							name: "Triceps",
-							weeklySets: null,
-							lastTrainedAt: "2026-10-08T09:00:00.000Z",
-						},
-						{ id: "calves", name: "Calves", weeklySets: null, lastTrainedAt: null },
-						{ id: "back", name: "Back", weeklySets: 1, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
+						{ id: "chest", weeklySets: 5, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
+						{ id: "lats", weeklySets: 2, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
+						{ id: "triceps", weeklySets: null, lastTrainedAt: "2026-10-08T09:00:00.000Z" },
+						{ id: "back", weeklySets: 1, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
 					]),
 				},
 			}),
@@ -62,19 +60,13 @@ describe("muscleActivityRecipe", () => {
 			Result.getOrThrow(
 				recipe.decode({
 					data: {
+						targets: rows([
+							{ id: "private", name: "Chest" },
+							{ id: "shared", name: "Chest" },
+						]),
 						activity: aggregate([
-							{
-								id: "shared",
-								name: "Chest",
-								weeklySets: 2,
-								lastTrainedAt: "2026-10-15T09:00:00.000Z",
-							},
-							{
-								id: "private",
-								name: "Chest",
-								weeklySets: 0,
-								lastTrainedAt: "2026-10-10T09:00:00.000Z",
-							},
+							{ id: "shared", weeklySets: 2, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
+							{ id: "private", weeklySets: 0, lastTrainedAt: "2026-10-10T09:00:00.000Z" },
 						]),
 					},
 				}),
@@ -111,6 +103,16 @@ describe("recentPersonalBestsRecipe", () => {
 		);
 		expect(decoded.recentCount).toBe(3);
 		expect(decoded.items.map(({ exerciseName }) => exerciseName)).toEqual(["Bench Press"]);
+	});
+
+	it("counts recent awards by set time without joining workouts", () => {
+		const count = recentPersonalBestsRecipe({
+			limit: 5,
+			reference,
+			since: "2026-09-21T00:00:00.000Z",
+		}).document.queries["recentCount"];
+		expect(count?.joins).toBeUndefined();
+		expect(JSON.stringify(count?.where)).toContain('"occurredAt"');
 	});
 });
 

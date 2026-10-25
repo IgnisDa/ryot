@@ -2,10 +2,9 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castText,
 	column,
 	conditional,
-	count,
-	countDistinct,
 	dateBucket,
 	defineRecipe,
 	descending,
@@ -16,14 +15,16 @@ import {
 	gt,
 	isNotNull,
 	join,
+	jsonElementsJoin,
+	jsonPath,
 	literal,
 	localHour,
+	measureDescending,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	selectedRows,
-	sum,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -36,7 +37,7 @@ import {
 	type TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber } from "./entity-selections";
+import { property, propertyDate, propertyJson, propertyNumber } from "./entity-selections";
 import type { fitnessMetricDefinitions } from "./fitness-metrics";
 import {
 	personalBestAwardCount,
@@ -52,11 +53,12 @@ import {
 	workoutRangeSources,
 } from "./workout-list-recipes";
 import {
+	muscleRoleSetWeight,
 	occurrenceHasTaxonomy,
 	occurrenceSets,
-	recordedMuscleSetWeight,
 } from "./workout-taxonomy-recipes";
 
+type Table = ReturnType<typeof table>;
 type Input = {
 	readonly now: number;
 	readonly timeZone: TimeZone;
@@ -228,6 +230,35 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 	};
 });
 
+const rankingTaxonomy = (occurrence: Table, kind: "targets" | "equipment" | "exercises") => {
+	const target = table("entity", "rankTaxonomy");
+	if (kind === "exercises") {
+		return {
+			target,
+			weight: literal(1),
+			joins: [join("inner", target, eq(column(target, "id"), column(occurrence, "entityId")))],
+		};
+	}
+	const element = jsonElementsJoin("inner", "rankElement", propertyJson(occurrence, kind));
+	const value = column(element, "value");
+	return {
+		target,
+		weight:
+			kind === "targets" ? muscleRoleSetWeight(castText(jsonPath(value, "role"))) : literal(1),
+		joins: [
+			element,
+			join(
+				"inner",
+				target,
+				eq(
+					column(target, "id"),
+					kind === "targets" ? castText(jsonPath(value, "entityId")) : castText(value),
+				),
+			),
+		],
+	};
+};
+
 export const historicalFitnessRankingRecipe = defineRecipe(
 	(
 		input: Input & {
@@ -236,63 +267,63 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 		},
 	) => {
 		const range = resolveReportingSelection(input.selection, input).current;
-		const target = table("entity", "rankTaxonomy");
 		const occurrence = table("event", "rankOccurrence");
 		const set = table("event", "rankSet");
 		const workout = table("entity", "rankWorkout");
-		const joins = [
-			join(
-				"inner",
-				workout,
-				and(
-					eq(column(occurrence, "sessionEntityId"), column(workout, "id")),
-					entitySchemaPredicate(workout, "workout", input.reference),
-				),
-			),
-			join("inner", set, occurrenceSets(set, occurrence)),
-		];
-		const where = and(
-			schemaOwnerPredicate(occurrence, "eventSchemaPluginId", input.reference),
-			eq(column(occurrence, "eventSchemaSlug"), literal("workout-exercise")),
-			input.kind === "exercises"
-				? eq(column(occurrence, "entityId"), column(target, "id"))
-				: occurrenceHasTaxonomy(occurrence, target, input.kind),
-			withinPeriod(startedAt(workout), range),
-			fitnessSetFilter(set, input, occurrence),
-		);
-		const weightedSets = sum(
-			occurrence,
-			input.kind === "targets" ? recordedMuscleSetWeight(occurrence, target) : literal(1),
-			{ joins, where },
-		);
+		const taxonomy = rankingTaxonomy(occurrence, input.kind);
 		return {
-			map: ({ ranking }) => Result.succeed(ranking),
+			map: ({ ranking: { items, pageInfo } }) =>
+				pageInfo === undefined
+					? Result.fail(new Error("Fitness ranking page info is missing"))
+					: Result.succeed({ items, pageInfo }),
 			queries: {
-				ranking: selectedRows(target, {
+				ranking: selectedAggregate(occurrence, {
 					limit: 100,
 					after: input.after,
-					orderBy: [descending(weightedSets), ascending(column(target, "id"))],
-					where: entitySchemaPredicate(
-						target,
-						{ exercises: "exercise", targets: "exercise-target", equipment: "exercise-equipment" }[
-							input.kind
-						],
-						input.reference,
-					),
-					selection: {
-						id: selectedField(column(target, "id"), Schema.String),
-						weightedSets: selectedField(weightedSets, nullableNumber),
-						name: selectedField(column(target, "name"), Schema.String),
-						sets: selectedField(count(occurrence, { joins, where }), Schema.Finite),
-						workouts: selectedField(
-							countDistinct(occurrence, column(workout, "id"), { joins, where }),
+					orderBy: [measureDescending("weightedSets"), groupAscending("id")],
+					groupBy: {
+						id: selectedField(column(taxonomy.target, "id"), Schema.String),
+						name: selectedField(column(taxonomy.target, "name"), Schema.String),
+					},
+					joins: [
+						join(
+							"inner",
+							workout,
+							and(
+								eq(column(occurrence, "sessionEntityId"), column(workout, "id")),
+								entitySchemaPredicate(workout, "workout", input.reference),
+							),
+						),
+						join("inner", set, occurrenceSets(set, occurrence)),
+						...taxonomy.joins,
+					],
+					measures: {
+						sets: countMeasure,
+						weightedSets: sumMeasure(taxonomy.weight),
+						workouts: selectedMeasure(
+							{ function: "countDistinct", expr: column(workout, "id") },
 							Schema.Finite,
 						),
-						exerciseOccurrences: selectedField(
-							countDistinct(occurrence, column(occurrence, "id"), { joins, where }),
+						exerciseOccurrences: selectedMeasure(
+							{ function: "countDistinct", expr: column(occurrence, "id") },
 							Schema.Finite,
 						),
 					},
+					where: and(
+						schemaOwnerPredicate(occurrence, "eventSchemaPluginId", input.reference),
+						eq(column(occurrence, "eventSchemaSlug"), literal("workout-exercise")),
+						entitySchemaPredicate(
+							taxonomy.target,
+							{
+								exercises: "exercise",
+								targets: "exercise-target",
+								equipment: "exercise-equipment",
+							}[input.kind],
+							input.reference,
+						),
+						withinPeriod(startedAt(workout), range),
+						fitnessSetFilter(set, input, occurrence),
+					),
 				}),
 			},
 		};

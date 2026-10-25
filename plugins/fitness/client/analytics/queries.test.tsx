@@ -307,11 +307,22 @@ const pageResponse = (
 	items: readonly Record<string, unknown>[] = [],
 ) => ({
 	data: {
-		[key]: {
-			items,
-			type: "rows" as const,
-			pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
-		},
+		[key]:
+			key === "ranking"
+				? {
+						items: [],
+						type: "aggregate" as const,
+						pageInfo: {
+							limit: 100,
+							hasMore: nextCursor !== null,
+							...(nextCursor === null ? {} : { nextCursor }),
+						},
+					}
+				: {
+						items,
+						type: "rows" as const,
+						pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
+					},
 	},
 });
 

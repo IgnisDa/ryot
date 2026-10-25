@@ -60,9 +60,9 @@ const rankingRow = () => ({
 const rankingResponse = {
 	data: {
 		ranking: {
-			type: "rows" as const,
 			items: [rankingRow()],
-			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+			type: "aggregate" as const,
+			pageInfo: { limit: 100, hasMore: false },
 		},
 	},
 };

@@ -730,8 +730,9 @@ Analytics reads from them:
   its UTC calendar date) for the current and optional previous period, optionally for one media type.
   The contract's bucket limit bounds rows, so there is no client windowing. The daily heatmap reuses
   it with day grouping over at most the last 366 days of the period.
-- `mediaAnalyticsHoursRecipe` groups exact instants by local hour; rankings and records page real
-  rows with cursors. Media type labels come from the entity schema name.
+- `mediaAnalyticsHoursRecipe` groups exact instants by local hour. Rankings are one grouped aggregate
+  of period contributions per title, paged with a grouped cursor; records page source rows with
+  cursors. Media type labels come from the entity schema name.
 
 The client runs the summary with SDK `refreshWhile` while processing is pending. Chart, ranking and
 record queries carry the summary's processing state in their input, so they reload when it settles;

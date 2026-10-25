@@ -1,7 +1,6 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	ascending,
 	castBoolean,
 	castDate,
 	castJson,
@@ -15,7 +14,6 @@ import {
 	defineRecipe,
 	descending,
 	eq,
-	exists,
 	groupAscending,
 	gt,
 	isNotNull,
@@ -24,13 +22,13 @@ import {
 	literal,
 	localDate,
 	localHour,
+	measureDescending,
 	not,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	selectedRows,
-	sum,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -51,7 +49,6 @@ import {
 	consumptionActiveDay,
 	consumptionDetail,
 	consumptionNumber,
-	consumptionPeriod,
 	consumptionRows,
 	type ConsumptionScope,
 	consumptionScope,
@@ -349,49 +346,37 @@ export const mediaAnalyticsHoursRecipe = defineRecipe(
 	},
 );
 
+const total = (expr: Parameters<typeof coalesce>[0]) =>
+	selectedMeasure({ function: "sum", expr: coalesce(expr, literal(0)) }, Schema.Finite);
+
 export const mediaAnalyticsRankingRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & { readonly after?: string; readonly mediaType?: string }) => {
 		const period = resolveReportingSelection(input.selection, input).current;
-		const entity = table("entity", "analyticsRankEntity");
-		const event = table("event", "analyticsRankEvent");
-		const type = mediaTypeJoin(entity, "analyticsRankType", input.reference);
-		const where = and(
-			consumptionScope(event, input),
-			consumptionRows(event),
-			consumptionPeriod(event, period),
-			eq(column(event, "entityId"), column(entity, "id")),
-		);
-		const total = (expr: Parameters<typeof sum>[1]) =>
-			coalesce(sum(event, expr, { where }), literal(0));
-		const score = total(conditional(flag(event, "activeObservation"), literal(1), literal(0)));
+		const source = consumptionDetail(input, "analyticsRank", period);
+		const type = mediaTypeJoin(source.entity, "analyticsRankType", input.reference);
 		return {
-			map: ({ ranking }) => Result.succeed(ranking),
+			map: ({ ranking: { items, pageInfo } }) =>
+				pageInfo === undefined
+					? Result.fail(new Error("Media ranking page info is missing"))
+					: Result.succeed({ items, pageInfo }),
 			queries: {
-				ranking: selectedRows(entity, {
+				ranking: selectedAggregate(source.event, {
 					limit: 100,
 					after: input.after,
-					joins: [type.join],
-					orderBy: [descending(score), ascending(column(entity, "id"))],
-					where: and(
-						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
-						exists(event, { where }),
-						...(input.mediaType === undefined
-							? []
-							: [eq(column(entity, "entitySchemaSlug"), literal(input.mediaType))]),
-					),
-					selection: {
+					joins: [...source.joins, type.join],
+					where: filtered(source, input.mediaType),
+					orderBy: [measureDescending("activeObservations"), groupAscending("entityId")],
+					groupBy: {
 						label: type.label,
 						mediaType: type.slug,
-						activeObservations: selectedField(score, Schema.Finite),
-						name: selectedField(column(entity, "name"), Schema.String),
-						entityId: selectedField(column(entity, "id"), Schema.String),
-						titleCompletions: selectedField(
-							total(consumptionNumber(event, "titleCompletions")),
-							Schema.Finite,
-						),
-						episodeCompletions: selectedField(
-							total(consumptionNumber(event, "episodeCompletions")),
-							Schema.Finite,
+						name: selectedField(column(source.entity, "name"), Schema.String),
+						entityId: selectedField(column(source.event, "entityId"), Schema.String),
+					},
+					measures: {
+						titleCompletions: total(consumptionNumber(source.event, "titleCompletions")),
+						episodeCompletions: total(consumptionNumber(source.event, "episodeCompletions")),
+						activeObservations: total(
+							conditional(flag(source.event, "activeObservation"), literal(1), literal(0)),
 						),
 					},
 				}),

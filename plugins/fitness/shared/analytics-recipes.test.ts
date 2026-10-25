@@ -1,3 +1,4 @@
+import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
@@ -7,6 +8,7 @@ import {
 	fitnessAnalyticsTrendRecipe,
 	fitnessMeasurementTrendRecipe,
 	fitnessWorkoutStartsByHourRecipe,
+	historicalFitnessRankingRecipe,
 } from "./analytics-recipes";
 
 const recipe = fitnessAnalyticsTotalsRecipe({
@@ -51,6 +53,62 @@ const decode = (pendingSets: number, failedSets = 0) =>
 			},
 		}),
 	);
+
+describe("fitness rankings", () => {
+	it.each(["targets", "equipment", "exercises"] as const)(
+		"ranks %s with one grouped aggregate over occurrences and resumes from a cursor",
+		(kind) => {
+			const ranking = historicalFitnessRankingRecipe({
+				kind,
+				after: "opaque",
+				reference: { kind: "self" },
+				timeZone: TimeZone.make("UTC"),
+				now: Date.parse("2026-10-01T00:00:00.000Z"),
+				selection: { grouping: "auto", comparison: "none", range: { days: 30, kind: "rolling" } },
+			});
+			const query = ranking.document.queries["ranking"];
+			expect(
+				validateRyotQLDocument(ranking.document, {
+					type: "user",
+					audience: "plugin",
+					accessClass: "standard",
+				}).error,
+			).toBeNull();
+			expect(query?.from.alias).toBe("rankOccurrence");
+			expect(query?.output).toMatchObject({
+				limit: 100,
+				after: "opaque",
+				type: "aggregate",
+				orderBy: [
+					{ direction: "desc", key: "weightedSets" },
+					{ key: "id", direction: "asc" },
+				],
+			});
+			expect(JSON.stringify(query?.joins).includes("jsonElements")).toBe(kind !== "exercises");
+			const item = {
+				id: "a",
+				sets: 2,
+				name: "A",
+				workouts: 1,
+				weightedSets: 2,
+				exerciseOccurrences: 1,
+			};
+			expect(
+				Result.getOrThrow(
+					ranking.decode({
+						data: {
+							ranking: {
+								items: [item],
+								type: "aggregate",
+								pageInfo: { limit: 100, hasMore: true, nextCursor: "next" },
+							},
+						},
+					}),
+				),
+			).toEqual({ items: [item], pageInfo: { limit: 100, hasMore: true, nextCursor: "next" } });
+		},
+	);
+});
 
 describe("fitness analytics totals", () => {
 	it("keeps zero duration, missing coverage, set time and planned rest separate", () => {

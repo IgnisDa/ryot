@@ -4,7 +4,6 @@ import { Result } from "@ryot-app/plugin-kit/effect";
 import {
 	castDate,
 	castText,
-	column,
 	conditional,
 	eq,
 	literal,
@@ -178,7 +177,7 @@ describe("Media analytics recipes", () => {
 			Result.getOrThrow(recipe.decode({ data: { hourly: aggregate([{ ...zeros, hour: 7 }]) } })),
 		).toEqual([{ ...zeros, hour: 7 }]);
 	});
-	it("pages real entity roots with zero scores, stable identity ties and schema labels", () => {
+	it("ranks titles by one grouped aggregate over period contributions with cursor pages", () => {
 		const recipe = mediaAnalyticsRankingRecipe({
 			...input,
 			mediaType: "show-episode",
@@ -186,32 +185,34 @@ describe("Media analytics recipes", () => {
 		});
 		const query = recipe.document.queries["ranking"];
 		expect(validate(recipe.document)).toBeNull();
-		expect(query?.from).toEqual(table("entity", "analyticsRankEntity"));
+		expect(query?.from).toEqual(table("event", "analyticsRankEvent"));
+		expect(JSON.stringify(query?.where)).toContain("2026-09-29T00:00:00.000Z");
 		expect(query?.output).toMatchObject({
-			type: "rows",
-			pagination: { limit: 100, after: "opaque-ranking-cursor" },
+			limit: 100,
+			type: "aggregate",
+			after: "opaque-ranking-cursor",
 			orderBy: [
-				{ direction: "desc" },
-				{ direction: "asc", expr: column(table("entity", "analyticsRankEntity"), "id") },
+				{ direction: "desc", key: "activeObservations" },
+				{ key: "entityId", direction: "asc" },
 			],
 		});
+		const item = {
+			label: "Show",
+			name: "Parent",
+			mediaType: "show",
+			entityId: "parent",
+			titleCompletions: 1,
+			activeObservations: 0,
+			episodeCompletions: 0,
+		};
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					ranking: rows(
-						[
-							{
-								label: "Show",
-								name: "Parent",
-								mediaType: "show",
-								entityId: "parent",
-								titleCompletions: 1,
-								activeObservations: 0,
-								episodeCompletions: 0,
-							},
-						],
-						"next-opaque",
-					),
+					ranking: {
+						items: [item],
+						type: "aggregate",
+						pageInfo: { limit: 100, hasMore: true, nextCursor: "next-opaque" },
+					},
 				},
 			}),
 		);

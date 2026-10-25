@@ -67,8 +67,10 @@ planned rest and set duration are separate quantities. Weight volume uses the ex
 projection in kg × repetitions. Pending/failed projections hide award and volume totals.
 Historical rankings and performed-work muscle displays read retained occurrence evidence, never
 current exercise links. Target weights are primary/untyped 1, secondary 0.5 and stabilizer 0.
-Rankings expose sets, exercise occurrences and distinct workouts separately and use cursor-paged
-root rows. Period attribution uses workout start; all-time totals omit range bounds. Coverage
+Rankings expose sets, exercise occurrences and distinct workouts separately. Each is one grouped
+aggregate over the period's occurrences, unnesting recorded targets or equipment, ordered by weighted
+sets with a grouped cursor; taxonomy without performed sets in the period is not listed. Period
+attribution uses workout start; all-time totals omit range bounds. Coverage
 reports sets without occurrence evidence and sets whose taxonomy came from a legacy export.
 
 Analytics recipe inputs are `{ reference, selection, now, timeZone }`; historical rankings add
@@ -267,7 +269,9 @@ measurement plus import sources. Otherwise independently loaded/retryable panels
 - Templates ordered never-used first, then least recently used, with exercise-target chips.
 - Muscle activity over seven days: primary targets count 1, secondary ½, legacy untyped links 1,
   stabilizers excluded. Last-session age considers all roles; never-trained targets remain visible.
-- The five newest personal-best sets and count over the last 30 days.
+  Targets are listed once and merged with one grouped aggregate over occurrences unnested by
+  recorded target.
+- The five newest personal-best sets and the count of awarded sets performed in the last 30 days.
 
 ## Imports
 
