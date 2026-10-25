@@ -397,7 +397,7 @@ export const fitnessWorkoutStartsByHourRecipe = defineRecipe((input: Input) => {
 });
 
 export const fitnessAnalyticsWorkoutsRecipe = defineRecipe(
-	(input: Input & { readonly after?: string }) => {
+	(input: Input & { readonly after?: string | undefined }) => {
 		const range = input.reporting.current;
 		const source = analyticsSources(input, range, "drilldown");
 		return {
@@ -473,7 +473,12 @@ export const fitnessMeasurementTrendRecipe = defineRecipe(
 );
 
 export const fitnessMeasurementReadingsRecipe = defineRecipe(
-	(input: Omit<Input, "filter"> & { readonly after?: string; readonly metricId: string }) => {
+	(
+		input: Omit<Input, "filter"> & {
+			readonly metricId: string;
+			readonly after?: string | undefined;
+		},
+	) => {
 		const range = input.reporting.current;
 		const reading = table("event", "measurementDrilldownReading");
 		const metric = table("entity", "measurementDrilldownMetric");

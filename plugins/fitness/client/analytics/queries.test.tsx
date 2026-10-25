@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	reportingPageParam,
-	useRyotInfiniteQuery,
-	useRyotQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { useReportedPages, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -21,7 +17,6 @@ import { act, type ComponentType, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	analyticsMeasurementMetricsQuery,
-	analyticsPageInput,
 	analyticsRankingQuery,
 	analyticsSummaryQuery,
 	analyticsWorkoutsQuery,
@@ -205,6 +200,31 @@ const pagedInput = {
 	selection: { grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
 } as const;
 const filter = { kind: "targets", id: "retained-target" } as const;
+function WorkoutsProbe() {
+	const query = useReportedPages(analyticsWorkoutsQuery, { ...pagedInput, filter });
+	return (
+		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
+	);
+}
+function ReadingsProbe() {
+	const query = useReportedPages(measurementReadingsQuery, {
+		...pagedInput,
+		metricId: "metric-one",
+	});
+	return (
+		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
+	);
+}
+function RankingProbe() {
+	const query = useReportedPages(analyticsRankingQuery, {
+		...pagedInput,
+		filter,
+		kind: "targets" as const,
+	});
+	return (
+		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
+	);
+}
 function PageControls(props: {
 	readonly count: number;
 	readonly next: () => void;
@@ -218,59 +238,12 @@ function PageControls(props: {
 		</>
 	);
 }
-function WorkoutsProbe() {
-	const query = useRyotInfiniteQuery(
-		analyticsWorkoutsQuery,
-		{ ...pagedInput, filter },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
-	return (
-		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
-	);
-}
-function ReadingsProbe() {
-	const query = useRyotInfiniteQuery(
-		measurementReadingsQuery,
-		{ ...pagedInput, metricId: "metric-one" },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
-	return (
-		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
-	);
-}
-function RankingProbe() {
-	const query = useRyotInfiniteQuery(
-		analyticsRankingQuery,
-		{ ...pagedInput, filter, kind: "targets" as const },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
-	return (
-		<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />
-	);
-}
 function MetricsProbe() {
 	const [owner, setOwner] = useState("fitness-owner");
-	const query = useRyotInfiniteQuery(
-		analyticsMeasurementMetricsQuery,
-		{ ...pagedInput, reference: { kind: "local" as const, pluginId: PluginId.make(owner) } },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const query = useReportedPages(analyticsMeasurementMetricsQuery, {
+		...pagedInput,
+		reference: { kind: "local" as const, pluginId: PluginId.make(owner) },
+	});
 	return (
 		<>
 			<PageControls refresh={query.refetch} count={query.pages.length} next={query.fetchNextPage} />

@@ -15,7 +15,6 @@ import {
 } from "../../tests/client/analytics-fixture";
 import {
 	consistencyModel,
-	consistencySelection,
 	hourlyModel,
 	type MediaAnalyticsTrend,
 	quantityValue,
@@ -210,24 +209,6 @@ describe("Media analytics presentation model", () => {
 		expect(model[1]?.value).toBe(3);
 		expect(model[2]?.value).toBe(0);
 		expect(hourlyModel(hours, "minutes", "ready")[1]?.value).toBeNull();
-	});
-	it("clips the daily heatmap to the bucket limit and keeps short periods whole", () => {
-		expect(consistencySelection(input, now)).toEqual({
-			clipped: false,
-			selection: {
-				grouping: "day",
-				comparison: "none",
-				range: { kind: "custom", endDate: "2026-10-29", startDate: "2026-09-30" },
-			},
-		});
-		const allTime = consistencySelection(
-			{ ...input, selection: { ...input.selection, range: { kind: "all-time" } } },
-			now,
-		);
-		expect(allTime).toMatchObject({
-			clipped: true,
-			selection: { range: { endDate: "2026-10-29", startDate: "2025-10-29" } },
-		});
 	});
 	it("keeps zero ratings and weights the overall average by rated reviews", () => {
 		const model = reviewModel(summary().current.reviews);

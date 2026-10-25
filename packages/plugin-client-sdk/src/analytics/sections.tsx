@@ -2,7 +2,7 @@ import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/re
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { StatusMessage, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import { Effect } from "effect";
 import {
 	Component,
@@ -19,7 +19,16 @@ import { useRyotSchedule } from "../queries/provider";
 export type AnalyticsSectionProps = {
 	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
-	readonly owner: Extract<PluginIdentityReference, { readonly kind: "local" }>;
+	readonly reference: Extract<PluginIdentityReference, { readonly kind: "local" }>;
+};
+
+/** The open drill-down request, cleared whenever the section's scope changes. */
+export const useDrillRequest = <Request,>(scope: AnalyticsSectionProps) => {
+	const [request, setRequest] = useState<null | Request>(null);
+	useValueChange(JSON.stringify([scope.reference.pluginId, scope.timeZone, scope.selection]), () =>
+		setRequest(null),
+	);
+	return [request, setRequest] as const;
 };
 
 export type AnalyticsSectionRegistration = {
@@ -45,10 +54,6 @@ export const AnalyticsSectionsProvider = ({
 );
 
 export const useAnalyticsSections = () => useContext(AnalyticsSectionsContext);
-
-export const analyticsSectionKey = (
-	section: Pick<AnalyticsSectionRegistration, "slug" | "ownerPluginId">,
-) => `${section.ownerPluginId}/${section.slug}`;
 
 class SectionBoundary extends Component<
 	{ readonly retry: () => void; readonly children: ReactNode },
@@ -120,7 +125,7 @@ const SectionContent = ({
 		<Section
 			timeZone={timeZone}
 			selection={selection}
-			owner={{ kind: "local", pluginId: registration.ownerPluginId }}
+			reference={{ kind: "local", pluginId: registration.ownerPluginId }}
 		/>
 	);
 };

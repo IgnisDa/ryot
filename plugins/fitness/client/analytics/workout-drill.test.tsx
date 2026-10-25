@@ -29,7 +29,7 @@ const selection = {
 const scope: AnalyticsScope = {
 	selection,
 	timeZone: TimeZone.make("America/New_York"),
-	owner: { kind: "local", pluginId: PluginId.make("fitness-owner") },
+	reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 };
 
 const request: WorkoutDrillRequest = {
@@ -167,9 +167,7 @@ describe("Fitness analytics workout drill", () => {
 					);
 					const morning = within(table).getByRole("row", { name: /Morning session/ });
 					const evening = within(table).getByRole("row", { name: /Evening session/ });
-					const expectedStart = "Sep 1, 2026 at 9:30 PM";
-					expect(within(morning).getByText(expectedStart)).toBeDefined();
-					expect(expectedStart).toContain("9:30 PM");
+					expect(within(morning).getByText("Sep 1, 2026, 9:30 PM")).toBeDefined();
 					expect(within(morning).getByText("Unknown")).toBeDefined();
 					expect(within(evening).getByText("0 seconds")).toBeDefined();
 					expect(within(table).queryByRole("columnheader", { name: "Sets" })).toBeNull();

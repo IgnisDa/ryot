@@ -1,11 +1,16 @@
 import {
 	formatExactValue,
 	periodCaption,
+	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	selectionForPeriod,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type Compared,
+	type RyotQueryResult,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Card, QueryStatus, Select } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, HourlyHistogram, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -22,7 +27,6 @@ import {
 	type AnalyticsMetric,
 	type AnalyticsScope,
 	type AnalyticsTrend,
-	type Compared,
 	consistencyModel,
 	type WorkoutDrillRequest,
 	workoutTrendModel,
@@ -45,12 +49,6 @@ const isAnalyticsMetric = (value: string): value is AnalyticsMetric =>
 
 type TrendQueryResult = RyotQueryResult<Compared<AnalyticsTrend>>;
 
-type AnalyticsInput = {
-	readonly reference: AnalyticsScope["owner"];
-	readonly timeZone: AnalyticsScope["timeZone"];
-	readonly selection: AnalyticsScope["selection"];
-};
-
 export function AnalyticsWorkouts({
 	scope,
 	compact,
@@ -63,15 +61,10 @@ export function AnalyticsWorkouts({
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
 	const [metric, setMetric] = useState<AnalyticsMetric>("workouts");
-	const input: AnalyticsInput = {
-		reference: scope.owner,
-		timeZone: scope.timeZone,
-		selection: scope.selection,
-	};
 	return (
 		<div className="flex min-w-0 flex-col gap-6 font-ui">
 			<TrendRegion
-				input={input}
+				input={scope}
 				metric={metric}
 				compact={compact}
 				preferences={preferences}
@@ -81,8 +74,8 @@ export function AnalyticsWorkouts({
 			<div
 				className={compact ? "grid min-w-0 grid-cols-1 gap-5" : "grid min-w-0 grid-cols-2 gap-5"}
 			>
-				<HourlyRegion input={input} compact={compact} />
-				<ConsistencyRegion input={input} compact={compact} />
+				<HourlyRegion input={scope} compact={compact} />
+				<ConsistencyRegion input={scope} compact={compact} />
 			</div>
 		</div>
 	);
@@ -90,7 +83,7 @@ export function AnalyticsWorkouts({
 
 const formatWorkouts = (value: number) => formatExactValue(value, "workouts");
 
-function HourlyRegion(props: { readonly compact: boolean; readonly input: AnalyticsInput }) {
+function HourlyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
 	const result = useRyotQuery(workoutStartsByHourQuery, props.input);
 	return (
 		<Card className="flex min-w-0 flex-col gap-3">
@@ -115,7 +108,7 @@ function HourlyRegion(props: { readonly compact: boolean; readonly input: Analyt
 	);
 }
 
-function ConsistencyRegion(props: { readonly compact: boolean; readonly input: AnalyticsInput }) {
+function ConsistencyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
 	const result = useRyotQuery(analyticsConsistencyQuery, props.input);
 	return (
 		<Card className="flex min-w-0 flex-col gap-3">
@@ -130,7 +123,7 @@ function ConsistencyRegion(props: { readonly compact: boolean; readonly input: A
 							</p>
 							{model.clipped ? (
 								<p className="text-[12.5px] text-text-muted">
-									Showing the last 26 weeks of the selected period.
+									Showing the most recent {REPORTING_BUCKET_LIMIT} days of the selected period.
 								</p>
 							) : null}
 							<CalendarHeatmap
@@ -150,7 +143,7 @@ function ConsistencyRegion(props: { readonly compact: boolean; readonly input: A
 
 function TrendRegion(props: {
 	readonly compact: boolean;
-	readonly input: AnalyticsInput;
+	readonly input: AnalyticsScope;
 	readonly metric: AnalyticsMetric;
 	readonly preferences: AnalyticsDisplayPreferences;
 	readonly onMetricChange: (metric: AnalyticsMetric) => void;
@@ -189,7 +182,6 @@ function TrendRegion(props: {
 				compact={props.compact}
 				timeZone={props.input.timeZone}
 				preferences={props.preferences}
-				selection={props.input.selection}
 				onOpenWorkouts={props.onOpenWorkouts}
 			/>
 		</Card>
@@ -201,7 +193,6 @@ function TrendChart(props: {
 	readonly timeZone: TimeZone;
 	readonly trend: TrendQueryResult;
 	readonly metric: AnalyticsMetric;
-	readonly selection: AnalyticsScope["selection"];
 	readonly preferences: AnalyticsDisplayPreferences;
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
@@ -212,15 +203,18 @@ function TrendChart(props: {
 			: workoutTrendModel(data.current, data.previous, props.timeZone, props.preferences);
 	const unit = model?.unit ?? "";
 	const formatValue = useCallback((value: number) => formatExactValue(value, unit), [unit]);
-	const { selection, onOpenWorkouts } = props;
+	const { onOpenWorkouts } = props;
 	const openBucket = useCallback(
-		(bucket: { readonly period: ReportingPeriod }) =>
-			onOpenWorkouts({
-				title: "Workouts starting in this bucket",
-				periodCaption: periodCaption(bucket.period),
-				selection: selectionForPeriod(selection, bucket.period),
-			}),
-		[onOpenWorkouts, selection],
+		(bucket: { readonly period: ReportingPeriod }) => {
+			if (data !== undefined) {
+				onOpenWorkouts({
+					title: "Workouts starting in this bucket",
+					periodCaption: periodCaption(bucket.period),
+					selection: selectionForPeriod(data.reporting.selection, bucket.period),
+				});
+			}
+		},
+		[data, onOpenWorkouts],
 	);
 	return (
 		<QueryStatus query={props.trend} label="workout trend" onRetry={props.trend.refetch}>

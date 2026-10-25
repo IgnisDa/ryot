@@ -4,6 +4,7 @@ import {
 	parseReportingSearch,
 	reportingSearchParams,
 	type ReportingSelection,
+	type TimeZone,
 	useAnalyticsSections,
 	usePageContext,
 	usePluginLocation,
@@ -15,9 +16,9 @@ import {
 	useRyot,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, QueryStatus } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { type ReactNode, useContext } from "react";
+import { useContext } from "react";
 
 import { AnalyticsControls } from "./analytics-controls";
 import { CollectionAnalytics } from "./collection-analytics";
@@ -36,32 +37,20 @@ export default function AnalyticsPage() {
 	const active = sections.find((section) => analyticsSectionKey(section) === requested);
 	const updateSelection = (next: ReportingSelection) =>
 		ryot.navigation.pageSearch.push(reportingSearchParams(next));
-	let content: ReactNode;
-	if (!isActiveScreen) {
-		content = null;
-	} else if (preferences.data === undefined) {
-		content = preferences.error ? (
-			<StatusMessage tone="error" action={{ label: "Retry", onClick: preferences.refetch }}>
-				Could not load reporting preferences.
-			</StatusMessage>
+	const content = (timeZone: TimeZone) =>
+		active === undefined ? (
+			<CollectionAnalytics timeZone={timeZone} selection={selection} />
 		) : (
-			<StatusMessage tone="pending">Loading reporting preferences…</StatusMessage>
-		);
-	} else if (active === undefined) {
-		content = <CollectionAnalytics selection={selection} timeZone={preferences.data.timeZone} />;
-	} else {
-		content = (
 			<section aria-label={active.name}>
 				<h2 className="mb-4 text-xl font-semibold">{active.name}</h2>
 				<AnalyticsSection
+					timeZone={timeZone}
 					registration={active}
 					selection={selection}
 					key={analyticsSectionKey(active)}
-					timeZone={preferences.data.timeZone}
 				/>
 			</section>
 		);
-	}
 	return (
 		<PluginScreenFrame
 			title={page.view?.name ?? "Analytics"}
@@ -71,21 +60,21 @@ export default function AnalyticsPage() {
 				style={{ paddingBottom: safeAreaBottom + 48 }}
 				className="mx-auto grid w-full max-w-5xl gap-6 p-4"
 			>
-				{preferences.data !== undefined && preferences.error && (
-					<StatusMessage tone="error" action={{ label: "Retry", onClick: preferences.refetch }}>
-						Reporting preferences refresh failed. The last loaded time zone,{" "}
-						{preferences.data.timeZone}, is being used.
-					</StatusMessage>
-				)}
-				{preferences.data !== undefined && (
-					<AnalyticsControls
-						compact={compact}
-						selection={selection}
-						onSelectionChange={updateSelection}
-						timeZone={preferences.data.timeZone}
-						key={Object.values(selectionParams).join("|")}
-					/>
-				)}
+				<QueryStatus
+					query={preferences}
+					label="reporting preferences"
+					onRetry={preferences.refetch}
+				>
+					{({ timeZone }) => (
+						<AnalyticsControls
+							compact={compact}
+							timeZone={timeZone}
+							selection={selection}
+							onSelectionChange={updateSelection}
+							key={Object.values(selectionParams).join("|")}
+						/>
+					)}
+				</QueryStatus>
 				{sections.length > 0 && (
 					<nav aria-label="Analytics sections" className="flex flex-wrap gap-2">
 						<Button
@@ -111,7 +100,9 @@ export default function AnalyticsPage() {
 						))}
 					</nav>
 				)}
-				{content}
+				{isActiveScreen && preferences.data !== undefined
+					? content(preferences.data.timeZone)
+					: null}
 			</div>
 		</PluginScreenFrame>
 	);

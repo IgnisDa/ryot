@@ -83,10 +83,11 @@ remain separate.
 ### Analytics query API
 
 `shared/analytics-recipes.ts` exports the production recipes below. Each accepts the resolved
-reporting selection and plugin `reference`. `client/analytics/queries.ts` takes the stable
-`ReportingSelection` and reporting `timeZone` as inputs and resolves them against `schedule.now()`
-inside each query execution, so moving timestamps do not become query cache keys. Its inputs retain `reference`; a section passes its
-explicit `owner` as that reference, so ownership is part of the cache key.
+reporting selection and plugin `reference`. `client/analytics/queries.ts` builds them with the client
+SDK's reported, compared, paged and consistency query constructors, which take the stable
+`ReportingSelection` and reporting `timeZone` as inputs and resolve them against `schedule.now()`
+inside each query execution, so moving timestamps do not become query cache keys. Inputs are the
+section's props, so its exact `reference` is part of the cache key.
 
 | Recipe                             | Additional input                   | Result                                                                            | Named queries |
 | ---------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- | ------------- |
@@ -109,8 +110,8 @@ recorded zero remains zero. Trend and summary queries run the previous period as
 execution with the previous period as `current`, inside the same client query, and skip it when the selection
 has no previous period. Trend queries are capped at `REPORTING_BUCKET_LIMIT`. The client lays sparse
 buckets onto the shared `calendarBuckets` grid; `resolveReportingSelection` keeps every grouping
-within the shared bucket limit, and all-time groups by year. Paged results continue through
-`reportingPageParam`, which pins the first page's resolved period.
+within the shared bucket limit, and all-time groups by year. Paged results use `useReportedPages`,
+which pins the first page's resolved period, and drills reuse each result's pinned selection.
 
 Processing state is one `"ready" | "pending" | "failed"` value from the shared RyotQL recipe helpers.
 Totals, trends, summaries and exercise details read it from the user's `workout-set` event streams

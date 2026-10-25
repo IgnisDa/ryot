@@ -55,7 +55,7 @@ const mountWorkouts = (
 	const scope: AnalyticsScope = {
 		selection,
 		timeZone: TimeZone.make("UTC"),
-		owner: { kind: "local", pluginId: PluginId.make("fitness-owner") },
+		reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	};
 	const drillRequests: WorkoutDrillRequest[] = [];
 	const page = mountPluginPage(
@@ -267,7 +267,7 @@ describe("Fitness analytics workout charts", () => {
 			}),
 	);
 
-	it.live("clips consistency to the last 26 weeks of the selected period", () =>
+	it.live("clips consistency to the most recent bucket-limit days of the selected period", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			yield* Effect.promise(() => clock.setTime(Date.parse("2026-12-31T18:00:00Z")));
@@ -286,12 +286,12 @@ describe("Fitness analytics workout charts", () => {
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
-							screen.getByText("Showing the last 26 weeks of the selected period."),
+							screen.getByText("Showing the most recent 366 days of the selected period."),
 						).toBeDefined(),
 					),
 				);
 				expect(
-					screen.getByRole("img", { name: /^Workout starts · 2026-07-03 – 2026-12-31$/ }),
+					screen.getByRole("img", { name: /^Workout starts · 2025-12-31 – 2026-12-31$/ }),
 				).toBeDefined();
 				expect(page.queryRequests("workoutTrend")).toHaveLength(2);
 			} finally {

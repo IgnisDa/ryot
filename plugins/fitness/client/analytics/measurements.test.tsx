@@ -81,7 +81,7 @@ const trendPoint = (at: string, value: null | number, readings: number, unit: nu
 const scopeFor = (owner = "fitness-owner", selected = selection): AnalyticsScope => ({
 	selection: selected,
 	timeZone: TimeZone.make("America/New_York"),
-	owner: { kind: "local", pluginId: PluginId.make(owner) },
+	reference: { kind: "local", pluginId: PluginId.make(owner) },
 });
 
 const mountMeasurements = (clock: ReturnType<typeof createTestRyotClock>, selected = selection) => {
@@ -336,8 +336,7 @@ describe("Fitness analytics measurements", () => {
 				expect(within(readingsTable).getByText("12.75 custom-u")).toBeDefined();
 				expect(within(readingsTable).getByText("entry-plain-text").closest("a")).toBeNull();
 				expect(within(readingsTable).getByText("Reading comment")).toBeDefined();
-				expect(within(readingsTable).getByText(/Mar 2, 2026/)).toBeDefined();
-				expect(within(readingsTable).getByText(/EST|EDT/)).toBeDefined();
+				expect(within(readingsTable).getByText("Mar 2, 2026, 10:30 AM")).toBeDefined();
 			} finally {
 				yield* dispose(page, clock);
 			}

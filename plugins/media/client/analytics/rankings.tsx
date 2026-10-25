@@ -4,11 +4,7 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	paginationItems,
-	reportingPageParam,
-	useRyotInfiniteQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -19,6 +15,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { useMemo, useState } from "react";
 
 import {
@@ -27,8 +24,17 @@ import {
 	type RankingsRecordsProps,
 	type RecordsDrillRequest,
 } from "./model";
-import { analyticsPageInput, mediaAnalyticsRankingQuery } from "./queries";
+import { mediaAnalyticsRankingQuery } from "./queries";
 
+type RankingRow = ReturnType<typeof rankingModel>[number];
+
+type RankingTableProps = {
+	readonly items: readonly RankingRow[];
+	readonly onDrill: (request: RecordsDrillRequest) => void;
+	readonly request: (
+		row: Pick<MediaAnalyticsRanking["items"][number], "name" | "entityId" | "mediaType">,
+	) => null | RecordsDrillRequest;
+};
 export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 	const viewport = useRyotViewport();
 	const [mediaType, setMediaType] = useState<string>();
@@ -68,82 +74,85 @@ export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 	);
 }
 
-function RankingTable(props: {
-	readonly items: ReturnType<typeof rankingModel>;
-	readonly onDrill: (request: RecordsDrillRequest) => void;
-	readonly request: (
-		row: Pick<MediaAnalyticsRanking["items"][number], "name" | "entityId" | "mediaType">,
-	) => null | RecordsDrillRequest;
-}) {
+const headerClassName = "px-3 py-2.5 text-left font-medium text-text-muted";
+const countHeaderClassName = "px-3 py-2.5 text-right font-medium text-text-muted";
+const countCellClassName = "px-3 py-2.5 text-right text-text-muted";
+
+const countColumn = (
+	id: string,
+	header: string,
+	unit: string,
+	value: (row: RankingRow) => null | number,
+): DataTableColumn<RankingRow> => ({
+	id,
+	header,
+	cellClassName: countCellClassName,
+	headerClassName: countHeaderClassName,
+	cell: (row) => formatExactValue(value(row), unit),
+});
+
+const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColumn<RankingRow>[] => [
+	{
+		id: "name",
+		header: "Name",
+		headerClassName,
+		cellClassName: "px-3 py-2.5",
+		cell: (row) => (
+			<PluginLink
+				className="font-medium text-accent-text"
+				to={{ kind: "entity", entityId: row.entityId }}
+			>
+				{row.name}
+			</PluginLink>
+		),
+	},
+	{
+		id: "category",
+		headerClassName,
+		header: "Category",
+		cell: (row) => row.label,
+		cellClassName: "px-3 py-2.5 text-text-muted",
+	},
+	countColumn("active", "Active observations", "observations", (row) => row.activeObservations),
+	countColumn("titles", "Title completions", "titles", (row) => row.titleCompletions),
+	countColumn("episodes", "Episode completions", "episodes", (row) => row.episodeCompletions),
+	{
+		id: "actions",
+		headerClassName: countHeaderClassName,
+		cellClassName: "px-3 py-2.5 text-right",
+		header: <span className="sr-only">Actions</span>,
+		cell: (row) => {
+			const drill = request(row);
+			return (
+				<Button
+					size="sm"
+					variant="link"
+					disabled={drill === null}
+					aria-label={`View records contributing to ${row.name}`}
+					onClick={() => {
+						if (drill !== null) {
+							onDrill(drill);
+						}
+					}}
+				>
+					View records
+				</Button>
+			);
+		},
+	},
+];
+
+function RankingTable(props: RankingTableProps) {
 	return (
 		<Card padding="none" className="overflow-x-auto">
-			<table className="w-full min-w-190 border-collapse text-sm tabular-nums">
-				<caption className="sr-only">Media entity rankings</caption>
-				<thead>
-					<tr>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Name
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Category
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Active observations
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Title completions
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Episode completions
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							<span className="sr-only">Actions</span>
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{props.items.map((row) => {
-						const drill = props.request(row);
-						return (
-							<tr key={row.entityId} className="border-t border-border">
-								<td className="px-3 py-2.5">
-									<PluginLink
-										className="font-medium text-accent-text"
-										to={{ kind: "entity", entityId: row.entityId }}
-									>
-										{row.name}
-									</PluginLink>
-								</td>
-								<td className="px-3 py-2.5 text-text-muted">{row.label}</td>
-								<td className="px-3 py-2.5 text-right text-text-muted">
-									{formatExactValue(row.activeObservations, "observations")}
-								</td>
-								<td className="px-3 py-2.5 text-right text-text-muted">
-									{formatExactValue(row.titleCompletions, "titles")}
-								</td>
-								<td className="px-3 py-2.5 text-right text-text-muted">
-									{formatExactValue(row.episodeCompletions, "episodes")}
-								</td>
-								<td className="px-3 py-2.5 text-right">
-									<Button
-										size="sm"
-										variant="link"
-										disabled={drill === null}
-										aria-label={`View records contributing to ${row.name}`}
-										onClick={() => {
-											if (drill !== null) {
-												props.onDrill(drill);
-											}
-										}}
-									>
-										View records
-									</Button>
-								</td>
-							</tr>
-						);
-					})}
-				</tbody>
-			</table>
+			<DataTable
+				data={props.items}
+				columns={rankingColumns(props)}
+				getRowId={(row) => row.entityId}
+				aria-label="Media entity rankings"
+				rowClassName="border-t border-border"
+				className="w-full min-w-190 border-collapse text-sm tabular-nums"
+			/>
 		</Card>
 	);
 }
@@ -154,19 +163,11 @@ function RankingResults(props: {
 	readonly summary: RankingsRecordsProps["summary"];
 	readonly onDrill: RankingsRecordsProps["onDrill"];
 }) {
-	const result = useRyotInfiniteQuery(
-		mediaAnalyticsRankingQuery,
-		{
-			...props.input,
-			processing: props.summary.processing,
-			...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
-		},
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const result = useReportedPages(mediaAnalyticsRankingQuery, {
+		...props.input,
+		processing: props.summary.processing,
+		...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
+	});
 	const rows = useMemo(
 		() =>
 			paginationItems(

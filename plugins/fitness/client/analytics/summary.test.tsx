@@ -111,7 +111,7 @@ const mountSummary = (
 	const scope: AnalyticsScope = {
 		selection: selectionInput,
 		timeZone: TimeZone.make("America/New_York"),
-		owner: { kind: "local", pluginId: PluginId.make("fitness-owner") },
+		reference: { kind: "local", pluginId: PluginId.make("fitness-owner") },
 	};
 	return mountPluginPage(
 		() => <AnalyticsSummary scope={scope} compact={false} preferences={preferencesInput} />,
@@ -152,10 +152,12 @@ describe("Fitness analytics summary UI", () => {
 				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("button", { name: "Retry summary" })).toBeDefined(),
+						expect(
+							screen.getByRole("button", { name: "Retry Fitness analytics summary" }),
+						).toBeDefined(),
 					),
 				);
-				fireEvent.click(screen.getByRole("button", { name: "Retry summary" }));
+				fireEvent.click(screen.getByRole("button", { name: "Retry Fitness analytics summary" }));
 				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 				page.replyQuery(page.queryRequests()[1]?.requestId ?? "", {
 					outcome: "success",

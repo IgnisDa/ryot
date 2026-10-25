@@ -1,5 +1,5 @@
 import {
-	compareValues,
+	comparisonDetail,
 	formatExactValue,
 	periodCaption,
 	useRyotViewport,
@@ -25,28 +25,6 @@ const measureLabels: Record<ConsumptionMeasureUnit, string> = {
 const countValue = (value: null | number, unit: string) =>
 	value === null ? "Unknown" : formatExactValue(value, unit);
 
-const comparisonDetail = (
-	current: null | number,
-	previous: null | number | undefined,
-	unit: string,
-	currentCaption: string,
-	previousCaption: null | string,
-) => {
-	if (previousCaption === null) {
-		return `${currentCaption} · No previous period`;
-	}
-	const comparison = compareValues(current, previous ?? null);
-	const periods = `${currentCaption} vs ${previousCaption}`;
-	if (comparison.kind === "unknown") {
-		return `${periods} · Change unavailable`;
-	}
-	if (comparison.kind === "new-activity") {
-		return `${periods} · New activity · +${formatExactValue(comparison.absolute, unit)}`;
-	}
-	const delta = `${comparison.absolute > 0 ? "+" : ""}${formatExactValue(comparison.absolute, unit)}`;
-	return `${periods} · ${delta}${comparison.percent === null ? "" : ` (${formatExactValue(comparison.percent, "%")})`}`;
-};
-
 const quantityDetail = (quantity: null | QuantitySummary, unit: string) => {
 	if (quantity === null) {
 		return "Known coverage unavailable · Recorded Unknown · Estimated Unknown · Missing Unknown";
@@ -70,7 +48,12 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 	const current = model.current;
 	const previous = model.previous;
 	const comparison = (value: null | number, oldValue: null | number | undefined, unit: string) =>
-		comparisonDetail(value, oldValue, unit, currentCaption, previousCaption);
+		comparisonDetail({
+			unit,
+			current: value,
+			previous: oldValue ?? null,
+			resolved: props.summary.reporting.resolved,
+		});
 
 	return (
 		<section aria-label="Media analytics summary" className="flex min-w-0 flex-col gap-4 font-ui">

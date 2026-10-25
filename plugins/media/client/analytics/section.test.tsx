@@ -21,7 +21,7 @@ afterEach(disposePluginBridges);
 
 const scopeFor = (pluginId = "media-owner"): AnalyticsSectionProps => ({
 	timeZone: TimeZone.make("UTC"),
-	owner: { kind: "local", pluginId: PluginId.make(pluginId) },
+	reference: { kind: "local", pluginId: PluginId.make(pluginId) },
 	selection: { grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
 });
 

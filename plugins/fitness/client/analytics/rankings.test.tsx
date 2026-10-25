@@ -33,7 +33,7 @@ const makeScope = (
 ): AnalyticsScope => ({
 	timeZone,
 	selection: selected,
-	owner: { kind: "local", pluginId: PluginId.make(owner) },
+	reference: { kind: "local", pluginId: PluginId.make(owner) },
 });
 
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));

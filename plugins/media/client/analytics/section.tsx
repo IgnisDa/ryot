@@ -1,27 +1,15 @@
 import {
 	type AnalyticsSectionProps,
 	periodCaption,
+	useDrillRequest,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import {
-	Button,
-	QueryStatus,
-	StatusMessage,
-	tabId,
-	Tabs,
-	useValueChange,
-} from "@ryot-app/plugin-ui-sdk";
-import { useId, useMemo, useState } from "react";
+import { Button, QueryStatus, StatusMessage, tabId, Tabs } from "@ryot-app/plugin-ui-sdk";
+import { useId, useState } from "react";
 
 import { MediaAnalyticsCharts } from "./charts";
-import {
-	type AnalyticsInput,
-	analyticsInput,
-	type MediaAnalyticsProcessing,
-	type RecordsDrillRequest,
-	type SummaryChartsProps,
-} from "./model";
+import type { MediaAnalyticsProcessing, RecordsDrillRequest, SummaryChartsProps } from "./model";
 import { mediaAnalyticsSummaryQuery } from "./queries";
 import { MediaAnalyticsRankings } from "./rankings";
 import { MediaAnalyticsRecords } from "./records";
@@ -31,13 +19,7 @@ type AnalyticsTab = "charts" | "rankings";
 
 export default function MediaAnalyticsSection(props: AnalyticsSectionProps) {
 	const { compact } = useRyotViewport();
-	const { timeZone, selection } = props;
-	const ownerKey = props.owner.pluginId;
-	const input = useMemo(
-		() => analyticsInput({ timeZone, selection, owner: { kind: "local", pluginId: ownerKey } }),
-		[ownerKey, selection, timeZone],
-	);
-	const summary = useRyotQuery(mediaAnalyticsSummaryQuery, input);
+	const summary = useRyotQuery(mediaAnalyticsSummaryQuery, props);
 	const [tab, setTab] = useState<AnalyticsTab>("charts");
 	return (
 		<QueryStatus query={summary} label="media analytics" onRetry={summary.refetch}>
@@ -46,7 +28,7 @@ export default function MediaAnalyticsSection(props: AnalyticsSectionProps) {
 					<ReadinessNotice processing={data.processing} />
 					<MediaAnalyticsContent
 						tab={tab}
-						input={input}
+						input={props}
 						summary={data}
 						compact={compact}
 						onTabChange={setTab}
@@ -75,17 +57,12 @@ function ReadinessNotice(props: { readonly processing: MediaAnalyticsProcessing 
 function MediaAnalyticsContent(props: {
 	readonly compact: boolean;
 	readonly tab: AnalyticsTab;
-	readonly input: AnalyticsInput;
+	readonly input: AnalyticsSectionProps;
 	readonly summary: SummaryChartsProps["summary"];
 	readonly onTabChange: (value: AnalyticsTab) => void;
 }) {
-	const [request, setRequest] = useState<null | RecordsDrillRequest>(null);
+	const [request, setRequest] = useDrillRequest<RecordsDrillRequest>(props.input);
 	const panelId = useId();
-	const scopeKey = JSON.stringify({
-		timeZone: props.input.timeZone,
-		selection: props.input.selection,
-	});
-	useValueChange(scopeKey, () => setRequest(null));
 	const childProps: SummaryChartsProps = {
 		input: props.input,
 		onDrill: setRequest,

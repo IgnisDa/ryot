@@ -18,6 +18,7 @@ import { usePageRefresh } from "../refresh/page-registry";
 import { definitionHostServices, isQueryDefinition, type RyotQuery } from "./definitions";
 import { createPagination, type PaginationOptions } from "./pagination";
 import { RyotContext } from "./provider";
+import { type ReportedPageInput, type ReportingPageParam, reportingPageParam } from "./reported";
 
 export const usePagination = <Page, Param>(
 	options: PaginationOptions<Page, Param> & {
@@ -199,3 +200,21 @@ export const useRyotInfiniteQuery = <
 	});
 	return result;
 };
+
+const reportedPageInput = <Input>(input: Input, page: ReportingPageParam) => ({ ...input, page });
+
+/** Pages a reported query; later pages keep the first page's resolved period. */
+export const useReportedPages = <
+	Input,
+	Page extends Parameters<typeof reportingPageParam>[0],
+	HostServices,
+	Failure extends Error,
+>(
+	query: RyotQuery<ReportedPageInput<Input>, Page, HostServices, Failure>,
+	input: Input,
+) =>
+	useRyotInfiniteQuery(query, input, {
+		initialPageParam: null,
+		getPageInput: reportedPageInput,
+		getNextPageParam: reportingPageParam,
+	});

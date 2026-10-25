@@ -34,7 +34,7 @@ const preferences = {
 
 const scopeFor = (pluginId = "fitness-owner"): AnalyticsSectionProps => ({
 	timeZone: TimeZone.make("UTC"),
-	owner: { kind: "local", pluginId: PluginId.make(pluginId) },
+	reference: { kind: "local", pluginId: PluginId.make(pluginId) },
 	selection: { grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
 });
 
@@ -235,13 +235,17 @@ describe("fitness analytics section", () => {
 				replyFailure(page, first.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("alert").textContent).toContain("could not be loaded"),
+						expect(screen.getByRole("alert").textContent).toContain(
+							"Could not load fitness display preferences",
+						),
 					),
 				);
 				expect(page.queryRequests()).toHaveLength(0);
 
 				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Retry preferences" }));
+					fireEvent.click(
+						screen.getByRole("button", { name: "Retry fitness display preferences" }),
+					);
 				});
 				const retry = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
 				replySettings(page, retry.requestId, { ...preferences, unitSystem: "unknown" });

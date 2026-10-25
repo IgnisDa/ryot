@@ -65,7 +65,7 @@ const emittedInput = {
 it.layer(emittedLayer("export const activity = () => null;"))(
 	"analytics section contract",
 	(test) => {
-		test.effect("accepts a generic section with the shared selection and exact owner", () =>
+		test.effect("accepts a generic section with the shared selection and exact reference", () =>
 			Effect.gen(function* () {
 				const compiled = yield* compileClientPluginModule({
 					...emittedInput,
@@ -73,8 +73,8 @@ it.layer(emittedLayer("export const activity = () => null;"))(
 					files: {
 						"client/activity.tsx": bytes(`
 import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";
-export default function Activity({ selection, timeZone, owner }: AnalyticsSectionProps) {
-  return <p>{owner.pluginId}: {selection.range.kind} ({timeZone})</p>;
+export default function Activity({ selection, timeZone, reference }: AnalyticsSectionProps) {
+  return <p>{reference.pluginId}: {selection.range.kind} ({timeZone})</p>;
 }`),
 					},
 				});

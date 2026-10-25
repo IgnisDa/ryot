@@ -5,9 +5,9 @@ import {
 	useRyotViewport as usePluginViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	type Compared,
 	paginationItems,
-	reportingPageParam,
-	useRyotInfiniteQuery,
+	useReportedPages,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
@@ -20,18 +20,16 @@ import {
 	QueryStatus,
 	Skeleton,
 } from "@ryot-app/plugin-ui-sdk";
-import { PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
+import { formatReportingDateTime, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 
 import {
 	analyticsMeasurementMetricsQuery,
-	analyticsPageInput,
 	measurementReadingsQuery,
 	measurementTrendQuery,
 } from "./queries";
 import {
 	type AnalyticsScope,
-	type Compared,
 	type MeasurementMetric,
 	type MeasurementReading,
 	type MeasurementTrend,
@@ -82,6 +80,10 @@ export function AnalyticsMeasurements(props: {
 	);
 }
 
+function useSelectedReadings(scope: AnalyticsScope, metricId: string) {
+	return useReportedPages(measurementReadingsQuery, { ...scope, metricId });
+}
+
 function bucketDetail(bucket: {
 	readonly detail: string;
 	readonly source: null | MeasurementTrend["points"][number];
@@ -89,30 +91,6 @@ function bucketDetail(bucket: {
 	return bucket.source === null
 		? bucket.detail
 		: `${bucket.detail}; source average ${formatExactValue(bucket.source.value, bucket.source.unit)}`;
-}
-
-function formatReadingTime(occurredAt: string, timeZone: TimeZone) {
-	return new Intl.DateTimeFormat(undefined, {
-		timeZone,
-		day: "numeric",
-		month: "short",
-		hour: "numeric",
-		year: "numeric",
-		minute: "2-digit",
-		timeZoneName: "short",
-	}).format(new Date(occurredAt));
-}
-
-function useSelectedReadings(scope: AnalyticsScope, metricId: string) {
-	return useRyotInfiniteQuery(
-		measurementReadingsQuery,
-		{ metricId, reference: scope.owner, timeZone: scope.timeZone, selection: scope.selection },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
 }
 
 function SelectedMeasurement(props: {
@@ -152,12 +130,7 @@ function MeasurementTrendPanel(props: {
 	readonly metric: SelectedMetric;
 	readonly onSmoothChange: (smooth: boolean) => void;
 }) {
-	const trend = useRyotQuery(measurementTrendQuery, {
-		metricId: props.metric.id,
-		reference: props.scope.owner,
-		timeZone: props.scope.timeZone,
-		selection: props.scope.selection,
-	});
+	const trend = useRyotQuery(measurementTrendQuery, { ...props.scope, metricId: props.metric.id });
 	return (
 		<section aria-label="Measurement trend" className="flex min-w-0 flex-col gap-3">
 			<h2 className="text-heading font-semibold text-text">Measurement trend</h2>
@@ -270,7 +243,7 @@ function ReadingsTable(props: {
 							{readings.map((reading) => (
 								<tr key={reading.id} className="border-t border-border">
 									<th scope="row" className="px-3 py-2 font-normal text-text">
-										{formatReadingTime(reading.occurredAt, timeZone)}
+										{formatReportingDateTime(reading.occurredAt, timeZone)}
 									</th>
 									<td className="px-3 py-2 text-right tabular-nums">
 										{formatExactValue(reading.value, reading.unit)}
@@ -318,19 +291,7 @@ function MetricPicker(props: {
 	readonly metricButtonRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { safeAreaBottom } = usePluginViewport();
-	const metricsQuery = useRyotInfiniteQuery(
-		analyticsMeasurementMetricsQuery,
-		{
-			reference: props.scope.owner,
-			timeZone: props.scope.timeZone,
-			selection: props.scope.selection,
-		},
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const metricsQuery = useReportedPages(analyticsMeasurementMetricsQuery, props.scope);
 	const metrics = useMemo(
 		() =>
 			paginationItems(

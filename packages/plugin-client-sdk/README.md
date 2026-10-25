@@ -96,16 +96,22 @@ reporting `timeZone`. This narrow authenticated capability is available to rende
 without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
 Compiled client sources import the canonical reporting definitions from
 `@ryot-app/plugin-client-sdk/plugin`: the `ReportingSelection` schema and its parts, URL encoding
-(`reportingSearchParams`, `parseReportingSearch`, `reportingRangeOptions`), and execution helpers.
-`reportingExecution(selection, { now: schedule.now(), timeZone })` resolves half-open local-calendar
-boundaries during execution and pins the resolved period as a custom `selection`; return it as
-`Reported<Data>` so drills and later pages reuse that period. `resolveReportingSelection` coarsens
-grouping so every bounded period stays within `REPORTING_BUCKET_LIMIT` buckets, and all-time groups
-by year. `calendarBuckets` lays out every bucket of a period (or of the data's extent for all time)
-with its points, so charts never page or truncate buckets. `selectionForPeriod`, `periodCaption`,
-`comparisonCaption`, `formatExactValue`, and `compareValues` are the shared reporting vocabulary.
-Infinite reporting queries use `reportingPageParam` from `@ryot-app/plugin-client-sdk/react` as
-`getNextPageParam` and read `page?.selection ?? selection`.
+(`reportingSearchParams`, `parseReportingSearch`, `analyticsSectionKey`) with the labelled
+`reportingRangeOptions`, and execution helpers. `reportingExecution(selection, { now, timeZone })`
+resolves half-open local-calendar boundaries and pins the resolved period as a custom `selection`.
+`resolveReportingSelection` coarsens grouping so every bounded period stays within
+`REPORTING_BUCKET_LIMIT` buckets, and all-time groups by year. `calendarBuckets` lays out every
+bucket of a period (or of the data's extent for all time) with its points, so charts never page or
+truncate buckets. `selectionForPeriod`, `periodCaption`, `formatExactValue`, and `comparisonDetail`
+are the shared reporting vocabulary.
+
+Reporting queries come from `@ryot-app/plugin-client-sdk/react`. `createReportedQuery` resolves the
+input's `selection` and `timeZone` against `schedule.now()` when it executes, passes the resolved
+selection to the read, and returns `Reported<Data>` so drills reuse its pinned `reporting.selection`.
+`createComparedQuery` also reads the previous period as `current`; `createConsistencyQuery` reads
+the daily window of at most `REPORTING_BUCKET_LIMIT` days ending at the period end or today and
+reports whether it was `clipped`. `createReportedPageQuery` reads one cursor page; `useReportedPages`
+pages it, and later pages resolve the first page's pinned selection. All are `cancelOnUnmount`.
 
 Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
 `null`, while inaccessible or malformed stored JSON fails without removing the original value.
@@ -338,8 +344,10 @@ exports: {
 
 The entry default-exports a React component accepting `AnalyticsSectionProps`, imported from
 `@ryot-app/plugin-client-sdk/plugin`. Its `selection` is the shared `ReportingSelection`; `timeZone`
-is the authenticated account reporting timezone; `owner` is the exact local plugin identity. Use
-that owner in recipes rather than inferring ownership from display metadata or the selected workspace.
+is the authenticated account reporting timezone; `reference` is the exact local plugin identity. Use
+that reference in recipes rather than inferring ownership from display metadata or the selected
+workspace. `useDrillRequest(props)` holds a section's open drill-down request and clears it when the
+reference, time zone or selection changes.
 The compiler rejects sections that require other host props.
 
 Sections reach only page compositions; plugin routes never receive them. The global renderer owns the

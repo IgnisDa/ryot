@@ -1,4 +1,3 @@
-import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -39,20 +38,6 @@ export const nextPageCursor = (page: {
 		throw new PaginationError({ reason: "cursor-did-not-advance" });
 	}
 	return nextCursor;
-};
-
-export type ReportingPageParam = null | {
-	readonly after: string;
-	readonly selection: ReportingSelection;
-};
-
-/** Later pages reuse the first page's pinned selection so clock movement cannot shift the period. */
-export const reportingPageParam = (page: {
-	readonly reporting: { readonly selection: ReportingSelection };
-	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
-}): ReportingPageParam => {
-	const after = nextPageCursor(page);
-	return after === null ? null : { after, selection: page.reporting.selection };
 };
 
 export const paginationItems = <Page, Item>(

@@ -343,7 +343,12 @@ export const mediaAnalyticsHoursRecipe = defineRecipe(
 );
 
 export const mediaAnalyticsRankingRecipe = defineRecipe(
-	(input: MediaAnalyticsInput & { readonly after?: string; readonly mediaType?: string }) => {
+	(
+		input: MediaAnalyticsInput & {
+			readonly mediaType?: string;
+			readonly after?: string | undefined;
+		},
+	) => {
 		const period = input.reporting.current;
 		const source = consumptionDetail(input, "analyticsRank", period);
 		const type = mediaTypeJoin(source.entity, "analyticsRankType", input.reference);
@@ -387,7 +392,7 @@ export const MediaConsumptionFacts = Schema.Struct({
 });
 
 export const mediaAnalyticsRecordsRecipe = defineRecipe(
-	(input: MediaAnalyticsInput & MediaAnalyticsFilter & { readonly after?: string }) => {
+	(input: MediaAnalyticsInput & MediaAnalyticsFilter & { readonly after?: string | undefined }) => {
 		const period = input.reporting.current;
 		const source = consumptionDetail(input, "analyticsRecord", period);
 		const type = mediaTypeJoin(source.entity, "analyticsRecordType", input.reference);

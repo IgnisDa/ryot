@@ -5,7 +5,6 @@ import {
 	type AnalyticsInput,
 	type AnalyticsTrend,
 	consistencyModel,
-	consistencySelection,
 	type MeasurementTrend,
 	measurementTrendModel,
 	metricDisplay,
@@ -141,48 +140,17 @@ describe("measurement averages", () => {
 	});
 });
 
-describe("bounded workout consistency", () => {
-	it("clips all-time and long selections to the last 26 weeks, using the selected end", () => {
-		const now = Date.parse("2026-11-01T18:00:00Z");
-		const bounded = consistencySelection(
-			{
-				...input,
-				selection: {
-					...input.selection,
-					range: { kind: "custom", endDate: "2024-03-02", startDate: "2020-01-01" },
-				},
-			},
-			now,
+describe("workout consistency", () => {
+	it("fills every day of the period with zero for days without workouts", () => {
+		const model = consistencyModel(
+			trend({ period: customPeriod("2023-09-03", "2024-03-02", input.timeZone) }),
+			input.timeZone,
 		);
-		expect(bounded.clipped).toBe(true);
-		expect(bounded.selection.range).toEqual({
-			kind: "custom",
-			endDate: "2024-03-02",
-			startDate: "2023-09-03",
-		});
-		const period = resolveReportingSelection(bounded.selection, {
-			now,
-			timeZone: input.timeZone,
-		}).current;
-		const model = consistencyModel(trend({ period }), input.timeZone);
 		expect(model.days).toHaveLength(182);
 		expect(model.days[0]?.value).toBe(0);
 		expect(model.periodCaption).toBe("2023-09-03 – 2024-03-02");
-		expect(
-			consistencySelection(
-				{ ...input, selection: { ...input.selection, range: { kind: "all-time" } } },
-				now,
-			).clipped,
-		).toBe(true);
 	});
-	it("does not stretch short selections", () => {
-		const bounded = consistencySelection(input, Date.parse("2026-11-01T18:00:00Z"));
-		expect(bounded.clipped).toBe(false);
-		expect(bounded.selection.range).toEqual({
-			kind: "custom",
-			endDate: "2026-11-01",
-			startDate: "2026-10-26",
-		});
+	it("places recorded workouts on their local day", () => {
 		const model = consistencyModel(
 			trend({ points: [point("2024-02-29T00:00:00Z", 2)] }),
 			TimeZone.make("UTC"),

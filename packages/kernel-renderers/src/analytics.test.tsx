@@ -32,9 +32,9 @@ const context: ClientPageContext = {
 	target: { kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } },
 };
 
-const FixtureSection = ({ owner, timeZone, selection }: AnalyticsSectionProps) => (
+const FixtureSection = ({ timeZone, reference, selection }: AnalyticsSectionProps) => (
 	<p>
-		{owner.pluginId} / {selection.range.kind} / {timeZone}
+		{reference.pluginId} / {selection.range.kind} / {timeZone}
 	</p>
 );
 
@@ -143,15 +143,15 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 			waitFor(() => {
 				expect(attempts).toBe(2);
 				const alert = screen.getByRole("alert");
-				expect(alert.textContent).toContain("Reporting preferences refresh failed.");
-				expect(alert.textContent).toContain("The last loaded time zone, UTC, is being used.");
-				expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
+				expect(alert.textContent).toContain(
+					"Could not update reporting preferences. Showing the last loaded values.",
+				);
 				expect(screen.getByText("Reporting time zone: UTC")).toBeDefined();
 				expect(screen.getByText("first-local / rolling / UTC")).toBeDefined();
 			}),
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		fireEvent.click(screen.getByRole("button", { name: "Retry reporting preferences" }));
 		yield* Effect.promise(() =>
 			answerReportingPreferences(page, 3, {
 				outcome: "success",

@@ -5,17 +5,23 @@ export type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views
 export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 export { IosLiveActivityValue, IosLiveActivityContent } from "@ryot-app/plugin-client-contract";
 export {
+	periodCaption,
+	formatExactValue,
+	comparisonDetail,
+	reportingRangeOptions,
+} from "./analytics/reporting";
+export {
+	useDrillRequest,
+	AnalyticsSection,
+	useAnalyticsSections,
+	type AnalyticsSectionProps,
+} from "./analytics/sections";
+export {
 	usePageContext,
 	bootstrapClientPage,
 	bootstrapClientPlugin,
 	createClientBootstrap,
 } from "./bootstrap/application";
-export {
-	AnalyticsSection,
-	analyticsSectionKey,
-	useAnalyticsSections,
-	type AnalyticsSectionProps,
-} from "./analytics/sections";
 export {
 	PluginId,
 	EventSchemaSlug,
@@ -71,24 +77,20 @@ export {
 } from "./presentations/entity-results";
 export {
 	CalendarDate,
-	periodCaption,
 	type Reported,
-	compareValues,
 	ReportingRange,
 	calendarPeriod,
 	calendarBuckets,
-	formatExactValue,
 	ReportingGrouping,
-	comparisonCaption,
 	ReportingSelection,
 	selectionForPeriod,
 	reportingExecution,
+	analyticsSectionKey,
 	type CalendarBucket,
 	reportingRangeValue,
 	type ReportingPeriod,
 	parseReportingSearch,
 	reportingSearchParams,
-	reportingRangeOptions,
 	REPORTING_BUCKET_LIMIT,
 	type ReportingExecution,
 	defaultReportingSelection,

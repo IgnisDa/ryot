@@ -2,11 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	reportingPageParam,
-	useRyotInfiniteQuery,
-	useRyotQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { useReportedPages, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -23,7 +19,6 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { zeroMeasures } from "../../tests/client/analytics-fixture";
 import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
-	analyticsPageInput,
 	mediaAnalyticsConsistencyQuery,
 	mediaAnalyticsHoursQuery,
 	mediaAnalyticsRankingQuery,
@@ -120,15 +115,10 @@ function ReportProbe() {
 	);
 }
 function RankingProbe() {
-	const query = useRyotInfiniteQuery(
-		mediaAnalyticsRankingQuery,
-		{ ...input, processing: "ready" as const },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const query = useReportedPages(mediaAnalyticsRankingQuery, {
+		...input,
+		processing: "ready" as const,
+	});
 	return (
 		<>
 			<button onClick={query.fetchNextPage}>More</button>
@@ -143,21 +133,13 @@ function RankingProbe() {
 function RecordsProbe() {
 	const [owner, setOwner] = useState("media-owner");
 	const [processing, setProcessing] = useState<"ready" | "pending">("pending");
-	const query = useRyotInfiniteQuery(
-		mediaAnalyticsRecordsQuery,
-		{
-			...input,
-			hour: 1,
-			processing,
-			entityId: "original-title",
-			reference: { kind: "local" as const, pluginId: PluginId.make(owner) },
-		},
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const query = useReportedPages(mediaAnalyticsRecordsQuery, {
+		...input,
+		hour: 1,
+		processing,
+		entityId: "original-title",
+		reference: { kind: "local" as const, pluginId: PluginId.make(owner) },
+	});
 	return (
 		<>
 			<button onClick={query.fetchNextPage}>More</button>

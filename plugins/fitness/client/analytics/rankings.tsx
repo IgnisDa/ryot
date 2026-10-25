@@ -1,9 +1,5 @@
 import { formatExactValue, periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	paginationItems,
-	reportingPageParam,
-	useRyotInfiniteQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -13,9 +9,10 @@ import {
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import { RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { useMemo, useState } from "react";
 
-import { analyticsPageInput, analyticsRankingQuery } from "./queries";
+import { analyticsRankingQuery } from "./queries";
 import type { AnalyticsRankingRow, AnalyticsScope, WorkoutDrillRequest } from "./reporting-model";
 
 type RankingKind = "targets" | "exercises" | "equipment";
@@ -60,85 +57,93 @@ export function AnalyticsRankings(props: {
 	);
 }
 
-function RankingTable(props: {
+const headerClassName = "px-3 py-2.5 text-right font-medium text-text-muted";
+const cellClassName = "px-3 py-2.5 text-right text-text-muted";
+
+const countColumn = (
+	id: string,
+	header: string,
+	unit: string,
+	value: (row: AnalyticsRankingRow) => null | number,
+): DataTableColumn<AnalyticsRankingRow> => ({
+	id,
+	header,
+	cellClassName,
+	headerClassName,
+	cell: (row) => formatExactValue(value(row), unit),
+});
+
+type RankingTableProps = {
 	readonly kind: RankingKind;
 	readonly periodCaption: string;
 	readonly items: readonly AnalyticsRankingRow[];
 	readonly selection: undefined | AnalyticsScope["selection"];
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
-}) {
-	const { kind, items } = props;
-	const targets = kind === "targets";
+};
+
+const rankingColumns = ({
+	kind,
+	selection,
+	onOpenWorkouts,
+	periodCaption: caption,
+}: RankingTableProps): DataTableColumn<AnalyticsRankingRow>[] => [
+	{
+		id: "name",
+		header: "Name",
+		cell: (row) => row.name,
+		cellClassName: "px-3 py-2.5 text-text",
+		headerClassName: "px-3 py-2.5 text-left font-medium text-text-muted",
+	},
+	...(kind === "targets"
+		? [countColumn("weighted-sets", "Weighted sets", "weighted sets", (row) => row.weightedSets)]
+		: []),
+	countColumn("sets", "Recorded sets", "sets", (row) => row.sets),
+	countColumn(
+		"occurrences",
+		"Exercise occurrences",
+		"occurrences",
+		(row) => row.exerciseOccurrences,
+	),
+	countColumn("workouts", "Distinct workouts", "workouts", (row) => row.workouts),
+	{
+		id: "actions",
+		headerClassName,
+		cellClassName: "px-3 py-2.5 text-right",
+		header: <span className="sr-only">Actions</span>,
+		cell: (row) => (
+			<Button
+				size="sm"
+				variant="link"
+				disabled={selection === undefined}
+				aria-label={`View workouts contributing to ${row.name}`}
+				onClick={() => {
+					if (selection !== undefined) {
+						onOpenWorkouts({
+							selection,
+							title: row.name,
+							periodCaption: caption,
+							filter: { kind, id: row.id },
+						});
+					}
+				}}
+			>
+				View workouts
+			</Button>
+		),
+	},
+];
+
+function RankingTable(props: RankingTableProps) {
 	return (
 		<Card padding="none" className="overflow-x-auto">
-			<table className="w-full min-w-190 border-collapse text-sm tabular-nums">
-				<caption className="sr-only">{kindLabel[kind]} rankings</caption>
-				<thead>
-					<tr>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Name
-						</th>
-						{targets ? (
-							<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-								Weighted sets
-							</th>
-						) : null}
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Recorded sets
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Exercise occurrences
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							Distinct workouts
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-right font-medium text-text-muted">
-							<span className="sr-only">Actions</span>
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{items.map((row) => (
-						<tr key={row.id} className="border-t border-border">
-							<td className="px-3 py-2.5 text-text">{row.name}</td>
-							{targets ? (
-								<td className="px-3 py-2.5 text-right text-text-muted">
-									{formatExactValue(row.weightedSets, "weighted sets")}
-								</td>
-							) : null}
-							<td className="px-3 py-2.5 text-right text-text-muted">
-								{formatExactValue(row.sets, "sets")}
-							</td>
-							<td className="px-3 py-2.5 text-right text-text-muted">
-								{formatExactValue(row.exerciseOccurrences, "occurrences")}
-							</td>
-							<td className="px-3 py-2.5 text-right text-text-muted">
-								{formatExactValue(row.workouts, "workouts")}
-							</td>
-							<td className="px-3 py-2.5 text-right">
-								<Button
-									size="sm"
-									variant="link"
-									disabled={props.selection === undefined}
-									aria-label={`View workouts contributing to ${row.name}`}
-									onClick={() => {
-										if (props.selection !== undefined) {
-											props.onOpenWorkouts({
-												title: row.name,
-												selection: props.selection,
-												filter: { kind, id: row.id },
-												periodCaption: props.periodCaption,
-											});
-										}
-									}}
-								>
-									View workouts
-								</Button>
-							</td>
-						</tr>
-					))}
-				</tbody>
-			</table>
+			<DataTable
+				data={props.items}
+				getRowId={(row) => row.id}
+				columns={rankingColumns(props)}
+				rowClassName="border-t border-border"
+				aria-label={`${kindLabel[props.kind]} rankings`}
+				className="w-full min-w-190 border-collapse text-sm tabular-nums"
+			/>
 		</Card>
 	);
 }
@@ -149,15 +154,7 @@ function RankingKindResults(props: {
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
 	const { kind, scope } = props;
-	const result = useRyotInfiniteQuery(
-		analyticsRankingQuery,
-		{ kind, reference: scope.owner, timeZone: scope.timeZone, selection: scope.selection },
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const result = useReportedPages(analyticsRankingQuery, { ...scope, kind });
 	const items = useMemo(
 		() =>
 			paginationItems(

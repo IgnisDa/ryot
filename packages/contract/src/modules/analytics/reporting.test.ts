@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { TimeZone } from "../../schema/time-zone";
 import {
 	calendarBuckets,
-	compareValues,
 	defaultReportingSelection,
 	parseReportingSearch,
 	REPORTING_BUCKET_LIMIT,
@@ -306,14 +305,5 @@ describe("calendar buckets", () => {
 		expect(
 			calendarBuckets([], { at: String, period: null, grouping: "year", timeZone: newYork }),
 		).toEqual([]);
-	});
-});
-
-describe("value comparison", () => {
-	it("reports new activity from zero and unknown changes without both values", () => {
-		expect(compareValues(5, 0)).toEqual({ absolute: 5, percent: null, kind: "new-activity" });
-		expect(compareValues(0, 0)).toEqual({ percent: 0, absolute: 0, kind: "change" });
-		expect(compareValues(5, -10)).toEqual({ percent: 150, absolute: 15, kind: "change" });
-		expect(compareValues(null, 1).kind).toBe("unknown");
 	});
 });

@@ -2,13 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { Effect, Fiber } from "effect";
 
 import { RyotClientError } from "../client/errors";
-import {
-	createPagination,
-	nextPageCursor,
-	PaginationError,
-	paginationItems,
-	reportingPageParam,
-} from "./pagination";
+import { createPagination, nextPageCursor, PaginationError, paginationItems } from "./pagination";
 
 type Item = { readonly id: string; readonly value: string };
 type Page = { readonly next: null | string; readonly items: readonly Item[] };
@@ -373,23 +367,3 @@ it.effect("uses the latest loaded parameter for replacement append and refresh",
 		]);
 	}),
 );
-
-it("pins a reporting page's resolved selection with its continuation", () => {
-	const selection = {
-		grouping: "day",
-		comparison: "none",
-		range: { kind: "custom", endDate: "2026-03-08", startDate: "2026-03-01" },
-	} as const;
-	expect(
-		reportingPageParam({
-			reporting: { selection },
-			pageInfo: { hasMore: true, nextCursor: "next" },
-		}),
-	).toEqual({ selection, after: "next" });
-	expect(
-		reportingPageParam({
-			reporting: { selection },
-			pageInfo: { hasMore: false, nextCursor: null },
-		}),
-	).toBeNull();
-});

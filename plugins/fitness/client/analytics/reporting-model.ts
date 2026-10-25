@@ -1,14 +1,10 @@
 import {
-	addCalendarDays,
 	type AnalyticsSectionProps,
 	calendarBuckets,
-	localDateOf,
 	periodCaption,
-	type Reported,
 	type ReportingExecution,
 	type ReportingPeriod,
 	type ReportingSelection,
-	resolveReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
@@ -45,7 +41,6 @@ export type AnalyticsRanking = Recipe.Success<typeof historicalFitnessRankingRec
 export type AnalyticsWorkouts = Recipe.Success<typeof fitnessAnalyticsWorkoutsRecipe>;
 export type AnalyticsMetric = Parameters<typeof fitnessAnalyticsTrendRecipe>[0]["metric"];
 export type MeasurementReadings = Recipe.Success<typeof fitnessMeasurementReadingsRecipe>;
-export type Compared<Data> = Reported<{ readonly current: Data; readonly previous: null | Data }>;
 
 export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
@@ -176,24 +171,6 @@ export const measurementTrendModel = (
 		mixedUnits: units.size > 1,
 		previous: comparable ? build(previous) : null,
 		unit: units.size === 1 ? ([...units][0] ?? null) : null,
-	};
-};
-
-export const consistencySelection = (input: AnalyticsInput, now: number) => {
-	const resolved = resolveReportingSelection(input.selection, { now, timeZone: input.timeZone });
-	const endDate = resolved.current?.endDate ?? localDateOf(now, input.timeZone);
-	const earliest = addCalendarDays(endDate, -(26 * 7 - 1));
-	const startDate =
-		resolved.current === null || resolved.current.startDate < earliest
-			? earliest
-			: resolved.current.startDate;
-	return {
-		clipped: resolved.current === null || resolved.current.startDate < startDate,
-		selection: {
-			grouping: "day",
-			comparison: "none",
-			range: { endDate, startDate, kind: "custom" },
-		} satisfies ReportingSelection,
 	};
 };
 

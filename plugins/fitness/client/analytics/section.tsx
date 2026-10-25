@@ -1,7 +1,11 @@
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { type AnalyticsSectionProps, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	type AnalyticsSectionProps,
+	useDrillRequest,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { usePluginUserSettings } from "@ryot-app/plugin-client-sdk/react";
-import { StatusMessage, tabId, Tabs, useValueChange } from "@ryot-app/plugin-ui-sdk";
+import { QueryStatus, StatusMessage, tabId, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { type ReactNode, useId, useState } from "react";
 
 import { WorkoutPreferenceSettingsSchema } from "../../shared/workout-editor-preferences";
@@ -19,53 +23,29 @@ import { AnalyticsWorkouts } from "./workouts";
 const decodeWorkoutPreferences = Schema.decodeUnknownResult(WorkoutPreferenceSettingsSchema);
 
 export default function FitnessAnalyticsSection(props: AnalyticsSectionProps) {
-	const settings = usePluginUserSettings(props.owner.pluginId);
+	const settings = usePluginUserSettings(props.reference.pluginId);
 	const { compact } = useRyotViewport();
-
-	if (settings.data === undefined) {
-		if (settings.isError) {
-			return (
-				<StatusMessage
-					tone="error"
-					action={{ onClick: settings.refetch, label: "Retry preferences" }}
-				>
-					Fitness display preferences could not be loaded.
-				</StatusMessage>
-			);
-		}
-		return <StatusMessage tone="pending">Loading fitness display preferences…</StatusMessage>;
-	}
-
-	const decoded = decodeWorkoutPreferences(settings.data);
-	if (decoded._tag === "Failure") {
-		return (
-			<StatusMessage
-				tone="error"
-				action={{ onClick: settings.refetch, label: "Retry preferences" }}
-			>
-				Fitness display preferences are invalid.
-			</StatusMessage>
-		);
-	}
-
-	const preferences: AnalyticsDisplayPreferences = {
-		unitSystem: decoded.success.unitSystem,
-		energyUnit: decoded.success.energyUnit,
-	};
-
 	return (
-		<div className="grid min-w-0 gap-4">
-			{settings.isError ? (
-				<StatusMessage
-					tone="error"
-					action={{ onClick: settings.refetch, label: "Retry preferences" }}
-				>
-					Fitness display preferences could not be refreshed. The last loaded preferences are being
-					used.
-				</StatusMessage>
-			) : null}
-			<AnalyticsContent scope={props} compact={compact} preferences={preferences} />
-		</div>
+		<QueryStatus query={settings} onRetry={settings.refetch} label="fitness display preferences">
+			{(data) => {
+				const decoded = decodeWorkoutPreferences(data);
+				if (decoded._tag === "Failure") {
+					return (
+						<StatusMessage
+							tone="error"
+							action={{ onClick: settings.refetch, label: "Retry fitness display preferences" }}
+						>
+							Fitness display preferences are invalid.
+						</StatusMessage>
+					);
+				}
+				const preferences: AnalyticsDisplayPreferences = {
+					unitSystem: decoded.success.unitSystem,
+					energyUnit: decoded.success.energyUnit,
+				};
+				return <AnalyticsContent scope={props} compact={compact} preferences={preferences} />;
+			}}
+		</QueryStatus>
 	);
 }
 
@@ -75,13 +55,8 @@ function AnalyticsContent(props: {
 	readonly preferences: AnalyticsDisplayPreferences;
 }) {
 	const [tab, setTab] = useState<"workouts" | "rankings" | "measurements">("workouts");
-	const [request, setRequest] = useState<null | WorkoutDrillRequest>(null);
+	const [request, setRequest] = useDrillRequest<WorkoutDrillRequest>(props.scope);
 	const panelId = useId();
-	const scopeKey = JSON.stringify({
-		timeZone: props.scope.timeZone,
-		selection: props.scope.selection,
-	});
-	useValueChange(scopeKey, () => setRequest(null));
 	let panel: ReactNode;
 	if (tab === "workouts") {
 		panel = (

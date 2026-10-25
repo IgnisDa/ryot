@@ -5,11 +5,7 @@ import {
 	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	paginationItems,
-	reportingPageParam,
-	useRyotInfiniteQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -19,6 +15,8 @@ import {
 	MotionPresence,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
+import { formatReportingDateTime } from "@ryot-app/plugin-ui-sdk/charts";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { useMemo } from "react";
 
 import {
@@ -29,7 +27,14 @@ import {
 	recordModel,
 	type RecordsDrillRequest,
 } from "./model";
-import { analyticsPageInput, mediaAnalyticsRecordsQuery } from "./queries";
+import { mediaAnalyticsRecordsQuery } from "./queries";
+
+type RecordRow = ReturnType<typeof recordModel>;
+type RecordTableProps = {
+	readonly timeZone: TimeZone;
+	readonly processing: MediaAnalyticsProcessing;
+	readonly items: readonly MediaAnalyticsRecord[];
+};
 
 export function MediaAnalyticsRecords(props: {
 	readonly onClose: () => void;
@@ -38,24 +43,16 @@ export function MediaAnalyticsRecords(props: {
 	readonly summary: Reported<MediaAnalyticsSummary>;
 }) {
 	const viewport = useRyotViewport();
-	const result = useRyotInfiniteQuery(
-		mediaAnalyticsRecordsQuery,
-		{
-			timeZone: props.input.timeZone,
-			reference: props.input.reference,
-			selection: props.request.selection,
-			processing: props.summary.processing,
-			...(props.request.entityId === undefined ? {} : { entityId: props.request.entityId }),
-			...(props.request.mediaType === undefined ? {} : { mediaType: props.request.mediaType }),
-			...(props.request.hour === undefined ? {} : { hour: props.request.hour }),
-			...(props.request.activeOnly === undefined ? {} : { activeOnly: props.request.activeOnly }),
-		},
-		{
-			initialPageParam: null,
-			getPageInput: analyticsPageInput,
-			getNextPageParam: reportingPageParam,
-		},
-	);
+	const result = useReportedPages(mediaAnalyticsRecordsQuery, {
+		timeZone: props.input.timeZone,
+		reference: props.input.reference,
+		selection: props.request.selection,
+		processing: props.summary.processing,
+		...(props.request.entityId === undefined ? {} : { entityId: props.request.entityId }),
+		...(props.request.mediaType === undefined ? {} : { mediaType: props.request.mediaType }),
+		...(props.request.hour === undefined ? {} : { hour: props.request.hour }),
+		...(props.request.activeOnly === undefined ? {} : { activeOnly: props.request.activeOnly }),
+	});
 	const items = useMemo(
 		() =>
 			paginationItems(
@@ -186,15 +183,10 @@ function RecordDate(props: { readonly timeZone: TimeZone; readonly row: MediaAna
 	}
 	return (
 		<time dateTime={attribution.value}>
-			{new Intl.DateTimeFormat("en-US", {
-				timeStyle: "short",
-				dateStyle: "medium",
-				timeZone: props.timeZone,
-			}).format(new Date(attribution.value))}
+			{formatReportingDateTime(attribution.value, props.timeZone)}
 		</time>
 	);
 }
-
 function Contribution(props: {
 	readonly processing: MediaAnalyticsProcessing;
 	readonly contribution: ReturnType<typeof recordModel>["contribution"];
@@ -241,66 +233,76 @@ function Contribution(props: {
 	);
 }
 
-function RecordTable(props: {
-	readonly timeZone: TimeZone;
-	readonly processing: MediaAnalyticsProcessing;
-	readonly items: readonly MediaAnalyticsRecord[];
-}) {
+const headerClassName = "px-3 py-2.5 text-left font-medium text-text-muted";
+
+const recordColumns = ({
+	timeZone,
+	processing,
+}: RecordTableProps): DataTableColumn<RecordRow>[] => [
+	{
+		id: "name",
+		header: "Name",
+		headerClassName,
+		cellClassName: "px-3 py-2.5",
+		cell: ({ source: row }) => (
+			<PluginLink
+				className="font-medium text-accent-text"
+				to={{ kind: "entity", entityId: row.entityId }}
+			>
+				{row.name}
+			</PluginLink>
+		),
+	},
+	{
+		id: "category",
+		headerClassName,
+		header: "Category",
+		cell: ({ source: row }) => row.label,
+		cellClassName: "px-3 py-2.5 text-text-muted",
+	},
+	{
+		headerClassName,
+		id: "event-type",
+		header: "Source event type",
+		cell: ({ source: row }) => row.eventType,
+		cellClassName: "px-3 py-2.5 text-text-muted",
+	},
+	{
+		id: "date",
+		headerClassName,
+		header: "Reading date",
+		cellClassName: "whitespace-nowrap px-3 py-2.5 text-text-muted",
+		cell: ({ source: row }) => <RecordDate row={row} timeZone={timeZone} />,
+	},
+	{
+		id: "facts",
+		headerClassName,
+		header: "Source facts",
+		cellClassName: "min-w-55 px-3 py-2.5 text-text-muted",
+		cell: (modeled) => <SourceFacts modeled={modeled} row={modeled.source} />,
+	},
+	{
+		headerClassName,
+		id: "contribution",
+		header: "Canonical contribution",
+		cellClassName: "min-w-64 px-3 py-2.5 text-text-muted",
+		cell: ({ contribution }) => (
+			<Contribution processing={processing} contribution={contribution} />
+		),
+	},
+];
+
+function RecordTable(props: RecordTableProps) {
 	return (
 		<Card padding="none" className="overflow-x-auto">
-			<table className="w-full min-w-240 border-collapse text-sm tabular-nums">
-				<caption className="sr-only">Media analytics records</caption>
-				<thead>
-					<tr>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Name
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Category
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Source event type
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Reading date
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Source facts
-						</th>
-						<th scope="col" className="px-3 py-2.5 text-left font-medium text-text-muted">
-							Canonical contribution
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{props.items.map((row) => {
-						const modeled = recordModel(row, props.processing);
-						return (
-							<tr key={row.id} className="border-t border-border align-top">
-								<td className="px-3 py-2.5">
-									<PluginLink
-										className="font-medium text-accent-text"
-										to={{ kind: "entity", entityId: row.entityId }}
-									>
-										{row.name}
-									</PluginLink>
-								</td>
-								<td className="px-3 py-2.5 text-text-muted">{row.label}</td>
-								<td className="px-3 py-2.5 text-text-muted">{row.eventType}</td>
-								<td className="whitespace-nowrap px-3 py-2.5 text-text-muted">
-									<RecordDate row={row} timeZone={props.timeZone} />
-								</td>
-								<td className="min-w-55 px-3 py-2.5 text-text-muted">
-									<SourceFacts row={row} modeled={modeled} />
-								</td>
-								<td className="min-w-64 px-3 py-2.5 text-text-muted">
-									<Contribution processing={props.processing} contribution={modeled.contribution} />
-								</td>
-							</tr>
-						);
-					})}
-				</tbody>
-			</table>
+			<DataTable
+				columns={recordColumns(props)}
+				getRowId={({ source }) => source.id}
+				aria-label="Media analytics records"
+				rowClassName="border-t border-border align-top"
+				className="w-full min-w-240 border-collapse text-sm tabular-nums"
+				data={props.items.map((row) => recordModel(row, props.processing))}
+			/>
 		</Card>
 	);
 }

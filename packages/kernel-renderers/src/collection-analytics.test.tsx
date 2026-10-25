@@ -96,12 +96,6 @@ const chartRows = () =>
 		]);
 	});
 
-const dateLabel = (date: string) =>
-	new Intl.DateTimeFormat(undefined, {
-		dateStyle: "medium",
-		timeZone: TimeZone.make("UTC"),
-	}).format(new Date(`${date}T00:00:00.000Z`));
-
 const loadChartRows = (
 	selection: ReportingSelection,
 	items: ReadonlyArray<{ readonly at: string; readonly count: number }>,
@@ -203,29 +197,14 @@ it.effect("fills finite day ranges with calendar buckets between sparse review d
 			{ count: 2, at: "2026-03-01T05:00:00.000Z" },
 			{ count: 3, at: "2026-03-05T05:00:00.000Z" },
 		]);
-		const dates = [
-			"2026-03-01",
-			"2026-03-02",
-			"2026-03-03",
-			"2026-03-04",
-			"2026-03-05",
-			"2026-03-06",
-			"2026-03-07",
-		];
-		expect(rows).toHaveLength(7);
-		expect(
-			rows.map(([period, value], index) => [
-				period?.endsWith(dateLabel(dates[index] ?? "")) ?? false,
-				value,
-			]),
-		).toEqual([
-			[true, "2 reviews"],
-			[true, "0 reviews"],
-			[true, "0 reviews"],
-			[true, "0 reviews"],
-			[true, "3 reviews"],
-			[true, "0 reviews"],
-			[true, "0 reviews"],
+		expect(rows.map(([period, value]) => [period?.split(" · ").at(-1), value])).toEqual([
+			["Mar 1, 2026", "2 reviews"],
+			["Mar 2, 2026", "0 reviews"],
+			["Mar 3, 2026", "0 reviews"],
+			["Mar 4, 2026", "0 reviews"],
+			["Mar 5, 2026", "3 reviews"],
+			["Mar 6, 2026", "0 reviews"],
+			["Mar 7, 2026", "0 reviews"],
 		]);
 	}),
 );

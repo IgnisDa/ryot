@@ -7,6 +7,7 @@ import {
 	addCalendarUnits,
 	calendarDaysBetween,
 	type CalendarUnit,
+	isCalendarDate,
 	localDateOf,
 	startOfCalendarUnit,
 } from "./calendar";
@@ -16,7 +17,7 @@ export type ReportingPreferences = typeof ReportingPreferences.Type;
 
 export const CalendarDate = Schema.String.check(
 	Schema.makeFilter((value) => {
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		if (!isCalendarDate(value)) {
 			return false;
 		}
 		const date = new Date(`${value}T00:00:00.000Z`);
@@ -206,54 +207,6 @@ export const reportingExecution = (
 	};
 };
 
-export const periodCaption = (
-	period: null | { readonly endDate: string; readonly startDate: string },
-) => {
-	if (period === null) {
-		return "All time";
-	}
-	return period.startDate === period.endDate
-		? period.startDate
-		: `${period.startDate} – ${period.endDate}`;
-};
-
-export const comparisonCaption = (
-	resolved: Pick<ResolvedReportingSelection, "current" | "previous">,
-) =>
-	resolved.previous === null
-		? null
-		: `${periodCaption(resolved.current)} vs ${periodCaption(resolved.previous)}`;
-
-export const formatExactValue = (value: null | number, unit: null | string = null) => {
-	if (value === null || !Number.isFinite(value)) {
-		return "Unknown";
-	}
-	return `${Object.is(value, -0) ? "0" : String(value)}${unit === null || unit === "" ? "" : ` ${unit}`}`;
-};
-
-export const compareValues = (current: null | number, previous: null | number) => {
-	if (
-		current === null ||
-		previous === null ||
-		!Number.isFinite(current) ||
-		!Number.isFinite(previous)
-	) {
-		return { percent: null, absolute: null, kind: "unknown" as const };
-	}
-	const absolute = current - previous;
-	let percent: null | number = null;
-	if (previous !== 0) {
-		percent = (absolute / Math.abs(previous)) * 100;
-	} else if (current === 0) {
-		percent = 0;
-	}
-	return {
-		percent,
-		absolute,
-		kind: previous === 0 && current > 0 ? ("new-activity" as const) : ("change" as const),
-	};
-};
-
 export type CalendarBucket<Point> = {
 	/** First local date of the grouping unit, which may precede `period.startDate`. */
 	readonly date: string;
@@ -274,7 +227,12 @@ export const calendarBuckets = <Point>(
 	const grouped = new Map<string, Point[]>();
 	for (const point of points) {
 		const date = startOfCalendarUnit(localDateOf(input.at(point), input.timeZone), input.grouping);
-		grouped.set(date, [...(grouped.get(date) ?? []), point]);
+		const bucket = grouped.get(date);
+		if (bucket === undefined) {
+			grouped.set(date, [point]);
+		} else {
+			bucket.push(point);
+		}
 	}
 	const dates = [...grouped.keys()].sort();
 	const first = input.period?.startDate ?? dates[0];
@@ -307,19 +265,21 @@ export const calendarBuckets = <Point>(
 	return buckets;
 };
 
-const reportingRangePresets = [
-	{ label: "Last 7 days", range: { days: 7, kind: "rolling" } },
-	{ label: "Last 30 days", range: { days: 30, kind: "rolling" } },
-	{ label: "Last 90 days", range: { days: 90, kind: "rolling" } },
-	{ label: "Last 365 days", range: { days: 365, kind: "rolling" } },
-	{ label: "This week", range: { offset: 0, unit: "week", kind: "calendar" } },
-	{ label: "Previous week", range: { offset: -1, unit: "week", kind: "calendar" } },
-	{ label: "This month", range: { offset: 0, unit: "month", kind: "calendar" } },
-	{ label: "Previous month", range: { offset: -1, unit: "month", kind: "calendar" } },
-	{ label: "This year", range: { offset: 0, unit: "year", kind: "calendar" } },
-	{ label: "Previous year", range: { offset: -1, unit: "year", kind: "calendar" } },
-] as const satisfies ReadonlyArray<{ readonly label: string; readonly range: ReportingRange }>;
+/** Named ranges in display order; `custom` and `all-time` are the remaining choices. */
+export const reportingRangePresets = [
+	{ days: 7, kind: "rolling" },
+	{ days: 30, kind: "rolling" },
+	{ days: 90, kind: "rolling" },
+	{ days: 365, kind: "rolling" },
+	{ offset: 0, unit: "week", kind: "calendar" },
+	{ offset: -1, unit: "week", kind: "calendar" },
+	{ offset: 0, unit: "month", kind: "calendar" },
+	{ offset: -1, unit: "month", kind: "calendar" },
+	{ offset: 0, unit: "year", kind: "calendar" },
+	{ offset: -1, unit: "year", kind: "calendar" },
+] as const satisfies ReadonlyArray<ReportingRange>;
 
+/** The `range` search-parameter value; `custom` reads `start`/`end`. */
 export const reportingRangeValue = (range: ReportingRange) => {
 	if (range.kind === "rolling") {
 		return `rolling-${range.days}`;
@@ -330,20 +290,11 @@ export const reportingRangeValue = (range: ReportingRange) => {
 	return range.kind;
 };
 
-/** Date range choices keyed by their `range` search-parameter value; `custom` reads `start`/`end`. */
-export const reportingRangeOptions: ReadonlyArray<{
-	readonly value: string;
-	readonly label: string;
-	readonly range: null | ReportingRange;
-}> = [
-	...reportingRangePresets.map(({ label, range }) => ({
-		label,
-		range,
-		value: reportingRangeValue(range),
-	})),
-	{ range: null, value: "custom", label: "Custom dates" },
-	{ value: "all-time", label: "All time", range: { kind: "all-time" } },
-];
+/** The analytics page's `section` search-parameter value. */
+export const analyticsSectionKey = (section: {
+	readonly slug: string;
+	readonly ownerPluginId: string;
+}) => `${section.ownerPluginId}/${section.slug}`;
 
 export const reportingSearchParams = (selection: ReportingSelection) => ({
 	group: selection.grouping,
@@ -356,7 +307,10 @@ export const reportingSearchParams = (selection: ReportingSelection) => ({
 export const parseReportingSearch = (search: string): ReportingSelection => {
 	const params = new URLSearchParams(search);
 	const value = params.get("range");
-	const option = reportingRangeOptions.find((candidate) => candidate.value === value);
+	const preset: null | ReportingRange =
+		value === "all-time"
+			? { kind: "all-time" }
+			: (reportingRangePresets.find((range) => reportingRangeValue(range) === value) ?? null);
 	const custom = Schema.decodeUnknownResult(ReportingRange)({
 		kind: "custom",
 		endDate: params.get("end"),
@@ -365,8 +319,8 @@ export const parseReportingSearch = (search: string): ReportingSelection => {
 	let range = defaultReportingSelection.range;
 	if (value === "custom" && Result.isSuccess(custom)) {
 		range = custom.success;
-	} else if (option?.range) {
-		range = option.range;
+	} else if (preset !== null) {
+		range = preset;
 	}
 	const grouping = params.get("group");
 	const comparison = params.get("compare");

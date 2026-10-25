@@ -12,7 +12,7 @@ const sectionSource = (marker: string, fails: boolean) => `
 import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";
 import { useEffect } from "react";
 ${fails ? "let mountFailed = false;" : ""}
-export default function Section({ owner, selection, timeZone }: AnalyticsSectionProps) {
+export default function Section({ reference, selection, timeZone }: AnalyticsSectionProps) {
   useEffect(() => {
     ${fails ? 'if (!mountFailed) { mountFailed = true; throw new Error("Fixture mount failure"); }' : ""}
     document.documentElement.setAttribute(${JSON.stringify(`data-mounted-${marker}`)}, "true");
@@ -21,7 +21,7 @@ export default function Section({ owner, selection, timeZone }: AnalyticsSection
   ${fails ? 'if (selection.grouping !== "year") throw new Error("Fixture render failure");' : ""}
   return <section aria-label=${JSON.stringify(marker)}>
     <h2>${marker}</h2>
-    <output data-testid="analytics-owner">{owner.pluginId}</output>
+    <output data-testid="analytics-owner">{reference.pluginId}</output>
     <output data-testid="analytics-zone">{timeZone}</output>
     <output data-testid="analytics-selection">{JSON.stringify(selection)}</output>
   </section>;

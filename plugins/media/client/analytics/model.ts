@@ -1,12 +1,7 @@
 import {
-	addCalendarDays,
-	type AnalyticsSectionProps,
 	calendarBuckets,
-	localDateOf,
 	type Reported,
-	REPORTING_BUCKET_LIMIT,
 	type ReportingSelection,
-	resolveReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
@@ -46,31 +41,6 @@ export type RecordsDrillRequest = MediaAnalyticsFilter & {
 	readonly entityId?: string;
 	readonly periodCaption: string;
 	readonly selection: ReportingSelection;
-};
-
-export const analyticsInput = ({
-	owner,
-	timeZone,
-	selection,
-}: AnalyticsSectionProps): AnalyticsInput => ({ timeZone, selection, reference: owner });
-
-/** The daily heatmap shows at most one bucket-limit of days ending at the period end or today. */
-export const consistencySelection = (input: AnalyticsInput, now: number) => {
-	const current = resolveReportingSelection(input.selection, {
-		now,
-		timeZone: input.timeZone,
-	}).current;
-	const endDate = current?.endDate ?? localDateOf(now, input.timeZone);
-	const earliest = addCalendarDays(endDate, 1 - REPORTING_BUCKET_LIMIT);
-	const startDate = current === null || current.startDate < earliest ? earliest : current.startDate;
-	return {
-		clipped: current === null || current.startDate < startDate,
-		selection: {
-			grouping: "day",
-			comparison: "none",
-			range: { endDate, startDate, kind: "custom" },
-		} satisfies ReportingSelection,
-	};
 };
 
 type TypeRow = MediaAnalyticsSummary["current"]["types"][number];

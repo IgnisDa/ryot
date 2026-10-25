@@ -1,24 +1,21 @@
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	calendarBuckets,
 	periodCaption,
 	PluginLink,
 	type Reported,
-	reportingExecution,
 	type ReportingSelection,
 	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
-	createRyotQuery,
+	createReportedPageQuery,
+	createReportedQuery,
 	paginationItems,
-	type ReportingPageParam,
-	reportingPageParam,
-	useRyotInfiniteQuery,
+	useReportedPages,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { LoadMoreButton, QueryStatus, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
+import { formatReportingDateTime, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import {
 	type CollectionReviewAnalytics,
 	collectionReviewAnalyticsRecipe,
@@ -28,40 +25,13 @@ import {
 
 type Selection = { readonly timeZone: TimeZone; readonly selection: ReportingSelection };
 
-const summaryQuery = createRyotQuery<Selection, Reported<CollectionReviewAnalytics>>(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const reporting = reportingExecution(input.selection, {
-				now: schedule.now(),
-				timeZone: input.timeZone,
-			});
-			const counts = yield* client.data.query(
-				collectionReviewAnalyticsRecipe({ reporting: reporting.resolved }),
-			);
-			return { ...counts, reporting };
-		}),
-	{ cancelOnUnmount: true },
+const summaryQuery = createReportedQuery<Selection, CollectionReviewAnalytics>(
+	({ client, reporting }) => client.data.query(collectionReviewAnalyticsRecipe({ reporting })),
 );
 
-const recordsQuery = createRyotQuery<
-	Selection & { readonly page: ReportingPageParam },
-	Reported<CollectionReviewRecords>
->(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const reporting = reportingExecution(input.page?.selection ?? input.selection, {
-				now: schedule.now(),
-				timeZone: input.timeZone,
-			});
-			const records = yield* client.data.query(
-				collectionReviewRecordsRecipe({
-					after: input.page?.after,
-					period: reporting.resolved.current,
-				}),
-			);
-			return { ...records, reporting };
-		}),
-	{ cancelOnUnmount: true },
+const recordsQuery = createReportedPageQuery<Selection, CollectionReviewRecords>(
+	({ after, client, reporting }) =>
+		client.data.query(collectionReviewRecordsRecipe({ after, period: reporting.current })),
 );
 
 const formatReviews = (value: number) => `${value} reviews`;
@@ -80,21 +50,12 @@ const reviewTrend = (summary: Reported<CollectionReviewAnalytics>) =>
 export function CollectionAnalytics(input: Selection) {
 	const { compact } = useRyotViewport();
 	const summary = useRyotQuery(summaryQuery, input);
-	const records = useRyotInfiniteQuery(recordsQuery, input, {
-		initialPageParam: null,
-		getNextPageParam: reportingPageParam,
-		getPageInput: (selection, page: ReportingPageParam) => ({ ...selection, page }),
-	});
+	const records = useReportedPages(recordsQuery, input);
 	const items = paginationItems(
 		records.pages,
 		(page) => page.items,
 		(item) => item.id,
 	);
-	const formatDate = new Intl.DateTimeFormat(undefined, {
-		timeStyle: "short",
-		dateStyle: "medium",
-		timeZone: input.timeZone,
-	});
 	return (
 		<section aria-label="Collection reviews" className="flex flex-col gap-4">
 			<h2 className="text-lg font-semibold">Collection reviews</h2>
@@ -143,7 +104,7 @@ export function CollectionAnalytics(input: Selection) {
 							{review.name}
 						</PluginLink>
 						<time dateTime={review.occurredAt}>
-							{formatDate.format(new Date(review.occurredAt))}
+							{formatReportingDateTime(review.occurredAt, input.timeZone)}
 						</time>
 						{review.rating !== null && <span>Rating: {review.rating}/100</span>}
 					</li>
