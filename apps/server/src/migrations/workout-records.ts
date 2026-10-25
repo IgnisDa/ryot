@@ -4,10 +4,6 @@ import {
 	normalizeWorkoutMeasurements,
 	WorkoutSetMeasurementsSchema,
 } from "@ryot-app/fitness-plugin/workout-records";
-import {
-	eventStreamId,
-	StreamKeySchema,
-} from "@ryot-app/kernel-backend/modules/events/stream-repository";
 import { Clock, Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
@@ -16,8 +12,6 @@ import { insertAnomalyReport, insertReportRows } from "./shared";
 
 const batchSize = 500;
 const reportPhase = "workout sets -> event records";
-
-const WorkoutStreamSchema = Schema.Struct({ ...StreamKeySchema.fields, id: Schema.String });
 
 const WorkoutRecordRowSchema = Schema.Struct({
 	userId: Schema.String,
@@ -93,15 +87,6 @@ WHERE ev."event_schema_slug" = $1
 ${hasCursor ? '\tAND ev."id" COLLATE "C" > $7::text COLLATE "C"' : ""}
 ORDER BY ev."id" COLLATE "C"
 LIMIT $${hasCursor ? 8 : 7}::int
-`;
-
-const insertWorkoutStreamsSql = `
-INSERT INTO "event_stream" ("id", "user_id", "entity_id", "event_schema_slug", "event_schema_plugin_id")
-SELECT stream."id", stream."userId", stream."entityId", stream."eventSchemaSlug", stream."eventSchemaPluginId"
-FROM jsonb_to_recordset($1::jsonb) AS stream(
-	"id" text, "userId" text, "entityId" text, "eventSchemaSlug" text, "eventSchemaPluginId" text
-)
-ON CONFLICT DO NOTHING
 `;
 
 const updateWorkoutRecordPropertiesSql = `
@@ -199,22 +184,6 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 		if (rows.length === 0) {
 			break;
 		}
-
-		const streams = new Map<string, typeof WorkoutStreamSchema.Type>();
-		for (const row of rows) {
-			const key = yield* Schema.decodeEffect(StreamKeySchema)({
-				userId: row.userId,
-				entityId: row.entityId,
-				eventSchemaSlug: eventSchema.slug,
-				eventSchemaPluginId: eventSchema.pluginId,
-			}).pipe(Effect.orDie);
-			const id = eventStreamId(key);
-			streams.set(id, { ...key, id });
-		}
-		const streamsJson = yield* Schema.encodeEffect(
-			Schema.fromJsonString(Schema.Array(WorkoutStreamSchema)),
-		)([...streams.values()]).pipe(Effect.orDie);
-		yield* connection.execute(insertWorkoutStreamsSql, [streamsJson], undefined);
 
 		const patches: Array<{
 			id: string;
