@@ -1,6 +1,6 @@
 import { assert } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { EventStreamStepInput } from "@ryot-app/contract/modules/events/stream-work";
+import { EventStreamBatchInput } from "@ryot-app/contract/modules/events/stream-work";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationExecutionId,
@@ -12,7 +12,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { eq } from "drizzle-orm";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -182,18 +183,12 @@ type ProjectionBinding = NonNullable<
 >;
 
 type ProcessorAction = (
-	input: typeof EventStreamStepInput.Type,
+	input: (typeof EventStreamBatchInput.Type)["streams"][number],
 	jobId: string,
 ) => Effect.Effect<unknown, DbError>;
 
-type StreamWorkCall =
-	| { inTransaction: boolean; operation: "lockAccount" }
-	| { id: string; operation: "prepare"; inTransaction: boolean };
-
-class StreamWorkRecorder extends Context.Service<
-	StreamWorkRecorder,
-	{ record: (call: StreamWorkCall) => Effect.Effect<void> }
->()("@ryot-app/kernel-backend/modules/events/stream-work.test-support/StreamWorkRecorder") {}
+const completeWithoutUpdates: ProcessorAction = () =>
+	Effect.succeed({ done: true, updates: [], checkpoint: null });
 
 export class ProjectionBindingControl extends Context.Service<
 	ProjectionBindingControl,
@@ -216,15 +211,12 @@ export class StreamWorkControls extends Context.Service<
 	StreamWorkControls,
 	{
 		failProjectionFor: (streamId: string) => Effect.Effect<void>;
-		admissionCalls: Effect.Effect<ReadonlyArray<StreamWorkCall>>;
 		clearProjectionFailureFor: (streamId: string) => Effect.Effect<void>;
 		setProcessor: (id: string, action: ProcessorAction) => Effect.Effect<void>;
 		processorCalls: Effect.Effect<ReadonlyArray<{ id: string; jobId: string }>>;
 		runProcessor: (
-			streamId: string,
-			input: typeof EventStreamStepInput.Type,
-			jobId: string,
-		) => Effect.Effect<unknown, DbError>;
+			job: BackgroundWorkInput,
+		) => Effect.Effect<unknown, DbError | Schema.SchemaError>;
 		workflowCalls: Effect.Effect<
 			ReadonlyArray<{
 				name: string;
@@ -275,30 +267,7 @@ const fixtureLayer = Layer.effect(
 	}),
 ).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(4)));
 
-const baseStreamRepositoryLayer = EventStreamRepository.layer.pipe(
-	Layer.provideMerge(fixtureLayer),
-);
-const streamRepositoryImplementationLayer = Layer.effect(
-	EventStreamRepository,
-	Effect.gen(function* () {
-		const repository = yield* EventStreamRepository;
-		const recorder = yield* StreamWorkRecorder;
-		const session = yield* DatabaseSession;
-		return {
-			...repository,
-			prepare: (id: Parameters<typeof repository.prepare>[0]) =>
-				Effect.gen(function* () {
-					yield* recorder.record({
-						id,
-						operation: "prepare",
-						inTransaction: yield* session.isTransactionActive,
-					});
-					return yield* repository.prepare(id);
-				}),
-		};
-	}),
-).pipe(Layer.provide(baseStreamRepositoryLayer));
-const streamRepositoryLayer = Layer.merge(streamRepositoryImplementationLayer, fixtureLayer);
+const streamRepositoryLayer = EventStreamRepository.layer.pipe(Layer.provideMerge(fixtureLayer));
 const eventSchemasRepositoryLayer = EventSchemaReader.layer.pipe(Layer.provideMerge(fixtureLayer));
 const entitiesRepositoryLayer = EntitiesRepository.layer.pipe(
 	Layer.provideMerge(streamRepositoryLayer),
@@ -344,11 +313,6 @@ export const streamWorkTestLayer = Layer.unwrap(
 				parentExecutionId: null | string;
 			}>
 		>([]);
-		const admissionCalls = yield* Ref.make<ReadonlyArray<StreamWorkCall>>([]);
-		const recorder = {
-			record: (call: StreamWorkCall) => Ref.update(admissionCalls, (calls) => [...calls, call]),
-		};
-		const recorderLayer = Layer.succeed(StreamWorkRecorder, recorder);
 		const engineLayer = Layer.effect(
 			WorkflowEngine,
 			Effect.gen(function* () {
@@ -384,7 +348,8 @@ export const streamWorkTestLayer = Layer.unwrap(
 					publish: (input: Parameters<EventProjectionRepository["Service"]["publish"]>[0]) =>
 						Effect.gen(function* () {
 							yield* repository.publish(input);
-							if ((yield* Ref.get(failedProjectionStreams)).has(input.streamId)) {
+							const failed = yield* Ref.get(failedProjectionStreams);
+							if (input.streams.some(({ streamId }) => failed.has(streamId))) {
 								return yield* new DbError({ message: "Injected projection failure" });
 							}
 							return undefined;
@@ -393,31 +358,13 @@ export const streamWorkTestLayer = Layer.unwrap(
 			}),
 		).pipe(Layer.provide(EventProjectionRepository.layer));
 		const sharedDependencies = Layer.mergeAll(
-			repositoriesLayer.pipe(Layer.provideMerge(recorderLayer)),
+			repositoriesLayer,
 			engineLayer,
 			WorkflowExecutionNotifications.layer,
 			makeAppConfigLayer(),
 			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		);
-		const baseBackgroundLayer = BackgroundWorkService.layer.pipe(Layer.provide(sharedDependencies));
-		const backgroundLayer = Layer.effect(
-			BackgroundWorkService,
-			Effect.gen(function* () {
-				const background = yield* BackgroundWorkService;
-				const session = yield* DatabaseSession;
-				return {
-					...background,
-					lockAccount: (account: Parameters<typeof background.lockAccount>[0]) =>
-						Effect.gen(function* () {
-							yield* recorder.record({
-								operation: "lockAccount",
-								inTransaction: yield* session.isTransactionActive,
-							});
-							return yield* background.lockAccount(account);
-						}),
-				};
-			}),
-		).pipe(Layer.provide(Layer.merge(baseBackgroundLayer, sharedDependencies)));
+		const backgroundLayer = BackgroundWorkService.layer.pipe(Layer.provide(sharedDependencies));
 		const serviceLayer = Layer.mergeAll(
 			EventStreamWorkService.layer,
 			RelationshipProjectionService.layer,
@@ -447,7 +394,6 @@ export const streamWorkTestLayer = Layer.unwrap(
 		const controlsLayer = Layer.succeed(StreamWorkControls, {
 			workflowCalls: Ref.get(workflowCalls),
 			processorCalls: Ref.get(processorCalls),
-			admissionCalls: Ref.get(admissionCalls),
 			setProcessor: (id, action) =>
 				Ref.update(actions, (current) => new Map(current).set(id, action)),
 			failProjectionFor: (streamId) =>
@@ -458,16 +404,26 @@ export const streamWorkTestLayer = Layer.unwrap(
 					next.delete(streamId);
 					return next;
 				}),
-			runProcessor: (streamId, input, jobId) =>
+			runProcessor: (job) =>
 				Effect.gen(function* () {
-					yield* Ref.update(processorCalls, (calls) => [...calls, { jobId, id: streamId }]);
-					const action = (yield* Ref.get(actions)).get(streamId);
-					if (!action) {
-						return yield* new DbError({
-							message: "No event stream processor action was configured",
-						});
-					}
-					return yield* action(input, jobId);
+					const claims = yield* Schema.decodeUnknownEffect(EventProjectionClaims)(job.featureInput);
+					const input = yield* Schema.decodeUnknownEffect(EventStreamBatchInput)(
+						job.execution.input,
+					);
+					const current = yield* Ref.get(actions);
+					const streams = yield* Effect.forEach(input.streams, (stream) =>
+						Effect.gen(function* () {
+							const id = claims.streams.find(({ entityId }) => entityId === stream.entityId)?.id;
+							if (id === undefined) {
+								return yield* new DbError({ message: "Processor input stream was not claimed" });
+							}
+							const action = current.get(id) ?? completeWithoutUpdates;
+							yield* Ref.update(processorCalls, (calls) => [...calls, { id, jobId: job.id }]);
+							const output = yield* action(stream, job.id);
+							return isObjectRecord(output) ? { entityId: stream.entityId, ...output } : output;
+						}),
+					);
+					return { streams };
 				}),
 		});
 		return Layer.mergeAll(
@@ -535,6 +491,10 @@ export const seedStream = (suffix: string, schemaSlug = eventSchemaSlug) =>
 		});
 		return { id, eventId, fixture, entityId };
 	});
+
+const EventProjectionClaims = Schema.Struct({
+	streams: Schema.Array(Schema.Struct({ id: Schema.String, entityId: Schema.String })),
+});
 
 export const page = (eventId: EventId, rating: number, cursor: string) => ({
 	done: false,
@@ -624,39 +584,65 @@ export const seedRetainedTargets = (suffix: string, count: number) =>
 		return { key, holder, fixture, eventId, children, id: eventStreamId(key) };
 	});
 
-const EventStreamFeatureInput = Schema.Struct({ id: Schema.String });
-
-export const process = (job: BackgroundWorkInput) =>
+export const activeJob = (schemaSlug: string = eventSchemaSlug) =>
 	Effect.gen(function* () {
-		const controls = yield* StreamWorkControls;
-		const service = yield* EventStreamWorkService;
-		const feature = yield* Schema.decodeUnknownEffect(EventStreamFeatureInput)(job.featureInput);
-		const input = yield* Schema.decodeUnknownEffect(EventStreamStepInput)(job.execution.input);
-		const output = yield* controls.runProcessor(feature.id, input, job.id);
-		const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, job.id);
-		return yield* service
-			.process(job, output)
-			.pipe(
-				Effect.provideService(WorkflowInstance, instance),
-				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-			);
+		const session = yield* DatabaseSession;
+		const jobs = yield* session.run((db) =>
+			db
+				.select({ id: tables.backgroundWork.id, status: tables.backgroundWork.status })
+				.from(tables.backgroundWork)
+				.where(
+					and(
+						eq(tables.backgroundWork.scope, schemaSlug),
+						eq(tables.backgroundWork.purpose, "event-projection"),
+						inArray(tables.backgroundWork.status, ["queued", "running"]),
+					),
+				)
+				.orderBy(asc(tables.backgroundWork.createdAt), asc(tables.backgroundWork.id)),
+		);
+		return jobs;
 	});
 
-export const currentJob = (streamId: string) =>
+export const startJob = (schemaSlug: string = eventSchemaSlug) =>
 	Effect.gen(function* () {
-		const streams = yield* EventStreamRepository;
 		const background = yield* BackgroundWorkService;
-		const stream = yield* streams.get(streamId);
-		assert(stream?.currentJobId);
-		const job = yield* background.start(stream.currentJobId);
+		const [head] = yield* activeJob(schemaSlug);
+		assert(head);
+		yield* background.dispatch(head.id);
+		const job = yield* background.start(head.id);
 		assert(job);
 		return job;
 	});
 
-export const processCurrent = (streamId: string) =>
+const inWorkflow = (id: string) => {
+	const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
+	return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		effect.pipe(
+			Effect.provideService(WorkflowInstance, instance),
+			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		);
+};
+
+export const prepare = (job: BackgroundWorkInput) =>
 	Effect.gen(function* () {
-		const job = yield* currentJob(streamId);
-		yield* process(job);
+		const service = yield* EventStreamWorkService;
+		const prepared = yield* service.prepare(job);
+		assert(prepared);
+		return prepared;
+	});
+
+export const publish = (job: BackgroundWorkInput) =>
+	Effect.gen(function* () {
+		const controls = yield* StreamWorkControls;
+		const service = yield* EventStreamWorkService;
+		const output = yield* controls.runProcessor(job);
+		return yield* service.process(job, output).pipe(inWorkflow(job.id));
+	});
+
+export const processNext = (schemaSlug: string = eventSchemaSlug) =>
+	Effect.gen(function* () {
+		const job = yield* prepare(yield* startJob(schemaSlug));
+		yield* publish(job);
 		return job;
 	});
 
@@ -706,10 +692,8 @@ export const runBackgroundJob = (
 	id: string,
 	execute: BackgroundWorkExecutor["Service"]["execute"],
 ) => {
-	const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
 	return runBackgroundWorkWorkflow({ id }).pipe(
 		Effect.provideService(BackgroundWorkExecutor, { execute }),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		inWorkflow(id),
 	);
 };

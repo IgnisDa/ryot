@@ -101,6 +101,20 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 				);
 				return row ?? null;
 			});
+			const lockQueued = Effect.fn("BackgroundWorkRepository.lockQueued")(function* (
+				key: BackgroundWorkScopeKey,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ id: backgroundWork.id })
+						.from(backgroundWork)
+						.where(and(sameScope(backgroundWork, key), eq(backgroundWork.status, "queued")))
+						.orderBy(asc(backgroundWork.createdAt), asc(backgroundWork.id))
+						.limit(1)
+						.for("share"),
+				);
+				return row?.id ?? null;
+			});
 			const claim = Effect.fn("BackgroundWorkRepository.claim")(function* (
 				key: BackgroundWorkScopeKey,
 			) {
@@ -209,7 +223,7 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 						),
 				);
 			});
-			// Plugins read a scope's latest status, and stream work retries its current job.
+			// Plugins read a scope's latest status, and projection status reads each stream's current job.
 			const pruneSettled = Effect.fn("BackgroundWorkRepository.pruneSettled")(function* (
 				limit: number,
 			) {
@@ -251,6 +265,7 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 				running,
 				pending,
 				lockScope,
+				lockQueued,
 				dispatched,
 				pruneSettled,
 			};

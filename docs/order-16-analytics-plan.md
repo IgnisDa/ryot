@@ -120,7 +120,7 @@ rows, 1,000 grouped aggregate rows or time-series buckets, and correlated depth 
 have `hasMore` but no cursor. Documents execute in one repeatable-read snapshot; a failure fails the
 whole document. Separate plugin sections therefore need separate requests/error states.
 
-Event projection steps publish at most 100 updates with a 16 KiB checkpoint. Client compilation has
+Event projection batches publish at most 1,000 updates with a 16 KiB checkpoint per stream. Client compilation has
 a 1 MiB combined source/raw-input limit and an independent emitted-artifact limit. Existing history
 correction is bounded and resumable. Do not solve capacity problems by raising these limits.
 

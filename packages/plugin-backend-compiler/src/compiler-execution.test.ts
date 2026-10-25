@@ -248,34 +248,33 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 						"backend/processor.sandbox.ts": `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { EventStreamStepInput, EventStreamStepOutput } from "@ryot-app/plugin-backend-sdk/event-streams";
+import { EventStreamBatchInput, EventStreamBatchOutput } from "@ryot-app/plugin-backend-sdk/event-streams";
 
 export const manifest = defineManifest({ kind: "script", name: "Stream processor", slug: "stream-processor" });
 export default defineScript({
   manifest,
-  input: EventStreamStepInput,
-  output: EventStreamStepOutput,
-  run: () => Effect.succeed({ done: true, checkpoint: null, updates: [] }),
+  input: EventStreamBatchInput,
+  output: EventStreamBatchOutput,
+  run: () => Effect.succeed({ streams: [] }),
 });
 `,
 						"backend/automation.sandbox.ts": `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { EventStreamStepInput } from "@ryot-app/plugin-backend-sdk/event-streams";
+import { EventStreamBatchInput } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const processor = defineScriptReference({
   scriptSlug: "stream-processor",
-  input: EventStreamStepInput,
+  input: EventStreamBatchInput,
   output: Schema.Unknown,
 });
-const event = Schema.decodeUnknownSync(EventStreamStepInput)({
-  entityId: "entity-1",
+const event = Schema.decodeUnknownSync(EventStreamBatchInput)({
   eventSchemaSlug: "event-stream",
-  dirtyFrom: null,
-  checkpoint: null,
+  streams: [{ entityId: "entity-1", dirtyFrom: null, checkpoint: null }],
 });
+const [stream] = event.streams;
 
 export const manifest = defineManifest({
   kind: "automation",
@@ -286,10 +285,13 @@ export const manifest = defineManifest({
 });
 export default defineAutomation({
   manifest,
-  run: (_input, host) => host.requestEventStreamWork({
-    entityId: event.entityId,
-    eventSchemaSlug: event.eventSchemaSlug,
-  }, processor).pipe(Effect.as(null)),
+  run: (_input, host) =>
+    stream === undefined
+      ? Effect.succeed(null)
+      : host.requestEventStreamWork({
+          entityId: stream.entityId,
+          eventSchemaSlug: event.eventSchemaSlug,
+        }, processor).pipe(Effect.as(null)),
 });
 `,
 					},

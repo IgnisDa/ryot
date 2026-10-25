@@ -11,11 +11,9 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { and, asc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { sameProjectionBinding } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -34,6 +32,12 @@ export const StreamKeySchema = Schema.Struct({
 
 export type StreamKey = typeof StreamKeySchema.Type;
 
+export type EventStreamScope = {
+	readonly userId: string;
+	readonly eventSchemaSlug: string;
+	readonly eventSchemaPluginId: string;
+};
+
 export type StreamSource = StreamKey & {
 	readonly sessionEntityId?: null | string | undefined;
 	readonly properties?: undefined | Readonly<Record<string, unknown>>;
@@ -44,6 +48,13 @@ export type EventStreamBindingKey = {
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
 	readonly eventSchemaPluginId: string;
+};
+
+export type EventStreamBinding = {
+	readonly accountToken: string;
+	readonly pluginRevisionId: string;
+	readonly processorScriptId: string;
+	readonly configRevisionId: null | string;
 };
 
 export type EventStreamBindingDeclaration = EventStreamBindingKey & {
@@ -58,10 +69,22 @@ type StreamTouch = StreamSource & { readonly occurredAt: Date };
 const streamIds = (ids: ReadonlyArray<string>) =>
 	sql`(select jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))`;
 
-const retainedQueuedJob = (
-	currentJobId: SQL | AnyPgColumn,
-) => sql`(select job.id from background_work job
-	where job.id = ${currentJobId} and job.status = 'queued')`;
+const failedJob = (jobId: SQL) =>
+	sql`exists (select 1 from background_work job where job.id = ${jobId} and job.status = 'failed')`;
+
+const failedInBatch = sql`${failedJob(sql`w.current_job_id`)} and not w.claimed_alone`;
+
+const dirtyInScope = (
+	scope: EventStreamScope,
+	binding: EventStreamBinding,
+) => sql`w.user_id = ${scope.userId}
+	and w.event_schema_plugin_id = ${scope.eventSchemaPluginId}
+	and w.event_schema_slug = ${scope.eventSchemaSlug}
+	and (w.completed_revision is null or w.dirty_from is not null)
+	and w.account_token = ${binding.accountToken}
+	and w.plugin_revision_id = ${binding.pluginRevisionId}
+	and w.processor_script_id = ${binding.processorScriptId}
+	and w.config_revision_id is not distinct from ${binding.configRevisionId}`;
 
 export const eventStreamId = (key: StreamKey) =>
 	sha256Hex(
@@ -84,30 +107,6 @@ const toStreamKey = (row: {
 	eventSchemaPluginId:
 		row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
 });
-
-const currentSelection = {
-	id: schema.eventStreamWork.id,
-	step: schema.eventStreamWork.step,
-	error: schema.backgroundWork.error,
-	status: schema.backgroundWork.status,
-	pluginPin: schema.eventStreamWork.pluginPin,
-	streamRevision: schema.eventStream.revision,
-	dirtyFrom: schema.eventStreamWork.dirtyFrom,
-	updatedAt: schema.eventStreamWork.updatedAt,
-	checkpoint: schema.eventStreamWork.checkpoint,
-	currentJobId: schema.eventStreamWork.currentJobId,
-	accountToken: schema.eventStreamWork.accountToken,
-	outputSchema: schema.eventStreamWork.outputSchema,
-	pluginRevisionId: schema.eventStreamWork.pluginRevisionId,
-	completedRevision: schema.eventStreamWork.completedRevision,
-	processorScriptId: schema.eventStreamWork.processorScriptId,
-	key: {
-		userId: schema.eventStream.userId,
-		entityId: schema.eventStream.entityId,
-		eventSchemaSlug: schema.eventStream.eventSchemaSlug,
-		eventSchemaPluginId: schema.eventStream.eventSchemaPluginId,
-	},
-};
 
 export class EventStreamRepository extends Context.Service<EventStreamRepository>()(
 	"@ryot-app/kernel-backend/modules/events/stream-repository/EventStreamRepository",
@@ -165,6 +164,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						.select({
 							id: schema.eventStream.id,
 							projection: schema.userEventSchema.projection,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 							key: {
 								userId: schema.eventStream.userId,
 								entityId: schema.eventStream.entityId,
@@ -314,37 +314,6 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				}
 			});
 
-			const readState = (id: string) =>
-				session
-					.run((db) =>
-						db
-							.select(currentSelection)
-							.from(schema.eventStreamWork)
-							.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
-							.leftJoin(
-								schema.backgroundWork,
-								eq(schema.backgroundWork.id, schema.eventStreamWork.currentJobId),
-							)
-							.where(eq(schema.eventStreamWork.id, id))
-							.limit(1),
-					)
-					.pipe(Effect.map((rows) => rows[0] ?? null));
-
-			const lockStream = (id: string) =>
-				session
-					.run((db) =>
-						db
-							.select()
-							.from(schema.eventStream)
-							.where(eq(schema.eventStream.id, id))
-							.limit(1)
-							.for("update"),
-					)
-					.pipe(Effect.map((rows) => rows[0] ?? null));
-
-			const lockWork = (id: string) =>
-				lockWorkRows([id]).pipe(Effect.map((rows) => rows[0] ?? null));
-
 			const listStreamsForEntity = Effect.fn("EventStreamRepository.listStreamsForEntity")(
 				function* (entityId: EntityId) {
 					const rows = yield* session.run((db) =>
@@ -455,7 +424,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						db.execute(sql`
 						update event_stream_work w set dirty_from = changed."dirtyFrom",
 							completed_revision = case when changed.reset then null else w.completed_revision end,
-							checkpoint = changed.checkpoint, updated_at = ${now}, current_job_id = ${retainedQueuedJob(sql`w.current_job_id`)}
+							checkpoint = changed.checkpoint, updated_at = ${now}, current_job_id = null
 						from jsonb_to_recordset(${JSON.stringify(updates)}::jsonb)
 							as changed(id text, checkpoint jsonb, "dirtyFrom" timestamptz, reset boolean)
 						where w.id = changed.id
@@ -481,112 +450,9 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				yield* session.run((db) =>
 					db.execute(sql`
 						update event_stream_work w set updated_at = ${now}, dirty_from = null, checkpoint = null,
-							completed_revision = null, current_job_id = ${retainedQueuedJob(sql`w.current_job_id`)}
+							completed_revision = null, current_job_id = null
 						where w.id in ${streamIds(ids)}
 					`),
-				);
-			});
-
-			const request = Effect.fn("EventStreamRepository.request")(function* (input: {
-				key: StreamKey;
-				accountToken: string;
-				pluginPin: JsonValue;
-				outputSchema: AppSchema;
-				pluginRevisionId: string;
-				processorScriptId: string;
-			}) {
-				yield* requireTransaction;
-				const id = eventStreamId(input.key);
-				const [stream] = yield* ensureAndLockStreams([input.key]);
-				if (!stream) {
-					return yield* new DbError({ message: "Event stream insert returned no row" });
-				}
-
-				const now = yield* DateTime.nowAsDate;
-				yield* session.run((db) =>
-					db
-						.insert(schema.eventStreamWork)
-						.values({
-							id,
-							dirtyFrom: null,
-							checkpoint: null,
-							pluginPin: input.pluginPin,
-							accountToken: input.accountToken,
-							outputSchema: input.outputSchema,
-							pluginRevisionId: input.pluginRevisionId,
-							processorScriptId: input.processorScriptId,
-						})
-						.onConflictDoNothing(),
-				);
-
-				const work = yield* lockWork(id);
-				if (!work) {
-					return yield* new DbError({ message: "Event stream work insert returned no row" });
-				}
-
-				const changedBinding = !sameProjectionBinding(work, input);
-				if (changedBinding) {
-					yield* session.run((db) =>
-						db
-							.update(schema.eventStreamWork)
-							.set({
-								updatedAt: now,
-								dirtyFrom: null,
-								checkpoint: null,
-								completedRevision: null,
-								pluginPin: input.pluginPin,
-								accountToken: input.accountToken,
-								outputSchema: input.outputSchema,
-								pluginRevisionId: input.pluginRevisionId,
-								processorScriptId: input.processorScriptId,
-								currentJobId: retainedQueuedJob(schema.eventStreamWork.currentJobId),
-							})
-							.where(eq(schema.eventStreamWork.id, id)),
-					);
-				} else {
-					yield* session.run((db) =>
-						db
-							.update(schema.eventStreamWork)
-							.set({
-								updatedAt: now,
-								accountToken: input.accountToken,
-								outputSchema: input.outputSchema,
-							})
-							.where(eq(schema.eventStreamWork.id, id)),
-					);
-				}
-
-				return id;
-			});
-
-			const get = Effect.fn("EventStreamRepository.get")(function* (id: string) {
-				return yield* readState(id);
-			});
-			const listCandidates = Effect.fn("EventStreamRepository.listCandidates")(function* (
-				limit: number,
-				after?: string,
-			) {
-				return yield* session.run((db) =>
-					db
-						.select({ id: schema.eventStreamWork.id })
-						.from(schema.eventStreamWork)
-						.innerJoin(schema.eventStream, eq(schema.eventStream.id, schema.eventStreamWork.id))
-						.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
-						.where(
-							and(
-								isNull(schema.user.disabledAt),
-								eq(schema.user.accountGeneration, schema.eventStreamWork.accountToken),
-								isNull(schema.eventStreamWork.currentJobId),
-								or(
-									isNull(schema.eventStreamWork.completedRevision),
-									isNotNull(schema.eventStreamWork.dirtyFrom),
-								),
-								after === undefined ? undefined : gt(schema.eventStreamWork.id, after),
-								sql`${schema.eventStreamWork.completedRevision} is distinct from ${schema.eventStream.revision}`,
-							),
-						)
-						.orderBy(asc(schema.eventStreamWork.id))
-						.limit(limit),
 				);
 			});
 
@@ -620,51 +486,6 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				},
 			);
 
-			const bindingCandidates = Effect.fn("EventStreamRepository.bindingCandidates")(
-				function* (input: {
-					limit: number;
-					after?: string;
-					declaration: EventStreamBindingDeclaration;
-				}) {
-					const { declaration } = input;
-					return yield* session.run((db) =>
-						db
-							.select({
-								id: schema.eventStream.id,
-								key: {
-									userId: schema.eventStream.userId,
-									entityId: schema.eventStream.entityId,
-									eventSchemaSlug: schema.eventStream.eventSchemaSlug,
-									eventSchemaPluginId: schema.eventStream.eventSchemaPluginId,
-								},
-							})
-							.from(schema.eventStream)
-							.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
-							.leftJoin(
-								schema.eventStreamWork,
-								eq(schema.eventStreamWork.id, schema.eventStream.id),
-							)
-							.where(
-								and(
-									eq(schema.eventStream.userId, declaration.userId),
-									eq(schema.eventStream.eventSchemaPluginId, declaration.eventSchemaPluginId),
-									eq(schema.eventStream.eventSchemaSlug, declaration.eventSchemaSlug),
-									eq(schema.entity.entitySchemaSlug, declaration.entitySchemaSlug),
-									input.after === undefined ? undefined : gt(schema.eventStream.id, input.after),
-									or(
-										isNull(schema.eventStreamWork.id),
-										sql`${schema.eventStreamWork.accountToken} is distinct from ${declaration.accountToken}`,
-										sql`${schema.eventStreamWork.pluginRevisionId} is distinct from ${declaration.pluginRevisionId}`,
-										sql`${schema.eventStreamWork.configRevisionId} is distinct from ${declaration.configRevisionId}`,
-									),
-								),
-							)
-							.orderBy(asc(schema.eventStream.id))
-							.limit(input.limit),
-					);
-				},
-			);
-
 			const recordBinding = Effect.fn("EventStreamRepository.recordBinding")(function* ({
 				revision,
 				...declaration
@@ -691,108 +512,259 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				);
 			});
 
-			const prepare = Effect.fn("EventStreamRepository.prepare")(function* (id: string) {
-				yield* requireTransaction;
-				const [account] = yield* session.run((db) =>
-					db
-						.select({ disabledAt: schema.user.disabledAt })
-						.from(schema.eventStream)
-						.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
-						.where(eq(schema.eventStream.id, id)),
-				);
-				if (account?.disabledAt !== null) {
-					return null;
-				}
-				const stream = yield* lockStream(id);
-				if (!stream) {
-					return null;
-				}
-				yield* lockWork(id);
-				return yield* readState(id);
-			});
-			const reserve = Effect.fn("EventStreamRepository.reserve")(function* (
-				id: string,
-				jobId: string,
+			const declared = Effect.fn("EventStreamRepository.declared")(function* (
+				scope: EventStreamScope,
+				scriptSlug: string,
 			) {
+				const rows = yield* session.run((db) =>
+					db
+						.select({ slug: schema.userEventSchema.slug })
+						.from(schema.userEventSchema)
+						.where(
+							and(
+								eq(schema.userEventSchema.userId, scope.userId),
+								eq(schema.userEventSchema.pluginId, scope.eventSchemaPluginId),
+								eq(schema.userEventSchema.slug, scope.eventSchemaSlug),
+								eq(schema.userEventSchema.isEffective, true),
+								sql`${schema.userEventSchema.projection} ->> 'scriptSlug' = ${scriptSlug}`,
+							),
+						)
+						.limit(1),
+				);
+				return rows.length > 0;
+			});
+
+			const bind = Effect.fn("EventStreamRepository.bind")(function* (input: {
+				limit: number;
+				after?: string;
+				outputSchema: AppSchema;
+				streamIds?: ReadonlyArray<string>;
+				declaration: EventStreamBindingKey;
+				binding: EventStreamBinding & { readonly pluginPin: JsonValue };
+			}) {
+				yield* requireTransaction;
+				const { binding, declaration } = input;
+				const encode = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
+				const pluginPin = yield* encode(binding.pluginPin).pipe(Effect.orDie);
+				const outputSchema = yield* encode(input.outputSchema).pipe(Effect.orDie);
+				const now = yield* DateTime.nowAsDate;
+				const rows = yield* session.run((db) =>
+					db.execute<{ id: string }>(
+						sql`with target as (
+							select s.id, s.user_id, s.event_schema_plugin_id, s.event_schema_slug
+							from event_stream s
+							join entity e on e.id = s.entity_id
+							left join event_stream_work w on w.id = s.id
+							where s.user_id = ${declaration.userId}
+								and s.event_schema_plugin_id = ${declaration.eventSchemaPluginId}
+								and s.event_schema_slug = ${declaration.eventSchemaSlug}
+								and e.entity_schema_slug = ${declaration.entitySchemaSlug}
+								${input.streamIds === undefined ? sql`` : sql`and s.id in ${streamIds(input.streamIds)}`}
+								${input.after === undefined ? sql`` : sql`and s.id > ${input.after}`}
+								and (w.id is null or w.account_token is distinct from ${binding.accountToken}
+									or w.plugin_revision_id is distinct from ${binding.pluginRevisionId}
+									or w.processor_script_id is distinct from ${binding.processorScriptId}
+									or w.plugin_pin is distinct from ${pluginPin}::jsonb
+									or w.output_schema is distinct from ${outputSchema}::jsonb)
+							order by s.id
+							limit ${input.limit}
+							for update of s
+						)
+						insert into event_stream_work as w (id, user_id, event_schema_plugin_id, event_schema_slug,
+							account_token, plugin_revision_id, processor_script_id, plugin_pin, output_schema, updated_at)
+						select id, user_id, event_schema_plugin_id, event_schema_slug, ${binding.accountToken},
+							${binding.pluginRevisionId}, ${binding.processorScriptId}, ${pluginPin}::jsonb,
+							${outputSchema}::jsonb, ${now}
+						from target order by id
+						on conflict (id) do update set account_token = excluded.account_token,
+							plugin_revision_id = excluded.plugin_revision_id,
+							processor_script_id = excluded.processor_script_id, plugin_pin = excluded.plugin_pin,
+							output_schema = excluded.output_schema, updated_at = excluded.updated_at,
+							checkpoint = null, dirty_from = null, completed_revision = null, current_job_id = null
+						returning w.id`,
+						"objects",
+					),
+				);
+				return rows.map(({ id }) => id).sort();
+			});
+
+			const retry = Effect.fn("EventStreamRepository.retry")(function* (id: string) {
 				yield* requireTransaction;
 				yield* session.run((db) =>
-					db
-						.update(schema.eventStreamWork)
-						.set({ currentJobId: jobId, step: sql`${schema.eventStreamWork.step} + 1` })
-						.where(eq(schema.eventStreamWork.id, id)),
+					db.execute(sql`update event_stream_work w set current_job_id = null
+						where w.id = ${id} and ${failedJob(sql`w.current_job_id`)}`),
 				);
 			});
 
-			const currentClaim = Effect.fn("EventStreamRepository.currentClaim")(function* (
-				id: string,
+			const claimable = Effect.fn("EventStreamRepository.claimable")(function* (
+				scope: EventStreamScope,
+				binding: EventStreamBinding,
+			) {
+				const rows = yield* session.run((db) =>
+					db.execute<{ id: string }>(
+						sql`select w.id from event_stream_work w
+							where ${dirtyInScope(scope, binding)}
+								and (not ${failedJob(sql`w.current_job_id`)} or ${failedInBatch})
+							limit 1`,
+						"objects",
+					),
+				);
+				return rows.length > 0;
+			});
+
+			const claim = Effect.fn("EventStreamRepository.claim")(function* (input: {
+				jobId: string;
+				limit: number;
+				scope: EventStreamScope;
+				binding: EventStreamBinding;
+			}) {
+				yield* requireTransaction;
+				const select = (predicate: SQL, limit: number) =>
+					session.run((db) =>
+						db.execute<{
+							id: string;
+							revision: number;
+							entityId: string;
+							checkpoint: JsonValue;
+							outputSchema: AppSchema;
+							dirtyFrom: null | string;
+						}>(
+							sql`select w.id, s.revision, s.entity_id as "entityId", w.checkpoint,
+								w.output_schema as "outputSchema",
+								to_char(w.dirty_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "dirtyFrom"
+								from event_stream_work w join event_stream s on s.id = w.id
+								where ${dirtyInScope(input.scope, input.binding)} and ${predicate}
+								order by w.id limit ${limit}
+								for update of s, w skip locked`,
+							"objects",
+						),
+					);
+				const retried = yield* select(failedInBatch, 1);
+				const claimed =
+					retried.length > 0
+						? retried
+						: yield* select(sql`not ${failedJob(sql`w.current_job_id`)}`, input.limit);
+				if (claimed.length > 0) {
+					yield* session.run((db) =>
+						db.execute(sql`update event_stream_work set current_job_id = ${input.jobId},
+							claimed_alone = ${claimed.length === 1} where id in ${streamIds(claimed.map(({ id }) => id))}`),
+					);
+				}
+				return claimed;
+			});
+
+			const currentClaims = Effect.fn("EventStreamRepository.currentClaims")(function* (
 				jobId: string,
-				revision: number,
+				claims: ReadonlyArray<{ readonly id: string; readonly revision: number }>,
 			) {
 				yield* requireTransaction;
-				const stream = yield* lockStream(id);
-				if (!stream) {
-					return false;
-				}
-				const work = yield* lockWork(id);
-				const job = yield* session.run((db) =>
+				const rows = yield* session.run((db) =>
+					db.execute<{ id: string }>(
+						sql`select w.id from event_stream_work w
+							join event_stream s on s.id = w.id
+							join jsonb_to_recordset(${JSON.stringify(claims)}::jsonb) as c(id text, revision integer)
+								on c.id = w.id and c.revision = s.revision
+							where w.current_job_id = ${jobId}
+							order by w.id
+							for update of s, w`,
+						"objects",
+					),
+				);
+				const [job] = yield* session.run((db) =>
 					db
 						.select({ status: schema.backgroundWork.status })
 						.from(schema.backgroundWork)
 						.where(eq(schema.backgroundWork.id, jobId))
 						.for("update"),
 				);
-				return (
-					work?.currentJobId === jobId &&
-					stream.revision === revision &&
-					job[0]?.status === "running"
-				);
+				return job?.status === "running" ? rows.map(({ id }) => id) : [];
 			});
 
 			const finish = Effect.fn("EventStreamRepository.finish")(function* (
-				id: string,
 				jobId: string,
-				revision: number,
-				checkpoint: JsonValue,
-				done: boolean,
+				results: ReadonlyArray<{
+					readonly id: string;
+					readonly done: boolean;
+					readonly revision: number;
+					readonly checkpoint: JsonValue;
+				}>,
 			) {
 				yield* requireTransaction;
-				if (!(yield* currentClaim(id, jobId, revision))) {
-					return false;
+				if (results.length === 0) {
+					return;
 				}
-
 				const now = yield* DateTime.nowAsDate;
 				yield* session.run((db) =>
-					db
-						.update(schema.eventStreamWork)
-						.set({
-							checkpoint,
-							updatedAt: now,
-							completedRevision: done ? revision : null,
-							...(done ? { dirtyFrom: null } : { currentJobId: null }),
-						})
-						.where(eq(schema.eventStreamWork.id, id)),
+					db.execute(sql`update event_stream_work w set checkpoint = r.checkpoint, updated_at = ${now},
+						completed_revision = case when r.done then r.revision end,
+						dirty_from = case when r.done then null else w.dirty_from end
+						from jsonb_to_recordset(${JSON.stringify(results)}::jsonb)
+							as r(id text, done boolean, revision integer, checkpoint jsonb)
+						where w.id = r.id and w.current_job_id = ${jobId}`),
 				);
-				return true;
+			});
+
+			const dirtyScopes = Effect.fn("EventStreamRepository.dirtyScopes")(function* (input: {
+				limit: number;
+				after?: EventStreamScope;
+			}) {
+				const { after } = input;
+				const dirty = sql`(w.completed_revision is null or w.dirty_from is not null)`;
+				const key = sql`(w.user_id, w.event_schema_plugin_id, w.event_schema_slug)`;
+				return yield* session.run((db) =>
+					db.execute<EventStreamScope & { scriptSlugs: ReadonlyArray<string> }>(
+						sql`with recursive groups as (
+							(select w.user_id, w.event_schema_plugin_id, w.event_schema_slug
+								from event_stream_work w where ${dirty}
+								${after ? sql`and ${key} > (${after.userId}, ${after.eventSchemaPluginId}, ${after.eventSchemaSlug})` : sql``}
+								order by 1, 2, 3 limit 1)
+							union all
+							select n.* from groups g cross join lateral (
+								select w.user_id, w.event_schema_plugin_id, w.event_schema_slug
+								from event_stream_work w
+								where ${dirty} and ${key} > (g.user_id, g.event_schema_plugin_id, g.event_schema_slug)
+								order by 1, 2, 3 limit 1
+							) n
+						)
+						select g.user_id as "userId", g.event_schema_plugin_id as "eventSchemaPluginId",
+							g.event_schema_slug as "eventSchemaSlug", coalesce((
+								select array_agg(distinct d.projection ->> 'scriptSlug') from user_event_schema d
+								join "user" u on u.id = d.user_id and u.disabled_at is null
+								where d.user_id = g.user_id and d.plugin_id = g.event_schema_plugin_id
+									and d.slug = g.event_schema_slug and d.is_effective and d.projection is not null
+									and not exists (
+										select 1 from background_work j
+										where j.user_id = g.user_id and j.plugin_id = g.event_schema_plugin_id
+											and j.purpose = 'event-projection' and j.scope = g.event_schema_slug
+											and j.status in ('queued', 'running')
+									)
+							), '{}') as "scriptSlugs"
+						from (select * from groups limit ${input.limit}) g
+						order by 1, 2, 3`,
+						"objects",
+					),
+				);
 			});
 
 			return {
-				get,
+				bind,
 				lock,
+				claim,
+				retry,
 				touch,
 				finish,
-				prepare,
-				reserve,
-				request,
-				currentClaim,
+				declared,
+				claimable,
+				dirtyScopes,
+				currentClaims,
 				lockForEvents,
 				recordBinding,
-				listCandidates,
 				invalidateEntity,
 				sourceCandidates,
-				bindingCandidates,
 				bindingDeclarations,
 				lockSourceReferences,
 				lockSourceReferencesForEvents,
+				ensureStreams: ensureAndLockStreams,
 			};
 		}),
 	},

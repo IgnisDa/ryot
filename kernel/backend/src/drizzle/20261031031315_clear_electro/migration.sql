@@ -487,12 +487,15 @@ CREATE TABLE "event_stream_binding" (
 --> statement-breakpoint
 CREATE TABLE "event_stream_work" (
 	"current_job_id" text,
+	"user_id" text NOT NULL,
 	"dirty_from" timestamp(3) with time zone,
 	"completed_revision" integer,
 	"account_token" text NOT NULL,
+	"claimed_alone" boolean DEFAULT false NOT NULL,
+	"event_schema_slug" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
-	"step" integer DEFAULT 0 NOT NULL,
+	"event_schema_plugin_id" text NOT NULL,
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
@@ -1399,7 +1402,7 @@ CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id"
 CREATE INDEX "event_stream_key_idx" ON "event_stream" ("entity_id","user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_stream_user_schema_idx" ON "event_stream" ("user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
-CREATE INDEX "event_stream_work_dirty_idx" ON "event_stream_work" ("id") WHERE "current_job_id" is null and ("completed_revision" is null or "dirty_from" is not null);--> statement-breakpoint
+CREATE INDEX "event_stream_work_dirty_idx" ON "event_stream_work" ("user_id","event_schema_plugin_id","event_schema_slug","id") WHERE "completed_revision" is null or "dirty_from" is not null;--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint

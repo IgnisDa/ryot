@@ -1,9 +1,11 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { EventStreamWorkRequest } from "@ryot-app/contract/modules/events/stream-work";
 import {
-	EventStreamStepInput,
-	EventStreamStepOutput,
-	EventStreamWorkRequest,
+	EVENT_STREAM_BATCH_LIMITS,
+	EventStreamBatchInput,
+	EventStreamBatchOutput,
+	EventStreamUpdate,
 } from "@ryot-app/contract/modules/events/stream-work";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
@@ -11,15 +13,14 @@ import {
 	AutomationExecutionId,
 	EntityId,
 	EventSchemaSlug,
-	PluginId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { generateId } from "better-auth";
 import { and, eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -47,28 +48,49 @@ import { EventProjectionRepository } from "./projection-repository";
 import {
 	type EventStreamBindingDeclaration,
 	type EventStreamBindingKey,
+	eventStreamId,
 	EventStreamRepository,
+	type EventStreamScope,
 } from "./stream-repository";
 
-const EventStreamClaim = Schema.Struct({
-	id: Schema.String,
-	jobId: Schema.String,
-	revision: Schema.Int,
-	outputSchema: AppSchema,
-	occurredAt: IsoUtcString,
-	input: EventStreamStepInput,
+const bindPageSize = 1000;
+
+const EventProjectionJob = Schema.Struct({
+	scriptSlug: Schema.String,
+	eventSchemaSlug: EventSchemaSlug,
 	processorScriptId: SandboxScriptId,
 	accountGeneration: AccountGeneration,
+	occurredAt: Schema.NullOr(IsoUtcString),
 	pluginPin: Schema.Struct({
 		...ScriptPluginRevision.fields,
 		writeContext: ScriptExecutionPrincipal,
 	}),
+	streams: Schema.Array(
+		Schema.Struct({
+			id: Schema.String,
+			entityId: EntityId,
+			revision: Schema.Int,
+			outputSchema: AppSchema,
+		}),
+	),
 });
+type EventProjectionJob = typeof EventProjectionJob.Type;
 
-const loadPin = (pluginPin: unknown) =>
-	Schema.decodeUnknownEffect(EventStreamClaim.fields.pluginPin)(pluginPin).pipe(
-		Effect.mapError(() => new DbError({ message: "Invalid persisted projection binding" })),
+const decodeJob = (job: BackgroundWorkInput) =>
+	Schema.decodeUnknownEffect(EventProjectionJob)(job.featureInput).pipe(
+		Effect.mapError(() => new DbError({ message: "Invalid persisted projection job" })),
 	);
+
+const encodeJson = (value: unknown, message: string) =>
+	Schema.encodeUnknownEffect(JsonValue)(value).pipe(
+		Effect.mapError(() => new DbError({ message })),
+	);
+
+const jobScope = (job: EventProjectionJob): EventStreamScope => ({
+	userId: job.accountGeneration.userId,
+	eventSchemaSlug: job.eventSchemaSlug,
+	eventSchemaPluginId: job.pluginPin.id,
+});
 
 export class EventStreamWorkService extends Context.Service<EventStreamWorkService>()(
 	"@ryot-app/kernel-backend/modules/events/stream-work/EventStreamWorkService",
@@ -83,51 +105,56 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const background = yield* BackgroundWorkService;
 			const bindings = yield* ProjectionBindings;
 			const assets = yield* ManagedAssetReferenceLocker.make;
-			const claimFor = (
-				work: NonNullable<Effect.Success<ReturnType<typeof repository.prepare>>>,
-				jobId: string,
-				pluginPin: typeof EventStreamClaim.fields.pluginPin.Type,
-			) =>
-				Schema.decodeEffect(EventStreamClaim)({
-					jobId,
-					pluginPin,
-					id: work.id,
-					revision: work.streamRevision,
-					outputSchema: work.outputSchema,
-					occurredAt: work.updatedAt.toISOString(),
-					processorScriptId: work.processorScriptId,
-					accountGeneration: { token: work.accountToken, userId: UserId.make(work.key.userId) },
-					input: {
-						entityId: work.key.entityId,
-						checkpoint: work.checkpoint,
-						eventSchemaSlug: work.key.eventSchemaSlug,
-						dirtyFrom: work.dirtyFrom?.toISOString() ?? null,
-					},
-				}).pipe(Effect.mapError(() => new DbError({ message: "Invalid projection step" })));
-			const arrange = Effect.fn("EventStreamWorkService.arrange")(function* (
-				id: string,
-				retry?: boolean,
-			) {
-				const candidate = yield* repository.get(id);
-				if (!candidate) {
+
+			const resolve = Effect.fn("EventStreamWorkService.resolve")(function* (input: {
+				userId: string;
+				pluginId: string;
+				scriptSlug: string;
+			}) {
+				const binding = yield* bindings.resolve({
+					pluginId: input.pluginId,
+					scriptSlug: input.scriptSlug,
+					userId: UserId.make(input.userId),
+				});
+				if (!binding) {
 					return null;
 				}
-				yield* background.lockAccount({
-					token: candidate.accountToken,
-					userId: UserId.make(candidate.key.userId),
-				});
-				const work = yield* repository.prepare(id);
-				if (
-					!work ||
-					work.completedRevision === work.streamRevision ||
-					(work.currentJobId !== null && !(retry && work.status === "failed"))
-				) {
-					return work?.currentJobId ?? null;
+				const pluginPin = { ...binding.pluginPin, writeContext: binding.principal };
+				return {
+					binding,
+					pluginPin,
+					record: {
+						accountToken: binding.accountGeneration.token,
+						processorScriptId: binding.principal.scriptId,
+						pluginRevisionId: binding.pluginPin.revisionId,
+						configRevisionId: binding.pluginPin.configRevisionId,
+						pluginPin: yield* encodeJson(pluginPin, "Invalid projection binding"),
+					},
+				};
+			});
+
+			const admit = Effect.fn("EventStreamWorkService.admit")(function* (
+				scope: EventStreamScope,
+				scriptSlug: string,
+				resolved: Effect.Success<ReturnType<typeof resolve>>,
+			) {
+				if (!resolved) {
+					return null;
 				}
-				const pin = yield* loadPin(work.pluginPin);
-				const account = { token: work.accountToken, userId: UserId.make(work.key.userId) };
-				const jobId = `event-projection-${sha256Hex(stableStringify([account, id, work.step + 1]))}`;
-				const claim = yield* claimFor(work, jobId, pin);
+				const account = resolved.binding.accountGeneration;
+				yield* background.lockAccount(account);
+				const queued = yield* background.lockQueued({
+					userId: account.userId,
+					purpose: "event-projection",
+					scope: scope.eventSchemaSlug,
+					pluginId: scope.eventSchemaPluginId,
+				});
+				if (queued) {
+					return queued;
+				}
+				if (!(yield* repository.claimable(scope, resolved.record))) {
+					return null;
+				}
 				const [target] = yield* session.run((db) =>
 					db
 						.select({
@@ -135,31 +162,51 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 							contentHash: tables.sandboxScript.contentHash,
 						})
 						.from(tables.sandboxScript)
-						.where(eq(tables.sandboxScript.id, work.processorScriptId)),
+						.where(eq(tables.sandboxScript.id, resolved.record.processorScriptId)),
 				);
-				if (!target || pin.compiledHashes[target.slug] !== target.contentHash) {
+				if (!target || resolved.pluginPin.compiledHashes[target.slug] !== target.contentHash) {
 					return yield* new DbError({ message: "Projection executable pin is unavailable" });
 				}
+				const id = `event-projection-${generateId()}`;
+				const job: EventProjectionJob = {
+					scriptSlug,
+					streams: [],
+					occurredAt: null,
+					accountGeneration: account,
+					pluginPin: resolved.pluginPin,
+					processorScriptId: resolved.binding.principal.scriptId,
+					eventSchemaSlug: EventSchemaSlug.make(scope.eventSchemaSlug),
+				};
 				yield* background.admit({
-					id: jobId,
-					key: jobId,
-					scope: work.key.entityId,
+					id,
+					key: id,
 					accountGeneration: account,
 					purpose: "event-projection",
+					scope: scope.eventSchemaSlug,
 					contentHash: target.contentHash,
-					featureInput: yield* Schema.encodeUnknownEffect(JsonValue)(claim).pipe(Effect.orDie),
+					featureInput: yield* encodeJson(job, "Invalid projection job"),
 					execution: {
 						lane: "background",
-						input: claim.input,
-						pluginRevision: pin,
 						resolutionMode: "exact",
-						executionId: `${jobId}-script`,
-						scriptId: claim.processorScriptId,
+						executionId: `${id}-script`,
+						scriptId: job.processorScriptId,
+						pluginRevision: resolved.binding.pluginPin,
+						input: { streams: [], eventSchemaSlug: job.eventSchemaSlug },
 						subject: { type: "projection", userId: account.userId, accountGeneration: account },
 					},
 				});
-				yield* repository.reserve(id, jobId);
-				return jobId;
+				return id;
+			});
+
+			const admitCurrent = Effect.fn("EventStreamWorkService.admitCurrent")(function* (
+				scope: EventStreamScope,
+				scriptSlug: string,
+			) {
+				return yield* admit(
+					scope,
+					scriptSlug,
+					yield* resolve({ scriptSlug, userId: scope.userId, pluginId: scope.eventSchemaPluginId }),
+				);
 			});
 
 			const request = Effect.fn("EventStreamWorkService.request")(function* (input: {
@@ -191,15 +238,19 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					Effect.provideService(EntitiesRepository, entities),
 					Effect.provideService(EventSchemaReader, eventSchemas),
 				);
-				if (
-					scope.eventSchemaScope.pluginId !== input.pluginPin.id ||
-					!scope.eventSchemaScope.projection
-				) {
+				const projection = scope.eventSchemaScope.projection;
+				if (scope.eventSchemaScope.pluginId !== input.pluginPin.id || !projection) {
 					return yield* new DbError({
 						message: "Event stream processor must own its schema and declared output properties",
 					});
 				}
-				const admitted = yield* session.transaction(
+				const streamScope = {
+					userId: input.accountGeneration.userId,
+					eventSchemaPluginId: input.pluginPin.id,
+					eventSchemaSlug: input.request.eventSchemaSlug,
+				};
+				const id = eventStreamId({ ...streamScope, entityId: input.request.entityId });
+				const jobId = yield* session.transaction(
 					Effect.gen(function* () {
 						yield* background.lockAccount(input.accountGeneration);
 						yield* writes
@@ -228,37 +279,42 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						if (
 							!target ||
 							input.pluginPin.compiledHashes[target.slug] !== target.contentHash ||
-							target.slug !== scope.eventSchemaScope.projection?.scriptSlug
+							target.slug !== projection.scriptSlug
 						) {
 							return yield* new DbError({
 								message:
 									"Event stream processor does not belong to the exact admitted plugin revision",
 							});
 						}
-						const id = yield* repository.request({
-							processorScriptId: input.processorScriptId,
-							accountToken: input.accountGeneration.token,
-							pluginRevisionId: input.pluginPin.revisionId,
-							outputSchema: scope.eventSchemaScope.projection.propertiesSchema,
-							key: {
-								entityId: input.request.entityId,
-								userId: input.accountGeneration.userId,
-								eventSchemaPluginId: input.pluginPin.id,
-								eventSchemaSlug: input.request.eventSchemaSlug,
-							},
-							pluginPin: yield* Schema.encodeUnknownEffect(JsonValue)({
-								...input.pluginPin,
-								writeContext: input.command.writeContext,
-							}).pipe(Effect.mapError(() => new DbError({ message: "Invalid processor pin" }))),
+						const resolved = yield* resolve({
+							userId: streamScope.userId,
+							scriptSlug: projection.scriptSlug,
+							pluginId: streamScope.eventSchemaPluginId,
 						});
-						return { id, jobId: yield* arrange(id, true) };
+						if (!resolved) {
+							return yield* new DbError({ message: "Projection binding is unavailable" });
+						}
+						yield* repository.ensureStreams([{ ...streamScope, entityId: input.request.entityId }]);
+						yield* repository.bind({
+							limit: 1,
+							streamIds: [id],
+							binding: resolved.record,
+							outputSchema: projection.propertiesSchema,
+							declaration: {
+								...streamScope,
+								entitySchemaSlug: scope.eventSchemaScope.entitySchemaSlug,
+							},
+						});
+						yield* repository.retry(id);
+						return yield* admit(streamScope, projection.scriptSlug, resolved);
 					}),
 				);
-				if (admitted.jobId) {
-					yield* background.dispatch(admitted.jobId);
+				if (jobId) {
+					yield* background.dispatch(jobId);
 				}
-				return admitted.id;
+				return id;
 			});
+
 			const admitChange = Effect.fn("EventStreamWorkService.admitChange")(function* (
 				trigger: AutomationTrigger,
 			) {
@@ -284,73 +340,108 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				const candidates = yield* repository.sourceCandidates(
 					sources.map((source) => Object.assign({}, source, { userId })),
 				);
-				const jobIds: Array<string> = [];
-				for (const { id, key, projection } of candidates) {
+				const declarations = new Map<
+					string,
+					{
+						streamIds: Array<string>;
+						declaration: EventStreamBindingKey;
+						projection: NonNullable<(typeof candidates)[number]["projection"]>;
+					}
+				>();
+				for (const { id, key, projection, entitySchemaSlug } of candidates) {
 					if (key.eventSchemaPluginId === null || !projection) {
 						continue;
 					}
-					const binding = yield* bindings.resolve({
-						userId: UserId.make(key.userId),
-						pluginId: key.eventSchemaPluginId,
-						scriptSlug: projection.scriptSlug,
-					});
-					if (!binding) {
-						continue;
-					}
-					yield* repository.request({
-						outputSchema: projection.propertiesSchema,
-						processorScriptId: binding.principal.scriptId,
-						accountToken: binding.accountGeneration.token,
-						pluginRevisionId: binding.pluginPin.revisionId,
-						key: {
-							userId: UserId.make(key.userId),
-							entityId: EntityId.make(key.entityId),
-							eventSchemaPluginId: binding.pluginPin.id,
-							eventSchemaSlug: EventSchemaSlug.make(key.eventSchemaSlug),
-						},
-						pluginPin: yield* Schema.encodeUnknownEffect(JsonValue)({
-							...binding.pluginPin,
-							writeContext: binding.principal,
-						}).pipe(Effect.mapError(() => new DbError({ message: "Invalid projection binding" }))),
-					});
-					const jobId = yield* arrange(id);
-					if (jobId) {
-						jobIds.push(jobId);
+					const declaration = {
+						entitySchemaSlug,
+						userId: key.userId,
+						eventSchemaSlug: key.eventSchemaSlug,
+						eventSchemaPluginId: key.eventSchemaPluginId,
+					};
+					const identity = stableStringify(declaration);
+					const current = declarations.get(identity);
+					if (current) {
+						current.streamIds.push(id);
+					} else {
+						declarations.set(identity, { projection, declaration, streamIds: [id] });
 					}
 				}
-				return jobIds;
+				const jobIds = new Set<string>();
+				for (const { streamIds, projection, declaration } of declarations.values()) {
+					const resolved = yield* resolve({
+						userId: declaration.userId,
+						scriptSlug: projection.scriptSlug,
+						pluginId: declaration.eventSchemaPluginId,
+					});
+					if (!resolved) {
+						continue;
+					}
+					yield* repository.bind({
+						streamIds,
+						declaration,
+						limit: streamIds.length,
+						binding: resolved.record,
+						outputSchema: projection.propertiesSchema,
+					});
+					const jobId = yield* admit(declaration, projection.scriptSlug, resolved);
+					if (jobId) {
+						jobIds.add(jobId);
+					}
+				}
+				return [...jobIds];
 			});
 
 			const prepare = Effect.fn("EventStreamWorkService.prepare")(function* (
 				job: BackgroundWorkInput,
 			) {
-				const claim = yield* Schema.decodeUnknownEffect(EventStreamClaim)(job.featureInput).pipe(
-					Effect.mapError(() => new DbError({ message: "Invalid persisted projection claim" })),
-				);
+				const spec = yield* decodeJob(job);
+				const scope = jobScope(spec);
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* background.lockAccount(claim.accountGeneration);
-							yield* entities.lockEntityReferencesByIds([EntityId.make(claim.input.entityId)]);
-							const work = yield* repository.prepare(claim.id);
-							if (
-								work?.currentJobId !== job.id ||
-								work.status !== "running" ||
-								work.accountToken !== claim.accountGeneration.token ||
-								work.processorScriptId !== claim.processorScriptId ||
-								stableStringify(yield* loadPin(work.pluginPin)) !== stableStringify(claim.pluginPin)
-							) {
-								yield* background.settle(job.id, "succeeded");
-								yield* arrange(claim.id);
+							yield* background.lockAccount(spec.accountGeneration);
+							if (!(yield* background.start(job.id))) {
 								return null;
 							}
-							const current = yield* claimFor(work, job.id, claim.pluginPin);
+							const occurredAt = DateTime.formatIso(yield* DateTime.now);
+							const claimed = yield* repository.claim({
+								scope,
+								jobId: job.id,
+								limit: EVENT_STREAM_BATCH_LIMITS.streams,
+								binding: {
+									processorScriptId: spec.processorScriptId,
+									accountToken: spec.accountGeneration.token,
+									pluginRevisionId: spec.pluginPin.revisionId,
+									configRevisionId: spec.pluginPin.configRevisionId,
+								},
+							});
+							if (claimed.length === 0) {
+								yield* admitCurrent(scope, spec.scriptSlug);
+								yield* background.settle(job.id, "succeeded");
+								return null;
+							}
+							const current: EventProjectionJob = {
+								...spec,
+								occurredAt,
+								streams: claimed.map(({ id, entityId, revision, outputSchema }) => ({
+									id,
+									revision,
+									outputSchema,
+									entityId: EntityId.make(entityId),
+								})),
+							};
+							const input = yield* Schema.decodeEffect(EventStreamBatchInput)({
+								eventSchemaSlug: spec.eventSchemaSlug,
+								streams: claimed.map(({ entityId, dirtyFrom, checkpoint }) => ({
+									entityId,
+									dirtyFrom,
+									checkpoint,
+								})),
+							}).pipe(Effect.mapError(() => new DbError({ message: "Invalid projection batch" })));
 							return {
 								...job,
-								execution: { ...job.execution, input: current.input },
-								featureInput: yield* Schema.encodeUnknownEffect(JsonValue)(current).pipe(
-									Effect.orDie,
-								),
+								execution: { ...job.execution, input },
+								featureInput: yield* encodeJson(current, "Invalid projection job"),
 							};
 						}),
 					)
@@ -361,56 +452,85 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				job: BackgroundWorkInput,
 				rawOutput: unknown,
 			) {
-				const workClaim = yield* Schema.decodeUnknownEffect(EventStreamClaim)(
-					job.featureInput,
-				).pipe(
-					Effect.mapError(() => new DbError({ message: "Invalid persisted projection claim" })),
-				);
-				const executionId = job.id;
-				const output = yield* Schema.decodeUnknownEffect(EventStreamStepOutput)(rawOutput).pipe(
+				const spec = yield* decodeJob(job);
+				const scope = jobScope(spec);
+				const output = yield* Schema.decodeUnknownEffect(EventStreamBatchOutput)(rawOutput).pipe(
 					Effect.mapError(
 						() => new DbError({ message: "Event stream processor returned invalid output" }),
 					),
 				);
-				if (new TextEncoder().encode(stableStringify(output.checkpoint)).byteLength > 16_384) {
+				const claims = new Map(spec.streams.map((stream) => [stream.entityId, stream]));
+				const covered = new Set(output.streams.map(({ entityId }) => entityId));
+				if (
+					covered.size !== output.streams.length ||
+					covered.size !== claims.size ||
+					output.streams.some(({ entityId }) => !claims.has(entityId))
+				) {
 					return yield* new DbError({
-						message: "Event stream checkpoint exceeds its bounded size",
+						message: "Event stream processor must return each claimed stream once",
 					});
 				}
-				if (new Set(output.updates.map(({ eventId }) => eventId)).size !== output.updates.length) {
+				const updates = output.streams.flatMap((stream) => stream.updates);
+				if (updates.length > EVENT_STREAM_BATCH_LIMITS.updates) {
+					return yield* new DbError({
+						message: "Event stream processor returned too many updates",
+					});
+				}
+				if (new Set(updates.map(({ eventId }) => eventId)).size !== updates.length) {
 					return yield* new DbError({ message: "Event stream processor repeated an event" });
 				}
+				const results = yield* Effect.forEach(output.streams, (stream) =>
+					Effect.gen(function* () {
+						const claim = claims.get(stream.entityId);
+						if (!claim) {
+							return yield* new DbError({
+								message: "Event stream processor returned an unclaimed stream",
+							});
+						}
+						if (
+							new TextEncoder().encode(stableStringify(stream.checkpoint)).byteLength >
+							EVENT_STREAM_BATCH_LIMITS.checkpointBytes
+						) {
+							return yield* new DbError({
+								message: "Event stream checkpoint exceeds its bounded size",
+							});
+						}
+						const parsed = yield* Effect.forEach(stream.updates, (item) =>
+							parseAppSchemaProperties({
+								kind: "Projection",
+								properties: item.properties,
+								propertiesSchema: claim.outputSchema,
+							}).pipe(
+								Effect.flatMap((properties) =>
+									Schema.decodeUnknownEffect(EventStreamUpdate)({ ...item, properties }),
+								),
+								Effect.mapError(
+									() =>
+										new DbError({
+											message: "Projection output does not match its declared schema",
+										}),
+								),
+							),
+						);
+						return { ...stream, claim, updates: parsed };
+					}),
+				);
+				if (spec.occurredAt === null) {
+					return yield* new DbError({ message: "Projection job was not prepared" });
+				}
 				const command = yield* Schema.decodeEffect(DomainLifecycleCommand)({
-					itemIdentity: "stream-step",
-					occurredAt: workClaim.occurredAt,
-					writeContext: workClaim.pluginPin.writeContext,
-					accountGeneration: workClaim.accountGeneration,
+					occurredAt: spec.occurredAt,
+					itemIdentity: "stream-batch",
+					writeContext: spec.pluginPin.writeContext,
+					accountGeneration: spec.accountGeneration,
 					causation: rootLifecycleCausation({
 						lane: "background",
 						source: "bootstrap",
-						executionId: AutomationExecutionId.make(executionId),
-						initiator: { kind: "user", id: workClaim.accountGeneration.userId },
+						executionId: AutomationExecutionId.make(job.id),
+						initiator: { kind: "user", id: spec.accountGeneration.userId },
 					}),
 				}).pipe(
 					Effect.mapError(() => new DbError({ message: "Invalid event stream lifecycle command" })),
-				);
-				const updates = yield* Effect.forEach(output.updates, (item) =>
-					parseAppSchemaProperties({
-						kind: "Projection",
-						properties: item.properties,
-						propertiesSchema: workClaim.outputSchema,
-					}).pipe(
-						Effect.flatMap((properties) =>
-							Schema.decodeUnknownEffect(EventStreamStepOutput.fields.updates.value)({
-								...item,
-								properties,
-							}),
-						),
-						Effect.mapError(
-							() =>
-								new DbError({ message: "Projection output does not match its declared schema" }),
-						),
-					),
 				);
 				yield* makeActivity({
 					error: DbError,
@@ -419,86 +539,48 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					execute: session
 						.transaction(
 							Effect.gen(function* () {
-								yield* background.lockAccount(workClaim.accountGeneration);
+								yield* background.lockAccount(spec.accountGeneration);
 								yield* writes
-									.check(
-										command,
-										definitionOwner(workClaim.pluginPin.id),
-										workClaim.accountGeneration.userId,
-										true,
-									)
+									.check(command, definitionOwner(spec.pluginPin.id), scope.userId, true)
 									.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-								yield* entities.lockEntityReferencesByIds([
-									EntityId.make(workClaim.input.entityId),
-								]);
-								if (
-									!(yield* repository.currentClaim(
-										workClaim.id,
-										workClaim.jobId,
-										workClaim.revision,
-									))
-								) {
-									yield* background.settle(job.id, "succeeded");
-									yield* arrange(workClaim.id);
-									return undefined;
-								}
-								const source = yield* entities.getEntityScopeForUser({
-									userId: workClaim.accountGeneration.userId,
-									entityId: EntityId.make(workClaim.input.entityId),
-								});
-								if (!source) {
-									return yield* new DbError({ message: "Projection source is unavailable" });
-								}
-								const currentSchema = yield* eventSchemas.getScopeForUser({
-									entitySchemaSlug: source.entitySchemaSlug,
-									userId: workClaim.accountGeneration.userId,
-									eventSchemaSlug: workClaim.input.eventSchemaSlug,
-									entitySchemaPluginId: source.entitySchemaPluginId,
-								});
-								if (!currentSchema?.projection) {
+								if (!(yield* repository.declared(scope, spec.scriptSlug))) {
 									return yield* new DbError({ message: "Projection declaration is unavailable" });
 								}
-								const binding = yield* bindings.resolve({
-									pluginId: workClaim.pluginPin.id,
-									userId: workClaim.accountGeneration.userId,
-									scriptSlug: currentSchema.projection.scriptSlug,
+								const resolved = yield* resolve({
+									userId: scope.userId,
+									scriptSlug: spec.scriptSlug,
+									pluginId: scope.eventSchemaPluginId,
 								});
-								if (!binding) {
+								if (!resolved) {
 									return yield* new DbError({ message: "Projection binding is unavailable" });
 								}
 								if (
-									!sameRevisionPin(binding.pluginPin, workClaim.pluginPin) ||
-									binding.principal.scriptId !== workClaim.processorScriptId
+									!sameRevisionPin(resolved.binding.pluginPin, spec.pluginPin) ||
+									resolved.binding.principal.scriptId !== spec.processorScriptId
 								) {
-									yield* repository.request({
-										processorScriptId: binding.principal.scriptId,
-										accountToken: binding.accountGeneration.token,
-										pluginRevisionId: binding.pluginPin.revisionId,
-										outputSchema: currentSchema.projection.propertiesSchema,
-										key: {
-											userId: workClaim.accountGeneration.userId,
-											eventSchemaPluginId: workClaim.pluginPin.id,
-											eventSchemaSlug: workClaim.input.eventSchemaSlug,
-											entityId: EntityId.make(workClaim.input.entityId),
-										},
-										pluginPin: yield* Schema.encodeUnknownEffect(JsonValue)({
-											...binding.pluginPin,
-											writeContext: binding.principal,
-										}).pipe(
-											Effect.mapError(() => new DbError({ message: "Invalid projection binding" })),
-										),
-									});
+									yield* admit(scope, spec.scriptSlug, resolved);
 									yield* background.settle(job.id, "succeeded");
-									yield* arrange(workClaim.id);
 									return undefined;
 								}
+								yield* entities.lockEntityReferencesByIds(
+									spec.streams.map(({ entityId }) => entityId),
+								);
+								const live = new Set(
+									yield* repository.currentClaims(
+										job.id,
+										spec.streams.map(({ id, revision }) => ({ id, revision })),
+									),
+								);
+								const published = results.filter(({ claim }) => live.has(claim.id));
 								yield* assets
 									.lock(
-										updates.map((item) => ({
-											properties: item.properties,
-											propertiesSchema: workClaim.outputSchema,
-											ownerUserId: workClaim.accountGeneration.userId,
-										})),
+										published.flatMap(({ claim, updates: items }) =>
+											items.map((item) => ({
+												properties: item.properties,
+												propertiesSchema: claim.outputSchema,
+												ownerUserId: spec.accountGeneration.userId,
+											})),
+										),
 									)
 									.pipe(
 										Effect.mapError(
@@ -507,30 +589,26 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 										),
 									);
 								yield* projections.publish({
-									updates,
-									streamId: workClaim.id,
-									entityId: workClaim.input.entityId,
-									userId: workClaim.accountGeneration.userId,
-									eventSchemaPluginId: workClaim.pluginPin.id,
-									eventSchemaSlug: workClaim.input.eventSchemaSlug,
+									userId: scope.userId,
+									eventSchemaSlug: scope.eventSchemaSlug,
+									eventSchemaPluginId: scope.eventSchemaPluginId,
+									streams: published.map(({ claim, updates: items }) => ({
+										updates: items,
+										streamId: claim.id,
+										entityId: claim.entityId,
+									})),
 								});
-								if (
-									!(yield* repository.finish(
-										workClaim.id,
-										workClaim.jobId,
-										workClaim.revision,
-										output.checkpoint,
-										output.done,
-									))
-								) {
-									return yield* new DbError({
-										message: "Event stream claim changed during commit",
-									});
-								}
+								yield* repository.finish(
+									job.id,
+									published.map(({ done, claim, checkpoint }) => ({
+										done,
+										checkpoint,
+										id: claim.id,
+										revision: claim.revision,
+									})),
+								);
+								yield* admit(scope, spec.scriptSlug, resolved);
 								yield* background.settle(job.id, "succeeded");
-								if (!output.done) {
-									yield* arrange(workClaim.id);
-								}
 								return undefined;
 							}),
 						)
@@ -541,72 +619,35 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 
 			const bindDeclaration = Effect.fn("EventStreamWorkService.bindDeclaration")(function* (
 				declaration: EventStreamBindingDeclaration,
-				scriptSlug: string,
+				projection: { readonly scriptSlug: string; readonly propertiesSchema: AppSchema },
 			) {
-				const binding = yield* bindings.resolve({
-					scriptSlug,
-					userId: UserId.make(declaration.userId),
-					pluginId: PluginId.make(declaration.eventSchemaPluginId),
+				const resolved = yield* resolve({
+					userId: declaration.userId,
+					scriptSlug: projection.scriptSlug,
+					pluginId: declaration.eventSchemaPluginId,
 				});
-				if (!binding) {
+				if (!resolved) {
 					return false;
 				}
-				let complete = true;
 				let after: string | undefined;
 				for (;;) {
-					const candidates: Effect.Success<ReturnType<typeof repository.bindingCandidates>> =
-						yield* repository.bindingCandidates({
-							limit: 100,
-							declaration,
-							...(after === undefined ? {} : { after }),
-						});
-					for (const candidate of candidates) {
-						const { key } = candidate;
-						yield* Effect.gen(function* () {
-							const occurredAt = DateTime.formatIso(yield* DateTime.now);
-							const command = yield* Schema.decodeEffect(DomainLifecycleCommand)({
-								occurredAt,
-								writeContext: binding.principal,
-								itemIdentity: "projection-binding",
-								accountGeneration: binding.accountGeneration,
-								causation: rootLifecycleCausation({
-									lane: "background",
-									source: "bootstrap",
-									initiator: { kind: "user", id: UserId.make(key.userId) },
-									executionId: AutomationExecutionId.make(
-										`projection-binding:${candidate.id}:${binding.pluginPin.revisionId}:${binding.pluginPin.configRevisionId}`,
-									),
-								}),
-							}).pipe(
-								Effect.mapError(
-									() => new DbError({ message: "Invalid projection binding command" }),
-								),
-							);
-							yield* request({
-								command,
-								pluginPin: binding.pluginPin,
-								accountGeneration: binding.accountGeneration,
-								processorScriptId: binding.principal.scriptId,
-								request: yield* Schema.decodeEffect(EventStreamWorkRequest)({
-									entityId: key.entityId,
-									eventSchemaSlug: key.eventSchemaSlug,
-								}).pipe(
-									Effect.mapError(() => new DbError({ message: "Invalid projection stream key" })),
-								),
-							});
-						}).pipe(
-							Effect.catchTag("DbError", (error) => {
-								complete = false;
-								return Effect.logWarning("Projection binding admission failed", {
-									reason: error.message,
-									streamId: candidate.id,
+					const bound: ReadonlyArray<string> = yield* session
+						.transaction(
+							Effect.gen(function* () {
+								yield* background.lockAccount(resolved.binding.accountGeneration);
+								return yield* repository.bind({
+									declaration,
+									limit: bindPageSize,
+									binding: resolved.record,
+									outputSchema: projection.propertiesSchema,
+									...(after === undefined ? {} : { after }),
 								});
 							}),
-						);
-					}
-					after = candidates.at(-1)?.id;
-					if (candidates.length < 100 || after === undefined) {
-						return complete;
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+					after = bound.at(-1);
+					if (bound.length < bindPageSize || after === undefined) {
+						return true;
 					}
 				}
 			});
@@ -620,7 +661,15 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 							...(after === undefined ? {} : { after }),
 						});
 					for (const { projection, ...declaration } of declarations) {
-						if (yield* bindDeclaration(declaration, projection.scriptSlug)) {
+						const bound = yield* bindDeclaration(declaration, projection).pipe(
+							Effect.catchTag("DbError", (error) =>
+								Effect.logWarning("Projection binding failed", {
+									reason: error.message,
+									eventSchemaSlug: declaration.eventSchemaSlug,
+								}).pipe(Effect.as(false)),
+							),
+						);
+						if (bound) {
 							yield* repository.recordBinding(declaration);
 						}
 					}
@@ -629,7 +678,46 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						break;
 					}
 				}
-				yield* background.admitCandidates("Projection stream", repository.listCandidates, arrange);
+				let scope: undefined | EventStreamScope;
+				for (;;) {
+					const scopes: Effect.Success<ReturnType<typeof repository.dirtyScopes>> =
+						yield* repository.dirtyScopes({
+							limit: 100,
+							...(scope === undefined ? {} : { after: scope }),
+						});
+					for (const { scriptSlugs, ...current } of scopes) {
+						for (const scriptSlug of scriptSlugs) {
+							const jobId = yield* session
+								.transaction(admitCurrent(current, scriptSlug))
+								.pipe(
+									Effect.catchTags({
+										DatabaseSessionStateError: Effect.die,
+										DbError: (error) =>
+											Effect.logWarning("Projection admission failed", {
+												reason: error.message,
+												eventSchemaSlug: current.eventSchemaSlug,
+											}).pipe(Effect.as(null)),
+									}),
+								);
+							if (jobId) {
+								yield* background
+									.dispatch(jobId)
+									.pipe(
+										Effect.catchTag("DbError", (error) =>
+											Effect.logWarning("Projection dispatch failed", {
+												jobId,
+												reason: error.message,
+											}),
+										),
+									);
+							}
+						}
+					}
+					scope = scopes.at(-1);
+					if (scopes.length < 100 || scope === undefined) {
+						return;
+					}
+				}
 			});
 			return { prepare, process, request, reconcile, admitChange };
 		}),

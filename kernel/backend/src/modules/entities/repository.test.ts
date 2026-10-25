@@ -5,6 +5,7 @@ import {
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
+	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -20,7 +21,9 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
+import { seedStreamWork, streamState } from "#modules/events/stream-repository.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -364,13 +367,13 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			const session = yield* DatabaseSession;
 			const repository = yield* EntitiesRepository;
 			const events = yield* EventsRepository;
-			const streams = yield* EventStreamRepository;
 			const userId = UserId.make("stream-owner");
 			const entityId = EntityId.make("stream-entity");
+			const pluginId = PluginId.make("stream-plugin");
 			const key = {
 				userId,
 				entityId,
-				eventSchemaPluginId: null,
+				eventSchemaPluginId: pluginId,
 				eventSchemaSlug: EventSchemaSlug.make("progress"),
 			};
 			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
@@ -378,6 +381,11 @@ layer(eventStreamRepositoriesLayer)((test) => {
 				db
 					.insert(tables.user)
 					.values({ id: userId, name: "Stream owner", email: "stream-owner@example.test" }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.plugin)
+					.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
 			);
 			yield* session.run((db) =>
 				db
@@ -390,8 +398,8 @@ layer(eventStreamRepositoriesLayer)((test) => {
 				entityId,
 				occurredAt,
 				properties: { value: 1 },
-				eventSchemaPluginId: null,
 				eventSchemaName: "Progress",
+				eventSchemaPluginId: pluginId,
 				id: EventId.make("stream-event"),
 				eventSchemaSlug: key.eventSchemaSlug,
 			};
@@ -407,24 +415,12 @@ layer(eventStreamRepositoriesLayer)((test) => {
 				}),
 			);
 			expect(created.id).toBe(event.id);
-			const streamId = yield* session.transaction(
-				streams.request({
-					key,
-					accountToken: "stream-account",
-					pluginRevisionId: "stream-revision",
-					processorScriptId: "stream-processor",
-					pluginPin: { revisionId: "stream-revision" },
-					outputSchema: {
-						unknownKeys: "strict" as const,
-						fields: { value: { label: "value", description: "value", type: "number" as const } },
-					},
-				}),
-			);
-			const beforeUpdate = yield* streams.get(streamId);
+			const { id: streamId } = yield* seedStreamWork(key);
+			const beforeUpdate = yield* streamState(streamId);
 			assert(beforeUpdate);
 			expect(beforeUpdate.streamRevision).toBe(1);
 			yield* session.transaction(events.createEvent(event));
-			expect((yield* streams.get(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
+			expect((yield* streamState(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
 
 			yield* session.run((db) =>
 				db
@@ -443,7 +439,7 @@ layer(eventStreamRepositoriesLayer)((test) => {
 					});
 				}),
 			);
-			const invalidated = yield* streams.get(streamId);
+			const invalidated = yield* streamState(streamId);
 			assert(invalidated);
 			expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
 			expect(invalidated.currentJobId).toBeNull();
@@ -457,7 +453,7 @@ layer(eventStreamRepositoriesLayer)((test) => {
 					properties: { value: 2 },
 				}),
 			);
-			expect((yield* streams.get(streamId))?.streamRevision).toBe(invalidated.streamRevision);
+			expect((yield* streamState(streamId))?.streamRevision).toBe(invalidated.streamRevision);
 		}),
 	);
 });

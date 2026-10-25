@@ -412,8 +412,11 @@ const seedCatalog = Effect.gen(function* () {
 			]);
 			yield* db.insert(eventStreamWork).values([
 				{
+					userId: "owner",
 					id: "stream-owner",
 					completedRevision: 4,
+					eventSchemaSlug: "record-set",
+					eventSchemaPluginId: "stream-plugin",
 					pluginPin: { private: "owner-plugin-pin" },
 					accountToken: "owner-private-account-token",
 					pluginRevisionId: "owner-private-plugin-revision",
@@ -421,8 +424,11 @@ const seedCatalog = Effect.gen(function* () {
 					processorScriptId: "owner-private-processor-script",
 				},
 				{
+					userId: "other",
 					id: "stream-other",
 					completedRevision: null,
+					eventSchemaSlug: "record-set",
+					eventSchemaPluginId: "stream-plugin",
 					pluginPin: { private: "other-plugin-pin" },
 					accountToken: "other-private-account-token",
 					pluginRevisionId: "other-private-plugin-revision",
@@ -975,10 +981,13 @@ layer(catalogDatabaseLayer)((test) => {
 					db
 						.insert(eventStreamWork)
 						.values({
+							userId: "owner",
 							completedRevision: 1,
 							id: "projection-gate-stream",
+							eventSchemaSlug: "projected",
 							outputSchema: { fields: {} },
 							processorScriptId: "processor",
+							eventSchemaPluginId: "system-plugin",
 							pluginRevisionId: "system-plugin-revision",
 							pluginPin: { configRevisionId: "system-env" },
 							accountToken: sql`(select account_generation from "user" where id = 'owner')`,
@@ -1173,8 +1182,11 @@ layer(catalogDatabaseLayer)((test) => {
 							.insert(eventStreamWork)
 							.values({
 								id,
+								userId: "owner",
 								outputSchema: { fields: {} },
+								eventSchemaSlug: "projected",
 								processorScriptId: "processor",
+								eventSchemaPluginId: "private-plugin",
 								completedRevision: index < 2 ? 1 : null,
 								pluginRevisionId: "private-plugin-revision",
 								currentJobId: index === 3 ? "rank-failed" : null,

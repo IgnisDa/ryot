@@ -1,5 +1,6 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { EntityId, EventSchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 
 import { testPluginPackageId } from "#modules/plugins/test-support";
@@ -7,36 +8,34 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { eventStreamId, EventStreamRepository, type StreamKey } from "./stream-repository";
+import { EventStreamRepository } from "./stream-repository";
+import { streamState } from "./stream-repository.test-support";
 
-const streamKey = (userId: UserId, entityId: EntityId, eventSchemaSlug = "review"): StreamKey => ({
-	userId,
-	entityId,
-	eventSchemaPluginId: null,
-	eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
-});
-
-const requestInput = (key: StreamKey) => ({
-	key,
+const binding = {
+	configRevisionId: "config",
 	accountToken: "stream-account-token",
 	processorScriptId: "stream-processor",
 	pluginRevisionId: "stream-plugin-revision",
-	pluginPin: { revisionId: "stream-plugin-revision" },
-	outputSchema: {
-		unknownKeys: "strict" as const,
-		fields: { rating: { label: "rating", description: "rating", type: "number" as const } },
-	},
-});
+	pluginPin: { configRevisionId: "config", revisionId: "stream-plugin-revision" },
+};
+
+const outputSchema = {
+	unknownKeys: "strict" as const,
+	fields: { rating: { label: "rating", description: "rating", type: "number" as const } },
+};
 
 const date = (value: string) => DateTime.toDateUtc(DateTime.makeUnsafe(value));
 
-const seed = (suffix: string) =>
+const seed = (suffix: string, count = 1) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const streams = yield* EventStreamRepository;
 		const userId = UserId.make(`stream-user-${suffix}`);
-		const entityId = EntityId.make(`stream-entity-${suffix}`);
-		const sessionEntityId = EntityId.make(`stream-session-${suffix}`);
 		const pluginId = PluginId.make(`stream-plugin-${suffix}`);
+		const sessionEntityId = EntityId.make(`stream-session-${suffix}`);
+		const entityIds = Array.from({ length: count }, (_, index) =>
+			EntityId.make(`stream-entity-${suffix}-${String(index).padStart(4, "0")}`),
+		);
 		yield* session.run((db) =>
 			db
 				.insert(tables.user)
@@ -53,161 +52,214 @@ const seed = (suffix: string) =>
 				.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
 		);
 		yield* session.run((db) =>
-			db.insert(tables.entity).values([
-				{ id: entityId, name: "Stream entity", entitySchemaSlug: "stream-test" },
-				{ id: sessionEntityId, name: "Session entity", entitySchemaSlug: "stream-test" },
-			]),
+			db
+				.insert(tables.entity)
+				.values(
+					[...entityIds, sessionEntityId].map((id) => ({
+						id,
+						name: id,
+						entitySchemaSlug: "stream-test",
+					})),
+				),
 		);
-		return { userId, pluginId, entityId, sessionEntityId, key: streamKey(userId, entityId) };
+		const keys = entityIds.map((entityId) => ({
+			userId,
+			entityId,
+			eventSchemaPluginId: pluginId,
+			eventSchemaSlug: EventSchemaSlug.make("review"),
+		}));
+		const created = yield* session.transaction(streams.ensureStreams(keys));
+		const scope = { userId, eventSchemaSlug: "review", eventSchemaPluginId: pluginId };
+		const declaration = { ...scope, entitySchemaSlug: "stream-test" };
+		const bind = (input: { after?: string; limit?: number; pluginRevisionId?: string } = {}) =>
+			session.transaction(
+				streams.bind({
+					declaration,
+					outputSchema,
+					limit: input.limit ?? count,
+					...(input.after === undefined ? {} : { after: input.after }),
+					binding: {
+						...binding,
+						pluginRevisionId: input.pluginRevisionId ?? binding.pluginRevisionId,
+					},
+				}),
+			);
+		const job = (id: string, status: "failed" | "queued" | "running" | "succeeded" = "running") =>
+			session.run((db) =>
+				db
+					.insert(tables.backgroundWork)
+					.values({
+						id,
+						userId,
+						status,
+						key: id,
+						pluginId,
+						payload: {},
+						scope: "review",
+						purpose: "event-projection",
+						inputHash: "test-input-hash",
+						accountToken: "stream-account-token",
+					}),
+			);
+		const claim = (jobId: string, limit = 100) =>
+			session.transaction(streams.claim({ jobId, scope, limit, binding }));
+		const settle = (jobId: string, status: "failed" | "succeeded") =>
+			session.run((db) =>
+				db.update(tables.backgroundWork).set({ status }).where(eq(tables.backgroundWork.id, jobId)),
+			);
+		const complete = (jobId: string, id: string) =>
+			session.transaction(
+				streams.finish(jobId, [{ id, done: true, revision: 0, checkpoint: { cursor: "done" } }]),
+			);
+		return {
+			job,
+			bind,
+			scope,
+			claim,
+			settle,
+			complete,
+			sessionEntityId,
+			ids: created.map(({ id }) => id),
+			keyOf: (id: string) =>
+				keys.find((key) => created.some((row) => row.id === id && row.entityId === key.entityId)),
+		};
 	});
-
-const reserveJob = (
-	id: string,
-	userId: UserId,
-	pluginId: PluginId,
-	jobId: string,
-	status: "queued" | "running" = "running",
-) =>
-	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
-		const repository = yield* EventStreamRepository;
-		return yield* session.transaction(
-			Effect.gen(function* () {
-				yield* session.run((db) =>
-					db
-						.insert(tables.backgroundWork)
-						.values({
-							userId,
-							status,
-							pluginId,
-							id: jobId,
-							scope: id,
-							key: jobId,
-							payload: {},
-							purpose: "event-projection",
-							inputHash: "test-input-hash",
-							accountToken: "stream-account-token",
-						}),
-				);
-				const state = yield* repository.prepare(id);
-				assert(state);
-				yield* repository.reserve(id, jobId);
-				return state;
-			}),
-		);
-	});
-
-const databaseLayer = EventStreamRepository.layer.pipe(
-	Layer.provideMerge(isolatedDatabaseLayer("event_stream_repository")),
-);
 
 layer(
 	EventStreamRepository.layer.pipe(
-		Layer.provideMerge(isolatedDatabaseLayer("event_stream_candidate_batch")),
+		Layer.provideMerge(isolatedDatabaseLayer("event_stream_repository")),
 	),
 )((test) => {
-	test.effect("pages pending streams without repeating blocked heads", () =>
+	test.effect("binds every stream of a declaration in keyset pages and rebinds only changes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key, ...work } = requestInput((yield* seed("candidate-batch")).key);
-			const streams = Array.from({ length: 201 }, (_, index) => {
-				const stream = { ...key, eventSchemaSlug: EventSchemaSlug.make(`batch-${index}`) };
-				return { ...stream, id: eventStreamId(stream) };
-			}).sort((left, right) => left.id.localeCompare(right.id));
-			yield* session.run((db) => db.insert(tables.eventStream).values(streams));
+			const fixture = yield* seed("bind-pages", 5);
+			const first = yield* fixture.bind({ limit: 2 });
+			const [, firstLast] = first;
+			assert(firstLast);
+			const second = yield* fixture.bind({ limit: 2, after: firstLast });
+			const [, secondLast] = second;
+			assert(secondLast);
+			const third = yield* fixture.bind({ limit: 2, after: secondLast });
+			expect([...first, ...second, ...third]).toEqual(fixture.ids);
+			expect(yield* fixture.bind()).toEqual([]);
+
+			const [id] = fixture.ids;
+			assert(id);
+			yield* fixture.job("bind-job");
 			yield* session.run((db) =>
-				db.insert(tables.eventStreamWork).values(streams.map(({ id }) => ({ ...work, id }))),
+				db
+					.update(tables.eventStreamWork)
+					.set({ completedRevision: 0, currentJobId: "bind-job", checkpoint: { cursor: "done" } })
+					.where(eq(tables.eventStreamWork.id, id)),
 			);
-
-			const first = yield* repository.listCandidates(100);
-			expect(first.map(({ id }) => id)).toEqual(streams.slice(0, 100).map(({ id }) => id));
-			const last = first.at(-1);
-			assert(last);
-			const second = yield* repository.listCandidates(100, last.id);
-			expect(second.map(({ id }) => id)).toEqual(streams.slice(100, 200).map(({ id }) => id));
-			const tail = second.at(-1);
-			assert(tail);
-			expect((yield* repository.listCandidates(100, tail.id)).map(({ id }) => id)).toEqual([
-				streams[200]?.id,
-			]);
-		}),
-	);
-});
-
-layer(databaseLayer)((test) => {
-	test.effect("retains only a queued current job when the processor binding changes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key, userId, pluginId } = yield* seed("rebind");
-			const request = requestInput(key);
-			const rebind = (accountToken: string) =>
-				session.transaction(
-					repository.request({
-						...request,
-						accountToken,
-						pluginRevisionId: `${accountToken}-revision`,
-						processorScriptId: `${accountToken}-processor`,
-						pluginPin: { revisionId: `${accountToken}-revision` },
-					}),
-				);
-			const id = yield* session.transaction(repository.request(request));
-			const queuedJobId = `${id}-queued`;
-			yield* reserveJob(id, userId, pluginId, queuedJobId, "queued");
-			yield* rebind("restored-generation");
-			const rebound = yield* repository.get(id);
-			expect(rebound?.checkpoint).toBeNull();
-			expect(rebound?.completedRevision).toBeNull();
-			expect(rebound?.currentJobId).toBe(queuedJobId);
-			expect(rebound?.processorScriptId).toBe("restored-generation-processor");
-			expect(rebound?.accountToken).toBe("restored-generation");
-
-			const runningJobId = `${id}-running`;
-			const prepared = yield* reserveJob(id, userId, pluginId, runningJobId);
-			yield* rebind("replacement-generation");
-			expect((yield* repository.get(id))?.currentJobId).toBeNull();
-			expect(
-				yield* session.transaction(
-					repository.currentClaim(id, runningJobId, prepared.streamRevision),
-				),
-			).toBe(false);
+			expect(yield* fixture.bind({ pluginRevisionId: "next-revision" })).toEqual(fixture.ids);
+			expect(yield* streamState(id)).toMatchObject({
+				checkpoint: null,
+				currentJobId: null,
+				completedRevision: null,
+				pluginRevisionId: "next-revision",
+			});
 		}),
 	);
 
-	test.effect("rebuilds completed projections when only their configuration pin changes", () =>
+	test.effect(
+		"claims dirty streams in batches and retries failed batches one stream at a time",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const streams = yield* EventStreamRepository;
+				const fixture = yield* seed("claims", 3);
+				const [sticky, retried, healthy] = fixture.ids;
+				assert(sticky && retried && healthy);
+				yield* fixture.bind();
+				yield* fixture.job("claim-first");
+				const first = yield* fixture.claim("claim-first", 2);
+				expect(first.map(({ id }) => id)).toEqual([sticky, retried]);
+				expect(first[0]).toMatchObject({ revision: 0, dirtyFrom: null, checkpoint: null });
+				yield* fixture.settle("claim-first", "failed");
+
+				yield* fixture.job("claim-alone");
+				expect((yield* fixture.claim("claim-alone")).map(({ id }) => id)).toEqual([sticky]);
+				yield* fixture.settle("claim-alone", "failed");
+
+				yield* fixture.job("claim-retry");
+				expect((yield* fixture.claim("claim-retry")).map(({ id }) => id)).toEqual([retried]);
+				yield* fixture.complete("claim-retry", retried);
+				yield* fixture.settle("claim-retry", "succeeded");
+
+				yield* fixture.job("claim-healthy");
+				expect((yield* fixture.claim("claim-healthy")).map(({ id }) => id)).toEqual([healthy]);
+				expect(yield* streams.claimable(fixture.scope, binding)).toBe(true);
+				yield* fixture.complete("claim-healthy", healthy);
+				yield* fixture.settle("claim-healthy", "succeeded");
+
+				expect(yield* streams.claimable(fixture.scope, binding)).toBe(false);
+				expect((yield* streamState(sticky))?.status).toBe("failed");
+				yield* session.transaction(streams.retry(sticky));
+				expect(yield* streams.claimable(fixture.scope, binding)).toBe(true);
+			}),
+	);
+
+	test.effect("publishes only current claims and keeps partial streams dirty", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key, userId, pluginId } = yield* seed("configuration-binding");
-			const request = requestInput(key);
-			const id = yield* session.transaction(
-				repository.request({
-					...request,
-					pluginPin: { ...request.pluginPin, configRevisionId: "first" },
-				}),
-			);
-			const jobId = `${id}-configuration-job`;
-			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-			expect(prepared.step).toBe(0);
-			expect(
-				yield* session.transaction(
-					repository.finish(id, jobId, prepared.streamRevision, { cursor: "complete" }, true),
-				),
-			).toBe(true);
+			const streams = yield* EventStreamRepository;
+			const fixture = yield* seed("finish", 3);
+			yield* fixture.bind();
+			yield* fixture.job("finish-job");
+			const claimed = yield* fixture.claim("finish-job");
+			const [done, partial, stale] = claimed;
+			assert(done && partial && stale);
+			const staleKey = fixture.keyOf(stale.id);
+			assert(staleKey);
 			yield* session.transaction(
-				repository.request({
-					...request,
-					pluginPin: { ...request.pluginPin, configRevisionId: "second" },
-				}),
+				streams.touch([{ ...staleKey, occurredAt: date("2026-10-02T00:00:00.000Z") }]),
 			);
-			const pending = yield* repository.get(id);
-			assert(pending);
-			expect(pending.checkpoint).toBeNull();
-			expect(pending.completedRevision).toBeNull();
-			expect(pending.currentJobId).toBeNull();
-			expect(pending.streamRevision).toBe(prepared.streamRevision);
-			expect(pending.pluginPin).toEqual({ ...request.pluginPin, configRevisionId: "second" });
+			const live = yield* session.transaction(
+				streams.currentClaims(
+					"finish-job",
+					claimed.map(({ id, revision }) => ({ id, revision })),
+				),
+			);
+			expect(live).toEqual([done.id, partial.id]);
+			yield* session.transaction(
+				streams.finish("finish-job", [
+					{ done: true, id: done.id, revision: done.revision, checkpoint: { cursor: "done" } },
+					{
+						done: false,
+						id: partial.id,
+						revision: partial.revision,
+						checkpoint: { cursor: "partial" },
+					},
+				]),
+			);
+			expect(yield* streamState(done.id)).toMatchObject({
+				dirtyFrom: null,
+				completedRevision: 0,
+				checkpoint: { cursor: "done" },
+			});
+			expect(yield* streamState(partial.id)).toMatchObject({
+				completedRevision: null,
+				currentJobId: "finish-job",
+				checkpoint: { cursor: "partial" },
+			});
+			expect(yield* streamState(stale.id)).toMatchObject({
+				checkpoint: null,
+				streamRevision: 1,
+				currentJobId: null,
+			});
+			yield* fixture.settle("finish-job", "succeeded");
+			expect(
+				yield* session.transaction(
+					streams.currentClaims("finish-job", [{ id: partial.id, revision: partial.revision }]),
+				),
+			).toEqual([]);
+			yield* fixture.job("finish-next");
+			expect((yield* fixture.claim("finish-next")).map(({ id }) => id)).toEqual([
+				partial.id,
+				stale.id,
+			]);
 		}),
 	);
 
@@ -216,103 +268,29 @@ layer(databaseLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const repository = yield* EventStreamRepository;
-				const { key, userId, pluginId } = yield* seed("dirty-min");
-				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const jobId = `${id}-dirty-job`;
-				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-				expect(
-					yield* session.transaction(
-						repository.finish(id, jobId, prepared.streamRevision, { cursor: "done" }, true),
-					),
-				).toBe(true);
+				const streams = yield* EventStreamRepository;
+				const fixture = yield* seed("dirty-min");
+				const [id] = fixture.ids;
+				assert(id);
+				const key = fixture.keyOf(id);
+				assert(key);
+				yield* fixture.bind();
+				yield* fixture.job("dirty-job");
+				yield* fixture.claim("dirty-job");
+				yield* fixture.complete("dirty-job", id);
 
 				const later = date("2026-10-03T00:00:00.000Z");
 				const earlier = date("2026-10-01T00:00:00.000Z");
-				yield* session.transaction(repository.touch([{ ...key, occurredAt: later }]));
-				const afterLater = yield* repository.get(id);
-				assert(afterLater);
-				expect(afterLater.currentJobId).toBeNull();
-				expect(afterLater.dirtyFrom).toEqual(later);
-				expect(afterLater.checkpoint).toEqual({ cursor: "done" });
+				yield* session.transaction(streams.touch([{ ...key, occurredAt: later }]));
+				expect(yield* streamState(id)).toMatchObject({
+					dirtyFrom: later,
+					currentJobId: null,
+					checkpoint: { cursor: "done" },
+				});
 
-				yield* session.transaction(repository.touch([{ ...key, occurredAt: earlier }]));
-				const afterEarlier = yield* repository.get(id);
-				assert(afterEarlier);
-				expect(afterEarlier.dirtyFrom).toEqual(earlier);
-				expect(afterEarlier.checkpoint).toBeNull();
+				yield* session.transaction(streams.touch([{ ...key, occurredAt: earlier }]));
+				expect(yield* streamState(id)).toMatchObject({ checkpoint: null, dirtyFrom: earlier });
 			}),
-	);
-
-	test.effect("invalidates stale claims after a stream revision changes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key, userId, pluginId } = yield* seed("stale-claim");
-			const id = yield* session.transaction(repository.request(requestInput(key)));
-			const jobId = `${id}-stale-job`;
-			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-			const running = yield* repository.get(id);
-			assert(running);
-			expect(running.status).toBe("running");
-			expect(running.currentJobId).toBe(jobId);
-			expect(
-				yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
-			).toBe(true);
-
-			yield* session.transaction(
-				repository.touch([{ ...key, occurredAt: date("2026-10-02T00:00:00.000Z") }]),
-			);
-			const staleWork = yield* repository.get(id);
-			assert(staleWork);
-			expect(staleWork.currentJobId).toBeNull();
-			expect(staleWork.dirtyFrom).toBeNull();
-			expect(
-				yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
-			).toBe(false);
-			expect(
-				yield* session.transaction(
-					repository.finish(id, jobId, prepared.streamRevision, { cursor: "stale" }, true),
-				),
-			).toBe(false);
-		}),
-	);
-
-	test.effect("preserves completed work on request replay until a source write queues it", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventStreamRepository;
-			const { key, userId, pluginId } = yield* seed("completed-request-replay");
-			const id = yield* session.transaction(repository.request(requestInput(key)));
-			const jobId = `${id}-completed-job`;
-			const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-
-			yield* session.transaction(
-				repository.finish(id, jobId, prepared.streamRevision, { cursor: "completed" }, true),
-			);
-
-			const completed = yield* repository.get(id);
-			assert(completed);
-			expect(completed.completedRevision).toBe(prepared.streamRevision);
-			expect(completed.streamRevision).toBe(prepared.streamRevision);
-			expect(yield* session.transaction(repository.request(requestInput(key)))).toBe(id);
-			const unchanged = yield* repository.get(id);
-			assert(unchanged);
-			expect(unchanged.completedRevision).toBe(prepared.streamRevision);
-			expect(unchanged.checkpoint).toEqual({ cursor: "completed" });
-
-			yield* session.transaction(
-				repository.touch([{ ...key, occurredAt: date("2026-10-04T00:00:00.000Z") }]),
-			);
-			yield* session.transaction(repository.request(requestInput(key)));
-			const replayed = yield* repository.get(id);
-			assert(replayed);
-			expect(replayed.completedRevision).toBe(prepared.streamRevision);
-			expect(replayed.streamRevision).toBe(prepared.streamRevision + 1);
-			expect(replayed.dirtyFrom).toEqual(date("2026-10-04T00:00:00.000Z"));
-			expect(replayed.checkpoint).toEqual({ cursor: "completed" });
-			expect(replayed.currentJobId).toBeNull();
-		}),
 	);
 
 	test.effect(
@@ -320,79 +298,35 @@ layer(databaseLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const repository = yield* EventStreamRepository;
-				const { key, userId, pluginId, entityId, sessionEntityId } =
-					yield* seed("entity-invalidation");
+				const streams = yield* EventStreamRepository;
+				const fixture = yield* seed("entity-invalidation");
+				const [id] = fixture.ids;
+				assert(id);
+				const key = fixture.keyOf(id);
+				assert(key);
 				yield* session.run((db) =>
 					db
 						.insert(tables.event)
 						.values({
-							userId,
-							entityId,
-							sessionEntityId,
-							eventSchemaPluginId: null,
+							...key,
 							id: "stream-invalidation-event",
-							eventSchemaSlug: key.eventSchemaSlug,
+							sessionEntityId: fixture.sessionEntityId,
 							occurredAt: date("2026-10-01T00:00:00.000Z"),
 						}),
 				);
-				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const jobId = `${id}-invalidation-job`;
-				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-				yield* session.transaction(
-					repository.finish(id, jobId, prepared.streamRevision, { cursor: "done" }, true),
-				);
+				yield* fixture.bind();
+				yield* fixture.job("invalidation-job");
+				yield* fixture.claim("invalidation-job");
+				yield* fixture.complete("invalidation-job", id);
 
-				yield* session.transaction(repository.invalidateEntity(sessionEntityId));
-				const invalidated = yield* repository.get(id);
-				assert(invalidated);
-				expect(invalidated.completedRevision).toBeNull();
-				expect(invalidated.streamRevision).toBe(prepared.streamRevision + 1);
-				expect(invalidated.dirtyFrom).toBeNull();
-				expect(invalidated.checkpoint).toBeNull();
-				expect(invalidated.currentJobId).toBeNull();
-			}),
-	);
-
-	test.effect(
-		"preserves partial checkpoints for the next page and clears them on a source touch",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const repository = yield* EventStreamRepository;
-				const { key, userId, pluginId } = yield* seed("partial-checkpoint");
-				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const firstJobId = `${id}-partial-job-1`;
-				const prepared = yield* reserveJob(id, userId, pluginId, firstJobId);
-				const checkpoint = { cursor: "partial" };
-				expect(
-					yield* session.transaction(
-						repository.finish(id, firstJobId, prepared.streamRevision, checkpoint, false),
-					),
-				).toBe(true);
-
-				const partial = yield* repository.get(id);
-				assert(partial);
-				expect(partial.currentJobId).toBeNull();
-				expect(partial.checkpoint).toEqual(checkpoint);
-				expect(partial.completedRevision).toBeNull();
-
-				const nextJobId = `${id}-partial-job-2`;
-				yield* reserveJob(id, userId, pluginId, nextJobId);
-				const next = yield* repository.get(id);
-				assert(next);
-				expect(next.currentJobId).toBe(nextJobId);
-				expect(next.status).toBe("running");
-				expect(next.checkpoint).toEqual(checkpoint);
-
-				yield* session.transaction(
-					repository.touch([{ ...key, occurredAt: date("2026-10-01T00:00:00.000Z") }]),
-				);
-				const invalidated = yield* repository.get(id);
-				assert(invalidated);
-				expect(invalidated.currentJobId).toBeNull();
-				expect(invalidated.checkpoint).toBeNull();
-				expect(invalidated.dirtyFrom).toBeNull();
+				yield* session.transaction(streams.invalidateEntity(fixture.sessionEntityId));
+				expect(yield* streamState(id)).toMatchObject({
+					dirtyFrom: null,
+					checkpoint: null,
+					streamRevision: 1,
+					currentJobId: null,
+					completedRevision: null,
+				});
 			}),
 	);
 });

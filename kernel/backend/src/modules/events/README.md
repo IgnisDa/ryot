@@ -102,32 +102,43 @@ properties from live metadata.
 ## Stream work and freshness
 
 A stream is keyed by user, entity, event-schema owner, and event-schema slug. Source event writes
-advance its revision and dirty the stream. `requestEventStreamWork` admits one step through the common
-background-work owner. The stream-specific `event_stream_work` row retains its processor binding,
-checkpoint, dirty boundary, completed revision, current job, and step; the canonical queued/running/
-succeeded/failed status belongs to that job's `background_work` row. A processor step receives the
-current checkpoint and returns a new checkpoint, a `done` flag, and at most 100 event updates;
-the serialized checkpoint is capped at 16,384 UTF-8 bytes.
+advance its revision and dirty the stream. The `event_stream_work` row retains the stream's
+processor binding, checkpoint, dirty boundary, completed revision, and the job that last claimed it;
+it also copies the stream's user, owner, and slug so dirty streams of one schema come from a partial
+index. A stream is dirty while `completed_revision` is null or `dirty_from` is set.
+
+Processing is batched per user and event schema. One `event-projection` job, with the schema slug as
+its background scope, serves every dirty stream of that user and schema, so at most one job per
+user and schema runs. Admission share-locks and returns the scope's queued job when one exists;
+otherwise it admits a new job only when a claimable stream is bound to the current processor
+binding. Only concurrent admissions that both find no queued job can queue a second one, which
+then claims what remains. A queued job reads whatever is dirty when it starts.
+
+The job's persisted preparation activity claims up to 100 dirty streams bound to the job's binding,
+keyset by stream ID, stamps them with the job, and records each claimed revision, entity, and output
+schema in the job. The processor receives `{ eventSchemaSlug, streams: [{ entityId, checkpoint,
+dirtyFrom }] }` and returns `{ streams: [{ entityId, done, checkpoint, updates }] }` covering every
+claimed stream exactly once. Updates are limited to 1,000 per batch and each serialized checkpoint
+to 16,384 UTF-8 bytes; each update must target an event of its own stream and match that stream's
+declared output schema.
+
+Publication is one transaction per batch. It rechecks the account, the declaration, and the current
+processor binding once. A changed binding publishes nothing; reconciliation rebinds the streams.
+Otherwise each stream publishes only while it is still claimed by the running job at its claimed
+revision; a stream changed meanwhile is skipped and stays dirty. Published streams store their
+checkpoint and either their completed revision or, for `done: false`, stay dirty for the next job.
+The transaction then admits the next job when claimable streams remain and settles the current one;
+workflow dispatch follows the activity, and the settled job's scope handoff starts the next job.
+
+A source write, entity invalidation, or rebinding clears the stream's claim, so stale results cannot
+publish. A failed batch leaves its streams claimed by the failed job; such a stream is claimed again
+alone, and a stream whose single-stream claim failed stays failed until a source write or a
+`requestEventStreamWork` call clears it. One bad stream therefore cannot hold back the rest of its
+batch.
 
 Input writes advance dependent output streams as well as the source stream. Old and new entity and
 declared property references participate in invalidation. A related-input change resets
 the dependent checkpoint and dirty boundary; it cannot reuse an append checkpoint from another schema.
-
-Each step validates its declared output and publishes the page together with the new checkpoint and
-stream state in one transaction. Publication requires the canonical job to be running and still be the
-stream's current job at the claimed source revision, and rechecks the effective declaration and current
-processor binding. A changed binding is re-requested; a stale claim cannot publish. The transaction
-settles the canonical job and admits the next step when `done: false`; workflow dispatch starts only
-after the transaction/activity completes. Projection jobs use the stream's entity as their background
-scope, so one entity's streams run one step at a time; the settled job's workflow dispatches the
-continuation.
-
-Each stream has at most one queued job. Invalidation keeps the stream's current job while it is
-still queued; that job reads the current claim, revision, checkpoint, and binding when it starts. A
-new job is admitted only when the stream has no queued current job. Before executing a processor, the
-workflow persists that current-claim check; a job whose claim no longer matches the stream settles
-without running its script or publishing output. Publication still rechecks the claim because source
-writes can invalidate it after preparation.
 
 Processors compute from their current declared inputs and never wait for them. A write to any
 declared input re-dirties the target stream, so outputs converge when an asynchronous source owner
@@ -146,32 +157,27 @@ only the streams of the events being read, through the stream key index, and com
 
 Publishing changes only projection rows and stream-work state. It does not write source-event
 properties, source revisions or timestamps, or lifecycle events. Backup restore seeds streams from
-restored events; declaration-driven reconciliation finds streams with missing or stale processor
-bindings and requests work for the current declaration. See [background work](../background-work/README.md)
-for common admission, dispatch, and recovery ownership.
+restored events; declaration-driven reconciliation binds them and admits their jobs. See
+[background work](../background-work/README.md) for common admission, dispatch, and recovery
+ownership.
 
 Reconciliation is index-driven so an idle tick reads no streams. `event_stream_binding` holds, per
 user and declaration, a `revision` that every stream creation increments in the creating
 transaction, plus the account generation, plugin revision, configuration revision, and
 `bound_revision` last reconciled. Only declarations whose record is missing, whose revision moved, or
-whose binding differs are selected, in keyset pages. For each, reconciliation admits the streams with
-missing or stale work, then records the binding only if the revision still equals the value it read;
-a stream created meanwhile leaves the declaration stale for the next tick. A declaration whose
-processor binding is unavailable or whose admission fails stays unrecorded and is retried on a later
-tick without blocking later declarations. Admission candidates come from a partial
-index on work rows with no current job that are incomplete (`completed_revision` null or
-`dirty_from` set); a reset or entity invalidation clears `completed_revision` to keep that
-invariant.
+whose binding differs are selected, in keyset pages. For each, set-based statements insert or rebind
+the work rows of all its streams in pages of 1,000, resetting rebound streams; the binding is then
+recorded only if the revision still equals the value it read, so a stream created meanwhile leaves
+the declaration stale for the next tick. A declaration whose processor binding is unavailable stays
+unrecorded and is retried without blocking later declarations. Reconciliation then walks the
+distinct user and schema keys of the dirty-stream index and admits a job for each key without a
+queued or running job. Rebinding a declaration scans that declaration's streams once per change.
 
 Restore passes session and property references into stream seeding and takes reference locks before
 inserting historical events. A stream row exists for every user, entity, and event schema with
 events; a stream without its own events has no outputs. Plugin upgrades that add or change a
 declaration are handled by binding reconciliation over existing stream rows. Invalidation updates
 all affected revisions atomically, and dependency resolution joins selected inputs as sets.
-
-Admission locks the account before stream state, matching account reset. Dirty-stream admission
-failures are isolated per stream and candidates are keyset-paged, so an unavailable processor cannot
-block healthy streams.
 
 Background-work settlement publishes the user-scoped derived-data-updated hint (see [entity
 interest](../entities/watches/README.md)). The hint carries no projection data; readers refresh from

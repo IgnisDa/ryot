@@ -14,6 +14,7 @@ import { fakeDatabaseSession } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
+import { streamState } from "./stream-repository.test-support";
 
 const restoreEventInput = (id: string) => ({
 	id: EventId.make(id),
@@ -268,28 +269,18 @@ layer(eventRepositoryStreamLayer)((test) => {
 				}),
 			);
 			expect(inserted.id).toBe(event.id);
-			const request = (key: typeof sourceKey) =>
-				streams.request({
-					key,
-					accountToken: "event-stream-account",
-					pluginRevisionId: "event-stream-revision",
-					processorScriptId: "event-stream-processor",
-					pluginPin: { revisionId: "event-stream-revision" },
-					outputSchema: {
-						unknownKeys: "strict",
-						fields: { rating: { type: "number", label: "rating", description: "rating" } },
-					},
-				});
-			const sourceStreamId = yield* session.transaction(request(sourceKey));
-			const targetStreamId = yield* session.transaction(request(targetKey));
-			const sourceBeforeMove = yield* streams.get(sourceStreamId);
-			const targetBeforeMove = yield* streams.get(targetStreamId);
+			const ensure = (key: typeof sourceKey) =>
+				streams.ensureStreams([key]).pipe(Effect.map(([stream]) => stream?.id ?? ""));
+			const sourceStreamId = yield* session.transaction(ensure(sourceKey));
+			const targetStreamId = yield* session.transaction(ensure(targetKey));
+			const sourceBeforeMove = yield* streamState(sourceStreamId);
+			const targetBeforeMove = yield* streamState(targetStreamId);
 			assert(sourceBeforeMove);
 			assert(targetBeforeMove);
 			expect(sourceBeforeMove.streamRevision).toBe(1);
 			expect(targetBeforeMove.streamRevision).toBe(0);
 			yield* session.transaction(repository.createEvent(event));
-			expect((yield* streams.get(sourceStreamId))?.streamRevision).toBe(
+			expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
 				sourceBeforeMove.streamRevision,
 			);
 
@@ -302,17 +293,17 @@ layer(eventRepositoryStreamLayer)((test) => {
 					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z")),
 				}),
 			);
-			expect((yield* streams.get(sourceStreamId))?.streamRevision).toBe(
+			expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
 				sourceBeforeMove.streamRevision + 1,
 			);
-			expect((yield* streams.get(targetStreamId))?.streamRevision).toBe(
+			expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
 				targetBeforeMove.streamRevision + 1,
 			);
 
 			expect(
 				yield* session.transaction(repository.deleteEvent({ userId, eventId: event.id })),
 			).toBe(event.id);
-			expect((yield* streams.get(targetStreamId))?.streamRevision).toBe(
+			expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
 				targetBeforeMove.streamRevision + 2,
 			);
 		}),

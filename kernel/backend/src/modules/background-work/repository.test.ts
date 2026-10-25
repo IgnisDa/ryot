@@ -73,11 +73,14 @@ layer(testLayer)((test) => {
 					.values({
 						id: "stream",
 						pluginPin: {},
+						userId: "owner",
 						accountToken: "token",
+						eventSchemaSlug: "seen",
 						currentJobId: "stream-job",
 						processorScriptId: "script",
 						outputSchema: { fields: {} },
 						pluginRevisionId: "revision",
+						eventSchemaPluginId: pluginId,
 					}),
 			);
 

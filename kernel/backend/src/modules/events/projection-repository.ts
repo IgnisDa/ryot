@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { EventStreamStepOutput } from "@ryot-app/contract/modules/events/stream-work";
+import type { EventStreamUpdate } from "@ryot-app/contract/modules/events/stream-work";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
@@ -14,26 +14,30 @@ export class EventProjectionRepository extends Context.Service<EventProjectionRe
 			const session = yield* DatabaseSession;
 			const publish = Effect.fn("EventProjectionRepository.publish")(function* (input: {
 				userId: string;
-				streamId: string;
-				entityId: string;
 				eventSchemaSlug: string;
 				eventSchemaPluginId: string;
-				updates: (typeof EventStreamStepOutput.Type)["updates"];
+				streams: ReadonlyArray<{
+					readonly streamId: string;
+					readonly entityId: string;
+					readonly updates: ReadonlyArray<typeof EventStreamUpdate.Type>;
+				}>;
 			}) {
 				yield* session.requireTransaction.pipe(Effect.orDie);
-				if (input.updates.length === 0) {
+				const updates = input.streams.flatMap(({ streamId, entityId, updates: items }) =>
+					items.map((item) => ({ ...item, streamId, entityId })),
+				);
+				if (updates.length === 0) {
 					return undefined;
 				}
-				const ids = input.updates.map((item) => item.eventId);
+				const ids = updates.map((item) => item.eventId);
 				const rows = yield* session.run((db) =>
 					db
-						.select({ id: event.id })
+						.select({ id: event.id, entityId: event.entityId })
 						.from(event)
 						.where(
 							and(
 								inArray(event.id, ids),
 								eq(event.userId, input.userId),
-								eq(event.entityId, input.entityId),
 								eq(event.eventSchemaPluginId, input.eventSchemaPluginId),
 								eq(event.eventSchemaSlug, input.eventSchemaSlug),
 							),
@@ -41,7 +45,11 @@ export class EventProjectionRepository extends Context.Service<EventProjectionRe
 						.orderBy(event.id)
 						.for("update"),
 				);
-				if (rows.length !== ids.length || new Set(ids).size !== ids.length) {
+				const entities = new Map(rows.map((row) => [row.id, row.entityId]));
+				if (
+					new Set(ids).size !== ids.length ||
+					updates.some((item) => entities.get(item.eventId) !== item.entityId)
+				) {
 					return yield* new DbError({
 						message: "Projection output targeted an event outside its stream",
 					});
@@ -51,10 +59,10 @@ export class EventProjectionRepository extends Context.Service<EventProjectionRe
 					db
 						.insert(eventProjection)
 						.values(
-							input.updates.map((item) => ({
+							updates.map((item) => ({
 								updatedAt,
 								eventId: item.eventId,
-								streamId: input.streamId,
+								streamId: item.streamId,
 								properties: item.properties,
 							})),
 						)

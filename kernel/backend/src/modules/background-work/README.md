@@ -1,7 +1,7 @@
 # Background work
 
 `BackgroundWorkService` and `BackgroundWorkWorkflow` own durable admission and settlement for
-independent pinned user scripts, event-projection steps, and relationship-projection steps. `background_work` is the canonical job
+independent pinned user scripts, event-projection batches, and relationship-projection steps. `background_work` is the canonical job
 record; feature-owned tables retain application state and checkpoints.
 
 ## Admission and dispatch
@@ -28,18 +28,17 @@ Plugins do not separately dispatch the generic worker. User work and projections
 owner, while their admission rules and feature state remain with their respective modules.
 
 Projection preparation runs as a persisted activity before script execution. The event feature
-settles a job whose claim no longer matches its stream without executing the script; normal
-settlement recovery and scope handoff still run. Publication retains its own claim check for changes after preparation.
+claims its batch there and settles a job with nothing to claim without executing the script; normal
+settlement recovery and scope handoff still run. Publication retains its own claim check for changes
+after preparation.
 
 `requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
 account generation, plugin, script, and caller key. Reusing the identity with changed input or scope is
 rejected; a retry or continuation uses a fresh deterministic key.
 
-`requestEventStreamWork` admits one projection step. The event module owns its read-only execution
-subject and processor binding, and `event_stream_work` retains stream revision, dirty boundary,
-checkpoint, current job, and step state. Publication rechecks the canonical running job, current job
-identity, source revision, and processor binding. It commits projection output/checkpoint, canonical job
-settlement, and any continuation admission atomically. Dispatch follows the transaction/activity.
+`lockQueued` returns a scope's oldest queued job and holds a share lock on it until the caller's
+transaction commits, so a concurrent dispatch claims that job only after the admitting write is
+visible. Event projections reuse that job instead of admitting another. See [events and projections](../events/README.md#stream-work-and-freshness).
 
 ## Recovery and settlement
 
@@ -59,9 +58,10 @@ The frequent cron deletes succeeded and failed rows 168 hours after settlement i
 It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
 `event_stream_work` or `relationship_projection_work` record still names as its current job.
 
-Projection reconciliation admits dirty work through `admitCandidates`, which keyset-pages a
-feature's candidate IDs 100 at a time, arranges each in its own transaction, and dispatches admitted
-jobs after commit. A failing candidate is logged and skipped, so it cannot block later candidates.
+Relationship-projection reconciliation admits dirty work through `admitCandidates`, which
+keyset-pages a feature's candidate IDs 100 at a time, arranges each in its own transaction, and
+dispatches admitted jobs after commit. A failing candidate is logged and skipped, so it cannot block
+later candidates.
 
 Projection-specific freshness remains event-owned: reconciliation finds stale bindings and dirty
 streams, and projection values are visible only while their source revision,

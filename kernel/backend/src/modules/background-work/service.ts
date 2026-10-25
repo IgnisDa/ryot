@@ -202,6 +202,16 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				}
 				return undefined;
 			});
+			const lockQueued = Effect.fn("BackgroundWorkService.lockQueued")(function* (
+				key: BackgroundWorkScopeKey,
+			) {
+				yield* session.requireTransaction.pipe(
+					Effect.mapError(
+						() => new DbError({ message: "Background admission requires a transaction" }),
+					),
+				);
+				return yield* repository.lockQueued(key);
+			});
 			const dispatch = Effect.fn("BackgroundWorkService.dispatch")(function* (id: string) {
 				const job = yield* repository.get(id);
 				if (job) {
@@ -286,6 +296,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				finish,
 				recover,
 				dispatch,
+				lockQueued,
 				admitCandidates,
 				lockAccount: receipts.admitAccount,
 				pruneSettled: repository.pruneSettled,

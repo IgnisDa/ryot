@@ -22,6 +22,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
+import { seedStreamWork, streamState } from "#modules/events/stream-repository.test-support";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -940,53 +941,32 @@ layer(testLayer(false, true))((test) => {
 			);
 			assert(processor && input.command.writeContext.pluginRevision);
 			const completed = yield* Effect.forEach([x, y], (output) =>
-				input.session.transaction(
-					Effect.gen(function* () {
-						const id = yield* streams.request({
-							outputSchema,
-							processorScriptId: processor.id,
-							pluginRevisionId: input.revisionId,
-							pluginPin: { revisionId: input.revisionId },
-							accountToken: input.command.accountGeneration.token,
-							key: {
-								userId,
-								entityId: output.id,
-								eventSchemaSlug: EventSchemaSlug.make("summary"),
-								eventSchemaPluginId: PluginId.make(input.pluginId),
-							},
-						});
-						const jobId = yield* randomUuid;
-						yield* input.session.run((db) =>
-							db
-								.insert(tables.backgroundWork)
-								.values({
-									userId,
-									id: jobId,
-									key: jobId,
-									payload: {},
-									scope: output.id,
-									status: "running",
-									pluginId: input.pluginId,
-									inputHash: "fanout-test",
-									purpose: "event-projection",
-									accountToken: input.command.accountGeneration.token,
-								}),
-						);
-						const prepared = yield* streams.prepare(id);
-						assert(prepared);
-						yield* streams.reserve(id, jobId);
-						expect(
-							yield* streams.finish(
-								id,
-								jobId,
-								prepared.streamRevision,
-								{ cursor: "complete" },
-								true,
-							),
-						).toBe(true);
-						return { id, revision: prepared.streamRevision };
-					}),
-				),
+				Effect.gen(function* () {
+					const key = {
+						userId,
+						entityId: output.id,
+						eventSchemaSlug: EventSchemaSlug.make("summary"),
+						eventSchemaPluginId: PluginId.make(input.pluginId),
+					};
+					const { id, revision } = yield* seedStreamWork(key).pipe(
+						Effect.provideService(EventStreamRepository, streams),
+					);
+					yield* input.session.run((db) =>
+						db
+							.update(tables.eventStreamWork)
+							.set({
+								outputSchema,
+								completedRevision: revision,
+								processorScriptId: processor.id,
+								checkpoint: { cursor: "complete" },
+								pluginRevisionId: input.revisionId,
+								pluginPin: { revisionId: input.revisionId },
+								accountToken: input.command.accountGeneration.token,
+							})
+							.where(eq(tables.eventStreamWork.id, id)),
+					);
+					return { id, revision };
+				}),
 			);
 			const retainedBefore = yield* input.session.run((db) =>
 				db
@@ -1040,7 +1020,7 @@ layer(testLayer(false, true))((test) => {
 				);
 			}
 			for (const { id, revision } of completed) {
-				const current = yield* streams.get(id);
+				const current = yield* streamState(id);
 				assert(current);
 				expect(current.streamRevision).toBe(revision + 51);
 				expect(current.completedRevision).toBeNull();

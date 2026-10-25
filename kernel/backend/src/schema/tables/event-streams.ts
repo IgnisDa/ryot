@@ -1,7 +1,7 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -42,14 +42,17 @@ export const eventStreamWork = snakeCase.table(
 	"event_stream_work",
 	{
 		currentJobId: text(),
+		userId: text().notNull(),
 		dirtyFrom: timestamptz(),
 		completedRevision: integer(),
 		accountToken: text().notNull(),
+		eventSchemaSlug: text().notNull(),
 		pluginRevisionId: text().notNull(),
 		processorScriptId: text().notNull(),
-		step: integer().notNull().default(0),
+		eventSchemaPluginId: text().notNull(),
 		pluginPin: jsonb().$type<JsonValue>().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
+		claimedAlone: boolean().notNull().default(false),
 		outputSchema: jsonb().$type<AppSchema>().notNull(),
 		checkpoint: jsonb().$type<JsonValue>().default(null),
 		configRevisionId: text().generatedAlwaysAs(sql`plugin_pin ->> 'configRevisionId'`),
@@ -61,10 +64,8 @@ export const eventStreamWork = snakeCase.table(
 	(table) => [
 		index("event_stream_work_current_job_idx").on(table.currentJobId),
 		index("event_stream_work_dirty_idx")
-			.on(table.id)
-			.where(
-				sql`${table.currentJobId} is null and (${table.completedRevision} is null or ${table.dirtyFrom} is not null)`,
-			),
+			.on(table.userId, table.eventSchemaPluginId, table.eventSchemaSlug, table.id)
+			.where(sql`${table.completedRevision} is null or ${table.dirtyFrom} is not null`),
 	],
 );
 

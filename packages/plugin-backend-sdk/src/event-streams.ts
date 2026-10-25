@@ -1,6 +1,7 @@
 import {
-	EventStreamStepInput,
-	EventStreamStepOutput,
+	EVENT_STREAM_BATCH_LIMITS,
+	EventStreamBatchInput,
+	EventStreamBatchOutput,
 } from "@ryot-app/contract/modules/events/stream-work";
 
-export { EventStreamStepInput, EventStreamStepOutput };
+export { EventStreamBatchInput, EventStreamBatchOutput, EVENT_STREAM_BATCH_LIMITS };

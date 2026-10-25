@@ -410,11 +410,14 @@ upserts use merge to preserve annotations. Event updates/deletes are atomic per 
 calls. Exact patch shapes, limits, and replay identities are in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-Event-stream processors use `EventStreamStepInput`/`EventStreamStepOutput` from
-`@ryot-app/plugin-backend-sdk/event-streams`. `requestEventStreamWork` admits one step for an owned
-event schema and same-revision processor with declared output properties. The common kernel
-background-work owner dispatches the step; plugins do not call `executeWorkflow` for event-stream
-work. The kernel restricts updates to the declared output properties and owns publication freshness.
+Event-stream processors use `EventStreamBatchInput`/`EventStreamBatchOutput` and
+`EVENT_STREAM_BATCH_LIMITS` from `@ryot-app/plugin-backend-sdk/event-streams`. Each run receives up
+to 100 dirty streams of one event schema with their checkpoints and returns one result per stream;
+read the batch with as few RyotQL queries as possible, for example one query over all its entity IDs
+ordered by entity. `requestEventStreamWork` admits the batch job for an owned event schema and
+same-revision processor with declared output properties. The common kernel background-work owner
+dispatches it; plugins do not call `executeWorkflow` for event-stream work. The kernel restricts
+updates to the declared output properties and owns publication freshness.
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
