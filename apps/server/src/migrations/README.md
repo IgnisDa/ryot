@@ -225,10 +225,6 @@ A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave noth
 
 ## Validation Runbook
 
-The [Order 16 inventory and acceptance handoff](order-16-acceptance.md) records source evidence,
-canonical-schema integration questions, and the disposable resources prepared for both real dumps.
-It is preparation evidence, not a completed migration validation.
-
 For enrichment, verify positive `entity.content_generation` values, empty `entity_translation` and `entity_enrichment_request` tables, and no `related_populated_at`, `related_population_generation`, or `related_population_started_at` values after import. Compare `populated_at` with the populated gate and retained credits/child relationships with the legacy rows; base success must not imply complete related coverage. Check show routing fields `seasonNumber`, `episodeNumber`, and `parentShowExternalId` remain present where mapped. In an interrupted migration with legacy tables retained, repeat unchanged content writes and verify generations do not advance; a real name/property change must advance once, while ownership or success-timestamp-only changes must not. Verify workout-set `exerciseKind` against its recorded V1 workout exercise `lot`, not the current exercise entity. After normal startup, a provider kind refresh must leave those historical set snapshots unchanged, and a full ensure must finish all related pages and sweeps before setting `related_populated_at`.
 
 For measurements, compare every nonempty V1 row with exactly one entry of the same owner, time and
