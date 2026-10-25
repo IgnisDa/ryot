@@ -18,23 +18,33 @@ const LEVELS = [0, 1, 2, 3, 4, 5] as const;
 const LEVEL_COLORS = LEVELS.map((level) => `var(--chart-seq-${level})`);
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 const MIN_MONTH_LABEL_GAP_WEEKS = 3;
-const calendarMonthFormat = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
-
+/** Reporting text uses one explicit locale so labels never depend on the host environment. */
+const REPORTING_LOCALE = "en-US";
+const reportingStyles = {
+	month: { month: "short" },
+	day: { day: "numeric", month: "short" },
+	time: { hour: "numeric", minute: "2-digit" },
+	date: { day: "numeric", month: "short", year: "numeric" },
+} satisfies Record<string, Intl.DateTimeFormatOptions>;
 const reportingFormats = new Map<string, Intl.DateTimeFormat>();
 
-/** Date-only values carry no zone, so they format in UTC to keep their calendar date. */
-const reportingDate = (at: string, timeZone: TimeZone, full: boolean) => {
-	const zone = isCalendarDate(at) ? "UTC" : timeZone;
-	const key = `${zone}:${full}`;
+const reportingFormat = (style: keyof typeof reportingStyles, timeZone: string) => {
+	const key = `${timeZone}:${style}`;
 	let format = reportingFormats.get(key);
 	if (format === undefined) {
-		format = new Intl.DateTimeFormat(undefined, {
-			timeZone: zone,
-			...(full ? { dateStyle: "medium" } : { day: "numeric", month: "short" }),
-		});
+		format = new Intl.DateTimeFormat(REPORTING_LOCALE, { ...reportingStyles[style], timeZone });
 		reportingFormats.set(key, format);
 	}
-	return format.format(new Date(at));
+	return format;
+};
+
+/** Date-only values carry no zone, so they format in UTC to keep their calendar date. */
+const reportingDate = (at: string, timeZone: TimeZone, full: boolean) =>
+	reportingFormat(full ? "date" : "day", isCalendarDate(at) ? UTC : timeZone).format(new Date(at));
+
+export const formatReportingDateTime = (at: string, timeZone: TimeZone) => {
+	const date = new Date(at);
+	return `${reportingFormat("date", timeZone).format(date)}, ${reportingFormat("time", timeZone).format(date)}`;
 };
 
 export type CalendarHeatmapLevel = (typeof LEVELS)[number];
@@ -124,7 +134,7 @@ const monthLabels = (days: ReadonlyArray<CalendarHeatmapDay>, weekStart: 0 | 1) 
 			date.getUTCDate() === 1 &&
 			(previous === undefined || week - previous.week >= MIN_MONTH_LABEL_GAP_WEEKS)
 		) {
-			labels.push({ week, label: calendarMonthFormat.format(date) });
+			labels.push({ week, label: reportingFormat("month", UTC).format(date) });
 		}
 	}
 	return labels;
@@ -373,6 +383,14 @@ const withGaps = (rows: ReadonlyArray<SeriesRow>, gapMs: number): ReadonlyArray<
 			: [row];
 	});
 
+const dateFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, { day: "numeric", month: "short" });
+const monthFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, { month: "short", year: "2-digit" });
+const fullDateFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+});
+
 const nearestRow = (rows: ReadonlyArray<SeriesRow>, ms: number, within: number) =>
 	rows.reduce<SeriesRow | undefined>((best, row) => {
 		const distance = Math.abs(row.ms - ms);
@@ -409,10 +427,6 @@ const timeTicks = (startMs: number, endMs: number): ReadonlyArray<number> => {
 		monthStep,
 	);
 };
-
-const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
-const monthFormat = new Intl.DateTimeFormat(undefined, { month: "short", year: "2-digit" });
-const fullDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 type SeriesRows = {
 	readonly trend: ReadonlyArray<SeriesRow>;

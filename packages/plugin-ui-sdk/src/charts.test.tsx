@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
 	CalendarHeatmap,
 	type CalendarHeatmapDay,
+	formatReportingDateTime,
 	HourlyHistogram,
 	PeriodTrendChart,
 	type PeriodTrendChartProps,
@@ -139,6 +140,14 @@ describe("CalendarHeatmap", () => {
 		const { container } = renderHeatmap([]);
 
 		expect(container.innerHTML).toBe("");
+	});
+});
+
+describe("formatReportingDateTime", () => {
+	it("formats an instant in the reporting time zone", () => {
+		expect(
+			formatReportingDateTime("2026-09-02T01:30:00.000Z", TimeZone.make("America/New_York")),
+		).toBe("Sep 1, 2026, 9:30 PM");
 	});
 });
 

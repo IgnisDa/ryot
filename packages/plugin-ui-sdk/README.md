@@ -157,6 +157,10 @@ are missing, not zero, and repeated DST hours share one bucket.
 a zero level plus five positive bands of the maximum, and portaled tooltips outside its scroller.
 Supply every day to show; missing dates and `null` values render as blank cells.
 
+Chart and reporting dates format in one explicit locale through cached formatters, never the host
+default. `formatReportingDateTime(at, timeZone)` renders an instant as a date and time in the
+reporting time zone for record tables.
+
 DOM tests cover these wrappers' semantics, timezone labels, exact values, keyboard inspection and
 selection. Visual acceptance uses the browser harness described in `e2e/README.md`.
 
