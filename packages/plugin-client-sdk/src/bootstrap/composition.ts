@@ -63,64 +63,46 @@ const exported = <Value>(
 	return value;
 };
 
-const loadPresentation = (
-	registration: ClientCompositionDocument["descriptor"]["automaticRegistry"][number],
-	load: (specifier: string) => Promise<ClientModule>,
-	dependencies: CompositionDependencies,
-) =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				Promise.all(registration.stylesheets.map(dependencies.loadStylesheet)),
-			);
-			const module = yield* Effect.promise(() => load(registration.module.specifier));
-			return exported(module, registration.module, isEntityPresentationDefinition);
-		}),
-	);
-
-const loadAnalyticsSection = (
-	registration: ClientCompositionDocument["descriptor"]["analyticsSections"][number],
-	load: (specifier: string) => Promise<ClientModule>,
-	dependencies: CompositionDependencies,
-) =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const reference = registration.module;
-			if (reference === null) {
-				throw new Error("Analytics section unavailable");
-			}
-			yield* Effect.promise(() =>
-				Promise.all(registration.stylesheets.map(dependencies.loadStylesheet)),
-			);
-			const module = yield* Effect.promise(() => load(reference.specifier));
-			return exported(module, reference, (value): value is ComponentType<AnalyticsSectionProps> =>
-				isComponentType(value),
-			);
-		}),
-	);
-
 const createModuleLoader = (dependencies: CompositionDependencies) => {
 	const modules = new Map<string, Promise<ClientModule>>();
-	return (specifier: string) => {
-		const cached = modules.get(specifier);
-		if (cached) {
-			return cached;
-		}
-		const loading = Effect.runPromise(
-			Effect.promise(() => dependencies.loadModule(specifier)).pipe(
-				Effect.onExit((exit) =>
-					exit._tag === "Success"
-						? Effect.void
-						: Effect.sync(() => {
-								modules.delete(specifier);
-							}),
-				),
+	return (specifier: string) =>
+		Effect.promise(() => {
+			const cached = modules.get(specifier);
+			if (cached) {
+				return cached;
+			}
+			const loading = dependencies.loadModule(specifier);
+			modules.set(specifier, loading);
+			return loading;
+		}).pipe(
+			Effect.onError(() =>
+				Effect.sync(() => {
+					modules.delete(specifier);
+				}),
 			),
 		);
-		modules.set(specifier, loading);
-		return loading;
-	};
 };
+
+const createExportLoader =
+	(dependencies: CompositionDependencies, load: ReturnType<typeof createModuleLoader>) =>
+	<Value>(
+		reference: ClientCompositionModuleReference,
+		stylesheets: ReadonlyArray<string>,
+		isValue: (value: unknown) => value is Value,
+	) =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				yield* Effect.forEach(
+					stylesheets,
+					(href) => Effect.promise(() => dependencies.loadStylesheet(href)),
+					{ discard: true, concurrency: "unbounded" },
+				);
+				return exported(yield* load(reference.specifier), reference, isValue);
+			}),
+		);
+
+const isAnalyticsSection = (value: unknown): value is ComponentType<AnalyticsSectionProps> =>
+	isComponentType(value);
 
 export const bootstrapComposition = (
 	dependencies: CompositionDependencies = defaultDependencies,
@@ -129,6 +111,7 @@ export const bootstrapComposition = (
 		Effect.gen(function* () {
 			const descriptor = readDescriptor();
 			const load = createModuleLoader(dependencies);
+			const loadExport = createExportLoader(dependencies, load);
 			const moduleReferences =
 				descriptor.application === "page"
 					? [descriptor.entry]
@@ -140,10 +123,7 @@ export const bootstrapComposition = (
 			const modules = new Map(
 				yield* Effect.forEach(
 					new Set(moduleReferences.map(({ specifier }) => specifier)),
-					(specifier) =>
-						Effect.promise(() => load(specifier)).pipe(
-							Effect.map((module) => [specifier, module] as const),
-						),
+					(specifier) => load(specifier).pipe(Effect.map((module) => [specifier, module] as const)),
 					{ concurrency: "unbounded" },
 				),
 			);
@@ -153,23 +133,20 @@ export const bootstrapComposition = (
 				layout: registration.layout,
 				ownerPluginId: registration.ownerPluginId,
 				entitySchemaSlug: registration.entitySchemaSlug,
-				load: () => loadPresentation(registration, load, dependencies),
-			}));
-			const analyticsSections = descriptor.analyticsSections.map((registration) => ({
-				slug: registration.slug,
-				name: registration.name,
-				icon: registration.icon,
-				ownerPluginId: registration.ownerPluginId,
-				load:
-					registration.module === null
-						? null
-						: () => loadAnalyticsSection(registration, load, dependencies),
+				load: () =>
+					loadExport(registration.module, registration.stylesheets, isEntityPresentationDefinition),
 			}));
 
 			if (descriptor.application === "page") {
 				dependencies.bootstrapPage(component(descriptor.entry), {
-					analyticsSections,
 					entityPresentations,
+					analyticsSections: descriptor.analyticsSections.map(
+						({ module, stylesheets, ...section }) => ({
+							...section,
+							load:
+								module === null ? null : () => loadExport(module, stylesheets, isAnalyticsSection),
+						}),
+					),
 				});
 				return;
 			}
@@ -180,7 +157,7 @@ export const bootstrapComposition = (
 					routes: routes.map((route) => ({ path: route.path, component: component(route.module) })),
 					...(notFound === undefined ? {} : { notFound: component(notFound) }),
 				},
-				{ analyticsSections, entityPresentations },
+				{ entityPresentations },
 			);
 		}),
 	);

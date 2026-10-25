@@ -1,3 +1,4 @@
+import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
@@ -19,6 +20,13 @@ import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { webRequest } from "~/support/web-request";
 
+const analyticsSections = ({ descriptor }: ClientCompositionDocument) => {
+	if (descriptor.application !== "page") {
+		throw new Error("Analytics document is not a page composition");
+	}
+	return descriptor.analyticsSections;
+};
+
 describe("generic Analytics contributions", () => {
 	it.live(
 		"binds identical private declarations to exact local owners and warms capability-protected artifacts",
@@ -38,14 +46,12 @@ describe("generic Analytics contributions", () => {
 					const document = yield* client.call((contract) =>
 						contract.pages.document({ payload: { identity: page.identity } }),
 					);
-					const sections = document.descriptor.analyticsSections.filter(
+					const sections = analyticsSections(document).filter(
 						(section) => section.ownerPluginId === own.pluginId,
 					);
 					expect(sections.map(({ slug }) => slug)).toEqual(["activity", "failure"]);
 					expect(
-						document.descriptor.analyticsSections.some(
-							(section) => section.ownerPluginId === other.pluginId,
-						),
+						analyticsSections(document).some((section) => section.ownerPluginId === other.pluginId),
 					).toBe(false);
 					const section = requirePresent(sections[0], "Missing owned analytics section");
 					const module = requirePresent(section.module, "Missing owned section module");
@@ -88,7 +94,7 @@ describe("generic Analytics contributions", () => {
 					contract.pages.document({ payload: { identity: hidden.identity } }),
 				);
 				expect(
-					hiddenDocument.descriptor.analyticsSections.some(
+					analyticsSections(hiddenDocument).some(
 						(section) => section.ownerPluginId === installed.pluginId,
 					),
 				).toBe(false);
@@ -111,7 +117,7 @@ describe("generic Analytics contributions", () => {
 					contract.pages.document({ payload: { identity: updated.identity } }),
 				);
 				expect(
-					document.descriptor.analyticsSections.filter(
+					analyticsSections(document).filter(
 						(section) => section.ownerPluginId === installed.pluginId,
 					),
 				).toHaveLength(2);
@@ -189,12 +195,12 @@ describe("generic Analytics contributions", () => {
 				const document = yield* client.call((contract) =>
 					contract.pages.document({ payload: { identity: page.identity } }),
 				);
-				const ready = document.descriptor.analyticsSections.filter(
+				const ready = analyticsSections(document).filter(
 					(section) => section.ownerPluginId === healthy.pluginId,
 				);
 				expect(ready).toHaveLength(2);
 				expect(ready.every((section) => section.module !== null)).toBe(true);
-				const failed = document.descriptor.analyticsSections.filter(
+				const failed = analyticsSections(document).filter(
 					(section) => section.ownerPluginId === unavailable.pluginId,
 				);
 				expect(failed).toHaveLength(2);
@@ -205,7 +211,7 @@ describe("generic Analytics contributions", () => {
 				const recoveredDocument = yield* client.call((contract) =>
 					contract.pages.document({ payload: { identity: recovered.identity } }),
 				);
-				const recoveredSections = recoveredDocument.descriptor.analyticsSections.filter(
+				const recoveredSections = analyticsSections(recoveredDocument).filter(
 					(section) => section.ownerPluginId === unavailable.pluginId,
 				);
 				expect(recoveredSections).toHaveLength(2);

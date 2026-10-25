@@ -16,7 +16,10 @@ const mountDescriptor = (descriptor: unknown, type = "application/json") => {
 		typeof descriptor === "string"
 			? descriptor
 			: JSON.stringify(
-					typeof descriptor === "object" && descriptor !== null
+					typeof descriptor === "object" &&
+						descriptor !== null &&
+						"application" in descriptor &&
+						descriptor.application === "page"
 						? { analyticsSections: [], ...descriptor }
 						: descriptor,
 				);
@@ -98,7 +101,6 @@ describe("composition bootstrap", () => {
 					analyticsSections: [
 						{
 							icon: "box",
-							sortOrder: 0,
 							slug: "activity",
 							name: "Activity",
 							ownerPluginId: "private-owner",
@@ -107,7 +109,6 @@ describe("composition bootstrap", () => {
 						},
 						{
 							icon: "box",
-							sortOrder: 1,
 							module: null,
 							stylesheets: [],
 							slug: "unavailable",
@@ -238,7 +239,7 @@ describe("composition bootstrap", () => {
 			expect(recorded.pages).toEqual([]);
 			expect(recorded.plugins).toEqual([
 				{
-					options: { analyticsSections: [], entityPresentations: [] },
+					options: { entityPresentations: [] },
 					definition: {
 						notFound: Missing,
 						home: { component: Home },

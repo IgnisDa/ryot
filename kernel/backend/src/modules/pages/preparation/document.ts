@@ -12,7 +12,14 @@ import { buildPageBundleFileUrl } from "#modules/pages/bundles/url";
 
 import type { ArtifactDescription } from "./composition";
 
+type Descriptor = ClientPageCompositionManifest["descriptor"];
 type Plan = Pick<ClientCompositionDocument, "preloads" | "stylesheets" | "modulepreloads">;
+
+const lazyArtifactHashes = (descriptor: Descriptor) =>
+	[
+		...descriptor.automaticRegistry,
+		...(descriptor.application === "page" ? descriptor.analyticsSections : []),
+	].flatMap(({ artifactClosure }) => artifactClosure);
 
 const otherPreload = (type: string): Plan["preloads"][number]["as"] => {
 	if (type.startsWith("font/")) {
@@ -31,11 +38,7 @@ export const planClientDocumentPreloads = (
 	access: ReadonlyMap<string, string>,
 ): Plan => {
 	const eager = new Set(manifest.identity.eagerArtifactHashes);
-	const lazy = new Set(
-		[...manifest.descriptor.automaticRegistry, ...manifest.descriptor.analyticsSections].flatMap(
-			({ artifactClosure }) => artifactClosure,
-		),
-	);
+	const lazy = new Set(lazyArtifactHashes(manifest.descriptor));
 	const modulepreloads = new Set<string>();
 	const stylesheets = new Set<string>();
 	const preloads = new Map<string, Plan["preloads"][number]>();
@@ -67,6 +70,33 @@ export const planClientDocumentPreloads = (
 	};
 };
 
+const clientDocumentDescriptor = (
+	descriptor: Descriptor,
+	url: (reference: ClientArtifactFileReference) => string,
+): ClientCompositionDocument["descriptor"] => {
+	const stylesheets = (references: ReadonlyArray<ClientArtifactFileReference>) => [
+		...new Set(references.map(url)),
+	];
+	const automaticRegistry = descriptor.automaticRegistry.map(
+		({ stylesheets: files, artifactClosure: _closure, ...registration }) => ({
+			...registration,
+			stylesheets: stylesheets(files),
+		}),
+	);
+	return descriptor.application === "plugin-route"
+		? { ...descriptor, automaticRegistry }
+		: {
+				...descriptor,
+				automaticRegistry,
+				analyticsSections: descriptor.analyticsSections.map(
+					({ sortOrder: _order, stylesheets: files, artifactClosure: _closure, ...section }) => ({
+						...section,
+						stylesheets: stylesheets(files),
+					}),
+				),
+			};
+};
+
 export const renderClientDocument = (
 	manifest: ClientPageCompositionManifest,
 	artifacts: ReadonlyMap<string, ArtifactDescription>,
@@ -89,22 +119,8 @@ export const renderClientDocument = (
 		importMap: { imports },
 		title: manifest.identity.name,
 		bootstrap: url(manifest.bootstrap),
+		descriptor: clientDocumentDescriptor(manifest.descriptor, url),
 		metadata: { format, apiVersion, bridgeVersion, compilerVersion, hash: compositionHash },
-		descriptor: {
-			...manifest.descriptor,
-			analyticsSections: manifest.descriptor.analyticsSections.map(
-				({ stylesheets, artifactClosure: _closure, ...registration }) => ({
-					...registration,
-					stylesheets: [...new Set(stylesheets.map(url))],
-				}),
-			),
-			automaticRegistry: manifest.descriptor.automaticRegistry.map(
-				({ stylesheets, artifactClosure: _closure, ...registration }) => ({
-					...registration,
-					stylesheets: [...new Set(stylesheets.map(url))],
-				}),
-			),
-		},
 	};
 };
 
@@ -119,8 +135,7 @@ export const generateClientDocument = Effect.fn("Pages.generateDocument")(functi
 		manifest.bootstrap.artifactHash,
 		...Object.values(manifest.imports).map(({ artifactHash }) => artifactHash),
 		...manifest.identity.eagerArtifactHashes,
-		...manifest.descriptor.automaticRegistry.flatMap(({ artifactClosure }) => artifactClosure),
-		...manifest.descriptor.analyticsSections.flatMap(({ artifactClosure }) => artifactClosure),
+		...lazyArtifactHashes(manifest.descriptor),
 	]);
 	const artifacts = new Map<string, ArtifactDescription>();
 	const access = new Map<string, string>();

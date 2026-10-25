@@ -1,4 +1,8 @@
 import { assert, expect, it } from "@effect/vitest";
+import type {
+	ClientPageCompositionIdentity,
+	ClientPageCompositionManifest,
+} from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
@@ -60,6 +64,20 @@ const analyticsGraph = (plugins: readonly GraphPlugin[]) =>
 		},
 	});
 
+type Page<Value> = Extract<Value, { readonly application: "page" }>;
+function pageSections(
+	value: ClientPageCompositionIdentity,
+): Page<ClientPageCompositionIdentity>["analyticsSections"];
+function pageSections(
+	value: ClientPageCompositionManifest["descriptor"],
+): Page<ClientPageCompositionManifest["descriptor"]>["analyticsSections"];
+function pageSections(
+	value: ClientPageCompositionIdentity | ClientPageCompositionManifest["descriptor"],
+) {
+	assert(value.application === "page");
+	return value.analyticsSections;
+}
+
 const analyticsPlugin = (name: string) =>
 	plugin(name, {
 		apiVersion: 1,
@@ -108,9 +126,9 @@ it.effect(
 			const graph = yield* analyticsGraph([other, owner, dependency]);
 			expect(yield* analyticsGraph([dependency, owner, other])).toEqual(graph);
 			expect(graph.identity.eagerArtifactHashes).toEqual(["renderer", "runtime"]);
-			expect(graph.identity.analyticsSections).toHaveLength(2);
+			expect(pageSections(graph.identity)).toHaveLength(2);
 			expect(
-				graph.identity.analyticsSections.find(({ ownerPluginId }) => ownerPluginId === owner.id),
+				pageSections(graph.identity).find(({ ownerPluginId }) => ownerPluginId === owner.id),
 			).toMatchObject({
 				slug: "activity",
 				artifactClosure: ["analytics-dependency-hash", "analytics-owner-hash"],
@@ -145,9 +163,8 @@ it.effect(
 				artifactHash: "analytics-dependency-hash",
 			});
 			expect(
-				manifest.descriptor.analyticsSections.find(
-					({ ownerPluginId }) => ownerPluginId === owner.id,
-				)?.stylesheets,
+				pageSections(manifest.descriptor).find(({ ownerPluginId }) => ownerPluginId === owner.id)
+					?.stylesheets,
 			).toEqual([
 				{ file: "module.css", artifactHash: "analytics-dependency-hash" },
 				{ file: "module.css", artifactHash: "analytics-owner-hash" },
@@ -157,8 +174,9 @@ it.effect(
 					.compositionKey,
 			).not.toBe(graph.compositionKey);
 			expect(
-				(yield* analyticsGraph([{ ...owner, isHidden: true }, other, dependency])).identity
-					.analyticsSections,
+				pageSections(
+					(yield* analyticsGraph([{ ...owner, isHidden: true }, other, dependency])).identity,
+				),
 			).toHaveLength(1);
 		}),
 );
@@ -183,7 +201,7 @@ it.effect(
 			const good = analyticsPlugin("ready-owner");
 			const graph = yield* analyticsGraph([broken, good]);
 			expect(
-				graph.identity.analyticsSections.find(({ ownerPluginId }) => ownerPluginId === broken.id),
+				pageSections(graph.identity).find(({ ownerPluginId }) => ownerPluginId === broken.id),
 			).toMatchObject({ module: null, artifactClosure: [] });
 			expect(
 				graph.identity.contributors.flatMap((contributor) =>
@@ -191,8 +209,8 @@ it.effect(
 				),
 			).toEqual([good.id]);
 			const missingArtifact = yield* analyticsGraph([{ ...good, clientArtifactHash: null }]);
-			expect(missingArtifact.identity.analyticsSections[0]?.module).toBeNull();
-			expect((yield* analyticsGraph([])).identity.analyticsSections).toEqual([]);
+			expect(pageSections(missingArtifact.identity)[0]?.module).toBeNull();
+			expect(pageSections((yield* analyticsGraph([])).identity)).toEqual([]);
 		}),
 );
 
@@ -242,12 +260,10 @@ it.effect("keeps unavailable lazy analytics sections out of automatic presentati
 		const graph = yield* analyticsGraph([healthySection, unavailableSection]);
 
 		expect(
-			graph.identity.analyticsSections.find(
-				({ ownerPluginId }) => ownerPluginId === healthySection.id,
-			),
+			pageSections(graph.identity).find(({ ownerPluginId }) => ownerPluginId === healthySection.id),
 		).toMatchObject({ module: { binding: "activity" } });
 		expect(
-			graph.identity.analyticsSections.find(
+			pageSections(graph.identity).find(
 				({ ownerPluginId }) => ownerPluginId === unavailableSection.id,
 			),
 		).toMatchObject({ module: null, artifactClosure: [] });
@@ -293,7 +309,6 @@ it.effect("composes explicit plugin routes without inventing a home route", () =
 			]),
 		});
 		expect(manifest.descriptor).toEqual({
-			analyticsSections: [],
 			automaticRegistry: [],
 			application: "plugin-route",
 			routes: {
@@ -412,7 +427,6 @@ it.effect("stores route modules with home, ordered routes, and not-found binding
 			expect(graph.identity.routes).toEqual(expectedRoutes);
 		}
 		expect(manifest.descriptor).toEqual({
-			analyticsSections: [],
 			automaticRegistry: [],
 			routes: expectedRoutes,
 			application: "plugin-route",
@@ -656,6 +670,7 @@ it.effect("stores and composes the kernel page binding directly", () =>
 			definition: {
 				files: [],
 				pluginDependencies: {},
+				analyticsSections: false,
 				entry: "client/page.tsx",
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,

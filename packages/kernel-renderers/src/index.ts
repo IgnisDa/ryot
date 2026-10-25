@@ -40,10 +40,15 @@ const COLLECTION_BROWSER_PATHS = [
 	"client/entity-browser.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
-const definition = (entry: KernelRendererPath, automaticEntityPresentations: boolean) =>
+const definition = (
+	entry: KernelRendererPath,
+	automaticEntityPresentations: boolean,
+	analyticsSections: boolean,
+) =>
 	({
 		entry,
 		files: [],
+		analyticsSections,
 		pluginDependencies: {},
 		automaticEntityPresentations,
 		settingsSchema: { fields: {} },
@@ -54,6 +59,7 @@ const renderer = (
 	entry: KernelRendererPath,
 	paths: readonly KernelRendererPath[],
 	automaticEntityPresentations: boolean,
+	analyticsSections = false,
 ) => {
 	const included = [...new Set([entry, ...paths, ...SHARED_PATHS])].sort();
 	const hasher = createSha256Hasher();
@@ -65,7 +71,7 @@ const renderer = (
 	return {
 		name,
 		sourceHash: hasher.digest("hex"),
-		definition: definition(entry, automaticEntityPresentations),
+		definition: definition(entry, automaticEntityPresentations, analyticsSections),
 		files: Object.fromEntries(
 			included.map((path) => [path, encoder.encode(kernelRendererSources[path])]),
 		) as Readonly<Record<string, Uint8Array>>,
@@ -107,13 +113,10 @@ export const kernelCalendarRenderer = renderer(
 	false,
 );
 
-const analyticsRenderer = renderer(
+export const kernelAnalyticsRenderer = renderer(
 	ANALYTICS_KERNEL_RENDERER_DISPLAY_NAME,
 	"client/analytics.tsx",
 	ANALYTICS_PATHS,
 	false,
+	true,
 );
-export const kernelAnalyticsRenderer = {
-	...analyticsRenderer,
-	definition: { ...analyticsRenderer.definition, analyticsSections: true },
-};

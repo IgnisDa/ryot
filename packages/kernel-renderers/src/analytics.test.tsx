@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from "@effect/vitest";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import {
 	analyticsSectionKey,
@@ -98,7 +99,7 @@ const mountControls = (search: string) => {
 it.effect("retains loaded analytics with an error when reporting preferences refresh fails", () =>
 	Effect.gen(function* () {
 		let attempts = 0;
-		const section = { slug: "activity", ownerPluginId: "first-local" };
+		const section = { slug: "activity", ownerPluginId: PluginId.make("first-local") };
 		const search = new URLSearchParams();
 		search.set("section", analyticsSectionKey(section));
 		const page = mountPluginPage(AnalyticsPage, {
@@ -183,7 +184,7 @@ it.effect(
 						icon: "box",
 						name: "First",
 						slug: "activity",
-						ownerPluginId: "first-local",
+						ownerPluginId: PluginId.make("first-local"),
 						load: () => {
 							loaded.push("first");
 							return Promise.resolve(FixtureSection);
@@ -193,7 +194,7 @@ it.effect(
 						icon: "box",
 						name: "Second",
 						slug: "activity",
-						ownerPluginId: "second-local",
+						ownerPluginId: PluginId.make("second-local"),
 						load: () => {
 							loaded.push("second");
 							attempts += 1;
@@ -213,7 +214,7 @@ it.effect(
 			);
 			search.set(
 				"section",
-				analyticsSectionKey({ slug: "activity", ownerPluginId: "second-local" }),
+				analyticsSectionKey({ slug: "activity", ownerPluginId: PluginId.make("second-local") }),
 			);
 			page.navigate(routeLocation("/v/k/analytics", `?${search}`));
 			yield* Effect.promise(() =>
@@ -245,7 +246,10 @@ it.effect(
 			expect(loaded).toEqual(["second", "second"]);
 			expect(page.queryRequests("reviews")).toHaveLength(0);
 			const firstSearch = new URLSearchParams({
-				section: analyticsSectionKey({ slug: "activity", ownerPluginId: "first-local" }),
+				section: analyticsSectionKey({
+					slug: "activity",
+					ownerPluginId: PluginId.make("first-local"),
+				}),
 			});
 			page.navigate(routeLocation("/v/k/analytics", `?${firstSearch}`), {
 				index: 1,
@@ -571,19 +575,31 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 			range: { days: 30, kind: "rolling" },
 		} as const;
 		const search = new URLSearchParams(reportingSelectionSearch(selection));
-		const firstSection = analyticsSectionKey({ slug: "activity", ownerPluginId: "first-local" });
-		const secondSection = analyticsSectionKey({ slug: "activity", ownerPluginId: "second-local" });
+		const firstSection = analyticsSectionKey({
+			slug: "activity",
+			ownerPluginId: PluginId.make("first-local"),
+		});
+		const secondSection = analyticsSectionKey({
+			slug: "activity",
+			ownerPluginId: PluginId.make("second-local"),
+		});
 		search.set("section", firstSection);
 		const page = mountPluginPage(AnalyticsPage, {
 			page: context,
 			analyticsSections: [
-				{ load: null, icon: "box", name: "First", slug: "activity", ownerPluginId: "first-local" },
+				{
+					load: null,
+					icon: "box",
+					name: "First",
+					slug: "activity",
+					ownerPluginId: PluginId.make("first-local"),
+				},
 				{
 					load: null,
 					icon: "box",
 					name: "Second",
 					slug: "activity",
-					ownerPluginId: "second-local",
+					ownerPluginId: PluginId.make("second-local"),
 				},
 			],
 		});

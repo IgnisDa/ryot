@@ -244,26 +244,25 @@ const bootstrapClientApplication = (
 	return { dispose };
 };
 
-type ClientApplicationOptions = {
-	readonly analyticsSections?: readonly AnalyticsSectionRegistration[];
+type ClientPluginOptions = {
 	readonly entityPresentations?: readonly EntityPresentationRegistration[];
+};
+type ClientPageOptions = ClientPluginOptions & {
+	readonly analyticsSections?: readonly AnalyticsSectionRegistration[];
 };
 
 export const createClientBootstrap = (
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => ({
-	bootstrapClientPlugin: (
-		definition: ClientPluginDefinition,
-		options: ClientApplicationOptions = {},
-	) =>
+	bootstrapClientPlugin: (definition: ClientPluginDefinition, options: ClientPluginOptions = {}) =>
 		bootstrapClientApplication(
 			() => createPluginRouteResolver(definition),
 			options.entityPresentations ?? [],
-			options.analyticsSections ?? [],
+			[],
 			createRuntime,
 		),
 
-	bootstrapClientPage: (component: ComponentType, options: ClientApplicationOptions = {}) =>
+	bootstrapClientPage: (component: ComponentType, options: ClientPageOptions = {}) =>
 		bootstrapClientApplication(
 			(page) =>
 				page === undefined

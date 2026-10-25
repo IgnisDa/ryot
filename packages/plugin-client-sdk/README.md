@@ -336,7 +336,8 @@ is the authenticated account reporting timezone; `owner` is the exact local plug
 that owner in recipes rather than inferring ownership from display metadata or the selected workspace.
 The compiler rejects sections that require other host props.
 
-The global renderer owns the page title and section navigation. Only the selected section mounts;
+Sections reach only page compositions; plugin routes never receive them. The global renderer owns the
+page title and section navigation. Only the selected section mounts;
 inactive sections do not start queries. Section queries should use `cancelOnUnmount: true`, stable
 selection/timezone cache keys, and execution-time schedule clocks. Plugins own their data loading,
 missing-data, refresh-error and retry states. The host independently handles module, stylesheet, and

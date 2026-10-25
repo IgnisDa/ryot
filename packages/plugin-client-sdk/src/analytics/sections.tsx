@@ -3,7 +3,7 @@ import {
 	identityTupleKey,
 	type PluginIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { Effect } from "effect";
@@ -29,7 +29,7 @@ export type AnalyticsSectionRegistration = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
-	readonly ownerPluginId: string;
+	readonly ownerPluginId: PluginId;
 	readonly load: null | (() => Promise<ComponentType<AnalyticsSectionProps>>);
 };
 
@@ -123,7 +123,7 @@ const SectionContent = ({
 		<Section
 			timeZone={timeZone}
 			selection={selection}
-			owner={{ kind: "local", pluginId: PluginId.make(registration.ownerPluginId) }}
+			owner={{ kind: "local", pluginId: registration.ownerPluginId }}
 		/>
 	);
 };

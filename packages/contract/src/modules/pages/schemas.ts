@@ -20,10 +20,10 @@ export const ClientRendererFile = strictStruct({ path: Schema.String, content: C
 export const ClientRendererDefinition = strictStruct({
 	entry: Schema.String,
 	settingsSchema: AppSchema,
+	analyticsSections: Schema.Boolean,
 	files: Schema.Array(ClientRendererFile),
 	automaticEntityPresentations: Schema.Boolean,
 	pluginDependencies: PluginClientDependencies,
-	analyticsSections: Schema.optional(Schema.Boolean),
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
 
@@ -151,15 +151,15 @@ export const ClientCompositionModuleReference = strictStruct({
 export type ClientCompositionModuleReference = typeof ClientCompositionModuleReference.Type;
 
 const AnalyticsSectionMetadata = {
-	sortOrder: Schema.Finite,
+	ownerPluginId: PluginId,
 	slug: Schema.NonEmptyString,
 	name: Schema.NonEmptyString,
 	icon: Schema.NonEmptyString,
-	ownerPluginId: Schema.String,
 };
 
 export const ClientPageAnalyticsSectionIdentity = strictStruct({
 	...AnalyticsSectionMetadata,
+	sortOrder: Schema.Finite,
 	artifactClosure: Schema.Array(Schema.String),
 	module: Schema.NullOr(ClientCompositionModuleReference),
 });
@@ -196,7 +196,6 @@ const ClientPageCompositionIdentityBase = {
 	compilerVersion: Schema.Int,
 	runtimeArtifactHash: Schema.String,
 	eagerArtifactHashes: Schema.Array(Schema.String),
-	analyticsSections: Schema.Array(ClientPageAnalyticsSectionIdentity),
 	automaticRegistry: Schema.Array(ClientPageAutomaticRegistryIdentity),
 	kernelAutomaticFallback: Schema.NullOr(
 		strictStruct({
@@ -234,6 +233,7 @@ export const ClientPageCompositionIdentity = Schema.Union([
 		...ClientPageCompositionIdentityBase,
 		application: Schema.Literal("page"),
 		entry: ClientCompositionModuleReference,
+		analyticsSections: Schema.Array(ClientPageAnalyticsSectionIdentity),
 	}),
 	strictStruct({
 		...ClientPageCompositionIdentityBase,
@@ -256,7 +256,6 @@ const clientCompositionDescriptor = <Registration extends Schema.Top, Section ex
 		}),
 		strictStruct({
 			routes: ClientCompositionRoutes,
-			analyticsSections: Schema.Array(section),
 			application: Schema.Literal("plugin-route"),
 			automaticRegistry: Schema.Array(registration),
 		}),

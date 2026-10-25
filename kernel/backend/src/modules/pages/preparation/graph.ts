@@ -23,7 +23,7 @@ import {
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect, Result } from "effect";
+import { Effect, Option } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/catalog/runtime-resolver";
 
@@ -128,7 +128,6 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		catalog.set(pluginPackageKey(input.plugin), input.plugin);
 	}
 	const included = new Map<string, GraphPlugin>();
-	const visiting: GraphPlugin[] = [];
 	const dependencies = (aliases: Readonly<Record<string, PluginPackageReference>>) =>
 		ordered(Object.values(aliases), pluginPackageKey);
 	const readyPlugin = Effect.fnUntraced(function* (reference: PluginPackageReference) {
@@ -160,32 +159,45 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			}
 			return yield* Effect.void;
 		});
-	const include = (
-		reference: PluginPackageReference,
-	): Effect.Effect<void, ClientPagePreparationError> =>
-		Effect.gen(function* () {
-			const { plugin, client } = yield* readyPlugin(reference);
-			const cycleStart = visiting.findIndex(({ id }) => id === plugin.id);
-			if (cycleStart !== -1) {
-				return yield* new ClientPagePreparationError({
-					reason: {
-						code: "dependency-cycle",
-						pluginIds: [...visiting.slice(cycleStart), plugin].map(({ id }) => PluginId.make(id)),
-					},
-				});
-			}
-			if (included.has(plugin.id)) {
+	const resolveClosure = Effect.fnUntraced(function* (root: PluginPackageReference) {
+		const closure = new Map<string, GraphPlugin>();
+		const visiting: GraphPlugin[] = [];
+		const visit = (
+			reference: PluginPackageReference,
+		): Effect.Effect<void, ClientPagePreparationError> =>
+			Effect.gen(function* () {
+				const { plugin, client } = yield* readyPlugin(reference);
+				const cycleStart = visiting.findIndex(({ id }) => id === plugin.id);
+				if (cycleStart !== -1) {
+					return yield* new ClientPagePreparationError({
+						reason: {
+							code: "dependency-cycle",
+							pluginIds: [...visiting.slice(cycleStart), plugin].map(({ id }) => PluginId.make(id)),
+						},
+					});
+				}
+				if (closure.has(plugin.id)) {
+					return yield* Effect.void;
+				}
+				visiting.push(plugin);
+				yield* validateImports(plugin.id, client.pluginDependencies ?? {}, plugin.clientImports);
+				for (const dependency of dependencies(client.pluginDependencies ?? {})) {
+					yield* visit(dependency);
+				}
+				visiting.pop();
+				closure.set(plugin.id, plugin);
 				return yield* Effect.void;
-			}
-			visiting.push(plugin);
-			yield* validateImports(plugin.id, client.pluginDependencies ?? {}, plugin.clientImports);
-			for (const dependency of dependencies(client.pluginDependencies ?? {})) {
-				yield* include(dependency);
-			}
-			visiting.pop();
-			included.set(plugin.id, plugin);
-			return yield* Effect.void;
-		});
+			});
+		yield* visit(root);
+		return closure;
+	});
+	const include = Effect.fnUntraced(function* (reference: PluginPackageReference) {
+		const closure = yield* resolveClosure(reference);
+		for (const [id, plugin] of closure) {
+			included.set(id, plugin);
+		}
+		return ordered(new Set([...closure.values()].map(artifactHash)), String);
+	});
 	if (isKernel) {
 		yield* validateImports(
 			input.rendererName,
@@ -199,55 +211,30 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		yield* include(input.plugin);
 	}
 	const eagerIds = new Set(included.keys());
-	const analyticsSections: ClientPageCompositionIdentity["analyticsSections"][number][] = [];
+	const analyticsSections: Extract<
+		ClientPageCompositionIdentity,
+		{ readonly application: "page" }
+	>["analyticsSections"][number][] = [];
 	if (isKernel && input.definition.analyticsSections) {
 		for (const plugin of ordered(
 			input.plugins.filter((candidate) => candidate.health === "ready" && !candidate.isHidden),
 			(candidate) => candidate.id,
 		)) {
-			for (const [slug, registration] of ordered(
+			const sections = ordered(
 				Object.entries(plugin.manifest.client?.analyticsSections ?? {}),
 				([key]) => key,
-			)) {
-				if (
-					plugin.manifest.client?.exports?.[registration.exportName]?.kind !== "analytics-section"
-				) {
-					return yield* missingExport(pluginExportSpecifier(plugin, registration.exportName));
-				}
-				const before = new Map(included);
-				const result = yield* include(plugin).pipe(Effect.result);
-				if (Result.isFailure(result)) {
-					included.clear();
-					for (const [id, entry] of before) {
-						included.set(id, entry);
-					}
-					visiting.length = 0;
-				}
-				const closure = new Set<string>();
-				const visit = (entry: GraphPlugin) => {
-					const hash = artifactHash(entry);
-					if (closure.has(hash)) {
-						return;
-					}
-					closure.add(hash);
-					for (const reference of dependencies(entry.manifest.client?.pluginDependencies ?? {})) {
-						const dependency = catalog.get(pluginPackageKey(reference));
-						if (dependency) {
-							visit(dependency);
-						}
-					}
-				};
-				if (Result.isSuccess(result)) {
-					visit(plugin);
-				}
+			);
+			const closure =
+				sections.length === 0 ? Option.none() : yield* include(plugin).pipe(Effect.option);
+			for (const [slug, registration] of sections) {
 				analyticsSections.push({
 					slug,
 					name: registration.name,
 					icon: registration.icon,
-					ownerPluginId: plugin.id,
 					sortOrder: registration.sortOrder,
-					artifactClosure: [...closure].sort(),
-					module: Result.isSuccess(result) ? pluginModule(plugin, registration.exportName) : null,
+					ownerPluginId: PluginId.make(plugin.id),
+					artifactClosure: Option.getOrElse(closure, () => []),
+					module: Option.isSome(closure) ? pluginModule(plugin, registration.exportName) : null,
 				});
 			}
 		}
@@ -283,6 +270,13 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 					entry: isKernel
 						? kernelRendererModule(input.rendererName)
 						: pluginModule(input.plugin, input.exportName),
+					analyticsSections: analyticsSections.sort(
+						(left, right) =>
+							left.sortOrder - right.sortOrder ||
+							identityTupleKey(left.ownerPluginId, left.slug).localeCompare(
+								identityTupleKey(right.ownerPluginId, right.slug),
+							),
+					),
 				};
 	if (!isKernel) {
 		for (const name of input.application === "plugin-route"
@@ -332,32 +326,13 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 					if (!name) {
 						continue;
 					}
-					const specifier = pluginExportSpecifier(plugin, name);
-					if (plugin.manifest.client?.exports?.[name]?.kind !== "presentation") {
-						return yield* missingExport(specifier);
-					}
-					const closure = new Map<string, string>();
-					const visit = (
-						reference: PluginPackageReference,
-					): Effect.Effect<void, ClientPagePreparationError> =>
-						Effect.gen(function* () {
-							yield* include(reference);
-							const entry = catalog.get(pluginPackageKey(reference));
-							if (!entry || closure.has(entry.id)) {
-								return;
-							}
-							closure.set(entry.id, artifactHash(entry));
-							for (const dep of dependencies(entry.manifest.client?.pluginDependencies ?? {})) {
-								yield* visit(dep);
-							}
-						});
-					yield* visit(plugin);
+					const artifactClosure = yield* include(plugin);
 					registry.push({
 						layout,
+						artifactClosure,
 						entitySchemaSlug,
 						ownerPluginId: plugin.id,
-						exportSpecifier: specifier,
-						artifactClosure: ordered(new Set(closure.values()), String),
+						exportSpecifier: pluginExportSpecifier(plugin, name),
 					});
 				}
 			}
@@ -387,13 +362,6 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		kernelAutomaticFallback: automatic
 			? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 			: null,
-		analyticsSections: analyticsSections.sort(
-			(left, right) =>
-				left.sortOrder - right.sortOrder ||
-				identityTupleKey(left.ownerPluginId, left.slug).localeCompare(
-					identityTupleKey(right.ownerPluginId, right.slug),
-				),
-		),
 		contributors: [
 			...(isKernel
 				? [
