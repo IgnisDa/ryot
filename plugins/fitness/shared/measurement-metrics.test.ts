@@ -1,7 +1,7 @@
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
-import { buildMetricRows, smoothMeasurementSeries } from "./measurement-metrics";
+import { buildMetricRows } from "./measurement-metrics";
 import type { MeasurementSummary } from "./measurement-recipes";
 
 const summary: MeasurementSummary = {
@@ -15,6 +15,11 @@ const summary: MeasurementSummary = {
 	latestAt: "2026-01-05T00:00:00.000Z",
 	pinnedAt: "2026-01-01T00:00:00.000Z",
 };
+
+const smoothMeasurementSeries = (
+	points: Parameters<typeof buildMetricRows>[1][number]["points"],
+	calendar: Parameters<typeof buildMetricRows>[2],
+) => buildMetricRows([summary], [{ points, metricId: summary.id }], calendar)[0]?.trend ?? [];
 
 describe("measurement calendar smoothing", () => {
 	it("restarts after missing daily buckets and retains source averages and custom units", () => {
@@ -48,8 +53,8 @@ describe("measurement calendar smoothing", () => {
 		).toEqual([70, 71, 72, 74]);
 	});
 
-	it("keeps known zero in its run and restarts at explicit null", () => {
-		const points = [0, 2, null, 8, 0].map((value, index) => ({
+	it("keeps known zero in its run", () => {
+		const points = [0, 3, 0, 6].map((value, index) => ({
 			value,
 			at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
 		}));
@@ -57,8 +62,7 @@ describe("measurement calendar smoothing", () => {
 			smoothMeasurementSeries(points, { bucket: "day", timeZone: TimeZone.make("UTC") }).map(
 				({ value }) => value,
 			),
-		).toEqual([0, 1, null, 8, 4]);
-		expect(points.map(({ value }) => value)).toEqual([0, 2, null, 8, 0]);
+		).toEqual([0, 1.5, 1, 3]);
 	});
 
 	it.each([

@@ -34,9 +34,9 @@ type Points = readonly MeasurementSeries["points"][number][];
 type TrendPoint = Omit<Points[number], "value"> & { readonly value: null | number };
 type SeriesCalendar = Pick<Parameters<typeof measurementSeriesRecipe>[0], "bucket" | "timeZone">;
 
-export const trendWindow = (pointCount: number) => (pointCount > 40 ? 7 : 3);
+const trendWindow = (pointCount: number) => (pointCount > 40 ? 7 : 3);
 
-export const rollingAverage = (points: Points): Points => {
+const rollingAverage = (points: Points): Points => {
 	const size = trendWindow(points.length);
 	return points.map(({ at }, index) => {
 		const window = points.slice(Math.max(0, index - size + 1), index + 1);
@@ -75,7 +75,7 @@ export const smoothRuns = <Point extends { readonly at: string; readonly value: 
 	return result;
 };
 
-export const smoothMeasurementSeries = (
+const smoothMeasurementSeries = (
 	points: readonly TrendPoint[],
 	{ bucket, timeZone }: SeriesCalendar,
 ): readonly TrendPoint[] => {

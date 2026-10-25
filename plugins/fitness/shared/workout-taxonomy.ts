@@ -14,5 +14,3 @@ export const WorkoutExercisePropertiesSchema = Schema.Struct({
 		Schema.Struct({ entityId: EntityId, role: Schema.NullOr(exerciseTargetRoleSchema) }),
 	).check(Schema.isMaxLength(WORKOUT_TAXONOMY_LIMIT)),
 });
-
-export type WorkoutExerciseProperties = typeof WorkoutExercisePropertiesSchema.Type;

@@ -1,7 +1,7 @@
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { describe, expect, it } from "vitest";
 
-import { buildMetricRows, rollingAverage, sortMetricRows } from "../../shared/measurement-metrics";
+import { buildMetricRows, smoothRuns, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { measurementTrendModel } from "../analytics/reporting-model";
 import {
@@ -49,7 +49,9 @@ const reading = (
 	readings: [{ value, metricId, entryId: id, id: `${id}-reading` }],
 });
 
-describe("rollingAverage", () => {
+const rollingAverage = (series: ReturnType<typeof points>) => smoothRuns(series, () => false);
+
+describe("measurement smoothing runs", () => {
 	it("averages a trailing window of 3 for sparse series", () => {
 		expect(rollingAverage(points([1, 2, 3, 4])).map(({ value }) => value)).toEqual([1, 1.5, 2, 3]);
 	});
