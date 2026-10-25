@@ -1,6 +1,7 @@
 import type { DownloadFileOptions } from "@capacitor/file-transfer";
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Exit, Fiber } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import {
 	FileDownloadError,
@@ -28,7 +29,7 @@ const makeCalls = (): NativeCalls => ({
 
 const makePorts = (
 	calls: NativeCalls,
-	overrides: Partial<Parameters<typeof makeNativeFileDownload>[0]> = {},
+	overrides: Partial<Parameters<typeof makeNativeFileDownload>[1]> = {},
 ) => ({
 	share: (uri: string) => {
 		calls.sequence.push("share");
@@ -57,6 +58,8 @@ const makePorts = (
 	},
 });
 
+const random = SecureRandom.make((size) => new Uint8Array(size));
+
 const request = {
 	fileName: "server.log",
 	url: "https://logs.example/server.log",
@@ -66,7 +69,7 @@ describe("native file downloads", () => {
 	it.live("creates, transfers, shares, and removes a temporary file in order", () =>
 		Effect.gen(function* () {
 			const calls = makeCalls();
-			yield* makeNativeFileDownload(makePorts(calls))(request);
+			yield* makeNativeFileDownload(random, makePorts(calls))(request);
 
 			expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
 			expect(calls.created).toHaveLength(1);
@@ -84,10 +87,10 @@ describe("native file downloads", () => {
 	it.live("sanitizes slashes without changing the file name", () =>
 		Effect.gen(function* () {
 			const calls = makeCalls();
-			yield* makeNativeFileDownload(makePorts(calls))({
-				...request,
-				fileName: "logs\\rotated/server.log",
-			});
+			yield* makeNativeFileDownload(
+				random,
+				makePorts(calls),
+			)({ ...request, fileName: "logs\\rotated/server.log" });
 
 			const [directory] = calls.created;
 			expect(calls.uriPaths).toEqual([`${directory}/logs_rotated_server.log`]);
@@ -100,7 +103,10 @@ describe("native file downloads", () => {
 			const calls = makeCalls();
 			const failure = new FileDownloadError({ cause: "transfer failed" });
 			const result = yield* Effect.exit(
-				makeNativeFileDownload(makePorts(calls, { transfer: () => Effect.fail(failure) }))(request),
+				makeNativeFileDownload(
+					random,
+					makePorts(calls, { transfer: () => Effect.fail(failure) }),
+				)(request),
 			);
 
 			expect(Exit.isFailure(result)).toBe(true);
@@ -115,6 +121,7 @@ describe("native file downloads", () => {
 			const calls = makeCalls();
 			const result = yield* Effect.exit(
 				makeNativeFileDownload(
+					random,
 					makePorts(calls, {
 						uri: () => Effect.fail(new FileDownloadError({ cause: "URI failed" })),
 					}),
@@ -132,6 +139,7 @@ describe("native file downloads", () => {
 			const calls = makeCalls();
 			const result = yield* Effect.exit(
 				makeNativeFileDownload(
+					random,
 					makePorts(calls, {
 						share: () => Effect.fail(new FileDownloadError({ cause: "share failed" })),
 					}),
@@ -148,6 +156,7 @@ describe("native file downloads", () => {
 		Effect.gen(function* () {
 			const calls = makeCalls();
 			yield* makeNativeFileDownload(
+				random,
 				makePorts(calls, {
 					share: () => Effect.fail(new FileDownloadError({ cause: { message: "Share canceled" } })),
 				}),
@@ -162,6 +171,7 @@ describe("native file downloads", () => {
 			const calls = makeCalls();
 			const result = yield* Effect.exit(
 				makeNativeFileDownload(
+					random,
 					makePorts(calls, {
 						create: () => Effect.fail(new FileDownloadError({ cause: "create failed" })),
 					}),
@@ -180,6 +190,7 @@ describe("native file downloads", () => {
 			const started = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
 			const download = makeNativeFileDownload(
+				random,
 				makePorts(calls, {
 					transfer: () =>
 						Effect.gen(function* () {

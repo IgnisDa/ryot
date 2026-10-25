@@ -3,6 +3,7 @@ import { type DownloadFileOptions, FileTransfer } from "@capacitor/file-transfer
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Context, Effect, Layer, Option, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 export type FileDownloadRequest = { readonly fileName: string } & Pick<DownloadFileOptions, "url">;
 
@@ -20,15 +21,18 @@ const nativeError = (cause: unknown) => {
 	});
 };
 
-export const makeNativeFileDownload = (ports: {
-	readonly remove: (path: string) => Effect.Effect<void>;
-	readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
-	readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
-	readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
-	readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
-}) =>
+export const makeNativeFileDownload = (
+	random: SecureRandom.SecureRandom["Service"],
+	ports: {
+		readonly remove: (path: string) => Effect.Effect<void>;
+		readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
+		readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
+		readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
+		readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
+	},
+) =>
 	Effect.fn("NativeFileDownload")(function* (request: FileDownloadRequest) {
-		const directory = `ryot-download-${crypto.randomUUID()}`;
+		const directory = `ryot-download-${yield* random.uuidV4()}`;
 		const fileName = request.fileName.replaceAll(/[\\/]/g, "_");
 		yield* Effect.acquireRelease(ports.create(directory), () => ports.remove(directory));
 		const uri = yield* ports.uri(`${directory}/${fileName}`);
@@ -49,7 +53,7 @@ export const makeNativeFileDownload = (ports: {
 		);
 	}, Effect.scoped);
 
-const downloadNativeFile = makeNativeFileDownload({
+const nativeFilePorts: Parameters<typeof makeNativeFileDownload>[1] = {
 	share: (uri) =>
 		Effect.tryPromise({ catch: nativeError, try: () => Share.share({ files: [uri] }) }).pipe(
 			Effect.asVoid,
@@ -72,32 +76,38 @@ const downloadNativeFile = makeNativeFileDownload({
 			catch: nativeError,
 			try: () => Filesystem.getUri({ path, directory: Directory.Cache }),
 		}).pipe(Effect.map((result) => result.uri)),
-});
-
-export const downloadFile = Effect.fn("downloadFile")(function* (request: FileDownloadRequest) {
-	if (Capacitor.isNativePlatform()) {
-		yield* downloadNativeFile(request);
-		return;
-	}
-	yield* Effect.try({
-		catch: (cause) => new FileDownloadError({ cause }),
-		try: () => {
-			const anchor = document.createElement("a");
-			anchor.href = request.url;
-			anchor.rel = "noreferrer";
-			anchor.referrerPolicy = "no-referrer";
-			document.body.append(anchor);
-			anchor.click();
-			anchor.remove();
-		},
-	});
-});
+};
 
 export class FileDownloads extends Context.Service<
 	FileDownloads,
-	{ readonly download: typeof downloadFile }
+	{ readonly download: (request: FileDownloadRequest) => Effect.Effect<void, FileDownloadError> }
 >()("@ryot-app/kernel-client/modules/downloads/file/FileDownloads", {
-	make: Effect.succeed({ download: downloadFile }),
+	make: Effect.gen(function* () {
+		const downloadNativeFile = makeNativeFileDownload(
+			yield* SecureRandom.SecureRandom,
+			nativeFilePorts,
+		);
+		return {
+			download: Effect.fn("downloadFile")(function* (request: FileDownloadRequest) {
+				if (Capacitor.isNativePlatform()) {
+					yield* downloadNativeFile(request);
+					return;
+				}
+				yield* Effect.try({
+					catch: (cause) => new FileDownloadError({ cause }),
+					try: () => {
+						const anchor = document.createElement("a");
+						anchor.href = request.url;
+						anchor.rel = "noreferrer";
+						anchor.referrerPolicy = "no-referrer";
+						document.body.append(anchor);
+						anchor.click();
+						anchor.remove();
+					},
+				});
+			}),
+		};
+	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }

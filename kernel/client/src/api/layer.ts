@@ -1,4 +1,5 @@
 import { Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { FetchHttpClient } from "effect/http";
 
 import { AccountApi } from "#/api/account";
@@ -36,6 +37,7 @@ export const TransportLive = Layer.mergeAll(
 	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 	Layer.provideMerge(FetchHttpClient.layer),
+	Layer.provide(SecureRandom.layerWebCrypto),
 );
 
 export const ApiLive = Layer.mergeAll(
