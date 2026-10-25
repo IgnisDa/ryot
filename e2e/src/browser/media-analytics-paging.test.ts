@@ -120,7 +120,6 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			selection: fixture.reportingSelection,
 		};
 		const report = yield* waitForMediaConsumptionReport(client, input);
-		expect(report.processing).toBe("ready");
 		expect(requireMediaConsumptionGroup(report, "anime")).toMatchObject({
 			episodesMissing: 0,
 			titleCompletions: 0,

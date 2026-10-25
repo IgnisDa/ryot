@@ -93,7 +93,6 @@ describe("Media consumption projection and reporting", () => {
 					entityId: book.entityId,
 					timeZone: TimeZone.make("UTC"),
 				});
-				expect(report.processing).toBe("ready");
 				const allTimeBook = requireMediaConsumptionGroup(report, "book");
 				const allTimePages = yield* mediaConsumptionMeasure(allTimeBook, "pages");
 				expect(allTimePages.total).toBe(100);

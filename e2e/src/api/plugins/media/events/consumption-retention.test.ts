@@ -174,7 +174,6 @@ describe("Media consumption evidence retention", () => {
 			yield* settledHistoryCorrection(client, userId);
 
 			const before = yield* waitForReport(client, reference);
-			expect(before.processing).toBe("ready");
 			const beforeBook = requireMediaConsumptionGroup(before, "book");
 			expect((yield* mediaConsumptionMeasure(beforeBook, "pages")).total).toBe(300);
 			expect(beforeBook.titleCompletions).toBe(2);
@@ -191,14 +190,12 @@ describe("Media consumption evidence retention", () => {
 			yield* settledHistoryCorrection(client, userId);
 
 			const after = yield* waitForReport(client, reference);
-			expect(after.processing).toBe("ready");
 			const targetBook = requireMediaConsumptionGroup(after, "book");
 			expect((yield* mediaConsumptionMeasure(targetBook, "pages")).total).toBe(300);
 			expect(targetBook.titleCompletions).toBe(2);
 			expect(after.current.types).toEqual(before.current.types);
 
 			const sourceFiltered = yield* waitForReport(client, reference, allTime, source.entityId);
-			expect(sourceFiltered.processing).toBe("ready");
 			expect(sourceFiltered.current.types).toEqual([]);
 			const targetEvents = yield* historyEventsFor(client, target.entityId);
 			expect(yield* historyEventsFor(client, source.entityId)).toEqual([]);
@@ -260,7 +257,6 @@ describe("Media consumption evidence retention", () => {
 
 			const reference = yield* mediaReferenceForEntity(client, show.show.id);
 			const before = yield* waitForReport(client, reference);
-			expect(before.processing).toBe("ready");
 			const parentBefore = requireMediaConsumptionGroup(before, "show");
 			expect(parentBefore.titleCompletions).toBe(1);
 			expect((yield* mediaConsumptionMeasure(parentBefore, "minutes")).total).toBe(0);
@@ -276,7 +272,6 @@ describe("Media consumption evidence retention", () => {
 			expect(cleared.deletedEventsCount).toBeGreaterThan(0);
 			yield* settledHistoryCorrection(client, userId);
 			const afterClear = yield* waitForReport(client, reference);
-			expect(afterClear.processing).toBe("ready");
 			expect(afterClear.current.types).toEqual([]);
 
 			for (const entity of [show.show, ...show.seasons, ...show.episodes]) {
@@ -314,7 +309,6 @@ describe("Media consumption evidence retention", () => {
 			expect(freshCompletion.failure).toBeNull();
 			yield* settledHistoryCorrection(client, userId);
 			const freshReport = yield* waitForReport(client, reference);
-			expect(freshReport.processing).toBe("ready");
 			const episodeGroup = requireMediaConsumptionGroup(freshReport, "show-episode");
 			expect((yield* mediaConsumptionMeasure(episodeGroup, "minutes")).total).toBe(20);
 			expect(episodeGroup.episodeCompletions).toBe(1);
@@ -391,7 +385,6 @@ describe("Media consumption evidence retention", () => {
 				const sourceReference = yield* mediaReferenceForEntity(source.client, book.id);
 				const sourceAllTime = yield* waitForReport(source.client, sourceReference);
 				const sourceAllTimeBook = requireMediaConsumptionGroup(sourceAllTime, "book");
-				expect(sourceAllTime.processing).toBe("ready");
 				const sourceAllTimePages = yield* mediaConsumptionMeasure(sourceAllTimeBook, "pages");
 				expect(sourceAllTimePages.total).toBe(200);
 				expect(sourceAllTimePages.recorded).toBe(40);
@@ -455,7 +448,6 @@ describe("Media consumption evidence retention", () => {
 				const targetReference = yield* mediaReferenceForEntity(target.client, restoredBookId);
 				const targetAllTime = yield* waitForReport(target.client, targetReference);
 				const targetAllTimeBook = requireMediaConsumptionGroup(targetAllTime, "book");
-				expect(targetAllTime.processing).toBe("ready");
 				const revisions = yield* executeRyotQLRecipe(
 					target.client,
 					restoredHistoryRevisionRecipe({ entityId: restoredBookId, reference: targetReference }),

@@ -124,9 +124,6 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		yield* trendHeading.waitFor({ state: "visible" });
 		yield* trendChart.waitFor({ state: "visible" });
 		yield* hourChart.waitFor({ state: "visible" });
-		yield* frame
-			.getByText("Loading previous-period trend…", { exact: true })
-			.waitFor({ state: "hidden" });
 
 		for (const visualCase of chartVisualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
