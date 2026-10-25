@@ -132,8 +132,7 @@ export const decodePodcastActivity = (
 						historyEventCount: 0,
 						consumedAmount: 9150,
 						unknownAmountCount: 2,
-						consumptionFailedCount: 0,
-						consumptionPendingCount: 0,
+						consumptionProcessing: "ready",
 					},
 				]),
 				parentEvents: rows([

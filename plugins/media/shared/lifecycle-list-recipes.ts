@@ -2,6 +2,7 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	column,
+	countAll,
 	defineRecipe,
 	descending,
 	entitySchemaPredicate,
@@ -15,7 +16,6 @@ import {
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
-	selectedMeasure,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -183,7 +183,7 @@ export const libraryMediaCountRecipe = defineRecipe((reference: PluginIdentityRe
 		map: ({ library }) => Result.succeed(library.count),
 		queries: {
 			library: selectedAggregate(entity, {
-				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
+				measures: { count: countAll },
 				where: and(
 					schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
 					isOneOf(column(entity, "entitySchemaSlug"), builtinMediaEntitySchemaSlugs),

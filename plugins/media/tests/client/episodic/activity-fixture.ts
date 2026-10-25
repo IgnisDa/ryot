@@ -1,5 +1,6 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { ProjectionProcessing } from "@ryot-app/plugin-kit/ryotql";
 
 import { rowsResult } from "../query-result-fixture";
 import { episodicFixtureRecipes } from "./recipes";
@@ -171,8 +172,7 @@ type ActivityRows = {
 	readonly watchCount?: number;
 	readonly consumedAmount?: number;
 	readonly unknownAmountCount?: number;
-	readonly consumptionFailedCount?: number;
-	readonly consumptionPendingCount?: number;
+	readonly consumptionProcessing?: ProjectionProcessing;
 	readonly coverage?: readonly Record<string, unknown>[];
 	readonly watchDays?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
@@ -241,8 +241,7 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 							completionCount: input.watchCount ?? 1,
 							consumedAmount: input.consumedAmount ?? 116,
 							unknownAmountCount: input.unknownAmountCount ?? 0,
-							consumptionFailedCount: input.consumptionFailedCount ?? 0,
-							consumptionPendingCount: input.consumptionPendingCount ?? 0,
+							consumptionProcessing: input.consumptionProcessing ?? "ready",
 						},
 					],
 					false,

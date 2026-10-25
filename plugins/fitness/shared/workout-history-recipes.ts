@@ -14,6 +14,7 @@ import {
 	literal,
 	lt,
 	neq,
+	NullableNumber,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
@@ -29,7 +30,6 @@ import { WorkoutSetLotSchema } from "./workout-set";
 type Table = ReturnType<typeof table>;
 
 const rowLimit = 100;
-const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableExerciseKind = Schema.NullOr(exerciseKindSchema);
 const nullableString = Schema.NullOr(Schema.String);
 
@@ -43,20 +43,20 @@ const workoutSetSelection = (event: Table) => ({
 	id: selectedField(column(event, "id"), EventId),
 	note: selectedField(property(event, "note"), nullableString),
 	exerciseId: selectedField(column(event, "entityId"), EntityId),
-	rpe: selectedField(propertyNumber(event, "rpe"), nullableNumber),
-	reps: selectedField(propertyNumber(event, "reps"), nullableNumber),
-	pace: selectedField(projectionNumber(event, "pace"), nullableNumber),
+	rpe: selectedField(propertyNumber(event, "rpe"), NullableNumber),
+	reps: selectedField(propertyNumber(event, "reps"), NullableNumber),
+	pace: selectedField(projectionNumber(event, "pace"), NullableNumber),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
-	oneRm: selectedField(projectionNumber(event, "oneRm"), nullableNumber),
-	weight: selectedField(propertyNumber(event, "weight"), nullableNumber),
-	volume: selectedField(projectionNumber(event, "volume"), nullableNumber),
-	restTime: selectedField(propertyNumber(event, "restTime"), nullableNumber),
-	setOrder: selectedField(propertyNumber(event, "setOrder"), nullableNumber),
-	duration: selectedField(propertyNumber(event, "duration"), nullableNumber),
-	distance: selectedField(propertyNumber(event, "distance"), nullableNumber),
+	oneRm: selectedField(projectionNumber(event, "oneRm"), NullableNumber),
+	weight: selectedField(propertyNumber(event, "weight"), NullableNumber),
+	volume: selectedField(projectionNumber(event, "volume"), NullableNumber),
+	restTime: selectedField(propertyNumber(event, "restTime"), NullableNumber),
+	setOrder: selectedField(propertyNumber(event, "setOrder"), NullableNumber),
+	duration: selectedField(propertyNumber(event, "duration"), NullableNumber),
+	distance: selectedField(propertyNumber(event, "distance"), NullableNumber),
 	recordedKind: selectedField(property(event, "exerciseKind"), nullableExerciseKind),
 	setLot: selectedField(property(event, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
-	exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), nullableNumber),
+	exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), NullableNumber),
 });
 
 export const workoutHistoryRecipe = defineRecipe(

@@ -7,6 +7,7 @@ import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	column,
+	countAll,
 	dateBucket,
 	defineRecipe,
 	eq,
@@ -14,10 +15,10 @@ import {
 	groupAscending,
 	join,
 	jsonPath,
+	NullableNumber,
 	type Recipe,
 	selectedAggregate,
 	selectedField,
-	selectedMeasure,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
@@ -38,7 +39,7 @@ export const collectionReviewAnalyticsRecipe = defineRecipe(
 		const joins = [
 			join("inner", collection, eq(column(review, "entityId"), column(collection, "id"))),
 		];
-		const measures = { count: selectedMeasure({ function: "count" }, Schema.Finite) };
+		const measures = { count: countAll };
 		const inPeriod = (period: null | ReportingPeriod) =>
 			and(scope, withinPeriod(occurredAt, period));
 		return {
@@ -104,10 +105,7 @@ export const collectionReviewRecordsRecipe = defineRecipe(
 						occurredAt: selectedField(occurredAt, IsoDateString),
 						entityId: selectedField(column(collection, "id"), EntityId),
 						name: selectedField(column(collection, "name"), Schema.String),
-						rating: selectedField(
-							jsonPath(column(review, "properties"), "rating"),
-							Schema.NullOr(Schema.Finite),
-						),
+						rating: selectedField(jsonPath(column(review, "properties"), "rating"), NullableNumber),
 					},
 				}),
 			},

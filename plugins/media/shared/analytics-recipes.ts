@@ -10,6 +10,8 @@ import {
 	column,
 	conditional,
 	contains,
+	countAll,
+	countIf,
 	dateBucket,
 	defineRecipe,
 	descending,
@@ -24,11 +26,15 @@ import {
 	localHour,
 	measureDescending,
 	not,
+	NullableNumber,
+	projectionProcessingState,
+	projectionStatusMeasures,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	selectedRows,
+	sumOf,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -36,15 +42,14 @@ import {
 	type CalendarUnit,
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
-	type ReportingSelection,
-	resolveReportingSelection,
+	type ResolvedReportingSelection,
 	type TimeZone,
 	UTC,
 } from "@ryot-app/plugin-kit/schema";
 
 import { ConsumedItem, ConsumptionBasis, SourceProgress } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
-import { ConsumptionContribution, consumptionProcessingState } from "./consumption-projection";
+import { ConsumptionContribution } from "./consumption-projection";
 import {
 	consumptionActiveDay,
 	consumptionDetail,
@@ -57,22 +62,15 @@ import {
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 
+export type MediaAnalyticsInput = ConsumptionScope & {
+	readonly reporting: ResolvedReportingSelection;
+};
 export type MediaAnalyticsFilter = {
 	readonly hour?: number;
 	readonly mediaType?: string;
 	readonly activeOnly?: boolean;
 };
-export type MediaAnalyticsInput = ConsumptionScope & {
-	readonly now: number;
-	readonly timeZone: TimeZone;
-	readonly selection: ReportingSelection;
-};
 
-const nullableNumber = Schema.NullOr(Schema.Finite);
-const sumOf = (expr: Parameters<typeof coalesce>[0]) =>
-	selectedMeasure({ expr, function: "sum" }, nullableNumber);
-const countWhen = (predicate: Parameters<typeof conditional>[0]) =>
-	sumOf(conditional(predicate, literal(1), literal(0)));
 const flag = (event: Table, ...path: string[]) =>
 	eq(castBoolean(consumptionValue(event, ...path)), literal(true));
 const attributionKind = (event: Table) => castText(consumptionValue(event, "attribution", "kind"));
@@ -90,17 +88,23 @@ const recorded = (event: Table, unit: ConsumptionMeasureUnit) =>
 const estimated = (event: Table, unit: ConsumptionMeasureUnit) =>
 	sumOf(coalesce(consumptionNumber(event, unit, "estimated"), literal(0)));
 const missing = (event: Table, unit: ConsumptionMeasureUnit) =>
-	countWhen(flag(event, unit, "missing"));
+	countIf(flag(event, unit, "missing"));
 const superseded = (event: Table, unit: ConsumptionMeasureUnit) =>
-	countWhen(flag(event, unit, "supersededEstimate"));
+	countIf(flag(event, unit, "supersededEstimate"));
 const known = (event: Table, unit: ConsumptionMeasureUnit) =>
-	countWhen(
+	countIf(
 		and(
 			isNotNull(consumptionValue(event, unit)),
 			not(flag(event, unit, "missing")),
 			not(flag(event, unit, "supersededEstimate")),
 		),
 	);
+
+const completionMeasures = (event: Table) => ({
+	activeObservations: countIf(flag(event, "activeObservation")),
+	titleCompletions: sumOf(coalesce(consumptionNumber(event, "titleCompletions"), literal(0))),
+	episodeCompletions: sumOf(coalesce(consumptionNumber(event, "episodeCompletions"), literal(0))),
+});
 
 export const consumptionMeasures = (event: Table) => ({
 	pagesKnown: known(event, "pages"),
@@ -128,9 +132,7 @@ export const consumptionMeasures = (event: Table) => ({
 	volumesSuperseded: superseded(event, "volumes"),
 	episodesSuperseded: superseded(event, "episodes"),
 	chaptersSuperseded: superseded(event, "chapters"),
-	activeObservations: countWhen(flag(event, "activeObservation")),
-	titleCompletions: sumOf(coalesce(consumptionNumber(event, "titleCompletions"), literal(0))),
-	episodeCompletions: sumOf(coalesce(consumptionNumber(event, "episodeCompletions"), literal(0))),
+	...completionMeasures(event),
 });
 
 const activeDays = (event: Table, timeZone: TimeZone) =>
@@ -160,7 +162,7 @@ const periodSummary = (
 		activeDays: selectedAggregate(source.event, {
 			joins: source.joins,
 			where: source.where,
-			measures: { activeDays: activeDays(source.event, input.timeZone) },
+			measures: { activeDays: activeDays(source.event, input.reporting.timeZone) },
 		}),
 		types: selectedAggregate(source.event, {
 			limit: 100,
@@ -170,7 +172,7 @@ const periodSummary = (
 			groupBy: { label: type.label, mediaType: type.slug },
 			measures: {
 				...consumptionMeasures(source.event),
-				activeDays: activeDays(source.event, input.timeZone),
+				activeDays: activeDays(source.event, input.reporting.timeZone),
 				distinctTitles: selectedMeasure(
 					{
 						function: "countDistinct",
@@ -199,14 +201,14 @@ const periodSummary = (
 				withinPeriod(column(review, "occurredAt"), period),
 			),
 			measures: {
-				reviews: selectedMeasure({ function: "count" }, Schema.Finite),
-				rated: countWhen(isNotNull(jsonPath(column(review, "properties"), "rating"))),
+				reviews: countAll,
+				rated: countIf(isNotNull(jsonPath(column(review, "properties"), "rating"))),
 				averageRating: selectedMeasure(
 					{
 						function: "average",
 						expr: castNumber(jsonPath(column(review, "properties"), "rating")),
 					},
-					nullableNumber,
+					NullableNumber,
 				),
 			},
 		}),
@@ -215,13 +217,33 @@ const periodSummary = (
 
 /** Period totals by media type, global active days and reviews, with full-history coverage. */
 export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsInput) => {
-	const resolved = resolveReportingSelection(input.selection, input);
+	const resolved = input.reporting;
 	const current = periodSummary(input, resolved.current, "current");
 	const previous =
 		resolved.previous === null ? undefined : periodSummary(input, resolved.previous, "previous");
 	const stream = table("eventStream", "coverageStream");
 	const undated = table("event", "undatedEvent");
 	return {
+		queries: {
+			currentTypes: current.types,
+			previousTypes: previous?.types,
+			currentReviews: current.reviews,
+			previousReviews: previous?.reviews,
+			currentActiveDays: current.activeDays,
+			previousActiveDays: previous?.activeDays,
+			processing: selectedAggregate(stream, {
+				measures: projectionStatusMeasures(stream),
+				where: and(consumptionScope(stream, input), consumptionRows(stream)),
+			}),
+			undated: selectedAggregate(undated, {
+				measures: { count: countAll },
+				where: and(
+					consumptionScope(undated, input),
+					consumptionRows(undated),
+					contains(column(undated, "properties"), literal({ dateUnknown: true })),
+				),
+			}),
+		},
 		map: (result) => {
 			const period = (
 				types: undefined | typeof result.currentTypes,
@@ -233,40 +255,14 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 					: { types: types.items, reviews: reviews.items, activeDays: days.activeDays };
 			return Result.succeed({
 				unknownDate: result.undated.count,
+				processing: projectionProcessingState(result.processing),
 				previous: period(result.previousTypes, result.previousReviews, result.previousActiveDays),
-				processing: consumptionProcessingState(
-					result.processing.pending ?? 0,
-					result.processing.failed ?? 0,
-				),
 				current: {
 					types: result.currentTypes.items,
 					reviews: result.currentReviews.items,
 					activeDays: result.currentActiveDays.activeDays,
 				},
 			});
-		},
-		queries: {
-			currentTypes: current.types,
-			previousTypes: previous?.types,
-			currentReviews: current.reviews,
-			previousReviews: previous?.reviews,
-			currentActiveDays: current.activeDays,
-			previousActiveDays: previous?.activeDays,
-			undated: selectedAggregate(undated, {
-				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
-				where: and(
-					consumptionScope(undated, input),
-					consumptionRows(undated),
-					contains(column(undated, "properties"), literal({ dateUnknown: true })),
-				),
-			}),
-			processing: selectedAggregate(stream, {
-				where: and(consumptionScope(stream, input), consumptionRows(stream)),
-				measures: {
-					failed: countWhen(eq(column(stream, "projectionStatus"), literal("failed"))),
-					pending: countWhen(eq(column(stream, "projectionStatus"), literal("pending"))),
-				},
-			}),
 		},
 	};
 });
@@ -279,7 +275,7 @@ const filtered = (source: ReturnType<typeof consumptionDetail>, mediaType: strin
 /** Consumption by local calendar bucket for the current period and, when compared, the previous. */
 export const mediaAnalyticsTrendRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & { readonly mediaType?: string }) => {
-		const resolved = resolveReportingSelection(input.selection, input);
+		const resolved = input.reporting;
 		const trend = (period: null | ReportingPeriod, alias: string) => {
 			const source = consumptionDetail(input, alias, period);
 			return selectedAggregate(source.event, {
@@ -289,11 +285,11 @@ export const mediaAnalyticsTrendRecipe = defineRecipe(
 				measures: consumptionMeasures(source.event),
 				where: and(
 					filtered(source, input.mediaType),
-					isNotNull(consumptionActiveDay(source.event, input.timeZone)),
+					isNotNull(consumptionActiveDay(source.event, input.reporting.timeZone)),
 				),
 				groupBy: {
 					at: selectedField(
-						consumptionBucket(source.event, input.timeZone, resolved.grouping),
+						consumptionBucket(source.event, input.reporting.timeZone, resolved.grouping),
 						Schema.String,
 					),
 				},
@@ -320,7 +316,7 @@ export const mediaAnalyticsTrendRecipe = defineRecipe(
 
 export const mediaAnalyticsHoursRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & { readonly mediaType?: string }) => {
-		const period = resolveReportingSelection(input.selection, input).current;
+		const period = input.reporting.current;
 		const source = consumptionDetail(input, "analyticsHour", period);
 		return {
 			map: ({ hourly }) => Result.succeed(hourly.items),
@@ -336,7 +332,7 @@ export const mediaAnalyticsHoursRecipe = defineRecipe(
 					),
 					groupBy: {
 						hour: selectedField(
-							localHour(attributedAt(source.event), { timeZone: input.timeZone }),
+							localHour(attributedAt(source.event), { timeZone: input.reporting.timeZone }),
 							Schema.Finite,
 						),
 					},
@@ -346,12 +342,9 @@ export const mediaAnalyticsHoursRecipe = defineRecipe(
 	},
 );
 
-const total = (expr: Parameters<typeof coalesce>[0]) =>
-	selectedMeasure({ function: "sum", expr: coalesce(expr, literal(0)) }, Schema.Finite);
-
 export const mediaAnalyticsRankingRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & { readonly after?: string; readonly mediaType?: string }) => {
-		const period = resolveReportingSelection(input.selection, input).current;
+		const period = input.reporting.current;
 		const source = consumptionDetail(input, "analyticsRank", period);
 		const type = mediaTypeJoin(source.entity, "analyticsRankType", input.reference);
 		return {
@@ -362,19 +355,13 @@ export const mediaAnalyticsRankingRecipe = defineRecipe(
 					after: input.after,
 					joins: [...source.joins, type.join],
 					where: filtered(source, input.mediaType),
+					measures: completionMeasures(source.event),
 					orderBy: [measureDescending("activeObservations"), groupAscending("entityId")],
 					groupBy: {
 						label: type.label,
 						mediaType: type.slug,
 						name: selectedField(column(source.entity, "name"), Schema.String),
 						entityId: selectedField(column(source.event, "entityId"), Schema.String),
-					},
-					measures: {
-						titleCompletions: total(consumptionNumber(source.event, "titleCompletions")),
-						episodeCompletions: total(consumptionNumber(source.event, "episodeCompletions")),
-						activeObservations: total(
-							conditional(flag(source.event, "activeObservation"), literal(1), literal(0)),
-						),
 					},
 				}),
 			},
@@ -401,7 +388,7 @@ export const MediaConsumptionFacts = Schema.Struct({
 
 export const mediaAnalyticsRecordsRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & MediaAnalyticsFilter & { readonly after?: string }) => {
-		const period = resolveReportingSelection(input.selection, input).current;
+		const period = input.reporting.current;
 		const source = consumptionDetail(input, "analyticsRecord", period);
 		const type = mediaTypeJoin(source.entity, "analyticsRecordType", input.reference);
 		const event = source.event;
@@ -426,7 +413,7 @@ export const mediaAnalyticsRecordsRecipe = defineRecipe(
 							: [
 									eq(attributionKind(event), literal("instant")),
 									eq(
-										localHour(attributedAt(event), { timeZone: input.timeZone }),
+										localHour(attributedAt(event), { timeZone: input.reporting.timeZone }),
 										literal(input.hour),
 									),
 								]),

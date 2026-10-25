@@ -105,7 +105,7 @@ type ActivityRows = {
 
 const activityRows = (items: readonly Record<string, unknown>[], hasMore: boolean) =>
 	rowsResult(
-		items.map((item) => ({ consumptionFailedCount: 0, consumptionPendingCount: 0, ...item })),
+		items.map((item) => ({ consumptionProcessing: "ready", ...item })),
 		{ hasMore, limit: 60, nextCursor: hasMore ? "activity-cursor" : null },
 	);
 

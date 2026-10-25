@@ -44,13 +44,6 @@ export const consumptionEventSlugs = [
 	"on_hold",
 ] as const;
 
-export const consumptionProcessingState = (pending: number, failed: number) => {
-	if (failed > 0) {
-		return "failed" as const;
-	}
-	return pending > 0 ? ("pending" as const) : ("ready" as const);
-};
-
 export const ConsumptionPosition = Schema.Struct({
 	id: Schema.String,
 	group: Schema.String,

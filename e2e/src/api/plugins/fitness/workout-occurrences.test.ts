@@ -1,3 +1,4 @@
+import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { historicalFitnessRankingRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import {
@@ -84,11 +85,12 @@ const readRankings = (
 		const { items } = yield* executeRyotQLRecipe(
 			client,
 			historicalFitnessRankingRecipe({
-				now,
 				kind,
 				reference,
-				timeZone: TimeZone.make("UTC"),
-				selection: { grouping: "auto", comparison: "none", range: { kind: "all-time" } },
+				reporting: resolveReportingSelection(
+					{ grouping: "auto", comparison: "none", range: { kind: "all-time" } },
+					{ now, timeZone: TimeZone.make("UTC") },
+				),
 			}),
 		);
 		return items;

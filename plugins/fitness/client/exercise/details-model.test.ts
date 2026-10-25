@@ -22,11 +22,9 @@ const month = (iso: string, maxWeight: null | number) => ({
 	volume: null,
 	maxReps: null,
 	maxPace: null,
-	failedSets: 0,
 	maxOneRm: null,
 	duration: null,
 	distance: null,
-	pendingSets: 0,
 	maxDuration: null,
 });
 

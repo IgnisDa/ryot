@@ -1,3 +1,8 @@
+import {
+	type ReportingSelection,
+	resolveReportingSelection,
+} from "@ryot-app/contract/modules/analytics/reporting";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaAnalyticsSummaryRecipe } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import type { Recipe } from "@ryot-app/ryotql";
 import { Effect, Schema } from "effect";
@@ -7,13 +12,23 @@ import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { requirePresent } from "~/support/assertions";
 
-export type MediaConsumptionReportInput = Parameters<typeof mediaAnalyticsSummaryRecipe>[0];
+export type MediaConsumptionReportInput = Omit<
+	Parameters<typeof mediaAnalyticsSummaryRecipe>[0],
+	"reporting"
+> & { readonly now: number; readonly timeZone: TimeZone; readonly selection: ReportingSelection };
+
+export const mediaAnalyticsInput = <Input extends MediaConsumptionReportInput>({
+	now,
+	timeZone,
+	selection,
+	...input
+}: Input) => ({ ...input, reporting: resolveReportingSelection(selection, { now, timeZone }) });
 type MediaConsumptionReport = Recipe.Success<typeof mediaAnalyticsSummaryRecipe>;
 
 export const waitForMediaConsumptionReport = (client: Client, input: MediaConsumptionReportInput) =>
 	pollUntil(
 		"canonical media consumption report ready",
-		executeRyotQLRecipe(client, mediaAnalyticsSummaryRecipe(input)).pipe(
+		executeRyotQLRecipe(client, mediaAnalyticsSummaryRecipe(mediaAnalyticsInput(input))).pipe(
 			Effect.map((report) => (report.processing === "ready" ? report : null)),
 		),
 	);

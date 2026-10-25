@@ -4,7 +4,6 @@ import clsx from "clsx";
 import { useState } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
-import { projectionsReady } from "../../shared/fitness-metrics";
 import type { PersonalBest } from "../../shared/workout-records";
 import { setLots } from "../set-lots";
 import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
@@ -311,7 +310,7 @@ export function HistorySection(props: {
 			<div className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}>
 				<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
 				<ComputedResults>
-					{projectionsReady(totals) ? <PersonalBests rows={details.personalBests} /> : null}
+					{details.processing === "ready" ? <PersonalBests rows={details.personalBests} /> : null}
 				</ComputedResults>
 			</div>
 			{exercise.kind === "reps_and_weight" ? (
@@ -343,7 +342,7 @@ function SessionSet(props: { readonly set: Session["sets"]["items"][number] }) {
 }
 
 function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
-	const rows = bestWeightByReps(props.details.totals);
+	const rows = bestWeightByReps(props.details.totals, props.details.processing);
 	if (rows.length === 0) {
 		return null;
 	}

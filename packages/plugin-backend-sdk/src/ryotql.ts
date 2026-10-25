@@ -20,6 +20,12 @@ export {
 	eventOrderAscending,
 	eventOrderDescending,
 } from "@ryot-app/ryotql-recipes/event-expressions";
+export {
+	ProjectionProcessing,
+	projectionProcessing,
+	projectionStatusMeasures,
+	projectionProcessingState,
+} from "@ryot-app/ryotql-recipes/projection-status";
 
 export class RyotqlRecipeDecodeError extends Schema.TaggedError<
 	RyotqlRecipeDecodeError,

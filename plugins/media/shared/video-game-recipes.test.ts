@@ -11,8 +11,8 @@ import {
 	isNotNull,
 	jsonPath,
 	literal,
-	not,
 	type PreparedRecipe,
+	projectionProcessing,
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -125,11 +125,8 @@ describe("media video game query recipes", () => {
 				),
 			}),
 		);
-		expect(fieldExpr(TOTALS, "totals", "consumptionPendingCount")).toEqual(
-			count(event, { where: and(scope, not(readyProjection)) }),
-		);
-		expect(fieldExpr(TOTALS, "totals", "consumptionFailedCount")).toEqual(
-			count(event, { where: and(scope, eq(column(event, "projectionStatus"), literal("failed"))) }),
+		expect(fieldExpr(TOTALS, "totals", "consumptionProcessing")).toEqual(
+			projectionProcessing(event, scope),
 		);
 	});
 

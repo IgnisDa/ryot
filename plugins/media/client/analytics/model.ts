@@ -23,7 +23,6 @@ import type {
 import type { ConsumptionMeasureUnit } from "../../shared/consumption-allocation";
 
 export type SummaryChartsProps = RankingsRecordsProps;
-export type AnalyticsInput = Omit<MediaAnalyticsInput, "now">;
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
 export type MediaAnalyticsProcessing = MediaAnalyticsSummary["processing"];
 export type MediaAnalyticsTrend = Recipe.Success<typeof mediaAnalyticsTrendRecipe>;
@@ -33,6 +32,10 @@ export type MediaAnalyticsRecords = Recipe.Success<typeof mediaAnalyticsRecordsR
 export type MediaAnalyticsSummary = Recipe.Success<typeof mediaAnalyticsSummaryRecipe>;
 export type MediaAnalyticsMetric =
 	"titleCompletions" | "episodeCompletions" | "activeObservations" | ConsumptionMeasureUnit;
+export type AnalyticsInput = Omit<MediaAnalyticsInput, "reporting"> & {
+	readonly timeZone: TimeZone;
+	readonly selection: ReportingSelection;
+};
 export type RankingsRecordsProps = {
 	readonly input: AnalyticsInput;
 	readonly summary: Reported<MediaAnalyticsSummary>;

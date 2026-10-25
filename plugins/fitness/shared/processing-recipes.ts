@@ -1,61 +1,16 @@
-import { Result, Schema } from "@ryot-app/plugin-kit/effect";
-import {
-	and,
-	column,
-	conditional,
-	defineRecipe,
-	eq,
-	literal,
-	type Recipe,
-	schemaOwnerPredicate,
-	selectedAggregate,
-	selectedMeasure,
-	table,
-} from "@ryot-app/plugin-kit/ryotql";
+import { Result } from "@ryot-app/plugin-kit/effect";
+import { defineRecipe, projectionProcessingState } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+
+import { workoutSetProcessing } from "./fitness-metrics";
 
 export const workoutProcessingRecipe = defineRecipe(
 	(input: {
 		readonly workoutId?: string | undefined;
 		readonly exerciseId?: string | undefined;
 		readonly reference: PluginIdentityReference;
-	}) => {
-		const set = table("event", "processingSet");
-		const countStatus = (status: "failed" | "pending") =>
-			selectedMeasure(
-				{
-					function: "sum",
-					expr: conditional(
-						eq(column(set, "projectionStatus"), literal(status)),
-						literal(1),
-						literal(0),
-					),
-				},
-				Schema.NullOr(Schema.Finite),
-			);
-		return {
-			map: ({ processing }) =>
-				Result.succeed({
-					failed: (processing.failed ?? 0) > 0,
-					pending: (processing.pending ?? 0) > 0,
-				}),
-			queries: {
-				processing: selectedAggregate(set, {
-					measures: { failed: countStatus("failed"), pending: countStatus("pending") },
-					where: and(
-						schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
-						eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-						...(input.exerciseId === undefined
-							? []
-							: [eq(column(set, "entityId"), literal(input.exerciseId))]),
-						...(input.workoutId === undefined
-							? []
-							: [eq(column(set, "sessionEntityId"), literal(input.workoutId))]),
-					),
-				}),
-			},
-		};
-	},
+	}) => ({
+		queries: { processing: workoutSetProcessing(input.reference, input) },
+		map: ({ processing }) => Result.succeed(projectionProcessingState(processing)),
+	}),
 );
-
-export type WorkoutProcessingStatus = Recipe.Success<typeof workoutProcessingRecipe>;

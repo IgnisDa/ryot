@@ -31,14 +31,13 @@ const trend = (overrides: Partial<AnalyticsTrend> = {}): AnalyticsTrend => ({
 	points: [],
 	grouping: "day",
 	metric: "workouts",
+	processing: "ready",
 	period: customPeriod("2024-02-28", "2024-03-02"),
 	...overrides,
 });
 const point = (at: string, value: null | number): AnalyticsTrend["points"][number] => ({
 	at,
 	value,
-	failedSets: 0,
-	pendingSets: 0,
 	observations: 1,
 	knownValues: value === null ? 0 : 1,
 });

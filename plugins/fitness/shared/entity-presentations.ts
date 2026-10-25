@@ -10,6 +10,7 @@ import {
 	jsonPath,
 	latestEventField,
 	literal,
+	NullableNumber,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedRowsSource,
@@ -53,7 +54,6 @@ const entityIdsWhere = (entity: Table, slug: string, entityIds: readonly string[
 	);
 
 const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
-const nullableNumber = Schema.NullOr(Schema.Finite);
 
 const latestMetricReading = (
 	metric: Table,
@@ -109,7 +109,7 @@ export const fitnessPresentationSource = (slug: string) => {
 				isMetric
 					? latestMetricReading(entity, (reading) => propertyNumber(reading, "value"))
 					: literal(null),
-				nullableNumber,
+				NullableNumber,
 			),
 			presentationLatestAt: selectedField(
 				isMetric

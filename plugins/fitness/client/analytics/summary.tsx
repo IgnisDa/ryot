@@ -8,6 +8,7 @@ import { analyticsSummaryQuery } from "./queries";
 import {
 	type AnalyticsDisplayPreferences,
 	type AnalyticsScope,
+	type AnalyticsTotals,
 	metricDisplay,
 } from "./reporting-model";
 
@@ -52,10 +53,14 @@ const changeDetail = (
 	return `${periods} · ${delta}${percent}`;
 };
 
-const coverageDetail = (pending: number, failed: number) =>
-	pending + failed === 0
-		? null
-		: `Derived values unavailable · ${pending} pending sets · ${failed} failed sets`;
+const coverageDetail = (processing: AnalyticsTotals["processing"]) => {
+	if (processing === "ready") {
+		return null;
+	}
+	return processing === "failed"
+		? "Derived values unavailable · processing failed"
+		: "Derived values unavailable · still processing";
+};
 
 export function AnalyticsSummary({
 	scope,
@@ -93,7 +98,7 @@ export function AnalyticsSummary({
 		summary.reporting.resolved.previous === null
 			? null
 			: periodCaption(summary.reporting.resolved.previous);
-	const coverage = coverageDetail(current.pendingSets, current.failedSets);
+	const coverage = coverageDetail(current.processing);
 	const metricStat = (
 		metric: MetricKey,
 		value: null | number,

@@ -160,14 +160,20 @@ shim remains environment-neutral and does not export `Effect`.
 `@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
-The `ryotql` shim exports query builders, `IsoDateString`, event expressions, and `withinPeriod`
-(a half-open reporting-period predicate that is empty for all time), not application recipes.
+The `ryotql` shim exports query builders, `IsoDateString`, event expressions, `withinPeriod`
+(a half-open reporting-period predicate that is empty for all time), and the projection-status
+helpers, not application recipes. Measure helpers `countAll`, `sumOf`, `countIf` and the
+`NullableNumber` codec cover the common aggregate measures. `projectionStatusMeasures` and
+`projectionProcessingState` derive one `ProjectionProcessing` (`"ready" | "pending" | "failed"`)
+from an aggregate over `event` or `eventStream` rows; `projectionProcessing` computes the same value
+as a correlated expression for row selections. Read status from `eventStream` rows when a stream key
+covers the scope, since one stream row stands for all of its events.
 `defineRecipe` omits a query whose value is `undefined` from the document and maps it as `undefined`;
 use that for disabled comparisons instead of always-false predicates. The `effect` shim exports `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`, not
 `Effect`. The `schema` shim supplies shared schemas/brands, `roundHalfUp`, and `jsonValueEquals`; `compression` supplies
 `deflateSync`/`inflateSync`. Backend compilation reuses runtime modules to avoid duplicate bundles.
-Shared reporting recipes import the neutral helpers from `@ryot-app/plugin-kit/schema` and resolve
-selections with the supplied clock during execution. Compiled client code can use the reporting
+Shared reporting recipes import the neutral helpers from `@ryot-app/plugin-kit/schema` and take the
+`ResolvedReportingSelection` that the client query resolved with the supplied clock during execution. Compiled client code can use the reporting
 exports from `@ryot-app/plugin-client-sdk/plugin`.
 
 Only sources reachable from a declared client or sandbox entry are checked. A plugin with no client

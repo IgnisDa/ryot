@@ -5,6 +5,8 @@ import {
 	coalesce,
 	column,
 	conditional,
+	countAll,
+	countIf,
 	defineRecipe,
 	eq,
 	groupAscending,
@@ -16,7 +18,7 @@ import {
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
-	selectedMeasure,
+	sumOf,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -67,9 +69,6 @@ const mediaTypeOf = (entity: Table) =>
 			),
 		column(entity, "entitySchemaSlug"),
 	);
-
-const sumOf = (expr: Parameters<typeof coalesce>[0]) =>
-	selectedMeasure({ expr, function: "sum" }, Schema.NullOr(Schema.Finite));
 
 const active = (event: Table) =>
 	eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true));
@@ -129,15 +128,15 @@ export const mediaActivityRecipe = defineRecipe(
 			queries: {
 				reviews: selectedAggregate(reviews.event, {
 					joins: reviews.joins,
-					measures: { reviews: selectedMeasure({ function: "count" }, Schema.Finite) },
+					measures: { reviews: countAll },
 					where: and(reviews.where, withinPeriod(column(reviews.event, "occurredAt"), period)),
 				}),
 				days: selectedAggregate(days.event, {
 					limit: DAY_LIMIT,
 					joins: days.joins,
+					measures: { events: countAll },
 					orderBy: [groupAscending("day")],
 					where: and(days.where, active(days.event)),
-					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
 					groupBy: {
 						day: selectedField(consumptionActiveDay(days.event, input.timeZone), Schema.String),
 					},
@@ -150,23 +149,16 @@ export const mediaActivityRecipe = defineRecipe(
 						finished: sumOf(
 							coalesce(consumptionNumber(figures.event, "titleCompletions"), literal(0)),
 						),
-						minutesMissing: sumOf(
-							conditional(
-								eq(
-									castBoolean(consumptionValue(figures.event, "minutes", "missing")),
-									literal(true),
-								),
-								literal(1),
-								literal(0),
-							),
+						minutesMissing: countIf(
+							eq(castBoolean(consumptionValue(figures.event, "minutes", "missing")), literal(true)),
 						),
 					},
 				}),
 				mediaTypes: selectedAggregate(types.event, {
+					measures: { events: countAll },
 					limit: builtinMediaEntitySchemaSlugs.length,
 					where: and(types.where, active(types.event)),
 					orderBy: [measureDescending("events"), groupAscending("slug")],
-					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
 					groupBy: {
 						label: selectedField(column(typeSchema, "name"), Schema.String),
 						slug: selectedField(

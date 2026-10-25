@@ -23,6 +23,7 @@ import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
+	mediaAnalyticsInput,
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
@@ -124,7 +125,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 			]);
 			const bookSummary = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsSummaryRecipe({ ...input, entityId: entities.book.id }),
+				mediaAnalyticsSummaryRecipe(mediaAnalyticsInput({ ...input, entityId: entities.book.id })),
 			);
 			expect(bookSummary.current.reviews).toMatchObject([
 				{ rated: 1, reviews: 1, averageRating: 0 },
@@ -159,11 +160,14 @@ describe("Media analytics supplemental SQL recipes", () => {
 			);
 			const isolated = yield* executeRyotQLRecipe(
 				other.client,
-				mediaAnalyticsSummaryRecipe({ ...input, entityId: entities.book.id }),
+				mediaAnalyticsSummaryRecipe(mediaAnalyticsInput({ ...input, entityId: entities.book.id })),
 			);
 			expect(isolated.current).toEqual({ types: [], reviews: [], activeDays: 0 });
 			expect(
-				(yield* executeRyotQLRecipe(other.client, mediaAnalyticsRecordsRecipe(input))).items,
+				(yield* executeRyotQLRecipe(
+					other.client,
+					mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(input)),
+				)).items,
 			).toEqual([]);
 		}),
 	);
@@ -173,7 +177,10 @@ describe("Media analytics supplemental SQL recipes", () => {
 			const fixture = yield* createMediaAnalyticsFixture();
 			const { client } = fixture.account;
 			const input = analyticsInput(fixture);
-			const trend = yield* executeRyotQLRecipe(client, mediaAnalyticsTrendRecipe(input));
+			const trend = yield* executeRyotQLRecipe(
+				client,
+				mediaAnalyticsTrendRecipe(mediaAnalyticsInput(input)),
+			);
 			expect(
 				trend.current.items.map(({ at, activeObservations }) => ({
 					day: at,
@@ -192,10 +199,13 @@ describe("Media analytics supplemental SQL recipes", () => {
 			expect(trend.previous?.items).toEqual([]);
 			const bookTrend = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" }),
+				mediaAnalyticsTrendRecipe(mediaAnalyticsInput({ ...input, mediaType: "book" })),
 			);
 			expect(bookTrend.current.items.map(({ at }) => at)).toEqual(["2026-09-02", "2026-09-04"]);
-			const hours = yield* executeRyotQLRecipe(client, mediaAnalyticsHoursRecipe(input));
+			const hours = yield* executeRyotQLRecipe(
+				client,
+				mediaAnalyticsHoursRecipe(mediaAnalyticsInput(input)),
+			);
 			expect(hours).toMatchObject([
 				{
 					hour: 18,
@@ -217,14 +227,17 @@ describe("Media analytics supplemental SQL recipes", () => {
 			const { account, entities, sourceEventIds } = fixture;
 			const { client } = account;
 			const input = analyticsInput(fixture);
-			const ranking = yield* executeRyotQLRecipe(client, mediaAnalyticsRankingRecipe(input));
+			const ranking = yield* executeRyotQLRecipe(
+				client,
+				mediaAnalyticsRankingRecipe(mediaAnalyticsInput(input)),
+			);
 			const tied = [entities.book.id, entities.movie.id].sort();
 			expect(ranking.items.map(({ entityId }) => entityId)).toEqual([...tied, entities.anime.id]);
 			expect(ranking.items.map(({ activeObservations }) => activeObservations)).toEqual([2, 2, 1]);
 			expect(ranking.pageInfo).toEqual({ limit: 100, hasMore: false, nextCursor: null });
 			const movieRanking = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRankingRecipe({ ...input, mediaType: "movie" }),
+				mediaAnalyticsRankingRecipe(mediaAnalyticsInput({ ...input, mediaType: "movie" })),
 			);
 			expect(movieRanking.items).toMatchObject([
 				{ titleCompletions: 2, activeObservations: 2, entityId: entities.movie.id },
@@ -291,13 +304,16 @@ describe("Media analytics supplemental SQL recipes", () => {
 				mediaType: "anime",
 				entityId: entities.anime.id,
 			};
-			const first = yield* executeRyotQLRecipe(client, mediaAnalyticsRecordsRecipe(recordInput));
+			const first = yield* executeRyotQLRecipe(
+				client,
+				mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(recordInput)),
+			);
 			expect(first.items).toHaveLength(100);
 			expect(first.pageInfo.hasMore).toBe(true);
 			const after = requirePresent(first.pageInfo.nextCursor, "Expected a real records cursor");
 			const second = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRecordsRecipe({ ...recordInput, after }),
+				mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...recordInput, after })),
 			);
 			expect(second.items).toHaveLength(2);
 			expect(second.pageInfo).toEqual({ limit: 100, hasMore: false, nextCursor: null });
@@ -324,12 +340,14 @@ describe("Media analytics supplemental SQL recipes", () => {
 			}
 			const movieRecords = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRecordsRecipe({
-					...input,
-					hour: 18,
-					mediaType: "movie",
-					entityId: entities.movie.id,
-				}),
+				mediaAnalyticsRecordsRecipe(
+					mediaAnalyticsInput({
+						...input,
+						hour: 18,
+						mediaType: "movie",
+						entityId: entities.movie.id,
+					}),
+				),
 			);
 			expect(movieRecords.items.map(({ id }) => id)).toEqual([
 				sourceEventIds[3],
@@ -338,7 +356,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 			expect(movieRecords.pageInfo.hasMore).toBe(false);
 			const wrongHour = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRecordsRecipe({ ...recordInput, hour: 18 }),
+				mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...recordInput, hour: 18 })),
 			);
 			expect(wrongHour.items).toEqual([]);
 		}),
@@ -415,7 +433,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 			];
 			const firstPage = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRankingRecipe({ ...input, mediaType: "book" }),
+				mediaAnalyticsRankingRecipe(mediaAnalyticsInput({ ...input, mediaType: "book" })),
 			);
 			expect(firstPage.items).toHaveLength(100);
 			expect(firstPage.items.map(({ entityId }) => entityId)).toEqual(
@@ -429,7 +447,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 			const after = requirePresent(firstPage.pageInfo.nextCursor, "Expected the ranking cursor");
 			const secondPage = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsRankingRecipe({ ...input, after, mediaType: "book" }),
+				mediaAnalyticsRankingRecipe(mediaAnalyticsInput({ ...input, after, mediaType: "book" })),
 			);
 			expect(secondPage.items).toHaveLength(2);
 			expect(secondPage.items.map(({ entityId }) => entityId)).toEqual(

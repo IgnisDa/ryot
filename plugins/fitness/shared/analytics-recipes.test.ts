@@ -1,6 +1,6 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -13,21 +13,23 @@ import {
 
 const recipe = fitnessAnalyticsTotalsRecipe({
 	reference: { kind: "self" },
-	timeZone: TimeZone.make("UTC"),
-	now: Date.parse("2026-10-01T00:00:00.000Z"),
-	selection: {
-		grouping: "auto",
-		comparison: "none",
-		range: { kind: "custom", endDate: "2026-12-31", startDate: "2026-01-01" },
-	},
+	reporting: resolveReportingSelection(
+		{
+			grouping: "auto",
+			comparison: "none",
+			range: { kind: "custom", endDate: "2026-12-31", startDate: "2026-01-01" },
+		},
+		{ timeZone: TimeZone.make("UTC"), now: Date.parse("2026-10-01T00:00:00.000Z") },
+	),
 });
 const aggregate = (item: Record<string, unknown>) => ({ items: [item], type: "aggregate" });
-const decode = (pendingSets: number, failedSets = 0) =>
+const decode = (pending: number, failed = 0) =>
 	Result.getOrThrow(
 		recipe.decode({
 			data: {
 				entries: aggregate({ entries: 2 }),
 				readings: aggregate({ readings: 5 }),
+				processing: aggregate({ failed, pending }),
 				workouts: aggregate({
 					workouts: 3,
 					calories: 0,
@@ -38,9 +40,7 @@ const decode = (pendingSets: number, failedSets = 0) =>
 				}),
 				sets: aggregate({
 					sets: 4,
-					failedSets,
 					volume: 200,
-					pendingSets,
 					distance: null,
 					repetitions: 40,
 					plannedRest: 120,
@@ -60,9 +60,10 @@ describe("fitness rankings", () => {
 				kind,
 				after: "opaque",
 				reference: { kind: "self" },
-				timeZone: TimeZone.make("UTC"),
-				now: Date.parse("2026-10-01T00:00:00.000Z"),
-				selection: { grouping: "auto", comparison: "none", range: { days: 30, kind: "rolling" } },
+				reporting: resolveReportingSelection(
+					{ grouping: "auto", comparison: "none", range: { days: 30, kind: "rolling" } },
+					{ timeZone: TimeZone.make("UTC"), now: Date.parse("2026-10-01T00:00:00.000Z") },
+				),
 			});
 			const query = ranking.document.queries["ranking"];
 			expect(
@@ -124,7 +125,11 @@ describe("fitness analytics totals", () => {
 		expect([totals.measurementEntries, totals.measurementReadings]).toEqual([2, 5]);
 	});
 	it("does not report incomplete projection work as zero or a complete subtotal", () => {
-		for (const totals of [decode(1), decode(0, 1)]) {
+		for (const [totals, processing] of [
+			[decode(1), "pending"],
+			[decode(0, 1), "failed"],
+		] as const) {
+			expect(totals.processing).toBe(processing);
 			expect(totals.personalBests).toBeNull();
 			expect(totals.personalBestSets).toBeNull();
 			expect(totals.volume).toBeNull();
@@ -135,38 +140,32 @@ describe("fitness analytics totals", () => {
 
 const input = {
 	reference: { kind: "self" },
-	timeZone: TimeZone.make("America/New_York"),
-	now: Date.parse("2026-11-01T18:00:00.000Z"),
-	selection: {
-		grouping: "day",
-		comparison: "previous-period",
-		range: { days: 7, kind: "rolling" },
-	},
+	reporting: resolveReportingSelection(
+		{ grouping: "day", comparison: "previous-period", range: { days: 7, kind: "rolling" } },
+		{ timeZone: TimeZone.make("America/New_York"), now: Date.parse("2026-11-01T18:00:00.000Z") },
+	),
 } as const;
 
 describe("fitness analytics trends", () => {
-	it("hides partial derived buckets and preserves entered measurements", () => {
+	it("hides derived buckets while processing and preserves entered measurements", () => {
 		for (const metric of ["volume", "repetitions"] as const) {
+			const trend = fitnessAnalyticsTrendRecipe({ ...input, metric });
+			expect("processing" in trend.document.queries).toBe(metric === "volume");
 			const result = Result.getOrThrow(
-				fitnessAnalyticsTrendRecipe({ ...input, metric }).decode({
+				trend.decode({
 					data: {
+						...(metric === "volume" ? { processing: aggregate({ failed: 0, pending: 1 }) } : {}),
 						setTrend: {
 							type: "aggregate",
 							pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 							items: [
-								{
-									value: 500,
-									failedSets: 0,
-									knownValues: 1,
-									pendingSets: 1,
-									observations: 2,
-									at: "2026-11-01T04:00:00.000Z",
-								},
+								{ value: 500, knownValues: 1, observations: 2, at: "2026-11-01T04:00:00.000Z" },
 							],
 						},
 					},
 				}),
 			);
+			expect(result.processing).toBe(metric === "volume" ? "pending" : "ready");
 			expect(result.points[0]?.value).toBe(metric === "volume" ? null : 500);
 			expect(result.period).toMatchObject({
 				endAt: "2026-11-02T05:00:00.000Z",

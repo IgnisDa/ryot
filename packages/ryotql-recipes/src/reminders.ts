@@ -9,6 +9,7 @@ import {
 	and,
 	ascending,
 	column,
+	countAll,
 	defineRecipe,
 	eq,
 	inArray,
@@ -18,7 +19,6 @@ import {
 	type Recipe,
 	selectedAggregate,
 	selectedField,
-	selectedMeasure,
 	selectedOptionalRow,
 	selectedRows,
 	table,
@@ -112,8 +112,8 @@ export const reminderReadinessRecipe = defineRecipe(() => {
 			}),
 		queries: {
 			channels: selectedAggregate(channel, {
+				measures: { count: countAll },
 				where: eq(column(channel, "isDisabled"), literal(false)),
-				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 			}),
 			subscriptions: selectedOptionalRow(subscription, {
 				orderBy: [ascending(column(subscription, "id"))],

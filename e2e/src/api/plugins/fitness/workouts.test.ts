@@ -355,11 +355,11 @@ describe("Workouts E2E", () => {
 					workoutCardsRecipe({ reference, search: "" }),
 				);
 				assertCondition(
-					cards.items.every(({ failedSets }) => (failedSets ?? 0) === 0),
+					cards.items.every(({ processing }) => processing !== "failed"),
 					"Workout record processing failed",
 				);
 				return cards.items.length === 4 &&
-					cards.items.every(({ pendingSets }) => (pendingSets ?? 0) === 0)
+					cards.items.every(({ processing }) => processing === "ready")
 					? cards
 					: null;
 			});

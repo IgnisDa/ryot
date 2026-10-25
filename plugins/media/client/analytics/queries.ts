@@ -32,15 +32,21 @@ export type ChartInput = AnalyticsInput & {
 	readonly processing: MediaAnalyticsProcessing;
 };
 
+const execution = (input: AnalyticsInput, now: number) =>
+	reportingExecution(input.selection, { now, timeZone: input.timeZone });
+const pagedExecution = (input: AnalyticsPageInput<AnalyticsInput>, now: number) =>
+	reportingExecution(input.page?.selection ?? input.selection, { now, timeZone: input.timeZone });
+
 export const mediaAnalyticsSummaryQuery = createRyotQuery<
 	AnalyticsInput,
 	Reported<MediaAnalyticsSummary>
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const summary = yield* client.data.query(mediaAnalyticsSummaryRecipe({ ...input, now }));
+			const reporting = execution(input, schedule.now());
+			const summary = yield* client.data.query(
+				mediaAnalyticsSummaryRecipe({ ...input, reporting: reporting.resolved }),
+			);
 			return { ...summary, reporting };
 		}),
 	{ cancelOnUnmount: true, refreshWhile: ({ data }) => data.processing === "pending" },
@@ -49,9 +55,10 @@ export const mediaAnalyticsSummaryQuery = createRyotQuery<
 export const mediaAnalyticsTrendQuery = createRyotQuery<ChartInput, Reported<MediaAnalyticsTrend>>(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const trend = yield* client.data.query(mediaAnalyticsTrendRecipe({ ...input, now }));
+			const reporting = execution(input, schedule.now());
+			const trend = yield* client.data.query(
+				mediaAnalyticsTrendRecipe({ ...input, reporting: reporting.resolved }),
+			);
 			return { ...trend, reporting };
 		}),
 	{ cancelOnUnmount: true },
@@ -67,7 +74,7 @@ export const mediaAnalyticsConsistencyQuery = createRyotQuery<
 			const { clipped, selection } = consistencySelection(input, now);
 			const reporting = reportingExecution(selection, { now, timeZone: input.timeZone });
 			const trend = yield* client.data.query(
-				mediaAnalyticsTrendRecipe({ ...input, now, selection }),
+				mediaAnalyticsTrendRecipe({ ...input, reporting: reporting.resolved }),
 			);
 			return { ...trend, clipped, reporting };
 		}),
@@ -80,16 +87,17 @@ export const mediaAnalyticsHoursQuery = createRyotQuery<
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const hours = yield* client.data.query(mediaAnalyticsHoursRecipe({ ...input, now }));
+			const reporting = execution(input, schedule.now());
+			const hours = yield* client.data.query(
+				mediaAnalyticsHoursRecipe({ ...input, reporting: reporting.resolved }),
+			);
 			return { hours, reporting };
 		}),
 	{ cancelOnUnmount: true },
 );
 
 export type AnalyticsRankingInput = AnalyticsPageInput<
-	ChartInput & Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "now" | "after">
+	ChartInput & Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "after" | "reporting">
 >;
 export const mediaAnalyticsRankingQuery = createRyotQuery<
 	AnalyticsRankingInput,
@@ -97,16 +105,11 @@ export const mediaAnalyticsRankingQuery = createRyotQuery<
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.page?.selection ?? input.selection, {
-				now,
-				timeZone: input.timeZone,
-			});
+			const reporting = pagedExecution(input, schedule.now());
 			const ranking = yield* client.data.query(
 				mediaAnalyticsRankingRecipe({
 					...input,
-					now: reporting.now,
-					selection: reporting.selection,
+					reporting: reporting.resolved,
 					...(input.page == null ? {} : { after: input.page.after }),
 				}),
 			);
@@ -116,7 +119,7 @@ export const mediaAnalyticsRankingQuery = createRyotQuery<
 );
 
 export type AnalyticsRecordsInput = AnalyticsPageInput<
-	ChartInput & Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "now" | "after">
+	ChartInput & Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "after" | "reporting">
 >;
 export const mediaAnalyticsRecordsQuery = createRyotQuery<
 	AnalyticsRecordsInput,
@@ -124,16 +127,11 @@ export const mediaAnalyticsRecordsQuery = createRyotQuery<
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = reportingExecution(input.page?.selection ?? input.selection, {
-				now,
-				timeZone: input.timeZone,
-			});
+			const reporting = pagedExecution(input, schedule.now());
 			const records = yield* client.data.query(
 				mediaAnalyticsRecordsRecipe({
 					...input,
-					now: reporting.now,
-					selection: reporting.selection,
+					reporting: reporting.resolved,
 					...(input.page == null ? {} : { after: input.page.after }),
 				}),
 			);

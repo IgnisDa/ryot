@@ -46,11 +46,6 @@ const workoutPoint = (at: string, value: null | number) => ({
 	observations: 1,
 	knownValues: value === null ? 0 : 1,
 });
-const setPoint = (at: string, value: null | number) => ({
-	...workoutPoint(at, value),
-	failedSets: 0,
-	pendingSets: 0,
-});
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const mountWorkouts = (
@@ -187,7 +182,12 @@ describe("Fitness analytics workout charts", () => {
 					);
 					page.replyQuery(volumeRequest.requestId, {
 						outcome: "success",
-						response: trendResponse([setPoint("2026-03-01T00:00:00.000Z", null)], "setTrend"),
+						response: {
+							data: {
+								processing: aggregate([{ failed: 0, pending: 0 }]),
+								setTrend: aggregate([workoutPoint("2026-03-01T00:00:00.000Z", null)]),
+							},
+						},
 					});
 					yield* Effect.promise(() =>
 						waitFor(() =>

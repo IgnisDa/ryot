@@ -44,9 +44,9 @@ const rows = (items: RowsResult["items"]): RowsResult => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const aggregate = (items: AggregateResult["items"]): AggregateResult => ({
+	items,
 	type: "aggregate" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 
 const dayTotals = {
@@ -60,13 +60,12 @@ const dayTotals = {
 const latestWorkout = {
 	id: "w1",
 	setCount: 21,
-	failedSets: 0,
 	volume: 24600,
-	pendingSets: 0,
 	name: "Legs - 2",
 	exerciseCount: 7,
 	personalBests: 1,
 	template: rows([]),
+	processing: "ready",
 	activeDuration: 5220,
 	repeatedFromId: null,
 	endedAt: hoursAgo(46),
@@ -114,9 +113,6 @@ const respond = (
 	scenario: Scenario,
 ) => {
 	const names = Object.keys(queries);
-	if (names.includes("processing")) {
-		return { processing: aggregate([{ failed: 0, pending: 0 }]) };
-	}
 	if (names.includes("recentCount")) {
 		return {
 			recentCount: aggregate([{ count: 3 }]),
@@ -192,6 +188,9 @@ const respond = (
 		names.map((key): [string, RyotQLResult] => {
 			if (key.startsWith("average")) {
 				return [key, aggregate([{ value: 73.6, at: hoursAgo(24) }])];
+			}
+			if (key === "processing") {
+				return [key, aggregate([{ failed: 0, pending: 0 }])];
 			}
 			if (key === "latestRecord") {
 				return [key, rows([])];

@@ -73,29 +73,30 @@ occurrence periods and buckets read the occurrence `occurredAt`; workout counts,
 and drill-downs read the workout `startedAt` property. All-time totals omit range bounds. Coverage
 reports sets whose taxonomy came from a legacy export.
 
-Analytics recipe inputs are `{ reference, selection, now, timeZone }`; historical rankings add
-`kind` (`targets`, `equipment`, or `exercises`) and optional `after`. Reporting boundaries resolve
-from the supplied clock and the account reporting timezone at query execution. Home, workout
-summaries, and measurement ranges use the same resolver. Muscle totals key by entity ID, so
-equally named targets remain separate.
+Analytics recipe inputs are `{ reference, reporting }`, where `reporting` is the
+`ResolvedReportingSelection` the client query already computed; historical rankings add `kind`
+(`targets`, `equipment`, or `exercises`) and optional `after`. Reporting boundaries resolve from the
+supplied clock and the account reporting timezone at query execution. Home, workout summaries, and
+measurement ranges use the same resolver. Muscle totals key by entity ID, so equally named targets
+remain separate.
 
 ### Analytics query API
 
-`shared/analytics-recipes.ts` exports the production recipes below. Each accepts the stable
-`ReportingSelection`, reporting `timeZone`, plugin `reference`, and execution-time `now`.
-`client/analytics/queries.ts` resolves `schedule.now()` inside each query execution, so moving
-timestamps do not become query cache keys. Its inputs retain `reference`; a section passes its
+`shared/analytics-recipes.ts` exports the production recipes below. Each accepts the resolved
+reporting selection and plugin `reference`. `client/analytics/queries.ts` takes the stable
+`ReportingSelection` and reporting `timeZone` as inputs and resolves them against `schedule.now()`
+inside each query execution, so moving timestamps do not become query cache keys. Its inputs retain `reference`; a section passes its
 explicit `owner` as that reference, so ownership is part of the cache key.
 
-| Recipe                             | Additional input                   | Result                                                                                 | Named queries |
-| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- | ------------- |
-| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and taxonomy coverage      | 4             |
-| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations and known values; set metrics add projection coverage | 1             |
-| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                                  | 1             |
-| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                      | 1             |
-| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                        | 1             |
-| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                              | 1             |
-| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID                    | 1             |
+| Recipe                             | Additional input                   | Result                                                                            | Named queries |
+| ---------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- | ------------- |
+| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and processing state  | 5             |
+| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations and known values; derived metrics add processing | 1–2           |
+| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                             | 1             |
+| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                 | 1             |
+| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                   | 1             |
+| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                         | 1             |
+| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID               | 1             |
 
 `filter` is `{ kind: "exercises" | "targets" | "equipment", id }`. It filters sets and their
 workouts; measurement counts in the totals remain independent of workout filters. Trend metrics
@@ -105,15 +106,17 @@ planned rest and personal-best awards. Units come from `fitnessMetricDefinitions
 Workout trends and hours use workout starts even when imported set timestamps are fallback values.
 Measurement trends use reading times and keep metrics separate. Missing buckets remain absent;
 recorded zero remains zero. Trend and summary queries run the previous period as a second recipe
-execution over `selectionForPeriod`, inside the same client query, and skip it when the selection
+execution with the previous period as `current`, inside the same client query, and skip it when the selection
 has no previous period. Trend queries are capped at `REPORTING_BUCKET_LIMIT`. The client lays sparse
 buckets onto the shared `calendarBuckets` grid; `resolveReportingSelection` keeps every grouping
 within the shared bucket limit, and all-time groups by year. Paged results continue through
 `reportingPageParam`, which pins the first page's resolved period.
 
-Totals, workout cards and exercise aggregates read projection coverage with their values. Pending
-or failed coverage hides volume and personal-best results without hiding entered measurements.
-The separate processing poll supplies status text, but cannot make an incomplete aggregate ready.
+Processing state is one `"ready" | "pending" | "failed"` value from the shared RyotQL recipe helpers.
+Totals, trends, summaries and exercise details read it from the user's `workout-set` event streams
+(one row per exercise, narrowed to one exercise when filtered); workout cards and set rows read it
+from that workout's sets. Pending or failed processing hides volume and personal-best results
+without hiding entered measurements. The processing poll reads the same stream status.
 Set queries inner join each set's occurrence by user, plugin, session, exercise, order and recorded
 kind; the kernel's unique anchor positions keep that join one-to-one, and taxonomy filters reuse the
 joined occurrence.

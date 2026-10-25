@@ -6,7 +6,9 @@ import {
 	conditional,
 	contains,
 	count,
+	countAll,
 	countDistinct,
+	countIf,
 	dateBucket,
 	defineRecipe,
 	descending,
@@ -21,6 +23,10 @@ import {
 	jsonArrayExists,
 	literal,
 	lt,
+	NullableNumber,
+	ProjectionProcessing,
+	projectionProcessing,
+	projectionProcessingState,
 	type Recipe,
 	relationshipSchemaPredicate,
 	rows,
@@ -28,10 +34,10 @@ import {
 	selectedAggregate,
 	selectedField,
 	selectedInclude,
-	selectedMeasure,
 	type SelectedMeasureRow,
 	selectedRows,
 	sum,
+	sumOf,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -49,13 +55,7 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
-import {
-	personalBestAwardCount,
-	projectionCoverageMeasures,
-	projectionsReady,
-	projectionStatusCount,
-	workoutSetVolume,
-} from "./fitness-metrics";
+import { personalBestAwardCount, workoutSetProcessing, workoutSetVolume } from "./fitness-metrics";
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
@@ -68,7 +68,6 @@ type Range = Pick<ReportingPeriod, "endAt" | "startAt">;
 
 export const WORKOUT_LIST_PAGE_SIZE = 20;
 
-const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const templateSlug = "workout-to-workout-template";
 
@@ -86,9 +85,8 @@ export const workoutTotals = (workout: Table, setAlias: string) => {
 	const sets = workoutSets(set, workout);
 	return {
 		setCount: count(set, { where: sets }),
+		processing: projectionProcessing(set, sets),
 		personalBests: sum(set, personalBestAwardCount(set), { where: sets }),
-		failedSets: sum(set, projectionStatusCount(set, "failed"), { where: sets }),
-		pendingSets: sum(set, projectionStatusCount(set, "pending"), { where: sets }),
 		exerciseCount: countDistinct(set, propertyNumber(set, "exerciseOrder"), { where: sets }),
 	};
 };
@@ -128,19 +126,14 @@ const workoutWhere = (
 
 const workoutVolume = (workout: Table) => {
 	const set = table("event", "volumeWorkoutSet");
-	const pending = count(set, {
-		where: and(workoutSets(set, workout), eq(column(set, "projectionStatus"), literal("pending"))),
-	});
-	const failed = count(set, {
-		where: and(workoutSets(set, workout), eq(column(set, "projectionStatus"), literal("failed"))),
-	});
+	const sets = workoutSets(set, workout);
 	return selectedField(
 		conditional(
-			and(eq(pending, literal(0)), eq(failed, literal(0))),
-			sum(set, workoutSetVolume(set), { where: workoutSets(set, workout) }),
+			eq(projectionProcessing(set, sets), literal("ready")),
+			sum(set, workoutSetVolume(set), { where: sets }),
 			literal(null),
 		),
-		nullableNumber,
+		NullableNumber,
 	);
 };
 
@@ -196,16 +189,16 @@ const workoutSetsInclude = (workout: Table) => {
 		),
 		selection: {
 			id: selectedField(column(set, "id"), Schema.String),
-			reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
+			reps: selectedField(propertyNumber(set, "reps"), NullableNumber),
 			exerciseId: selectedField(column(exercise, "id"), Schema.String),
-			oneRm: selectedField(projectionNumber(set, "oneRm"), nullableNumber),
-			weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
+			oneRm: selectedField(projectionNumber(set, "oneRm"), NullableNumber),
+			weight: selectedField(propertyNumber(set, "weight"), NullableNumber),
 			exerciseName: selectedField(column(exercise, "name"), Schema.String),
-			setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
-			duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
-			distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
+			setOrder: selectedField(propertyNumber(set, "setOrder"), NullableNumber),
+			duration: selectedField(propertyNumber(set, "duration"), NullableNumber),
+			distance: selectedField(propertyNumber(set, "distance"), NullableNumber),
 			exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
-			exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), nullableNumber),
+			exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), NullableNumber),
 			personalBests: selectedField(
 				projectionProperty(set, "personalBests"),
 				Schema.NullOr(Schema.Array(PersonalBestSchema)),
@@ -233,8 +226,8 @@ export const workoutCardsRecipe = defineRecipe(
 						...item,
 						sets: included.items,
 						template: template.items[0] ?? null,
-						volume: projectionsReady(item) ? item.volume : null,
-						personalBests: projectionsReady(item) ? item.personalBests : null,
+						volume: item.processing === "ready" ? item.volume : null,
+						personalBests: item.processing === "ready" ? item.personalBests : null,
 					})),
 				}),
 			queries: {
@@ -257,16 +250,15 @@ export const workoutCardsRecipe = defineRecipe(
 						id: selectedField(column(workout, "id"), Schema.String),
 						setCount: selectedField(totals.setCount, Schema.Finite),
 						name: selectedField(column(workout, "name"), Schema.String),
-						failedSets: selectedField(totals.failedSets, nullableNumber),
 						startedAt: selectedField(startedAt(workout), nullableString),
-						pendingSets: selectedField(totals.pendingSets, nullableNumber),
 						exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
-						personalBests: selectedField(totals.personalBests, nullableNumber),
+						processing: selectedField(totals.processing, ProjectionProcessing),
+						personalBests: selectedField(totals.personalBests, NullableNumber),
 						endedAt: selectedField(propertyDate(workout, "endedAt"), nullableString),
 						repeatedFromId: selectedField(repeatedFromId(workout, input.reference), nullableString),
 						activeDuration: selectedField(
 							propertyNumber(workout, "activeDuration"),
-							nullableNumber,
+							NullableNumber,
 						),
 						previousTemplateWorkoutId: selectedField(
 							previousTemplateWorkoutId(workout, input.reference),
@@ -290,8 +282,8 @@ export const workoutCountRecipe = defineRecipe(
 			map: ({ total }) => Result.succeed(total.workouts),
 			queries: {
 				total: selectedAggregate(workout, {
+					measures: { workouts: countAll },
 					where: workoutWhere(workout, input.reference, input.search, input.filter),
-					measures: { workouts: selectedMeasure({ function: "count" }, Schema.Finite) },
 				}),
 			},
 		};
@@ -344,21 +336,15 @@ export const workoutExerciseTargetsRecipe = defineRecipe(
 	},
 );
 
-const sumMeasure = (expr: Parameters<typeof conditional>[1]) =>
-	selectedMeasure({ expr, function: "sum" }, nullableNumber);
-
 export const workoutMeasures = (workout: Table) => ({
-	workouts: selectedMeasure({ function: "count" }, Schema.Finite),
-	activeDuration: sumMeasure(propertyNumber(workout, "activeDuration")),
-	timedWorkouts: sumMeasure(
-		conditional(isNotNull(propertyNumber(workout, "activeDuration")), literal(1), literal(0)),
-	),
+	workouts: countAll,
+	activeDuration: sumOf(propertyNumber(workout, "activeDuration")),
+	timedWorkouts: countIf(isNotNull(propertyNumber(workout, "activeDuration"))),
 });
 
 export const setMeasures = (set: Table) => ({
-	...projectionCoverageMeasures(set),
-	volume: sumMeasure(workoutSetVolume(set)),
-	personalBests: sumMeasure(personalBestAwardCount(set)),
+	volume: sumOf(workoutSetVolume(set)),
+	personalBests: sumOf(personalBestAwardCount(set)),
 });
 
 export const workoutRangeSources = (
@@ -455,25 +441,23 @@ const rangeBuckets = (
 type SetTotals = SelectedMeasureRow<ReturnType<typeof setMeasures>>;
 type WorkoutTotals = SelectedMeasureRow<ReturnType<typeof workoutMeasures>>;
 
-const combineTotals = (workouts: WorkoutTotals, sets: SetTotals) => ({
+const combineTotals = (workouts: WorkoutTotals, sets: SetTotals, ready: boolean) => ({
 	...workouts,
 	activeDuration: workouts.activeDuration,
+	volume: ready ? (sets.volume ?? 0) : null,
 	timedWorkouts: workouts.timedWorkouts ?? 0,
-	volume: projectionsReady(sets) ? (sets.volume ?? 0) : null,
-	personalBests: projectionsReady(sets) ? (sets.personalBests ?? 0) : null,
+	personalBests: ready ? (sets.personalBests ?? 0) : null,
 });
 
 const combineBuckets = (
 	workouts: { readonly items: readonly (WorkoutTotals & { readonly at: string })[] },
 	sets: { readonly items: readonly (SetTotals & { readonly at: string })[] },
+	ready: boolean,
 ) => {
 	const setTotals = new Map(sets.items.map((item) => [item.at, item]));
 	return workouts.items.map(({ at, ...item }) => ({
 		at,
-		...combineTotals(
-			item,
-			setTotals.get(at) ?? { volume: null, failedSets: 0, pendingSets: 0, personalBests: null },
-		),
+		...combineTotals(item, setTotals.get(at) ?? { volume: null, personalBests: null }, ready),
 	}));
 };
 
@@ -492,8 +476,15 @@ export const workoutWeeksRecipe = defineRecipe(
 			WEEKS_ALIAS,
 		);
 		return {
-			queries: { sets, workouts },
-			map: (results) => Result.succeed(combineBuckets(results.workouts, results.sets)),
+			queries: { sets, workouts, processing: workoutSetProcessing(input.reference) },
+			map: (results) =>
+				Result.succeed(
+					combineBuckets(
+						results.workouts,
+						results.sets,
+						projectionProcessingState(results.processing) === "ready",
+					),
+				),
 		};
 	},
 );
@@ -511,10 +502,10 @@ const latestRecordQuery = (reference: Reference, range: Range) => {
 		],
 		selection: {
 			exerciseName: selectedField(column(exercise, "name"), Schema.String),
-			reps: selectedField(propertyNumber(sources.set, "reps"), nullableNumber),
-			weight: selectedField(propertyNumber(sources.set, "weight"), nullableNumber),
-			distance: selectedField(propertyNumber(sources.set, "distance"), nullableNumber),
-			duration: selectedField(propertyNumber(sources.set, "duration"), nullableNumber),
+			reps: selectedField(propertyNumber(sources.set, "reps"), NullableNumber),
+			weight: selectedField(propertyNumber(sources.set, "weight"), NullableNumber),
+			distance: selectedField(propertyNumber(sources.set, "distance"), NullableNumber),
+			duration: selectedField(propertyNumber(sources.set, "duration"), NullableNumber),
 			exerciseKind: selectedField(property(sources.set, "exerciseKind"), exerciseKindSchema),
 		},
 	});
@@ -547,17 +538,18 @@ export const workoutSummaryRecipe = defineRecipe(
 				previousSets,
 				currentWorkouts,
 				previousWorkouts,
+				processing: workoutSetProcessing(input.reference),
 				latestRecord: latestRecordQuery(input.reference, input.current),
 			},
-			map: (results) =>
-				Result.succeed({
-					days: combineBuckets(results.dayWorkouts, results.daySets),
-					current: combineTotals(results.currentWorkouts, results.currentSets),
-					previous: combineTotals(results.previousWorkouts, results.previousSets),
-					latestRecord: projectionsReady(results.currentSets)
-						? (results.latestRecord.items[0] ?? null)
-						: null,
-				}),
+			map: (results) => {
+				const ready = projectionProcessingState(results.processing) === "ready";
+				return Result.succeed({
+					days: combineBuckets(results.dayWorkouts, results.daySets, ready),
+					latestRecord: ready ? (results.latestRecord.items[0] ?? null) : null,
+					current: combineTotals(results.currentWorkouts, results.currentSets, ready),
+					previous: combineTotals(results.previousWorkouts, results.previousSets, ready),
+				});
+			},
 		};
 	},
 );

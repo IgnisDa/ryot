@@ -39,6 +39,7 @@ const response = {
 	data: {
 		entries: aggregate({ entries: 0 }),
 		readings: aggregate({ readings: 0 }),
+		processing: aggregate({ failed: 0, pending: 0 }),
 		workouts: aggregate({
 			workouts: 0,
 			activeDays: 0,
@@ -50,8 +51,6 @@ const response = {
 		sets: aggregate({
 			sets: 0,
 			volume: null,
-			failedSets: 0,
-			pendingSets: 0,
 			distance: null,
 			personalBests: 0,
 			repetitions: null,
@@ -136,7 +135,7 @@ describe("fitness analytics section queries", () => {
 					),
 				).toBe(true);
 				for (const request of page.queryRequests()) {
-					expect(Object.keys(request.document.queries)).toHaveLength(4);
+					expect(Object.keys(request.document.queries)).toHaveLength(5);
 					page.replyQuery(request.requestId, { response, outcome: "success" });
 				}
 				yield* Effect.promise(() =>
@@ -462,7 +461,7 @@ describe("fitness analytics cursor adapters", () => {
 });
 
 describe("fitness analytics query lifetime", () => {
-	it.live("refreshes pending coverage until ready, without a processing-status query", () =>
+	it.live("refreshes pending processing until ready", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const page = mountSummary(clock, { ...pagedInput.selection, comparison: "none" });
@@ -472,10 +471,7 @@ describe("fitness analytics query lifetime", () => {
 					page.replyQuery(request.requestId, {
 						outcome: "success",
 						response: {
-							data: {
-								...response.data,
-								sets: aggregate({ ...response.data.sets.items[0], sets: 1, pendingSets: 1 }),
-							},
+							data: { ...response.data, processing: aggregate({ failed: 0, pending: 1 }) },
 						},
 					});
 				}

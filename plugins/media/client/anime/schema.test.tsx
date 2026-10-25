@@ -85,8 +85,7 @@ const animeActivity = (
 							{
 								completionCount,
 								unknownAmountCount: 0,
-								consumptionFailedCount: 0,
-								consumptionPendingCount: 0,
+								consumptionProcessing: "ready",
 								consumedAmount: completionCount === 0 ? 0 : 24,
 							},
 						],

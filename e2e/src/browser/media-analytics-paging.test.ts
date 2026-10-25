@@ -16,6 +16,7 @@ import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
+	mediaAnalyticsInput,
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
@@ -133,7 +134,10 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			mediaType: "anime",
 			entityId: entities.anime.id,
 		};
-		const first = yield* executeRyotQLRecipe(client, mediaAnalyticsRecordsRecipe(recordInput));
+		const first = yield* executeRyotQLRecipe(
+			client,
+			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(recordInput)),
+		);
 		expect(first.items).toHaveLength(100);
 		expect(first.pageInfo).toMatchObject({ limit: 100, hasMore: true });
 		const after = requirePresent(
@@ -142,7 +146,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		);
 		const second = yield* executeRyotQLRecipe(
 			client,
-			mediaAnalyticsRecordsRecipe({ ...recordInput, after }),
+			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...recordInput, after })),
 		);
 		expect(second.items).toHaveLength(2);
 		expect(second.pageInfo).toEqual({ limit: 100, hasMore: false, nextCursor: null });

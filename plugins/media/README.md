@@ -76,7 +76,7 @@ and next-up always use default seasons; next-up appears only in aired order.
 | Video Game        | Recorded `timeSpent` only | Community time-to-beat is never consumed time; IGDB artwork appears in the gallery |
 
 Flat summaries return `{ summary, entitySchemaSlug }`; activity returns completion count, consumed
-amount, unknown count, repair state, truncation, and events. Unknown measures render lower-bound totals,
+amount, unknown count, processing state, truncation, and events. Unknown measures render lower-bound totals,
 not zero. Anime/Manga progress labels use the latest recorded position; the in-progress percentage is
 that position divided by the episode or chapter total when both are known, else the latest recorded
 percentage.
@@ -723,7 +723,8 @@ filters contributions before aggregation on the source `calendarDate` or `occurr
 copies. The consumption policy keeps a `calendarDate` within one day of the UTC date of `occurredAt`,
 so each period also bounds `occurredAt` to one day before its start date through two days after its end
 date, which the event `(user, plugin, schema, occurred_at)` index serves. `shared/analytics-recipes.ts` builds the
-Analytics reads from them:
+Analytics reads from them; each recipe takes the client query's `ResolvedReportingSelection` as
+`reporting` rather than re-resolving a selection:
 
 - `mediaAnalyticsSummaryRecipe` is one document: processing from the status of the consumption
   event streams, the undated count from `dateUnknown` source rows, and per period the per-media-type measures with distinct titles and active days, global

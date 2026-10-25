@@ -45,9 +45,8 @@ export type AnalyticsRanking = Recipe.Success<typeof historicalFitnessRankingRec
 export type AnalyticsWorkouts = Recipe.Success<typeof fitnessAnalyticsWorkoutsRecipe>;
 export type AnalyticsMetric = Parameters<typeof fitnessAnalyticsTrendRecipe>[0]["metric"];
 export type MeasurementReadings = Recipe.Success<typeof fitnessMeasurementReadingsRecipe>;
-export type AnalyticsInput = Omit<Parameters<typeof fitnessAnalyticsTotalsRecipe>[0], "now">;
-
 export type Compared<Data> = Reported<{ readonly current: Data; readonly previous: null | Data }>;
+
 export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
 	"unitSystem" | "energyUnit"
@@ -58,6 +57,10 @@ export type WorkoutDrillRequest = {
 	readonly filter?: AnalyticsFilter;
 	readonly selection: ReportingSelection;
 };
+export type AnalyticsInput = { readonly timeZone: TimeZone; readonly selection: ReportingSelection } & Omit<
+	Parameters<typeof fitnessAnalyticsTotalsRecipe>[0],
+	"reporting"
+>;
 
 export const metricDisplay = (
 	metric: keyof typeof fitnessMetricDefinitions,
@@ -108,11 +111,8 @@ export const trendBuckets = <Point extends { readonly at: string; readonly value
 		};
 	});
 
-const trendBucketDetail = (point: AnalyticsTrendPoint) => {
-	const known = `${point.knownValues ?? 0} of ${point.observations} with a value`;
-	const unavailable = (point.pendingSets ?? 0) + (point.failedSets ?? 0);
-	return unavailable === 0 ? known : `${known}; ${unavailable} sets still processing or failed`;
-};
+const trendBucketDetail = (point: AnalyticsTrendPoint) =>
+	`${point.knownValues ?? 0} of ${point.observations} with a value`;
 
 export const workoutTrendModel = (
 	current: AnalyticsTrend,

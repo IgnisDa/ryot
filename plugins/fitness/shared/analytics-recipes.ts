@@ -4,7 +4,8 @@ import {
 	ascending,
 	castText,
 	column,
-	conditional,
+	countAll,
+	countIf,
 	dateBucket,
 	defineRecipe,
 	descending,
@@ -20,11 +21,14 @@ import {
 	literal,
 	localHour,
 	measureDescending,
+	NullableNumber,
+	projectionProcessingState,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	selectedRows,
+	sumOf,
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -32,18 +36,15 @@ import {
 	type PluginIdentityReference,
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
-	type ReportingSelection,
-	resolveReportingSelection,
-	type TimeZone,
+	type ResolvedReportingSelection,
 } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyDate, propertyJson, propertyNumber } from "./entity-selections";
 import type { fitnessMetricDefinitions } from "./fitness-metrics";
 import {
 	personalBestAwardCount,
-	projectionCoverageMeasures,
-	projectionsReady,
 	workoutSetMetric,
+	workoutSetProcessing,
 	workoutSetVolume,
 } from "./fitness-metrics";
 import {
@@ -60,16 +61,10 @@ import {
 
 type Table = ReturnType<typeof table>;
 type Input = {
-	readonly now: number;
-	readonly timeZone: TimeZone;
-	readonly selection: ReportingSelection;
 	readonly reference: PluginIdentityReference;
+	readonly reporting: ResolvedReportingSelection;
 	readonly filter?: { readonly id: string; readonly kind: "targets" | "exercises" | "equipment" };
 };
-const nullableNumber = Schema.NullOr(Schema.Finite);
-const sumMeasure = (expr: Parameters<typeof selectedField>[0]) =>
-	selectedMeasure({ expr, function: "sum" }, nullableNumber);
-const countMeasure = selectedMeasure({ function: "count" }, Schema.Finite);
 const fitnessSetFilter = (
 	set: ReturnType<typeof table>,
 	input: Input,
@@ -102,6 +97,12 @@ const fitnessSetFilter = (
 	});
 };
 
+const setProcessing = (input: Input) =>
+	workoutSetProcessing(
+		input.reference,
+		input.filter?.kind === "exercises" ? { exerciseId: input.filter.id } : {},
+	);
+
 const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: string) => {
 	const source = workoutRangeSources(input.reference, range, alias);
 	return {
@@ -124,19 +125,19 @@ const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: st
 };
 
 export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
-	const range = resolveReportingSelection(input.selection, input).current;
+	const range = input.reporting.current;
 	const source = analyticsSources(input, range, "analytics");
 	const entry = table("entity", "analyticsEntry");
 	const reading = table("event", "analyticsReading");
 	const metric = table("entity", "analyticsMetric");
 	return {
-		map: ({ sets, entries, workouts, readings }) => {
-			const ready = projectionsReady(sets);
+		map: ({ sets, entries, workouts, readings, processing }) => {
+			const state = projectionProcessingState(processing);
+			const ready = state === "ready";
 			return Result.succeed({
 				...workouts,
 				...sets,
-				failedSets: sets.failedSets ?? 0,
-				pendingSets: sets.pendingSets ?? 0,
+				processing: state,
 				volume: ready ? sets.volume : null,
 				measurementEntries: entries.entries,
 				measurementReadings: readings.readings,
@@ -147,15 +148,16 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 			});
 		},
 		queries: {
+			processing: setProcessing(input),
 			entries: selectedAggregate(entry, {
-				measures: { entries: countMeasure },
+				measures: { entries: countAll },
 				where: and(
 					entitySchemaPredicate(entry, "measurement-entry", input.reference),
 					withinPeriod(propertyDate(entry, "occurredAt"), range),
 				),
 			}),
 			readings: selectedAggregate(reading, {
-				measures: { readings: countMeasure },
+				measures: { readings: countAll },
 				joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
 				where: and(
 					schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
@@ -169,34 +171,26 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 				joins: source.setJoins,
 				measures: {
 					...setMeasures(source.set),
-					sets: countMeasure,
-					repetitions: sumMeasure(workoutSetMetric(source.set, "reps")),
-					distance: sumMeasure(workoutSetMetric(source.set, "distance")),
-					plannedRest: sumMeasure(propertyNumber(source.set, "restTime")),
-					setDuration: sumMeasure(workoutSetMetric(source.set, "duration")),
-					personalBestSets: sumMeasure(
-						conditional(gt(personalBestAwardCount(source.set), literal(0)), literal(1), literal(0)),
-					),
+					sets: countAll,
+					repetitions: sumOf(workoutSetMetric(source.set, "reps")),
+					distance: sumOf(workoutSetMetric(source.set, "distance")),
+					plannedRest: sumOf(propertyNumber(source.set, "restTime")),
+					setDuration: sumOf(workoutSetMetric(source.set, "duration")),
+					personalBestSets: countIf(gt(personalBestAwardCount(source.set), literal(0))),
 				},
 			}),
 			workouts: selectedAggregate(source.workout, {
 				where: source.workoutWhere,
 				measures: {
 					...workoutMeasures(source.workout),
-					calories: sumMeasure(propertyNumber(source.workout, "caloriesBurnt")),
-					calorieWorkouts: sumMeasure(
-						conditional(
-							isNotNull(propertyNumber(source.workout, "caloriesBurnt")),
-							literal(1),
-							literal(0),
-						),
-					),
+					calories: sumOf(propertyNumber(source.workout, "caloriesBurnt")),
+					calorieWorkouts: countIf(isNotNull(propertyNumber(source.workout, "caloriesBurnt"))),
 					activeDays: selectedMeasure(
 						{
 							function: "countDistinct",
 							expr: dateBucket(startedAt(source.workout), {
 								bucket: "day",
-								timeZone: input.timeZone,
+								timeZone: input.reporting.timeZone,
 							}),
 						},
 						Schema.Finite,
@@ -243,7 +237,7 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 			readonly kind: "targets" | "equipment" | "exercises";
 		},
 	) => {
-		const range = resolveReportingSelection(input.selection, input).current;
+		const range = input.reporting.current;
 		const occurrence = table("event", "rankOccurrence");
 		const set = table("event", "rankSet");
 		const taxonomy = rankingTaxonomy(occurrence, input.kind);
@@ -260,8 +254,8 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 						name: selectedField(column(taxonomy.target, "name"), Schema.String),
 					},
 					measures: {
-						sets: countMeasure,
-						weightedSets: sumMeasure(taxonomy.weight),
+						sets: countAll,
+						weightedSets: sumOf(taxonomy.weight),
 						exerciseOccurrences: selectedMeasure(
 							{ function: "countDistinct", expr: column(occurrence, "id") },
 							Schema.Finite,
@@ -301,11 +295,12 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 			>;
 		},
 	) => {
-		const resolved = resolveReportingSelection(input.selection, input);
+		const resolved = input.reporting;
 		const source = analyticsSources(input, resolved.current, "trend");
 		const metric = input.metric;
 		const workoutMetric =
 			metric === "workouts" || metric === "activeDuration" || metric === "calories";
+		const derivedMetric = metric === "volume" || metric === "personalBests";
 		const values = {
 			sets: literal(1),
 			workouts: literal(1),
@@ -319,18 +314,35 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 			activeDuration: propertyNumber(source.workout, "activeDuration"),
 		};
 		const measures = {
-			observations: countMeasure,
-			value: sumMeasure(values[metric]),
-			knownValues: sumMeasure(conditional(isNotNull(values[metric]), literal(1), literal(0))),
+			observations: countAll,
+			value: sumOf(values[metric]),
+			knownValues: countIf(isNotNull(values[metric])),
 		};
 		const groupBy = (at: Parameters<typeof dateBucket>[0]) => ({
 			at: selectedField(
-				dateBucket(at, { timeZone: input.timeZone, bucket: resolved.grouping }),
+				dateBucket(at, { bucket: resolved.grouping, timeZone: input.reporting.timeZone }),
 				Schema.String,
 			),
 		});
 		return {
+			map: ({ setTrend, processing, workoutTrend }) => {
+				const state = processing === undefined ? "ready" : projectionProcessingState(processing);
+				const points =
+					setTrend === undefined
+						? (workoutTrend?.items ?? [])
+						: setTrend.items.map((point) =>
+								state === "ready" ? point : Object.assign({}, point, { value: null }),
+							);
+				return Result.succeed({
+					metric,
+					points,
+					processing: state,
+					period: resolved.current,
+					grouping: resolved.grouping,
+				});
+			},
 			queries: {
+				processing: derivedMetric ? setProcessing(input) : undefined,
 				workoutTrend: workoutMetric
 					? selectedAggregate(source.workout, {
 							measures,
@@ -343,46 +355,20 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 				setTrend: workoutMetric
 					? undefined
 					: selectedAggregate(source.set, {
+							measures,
 							joins: source.setJoins,
 							where: source.setWhere,
 							limit: REPORTING_BUCKET_LIMIT,
 							orderBy: [groupAscending("at")],
 							groupBy: groupBy(source.setStartedAt),
-							measures: { ...measures, ...projectionCoverageMeasures(source.set) },
 						}),
-			},
-			map: ({ setTrend, workoutTrend }) => {
-				const points: ReadonlyArray<
-					NonNullable<typeof workoutTrend>["items"][number] & {
-						readonly failedSets?: number;
-						readonly pendingSets?: number;
-					}
-				> =
-					setTrend === undefined
-						? (workoutTrend?.items ?? [])
-						: setTrend.items.map(({ failedSets, pendingSets, ...point }) => ({
-								...point,
-								failedSets: failedSets ?? 0,
-								pendingSets: pendingSets ?? 0,
-								value:
-									(metric === "volume" || metric === "personalBests") &&
-									!projectionsReady({ failedSets, pendingSets })
-										? null
-										: point.value,
-							}));
-				return Result.succeed({
-					metric,
-					points,
-					period: resolved.current,
-					grouping: resolved.grouping,
-				});
 			},
 		};
 	},
 );
 
 export const fitnessWorkoutStartsByHourRecipe = defineRecipe((input: Input) => {
-	const range = resolveReportingSelection(input.selection, input).current;
+	const range = input.reporting.current;
 	const source = analyticsSources(input, range, "hours");
 	return {
 		map: ({ hours }) =>
@@ -397,11 +383,11 @@ export const fitnessWorkoutStartsByHourRecipe = defineRecipe((input: Input) => {
 			hours: selectedAggregate(source.workout, {
 				limit: 24,
 				where: source.workoutWhere,
+				measures: { starts: countAll },
 				orderBy: [groupAscending("hour")],
-				measures: { starts: countMeasure },
 				groupBy: {
 					hour: selectedField(
-						localHour(startedAt(source.workout), { timeZone: input.timeZone }),
+						localHour(startedAt(source.workout), { timeZone: input.reporting.timeZone }),
 						Schema.Int,
 					),
 				},
@@ -412,7 +398,7 @@ export const fitnessWorkoutStartsByHourRecipe = defineRecipe((input: Input) => {
 
 export const fitnessAnalyticsWorkoutsRecipe = defineRecipe(
 	(input: Input & { readonly after?: string }) => {
-		const range = resolveReportingSelection(input.selection, input).current;
+		const range = input.reporting.current;
 		const source = analyticsSources(input, range, "drilldown");
 		return {
 			map: ({ workouts }) => Result.succeed(workouts),
@@ -428,7 +414,7 @@ export const fitnessAnalyticsWorkoutsRecipe = defineRecipe(
 						startedAt: selectedField(startedAt(source.workout), Schema.String),
 						activeDuration: selectedField(
 							propertyNumber(source.workout, "activeDuration"),
-							nullableNumber,
+							NullableNumber,
 						),
 					},
 				}),
@@ -439,7 +425,7 @@ export const fitnessAnalyticsWorkoutsRecipe = defineRecipe(
 
 export const fitnessMeasurementTrendRecipe = defineRecipe(
 	(input: Omit<Input, "filter"> & { readonly metricId: string }) => {
-		const resolved = resolveReportingSelection(input.selection, input);
+		const resolved = input.reporting;
 		const range = resolved.current;
 		const reading = table("event", "measurementTrendReading");
 		const metric = table("entity", "measurementTrendMetric");
@@ -457,7 +443,7 @@ export const fitnessMeasurementTrendRecipe = defineRecipe(
 					orderBy: [groupAscending("at"), groupAscending("unit")],
 					joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
 					measures: {
-						readings: countMeasure,
+						readings: countAll,
 						value: selectedMeasure(
 							{ function: "average", expr: propertyNumber(reading, "value") },
 							Schema.Finite,
@@ -467,8 +453,8 @@ export const fitnessMeasurementTrendRecipe = defineRecipe(
 						unit: selectedField(property(metric, "unit"), Schema.NullOr(Schema.String)),
 						at: selectedField(
 							dateBucket(column(reading, "occurredAt"), {
-								timeZone: input.timeZone,
 								bucket: resolved.grouping,
+								timeZone: input.reporting.timeZone,
 							}),
 							Schema.String,
 						),
@@ -488,7 +474,7 @@ export const fitnessMeasurementTrendRecipe = defineRecipe(
 
 export const fitnessMeasurementReadingsRecipe = defineRecipe(
 	(input: Omit<Input, "filter"> & { readonly after?: string; readonly metricId: string }) => {
-		const range = resolveReportingSelection(input.selection, input).current;
+		const range = input.reporting.current;
 		const reading = table("event", "measurementDrilldownReading");
 		const metric = table("entity", "measurementDrilldownMetric");
 		const entry = table("entity", "measurementDrilldownEntry");

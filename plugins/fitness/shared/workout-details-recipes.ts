@@ -13,6 +13,8 @@ import {
 	join,
 	literal,
 	lt,
+	NullableNumber,
+	ProjectionProcessing,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
@@ -42,7 +44,6 @@ import { DurationUnitSchema } from "./workout-units";
 
 type Table = ReturnType<typeof table>;
 
-const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const order = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -86,12 +87,12 @@ const repeatedFromInclude = (workout: Table) => {
 };
 
 const setMeasurementsSelection = (set: Table) => ({
-	volume: selectedField(workoutSetVolume(set), nullableNumber),
-	reps: selectedField(workoutSetMetric(set, "reps"), nullableNumber),
-	weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
-	duration: selectedField(workoutSetMetric(set, "duration"), nullableNumber),
-	distance: selectedField(workoutSetMetric(set, "distance"), nullableNumber),
-	exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), nullableNumber),
+	volume: selectedField(workoutSetVolume(set), NullableNumber),
+	reps: selectedField(workoutSetMetric(set, "reps"), NullableNumber),
+	weight: selectedField(propertyNumber(set, "weight"), NullableNumber),
+	duration: selectedField(workoutSetMetric(set, "duration"), NullableNumber),
+	distance: selectedField(workoutSetMetric(set, "distance"), NullableNumber),
+	exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), NullableNumber),
 });
 
 const setOrdering = (set: Table) =>
@@ -99,8 +100,6 @@ const setOrdering = (set: Table) =>
 		ascending(propertyNumber(set, "exerciseOrder")),
 		ascending(propertyNumber(set, "setOrder")),
 	] as const;
-
-const recordStatus = (set: Table) => column(set, "projectionStatus");
 
 const priorSession = (workout: Table, exercise: Table, pick: "startedAt" | "sessionEntityId") => {
 	const priorSet = table("event", "priorWorkoutSet");
@@ -234,18 +233,15 @@ export const workoutDetailsSetsRecipe = defineRecipe(
 						...setMeasurementsSelection(set),
 						id: selectedField(column(set, "id"), Schema.String),
 						note: selectedField(property(set, "note"), nullableString),
-						rpe: selectedField(propertyNumber(set, "rpe"), nullableNumber),
+						rpe: selectedField(propertyNumber(set, "rpe"), NullableNumber),
 						exerciseId: selectedField(column(set, "entityId"), Schema.String),
-						oneRm: selectedField(projectionNumber(set, "oneRm"), nullableNumber),
-						restTime: selectedField(propertyNumber(set, "restTime"), nullableNumber),
-						setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
+						oneRm: selectedField(projectionNumber(set, "oneRm"), NullableNumber),
+						restTime: selectedField(propertyNumber(set, "restTime"), NullableNumber),
+						setOrder: selectedField(propertyNumber(set, "setOrder"), NullableNumber),
 						confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
 						exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 						setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
-						recordStatus: selectedField(
-							recordStatus(set),
-							Schema.Literals(["pending", "ready", "failed"]),
-						),
+						recordStatus: selectedField(column(set, "projectionStatus"), ProjectionProcessing),
 						personalBests: selectedField(
 							projectionProperty(set, "personalBests"),
 							Schema.NullOr(Schema.Array(PersonalBestSchema)),
@@ -277,7 +273,7 @@ export const workoutDetailsRecipe = defineRecipe(
 						...workoutSelection(workout),
 						activeDuration: selectedField(
 							propertyNumber(workout, "activeDuration"),
-							nullableNumber,
+							NullableNumber,
 						),
 						images: selectedField(
 							propertyJson(workout, "images"),

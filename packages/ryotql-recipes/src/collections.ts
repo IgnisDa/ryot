@@ -25,6 +25,7 @@ import {
 	column,
 	concat,
 	contains,
+	countAll,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
@@ -695,9 +696,9 @@ export const collectionMembersAggregateRecipe = defineRecipe(
 			queries: {
 				aggregate: selectedAggregate(membership, {
 					limit: 100,
+					measures: { count: countAll },
 					joins: [entityJoin, ownerPluginJoin],
 					where: collectionMembershipWhere(membership, entity, input.collectionId),
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 					orderBy: [groupAscending("ownerPluginId"), groupAscending("entitySchemaSlug")],
 					groupBy: {
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),

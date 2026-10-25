@@ -20,10 +20,10 @@ afterEach(disposePluginBridges);
 
 type Totals = {
 	readonly sets: number;
+	readonly failed: number;
+	readonly pending: number;
 	readonly workouts: number;
 	readonly activeDays: number;
-	readonly failedSets: number;
-	readonly pendingSets: number;
 	readonly timedWorkouts: number;
 	readonly volume: null | number;
 	readonly calories: null | number;
@@ -49,13 +49,13 @@ const aggregate = (
 const totals = (overrides: Partial<Totals> = {}) => {
 	const value: Totals = {
 		sets: 0,
+		failed: 0,
+		pending: 0,
 		workouts: 0,
 		volume: null,
 		activeDays: 0,
-		failedSets: 0,
 		calories: null,
 		distance: null,
-		pendingSets: 0,
 		timedWorkouts: 0,
 		repetitions: null,
 		plannedRest: null,
@@ -72,6 +72,7 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		data: {
 			entries: aggregate({ entries: value.measurementEntries }),
 			readings: aggregate({ readings: value.measurementReadings }),
+			processing: aggregate({ failed: value.failed, pending: value.pending }),
 			workouts: aggregate({
 				workouts: value.workouts,
 				calories: value.calories,
@@ -84,8 +85,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 				sets: value.sets,
 				volume: value.volume,
 				distance: value.distance,
-				failedSets: value.failedSets,
-				pendingSets: value.pendingSets,
 				repetitions: value.repetitions,
 				plannedRest: value.plannedRest,
 				setDuration: value.setDuration,
@@ -162,11 +161,10 @@ describe("Fitness analytics summary UI", () => {
 					outcome: "success",
 					response: totals({
 						sets: 4,
+						failed: 1,
 						workouts: 1,
 						activeDays: 0,
-						failedSets: 1,
 						calories: null,
-						pendingSets: 1,
 						activeDuration: null,
 						measurementEntries: 2,
 						measurementReadings: 5,
@@ -185,7 +183,9 @@ describe("Fitness analytics summary UI", () => {
 				expect(
 					screen.getByText(/Known subtotal · 0 workouts with energy · 1 missing/),
 				).toBeDefined();
-				expect(screen.getAllByText(/1 pending sets · 1 failed sets/).length).toBeGreaterThan(0);
+				expect(
+					screen.getAllByText(/Derived values unavailable · processing failed/).length,
+				).toBeGreaterThan(0);
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());

@@ -10,7 +10,11 @@ import {
 	localDate,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import {
+	type ReportingSelection,
+	resolveReportingSelection,
+	TimeZone,
+} from "@ryot-app/plugin-kit/schema";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import {
@@ -23,16 +27,15 @@ import {
 } from "./analytics-recipes";
 import { consumptionActiveDay, consumptionValue } from "./consumption-recipes";
 
-const input = {
-	reference: { kind: "self" },
-	now: Date.parse("2026-10-29T12:00:00Z"),
-	timeZone: TimeZone.make("America/New_York"),
-	selection: {
-		grouping: "day",
-		comparison: "previous-period",
-		range: { days: 30, kind: "rolling" },
-	},
-} as const;
+const timeZone = TimeZone.make("America/New_York");
+const selection: ReportingSelection = {
+	grouping: "day",
+	comparison: "previous-period",
+	range: { days: 30, kind: "rolling" },
+};
+const resolve = (value: ReportingSelection) =>
+	resolveReportingSelection(value, { timeZone, now: Date.parse("2026-10-29T12:00:00Z") });
+const input = { reference: { kind: "self" }, reporting: resolve(selection) } as const;
 const aggregate = (items: readonly unknown[]) => ({
 	items,
 	type: "aggregate",
@@ -46,10 +49,7 @@ const rows = (items: readonly unknown[], nextCursor: null | string = null) => ({
 const validate = (document: Parameters<typeof validateRyotQLDocument>[0]) =>
 	validateRyotQLDocument(document, { type: "user", audience: "plugin", accessClass: "standard" })
 		.error;
-const allTime = {
-	...input,
-	selection: { ...input.selection, range: { kind: "all-time" } },
-} as const;
+const allTime = { ...input, reporting: resolve({ ...selection, range: { kind: "all-time" } }) };
 const zeros = Object.fromEntries(
 	Object.keys(consumptionMeasures(table("event", "zero"))).map((key) => [key, 0]),
 );
@@ -132,15 +132,13 @@ describe("Media analytics recipes", () => {
 	it("keeps date-only days and excludes unknown precision from the instant calendar conversion", () => {
 		const event = table("event", "source");
 		const kind = castText(consumptionValue(event, "attribution", "kind"));
-		expect(consumptionActiveDay(event, input.timeZone)).toEqual(
+		expect(consumptionActiveDay(event, timeZone)).toEqual(
 			conditional(
 				eq(kind, literal("date")),
 				castText(consumptionValue(event, "attribution", "value")),
 				conditional(
 					eq(kind, literal("instant")),
-					localDate(castDate(consumptionValue(event, "attribution", "value")), {
-						timeZone: input.timeZone,
-					}),
+					localDate(castDate(consumptionValue(event, "attribution", "value")), { timeZone }),
 					literal(null),
 				),
 			),

@@ -13,10 +13,11 @@ import {
 } from "./workout-list-recipes";
 
 const aggregate = (items: readonly Record<string, unknown>[]) => ({
+	items,
 	type: "aggregate",
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
+const ready = aggregate([{ failed: 0, pending: 0 }]);
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
 const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({
 	workouts,
@@ -32,15 +33,16 @@ describe("workoutWeeksRecipe", () => {
 			reference: { kind: "self" },
 			timeZone: TimeZone.make("UTC"),
 		});
-		for (const coverage of [
-			{ failedSets: 0, pendingSets: 1 },
-			{ failedSets: 1, pendingSets: 0 },
+		for (const processing of [
+			{ failed: 0, pending: 1 },
+			{ failed: 1, pending: 0 },
 		]) {
 			const decoded = Result.getOrThrow(
 				recipe.decode({
 					data: {
+						processing: aggregate([processing]),
+						sets: aggregate([{ volume: 500, personalBests: 1, at: range.startAt }]),
 						workouts: aggregate([{ ...workoutTotals(1, 600, 1), at: range.startAt }]),
-						sets: aggregate([{ ...coverage, volume: 500, personalBests: 1, at: range.startAt }]),
 					},
 				}),
 			);
@@ -62,6 +64,7 @@ describe("workoutWeeksRecipe", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					processing: ready,
 					sets: aggregate([{ volume: 9000, personalBests: 2, at: "2026-10-05T00:00:00.000Z" }]),
 					workouts: aggregate([
 						{ at: "2026-10-05T00:00:00.000Z", ...workoutTotals(2, 5400, 2) },
@@ -116,6 +119,7 @@ describe("workoutSummaryRecipe", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					processing: ready,
 					daySets: aggregate([]),
 					dayWorkouts: aggregate([]),
 					currentWorkouts: aggregate([workoutTotals(3, 9000, 3)]),
@@ -181,8 +185,8 @@ describe("workout filter predicates", () => {
 				search: "",
 				timeZone: TimeZone.make("UTC"),
 			});
-			for (const query of Object.values(recipe.document.queries)) {
-				expect(yield* serialize(query)).toContain("marker-workout");
+			for (const name of ["workouts", "sets"]) {
+				expect(yield* serialize(recipe.document.queries[name])).toContain("marker-workout");
 			}
 		}),
 	);

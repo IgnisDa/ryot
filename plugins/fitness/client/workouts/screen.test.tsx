@@ -33,10 +33,12 @@ const rows = (items: RowsResult["items"], nextCursor: null | string = null): Row
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 });
 const aggregate = (items: readonly Record<string, number>[]): AggregateResult => ({
+	items,
 	type: "aggregate" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
+const processingPoll = (queries: Record<string, unknown>) =>
+	Object.keys(queries).join() === "processing";
 const totals = { workouts: 1, timedWorkouts: 1, activeDuration: 3600 };
 
 const listSet = (exerciseId: string, exerciseName: string, exerciseOrder: number) => ({
@@ -60,12 +62,11 @@ const listWorkout = (id: string, name: string, startedAt: string) => ({
 	startedAt,
 	setCount: 2,
 	volume: 1000,
-	failedSets: 0,
-	pendingSets: 0,
 	exerciseCount: 2,
 	personalBests: 1,
 	template: rows([]),
 	endedAt: startedAt,
+	processing: "ready",
 	activeDuration: 3600,
 	repeatedFromId: "prior",
 	previousTemplateWorkoutId: null,
@@ -85,7 +86,7 @@ type Answers = {
 };
 
 const respond = (queries: Queries, answers: Answers) => {
-	if ("processing" in queries) {
+	if (processingPoll(queries)) {
 		return { processing: aggregate([{ failed: 0, pending: answers.processingPending ? 1 : 0 }]) };
 	}
 	const list = queries["workouts"];
@@ -96,7 +97,7 @@ const respond = (queries: Queries, answers: Answers) => {
 				rows([
 					{
 						...listWorkout("w1", "Legs", hoursAgo(1)),
-						pendingSets: answers.projectionPending ? 1 : 0,
+						processing: answers.projectionPending ? "pending" : "ready",
 					},
 				]),
 		};
@@ -133,6 +134,9 @@ const respond = (queries: Queries, answers: Answers) => {
 	}
 	return Object.fromEntries(
 		Object.keys(queries).map((key): [string, RyotQLResult] => {
+			if (key === "processing") {
+				return [key, aggregate([{ failed: 0, pending: answers.projectionPending ? 1 : 0 }])];
+			}
 			if (key === "latestRecord") {
 				return [key, rows([])];
 			}
@@ -142,14 +146,7 @@ const respond = (queries: Queries, answers: Answers) => {
 			if (key === "sets" || key === "daySets") {
 				return [key, aggregate([])];
 			}
-			return [
-				key,
-				aggregate([
-					key.endsWith("Sets")
-						? { volume: 1000, personalBests: 1, pendingSets: answers.projectionPending ? 1 : 0 }
-						: totals,
-				]),
-			];
+			return [key, aggregate([key.endsWith("Sets") ? { volume: 1000, personalBests: 1 } : totals])];
 		}),
 	);
 };
@@ -190,7 +187,7 @@ const openPage = (answers: Answers = {}, search = "") => {
 		}
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
-				if (answers.deferProcessing && "processing" in request.document.queries) {
+				if (answers.deferProcessing && processingPoll(request.document.queries)) {
 					continue;
 				}
 				answered.add(request.requestId);

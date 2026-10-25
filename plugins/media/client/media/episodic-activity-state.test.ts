@@ -39,7 +39,7 @@ describe("episodic activity state", () => {
 		}
 	});
 	it("hides lifetime figures during repair while retaining current episode coverage", () => {
-		const summary = view({ consumedAmount: 0, consumptionPendingCount: 1 }).summary;
+		const summary = view({ consumedAmount: 0, consumptionProcessing: "pending" }).summary;
 		expect(summary.processing).toBe("pending");
 		expect(mediaEpisodicEpisodesLabel(summary)).toBe("2 / 4");
 		const figures = mediaEpisodicActivityFigures(summary, {

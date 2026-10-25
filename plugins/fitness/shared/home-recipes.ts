@@ -7,6 +7,7 @@ import {
 	coalesce,
 	column,
 	conditional,
+	countAll,
 	defineRecipe,
 	descending,
 	entitySchemaPredicate,
@@ -20,6 +21,7 @@ import {
 	jsonElementsJoin,
 	jsonPath,
 	literal,
+	NullableNumber,
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
@@ -46,7 +48,6 @@ import { muscleRoleSetWeight, occurrenceSets } from "./workout-taxonomy-recipes"
 
 type Reference = PluginIdentityReference;
 
-const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const templateSlug = "workout-to-workout-template";
 const MUSCLE_TARGET_LIMIT = 100;
@@ -120,7 +121,7 @@ export const muscleActivityRecipe = defineRecipe(
 									literal(0),
 								),
 							},
-							nullableNumber,
+							NullableNumber,
 						),
 					},
 				}),
@@ -135,12 +136,12 @@ const recentPersonalBestSelection = (
 ) => ({
 	id: selectedField(column(set, "id"), Schema.String),
 	exerciseId: selectedField(column(exercise, "id"), Schema.String),
-	reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
+	reps: selectedField(propertyNumber(set, "reps"), NullableNumber),
 	occurredAt: selectedField(column(set, "occurredAt"), Schema.String),
 	exerciseName: selectedField(column(exercise, "name"), Schema.String),
-	weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
-	duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
-	distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
+	weight: selectedField(propertyNumber(set, "weight"), NullableNumber),
+	duration: selectedField(propertyNumber(set, "duration"), NullableNumber),
+	distance: selectedField(propertyNumber(set, "distance"), NullableNumber),
 	exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 	personalBests: selectedField(
 		projectionProperty(set, "personalBests"),
@@ -164,7 +165,7 @@ export const recentPersonalBestsRecipe = defineRecipe(
 				Result.succeed({ items: recent.items, recentCount: recentCount.count }),
 			queries: {
 				recentCount: selectedAggregate(countedSet, {
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
+					measures: { count: countAll },
 					where: and(
 						withRecords(countedSet),
 						gte(column(countedSet, "occurredAt"), castDate(literal(input.since))),
@@ -256,7 +257,7 @@ export const homeTemplatesRecipe = defineRecipe(
 								startedAt: selectedField(propertyDate(lastWorkout, "startedAt"), nullableString),
 								activeDuration: selectedField(
 									propertyNumber(lastWorkout, "activeDuration"),
-									nullableNumber,
+									NullableNumber,
 								),
 							},
 						}),

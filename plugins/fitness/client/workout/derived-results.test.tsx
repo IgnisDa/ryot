@@ -131,10 +131,8 @@ const history = exerciseDetails({
 			maxReps: 10,
 			volume: 1000,
 			maxOneRm: 120,
-			failedSets: 0,
 			maxPace: null,
 			maxWeight: 100,
-			pendingSets: 0,
 			duration: null,
 			distance: null,
 			maxDuration: null,
@@ -341,8 +339,11 @@ describe("calculated display readiness", () => {
 				<History
 					value={{
 						...history,
-						totals: { ...history.totals, pendingSets: 1 },
-						months: history.months.map((month) => Object.assign({}, month, { pendingSets: 1 })),
+						processing: "pending",
+						totals: { ...history.totals, volume: null },
+						months: history.months.map((month) =>
+							Object.assign({}, month, { volume: null, maxOneRm: null }),
+						),
 					}}
 				/>,
 			);

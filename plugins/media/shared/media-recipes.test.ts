@@ -12,12 +12,7 @@ const singleRows = (items: readonly Record<string, unknown>[]) =>
 
 const activityRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(
-		items.map((item) => ({
-			consumedItem: null,
-			consumptionFailedCount: 0,
-			consumptionPendingCount: 0,
-			...item,
-		})),
+		items.map((item) => ({ consumedItem: null, consumptionProcessing: "ready", ...item })),
 		{ limit: 60, hasMore: false, nextCursor: null },
 	);
 

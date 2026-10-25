@@ -14,6 +14,7 @@ import {
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
+	mediaAnalyticsInput,
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
@@ -457,7 +458,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		};
 		const ranking = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRankingRecipe(input),
+			mediaAnalyticsRankingRecipe(mediaAnalyticsInput(input)),
 		);
 		expect(ranking.pageInfo.hasMore).toBe(false);
 		const tiedEntities = [fixture.entities.book, fixture.entities.movie].sort((a, b) =>
@@ -471,7 +472,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		]);
 		const records = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRecordsRecipe(input),
+			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(input)),
 		);
 		expect(records.pageInfo.hasMore).toBe(false);
 		const activeSourceIds = [0, 1, 2, 3, 5].map((index) =>
@@ -673,7 +674,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		expect(corrected.current.reviews).toEqual(fixture.report.current.reviews);
 		const correctedRecords = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRecordsRecipe({ ...input, now }),
+			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...input, now })),
 		);
 		expect(correctedRecords.items.map(({ id }) => id)).toEqual(records.items.map(({ id }) => id));
 		const correctedProgress = requirePresent(

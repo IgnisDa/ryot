@@ -9,7 +9,6 @@ import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
 import type { ConsumedItem } from "../../shared/consumption";
-import { consumptionProcessingState } from "../../shared/consumption-projection";
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type {
@@ -111,9 +110,8 @@ export type MediaFlatActivityResult<Extra = unknown> = {
 	readonly completionCount: number;
 	readonly unknownAmountCount: number;
 	readonly consumedAmount: null | number;
-	readonly consumptionFailedCount: number;
-	readonly consumptionPendingCount: number;
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
+	readonly consumptionProcessing: "ready" | "failed" | "pending";
 };
 
 export type MediaFlatSchemaDescriptor<
@@ -291,11 +289,8 @@ export const defineFlatMediaSchema = <
 			subject: REVIEW_SUBJECT,
 			truncated: result.truncated,
 			completions: result.completionCount,
+			processing: result.consumptionProcessing,
 			amount: { total: result.consumedAmount ?? 0, missing: result.unknownAmountCount },
-			processing: consumptionProcessingState(
-				result.consumptionPendingCount,
-				result.consumptionFailedCount,
-			),
 		});
 
 	const activityRowLabel = (row: MediaFlatSchemaRow<Extra>): string => {

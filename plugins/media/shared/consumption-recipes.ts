@@ -20,8 +20,10 @@ import {
 	literal,
 	localDate,
 	lte,
-	not,
+	NullableNumber,
 	or,
+	ProjectionProcessing,
+	projectionProcessing,
 	schemaOwnerPredicate,
 	selectedField,
 	sum,
@@ -113,17 +115,10 @@ export const consumptionTotalsSelection = (
 ) => {
 	const ready = and(scope, consumptionReady(event));
 	return {
-		consumptionPendingCount: selectedField(
-			count(event, { where: and(scope, not(consumptionReady(event))) }),
-			Schema.Finite,
-		),
+		consumptionProcessing: selectedField(projectionProcessing(event, scope), ProjectionProcessing),
 		consumedAmount: selectedField(
 			sum(event, consumptionAmount(event, unit), { where: ready }),
-			Schema.NullOr(Schema.Finite),
-		),
-		consumptionFailedCount: selectedField(
-			count(event, { where: and(scope, eq(column(event, "projectionStatus"), literal("failed"))) }),
-			Schema.Finite,
+			NullableNumber,
 		),
 		completionCount: selectedField(
 			coalesce(

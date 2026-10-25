@@ -1,14 +1,18 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
 import {
+	and,
 	column,
 	conditional,
 	eq,
+	exists,
 	inArray,
 	jsonArrayCount,
 	literal,
-	selectedMeasure,
-	type table,
+	projectionStatusMeasures,
+	schemaOwnerPredicate,
+	selectedAggregate,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -64,24 +68,35 @@ export const workoutSetVolume = (set: Table) =>
 export const personalBestAwardCount = (set: Table) =>
 	jsonArrayCount(projectionProperty(set, "personalBests"));
 
-export const projectionStatusCount = (set: Table, status: "failed" | "pending") =>
-	conditional(eq(column(set, "projectionStatus"), literal(status)), literal(1), literal(0));
-
-export const projectionCoverageMeasures = (set: Table) => ({
-	failedSets: selectedMeasure(
-		{ function: "sum", expr: projectionStatusCount(set, "failed") },
-		Schema.NullOr(Schema.Finite),
-	),
-	pendingSets: selectedMeasure(
-		{ function: "sum", expr: projectionStatusCount(set, "pending") },
-		Schema.NullOr(Schema.Finite),
-	),
-});
-
-export const projectionsReady = (coverage: {
-	readonly failedSets: null | number;
-	readonly pendingSets: null | number;
-}) => (coverage.pendingSets ?? 0) + (coverage.failedSets ?? 0) === 0;
+export const workoutSetProcessing = (
+	reference: PluginIdentityReference,
+	scope: { readonly workoutId?: string | undefined; readonly exerciseId?: string | undefined } = {},
+) => {
+	const stream = table("eventStream", "workoutSetStream");
+	const set = table("event", "workoutSetStreamSet");
+	return selectedAggregate(stream, {
+		measures: projectionStatusMeasures(stream),
+		where: and(
+			schemaOwnerPredicate(stream, "eventSchemaPluginId", reference),
+			eq(column(stream, "eventSchemaSlug"), literal("workout-set")),
+			...(scope.exerciseId === undefined
+				? []
+				: [eq(column(stream, "entityId"), literal(scope.exerciseId))]),
+			...(scope.workoutId === undefined
+				? []
+				: [
+						exists(set, {
+							where: and(
+								eq(column(set, "entityId"), column(stream, "entityId")),
+								eq(column(set, "sessionEntityId"), literal(scope.workoutId)),
+								eq(column(set, "eventSchemaPluginId"), column(stream, "eventSchemaPluginId")),
+								eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+							),
+						}),
+					]),
+		),
+	});
+};
 
 export const muscleSetWeight = (role: null | string) => {
 	if (role === "stabilizer") {

@@ -1,6 +1,6 @@
 import { formatExactValue } from "@ryot-app/plugin-client-sdk/plugin";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -68,12 +68,10 @@ const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalytics
 	Result.getOrThrow(
 		mediaAnalyticsTrendRecipe({
 			...input,
-			now,
-			selection: {
-				grouping: "day",
-				comparison: "none",
-				range: { endDate, startDate, kind: "custom" },
-			},
+			reporting: resolveReportingSelection(
+				{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
+				{ now, timeZone: input.timeZone },
+			),
 		}).decode({
 			data: {
 				current: {
@@ -194,7 +192,10 @@ describe("Media analytics presentation model", () => {
 	});
 	it("groups hours into a 24-hour grid without combining units", () => {
 		const hours = Result.getOrThrow(
-			mediaAnalyticsHoursRecipe({ ...input, now }).decode({
+			mediaAnalyticsHoursRecipe({
+				...input,
+				reporting: resolveReportingSelection(input.selection, { now, timeZone: input.timeZone }),
+			}).decode({
 				data: {
 					hourly: {
 						type: "aggregate",

@@ -5,7 +5,6 @@ import {
 	type ExerciseDetails,
 } from "../../shared/exercise-details-recipes";
 import type { ExerciseKind } from "../../shared/exercise-kinds";
-import { projectionsReady } from "../../shared/fitness-metrics";
 import type { PersonalBest } from "../../shared/workout-records";
 import { formatClock, formatDuration, formatNumber, parseDate } from "../workout/format";
 
@@ -107,12 +106,26 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		title: "Reps per month",
 		value: (month) => month.reps,
 	},
+	volume: {
+		key: "volume",
+		unit: "kg-reps",
+		label: "Volume",
+		title: "Volume per month",
+		value: (month) => month.volume,
+	},
 	maxReps: {
 		unit: "reps",
 		key: "maxReps",
 		label: "Best set",
 		title: "Best set per month",
 		value: (month) => month.maxReps,
+	},
+	oneRm: {
+		key: "oneRm",
+		label: "1RM",
+		unit: "weight",
+		value: (month) => month.maxOneRm,
+		title: "Est. one-rep max per month",
 	},
 	distance: {
 		key: "distance",
@@ -149,27 +162,12 @@ const metricDefinitions: Readonly<Record<MetricKey, Metric>> = {
 		title: "Longest set per month",
 		value: (month) => month.maxDuration,
 	},
-	volume: {
-		key: "volume",
-		unit: "kg-reps",
-		label: "Volume",
-		title: "Volume per month",
-		value: (month) => (projectionsReady(month) ? month.volume : null),
-	},
-	oneRm: {
-		key: "oneRm",
-		label: "1RM",
-		unit: "weight",
-		title: "Est. one-rep max per month",
-		value: (month) => (projectionsReady(month) ? month.maxOneRm : null),
-	},
 	pace: {
 		key: "pace",
 		unit: "kmh",
 		label: "Speed",
 		title: "Best speed per month",
-		value: (month) =>
-			month.maxPace === null || !projectionsReady(month) ? null : month.maxPace * secondsPerHour,
+		value: (month) => (month.maxPace === null ? null : month.maxPace * secondsPerHour),
 	},
 };
 
@@ -305,9 +303,7 @@ export const buildStatTiles = (
 			detail: null,
 			label: "Total volume",
 			value:
-				!computedReady || !projectionsReady(totals) || totals.volume === null
-					? "—"
-					: `${formatNumber(totals.volume)} kg × reps`,
+				!computedReady || totals.volume === null ? "—" : `${formatNumber(totals.volume)} kg × reps`,
 		},
 		sets: {
 			label: "Sets",
@@ -376,8 +372,8 @@ export const latestPersonalBests = (
 	});
 };
 
-export const bestWeightByReps = (totals: Totals) => {
-	if (!projectionsReady(totals)) {
+export const bestWeightByReps = (totals: Totals, processing: ExerciseDetails["processing"]) => {
+	if (processing !== "ready") {
 		return [];
 	}
 	const weights = [

@@ -64,8 +64,9 @@ export const analyticsSummary = (
 		[`${prefix}Types`]: aggregate(values.types ?? defaultTypes),
 		[`${prefix}ActiveDays`]: aggregate([{ activeDays: values.activeDays ?? 0 }]),
 	});
+	const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
 	const summary = Result.getOrThrow(
-		mediaAnalyticsSummaryRecipe({ ...input, now }).decode({
+		mediaAnalyticsSummaryRecipe({ ...input, reporting: reporting.resolved }).decode({
 			data: {
 				...period("current", options.current),
 				...period("previous", options.previous),
@@ -79,8 +80,5 @@ export const analyticsSummary = (
 			},
 		}),
 	);
-	return {
-		...summary,
-		reporting: reportingExecution(input.selection, { now, timeZone: input.timeZone }),
-	};
+	return { ...summary, reporting };
 };

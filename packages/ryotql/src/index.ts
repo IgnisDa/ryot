@@ -940,6 +940,16 @@ export const selectedMeasure = <A, I>(
 	codec: Schema.Codec<A, I>,
 ): SelectedMeasure<A, I> => ({ codec, aggregation });
 
+export const NullableNumber = Schema.NullOr(Schema.Finite);
+
+export const countAll = selectedMeasure({ function: "count" }, Schema.Finite);
+
+export const sumOf = (expr: ScalarExpression) =>
+	selectedMeasure({ expr, function: "sum" }, NullableNumber);
+
+export const countIf = (predicate: Predicate) =>
+	sumOf(conditional(predicate, literal(1), literal(0)));
+
 export type SelectedMeasureRow<Measures extends SelectedMeasures> = {
 	readonly [Key in keyof Measures]: SelectedMeasureValue<Measures[Key]>;
 };

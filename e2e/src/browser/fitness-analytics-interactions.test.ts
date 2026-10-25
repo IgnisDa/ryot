@@ -1,4 +1,7 @@
-import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import {
+	type ReportingSelection,
+	resolveReportingSelection,
+} from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessMeasurementReadingsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import { Clock, Effect } from "effect";
@@ -234,11 +237,12 @@ it.live(
 			const readings = yield* executeRyotQLRecipe(
 				fixture.account.client,
 				fitnessMeasurementReadingsRecipe({
-					now: readingsNow,
 					reference: fixture.reference,
-					timeZone: TimeZone.make("UTC"),
-					selection: fixture.reportingSelection,
 					metricId: fixture.measurementMetricId,
+					reporting: resolveReportingSelection(fixture.reportingSelection, {
+						now: readingsNow,
+						timeZone: TimeZone.make("UTC"),
+					}),
 				}),
 			);
 			const editedReading = requirePresent(

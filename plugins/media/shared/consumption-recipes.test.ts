@@ -76,8 +76,7 @@ describe("canonical consumption reads", () => {
 							completionCount: 1,
 							consumedAmount: 40,
 							unknownAmountCount: 1,
-							consumptionFailedCount: 1,
-							consumptionPendingCount: 2,
+							consumptionProcessing: "failed",
 						},
 					]),
 				},
@@ -87,8 +86,7 @@ describe("canonical consumption reads", () => {
 			completionCount: 1,
 			consumedAmount: 40,
 			unknownAmountCount: 1,
-			consumptionFailedCount: 1,
-			consumptionPendingCount: 2,
+			consumptionProcessing: "failed",
 		});
 		expect(
 			validateRyotQLDocument(recipe.document, {

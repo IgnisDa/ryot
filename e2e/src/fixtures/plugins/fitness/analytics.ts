@@ -1,4 +1,7 @@
-import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import {
+	type ReportingSelection,
+	resolveReportingSelection,
+} from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessAnalyticsTotalsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -130,12 +133,13 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			executeRyotQLRecipe(
 				client,
 				fitnessAnalyticsTotalsRecipe({
-					now,
 					reference,
-					selection: reportingSelection,
-					timeZone: TimeZone.make("UTC"),
+					reporting: resolveReportingSelection(reportingSelection, {
+						now,
+						timeZone: TimeZone.make("UTC"),
+					}),
 				}),
-			).pipe(Effect.map((report) => (report.pendingSets === 0 ? report : null))),
+			).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
 		);
 
 		return {

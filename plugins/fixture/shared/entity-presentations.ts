@@ -9,6 +9,7 @@ import {
 	inArray,
 	jsonPath,
 	literal,
+	NullableNumber,
 	selectedField,
 	selectedRowsSource,
 	type SelectedSelection,
@@ -40,7 +41,6 @@ const selectedPresentationSource = <const Selection extends SelectedSelection>(i
 };
 
 const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
-const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const nullableStrings = Schema.NullOr(Schema.Array(Schema.String));
 
@@ -54,8 +54,8 @@ export const pokemonPresentationSource = () => {
 			presentationTypes: selectedField(property("types"), nullableStrings),
 			presentationName: selectedField(column(pokemon, "name"), Schema.String),
 			presentationAbilities: selectedField(property("abilities"), nullableStrings),
-			presentationHeight: selectedField(castNumber(property("height")), nullableNumber),
-			presentationWeight: selectedField(castNumber(property("weight")), nullableNumber),
+			presentationHeight: selectedField(castNumber(property("height")), NullableNumber),
+			presentationWeight: selectedField(castNumber(property("weight")), NullableNumber),
 			presentationArtwork: selectedField(
 				jsonPath(column(pokemon, "properties"), "images", 0),
 				Schema.NullOr(AssetLocator),
@@ -77,7 +77,7 @@ export const movePresentationSource = () => {
 			presentationId: selectedField(column(move, "id"), Schema.String),
 			presentationName: selectedField(column(move, "name"), Schema.String),
 			presentationType: selectedField(castText(property("type")), nullableString),
-			presentationPower: selectedField(castNumber(property("power")), nullableNumber),
+			presentationPower: selectedField(castNumber(property("power")), NullableNumber),
 			presentationGeneration: selectedField(castText(property("generation")), nullableString),
 			presentationDamageClass: selectedField(castText(property("damageClass")), nullableString),
 		},

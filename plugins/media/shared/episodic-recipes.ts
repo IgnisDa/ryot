@@ -39,7 +39,6 @@ import {
 import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { EntityId, localDateOf } from "@ryot-app/plugin-kit/schema";
 
-import { consumptionProcessingState } from "./consumption-projection";
 import {
 	consumptionAmount,
 	consumptionNumber,
@@ -929,10 +928,7 @@ export const mediaEpisodicRecipes = <
 					consumptionMinutes: totals?.consumedAmount ?? 0,
 					consumptionMissing: totals?.unknownAmountCount ?? 0,
 					events: events.sort(compareMediaActivityDescending),
-					consumptionProcessing: consumptionProcessingState(
-						totals?.consumptionPendingCount ?? 0,
-						totals?.consumptionFailedCount ?? 0,
-					),
+					consumptionProcessing: totals?.consumptionProcessing ?? "ready",
 					truncated:
 						coverage.pageInfo.hasMore ||
 						watchDays.pageInfo.hasMore ||

@@ -1067,8 +1067,7 @@ export const mediaFlatRecipes = <
 						completionCount: totals?.completionCount ?? 0,
 						consumedAmount: totals?.consumedAmount ?? null,
 						unknownAmountCount: totals?.unknownAmountCount ?? 0,
-						consumptionFailedCount: totals?.consumptionFailedCount ?? 0,
-						consumptionPendingCount: totals?.consumptionPendingCount ?? 0,
+						consumptionProcessing: totals?.consumptionProcessing ?? "ready",
 						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
 						events: mergeMediaActivityEvents({
 							parentEvents: events.items,

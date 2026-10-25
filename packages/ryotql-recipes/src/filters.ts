@@ -36,6 +36,7 @@ import {
 	castText,
 	column,
 	contains,
+	countAll,
 	defineRecipe,
 	eq,
 	eventSchemaPredicate,
@@ -57,7 +58,6 @@ import {
 	relationshipSchemaPredicate,
 	selectedAggregate,
 	selectedField,
-	selectedMeasure,
 	table,
 } from "@ryot-app/ryotql";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -693,8 +693,8 @@ export const linkedFilterChoicesRecipe = defineRecipe(
 			queries: {
 				choices: selectedAggregate(source.from, {
 					limit: filterChoicePageSize,
+					measures: { links: countAll },
 					orderBy: [groupAscending("name"), groupAscending("id")],
-					measures: { links: selectedMeasure({ function: "count" }, Schema.Finite) },
 					joins: [join("inner", far, eq(column(source.from, source.farColumn), column(far, "id")))],
 					groupBy: {
 						id: selectedField(column(far, "id"), Schema.String),
