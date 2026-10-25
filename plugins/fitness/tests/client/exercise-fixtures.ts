@@ -59,7 +59,6 @@ export const exerciseDetails = (
 	topWorkout: null,
 	workoutNotes: [],
 	personalBests: [],
-	processing: "ready",
 	totals: emptyTotals,
 	exercise: exerciseRecord(),
 	...overrides,

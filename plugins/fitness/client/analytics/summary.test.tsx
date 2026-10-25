@@ -72,7 +72,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		data: {
 			entries: aggregate({ entries: value.measurementEntries }),
 			readings: aggregate({ readings: value.measurementReadings }),
-			processing: aggregate({ failed: value.failed, pending: value.pending }),
 			workouts: aggregate({
 				workouts: value.workouts,
 				calories: value.calories,
@@ -84,6 +83,8 @@ const totals = (overrides: Partial<Totals> = {}) => {
 			sets: aggregate({
 				sets: value.sets,
 				volume: value.volume,
+				failed: value.failed,
+				pending: value.pending,
 				distance: value.distance,
 				repetitions: value.repetitions,
 				plannedRest: value.plannedRest,
@@ -139,7 +140,7 @@ const mountSummary = (
 };
 
 describe("Fitness analytics summary UI", () => {
-	it.live("keeps pending and failed distinct from zero and preserves entered readings", () =>
+	it.live("notes failed processing and preserves entered readings", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const page = mountSummary(clock, selection);
@@ -178,7 +179,6 @@ describe("Fitness analytics summary UI", () => {
 				expect(screen.getByText("0 days")).toBeDefined();
 				expect(screen.getByText("2 entries")).toBeDefined();
 				expect(screen.getByText("5 readings")).toBeDefined();
-				expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(5);
 				expect(
 					screen.getByText(/Known subtotal · 0 workouts with duration · 1 missing/),
 				).toBeDefined();
@@ -186,7 +186,7 @@ describe("Fitness analytics summary UI", () => {
 					screen.getByText(/Known subtotal · 0 workouts with energy · 1 missing/),
 				).toBeDefined();
 				expect(
-					screen.getAllByText(/Derived values unavailable · processing failed/).length,
+					screen.getAllByText(/Processing failed · values may be incomplete/).length,
 				).toBeGreaterThan(0);
 			} finally {
 				page.dispose();

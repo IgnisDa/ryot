@@ -72,13 +72,12 @@ const mountProcessing = (children: ReactNode) => {
 				const text = document.body.textContent;
 				expect(page.queryRequests("processing").length).toBeGreaterThan(0);
 				if (status === "ready") {
-					expect(text).not.toContain("Checking calculated results…");
-					expect(text).not.toContain("Updating calculated results…");
+					expect(text).not.toContain("Values shown may");
 				} else {
 					expect(text).toContain(
 						status === "failed"
-							? "Calculated results could not be updated."
-							: "Updating calculated results…",
+							? "Calculated results could not be updated. Values shown may be incomplete."
+							: "Updating calculated results. Values shown may change.",
 					);
 				}
 				assertion();
@@ -228,133 +227,75 @@ const Workout = (props: {
 
 describe("calculated display readiness", () => {
 	for (const status of ["pending", "failed"] as const) {
-		it.live(
-			`masks cached summary volume, awards and heatmap when processing becomes ${status}`,
-			() =>
-				Effect.gen(function* () {
-					const { page, settle } = mountProcessing(<Summary />);
-					const body = within(document.body);
-					yield* settle("ready", () => {
-						expect(body.getByRole("region", { name: "Summary" }).textContent).toContain(
-							"1K kg × reps",
-						);
-						expect(body.getByText(/latest: Recorded bench/)).toBeTruthy();
-						expect(body.getByRole("img", { name: /Training days/ })).toBeTruthy();
-					});
-					page.send({ type: "page-refresh" });
-					yield* settle(status, () => {
-						const text = body.getByRole("region", { name: "Summary" }).textContent;
-						expect(text).toContain("Workouts2");
-						expect(text).toContain("Recorded active duration2 min");
-						expect(text).toContain("Calculated awards unavailable");
-						expect(text).not.toContain("kg × reps");
-						expect(text).not.toContain("Recorded bench");
-						expect(text).not.toContain("▲");
-						expect(body.queryByRole("img", { name: /Training days/ })).toBeNull();
-					});
-				}),
+		it.live(`keeps summary volume, awards and heatmap when processing becomes ${status}`, () =>
+			Effect.gen(function* () {
+				const { page, settle } = mountProcessing(<Summary />);
+				const body = within(document.body);
+				yield* settle("ready", () => {
+					expect(body.getByRole("region", { name: "Summary" }).textContent).toContain(
+						"1K kg × reps",
+					);
+				});
+				page.send({ type: "page-refresh" });
+				yield* settle(status, () => {
+					const text = body.getByRole("region", { name: "Summary" }).textContent;
+					expect(text).toContain("Workouts2");
+					expect(text).toContain("1K kg × reps");
+					expect(text).toContain("Recorded bench");
+					expect(body.getByRole("img", { name: /Training days/ })).toBeTruthy();
+				});
+			}),
 		);
 
-		it.live(
-			`masks cached exercise projections when processing becomes ${status}, keeping entered history`,
-			() =>
-				Effect.gen(function* () {
-					const { page, settle } = mountProcessing(<History />);
-					const body = within(document.body);
-					yield* settle("ready", () => {
-						expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
-						expect(body.getByRole("heading", { name: "Personal bests" })).toBeTruthy();
-						expect(body.getByRole("img", { name: /Est. one-rep max.*120 kg/ })).toBeTruthy();
-					});
-					page.send({ type: "page-refresh" });
-					yield* settle(status, () => {
-						expect(document.body.textContent).toContain("Sessions1");
-						expect(document.body.textContent).toContain("Sets2");
-						expect(document.body.textContent).toContain("Total reps15");
-						expect(body.getByText("100 kg × 10")).toBeTruthy();
-						expect(body.getByText("5 reps")).toBeTruthy();
-						expect(document.body.textContent).not.toContain("999");
-						expect(document.body.textContent).not.toContain("kg × reps");
-						expect(body.queryByRole("heading", { name: "Personal bests" })).toBeNull();
-						expect(body.queryByRole("heading", { name: "Best weight by rep count" })).toBeNull();
-						expect(body.queryByRole("img", { name: /Est. one-rep max/ })).toBeNull();
-					});
-				}),
+		it.live(`keeps exercise projections when processing becomes ${status}`, () =>
+			Effect.gen(function* () {
+				const { page, settle } = mountProcessing(<History />);
+				const body = within(document.body);
+				yield* settle("ready", () => {
+					expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
+				});
+				page.send({ type: "page-refresh" });
+				yield* settle(status, () => {
+					expect(document.body.textContent).toContain("Total reps15");
+					expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
+					expect(body.getByRole("heading", { name: "Personal bests" })).toBeTruthy();
+					expect(body.getByRole("img", { name: /Est. one-rep max.*120 kg/ })).toBeTruthy();
+				});
+			}),
 		);
 
-		it.live(`masks cached workout projections and taxonomy when processing becomes ${status}`, () =>
+		it.live(`keeps workout projections and taxonomy when processing becomes ${status}`, () =>
 			Effect.gen(function* () {
 				const { page, settle } = mountProcessing(<Workout />);
 				const body = within(document.body);
 				yield* settle("ready", () => {
 					expect(document.body.textContent).toContain("1,000 kg × reps");
-					expect(document.body.textContent).toContain("+500 kg × reps");
-					expect(body.getByRole("heading", { name: "Muscles worked" })).toBeTruthy();
-					expect(body.getByRole("columnheader", { name: "Est. 1RM" })).toBeTruthy();
 				});
 				page.send({ type: "page-refresh" });
 				yield* settle(status, () => {
-					const text = document.body.textContent;
-					expect(text).toContain("Active duration10 min");
-					expect(text).toContain("Sets1");
-					expect(text).toContain("Energy0");
-					expect(text).toContain("100 kg × 10");
-					expect(text).toContain("Unknown");
-					expect(text).not.toContain("kg × reps");
-					expect(text).not.toContain("Personal-best awards");
-					expect(text).not.toContain("Retained biceps");
-					expect(text).not.toContain("Retained dumbbell");
-					expect(body.queryByRole("columnheader", { name: "Est. 1RM" })).toBeNull();
-					expect(body.queryByRole("heading", { name: "Muscles worked" })).toBeNull();
-					expect(body.getByRole("heading", { name: "Session flow" })).toBeTruthy();
+					expect(document.body.textContent).toContain("1,000 kg × reps");
+					expect(document.body.textContent).toContain("+500 kg × reps");
+					expect(body.getByRole("heading", { name: "Muscles worked" })).toBeTruthy();
+					expect(body.getByRole("columnheader", { name: "Est. 1RM" })).toBeTruthy();
 				});
 			}),
 		);
 	}
 
-	it.live("keeps incomplete summary aggregates masked while the processing poll is ready", () =>
-		Effect.gen(function* () {
-			const { settle } = mountProcessing(
-				<Summary
-					value={{
-						...summary,
-						latestRecord: null,
-						current: { ...totals, volume: null, personalBests: null },
-						days: [{ ...totals, volume: null, at: "2026-10-12T00:00:00.000Z" }],
-					}}
-				/>,
-			);
-			yield* settle("ready", () => {
-				expect(document.body.textContent).toContain("Workouts2");
-				expect(document.body.textContent).toContain("Calculated awards unavailable");
-				expect(document.body.textContent).not.toContain("kg × reps");
-				expect(within(document.body).queryByRole("img", { name: /Training days/ })).toBeNull();
-			});
-		}),
-	);
-
-	it.live("keeps incomplete exercise aggregates masked while the processing poll is ready", () =>
+	it.live("shows a dash for exercise volume that has no projected value", () =>
 		Effect.gen(function* () {
 			const { settle } = mountProcessing(
 				<History
 					value={{
 						...history,
-						processing: "pending",
 						totals: { ...history.totals, volume: null },
-						months: history.months.map((month) =>
-							Object.assign({}, month, { volume: null, maxOneRm: null }),
-						),
+						months: history.months.map((month) => Object.assign({}, month, { volume: null })),
 					}}
 				/>,
 			);
 			yield* settle("ready", () => {
-				const body = within(document.body);
 				expect(document.body.textContent).toContain("Total reps15");
-				expect(body.getByText("100 kg × 10")).toBeTruthy();
-				expect(document.body.textContent).not.toContain("kg × reps");
-				expect(body.queryByRole("heading", { name: "Personal bests" })).toBeNull();
-				expect(body.queryByRole("heading", { name: "Best weight by rep count" })).toBeNull();
-				expect(body.queryByRole("img", { name: /Est. one-rep max/ })).toBeNull();
+				expect(document.body.textContent).toContain("Total volume—");
 			});
 		}),
 	);
@@ -367,9 +308,6 @@ describe("calculated display readiness", () => {
 				expect(text).toContain("Sets1");
 				expect(text).toContain("100 kg × 10");
 				expect(text).toContain("Updating records…");
-				expect(text).toContain("Unknown");
-				expect(text).not.toContain("kg × reps");
-				expect(text).not.toContain("Personal-best awards");
 				expect(text).not.toContain("Retained biceps");
 				expect(text).not.toContain("Retained dumbbell");
 				expect(within(document.body).queryByRole("columnheader", { name: "Est. 1RM" })).toBeNull();

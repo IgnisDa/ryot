@@ -23,6 +23,7 @@ import {
 	measureDescending,
 	NullableNumber,
 	projectionProcessingState,
+	projectionStatusMeasures,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -41,12 +42,7 @@ import {
 
 import { property, propertyDate, propertyJson, propertyNumber } from "./entity-selections";
 import type { fitnessMetricDefinitions } from "./fitness-metrics";
-import {
-	personalBestAwardCount,
-	workoutSetMetric,
-	workoutSetProcessing,
-	workoutSetVolume,
-} from "./fitness-metrics";
+import { personalBestAwardCount, workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
 import {
 	setMeasures,
 	startedAt,
@@ -97,12 +93,6 @@ const fitnessSetFilter = (
 	});
 };
 
-const setProcessing = (input: Input) =>
-	workoutSetProcessing(
-		input.reference,
-		input.filter?.kind === "exercises" ? { exerciseId: input.filter.id } : {},
-	);
-
 const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: string) => {
 	const source = workoutRangeSources(input.reference, range, alias);
 	return {
@@ -131,24 +121,19 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 	const reading = table("event", "analyticsReading");
 	const metric = table("entity", "analyticsMetric");
 	return {
-		map: ({ sets, entries, workouts, readings, processing }) => {
-			const state = projectionProcessingState(processing);
-			const ready = state === "ready";
-			return Result.succeed({
+		map: ({ sets, entries, workouts, readings }) =>
+			Result.succeed({
 				...workouts,
 				...sets,
-				processing: state,
-				volume: ready ? sets.volume : null,
 				measurementEntries: entries.entries,
 				measurementReadings: readings.readings,
-				personalBests: ready ? (sets.personalBests ?? 0) : null,
-				personalBestSets: ready ? (sets.personalBestSets ?? 0) : null,
+				personalBests: sets.personalBests ?? 0,
+				processing: projectionProcessingState(sets),
+				personalBestSets: sets.personalBestSets ?? 0,
 				missingDurationWorkouts: workouts.workouts - (workouts.timedWorkouts ?? 0),
 				missingCalorieWorkouts: workouts.workouts - (workouts.calorieWorkouts ?? 0),
-			});
-		},
+			}),
 		queries: {
-			processing: setProcessing(input),
 			entries: selectedAggregate(entry, {
 				measures: { entries: countAll },
 				where: and(
@@ -166,19 +151,6 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 					withinPeriod(column(reading, "occurredAt"), range),
 				),
 			}),
-			sets: selectedAggregate(source.set, {
-				where: source.setWhere,
-				joins: source.setJoins,
-				measures: {
-					...setMeasures(source.set),
-					sets: countAll,
-					repetitions: sumOf(workoutSetMetric(source.set, "reps")),
-					distance: sumOf(workoutSetMetric(source.set, "distance")),
-					plannedRest: sumOf(propertyNumber(source.set, "restTime")),
-					setDuration: sumOf(workoutSetMetric(source.set, "duration")),
-					personalBestSets: countIf(gt(personalBestAwardCount(source.set), literal(0))),
-				},
-			}),
 			workouts: selectedAggregate(source.workout, {
 				where: source.workoutWhere,
 				measures: {
@@ -195,6 +167,20 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 						},
 						Schema.Finite,
 					),
+				},
+			}),
+			sets: selectedAggregate(source.set, {
+				where: source.setWhere,
+				joins: source.setJoins,
+				measures: {
+					...setMeasures(source.set),
+					...projectionStatusMeasures(source.set),
+					sets: countAll,
+					repetitions: sumOf(workoutSetMetric(source.set, "reps")),
+					distance: sumOf(workoutSetMetric(source.set, "distance")),
+					plannedRest: sumOf(propertyNumber(source.set, "restTime")),
+					setDuration: sumOf(workoutSetMetric(source.set, "duration")),
+					personalBestSets: countIf(gt(personalBestAwardCount(source.set), literal(0))),
 				},
 			}),
 		},
@@ -325,24 +311,35 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 			),
 		});
 		return {
-			map: ({ setTrend, processing, workoutTrend }) => {
-				const state = processing === undefined ? "ready" : projectionProcessingState(processing);
+			map: ({ setTrend, workoutTrend, derivedTrend }) => {
 				const points =
-					setTrend === undefined
-						? (workoutTrend?.items ?? [])
-						: setTrend.items.map((point) =>
-								state === "ready" ? point : Object.assign({}, point, { value: null }),
-							);
+					derivedTrend?.items.map(({ at, value, knownValues, observations, ...status }) => ({
+						at,
+						value,
+						knownValues,
+						observations,
+						processing: projectionProcessingState(status),
+					})) ??
+					(workoutTrend ?? setTrend)?.items.map(({ at, value, knownValues, observations }) => ({
+						at,
+						value,
+						knownValues,
+						observations,
+						processing: "ready" as const,
+					})) ??
+					[];
 				return Result.succeed({
 					metric,
 					points,
-					processing: state,
 					period: resolved.current,
 					grouping: resolved.grouping,
+					processing: projectionProcessingState({
+						failed: points.filter((point) => point.processing === "failed").length,
+						pending: points.filter((point) => point.processing === "pending").length,
+					}),
 				});
 			},
 			queries: {
-				processing: derivedMetric ? setProcessing(input) : undefined,
 				workoutTrend: workoutMetric
 					? selectedAggregate(source.workout, {
 							measures,
@@ -352,16 +349,27 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 							groupBy: groupBy(startedAt(source.workout)),
 						})
 					: undefined,
-				setTrend: workoutMetric
-					? undefined
-					: selectedAggregate(source.set, {
-							measures,
+				setTrend:
+					workoutMetric || derivedMetric
+						? undefined
+						: selectedAggregate(source.set, {
+								measures,
+								joins: source.setJoins,
+								where: source.setWhere,
+								limit: REPORTING_BUCKET_LIMIT,
+								orderBy: [groupAscending("at")],
+								groupBy: groupBy(source.setStartedAt),
+							}),
+				derivedTrend: derivedMetric
+					? selectedAggregate(source.set, {
 							joins: source.setJoins,
 							where: source.setWhere,
 							limit: REPORTING_BUCKET_LIMIT,
 							orderBy: [groupAscending("at")],
 							groupBy: groupBy(source.setStartedAt),
-						}),
+							measures: { ...measures, ...projectionStatusMeasures(source.set) },
+						})
+					: undefined,
 			},
 		};
 	},

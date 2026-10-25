@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext } from "react";
 
 import { useWorkoutProcessing } from "./use-workout-processing";
 
-const ProcessingContext = createContext({ failed: false, pending: false, loading: false });
+const ProcessingContext = createContext({ failed: false, pending: false });
 
 export function WorkoutProcessing(props: {
 	readonly workoutId?: string;
@@ -18,36 +18,16 @@ export function WorkoutProcessing(props: {
 	);
 }
 
-export function ComputedResults(props: {
-	readonly compact?: boolean;
-	readonly children: ReactNode;
-}) {
+export function ProcessingNote() {
 	const processing = useContext(ProcessingContext);
-	if (props.compact && (processing.failed || processing.pending)) {
-		return processing.failed ? (
-			<span className="text-text-muted">—</span>
-		) : (
-			<span
-				aria-hidden="true"
-				className="inline-block h-[1em] w-12 max-w-full rounded bg-surface-2 align-middle"
-			/>
-		);
+	if (!processing.failed && !processing.pending) {
+		return null;
 	}
-	if (processing.failed) {
-		return (
-			<span role="status" className="font-ui text-text-muted">
-				Calculated results could not be updated.
-			</span>
-		);
-	}
-	if (processing.pending) {
-		return (
-			<span role="status" className="font-ui text-text-muted">
-				{processing.loading ? "Checking calculated results…" : "Updating calculated results…"}
-			</span>
-		);
-	}
-	return props.children;
+	return (
+		<span role="status" className="font-ui text-text-muted">
+			{processing.failed
+				? "Calculated results could not be updated. Values shown may be incomplete."
+				: "Updating calculated results. Values shown may change."}
+		</span>
+	);
 }
-
-export const useComputedResultsStatus = () => useContext(ProcessingContext);

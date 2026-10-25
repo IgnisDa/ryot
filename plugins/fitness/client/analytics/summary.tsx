@@ -47,8 +47,8 @@ const coverageDetail = (processing: AnalyticsTotals["processing"]) => {
 		return null;
 	}
 	return processing === "failed"
-		? "Derived values unavailable · processing failed"
-		: "Derived values unavailable · still processing";
+		? "Processing failed · values may be incomplete"
+		: "Still processing · values may change";
 };
 
 export function AnalyticsSummary({

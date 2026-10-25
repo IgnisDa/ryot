@@ -218,59 +218,47 @@ const settle = (assert: () => void) =>
 let answerCurrent = () => {};
 
 describe("all workouts page", () => {
-	it.live("uses aggregate readiness even when the separate processing poll reports ready", () =>
+	it.live("shows workout values while that workout's projections are pending", () =>
 		Effect.gen(function* () {
 			answerCurrent = openPage({ projectionPending: true }).answerPending;
 			yield* settle(() => {
 				const card = body.getByRole("article", { name: "Legs" });
 				expect(card.textContent).toContain("100 kg × 5");
-				expect(card.textContent).not.toContain("1,000 kg");
-				expect(card.textContent).not.toContain("1 PR");
-				const summary = body.getByRole("region", { name: "Summary" });
-				expect(summary.textContent).toContain("Recorded active duration");
-				expect(summary.textContent).toContain("avg 1h");
-				expect(summary.textContent).toContain("Calculated awards unavailable");
+				expect(card.textContent).toContain("1,000 kg");
+				expect(card.textContent).toContain("1 PR");
 			});
 		}),
 	);
-	it.live("hides computed records and volume while workout processing is pending", () =>
+	it.live("shows one processing note and keeps values while workout processing is pending", () =>
 		Effect.gen(function* () {
 			answerCurrent = openPage({ processingPending: true }).answerPending;
+			const note = "Updating calculated results. Values shown may change.";
 			yield* settle(() => {
 				const card = body.getByRole("article", { name: "Legs" });
-				expect(card.textContent).not.toContain("Updating calculated results…");
-				expect(card.textContent).not.toContain("1 PR");
-				expect(card.textContent).not.toContain("1,000 kg");
-				expect(card.textContent).toContain("100 kg × 5");
-				expect(body.getAllByText("Updating calculated results…")).toHaveLength(1);
+				expect(card.textContent).not.toContain(note);
+				expect(card.textContent).toContain("1 PR");
+				expect(card.textContent).toContain("1,000 kg");
+				expect(body.getAllByText(note)).toHaveLength(1);
 			});
 			for (const label of ["List view", "Table view"]) {
 				fireEvent.click(body.getByRole("radio", { name: label }));
 				yield* settle(() => {
-					expect(body.getAllByText("Updating calculated results…")).toHaveLength(1);
-					expect(body.queryByText("1,000 kg")).toBeNull();
+					expect(body.getAllByText(note)).toHaveLength(1);
+					expect(body.getAllByText(/1,000 kg/).length).toBeGreaterThan(0);
 				});
 			}
 		}),
 	);
 
-	it.live("checks calculated results once without filling cards with loading text", () =>
+	it.live("shows values without a note while the processing check is unanswered", () =>
 		Effect.gen(function* () {
 			const answers = { deferProcessing: true };
 			answerCurrent = openPage(answers).answerPending;
 			yield* settle(() => {
 				const card = body.getByRole("article", { name: "Legs" });
-				expect(card.textContent).not.toContain("calculated results");
-				expect(card.textContent).not.toContain("1,000 kg");
-				expect(body.getAllByText("Checking calculated results…")).toHaveLength(1);
-				expect(body.queryByText("Updating calculated results…")).toBeNull();
-			});
-			answers.deferProcessing = false;
-			yield* settle(() => {
-				const card = body.getByRole("article", { name: "Legs" });
 				expect(card.textContent).toContain("1,000 kg");
 				expect(card.textContent).toContain("1 PR");
-				expect(body.queryByText("Checking calculated results…")).toBeNull();
+				expect(body.queryByText(/calculated results/)).toBeNull();
 			});
 		}),
 	);

@@ -8,7 +8,6 @@ import { AssetArtWell } from "../asset-urls";
 import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
-import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
 import {
 	type CardGroup,
 	type ExerciseCard,
@@ -40,18 +39,16 @@ function RecordBadges(props: { readonly set: WorkoutSet }) {
 		return null;
 	}
 	return (
-		<ComputedResults>
-			<span className="flex flex-wrap gap-1">
-				{(props.set.personalBests ?? []).map((record) => (
-					<span
-						key={record}
-						className="rounded-pill bg-accent-soft px-2 py-0.5 font-ui font-semibold text-[12px] text-accent-text"
-					>
-						{personalBestLabels[record]}
-					</span>
-				))}
-			</span>
-		</ComputedResults>
+		<span className="flex flex-wrap gap-1">
+			{(props.set.personalBests ?? []).map((record) => (
+				<span
+					key={record}
+					className="rounded-pill bg-accent-soft px-2 py-0.5 font-ui font-semibold text-[12px] text-accent-text"
+				>
+					{personalBestLabels[record]}
+				</span>
+			))}
+		</span>
 	);
 }
 
@@ -131,8 +128,6 @@ export function ExerciseCardView(props: {
 	readonly workoutStartedAt: null | string;
 }) {
 	const { card, compact } = props;
-	const processing = useComputedResultsStatus();
-	const computedReady = !processing.pending && !processing.failed;
 	const meta = formatExerciseMeta({
 		targets: card.exercise.targets.items,
 		equipment: card.exercise.equipment.items,
@@ -172,20 +167,20 @@ export function ExerciseCardView(props: {
 							<h3 className="font-ui font-semibold text-[16px] text-text">{card.exercise.name}</h3>
 						</PluginLink>
 					</div>
-					{meta === "" || !computedReady || card.recordStatus !== "ready" ? null : (
+					{meta === "" || card.recordStatus !== "ready" ? null : (
 						<p className="font-ui text-[13px] text-text-muted">{meta}</p>
 					)}
 				</div>
 				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
-					{card.kind === "reps_and_weight" && (card.total === null || !computedReady) ? (
+					{card.kind === "reps_and_weight" && card.total === null ? (
 						<span className="text-[15px] text-text-muted">Unknown</span>
 					) : null}
-					{card.total === null || (card.total.measure === "volume" && !computedReady) ? null : (
+					{card.total === null ? null : (
 						<span className="font-semibold text-[15px] text-text">
 							{formatMeasure(card.total.value, card.total.measure, props.imperial)}
 						</span>
 					)}
-					{card.comparison === null || !computedReady ? null : (
+					{card.comparison === null ? null : (
 						<span
 							className={clsx(
 								"text-[13px]",
@@ -240,14 +235,10 @@ function SetTable(props: {
 	readonly card: ExerciseCard;
 }) {
 	const { card, compact } = props;
-	const processing = useComputedResultsStatus();
 	const labels = setLabels(card.sets.map((set) => set.setLot));
 	const showRpe = card.sets.some((set) => set.rpe !== null);
 	const showOneRm =
-		card.kind === "reps_and_weight" &&
-		!processing.pending &&
-		!processing.failed &&
-		card.sets.some((set) => set.recordStatus === "ready");
+		card.kind === "reps_and_weight" && card.sets.some((set) => set.recordStatus === "ready");
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
 	return (
 		<div role="table" className="font-ui" aria-label={`Sets for ${card.exercise.name}`}>
@@ -268,11 +259,7 @@ function SetTable(props: {
 				</div>
 			)}
 			{card.sets.map((set, index) => {
-				const hasRecords =
-					set.recordStatus === "ready" &&
-					(set.personalBests?.length ?? 0) > 0 &&
-					!processing.pending &&
-					!processing.failed;
+				const hasRecords = set.recordStatus === "ready" && (set.personalBests?.length ?? 0) > 0;
 				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
 					showOneRm && set.recordStatus === "ready" && set.oneRm !== null

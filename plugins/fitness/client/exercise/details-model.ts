@@ -259,7 +259,6 @@ export const buildStatTiles = (
 	kind: null | ExerciseKind,
 	totals: Totals,
 	months: readonly Month[],
-	computedReady = true,
 ): readonly StatTile[] => {
 	const sets = totals.sets;
 	const reps = totals.reps ?? 0;
@@ -284,6 +283,11 @@ export const buildStatTiles = (
 			label: "Most reps in a set",
 			value: formatNumber(maxMonth(months, (month) => month.maxReps)),
 		},
+		volume: {
+			detail: null,
+			label: "Total volume",
+			value: totals.volume === null ? "—" : `${formatNumber(totals.volume)} kg × reps`,
+		},
 		reps: {
 			label: "Total reps",
 			value: formatNumber(reps),
@@ -298,12 +302,6 @@ export const buildStatTiles = (
 			label: "Sessions",
 			value: formatNumber(totals.sessions),
 			detail: perSession === 0 ? null : `${oneDecimal(perSession)} sets per session`,
-		},
-		volume: {
-			detail: null,
-			label: "Total volume",
-			value:
-				!computedReady || totals.volume === null ? "—" : `${formatNumber(totals.volume)} kg × reps`,
 		},
 		sets: {
 			label: "Sets",
@@ -372,10 +370,7 @@ export const latestPersonalBests = (
 	});
 };
 
-export const bestWeightByReps = (totals: Totals, processing: ExerciseDetails["processing"]) => {
-	if (processing !== "ready") {
-		return [];
-	}
+export const bestWeightByReps = (totals: Totals) => {
 	const weights = [
 		totals.weightForReps1,
 		totals.weightForReps5,

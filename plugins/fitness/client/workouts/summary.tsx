@@ -3,7 +3,7 @@ import { Button, Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-
 import clsx from "clsx";
 
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
-import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
+import { ProcessingNote } from "../workout-processing";
 import { buildHeatmap, buildSummaryTiles, type PeriodKey, periodOptions } from "./model";
 import { toneClasses } from "./styles";
 
@@ -28,8 +28,6 @@ export function WorkoutSummarySection(props: {
 	readonly onPeriodChange: (period: PeriodKey) => void;
 }) {
 	const { period, summary } = props;
-	const processing = useComputedResultsStatus();
-	const computedReady = !processing.pending && !processing.failed;
 	const label = periodOptions.find(({ key }) => key === period)?.label ?? "";
 	let content = <StatusMessage tone="pending">Loading your training summary…</StatusMessage>;
 	if (summary === undefined && props.isError) {
@@ -46,7 +44,7 @@ export function WorkoutSummarySection(props: {
 		content = (
 			<div className="flex flex-wrap gap-4">
 				<div className="grid min-w-0 flex-[999_1_560px] grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-					{buildSummaryTiles(summary, period, props.imperial, computedReady).map((tile) => (
+					{buildSummaryTiles(summary, period, props.imperial).map((tile) => (
 						<Card key={tile.label} className="flex min-w-0 flex-col gap-1.5">
 							<span className="text-[13px] text-text-muted">{tile.label}</span>
 							<span className="text-[28px] leading-tight font-semibold text-text tabular-nums">
@@ -58,9 +56,7 @@ export function WorkoutSummarySection(props: {
 						</Card>
 					))}
 				</div>
-				{computedReady && summary.days.every((day) => day.volume !== null) ? (
-					<Heatmap now={props.now} summary={summary} timeZone={props.timeZone} />
-				) : null}
+				<Heatmap now={props.now} summary={summary} timeZone={props.timeZone} />
 			</div>
 		);
 	}
@@ -76,7 +72,7 @@ export function WorkoutSummarySection(props: {
 					options={periodOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
 				/>
 			</div>
-			<ComputedResults>{null}</ComputedResults>
+			<ProcessingNote />
 			{content}
 		</section>
 	);

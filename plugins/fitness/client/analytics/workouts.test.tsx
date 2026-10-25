@@ -175,7 +175,7 @@ describe("Fitness analytics workout charts", () => {
 					fireEvent.click(volumeOption);
 					const volumeRequest = yield* Effect.promise(() =>
 						waitFor(() => {
-							const request = page.queryRequests("setTrend")[0];
+							const request = page.queryRequests("derivedTrend")[0];
 							assert(request);
 							return request;
 						}),
@@ -184,8 +184,9 @@ describe("Fitness analytics workout charts", () => {
 						outcome: "success",
 						response: {
 							data: {
-								processing: aggregate([{ failed: 0, pending: 0 }]),
-								setTrend: aggregate([workoutPoint("2026-03-01T00:00:00.000Z", null)]),
+								derivedTrend: aggregate([
+									{ ...workoutPoint("2026-03-01T00:00:00.000Z", null), failed: 0, pending: 0 },
+								]),
 							},
 						},
 					});

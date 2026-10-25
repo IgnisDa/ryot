@@ -286,12 +286,8 @@ export const formatTotals = (totals: undefined | WorkoutPeriodTotals, imperial: 
 				totals.activeDuration === null
 					? "Active duration unknown"
 					: `${formatDuration(totals.activeDuration)} active`,
-				totals.volume !== null && totals.volume > 0
-					? formatVolume(totals.volume, imperial, true)
-					: null,
-				totals.personalBests !== null && totals.personalBests > 0
-					? plural(totals.personalBests, "personal-best award")
-					: null,
+				totals.volume > 0 ? formatVolume(totals.volume, imperial, true) : null,
+				totals.personalBests > 0 ? plural(totals.personalBests, "personal-best award") : null,
 			]
 				.filter((part) => part !== null)
 				.join(" · ");
@@ -353,7 +349,6 @@ export const buildSummaryTiles = (
 	summary: WorkoutSummary,
 	period: PeriodKey,
 	imperial: boolean,
-	computedReady = true,
 ): readonly {
 	readonly tone: Tone;
 	readonly label: string;
@@ -361,22 +356,19 @@ export const buildSummaryTiles = (
 	readonly detail: string;
 }[] => {
 	const { current, previous } = summary;
-	const volume = computedReady ? current.volume : null;
-	const awards = computedReady ? current.personalBests : null;
-	const latestRecord = awards === null ? null : summary.latestRecord;
+	const volume = current.volume;
+	const awards = current.personalBests;
+	const latestRecord = summary.latestRecord;
 	const weeks = periodOf(period).days / 7;
 	const volumeChange = percentChange(volume, previous.volume);
 	const volumeDetail =
 		volumeChange === null
 			? "Nothing to compare yet"
 			: `${formatChange(volumeChange)} vs previous ${periodOf(period).days} days`;
-	let awardDetail =
+	const awardDetail =
 		latestRecord === null
 			? "None in this period"
 			: `latest: ${latestRecord.exerciseName} ${formatSetMain(latestRecord.exerciseKind, latestRecord, imperial)}`;
-	if (awards === null) {
-		awardDetail = "Calculated awards unavailable";
-	}
 	return [
 		{
 			tone: "muted",
@@ -395,15 +387,15 @@ export const buildSummaryTiles = (
 		},
 		{
 			label: "Volume",
+			detail: volumeDetail,
 			tone: changeTone(volumeChange),
-			value: volume === null ? "—" : formatVolume(volume, imperial, true),
-			detail: volume === null ? "Calculated volume unavailable" : volumeDetail,
+			value: formatVolume(volume, imperial, true),
 		},
 		{
 			detail: awardDetail,
+			value: formatNumber(awards),
 			label: "Personal-best awards",
 			tone: latestRecord === null ? "muted" : "record",
-			value: awards === null ? "—" : formatNumber(awards),
 		},
 	];
 };
@@ -411,7 +403,7 @@ export const buildSummaryTiles = (
 export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: TimeZone) => {
 	const days = new Map(summary.days.map((day) => [localDateOf(day.at, timeZone), day]));
 	const volumes = [...days.values()]
-		.flatMap(({ volume }) => (volume !== null && volume > 0 ? [volume] : []))
+		.flatMap(({ volume }) => (volume > 0 ? [volume] : []))
 		.sort((left, right) => left - right);
 	const quartile = (fraction: number) => volumes[Math.floor((volumes.length - 1) * fraction)] ?? 0;
 	const thresholds = [quartile(0.25), quartile(0.5), quartile(0.75)];
@@ -428,11 +420,7 @@ export const buildHeatmap = (summary: WorkoutSummary, now: Date, timeZone: TimeZ
 			if (entry === undefined || entry.workouts === 0) {
 				return { key: day, level: 0 };
 			}
-			return {
-				key: day,
-				level:
-					1 + thresholds.filter((value) => entry.volume !== null && entry.volume > value).length,
-			};
+			return { key: day, level: 1 + thresholds.filter((value) => entry.volume > value).length };
 		});
 		return {
 			key,

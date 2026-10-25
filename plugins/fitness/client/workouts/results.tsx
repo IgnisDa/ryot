@@ -5,29 +5,24 @@ import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
 import { tableHeaderClass } from "../measurements/styles";
-import { ComputedResults } from "../workout-processing";
 import { formatNumber } from "../workout/format";
 import { changeTone, formatChange, plural, type WeekSection, type WorkoutCard } from "./model";
 import { toneClasses } from "./styles";
+
+function RecordBadge(props: { readonly count: null | number }) {
+	return props.count !== null && props.count > 0 ? (
+		<Badge variant="accent">
+			<AppIcon size={12} name="star" />
+			{plural(props.count, "PR")}
+		</Badge>
+	) : null;
+}
 
 function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
 	return (
 		<PluginLink to={{ kind: "entity", entityId: props.card.id }}>
 			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
 		</PluginLink>
-	);
-}
-
-function RecordBadge(props: { readonly count: null | number }) {
-	return (
-		<ComputedResults compact>
-			{props.count !== null && props.count > 0 ? (
-				<Badge variant="accent">
-					<AppIcon size={12} name="star" />
-					{plural(props.count, "PR")}
-				</Badge>
-			) : null}
-		</ComputedResults>
 	);
 }
 
@@ -97,10 +92,7 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 				</div>
 				<div className="grid grid-cols-3 gap-2 px-4.5 py-3.5">
 					<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
-					<Stat
-						label="Volume"
-						value={<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>}
-					/>
+					<Stat label="Volume" value={card.volume ?? "—"} />
 					<Stat
 						value={formatNumber(card.sets)}
 						label={`Sets · ${plural(card.exercises, "exercise")}`}
@@ -186,9 +178,7 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 						</span>
 					</span>
 					<span>
-						<span className="block font-semibold text-text">
-							<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>
-						</span>
+						<span className="block font-semibold text-text">{card.volume ?? "—"}</span>
 						<span
 							className={clsx(
 								"text-[11.5px]",
@@ -274,17 +264,15 @@ function Stat(props: { readonly label: string; readonly value: ReactNode }) {
 
 function RecordCount(props: { readonly className?: string; readonly count: null | number }) {
 	return (
-		<ComputedResults compact>
-			<span
-				className={clsx(
-					"font-semibold",
-					props.count !== null && props.count > 0 ? "text-accent-text" : "text-text-subtle",
-					props.className,
-				)}
-			>
-				{props.count !== null && props.count > 0 ? formatNumber(props.count) : "—"}
-			</span>
-		</ComputedResults>
+		<span
+			className={clsx(
+				"font-semibold",
+				props.count !== null && props.count > 0 ? "text-accent-text" : "text-text-subtle",
+				props.className,
+			)}
+		>
+			{props.count !== null && props.count > 0 ? formatNumber(props.count) : "—"}
+		</span>
 	);
 }
 
@@ -297,16 +285,14 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 		<>
 			<span className="truncate text-text-subtle">{comparison.label}</span>
 			{comparison.change === null ? null : (
-				<ComputedResults compact>
-					<span
-						className={clsx(
-							"font-semibold whitespace-nowrap tabular-nums",
-							toneClasses[changeTone(comparison.change)],
-						)}
-					>
-						{formatChange(comparison.change)} volume
-					</span>
-				</ComputedResults>
+				<span
+					className={clsx(
+						"font-semibold whitespace-nowrap tabular-nums",
+						toneClasses[changeTone(comparison.change)],
+					)}
+				>
+					{formatChange(comparison.change)} volume
+				</span>
 			)}
 		</>
 	);
@@ -369,9 +355,7 @@ export function WorkoutTable(props: { readonly cards: readonly WorkoutCard[] }) 
 								{formatNumber(card.exercises)}
 							</td>
 							<td className="px-3 py-2.5 text-right text-text-muted">{formatNumber(card.sets)}</td>
-							<td className="px-3 py-2.5 text-right">
-								<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>
-							</td>
+							<td className="px-3 py-2.5 text-right">{card.volume ?? "—"}</td>
 							<td className="px-3 py-2.5 text-right">
 								<RecordCount count={card.personalBests} />
 							</td>

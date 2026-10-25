@@ -22,7 +22,6 @@ import {
 	literal,
 	measureDescending,
 	NullableNumber,
-	projectionProcessingState,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedAggregate,
@@ -50,7 +49,7 @@ import {
 	exerciseLevelSchema,
 	exerciseMechanicSchema,
 } from "./exercise-kinds";
-import { workoutSetMetric, workoutSetProcessing, workoutSetVolume } from "./fitness-metrics";
+import { workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { membershipField, membershipPropertiesSchema } from "./workout-exercise-recipes";
@@ -409,6 +408,29 @@ export const exerciseDetailsRecipe = defineRecipe(
 		readonly exerciseId: string;
 		readonly reference: PluginIdentityReference;
 	}) => ({
+		map: ({
+			notes,
+			months,
+			totals,
+			exercise,
+			sessions,
+			setNotes,
+			topWorkout,
+			workoutNotes,
+			personalBests,
+		}) => {
+			return Result.succeed({
+				totals,
+				notes: notes.items,
+				months: months.items,
+				sessions: sessions.items,
+				setNotes: setNotes.items,
+				exercise: exercise ?? null,
+				workoutNotes: workoutNotes.items,
+				personalBests: personalBests.items,
+				topWorkout: topWorkout.items[0] ?? null,
+			});
+		},
 		queries: {
 			notes: notesQuery(input.reference, input.exerciseId),
 			totals: totalsQuery(input.reference, input.exerciseId),
@@ -419,39 +441,6 @@ export const exerciseDetailsRecipe = defineRecipe(
 			workoutNotes: workoutNotesQuery(input.reference, input.exerciseId),
 			personalBests: personalBestsQuery(input.reference, input.exerciseId),
 			months: monthsQuery(input.reference, input.exerciseId, input.timeZone),
-			processing: workoutSetProcessing(input.reference, { exerciseId: input.exerciseId }),
-		},
-		map: ({
-			notes,
-			months,
-			totals,
-			exercise,
-			sessions,
-			setNotes,
-			topWorkout,
-			processing,
-			workoutNotes,
-			personalBests,
-		}) => {
-			const state = projectionProcessingState(processing);
-			const ready = state === "ready";
-			return Result.succeed({
-				processing: state,
-				notes: notes.items,
-				sessions: sessions.items,
-				setNotes: setNotes.items,
-				exercise: exercise ?? null,
-				workoutNotes: workoutNotes.items,
-				topWorkout: topWorkout.items[0] ?? null,
-				personalBests: ready ? personalBests.items : [],
-				totals: { ...totals, volume: ready ? totals.volume : null },
-				months: months.items.map((month) => ({
-					...month,
-					volume: ready ? month.volume : null,
-					maxPace: ready ? month.maxPace : null,
-					maxOneRm: ready ? month.maxOneRm : null,
-				})),
-			});
 		},
 	}),
 );

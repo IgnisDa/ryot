@@ -12,7 +12,7 @@ import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { FitnessRemindersButton } from "../reminders";
-import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
+import { ProcessingNote } from "../workout-processing";
 import { AdjustWorkoutTime } from "./adjust-time";
 import type { TimelineSegment, WorkoutSummary, WorkoutTimeline } from "./details-model";
 import {
@@ -235,11 +235,6 @@ export function WorkoutSummaryRow(props: {
 	readonly summary: WorkoutSummary;
 	readonly workout: WorkoutDetails;
 }) {
-	const processing = useComputedResultsStatus();
-	const summary =
-		processing.pending || processing.failed
-			? { ...props.summary, volume: null, records: null, recordSets: null, volumeDelta: null }
-			: props.summary;
 	return (
 		<section
 			aria-label="Summary"
@@ -248,7 +243,7 @@ export function WorkoutSummaryRow(props: {
 				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
 			)}
 		>
-			{summaryStats(props.workout, summary, props.imperial, props.energyUnit).map((stat) => (
+			{summaryStats(props.workout, props.summary, props.imperial, props.energyUnit).map((stat) => (
 				<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
 					<span className="text-[13px] text-text-muted">{stat.label}</span>
 					<span
@@ -276,7 +271,7 @@ export function WorkoutSummaryRow(props: {
 					)}
 				</div>
 			))}
-			<ComputedResults>{null}</ComputedResults>
+			<ProcessingNote />
 		</section>
 	);
 }
@@ -317,9 +312,7 @@ export function WorkoutSession(props: {
 		>
 			{props.timeline === null ? null : <SessionTimeline timeline={props.timeline} />}
 			{props.muscles.length === 0 ? null : (
-				<ComputedResults>
-					<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
-				</ComputedResults>
+				<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
 			)}
 		</section>
 	);

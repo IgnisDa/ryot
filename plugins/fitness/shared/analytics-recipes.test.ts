@@ -29,7 +29,6 @@ const decode = (pending: number, failed = 0) =>
 			data: {
 				entries: aggregate({ entries: 2 }),
 				readings: aggregate({ readings: 5 }),
-				processing: aggregate({ failed, pending }),
 				workouts: aggregate({
 					workouts: 3,
 					calories: 0,
@@ -39,7 +38,9 @@ const decode = (pending: number, failed = 0) =>
 					calorieWorkouts: 1,
 				}),
 				sets: aggregate({
+					failed,
 					sets: 4,
+					pending,
 					volume: 200,
 					distance: null,
 					repetitions: 40,
@@ -124,16 +125,14 @@ describe("fitness analytics totals", () => {
 		expect([totals.personalBests, totals.personalBestSets]).toEqual([4, 1]);
 		expect([totals.measurementEntries, totals.measurementReadings]).toEqual([2, 5]);
 	});
-	it("does not report incomplete projection work as zero or a complete subtotal", () => {
+	it("keeps projected values while the period's sets are still processing", () => {
+		expect(decode(0).processing).toBe("ready");
 		for (const [totals, processing] of [
 			[decode(1), "pending"],
 			[decode(0, 1), "failed"],
 		] as const) {
 			expect(totals.processing).toBe(processing);
-			expect(totals.personalBests).toBeNull();
-			expect(totals.personalBestSets).toBeNull();
-			expect(totals.volume).toBeNull();
-			expect(totals.sets).toBe(4);
+			expect([totals.volume, totals.personalBests, totals.personalBestSets]).toEqual([200, 4, 1]);
 		}
 	});
 });
@@ -147,26 +146,28 @@ const input = {
 } as const;
 
 describe("fitness analytics trends", () => {
-	it("hides derived buckets while processing and preserves entered measurements", () => {
+	it("keeps derived bucket values and marks buckets still processing", () => {
 		for (const metric of ["volume", "repetitions"] as const) {
 			const trend = fitnessAnalyticsTrendRecipe({ ...input, metric });
-			expect("processing" in trend.document.queries).toBe(metric === "volume");
+			const query = metric === "volume" ? "derivedTrend" : "setTrend";
+			expect(Object.keys(trend.document.queries)).toEqual([query]);
+			const item = { value: 500, knownValues: 1, observations: 2, at: "2026-11-01T04:00:00.000Z" };
 			const result = Result.getOrThrow(
 				trend.decode({
 					data: {
-						...(metric === "volume" ? { processing: aggregate({ failed: 0, pending: 1 }) } : {}),
-						setTrend: {
+						[query]: {
 							type: "aggregate",
 							pageInfo: { limit: 366, hasMore: false, nextCursor: null },
-							items: [
-								{ value: 500, knownValues: 1, observations: 2, at: "2026-11-01T04:00:00.000Z" },
-							],
+							items: [metric === "volume" ? { ...item, failed: 0, pending: 1 } : item],
 						},
 					},
 				}),
 			);
 			expect(result.processing).toBe(metric === "volume" ? "pending" : "ready");
-			expect(result.points[0]?.value).toBe(metric === "volume" ? null : 500);
+			expect(result.points[0]).toMatchObject({
+				value: 500,
+				processing: metric === "volume" ? "pending" : "ready",
+			});
 			expect(result.period).toMatchObject({
 				endAt: "2026-11-02T05:00:00.000Z",
 				startAt: "2026-10-26T04:00:00.000Z",
@@ -188,7 +189,13 @@ describe("fitness analytics trends", () => {
 			}),
 		);
 		expect(result.points).toEqual([
-			{ value: 60, knownValues: 1, observations: 1, at: "2026-11-01T04:00:00.000Z" },
+			{
+				value: 60,
+				knownValues: 1,
+				observations: 1,
+				processing: "ready",
+				at: "2026-11-01T04:00:00.000Z",
+			},
 		]);
 	});
 	it("reports workout starts in 24 hours without claiming timed sets", () => {

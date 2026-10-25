@@ -17,7 +17,6 @@ const aggregate = (items: readonly Record<string, unknown>[]) => ({
 	type: "aggregate",
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
-const ready = aggregate([{ failed: 0, pending: 0 }]);
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
 const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({
 	workouts,
@@ -26,34 +25,6 @@ const workoutTotals = (workouts: number, activeDuration: null | number, timedWor
 });
 
 describe("workoutWeeksRecipe", () => {
-	it("keeps workout counts and entered duration while derived totals are pending or failed", () => {
-		const recipe = workoutWeeksRecipe({
-			...range,
-			search: "",
-			reference: { kind: "self" },
-			timeZone: TimeZone.make("UTC"),
-		});
-		for (const processing of [
-			{ failed: 0, pending: 1 },
-			{ failed: 1, pending: 0 },
-		]) {
-			const decoded = Result.getOrThrow(
-				recipe.decode({
-					data: {
-						processing: aggregate([processing]),
-						sets: aggregate([{ volume: 500, personalBests: 1, at: range.startAt }]),
-						workouts: aggregate([{ ...workoutTotals(1, 600, 1), at: range.startAt }]),
-					},
-				}),
-			);
-			expect(decoded[0]).toMatchObject({
-				workouts: 1,
-				volume: null,
-				activeDuration: 600,
-				personalBests: null,
-			});
-		}
-	});
 	it("merges set totals into workout weeks and zero-fills weeks without sets", () => {
 		const recipe = workoutWeeksRecipe({
 			...range,
@@ -64,7 +35,6 @@ describe("workoutWeeksRecipe", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					processing: ready,
 					sets: aggregate([{ volume: 9000, personalBests: 2, at: "2026-10-05T00:00:00.000Z" }]),
 					workouts: aggregate([
 						{ at: "2026-10-05T00:00:00.000Z", ...workoutTotals(2, 5400, 2) },
@@ -119,7 +89,6 @@ describe("workoutSummaryRecipe", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					processing: ready,
 					daySets: aggregate([]),
 					dayWorkouts: aggregate([]),
 					currentWorkouts: aggregate([workoutTotals(3, 9000, 3)]),

@@ -63,7 +63,7 @@ Metric definitions carry either a fixed unit or a converted measure; `displayMea
 Analytics totals expose active-duration and energy coverage, entries separately from readings,
 and personal-best awards separately from awarded sets. Missing active duration remains null;
 planned rest and set duration are separate quantities. Weight volume uses the existing kind-aware
-projection in kg × repetitions. Pending/failed projections hide award and volume totals.
+projection in kg × repetitions. Award and volume totals sum the projections that are current.
 Historical rankings and performed-work muscle displays read retained occurrence evidence, never
 current exercise links. Target weights are primary/untyped 1, secondary 0.5 and stabilizer 0.
 Rankings expose sets, exercise occurrences and distinct workouts separately. Each is one grouped
@@ -89,15 +89,15 @@ SDK's reported, compared, paged and consistency query constructors, which take t
 inside each query execution, so moving timestamps do not become query cache keys. Inputs are the
 section's props, so its exact `reference` is part of the cache key.
 
-| Recipe                             | Additional input                   | Result                                                                            | Named queries |
-| ---------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- | ------------- |
-| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and processing state  | 5             |
-| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations and known values; derived metrics add processing | 1–2           |
-| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                             | 1             |
-| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                 | 1             |
-| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                   | 1             |
-| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                         | 1             |
-| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID               | 1             |
+| Recipe                             | Additional input                   | Result                                                                           | Named queries |
+| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- | ------------- |
+| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and processing state | 4             |
+| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations, known values and processing state              | 1             |
+| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                            | 1             |
+| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                | 1             |
+| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                  | 1             |
+| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                        | 1             |
+| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID              | 1             |
 
 `filter` is `{ kind: "exercises" | "targets" | "equipment", id }`. It filters sets and their
 workouts; measurement counts in the totals remain independent of workout filters. Trend metrics
@@ -114,10 +114,11 @@ within the shared bucket limit, and all-time groups by year. Paged results use `
 which pins the first page's resolved period, and drills reuse each result's pinned selection.
 
 Processing state is one `"ready" | "pending" | "failed"` value from the shared RyotQL recipe helpers.
-Totals, trends, summaries and exercise details read it from the user's `workout-set` event streams
-(one row per exercise, narrowed to one exercise when filtered); workout cards and set rows read it
-from that workout's sets. Pending or failed processing hides volume and personal-best results
-without hiding entered measurements. The processing poll reads the same stream status.
+Analytics totals and derived trend buckets count the projection status of the sets they already
+aggregate, so the state describes that period or bucket; workout cards and set rows read it from
+that workout's sets. Values that exist are always shown; pending or failed state adds a note and
+never hides them. Screens show one note from the processing poll, which reads the user's
+`workout-set` event streams, narrowed to one workout or exercise on its screen.
 Set queries inner join each set's occurrence by user, plugin, session, exercise, order and recorded
 kind; the kernel's unique anchor positions keep that join one-to-one, and taxonomy filters reuse the
 joined occurrence.
@@ -366,6 +367,6 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   retains its checkpoint, dirty boundary, and freshness state separately from the canonical job status.
   Workers compute statistics/badges per recorded kind into separate projection rows without changing
   source events or replaying historical hooks. Workout start changes trigger
-  `fitness.workout-context-records` repairs. Calculated displays remain hidden unless the projection
-  matches the current source revision and plugin revision/configuration/installation binding; pending or
-  failed status is shown and pending queries refresh until processing finishes.
+  `fitness.workout-context-records` repairs. A projection is visible only while it matches the current
+  source revision and plugin revision/configuration/installation binding; pending or failed status is
+  noted and pending queries refresh until processing finishes.

@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
 import { setLots } from "../set-lots";
-import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
+import { ProcessingNote } from "../workout-processing";
 import {
 	formatDuration,
 	formatMeasure,
@@ -51,13 +51,7 @@ function StatTiles(props: {
 	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
-	const processing = useComputedResultsStatus();
-	const tiles = buildStatTiles(
-		props.kind,
-		props.details.totals,
-		props.details.months,
-		!processing.pending && !processing.failed,
-	);
+	const tiles = buildStatTiles(props.kind, props.details.totals, props.details.months);
 	return (
 		<div
 			className={clsx(
@@ -133,7 +127,6 @@ function ProgressChart(props: {
 	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
-	const processing = useComputedResultsStatus();
 	const metrics = metricsForKind(props.kind);
 	const [metricKey, setMetricKey] = useState(metrics[0]?.key);
 	const [range, setRange] = useState<SeriesRange>("all");
@@ -149,8 +142,6 @@ function ProgressChart(props: {
 		months: props.details.months,
 	});
 	const peak = peakPoint(points);
-	const derived = metric.key === "oneRm" || metric.key === "volume" || metric.key === "pace";
-	const computedReady = !processing.pending && !processing.failed;
 	const peakLabel =
 		peak?.value == null
 			? "No data yet"
@@ -160,9 +151,7 @@ function ProgressChart(props: {
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="flex flex-col gap-1">
 					<h3 className={cardHeadingClass}>{metric.title}</h3>
-					<span className="text-[13px] text-text-muted">
-						{derived && !computedReady ? "Calculated results unavailable" : peakLabel}
-					</span>
+					<span className="text-[13px] text-text-muted">{peakLabel}</span>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{metrics.length > 1 ? (
@@ -191,13 +180,7 @@ function ProgressChart(props: {
 					/>
 				</div>
 			</div>
-			{derived ? (
-				<ComputedResults>
-					<MonthChart metric={metric} points={points} />
-				</ComputedResults>
-			) : (
-				<MonthChart metric={metric} points={points} />
-			)}
+			<MonthChart metric={metric} points={points} />
 		</div>
 	);
 }
@@ -306,18 +289,13 @@ export function HistorySection(props: {
 					{lastDate === null ? null : ` Your last session was on ${lastDate}.`}
 				</p>
 			) : null}
+			<ProcessingNote />
 			<StatTiles compact={compact} details={details} kind={exercise.kind} />
 			<div className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}>
 				<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
-				<ComputedResults>
-					{details.processing === "ready" ? <PersonalBests rows={details.personalBests} /> : null}
-				</ComputedResults>
+				<PersonalBests rows={details.personalBests} />
 			</div>
-			{exercise.kind === "reps_and_weight" ? (
-				<ComputedResults>
-					<BestWeightByReps details={details} />
-				</ComputedResults>
-			) : null}
+			{exercise.kind === "reps_and_weight" ? <BestWeightByReps details={details} /> : null}
 		</section>
 	);
 }
@@ -342,7 +320,7 @@ function SessionSet(props: { readonly set: Session["sets"]["items"][number] }) {
 }
 
 function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
-	const rows = bestWeightByReps(props.details.totals, props.details.processing);
+	const rows = bestWeightByReps(props.details.totals);
 	if (rows.length === 0) {
 		return null;
 	}

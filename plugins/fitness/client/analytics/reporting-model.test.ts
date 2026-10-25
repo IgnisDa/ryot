@@ -38,6 +38,7 @@ const point = (at: string, value: null | number): AnalyticsTrend["points"][numbe
 	at,
 	value,
 	observations: 1,
+	processing: "ready",
 	knownValues: value === null ? 0 : 1,
 });
 const measurement = (

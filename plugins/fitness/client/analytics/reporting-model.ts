@@ -107,8 +107,14 @@ export const trendBuckets = <Point extends { readonly at: string; readonly value
 		};
 	});
 
+const processingDetail = {
+	ready: "",
+	pending: " · still processing",
+	failed: " · processing failed",
+} as const;
+
 const trendBucketDetail = (point: AnalyticsTrendPoint) =>
-	`${point.knownValues ?? 0} of ${point.observations} with a value`;
+	`${point.knownValues ?? 0} of ${point.observations} with a value${processingDetail[point.processing]}`;
 
 export const workoutTrendModel = (
 	current: AnalyticsTrend,

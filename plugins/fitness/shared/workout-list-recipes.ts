@@ -3,7 +3,6 @@ import {
 	and,
 	ascending,
 	column,
-	conditional,
 	contains,
 	count,
 	countAll,
@@ -26,7 +25,6 @@ import {
 	NullableNumber,
 	ProjectionProcessing,
 	projectionProcessing,
-	projectionProcessingState,
 	type Recipe,
 	relationshipSchemaPredicate,
 	rows,
@@ -55,7 +53,7 @@ import {
 	propertyNumber,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
-import { personalBestAwardCount, workoutSetProcessing, workoutSetVolume } from "./fitness-metrics";
+import { personalBestAwardCount, workoutSetVolume } from "./fitness-metrics";
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
@@ -127,14 +125,7 @@ const workoutWhere = (
 const workoutVolume = (workout: Table) => {
 	const set = table("event", "volumeWorkoutSet");
 	const sets = workoutSets(set, workout);
-	return selectedField(
-		conditional(
-			eq(projectionProcessing(set, sets), literal("ready")),
-			sum(set, workoutSetVolume(set), { where: sets }),
-			literal(null),
-		),
-		NullableNumber,
-	);
+	return selectedField(sum(set, workoutSetVolume(set), { where: sets }), NullableNumber);
 };
 
 const repeatedFromId = (workout: Table, reference: Reference) => {
@@ -226,8 +217,6 @@ export const workoutCardsRecipe = defineRecipe(
 						...item,
 						sets: included.items,
 						template: template.items[0] ?? null,
-						volume: item.processing === "ready" ? item.volume : null,
-						personalBests: item.processing === "ready" ? item.personalBests : null,
 					})),
 				}),
 			queries: {
@@ -441,23 +430,22 @@ const rangeBuckets = (
 type SetTotals = SelectedMeasureRow<ReturnType<typeof setMeasures>>;
 type WorkoutTotals = SelectedMeasureRow<ReturnType<typeof workoutMeasures>>;
 
-const combineTotals = (workouts: WorkoutTotals, sets: SetTotals, ready: boolean) => ({
+const combineTotals = (workouts: WorkoutTotals, sets: SetTotals) => ({
 	...workouts,
+	volume: sets.volume ?? 0,
+	personalBests: sets.personalBests ?? 0,
 	activeDuration: workouts.activeDuration,
-	volume: ready ? (sets.volume ?? 0) : null,
 	timedWorkouts: workouts.timedWorkouts ?? 0,
-	personalBests: ready ? (sets.personalBests ?? 0) : null,
 });
 
 const combineBuckets = (
 	workouts: { readonly items: readonly (WorkoutTotals & { readonly at: string })[] },
 	sets: { readonly items: readonly (SetTotals & { readonly at: string })[] },
-	ready: boolean,
 ) => {
 	const setTotals = new Map(sets.items.map((item) => [item.at, item]));
 	return workouts.items.map(({ at, ...item }) => ({
 		at,
-		...combineTotals(item, setTotals.get(at) ?? { volume: null, personalBests: null }, ready),
+		...combineTotals(item, setTotals.get(at) ?? { volume: null, personalBests: null }),
 	}));
 };
 
@@ -476,15 +464,8 @@ export const workoutWeeksRecipe = defineRecipe(
 			WEEKS_ALIAS,
 		);
 		return {
-			queries: { sets, workouts, processing: workoutSetProcessing(input.reference) },
-			map: (results) =>
-				Result.succeed(
-					combineBuckets(
-						results.workouts,
-						results.sets,
-						projectionProcessingState(results.processing) === "ready",
-					),
-				),
+			queries: { sets, workouts },
+			map: (results) => Result.succeed(combineBuckets(results.workouts, results.sets)),
 		};
 	},
 );
@@ -538,18 +519,15 @@ export const workoutSummaryRecipe = defineRecipe(
 				previousSets,
 				currentWorkouts,
 				previousWorkouts,
-				processing: workoutSetProcessing(input.reference),
 				latestRecord: latestRecordQuery(input.reference, input.current),
 			},
-			map: (results) => {
-				const ready = projectionProcessingState(results.processing) === "ready";
-				return Result.succeed({
-					days: combineBuckets(results.dayWorkouts, results.daySets, ready),
-					latestRecord: ready ? (results.latestRecord.items[0] ?? null) : null,
-					current: combineTotals(results.currentWorkouts, results.currentSets, ready),
-					previous: combineTotals(results.previousWorkouts, results.previousSets, ready),
-				});
-			},
+			map: (results) =>
+				Result.succeed({
+					latestRecord: results.latestRecord.items[0] ?? null,
+					days: combineBuckets(results.dayWorkouts, results.daySets),
+					current: combineTotals(results.currentWorkouts, results.currentSets),
+					previous: combineTotals(results.previousWorkouts, results.previousSets),
+				}),
 		};
 	},
 );
