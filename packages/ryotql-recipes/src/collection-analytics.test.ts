@@ -2,7 +2,7 @@ import type { ResolvedReportingSelection } from "@ryot-app/contract/modules/anal
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
 	COLLECTION_REVIEW_BUCKET_LIMIT,
@@ -80,7 +80,9 @@ describe("collection review analytics", () => {
 		});
 		expect(
 			collectionReviewRecordsRecipe({ period: null }).document.queries.reviews?.where,
-		).toMatchObject({ predicates: [objectContaining({ type: "and" })] });
+		).toMatchObject({
+			predicates: [objectContaining({ type: "and" }), { type: "and", predicates: [] }],
+		});
 	});
 	it("counts every kernel collection review, including rating-only records, with both owners scoped", () => {
 		const recipe = collectionReviewAnalyticsRecipe({ reporting });
@@ -152,22 +154,31 @@ describe("collection review analytics", () => {
 			predicates: [
 				{},
 				{
-					operator: "gte",
-					left: { field: "occurredAt" },
-					right: { type: "cast", target: "date", expr: { value: "2026-03-08T05:00:00.000Z" } },
-				},
-				{
-					operator: "lt",
-					left: { field: "occurredAt" },
-					right: { type: "cast", target: "date", expr: { value: "2026-03-09T04:00:00.000Z" } },
+					type: "and",
+					predicates: [
+						{
+							operator: "gte",
+							left: { field: "occurredAt" },
+							right: { type: "cast", target: "date", expr: { value: "2026-03-08T05:00:00.000Z" } },
+						},
+						{
+							operator: "lt",
+							left: { field: "occurredAt" },
+							right: { type: "cast", target: "date", expr: { value: "2026-03-09T04:00:00.000Z" } },
+						},
+					],
 				},
 			],
 		});
 		expect(previous?.where).toMatchObject({
 			predicates: [
 				{},
-				{ operator: "gte", right: { expr: { value: "2026-03-07T05:00:00.000Z" } } },
-				{ operator: "lt", right: { expr: { value: "2026-03-08T05:00:00.000Z" } } },
+				{
+					predicates: [
+						{ operator: "gte", right: { expr: { value: "2026-03-07T05:00:00.000Z" } } },
+						{ operator: "lt", right: { expr: { value: "2026-03-08T05:00:00.000Z" } } },
+					],
+				},
 			],
 		});
 		expect(buckets?.where).toEqual(current?.where);
@@ -218,9 +229,10 @@ describe("collection review analytics", () => {
 		const recipe = collectionReviewAnalyticsRecipe({
 			reporting: { ...reporting, current: null, previous: null, grouping: "year" },
 		});
-		const query = recipe.document.queries.current;
-		assert(query?.where?.type === "and");
-		expect(query.where.predicates).toHaveLength(1);
+		expect(recipe.document.queries.current?.where).toMatchObject({
+			predicates: [{}, { type: "and", predicates: [] }],
+		});
+		expect(recipe.document.queries).not.toHaveProperty("previous");
 		expect(recipe.document.queries.buckets?.output).toMatchObject({
 			groupBy: [{ expr: { bucket: "year" } }],
 		});
@@ -229,7 +241,6 @@ describe("collection review analytics", () => {
 				recipe.decode({
 					data: {
 						current: { type: "aggregate", items: [{ count: 0 }] },
-						previous: { type: "aggregate", items: [{ count: 0 }] },
 						buckets: { items: [], type: "aggregate", pageInfo: { limit: 1000, hasMore: false } },
 					},
 				}),

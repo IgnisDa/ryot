@@ -6,6 +6,7 @@
 export * from "@ryot-app/ryotql";
 export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
 export {
 	eventIsAfter,
 	latestEventField,

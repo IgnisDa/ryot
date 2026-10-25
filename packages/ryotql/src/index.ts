@@ -823,11 +823,11 @@ export type PreparedRecipe<Success> = {
 
 type AnySelectedQuery = SelectedQuery<unknown>;
 
-type RecipeQueries = Readonly<Record<string, AnySelectedQuery>>;
+type RecipeQueries = Readonly<Record<string, undefined | AnySelectedQuery>>;
 
 type QueryResults<Queries extends RecipeQueries> = {
-	readonly [Key in keyof Queries]: Queries[Key] extends SelectedQuery<infer Success>
-		? Success
+	readonly [Key in keyof Queries]: NonNullable<Queries[Key]> extends SelectedQuery<infer Success>
+		? Success | (undefined extends Queries[Key] ? undefined : never)
 		: never;
 };
 
@@ -869,8 +869,10 @@ export function defineRecipe<
 		return {
 			document: document(
 				Object.fromEntries(
-					Object.entries(queries).map(([name, query]) => [name, query.document]),
-				) as Record<string, NamedQuery>,
+					Object.entries(queries).flatMap(([name, query]) =>
+						query === undefined ? [] : [[name, query.document] as const],
+					),
+				),
 			),
 			decode: (response: unknown) => {
 				return Result.flatMap(record(response, "RyotQL response is malformed"), (decodedResponse) =>
@@ -878,6 +880,9 @@ export function defineRecipe<
 						record(decodedResponse["data"], "RyotQL response data is malformed"),
 						(data) => {
 							const decodedQueries = Object.entries(queries).map(([name, query]) => {
+								if (query === undefined) {
+									return Result.succeed([name, undefined] as const);
+								}
 								const result = data[name];
 								if (result === undefined) {
 									return Result.fail(new Error(`RyotQL response is missing named query '${name}'`));
@@ -981,10 +986,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
-	Parameters<typeof aggregate>[1],
-	"groupBy" | "measures"
->;
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
+	readonly measures: Measures;
+	readonly groupBy?: undefined;
+};
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,

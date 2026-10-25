@@ -30,6 +30,7 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
 
@@ -131,8 +132,7 @@ const seriesQueries = (input: SeriesInput) => {
 			schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
 			eq(column(reading, "entityId"), literal(metricId)),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
-			gte(column(reading, "occurredAt"), castDate(literal(input.startAt))),
-			lt(column(reading, "occurredAt"), castDate(literal(input.endAt))),
+			withinPeriod(column(reading, "occurredAt"), input),
 		);
 		return [
 			`average${index}`,

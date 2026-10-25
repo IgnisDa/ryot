@@ -595,6 +595,29 @@ describe("RyotQL builders", () => {
 		expect(Result.isFailure(recipe().decode({ data: { count: {} } }))).toBe(true);
 	});
 
+	it("omits absent queries from the document and maps them as undefined", () => {
+		const entity = table("entity", "entity");
+		const recipe = defineRecipe((enabled: boolean) => ({
+			map: ({ count: countResult }) => Result.succeed(countResult?.count ?? null),
+			queries: {
+				count: enabled
+					? selectedAggregate(entity, {
+							measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
+						})
+					: undefined,
+			},
+		}));
+
+		expect(recipe(false).document).toEqual({ queries: {} });
+		expect(Result.getOrThrow(recipe(false).decode({ data: {} }))).toBeNull();
+		expect(Object.keys(recipe(true).document.queries)).toEqual(["count"]);
+		expect(
+			Result.getOrThrow(
+				recipe(true).decode({ data: { count: { type: "aggregate", items: [{ count: 3 }] } } }),
+			),
+		).toBe(3);
+	});
+
 	it("builds qualified wildcard row selections", () => {
 		const entity = table("entity", "entity");
 

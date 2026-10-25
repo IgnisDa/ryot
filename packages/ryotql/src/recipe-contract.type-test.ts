@@ -37,7 +37,12 @@ const mapped = defineRecipe((id: string) => ({
 	map: ({ entries: selected }) => Result.succeed({ id, count: selected.items.length }),
 }));
 
+const optional = defineRecipe((enabled: boolean) => ({
+	queries: { entries: enabled ? entries : undefined },
+}));
+
 export type RecipeContractChecks = [
+	OptionalResult,
 	UnmappedResult,
 	MappedResult,
 	InputTuple,
@@ -49,6 +54,12 @@ type UnmappedResult = Assert<
 	Equal<
 		Recipe.Success<typeof unmapped>["entries"],
 		typeof entries extends SelectedQuery<infer Success> ? Success : never
+	>
+>;
+type OptionalResult = Assert<
+	Equal<
+		Recipe.Success<typeof optional>["entries"],
+		undefined | (typeof entries extends SelectedQuery<infer Success> ? Success : never)
 	>
 >;
 

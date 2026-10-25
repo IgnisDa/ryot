@@ -5,18 +5,14 @@ import type {
 import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
-	castDate,
 	column,
 	dateBucket,
 	defineRecipe,
 	eq,
 	eventSchemaPredicate,
 	groupAscending,
-	gte,
 	join,
 	jsonPath,
-	literal,
-	lt,
 	type Recipe,
 	selectedAggregate,
 	selectedField,
@@ -28,6 +24,7 @@ import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
 import { eventOrderDescending } from "./event-expressions";
+import { withinPeriod } from "./periods";
 
 export const COLLECTION_REVIEW_BUCKET_LIMIT = 1000;
 
@@ -44,36 +41,24 @@ export const collectionReviewAnalyticsRecipe = defineRecipe(
 		];
 		const measures = { count: selectedMeasure({ function: "count" }, Schema.Finite) };
 		const inPeriod = (period: null | ReportingPeriod) =>
-			and(
-				scope,
-				...(period === null
-					? []
-					: [
-							gte(occurredAt, castDate(literal(period.startAt))),
-							lt(occurredAt, castDate(literal(period.endAt))),
-						]),
-			);
+			and(scope, withinPeriod(occurredAt, period));
 		return {
 			map: ({ current, buckets, previous }) =>
-				Result.succeed({
-					buckets,
-					current: current.count,
-					previous: input.reporting.previous === null ? null : previous.count,
-				}),
+				Result.succeed({ buckets, current: current.count, previous: previous?.count ?? null }),
 			queries: {
 				current: selectedAggregate(review, {
 					joins,
 					measures,
 					where: inPeriod(input.reporting.current),
 				}),
-				previous: selectedAggregate(review, {
-					joins,
-					measures,
-					where:
-						input.reporting.previous === null
-							? and(scope, eq(literal(false), literal(true)))
-							: inPeriod(input.reporting.previous),
-				}),
+				previous:
+					input.reporting.previous === null
+						? undefined
+						: selectedAggregate(review, {
+								joins,
+								measures,
+								where: inPeriod(input.reporting.previous),
+							}),
 				buckets: selectedAggregate(review, {
 					joins,
 					measures,
@@ -113,12 +98,7 @@ export const collectionReviewRecordsRecipe = defineRecipe(
 					],
 					where: and(
 						eventSchemaPredicate(review, collection, "collection", "review", { kind: "kernel" }),
-						...(input.period === null
-							? []
-							: [
-									gte(occurredAt, castDate(literal(input.period.startAt))),
-									lt(occurredAt, castDate(literal(input.period.endAt))),
-								]),
+						withinPeriod(occurredAt, input.period),
 					),
 					selection: {
 						id: selectedField(column(review, "id"), EventId),

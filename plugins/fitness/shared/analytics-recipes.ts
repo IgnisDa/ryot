@@ -2,7 +2,6 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	conditional,
 	count,
@@ -15,12 +14,10 @@ import {
 	exists,
 	groupAscending,
 	gt,
-	gte,
 	isNotNull,
 	join,
 	literal,
 	localHour,
-	lt,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -28,6 +25,7 @@ import {
 	selectedRows,
 	sum,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
 	type PluginIdentityReference,
@@ -69,13 +67,6 @@ const nullableNumber = Schema.NullOr(Schema.Finite);
 const sumMeasure = (expr: Parameters<typeof selectedField>[0]) =>
 	selectedMeasure({ expr, function: "sum" }, nullableNumber);
 const countMeasure = selectedMeasure({ function: "count" }, Schema.Finite);
-const within = (at: Parameters<typeof selectedField>[0], range: null | ReportingPeriod) =>
-	and(
-		...(range === null
-			? []
-			: [gte(at, castDate(literal(range.startAt))), lt(at, castDate(literal(range.endAt)))]),
-	);
-
 const fitnessSetFilter = (
 	set: ReturnType<typeof table>,
 	input: Input,
@@ -175,7 +166,7 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 				measures: { entries: countMeasure },
 				where: and(
 					entitySchemaPredicate(entry, "measurement-entry", input.reference),
-					within(propertyDate(entry, "occurredAt"), range),
+					withinPeriod(propertyDate(entry, "occurredAt"), range),
 				),
 			}),
 			evidenceIntegrity: selectedAggregate(source.set, {
@@ -195,7 +186,7 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 					schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
 					eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 					entitySchemaPredicate(metric, "measurement-metric", input.reference),
-					within(column(reading, "occurredAt"), range),
+					withinPeriod(column(reading, "occurredAt"), range),
 				),
 			}),
 			workouts: selectedAggregate(source.workout, {
@@ -279,7 +270,7 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 			input.kind === "exercises"
 				? eq(column(occurrence, "entityId"), column(target, "id"))
 				: occurrenceHasTaxonomy(occurrence, target, input.kind),
-			within(startedAt(workout), range),
+			withinPeriod(startedAt(workout), range),
 			fitnessSetFilter(set, input, occurrence),
 		);
 		const weightedSets = sum(
@@ -347,6 +338,7 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 	) => {
 		const resolved = resolveReportingSelection(input.selection, input);
 		const range = input.period === "previous" ? resolved.previous : resolved.current;
+		const disabled = input.period === "previous" && range === null;
 		const source = analyticsSources(input, range, "trend");
 		const workoutMetric =
 			input.metric === "workouts" ||
@@ -373,42 +365,46 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 					metric,
 					period: range,
 					grouping: resolved.grouping,
-					hasMore: trend.pageInfo?.hasMore ?? false,
-					points: trend.items.map((point) => ({
-						...point,
-						value:
-							(metric === "volume" || metric === "personalBests") && !projectionsReady(point)
-								? null
-								: point.value,
-					})),
+					hasMore: trend?.pageInfo?.hasMore ?? false,
+					points:
+						trend === undefined
+							? []
+							: trend.items.map((point) => ({
+									...point,
+									value:
+										(metric === "volume" || metric === "personalBests") && !projectionsReady(point)
+											? null
+											: point.value,
+								})),
 				}),
 			queries: {
-				trend: selectedAggregate(workoutMetric ? source.workout : source.set, {
-					limit: 1000,
-					orderBy: [groupAscending("at")],
-					joins: workoutMetric ? [] : source.setJoins,
-					where: and(
-						workoutMetric ? source.workoutWhere : source.setWhere,
-						...(input.period === "previous" && range === null ? [eq(literal(1), literal(0))] : []),
-					),
-					groupBy: {
-						at: selectedField(
-							dateBucket(startedAt(source.workout), {
-								timeZone: input.timeZone,
-								bucket: resolved.grouping,
-							}),
-							Schema.String,
-						),
-					},
-					measures: {
-						observations: countMeasure,
-						value: sumMeasure(values[metric]),
-						knownValues: sumMeasure(conditional(isNotNull(values[metric]), literal(1), literal(0))),
-						...(workoutMetric
-							? { failedSets: sumMeasure(literal(0)), pendingSets: sumMeasure(literal(0)) }
-							: projectionCoverageMeasures(source.set)),
-					},
-				}),
+				trend: disabled
+					? undefined
+					: selectedAggregate(workoutMetric ? source.workout : source.set, {
+							limit: 1000,
+							orderBy: [groupAscending("at")],
+							joins: workoutMetric ? [] : source.setJoins,
+							where: workoutMetric ? source.workoutWhere : source.setWhere,
+							groupBy: {
+								at: selectedField(
+									dateBucket(startedAt(source.workout), {
+										timeZone: input.timeZone,
+										bucket: resolved.grouping,
+									}),
+									Schema.String,
+								),
+							},
+							measures: {
+								observations: countMeasure,
+								value: sumMeasure(values[metric]),
+								knownValues: sumMeasure(
+									conditional(isNotNull(values[metric]), literal(1), literal(0)),
+								),
+								...(workoutMetric
+									? { failedSets: sumMeasure(literal(0)), pendingSets: sumMeasure(literal(0)) }
+									: projectionCoverageMeasures(source.set)),
+							},
+						}),
 			},
 		};
 	},
@@ -486,42 +482,46 @@ export const fitnessMeasurementTrendRecipe = defineRecipe(
 			map: ({ trend }) =>
 				Result.succeed({
 					period: range,
-					points: trend.items,
 					metricId: input.metricId,
+					points: trend?.items ?? [],
 					grouping: resolved.grouping,
-					hasMore: trend.pageInfo?.hasMore ?? false,
+					hasMore: trend?.pageInfo?.hasMore ?? false,
 				}),
 			queries: {
-				trend: selectedAggregate(reading, {
-					limit: 1000,
-					orderBy: [groupAscending("at"), groupAscending("unit")],
-					joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
-					measures: {
-						readings: countMeasure,
-						value: selectedMeasure(
-							{ function: "average", expr: propertyNumber(reading, "value") },
-							Schema.Finite,
-						),
-					},
-					groupBy: {
-						unit: selectedField(property(metric, "unit"), Schema.NullOr(Schema.String)),
-						at: selectedField(
-							dateBucket(column(reading, "occurredAt"), {
-								timeZone: input.timeZone,
-								bucket: resolved.grouping,
+				trend:
+					input.period === "previous" && range === null
+						? undefined
+						: selectedAggregate(reading, {
+								limit: 1000,
+								orderBy: [groupAscending("at"), groupAscending("unit")],
+								joins: [
+									join("inner", metric, eq(column(reading, "entityId"), column(metric, "id"))),
+								],
+								measures: {
+									readings: countMeasure,
+									value: selectedMeasure(
+										{ function: "average", expr: propertyNumber(reading, "value") },
+										Schema.Finite,
+									),
+								},
+								groupBy: {
+									unit: selectedField(property(metric, "unit"), Schema.NullOr(Schema.String)),
+									at: selectedField(
+										dateBucket(column(reading, "occurredAt"), {
+											timeZone: input.timeZone,
+											bucket: resolved.grouping,
+										}),
+										Schema.String,
+									),
+								},
+								where: and(
+									schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
+									eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
+									entitySchemaPredicate(metric, "measurement-metric", input.reference),
+									eq(column(metric, "id"), literal(input.metricId)),
+									withinPeriod(column(reading, "occurredAt"), range),
+								),
 							}),
-							Schema.String,
-						),
-					},
-					where: and(
-						schemaOwnerPredicate(reading, "eventSchemaPluginId", input.reference),
-						eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
-						entitySchemaPredicate(metric, "measurement-metric", input.reference),
-						eq(column(metric, "id"), literal(input.metricId)),
-						within(column(reading, "occurredAt"), range),
-						...(input.period === "previous" && range === null ? [eq(literal(1), literal(0))] : []),
-					),
-				}),
 			},
 		};
 	},
@@ -556,7 +556,7 @@ export const fitnessMeasurementReadingsRecipe = defineRecipe(
 						eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 						entitySchemaPredicate(metric, "measurement-metric", input.reference),
 						eq(column(metric, "id"), literal(input.metricId)),
-						within(column(reading, "occurredAt"), range),
+						withinPeriod(column(reading, "occurredAt"), range),
 					),
 					selection: {
 						id: selectedField(column(reading, "id"), Schema.String),

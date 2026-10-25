@@ -160,8 +160,10 @@ shim remains environment-neutral and does not export `Effect`.
 `@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
-The `ryotql` shim exports query builders, `IsoDateString`, and event expressions, not application
-recipes. The `effect` shim exports `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`, not
+The `ryotql` shim exports query builders, `IsoDateString`, event expressions, and `withinPeriod`
+(a half-open reporting-period predicate that is empty for all time), not application recipes.
+`defineRecipe` omits a query whose value is `undefined` from the document and maps it as `undefined`;
+use that for disabled comparisons instead of always-false predicates. The `effect` shim exports `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`, not
 `Effect`. The `schema` shim supplies shared schemas/brands and `roundHalfUp`; `compression` supplies
 `deflateSync`/`inflateSync`. Backend compilation reuses runtime modules to avoid duplicate bundles.
 Shared reporting recipes import the neutral helpers from `@ryot-app/plugin-kit/schema` and resolve

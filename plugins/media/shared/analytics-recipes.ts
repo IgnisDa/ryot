@@ -193,32 +193,24 @@ const statsMeasures = (event: Table, timeZone: TimeZone) => ({
 
 export const mediaAnalyticsStatsRecipe = defineRecipe((input: MediaAnalyticsCalendarInput) => {
 	const resolved = resolveMediaAnalyticsPeriods(input);
-	const stats = (alias: string, period: null | ReportingPeriod, enabled: boolean) => {
-		const source = consumptionDetail(input, alias, period);
-		return {
-			...source,
-			where: and(source.where, ...(enabled ? [] : [eq(literal(false), literal(true))])),
-		};
-	};
-	const current = stats("analyticsCurrent", resolved.current, true);
-	const previous = stats("analyticsPrevious", resolved.previous, resolved.previous !== null);
-	const review = (period: null | ReportingPeriod, enabled: boolean, alias: string) => {
+	const current = consumptionDetail(input, "analyticsCurrent", resolved.current);
+	const previous =
+		resolved.previous === null
+			? undefined
+			: consumptionDetail(input, "analyticsPrevious", resolved.previous);
+	const review = (period: null | ReportingPeriod, alias: string) => {
 		const source = consumptionReviewSource(input, period, `${alias}Event`, `${alias}Entity`);
 		return {
 			...source,
 			where: and(
 				source.where,
 				schemaOwnerPredicate(source.entity, "entitySchemaPluginId", input.reference),
-				...(enabled ? [] : [eq(literal(false), literal(true))]),
 			),
 		};
 	};
-	const currentReview = review(resolved.current, true, "analyticsCurrentReview");
-	const previousReview = review(
-		resolved.previous,
-		resolved.previous !== null,
-		"analyticsPreviousReview",
-	);
+	const currentReview = review(resolved.current, "analyticsCurrentReview");
+	const previousReview =
+		resolved.previous === null ? undefined : review(resolved.previous, "analyticsPreviousReview");
 	const globalStats = (source: typeof current) =>
 		selectedAggregate(source.event, {
 			joins: source.joins,
@@ -256,13 +248,13 @@ export const mediaAnalyticsStatsRecipe = defineRecipe((input: MediaAnalyticsCale
 	return {
 		queries: {
 			currentTypes: typeStats(current),
-			previousTypes: typeStats(previous),
 			currentGlobal: globalStats(current),
-			previousGlobal: globalStats(previous),
 			currentReviews: globalReviews(currentReview),
 			currentReviewTypes: typeReviews(currentReview),
-			previousReviews: globalReviews(previousReview),
-			previousReviewTypes: typeReviews(previousReview),
+			previousTypes: previous && typeStats(previous),
+			previousGlobal: previous && globalStats(previous),
+			previousReviews: previousReview && globalReviews(previousReview),
+			previousReviewTypes: previousReview && typeReviews(previousReview),
 		},
 		map: ({
 			currentTypes,
@@ -277,11 +269,13 @@ export const mediaAnalyticsStatsRecipe = defineRecipe((input: MediaAnalyticsCale
 			Result.succeed({
 				current: { types: currentTypes, global: currentGlobal },
 				previous:
-					resolved.previous === null ? null : { types: previousTypes, global: previousGlobal },
+					previousTypes === undefined || previousGlobal === undefined
+						? null
+						: { types: previousTypes, global: previousGlobal },
 				reviews: {
 					current: { global: currentReviews, types: currentReviewTypes },
 					previous:
-						resolved.previous === null
+						previousReviews === undefined || previousReviewTypes === undefined
 							? null
 							: { global: previousReviews, types: previousReviewTypes },
 				},
