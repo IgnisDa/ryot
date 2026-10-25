@@ -130,7 +130,8 @@ export const resolveReportingSelection = (
 	);
 	const range = selection.range;
 	if (range.kind === "all-time") {
-		return { timeZone, current: null, previous: null, grouping: "year" as CalendarUnit };
+		const grouping: CalendarUnit = "year";
+		return { timeZone, grouping, current: null, previous: null };
 	}
 	let start: DateTime.Utc;
 	let end: DateTime.Utc;
@@ -212,7 +213,6 @@ export type CalendarBucket<Point> = {
 	readonly points: ReadonlyArray<Point>;
 };
 
-/** Every bucket of `period`, or of the points' extent when `period` is null, with points by local date. */
 export const calendarBuckets = <Point>(
 	points: ReadonlyArray<Point>,
 	input: {
@@ -256,7 +256,6 @@ export const calendarBuckets = <Point>(
 	return buckets;
 };
 
-/** Named ranges in display order; `custom` and `all-time` are the remaining choices. */
 export const reportingRangePresets = [
 	{ days: 7, kind: "rolling" },
 	{ days: 30, kind: "rolling" },
@@ -270,7 +269,6 @@ export const reportingRangePresets = [
 	{ offset: -1, unit: "year", kind: "calendar" },
 ] as const satisfies ReadonlyArray<ReportingRange>;
 
-/** The `range` search-parameter value; `custom` reads `start`/`end`. */
 export const reportingRangeValue = (range: ReportingRange) => {
 	if (range.kind === "rolling") {
 		return `rolling-${range.days}`;
@@ -281,7 +279,6 @@ export const reportingRangeValue = (range: ReportingRange) => {
 	return range.kind;
 };
 
-/** The analytics page's `section` search-parameter value. */
 export const analyticsSectionKey = (section: {
 	readonly slug: string;
 	readonly ownerPluginId: string;

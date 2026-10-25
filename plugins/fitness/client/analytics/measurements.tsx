@@ -2,7 +2,7 @@ import {
 	formatExactValue,
 	periodCaption,
 	type TimeZone,
-	useRyotViewport as usePluginViewport,
+	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Compared,
@@ -290,7 +290,7 @@ function MetricPicker(props: {
 	readonly onSelect: (metric: SelectedMetric) => void;
 	readonly metricButtonRef: RefObject<null | HTMLButtonElement>;
 }) {
-	const { safeAreaBottom } = usePluginViewport();
+	const { safeAreaBottom } = useRyotViewport();
 	const metricsQuery = useReportedPages(analyticsMeasurementMetricsQuery, props.scope);
 	const metrics = useMemo(
 		() =>

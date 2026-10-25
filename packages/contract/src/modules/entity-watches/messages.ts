@@ -115,7 +115,6 @@ export const EntityWatchEntityUpdatedMessage = Schema.Struct({
 });
 export type EntityWatchEntityUpdatedMessage = typeof EntityWatchEntityUpdatedMessage.Type;
 
-/** A refresh hint that derived data or background work changed somewhere in the session user's data. */
 export const EntityWatchDerivedDataUpdatedMessage = Schema.Struct({
 	type: Schema.Literal("derived-data-updated"),
 });

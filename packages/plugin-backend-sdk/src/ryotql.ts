@@ -57,7 +57,6 @@ export class RyotqlPaginationError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("RyotqlPaginationError", { message: Schema.String }) {}
 
-/** The cursor for the next page, or undefined on the last page; fails when a page would not advance. */
 export const continuationCursor = Effect.fnUntraced(function* (
 	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string },
 	previous?: string,

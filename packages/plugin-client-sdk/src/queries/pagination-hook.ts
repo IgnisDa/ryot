@@ -203,7 +203,6 @@ export const useRyotInfiniteQuery = <
 
 const reportedPageInput = <Input>(input: Input, page: ReportingPageParam) => ({ ...input, page });
 
-/** Pages a reported query; later pages keep the first page's resolved period. */
 export const useReportedPages = <
 	Input,
 	Page extends Parameters<typeof reportingPageParam>[0],

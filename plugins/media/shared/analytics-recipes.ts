@@ -215,7 +215,6 @@ const periodSummary = (
 	};
 };
 
-/** Period totals by media type, global active days and reviews, with full-history coverage. */
 export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsInput) => {
 	const resolved = input.reporting;
 	const current = periodSummary(input, resolved.current, "current");
@@ -272,7 +271,6 @@ const filtered = (source: ReturnType<typeof consumptionDetail>, mediaType: strin
 		? source.where
 		: and(source.where, eq(column(source.entity, "entitySchemaSlug"), literal(mediaType)));
 
-/** Consumption by local calendar bucket for the current period and, when compared, the previous. */
 export const mediaAnalyticsTrendRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & { readonly mediaType?: string }) => {
 		const resolved = input.reporting;

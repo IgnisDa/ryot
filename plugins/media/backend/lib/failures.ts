@@ -6,7 +6,6 @@ export class MediaSandboxError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("MediaSandboxError", { message: Schema.String }) {}
 
-/** A correction commit lost a race with concurrent history changes and must be re-queued. */
 export class HistoryCorrectionConflict extends Schema.TaggedError<
 	HistoryCorrectionConflict,
 	{ readonly brand: unique symbol }

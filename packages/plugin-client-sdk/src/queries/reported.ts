@@ -62,7 +62,6 @@ const reportedQuery = <Input extends ReportingInput, Data extends object, Failur
 
 const selected = (input: ReportingInput) => input.selection;
 
-/** Resolves `input.selection` against the schedule clock when the query executes. */
 export const createReportedQuery = <
 	Input extends ReportingInput,
 	Data extends object,
@@ -72,7 +71,6 @@ export const createReportedQuery = <
 	options?: RyotQueryOptions<Input, Reported<Data>>,
 ): RyotQuery<Input, Reported<Data>, undefined, Failure> => reportedQuery(selected, read, options);
 
-/** Loads one page; later pages resolve the first page's pinned selection. */
 export const createReportedPageQuery = <
 	Input extends ReportingInput,
 	Data extends object,
@@ -89,7 +87,6 @@ export const createReportedPageQuery = <
 		options,
 	);
 
-/** Reads the current period and, when compared, the previous period with the same grouping. */
 export const createComparedQuery = <
 	Input extends ReportingInput,
 	Data,
@@ -121,7 +118,6 @@ export const createComparedQuery = <
 		options,
 	);
 
-/** Reads daily buckets of `consistencySelection`, marking when the selected period was clipped. */
 export const createConsistencyQuery = <
 	Input extends ReportingInput,
 	Data extends object,

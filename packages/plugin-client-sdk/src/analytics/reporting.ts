@@ -50,7 +50,6 @@ const compareValues = (current: null | number, previous: null | number) => {
 	};
 };
 
-/** Describes a value's change against the previous period of `resolved`. */
 export const comparisonDetail = (input: {
 	readonly unit: string;
 	readonly current: null | number;
@@ -102,7 +101,6 @@ const rangeLabel = (range: (typeof reportingRangePresets)[number]) =>
 		? `Last ${range.days} days`
 		: `${range.offset === 0 ? "This" : "Previous"} ${range.unit}`;
 
-/** Date range choices keyed by their `range` search-parameter value; `custom` has no preset range. */
 export const reportingRangeOptions: ReadonlyArray<{
 	readonly value: string;
 	readonly label: string;

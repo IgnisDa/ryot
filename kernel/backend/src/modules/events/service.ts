@@ -28,6 +28,7 @@ import type {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
+	Array as Arr,
 	Cause,
 	Clock,
 	Context,
@@ -1733,7 +1734,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					);
 				}
 				if (items.length === 0) {
-					return { count: 0, warnings: [] as AutomationWarning[] };
+					return { count: 0, warnings: Arr.empty<AutomationWarning>() };
 				}
 				yield* assertRootTransaction;
 				const batchIdentity = eventMutationBatchReceiptIdentity({
@@ -1861,7 +1862,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					);
 				}
 				if (eventIds.length === 0) {
-					return { count: 0, warnings: [] as AutomationWarning[] };
+					return { count: 0, warnings: Arr.empty<AutomationWarning>() };
 				}
 				yield* assertRootTransaction;
 				const items = eventIds.map((eventId) => ({
@@ -2014,7 +2015,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				}
 				const prepared = yield* prepareMoveOrDelete(input, command, input, true);
 				if (!prepared) {
-					return { eventId: null, warnings: [] as AutomationWarning[] };
+					return { eventId: null, warnings: Arr.empty<AutomationWarning>() };
 				}
 				const work =
 					"_tag" in prepared

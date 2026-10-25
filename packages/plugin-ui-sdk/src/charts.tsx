@@ -195,7 +195,6 @@ export function RankedBarList({ rows, formatValue }: RankedBarListProps) {
 	);
 }
 
-/** A 7-row by N-week activity calendar with month labels, a level legend, and exact values, opening on the newest week. */
 export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 	days,
 	compact,
@@ -666,7 +665,6 @@ const periodRows = <Point extends PeriodTrendPoint>(
 ): ReadonlyArray<PeriodChartRow<Point>> =>
 	points.map((point, index) => ({ point, index, period, value: point.value }));
 
-/** Same-unit period comparison on one axis; buckets align by index rather than by elapsed milliseconds. */
 export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 	label,
 	current,
@@ -865,7 +863,6 @@ function ReportingChartFrame({
 	);
 }
 
-/** Rows are built only while the disclosure is open. */
 function ExactChartValues({
 	rows,
 	ariaLabel,
@@ -921,7 +918,6 @@ type HourRow<Bucket> = ReportingChartValue & {
 	readonly bucket: null | Bucket;
 };
 
-/** Local hour-of-day aggregates. Repeated DST hours belong to the same supplied hour bucket. */
 export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 	buckets,
 	compact,

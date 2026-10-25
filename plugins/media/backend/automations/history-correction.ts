@@ -3,8 +3,7 @@ import {
 	type ScriptHost,
 	type UserCommandInput,
 } from "@ryot-app/plugin-backend-sdk/core";
-import type { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { Effect, Schema as EffectSchema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	castBoolean,
@@ -450,7 +449,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				const row = saved.items[0];
 				const positional = isPositional(source.entitySchemaSlug);
 				const position = positional ? positionalProperties[source.entitySchemaSlug] : undefined;
-				const basis = EffectSchema.decodeUnknownOption(ConsumptionBasis)(
+				const basis = Schema.decodeUnknownOption(ConsumptionBasis)(
 					source.properties["consumptionBasis"],
 				);
 				let total = basis._tag === "Some" ? (basis.value.total ?? 0) : 0;

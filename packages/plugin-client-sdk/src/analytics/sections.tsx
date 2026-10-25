@@ -22,7 +22,6 @@ export type AnalyticsSectionProps = {
 	readonly reference: Extract<PluginIdentityReference, { readonly kind: "local" }>;
 };
 
-/** The open drill-down request, cleared whenever the section's scope changes. */
 export const useDrillRequest = <Request,>(scope: AnalyticsSectionProps) => {
 	const [request, setRequest] = useState<null | Request>(null);
 	useValueChange(JSON.stringify([scope.reference.pluginId, scope.timeZone, scope.selection]), () =>

@@ -44,7 +44,6 @@ const rollingAverage = (points: Points): Points => {
 	});
 };
 
-/** Smooths runs of known values; a run also ends where `breaks` separates adjacent known points. */
 export const smoothRuns = <Point extends { readonly at: string; readonly value: null | number }>(
 	points: readonly Point[],
 	breaks: (previous: Point, next: Point) => boolean,

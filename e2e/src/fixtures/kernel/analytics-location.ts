@@ -9,7 +9,6 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 export const analyticsSection = (pluginId: string, slug: string) =>
 	analyticsSectionKey({ slug, ownerPluginId: pluginId });
 
-/** One complete local week compared with the week before it. */
 export const analyticsFixtureSelection: ReportingSelection = {
 	grouping: "day",
 	comparison: "previous-period",

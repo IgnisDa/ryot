@@ -6,12 +6,10 @@ export type QueryStatusProps<Data> = {
 	/** Lower-case noun phrase, e.g. "workout trend". */
 	readonly label: string;
 	readonly onRetry: () => void;
-	/** Rendered whenever data is loaded, including after a failed refresh. */
 	readonly children?: undefined | ((data: Data) => ReactNode);
 	readonly query: { readonly isError: boolean; readonly data: Data | undefined };
 };
 
-/** First-load pending and failure states, then the last loaded data with a failed-refresh retry. */
 export function QueryStatus<Data>({ label, query, onRetry, children }: QueryStatusProps<Data>) {
 	const retry = { onClick: onRetry, label: `Retry ${label}` };
 	if (query.data === undefined) {
