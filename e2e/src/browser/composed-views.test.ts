@@ -25,12 +25,7 @@ import {
 	savedViewRecordPath,
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
-import {
-	createExerciseEntityFixture,
-	createWorkoutEntityFixture,
-	findWorkoutSetEventSchema,
-	waitForSessionEventCount,
-} from "~/fixtures/plugins/fitness";
+import { createExerciseEntityFixture, seedExerciseWorkout } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
@@ -563,29 +558,22 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				],
 			}),
 		);
-		const { workoutId } = yield* createWorkoutEntityFixture(client, {
-			endedAt: "2026-09-07T09:30:00.000Z",
-			name: "04 Composed Strength Workout",
-			startedAt: "2026-09-07T08:00:00.000Z",
-		});
-		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client, {
 			kind: "reps_and_weight",
 			name: "Composed Strength Exercise",
 		});
-		yield* client.call((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: exerciseId,
-						sessionEntityId: workoutId,
-						eventSchemaSlug: workoutSetEventSchema.id,
-						properties: { reps: 8, weight: 60, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
-					},
-				],
-			}),
-		);
-		yield* waitForSessionEventCount(client, workoutId, 1);
+		const { workoutId } = yield* seedExerciseWorkout(client, {
+			exerciseId,
+			endedAt: "2026-09-07T09:30:00.000Z",
+			name: "04 Composed Strength Workout",
+			startedAt: "2026-09-07T08:00:00.000Z",
+			sets: [
+				{
+					occurredAt: "2026-09-07T08:15:00.000Z",
+					properties: { reps: 8, weight: 60, setLot: "normal" },
+				},
+			],
+		});
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
 				slugs: ["pokemon"],
