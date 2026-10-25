@@ -6,13 +6,7 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import definition, { manifest } from "./workout-exercise-policy.sandbox";
 
 const now = "2026-10-01T10:00:00.000Z";
-const properties = {
-	targets: [],
-	equipment: [],
-	exerciseOrder: 0,
-	exerciseKind: "reps",
-	provenance: "recorded",
-};
+const properties = { targets: [], equipment: [], exerciseOrder: 0, exerciseKind: "reps" };
 const input = (operation: "create" | "update", changes: Record<string, unknown> = {}) => {
 	const draft = {
 		occurredAt: now,
@@ -126,7 +120,6 @@ it.effect("captures identities and roles once per occurrence", () =>
 						remove: [],
 						set: {
 							exerciseKind: "reps",
-							provenance: "recorded",
 							equipment: ["barbell"],
 							targets: [{ entityId: "chest", role: "secondary" }],
 						},

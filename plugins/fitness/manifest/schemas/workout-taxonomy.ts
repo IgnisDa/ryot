@@ -35,13 +35,6 @@ export const workoutExercisePropertiesSchema: AppSchema = {
 			description: "Kind at recording",
 			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
 		},
-		provenance: {
-			type: "enum",
-			label: "Taxonomy source",
-			validation: { required: true },
-			description: "Source of frozen assignments",
-			choices: { kind: "static", values: [{ value: "recorded" }, { value: "legacy" }] },
-		},
 		targets: {
 			type: "array",
 			label: "Recorded targets",

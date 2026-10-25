@@ -39,7 +39,6 @@ The strict properties are:
 {
   exerciseOrder: number; // nonnegative integer
   exerciseKind: ExerciseKind;
-  provenance: "recorded" | "legacy";
   targets: { entityId: string; role: "primary" | "secondary" | "stabilizer" | null }[];
   equipment: string[];
 }
@@ -53,9 +52,8 @@ dependency discovery, restore remapping, user-data rewriting and provider retent
 The event owner participates in exercise merge; the session reference participates in workout
 deletion. There is no per-set copy of the taxonomy.
 
-V1 conversion writes this schema directly, once per performed exercise position, with
-`provenance: "legacy"`. Legacy assignments describe the exercise at export time, not proven
-assignments at workout time. Runtime capture uses `"recorded"`, including capture during imports.
+V1 conversion writes this schema directly, once per performed exercise position, using the
+exercise's taxonomy at export time as the frozen assignments.
 An occurrence's `occurredAt` is always its workout's start, so period queries can bound
 occurrences and their sets through the event time index; this is not timed-set evidence.
 
@@ -124,7 +122,7 @@ The editor fences evidence reads with the workout event-scope revision and rejec
 disagrees with the original set owner/kind. The manifest's
 session-scoped `eventGroup` keys anchors by `exerciseOrder`; sets must match the anchor's exercise,
 order and recorded kind. The kernel validates final state in the commit transaction, including
-unique positions, nonempty anchors, immutable session/taxonomy/kind/provenance and retained set-to-anchor
+unique positions, nonempty anchors, immutable session/taxonomy/kind and retained set-to-anchor
 identity. Atomic editor commands can swap positions, replace exercises and remove the last set with
 its anchor. Imports use the existing generic atomic event adapter and omit empty occurrences.
 Standalone set writes require a matching anchor; adding a new occurrence or deleting its last set

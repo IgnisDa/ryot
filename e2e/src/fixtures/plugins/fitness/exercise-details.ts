@@ -51,13 +51,7 @@ export const seedExerciseWorkout = (
 						sessionEntityId: workout.id,
 						occurredAt: input.startedAt,
 						eventSchemaSlug: workoutExerciseEventSchema.id,
-						properties: {
-							targets: [],
-							exerciseKind,
-							equipment: [],
-							exerciseOrder: 0,
-							provenance: "recorded",
-						},
+						properties: { targets: [], exerciseKind, equipment: [], exerciseOrder: 0 },
 					},
 					...input.sets.map((set, setOrder) => ({
 						entityId: input.exerciseId,

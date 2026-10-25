@@ -268,12 +268,6 @@ export function AnalyticsSummary({
 					previousCaption={previousCaption}
 				/>
 			</div>
-			{current.legacyTaxonomySets === 0 ? null : (
-				<p className="text-[12.5px] text-text-muted">
-					Muscles and equipment: {current.legacyTaxonomySets} migrated sets use the exercise's
-					muscles and equipment at migration time.
-				</p>
-			)}
 		</section>
 	);
 }

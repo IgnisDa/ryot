@@ -94,7 +94,6 @@ export default defineAutomationPolicy({
 								properties: {
 									remove: [],
 									set: {
-										provenance: "recorded",
 										exerciseKind: exerciseKind.success,
 										equipment: equipment.items.map(({ id }) => id),
 										targets: targets.items.map(({ id, role }) => ({ role, entityId: id })),

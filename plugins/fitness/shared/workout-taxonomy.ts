@@ -9,7 +9,6 @@ export const WORKOUT_TAXONOMY_LIMIT = 100;
 export const WorkoutExercisePropertiesSchema = Schema.Struct({
 	exerciseOrder: NonNegativeInt,
 	exerciseKind: exerciseKindSchema,
-	provenance: Schema.Literals(["recorded", "legacy"]),
 	equipment: Schema.Array(EntityId).check(Schema.isMaxLength(WORKOUT_TAXONOMY_LIMIT)),
 	targets: Schema.Array(
 		Schema.Struct({ entityId: EntityId, role: Schema.NullOr(exerciseTargetRoleSchema) }),

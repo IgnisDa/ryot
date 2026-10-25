@@ -30,13 +30,7 @@ const occurrence = (id: string, occurredAt: string) => ({
 	occurredAt,
 	entityId: "exercise-1",
 	sessionEntityId: workoutId,
-	properties: {
-		targets: [],
-		equipment: [],
-		exerciseOrder: 0,
-		provenance: "recorded",
-		exerciseKind: "reps_and_weight",
-	},
+	properties: { targets: [], equipment: [], exerciseOrder: 0, exerciseKind: "reps_and_weight" },
 });
 const rows = (items: readonly unknown[]) => ({
 	items,

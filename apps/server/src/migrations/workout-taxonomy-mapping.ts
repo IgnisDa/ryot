@@ -138,7 +138,7 @@ BEGIN
 		${quoteNullableSqlString(input.occurrenceEventSchema.pluginId)},
 		jsonb_build_object(
 			'exerciseOrder', exercise_order, 'exerciseKind', exercise_kind,
-			'provenance', 'legacy', 'targets', targets, 'equipment', equipment
+			'targets', targets, 'equipment', equipment
 		), start_time, start_time
 	FROM _legacy_workout_occurrences;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;

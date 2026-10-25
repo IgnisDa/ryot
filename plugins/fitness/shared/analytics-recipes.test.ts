@@ -47,7 +47,6 @@ const decode = (pendingSets: number, failedSets = 0) =>
 					personalBests: 4,
 					setDuration: null,
 					personalBestSets: 1,
-					legacyTaxonomySets: 2,
 				}),
 			},
 		}),
@@ -118,7 +117,6 @@ describe("fitness analytics totals", () => {
 		expect(totals.setDuration).toBeNull();
 		expect(totals.plannedRest).toBe(120);
 		expect(totals.missingCalorieWorkouts).toBe(2);
-		expect(totals.legacyTaxonomySets).toBe(2);
 	});
 	it("reports awards versus awarded sets and entries versus individual readings", () => {
 		const totals = decode(0);

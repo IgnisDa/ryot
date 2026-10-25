@@ -148,9 +148,8 @@ Templates receive no completion events, and historical events do not replay noti
 Each saved workout exercise position also creates one `workout-exercise` event, including repeated
 uses of the same exercise in one workout. Its exercise is the event entity, its workout is the session,
 and its timestamp is the workout start, not evidence of a timed set. The recorded kind comes from the
-workout occurrence. `provenance: legacy`, typed target IDs with null roles, and typed equipment IDs
-retain the legacy exercise assignments at export time, not a claim about their original workout-time
-taxonomy. Empty arrays remain empty; either array exceeding the canonical limit aborts. Target and
+workout occurrence. Typed target IDs with null roles and typed equipment IDs freeze the exercise's
+assignments at export time. Empty arrays remain empty; either array exceeding the canonical limit aborts. Target and
 equipment IDs resolve against exact active schema/provider identity, with the catalog's curl-bar
 alias. Templates produce no occurrence snapshots. The phase verifies each source set joins its
 occurrence by owner, plugin, session, exercise, position and kind, checks deterministic output conflicts,

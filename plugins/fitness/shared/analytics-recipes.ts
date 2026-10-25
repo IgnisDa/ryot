@@ -140,7 +140,6 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 				volume: ready ? sets.volume : null,
 				measurementEntries: entries.entries,
 				measurementReadings: readings.readings,
-				legacyTaxonomySets: sets.legacyTaxonomySets ?? 0,
 				personalBests: ready ? (sets.personalBests ?? 0) : null,
 				personalBestSets: ready ? (sets.personalBestSets ?? 0) : null,
 				missingDurationWorkouts: workouts.workouts - (workouts.timedWorkouts ?? 0),
@@ -165,6 +164,21 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 					withinPeriod(column(reading, "occurredAt"), range),
 				),
 			}),
+			sets: selectedAggregate(source.set, {
+				where: source.setWhere,
+				joins: source.setJoins,
+				measures: {
+					...setMeasures(source.set),
+					sets: countMeasure,
+					repetitions: sumMeasure(workoutSetMetric(source.set, "reps")),
+					distance: sumMeasure(workoutSetMetric(source.set, "distance")),
+					plannedRest: sumMeasure(propertyNumber(source.set, "restTime")),
+					setDuration: sumMeasure(workoutSetMetric(source.set, "duration")),
+					personalBestSets: sumMeasure(
+						conditional(gt(personalBestAwardCount(source.set), literal(0)), literal(1), literal(0)),
+					),
+				},
+			}),
 			workouts: selectedAggregate(source.workout, {
 				where: source.workoutWhere,
 				measures: {
@@ -186,28 +200,6 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 							}),
 						},
 						Schema.Finite,
-					),
-				},
-			}),
-			sets: selectedAggregate(source.set, {
-				where: source.setWhere,
-				joins: source.setJoins,
-				measures: {
-					...setMeasures(source.set),
-					sets: countMeasure,
-					repetitions: sumMeasure(workoutSetMetric(source.set, "reps")),
-					distance: sumMeasure(workoutSetMetric(source.set, "distance")),
-					plannedRest: sumMeasure(propertyNumber(source.set, "restTime")),
-					setDuration: sumMeasure(workoutSetMetric(source.set, "duration")),
-					personalBestSets: sumMeasure(
-						conditional(gt(personalBestAwardCount(source.set), literal(0)), literal(1), literal(0)),
-					),
-					legacyTaxonomySets: sumMeasure(
-						conditional(
-							eq(property(source.occurrence, "provenance"), literal("legacy")),
-							literal(1),
-							literal(0),
-						),
 					),
 				},
 			}),

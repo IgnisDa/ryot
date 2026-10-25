@@ -738,7 +738,6 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 						targets: [],
 						exerciseOrder,
 						equipment: [],
-						provenance: "recorded",
 						exerciseKind: firstSet.exerciseKind,
 					},
 				});

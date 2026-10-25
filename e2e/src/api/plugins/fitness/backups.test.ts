@@ -90,7 +90,6 @@ it.live("remaps Fitness occurrence targets and equipment without replacing froze
 		const workoutId = saved.entityId;
 		const facts = {
 			exerciseOrder: 0,
-			provenance: "recorded",
 			exerciseKind: "reps_and_weight",
 			equipment: [recordedEquipment.id],
 			targets: [{ role: "primary", entityId: recordedTarget.id }],

@@ -159,7 +159,6 @@ const harness = (
 					id: `occurrence-${exerciseOrder}`,
 					sessionEntityId: set.sessionEntityId,
 					properties: {
-						provenance: "legacy",
 						equipment: ["barbell"],
 						exerciseKind: set.properties["exerciseKind"],
 						exerciseOrder: set.properties["exerciseOrder"],
@@ -228,7 +227,6 @@ describe("workout editor save", () => {
 						targets: [],
 						equipment: [],
 						exerciseOrder: 0,
-						provenance: "legacy",
 						exerciseKind: "reps_and_weight",
 					},
 				};
@@ -279,7 +277,6 @@ describe("workout editor save", () => {
 									expected: objectContaining({
 										properties: {
 											exerciseOrder: 0,
-											provenance: "legacy",
 											equipment: ["barbell"],
 											exerciseKind: "reps_and_weight",
 											targets: [{ role: "primary", entityId: "chest" }],
@@ -312,7 +309,6 @@ describe("workout editor save", () => {
 					id: EventId.make(`anchor-${exerciseOrder}`),
 					properties: {
 						exerciseOrder,
-						provenance: "legacy",
 						exerciseKind: "reps_and_weight",
 						equipment: [`equipment-${exerciseOrder}`],
 						targets: [{ role: "primary", entityId: `target-${exerciseOrder}` }],
@@ -460,7 +456,6 @@ describe("workout editor save", () => {
 									targets: [],
 									equipment: [],
 									exerciseOrder: 0,
-									provenance: "recorded",
 									exerciseKind: "reps_and_weight",
 								},
 							},
@@ -763,7 +758,6 @@ describe("workout editor save", () => {
 									targets: [],
 									equipment: [],
 									exerciseOrder: 0,
-									provenance: "recorded",
 									exerciseKind: "reps_and_weight",
 								},
 							},

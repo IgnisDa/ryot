@@ -51,7 +51,6 @@ const byExerciseOrder = <T extends { readonly properties: { readonly exerciseOrd
 
 const expectedOccurrenceProperties = (taxonomy: OccurrenceTaxonomy, exerciseOrder: number) => ({
 	exerciseOrder,
-	provenance: "recorded",
 	exerciseKind: "reps_and_weight",
 	equipment: [...taxonomy.equipment].sort((left, right) => left.localeCompare(right)),
 	targets: [...taxonomy.targets]
@@ -502,14 +501,12 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 			afterUnrelatedEdit.map(({ properties }) => ({
 				targets: properties.targets,
 				equipment: properties.equipment,
-				provenance: properties.provenance,
 				exerciseKind: properties.exerciseKind,
 			})),
 		).toEqual(
 			reorderedOccurrences.map(({ properties }) => ({
 				targets: properties.targets,
 				equipment: properties.equipment,
-				provenance: properties.provenance,
 				exerciseKind: properties.exerciseKind,
 			})),
 		);

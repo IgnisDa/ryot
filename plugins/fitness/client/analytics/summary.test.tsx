@@ -33,7 +33,6 @@ type Totals = {
 	readonly repetitions: null | number;
 	readonly plannedRest: null | number;
 	readonly setDuration: null | number;
-	readonly legacyTaxonomySets: number;
 	readonly measurementReadings: number;
 	readonly personalBests: null | number;
 	readonly activeDuration: null | number;
@@ -65,7 +64,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		personalBests: null,
 		activeDuration: null,
 		measurementEntries: 0,
-		legacyTaxonomySets: 0,
 		personalBestSets: null,
 		measurementReadings: 0,
 		...overrides,
@@ -93,7 +91,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 				setDuration: value.setDuration,
 				personalBests: value.personalBests,
 				personalBestSets: value.personalBestSets,
-				legacyTaxonomySets: value.legacyTaxonomySets,
 			}),
 		},
 	};
@@ -172,7 +169,6 @@ describe("Fitness analytics summary UI", () => {
 						pendingSets: 1,
 						activeDuration: null,
 						measurementEntries: 2,
-						legacyTaxonomySets: 1,
 						measurementReadings: 5,
 					}),
 				});
@@ -188,11 +184,6 @@ describe("Fitness analytics summary UI", () => {
 				).toBeDefined();
 				expect(
 					screen.getByText(/Known subtotal · 0 workouts with energy · 1 missing/),
-				).toBeDefined();
-				expect(
-					screen.getByText(
-						"Muscles and equipment: 1 migrated sets use the exercise's muscles and equipment at migration time.",
-					),
 				).toBeDefined();
 				expect(screen.getAllByText(/1 pending sets · 1 failed sets/).length).toBeGreaterThan(0);
 			} finally {

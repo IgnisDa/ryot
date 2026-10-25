@@ -58,7 +58,6 @@ const response = {
 			plannedRest: null,
 			setDuration: null,
 			personalBestSets: 0,
-			legacyTaxonomySets: 0,
 		}),
 	},
 };

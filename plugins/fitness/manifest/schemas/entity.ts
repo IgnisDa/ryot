@@ -56,7 +56,7 @@ export const fitnessEntitySchemas = [
 				propertiesSchema: workoutExercisePropertiesSchema,
 				eventGroup: {
 					keyProperties: ["exerciseOrder"],
-					immutableProperties: ["exerciseKind", "targets", "equipment", "provenance"],
+					immutableProperties: ["exerciseKind", "targets", "equipment"],
 					dependents: [
 						{ eventSchemaSlug: "workout-set", matchProperties: ["exerciseOrder", "exerciseKind"] },
 					],

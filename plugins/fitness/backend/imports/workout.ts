@@ -89,7 +89,6 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 								targets: [],
 								exerciseOrder,
 								equipment: [],
-								provenance: "recorded",
 								exerciseKind: exercise.kind,
 							},
 						},

@@ -101,13 +101,7 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 	});
 	expect(item.events[0]).toMatchObject({
 		eventSchemaSlug: "workout-exercise",
-		properties: {
-			targets: [],
-			equipment: [],
-			exerciseOrder: 0,
-			provenance: "recorded",
-			exerciseKind: "reps_and_weight",
-		},
+		properties: { targets: [], equipment: [], exerciseOrder: 0, exerciseKind: "reps_and_weight" },
 	});
 	expect(item.events[1]).toMatchObject({
 		entityAlias: "exercise-0",
