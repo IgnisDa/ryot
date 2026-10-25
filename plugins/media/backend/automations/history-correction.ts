@@ -580,13 +580,13 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					let sourceId = source.id;
 					const key = source.properties["completionKey"];
 					if (typeof key === "string") {
-						const evidence = yield* occurrence(key);
-						if (!evidence?.properties.sourceEventId) {
+						const completion = yield* occurrence(key);
+						if (!completion?.properties.sourceEventId) {
 							return yield* new MediaSandboxError({
-								message: "Episode completion evidence is unavailable",
+								message: "Episode completion source is unavailable",
 							});
 						}
-						sourceId = evidence.properties.sourceEventId;
+						sourceId = completion.properties.sourceEventId;
 					}
 					const coverageProperties = {
 						cycle: state.cycle,
@@ -700,7 +700,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 								state.phase = basis?.properties.frozen ? "snapshot" : "reset-snapshot";
 								state.inventory = yield* inventory(config);
 							}
-							delete state.evidenceAfter;
+							delete state.inventoryAfter;
 						} else {
 							yield* finishCoverageItem(page);
 						}
@@ -729,11 +729,11 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				state.inventory = fingerprint;
 				if (!page.pageInfo.hasMore) {
 					state.phase = "snapshot";
-					delete state.evidenceAfter;
+					delete state.inventoryAfter;
 				}
 			} else if (!basis.properties.frozen && state.inventory !== fingerprint) {
 				state.phase = "reset-snapshot";
-				delete state.evidenceAfter;
+				delete state.inventoryAfter;
 			} else if (state.phase === "snapshot") {
 				const page = yield* executeRyotqlRecipe(
 					host.executeRyotql,
@@ -744,7 +744,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						runKey: state.runKey,
 						subjectEntityId: input.entityId,
 						...(basis.properties.frozen ? { basisId: basis.id } : {}),
-						after: state.evidenceAfter,
+						after: state.inventoryAfter,
 					}),
 				);
 				for (const row of page.items) {
@@ -761,7 +761,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						});
 						if (!saved.items[0]) {
 							return yield* new MediaSandboxError({
-								message: "Required episode evidence is unavailable",
+								message: "Saved completion episode is unavailable",
 							});
 						}
 						write.replace(saved.items[0], properties);
@@ -771,11 +771,11 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				}
 				const after = yield* continuationCursor(page.pageInfo);
 				if (after === undefined) {
-					delete state.evidenceAfter;
+					delete state.inventoryAfter;
 				} else {
-					state.evidenceAfter = after;
+					state.inventoryAfter = after;
 				}
-				if (state.evidenceAfter === undefined) {
+				if (state.inventoryAfter === undefined) {
 					state.phase = "publish";
 				}
 			} else {
@@ -843,7 +843,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				}
 				delete state.basisId;
 				delete state.closingEventId;
-				delete state.evidenceAfter;
+				delete state.inventoryAfter;
 				delete state.inventory;
 			}
 		} else if (state.phase === "clear") {

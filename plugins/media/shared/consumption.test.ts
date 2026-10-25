@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { consumptionBasisFor } from "./consumption";
 
-describe("retained consumption evidence", () => {
+describe("retained consumption basis", () => {
 	it("keeps type-specific units and never treats game time-to-beat as consumption", () => {
 		expect(consumptionBasisFor("book", { pages: 123 })).toEqual({
 			total: 123,

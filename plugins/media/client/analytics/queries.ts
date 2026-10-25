@@ -1,77 +1,77 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
-  createConsistencyQuery,
-  createReportedPageQuery,
-  createReportedQuery,
+	createConsistencyQuery,
+	createReportedPageQuery,
+	createReportedQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 
 import {
-  mediaAnalyticsHoursRecipe,
-  mediaAnalyticsRankingRecipe,
-  mediaAnalyticsRecordsRecipe,
-  mediaAnalyticsSummaryRecipe,
-  mediaAnalyticsTrendRecipe,
+	mediaAnalyticsHoursRecipe,
+	mediaAnalyticsRankingRecipe,
+	mediaAnalyticsRecordsRecipe,
+	mediaAnalyticsSummaryRecipe,
+	mediaAnalyticsTrendRecipe,
 } from "../../shared/analytics-recipes";
 import type {
-  AnalyticsInput,
-  MediaAnalyticsHours,
-  MediaAnalyticsProcessing,
-  MediaAnalyticsRanking,
-  MediaAnalyticsRecords,
-  MediaAnalyticsSummary,
-  MediaAnalyticsTrend,
+	AnalyticsInput,
+	MediaAnalyticsHours,
+	MediaAnalyticsProcessing,
+	MediaAnalyticsRanking,
+	MediaAnalyticsRecords,
+	MediaAnalyticsSummary,
+	MediaAnalyticsTrend,
 } from "./model";
 
 /** Dependent inputs carry the summary's processing state so they reload when it settles. */
 export type ChartInput = AnalyticsInput & {
-  readonly mediaType?: string;
-  readonly processing: MediaAnalyticsProcessing;
+	readonly mediaType?: string;
+	readonly processing: MediaAnalyticsProcessing;
 };
 
 export const mediaAnalyticsSummaryQuery = createReportedQuery<
-  AnalyticsInput,
-  MediaAnalyticsSummary
+	AnalyticsInput,
+	MediaAnalyticsSummary
 >(
-  ({ input, client, reporting }) =>
-    client.data.query(mediaAnalyticsSummaryRecipe({ ...input, reporting })),
-  { refreshWhile: ({ data }) => data.processing === "pending" },
+	({ input, client, reporting }) =>
+		client.data.query(mediaAnalyticsSummaryRecipe({ ...input, reporting })),
+	{ refreshWhile: ({ data }) => data.processing === "pending" },
 );
 
 export const mediaAnalyticsTrendQuery = createReportedQuery<ChartInput, MediaAnalyticsTrend>(
-  ({ input, client, reporting }) =>
-    client.data.query(mediaAnalyticsTrendRecipe({ ...input, reporting })),
+	({ input, client, reporting }) =>
+		client.data.query(mediaAnalyticsTrendRecipe({ ...input, reporting })),
 );
 
 export const mediaAnalyticsConsistencyQuery = createConsistencyQuery<
-  ChartInput,
-  MediaAnalyticsTrend
+	ChartInput,
+	MediaAnalyticsTrend
 >(({ input, client, reporting }) =>
-  client.data.query(mediaAnalyticsTrendRecipe({ ...input, reporting })),
+	client.data.query(mediaAnalyticsTrendRecipe({ ...input, reporting })),
 );
 
 export const mediaAnalyticsHoursQuery = createReportedQuery<
-  ChartInput,
-  { readonly hours: MediaAnalyticsHours }
+	ChartInput,
+	{ readonly hours: MediaAnalyticsHours }
 >(({ input, client, reporting }) =>
-  client.data
-    .query(mediaAnalyticsHoursRecipe({ ...input, reporting }))
-    .pipe(Effect.map((hours) => ({ hours }))),
+	client.data
+		.query(mediaAnalyticsHoursRecipe({ ...input, reporting }))
+		.pipe(Effect.map((hours) => ({ hours }))),
 );
 
 export type AnalyticsRankingInput = ChartInput &
-  Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "after" | "reporting">;
+	Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "after" | "reporting">;
 export const mediaAnalyticsRankingQuery = createReportedPageQuery<
-  AnalyticsRankingInput,
-  MediaAnalyticsRanking
+	AnalyticsRankingInput,
+	MediaAnalyticsRanking
 >(({ input, after, client, reporting }) =>
-  client.data.query(mediaAnalyticsRankingRecipe({ ...input, after, reporting })),
+	client.data.query(mediaAnalyticsRankingRecipe({ ...input, after, reporting })),
 );
 
 export type AnalyticsRecordsInput = ChartInput &
-  Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "after" | "reporting">;
+	Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "after" | "reporting">;
 export const mediaAnalyticsRecordsQuery = createReportedPageQuery<
-  AnalyticsRecordsInput,
-  MediaAnalyticsRecords
+	AnalyticsRecordsInput,
+	MediaAnalyticsRecords
 >(({ input, after, client, reporting }) =>
-  client.data.query(mediaAnalyticsRecordsRecipe({ ...input, after, reporting })),
+	client.data.query(mediaAnalyticsRecordsRecipe({ ...input, after, reporting })),
 );

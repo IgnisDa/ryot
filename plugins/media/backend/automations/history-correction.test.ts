@@ -571,13 +571,13 @@ it.effect.each([
 			state: checkpoint({
 				basisId: "basis",
 				phase: "snapshot",
-				evidenceAfter: "page-1",
+				inventoryAfter: "page-1",
 				inventory: inventoryFingerprint,
 			}),
 		});
 		yield* test.run();
 		expect(yield* test.saved()).toMatchObject({ phase: "reset-snapshot" });
-		expect(yield* test.saved()).not.toHaveProperty("evidenceAfter");
+		expect(yield* test.saved()).not.toHaveProperty("inventoryAfter");
 		expect(test.commands[0]?.events.creates).toEqual([]);
 	}),
 );
@@ -627,7 +627,7 @@ it.effect("resumes a large inventory with bounded evidence writes and an atomic 
 			state: checkpoint({
 				basisId: "basis",
 				phase: "snapshot",
-				evidenceAfter: "page-58",
+				inventoryAfter: "page-58",
 				inventory: inventoryFingerprint,
 			}),
 			responses: [
@@ -640,7 +640,7 @@ it.effect("resumes a large inventory with bounded evidence writes and an atomic 
 		expect(test.commands[0]?.events.creates).toHaveLength(50);
 		expect(yield* test.saved()).toMatchObject({
 			phase: "snapshot",
-			evidenceAfter: "page-59",
+			inventoryAfter: "page-59",
 			inventory: inventoryFingerprint,
 		});
 		expect(test.commands[0]?.events.baselines).toEqual([
@@ -789,7 +789,7 @@ it.effect("captures 3,000 required episodes across resumable bounded pages", () 
 		}
 		expect(captured).toBe(3_000);
 		expect(state).toMatchObject({ step: 65, phase: "publish", inventory: inventoryFingerprint });
-		expect(state).not.toHaveProperty("evidenceAfter");
+		expect(state).not.toHaveProperty("inventoryAfter");
 		expect(largestCommand).toBeLessThan(30_000);
 	}),
 );

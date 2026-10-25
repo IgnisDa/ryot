@@ -1007,7 +1007,7 @@ export const mediaPlugin = definePlugin({
 			position: 200,
 			stage: "before",
 			slug: "media.consumption",
-			name: "Retain consumption evidence",
+			name: "Retain consumption basis",
 			scriptSlug: "policy.media-consumption",
 			targets: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].flatMap(
 				(entity) => {

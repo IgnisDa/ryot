@@ -27,7 +27,7 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "policy",
 	slug: "policy.media-consumption",
-	name: "Retain media consumption evidence",
+	name: "Retain media consumption basis",
 	inputProjection: {
 		event: {
 			properties: [
@@ -135,7 +135,7 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	const retained =
 		payload.operation === "update" ? payload.before.properties["consumptionBasis"] : undefined;
 	if (payload.operation === "update" && retained === undefined) {
-		return reject("Recorded consumption evidence is missing");
+		return reject("Recorded consumption basis is missing");
 	}
 	if (retained !== undefined) {
 		if (!jsonValueEquals(retained, properties["consumptionBasis"])) {
@@ -163,10 +163,10 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 		return { action: "allow" } as const;
 	}
 	if (properties["completionKey"] !== undefined) {
-		return reject("Automatic completions require retained consumption evidence");
+		return reject("Automatic completions require a consumption basis");
 	}
 	if (properties["sourceRun"] !== undefined) {
-		return reject("Imported source runs require retained consumption evidence");
+		return reject("Imported source runs require a consumption basis");
 	}
 	const target = yield* executeRyotqlRecipe(
 		host.executeRyotql,

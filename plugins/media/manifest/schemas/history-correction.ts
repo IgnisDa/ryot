@@ -57,8 +57,8 @@ export const historyCorrectionEventSchemas = [
 				after: text("History cursor"),
 				workKey: text("Work identity"),
 				requestKey: text("Requested run"),
-				evidenceAfter: text("Evidence cursor"),
 				basisId: event("Completion occurrence"),
+				inventoryAfter: text("Inventory cursor"),
 				inventory: text("Inventory fingerprint"),
 				closingEventId: event("Closing activity"),
 				subjectEntityId: entity("History subject"),
@@ -85,7 +85,7 @@ export const historyCorrectionEventSchemas = [
 					"done",
 				]),
 			},
-			["after", "basisId", "closingEventId", "evidenceAfter", "inventory", "coverageFinished"],
+			["after", "basisId", "closingEventId", "inventoryAfter", "inventory", "coverageFinished"],
 		),
 	},
 	{

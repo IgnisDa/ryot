@@ -56,7 +56,7 @@ export const HistoryCorrection = Schema.Struct({
 	after: Schema.optionalKey(Schema.String),
 	basisId: Schema.optionalKey(Schema.String),
 	inventory: Schema.optionalKey(Schema.String),
-	evidenceAfter: Schema.optionalKey(Schema.String),
+	inventoryAfter: Schema.optionalKey(Schema.String),
 	closingEventId: Schema.optionalKey(Schema.String),
 	coverageFinished: Schema.optionalKey(Schema.Boolean),
 	liveSourceIds: Schema.Array(Schema.String).check(Schema.isMaxLength(60)),

@@ -271,7 +271,7 @@ export const coverageBasisRecipe = defineRecipe(
 		subjectEntityId: string;
 	}) => {
 		const occurrence = table("event", "coverageOccurrence");
-		const episode = table("event", "coverageEvidence");
+		const episode = table("event", "coverageEpisode");
 		return {
 			map: ({ basis }) => Result.succeed(basis),
 			queries: {
@@ -318,7 +318,7 @@ export const historyCorrectionContextRecipe = defineRecipe(
 		const childSource = table("event", "correctionChildSource");
 		const dependency = table("event", "correctionDependency");
 		const progress = table("event", "correctionProgressInput");
-		const evidence = table("event", "correctionEvidenceInput");
+		const correction = table("event", "correctionHistoryInput");
 		return {
 			map: ({ library: root, target: subject, work: checkpoint, scope: sourceScope }) =>
 				Result.succeed({
@@ -412,13 +412,13 @@ export const historyCorrectionContextRecipe = defineRecipe(
 											),
 										),
 									}),
-									exists(evidence, {
+									exists(correction, {
 										where: and(
-											own(evidence),
-											eq(column(evidence, "entityId"), literal(input.libraryId)),
-											historyPropertyIs(evidence, "subjectEntityId", input.entityId),
+											own(correction),
+											eq(column(correction, "entityId"), literal(input.libraryId)),
+											historyPropertyIs(correction, "subjectEntityId", input.entityId),
 											inArray(
-												column(evidence, "eventSchemaSlug"),
+												column(correction, "eventSchemaSlug"),
 												["completion-occurrence", "history-coverage"].map(literal),
 											),
 										),
@@ -491,16 +491,16 @@ const requiredEpisodes = (
 	},
 ) => {
 	if (input.basisId) {
-		const evidence = table("event", "requiredEvidence");
+		const saved = table("event", "savedCompletionEpisode");
 		return {
 			joins: [],
-			from: evidence,
-			episodeId: historyProperty(evidence, "episodeId"),
+			from: saved,
+			episodeId: historyProperty(saved, "episodeId"),
 			where: and(
-				own(evidence),
-				eq(column(evidence, "entityId"), literal(input.libraryId)),
-				eq(column(evidence, "eventSchemaSlug"), literal("completion-episode")),
-				historyPropertyIs(evidence, "occurrenceId", input.basisId),
+				own(saved),
+				eq(column(saved, "entityId"), literal(input.libraryId)),
+				eq(column(saved, "eventSchemaSlug"), literal("completion-episode")),
+				historyPropertyIs(saved, "occurrenceId", input.basisId),
 			),
 		};
 	}

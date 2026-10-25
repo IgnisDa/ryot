@@ -122,7 +122,7 @@ const restoredHistoryRevisionRecipe = defineRecipe(
 	},
 );
 
-describe("Media consumption evidence retention", () => {
+describe("Media consumption basis retention", () => {
 	it.live("merges independent same-date Book completions without deduping their frozen bases", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
