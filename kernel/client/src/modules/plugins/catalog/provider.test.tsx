@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { testHostServices } from "#/host-services.test-support";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { makePluginCatalogEventsLayer } from "#/modules/plugins/catalog/events";
@@ -62,7 +63,7 @@ const makeView = (
 		Layer.mergeAll(events.layer, Layer.succeed(PluginCatalogService, { load })),
 	);
 	const tree = (content: ReactNode) => (
-		<RyotProvider runtime={ryot.runtime} hostServices={{ scope, runtime }}>
+		<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, runtime)}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				{content}
 			</PluginCatalogProvider>
@@ -114,7 +115,7 @@ describe("plugin catalog provider", () => {
 			),
 		);
 		const view = render(
-			<RyotProvider runtime={ryot.runtime} hostServices={{ scope, runtime }}>
+			<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, runtime)}>
 				<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 					<CatalogConsumer name="catalog" />
 				</PluginCatalogProvider>

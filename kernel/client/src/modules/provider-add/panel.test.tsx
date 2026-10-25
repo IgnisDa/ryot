@@ -50,7 +50,7 @@ const renderPanel = (
 ) => {
 	const clock = createTestRyotClock();
 	clocks.push(clock);
-	const query = createRyotQuery<SandboxProviderId, SearchProviderOptionsResponse, undefined, Error>(
+	const query = createRyotQuery<SandboxProviderId, SearchProviderOptionsResponse, Error>(
 		({ input }) => options.loadSearchOptions?.(input) ?? Effect.die(new Error("not used")),
 		{ cancelOnUnmount: true },
 	);

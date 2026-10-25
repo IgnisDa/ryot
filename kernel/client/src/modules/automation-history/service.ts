@@ -2,7 +2,7 @@ import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/au
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	type AutomationHistoryRunDetail,
 	automationHistoryRunRecipe,
@@ -14,7 +14,7 @@ import { Effect } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { AutomationHistoryApi } from "#/api/automation-history";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 export type AutomationRunDetail =
 	AutomationHistoryRunDetail extends Option.Option<infer Run> ? Run : never;
@@ -26,8 +26,7 @@ type AutomationHistoryQueryInput = { readonly limit?: number; readonly cursor?: 
 
 export const automationHistoryPageQuery = createRyotQuery<
 	AutomationHistoryQueryInput,
-	AutomationHistoryRunsPage,
-	KernelHostServices
+	AutomationHistoryRunsPage
 >(
 	({ input, client }) =>
 		client.data.query(
@@ -40,28 +39,29 @@ export const automationHistoryPageQuery = createRyotQuery<
 	{ cancelOnUnmount: true },
 );
 
-export const automationHistoryDetailQuery = createRyotQuery<
-	string,
-	AutomationRunDetail,
-	KernelHostServices
->(({ input, client }) =>
-	client.data
-		.query(automationHistoryRunRecipe({ id: input }))
-		.pipe(
-			Effect.flatMap(Effect.fromOption(() => new RyotClientError({ reason: "malformed-result" }))),
-		),
+export const automationHistoryDetailQuery = createRyotQuery<string, AutomationRunDetail>(
+	({ input, client }) =>
+		client.data
+			.query(automationHistoryRunRecipe({ id: input }))
+			.pipe(
+				Effect.flatMap(
+					Effect.fromOption(() => new RyotClientError({ reason: "malformed-result" })),
+				),
+			),
 );
 
-export const retryAutomationRunMutation = createRyotMutation<
+export const retryAutomationRunMutation = createRyotHostMutation<
 	{ readonly runId: string; readonly expectedAttemptCount: number },
 	AutomationHistoryRetryResult,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, hostServices }) =>
-	hostServices.runtime
-		.runSync(AutomationHistoryApi)
-		.retryRun(hostServices.scope, {
-			params: { runId: AutomationRunId.make(input.runId) },
-			payload: { expectedAttemptCount: input.expectedAttemptCount },
-		}),
+>(
+	({ input, hostServices }) =>
+		hostServices.runtime
+			.runSync(AutomationHistoryApi)
+			.retryRun(hostServices.scope, {
+				params: { runId: AutomationRunId.make(input.runId) },
+				payload: { expectedAttemptCount: input.expectedAttemptCount },
+			}),
+	{ hostServices: KernelHostServices },
 );

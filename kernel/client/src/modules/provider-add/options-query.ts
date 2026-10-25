@@ -1,11 +1,11 @@
 import type { SearchProviderOptionsResponse } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
 
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { type ProviderAddLoadError, ProviderAddService } from "#/modules/provider-add/service";
 
-export const providerSearchOptionsQuery = createRyotQuery<
+export const providerSearchOptionsQuery = createRyotHostQuery<
 	SandboxProviderId,
 	SearchProviderOptionsResponse,
 	KernelHostServices,
@@ -13,5 +13,5 @@ export const providerSearchOptionsQuery = createRyotQuery<
 >(
 	({ input, hostServices }) =>
 		hostServices.runtime.runSync(ProviderAddService).loadSearchOptions(hostServices.scope, input),
-	{ cancelOnUnmount: true },
+	{ cancelOnUnmount: true, hostServices: KernelHostServices },
 );

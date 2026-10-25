@@ -49,7 +49,7 @@ const reportedQuery = <Input extends ReportingInput, Data extends object, Failur
 	) => Effect.Effect<Data, Failure>,
 	options: undefined | RyotQueryOptions<Input, Reported<Data>>,
 ) =>
-	createRyotQuery<Input, Reported<Data>, undefined, Failure>(
+	createRyotQuery<Input, Reported<Data>, Failure>(
 		({ input, client, schedule }) => {
 			const now = schedule.now();
 			const reporting = reportingExecution(window(input, now), { now, timeZone: input.timeZone });
@@ -69,7 +69,7 @@ export const createReportedQuery = <
 >(
 	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<Input, Reported<Data>>,
-): RyotQuery<Input, Reported<Data>, undefined, Failure> => reportedQuery(selected, read, options);
+): RyotQuery<Input, Reported<Data>, Failure> => reportedQuery(selected, read, options);
 
 export const createReportedPageQuery = <
 	Input extends ReportingInput,
@@ -80,7 +80,7 @@ export const createReportedPageQuery = <
 		context: { readonly after: string | undefined } & ReportedContext<ReportedPageInput<Input>>,
 	) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<ReportedPageInput<Input>, Reported<Data>>,
-): RyotQuery<ReportedPageInput<Input>, Reported<Data>, undefined, Failure> =>
+): RyotQuery<ReportedPageInput<Input>, Reported<Data>, Failure> =>
 	reportedQuery(
 		(input: ReportedPageInput<Input>) => input.page?.selection ?? input.selection,
 		(context) => read({ ...context, after: context.input.page?.after }),
@@ -94,7 +94,7 @@ export const createComparedQuery = <
 >(
 	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<Input, Compared<Data>>,
-): RyotQuery<Input, Compared<Data>, undefined, Failure> =>
+): RyotQuery<Input, Compared<Data>, Failure> =>
 	reportedQuery(
 		selected,
 		(context) =>
@@ -124,7 +124,7 @@ export const createConsistencyQuery = <
 	Failure extends Error = RyotClientError,
 >(
 	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
-): RyotQuery<Input, Reported<Data & { readonly clipped: boolean }>, undefined, Failure> =>
+): RyotQuery<Input, Reported<Data & { readonly clipped: boolean }>, Failure> =>
 	reportedQuery(
 		(input: Input, now) => consistencySelection(input, now).selection,
 		(context) =>

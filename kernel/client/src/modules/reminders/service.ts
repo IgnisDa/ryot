@@ -5,7 +5,11 @@ import type {
 } from "@ryot-app/contract/modules/reminders/schemas";
 import type { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotHostMutation,
+	createRyotHostQuery,
+	createRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	reminderDeliveriesRecipe,
 	type ReminderDeliveriesResult,
@@ -21,7 +25,7 @@ import { Effect, Schema } from "effect";
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { AutomationsApi } from "#/api/automations";
 import { RemindersApi } from "#/api/reminders";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 export class RemindersLoadError extends Schema.TaggedError<
 	RemindersLoadError,
@@ -31,7 +35,6 @@ export class RemindersLoadError extends Schema.TaggedError<
 export const remindersQuery = createRyotQuery<
 	Parameters<typeof remindersRecipe>[0],
 	RemindersResult,
-	KernelHostServices,
 	RemindersLoadError
 >(
 	({ input, client }) =>
@@ -41,7 +44,7 @@ export const remindersQuery = createRyotQuery<
 	{ cancelOnUnmount: true },
 );
 
-export const reminderReadinessQuery = createRyotQuery<
+export const reminderReadinessQuery = createRyotHostQuery<
 	void,
 	{
 		readonly channels: ReminderReadinessResult;
@@ -60,7 +63,7 @@ export const reminderReadinessQuery = createRyotQuery<
 			},
 			{ concurrency: 2 },
 		).pipe(Effect.mapError((cause) => new RemindersLoadError({ cause }))),
-	{ cancelOnUnmount: true },
+	{ cancelOnUnmount: true, hostServices: KernelHostServices },
 );
 
 export const reminderDeliveriesQuery = createRyotQuery<
@@ -70,30 +73,33 @@ export const reminderDeliveriesQuery = createRyotQuery<
 	cancelOnUnmount: true,
 });
 
-export const reminderSubscriptionMutation = createRyotMutation<
+export const reminderSubscriptionMutation = createRyotHostMutation<
 	{ readonly enable: boolean; readonly id: null | NotificationSubscriptionId },
 	void,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) => {
-	const api = hostServices.runtime.runSync(AutomationsApi);
-	let command: Effect.Effect<unknown, AuthenticatedApiError>;
-	if (input.id === null) {
-		command = api.installRule(hostServices.scope, {
-			payload: {
-				signalSchema: { owner: { kind: "kernel" }, slug: SignalSchemaSlug.make("reminder.due") },
-			},
-		});
-	} else if (input.enable) {
-		command = api.activateRule(hostServices.scope, { params: { ruleId: input.id } });
-	} else {
-		command = api.deactivateRule(hostServices.scope, { params: { ruleId: input.id } });
-	}
-	return command.pipe(
-		Effect.tap(() => Effect.sync(client.mutationCompleted.hint)),
-		Effect.asVoid,
-	);
-});
+>(
+	({ input, client, hostServices }) => {
+		const api = hostServices.runtime.runSync(AutomationsApi);
+		let command: Effect.Effect<unknown, AuthenticatedApiError>;
+		if (input.id === null) {
+			command = api.installRule(hostServices.scope, {
+				payload: {
+					signalSchema: { owner: { kind: "kernel" }, slug: SignalSchemaSlug.make("reminder.due") },
+				},
+			});
+		} else if (input.enable) {
+			command = api.activateRule(hostServices.scope, { params: { ruleId: input.id } });
+		} else {
+			command = api.deactivateRule(hostServices.scope, { params: { ruleId: input.id } });
+		}
+		return command.pipe(
+			Effect.tap(() => Effect.sync(client.mutationCompleted.hint)),
+			Effect.asVoid,
+		);
+	},
+	{ hostServices: KernelHostServices },
+);
 
 export type ReminderCommand = {
 	[Action in "edit" | "create" | "cancel" | "remove"]: {
@@ -102,27 +108,30 @@ export type ReminderCommand = {
 	};
 }["edit" | "create" | "cancel" | "remove"];
 
-export const reminderCommandMutation = createRyotMutation<
+export const reminderCommandMutation = createRyotHostMutation<
 	ReminderCommand,
 	ReminderCommandResult,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) => {
-	const api = hostServices.runtime.runSync(RemindersApi);
-	let command: Effect.Effect<ReminderCommandResult, AuthenticatedApiError>;
-	switch (input.action) {
-		case "edit":
-			command = api.edit(hostServices.scope, input.request);
-			break;
-		case "create":
-			command = api.create(hostServices.scope, input.request);
-			break;
-		case "cancel":
-			command = api.cancel(hostServices.scope, input.request);
-			break;
-		case "remove":
-			command = api.remove(hostServices.scope, input.request);
-			break;
-	}
-	return command.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint)));
-});
+>(
+	({ input, client, hostServices }) => {
+		const api = hostServices.runtime.runSync(RemindersApi);
+		let command: Effect.Effect<ReminderCommandResult, AuthenticatedApiError>;
+		switch (input.action) {
+			case "edit":
+				command = api.edit(hostServices.scope, input.request);
+				break;
+			case "create":
+				command = api.create(hostServices.scope, input.request);
+				break;
+			case "cancel":
+				command = api.cancel(hostServices.scope, input.request);
+				break;
+			case "remove":
+				command = api.remove(hostServices.scope, input.request);
+				break;
+		}
+		return command.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint)));
+	},
+	{ hostServices: KernelHostServices },
+);

@@ -6,8 +6,8 @@ import { useRyotMutation } from "./hooks";
 import { useRyotSchedule } from "./provider";
 import { createRyotSubmission, type RyotSubmission } from "./submission";
 
-export const useRyotSubmission = <Input, Data, HostServices, Failure extends Error>(
-	definition: RyotMutation<RyotSubmission<Input>, Data, HostServices, Failure>,
+export const useRyotSubmission = <Input, Data, Failure extends Error>(
+	definition: RyotMutation<RyotSubmission<Input>, Data, Failure>,
 	options?: { readonly createId?: () => string; readonly isComplete?: (data: Data) => boolean },
 ) => {
 	const schedule = useRyotSchedule();

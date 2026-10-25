@@ -1,5 +1,7 @@
 import type { EntityWatch } from "@ryot-app/plugin-client-contract";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Atom from "effect/reactivity/Atom";
 import * as AtomRegistry from "effect/reactivity/AtomRegistry";
 
@@ -12,42 +14,42 @@ export const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/plugin-client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/plugin-client-sdk/react/mutation");
 
-export type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
+export type RyotHostServices = Context.Context<never>;
 
-export type QueryContext<Input, HostServices> = {
+export type MutationContext<Input> = QueryContext<Input>;
+
+export type QueryContext<Input> = {
 	readonly input: Input;
 	readonly client: RyotClient;
 	readonly schedule: RyotSchedule;
-	readonly hostServices: HostServices;
 };
 
-export interface RyotQuery<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
-> {
+export interface RyotQuery<Input, Data, Failure extends Error = RyotClientError> {
 	readonly [queryTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
 		readonly failure?: Failure;
-		readonly hostServices?: HostServices;
 	};
 }
 
-export interface RyotMutation<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
-> {
+export interface RyotMutation<Input, Data, Failure extends Error = RyotClientError> {
 	readonly [mutationTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
 		readonly failure?: Failure;
-		readonly hostServices?: HostServices;
 	};
 }
+
+type HostContext<Base, HostServices> = Base & { readonly hostServices: HostServices };
+
+const requireHostServices = <HostServices>(
+	hostServices: RyotHostServices,
+	key: Context.Key<unknown, HostServices>,
+) =>
+	Option.match(Context.getOption(hostServices, key), {
+		onSome: Effect.succeed,
+		onNone: () => Effect.die(new Error(`RyotProvider is missing host service ${key.key}`)),
+	});
 
 export type RyotQueryOptions<Input, Data> = {
 	/** Cancels in-flight work when the final consumer for an input unmounts. */
@@ -85,23 +87,26 @@ export const makeQueryAtom = <Data, Failure extends Error>(
 	return requestSource.pipe(Atom.swr({ staleTime }), Atom.setIdleTTL(idleTTL));
 };
 
-export class MutationDefinition<
+export class MutationDefinition<Input, Data, Failure extends Error> implements RyotMutation<
 	Input,
 	Data,
-	HostServices,
-	Failure extends Error,
-> implements RyotMutation<Input, Data, HostServices, Failure> {
+	Failure
+> {
 	readonly [mutationTypeId] = {};
 
 	constructor(
-		readonly run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+		readonly run: (
+			input: Input,
+			client: RyotClient,
+			schedule: RyotSchedule,
+			hostServices: RyotHostServices,
+		) => Effect.Effect<Data, Failure>,
 	) {}
 }
 
-export class QueryDefinition<Input, Data, HostServices, Failure extends Error> implements RyotQuery<
+export class QueryDefinition<Input, Data, Failure extends Error> implements RyotQuery<
 	Input,
 	Data,
-	HostServices,
 	Failure
 > {
 	readonly [queryTypeId] = {};
@@ -111,7 +116,7 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 			registry: AtomRegistry.AtomRegistry,
 			client: RyotClient,
 			schedule: RyotSchedule,
-			hostServices: HostServices,
+			hostServices: RyotHostServices,
 			input: Input,
 			cancelOnUnmount?: boolean,
 		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
@@ -119,72 +124,56 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 	) {}
 }
 
-export const isQueryDefinition = <Input, Data, HostServices, Failure extends Error>(
-	query: RyotQuery<Input, Data, HostServices, Failure>,
-): query is QueryDefinition<Input, Data, HostServices, Failure> => query instanceof QueryDefinition;
-
-// The definition declares the host type; React context cannot link that generic to a provider.
-export const definitionHostServices = <HostServices>(
-	_definition:
-		| RyotQuery<unknown, unknown, HostServices, Error>
-		| RyotMutation<unknown, unknown, HostServices, Error>,
-	hostServices: unknown,
-): HostServices =>
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	hostServices as HostServices;
+export const isQueryDefinition = <Input, Data, Failure extends Error>(
+	query: RyotQuery<Input, Data, Failure>,
+): query is QueryDefinition<Input, Data, Failure> => query instanceof QueryDefinition;
 
 export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
-	mutation: (
-		context: Omit<MutationContext<void, undefined>, "input">,
-	) => Effect.Effect<Data, Failure>,
-): RyotMutation<void, Data, undefined, Failure>;
-export function createRyotMutation<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
->(
-	mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
-): RyotMutation<Input, Data, HostServices, Failure>;
-export function createRyotMutation<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
->(mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>) {
-	return new MutationDefinition<Input, Data, HostServices, Failure>(mutation);
+	mutation: (context: Omit<MutationContext<void>, "input">) => Effect.Effect<Data, Failure>,
+): RyotMutation<void, Data, Failure>;
+export function createRyotMutation<Input, Data, Failure extends Error = RyotClientError>(
+	mutation: (context: MutationContext<Input>) => Effect.Effect<Data, Failure>,
+): RyotMutation<Input, Data, Failure>;
+export function createRyotMutation<Input, Data, Failure extends Error = RyotClientError>(
+	mutation: (context: MutationContext<Input>) => Effect.Effect<Data, Failure>,
+) {
+	return new MutationDefinition<Input, Data, Failure>((input, client, schedule) =>
+		mutation({ input, client, schedule }),
+	);
 }
 
-export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
-	query: (context: Omit<QueryContext<void, undefined>, "input">) => Effect.Effect<Data, Failure>,
-	options?: RyotQueryOptions<void, Data>,
-): RyotQuery<void, Data, undefined, Failure>;
-export function createRyotQuery<
+export const createRyotHostMutation = <
 	Input,
 	Data,
-	HostServices = undefined,
+	HostServices,
 	Failure extends Error = RyotClientError,
 >(
-	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
-	options?: RyotQueryOptions<Input, Data>,
-): RyotQuery<Input, Data, HostServices, Failure>;
-export function createRyotQuery<
-	Input,
-	Data,
-	HostServices = undefined,
-	Failure extends Error = RyotClientError,
->(
-	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
-	options?: RyotQueryOptions<Input, Data>,
-) {
+	mutation: (
+		context: HostContext<MutationContext<Input>, HostServices>,
+	) => Effect.Effect<Data, Failure>,
+	options: { readonly hostServices: Context.Key<unknown, HostServices> },
+): RyotMutation<Input, Data, Failure> =>
+	new MutationDefinition<Input, Data, Failure>((input, client, schedule, hostServices) =>
+		Effect.flatMap(requireHostServices(hostServices, options.hostServices), (resolved) =>
+			mutation({ input, client, schedule, hostServices: resolved }),
+		),
+	);
+
+const defineQuery = <Input, Data, Failure extends Error>(
+	run: (
+		context: QueryContext<Input>,
+		hostServices: RyotHostServices,
+	) => Effect.Effect<Data, Failure>,
+	options: undefined | RyotQueryOptions<Input, Data>,
+) => {
 	type QuerySelection = { readonly input: Input; readonly cancelOnUnmount: boolean };
 	type ClientQueries = {
 		schedule: RyotSchedule;
-		hostServices: HostServices;
+		hostServices: RyotHostServices;
 		readonly inputs: (selection: QuerySelection) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
 	};
 	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
-	return new QueryDefinition<Input, Data, HostServices, Failure>(
+	return new QueryDefinition<Input, Data, Failure>(
 		(
 			registry,
 			client,
@@ -206,12 +195,10 @@ export function createRyotQuery<
 					inputs: Atom.family((selection: QuerySelection) =>
 						makeQueryAtom<Data, Failure>(
 							Effect.suspend(() =>
-								query({
-									client,
-									input: selection.input,
-									schedule: current.schedule,
-									hostServices: current.hostServices,
-								}),
+								run(
+									{ client, input: selection.input, schedule: current.schedule },
+									current.hostServices,
+								),
 							),
 							options?.initialData?.(selection.input),
 							selection.cancelOnUnmount,
@@ -228,4 +215,38 @@ export function createRyotQuery<
 		},
 		options?.entityWatch,
 	);
+};
+
+export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
+	query: (context: Omit<QueryContext<void>, "input">) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<void, Data>,
+): RyotQuery<void, Data, Failure>;
+export function createRyotQuery<Input, Data, Failure extends Error = RyotClientError>(
+	query: (context: QueryContext<Input>) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<Input, Data>,
+): RyotQuery<Input, Data, Failure>;
+export function createRyotQuery<Input, Data, Failure extends Error = RyotClientError>(
+	query: (context: QueryContext<Input>) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<Input, Data>,
+) {
+	return defineQuery<Input, Data, Failure>(query, options);
 }
+
+export const createRyotHostQuery = <
+	Input,
+	Data,
+	HostServices,
+	Failure extends Error = RyotClientError,
+>(
+	query: (context: HostContext<QueryContext<Input>, HostServices>) => Effect.Effect<Data, Failure>,
+	options: RyotQueryOptions<Input, Data> & {
+		readonly hostServices: Context.Key<unknown, HostServices>;
+	},
+): RyotQuery<Input, Data, Failure> =>
+	defineQuery<Input, Data, Failure>(
+		(context, hostServices) =>
+			Effect.flatMap(requireHostServices(hostServices, options.hostServices), (resolved) =>
+				query({ ...context, hostServices: resolved }),
+			),
+		options,
+	);

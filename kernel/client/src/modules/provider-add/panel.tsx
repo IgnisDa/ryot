@@ -107,12 +107,7 @@ type ProviderSearchPanelProps = {
 	readonly selectedProviderId: undefined | SandboxProviderId;
 	readonly onCreateCustom?: undefined | ((query: string) => void);
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
-	readonly searchOptionsQuery: RyotQuery<
-		SandboxProviderId,
-		SearchProviderOptionsResponse,
-		unknown,
-		Error
-	>;
+	readonly searchOptionsQuery: RyotQuery<SandboxProviderId, SearchProviderOptionsResponse, Error>;
 	readonly loadEntityLinks: (
 		input: ProviderEntityLinksInput,
 	) => Effect.Effect<ProviderEntityLinks, ProviderAddLoadError>;

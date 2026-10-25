@@ -1,6 +1,6 @@
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
 import {
-	createRyotMutation,
+	createRyotHostMutation,
 	createRyotQuery,
 	nextPageCursor,
 	paginationItems,
@@ -19,7 +19,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { AuthService } from "#/modules/auth/service";
 import {
 	BACKUP_LOAD_ERROR,
@@ -52,28 +52,32 @@ const backupRunsQuery = createRyotQuery<string | undefined, BackupRunsPage>(
 	({ client, input: after }) => client.data.query(backupRunsRecipe({ after, limit: PAGE_SIZE })),
 );
 
-const createBackupMutation = createRyotMutation<
+const createBackupMutation = createRyotHostMutation<
 	void,
 	BackupRunIdResponse,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ client, hostServices }) =>
-	hostServices.runtime
-		.runSync(BackupsApi)
-		.createExport(hostServices.scope)
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ client, hostServices }) =>
+		hostServices.runtime
+			.runSync(BackupsApi)
+			.createExport(hostServices.scope)
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-const deleteBackupMutation = createRyotMutation<
+const deleteBackupMutation = createRyotHostMutation<
 	BackupRunItem,
 	BackupRunIdResponse,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(BackupsApi)
-		.deleteRun(hostServices.scope, { params: { id: input.id } })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(BackupsApi)
+			.deleteRun(hostServices.scope, { params: { id: input.id } })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
 export const Route = createFileRoute("/_authenticated/settings/backups")({

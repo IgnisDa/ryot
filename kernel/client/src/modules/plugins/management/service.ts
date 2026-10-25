@@ -4,7 +4,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	type PluginInstallationsPage,
 	pluginInstallationsRecipe,
@@ -16,7 +16,7 @@ import { loadAllPages } from "#/api/load-all-pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { Uploads } from "#/modules/assets/uploads";
 
 export type ManagedPluginInstallation = PluginInstallationsPage["items"][number];
@@ -176,17 +176,22 @@ export const PluginManagementLive = PluginManagementService.layer.pipe(
 	Layer.provide(Layer.mergeAll(PluginInstallationsApi.layer, Uploads.layer)),
 );
 
-export const pluginManagementQuery = createRyotQuery<
+export const pluginManagementQuery = createRyotHostQuery<
 	void,
 	readonly ManagedPluginInstallation[],
 	KernelHostServices,
 	PluginManagementError
->(({ client, hostServices }) => hostServices.runtime.runSync(PluginManagementService).load(client));
-export const pluginManagementMutation = createRyotMutation<
+>(
+	({ client, hostServices }) => hostServices.runtime.runSync(PluginManagementService).load(client),
+	{ hostServices: KernelHostServices },
+);
+export const pluginManagementMutation = createRyotHostMutation<
 	PluginManagementAction,
 	Effect.Success<ReturnType<PluginManagementService["Service"]["execute"]>>,
 	KernelHostServices,
 	PluginManagementError
->(({ input, hostServices }) =>
-	hostServices.runtime.runSync(PluginManagementService).execute(hostServices.scope, input),
+>(
+	({ input, hostServices }) =>
+		hostServices.runtime.runSync(PluginManagementService).execute(hostServices.scope, input),
+	{ hostServices: KernelHostServices },
 );

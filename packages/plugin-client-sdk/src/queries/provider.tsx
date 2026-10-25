@@ -1,6 +1,7 @@
 import { RegistryProvider } from "@effect/atom-react";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { OverlayBackProvider, useFocusedFieldVisibility } from "@ryot-app/plugin-ui-sdk";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
@@ -21,20 +22,22 @@ import {
 } from "../refresh/page-registry";
 import { RyotClientService, RyotNavigationService, type RyotRuntime } from "../runtime/runtime";
 import { type RyotSchedule, RyotScheduleService } from "../schedule";
-import { idleTTL } from "./definitions";
+import { idleTTL, type RyotHostServices } from "./definitions";
 
 export const RyotContext = createContext<
 	| undefined
 	| {
 			readonly client: RyotClient;
-			readonly hostServices: unknown;
 			readonly schedule: RyotSchedule;
+			readonly hostServices: RyotHostServices;
 			readonly navigation: undefined | PluginRouterNavigation;
 	  }
 >(undefined);
 
 export const usePluginIdentity = (packageId: PluginPackageId) =>
 	useRyot().pluginIdentity(packageId);
+
+const noHostServices = Context.empty();
 
 export const RyotProvider = ({
 	runtime,
@@ -43,7 +46,7 @@ export const RyotProvider = ({
 }: {
 	children: ReactNode;
 	runtime: RyotRuntime;
-	readonly hostServices?: unknown;
+	readonly hostServices?: undefined | RyotHostServices;
 }) => {
 	useFocusedFieldVisibility();
 	const runtimeValue = useMemo(
@@ -61,7 +64,10 @@ export const RyotProvider = ({
 			),
 		[runtime],
 	);
-	const value = useMemo(() => ({ ...runtimeValue, hostServices }), [runtimeValue, hostServices]);
+	const value = useMemo(
+		() => ({ ...runtimeValue, hostServices: hostServices ?? noHostServices }),
+		[runtimeValue, hostServices],
+	);
 	const refreshRegistry = useMemo(
 		() => createPageRefreshRegistry(value.schedule),
 		[value.schedule],

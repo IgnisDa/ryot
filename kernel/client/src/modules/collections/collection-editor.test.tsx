@@ -23,6 +23,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
 import { ServerOrigin } from "#/api/origin";
 import { makeCollectionsApi } from "#/api/ports.test-layer";
+import { testHostServices } from "#/host-services.test-support";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
 
 const collectionId = EntityId.make("collection-1");
@@ -126,10 +127,10 @@ const mountEditor = (
 		<StrictMode>
 			<RyotProvider
 				runtime={clock.runtime}
-				hostServices={{
+				hostServices={testHostServices(
+					{ userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
 					runtime,
-					scope: { userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
-				}}
+				)}
 			>
 				<RouterProvider router={router} />
 			</RyotProvider>

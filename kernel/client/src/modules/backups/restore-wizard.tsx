@@ -1,11 +1,11 @@
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
-import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Cause, Effect, Match } from "effect";
 import { useState } from "react";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { BackupRestoreConfirmStep } from "#/modules/backups/restore-confirm-step";
 import {
 	BACKUP_RESTORE_STEPS,
@@ -25,16 +25,18 @@ const stepHeadings = {
 	choose: "Choose your backup file",
 } as const satisfies Record<BackupRestoreStep, string>;
 
-const createRestoreMutation = createRyotMutation<
+const createRestoreMutation = createRyotHostMutation<
 	string,
 	BackupRunIdResponse,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(BackupsApi)
-		.createRestore(hostServices.scope, { payload: { uploadToken: input } })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(BackupsApi)
+			.createRestore(hostServices.scope, { payload: { uploadToken: input } })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
 export function BackupRestoreWizard(props: {

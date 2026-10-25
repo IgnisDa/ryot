@@ -15,7 +15,7 @@ import {
 
 import { useEntityRefresh } from "../refresh/entity-hooks";
 import { usePageRefresh } from "../refresh/page-registry";
-import { definitionHostServices, isQueryDefinition, type RyotQuery } from "./definitions";
+import { isQueryDefinition, type RyotQuery } from "./definitions";
 import { createPagination, type PaginationOptions } from "./pagination";
 import { RyotContext } from "./provider";
 import { type ReportedPageInput, type ReportingPageParam, reportingPageParam } from "./reported";
@@ -101,15 +101,8 @@ export const usePagination = <Page, Param>(
 	};
 };
 
-export const useRyotInfiniteQuery = <
-	QueryInput,
-	Input,
-	Page,
-	Param,
-	HostServices,
-	Failure extends Error,
->(
-	query: RyotQuery<QueryInput, Page, HostServices, Failure>,
+export const useRyotInfiniteQuery = <QueryInput, Input, Page, Param, Failure extends Error>(
+	query: RyotQuery<QueryInput, Page, Failure>,
 	input: Input,
 	options: {
 		readonly initialPageParam: Param;
@@ -154,7 +147,7 @@ export const useRyotInfiniteQuery = <
 					registry,
 					client,
 					schedule,
-					definitionHostServices(query, hostServices),
+					hostServices,
 					options.getPageInput(input, param),
 					true,
 				);
@@ -206,10 +199,9 @@ const reportedPageInput = <Input>(input: Input, page: ReportingPageParam) => ({ 
 export const useReportedPages = <
 	Input,
 	Page extends Parameters<typeof reportingPageParam>[0],
-	HostServices,
 	Failure extends Error,
 >(
-	query: RyotQuery<ReportedPageInput<Input>, Page, HostServices, Failure>,
+	query: RyotQuery<ReportedPageInput<Input>, Page, Failure>,
 	input: Input,
 ) =>
 	useRyotInfiniteQuery(query, input, {

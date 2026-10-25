@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import {
-	createRyotMutation,
+	createRyotHostMutation,
 	createRyotQuery,
 	useRyotMutation,
 	useRyotQuery,
@@ -36,7 +36,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { CollectionsApi } from "#/api/collections";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import {
 	collectionFieldFrom,
@@ -55,7 +55,7 @@ type SaveRequest =
 	| { readonly action: "create"; readonly request: ContractRequest<"collections", "create"> }
 	| { readonly action: "update"; readonly request: ContractRequest<"collections", "update"> };
 
-const saveCollection = createRyotMutation<
+const saveCollection = createRyotHostMutation<
 	{
 		readonly save: SaveRequest;
 		readonly invalidate: () => Promise<void>;
@@ -64,18 +64,20 @@ const saveCollection = createRyotMutation<
 	void,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, hostServices }) =>
-	Effect.gen(function* () {
-		const api = hostServices.runtime.runSync(CollectionsApi);
-		const saved = yield* input.save.action === "create"
-			? api.create(hostServices.scope, input.save.request)
-			: api.update(hostServices.scope, input.save.request);
-		yield* Effect.tryPromise(input.invalidate).pipe(Effect.ignore);
-		input.onSaved(saved.id);
-	}),
+>(
+	({ input, hostServices }) =>
+		Effect.gen(function* () {
+			const api = hostServices.runtime.runSync(CollectionsApi);
+			const saved = yield* input.save.action === "create"
+				? api.create(hostServices.scope, input.save.request)
+				: api.update(hostServices.scope, input.save.request);
+			yield* Effect.tryPromise(input.invalidate).pipe(Effect.ignore);
+			input.onSaved(saved.id);
+		}),
+	{ hostServices: KernelHostServices },
 );
 
-const deleteCollection = createRyotMutation<
+const deleteCollection = createRyotHostMutation<
 	{
 		readonly onDeleted: () => void;
 		readonly collectionId: EntityId;
@@ -84,14 +86,16 @@ const deleteCollection = createRyotMutation<
 	void,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, hostServices }) =>
-	hostServices.runtime
-		.runSync(CollectionsApi)
-		.delete(hostServices.scope, { payload: { collectionId: input.collectionId } })
-		.pipe(
-			Effect.andThen(() => Effect.tryPromise(input.invalidate).pipe(Effect.ignore)),
-			Effect.andThen(() => Effect.sync(input.onDeleted)),
-		),
+>(
+	({ input, hostServices }) =>
+		hostServices.runtime
+			.runSync(CollectionsApi)
+			.delete(hostServices.scope, { payload: { collectionId: input.collectionId } })
+			.pipe(
+				Effect.andThen(() => Effect.tryPromise(input.invalidate).pipe(Effect.ignore)),
+				Effect.andThen(() => Effect.sync(input.onDeleted)),
+			),
+	{ hostServices: KernelHostServices },
 );
 
 const defaultInputTypes: Partial<Record<FieldDraft["type"], string>> = {

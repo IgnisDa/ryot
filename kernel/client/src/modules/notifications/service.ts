@@ -4,7 +4,11 @@ import type {
 	TestNotificationChannelsBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotHostMutation,
+	createRyotHostQuery,
+	createRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import {
@@ -17,7 +21,7 @@ import type { AuthenticatedApiError } from "#/api/authenticated";
 import { NotificationsApi } from "#/api/notifications";
 import { PublicApi } from "#/api/public";
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 export const NOTIFICATION_CHANNELS_PAGE_SIZE = 20;
 
@@ -36,7 +40,6 @@ export class NotificationDeliveryLoadError extends Schema.TaggedError<
 export const notificationOutcomeQuery = createRyotQuery<
 	string,
 	NotificationOutcomeResult,
-	KernelHostServices,
 	NotificationDeliveryLoadError
 >(
 	({ input, client }) =>
@@ -66,7 +69,7 @@ export class NotificationChannelsService extends Context.Service<NotificationCha
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const notificationChannelsQuery = createRyotQuery<
+export const notificationChannelsQuery = createRyotHostQuery<
 	number,
 	NotificationChannelsResult,
 	KernelHostServices,
@@ -76,10 +79,10 @@ export const notificationChannelsQuery = createRyotQuery<
 		hostServices.runtime
 			.runSync(NotificationChannelsService)
 			.loadChannels(client, { limit: input }),
-	{ cancelOnUnmount: true },
+	{ cancelOnUnmount: true, hostServices: KernelHostServices },
 );
 
-export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, KernelHostServices>(
+export const notificationSmtpEnabledQuery = createRyotHostQuery<void, boolean, KernelHostServices>(
 	({ hostServices }) =>
 		hostServices.runtime
 			.runSync(PublicApi)
@@ -90,56 +93,66 @@ export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, Kerne
 					onSuccess: (config) => config.notifications.smtpEnabled,
 				}),
 			),
-	{ cancelOnUnmount: true },
+	{ cancelOnUnmount: true, hostServices: KernelHostServices },
 );
 
-export const testNotificationChannelsMutation = createRyotMutation<
+export const testNotificationChannelsMutation = createRyotHostMutation<
 	TestNotificationChannelsBody,
 	ContractSuccess<"notifications", "testChannels">,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(NotificationsApi)
-		.testChannels(hostServices.scope, { payload: input })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(NotificationsApi)
+			.testChannels(hostServices.scope, { payload: input })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-export const createNotificationChannelMutation = createRyotMutation<
+export const createNotificationChannelMutation = createRyotHostMutation<
 	CreateNotificationChannelBody,
 	ContractSuccess<"notifications", "createChannel">,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(NotificationsApi)
-		.createChannel(hostServices.scope, { payload: input })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(NotificationsApi)
+			.createChannel(hostServices.scope, { payload: input })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-export const updateNotificationChannelMutation = createRyotMutation<
+export const updateNotificationChannelMutation = createRyotHostMutation<
 	{ readonly id: string; readonly isDisabled: boolean },
 	void,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(NotificationsApi)
-		.updateChannel(hostServices.scope, {
-			payload: { isDisabled: input.isDisabled },
-			params: { channelId: NotificationChannelId.make(input.id) },
-		})
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(NotificationsApi)
+			.updateChannel(hostServices.scope, {
+				payload: { isDisabled: input.isDisabled },
+				params: { channelId: NotificationChannelId.make(input.id) },
+			})
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-export const deleteNotificationChannelMutation = createRyotMutation<
+export const deleteNotificationChannelMutation = createRyotHostMutation<
 	string,
 	ContractSuccess<"notifications", "deleteChannel">,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(NotificationsApi)
-		.deleteChannel(hostServices.scope, { params: { channelId: NotificationChannelId.make(input) } })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(NotificationsApi)
+			.deleteChannel(hostServices.scope, {
+				params: { channelId: NotificationChannelId.make(input) },
+			})
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );

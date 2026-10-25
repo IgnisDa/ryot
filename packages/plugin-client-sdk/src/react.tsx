@@ -12,12 +12,6 @@ export { usePluginUserSettings, useReportingPreferences } from "./queries/user-s
 export { useAssetUrl, useManagedAssetUrl, ManagedAssetProvider } from "./assets/provider";
 export { usePagination, useReportedPages, useRyotInfiniteQuery } from "./queries/pagination-hook";
 export {
-	type RyotQuery,
-	createRyotQuery,
-	type RyotMutation,
-	createRyotMutation,
-} from "./queries/definitions";
-export {
 	managedAssetKey,
 	managedAssetBatches,
 	canonicalAssetBatchKey,
@@ -38,6 +32,14 @@ export {
 	type RyotMutationResult,
 	type RyotQueryHookOptions,
 } from "./queries/hooks";
+export {
+	type RyotQuery,
+	createRyotQuery,
+	type RyotMutation,
+	createRyotMutation,
+	createRyotHostQuery,
+	createRyotHostMutation,
+} from "./queries/definitions";
 export {
 	useBackgroundSubmission,
 	type RyotBackgroundSubmission,

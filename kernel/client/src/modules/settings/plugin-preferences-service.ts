@@ -1,6 +1,6 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	type PluginUserSettingsPage,
 	pluginUserSettingsRecipe,
@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import { loadAllPages } from "#/api/load-all-pages";
 import { PluginsApi } from "#/api/plugins";
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 const PLUGIN_USER_SETTINGS_PAGE_SIZE = 100;
 
@@ -25,40 +25,43 @@ const loadPluginUserSettings = (client: Pick<KernelRyotClient, "data">) =>
 		client.data.query(pluginUserSettingsRecipe({ after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE })),
 	).pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" })));
 
-export const pluginUserSettingsQuery = createRyotQuery<
-	void,
-	readonly PluginUserSetting[],
-	KernelHostServices
->(({ client }) => loadPluginUserSettings(client));
+export const pluginUserSettingsQuery = createRyotQuery<void, readonly PluginUserSetting[]>(
+	({ client }) => loadPluginUserSettings(client),
+);
 
 export const pluginUserSettingQuery = createRyotQuery<
 	{ readonly installationId: string },
-	undefined | PluginUserSetting,
-	KernelHostServices
+	undefined | PluginUserSetting
 >(({ input, client }) =>
 	Effect.map(loadPluginUserSettings(client), (settings) =>
 		settings.find((setting) => setting.id === input.installationId),
 	),
 );
 
-export const savePluginUserSettingsMutation = createRyotMutation<
+export const savePluginUserSettingsMutation = createRyotHostMutation<
 	SavePluginUserSettingsInput,
 	void,
 	KernelHostServices
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(PluginsApi)
-		.saveUserSettings(hostServices.scope, {
-			payload: input.payload,
-			params: { installationId: input.installationId },
-		})
-		.pipe(
-			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
-		),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(PluginsApi)
+			.saveUserSettings(hostServices.scope, {
+				payload: input.payload,
+				params: { installationId: input.installationId },
+			})
+			.pipe(
+				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
+				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
+			),
+	{ hostServices: KernelHostServices },
 );
 
-export const resetPluginUserSettingsMutation = createRyotMutation<string, void, KernelHostServices>(
+export const resetPluginUserSettingsMutation = createRyotHostMutation<
+	string,
+	void,
+	KernelHostServices
+>(
 	({ input, client, hostServices }) =>
 		hostServices.runtime
 			.runSync(PluginsApi)
@@ -67,4 +70,5 @@ export const resetPluginUserSettingsMutation = createRyotMutation<string, void, 
 				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 			),
+	{ hostServices: KernelHostServices },
 );

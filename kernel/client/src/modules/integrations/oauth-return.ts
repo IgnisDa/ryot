@@ -4,12 +4,12 @@ import {
 	OAuthConnectionReturnFragment,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import type { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
-import { createRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 type ReturnHistory = Pick<History, "state" | "replaceState">;
 
@@ -52,16 +52,18 @@ export class OAuthReturnCapture extends Context.Service<
 	static readonly layer = Layer.sync(this, () => makeOAuthReturnCapture(() => window.close()));
 }
 
-export const completeOAuthConnectionMutation = createRyotMutation<
+export const completeOAuthConnectionMutation = createRyotHostMutation<
 	{ readonly secret: string; readonly connectionId: OAuthConnectionId },
 	ContractSuccess<"oauthConnections", "complete">,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, hostServices }) =>
-	hostServices.runtime
-		.runSync(OAuthConnectionsApi)
-		.complete(hostServices.scope, {
-			payload: { secret: input.secret },
-			params: { connectionId: input.connectionId },
-		}),
+>(
+	({ input, hostServices }) =>
+		hostServices.runtime
+			.runSync(OAuthConnectionsApi)
+			.complete(hostServices.scope, {
+				payload: { secret: input.secret },
+				params: { connectionId: input.connectionId },
+			}),
+	{ hostServices: KernelHostServices },
 );

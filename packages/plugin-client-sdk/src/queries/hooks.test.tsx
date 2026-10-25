@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
 import { act, type ReactNode, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { RyotClientAdapter } from "../client/adapter";
 import { RyotClientError } from "../client/errors";
 import { createTestPluginStorage, createTestRyotClock } from "../testing";
-import { createRyotMutation, createRyotQuery } from "./definitions";
+import {
+	createRyotHostQuery,
+	createRyotMutation,
+	createRyotQuery,
+	type RyotHostServices,
+} from "./definitions";
 import {
 	type RyotMutationResult,
 	type RyotQueryResult,
@@ -33,7 +38,7 @@ const makeClock = (adapter: Partial<RyotClientAdapter> = {}) => {
 	clocks.push(clock);
 	return clock;
 };
-const render = (children: ReactNode, clock = makeClock(), hostServices?: unknown) => {
+const render = (children: ReactNode, clock = makeClock(), hostServices?: RyotHostServices) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
@@ -298,14 +303,16 @@ describe("Effect-native React definitions", () => {
 		() =>
 			Effect.gen(function* () {
 				type HostServices = { readonly value: string };
+				const HostServices = Context.Service<HostServices>("test/HostServices");
 				let calls = 0;
 				let latest: undefined | RyotQueryResult<string>;
-				const query = createRyotQuery<{ readonly page: number }, string, HostServices>(
+				const query = createRyotHostQuery<{ readonly page: number }, string, HostServices>(
 					({ input, hostServices }) =>
 						Effect.sync(() => {
 							calls++;
 							return `${hostServices.value}:${input.page}`;
 						}),
+					{ hostServices: HostServices },
 				);
 				const View = () => {
 					const result = useRyotQuery(query, { page: 1 });
@@ -315,11 +322,18 @@ describe("Effect-native React definitions", () => {
 					return <p>{result.data ?? "pending"}</p>;
 				};
 				const clock = makeClock();
-				const { root, container } = render(<View />, clock, { value: "first" });
+				const { root, container } = render(
+					<View />,
+					clock,
+					Context.make(HostServices, { value: "first" }),
+				);
 				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("first:1")));
 				act(() =>
 					root.render(
-						<RyotProvider runtime={clock.runtime} hostServices={{ value: "second" }}>
+						<RyotProvider
+							runtime={clock.runtime}
+							hostServices={Context.make(HostServices, { value: "second" })}
+						>
 							<View />
 						</RyotProvider>,
 					),

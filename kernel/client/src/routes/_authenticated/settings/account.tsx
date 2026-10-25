@@ -1,7 +1,8 @@
 import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
-	createRyotMutation,
+	createRyotHostMutation,
+	createRyotHostQuery,
 	createRyotQuery,
 	useRyotMutation,
 	useRyotQuery,
@@ -11,7 +12,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { AccountApi } from "#/api/account";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
@@ -25,20 +26,21 @@ export const Route = createFileRoute("/_authenticated/settings/account")({
 	component: AccountRoute,
 });
 
-const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHostServices>(
+const accountIdentityQuery = createRyotHostQuery<void, SettledAuthSession, KernelHostServices>(
 	({ hostServices }) =>
 		hostServices.runtime
 			.runSync(AuthService)
 			.settledSession(hostServices.scope.serverUrl)
 			.pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" }))),
+	{ hostServices: KernelHostServices },
 );
 
-const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostServices>(
+const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus>(
 	({ client }) => client.data.query(twoFactorStatusRecipe()),
 	{ cancelOnUnmount: true },
 );
 
-const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
+const refreshAvatarMutation = createRyotHostMutation<void, void, KernelHostServices>(
 	({ client, hostServices }) =>
 		hostServices.runtime
 			.runSync(AccountApi)
@@ -53,13 +55,16 @@ const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>
 				Effect.as(undefined),
 				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 			),
+	{ hostServices: KernelHostServices },
 );
 
-const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(({ hostServices }) =>
-	hostServices.runtime
-		.runSync(AuthService)
-		.signOut(hostServices.scope.serverUrl)
-		.pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" }))),
+const signOutMutation = createRyotHostMutation<void, boolean, KernelHostServices>(
+	({ hostServices }) =>
+		hostServices.runtime
+			.runSync(AuthService)
+			.signOut(hostServices.scope.serverUrl)
+			.pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" }))),
+	{ hostServices: KernelHostServices },
 );
 
 function AccountRoute() {

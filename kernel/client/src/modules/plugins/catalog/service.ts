@@ -1,4 +1,4 @@
-import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	type PluginClientCatalog,
 	pluginClientCatalogRecipe,
@@ -7,7 +7,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { loadAllPages } from "#/api/load-all-pages";
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 export class PluginCatalogError extends Schema.TaggedError<
 	PluginCatalogError,
@@ -31,7 +31,7 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const pluginCatalogQuery = createRyotQuery<
+export const pluginCatalogQuery = createRyotHostQuery<
 	PluginClientCatalog,
 	PluginClientCatalog,
 	KernelHostServices,
@@ -39,4 +39,5 @@ export const pluginCatalogQuery = createRyotQuery<
 >(({ client, hostServices }) => hostServices.runtime.runSync(PluginCatalogService).load(client), {
 	cancelOnUnmount: true,
 	initialData: (input) => input,
+	hostServices: KernelHostServices,
 });

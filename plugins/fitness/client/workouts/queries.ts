@@ -141,7 +141,6 @@ export const workoutsQuery = createRyotQuery<
 		readonly filter: null | ViewFilter;
 	},
 	WorkoutPage,
-	undefined,
 	Error
 >(({ input, client }) =>
 	Effect.gen(function* () {
@@ -157,7 +156,6 @@ export const workoutsQuery = createRyotQuery<
 export const workoutCountQuery = createRyotQuery<
 	{ readonly search: string; readonly filter: null | ViewFilter },
 	number,
-	undefined,
 	Error
 >(({ input, client }) =>
 	Effect.gen(function* () {
@@ -175,7 +173,6 @@ export const workoutWeeksQuery = createRyotQuery<
 		"filter" | "reference"
 	>,
 	readonly WorkoutPeriodTotals[],
-	undefined,
 	Error
 >(({ input, client }) =>
 	Effect.gen(function* () {

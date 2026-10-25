@@ -1,6 +1,10 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotHostMutation,
+	createRyotHostQuery,
+	createRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	type ImportIssuesPage,
 	importIssuesRecipe,
@@ -18,14 +22,13 @@ import { Context, Effect, Layer, Schema } from "effect";
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { ImportsApi } from "#/api/imports";
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { KernelHostServices } from "#/host-services";
+import { KernelHostServices } from "#/host-services";
 
 export const IMPORT_RUNS_PAGE_SIZE = 20;
 
 export const importIssuesQuery = createRyotQuery<
 	Parameters<typeof importIssuesRecipe>[0],
-	ImportIssuesPage,
-	KernelHostServices
+	ImportIssuesPage
 >(({ input, client }) => client.data.query(importIssuesRecipe(input)));
 
 type ImportsClient = Pick<KernelRyotClient, "data">;
@@ -63,29 +66,29 @@ export class ImportsService extends Context.Service<ImportsService>()(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const importRunsQuery = createRyotQuery<
+export const importRunsQuery = createRyotHostQuery<
 	{ readonly limit: number },
 	ImportRunList,
 	KernelHostServices,
 	ImportsLoadError
->(({ input, client, hostServices }) =>
-	hostServices.runtime.runSync(ImportsService).loadRuns(client, input),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime.runSync(ImportsService).loadRuns(client, input),
+	{ hostServices: KernelHostServices },
 );
 
-export const importRunQuery = createRyotQuery<
+export const importRunQuery = createRyotHostQuery<
 	Parameters<typeof importRunRecipe>[0],
 	ImportRunDetail,
 	KernelHostServices,
 	ImportsLoadError
->(({ input, client, hostServices }) =>
-	hostServices.runtime.runSync(ImportsService).loadRun(client, input),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime.runSync(ImportsService).loadRun(client, input),
+	{ hostServices: KernelHostServices },
 );
 
-export const importSourcesQuery = createRyotQuery<
-	void,
-	readonly ImportSourceItem[],
-	KernelHostServices
->(({ client }) =>
+export const importSourcesQuery = createRyotQuery<void, readonly ImportSourceItem[]>(({ client }) =>
 	Effect.gen(function* () {
 		const sources: ImportSourceItem[] = [];
 		let after: null | string | undefined;
@@ -111,38 +114,44 @@ export type ImportSourceItem = Omit<ImportSourcesPage["items"][number], "id" | "
 
 type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
 
-export const createImportRunMutation = createRyotMutation<
+export const createImportRunMutation = createRyotHostMutation<
 	CreateRunPayload,
 	unknown,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(ImportsApi)
-		.createRun(hostServices.scope, { payload: input })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(ImportsApi)
+			.createRun(hostServices.scope, { payload: input })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-export const deleteImportRunMutation = createRyotMutation<
+export const deleteImportRunMutation = createRyotHostMutation<
 	string,
 	unknown,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(ImportsApi)
-		.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(ImportsApi)
+			.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );
 
-export const cancelImportRunMutation = createRyotMutation<
+export const cancelImportRunMutation = createRyotHostMutation<
 	string,
 	unknown,
 	KernelHostServices,
 	AuthenticatedApiError
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(ImportsApi)
-		.cancelRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
-		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(ImportsApi)
+			.cancelRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
 );

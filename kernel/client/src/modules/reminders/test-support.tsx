@@ -20,6 +20,7 @@ import type { AutomationsApi } from "#/api/automations";
 import { ServerOrigin } from "#/api/origin";
 import { makeAutomationsApi, makeRemindersApi } from "#/api/ports.test-layer";
 import type { RemindersApi } from "#/api/reminders";
+import { testHostServices } from "#/host-services.test-support";
 
 export type ReminderTestRow = RemindersResult["items"][number];
 export type ReminderTestQueryDocument = Parameters<RyotClientAdapter["query"]>[0];
@@ -129,10 +130,10 @@ export const mountReminderTestScreen = (
 	const view = render(
 		<RyotProvider
 			runtime={clock.runtime}
-			hostServices={{
+			hostServices={testHostServices(
+				{ userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
 				runtime,
-				scope: { userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
-			}}
+			)}
 		>
 			<RouterProvider router={router} />
 		</RyotProvider>,

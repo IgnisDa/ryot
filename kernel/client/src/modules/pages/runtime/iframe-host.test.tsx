@@ -26,6 +26,7 @@ import type { ReactNode } from "react";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { testHostServices } from "#/host-services.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
@@ -68,7 +69,7 @@ function mount(
 		),
 	);
 	const withCatalog = (children: ReactNode) => (
-		<RyotProvider runtime={ryot.runtime} hostServices={{ scope, runtime: catalogRuntime }}>
+		<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, catalogRuntime)}>
 			<PluginCatalogProvider scope={scope} initialCatalog={[]} runtime={catalogRuntime}>
 				{children}
 			</PluginCatalogProvider>

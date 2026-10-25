@@ -254,7 +254,7 @@ function SourceFeed({
 	readonly onState: (sourceKey: string, state: FeedState | undefined) => void;
 }) {
 	const [query] = useState(() =>
-		createRyotQuery<CalendarWindow, SourceFeedData, undefined, Error>(
+		createRyotQuery<CalendarWindow, SourceFeedData, Error>(
 			({ input, client }) =>
 				Effect.gen(function* () {
 					const items: CalendarOccurrence[] = [];

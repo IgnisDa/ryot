@@ -8,9 +8,7 @@ import { useContext, useMemo } from "react";
 
 import { useQueryRefresh } from "../refresh/query-refresh";
 import {
-	definitionHostServices,
 	isQueryDefinition,
-	type MutationContext,
 	MutationDefinition,
 	type RyotMutation,
 	type RyotQuery,
@@ -45,18 +43,18 @@ const asError = (cause: Cause.Cause<unknown>) => {
 	return error instanceof Error ? error : new Error(String(error));
 };
 
-export function useRyotQuery<Data, HostServices, Failure extends Error>(
-	query: RyotQuery<void, Data, HostServices, Failure>,
+export function useRyotQuery<Data, Failure extends Error>(
+	query: RyotQuery<void, Data, Failure>,
 	input?: void,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Input, Data, HostServices, Failure extends Error>(
-	query: RyotQuery<Input, Data, HostServices, Failure>,
+export function useRyotQuery<Input, Data, Failure extends Error>(
+	query: RyotQuery<Input, Data, Failure>,
 	input: Input,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Data, HostServices, Failure extends Error>(
-	query: RyotQuery<unknown, Data, HostServices, Failure>,
+export function useRyotQuery<Data, Failure extends Error>(
+	query: RyotQuery<unknown, Data, Failure>,
 	input?: unknown,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data> {
@@ -69,13 +67,7 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 	if (!isQueryDefinition(query)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
-	const atom = query.atom(
-		registry,
-		client,
-		schedule,
-		definitionHostServices(query, hostServices),
-		input,
-	);
+	const atom = query.atom(registry, client, schedule, hostServices, input);
 	useQueryRefresh(
 		client,
 		schedule,
@@ -112,8 +104,8 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 	};
 }
 
-export const useRyotMutation = <Input, Data, HostServices, Failure extends Error>(
-	mutation: RyotMutation<Input, Data, HostServices, Failure>,
+export const useRyotMutation = <Input, Data, Failure extends Error>(
+	mutation: RyotMutation<Input, Data, Failure>,
 ): RyotMutationResult<Input, Data, Failure> => {
 	const context = useContext(RyotContext);
 	const registry = useContext(RegistryContext);
@@ -121,18 +113,16 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 		throw new Error("useRyotMutation must be used within RyotProvider");
 	}
 	const { client, schedule, hostServices } = context;
-	const typedHostServices = definitionHostServices(mutation, hostServices);
 	if (!(mutation instanceof MutationDefinition)) {
 		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
 	}
-	const run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure> =
-		mutation.run;
+	const run: MutationDefinition<Input, Data, Failure>["run"] = mutation.run;
 	const atom = useMemo(
 		() =>
 			Atom.fn<Input>()<Failure, Data>((input) =>
-				Effect.suspend(() => run({ input, client, schedule, hostServices: typedHostServices })),
+				Effect.suspend(() => run(input, client, schedule, hostServices)),
 			),
-		[client, run, schedule, typedHostServices],
+		[client, run, schedule, hostServices],
 	);
 	const result = useAtomValue(atom);
 	const set = useAtomSet(atom);
