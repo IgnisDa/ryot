@@ -712,8 +712,7 @@ returns a null checkpoint, so a later append replans from the start.
 
 The step computes from the current source rows and treats correction-frozen run boundaries as data;
 it never waits for correction. Correction writes derived completion and dependency events, and the
-manifest's declared inputs, including one-hop `through` inputs, re-dirty the stream when those events,
-parent inputs, or evidence change, so allocation converges after correction. Review, list-state, item,
+manifest's declared inputs re-dirty the stream when those events or parent inputs change, so allocation converges after correction. Review, list-state, item,
 and library-admission writes also schedule correction. Child correction excludes sessioned sources
 whose completion repair belongs to the parent.
 
@@ -742,7 +741,7 @@ Analytics reads from them; each recipe takes the client query's `ResolvedReporti
 The client runs the summary with SDK `refreshWhile` while processing is pending. Chart, ranking and
 record queries carry the summary's processing state in their input, so they reload when it settles;
 projection-updated hints only refresh queries that declare entity interests, which aggregate reads
-cannot. Values stay masked while processing is pending or failed.
+cannot. Values are always shown; a pending or failed state adds a processing note.
 
 Home, flat-detail, and episodic lifetime metrics use canonical contributions. Current episode coverage
 and lifecycle status remain separate. Episodic activity never replaces missing frozen time with current
