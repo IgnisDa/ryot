@@ -11,12 +11,13 @@ bun turbo --filter=@ryot-app/e2e test --only -- '<file1>' '<file2>'
 ```
 
 The large media gates and live-provider smoke are discovered but opt-in. Never combine them with
-standard files.
+standard files. Turbo does not pass their opt-in variables to tasks, so run them through the package
+script:
 
 ```bash
-RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
-RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-overlap-gate.test.ts'
-RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
+RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
+RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/media/imports/media-population-overlap-gate.test.ts'
+RUN_LIVE_PROVIDER_TESTS=1 bun --cwd e2e run test 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
 The capacity gate exercises production-size durable execution with a 15-minute budget. The overlap
