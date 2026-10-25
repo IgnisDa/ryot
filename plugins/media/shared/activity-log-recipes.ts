@@ -51,7 +51,7 @@ import {
 	sameSchemaOwner,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
-import { mediaNumberSelection } from "./media-recipes";
+import { mediaNumberField } from "./media-recipes";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 
 const NextUpSeasonNumber = Schema.NullOr(Schema.Finite);
@@ -187,7 +187,10 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 					),
 					selection: {
 						...entityIdentitySelection(entity),
-						...mediaNumberSelection("pages", "runtime", "episodes", "chapters")(entity),
+						pages: mediaNumberField(entity, "pages"),
+						runtime: mediaNumberField(entity, "runtime"),
+						episodes: mediaNumberField(entity, "episodes"),
+						chapters: mediaNumberField(entity, "chapters"),
 						position: selectedField(lifecycle.position, Schema.NullOr(Schema.Finite)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 						state: selectedField(

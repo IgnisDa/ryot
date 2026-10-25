@@ -4,7 +4,7 @@ import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 import { propertyBoolean } from "./entity-selections";
 import {
 	mediaFlatRecipes,
-	mediaNumberSelection,
+	mediaNumberField,
 	mediaUnlinkedCreatorsOverviewQueries,
 } from "./media-recipes";
 
@@ -14,10 +14,10 @@ export const bookRecipes = mediaFlatRecipes({
 	groupSlug: "book-group",
 	consumptionUnit: "pages",
 	activityEventFields: () => ({}),
-	presentationFields: mediaNumberSelection("pages"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
+	presentationFields: (entity) => ({ pages: mediaNumberField(entity, "pages") }),
 	summaryFields: (entity) => ({
-		...mediaNumberSelection("pages")(entity),
+		pages: mediaNumberField(entity, "pages"),
 		isCompilation: selectedField(
 			propertyBoolean(entity, "isCompilation"),
 			Schema.NullOr(Schema.Boolean),

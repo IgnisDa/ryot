@@ -30,7 +30,7 @@ describe("media company query recipes", () => {
 				}),
 				"summary",
 			).slice(-5),
-		).toEqual(["alternateNames", "foundedYear", "headquarters", "website", "sourceUrl"]);
+		).toEqual(["alternateNames", "website", "sourceUrl", "foundedYear", "headquarters"]);
 	});
 
 	it("carries no character on credits", () => {

@@ -1,4 +1,4 @@
-import { mediaFlatRecipes, mediaNumberSelection } from "./media-recipes";
+import { mediaFlatRecipes, mediaNumberField } from "./media-recipes";
 
 export const visualNovelRecipes = mediaFlatRecipes({
 	slug: "visual-novel",
@@ -6,6 +6,6 @@ export const visualNovelRecipes = mediaFlatRecipes({
 	consumptionUnit: "minutes",
 	activityEventFields: () => ({}),
 	extraOverviewQueries: () => ({}),
-	summaryFields: mediaNumberSelection("lengthMinutes"),
-	presentationFields: mediaNumberSelection("lengthMinutes"),
+	summaryFields: (entity) => ({ lengthMinutes: mediaNumberField(entity, "lengthMinutes") }),
+	presentationFields: (entity) => ({ lengthMinutes: mediaNumberField(entity, "lengthMinutes") }),
 });

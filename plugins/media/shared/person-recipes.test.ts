@@ -32,12 +32,12 @@ describe("media person query recipes", () => {
 			).slice(-7),
 		).toEqual([
 			"alternateNames",
-			"birthDate",
-			"deathDate",
-			"birthPlace",
 			"gender",
 			"website",
+			"birthDate",
+			"deathDate",
 			"sourceUrl",
+			"birthPlace",
 		]);
 	});
 

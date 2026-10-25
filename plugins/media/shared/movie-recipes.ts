@@ -1,8 +1,4 @@
-import {
-	mediaFlatRecipes,
-	mediaNumberSelection,
-	mediaWatchProviderSelection,
-} from "./media-recipes";
+import { mediaFlatRecipes, mediaNumberField, mediaWatchProviderSelection } from "./media-recipes";
 
 export const movieRecipes = mediaFlatRecipes({
 	slug: "movie",
@@ -11,9 +7,9 @@ export const movieRecipes = mediaFlatRecipes({
 	consumptionUnit: "minutes",
 	activityEventFields: () => ({}),
 	extraOverviewQueries: () => ({}),
-	presentationFields: mediaNumberSelection("runtime"),
+	presentationFields: (entity) => ({ runtime: mediaNumberField(entity, "runtime") }),
 	summaryFields: (entity) => ({
 		...mediaWatchProviderSelection(entity),
-		...mediaNumberSelection("runtime")(entity),
+		runtime: mediaNumberField(entity, "runtime"),
 	}),
 });

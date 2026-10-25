@@ -1,6 +1,6 @@
 import {
 	mediaFlatRecipes,
-	mediaNumberSelection,
+	mediaNumberField,
 	mediaUnlinkedCreatorsOverviewQueries,
 } from "./media-recipes";
 
@@ -10,7 +10,7 @@ export const audiobookRecipes = mediaFlatRecipes({
 	consumptionUnit: "minutes",
 	groupSlug: "audiobook-group",
 	activityEventFields: () => ({}),
-	summaryFields: mediaNumberSelection("runtime"),
-	presentationFields: mediaNumberSelection("runtime"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
+	summaryFields: (entity) => ({ runtime: mediaNumberField(entity, "runtime") }),
+	presentationFields: (entity) => ({ runtime: mediaNumberField(entity, "runtime") }),
 });

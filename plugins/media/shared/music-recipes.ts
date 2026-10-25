@@ -2,7 +2,7 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyBoolean } from "./entity-selections";
-import { mediaFlatRecipes, mediaNumberSelection } from "./media-recipes";
+import { mediaFlatRecipes, mediaNumberField } from "./media-recipes";
 
 export const musicRecipes = mediaFlatRecipes({
 	slug: "music",
@@ -11,9 +11,9 @@ export const musicRecipes = mediaFlatRecipes({
 	consumptionUnit: "minutes",
 	activityEventFields: () => ({}),
 	extraOverviewQueries: () => ({}),
-	presentationFields: mediaNumberSelection("duration"),
+	presentationFields: (entity) => ({ duration: mediaNumberField(entity, "duration") }),
 	summaryFields: (entity) => ({
-		...mediaNumberSelection("duration")(entity),
+		duration: mediaNumberField(entity, "duration"),
 		byVariousArtists: selectedField(
 			propertyBoolean(entity, "byVariousArtists"),
 			Schema.NullOr(Schema.Boolean),

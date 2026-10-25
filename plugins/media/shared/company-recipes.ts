@@ -1,12 +1,14 @@
 import { mediaCreatorRecipes } from "./creator-recipes";
-import { mediaNumberSelection, mediaTextSelection } from "./media-recipes";
+import { mediaNumberField, mediaTextField } from "./media-recipes";
 
 export const companyRecipes = mediaCreatorRecipes({
 	slug: "company",
 	alias: "company",
 	creditFields: () => ({}),
 	summaryFields: (entity) => ({
-		...mediaNumberSelection("foundedYear")(entity),
-		...mediaTextSelection("headquarters", "website", "sourceUrl")(entity),
+		website: mediaTextField(entity, "website"),
+		sourceUrl: mediaTextField(entity, "sourceUrl"),
+		foundedYear: mediaNumberField(entity, "foundedYear"),
+		headquarters: mediaTextField(entity, "headquarters"),
 	}),
 });

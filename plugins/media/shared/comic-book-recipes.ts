@@ -1,4 +1,4 @@
-import { mediaFlatRecipes, mediaNumberSelection } from "./media-recipes";
+import { mediaFlatRecipes, mediaNumberField } from "./media-recipes";
 
 export const comicBookRecipes = mediaFlatRecipes({
 	slug: "comic-book",
@@ -7,6 +7,6 @@ export const comicBookRecipes = mediaFlatRecipes({
 	groupSlug: "comic-book-group",
 	activityEventFields: () => ({}),
 	extraOverviewQueries: () => ({}),
-	summaryFields: mediaNumberSelection("pages"),
-	presentationFields: mediaNumberSelection("pages"),
+	summaryFields: (entity) => ({ pages: mediaNumberField(entity, "pages") }),
+	presentationFields: (entity) => ({ pages: mediaNumberField(entity, "pages") }),
 });
