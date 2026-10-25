@@ -1,7 +1,19 @@
-import { type AnalyticsSectionProps, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	type AnalyticsSectionProps,
+	periodCaption,
+	type Reported,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button, StatusMessage, tabId, Tabs, useValueChange } from "@ryot-app/plugin-ui-sdk";
-import { type ReactNode, useId, useMemo, useState } from "react";
+import {
+	Button,
+	QueryStatus,
+	StatusMessage,
+	tabId,
+	Tabs,
+	useValueChange,
+} from "@ryot-app/plugin-ui-sdk";
+import { useId, useMemo, useState } from "react";
 
 import { MediaAnalyticsCharts } from "./charts";
 import {
@@ -9,10 +21,8 @@ import {
 	type AnalyticsInput,
 	analyticsInput,
 	type MediaConsumptionReport,
-	periodCaption,
 	type RankingsRecordsProps,
 	type RecordsDrillRequest,
-	type Reported,
 	type SummaryChartsProps,
 } from "./model";
 import { mediaAnalyticsReportQuery, mediaAnalyticsStatsQuery } from "./queries";
@@ -31,61 +41,42 @@ export default function MediaAnalyticsSection(props: AnalyticsSectionProps) {
 		[ownerKey, selection, timeZone],
 	);
 	const report = useRyotQuery(mediaAnalyticsReportQuery, input);
-	const [tabState, setTabState] = useState<{
-		readonly ownerId: string;
-		readonly value: AnalyticsTab;
-	}>({ value: "charts", ownerId: ownerKey });
-	useValueChange(ownerKey, (ownerId) => setTabState({ ownerId, value: "charts" }));
+	const [tab, setTab] = useState<AnalyticsTab>("charts");
+	return (
+		<QueryStatus query={report} label="media analytics" onRetry={report.refetch}>
+			{(data) => (
+				<div className={compact ? "grid min-w-0 gap-4" : "grid min-w-0 gap-6"}>
+					<ReadinessNotice processing={data.processing} />
+					<MediaAnalyticsContent
+						tab={tab}
+						input={input}
+						report={data}
+						compact={compact}
+						onTabChange={setTab}
+					/>
+				</div>
+			)}
+		</QueryStatus>
+	);
+}
 
-	if (report.data === undefined) {
-		return report.isError ? (
-			<StatusMessage tone="error" action={{ label: "Retry report", onClick: report.refetch }}>
-				Media analytics could not be loaded.
-			</StatusMessage>
-		) : (
-			<StatusMessage tone="pending">Loading media analytics…</StatusMessage>
-		);
-	}
-
-	const tab = tabState.ownerId === ownerKey ? tabState.value : "charts";
-	let readinessNotice: ReactNode = null;
-	if (report.data.processing === "pending") {
-		readinessNotice = (
+function ReadinessNotice(props: { readonly processing: MediaConsumptionReport["processing"] }) {
+	if (props.processing === "pending") {
+		return (
 			<StatusMessage tone="pending">
 				Media history repair is pending. These analytics are not final.
 			</StatusMessage>
 		);
-	} else if (report.data.processing === "failed") {
-		readinessNotice = (
-			<StatusMessage tone="error">
-				Media history repair failed. These analytics may be incomplete.
-			</StatusMessage>
-		);
 	}
-	return (
-		<div className={compact ? "grid min-w-0 gap-4" : "grid min-w-0 gap-6"}>
-			{report.isError ? (
-				<StatusMessage tone="error" action={{ label: "Retry report", onClick: report.refetch }}>
-					Media analytics could not be refreshed. The last loaded report is still shown.
-				</StatusMessage>
-			) : null}
-			{readinessNotice}
-			<MediaAnalyticsContent
-				tab={tab}
-				input={input}
-				key={ownerKey}
-				compact={compact}
-				ownerKey={ownerKey}
-				report={report.data}
-				onTabChange={(value) => setTabState({ value, ownerId: ownerKey })}
-			/>
-		</div>
-	);
+	return props.processing === "failed" ? (
+		<StatusMessage tone="error">
+			Media history repair failed. These analytics may be incomplete.
+		</StatusMessage>
+	) : null;
 }
 
 function MediaAnalyticsContent(props: {
 	readonly compact: boolean;
-	readonly ownerKey: string;
 	readonly tab: AnalyticsTab;
 	readonly input: AnalyticsInput;
 	readonly report: Reported<MediaConsumptionReport>;
@@ -94,7 +85,6 @@ function MediaAnalyticsContent(props: {
 	const [request, setRequest] = useState<null | RecordsDrillRequest>(null);
 	const panelId = useId();
 	const scopeKey = JSON.stringify({
-		owner: props.ownerKey,
 		timeZone: props.input.timeZone,
 		selection: props.input.selection,
 	});
@@ -128,27 +118,9 @@ function MediaAnalyticsContent(props: {
 			selection: props.report.reporting.selection,
 			periodCaption: periodCaption(props.report.reporting.resolved.current),
 		});
-	let statsNotice: ReactNode = null;
-	if (stats.data === undefined) {
-		statsNotice = stats.isError ? (
-			<StatusMessage tone="error" action={{ onClick: stats.refetch, label: "Retry breakdowns" }}>
-				Media analytics breakdowns could not be loaded.
-			</StatusMessage>
-		) : (
-			<StatusMessage tone="pending">Loading media analytics breakdowns…</StatusMessage>
-		);
-	} else if (stats.isError) {
-		statsNotice = (
-			<StatusMessage tone="error" action={{ onClick: stats.refetch, label: "Retry breakdowns" }}>
-				Media analytics breakdowns could not be refreshed. The last loaded breakdowns are still
-				shown.
-			</StatusMessage>
-		);
-	}
-
 	return (
 		<div className={props.compact ? "grid min-w-0 gap-4" : "grid min-w-0 gap-6"}>
-			{statsNotice}
+			<QueryStatus query={stats} onRetry={stats.refetch} label="media analytics breakdowns" />
 			<MediaAnalyticsSummary {...summaryChartsProps} />
 			<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
 				<Tabs

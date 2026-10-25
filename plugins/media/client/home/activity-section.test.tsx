@@ -47,12 +47,12 @@ const activityResponse = (input: {
 	data: {
 		days: aggregate(),
 		mediaTypes: aggregate(),
-		activeWork: {
-			type: "rows" as const,
-			items: [],
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-		},
 		dates: aggregate(input.activeDay === undefined ? [] : [{ events: 1, day: input.activeDay }]),
+		activeWork: {
+			items: [],
+			type: "rows" as const,
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+		},
 		figures: aggregate([
 			{
 				failed: 0,

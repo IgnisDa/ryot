@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -20,7 +20,6 @@ import {
 	type AnalyticsInput,
 	type MediaAnalyticsStats,
 	type MediaConsumptionReport,
-	reportingExecution,
 	type SummaryChartsProps,
 } from "./model";
 import { MediaAnalyticsSummary } from "./summary";
@@ -113,9 +112,9 @@ const reportData = (
 				previous: aggregate(previous),
 				current: aggregate(current, partial),
 				activeWork: {
-					type: "rows",
 					items: [],
-					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+					type: "rows",
+					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 				},
 				coverage: aggregate([
 					{ failed, pending, unknownDate: 2, mediaType: "book" },
@@ -128,7 +127,7 @@ const reportData = (
 };
 
 const statsData = (): MediaAnalyticsStats => {
-	const reporting = reportingExecution(input, now);
+	const reporting = reportingExecution(input.selection, { now: now, timeZone: input.timeZone });
 	const presence = {
 		activeDays: 2,
 		pagesKnown: 1,
@@ -185,10 +184,18 @@ const summaryProps = (
 	const stats = includeStats ? statsData() : undefined;
 	return {
 		input,
-		report: { ...reportData(processing, partial), reporting: reportingExecution(input, now) },
+		report: {
+			...reportData(processing, partial),
+			reporting: reportingExecution(input.selection, { now: now, timeZone: input.timeZone }),
+		},
 		...(stats === undefined
 			? {}
-			: { stats: { ...stats, reporting: reportingExecution(input, now) } }),
+			: {
+					stats: {
+						...stats,
+						reporting: reportingExecution(input.selection, { now: now, timeZone: input.timeZone }),
+					},
+				}),
 		onDrill: () => undefined,
 	};
 };
@@ -281,7 +288,7 @@ describe("Media analytics summary UI", () => {
 				...summaryProps("ready", false),
 				report: {
 					...reportData("ready", false, { pagesRecorded: 70.125, pagesEstimated: 29.875 }),
-					reporting: reportingExecution(input, now),
+					reporting: reportingExecution(input.selection, { now: now, timeZone: input.timeZone }),
 				},
 			};
 			const page = mountSummary(clock, props);

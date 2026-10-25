@@ -1,5 +1,14 @@
-import { PluginLink, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	formatExactValue,
+	periodCaption,
+	PluginLink,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	paginationItems,
+	reportingPageParam,
+	useRyotInfiniteQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -13,15 +22,13 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useMemo, useState } from "react";
 
 import {
-	formatExactValue,
 	type MediaAnalyticsRanking,
 	mediaTypeLabel,
-	periodCaption,
 	rankingModel,
 	type RankingsRecordsProps,
 	type RecordsDrillRequest,
 } from "./model";
-import { analyticsPageInput, mediaAnalyticsRankingQuery, nextAnalyticsPage } from "./queries";
+import { analyticsPageInput, mediaAnalyticsRankingQuery } from "./queries";
 
 export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 	const viewport = useRyotViewport();
@@ -159,7 +166,7 @@ function RankingResults(props: {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	const rows = useMemo(

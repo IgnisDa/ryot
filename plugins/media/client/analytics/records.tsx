@@ -1,5 +1,15 @@
-import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	formatExactValue,
+	PluginLink,
+	type Reported,
+	type TimeZone,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	paginationItems,
+	reportingPageParam,
+	useRyotInfiniteQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -13,14 +23,12 @@ import { useMemo } from "react";
 
 import {
 	type AnalyticsInput,
-	formatExactValue,
 	type MediaAnalyticsRecord,
 	type MediaConsumptionReport,
 	recordModel,
 	type RecordsDrillRequest,
-	type Reported,
 } from "./model";
-import { analyticsPageInput, mediaAnalyticsRecordsQuery, nextAnalyticsPage } from "./queries";
+import { analyticsPageInput, mediaAnalyticsRecordsQuery } from "./queries";
 
 export function MediaAnalyticsRecords(props: {
 	readonly onClose: () => void;
@@ -44,7 +52,7 @@ export function MediaAnalyticsRecords(props: {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	const items = useMemo(

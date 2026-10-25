@@ -228,9 +228,9 @@ describe("home gate", () => {
 							dates: { items: [], type: "aggregate" },
 							mediaTypes: { items: [], type: "aggregate" },
 							activeWork: {
-								type: "rows",
 								items: [],
-								pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+								type: "rows",
+								pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 							},
 							"trending.trending": rows([
 								{
@@ -384,7 +384,7 @@ describe("home sections", () => {
 			expect(documents().slice(4)).toEqual([
 				["suggestions.items", "suggestions.source"],
 				["trending.trending"],
-				["dates", "days", "figures", "mediaTypes"],
+				["activeWork", "dates", "days", "figures", "mediaTypes"],
 			]);
 			expect(home.reportingPreferenceReads()).toBe(1);
 			view.unmount();

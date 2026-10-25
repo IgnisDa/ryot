@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { periodCaption, PluginId, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -20,8 +20,7 @@ import { MediaAnalyticsCharts } from "./charts";
 import {
 	type AnalyticsInput,
 	analyticsWindow,
-	periodCaption,
-	reportingExecution,
+	anchorDateOf,
 	type SummaryChartsProps,
 } from "./model";
 
@@ -85,9 +84,9 @@ const reportFor = (input: AnalyticsInput, processing: "ready" | "failed" | "pend
 					{ ...totals, mediaType: "show-episode" },
 				]),
 				activeWork: {
-					type: "rows",
 					items: [],
-					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+					type: "rows",
+					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 				},
 				coverage: aggregate([
 					{ failed, pending, unknownDate: 0, mediaType: "book" },
@@ -96,7 +95,10 @@ const reportFor = (input: AnalyticsInput, processing: "ready" | "failed" | "pend
 			},
 		}),
 	);
-	return { ...data, reporting: reportingExecution(input, now) };
+	return {
+		...data,
+		reporting: reportingExecution(input.selection, { now: now, timeZone: input.timeZone }),
+	};
 };
 
 const chartProps = (
@@ -269,7 +271,7 @@ describe("Media analytics charts UI", () => {
 						waitFor(() => expect(page.queryRequests().length).toBeGreaterThanOrEqual(3)),
 					);
 					replyRequests(page, replied, { includeTrendRow: true });
-					const trendLabel = `Trend window · ${periodCaption(analyticsWindow(chartProps(input).report.reporting, "trend").period)}`;
+					const trendLabel = `Trend window · ${periodCaption(analyticsWindow(chartProps(input).report.reporting, "trend", anchorDateOf(chartProps(input).report.reporting)).period)}`;
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.getByText(trendLabel)).toBeDefined()),
 					);
@@ -310,8 +312,8 @@ describe("Media analytics charts UI", () => {
 							range: { kind: "custom", endDate: "2026-03-03", startDate: "2026-03-02" },
 						},
 					});
-					fireEvent.click(screen.getByText("View exact daily values (2 days)"));
-					fireEvent.click(screen.getByRole("button", { name: "View records for 2026-03-02" }));
+					yield* openExactValues(2);
+					fireEvent.click(screen.getByRole("button", { name: /View records: Mar 2, 2026/ }));
 					expect(requests.at(-1)).toMatchObject({
 						activeOnly: true,
 						selection: {
@@ -326,7 +328,7 @@ describe("Media analytics charts UI", () => {
 	);
 
 	it.live(
-		"keeps extra previous dates exact instead of aligning them to invented zero buckets",
+		"lists extra previous dates in the exact values instead of aligning them to invented zero buckets",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -345,13 +347,15 @@ describe("Media analytics charts UI", () => {
 					replyRequests(page, replied);
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByText("Additional previous-period dates (3)")).toBeDefined(),
+							expect(screen.getAllByText(/2026-02-01 – 2026-02-28/).length).toBeGreaterThan(0),
 						),
 					);
-					expect(screen.getAllByText(/2026-02-01 – 2026-02-28/).length).toBeGreaterThan(0);
-					fireEvent.click(screen.getByText("Additional previous-period dates (3)"));
-					expect(screen.getAllByText("2026-01-29").length).toBeGreaterThan(0);
-					expect(screen.getAllByText("2026-01-31").length).toBeGreaterThan(0);
+					yield* openExactValues(0);
+					const trendValues = screen.getByRole("table", {
+						name: "Active observations by reporting period exact values",
+					});
+					expect(trendValues.textContent).toContain("Jan 29, 2026");
+					expect(trendValues.textContent).toContain("Jan 31, 2026");
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
@@ -379,12 +383,10 @@ describe("Media analytics charts UI", () => {
 					);
 					replyRequests(page, replied, { includeTrendRow: true });
 					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByText(/View exact daily values \(2 days\)/)).toBeDefined(),
-						),
+						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
 					);
-					fireEvent.click(screen.getByText("View exact daily values (2 days)"));
-					expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+					yield* openExactValues(2);
+					expect(screen.getAllByText("Not recorded").length).toBeGreaterThan(0);
 					expect(screen.queryByRole("button", { name: /View records/ })).toBeNull();
 					yield* Effect.promise(() =>
 						act(() => fireEvent.click(screen.getByRole("button", { name: "Finish repair" }))),
@@ -395,6 +397,7 @@ describe("Media analytics charts UI", () => {
 						),
 					);
 					replyRequests(page, replied, { includeTrendRow: true });
+					yield* openExactValues(0);
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(
@@ -430,7 +433,11 @@ describe("Media analytics charts UI", () => {
 						waitFor(() => expect(page.queryRequests().length).toBeGreaterThanOrEqual(3)),
 					);
 					replyRequests(page, replied, { includeTrendRow: true });
-					const firstTrend = analyticsWindow(props.report.reporting, "trend");
+					const firstTrend = analyticsWindow(
+						props.report.reporting,
+						"trend",
+						anchorDateOf(props.report.reporting),
+					);
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(
@@ -456,6 +463,7 @@ describe("Media analytics charts UI", () => {
 					const olderTrend = analyticsWindow(
 						props.report.reporting,
 						"trend",
+						anchorDateOf(props.report.reporting),
 						firstTrend.previousCursor ?? undefined,
 					);
 					if (olderTrendRequest !== undefined) {
@@ -476,9 +484,7 @@ describe("Media analytics charts UI", () => {
 					);
 					yield* openExactValues(0);
 					yield* openExactValues(1);
-					yield* Effect.promise(() =>
-						act(() => fireEvent.click(screen.getByText(/^View exact daily values/))),
-					);
+					yield* openExactValues(2);
 					const trendValues = screen.getByRole("table", {
 						name: "Active observations by reporting period exact values",
 					});
@@ -486,14 +492,14 @@ describe("Media analytics charts UI", () => {
 						name: "Active observations by local hour exact values",
 					});
 					const dailyValues = screen.getByRole("table", {
-						name: "Daily active observations and record links",
+						name: /^Daily active observations · .* exact values$/,
 					});
 					const loadedTrendValues = trendValues.textContent;
 					const loadedHourlyValues = hourlyValues.textContent;
 					const loadedDailyValues = dailyValues.textContent;
 					expect(loadedTrendValues).toContain("1 observations");
 					expect(loadedHourlyValues).toContain("1 observations");
-					expect(loadedDailyValues).toContain("2 observations");
+					expect(loadedDailyValues).toContain("2 active observations");
 					const loadedRecordLabels = screen
 						.getAllByRole("button", { name: /View records:/ })
 						.map((button) => button.getAttribute("aria-label"))
@@ -569,7 +575,12 @@ describe("Media analytics charts UI", () => {
 							}),
 						);
 					}
-					expect(periodCaption(reportingExecution(input, now).resolved.current)).toBe("All time");
+					expect(
+						periodCaption(
+							reportingExecution(input.selection, { now: now, timeZone: input.timeZone }).resolved
+								.current,
+						),
+					).toBe("All time");
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());

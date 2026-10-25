@@ -1,4 +1,11 @@
-import { calendarPeriod } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	calendarPeriod,
+	compareValues,
+	formatExactValue,
+	periodCaption,
+	reportingExecution,
+	type ReportingSelection,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
@@ -10,18 +17,14 @@ import {
 	analyticsWindow,
 	analyticsWindowInput,
 	calendarReportingExecution,
-	compareValues,
 	comparisonWindow,
 	consistencyModel,
 	extraPreviousWindow,
-	formatExactValue,
 	hourlyModel,
 	type MediaAnalyticsTrend,
-	periodCaption,
 	quantityValue,
 	rankingModel,
 	recordModel,
-	reportingExecution,
 	reviewModel,
 	summaryModel,
 	trendModel,
@@ -37,6 +40,8 @@ const input = {
 	},
 } as const;
 const now = Date.parse("2026-10-29T12:00:00Z");
+const execute = (selection: ReportingSelection, at = now) =>
+	reportingExecution(selection, { now: at, timeZone: input.timeZone });
 const totals = {
 	pagesMissing: 1,
 	minutesMissing: 0,
@@ -86,19 +91,19 @@ const report = (pending = 0, failed = 0, hasMore = false) =>
 				previous: aggregate([]),
 				rankings: aggregate([]),
 				current: aggregate([{ ...totals, mediaType: "book" }], hasMore),
-				activeWork: {
-					type: "rows",
-					items: [],
-					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-				},
 				coverage: aggregate([{ failed, pending, unknownDate: 2, mediaType: "book" }]),
+				activeWork: {
+					items: [],
+					type: "rows",
+					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+				},
 			},
 		}),
 	);
 const stats = () =>
 	Result.getOrThrow(
 		mediaAnalyticsStatsRecipe({
-			...analyticsCalendarInput(input, reportingExecution(input, now)),
+			...analyticsCalendarInput(input, execute(input.selection)),
 			now,
 		}).decode({
 			data: {
@@ -146,12 +151,12 @@ const trend = (
 
 describe("Media analytics presentation model", () => {
 	it("keeps supplemental calendar inputs equal across same-day report clocks and keeps all-time summaries timeless", () => {
-		const morning = reportingExecution(input, Date.parse("2026-11-01T05:30:00.001Z"));
-		const evening = reportingExecution(input, Date.parse("2026-11-02T04:59:59.999Z"));
+		const morning = execute(input.selection, Date.parse("2026-11-01T05:30:00.001Z"));
+		const evening = execute(input.selection, Date.parse("2026-11-02T04:59:59.999Z"));
 		expect(morning.now).not.toBe(evening.now);
 		expect(analyticsCalendarInput(input, morning)).toEqual(analyticsCalendarInput(input, evening));
 		expect(analyticsWindowInput(input, morning)).toEqual(analyticsWindowInput(input, evening));
-		const nextDay = reportingExecution(input, Date.parse("2026-11-02T05:00:00Z"));
+		const nextDay = execute(input.selection, Date.parse("2026-11-02T05:00:00Z"));
 		expect(analyticsCalendarInput(input, nextDay)).not.toEqual(
 			analyticsCalendarInput(input, evening),
 		);
@@ -159,8 +164,8 @@ describe("Media analytics presentation model", () => {
 			...input,
 			selection: { ...input.selection, range: { kind: "all-time" as const } },
 		};
-		const first = reportingExecution(allTime, morning.now);
-		const second = reportingExecution(allTime, nextDay.now);
+		const first = execute(allTime.selection, morning.now);
+		const second = execute(allTime.selection, nextDay.now);
 		expect(analyticsCalendarInput(allTime, first)).toEqual(analyticsCalendarInput(allTime, second));
 		expect(analyticsCalendarInput(allTime, first)).not.toHaveProperty("now");
 		expect(analyticsCalendarInput(allTime, first)).not.toHaveProperty("reporting");
@@ -173,7 +178,7 @@ describe("Media analytics presentation model", () => {
 			...input,
 			selection: { ...input.selection, range: { offset: 0, unit: "month", kind: "calendar" } },
 		} as const;
-		const parent = reportingExecution(selected, Date.parse("2026-03-15T12:00:00Z"));
+		const parent = execute(selected.selection, Date.parse("2026-03-15T12:00:00Z"));
 		const stable = analyticsCalendarInput(selected, parent);
 		const executedAt = Date.parse("2026-11-02T18:00:00Z");
 		const fresh = calendarReportingExecution(stable, executedAt);
@@ -255,7 +260,7 @@ describe("Media analytics presentation model", () => {
 				)[0]?.activeObservations,
 			).toBeNull();
 			expect(
-				trendModel(trend(), null, "pages", processing, input.timeZone).buckets[0]?.current.value,
+				trendModel(trend(), null, "pages", processing, input.timeZone).current.buckets[0]?.value,
 			).toBeNull();
 		},
 	);
@@ -290,20 +295,23 @@ describe("Media analytics presentation model", () => {
 		const current = trend();
 		const previous = trend("2026-09-01", "2026-09-03");
 		const model = trendModel(current, previous, "pages", "ready", input.timeZone);
-		expect(model.buckets[0]?.current).toMatchObject({
+		expect(model.current.buckets[0]).toMatchObject({
 			known: 3,
 			missing: 1,
 			value: 100.25,
 			lowerBound: true,
 			date: "2026-10-01",
 		});
-		expect(model.buckets[0]?.previous?.date).toBe("2026-09-01");
-		expect(model.extraPrevious.map((bucket) => bucket.date)).toEqual(["2026-09-03"]);
-		expect(model.buckets[1]?.current.value).toBeNull();
+		expect(model.previous?.buckets.map((bucket) => bucket.date)).toEqual([
+			"2026-09-01",
+			"2026-09-02",
+			"2026-09-03",
+		]);
+		expect(model.current.buckets[1]?.value).toBeNull();
 		expect(current.items).toHaveLength(2);
 		expect(
-			trendModel(current, null, "titleCompletions", "ready", input.timeZone).buckets.map(
-				(bucket) => bucket.current.value,
+			trendModel(current, null, "titleCompletions", "ready", input.timeZone).current.buckets.map(
+				(bucket) => bucket.value,
 			),
 		).toEqual([3, 0]);
 	});
@@ -316,8 +324,8 @@ describe("Media analytics presentation model", () => {
 			input.timeZone,
 		);
 		expect(model.partial).toBe(true);
-		expect(model.buckets.map((bucket) => bucket.current.value)).toEqual([3, null]);
-		expect(model.buckets[0]?.current.lowerBound).toBe(true);
+		expect(model.current.buckets.map((bucket) => bucket.value)).toEqual([3, null]);
+		expect(model.current.buckets[0]?.lowerBound).toBe(true);
 		const source = trend().items[0];
 		if (source === undefined) {
 			throw new Error("Expected a trend fixture");
@@ -333,50 +341,52 @@ describe("Media analytics presentation model", () => {
 	it("keeps daily consistency independent of selected monthly grouping and marks incomplete empty days unknown", () => {
 		const period = calendarPeriod("2026-03-07", "2026-03-09", input.timeZone);
 		const data = { period, hasMore: false, days: [{ events: 2, day: "2026-03-08" }] };
-		expect(consistencyModel(data, "ready").days).toEqual([
+		expect(
+			consistencyModel(data, "ready", input.timeZone).days.map(({ date, value }) => ({
+				date,
+				value,
+			})),
+		).toEqual([
 			{ value: 0, date: "2026-03-07" },
 			{ value: 2, date: "2026-03-08" },
 			{ value: 0, date: "2026-03-09" },
 		]);
-		expect(consistencyModel({ ...data, hasMore: true }, "ready").days[0]?.value).toBeNull();
-		expect(consistencyModel(data, "failed").days.every((day) => day.value === null)).toBe(true);
+		expect(
+			consistencyModel({ ...data, hasMore: true }, "ready", input.timeZone).days[0]?.value,
+		).toBeNull();
+		expect(
+			consistencyModel(data, "failed", input.timeZone).days.every((day) => day.value === null),
+		).toBe(true);
 	});
-	it("navigates bounded explicit day windows and bounded daily all-time history without coarsening", () => {
-		const reporting = reportingExecution(
-			{ ...input, selection: { ...input.selection, range: { kind: "all-time" } } },
-			now,
-		);
-		const window = analyticsWindow(reporting, "trend");
+	it("groups all-time trend windows by year and bounds daily all-time history", () => {
+		const reporting = execute({ ...input.selection, range: { kind: "all-time" } });
+		const anchor = "2026-10-29";
+		const window = analyticsWindow(reporting, "trend", anchor);
 		expect(window).toMatchObject({
-			grouping: "day",
+			grouping: "year",
 			nextCursor: null,
-			previousCursor: "2026-09-27",
-			period: { endDate: "2026-10-29", startDate: "2026-09-28" },
+			period: { endDate: "2026-10-29", startDate: "1995-01-01" },
 		});
-		const earlier = analyticsWindow(reporting, "trend", window.previousCursor ?? undefined);
-		expect(earlier.period).toMatchObject({ endDate: "2026-09-27", startDate: "2026-08-27" });
-		expect(analyticsWindow(reporting, "trend", earlier.nextCursor ?? undefined).period).toEqual(
-			window.period,
-		);
-		const daily = analyticsWindow(reporting, "daily");
+		const earlier = analyticsWindow(reporting, "trend", anchor, window.previousCursor ?? undefined);
+		expect(
+			analyticsWindow(reporting, "trend", anchor, earlier.nextCursor ?? undefined).period,
+		).toEqual(window.period);
+		const daily = analyticsWindow(reporting, "daily", anchor);
 		expect(Date.parse(daily.period.endDate) - Date.parse(daily.period.startDate)).toBe(
 			399 * 86_400_000,
 		);
 		expect(daily.previousCursor).not.toBeNull();
 	});
 	it("aligns unequal calendar months ordinally and retains extra prior dates", () => {
-		const reporting = reportingExecution(
+		const reporting = execute(
 			{
-				...input,
-				selection: {
-					grouping: "day",
-					comparison: "previous-period",
-					range: { offset: -1, unit: "month", kind: "calendar" },
-				},
+				grouping: "day",
+				comparison: "previous-period",
+				range: { offset: -1, unit: "month", kind: "calendar" },
 			},
 			Date.parse("2026-03-15T12:00:00Z"),
 		);
-		const window = analyticsWindow(reporting, "trend");
+		const window = analyticsWindow(reporting, "trend", reporting.resolved.current?.endDate ?? "");
 		expect(window.period).toMatchObject({ endDate: "2026-02-28", startDate: "2026-02-01" });
 		const previous = comparisonWindow(reporting, window);
 		expect(previous).toMatchObject({ endDate: "2026-01-31", startDate: "2026-01-01" });
@@ -384,18 +394,15 @@ describe("Media analytics presentation model", () => {
 		expect(periodCaption(previous)).toBe("2026-01-01 – 2026-01-31");
 	});
 	it("splits the extra prior leap-year day instead of exceeding a 32-bucket recipe", () => {
-		const reporting = reportingExecution(
+		const reporting = execute(
 			{
-				...input,
-				selection: {
-					grouping: "day",
-					comparison: "previous-period",
-					range: { offset: -1, unit: "year", kind: "calendar" },
-				},
+				grouping: "day",
+				comparison: "previous-period",
+				range: { offset: -1, unit: "year", kind: "calendar" },
 			},
 			Date.parse("2026-01-15T12:00:00Z"),
 		);
-		const window = analyticsWindow(reporting, "trend");
+		const window = analyticsWindow(reporting, "trend", reporting.resolved.current?.endDate ?? "");
 		const previous = comparisonWindow(reporting, window);
 		expect(previous).toMatchObject({ endDate: "2024-12-30", startDate: "2024-11-29" });
 		expect(extraPreviousWindow(reporting, window, previous)).toMatchObject({
@@ -446,6 +453,5 @@ describe("Media analytics presentation model", () => {
 		expect(compareValues(2, 0)).toEqual({ absolute: 2, percent: null, kind: "new-activity" });
 		expect(compareValues(0, 0)).toEqual({ percent: 0, absolute: 0, kind: "change" });
 		expect(compareValues(null, 2).kind).toBe("unknown");
-		expect(compareValues(4, 2, true).kind).toBe("unknown");
 	});
 });

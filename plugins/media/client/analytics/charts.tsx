@@ -1,31 +1,29 @@
-import { calendarPeriod, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
-	Button,
-	Card,
-	Notice,
-	Select,
-	StatusMessage,
-	useValueChange,
-} from "@ryot-app/plugin-ui-sdk";
+	formatExactValue,
+	periodCaption,
+	type Reported,
+	type ReportingPeriod,
+	selectionForPeriod,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button, Card, Notice, QueryStatus, Select, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, HourlyHistogram, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import type { MediaAnalyticsFilter } from "../../shared/analytics-recipes";
 import {
 	analyticsCalendarInput,
 	analyticsWindowInput,
+	anchorDateOf,
 	consistencyModel,
-	formatExactValue,
 	hourlyModel,
 	type MediaAnalyticsHours,
 	type MediaAnalyticsMetric,
 	mediaTypeLabel,
-	periodCaption,
-	type Reported,
-	selectionForPeriod,
 	type SummaryChartsProps,
+	type TrendBucket,
 	trendModel,
 } from "./model";
 import {
@@ -110,7 +108,7 @@ const metricDetail = (metric: MediaAnalyticsMetric, value: MetricValue) => {
 const scopeKeyFor = (props: SummaryChartsProps) =>
 	JSON.stringify({
 		input: props.input,
-		anchorDate: props.report.reporting.anchorDate,
+		anchorDate: anchorDateOf(props.report.reporting),
 		current: props.report.reporting.resolved.current,
 		previous: props.report.reporting.resolved.previous,
 	});
@@ -198,155 +196,13 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 	);
 }
 
-function RetryNotice(props: { readonly noun: string; readonly onRetry: () => void }) {
-	return (
-		<Notice
-			tone="danger"
-			action={
-				<Button variant="secondary" onClick={props.onRetry}>
-					Retry {props.noun}
-				</Button>
-			}
-		>
-			The {props.noun} refresh failed. Showing the last loaded values.
-		</Notice>
-	);
-}
-
-function QueryRefreshStatus<Data>(props: {
-	readonly label: string;
-	readonly result: RyotQueryResult<Data>;
-}) {
-	if (props.result.data !== undefined && props.result.isError) {
-		return <RetryNotice noun={props.label} onRetry={props.result.refetch} />;
-	}
-	return props.result.data !== undefined && props.result.isFetching ? (
-		<StatusMessage tone="pending">Refreshing {props.label}…</StatusMessage>
-	) : null;
-}
-
-function ExtraPreviousValues(props: {
-	readonly metric: MediaAnalyticsMetric;
-	readonly buckets: ReturnType<typeof trendModel>["extraPrevious"];
-}) {
-	return (
-		<details className="min-w-0 rounded-md border border-border px-3 py-2">
-			<summary className="cursor-pointer py-2 text-label font-medium text-text">
-				Additional previous-period dates ({props.buckets.length})
-			</summary>
-			<div className="mt-2 overflow-x-auto">
-				<table className="w-full min-w-64 border-collapse text-left text-sm">
-					<caption className="sr-only">
-						Returned values for additional previous-period dates
-					</caption>
-					<thead className="text-text-muted">
-						<tr>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Actual dates
-							</th>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Value
-							</th>
-							<th scope="col" className="py-2 font-medium">
-								Coverage
-							</th>
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-border">
-						{props.buckets.map((bucket) => (
-							<tr key={bucket.date}>
-								<th scope="row" className="py-2 pr-3 font-normal text-text">
-									{periodCaption(bucket.period)}
-								</th>
-								<td className="py-2 pr-3 tabular-nums text-text">
-									{formatExactValue(bucket.value, metricUnit(props.metric))}
-								</td>
-								<td className="py-2 text-text-muted">
-									{metricDetail(props.metric, bucket) ?? "Complete returned bucket"}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-		</details>
-	);
-}
-
-function ConsistencyDayTable(props: {
-	readonly input: SummaryChartsProps["input"];
-	readonly onDrill: SummaryChartsProps["onDrill"];
-	readonly model: ReturnType<typeof consistencyModel>;
-	readonly selection: undefined | SummaryChartsProps["report"]["reporting"]["selection"];
-}) {
-	return (
-		<details className="min-w-0 rounded-md border border-border px-3 py-2">
-			<summary className="cursor-pointer py-2 text-label font-medium text-text">
-				View exact daily values ({props.model.days.length} days)
-			</summary>
-			<div className="mt-2 max-h-80 overflow-auto">
-				<table className="w-full min-w-64 border-collapse text-left text-sm">
-					<caption className="sr-only">Daily active observations and record links</caption>
-					<thead className="sticky top-0 bg-surface text-text-muted">
-						<tr>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Date
-							</th>
-							<th scope="col" className="py-2 pr-3 font-medium">
-								Active observations
-							</th>
-							<th scope="col" className="py-2 font-medium">
-								Records
-							</th>
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-border">
-						{props.model.days.map((day) => {
-							const period = calendarPeriod(day.date, day.date, props.input.timeZone);
-							const selection = props.selection;
-							const drill =
-								day.value === null || selection === undefined || props.model.processing !== "ready"
-									? null
-									: { activeOnly: true, selection: selectionForPeriod(selection, period) };
-							return (
-								<tr key={day.date}>
-									<th scope="row" className="py-2 pr-3 font-normal text-text">
-										{day.date}
-									</th>
-									<td className="py-2 pr-3 tabular-nums text-text">
-										{day.value === null
-											? "Unknown"
-											: `${props.model.partial ? "≥ " : ""}${formatExactValue(day.value, "observations")}`}
-									</td>
-									<td className="py-2">
-										{drill === null ? (
-											<span className="text-text-muted">Unavailable</span>
-										) : (
-											<Button
-												variant="link"
-												aria-label={`View records for ${day.date}`}
-												onClick={() => {
-													props.onDrill({
-														selection: drill.selection,
-														activeOnly: drill.activeOnly,
-														periodCaption: periodCaption(period),
-														title: `Active observations · ${day.date}`,
-													});
-												}}
-											>
-												View records
-											</Button>
-										)}
-									</td>
-								</tr>
-							);
-						})}
-					</tbody>
-				</table>
-			</div>
-		</details>
-	);
-}
+const trendPoints = (buckets: ReadonlyArray<TrendBucket>, metric: MediaAnalyticsMetric) =>
+	buckets.map((bucket) => ({
+		at: bucket.date,
+		value: bucket.value,
+		period: bucket.period,
+		detail: metricDetail(metric, bucket),
+	}));
 
 function HourlyRegion(props: {
 	readonly compact: boolean;
@@ -360,50 +216,47 @@ function HourlyRegion(props: {
 	const data = props.result.data;
 	const model =
 		data === undefined ? null : hourlyModel(data, props.metric, props.processing, props.mediaType);
-	const regionName = "hourly activity";
-	let chartState: "failed" | "pending" | undefined;
-	if (data === undefined) {
-		chartState = props.result.isError ? "failed" : "pending";
-	}
-	const refresh = <QueryRefreshStatus label={regionName} result={props.result} />;
-	const reporting = data?.reporting;
+	const { metric, onDrill, mediaType } = props;
+	const formatValue = useCallback(
+		(value: number) => formatExactValue(value, metricUnit(metric)),
+		[metric],
+	);
+	const openHour = useCallback(
+		(bucket: { readonly hour: number }) => {
+			if (data === undefined) {
+				return;
+			}
+			onDrill({
+				hour: bucket.hour,
+				selection: data.reporting.selection,
+				periodCaption: periodCaption(data.reporting.resolved.current),
+				title: `${metricLabels[metric]} at ${String(bucket.hour).padStart(2, "0")}:00`,
+				...(mediaType === undefined ? {} : { mediaType }),
+				...(metric === "activeObservations" ? { activeOnly: true } : {}),
+			});
+		},
+		[data, metric, mediaType, onDrill],
+	);
 	return (
 		<Card className="flex min-w-0 flex-col gap-3">
 			<h3 className="text-body font-semibold text-text">Hourly observations</h3>
-			{refresh}
-			<HourlyHistogram
-				state={chartState}
-				compact={props.compact}
-				timeZone={props.input.timeZone}
-				ariaLabel={`${metricLabels[props.metric]} by local hour`}
-				formatValue={(value) => formatExactValue(value, metricUnit(props.metric))}
-				periodLabel={`${metricLabels[props.metric]} · exact instants only · ${reporting === undefined ? "Selected period" : periodCaption(reporting.resolved.current)} · ${props.input.timeZone}`}
-				buckets={
-					model?.hours.map((row) => {
-						const detail = metricDetail(props.metric, row);
-						return {
+			<QueryStatus query={props.result} label="hourly activity" onRetry={props.result.refetch}>
+				{(loaded) => (
+					<HourlyHistogram
+						onSelect={openHour}
+						compact={props.compact}
+						formatValue={formatValue}
+						timeZone={props.input.timeZone}
+						ariaLabel={`${metricLabels[metric]} by local hour`}
+						periodLabel={`${metricLabels[metric]} · exact instants only · ${periodCaption(loaded.reporting.resolved.current)} · ${props.input.timeZone}`}
+						buckets={(model?.hours ?? []).map((row) => ({
 							hour: row.hour,
 							value: row.value,
-							...(detail === undefined ? {} : { detail }),
-						};
-					}) ?? []
-				}
-				{...(chartState === "failed" ? { onRetry: props.result.refetch } : {})}
-				{...(data === undefined
-					? {}
-					: {
-							onSelect: (bucket: { readonly hour: number }) => {
-								props.onDrill({
-									hour: bucket.hour,
-									selection: data.reporting.selection,
-									periodCaption: periodCaption(data.reporting.resolved.current),
-									title: `${metricLabels[props.metric]} at ${String(bucket.hour).padStart(2, "0")}:00`,
-									...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
-									...(props.metric === "activeObservations" ? { activeOnly: true } : {}),
-								});
-							},
-						})}
-			/>
+							detail: metricDetail(metric, row),
+						}))}
+					/>
+				)}
+			</QueryStatus>
 			{model?.partial ? (
 				<p className="text-sm text-warning">
 					Hourly groups are partial. Date-only and unknown-date observations are excluded.
@@ -418,6 +271,9 @@ function HourlyRegion(props: {
 	);
 }
 
+const formatObservations = (value: number) =>
+	value === 0 ? "No active observations" : formatExactValue(value, "active observations");
+
 function ConsistencyRegion(props: {
 	readonly compact: boolean;
 	readonly input: SummaryChartsProps["input"];
@@ -427,49 +283,28 @@ function ConsistencyRegion(props: {
 	readonly result: RyotQueryResult<MediaAnalyticsConsistencyPage>;
 }) {
 	const data = props.result.data;
-	const model = data === undefined ? null : consistencyModel(data, props.processing);
-	const allDaysKnown = model?.days.every((day) => day.value !== null) ?? false;
-	const canPlot = model?.processing === "ready" && !model.partial && !data?.hasMore && allDaysKnown;
+	const model =
+		data === undefined ? null : consistencyModel(data, props.processing, props.input.timeZone);
+	const { onDrill } = props;
+	const openDay = useCallback(
+		(day: { readonly date: string; readonly period: ReportingPeriod }) => {
+			if (data === undefined) {
+				return;
+			}
+			onDrill({
+				activeOnly: true,
+				periodCaption: periodCaption(day.period),
+				title: `Active observations · ${day.date}`,
+				selection: selectionForPeriod(data.reporting.selection, day.period),
+			});
+		},
+		[data, onDrill],
+	);
 	const window = data?.window;
-	let chartContent;
-	if (data === undefined) {
-		chartContent = props.result.isError ? (
-			<StatusMessage
-				tone="error"
-				action={{ label: "Retry consistency", onClick: props.result.refetch }}
-			>
-				Consistency data could not be loaded.
-			</StatusMessage>
-		) : (
-			<StatusMessage tone="pending">Loading consistency data…</StatusMessage>
-		);
-	} else if (canPlot) {
-		chartContent = (
-			<CalendarHeatmap
-				weekStart={1}
-				compact={props.compact}
-				ariaLabel={`Daily active observations · ${periodCaption(model.period)}`}
-				days={model.days.filter(
-					(day): day is { readonly date: string; readonly value: number } => day.value !== null,
-				)}
-				formatTooltip={({ date, value }) =>
-					`${value === 0 ? "No active observations" : `${value} active observations`} on ${date}`
-				}
-			/>
-		);
-	} else {
-		chartContent = (
-			<Notice tone="warning">
-				Consistency values are partial or unknown. The heatmap is hidden so unknown days are not
-				shown as zero.
-			</Notice>
-		);
-	}
-	const refresh = <QueryRefreshStatus label="consistency" result={props.result} />;
 	return (
 		<Card className="flex min-w-0 flex-col gap-3">
 			<h3 className="text-body font-semibold text-text">Daily consistency</h3>
-			{refresh}
+			<QueryStatus label="consistency" query={props.result} onRetry={props.result.refetch} />
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<p className="text-sm text-text-muted">
 					{window === undefined ? "Window dates unavailable" : periodCaption(window.period)}
@@ -492,19 +327,20 @@ function ConsistencyRegion(props: {
 				</div>
 			</div>
 			<p className="text-sm text-text-muted">Active observations · All media types</p>
-			{chartContent}
-			{model?.partial || data?.hasMore ? (
+			{model === null ? null : (
+				<CalendarHeatmap
+					weekStart={1}
+					days={model.days}
+					compact={props.compact}
+					formatValue={formatObservations}
+					onSelect={model.processing === "ready" ? openDay : undefined}
+					ariaLabel={`Daily active observations · ${periodCaption(model.period)}`}
+				/>
+			)}
+			{model?.partial ? (
 				<p className="text-sm text-warning">
 					This 400-day-bounded window is partial. Unreturned dates are unknown, not zero.
 				</p>
-			) : null}
-			{model !== null ? (
-				<ConsistencyDayTable
-					model={model}
-					input={props.input}
-					onDrill={props.onDrill}
-					selection={data?.reporting.selection}
-				/>
 			) : null}
 		</Card>
 	);
@@ -536,30 +372,26 @@ function TrendRegion(props: {
 					props.input.timeZone,
 					props.mediaType,
 				);
-	const period = data?.current.period ?? null;
-	const previousPeriod = data?.previous?.period ?? null;
-	let chartState: "failed" | "pending" | undefined;
-	if (data === undefined) {
-		chartState = props.result.isError ? "failed" : "pending";
-	}
-	const openPeriod = (at: string, which: "current" | "comparison") => {
-		const bucket =
-			which === "current"
-				? model?.current.buckets.find((row) => row.date === at)
-				: model?.previous?.buckets.find((row) => row.date === at);
-		if (bucket === undefined || data === undefined) {
-			return;
-		}
-		const caption = periodCaption(bucket.period);
-		const filter = metricFilter(props.metric, props.mediaType);
-		props.onDrill({
-			periodCaption: caption,
-			title: `${metricLabels[props.metric]} · ${caption}`,
-			selection: selectionForPeriod(data.reporting.selection, bucket.period),
-			...filter,
-		});
-	};
-	const refresh = <QueryRefreshStatus label="trend" result={props.result} />;
+	const { metric, onDrill, mediaType } = props;
+	const formatValue = useCallback(
+		(value: number) => formatExactValue(value, metricUnit(metric)),
+		[metric],
+	);
+	const openPeriod = useCallback(
+		(bucket: { readonly period: ReportingPeriod }) => {
+			if (data === undefined) {
+				return;
+			}
+			const caption = periodCaption(bucket.period);
+			onDrill({
+				periodCaption: caption,
+				title: `${metricLabels[metric]} · ${caption}`,
+				selection: selectionForPeriod(data.reporting.selection, bucket.period),
+				...metricFilter(metric, mediaType),
+			});
+		},
+		[data, metric, mediaType, onDrill],
+	);
 	const window = data?.window;
 	return (
 		<Card className="flex min-w-0 flex-col gap-4">
@@ -598,7 +430,7 @@ function TrendRegion(props: {
 					/>
 				</div>
 			</header>
-			{refresh}
+			<QueryStatus label="trend" query={props.result} onRetry={props.result.refetch} />
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<span className="text-sm text-text-muted">
 					{window === undefined ? "Window dates unavailable" : periodCaption(window.period)}
@@ -620,54 +452,28 @@ function TrendRegion(props: {
 					</Button>
 				</div>
 			</div>
-			<PeriodTrendChart
-				state={chartState}
-				compact={props.compact}
-				timeZone={props.input.timeZone}
-				ariaLabel={`${metricLabels[props.metric]} by reporting period`}
-				label={period === null ? "Current period" : periodCaption(period)}
-				{...(previousPeriod === null ? {} : { comparisonLabel: periodCaption(previousPeriod) })}
-				formatValue={(value) => formatExactValue(value, metricUnit(props.metric))}
-				buckets={
-					model?.buckets.map(({ current, previous }) => {
-						const currentDetail = metricDetail(props.metric, current);
-						const previousDetail =
-							previous === null ? undefined : metricDetail(props.metric, previous);
-						return {
-							at: current.date,
-							value: current.value,
-							...(currentDetail === undefined ? {} : { detail: currentDetail }),
-							...(previous === null
-								? {}
-								: {
-										comparison: {
-											at: previous.date,
-											value: previous.value,
-											...(previousDetail === undefined ? {} : { detail: previousDetail }),
-										},
-									}),
-						};
-					}) ?? []
-				}
-				{...(chartState === "failed" ? { onRetry: props.result.refetch } : {})}
-				{...(model === null
-					? {}
-					: {
-							onSelect: (point: { readonly at: string }, which: "current" | "comparison") =>
-								openPeriod(point.at, which),
-						})}
-			/>
+			{data === undefined || model === null ? null : (
+				<PeriodTrendChart
+					onSelect={openPeriod}
+					compact={props.compact}
+					formatValue={formatValue}
+					timeZone={props.input.timeZone}
+					label={periodCaption(data.current.period)}
+					current={trendPoints(model.current.buckets, metric)}
+					ariaLabel={`${metricLabels[metric]} by reporting period`}
+					previous={
+						data.previous === null || model.previous === null
+							? undefined
+							: {
+									label: periodCaption(data.previous.period),
+									points: trendPoints(model.previous.buckets, metric),
+								}
+					}
+				/>
+			)}
 			{model?.partial ? (
 				<p className="text-sm text-warning">
 					Trend data is partial. Returned groups are shown; missing groups are not filled with zero.
-				</p>
-			) : null}
-			{model !== null && model.extraPrevious.length > 0 ? (
-				<ExtraPreviousValues metric={props.metric} buckets={model.extraPrevious} />
-			) : null}
-			{model?.previous?.partial ? (
-				<p className="text-sm text-warning">
-					Additional previous-period groups were truncated. Unreturned dates remain unknown.
 				</p>
 			) : null}
 		</Card>

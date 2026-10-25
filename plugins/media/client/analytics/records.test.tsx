@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, type Reported, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -15,13 +15,11 @@ import { act, type ComponentType, useState } from "react";
 
 import { mediaConsumptionReportRecipe } from "../../shared/consumption-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import {
-	type AnalyticsInput,
-	type MediaAnalyticsRecord,
-	type MediaConsumptionReport,
-	type RecordsDrillRequest,
-	type Reported,
-	reportingExecution,
+import type {
+	AnalyticsInput,
+	MediaAnalyticsRecord,
+	MediaConsumptionReport,
+	RecordsDrillRequest,
 } from "./model";
 import { MediaAnalyticsRecords } from "./records";
 
@@ -68,9 +66,9 @@ const reportFor = (
 				previous: aggregate([]),
 				rankings: aggregate([]),
 				activeWork: {
-					type: "rows",
 					items: [],
-					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+					type: "rows",
+					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 				},
 				coverage: aggregate([
 					{
@@ -83,7 +81,13 @@ const reportFor = (
 			},
 		}),
 	);
-	return { ...decoded, reporting: reportingExecution(input, Date.parse("2026-10-29T12:00:00Z")) };
+	return {
+		...decoded,
+		reporting: reportingExecution(input.selection, {
+			timeZone: input.timeZone,
+			now: Date.parse("2026-10-29T12:00:00Z"),
+		}),
+	};
 };
 const contribution = (
 	attribution: MediaAnalyticsRecord["contribution"]["attribution"] = {

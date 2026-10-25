@@ -2,11 +2,15 @@ import {
 	addCalendarDays,
 	addCalendarUnits,
 	type AnalyticsSectionProps,
+	calendarBuckets,
 	calendarDaysBetween,
 	calendarPeriod,
 	localDateOf,
+	type Reported,
+	type ReportingExecution,
+	type ReportingPeriod,
 	type ReportingSelection,
-	resolveReportingSelection,
+	selectionForPeriod,
 	startOfCalendarUnit,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
@@ -30,11 +34,7 @@ import type { mediaConsumptionReportRecipe } from "../../shared/consumption-reci
 
 export type AnalyticsInput = Omit<MediaAnalyticsInput, "now">;
 export type MediaAnalyticsSectionInput = AnalyticsSectionProps;
-export type ReportingGrouping = ReportingResolution["grouping"];
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
-export type ReportingPeriod = NonNullable<ReportingResolution["current"]>;
-export type ReportingResolution = ReturnType<typeof resolveReportingSelection>;
-export type Reported<Data> = Data & { readonly reporting: ReportingExecution };
 export type MediaAnalyticsStats = Recipe.Success<typeof mediaAnalyticsStatsRecipe>;
 export type MediaAnalyticsTrend = Recipe.Success<typeof mediaAnalyticsTrendRecipe>;
 export type MediaAnalyticsHours = Recipe.Success<typeof mediaAnalyticsHoursRecipe>;
@@ -57,13 +57,6 @@ export type RecordsDrillRequest = MediaAnalyticsFilter & {
 	readonly periodCaption: string;
 	readonly selection: ReportingSelection;
 };
-export type ReportingExecution = {
-	readonly now: number;
-	readonly anchorDate: string;
-	readonly resolved: ReportingResolution;
-	readonly selection: ReportingSelection;
-	readonly originalSelection: ReportingSelection;
-};
 export type SummaryChartsProps = {
 	readonly input: AnalyticsInput;
 	readonly stats?: Reported<MediaAnalyticsStats>;
@@ -76,30 +69,9 @@ export const analyticsInput = ({
 	timeZone,
 	selection,
 }: AnalyticsSectionProps): AnalyticsInput => ({ timeZone, selection, reference: owner });
-export const selectionForPeriod = (
-	selection: ReportingSelection,
-	period: null | ReportingPeriod,
-): ReportingSelection => ({
-	comparison: "none",
-	grouping: selection.grouping,
-	range:
-		period === null
-			? { kind: "all-time" }
-			: { kind: "custom", endDate: period.endDate, startDate: period.startDate },
-});
-export const reportingExecution = (input: AnalyticsInput, now: number): ReportingExecution => {
-	const resolved = resolveReportingSelection(input.selection, { now, timeZone: input.timeZone });
-	return {
-		now,
-		resolved,
-		originalSelection: input.selection,
-		anchorDate: resolved.current?.endDate ?? localDateOf(now, input.timeZone),
-		selection: selectionForPeriod(
-			{ ...input.selection, grouping: resolved.grouping },
-			resolved.current,
-		),
-	};
-};
+/** Trend and daily windows end at the period's last day, or today for all time. */
+export const anchorDateOf = (reporting: ReportingExecution) =>
+	reporting.resolved.current?.endDate ?? localDateOf(reporting.now, reporting.resolved.timeZone);
 export const analyticsCalendarInput = (
 	input: AnalyticsInput,
 	reporting: ReportingExecution,
@@ -115,64 +87,22 @@ export const analyticsWindowInput = (
 	reporting: ReportingExecution,
 ): AnalyticsWindowInput => ({
 	...analyticsCalendarInput(input, reporting),
-	anchorDate: reporting.anchorDate,
+	anchorDate: anchorDateOf(reporting),
 });
 export const calendarReportingExecution = (
 	input: AnalyticsCalendarInput,
 	now: number,
-	anchorDate?: string,
 ): ReportingExecution => {
 	const resolved = resolveMediaAnalyticsPeriods({ ...input, now });
 	return {
 		now,
 		resolved,
-		originalSelection: input.selection,
-		anchorDate: anchorDate ?? resolved.current?.endDate ?? localDateOf(now, input.timeZone),
 		selection: selectionForPeriod(
 			{ ...input.selection, grouping: resolved.grouping },
 			resolved.current,
 		),
 	};
 };
-export const periodCaption = (period: null | ReportingPeriod) => {
-	if (period === null) {
-		return "All time";
-	}
-	return period.startDate === period.endDate
-		? period.startDate
-		: `${period.startDate} – ${period.endDate}`;
-};
-export const comparisonCaption = (reporting: ReportingExecution) =>
-	reporting.resolved.previous === null
-		? null
-		: `${periodCaption(reporting.resolved.current)} vs ${periodCaption(reporting.resolved.previous)}`;
-export const formatExactValue = (value: null | number, unit = "") =>
-	value === null || !Number.isFinite(value)
-		? "Unknown"
-		: `${Object.is(value, -0) ? "0" : String(value)}${unit === "" ? "" : ` ${unit}`}`;
-export const compareValues = (current: null | number, previous: null | number, partial = false) => {
-	if (
-		partial ||
-		current === null ||
-		previous === null ||
-		!Number.isFinite(current) ||
-		!Number.isFinite(previous)
-	) {
-		return { percent: null, absolute: null, kind: "unknown" as const };
-	}
-	let percent: null | number = null;
-	if (previous !== 0) {
-		percent = ((current - previous) / Math.abs(previous)) * 100;
-	} else if (current === 0) {
-		percent = 0;
-	}
-	return {
-		percent,
-		absolute: current - previous,
-		kind: previous === 0 && current > 0 ? ("new-activity" as const) : ("change" as const),
-	};
-};
-
 export const mediaTypeLabel = (slug: string) => {
 	switch (slug) {
 		case "group":
@@ -227,7 +157,9 @@ export const displayMediaType = (slug: string) => {
 	return slug === "podcast-episode" ? "podcast" : slug;
 };
 
-const bucketDistance = (from: string, until: string, grouping: ReportingGrouping) => {
+type Grouping = ReportingExecution["resolved"]["grouping"];
+
+const bucketDistance = (from: string, until: string, grouping: Grouping) => {
 	if (grouping === "year") {
 		return Number(until.slice(0, 4)) - Number(from.slice(0, 4));
 	}
@@ -241,20 +173,21 @@ const bucketDistance = (from: string, until: string, grouping: ReportingGrouping
 	return Math.round(calendarDaysBetween(from, until) / (grouping === "week" ? 7 : 1));
 };
 export type AnalyticsWindow = {
+	readonly grouping: Grouping;
 	readonly period: ReportingPeriod;
 	readonly nextCursor: null | string;
-	readonly grouping: ReportingGrouping;
 	readonly previousCursor: null | string;
 };
 export const analyticsWindow = (
 	reporting: ReportingExecution,
 	kind: "trend" | "daily",
+	anchorDate: string,
 	endCursor?: string,
 ): AnalyticsWindow => {
 	const grouping = kind === "daily" ? "day" : reporting.resolved.grouping;
 	const limit = kind === "daily" ? 400 : 32;
 	const range = reporting.resolved.current;
-	const last = range?.endDate ?? reporting.anchorDate;
+	const last = range?.endDate ?? anchorDate;
 	const cursor = endCursor === undefined || endCursor > last ? last : endCursor;
 	const endDate = range !== null && cursor < range.startDate ? range.startDate : cursor;
 	const first = addCalendarUnits(startOfCalendarUnit(endDate, grouping), grouping, -(limit - 1));
@@ -501,39 +434,26 @@ export const trendGrid = (
 	timeZone: TimeZone,
 	mediaType?: string,
 ) => {
-	const buckets = [];
 	const partial = trend.pageInfo?.hasMore ?? false;
-	for (
-		let date = startOfCalendarUnit(trend.period.startDate, trend.grouping);
-		date <= trend.period.endDate;
-		date = addCalendarUnits(date, trend.grouping, 1)
-	) {
-		const endDate = addCalendarDays(addCalendarUnits(date, trend.grouping, 1), -1);
-		const period = calendarPeriod(
-			date < trend.period.startDate ? trend.period.startDate : date,
-			endDate > trend.period.endDate ? trend.period.endDate : endDate,
-			timeZone,
-		);
-		const rows = trend.items.filter(
-			(row) => row.at === date && (mediaType === undefined || row.mediaType === mediaType),
-		);
-		buckets.push({
-			date,
-			period,
-			sources: rows,
-			at: period.startAt,
-			...chartValue(rows, metric, processing, partial),
-		});
-	}
+	const rows = trend.items.filter((row) => mediaType === undefined || row.mediaType === mediaType);
+	const buckets = calendarBuckets(rows, {
+		timeZone,
+		at: (row) => row.at,
+		period: trend.period,
+		grouping: trend.grouping,
+	}).map((bucket) =>
+		Object.assign(
+			{
+				date: bucket.date,
+				period: bucket.period,
+				sources: bucket.points,
+				at: bucket.period.startAt,
+			},
+			chartValue(bucket.points, metric, processing, partial),
+		),
+	);
 	return { buckets, partial, processing };
 };
-export const pairTrendBuckets = <Bucket>(
-	current: readonly Bucket[],
-	previous: readonly Bucket[],
-) => ({
-	extraPrevious: previous.slice(current.length),
-	buckets: current.map((bucket, index) => ({ current: bucket, previous: previous[index] ?? null })),
-});
 export const trendModel = (
 	current: MediaAnalyticsTrend,
 	previous: null | MediaAnalyticsTrend,
@@ -549,7 +469,6 @@ export const trendModel = (
 		current: currentGrid,
 		previous: previousGrid,
 		partial: currentGrid.partial || (previousGrid?.partial ?? false),
-		...pairTrendBuckets(currentGrid.buckets, previousGrid?.buckets ?? []),
 	};
 };
 export const hourlyModel = (
@@ -577,21 +496,22 @@ export const hourlyModel = (
 export const consistencyModel = (
 	data: MediaAnalyticsConsistency,
 	processing: MediaConsumptionReport["processing"],
-) => {
-	const days = [];
-	const counts = new Map(data.days.map((row) => [row.day, row.events]));
-	for (
-		let date = data.period.startDate;
-		date <= data.period.endDate;
-		date = addCalendarDays(date, 1)
-	) {
-		days.push({
-			date,
-			value: processing !== "ready" ? null : (counts.get(date) ?? (data.hasMore ? null : 0)),
-		});
-	}
-	return { days, processing, period: data.period, partial: data.hasMore };
-};
+	timeZone: TimeZone,
+) => ({
+	processing,
+	period: data.period,
+	partial: data.hasMore,
+	days: calendarBuckets(data.days, {
+		timeZone,
+		grouping: "day",
+		period: data.period,
+		at: (row) => row.day,
+	}).map((bucket) => ({
+		date: bucket.date,
+		period: bucket.period,
+		value: processing !== "ready" ? null : (bucket.points[0]?.events ?? (data.hasMore ? null : 0)),
+	})),
+});
 export const rankingModel = (
 	rows: MediaAnalyticsRanking["items"],
 	processing: MediaConsumptionReport["processing"],

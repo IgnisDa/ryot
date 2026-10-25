@@ -1,15 +1,10 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import {
-	createRyotQuery,
-	nextPageCursor,
-	PaginationError,
-} from "@ryot-app/plugin-client-sdk/react";
+import { type Reported, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotQuery, type ReportingPageParam } from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	mediaAnalyticsConsistencyRecipe,
 	mediaAnalyticsHoursRecipe,
-	type MediaAnalyticsPeriods,
-	mediaAnalyticsPeriods,
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
 	mediaAnalyticsStatsRecipe,
@@ -31,46 +26,13 @@ import {
 	type MediaAnalyticsStats,
 	type MediaAnalyticsTrend,
 	type MediaConsumptionReport,
-	type Reported,
-	type ReportingExecution,
-	reportingExecution,
 } from "./model";
 
-export type AnalyticsPageInput<Input> = Input & { readonly page?: AnalyticsPageParam };
-export type AnalyticsPageParam = null | {
-	readonly after: string;
-	readonly anchorDate: string;
-	readonly periods: MediaAnalyticsPeriods;
-};
+export type AnalyticsPageInput<Input> = Input & { readonly page?: ReportingPageParam };
 export const analyticsPageInput = <Input>(
 	input: Input,
-	page: AnalyticsPageParam,
+	page: ReportingPageParam,
 ): AnalyticsPageInput<Input> => ({ ...input, page });
-type CursorPage = {
-	readonly reporting: ReportingExecution;
-	readonly pageInfo: MediaAnalyticsRecords["pageInfo"];
-};
-export const nextAnalyticsPage = (
-	page: CursorPage,
-	param: AnalyticsPageParam = null,
-	pages: readonly CursorPage[] = [],
-): AnalyticsPageParam => {
-	const after = nextPageCursor(page);
-	if (
-		after !== null &&
-		(param?.after === after ||
-			pages.slice(0, -1).some((previous) => nextPageCursor(previous) === after))
-	) {
-		throw new PaginationError({ reason: "cursor-did-not-advance" });
-	}
-	return after === null
-		? null
-		: {
-				after,
-				anchorDate: page.reporting.anchorDate,
-				periods: mediaAnalyticsPeriods(page.reporting.resolved),
-			};
-};
 
 export const mediaAnalyticsReportQuery = createRyotQuery<
 	AnalyticsInput,
@@ -79,7 +41,7 @@ export const mediaAnalyticsReportQuery = createRyotQuery<
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting = reportingExecution(input, now);
+			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
 			const report = yield* client.data.query(mediaConsumptionReportRecipe({ ...input, now }));
 			return { ...report, reporting };
 		}),
@@ -112,8 +74,8 @@ export const mediaAnalyticsTrendQuery = createRyotQuery<
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now, input.anchorDate);
-			const window = analyticsWindow(reporting, "trend", input.endCursor);
+			const reporting = calendarReportingExecution(input, now);
+			const window = analyticsWindow(reporting, "trend", input.anchorDate, input.endCursor);
 			const previous = comparisonWindow(reporting, window);
 			const extra = extraPreviousWindow(reporting, window, previous);
 			const results = yield* Effect.all(
@@ -190,8 +152,8 @@ export const mediaAnalyticsConsistencyQuery = createRyotQuery<
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now, input.anchorDate);
-			const window = analyticsWindow(reporting, "daily", input.endCursor);
+			const reporting = calendarReportingExecution(input, now);
+			const window = analyticsWindow(reporting, "daily", input.anchorDate, input.endCursor);
 			const consistency = yield* client.data.query(
 				mediaAnalyticsConsistencyRecipe({ ...input, now, window: window.period }),
 			);
@@ -211,14 +173,10 @@ export const mediaAnalyticsRankingQuery = createRyotQuery<
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting =
-				input.page == null
-					? reportingExecution(input, now)
-					: calendarReportingExecution(
-							{ ...input, periods: input.page.periods },
-							now,
-							input.page.anchorDate,
-						);
+			const reporting = reportingExecution(input.page?.selection ?? input.selection, {
+				now,
+				timeZone: input.timeZone,
+			});
 			const ranking = yield* client.data.query(
 				mediaAnalyticsRankingRecipe({
 					...input,
@@ -242,14 +200,10 @@ export const mediaAnalyticsRecordsQuery = createRyotQuery<
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting =
-				input.page == null
-					? reportingExecution(input, now)
-					: calendarReportingExecution(
-							{ ...input, periods: input.page.periods },
-							now,
-							input.page.anchorDate,
-						);
+			const reporting = reportingExecution(input.page?.selection ?? input.selection, {
+				now,
+				timeZone: input.timeZone,
+			});
 			const records = yield* client.data.query(
 				mediaAnalyticsRecordsRecipe({
 					...input,

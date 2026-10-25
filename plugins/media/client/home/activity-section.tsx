@@ -14,7 +14,6 @@ import { useEffect } from "react";
 
 import { type MediaActivity, mediaActivityRecipe } from "../../shared/activity-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { formatDateOnlyLabel } from "../media/date";
 import { type MediaRailStatus, MediaSectionFrame } from "../media/entity-rail";
 import { classifyRyotQueryResult } from "../media/query-state";
 import { mediaCountLabel } from "../media/summary-state";
@@ -27,6 +26,9 @@ import {
 } from "./activity-model";
 
 const TITLE = "Your activity";
+
+const formatActivity = (value: number) =>
+	value === 0 ? "No activity" : mediaCountLabel(value, "update");
 
 type MediaActivityInput = { readonly timeZone: TimeZone };
 type MediaActivityResult = { readonly window: ActivityWindow; readonly activity: MediaActivity };
@@ -105,11 +107,9 @@ function ActivityBody(props: {
 				<CalendarHeatmap
 					weekStart={1}
 					compact={props.compact}
+					formatValue={formatActivity}
 					days={activityDays(window, counts)}
 					ariaLabel="Activity over the last 52 weeks"
-					formatTooltip={({ date, value }) =>
-						`${value === 0 ? "No activity" : mediaCountLabel(value, "update")} on ${formatDateOnlyLabel(date)}`
-					}
 				/>
 				{shares.length === 0 ? null : (
 					<RankedBarList rows={shares} formatValue={({ key }) => shareLabels.get(key) ?? ""} />

@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotInfiniteQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	periodCaption,
+	PluginId,
+	type ReportingExecution,
+	reportingExecution,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	reportingPageParam,
+	useRyotInfiniteQuery,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -19,11 +28,7 @@ import {
 	analyticsCalendarInput,
 	type AnalyticsInput,
 	analyticsWindowInput,
-	calendarReportingExecution,
 	type MediaAnalyticsRecord,
-	periodCaption,
-	type ReportingExecution,
-	reportingExecution,
 } from "./model";
 import {
 	analyticsPageInput,
@@ -34,7 +39,6 @@ import {
 	mediaAnalyticsReportQuery,
 	mediaAnalyticsStatsQuery,
 	mediaAnalyticsTrendQuery,
-	nextAnalyticsPage,
 } from "./queries";
 
 afterEach(disposePluginBridges);
@@ -61,14 +65,14 @@ const reportResponse = (pending = 0) => ({
 		reviews: aggregate([]),
 		previous: aggregate([]),
 		rankings: aggregate([]),
-		activeWork: {
-			type: "rows" as const,
-			items: [],
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-		},
 		coverage: aggregate(
 			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
 		),
+		activeWork: {
+			items: [],
+			type: "rows" as const,
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+		},
 	},
 });
 const cursorResponse = (
@@ -107,7 +111,7 @@ function RankingProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -136,7 +140,7 @@ function RecordsProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -155,7 +159,10 @@ function RecordsProbe() {
 		</>
 	);
 }
-const captured = reportingExecution(input, Date.parse("2026-11-01T18:00:00Z"));
+const captured = reportingExecution(input.selection, {
+	timeZone: input.timeZone,
+	now: Date.parse("2026-11-01T18:00:00Z"),
+});
 function UnmountProbe() {
 	const [visible, setVisible] = useState(true);
 	return (
@@ -269,7 +276,10 @@ function SupplementalProbe({ reporting }: { readonly reporting: ReportingExecuti
 	);
 }
 const monthProbe = (selected: AnalyticsInput, capturedNow: number): ComponentType => {
-	const parent = reportingExecution(selected, capturedNow);
+	const parent = reportingExecution(selected.selection, {
+		now: capturedNow,
+		timeZone: selected.timeZone,
+	});
 	return function MonthProbe() {
 		const stats = useRyotQuery(mediaAnalyticsStatsQuery, analyticsCalendarInput(selected, parent));
 		const trend = useRyotQuery(mediaAnalyticsTrendQuery, analyticsWindowInput(selected, parent));
@@ -815,30 +825,6 @@ describe("Media analytics query adapters", () => {
 				}
 			}),
 	);
-	it("rejects malformed, repeated, and cyclic continuations", () => {
-		const reporting = reportingExecution(input, 0);
-		const first = { reporting, pageInfo: { limit: 100, hasMore: true, nextCursor: "one" } };
-		const second = { reporting, pageInfo: { limit: 100, hasMore: true, nextCursor: "two" } };
-		expect(() =>
-			nextAnalyticsPage({ ...first, pageInfo: { ...first.pageInfo, nextCursor: null } }),
-		).toThrow();
-		const capturedPage = nextAnalyticsPage(first);
-		if (capturedPage === null) {
-			throw new Error("Expected a continuation");
-		}
-		expect(capturedPage).not.toHaveProperty("reporting");
-		expect(capturedPage).not.toHaveProperty("now");
-		expect(() => nextAnalyticsPage(first, { ...capturedPage, after: "one" })).toThrow();
-		expect(() =>
-			nextAnalyticsPage(first, { ...capturedPage, after: "two" }, [first, second, first]),
-		).toThrow();
-		const later = calendarReportingExecution(
-			{ ...input, periods: capturedPage.periods },
-			reporting.now + 1234,
-			capturedPage.anchorDate,
-		);
-		expect(nextAnalyticsPage({ ...first, reporting: later })).toEqual(capturedPage);
-	});
 	it.live("keeps append cursor errors visible and owner changes separate", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();

@@ -1,4 +1,9 @@
-import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	compareValues,
+	formatExactValue,
+	periodCaption,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { Card, Notice, StatStrip } from "@ryot-app/plugin-ui-sdk";
 
 import {
@@ -6,11 +11,8 @@ import {
 	consumptionMeasureUnits,
 } from "../../shared/consumption-allocation";
 import {
-	compareValues,
-	formatExactValue,
 	type MediaAnalyticsStats,
 	mediaTypeLabel,
-	periodCaption,
 	reviewModel,
 	type SummaryChartsProps,
 	summaryModel,
@@ -40,7 +42,7 @@ const comparisonDetail = (
 	if (previousCaption === null) {
 		return `${currentCaption} · No previous period`;
 	}
-	const comparison = compareValues(current, previous ?? null, partial);
+	const comparison = compareValues(partial ? null : current, previous ?? null);
 	const periods = `${currentCaption} vs ${previousCaption}`;
 	if (comparison.kind === "unknown") {
 		return `${periods} · Change unavailable${partial ? " · Partial lower bound" : ""}`;

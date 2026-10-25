@@ -102,14 +102,14 @@ const reportResponse = (pending = 0) => ({
 		reviews: aggregate([]),
 		previous: aggregate([]),
 		rankings: aggregate([]),
-		activeWork: {
-			type: "rows" as const,
-			items: [],
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-		},
 		coverage: aggregate(
 			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
 		),
+		activeWork: {
+			items: [],
+			type: "rows" as const,
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+		},
 	},
 });
 
@@ -171,13 +171,15 @@ describe("media analytics section", () => {
 				page.replyQuery(first.requestId, { outcome: "failure", reason: "query-failed" });
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("alert").textContent).toContain("could not be loaded"),
+						expect(screen.getByRole("alert").textContent).toContain(
+							"Could not load media analytics.",
+						),
 					),
 				);
 				expect(statsRequests(page)).toHaveLength(0);
 
 				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Retry report" }));
+					fireEvent.click(screen.getByRole("button", { name: "Retry media analytics" }));
 				});
 				const retry = yield* Effect.promise(() =>
 					waitFor(() => {
@@ -240,14 +242,16 @@ describe("media analytics section", () => {
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain(
-								"breakdowns could not be loaded",
+								"Could not load media analytics breakdowns.",
 							),
 						),
 					);
 					expect(screen.getByRole("tab", { name: "Charts" })).toBeDefined();
 
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Retry breakdowns" }));
+						fireEvent.click(
+							screen.getByRole("button", { name: "Retry media analytics breakdowns" }),
+						);
 					});
 					const statsRetry = yield* Effect.promise(() =>
 						waitFor(() => {
@@ -289,13 +293,15 @@ describe("media analytics section", () => {
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain(
-								"breakdowns could not be refreshed",
+								"Could not update media analytics breakdowns.",
 							),
 						),
 					);
 					expect(screen.getByRole("tablist")).toBeDefined();
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Retry breakdowns" }));
+						fireEvent.click(
+							screen.getByRole("button", { name: "Retry media analytics breakdowns" }),
+						);
 					});
 					const refreshedStats = yield* Effect.promise(() =>
 						waitFor(() => {
@@ -309,7 +315,7 @@ describe("media analytics section", () => {
 						waitFor(() =>
 							expect(
 								screen.queryByText(
-									"Media analytics breakdowns could not be refreshed. The last loaded breakdowns are still shown.",
+									"Could not update media analytics breakdowns. Showing the last loaded values.",
 								),
 							).toBeNull(),
 						),
@@ -346,14 +352,16 @@ describe("media analytics section", () => {
 				page.replyQuery(refresh.requestId, { outcome: "failure", reason: "query-failed" });
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("alert").textContent).toContain("could not be refreshed"),
+						expect(screen.getByRole("alert").textContent).toContain(
+							"Could not update media analytics.",
+						),
 					),
 				);
 				expect(screen.getByRole("tablist")).toBeDefined();
 				expect(screen.queryByText("Loading media analytics…")).toBeNull();
 
 				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Retry report" }));
+					fireEvent.click(screen.getByRole("button", { name: "Retry media analytics" }));
 				});
 				const retry = yield* Effect.promise(() =>
 					waitFor(() => {
