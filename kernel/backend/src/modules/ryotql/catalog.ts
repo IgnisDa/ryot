@@ -332,22 +332,20 @@ const projectionStreamStatus = sql`case when w.plugin_revision_id = g.active_rev
 then case when w.completed_revision = s.revision then 'ready'
 	when j.status = 'failed' then 'failed' else 'pending' end end`;
 
+const projectionDeclarations = (userId: null | string) => sql`
+	select distinct d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
+	from user_event_schema d where d.is_effective and d.projection is not null
+	and ${userId === null ? sql`true` : sql`d.user_id = ${userId}`}`;
+
 const eventSource: CatalogSource = (context) => {
 	const value = context.fields.has("projection");
 	const status = context.fields.has("projectionStatus");
 	if (!value && !status) {
-		return { ctes: {}, from: context.source };
+		return { ctes: noCtes, from: context.source };
 	}
 	const declarations = context.relation("projectionDeclarations");
 	return {
-		ctes: status
-			? {
-					projectionDeclarations: sql`
-						select distinct d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
-						from user_event_schema d where d.is_effective and d.projection is not null
-						and ${context.userId === null ? sql`true` : sql`d.user_id = ${context.userId}`}`,
-				}
-			: {},
+		ctes: status ? { projectionDeclarations: projectionDeclarations(context.userId) } : noCtes,
 		from: sql`(select e.*
 			${value ? sql`, case when ${projectionStreamStatus} = 'ready' then p.properties end as projection_value` : sql``}
 			${status ? sql`, coalesce(${projectionStreamStatus}, case when d.slug is not null then 'pending' else 'none' end) as projection_status` : sql``}
@@ -466,6 +464,27 @@ const eventStream: CatalogTable = {
 		revision: physicalField("revision", "number", false),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
 		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+		projectionStatus: {
+			kind: "text",
+			nullable: false,
+			resolve: ({ sqlAlias }) => sql`coalesce(${sql.raw(sqlAlias)}.projection_status, 'none')`,
+		},
+	},
+	source: (context) => {
+		if (!context.fields.has("projectionStatus")) {
+			return { ctes: noCtes, from: context.source };
+		}
+		const declarations = context.relation("projectionDeclarations");
+		return {
+			ctes: { projectionDeclarations: projectionDeclarations(context.userId) },
+			from: sql`(select s.*, coalesce(${projectionStreamStatus},
+					case when d.slug is not null then 'pending' else 'none' end) as projection_status
+				from ${context.source} s
+				${projectionStreamJoins}
+				left join entity subject on subject.id = s.entity_id
+				left join ${declarations} d on d.user_id = s.user_id and d.entity_schema_slug = subject.entity_schema_slug
+					and d.plugin_id is not distinct from s.event_schema_plugin_id and d.slug = s.event_schema_slug)`,
+		};
 	},
 };
 

@@ -52,9 +52,10 @@ const reportResponse = (pending = 0) => ({
 		previousTypes: aggregate([]),
 		currentReviews: aggregate([]),
 		previousReviews: aggregate([]),
+		undated: aggregate([{ count: 0 }]),
+		processing: aggregate([{ pending, failed: 0 }]),
 		currentActiveDays: aggregate([{ activeDays: 0 }]),
 		previousActiveDays: aggregate([{ activeDays: 0 }]),
-		coverage: aggregate([{ pending, failed: 0, unknownDate: 0 }]),
 	},
 });
 const cursorResponse = (
@@ -245,7 +246,7 @@ const mount = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentTy
 		},
 	});
 const chartRequests = (page: ReturnType<typeof mount>) =>
-	page.queryRequests().filter(({ document }) => !Object.hasOwn(document.queries, "coverage"));
+	page.queryRequests().filter(({ document }) => !Object.hasOwn(document.queries, "processing"));
 const replyCharts = (page: ReturnType<typeof mount>, requests = chartRequests(page)) => {
 	for (const request of requests) {
 		const queries = request.document.queries;
@@ -274,9 +275,9 @@ describe("Media analytics query adapters", () => {
 				const page = mount(clock, CoupledProbe);
 				try {
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(1)),
+						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(1)),
 					);
-					for (const request of page.queryRequests("coverage")) {
+					for (const request of page.queryRequests("processing")) {
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
 					}
 					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(3)));
@@ -290,9 +291,9 @@ describe("Media analytics query adapters", () => {
 					);
 					yield* Effect.promise(() => clock.advance(1000));
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(2)),
+						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(2)),
 					);
-					for (const request of page.queryRequests("coverage").slice(1)) {
+					for (const request of page.queryRequests("processing").slice(1)) {
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
 					}
 					yield* Effect.promise(() =>
@@ -305,9 +306,9 @@ describe("Media analytics query adapters", () => {
 					expect(chartRequests(page)).toHaveLength(3);
 					yield* Effect.promise(() => clock.advance(1000));
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(3)),
+						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(3)),
 					);
-					for (const request of page.queryRequests("coverage").slice(2)) {
+					for (const request of page.queryRequests("processing").slice(2)) {
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}
 					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(6)));
@@ -320,7 +321,7 @@ describe("Media analytics query adapters", () => {
 						),
 					);
 					yield* Effect.promise(() => clock.advance(3000));
-					expect(page.queryRequests("coverage")).toHaveLength(3);
+					expect(page.queryRequests("processing")).toHaveLength(3);
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
@@ -363,7 +364,7 @@ describe("Media analytics query adapters", () => {
 						yield* Effect.promise(() =>
 							waitFor(() => expect(page.queryRequests()).toHaveLength(2)),
 						);
-						for (const request of page.queryRequests("coverage")) {
+						for (const request of page.queryRequests("processing")) {
 							expect(yield* documentText(request.document.queries["currentTypes"])).toContain(
 								sample.start,
 							);
@@ -398,7 +399,7 @@ describe("Media analytics query adapters", () => {
 		);
 	}
 	it.live(
-		"executes one seven-query summary and labels it from the same captured clock across refresh",
+		"executes one eight-query summary and labels it from the same captured clock across refresh",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -407,7 +408,7 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						expect(Object.keys(request.document.queries)).toHaveLength(7);
+						expect(Object.keys(request.document.queries)).toHaveLength(8);
 						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}

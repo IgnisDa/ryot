@@ -1,9 +1,11 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { and, castDate, column, gte, literal, lt, table } from "@ryot-app/plugin-kit/ryotql";
+import { calendarPeriod, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { bookRecipes } from "./book-recipes";
+import { consumptionPeriod } from "./consumption-recipes";
 import { podcastRecipes } from "./podcast-recipes";
 import { showRecipes } from "./show-recipes";
 
@@ -11,6 +13,27 @@ const rows = (items: readonly unknown[]) => ({
 	items,
 	type: "rows",
 	pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+});
+
+describe("consumption periods", () => {
+	it.each(["Pacific/Kiritimati", "Etc/GMT+12"])(
+		"prefilters occurrence time by a range covering local instants and nearby date-only evidence in %s",
+		(zone) => {
+			const period = calendarPeriod("2026-10-01", "2026-10-31", TimeZone.make(zone));
+			const event = table("event", "source");
+			const predicate = consumptionPeriod(event, period);
+			expect(predicate.type === "and" ? predicate.predicates[0] : undefined).toEqual(
+				and(
+					gte(column(event, "occurredAt"), castDate(literal("2026-09-30T00:00:00.000Z"))),
+					lt(column(event, "occurredAt"), castDate(literal("2026-11-02T00:00:00.000Z"))),
+				),
+			);
+			expect(Date.parse(period.startAt)).toBeGreaterThanOrEqual(
+				Date.parse("2026-09-30T00:00:00.000Z"),
+			);
+			expect(Date.parse(period.endAt)).toBeLessThanOrEqual(Date.parse("2026-11-02T00:00:00.000Z"));
+		},
+	);
 });
 
 describe("canonical consumption reads", () => {

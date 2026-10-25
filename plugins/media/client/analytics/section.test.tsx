@@ -99,13 +99,14 @@ const summaryResponse = (pending = 0) => ({
 		previousTypes: aggregate([]),
 		currentReviews: aggregate([]),
 		previousReviews: aggregate([]),
+		undated: aggregate([{ count: 0 }]),
+		processing: aggregate([{ pending, failed: 0 }]),
 		currentActiveDays: aggregate([{ activeDays: 0 }]),
 		previousActiveDays: aggregate([{ activeDays: 0 }]),
-		coverage: aggregate([{ pending, failed: 0, unknownDate: 0 }]),
 	},
 });
 
-const reportRequests = (page: ReturnType<typeof mountSection>) => page.queryRequests("coverage");
+const reportRequests = (page: ReturnType<typeof mountSection>) => page.queryRequests("processing");
 const queryText = (request: ReturnType<ReturnType<typeof mountSection>["queryRequests"]>[number]) =>
 	JSON.stringify(request.document);
 

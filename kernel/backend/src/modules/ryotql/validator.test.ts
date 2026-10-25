@@ -230,7 +230,14 @@ it("exposes only user-owned event streams and safe work fields", () => {
 	expect(eventStream?.name).toBe("event_stream");
 	expect(eventStream?.primaryKey).toEqual(["id"]);
 	expect(new Set(Object.keys(eventStream?.fields ?? {}))).toEqual(
-		new Set(["id", "entityId", "revision", "eventSchemaSlug", "eventSchemaPluginId"]),
+		new Set([
+			"id",
+			"entityId",
+			"revision",
+			"eventSchemaSlug",
+			"projectionStatus",
+			"eventSchemaPluginId",
+		]),
 	);
 	expect(eventStream?.visibility).toEqual({
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },

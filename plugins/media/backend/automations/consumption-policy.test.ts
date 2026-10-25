@@ -108,7 +108,7 @@ describe("consumption policy", () => {
 					yield* policyAutomationContext({
 						entitySchemaSlug: "book",
 						eventSchemaSlug: "progress",
-						properties: { progressPages: 40, calendarDate: "2026-02-01" },
+						properties: { progressPages: 40, calendarDate: "2025-12-31" },
 					}),
 				),
 			).toEqual({
@@ -178,24 +178,28 @@ describe("consumption policy", () => {
 			expect(test.reads()).toBe(0);
 		}),
 	);
-	it.effect("rejects duplicate amount forms, contradictory date evidence and game estimates", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const inputs: Parameters<typeof policyAutomationContext>[0][] = [
-				{ properties: { sourceRun: "seen:missing-basis" } },
-				{ entitySchemaSlug: "book", properties: { progressPages: 40, progressPercent: 40 } },
-				{ properties: { dateUnknown: true, calendarDate: "2026-02-01" } },
-				{
-					entitySchemaSlug: "video-game",
-					properties: { consumptionBasis: { total: 999, unit: "minutes" } },
-				},
-			];
-			for (const input of inputs) {
-				expect(yield* test.run(yield* policyAutomationContext(input))).toMatchObject({
-					action: "reject",
-				});
-			}
-			expect(test.reads()).toBe(0);
-		}),
+	it.effect(
+		"rejects duplicate amount forms, contradictory or distant date evidence and game estimates",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const inputs: Parameters<typeof policyAutomationContext>[0][] = [
+					{ properties: { sourceRun: "seen:missing-basis" } },
+					{ entitySchemaSlug: "book", properties: { progressPages: 40, progressPercent: 40 } },
+					{ properties: { dateUnknown: true, calendarDate: "2026-01-01" } },
+					{ properties: { calendarDate: "2026-01-03" } },
+					{ properties: { calendarDate: "2025-12-30" } },
+					{
+						entitySchemaSlug: "video-game",
+						properties: { consumptionBasis: { total: 999, unit: "minutes" } },
+					},
+				];
+				for (const input of inputs) {
+					expect(yield* test.run(yield* policyAutomationContext(input))).toMatchObject({
+						action: "reject",
+					});
+				}
+				expect(test.reads()).toBe(0);
+			}),
 	);
 });

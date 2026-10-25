@@ -68,27 +68,30 @@ export const consumptionActiveDay = (event: Table, timeZone: TimeZone) => {
 	);
 };
 
+const DAY_MS = 86_400_000;
+const calendarDayStart = (date: string, offsetDays: number) =>
+	new Date(Date.parse(`${date}T00:00:00.000Z`) + offsetDays * DAY_MS).toISOString();
+
+/**
+ * Attribution equals the source `calendarDate` or `occurredAt`. The consumption policy keeps a
+ * calendar date within one day of the UTC date of `occurredAt`, so the widened `occurredAt` range is
+ * an index-served superset of both branches.
+ */
 export const consumptionPeriod = (event: Table, period: null | ReportingPeriod) => {
 	if (period === null) {
 		return consumptionReady(event);
 	}
-	const kind = castText(consumptionValue(event, "attribution", "kind"));
-	const date = castText(consumptionValue(event, "attribution", "value"));
 	const calendarDate = propertyText(event, "calendarDate");
 	return and(
+		withinPeriod(column(event, "occurredAt"), {
+			endAt: calendarDayStart(period.endDate, 2),
+			startAt: calendarDayStart(period.startDate, -1),
+		}),
 		consumptionReady(event),
 		eq(coalesce(propertyBoolean(event, "dateUnknown"), literal(false)), literal(false)),
 		or(
 			and(gte(calendarDate, literal(period.startDate)), lte(calendarDate, literal(period.endDate))),
 			and(isNull(calendarDate), withinPeriod(column(event, "occurredAt"), period)),
-		),
-		or(
-			and(eq(kind, literal("instant")), withinPeriod(castDate(date), period)),
-			and(
-				eq(kind, literal("date")),
-				gte(date, literal(period.startDate)),
-				lte(date, literal(period.endDate)),
-			),
 		),
 	);
 };

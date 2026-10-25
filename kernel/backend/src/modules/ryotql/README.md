@@ -105,6 +105,8 @@ Canonical `contentGeneration` advances only when entity `name` or canonical `pro
 
 `plugin` revision fields (`name`, `icon`, `description`, `version`, `contentHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.packageId` and `integration.packageId` derive from the exact installation.
 
+`event.projectionStatus` and `eventStream.projectionStatus` use the same freshness gate; the stream field reports one status per stream, so a reader can detect pending or failed processing without visiting every event.
+
 `savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
 
 `calendarSource` reads from `user_calendar_source_effective`: the active revision's calendar sources of the user's effective installations, keyed by `pluginId` and `slug`, with `isHidden` from the user's per-source override. It has no `id`, so queries order by explicit fields.

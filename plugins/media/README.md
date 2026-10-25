@@ -610,7 +610,7 @@ Progress, completion, independent item, dropped and on-hold events carry these f
 | `progressPercent`               | Source-supported percent in `(0, 100]`, retained without decimal rounding. Exclusive with page/episode/chapter quantities. Missing denominator does not establish an absolute amount.                                                                                                                                                                                                                               |
 | `animeEpisode` / `mangaChapter` | Cumulative consumed-through position. Anime uses integer episodes; Manga permits fractional chapters in stored facts. `mangaVolume` remains separate volume evidence, never a chapter conversion.                                                                                                                                                                                                                   |
 | `timeSpent`                     | Finite nonnegative cumulative minutes in this run, including on progress. Original manual time is recorded evidence. Empty means unknown; explicit zero is known.                                                                                                                                                                                                                                                   |
-| `calendarDate`                  | Valid `YYYY-MM-DD` date-only evidence. Keep this calendar day in every reporting timezone. Never use it in hourly activity.                                                                                                                                                                                                                                                                                         |
+| `calendarDate`                  | Valid `YYYY-MM-DD` date-only evidence within one day of the UTC date of `occurredAt`. Keep this calendar day in every reporting timezone. Never use it in hourly activity.                                                                                                                                                                                                                                          |
 | `dateUnknown`                   | `true` means no reliable consumption date. Cannot coexist with `calendarDate`. The row's `occurredAt` is then only a deterministic ordering timestamp.                                                                                                                                                                                                                                                              |
 | `sourceRun`                     | Optional nonblank source-owned identity, at most 200 characters. All observations from one independent imported run share it. Distinct explicit source records use distinct identities, even when their other fields match. Immutable on edits. No entity/event references are embedded in this identity.                                                                                                           |
 | `sourceProgress`                | Optional immutable `{ unit: "episodes" \| "chapters" \| "volumes", position: number, percent: number }`, retaining a source's ambiguous position/percent pair, including partial volume-only evidence. Position is nonnegative; percent is `[0, 100]`. This raw evidence does not itself establish consumption and never drives automatic completion.                                                               |
@@ -715,15 +715,17 @@ whose completion repair belongs to the parent.
 
 `shared/consumption-recipes.ts` holds the shared predicates: a contribution is ready when its
 projection is visible (the catalog exposes projections only for ready streams), and a reporting period
-filters contributions by attribution before aggregation. `shared/analytics-recipes.ts` builds the
+filters contributions before aggregation on the source `calendarDate` or `occurredAt` that attribution
+copies. The consumption policy keeps a `calendarDate` within one day of the UTC date of `occurredAt`,
+so each period also bounds `occurredAt` to one day before its start date through two days after its end
+date, which the event `(user, plugin, schema, occurred_at)` index serves. `shared/analytics-recipes.ts` builds the
 Analytics reads from them:
 
-- `mediaAnalyticsSummaryRecipe` is one document: full-history coverage (pending, failed and undated
-  counts), and per period the per-media-type measures with distinct titles and active days, global
+- `mediaAnalyticsSummaryRecipe` is one document: processing from the status of the consumption
+  event streams, the undated count from `dateUnknown` source rows, and per period the per-media-type measures with distinct titles and active days, global
   active days, and per-type reviews (rated count and average, on the review's own date, for Media
-  entities only). Previous-period queries are omitted without a comparison. Only coverage reads
-  stream status. Processing is pending while any contribution is not ready and failed when a
-  projection failed.
+  entities only). Previous-period queries are omitted without a comparison. Processing is pending
+  while any consumption stream is not ready and failed when a stream's projection failed.
 - `mediaAnalyticsTrendRecipe` groups by one local calendar bucket per row (date-only evidence keeps
   its UTC calendar date) for the current and optional previous period, optionally for one media type.
   The contract's bucket limit bounds rows, so there is no client windowing. The daily heatmap reuses

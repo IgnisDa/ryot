@@ -27,7 +27,7 @@ describe("media activity recipe", () => {
 	it("bounds every aggregate by the window and counts timed and date-only days together", () => {
 		const { queries } = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document;
 		for (const name of ["days", "figures", "mediaTypes"]) {
-			expect(JSON.stringify(queries[name]?.where)).toContain("attribution");
+			expect(JSON.stringify(queries[name]?.where)).toContain("calendarDate");
 		}
 		expect(JSON.stringify(queries["days"]?.where)).toContain("activeObservation");
 		expect(JSON.stringify(queries["reviews"]?.where)).toContain(INPUT.from);

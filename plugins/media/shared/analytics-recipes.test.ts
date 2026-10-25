@@ -50,25 +50,25 @@ const allTime = {
 const zeros = Object.fromEntries(
 	Object.keys(consumptionMeasures(table("event", "zero"))).map((key) => [key, 0]),
 );
-const coverage = (pending: number, failed: number) =>
-	aggregate([{ failed, pending, unknownDate: 3 }]);
 
 describe("Media analytics recipes", () => {
 	it("reads one summary document and omits previous-period queries without a comparison", () => {
 		expect(Object.keys(mediaAnalyticsSummaryRecipe(input).document.queries).sort()).toEqual([
-			"coverage",
 			"currentActiveDays",
 			"currentReviews",
 			"currentTypes",
 			"previousActiveDays",
 			"previousReviews",
 			"previousTypes",
+			"processing",
+			"undated",
 		]);
 		expect(Object.keys(mediaAnalyticsSummaryRecipe(allTime).document.queries).sort()).toEqual([
-			"coverage",
 			"currentActiveDays",
 			"currentReviews",
 			"currentTypes",
+			"processing",
+			"undated",
 		]);
 		for (const value of [input, allTime]) {
 			expect(validate(mediaAnalyticsSummaryRecipe(value).document)).toBeNull();
@@ -78,13 +78,14 @@ describe("Media analytics recipes", () => {
 		{ failed: 0, pending: 0, processing: "ready" },
 		{ failed: 0, pending: 2, processing: "pending" },
 		{ failed: 1, pending: 2, processing: "failed" },
-	])("derives processing from full-history coverage: %s", ({ failed, pending, processing }) => {
+	])("derives processing from stream status: %s", ({ failed, pending, processing }) => {
 		const result = Result.getOrThrow(
 			mediaAnalyticsSummaryRecipe(allTime).decode({
 				data: {
 					currentTypes: aggregate([]),
 					currentReviews: aggregate([]),
-					coverage: coverage(pending, failed),
+					undated: aggregate([{ count: 3 }]),
+					processing: aggregate([{ failed, pending }]),
 					currentActiveDays: aggregate([{ activeDays: 0 }]),
 				},
 			}),
@@ -96,15 +97,18 @@ describe("Media analytics recipes", () => {
 			current: { types: [], reviews: [], activeDays: 0 },
 		});
 	});
-	it("applies each period before aggregation and only reads stream status for coverage", () => {
+	it("applies each period before aggregation and reads processing from streams", () => {
 		const { queries } = mediaAnalyticsSummaryRecipe(input).document;
 		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-30T04:00:00.000Z");
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-29T00:00:00.000Z");
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-10-31T00:00:00.000Z");
 		expect(JSON.stringify(queries["previousTypes"]?.where)).toContain("2026-08-31T04:00:00.000Z");
 		expect(JSON.stringify(queries["previousReviews"]?.where)).toContain("2026-08-31T04:00:00.000Z");
 		for (const name of ["currentTypes", "currentReviews", "currentActiveDays"]) {
 			expect(JSON.stringify(queries[name])).not.toContain("projectionStatus");
 		}
-		expect(JSON.stringify(queries["coverage"])).toContain("projectionStatus");
+		expect(queries["processing"]?.from.table).toBe("eventStream");
+		expect(JSON.stringify(queries["undated"])).not.toContain("projection");
 		expect(queries["currentReviews"]?.output).toMatchObject({
 			type: "aggregate",
 			measures: arrayContaining([

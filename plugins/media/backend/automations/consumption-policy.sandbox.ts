@@ -73,6 +73,8 @@ const targetRecipe = defineRecipe(
 	},
 );
 
+const DAY_MS = 86_400_000;
+
 const reject = (reason: string) => ({ reason, action: "reject" }) as const;
 
 const decide = Effect.fn("retainConsumptionFacts")(function* (
@@ -100,8 +102,17 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	) {
 		return reject("The source run is immutable");
 	}
-	if (properties["calendarDate"] !== undefined && properties["dateUnknown"] === true) {
+	const calendarDate = properties["calendarDate"];
+	if (calendarDate !== undefined && properties["dateUnknown"] === true) {
 		return reject("A calendar date cannot be unknown");
+	}
+	if (
+		typeof calendarDate === "string" &&
+		Math.abs(
+			Date.parse(`${calendarDate}T00:00:00.000Z`) - Date.parse(draft.occurredAt.slice(0, 10)),
+		) > DAY_MS
+	) {
+		return reject("A calendar date must be within one day of the occurrence time");
 	}
 	const progress = ["progressPages", "progressPercent", "animeEpisode", "mangaChapter"].filter(
 		(key) => properties[key] !== undefined,

@@ -10,6 +10,7 @@ import {
 	coalesce,
 	column,
 	conditional,
+	contains,
 	dateBucket,
 	defineRecipe,
 	descending,
@@ -51,7 +52,6 @@ import {
 	consumptionDetail,
 	consumptionNumber,
 	consumptionPeriod,
-	consumptionReady,
 	consumptionRows,
 	type ConsumptionScope,
 	consumptionScope,
@@ -222,26 +222,9 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 	const current = periodSummary(input, resolved.current, "current");
 	const previous =
 		resolved.previous === null ? undefined : periodSummary(input, resolved.previous, "previous");
-	const coverage = table("event", "coverageEvent");
+	const stream = table("eventStream", "coverageStream");
+	const undated = table("event", "undatedEvent");
 	return {
-		queries: {
-			currentTypes: current.types,
-			previousTypes: previous?.types,
-			currentReviews: current.reviews,
-			previousReviews: previous?.reviews,
-			currentActiveDays: current.activeDays,
-			previousActiveDays: previous?.activeDays,
-			coverage: selectedAggregate(coverage, {
-				where: and(consumptionScope(coverage, input), consumptionRows(coverage)),
-				measures: {
-					pending: countWhen(not(consumptionReady(coverage))),
-					failed: countWhen(eq(column(coverage, "projectionStatus"), literal("failed"))),
-					unknownDate: countWhen(
-						and(consumptionReady(coverage), eq(attributionKind(coverage), literal("unknown"))),
-					),
-				},
-			}),
-		},
 		map: (result) => {
 			const period = (
 				types: undefined | typeof result.currentTypes,
@@ -252,11 +235,11 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 					? null
 					: { types: types.items, reviews: reviews.items, activeDays: days.activeDays };
 			return Result.succeed({
-				unknownDate: result.coverage.unknownDate ?? 0,
+				unknownDate: result.undated.count,
 				previous: period(result.previousTypes, result.previousReviews, result.previousActiveDays),
 				processing: consumptionProcessingState(
-					result.coverage.pending ?? 0,
-					result.coverage.failed ?? 0,
+					result.processing.pending ?? 0,
+					result.processing.failed ?? 0,
 				),
 				current: {
 					types: result.currentTypes.items,
@@ -264,6 +247,29 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 					activeDays: result.currentActiveDays.activeDays,
 				},
 			});
+		},
+		queries: {
+			currentTypes: current.types,
+			previousTypes: previous?.types,
+			currentReviews: current.reviews,
+			previousReviews: previous?.reviews,
+			currentActiveDays: current.activeDays,
+			previousActiveDays: previous?.activeDays,
+			undated: selectedAggregate(undated, {
+				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
+				where: and(
+					consumptionScope(undated, input),
+					consumptionRows(undated),
+					contains(column(undated, "properties"), literal({ dateUnknown: true })),
+				),
+			}),
+			processing: selectedAggregate(stream, {
+				where: and(consumptionScope(stream, input), consumptionRows(stream)),
+				measures: {
+					failed: countWhen(eq(column(stream, "projectionStatus"), literal("failed"))),
+					pending: countWhen(eq(column(stream, "projectionStatus"), literal("pending"))),
+				},
+			}),
 		},
 	};
 });
