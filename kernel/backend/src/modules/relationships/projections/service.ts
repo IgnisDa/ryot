@@ -466,50 +466,11 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						break;
 					}
 				}
-				let afterWork: string | undefined;
-				for (;;) {
-					const candidates = yield* repository.listCandidates(100, afterWork);
-					for (const work of candidates) {
-						const jobId = yield* session
-							.transaction(arrange(work.id))
-							.pipe(
-								Effect.catchTags({
-									DatabaseSessionStateError: Effect.die,
-									DbError: (error) =>
-										repository
-											.postponeCandidate(work.id)
-											.pipe(
-												Effect.andThen(
-													Effect.logWarning("Relationship projection admission failed", {
-														workId: work.id,
-														reason: error.message,
-													}),
-												),
-												Effect.as(null),
-											),
-								}),
-							);
-						if (jobId) {
-							yield* background
-								.dispatch(jobId)
-								.pipe(
-									Effect.catchTag("DbError", (error) =>
-										Effect.logWarning("Relationship projection dispatch failed", {
-											jobId,
-											reason: error.message,
-										}),
-									),
-								);
-						}
-					}
-					if (candidates.length < 100) {
-						break;
-					}
-					afterWork = candidates.at(-1)?.id;
-					if (afterWork === undefined) {
-						break;
-					}
-				}
+				yield* background.admitCandidates(
+					"Relationship projection",
+					repository.listCandidates,
+					arrange,
+				);
 			});
 
 			return { failed, process, request, reconcile, requestForAllUsers };

@@ -46,7 +46,11 @@ import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
 import { EventProjectionRepository } from "./projection-repository";
-import { type EventStreamBindingDeclaration, EventStreamRepository } from "./stream-repository";
+import {
+	type EventStreamBindingDeclaration,
+	type EventStreamBindingKey,
+	EventStreamRepository,
+} from "./stream-repository";
 
 const EventStreamClaim = Schema.Struct({
 	id: Schema.String,
@@ -631,56 +635,24 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			});
 
 			const reconcile = Effect.fn("EventStreamWorkService.reconcile")(function* () {
-				for (const { projection, ...declaration } of yield* repository.bindingDeclarations(100)) {
-					if (yield* bindDeclaration(declaration, projection.scriptSlug)) {
-						yield* repository.recordBinding(declaration);
-					}
-				}
-				let after: string | undefined;
+				let after: undefined | EventStreamBindingKey;
 				for (;;) {
-					const candidates: Effect.Success<ReturnType<typeof repository.listCandidates>> =
-						yield* repository.listCandidates(100, after);
-					for (const work of candidates) {
-						const jobId = yield* session
-							.transaction(arrange(work.id))
-							.pipe(
-								Effect.catchTags({
-									DatabaseSessionStateError: Effect.die,
-									DbError: (error) =>
-										repository
-											.postponeCandidate(work.id)
-											.pipe(
-												Effect.andThen(
-													Effect.logWarning("Projection stream admission failed", {
-														streamId: work.id,
-														reason: error.message,
-													}),
-												),
-												Effect.as(null),
-											),
-								}),
-							);
-						if (jobId) {
-							yield* background
-								.dispatch(jobId)
-								.pipe(
-									Effect.catchTag("DbError", (error) =>
-										Effect.logWarning("Projection stream dispatch failed", {
-											jobId,
-											reason: error.message,
-										}),
-									),
-								);
+					const declarations: Effect.Success<ReturnType<typeof repository.bindingDeclarations>> =
+						yield* repository.bindingDeclarations({
+							limit: 100,
+							...(after === undefined ? {} : { after }),
+						});
+					for (const { projection, ...declaration } of declarations) {
+						if (yield* bindDeclaration(declaration, projection.scriptSlug)) {
+							yield* repository.recordBinding(declaration);
 						}
 					}
-					if (candidates.length < 100) {
-						break;
-					}
-					after = candidates.at(-1)?.id;
-					if (after === undefined) {
+					after = declarations.at(-1);
+					if (declarations.length < 100 || after === undefined) {
 						break;
 					}
 				}
+				yield* background.admitCandidates("Projection stream", repository.listCandidates, arrange);
 			});
 			return { failed, prepare, process, request, reconcile, admitChange };
 		}),

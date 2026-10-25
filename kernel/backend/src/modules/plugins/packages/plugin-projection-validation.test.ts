@@ -104,17 +104,11 @@ it.effect(
 								projection: { ...projection, inputs },
 							},
 							{
-								name: "Evidence",
-								slug: "evidence",
+								name: "Source",
+								slug: "source",
 								propertiesSchema: {
 									fields: {
 										note: { label: "Note", description: "Note", type: "string" as const },
-										target: {
-											label: "Target",
-											description: "Target",
-											type: "string" as const,
-											reference: { kind: "entity-id" as const },
-										},
 										subject: {
 											label: "Subject",
 											description: "Subject",
@@ -132,18 +126,7 @@ it.effect(
 			yield* validatePluginManifestReferences(
 				withInputs([
 					{ scope: "entity", eventSchemaSlug: "projected" },
-					{ eventSchemaSlug: "evidence", scope: { property: "subject" } },
-				]),
-			);
-			const mapping = {
-				targetProperty: "target",
-				sourceProperty: "subject",
-				eventSchemaSlug: "evidence",
-			};
-			yield* validatePluginManifestReferences(
-				withInputs([
-					{ scope: "entity", eventSchemaSlug: "projected" },
-					{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
+					{ eventSchemaSlug: "source", scope: { property: "subject" } },
 				]),
 			);
 			expect(
@@ -152,56 +135,7 @@ it.effect(
 						validatePluginManifestReferences(
 							withInputs([
 								{ scope: "entity", eventSchemaSlug: "projected" },
-								{
-									scope: "session",
-									eventSchemaSlug: "projected",
-									through: { ...mapping, targetProperty: "note" },
-								},
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection mapping property note must be a declared entity reference"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
 								{ scope: "entity", eventSchemaSlug: "projected" },
-								{
-									scope: "session",
-									eventSchemaSlug: "projected",
-									through: { ...mapping, eventSchemaSlug: "missing" },
-								},
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection mapping schema missing is not declared"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
-								{ scope: "entity", eventSchemaSlug: "projected" },
-								{
-									scope: "session",
-									eventSchemaSlug: "projected",
-									through: { ...mapping, targetProperty: "subject" },
-								},
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection mapping properties must be distinct"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
-								{ scope: "entity", eventSchemaSlug: "projected" },
-								{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
-								{ scope: "session", through: mapping, eventSchemaSlug: "projected" },
 							]),
 						),
 					),
@@ -213,7 +147,7 @@ it.effect(
 						validatePluginManifestReferences(
 							withInputs([
 								{ scope: "entity", eventSchemaSlug: "projected" },
-								{ eventSchemaSlug: "evidence", scope: { property: "note" } },
+								{ eventSchemaSlug: "source", scope: { property: "note" } },
 							]),
 						),
 					),

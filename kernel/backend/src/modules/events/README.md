@@ -12,36 +12,13 @@ schema must be strict, non-empty, contain at most 20 fields, and have no field n
 the source event schema. The processor must be a script owned by that plugin; validation limits it to
 read-only host capabilities and disallows workflow dependencies.
 
-`inputs` is a non-empty list of same-plugin `{ eventSchemaSlug, scope }` selectors. `scope` is
-`"entity"`, `"session"`, or `{ property: "fieldName" }`; property scopes require a declared scalar
-entity-ID reference. A selector maps an input event to the output stream's entity. Each declaration
-includes its own event schema in entity scope. Declare every event schema and reference path read,
-including retained evidence and coordination records. Outputs remain restricted to the declaration's
-event schema and entity. Multiple output schemas can share one processor, each with its own stream.
-
-A selector can add one `through` mapping:
-
-```ts
-{
-  eventSchemaSlug: "observation",
-  scope: "session",
-  through: {
-    eventSchemaSlug: "dependency-evidence",
-    sourceProperty: "inputEntityId",
-    targetProperty: "outputEntityId",
-  },
-}
-```
-
-The selected entity reference matches `sourceProperty` on evidence events owned by the same user and
-plugin. `targetProperty` identifies each output entity. Both properties must be distinct scalar
-entity-ID references declared on the evidence schema. Nested mappings, array paths, undeclared
-references, and duplicate input paths are not supported. Each evidence event represents one edge;
-duplicate edges do not multiply a stream's revision increment within a write.
-
-The mapping evidence is an implicit input. Inserting, editing, moving, or deleting it invalidates its
-old and new output targets, even when no matching observation currently exists. Observation edits
-invalidate every mapped target atomically, without waiting for a plugin to page through children.
+A declaration's own event schema is always an input in entity scope. `inputs` optionally lists
+additional same-plugin `{ eventSchemaSlug, scope }` selectors. `scope` is `"entity"` or
+`{ property: "fieldName" }`; a property scope requires a declared scalar entity-ID reference. A
+selector maps an input event to the output stream's entity. Declare every event schema and reference
+path the processor reads; duplicate input paths are rejected. Outputs remain restricted to the
+declaration's event schema and entity. Multiple output schemas can share one processor, each with its
+own stream.
 
 The processor runs with the user-scoped `projection` subject and that account generation. This
 subject has read-only authority. The `event_projection` RyotQL table is also a read-only subject,
@@ -80,9 +57,8 @@ an edit or deletion that changed after preparation fails as stale.
 `EventsRepository.lockMutationReferences({ eventIds, sources? })` is the batch pre-lock entrypoint.
 `sources` contains every proposed source draft with its user, plugin, schema, entity, session, and
 properties. Current rows for `eventIds` supply the old references. Call it after account/catalog
-admission and before taking any entity/session row locks. It locks direct references, selected input
-references, and old/new mapping source and target references in entity-ID order using
-`FOR NO KEY UPDATE`.
+admission and before taking any entity/session row locks. It locks old and new entity, session, and
+selected input references in entity-ID order using `FOR NO KEY UPDATE`.
 
 Then acquire any group-owned entity/session locks, call `lockEventRows` with the same complete batch,
 and persist the writes. Stream locks are sorted before event-row locks. Single-row repository writers
@@ -90,11 +66,9 @@ also acquire reference locks before resolving fanout; outer multi-write owners m
 batch to preserve global order. The lower-level `EventStreamRepository.lockSourceReferences(sources)`
 and `lockSourceReferencesForEvents(eventIds, sources?)` expose that same reference-lock stage.
 
-Input writers and mapping writers share source-reference locks. A mapping insertion cannot remain
-invisible while a concurrent parent write resolves its fanout and commits. If the parent commits first,
-the later mapping insertion itself invalidates the child. These locks precede fanout reads; acquiring
-them after reading mapping rows would leave a phantom race. Publication needs the affected stream
-lock and revision fence, so all old claims become stale in the same transaction as the input change.
+Reference locks precede fanout reads, so concurrent writes reaching the same output stream serialize
+before resolving their targets. Publication needs the affected stream lock and revision fence, so all
+old claims become stale in the same transaction as the input change.
 
 ## Atomic event groups
 
@@ -123,7 +97,7 @@ Violations fail as a generic `EventBadRequest` mutation conflict and roll back s
 
 Before policies run outside this transaction and do not establish cardinality or binding consistency.
 Historical restore validates final consistency with SQL, without comparing or recapturing immutable
-evidence from live metadata.
+properties from live metadata.
 
 ## Stream work and freshness
 
@@ -135,8 +109,8 @@ succeeded/failed status belongs to that job's `background_work` row. A processor
 current checkpoint and returns a new checkpoint, a `done` flag, and at most 100 event updates;
 the serialized checkpoint is capped at 16,384 UTF-8 bytes.
 
-Input writes advance dependent output streams as well as the source stream. Old and new entity,
-session, and declared property references participate in invalidation. A related-input change resets
+Input writes advance dependent output streams as well as the source stream. Old and new entity and
+declared property references participate in invalidation. A related-input change resets
 the dependent checkpoint and dirty boundary; it cannot reuse an append checkpoint from another schema.
 
 Each step validates its declared output and publishes the page together with the new checkpoint and
@@ -157,8 +131,7 @@ writes can invalidate it after preparation.
 
 Processors compute from their current declared inputs and never wait for them. A write to any
 declared input re-dirties the target stream, so outputs converge when an asynchronous source owner
-later writes the events a processor reads. A projection's own event schema is always an input;
-`inputs` declares only additional schemas.
+later writes the events a processor reads.
 
 RyotQL exposes `event.projection` only for completed work whose claimed revision matches the stream,
 whose plugin revision and configuration pin are current, and whose plugin and installation are
@@ -177,11 +150,15 @@ restored events; declaration-driven reconciliation finds streams with missing or
 bindings and requests work for the current declaration. See [background work](../background-work/README.md)
 for common admission, dispatch, and recovery ownership.
 
-Reconciliation is index-driven so an idle tick reads no streams. `event_stream_binding` records,
-per user and projected declaration, the plugin revision, configuration revision, and account
-generation that every stream was last bound to; only declarations whose current binding differs
-from that record are scanned, and the record is written after all their streams are admitted.
-Creating a stream deletes the record for its declaration. Admission candidates come from a partial
+Reconciliation is index-driven so an idle tick reads no streams. `event_stream_binding` holds, per
+user and declaration, a `revision` that every stream creation increments in the creating
+transaction, plus the account generation, plugin revision, configuration revision, and
+`bound_revision` last reconciled. Only declarations whose record is missing, whose revision moved, or
+whose binding differs are selected, in keyset pages. For each, reconciliation admits the streams with
+missing or stale work, then records the binding only if the revision still equals the value it read;
+a stream created meanwhile leaves the declaration stale for the next tick. A declaration whose
+processor binding is unavailable or whose admission fails stays unrecorded and is retried on a later
+tick without blocking later declarations. Admission candidates come from a partial
 index on work rows with no current job that are incomplete (`completed_revision` null or
 `dirty_from` set); a reset or entity invalidation clears `completed_revision` to keep that
 invariant.
@@ -190,13 +167,11 @@ Restore passes session and property references into stream seeding and takes ref
 inserting historical events. A stream row exists for every user, entity, and event schema with
 events; a stream without its own events has no outputs. Plugin upgrades that add or change a
 declaration are handled by binding reconciliation over existing stream rows. Invalidation updates
-all affected revisions atomically; the 100-update processor page bound does not truncate dependency
-fanout. Dependency resolution joins selected inputs and mapping edges as sets; mapping evidence also
-supplies its own target without requiring an observation.
+all affected revisions atomically, and dependency resolution joins selected inputs as sets.
 
 Admission locks the account before stream state, matching account reset. Dirty-stream admission
-failures are isolated per stream and move that candidate to the end of the bounded selection, so an
-unavailable processor cannot block healthy streams.
+failures are isolated per stream and candidates are keyset-paged, so an unavailable processor cannot
+block healthy streams.
 
 After completed processing or a failure, the service emits a user-scoped `projection-updated` entity
 hint. The hint carries no projection data. Readers refresh from RyotQL and can poll while

@@ -224,6 +224,44 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 					}
 				}
 			});
+			const admitCandidates = Effect.fn("BackgroundWorkService.admitCandidates")(function* (
+				label: string,
+				candidates: (
+					limit: number,
+					after?: string,
+				) => Effect.Effect<ReadonlyArray<{ readonly id: string }>, DbError>,
+				arrange: (id: string) => Effect.Effect<null | string, DbError>,
+			) {
+				let after: string | undefined;
+				for (;;) {
+					const page = yield* candidates(100, after);
+					for (const { id } of page) {
+						const jobId = yield* session
+							.transaction(arrange(id))
+							.pipe(
+								Effect.catchTags({
+									DatabaseSessionStateError: Effect.die,
+									DbError: (error) =>
+										Effect.logWarning(`${label} admission failed`, {
+											id,
+											reason: error.message,
+										}).pipe(Effect.as(null)),
+								}),
+							);
+						if (jobId) {
+							yield* dispatch(jobId).pipe(
+								Effect.catchTag("DbError", (error) =>
+									Effect.logWarning(`${label} dispatch failed`, { jobId, reason: error.message }),
+								),
+							);
+						}
+					}
+					after = page.at(-1)?.id;
+					if (page.length < 100 || after === undefined) {
+						return;
+					}
+				}
+			});
 			return {
 				admit,
 				start,
@@ -231,6 +269,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				finish,
 				recover,
 				dispatch,
+				admitCandidates,
 				lockAccount: receipts.admitAccount,
 				pruneSettled: repository.pruneSettled,
 			};

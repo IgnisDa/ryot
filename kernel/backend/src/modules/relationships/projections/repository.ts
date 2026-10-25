@@ -305,23 +305,6 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				},
 			);
 
-			const postponeCandidate = Effect.fn("RelationshipProjectionRepository.postponeCandidate")(
-				function* (id: string) {
-					const updatedAt = yield* DateTime.nowAsDate;
-					yield* session.run((db) =>
-						db
-							.update(schema.relationshipProjectionWork)
-							.set({ updatedAt })
-							.where(
-								and(
-									eq(schema.relationshipProjectionWork.id, id),
-									isNull(schema.relationshipProjectionWork.currentJobId),
-								),
-							),
-					);
-				},
-			);
-
 			const bindingDeclarations = Effect.fn("RelationshipProjectionRepository.bindingDeclarations")(
 				function* (input: { limit: number; after?: RelationshipProjectionKey }) {
 					const after = input.after;
@@ -455,7 +438,6 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				recordBinding,
 				get: readState,
 				listCandidates,
-				postponeCandidate,
 				bindingDeclarations,
 				usersWithRelationships,
 			};

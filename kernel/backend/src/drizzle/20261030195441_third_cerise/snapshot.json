@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "2c5a6a57-fcc1-4351-b232-a6e2f4cb6d7d",
+	"id": "fe1cf19f-ae7a-4e68-97cd-82520801e045",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -4888,6 +4888,32 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "account_token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_binding"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "bound_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "config_revision_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -4896,12 +4922,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "account_token",
+			"name": "plugin_revision_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_binding"
@@ -4933,14 +4959,14 @@
 			"table": "event_stream_binding"
 		},
 		{
-			"type": "text",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": null,
+			"default": "0",
 			"generated": null,
 			"identity": null,
-			"name": "plugin_revision_id",
+			"name": "revision",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_binding"
@@ -10531,6 +10557,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "output_schema",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "plugin_pin ->> 'configRevisionId'", "type": "stored" },
+			"identity": null,
+			"name": "config_revision_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "relationship_projection_work"

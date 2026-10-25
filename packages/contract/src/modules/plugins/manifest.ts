@@ -289,16 +289,9 @@ export const PluginEventProjection = strictStruct({
 			strictStruct({
 				eventSchemaSlug: pluginManifestSlug,
 				scope: Schema.Union([
-					Schema.Literals(["entity", "session"]),
+					Schema.Literal("entity"),
 					strictStruct({ property: Schema.NonEmptyString }),
 				]),
-				through: Schema.optional(
-					strictStruct({
-						eventSchemaSlug: pluginManifestSlug,
-						sourceProperty: Schema.NonEmptyString,
-						targetProperty: Schema.NonEmptyString,
-					}),
-				),
 			}),
 		),
 	),

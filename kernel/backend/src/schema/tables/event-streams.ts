@@ -71,11 +71,13 @@ export const eventStreamWork = snakeCase.table(
 export const eventStreamBinding = snakeCase.table(
 	"event_stream_binding",
 	{
+		accountToken: text(),
+		boundRevision: integer(),
 		configRevisionId: text(),
-		accountToken: text().notNull(),
+		pluginRevisionId: text(),
 		eventSchemaSlug: text().notNull(),
 		entitySchemaSlug: text().notNull(),
-		pluginRevisionId: text().notNull(),
+		revision: integer().notNull().default(0),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

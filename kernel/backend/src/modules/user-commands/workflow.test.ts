@@ -836,7 +836,21 @@ layer(testLayer(false, true))((test) => {
 						{
 							...entitySchema,
 							eventSchemas: [
-								...entitySchema.eventSchemas,
+								{
+									name: "Changed",
+									slug: "changed",
+									propertiesSchema: {
+										fields: {
+											value: { type: "string", label: "Value", description: "Changed value" },
+											target: {
+												type: "string",
+												label: "Target",
+												description: "Output",
+												reference: { kind: "entity-id" },
+											},
+										},
+									},
+								},
 								{
 									name: "Summary",
 									slug: "summary",
@@ -846,36 +860,8 @@ layer(testLayer(false, true))((test) => {
 										propertiesSchema: outputSchema,
 										inputs: [
 											{ scope: "entity", eventSchemaSlug: "summary" },
-											{
-												scope: "entity",
-												eventSchemaSlug: "changed",
-												through: {
-													targetProperty: "child",
-													sourceProperty: "parent",
-													eventSchemaSlug: "dependency",
-												},
-											},
+											{ eventSchemaSlug: "changed", scope: { property: "target" } },
 										],
-									},
-								},
-								{
-									name: "Dependency",
-									slug: "dependency",
-									propertiesSchema: {
-										fields: {
-											child: {
-												type: "string",
-												label: "Child",
-												description: "Output",
-												reference: { kind: "entity-id" },
-											},
-											parent: {
-												type: "string",
-												label: "Parent",
-												description: "Input",
-												reference: { kind: "entity-id" },
-											},
-										},
 									},
 								},
 							],
@@ -903,21 +889,6 @@ layer(testLayer(false, true))((test) => {
 			const common = { userId, occurredAt, eventSchemaPluginId: input.pluginId };
 			const commands = yield* input.session.transaction(
 				Effect.gen(function* () {
-					for (const [parent, child] of [
-						[leftFirst, x],
-						[leftLast, y],
-						[rightFirst, y],
-						[rightLast, x],
-					] as const) {
-						yield* repository.createEvent({
-							...common,
-							entityId: child.id,
-							eventSchemaName: "Dependency",
-							id: EventId.make(yield* randomUuid),
-							properties: { child: child.id, parent: parent.id },
-							eventSchemaSlug: EventSchemaSlug.make("dependency"),
-						});
-					}
 					for (const output of [x, y]) {
 						yield* repository.createEvent({
 							...common,
@@ -930,20 +901,23 @@ layer(testLayer(false, true))((test) => {
 					}
 					return yield* Effect.forEach(
 						[
-							[leftFirst, leftLast],
-							[rightFirst, rightLast],
+							[leftFirst, leftLast, x, y],
+							[rightFirst, rightLast, y, x],
 						] as const,
-						([first, last]) =>
+						([first, last, firstTarget, lastTarget]) =>
 							Effect.gen(function* () {
 								const changes = [];
 								for (let index = 0; index < 51; index += 1) {
 									const event = yield* repository.createEvent({
 										...common,
 										eventSchemaName: "Changed",
-										properties: { value: "Original" },
 										id: EventId.make(yield* randomUuid),
 										entityId: index < 50 ? first.id : last.id,
 										eventSchemaSlug: EventSchemaSlug.make("changed"),
+										properties: {
+											value: "Original",
+											target: index < 50 ? firstTarget.id : lastTarget.id,
+										},
 									});
 									changes.push({
 										kind: "update" as const,
@@ -1021,7 +995,7 @@ layer(testLayer(false, true))((test) => {
 					.where(
 						and(
 							eq(tables.event.eventSchemaPluginId, input.pluginId),
-							inArray(tables.event.eventSchemaSlug, ["summary", "dependency"]),
+							eq(tables.event.eventSchemaSlug, "summary"),
 						),
 					)
 					.orderBy(tables.event.id),
@@ -1069,7 +1043,7 @@ layer(testLayer(false, true))((test) => {
 				const current = yield* streams.get(id);
 				assert(current);
 				expect(current.streamRevision).toBe(revision + 51);
-				expect(current.completedRevision).toBe(revision);
+				expect(current.completedRevision).toBeNull();
 				expect(current.checkpoint).toBeNull();
 				expect(current.dirtyFrom).toBeNull();
 				expect(current.currentJobId).toBeNull();
@@ -1081,7 +1055,7 @@ layer(testLayer(false, true))((test) => {
 					.where(
 						and(
 							eq(tables.event.eventSchemaPluginId, input.pluginId),
-							inArray(tables.event.eventSchemaSlug, ["summary", "dependency"]),
+							eq(tables.event.eventSchemaSlug, "summary"),
 						),
 					)
 					.orderBy(tables.event.id),
@@ -1104,7 +1078,7 @@ layer(testLayer(false, true))((test) => {
 				sourceBefore.map((row) =>
 					Object.assign({}, row, {
 						revision: row.revision + 1,
-						properties: { value: "Saved" },
+						properties: { ...row.properties, value: "Saved" },
 						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
 					}),
 				),

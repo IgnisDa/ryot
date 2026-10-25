@@ -473,11 +473,13 @@ CREATE TABLE "event_stream" (
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream_binding" (
+	"account_token" text,
+	"bound_revision" integer,
 	"config_revision_id" text,
-	"account_token" text NOT NULL,
+	"plugin_revision_id" text,
 	"event_schema_slug" text,
 	"entity_schema_slug" text,
-	"plugin_revision_id" text NOT NULL,
+	"revision" integer DEFAULT 0 NOT NULL,
 	"user_id" text,
 	"event_schema_plugin_id" text,
 	CONSTRAINT "event_stream_binding_pkey" PRIMARY KEY("user_id","event_schema_plugin_id","entity_schema_slug","event_schema_slug")
@@ -1094,6 +1096,7 @@ CREATE TABLE "relationship_projection_work" (
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
+	"config_revision_id" text GENERATED ALWAYS AS (plugin_pin ->> 'configRevisionId') STORED,
 	"user_id" text NOT NULL,
 	"relationship_schema_plugin_id" text NOT NULL
 );

@@ -27,12 +27,13 @@ import {
 	processCurrent,
 	projection,
 	ProjectionBindingControl,
-	seedRetainedDependencyTargets,
+	seedRetainedTargets,
 	seedStream,
 	sourceState,
 	StreamWorkControls,
 	StreamWorkFixture,
 	streamWorkTestLayer,
+	summarySchemaSlug,
 	userId,
 } from "#modules/events/stream-work.test-support";
 import { installRevisionPackage } from "#modules/plugins/packages/revision.test-support";
@@ -91,113 +92,103 @@ layer(streamWorkTestLayer)((test) => {
 			}),
 	);
 
-	test.effect(
-		"continues reconciliation after a failed admission and rotates it behind healthy work",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* EventStreamWorkService;
-				const background = yield* BackgroundWorkService;
-				const streams = yield* EventStreamRepository;
-				const controls = yield* StreamWorkControls;
-				const session = yield* DatabaseSession;
-				const failed = yield* seedStream("reconcile-unavailable-processor");
-				const healthy = yield* seedStream("reconcile-healthy-processor");
-				const failedBefore = yield* streams.get(failed.id);
-				const healthyBefore = yield* streams.get(healthy.id);
-				assert(failedBefore?.currentJobId);
-				assert(healthyBefore?.currentJobId);
-				const healthyBeforeJobId = healthyBefore.currentJobId;
+	test.effect("continues reconciliation after a failed admission", () =>
+		Effect.gen(function* () {
+			const service = yield* EventStreamWorkService;
+			const background = yield* BackgroundWorkService;
+			const streams = yield* EventStreamRepository;
+			const controls = yield* StreamWorkControls;
+			const session = yield* DatabaseSession;
+			const failed = yield* seedStream("reconcile-unavailable-processor");
+			const healthy = yield* seedStream("reconcile-healthy-processor");
+			const failedBefore = yield* streams.get(failed.id);
+			const healthyBefore = yield* streams.get(healthy.id);
+			assert(failedBefore?.currentJobId);
+			assert(healthyBefore?.currentJobId);
+			const healthyBeforeJobId = healthyBefore.currentJobId;
 
-				const restoreRows = Effect.gen(function* () {
-					yield* session.run((db) =>
-						db
-							.update(tables.eventStreamWork)
-							.set({
-								step: failedBefore.step,
-								updatedAt: failedBefore.updatedAt,
-								currentJobId: failedBefore.currentJobId,
-								processorScriptId: failedBefore.processorScriptId,
-							})
-							.where(eq(tables.eventStreamWork.id, failed.id)),
-					);
-					yield* session.run((db) =>
-						db
-							.update(tables.eventStreamWork)
-							.set({
-								step: healthyBefore.step,
-								updatedAt: healthyBefore.updatedAt,
-								currentJobId: healthyBefore.currentJobId,
-								processorScriptId: healthyBefore.processorScriptId,
-							})
-							.where(eq(tables.eventStreamWork.id, healthy.id)),
-					);
-				});
-				const beforeAdmissionCalls = yield* controls.admissionCalls;
-				const beforeWorkflowCalls = yield* controls.workflowCalls;
-				const reconciliation = Effect.gen(function* () {
-					yield* background.finish(healthyBeforeJobId, "succeeded");
-					yield* session.run((db) =>
-						db
-							.update(tables.eventStreamWork)
-							.set({
-								currentJobId: null,
-								updatedAt: new Date(-2000),
-								processorScriptId: SandboxScriptId.make("missing-stream-processor"),
-							})
-							.where(eq(tables.eventStreamWork.id, failed.id)),
-					);
-					yield* session.run((db) =>
-						db
-							.update(tables.eventStreamWork)
-							.set({ currentJobId: null, updatedAt: new Date(-1000) })
-							.where(eq(tables.eventStreamWork.id, healthy.id)),
-					);
-					yield* service.reconcile();
+			const restoreRows = Effect.gen(function* () {
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({
+							step: failedBefore.step,
+							updatedAt: failedBefore.updatedAt,
+							currentJobId: failedBefore.currentJobId,
+							processorScriptId: failedBefore.processorScriptId,
+						})
+						.where(eq(tables.eventStreamWork.id, failed.id)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({
+							step: healthyBefore.step,
+							updatedAt: healthyBefore.updatedAt,
+							currentJobId: healthyBefore.currentJobId,
+							processorScriptId: healthyBefore.processorScriptId,
+						})
+						.where(eq(tables.eventStreamWork.id, healthy.id)),
+				);
+			});
+			const beforeAdmissionCalls = yield* controls.admissionCalls;
+			const beforeWorkflowCalls = yield* controls.workflowCalls;
+			const reconciliation = Effect.gen(function* () {
+				yield* background.finish(healthyBeforeJobId, "succeeded");
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({
+							currentJobId: null,
+							processorScriptId: SandboxScriptId.make("missing-stream-processor"),
+						})
+						.where(eq(tables.eventStreamWork.id, failed.id)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({ currentJobId: null })
+						.where(eq(tables.eventStreamWork.id, healthy.id)),
+				);
+				yield* service.reconcile();
 
-					const failedAfter = yield* streams.get(failed.id);
-					const healthyAfter = yield* streams.get(healthy.id);
-					assert(failedAfter);
-					assert(healthyAfter?.currentJobId);
-					expect(failedAfter.currentJobId).toBeNull();
-					expect(failedAfter.processorScriptId).toBe("missing-stream-processor");
-					expect(failedAfter.updatedAt.getTime()).toBeGreaterThan(healthyAfter.updatedAt.getTime());
-					expect(yield* backgroundJob(healthyAfter.currentJobId)).toEqual({
-						error: null,
-						status: "running",
-					});
-
-					const admissionCalls = (yield* controls.admissionCalls).slice(
-						beforeAdmissionCalls.length,
-					);
-					for (const id of [failed.id, healthy.id]) {
-						const index = admissionCalls.findIndex(
-							(call) => call.operation === "prepare" && call.id === id,
-						);
-						expect(index).toBeGreaterThan(0);
-						expect(admissionCalls[index - 1]).toEqual({
-							inTransaction: true,
-							operation: "lockAccount",
-						});
-						expect(admissionCalls[index]).toEqual({
-							id,
-							inTransaction: true,
-							operation: "prepare",
-						});
-					}
-					const dispatches = (yield* controls.workflowCalls)
-						.slice(beforeWorkflowCalls.length)
-						.filter((call) => call.executionId === healthyAfter.currentJobId);
-					expect(dispatches).toHaveLength(1);
-					expect(dispatches[0]).toMatchObject({
-						inTransaction: false,
-						name: BackgroundWorkWorkflow._tag,
-						executionId: healthyAfter.currentJobId,
-						payload: { id: healthyAfter.currentJobId },
-					});
+				const failedAfter = yield* streams.get(failed.id);
+				const healthyAfter = yield* streams.get(healthy.id);
+				assert(failedAfter);
+				assert(healthyAfter?.currentJobId);
+				expect(failedAfter.currentJobId).toBeNull();
+				expect(failedAfter.processorScriptId).toBe("missing-stream-processor");
+				expect(yield* backgroundJob(healthyAfter.currentJobId)).toEqual({
+					error: null,
+					status: "running",
 				});
 
-				yield* reconciliation.pipe(Effect.ensuring(restoreRows.pipe(Effect.orDie)));
-			}),
+				const admissionCalls = (yield* controls.admissionCalls).slice(beforeAdmissionCalls.length);
+				for (const id of [failed.id, healthy.id]) {
+					const index = admissionCalls.findIndex(
+						(call) => call.operation === "prepare" && call.id === id,
+					);
+					expect(index).toBeGreaterThan(0);
+					expect(admissionCalls[index - 1]).toEqual({
+						inTransaction: true,
+						operation: "lockAccount",
+					});
+					expect(admissionCalls[index]).toEqual({ id, inTransaction: true, operation: "prepare" });
+				}
+				const dispatches = (yield* controls.workflowCalls)
+					.slice(beforeWorkflowCalls.length)
+					.filter((call) => call.executionId === healthyAfter.currentJobId);
+				expect(dispatches).toHaveLength(1);
+				expect(dispatches[0]).toMatchObject({
+					inTransaction: false,
+					name: BackgroundWorkWorkflow._tag,
+					executionId: healthyAfter.currentJobId,
+					payload: { id: healthyAfter.currentJobId },
+				});
+			});
+
+			yield* reconciliation.pipe(Effect.ensuring(restoreRows.pipe(Effect.orDie)));
+		}),
 	);
 
 	test.effect(
@@ -306,7 +297,7 @@ layer(streamWorkTestLayer)((test) => {
 			const complete = yield* streams.get(id);
 			expect(complete?.completedRevision).toBe(complete?.streamRevision);
 			expect(
-				(yield* streams.bindingDeclarations(100)).filter(
+				(yield* streams.bindingDeclarations({ limit: 100 })).filter(
 					(declaration) => declaration.eventSchemaPluginId === fixture.pluginId,
 				),
 			).toEqual([]);
@@ -366,7 +357,7 @@ layer(streamWorkTestLayer)((test) => {
 						.set({ health: "installing" })
 						.where(eq(tables.pluginInstallation.pluginId, pluginId)),
 				);
-				const healthy = yield* seedRetainedDependencyTargets("unavailable-binding-healthy", 1);
+				const healthy = yield* seedRetainedTargets("unavailable-binding-healthy", 1);
 				yield* session.run((db) =>
 					db.insert(tables.eventStream).values({ ...healthy.key, id: healthy.id }),
 				);
@@ -393,5 +384,53 @@ layer(streamWorkTestLayer)((test) => {
 				expect((yield* streams.get(id))?.currentJobId).toBe(rebound.currentJobId);
 				expect((yield* streams.get(id))?.streamRevision).toBe(rebound.streamRevision);
 			}),
+	);
+});
+
+layer(streamWorkTestLayer)((test) => {
+	test.effect("pages binding declarations past declarations that stay unrecorded", () =>
+		Effect.gen(function* () {
+			const streams = yield* EventStreamRepository;
+			const [first] = yield* streams.bindingDeclarations({ limit: 1 });
+			assert(first);
+			const [second] = yield* streams.bindingDeclarations({ limit: 1, after: first });
+			expect([first.eventSchemaSlug, second?.eventSchemaSlug]).toEqual([
+				eventSchemaSlug,
+				summarySchemaSlug,
+			]);
+		}),
+	);
+
+	test.effect("keeps a declaration stale when a stream is created after it was read", () =>
+		Effect.gen(function* () {
+			const fixture = yield* StreamWorkFixture;
+			const session = yield* DatabaseSession;
+			const streams = yield* EventStreamRepository;
+			const service = yield* EventStreamWorkService;
+			const declarations = streams
+				.bindingDeclarations({ limit: 100 })
+				.pipe(
+					Effect.map((rows) =>
+						rows.filter(
+							(row) =>
+								row.eventSchemaPluginId === fixture.pluginId &&
+								row.eventSchemaSlug === eventSchemaSlug,
+						),
+					),
+				);
+			yield* service.reconcile();
+			const first = yield* seedRetainedTargets("binding-race-first", 0);
+			yield* session.transaction(streams.lock([first.key]));
+			const [read] = yield* declarations;
+			assert(read);
+			const second = yield* seedRetainedTargets("binding-race-second", 0);
+			yield* session.transaction(streams.lock([second.key]));
+			const { projection: _, ...declaration } = read;
+			yield* streams.recordBinding(declaration);
+			expect((yield* declarations).map(({ revision }) => revision)).toEqual([read.revision + 1]);
+			yield* service.reconcile();
+			expect((yield* streams.get(second.id))?.currentJobId).toEqual(expect.any(String));
+			expect(yield* declarations).toEqual([]);
+		}),
 	);
 });

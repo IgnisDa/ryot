@@ -68,7 +68,6 @@ export const accountToken = "test-account-generation";
 export const entitySchemaSlug = "fixture-record";
 export const eventSchemaSlug = EventSchemaSlug.make("record-set");
 export const adjustmentSchemaSlug = EventSchemaSlug.make("record-adjustment");
-export const dependencySchemaSlug = EventSchemaSlug.make("record-dependency");
 export const coordinationSchemaSlug = EventSchemaSlug.make("record-coordination");
 export const summarySchemaSlug = EventSchemaSlug.make("record-summary");
 export const processorScriptSlug = "stream-fixture-processor";
@@ -86,38 +85,9 @@ export const eventSchema = {
 		},
 		inputs: [
 			{ eventSchemaSlug, scope: "entity" },
-			{ eventSchemaSlug, scope: "session" },
 			{ scope: "entity", eventSchemaSlug: coordinationSchemaSlug },
 			{ scope: "entity", eventSchemaSlug: adjustmentSchemaSlug },
-			{ scope: "session", eventSchemaSlug: adjustmentSchemaSlug },
 			{ scope: { property: "subject" }, eventSchemaSlug: adjustmentSchemaSlug },
-			{
-				scope: "entity",
-				eventSchemaSlug: adjustmentSchemaSlug,
-				through: {
-					targetProperty: "child",
-					sourceProperty: "parent",
-					eventSchemaSlug: dependencySchemaSlug,
-				},
-			},
-			{
-				scope: "session",
-				eventSchemaSlug: adjustmentSchemaSlug,
-				through: {
-					targetProperty: "child",
-					sourceProperty: "parent",
-					eventSchemaSlug: dependencySchemaSlug,
-				},
-			},
-			{
-				scope: { property: "subject" },
-				eventSchemaSlug: adjustmentSchemaSlug,
-				through: {
-					targetProperty: "child",
-					sourceProperty: "parent",
-					eventSchemaSlug: dependencySchemaSlug,
-				},
-			},
 		],
 	},
 } satisfies PluginManifest["entitySchemas"][number]["eventSchemas"][number];
@@ -181,26 +151,6 @@ export const fixturePackage = (): NormalizedPlugin => {
 									type: "string",
 									label: "Subject",
 									description: "Related entity",
-									reference: { kind: "entity-id" },
-								},
-							},
-						},
-					},
-					{
-						name: "Dependency",
-						slug: dependencySchemaSlug,
-						propertiesSchema: {
-							fields: {
-								child: {
-									type: "string",
-									label: "Child",
-									description: "Output reference",
-									reference: { kind: "entity-id" },
-								},
-								parent: {
-									type: "string",
-									label: "Parent",
-									description: "Input reference",
 									reference: { kind: "entity-id" },
 								},
 							},
@@ -625,21 +575,7 @@ export const seedAdjustment = (input: {
 		);
 	});
 
-export const dependencyInput = (
-	fixture: StreamWorkFixture["Service"],
-	input: { id: string; child: EntityId; parent: EntityId; entityId: EntityId },
-) => ({
-	userId,
-	occurredAt,
-	entityId: input.entityId,
-	id: EventId.make(input.id),
-	eventSchemaName: "Dependency",
-	eventSchemaSlug: dependencySchemaSlug,
-	eventSchemaPluginId: fixture.pluginId,
-	properties: { child: input.child, parent: input.parent },
-});
-
-export const seedRetainedDependencyTargets = (suffix: string, count: number) =>
+export const seedRetainedTargets = (suffix: string, count: number) =>
 	Effect.gen(function* () {
 		const fixture = yield* StreamWorkFixture;
 		const session = yield* DatabaseSession;
@@ -662,37 +598,27 @@ export const seedRetainedDependencyTargets = (suffix: string, count: number) =>
 				),
 		);
 		yield* session.run((db) =>
-			db
-				.insert(tables.event)
-				.values([
-					{
-						userId,
-						occurredAt,
-						id: eventId,
-						eventSchemaSlug,
-						entityId: holder,
-						properties: { rating: 1 },
-						eventSchemaPluginId: fixture.pluginId,
-					},
-					{
-						userId,
-						occurredAt,
-						entityId: holder,
-						id: `${suffix}-input`,
-						sessionEntityId: holder,
-						eventSchemaSlug: adjustmentSchemaSlug,
-						eventSchemaPluginId: fixture.pluginId,
-						properties: { value: 2, subject: holder },
-					},
-					...children.map((child) =>
-						dependencyInput(fixture, {
-							child,
-							parent: holder,
-							entityId: holder,
-							id: `${suffix}-edge-${child}`,
-						}),
-					),
-				]),
+			db.insert(tables.event).values([
+				{
+					userId,
+					occurredAt,
+					id: eventId,
+					eventSchemaSlug,
+					entityId: holder,
+					properties: { rating: 1 },
+					eventSchemaPluginId: fixture.pluginId,
+				},
+				{
+					userId,
+					occurredAt,
+					entityId: holder,
+					id: `${suffix}-input`,
+					sessionEntityId: holder,
+					eventSchemaSlug: adjustmentSchemaSlug,
+					eventSchemaPluginId: fixture.pluginId,
+					properties: { value: 2, subject: holder },
+				},
+			]),
 		);
 		const key = {
 			userId,

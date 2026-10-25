@@ -54,7 +54,9 @@ re-admitted. After publication the service emits a `projection-updated` hint for
 entity; a failed step emits hints for its claimed sources.
 
 RyotQL exposes `relationship.projection` only when the note is current, the account generation is current and enabled, and the work's plugin
-revision and configuration pin match an active plugin with a ready installation.
+revision and configuration pin match an active plugin with a ready installation. The gate is
+correlated to each read relationship's note, work, plugin, and installation rows and compares the
+stored `config_revision_id` column generated from the binding pin.
 `projectionStatus` is ready, pending, failed (the current job failed), or none when the schema
 declares no projection.
 

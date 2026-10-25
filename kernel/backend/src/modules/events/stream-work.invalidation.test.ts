@@ -1,14 +1,11 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
-import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { Deferred, Effect, Fiber, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { BackgroundWorkInput } from "#modules/background-work/model";
 import { BackgroundWorkService } from "#modules/background-work/service";
-import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { EventMutations, eventPolicyItems } from "#modules/events/mutations";
 import {
 	projectionDependencyTargets,
@@ -16,11 +13,7 @@ import {
 } from "#modules/events/projection-dependencies";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import {
-	eventStreamId,
-	EventStreamRepository,
-	type StreamKey,
-} from "#modules/events/stream-repository";
+import { EventStreamRepository, type StreamKey } from "#modules/events/stream-repository";
 import { EventStreamWorkService } from "#modules/events/stream-work";
 import {
 	adjustmentSchemaSlug,
@@ -28,8 +21,6 @@ import {
 	command,
 	coordinationSchemaSlug,
 	currentJob,
-	dependencyInput,
-	dependencySchemaSlug,
 	entitySchemaSlug,
 	eventSchemaSlug,
 	occurredAt,
@@ -40,7 +31,7 @@ import {
 	projection,
 	runBackgroundJob,
 	seedAdjustment,
-	seedRetainedDependencyTargets,
+	seedRetainedTargets,
 	seedStream,
 	sourceState,
 	StreamWorkControls,
@@ -314,81 +305,6 @@ layer(streamWorkTestLayer)((test) => {
 		}),
 	);
 
-	test.effect("admits old and new mapped targets from ordinary input moves and deletes", () =>
-		Effect.gen(function* () {
-			const parent = yield* seedStream("admission-mapping-parent");
-			const left = yield* seedStream("admission-mapping-left");
-			const right = yield* seedStream("admission-mapping-right");
-			const streams = yield* EventStreamRepository;
-			const events = yield* EventsRepository;
-			const eventService = yield* EventsService;
-			const session = yield* DatabaseSession;
-			const background = yield* BackgroundWorkService;
-			const controls = yield* StreamWorkControls;
-			const initial = yield* currentJob(left.id);
-			const mapping = yield* session.transaction(
-				events.createEvent(
-					dependencyInput(left.fixture, {
-						child: left.entityId,
-						id: "admission-mapping",
-						parent: parent.entityId,
-						entityId: parent.entityId,
-					}),
-				),
-			);
-			const input = yield* seedAdjustment({
-				entityId: parent.entityId,
-				id: "admission-mapping-input",
-			});
-			for (const target of [left, right]) {
-				yield* controls.setProcessor(target.id, () =>
-					Effect.succeed({ done: true, updates: [], checkpoint: null }),
-				);
-			}
-			yield* process(initial);
-			const leftWork = yield* streams.get(left.id);
-			assert(leftWork?.currentJobId);
-			yield* background.dispatch(leftWork.currentJobId);
-			const leftCompleted = yield* processCurrent(left.id);
-			const rightCompleted = yield* processCurrent(right.id);
-			yield* eventService.edit(
-				{ eventId: input.id, patch: { properties: { remove: [], set: { value: 2 } } } },
-				userId,
-				command("admission-parent-edit"),
-			);
-			const leftAdmitted = yield* streams.get(left.id);
-			assert(leftAdmitted?.currentJobId);
-			expect(leftAdmitted.currentJobId).not.toBe(leftCompleted.id);
-			expect((yield* streams.get(right.id))?.currentJobId).toBe(rightCompleted.id);
-			const stale = yield* currentJob(left.id);
-			yield* eventService.edit(
-				{
-					eventId: mapping.id,
-					patch: { properties: { remove: [], set: { child: right.entityId } } },
-				},
-				userId,
-				command("admission-mapping-move"),
-			);
-			const movedLeft = yield* streams.get(left.id);
-			const movedRight = yield* streams.get(right.id);
-			assert(movedLeft?.currentJobId);
-			assert(movedRight?.currentJobId);
-			expect(movedLeft.currentJobId).not.toBe(stale.id);
-			expect(movedRight.currentJobId).not.toBe(rightCompleted.id);
-			yield* controls.setProcessor(left.id, () =>
-				Effect.succeed({ ...page(left.eventId, 99, "old-mapping"), done: true }),
-			);
-			yield* process(stale);
-			expect(yield* projection(left.eventId)).toBeNull();
-			yield* eventService.delete(
-				{ userId, eventId: mapping.id },
-				command("admission-mapping-delete"),
-			);
-			expect((yield* streams.get(right.id))?.currentJobId).not.toBe(movedRight.currentJobId);
-			expect((yield* streams.get(right.id))?.currentJobId).not.toBeNull();
-		}),
-	);
-
 	test.effect(
 		"admits every output stream in a no-hook source batch and serializes their scope",
 		() =>
@@ -532,308 +448,76 @@ layer(streamWorkTestLayer)((test) => {
 			}),
 	);
 
-	test.effect(
-		"invalidates old and new property and session scopes during opposite reference moves",
-		() =>
-			Effect.gen(function* () {
-				const controls = yield* StreamWorkControls;
-				const streams = yield* EventStreamRepository;
-				const service = yield* EventStreamWorkService;
-				const background = yield* BackgroundWorkService;
-				const events = yield* EventsService;
-				const left = yield* seedStream("move-left");
-				const right = yield* seedStream("move-right");
-				const holder = yield* seedStream("move-holder");
-				const initialLeft = yield* currentJob(left.id);
-				const initialRight = yield* currentJob(right.id);
-				const first = yield* seedAdjustment({
-					id: "move-first",
-					subject: left.entityId,
-					entityId: holder.entityId,
-					sessionEntityId: left.entityId,
-				});
-				const second = yield* seedAdjustment({
-					id: "move-second",
-					subject: right.entityId,
-					entityId: holder.entityId,
-					sessionEntityId: right.entityId,
-				});
-				for (const [source, initial] of [
-					[left, initialLeft],
-					[right, initialRight],
-				] as const) {
-					yield* controls.setProcessor(source.id, () =>
-						Effect.succeed({ ...page(source.eventId, 1, "old"), done: true }),
-					);
-					yield* process(initial);
-					const current = yield* streams.get(source.id);
-					assert(current?.currentJobId);
-					yield* background.dispatch(current.currentJobId);
-				}
-				const beforeLeft = yield* streams.get(left.id);
-				const beforeRight = yield* streams.get(right.id);
-				assert(beforeLeft?.currentJobId);
-				assert(beforeRight?.currentJobId);
-				const leftJob = yield* background.start(beforeLeft.currentJobId);
-				const rightJob = yield* background.start(beforeRight.currentJobId);
-				assert(leftJob);
-				assert(rightJob);
-				yield* Effect.all(
-					[
-						events.edit(
-							{
-								eventId: first.id,
-								patch: {
-									sessionEntityId: right.entityId,
-									properties: { remove: [], set: { subject: right.entityId } },
-								},
-							},
-							userId,
-							command("move-first"),
-						),
-						events.edit(
-							{
-								eventId: second.id,
-								patch: {
-									sessionEntityId: left.entityId,
-									properties: { remove: [], set: { subject: left.entityId } },
-								},
-							},
-							userId,
-							command("move-second"),
-						),
-					],
-					{ concurrency: 2 },
-				);
-				yield* process(leftJob);
-				yield* process(rightJob);
-				expect(yield* projection(left.eventId)).toBeNull();
-				expect(yield* projection(right.eventId)).toBeNull();
-				expect((yield* streams.get(left.id))?.streamRevision).toBe(beforeLeft.streamRevision + 2);
-				expect((yield* streams.get(right.id))?.streamRevision).toBe(beforeRight.streamRevision + 2);
-				yield* service.reconcile();
-			}),
-	);
-
-	test.effect("serializes mapping phantoms with source writes in both commit orders", () =>
+	test.effect("invalidates old and new property scopes during opposite reference moves", () =>
 		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const events = yield* EventsRepository;
-			const streams = yield* EventStreamRepository;
 			const controls = yield* StreamWorkControls;
-			for (const first of ["mapping", "source"]) {
-				const parent = yield* seedStream(`phantom-${first}-parent`);
-				const child = yield* seedStream(`phantom-${first}-child`);
-				const holder = yield* seedStream(`phantom-${first}-holder`);
-				const oldJob = yield* currentJob(child.id);
-				const before = yield* streams.get(child.id);
-				assert(before);
-				const mapping = dependencyInput(child.fixture, {
-					child: child.entityId,
-					parent: parent.entityId,
-					entityId: holder.entityId,
-					id: `phantom-${first}-mapping`,
-				});
-				const source = {
-					...mapping,
-					properties: { value: 2 },
-					entityId: parent.entityId,
-					eventSchemaName: "Adjustment",
-					eventSchemaSlug: adjustmentSchemaSlug,
-					id: EventId.make(`phantom-${first}-input`),
-				};
-				const held = yield* Deferred.make<void>();
-				const release = yield* Deferred.make<void>();
-				const attempted = yield* Deferred.make<void>();
-				const leader = yield* session
-					.transaction(
-						Effect.gen(function* () {
-							yield* events.createEvent(first === "mapping" ? mapping : source);
-							yield* Deferred.succeed(held, undefined);
-							yield* Deferred.await(release);
-						}),
-					)
-					.pipe(Effect.forkChild);
-				yield* Deferred.await(held);
-				assertExitFails(
-					yield* Effect.exit(
-						session
-							.transaction(
-								session.run((db) =>
-									db.execute(sql`
-					select id from entity where id = ${parent.entityId} for no key update nowait
-				`),
-								),
-							)
-							.pipe(Effect.mapError(() => new DbError({ message: "Source reference is locked" }))),
-					),
-					new DbError({ message: "Source reference is locked" }),
-				);
-				const follower = yield* session
-					.transaction(
-						Effect.gen(function* () {
-							yield* Deferred.succeed(attempted, undefined);
-							yield* events.createEvent(first === "mapping" ? source : mapping);
-						}),
-					)
-					.pipe(Effect.forkChild);
-				yield* Deferred.await(attempted);
-				yield* Deferred.succeed(release, undefined);
-				yield* Fiber.join(leader);
-				yield* Fiber.join(follower);
-				const changed = yield* streams.get(child.id);
-				expect(changed?.streamRevision).toBe(before.streamRevision + (first === "mapping" ? 2 : 1));
-				yield* controls.setProcessor(child.id, () =>
-					Effect.succeed({ ...page(child.eventId, 99, "stale-parent"), done: true }),
-				);
-				yield* process(oldJob);
-				expect(yield* projection(child.eventId)).toBeNull();
-				expect((yield* streams.get(child.id))?.completedRevision).toBeNull();
-			}
-		}),
-	);
-
-	test.effect("fences both targets of concurrent mapping moves and deletion", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const events = yield* EventsRepository;
 			const streams = yield* EventStreamRepository;
-			const firstParent = yield* seedStream("mapping-move-parent-a");
-			const secondParent = yield* seedStream("mapping-move-parent-b");
-			const firstChild = yield* seedStream("mapping-move-child-a");
-			const secondChild = yield* seedStream("mapping-move-child-b");
-			const firstMapping = dependencyInput(firstChild.fixture, {
-				id: "mapping-move-a",
-				child: firstChild.entityId,
-				parent: firstParent.entityId,
-				entityId: firstParent.entityId,
+			const service = yield* EventStreamWorkService;
+			const background = yield* BackgroundWorkService;
+			const events = yield* EventsService;
+			const left = yield* seedStream("move-left");
+			const right = yield* seedStream("move-right");
+			const holder = yield* seedStream("move-holder");
+			const initialLeft = yield* currentJob(left.id);
+			const initialRight = yield* currentJob(right.id);
+			const first = yield* seedAdjustment({
+				id: "move-first",
+				subject: left.entityId,
+				entityId: holder.entityId,
 			});
-			const secondMapping = dependencyInput(firstChild.fixture, {
-				id: "mapping-move-b",
-				child: secondChild.entityId,
-				parent: secondParent.entityId,
-				entityId: secondParent.entityId,
+			const second = yield* seedAdjustment({
+				id: "move-second",
+				subject: right.entityId,
+				entityId: holder.entityId,
 			});
-			yield* session.transaction(events.createEvent(firstMapping));
-			yield* session.transaction(events.createEvent(secondMapping));
-			const beforeFirst = yield* streams.get(firstChild.id);
-			const beforeSecond = yield* streams.get(secondChild.id);
-			assert(beforeFirst);
-			assert(beforeSecond);
-			const a = yield* events.getEventSnapshot({ userId, eventId: firstMapping.id });
-			const b = yield* events.getEventSnapshot({ userId, eventId: secondMapping.id });
-			assert(a);
-			assert(b);
+			for (const [source, initial] of [
+				[left, initialLeft],
+				[right, initialRight],
+			] as const) {
+				yield* controls.setProcessor(source.id, () =>
+					Effect.succeed({ ...page(source.eventId, 1, "old"), done: true }),
+				);
+				yield* process(initial);
+				const current = yield* streams.get(source.id);
+				assert(current?.currentJobId);
+				yield* background.dispatch(current.currentJobId);
+			}
+			const beforeLeft = yield* streams.get(left.id);
+			const beforeRight = yield* streams.get(right.id);
+			assert(beforeLeft?.currentJobId);
+			assert(beforeRight?.currentJobId);
+			const leftJob = yield* background.start(beforeLeft.currentJobId);
+			const rightJob = yield* background.start(beforeRight.currentJobId);
+			assert(leftJob);
+			assert(rightJob);
 			yield* Effect.all(
 				[
-					session.transaction(
-						events.updatePreparedEvent({
-							userId,
-							updatedAt: occurredAt,
-							eventId: firstMapping.id,
-							expectedRevision: a.revision,
-							draft: {
-								...a.snapshot,
-								properties: { child: secondChild.entityId, parent: secondParent.entityId },
-							},
-						}),
+					events.edit(
+						{
+							eventId: first.id,
+							patch: { properties: { remove: [], set: { subject: right.entityId } } },
+						},
+						userId,
+						command("move-first"),
 					),
-					session.transaction(
-						events.updatePreparedEvent({
-							userId,
-							updatedAt: occurredAt,
-							eventId: secondMapping.id,
-							expectedRevision: b.revision,
-							draft: {
-								...b.snapshot,
-								properties: { child: firstChild.entityId, parent: firstParent.entityId },
-							},
-						}),
+					events.edit(
+						{
+							eventId: second.id,
+							patch: { properties: { remove: [], set: { subject: left.entityId } } },
+						},
+						userId,
+						command("move-second"),
 					),
 				],
 				{ concurrency: 2 },
 			);
-			expect((yield* streams.get(firstChild.id))?.streamRevision).toBe(
-				beforeFirst.streamRevision + 2,
-			);
-			expect((yield* streams.get(secondChild.id))?.streamRevision).toBe(
-				beforeSecond.streamRevision + 2,
-			);
-			yield* session.transaction(events.deleteEvent({ userId, eventId: secondMapping.id }));
-			expect((yield* streams.get(firstChild.id))?.streamRevision).toBe(
-				beforeFirst.streamRevision + 3,
-			);
-			yield* seedAdjustment({ entityId: firstParent.entityId, id: "mapping-move-parent-write" });
-			expect((yield* streams.get(firstChild.id))?.streamRevision).toBe(
-				beforeFirst.streamRevision + 3,
-			);
-			yield* seedAdjustment({
-				entityId: secondParent.entityId,
-				id: "mapping-move-other-parent-write",
-			});
-			expect((yield* streams.get(secondChild.id))?.streamRevision).toBe(
-				beforeSecond.streamRevision + 3,
-			);
-		}),
-	);
-
-	test.effect("maps session and property inputs without crossing user or plugin ownership", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const events = yield* EventsRepository;
-			const streams = yield* EventStreamRepository;
-			const parent = yield* seedStream("mapping-owner-parent");
-			const child = yield* seedStream("mapping-owner-child");
-			const excluded = yield* seedStream("mapping-owner-excluded");
-			const holder = yield* seedStream("mapping-owner-holder");
-			yield* session.transaction(
-				events.createEvent(
-					dependencyInput(child.fixture, {
-						child: child.entityId,
-						parent: parent.entityId,
-						id: "mapping-owner-valid",
-						entityId: holder.entityId,
-					}),
-				),
-			);
-			yield* session.run((db) =>
-				db.insert(tables.event).values([
-					{
-						...dependencyInput(child.fixture, {
-							parent: parent.entityId,
-							child: excluded.entityId,
-							entityId: holder.entityId,
-							id: "mapping-owner-foreign-user",
-						}),
-						userId: "recipient",
-					},
-					{
-						...dependencyInput(child.fixture, {
-							parent: parent.entityId,
-							child: excluded.entityId,
-							entityId: holder.entityId,
-							id: "mapping-owner-foreign-plugin",
-						}),
-						eventSchemaPluginId: null,
-					},
-				]),
-			);
-			const before = yield* streams.get(child.id);
-			const excludedBefore = yield* streams.get(excluded.id);
-			assert(before);
-			assert(excludedBefore);
-			yield* seedAdjustment({
-				entityId: holder.entityId,
-				sessionEntityId: parent.entityId,
-				id: "mapping-owner-session-input",
-			});
-			yield* seedAdjustment({
-				subject: parent.entityId,
-				entityId: holder.entityId,
-				id: "mapping-owner-property-input",
-			});
-			expect((yield* streams.get(child.id))?.streamRevision).toBe(before.streamRevision + 2);
-			expect((yield* streams.get(excluded.id))?.streamRevision).toBe(excludedBefore.streamRevision);
+			yield* process(leftJob);
+			yield* process(rightJob);
+			expect(yield* projection(left.eventId)).toBeNull();
+			expect(yield* projection(right.eventId)).toBeNull();
+			expect((yield* streams.get(left.id))?.streamRevision).toBe(beforeLeft.streamRevision + 2);
+			expect((yield* streams.get(right.id))?.streamRevision).toBe(beforeRight.streamRevision + 2);
+			yield* service.reconcile();
 		}),
 	);
 
@@ -842,78 +526,33 @@ layer(streamWorkTestLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const source = yield* seedRetainedDependencyTargets("dependency-targets", 2);
-				const [first, second] = source.children;
-				assert(first);
-				assert(second);
-				const shared = EntityId.make("dependency-shared-target");
-				const foreignUser = EntityId.make("dependency-foreign-user-target");
-				const foreignPlugin = EntityId.make("dependency-foreign-plugin-target");
+				const source = yield* seedRetainedTargets("dependency-targets", 1);
+				const [subject] = source.children;
+				assert(subject);
 				const wrongSchema = EntityId.make("dependency-wrong-schema-target");
 				const wrongPlugin = EntityId.make("dependency-wrong-plugin-target");
 				const wrongOwner = EntityId.make("dependency-wrong-owner-target");
 				yield* session.run((db) =>
-					db
-						.insert(tables.entity)
-						.values([
-							...[shared, foreignUser, foreignPlugin].map((id) => ({
-								id,
-								name: id,
-								entitySchemaSlug,
-								entitySchemaPluginId: source.fixture.pluginId,
-							})),
-							{
-								id: wrongSchema,
-								name: wrongSchema,
-								entitySchemaSlug: "other",
-								entitySchemaPluginId: source.fixture.pluginId,
-							},
-							{ id: wrongPlugin, entitySchemaSlug, name: wrongPlugin },
-							{
-								id: wrongOwner,
-								name: wrongOwner,
-								entitySchemaSlug,
-								userId: "recipient",
-								entitySchemaPluginId: source.fixture.pluginId,
-							},
-						]),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.event)
-						.values([
-							...[shared, wrongSchema, wrongPlugin, wrongOwner].map((child) =>
-								dependencyInput(source.fixture, {
-									child,
-									parent: source.holder,
-									entityId: source.holder,
-									id: `dependency-targets-${child}`,
-								}),
-							),
-							{
-								...dependencyInput(source.fixture, {
-									child: foreignUser,
-									parent: source.holder,
-									entityId: source.holder,
-									id: "dependency-targets-foreign-user",
-								}),
-								userId: "recipient",
-							},
-							{
-								...dependencyInput(source.fixture, {
-									child: foreignPlugin,
-									parent: source.holder,
-									entityId: source.holder,
-									id: "dependency-targets-foreign-plugin",
-								}),
-								eventSchemaPluginId: null,
-							},
-						]),
+					db.insert(tables.entity).values([
+						{
+							id: wrongSchema,
+							name: wrongSchema,
+							entitySchemaSlug: "other",
+							entitySchemaPluginId: source.fixture.pluginId,
+						},
+						{ id: wrongPlugin, entitySchemaSlug, name: wrongPlugin },
+						{
+							id: wrongOwner,
+							name: wrongOwner,
+							entitySchemaSlug,
+							userId: "recipient",
+							entitySchemaPluginId: source.fixture.pluginId,
+						},
+					]),
 				);
 				const adjustment = {
 					...source.key,
-					sessionEntityId: first,
-					properties: { subject: second },
+					properties: { subject },
 					eventSchemaSlug: adjustmentSchemaSlug,
 				};
 				const rows = yield* session.run((db) =>
@@ -921,44 +560,14 @@ layer(streamWorkTestLayer)((test) => {
 						sql`
 					select * from (${projectionDependencyTargets(
 						projectionSources([
-							{ ...source.key, sessionEntityId: source.holder },
+							source.key,
 							adjustment,
 							adjustment,
-							{
-								...source.key,
-								properties: { child: second },
-								eventSchemaSlug: dependencySchemaSlug,
-							},
-							{
-								...adjustment,
-								entityId: wrongSchema,
-								sessionEntityId: null,
-								properties: { subject: null },
-							},
-							{ ...adjustment, properties: {}, entityId: wrongSchema, sessionEntityId: null },
+							{ ...adjustment, entityId: wrongSchema, properties: { subject: null } },
 							{ ...adjustment, eventSchemaPluginId: null },
-							{
-								...adjustment,
-								properties: {},
-								sessionEntityId: null,
-								userId: UserId.make("recipient"),
-							},
-							{
-								...adjustment,
-								entityId: wrongSchema,
-								sessionEntityId: shared,
-								properties: { subject: shared },
-							},
-							{
-								...source.key,
-								properties: { child: wrongOwner },
-								eventSchemaSlug: dependencySchemaSlug,
-							},
-							{
-								...source.key,
-								eventSchemaSlug: dependencySchemaSlug,
-								properties: { parent: null, child: shared },
-							},
+							{ ...adjustment, properties: {}, userId: UserId.make("recipient") },
+							{ ...adjustment, entityId: wrongSchema, properties: { subject: wrongPlugin } },
+							{ ...adjustment, entityId: wrongSchema, properties: { subject: wrongOwner } },
 						]),
 					)}) targets order by "sourceIndex", "entityId", restart
 				`,
@@ -968,24 +577,14 @@ layer(streamWorkTestLayer)((test) => {
 				expect(rows).toEqual(
 					[
 						{ userId, sourceIndex: 0, restart: false, entityId: source.holder },
-						{ userId, restart: true, sourceIndex: 0, entityId: source.holder },
 						...[1, 2].flatMap((sourceIndex) =>
-							[first, second, source.holder, shared].map((entityId) => ({
+							[subject, source.holder].map((entityId) => ({
 								userId,
 								entityId,
 								sourceIndex,
 								restart: true,
 							})),
 						),
-						{ userId, restart: true, sourceIndex: 3, entityId: second },
-						{
-							restart: true,
-							sourceIndex: 7,
-							entityId: foreignUser,
-							userId: UserId.make("recipient"),
-						},
-						{ userId, restart: true, sourceIndex: 8, entityId: shared },
-						{ userId, restart: true, sourceIndex: 10, entityId: shared },
 					].map((target) =>
 						Object.assign(target, {
 							eventSchemaSlug,
@@ -1010,7 +609,7 @@ layer(streamWorkTestLayer)((test) => {
 				const before = yield* streams.get(source.id);
 				assert(before);
 				yield* session.transaction(
-					streams.touch([{ ...source.key, occurredAt, sessionEntityId: source.holder }]),
+					streams.touch([{ ...adjustment, occurredAt, properties: { subject: source.holder } }]),
 				);
 				const after = yield* streams.get(source.id);
 				expect(after?.streamRevision).toBe(before.streamRevision + 1);
@@ -1018,87 +617,5 @@ layer(streamWorkTestLayer)((test) => {
 				expect(after?.dirtyFrom).toBeNull();
 				expect(after?.currentJobId).toBeNull();
 			}),
-	);
-
-	test.effect("does not treat JSON null through mappings as absent mappings", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const source = yield* seedRetainedDependencyTargets("dependency-json-null", 1);
-			const rows = yield* session.run((db) =>
-				db.execute<StreamKey & { sourceIndex: number; restart: null | boolean }>(
-					sql`
-					with definition_event_schema as (
-						select d.id, d.entity_schema_id, d.slug, ${JSON.stringify({
-							inputs: [
-								{ eventSchemaSlug, scope: "entity" },
-								{ through: null, eventSchemaSlug, scope: "entity" },
-							],
-						})}::jsonb as projection
-						from definition_event_schema d
-						join definition_entity_schema e on e.id = d.entity_schema_id
-						where e.plugin_revision_id = ${source.fixture.pluginPin.revisionId} and d.slug = ${eventSchemaSlug}
-					)
-					select * from (${projectionDependencyTargets(projectionSources([source.key]))}) targets
-				`,
-					"objects",
-				),
-			);
-			expect(rows).toEqual([{ ...source.key, sourceIndex: 0, restart: false }]);
-		}),
-	);
-
-	test.effect("invalidates every mapped stream beyond one processor page", () =>
-		Effect.gen(function* () {
-			const restore = yield* BackupRestorePersistence.make;
-			const session = yield* DatabaseSession;
-			const parent = yield* seedStream("fanout-parent");
-			const children = Array.from({ length: 101 }, (_, index) =>
-				EntityId.make(`fanout-child-${index}`),
-			);
-			yield* session.transaction(
-				Effect.gen(function* () {
-					for (const child of children) {
-						yield* restore.restoreEntity({
-							userId,
-							id: child,
-							name: child,
-							properties: {},
-							entitySchemaSlug,
-							entitySchemaPluginId: parent.fixture.pluginId,
-						});
-					}
-					yield* restore.restoreEvents(
-						children.map((child) =>
-							dependencyInput(parent.fixture, {
-								child,
-								parent: parent.entityId,
-								entityId: parent.entityId,
-								id: `fanout-edge-${child}`,
-							}),
-						),
-					);
-				}),
-			);
-			const ids = children.map((entityId) =>
-				eventStreamId({
-					userId,
-					entityId,
-					eventSchemaSlug,
-					eventSchemaPluginId: parent.fixture.pluginId,
-				}),
-			);
-			const before = yield* session.run((db) =>
-				db.select().from(tables.eventStream).where(inArray(tables.eventStream.id, ids)),
-			);
-			expect(before).toHaveLength(101);
-			yield* seedAdjustment({ id: "fanout-source", entityId: parent.entityId });
-			const after = yield* session.run((db) =>
-				db.select().from(tables.eventStream).where(inArray(tables.eventStream.id, ids)),
-			);
-			expect(after).toHaveLength(101);
-			for (const stream of before) {
-				expect(after.find(({ id }) => id === stream.id)?.revision).toBe(stream.revision + 1);
-			}
-		}),
 	);
 });

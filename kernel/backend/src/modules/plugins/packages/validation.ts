@@ -331,9 +331,6 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 							typeof input.scope === "string"
 								? input.scope
 								: identityTupleKey("property", input.scope.property),
-							input.through?.eventSchemaSlug ?? "",
-							input.through?.sourceProperty ?? "",
-							input.through?.targetProperty ?? "",
 						);
 						if (paths.has(path)) {
 							return yield* fail("Event projection input paths must be unique");
@@ -358,32 +355,6 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 								return yield* fail(
 									`Event projection input scope ${property} must be a declared entity reference`,
 								);
-							}
-						}
-						if (input.through) {
-							const mapping = input.through;
-							const evidence = manifest.entitySchemas.flatMap((schema) =>
-								schema.eventSchemas.filter((source) => source.slug === mapping.eventSchemaSlug),
-							);
-							if (evidence.length === 0) {
-								return yield* fail(
-									`Event projection mapping schema ${mapping.eventSchemaSlug} is not declared`,
-								);
-							}
-							if (mapping.sourceProperty === mapping.targetProperty) {
-								return yield* fail("Event projection mapping properties must be distinct");
-							}
-							for (const property of [mapping.sourceProperty, mapping.targetProperty]) {
-								if (
-									evidence.some((source) => {
-										const field = source.propertiesSchema.fields[property];
-										return field?.type !== "string" || field.reference?.kind !== "entity-id";
-									})
-								) {
-									return yield* fail(
-										`Event projection mapping property ${property} must be a declared entity reference`,
-									);
-								}
 							}
 						}
 					}

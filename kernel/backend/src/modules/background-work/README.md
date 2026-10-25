@@ -55,6 +55,10 @@ The frequent cron deletes succeeded and failed rows 168 hours after settlement i
 It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
 `event_stream_work` or `relationship_projection_work` record still names as its current job.
 
+Projection reconciliation admits dirty work through `admitCandidates`, which keyset-pages a
+feature's candidate IDs 100 at a time, arranges each in its own transaction, and dispatches admitted
+jobs after commit. A failing candidate is logged and skipped, so it cannot block later candidates.
+
 Projection-specific freshness remains event-owned: reconciliation finds stale bindings and dirty
 streams, and projection values are visible only while their source revision,
 plugin revision/configuration/installation, and processor binding remain current. See [events and
