@@ -50,6 +50,10 @@
 			"types": "./shared/workout-records.ts",
 			"default": "./shared/workout-records.ts"
 		},
+		"./workout-units": {
+			"types": "./shared/workout-units.ts",
+			"default": "./shared/workout-units.ts"
+		},
 		"./workout-details-recipes": {
 			"types": "./shared/workout-details-recipes.ts",
 			"default": "./shared/workout-details-recipes.ts"

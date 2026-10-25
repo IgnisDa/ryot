@@ -1,5 +1,6 @@
 import { exerciseKinds } from "@ryot-app/fitness-plugin/exercise-kinds";
 import { workoutSetScales } from "@ryot-app/fitness-plugin/workout-records";
+import { KILOGRAMS_PER_POUND, KILOMETERS_PER_MILE } from "@ryot-app/fitness-plugin/workout-units";
 
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
@@ -120,9 +121,9 @@ BEGIN
 												'note',     NULLIF(s.value ->> 'note', ''),
 												'restTime', s.value -> 'rest_time',
 												'reps',     ${buildDecimalStatField("s.value", "reps")},
-												'weight',   round(${buildDecimalStatField("s.value", "weight")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN 0.45359237 ELSE 1 END, ${workoutSetScales.weight}),
+												'weight',   round(${buildDecimalStatField("s.value", "weight")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN ${KILOGRAMS_PER_POUND} ELSE 1 END, ${workoutSetScales.weight}),
 												'duration', round(${buildDecimalStatField("s.value", "duration")} * 60, ${workoutSetScales.duration}),
-												'distance', round(${buildDecimalStatField("s.value", "distance")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN 1.609344 ELSE 1 END, ${workoutSetScales.distance})
+												'distance', round(${buildDecimalStatField("s.value", "distance")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN ${KILOMETERS_PER_MILE} ELSE 1 END, ${workoutSetScales.distance})
 											))
 											ORDER BY s.ordinality
 										)
@@ -476,13 +477,13 @@ BEGIN
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
 				'weight',             round(CASE
 					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
-					THEN ${buildDecimalStatField("s.value", "weight")} * 0.45359237
+					THEN ${buildDecimalStatField("s.value", "weight")} * ${KILOGRAMS_PER_POUND}
 					ELSE ${buildDecimalStatField("s.value", "weight")}
 				END, ${workoutSetScales.weight}),
 				'duration',           round(${buildDecimalStatField("s.value", "duration")} * 60, ${workoutSetScales.duration}),
 				'distance',           round(CASE
 					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
-					THEN ${buildDecimalStatField("s.value", "distance")} * 1.609344
+					THEN ${buildDecimalStatField("s.value", "distance")} * ${KILOMETERS_PER_MILE}
 					ELSE ${buildDecimalStatField("s.value", "distance")}
 				END, ${workoutSetScales.distance})
 			)),
