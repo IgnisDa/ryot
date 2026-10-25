@@ -13,9 +13,9 @@ import {
 	type Recipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
-import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumptionBasis, consumptionPropertiesEqual } from "../../shared/consumption";
+import { ConsumptionBasis } from "../../shared/consumption";
 import type { HistoryCorrection } from "../../shared/history-correction";
 import {
 	CompletionEpisode,
@@ -43,7 +43,7 @@ import {
 	historySourceRecipe,
 	progressCompletionBlockersRecipe,
 } from "../contracts/history-correction-recipes";
-import { MediaSandboxError } from "../lib/failures";
+import { HistoryCorrectionConflict, MediaSandboxError } from "../lib/failures";
 
 type Request = typeof HistoryCorrectionRequest.Type;
 type Host = Pick<ScriptHost, "executeRyotql" | "commitUserChanges">;
@@ -54,11 +54,6 @@ type RecordRow<A> = { readonly properties: A } & Pick<
 	HistoryEvent,
 	"id" | "revision" | "occurredAt"
 >;
-
-const propertiesMatch = (
-	actual: Readonly<Record<string, JsonValue>>,
-	expected: Readonly<Record<string, JsonValue>>,
-) => consumptionPropertiesEqual(actual, expected);
 
 const occurrenceProperties = (id: string, occurrence: CompletionOccurrence) => ({
 	completionKey: id,
@@ -87,7 +82,7 @@ const occurrenceMatches = (id: string, occurrence: CompletionOccurrence, event: 
 	event.occurredAt === occurrence.expectedOccurredAt &&
 	event.orderKey === occurrence.expectedOrderKey &&
 	event.orderCreatedAt === occurrence.expectedOrderCreatedAt &&
-	propertiesMatch(event.properties, occurrenceProperties(id, occurrence));
+	jsonValueEquals(event.properties, occurrenceProperties(id, occurrence));
 
 const expected = (libraryId: string, record: RecordRow<Readonly<Record<string, JsonValue>>>) => ({
 	absentProperties: [],
@@ -242,6 +237,15 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 };
 
 const maintenancePageSize = 25;
+
+const CommitConflict = EffectSchema.Struct({
+	code: EffectSchema.Literals([
+		"event-stale",
+		"entity-stale",
+		"event-not-found",
+		"mutation-conflict",
+	]),
+});
 
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
@@ -603,7 +607,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						...(source.properties["dateUnknown"] === true ? { dateUnknown: true } : {}),
 					};
 					const captured =
-						scratch !== undefined && propertiesMatch(scratch.properties, coverageProperties);
+						scratch !== undefined && jsonValueEquals(scratch.properties, coverageProperties);
 					if (!captured) {
 						if (scratch) {
 							write.replace(scratch, coverageProperties);
@@ -891,27 +895,34 @@ const commitStep = Effect.fn("commitHistoryCorrectionStep")(function* (
 	if (!library) {
 		return yield* new MediaSandboxError({ message: "Media library is unavailable" });
 	}
-	yield* host.commitUserChanges({
-		relationships: [],
-		events: {
-			creates: write.creates,
-			changes: write.changes,
-			baselines: [{ revision: context.sourceRevision, entityId: EntityId.make(entityId) }],
-		},
-		entity: {
-			name: library.name,
-			properties: library.properties,
-			entitySchemaSlug: "media-library",
-			target: {
-				kind: "update",
-				entityId: EntityId.make(libraryId),
-				expected: {
-					name: library.name,
-					updatedAt: library.updatedAt,
-					properties: library.properties,
+	yield* host
+		.commitUserChanges({
+			relationships: [],
+			events: {
+				creates: write.creates,
+				changes: write.changes,
+				baselines: [{ revision: context.sourceRevision, entityId: EntityId.make(entityId) }],
+			},
+			entity: {
+				name: library.name,
+				properties: library.properties,
+				entitySchemaSlug: "media-library",
+				target: {
+					kind: "update",
+					entityId: EntityId.make(libraryId),
+					expected: {
+						name: library.name,
+						updatedAt: library.updatedAt,
+						properties: library.properties,
+					},
 				},
 			},
-		},
-	});
+		})
+		.pipe(
+			Effect.catchIf(
+				(error) => EffectSchema.is(CommitConflict)(error.data),
+				() => Effect.fail(new HistoryCorrectionConflict()),
+			),
+		);
 	return undefined;
 });

@@ -12,10 +12,9 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
-import { jsonValueEquals } from "../../shared/json-value-equals";
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 import {
 	type WorkoutEditorSaveInput,

@@ -77,27 +77,10 @@ describe("consumption policy", () => {
 			expect(test.reads()).toBe(0);
 		}),
 	);
-	it.effect("rejects item identities that imply another unit or cumulative progress", () =>
+	it.effect("rejects volume context on volumes and items with cumulative progress", () =>
 		Effect.gen(function* () {
 			const test = harness();
 			const inputs: Parameters<typeof policyAutomationContext>[0][] = [
-				{ properties: {}, entitySchemaSlug: "anime" },
-				{
-					entitySchemaSlug: "anime",
-					properties: { consumedItem: { position: 1.5, unit: "episodes" } },
-				},
-				{
-					entitySchemaSlug: "anime",
-					properties: { consumedItem: { position: 1, unit: "chapters" } },
-				},
-				{
-					entitySchemaSlug: "anime",
-					properties: { consumedItem: { volume: 1, position: 1, unit: "episodes" } },
-				},
-				{
-					entitySchemaSlug: "manga",
-					properties: { consumedItem: { position: 1, unit: "episodes" } },
-				},
 				{
 					entitySchemaSlug: "manga",
 					properties: { consumedItem: { volume: 1, position: 1, unit: "volumes" } },
@@ -105,10 +88,6 @@ describe("consumption policy", () => {
 				{
 					entitySchemaSlug: "anime",
 					properties: { animeEpisode: 1, consumedItem: { position: 1, unit: "episodes" } },
-				},
-				{
-					entitySchemaSlug: "manga",
-					properties: { consumedItem: { position: -1, unit: "chapters" } },
 				},
 			];
 			for (const input of inputs) {
@@ -199,14 +178,12 @@ describe("consumption policy", () => {
 			expect(test.reads()).toBe(0);
 		}),
 	);
-	it.effect("rejects duplicate amount forms, invalid date evidence and game estimates", () =>
+	it.effect("rejects duplicate amount forms, contradictory date evidence and game estimates", () =>
 		Effect.gen(function* () {
 			const test = harness();
 			const inputs: Parameters<typeof policyAutomationContext>[0][] = [
 				{ properties: { sourceRun: "seen:missing-basis" } },
-				{ properties: { sourceRun: " " } },
 				{ entitySchemaSlug: "book", properties: { progressPages: 40, progressPercent: 40 } },
-				{ properties: { calendarDate: "2026-02-29" } },
 				{ properties: { dateUnknown: true, calendarDate: "2026-02-01" } },
 				{
 					entitySchemaSlug: "video-game",

@@ -5,9 +5,9 @@ import {
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
-import { jsonValueEquals } from "../../shared/json-value-equals";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
 import { WORKOUT_TAXONOMY_LIMIT } from "../../shared/workout-taxonomy";
 

@@ -1,5 +1,16 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import {
+	ConsumedItemUnit,
+	ConsumptionBasisProperty,
+	ConsumptionUnit,
+} from "../../shared/consumption";
+
+const staticChoices = (values: ReadonlyArray<string>) => ({
+	kind: "static" as const,
+	values: values.map((value) => ({ value })),
+});
+
 export const consumptionBasisField = {
 	type: "object" as const,
 	unknownKeys: "strict" as const,
@@ -12,26 +23,18 @@ export const consumptionBasisField = {
 			validation: { minimum: 0 },
 			description: "Frozen metadata amount",
 		},
+		property: {
+			type: "enum" as const,
+			label: "Metadata property",
+			description: "Source of the frozen estimate",
+			choices: staticChoices(ConsumptionBasisProperty.literals),
+		},
 		unit: {
 			label: "Unit",
 			type: "enum" as const,
 			description: "Consumption unit",
 			validation: { required: true as const },
-			choices: {
-				kind: "static" as const,
-				values: ["minutes", "pages", "episodes", "chapters"].map((value) => ({ value })),
-			},
-		},
-		property: {
-			type: "enum" as const,
-			label: "Metadata property",
-			description: "Source of the frozen estimate",
-			choices: {
-				kind: "static" as const,
-				values: ["runtime", "duration", "lengthMinutes", "pages", "episodes", "chapters"].map(
-					(value) => ({ value }),
-				),
-			},
+			choices: staticChoices(ConsumptionUnit.literals),
 		},
 	},
 };
@@ -42,39 +45,43 @@ export const calendarDateField = {
 	description: "Recorded YYYY-MM-DD date without time-of-day evidence",
 };
 
-export const consumedItemField = (entitySchemaSlug: "anime" | "manga") => ({
-	label: "Consumed item",
-	type: "object" as const,
-	unknownKeys: "strict" as const,
+const itemPositionField = {
+	label: "Item number",
+	validation: { minimum: 0, required: true as const },
+	description: "Number identifying the item, never a consumed quantity",
+};
+
+const itemUnitField = (units: ReadonlyArray<typeof ConsumedItemUnit.Type>) => ({
+	label: "Item unit",
+	type: "enum" as const,
+	choices: staticChoices(units),
 	validation: { required: true as const },
-	description: "One independent numbered occurrence, not cumulative progress or title completion",
-	properties: {
-		volume: {
-			type: "number" as const,
-			label: "Volume context",
-			validation: { minimum: 0 },
-			description: "Containing volume, not a consumed volume count",
-		},
-		position: {
-			label: "Item number",
-			type: "number" as const,
-			validation: { minimum: 0, required: true as const },
-			description: "Number identifying the item, never a consumed quantity",
-		},
-		unit: {
-			label: "Item unit",
-			type: "enum" as const,
-			validation: { required: true as const },
-			description: "Unit of this single occurrence",
-			choices: {
-				kind: "static" as const,
-				values: (entitySchemaSlug === "anime" ? ["episodes"] : ["chapters", "volumes"]).map(
-					(value) => ({ value }),
-				),
-			},
-		},
-	},
+	description: "Unit of this single occurrence",
 });
+
+export const consumedItemField = (entitySchemaSlug: "anime" | "manga") => {
+	const properties: AppSchema["fields"] =
+		entitySchemaSlug === "anime"
+			? { unit: itemUnitField(["episodes"]), position: { ...itemPositionField, type: "integer" } }
+			: {
+					unit: itemUnitField(["chapters", "volumes"]),
+					position: { ...itemPositionField, type: "number" },
+					volume: {
+						type: "number",
+						label: "Volume context",
+						validation: { minimum: 0 },
+						description: "Containing volume, not a consumed volume count",
+					},
+				};
+	return {
+		properties,
+		label: "Consumed item",
+		type: "object" as const,
+		unknownKeys: "strict" as const,
+		validation: { required: true as const },
+		description: "One independent numbered occurrence, not cumulative progress or title completion",
+	};
+};
 
 export const sourceProgressField = {
 	type: "object" as const,
@@ -99,10 +106,7 @@ export const sourceProgressField = {
 			type: "enum" as const,
 			description: "Source position unit",
 			validation: { required: true as const },
-			choices: {
-				kind: "static" as const,
-				values: [{ value: "episodes" }, { value: "chapters" }, { value: "volumes" }],
-			},
+			choices: staticChoices(ConsumedItemUnit.literals),
 		},
 	},
 };
@@ -119,7 +123,7 @@ export const withConsumptionFacts = (schema: AppSchema): AppSchema => ({
 		sourceRun: {
 			type: "string",
 			label: "Source run",
-			validation: { minLength: 1, maxLength: 200 },
+			validation: { maxLength: 200, pattern: "\\S" },
 			description:
 				"Source-provided identity shared by observations in one independent consumption run",
 		},

@@ -19,15 +19,9 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
-import {
-	ConsumedItem,
-	ConsumptionBasis,
-	consumptionBasisFor,
-	ConsumptionCalendarDate,
-	consumptionPropertiesEqual,
-	SourceProgress,
-} from "../../shared/consumption";
+import { ConsumedItem, ConsumptionBasis, consumptionBasisFor } from "../../shared/consumption";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -90,60 +84,24 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	}
 	const { draft } = payload;
 	const properties = draft.properties;
-	const sourceRun = properties["sourceRun"];
-	if (
-		sourceRun !== undefined &&
-		(typeof sourceRun !== "string" || sourceRun.trim().length === 0 || sourceRun.length > 200)
-	) {
-		return reject("Invalid source run identity");
-	}
-	if (draft.eventSchemaSlug === "item-complete") {
-		const item = Schema.decodeUnknownOption(ConsumedItem)(properties["consumedItem"]);
-		if (item._tag === "None") {
-			return reject("A consumed item is required");
-		}
-		if (draft.entitySchemaSlug === "anime") {
-			if (
-				item.value.unit !== "episodes" ||
-				!Number.isInteger(item.value.position) ||
-				item.value.volume !== undefined
-			) {
-				return reject("Invalid independent anime episode");
-			}
-		} else if (draft.entitySchemaSlug !== "manga" || item.value.unit === "episodes") {
-			return reject("Invalid independent consumed item");
-		}
-		if (item.value.volume !== undefined && item.value.unit !== "chapters") {
-			return reject("Volume context belongs to a chapter occurrence");
-		}
-	}
-	if (
-		properties["sourceProgress"] !== undefined &&
-		!Schema.is(SourceProgress)(properties["sourceProgress"])
-	) {
-		return reject("Invalid original source progress");
+	const item = Schema.decodeUnknownOption(ConsumedItem)(properties["consumedItem"]);
+	if (item._tag === "Some" && item.value.volume !== undefined && item.value.unit !== "chapters") {
+		return reject("Volume context belongs to a chapter occurrence");
 	}
 	if (
 		payload.operation === "update" &&
-		!consumptionPropertiesEqual(
-			payload.before.properties["sourceProgress"],
-			properties["sourceProgress"],
-		)
+		!jsonValueEquals(payload.before.properties["sourceProgress"], properties["sourceProgress"])
 	) {
 		return reject("Original source progress is immutable");
 	}
 	if (
 		payload.operation === "update" &&
-		!consumptionPropertiesEqual(payload.before.properties["sourceRun"], properties["sourceRun"])
+		!jsonValueEquals(payload.before.properties["sourceRun"], properties["sourceRun"])
 	) {
 		return reject("The source run is immutable");
 	}
-	if (
-		properties["calendarDate"] !== undefined &&
-		(!Schema.is(ConsumptionCalendarDate)(properties["calendarDate"]) ||
-			properties["dateUnknown"] === true)
-	) {
-		return reject("Invalid consumption calendar date");
+	if (properties["calendarDate"] !== undefined && properties["dateUnknown"] === true) {
+		return reject("A calendar date cannot be unknown");
 	}
 	const progress = ["progressPages", "progressPercent", "animeEpisode", "mangaChapter"].filter(
 		(key) => properties[key] !== undefined,
@@ -169,7 +127,7 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 		return reject("Recorded consumption evidence is missing");
 	}
 	if (retained !== undefined) {
-		if (!consumptionPropertiesEqual(retained, properties["consumptionBasis"])) {
+		if (!jsonValueEquals(retained, properties["consumptionBasis"])) {
 			return {
 				action: "transform",
 				patch: {
@@ -196,7 +154,7 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	if (properties["completionKey"] !== undefined) {
 		return reject("Automatic completions require retained consumption evidence");
 	}
-	if (sourceRun !== undefined) {
+	if (properties["sourceRun"] !== undefined) {
 		return reject("Imported source runs require retained consumption evidence");
 	}
 	const target = yield* executeRyotqlRecipe(

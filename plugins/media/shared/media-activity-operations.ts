@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { CalendarDate, EntityId } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem, ConsumptionCalendarDate } from "./consumption";
+import { ConsumedItem } from "./consumption";
 
 export const mediaActivityStatuses = ["backlog", "on_hold", "dropped"] as const;
 
@@ -48,7 +48,7 @@ export const MediaActivityWhen = Schema.Union([
 		finishedOn: IsoTimestamp,
 		kind: Schema.Literal("date"),
 		startedOn: Schema.optional(IsoTimestamp),
-		calendarDate: Schema.optional(ConsumptionCalendarDate),
+		calendarDate: Schema.optional(CalendarDate),
 	}),
 ]);
 
@@ -142,7 +142,7 @@ const MediaActivityEditWhen = Schema.Union([
 		finishedOn: IsoTimestamp,
 		kind: Schema.Literal("date"),
 		startedOn: Schema.optional(IsoTimestamp),
-		calendarDate: Schema.optional(ConsumptionCalendarDate),
+		calendarDate: Schema.optional(CalendarDate),
 	}),
 ]);
 

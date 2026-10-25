@@ -1,6 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { CalendarDate } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumptionBasis, ConsumptionCalendarDate } from "./consumption";
+import { ConsumptionBasis } from "./consumption";
 
 export const CompletionOccurrence = Schema.Struct({
 	total: Schema.Finite,
@@ -17,10 +18,10 @@ export const CompletionOccurrence = Schema.Struct({
 	expectedSourceRun: Schema.optionalKey(Schema.String),
 	expectedOccurredAt: Schema.optionalKey(Schema.String),
 	expectedConsumedOn: Schema.optionalKey(Schema.String),
+	expectedCalendarDate: Schema.optionalKey(CalendarDate),
 	expectedDateUnknown: Schema.optionalKey(Schema.Boolean),
 	expectedOrderCreatedAt: Schema.optionalKey(Schema.String),
 	expectedConsumptionBasis: Schema.optionalKey(ConsumptionBasis),
-	expectedCalendarDate: Schema.optionalKey(ConsumptionCalendarDate),
 	status: Schema.Literals(["building", "active", "inactive", "suppressed", "overridden"]),
 });
 export type CompletionOccurrence = typeof CompletionOccurrence.Type;

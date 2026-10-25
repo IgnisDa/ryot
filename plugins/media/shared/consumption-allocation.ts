@@ -1,11 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { CalendarDate } from "@ryot-app/plugin-kit/schema";
 
-import {
-	ConsumedItem,
-	ConsumptionBasis,
-	ConsumptionCalendarDate,
-	SourceProgress,
-} from "./consumption";
+import { ConsumedItem, ConsumptionBasis, SourceProgress } from "./consumption";
 
 const Nonnegative = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -31,9 +27,9 @@ export const ConsumptionObservation = Schema.Struct({
 		mangaChapter: Schema.optionalKey(Nonnegative),
 		consumedItem: Schema.optionalKey(ConsumedItem),
 		progressPages: Schema.optionalKey(Nonnegative),
+		calendarDate: Schema.optionalKey(CalendarDate),
 		dateUnknown: Schema.optionalKey(Schema.Boolean),
 		sourceProgress: Schema.optionalKey(SourceProgress),
-		calendarDate: Schema.optionalKey(ConsumptionCalendarDate),
 		progressPercent: Schema.optionalKey(Nonnegative.check(Schema.isLessThanOrEqualTo(100))),
 	}),
 });
@@ -79,7 +75,7 @@ export type ConsumptionAllocationState = typeof ConsumptionAllocationState.Type;
 
 const ConsumptionAttribution = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("unknown") }),
-	Schema.Struct({ kind: Schema.Literal("date"), value: ConsumptionCalendarDate }),
+	Schema.Struct({ value: CalendarDate, kind: Schema.Literal("date") }),
 	Schema.Struct({ value: Schema.String, kind: Schema.Literal("instant") }),
 ]);
 

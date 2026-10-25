@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { consumptionBasisFor, consumptionPropertiesEqual } from "./consumption";
+import { consumptionBasisFor } from "./consumption";
 
 describe("retained consumption evidence", () => {
 	it("keeps type-specific units and never treats game time-to-beat as consumption", () => {
@@ -30,19 +30,5 @@ describe("retained consumption evidence", () => {
 		metadata.runtime = 180;
 		expect(saved).toEqual({ total: 0, unit: "minutes", property: "runtime" });
 		expect(consumptionBasisFor("movie", {})).toEqual({ unit: "minutes", property: "runtime" });
-	});
-	it("matches restored nested snapshots structurally without masking edits", () => {
-		const expected = {
-			calendarDate: "2026-02-01",
-			consumptionBasis: { total: 100, unit: "pages" },
-		};
-		expect(consumptionPropertiesEqual(JSON.parse(JSON.stringify(expected)), expected)).toBe(true);
-		expect(
-			consumptionPropertiesEqual(
-				{ ...expected, consumptionBasis: { total: 101, unit: "pages" } },
-				expected,
-			),
-		).toBe(false);
-		expect(consumptionPropertiesEqual({ ...expected, timeSpent: 10 }, expected)).toBe(false);
 	});
 });

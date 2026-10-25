@@ -12,8 +12,8 @@ export const replyReportingPreferences = (
 			page.send({
 				outcome: "success",
 				preferences: { timeZone },
-				type: "reporting-preferences-result",
 				requestId: request.requestId,
+				type: "reporting-preferences-result",
 			});
 		}
 	}
