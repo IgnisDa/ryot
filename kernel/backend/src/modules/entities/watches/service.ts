@@ -1,19 +1,12 @@
 import { badRequest, notFound } from "@ryot-app/contract/errors";
 import type { EntityWatchEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Context, Effect, Layer } from "effect";
+import { chunksOf } from "effect/Array";
 
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
 import { type InterestPrincipal, InterestReconciler } from "./reconciler";
 import { EntityWatchStore, type PendingInterest } from "./store";
-
-const chunk = <T>(items: readonly T[], size: number) => {
-	const chunks: T[][] = [];
-	for (let index = 0; index < items.length; index += size) {
-		chunks.push(items.slice(index, index + size));
-	}
-	return chunks;
-};
 
 export type ReconciledCompletion = {
 	readonly pending: PendingInterest;
@@ -33,7 +26,7 @@ export class InterestService extends Context.Service<InterestService>()(
 				readonly pending: readonly PendingInterest[];
 			}) {
 				const terminal: ReconciledCompletion[] = [];
-				for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
+				for (const pending of chunksOf(input.pending, MAX_ROOT_PAGE_SIZE)) {
 					const result = yield* reconciler.reconcile(input.principal, pending);
 					const visibleIds = new Set<string>(result.reconciledEntityIds);
 					const visible = pending.filter(({ entityId }) => visibleIds.has(entityId));

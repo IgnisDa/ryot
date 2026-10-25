@@ -3,10 +3,7 @@ import type {
 	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
-import {
-	RelationshipBadRequest,
-	RelationshipNotFound,
-} from "@ryot-app/contract/modules/relationships/schemas";
+import { RelationshipNotFound } from "@ryot-app/contract/modules/relationships/schemas";
 import { Effect, Schema } from "effect";
 
 import type {
@@ -35,11 +32,12 @@ import {
 	parseProperties,
 	type PlannedRelationshipReconciliationResult,
 	type ReconcileGlobalRelationshipGroup,
-	relationshipKey,
+	reconciliationKeys,
 	type RelationshipMutationDependencies,
 	relationshipReceiptIdentity,
 	type RelationshipReconciliationScope,
 	RelationshipRecordedResult,
+	retiredRelationships,
 	snapshot,
 	validateUserRelationshipEntities,
 } from "./mutation-support";
@@ -136,32 +134,13 @@ export const makePlannedRelationshipReconciliation = (
 							scope.userId,
 						)
 					: emptyUserEntityScopes();
-			const seen = new Set<string>();
+			const seen = yield* reconciliationKeys(group);
 			const desired: Array<
 				{
 					properties: Record<string, unknown>;
 				} & ReconcileGlobalRelationshipGroup["relationships"][number]
 			> = [];
 			for (const relationship of group.relationships) {
-				let matches = relationship.sourceEntityId === relationship.targetEntityId;
-				if (group.selector.type !== "self") {
-					matches =
-						group.selector.direction === "outgoing"
-							? relationship.sourceEntityId === group.selector.anchorEntityId
-							: relationship.targetEntityId === group.selector.anchorEntityId;
-				}
-				if (!matches) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "reconciliation-selector-mismatch" },
-					});
-				}
-				const key = relationshipKey(relationship);
-				if (seen.has(key)) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "duplicate-reconciliation-relationship" },
-					});
-				}
-				seen.add(key);
 				if (scope.scope === "user") {
 					yield* validateUserRelationshipEntities(scopes, relationship, definition, scope.userId);
 				}
@@ -186,9 +165,11 @@ export const makePlannedRelationshipReconciliation = (
 				mode: "upsert" | "ensure" | "delete";
 			}> = [
 				...desired.map((input) => ({ input, mode: upsertMode, properties: input.properties })),
-				...deletions
-					.filter((input) => !seen.has(relationshipKey(input)))
-					.map((input) => ({ input, properties: {}, mode: "delete" as const })),
+				...retiredRelationships(deletions, seen).map((input) => ({
+					input,
+					properties: {},
+					mode: "delete" as const,
+				})),
 			]
 				.map((change) => {
 					const input = {

@@ -62,12 +62,13 @@ import {
 	itemCommand,
 	type Mutation,
 	type ReconcileGlobalRelationshipGroup,
-	relationshipKey,
+	reconciliationKeys,
 	RelationshipMutation,
 	relationshipReceiptIdentity,
 	RelationshipRecordedResult,
 	relationshipSchemaReference,
 	relationshipWriteFailure,
+	retiredRelationships,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
@@ -854,34 +855,14 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						relationshipSchemaSlug: group.relationshipSchema.slug,
 						relationshipSchemaPluginId: definition.pluginId ?? null,
 					};
-					const seen = new Set<string>();
-					for (const relationship of group.relationships) {
-						let matches = relationship.sourceEntityId === relationship.targetEntityId;
-						if (group.selector.type === "anchored") {
-							matches =
-								group.selector.direction === "outgoing"
-									? relationship.sourceEntityId === group.selector.anchorEntityId
-									: relationship.targetEntityId === group.selector.anchorEntityId;
-						}
-						if (!matches) {
-							return yield* new RelationshipBadRequest({
-								reason: { code: "reconciliation-selector-mismatch" },
-							});
-						}
-						const key = relationshipKey(relationship);
-						if (seen.has(key)) {
-							return yield* new RelationshipBadRequest({
-								reason: { code: "duplicate-reconciliation-relationship" },
-							});
-						}
-						seen.add(key);
-					}
+					const seen = yield* reconciliationKeys(group);
 					const existing = yield* session.transaction(repository.listGlobalRelationships(selector));
 					const mutations = [
 						...group.relationships.map((input) => ({ input, mode: "upsert" as const })),
-						...existing
-							.filter((input) => !seen.has(relationshipKey(input)))
-							.map((input) => ({ input, mode: "delete" as const })),
+						...retiredRelationships(existing, seen).map((input) => ({
+							input,
+							mode: "delete" as const,
+						})),
 					].map((change) => {
 						const input = {
 							...change.input,

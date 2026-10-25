@@ -176,6 +176,39 @@ export const equal = (left: unknown, right: unknown) =>
 	stableStringify(left) === stableStringify(right);
 export const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityId: EntityId }) =>
 	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
+export const reconciliationKeys = Effect.fnUntraced(function* (
+	group: Pick<ReconcileGlobalRelationshipGroup, "selector" | "relationships">,
+) {
+	const { selector } = group;
+	const keys = new Set<string>();
+	for (const relationship of group.relationships) {
+		const matches =
+			selector.type === "self"
+				? relationship.sourceEntityId === relationship.targetEntityId
+				: (selector.direction === "outgoing"
+						? relationship.sourceEntityId
+						: relationship.targetEntityId) === selector.anchorEntityId;
+		if (!matches) {
+			return yield* new RelationshipBadRequest({
+				reason: { code: "reconciliation-selector-mismatch" },
+			});
+		}
+		const key = relationshipKey(relationship);
+		if (keys.has(key)) {
+			return yield* new RelationshipBadRequest({
+				reason: { code: "duplicate-reconciliation-relationship" },
+			});
+		}
+		keys.add(key);
+	}
+	return keys;
+});
+export const retiredRelationships = <
+	Relationship extends { sourceEntityId: EntityId; targetEntityId: EntityId },
+>(
+	existing: ReadonlyArray<Relationship>,
+	kept: ReadonlySet<string>,
+) => existing.filter((relationship) => !kept.has(relationshipKey(relationship)));
 export const badProperties = (paths: ReadonlyArray<ReadonlyArray<string>>) =>
 	new RelationshipBadRequest({ reason: { paths, code: "invalid-properties" } });
 export const relationshipWriteFailure = (error: DbError | DomainWriteConflict) =>
