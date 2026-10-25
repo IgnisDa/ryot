@@ -17,6 +17,7 @@ import { chunksOf } from "effect/Array";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -32,6 +33,14 @@ const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 
 const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
 	mockPluginRuntime({ ...overrides });
+
+const exercise = (id: string, name: string, kind: string, userId: null | UserId) => ({
+	id,
+	name,
+	userId,
+	properties: { kind },
+	entitySchemaSlug: "exercise",
+});
 
 const repositoryWithDatabase = (db: object, pluginRuntime = makePluginRuntime()) => {
 	const database = db;
@@ -603,6 +612,87 @@ layer(
 			});
 			expect([...found.keys()].sort()).toEqual(["global", "owned"]);
 			expect(found.get(EntityId.make("owned"))).toMatchObject({ name: "Owned", properties: {} });
+		}),
+	);
+});
+
+layer(
+	EntitiesRepository.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				Layer.mock(DefinitionRepository)({
+					findUserEntitySchemas: () =>
+						Effect.succeed(
+							buildDefinitionSnapshot({
+								savedViews: [],
+								signalSchemas: [],
+								calendarSources: [],
+								relationshipSchemas: [],
+								entitySchemas: [
+									{
+										icon: "box",
+										pluginId: null,
+										slug: "exercise",
+										name: "Exercise",
+										eventSchemas: [],
+										propertiesSchema: { fields: {} },
+									},
+								],
+							}).entitySchemas,
+						),
+				}),
+				makePluginRuntime(),
+			),
+		),
+		Layer.provideMerge(isolatedDatabaseLayer("entities_repository_import_match")),
+	),
+)((test) => {
+	test.effect("matches import entities by normalized name, properties, and scope in SQL", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const owner = UserId.make("match-owner");
+			const other = UserId.make("match-other");
+			yield* session.run((db) =>
+				db.insert(tables.user).values([
+					{ id: owner, name: "Owner", email: "match-owner@example.test" },
+					{ id: other, name: "Other", email: "match-other@example.test" },
+				]),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.entity)
+					.values([
+						exercise("owned", "  Bench_Press (Barbell) ", "strength", owner),
+						exercise("owned-cardio", "Bench Press Barbell", "cardio", owner),
+						exercise("global", "bench press barbell", "strength", null),
+						exercise("foreign", "Bench Press Barbell", "strength", other),
+					]),
+			);
+			const find = (input: {
+				name: string;
+				kind: string;
+				scope?: "user" | "global";
+				nameNormalization: "slug" | "exact";
+			}) =>
+				repository.findImportMatch({
+					userId: owner,
+					name: input.name,
+					properties: { kind: input.kind },
+					nameNormalization: input.nameNormalization,
+					...(input.scope ? { scope: input.scope } : {}),
+					entitySchema: { owner: definitionOwner(null), slug: EntitySchemaSlug.make("exercise") },
+				});
+			const slug = { name: "bench-press-barbell", nameNormalization: "slug" as const };
+			expect(yield* find({ ...slug, kind: "strength" })).toBe("owned");
+			expect(yield* find({ ...slug, scope: "global", kind: "strength" })).toBe("global");
+			expect(yield* find({ ...slug, kind: "cardio", scope: "global" })).toBeNull();
+			expect(
+				yield* find({ kind: "cardio", nameNormalization: "exact", name: "Bench Press Barbell" }),
+			).toBe("owned-cardio");
+			expect(
+				yield* find({ kind: "strength", nameNormalization: "exact", name: "Bench Press Barbell" }),
+			).toBeNull();
 		}),
 	);
 });

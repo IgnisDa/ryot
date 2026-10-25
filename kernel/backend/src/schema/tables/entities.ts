@@ -42,7 +42,7 @@ export const entity = snakeCase.table(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
-		index("entity_user_id_idx").on(table.userId),
+		index("entity_user_schema_name_idx").on(table.userId, table.entitySchemaSlug, table.name),
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_provider_id_idx").on(table.providerId),
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),

@@ -35,6 +35,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
+import { slugify, slugSql } from "#platform/slug";
 import * as schema from "#schema/tables/combined";
 
 import {
@@ -345,31 +346,50 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}
 				},
 			);
-			const listMatchCandidatesBySchema = Effect.fn(
-				"EntitiesRepository.listMatchCandidatesBySchema",
-			)(function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
+			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (input: {
+				name: string;
+				userId: UserId;
+				scope?: "user" | "global";
+				nameNormalization: "slug" | "exact";
+				properties: Record<string, unknown>;
+				entitySchema: EntitySchemaReference;
+			}) {
 				const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
 				if (!definition) {
-					return [];
+					return null;
 				}
-				const rows = yield* session.run((db) =>
+				let scope = entityVisibleToUserClause(input.userId);
+				if (input.scope === "user") {
+					scope = eq(schema.entity.userId, input.userId);
+				} else if (input.scope === "global") {
+					scope = isNull(schema.entity.userId);
+				}
+				const [row] = yield* session.run((db) =>
 					db
-						.select(entitySelection)
+						.select({ id: schema.entity.id })
 						.from(schema.entity)
 						.where(
 							and(
-								entityVisibleToUserClause(input.userId),
+								scope,
 								eq(schema.entity.entitySchemaSlug, input.entitySchema.slug),
 								entitySchemaPluginWhere(definition.pluginId),
+								input.nameNormalization === "slug"
+									? sql`${slugSql(schema.entity.name)} = ${slugify(input.name)}`
+									: eq(schema.entity.name, input.name),
+								...Object.entries(input.properties).map(
+									([key, value]) =>
+										sql`${schema.entity.properties} -> ${key} = ${JSON.stringify(value)}::jsonb`,
+								),
 							),
 						)
 						.orderBy(
 							sql`case when ${schema.entity.userId} = ${input.userId} then 0 else 1 end`,
 							asc(schema.entity.name),
 							asc(schema.entity.createdAt),
-						),
+						)
+						.limit(1),
 				);
-				return rows.map(toListedEntity);
+				return row ? EntityId.make(row.id) : null;
 			});
 
 			const listEntityReferencesByIds = Effect.fn("EntitiesRepository.listEntityReferencesByIds")(
@@ -1137,6 +1157,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				insertEntities,
 				getByIdForUser,
 				getByIdsForUser,
+				findImportMatch,
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,
@@ -1161,7 +1182,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				stampChildRelatedPopulated,
 				findGlobalEntityForRestore,
 				lockProviderEntityMutations,
-				listMatchCandidatesBySchema,
 				findUserEntityWithoutProvenance,
 				holdsRelatedPopulationGeneration,
 				lockGlobalEntityProvenanceScopes,

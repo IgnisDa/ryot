@@ -208,16 +208,15 @@ const findImportEntity = Effect.fn("imports.findImportEntity")(function* (
 		}
 		entityId = (yield* inScope(existing.id)) ? existing.id : undefined;
 	} else if (intent.match) {
-		const candidates = yield* repository.listMatchCandidatesBySchema({
-			userId,
-			entitySchema: reference,
-		});
-		for (const candidate of candidates) {
-			if (matchesImportIntent(candidate, intent) && (yield* inScope(candidate.id))) {
-				entityId = candidate.id;
-				break;
-			}
-		}
+		entityId =
+			(yield* repository.findImportMatch({
+				userId,
+				entitySchema: reference,
+				name: intent.match.name,
+				properties: intent.match.properties,
+				nameNormalization: intent.match.nameNormalization ?? "exact",
+				...(intent.scope ? { scope: intent.scope } : {}),
+			})) ?? undefined;
 	}
 	if (!entityId && intent.existingOnly) {
 		return yield* new ImportRunError({

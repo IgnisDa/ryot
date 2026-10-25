@@ -1346,7 +1346,7 @@ CREATE INDEX "definition_integration_provider_slug_idx" ON "definition_integrati
 CREATE INDEX "definition_relationship_schema_slug_idx" ON "definition_relationship_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_saved_view_slug_idx" ON "definition_saved_view" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_signal_schema_slug_idx" ON "definition_signal_schema" ("slug");--> statement-breakpoint
-CREATE INDEX "entity_user_id_idx" ON "entity" ("user_id");--> statement-breakpoint
+CREATE INDEX "entity_user_schema_name_idx" ON "entity" ("user_id","entity_schema_slug","name");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_slug_idx" ON "entity" ("entity_schema_slug");--> statement-breakpoint
