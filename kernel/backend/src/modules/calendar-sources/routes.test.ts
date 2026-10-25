@@ -34,7 +34,7 @@ const client = HttpApiTest.groups(AppContract, ["calendarSources"]);
 class RouteCaller extends Context.Service<
 	RouteCaller,
 	{ readonly sendAs: (userId: UserId, accessClass: AccessClass) => Effect.Effect<void> }
->()("test/RouteCaller") {}
+>()("@ryot-app/kernel-backend/modules/calendar-sources/routes.test/RouteCaller") {}
 
 const credential = (userId: UserId, accessClass: AccessClass) => ({
 	authorization: {

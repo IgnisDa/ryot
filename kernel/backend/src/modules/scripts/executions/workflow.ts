@@ -206,7 +206,7 @@ const pinningOwnership = (payload: ScriptExecutionWorkflowPayloadValue) => {
 };
 
 export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinning>()(
-	"SandboxWorkflowPinning",
+	"@ryot-app/kernel-backend/modules/scripts/executions/workflow/SandboxWorkflowPinning",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

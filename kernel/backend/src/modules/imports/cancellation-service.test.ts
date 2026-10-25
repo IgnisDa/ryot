@@ -24,7 +24,9 @@ type RunControl = Effect.Success<ReturnType<ImportsRepository["Service"]["getRun
 class FakeCancellationDispatch extends Context.Service<
 	FakeCancellationDispatch,
 	{ readonly executions: Effect.Effect<ReadonlyArray<unknown>> }
->()("test/FakeCancellationDispatch") {}
+>()(
+	"@ryot-app/kernel-backend/modules/imports/cancellation-service.test/FakeCancellationDispatch",
+) {}
 
 const makeLayer = (run: RunControl) =>
 	ImportRunCancellationService.layer.pipe(

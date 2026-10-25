@@ -29,12 +29,12 @@ export const projectionInputCoordinationKey = (userId: string) => `projection-in
 export class BackgroundWorkExecutor extends Context.Service<
 	BackgroundWorkExecutor,
 	{ execute: (job: BackgroundWorkInput) => Effect.Effect<unknown, DbError> }
->()("BackgroundWorkExecutor") {}
+>()("@ryot-app/kernel-backend/modules/background-work/model/BackgroundWorkExecutor") {}
 
 export class ProjectionInputReadiness extends Context.Service<
 	ProjectionInputReadiness,
 	{ ready: (account: AccountGeneration) => Effect.Effect<boolean, DbError> }
->()("ProjectionInputReadiness") {}
+>()("@ryot-app/kernel-backend/modules/background-work/model/ProjectionInputReadiness") {}
 
 export class ProjectionInputFence extends Context.Service<
 	ProjectionInputFence,
@@ -42,7 +42,7 @@ export class ProjectionInputFence extends Context.Service<
 		lock: (account: AccountGeneration) => Effect.Effect<void, DbError>;
 		advance: (account: AccountGeneration) => Effect.Effect<void, DbError>;
 	}
->()("ProjectionInputFence") {}
+>()("@ryot-app/kernel-backend/modules/background-work/model/ProjectionInputFence") {}
 
 export class ProjectionBindings extends Context.Service<
 	ProjectionBindings,
@@ -60,7 +60,7 @@ export class ProjectionBindings extends Context.Service<
 			DbError
 		>;
 	}
->()("ProjectionBindings") {}
+>()("@ryot-app/kernel-backend/modules/background-work/model/ProjectionBindings") {}
 
 export class BackgroundWorkProjectionFinalizer extends Context.Service<
 	BackgroundWorkProjectionFinalizer,
@@ -73,4 +73,4 @@ export class BackgroundWorkProjectionFinalizer extends Context.Service<
 			output: unknown,
 		) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
 	}
->()("BackgroundWorkProjectionFinalizer") {}
+>()("@ryot-app/kernel-backend/modules/background-work/model/BackgroundWorkProjectionFinalizer") {}

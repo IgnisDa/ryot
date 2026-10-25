@@ -37,18 +37,21 @@ const isDeclaredRetryFailure = Schema.is(
 export const isDeclaredEnrichmentFailure = (error: unknown) =>
 	error instanceof AuthenticatedApiError && isDeclaredRetryFailure(error.cause);
 
-export class EntitiesApi extends Context.Service<EntitiesApi>()("EntitiesApi", {
-	make: Effect.gen(function* () {
-		const api = yield* AuthenticatedApi;
-		return {
-			saveEditor: (scope: ApiScope, request: ContractRequest<"entities", "saveEditor">) =>
-				api.run(scope, (client) => client.entities.saveEditor(request)),
-			requestEnrichment: (
-				scope: ApiScope,
-				request: ContractRequest<"entities", "requestEnrichment">,
-			) => api.run(scope, (client) => client.entities.requestEnrichment(request)),
-		};
-	}),
-}) {
+export class EntitiesApi extends Context.Service<EntitiesApi>()(
+	"@ryot-app/kernel-client/api/entities/EntitiesApi",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* AuthenticatedApi;
+			return {
+				saveEditor: (scope: ApiScope, request: ContractRequest<"entities", "saveEditor">) =>
+					api.run(scope, (client) => client.entities.saveEditor(request)),
+				requestEnrichment: (
+					scope: ApiScope,
+					request: ContractRequest<"entities", "requestEnrichment">,
+				) => api.run(scope, (client) => client.entities.requestEnrichment(request)),
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

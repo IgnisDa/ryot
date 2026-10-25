@@ -147,7 +147,7 @@ const invalidRelationshipReason = ({ reason }: RelationshipBadRequest) => {
 };
 
 export class EntityEditorService extends Context.Service<EntityEditorService>()(
-	"EntityEditorService",
+	"@ryot-app/kernel-backend/modules/entities/editor/service/EntityEditorService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

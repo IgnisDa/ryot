@@ -22,7 +22,7 @@ class FakeCancelWorkflow extends Context.Service<
 			ReadonlyArray<{ runId: ImportRunId; executionKind: ImportRunExecutionKind }>
 		>;
 	}
->()("test/FakeCancelWorkflow") {}
+>()("@ryot-app/kernel-backend/modules/imports/cancel-workflow.test/FakeCancelWorkflow") {}
 
 const makeLayer = (executionKind: ImportRunExecutionKind, cancellable = true) =>
 	Layer.unwrap(

@@ -13,4 +13,4 @@ export class SandboxExecutionAuthority extends Context.Service<
 			principal: SandboxPrincipal,
 		) => Effect.Effect<typeof SandboxTrust.Type, SandboxRunError>;
 	}
->()("SandboxExecutionAuthority") {}
+>()("@ryot-app/sandbox/host/authority/SandboxExecutionAuthority") {}

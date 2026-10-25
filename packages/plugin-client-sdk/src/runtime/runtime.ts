@@ -21,7 +21,7 @@ export type RyotPluginRuntime = ManagedRuntime.ManagedRuntime<
 >;
 
 export class RyotClientService extends Context.Service<RyotClientService, RyotClient>()(
-	"RyotClientService",
+	"@ryot-app/plugin-client-sdk/runtime/runtime/RyotClientService",
 ) {
 	static readonly layer = (client: RyotClient) => Layer.succeed(this, client);
 }
@@ -29,7 +29,7 @@ export class RyotClientService extends Context.Service<RyotClientService, RyotCl
 export class RyotNavigationService extends Context.Service<
 	RyotNavigationService,
 	PluginRouterNavigation
->()("RyotNavigationService") {
+>()("@ryot-app/plugin-client-sdk/runtime/runtime/RyotNavigationService") {
 	static readonly layer = (navigation: PluginRouterNavigation) => Layer.succeed(this, navigation);
 }
 

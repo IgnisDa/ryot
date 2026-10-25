@@ -64,7 +64,7 @@ type ExportBackupWorkflowOperationsValue = {
 export class ExportBackupWorkflowOperations extends Context.Service<
 	ExportBackupWorkflowOperations,
 	ExportBackupWorkflowOperationsValue
->()("ExportBackupWorkflowOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/workflow/ExportBackupWorkflowOperations") {}
 
 export const ExportBackupWorkflowOperationsLive = Layer.effect(
 	ExportBackupWorkflowOperations,

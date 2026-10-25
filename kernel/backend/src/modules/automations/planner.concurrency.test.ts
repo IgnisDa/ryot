@@ -54,7 +54,7 @@ const makePlannerSchema = Effect.gen(function* () {
 class PlannerSchema extends Context.Service<
 	PlannerSchema,
 	Effect.Success<typeof makePlannerSchema>
->()("test/PlannerSchema") {}
+>()("@ryot-app/kernel-backend/modules/automations/planner.concurrency.test/PlannerSchema") {}
 
 const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 	Layer.provideMerge(

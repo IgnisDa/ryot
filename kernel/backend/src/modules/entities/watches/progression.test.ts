@@ -52,7 +52,7 @@ class FakeProgressionEffects extends Context.Service<
 		readonly requests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
 		readonly acquired: Effect.Effect<ReadonlyArray<readonly [string, number]>>;
 	}
->()("test/FakeProgressionEffects") {}
+>()("@ryot-app/kernel-backend/modules/entities/watches/progression.test/FakeProgressionEffects") {}
 
 const makeLayer = (input: {
 	readonly foreignProvider?: boolean;

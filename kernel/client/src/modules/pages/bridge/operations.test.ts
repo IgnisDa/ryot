@@ -37,7 +37,7 @@ type InvokeRequest = {
 class FakePluginsApi extends Context.Service<
 	FakePluginsApi,
 	{ readonly requests: Effect.Effect<ReadonlyArray<InvokeRequest>> }
->()("test/FakePluginsApi") {}
+>()("@ryot-app/kernel-client/modules/pages/bridge/operations.test/FakePluginsApi") {}
 
 const operationsLayer = (reply: () => InvokeResult) =>
 	Layer.unwrap(

@@ -83,4 +83,4 @@ export const userPopulationRequest = Effect.fnUntraced(function* (
 export class EntityPopulationTrigger extends Context.Service<
 	EntityPopulationTrigger,
 	{ request: (input: PopulationRequest) => Effect.Effect<boolean, SandboxRunError> }
->()("EntityPopulationTrigger") {}
+>()("@ryot-app/kernel-backend/modules/entities/population-trigger/EntityPopulationTrigger") {}

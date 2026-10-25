@@ -14,7 +14,7 @@ import {
 } from "./repository";
 
 export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
-	"EnrichmentRequests",
+	"@ryot-app/kernel-backend/modules/entities/enrichment/requests/EnrichmentRequests",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* EnrichmentRequestsRepository;

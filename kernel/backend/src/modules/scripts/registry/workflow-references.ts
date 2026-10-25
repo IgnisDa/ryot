@@ -33,7 +33,7 @@ const toReference = (
 ): SandboxWorkflowReference => ({ ...row, scriptId: SandboxScriptId.make(row.scriptId) });
 
 export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
-	"SandboxWorkflowReferenceRepository",
+	"@ryot-app/kernel-backend/modules/scripts/registry/workflow-references/SandboxWorkflowReferenceRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

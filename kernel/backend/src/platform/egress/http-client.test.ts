@@ -27,7 +27,7 @@ class Recorded extends Context.Service<
 		readonly lookups: Effect.Effect<ReadonlyArray<string>>;
 		readonly fetches: Effect.Effect<ReadonlyArray<CapturedFetch>>;
 	}
->()("test/Recorded") {}
+>()("@ryot-app/kernel-backend/platform/egress/http-client.test/Recorded") {}
 
 const RESOLUTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
 	"empty.test": [],

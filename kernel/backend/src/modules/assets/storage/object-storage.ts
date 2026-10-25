@@ -24,7 +24,7 @@ const limitStreamBytes = (stream: Stream.Stream<Uint8Array, unknown>, maxBytes: 
 };
 
 export class ObjectStorageService extends Context.Service<ObjectStorageService>()(
-	"ObjectStorageService",
+	"@ryot-app/kernel-backend/modules/assets/storage/object-storage/ObjectStorageService",
 	{
 		make: Effect.gen(function* () {
 			const s3Service = yield* S3Service;

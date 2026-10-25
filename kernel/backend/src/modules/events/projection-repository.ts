@@ -8,7 +8,7 @@ import { eventProjection } from "#schema/tables/event-projections";
 import { event } from "#schema/tables/events";
 
 export class EventProjectionRepository extends Context.Service<EventProjectionRepository>()(
-	"EventProjectionRepository",
+	"@ryot-app/kernel-backend/modules/events/projection-repository/EventProjectionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

@@ -33,7 +33,7 @@ class FakeInstanceAdminAuth extends Context.Service<
 		readonly lastDisabledUpdate: Effect.Effect<undefined | DisabledUpdate>;
 		readonly createdAccount: Effect.Effect<null | Record<string, unknown>>;
 	}
->()("test/FakeInstanceAdminAuth") {}
+>()("@ryot-app/kernel-backend/modules/instance-admin/service.test/FakeInstanceAdminAuth") {}
 
 const makeRedisMock = () =>
 	makeRedisService({

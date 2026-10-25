@@ -7,7 +7,7 @@ export class EgressResolver extends Context.Service<
 			hostname: string,
 		) => Effect.Effect<ReadonlyArray<string>, Cause.UnknownError>;
 	}
->()("EgressResolver") {
+>()("@ryot-app/kernel-backend/platform/egress/resolver/EgressResolver") {
 	static readonly layer = Layer.succeed(this, {
 		resolve: (hostname) =>
 			Effect.tryPromise(() => Bun.dns.lookup(hostname)).pipe(

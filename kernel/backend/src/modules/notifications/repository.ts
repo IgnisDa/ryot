@@ -69,7 +69,7 @@ const ownedChannelWhere = (input: { userId: UserId; channelId: NotificationChann
 	);
 
 export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
-	"NotificationsRepository",
+	"@ryot-app/kernel-backend/modules/notifications/repository/NotificationsRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

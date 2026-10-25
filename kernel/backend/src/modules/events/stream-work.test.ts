@@ -382,12 +382,12 @@ type StreamWorkCall =
 class StreamWorkRecorder extends Context.Service<
 	StreamWorkRecorder,
 	{ beforeDiscovery: Effect.Effect<void>; record: (call: StreamWorkCall) => Effect.Effect<void> }
->()("test/StreamWorkRecorder") {}
+>()("@ryot-app/kernel-backend/modules/events/stream-work.test/StreamWorkRecorder") {}
 
 class ProjectionBindingControl extends Context.Service<
 	ProjectionBindingControl,
 	{ set: (binding: null | undefined | ProjectionBinding) => Effect.Effect<void> }
->()("test/ProjectionBindingControl") {}
+>()("@ryot-app/kernel-backend/modules/events/stream-work.test/ProjectionBindingControl") {}
 
 class StreamWorkFixture extends Context.Service<
 	StreamWorkFixture,
@@ -399,7 +399,7 @@ class StreamWorkFixture extends Context.Service<
 		entitySchemaSlug: typeof entitySchemaSlug;
 		accountGeneration: { token: string; userId: UserId };
 	}
->()("test/StreamWorkFixture") {}
+>()("@ryot-app/kernel-backend/modules/events/stream-work.test/StreamWorkFixture") {}
 
 class StreamWorkControls extends Context.Service<
 	StreamWorkControls,
@@ -426,7 +426,7 @@ class StreamWorkControls extends Context.Service<
 			}>
 		>;
 	}
->()("test/StreamWorkControls") {}
+>()("@ryot-app/kernel-backend/modules/events/stream-work.test/StreamWorkControls") {}
 
 const fixtureLayer = Layer.effect(
 	StreamWorkFixture,

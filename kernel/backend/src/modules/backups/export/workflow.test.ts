@@ -24,12 +24,12 @@ const userId = UserId.make("user-1");
 class FakeExportOperations extends Context.Service<
 	FakeExportOperations,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeExportOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/workflow.test/FakeExportOperations") {}
 
 class FakeExportCleanup extends Context.Service<
 	FakeExportCleanup,
 	{ readonly deletes: Effect.Effect<number>; readonly failures: Effect.Effect<number> }
->()("test/FakeExportCleanup") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/workflow.test/FakeExportCleanup") {}
 
 const instance = WorkflowInstance.initial(ExportBackupWorkflow, runId);
 

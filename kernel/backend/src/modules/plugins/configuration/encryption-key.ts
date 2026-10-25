@@ -14,7 +14,7 @@ class PluginConfigEncryptionKeyStateError extends Schema.TaggedError<
 >()("PluginConfigEncryptionKeyStateError", { message: Schema.String }) {}
 
 export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginConfigEncryptionKeyRepository>()(
-	"PluginConfigEncryptionKeyRepository",
+	"@ryot-app/kernel-backend/modules/plugins/configuration/encryption-key/PluginConfigEncryptionKeyRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
@@ -83,7 +83,7 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 }
 
 export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncryptionKey>()(
-	"PluginConfigEncryptionKey",
+	"@ryot-app/kernel-backend/modules/plugins/configuration/encryption-key/PluginConfigEncryptionKey",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PluginConfigEncryptionKeyRepository;

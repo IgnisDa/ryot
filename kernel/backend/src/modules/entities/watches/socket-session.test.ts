@@ -109,7 +109,9 @@ class FakeSessionDependencies extends Context.Service<
 		readonly replaceStarted: Effect.Effect<void>;
 		readonly activity: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/FakeSessionDependencies") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/watches/socket-session.test/FakeSessionDependencies",
+) {}
 
 /** Reconciliation never finishes; `holdReplace` keeps every replacement waiting after it starts. */
 const makeLayer = (
@@ -209,7 +211,7 @@ const makeLayer = (
 class MarkAttempts extends Context.Service<
 	MarkAttempts,
 	{ readonly attempted: Effect.Effect<void> }
->()("test/MarkAttempts") {}
+>()("@ryot-app/kernel-backend/modules/entities/watches/socket-session.test/MarkAttempts") {}
 
 const obsoleteTokenLayer = Layer.unwrap(
 	Effect.gen(function* () {

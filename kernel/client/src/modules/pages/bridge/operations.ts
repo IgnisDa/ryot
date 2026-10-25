@@ -38,7 +38,7 @@ export type PluginOperationDispatchOutcome =
 	PluginOperationOutcome | { readonly outcome: "stale-session" };
 
 export class PluginOperationsService extends Context.Service<PluginOperationsService>()(
-	"PluginOperationsService",
+	"@ryot-app/kernel-client/modules/pages/bridge/operations/PluginOperationsService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* PluginsApi;

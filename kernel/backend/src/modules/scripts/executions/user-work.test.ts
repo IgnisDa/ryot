@@ -109,7 +109,7 @@ type UserWorkFixtureValue = {
 };
 
 class UserWorkFixture extends Context.Service<UserWorkFixture, UserWorkFixtureValue>()(
-	"test/UserWorkFixture",
+	"@ryot-app/kernel-backend/modules/scripts/executions/user-work.test/UserWorkFixture",
 ) {}
 
 const userWorkDatabaseLayer = () =>
@@ -251,12 +251,12 @@ type DispatchRecord = {
 class UserWorkChildCalls extends Context.Service<
 	UserWorkChildCalls,
 	{ readonly executions: Effect.Effect<ReadonlyArray<string>> }
->()("test/UserWorkChildCalls") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/user-work.test/UserWorkChildCalls") {}
 
 class UserWorkHostCalls extends Context.Service<
 	UserWorkHostCalls,
 	{ readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>> }
->()("test/UserWorkHostCalls") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/user-work.test/UserWorkHostCalls") {}
 
 const userWorkHostLayer = () =>
 	Layer.mergeAll(DomainWriteChecksLive, BackgroundWorkService.layer).pipe(

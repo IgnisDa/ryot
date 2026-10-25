@@ -44,15 +44,15 @@ type FileServiceTestControl = {
 };
 
 class FileServiceRoot extends Context.Service<FileServiceRoot, string>()(
-	"test/ExecutionFilesRoot",
+	"@ryot-app/sandbox/host/file-access.test/FileServiceRoot",
 ) {}
 class FileServiceControl extends Context.Service<FileServiceControl, FileServiceTestControl>()(
-	"test/ExecutionFilesControl",
+	"@ryot-app/sandbox/host/file-access.test/FileServiceControl",
 ) {}
 class ScratchEntryFileService extends Context.Service<
 	ScratchEntryFileService,
 	ExecutionFiles["Service"]
->()("test/ScratchEntryFileService") {}
+>()("@ryot-app/sandbox/host/file-access.test/ScratchEntryFileService") {}
 
 const fileServiceLayer = Layer.unwrap(
 	Effect.gen(function* () {

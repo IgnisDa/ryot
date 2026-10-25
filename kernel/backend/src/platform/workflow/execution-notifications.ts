@@ -62,7 +62,7 @@ const logFailure = (message: string) =>
 	);
 
 export class WorkflowExecutionNotifications extends Context.Service<WorkflowExecutionNotifications>()(
-	"WorkflowExecutionNotifications",
+	"@ryot-app/kernel-backend/platform/workflow/execution-notifications/WorkflowExecutionNotifications",
 	{
 		make: Effect.sync(() => {
 			const { listen, publish } = makeHub();

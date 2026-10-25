@@ -46,7 +46,7 @@ const evaluate = Effect.fn("evaluateIngestionReadinessEffect")(
 );
 
 export class IngestionReadinessService extends Context.Service<IngestionReadinessService>()(
-	"IngestionReadinessService",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/readiness-service/IngestionReadinessService",
 	{
 		make: Effect.gen(function* () {
 			const imports = yield* ImportSourceCatalog;

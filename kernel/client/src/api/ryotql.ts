@@ -15,16 +15,19 @@ export const classifyRyotQLFailure = (error: unknown) =>
 		? "query-failed"
 		: "transport";
 
-export class RyotQLApi extends Context.Service<RyotQLApi>()("RyotQLApi", {
-	make: Effect.gen(function* () {
-		const api = yield* AuthenticatedApi;
-		return {
-			execute: (scope: ApiScope, request: ContractRequest<"ryotql", "execute">) =>
-				api.run(scope, (client) => client.ryotql.execute(request)),
-			executePlugin: (scope: ApiScope, request: ContractRequest<"ryotql", "executePlugin">) =>
-				api.run(scope, (client) => client.ryotql.executePlugin(request)),
-		};
-	}),
-}) {
+export class RyotQLApi extends Context.Service<RyotQLApi>()(
+	"@ryot-app/kernel-client/api/ryotql/RyotQLApi",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* AuthenticatedApi;
+			return {
+				execute: (scope: ApiScope, request: ContractRequest<"ryotql", "execute">) =>
+					api.run(scope, (client) => client.ryotql.execute(request)),
+				executePlugin: (scope: ApiScope, request: ContractRequest<"ryotql", "executePlugin">) =>
+					api.run(scope, (client) => client.ryotql.executePlugin(request)),
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

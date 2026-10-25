@@ -29,7 +29,7 @@ export const requiredProjectionTargets = (userId: string) => sql`
 	${projectionStreamTargets(userId)}`;
 
 export class EventProjectionReadinessRepository extends Context.Service<EventProjectionReadinessRepository>()(
-	"EventProjectionReadinessRepository",
+	"@ryot-app/kernel-backend/modules/events/projection-readiness/EventProjectionReadinessRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

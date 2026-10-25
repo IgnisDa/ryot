@@ -229,7 +229,7 @@ export const classifyAccountCleanliness = (
 };
 
 export class BackupAccountCleanliness extends Context.Service<BackupAccountCleanliness>()(
-	"BackupAccountCleanliness",
+	"@ryot-app/kernel-backend/modules/backups/restore/account-cleanliness/BackupAccountCleanliness",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;

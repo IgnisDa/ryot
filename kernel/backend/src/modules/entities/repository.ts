@@ -254,7 +254,7 @@ const entityValues = (input: InsertEntityInput) => ({
 });
 
 export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
-	"EntitiesRepository",
+	"@ryot-app/kernel-backend/modules/entities/repository/EntitiesRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

@@ -33,7 +33,7 @@ const encryptionPurpose = "ryot/ingestion/admitted-input";
 const AdmittedEnvelope = Schema.Struct({ rawBody: Schema.String, contentType: Schema.String });
 
 export class ImportSourceStateStore extends Context.Service<ImportSourceStateStore>()(
-	"ImportSourceStateStore",
+	"@ryot-app/kernel-backend/modules/imports/runtime/source-state-store/ImportSourceStateStore",
 	{
 		make: Effect.gen(function* () {
 			const captures = yield* IngestionCaptures;

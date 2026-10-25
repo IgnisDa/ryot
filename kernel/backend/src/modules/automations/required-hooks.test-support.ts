@@ -79,7 +79,7 @@ export class RunControl extends Context.Service<
 			ReadonlyMap<string, { finishedAt: number; status: "failed" | "succeeded" }>
 		>;
 	}
->()("test/RunControl") {}
+>()("@ryot-app/kernel-backend/modules/automations/required-hooks.test-support/RunControl") {}
 
 export const behave = (behaviors: Readonly<Record<string, RunBehavior>>) =>
 	Effect.flatMap(RunControl, (control) =>

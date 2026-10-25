@@ -34,7 +34,7 @@ export type EmitSignalInput = {
 };
 
 export class SignalEmissionService extends Context.Service<SignalEmissionService>()(
-	"SignalEmissionService",
+	"@ryot-app/kernel-backend/modules/automations/signal-service/SignalEmissionService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

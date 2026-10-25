@@ -35,7 +35,9 @@ type Invalidation = { readonly userId: UserId; readonly kind: "record" | "publis
 class RecordedInvalidations extends Context.Service<
 	RecordedInvalidations,
 	{ readonly all: Effect.Effect<ReadonlyArray<Invalidation>> }
->()("test/RecordedInvalidations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/preferences/user-settings-writer.test/RecordedInvalidations",
+) {}
 
 const recordedInvalidationsLayer = Layer.effectContext(
 	Effect.gen(function* () {
@@ -57,7 +59,9 @@ type IngestionLock = "shared" | "exclusive";
 class RecordedIngestionLocks extends Context.Service<
 	RecordedIngestionLocks,
 	{ readonly all: Effect.Effect<ReadonlyArray<IngestionLock>> }
->()("test/RecordedIngestionLocks") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/preferences/user-settings-writer.test/RecordedIngestionLocks",
+) {}
 
 const recordedIngestionLocksLayer = Layer.effectContext(
 	Effect.gen(function* () {

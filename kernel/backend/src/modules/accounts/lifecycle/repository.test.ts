@@ -53,7 +53,7 @@ const activeOperation = {
 class RecordedDatabaseEvents extends Context.Service<
 	RecordedDatabaseEvents,
 	{ readonly events: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedDatabaseEvents") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/repository.test/RecordedDatabaseEvents") {}
 
 const recordingSessionLayer = Layer.unwrap(
 	Effect.gen(function* () {

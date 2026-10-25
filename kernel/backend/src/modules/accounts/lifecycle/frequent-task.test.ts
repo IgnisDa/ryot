@@ -7,7 +7,9 @@ import { UserLifecycleService } from "./service";
 class RecordedReconcileLimit extends Context.Service<
 	RecordedReconcileLimit,
 	{ readonly limit: Effect.Effect<null | number> }
->()("test/RecordedReconcileLimit") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/frequent-task.test/RecordedReconcileLimit",
+) {}
 
 const recordingLifecycleLayer = Layer.unwrap(
 	Effect.gen(function* () {

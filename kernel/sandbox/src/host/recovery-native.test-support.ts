@@ -98,7 +98,7 @@ export class NativeRecoveryEvidence extends Context.Service<
 			readonly frame: Event | SidecarInboundFrame;
 		}>;
 	}
->()("test/NativeRecoveryEvidence") {}
+>()("@ryot-app/sandbox/host/recovery-native.test-support/NativeRecoveryEvidence") {}
 
 const recordingClient = recordingSidecarClient(
 	Effect.map(NativeRecoveryEvidence, (evidence) => ({

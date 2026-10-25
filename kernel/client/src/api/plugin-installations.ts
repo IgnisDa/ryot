@@ -5,7 +5,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 
 export class PluginInstallationsApi extends Context.Service<PluginInstallationsApi>()(
-	"PluginInstallationsApi",
+	"@ryot-app/kernel-client/api/plugin-installations/PluginInstallationsApi",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;

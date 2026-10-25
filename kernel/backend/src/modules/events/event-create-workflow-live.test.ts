@@ -304,7 +304,7 @@ class EventCreateHarness extends Context.Service<
 		readonly inputs: Effect.Effect<ReadonlyArray<AutomationRequestPayload>>;
 		readonly lockedEntityIds: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
->()("test/EventCreateHarness") {}
+>()("@ryot-app/kernel-backend/modules/events/event-create-workflow-live.test/EventCreateHarness") {}
 
 const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 	Layer.unwrap(

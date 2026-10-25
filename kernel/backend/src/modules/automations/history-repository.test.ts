@@ -66,7 +66,7 @@ type SubmitBehavior = (
 class RetrySubmissions extends Context.Service<
 	RetrySubmissions,
 	Effect.Effect<ReadonlyArray<string>>
->()("test/RetrySubmissions") {}
+>()("@ryot-app/kernel-backend/modules/automations/history-repository.test/RetrySubmissions") {}
 
 const recordingExecutionLayer = (submit: SubmitBehavior = () => Effect.void) =>
 	Layer.effectContext(

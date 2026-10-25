@@ -28,7 +28,7 @@ const mockProKey = Layer.mock(ProKeyService)({ isValidated: Effect.succeed(false
 class FakeAutoDisableClaims extends Context.Service<
 	FakeAutoDisableClaims,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeAutoDisableClaims") {}
+>()("@ryot-app/kernel-backend/modules/integrations/disable-claim.test/FakeAutoDisableClaims") {}
 
 const makeLayer = (
 	repository: (

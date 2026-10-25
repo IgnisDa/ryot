@@ -16,7 +16,7 @@ class FakeS3Server extends Context.Service<
 		readonly requests: Effect.Effect<number>;
 		readonly objects: Effect.Effect<ReadonlyMap<string, Uint8Array>>;
 	}
->()("test/FakeS3Server") {}
+>()("@ryot-app/kernel-backend/platform/storage/s3.test/FakeS3Server") {}
 
 const fakeS3Layer = Layer.unwrap(
 	Effect.gen(function* () {

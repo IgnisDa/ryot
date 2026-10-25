@@ -113,7 +113,7 @@ type ProjectionBinding = NonNullable<
 class ProjectionControls extends Context.Service<
 	ProjectionControls,
 	{ hints: Effect.Effect<ReadonlyArray<string>> }
->()("test/ProjectionControls") {}
+>()("@ryot-app/kernel-backend/modules/relationships/projections/service.test/ProjectionControls") {}
 
 class ProjectionFixture extends Context.Service<
 	ProjectionFixture,
@@ -123,7 +123,7 @@ class ProjectionFixture extends Context.Service<
 		principal: ScriptExecutionPrincipal;
 		accountGeneration: { token: string; userId: UserId };
 	}
->()("test/ProjectionFixture") {}
+>()("@ryot-app/kernel-backend/modules/relationships/projections/service.test/ProjectionFixture") {}
 
 const fixtureLayer = Layer.effect(
 	ProjectionFixture,

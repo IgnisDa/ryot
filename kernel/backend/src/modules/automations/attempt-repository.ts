@@ -274,7 +274,7 @@ const queueRetry = (
 	);
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
-	"AutomationAttemptRepository",
+	"@ryot-app/kernel-backend/modules/automations/attempt-repository/AutomationAttemptRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

@@ -274,7 +274,7 @@ class RunWorkflowHarness extends Context.Service<
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
 		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 	}
->()("test/RunWorkflowHarness") {}
+>()("@ryot-app/kernel-backend/modules/automations/run-workflow.test/RunWorkflowHarness") {}
 
 const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 	Layer.effectContext(

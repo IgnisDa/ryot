@@ -7,7 +7,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { importRun } from "#schema/tables/imports";
 
 export class OperationalGateRepository extends Context.Service<OperationalGateRepository>()(
-	"OperationalGateRepository",
+	"@ryot-app/kernel-backend/modules/test-support/operational-gate-repository/OperationalGateRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

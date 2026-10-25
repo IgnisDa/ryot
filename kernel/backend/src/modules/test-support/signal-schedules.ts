@@ -6,7 +6,7 @@ import { SignalScheduleWorkerLive } from "#modules/signal-schedules/layer";
 import { SignalScheduleWorker } from "#modules/signal-schedules/worker";
 
 export class SignalScheduleTestSupport extends Context.Service<SignalScheduleTestSupport>()(
-	"SignalScheduleTestSupport",
+	"@ryot-app/kernel-backend/modules/test-support/signal-schedules/SignalScheduleTestSupport",
 	{
 		make: Effect.gen(function* () {
 			const schedules = yield* SignalScheduleWorker;

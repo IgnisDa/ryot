@@ -184,7 +184,7 @@ const plannerLayer = LifecyclePlannerServiceLive.pipe(
 class StartedTriggers extends Context.Service<
 	StartedTriggers,
 	Effect.Effect<ReadonlyArray<string>>
->()("test/StartedTriggers") {}
+>()("@ryot-app/kernel-backend/modules/automations/signal-service.test/StartedTriggers") {}
 
 const recordingExecutionLayer = Layer.effectContext(
 	Effect.gen(function* () {

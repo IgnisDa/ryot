@@ -95,7 +95,7 @@ type RestoreInstallationInput = Pick<
 	};
 
 export class BackupRestorePersistence extends Context.Service<BackupRestorePersistence>()(
-	"BackupRestorePersistence",
+	"@ryot-app/kernel-backend/modules/backups/restore/persistence/BackupRestorePersistence",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

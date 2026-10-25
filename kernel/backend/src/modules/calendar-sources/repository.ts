@@ -12,7 +12,7 @@ type CalendarSourceIdentity = {
 };
 
 export class CalendarSourcesRepository extends Context.Service<CalendarSourcesRepository>()(
-	"CalendarSourcesRepository",
+	"@ryot-app/kernel-backend/modules/calendar-sources/repository/CalendarSourcesRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

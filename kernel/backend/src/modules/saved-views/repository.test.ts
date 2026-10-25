@@ -13,7 +13,7 @@ type Condition = Parameters<PgDialect["sqlToQuery"]>[0];
 class RecordedConditions extends Context.Service<
 	RecordedConditions,
 	{ readonly conditions: Effect.Effect<ReadonlyArray<Condition>> }
->()("test/RecordedConditions") {}
+>()("@ryot-app/kernel-backend/modules/saved-views/repository.test/RecordedConditions") {}
 
 const recordingDatabaseLayer = Layer.unwrap(
 	Effect.gen(function* () {

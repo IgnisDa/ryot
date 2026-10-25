@@ -37,7 +37,7 @@ const image = ImageClientArtifacts.of({
 class FakeClientArtifactsRepository extends Context.Service<
 	FakeClientArtifactsRepository,
 	{ readonly databaseReads: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeClientArtifactsRepository") {}
+>()("@ryot-app/kernel-backend/modules/pages/bundles/store.test/FakeClientArtifactsRepository") {}
 
 const fakeRepositoryLayer = Layer.effectContext(
 	Effect.gen(function* () {

@@ -4,7 +4,7 @@ import { ImageClientArtifacts } from "./image-artifacts";
 import { ClientArtifactsRepository } from "./repository";
 
 export class ClientArtifactStore extends Context.Service<ClientArtifactStore>()(
-	"ClientArtifactStore",
+	"@ryot-app/kernel-backend/modules/pages/bundles/store/ClientArtifactStore",
 	{
 		make: Effect.gen(function* () {
 			const image = yield* ImageClientArtifacts;

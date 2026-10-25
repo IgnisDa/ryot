@@ -76,7 +76,7 @@ const customView = (
 class ReorderEvents extends Context.Service<
 	ReorderEvents,
 	{ readonly events: Effect.Effect<ReadonlyArray<string>> }
->()("test/ReorderEvents") {}
+>()("@ryot-app/kernel-backend/modules/saved-views/reorder-persistence.test/ReorderEvents") {}
 
 const database = recordingDatabaseLayer().pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("saved_view_reorder")),

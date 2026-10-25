@@ -78,7 +78,7 @@ export const makeRuntimeOAuthClient = Effect.fnUntraced(function* (
 export class RuntimeOAuthClientService extends Context.Service<
 	RuntimeOAuthClientService,
 	Effect.Success<ReturnType<typeof makeRuntimeOAuthClient>>
->()("RuntimeOAuthClientService") {
+>()("@ryot-app/kernel-client/modules/auth/runtime-client/RuntimeOAuthClientService") {
 	static readonly layer = Layer.effect(
 		this,
 		makeRuntimeOAuthClient({

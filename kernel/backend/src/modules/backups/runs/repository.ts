@@ -50,254 +50,257 @@ const normalizeArtifact = (row: BackupRunRow): null | BackupRunArtifactRecord =>
 const boundedProgress = (progress: number) =>
 	Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.trunc(progress))) : 0;
 
-export class BackupsRepository extends Context.Service<BackupsRepository>()("BackupsRepository", {
-	make: Effect.gen(function* () {
-		const database = yield* DatabaseSession;
-		const createRun = Effect.fn("BackupsRepository.createRun")(function* (input: {
-			userId: UserId;
-			kind: BackupRunKind;
-		}) {
-			const [row] = yield* database
-				.run((db) =>
-					db
-						.insert(schema.backupRun)
-						.values({ progress: 0, kind: input.kind, status: "pending", userId: input.userId })
-						.returning(),
-				)
-				.pipe(
-					Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
-						Effect.fail(new BackupConflict({ reason: { code: "active-run-exists" } })),
-					),
-				);
-			if (!row) {
-				return yield* new DbError({ message: "Backup run insert returned no row" });
-			}
-			return normalizeRun(row);
-		});
-
-		const getRunById = Effect.fn("BackupsRepository.getRunById")(function* (input: {
-			userId: UserId;
-			runId: BackupRunId;
-		}) {
-			const [row] = yield* database.run((db) =>
-				db
-					.select()
-					.from(schema.backupRun)
-					.where(
-						and(eq(schema.backupRun.id, input.runId), eq(schema.backupRun.userId, input.userId)),
+export class BackupsRepository extends Context.Service<BackupsRepository>()(
+	"@ryot-app/kernel-backend/modules/backups/runs/repository/BackupsRepository",
+	{
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const createRun = Effect.fn("BackupsRepository.createRun")(function* (input: {
+				userId: UserId;
+				kind: BackupRunKind;
+			}) {
+				const [row] = yield* database
+					.run((db) =>
+						db
+							.insert(schema.backupRun)
+							.values({ progress: 0, kind: input.kind, status: "pending", userId: input.userId })
+							.returning(),
 					)
-					.limit(1),
-			);
-			return row ? normalizeRun(row) : null;
-		});
-
-		const getArtifactById = Effect.fn("BackupsRepository.getArtifactById")(function* (input: {
-			userId: UserId;
-			runId: BackupRunId;
-		}) {
-			const [row] = yield* database.run((db) =>
-				db
-					.select()
-					.from(schema.backupRun)
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							eq(schema.backupRun.status, "completed"),
-							isNotNull(schema.backupRun.artifactProvider),
-							isNotNull(schema.backupRun.artifactKey),
+					.pipe(
+						Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
+							Effect.fail(new BackupConflict({ reason: { code: "active-run-exists" } })),
 						),
-					)
-					.limit(1),
-			);
-			return row ? normalizeArtifact(row) : null;
-		});
-
-		const markRunRunning = Effect.fn("BackupsRepository.markRunRunning")(function* (input: {
-			userId: UserId;
-			progress?: number;
-			runId: BackupRunId;
-		}) {
-			const startedAt = yield* DateTime.nowAsDate;
-			const [row] = yield* database.run((db) =>
-				db
-					.update(schema.backupRun)
-					.set({ startedAt, status: "running", progress: boundedProgress(input.progress ?? 0) })
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							eq(schema.backupRun.status, "pending"),
-						),
-					)
-					.returning(),
-			);
-			if (row) {
-				return normalizeRun(row);
-			}
-			const existing = yield* getRunById(input);
-			return existing?.status === "running" ? existing : null;
-		});
-
-		const updateProgress = Effect.fn("BackupsRepository.updateProgress")(function* (input: {
-			userId: UserId;
-			progress: number;
-			runId: BackupRunId;
-		}) {
-			const [row] = yield* database.run((db) =>
-				db
-					.update(schema.backupRun)
-					.set({ progress: boundedProgress(input.progress) })
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							eq(schema.backupRun.status, "running"),
-						),
-					)
-					.returning(),
-			);
-			return row ? normalizeRun(row) : null;
-		});
-
-		const completeRun = Effect.fn("BackupsRepository.completeRun")(function* (
-			input:
-				| { userId: UserId; runId: BackupRunId }
-				| {
-						userId: UserId;
-						expiresAt: Date;
-						runId: BackupRunId;
-						artifactKey: string;
-						artifactProvider: BackupRunArtifactProvider;
-				  },
-		) {
-			const finishedAt = yield* DateTime.nowAsDate;
-			const artifact =
-				"artifactKey" in input
-					? {
-							expiresAt: input.expiresAt,
-							artifactKey: input.artifactKey,
-							artifactProvider: input.artifactProvider,
-						}
-					: { expiresAt: null, artifactKey: null, artifactProvider: null };
-			const [row] = yield* database.run((db) =>
-				db
-					.update(schema.backupRun)
-					.set({ status: "completed", ...artifact, finishedAt, progress: 100 })
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							eq(schema.backupRun.status, "running"),
-						),
-					)
-					.returning(),
-			);
-			return row ? normalizeRun(row) : null;
-		});
-
-		const failRun = Effect.fn("BackupsRepository.failRun")(function* (input: {
-			userId: UserId;
-			runId: BackupRunId;
-			failure: BackupRunFailure;
-		}) {
-			const finishedAt = yield* DateTime.nowAsDate;
-			const [row] = yield* database.run((db) =>
-				db
-					.update(schema.backupRun)
-					.set({ finishedAt, status: "failed", failure: input.failure })
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							inArray(schema.backupRun.status, ["pending", "running"]),
-						),
-					)
-					.returning(),
-			);
-			return row ? normalizeRun(row) : null;
-		});
-
-		const listExpiredArtifacts = Effect.fn("BackupsRepository.listExpiredArtifacts")(
-			function* (input: { limit: number }) {
-				const limit = Number.isFinite(input.limit) ? Math.max(0, Math.trunc(input.limit)) : 0;
-				if (limit === 0) {
-					return [];
+					);
+				if (!row) {
+					return yield* new DbError({ message: "Backup run insert returned no row" });
 				}
-				const now = yield* DateTime.nowAsDate;
-				const rows = yield* database.run((db) =>
+				return normalizeRun(row);
+			});
+
+			const getRunById = Effect.fn("BackupsRepository.getRunById")(function* (input: {
+				userId: UserId;
+				runId: BackupRunId;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select()
+						.from(schema.backupRun)
+						.where(
+							and(eq(schema.backupRun.id, input.runId), eq(schema.backupRun.userId, input.userId)),
+						)
+						.limit(1),
+				);
+				return row ? normalizeRun(row) : null;
+			});
+
+			const getArtifactById = Effect.fn("BackupsRepository.getArtifactById")(function* (input: {
+				userId: UserId;
+				runId: BackupRunId;
+			}) {
+				const [row] = yield* database.run((db) =>
 					db
 						.select()
 						.from(schema.backupRun)
 						.where(
 							and(
+								eq(schema.backupRun.id, input.runId),
+								eq(schema.backupRun.userId, input.userId),
 								eq(schema.backupRun.status, "completed"),
-								lte(schema.backupRun.expiresAt, now),
 								isNotNull(schema.backupRun.artifactProvider),
 								isNotNull(schema.backupRun.artifactKey),
 							),
 						)
-						.orderBy(asc(schema.backupRun.expiresAt), asc(schema.backupRun.id))
-						.limit(limit),
+						.limit(1),
 				);
-				return rows.flatMap((row) => {
-					const artifact = normalizeArtifact(row);
-					return artifact ? [artifact] : [];
-				});
-			},
-		);
+				return row ? normalizeArtifact(row) : null;
+			});
 
-		const deleteRunById = Effect.fn("BackupsRepository.deleteRunById")(function* (input: {
-			userId: UserId;
-			runId: BackupRunId;
-		}) {
-			const [row] = yield* database.run((db) =>
-				db
-					.delete(schema.backupRun)
-					.where(
-						and(
-							eq(schema.backupRun.id, input.runId),
-							eq(schema.backupRun.userId, input.userId),
-							notInArray(schema.backupRun.status, ["pending", "running"]),
-						),
-					)
-					.returning(),
+			const markRunRunning = Effect.fn("BackupsRepository.markRunRunning")(function* (input: {
+				userId: UserId;
+				progress?: number;
+				runId: BackupRunId;
+			}) {
+				const startedAt = yield* DateTime.nowAsDate;
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.backupRun)
+						.set({ startedAt, status: "running", progress: boundedProgress(input.progress ?? 0) })
+						.where(
+							and(
+								eq(schema.backupRun.id, input.runId),
+								eq(schema.backupRun.userId, input.userId),
+								eq(schema.backupRun.status, "pending"),
+							),
+						)
+						.returning(),
+				);
+				if (row) {
+					return normalizeRun(row);
+				}
+				const existing = yield* getRunById(input);
+				return existing?.status === "running" ? existing : null;
+			});
+
+			const updateProgress = Effect.fn("BackupsRepository.updateProgress")(function* (input: {
+				userId: UserId;
+				progress: number;
+				runId: BackupRunId;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.backupRun)
+						.set({ progress: boundedProgress(input.progress) })
+						.where(
+							and(
+								eq(schema.backupRun.id, input.runId),
+								eq(schema.backupRun.userId, input.userId),
+								eq(schema.backupRun.status, "running"),
+							),
+						)
+						.returning(),
+				);
+				return row ? normalizeRun(row) : null;
+			});
+
+			const completeRun = Effect.fn("BackupsRepository.completeRun")(function* (
+				input:
+					| { userId: UserId; runId: BackupRunId }
+					| {
+							userId: UserId;
+							expiresAt: Date;
+							runId: BackupRunId;
+							artifactKey: string;
+							artifactProvider: BackupRunArtifactProvider;
+					  },
+			) {
+				const finishedAt = yield* DateTime.nowAsDate;
+				const artifact =
+					"artifactKey" in input
+						? {
+								expiresAt: input.expiresAt,
+								artifactKey: input.artifactKey,
+								artifactProvider: input.artifactProvider,
+							}
+						: { expiresAt: null, artifactKey: null, artifactProvider: null };
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.backupRun)
+						.set({ status: "completed", ...artifact, finishedAt, progress: 100 })
+						.where(
+							and(
+								eq(schema.backupRun.id, input.runId),
+								eq(schema.backupRun.userId, input.userId),
+								eq(schema.backupRun.status, "running"),
+							),
+						)
+						.returning(),
+				);
+				return row ? normalizeRun(row) : null;
+			});
+
+			const failRun = Effect.fn("BackupsRepository.failRun")(function* (input: {
+				userId: UserId;
+				runId: BackupRunId;
+				failure: BackupRunFailure;
+			}) {
+				const finishedAt = yield* DateTime.nowAsDate;
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.backupRun)
+						.set({ finishedAt, status: "failed", failure: input.failure })
+						.where(
+							and(
+								eq(schema.backupRun.id, input.runId),
+								eq(schema.backupRun.userId, input.userId),
+								inArray(schema.backupRun.status, ["pending", "running"]),
+							),
+						)
+						.returning(),
+				);
+				return row ? normalizeRun(row) : null;
+			});
+
+			const listExpiredArtifacts = Effect.fn("BackupsRepository.listExpiredArtifacts")(
+				function* (input: { limit: number }) {
+					const limit = Number.isFinite(input.limit) ? Math.max(0, Math.trunc(input.limit)) : 0;
+					if (limit === 0) {
+						return [];
+					}
+					const now = yield* DateTime.nowAsDate;
+					const rows = yield* database.run((db) =>
+						db
+							.select()
+							.from(schema.backupRun)
+							.where(
+								and(
+									eq(schema.backupRun.status, "completed"),
+									lte(schema.backupRun.expiresAt, now),
+									isNotNull(schema.backupRun.artifactProvider),
+									isNotNull(schema.backupRun.artifactKey),
+								),
+							)
+							.orderBy(asc(schema.backupRun.expiresAt), asc(schema.backupRun.id))
+							.limit(limit),
+					);
+					return rows.flatMap((row) => {
+						const artifact = normalizeArtifact(row);
+						return artifact ? [artifact] : [];
+					});
+				},
 			);
-			return row ? normalizeRun(row) : null;
-		});
 
-		const deleteExpiredRunById = Effect.fn("BackupsRepository.deleteExpiredRunById")(
-			function* (input: { runId: BackupRunId }) {
-				const now = yield* DateTime.nowAsDate;
+			const deleteRunById = Effect.fn("BackupsRepository.deleteRunById")(function* (input: {
+				userId: UserId;
+				runId: BackupRunId;
+			}) {
 				const [row] = yield* database.run((db) =>
 					db
 						.delete(schema.backupRun)
 						.where(
 							and(
 								eq(schema.backupRun.id, input.runId),
-								eq(schema.backupRun.status, "completed"),
-								lte(schema.backupRun.expiresAt, now),
+								eq(schema.backupRun.userId, input.userId),
+								notInArray(schema.backupRun.status, ["pending", "running"]),
 							),
 						)
 						.returning(),
 				);
 				return row ? normalizeRun(row) : null;
-			},
-		);
+			});
 
-		return {
-			failRun,
-			createRun,
-			getRunById,
-			completeRun,
-			deleteRunById,
-			markRunRunning,
-			updateProgress,
-			getArtifactById,
-			deleteExpiredRunById,
-			listExpiredArtifacts,
-		};
-	}),
-}) {
+			const deleteExpiredRunById = Effect.fn("BackupsRepository.deleteExpiredRunById")(
+				function* (input: { runId: BackupRunId }) {
+					const now = yield* DateTime.nowAsDate;
+					const [row] = yield* database.run((db) =>
+						db
+							.delete(schema.backupRun)
+							.where(
+								and(
+									eq(schema.backupRun.id, input.runId),
+									eq(schema.backupRun.status, "completed"),
+									lte(schema.backupRun.expiresAt, now),
+								),
+							)
+							.returning(),
+					);
+					return row ? normalizeRun(row) : null;
+				},
+			);
+
+			return {
+				failRun,
+				createRun,
+				getRunById,
+				completeRun,
+				deleteRunById,
+				markRunRunning,
+				updateProgress,
+				getArtifactById,
+				deleteExpiredRunById,
+				listExpiredArtifacts,
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

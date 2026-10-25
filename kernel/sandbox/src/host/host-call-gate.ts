@@ -753,7 +753,7 @@ const fileControl: GateAction = (state, options, frame, frameArgs) =>
 	});
 
 export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
-	"SandboxHostCallGate",
+	"@ryot-app/sandbox/host/host-call-gate/SandboxHostCallGate",
 	{
 		make: Effect.gen(function* () {
 			const { plan } = yield* SandboxSidecarAdmission;

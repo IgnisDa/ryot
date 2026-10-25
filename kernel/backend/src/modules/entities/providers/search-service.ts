@@ -45,7 +45,7 @@ const decodeCachedSources = (value: null | string) => {
 };
 
 export class ProviderEntitySearchService extends Context.Service<ProviderEntitySearchService>()(
-	"ProviderEntitySearchService",
+	"@ryot-app/kernel-backend/modules/entities/providers/search-service/ProviderEntitySearchService",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

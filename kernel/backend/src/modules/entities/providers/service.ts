@@ -39,7 +39,7 @@ import { EntityImportWorkflow } from "./entity-import-workflow";
 import { toEntityImportRunResult } from "./result-workflow";
 
 export class EntityImportService extends Context.Service<EntityImportService>()(
-	"EntityImportService",
+	"@ryot-app/kernel-backend/modules/entities/providers/service/EntityImportService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

@@ -24,7 +24,9 @@ class ImpersonationSessionState extends Context.Service<
 		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 		readonly setSession: (session: null | SessionRecord) => Effect.Effect<void>;
 	}
->()("test/ImpersonationSessionState") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/auth/impersonation-sessions.test/ImpersonationSessionState",
+) {}
 
 const makeLayer = () =>
 	Layer.unwrap(

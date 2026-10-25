@@ -9,36 +9,39 @@ import type { ApiScope } from "#/api/scope";
 
 import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
 
-export class PluginEntitySaves extends Context.Service<PluginEntitySaves>()("PluginEntitySaves", {
-	make: Effect.gen(function* () {
-		const api = yield* EntitiesApi;
-		const outcome = (
-			scope: ApiScope,
-			contributors: PreparedClientPage["identity"]["contributors"],
-			request: EntityEditorSaveRequest,
-		): Effect.Effect<PluginEntitySaveOutcome> => {
-			const owner = request.submission.entitySchema.owner;
-			if (owner.kind !== "plugin" || !hasPluginContributor(contributors, owner.pluginId)) {
-				return Effect.succeed(invalidRequest);
-			}
-			return api
-				.saveEditor(scope, { payload: request })
-				.pipe(
-					Effect.match({
-						onSuccess: (result) => ({ outcome: "success", output: result.output }) as const,
-						onFailure: (error) =>
-							({
-								outcome: "failure",
-								reason:
-									isDeclaredEntitySaveFailure(error) || isDemoOperationProtectedError(error)
-										? "entity-save-failed"
-										: "transport",
-							}) as const,
-					}),
-				);
-		};
-		return { outcome };
-	}),
-}) {
+export class PluginEntitySaves extends Context.Service<PluginEntitySaves>()(
+	"@ryot-app/kernel-client/modules/pages/bridge/entity-saves/PluginEntitySaves",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* EntitiesApi;
+			const outcome = (
+				scope: ApiScope,
+				contributors: PreparedClientPage["identity"]["contributors"],
+				request: EntityEditorSaveRequest,
+			): Effect.Effect<PluginEntitySaveOutcome> => {
+				const owner = request.submission.entitySchema.owner;
+				if (owner.kind !== "plugin" || !hasPluginContributor(contributors, owner.pluginId)) {
+					return Effect.succeed(invalidRequest);
+				}
+				return api
+					.saveEditor(scope, { payload: request })
+					.pipe(
+						Effect.match({
+							onSuccess: (result) => ({ outcome: "success", output: result.output }) as const,
+							onFailure: (error) =>
+								({
+									outcome: "failure",
+									reason:
+										isDeclaredEntitySaveFailure(error) || isDemoOperationProtectedError(error)
+											? "entity-save-failed"
+											: "transport",
+								}) as const,
+						}),
+					);
+			};
+			return { outcome };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

@@ -24,7 +24,7 @@ import { filterLogger, ObservabilityLive } from "./observability";
 class RecordedLogLevels extends Context.Service<
 	RecordedLogLevels,
 	{ readonly levels: Effect.Effect<ReadonlyArray<LogLevel.LogLevel>> }
->()("test/RecordedLogLevels") {}
+>()("@ryot-app/kernel-backend/platform/observability/observability.test/RecordedLogLevels") {}
 
 const filteredRecordingLoggerLayer = (minimumLevel: LogLevel.LogLevel) =>
 	Layer.unwrap(

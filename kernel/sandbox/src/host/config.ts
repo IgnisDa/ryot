@@ -6,7 +6,7 @@ import { Context } from "effect";
 export class SandboxHostCallScope extends Context.Service<
 	SandboxHostCallScope,
 	{ readonly bound: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R> }
->()("SandboxHostCallScope") {}
+>()("@ryot-app/sandbox/host/config/SandboxHostCallScope") {}
 
 export class SandboxHostConfig extends Context.Service<
 	SandboxHostConfig,
@@ -17,4 +17,4 @@ export class SandboxHostConfig extends Context.Service<
 		readonly workerConcurrency: number;
 		readonly memoryBudgetMiB: Option.Option<number>;
 	}
->()("SandboxHostConfig") {}
+>()("@ryot-app/sandbox/host/config/SandboxHostConfig") {}

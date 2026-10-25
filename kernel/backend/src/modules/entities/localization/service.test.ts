@@ -75,7 +75,7 @@ class TranslationEffects extends Context.Service<
 		readonly admissions: Effect.Effect<ReadonlyArray<EnrichmentRequestInput>>;
 		readonly installationOwners: Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>>;
 	}
->()("test/TranslationEffects") {}
+>()("@ryot-app/kernel-backend/modules/entities/localization/service.test/TranslationEffects") {}
 
 const pinnedPayload = Effect.flatMap(TranslationEffects, (effects) => effects.pinnedPayload);
 

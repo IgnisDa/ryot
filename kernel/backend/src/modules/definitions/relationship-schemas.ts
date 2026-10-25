@@ -34,7 +34,7 @@ const toNullableScope = (definition: null | undefined | RelationshipSchemaDefini
 	definition ? toScope(definition) : null;
 
 export class RelationshipSchemaReader extends Context.Service<RelationshipSchemaReader>()(
-	"RelationshipSchemaReader",
+	"@ryot-app/kernel-backend/modules/definitions/relationship-schemas/RelationshipSchemaReader",
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;

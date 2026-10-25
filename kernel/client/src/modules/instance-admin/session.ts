@@ -36,6 +36,8 @@ export const makeInstanceAdminSessionService = (
 export class InstanceAdminSessionService extends Context.Service<
 	InstanceAdminSessionService,
 	InstanceAdminSessionServiceShape
->()("InstanceAdminSessionService", { make: Effect.sync(makeInstanceAdminSessionService) }) {
+>()("@ryot-app/kernel-client/modules/instance-admin/session/InstanceAdminSessionService", {
+	make: Effect.sync(makeInstanceAdminSessionService),
+}) {
 	static readonly layer = Layer.effect(this, this.make);
 }

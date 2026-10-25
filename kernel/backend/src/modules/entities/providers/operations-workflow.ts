@@ -86,7 +86,9 @@ type EntityImportWorkflowOperationsValue = {
 export class EntityImportWorkflowOperations extends Context.Service<
 	EntityImportWorkflowOperations,
 	EntityImportWorkflowOperationsValue
->()("EntityImportWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/operations-workflow/EntityImportWorkflowOperations",
+) {}
 
 export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,

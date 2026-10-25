@@ -14,4 +14,4 @@ type ImportRunExecutionControllerValue = {
 export class ImportRunExecutionController extends Context.Service<
 	ImportRunExecutionController,
 	ImportRunExecutionControllerValue
->()("ImportRunExecutionController") {}
+>()("@ryot-app/kernel-backend/modules/imports/execution-controller/ImportRunExecutionController") {}

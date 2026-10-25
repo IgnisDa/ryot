@@ -116,7 +116,7 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 };
 
 export class OAuthProvisioningService extends Context.Service<OAuthProvisioningService>()(
-	"OAuthProvisioningService",
+	"@ryot-app/kernel-backend/modules/accounts/auth/oauth-provisioning/OAuthProvisioningService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
@@ -160,7 +160,7 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 }
 
 export class InternalOAuthProvisioningComplete extends Context.Service<InternalOAuthProvisioningComplete>()(
-	"InternalOAuthProvisioningComplete",
+	"@ryot-app/kernel-backend/modules/accounts/auth/oauth-provisioning/InternalOAuthProvisioningComplete",
 	{
 		make: Effect.gen(function* () {
 			const provisioning = yield* OAuthProvisioningService;

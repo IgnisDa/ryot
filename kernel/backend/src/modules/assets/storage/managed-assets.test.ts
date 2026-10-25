@@ -60,17 +60,17 @@ type PresignedDownload = {
 class FakeLifecycleOperation extends Context.Service<
 	FakeLifecycleOperation,
 	{ readonly activate: Effect.Effect<void> }
->()("test/FakeLifecycleOperation") {}
+>()("@ryot-app/kernel-backend/modules/assets/storage/managed-assets.test/FakeLifecycleOperation") {}
 
 class FakeS3Presigner extends Context.Service<
 	FakeS3Presigner,
 	{ readonly presigned: Effect.Effect<ReadonlyArray<PresignedDownload>> }
->()("test/FakeS3Presigner") {}
+>()("@ryot-app/kernel-backend/modules/assets/storage/managed-assets.test/FakeS3Presigner") {}
 
 class FakeObjectStorage extends Context.Service<
 	FakeObjectStorage,
 	{ readonly deletes: Effect.Effect<number>; readonly stored: Effect.Effect<null | Uint8Array> }
->()("test/FakeObjectStorage") {}
+>()("@ryot-app/kernel-backend/modules/assets/storage/managed-assets.test/FakeObjectStorage") {}
 
 const missingObject = () => Effect.fail(new BadRequest({ message: "missing" }));
 

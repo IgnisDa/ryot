@@ -163,7 +163,9 @@ class FakePopulationWrites extends Context.Service<
 		readonly recorded: Effect.Effect<ReadonlyArray<string>>;
 		readonly payload: ProviderEntityPopulationAttemptPayload;
 	}
->()("test/FakePopulationWrites") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/provider-entity-population-workflow.test/FakePopulationWrites",
+) {}
 
 const populationLayer = (options: {
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;

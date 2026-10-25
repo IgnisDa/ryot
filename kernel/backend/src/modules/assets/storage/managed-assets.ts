@@ -79,7 +79,7 @@ const storedMetadataMatches = (
 			metadata.contentType.split(";", 1)[0]?.trim().toLowerCase());
 
 export class ManagedAssetsService extends Context.Service<ManagedAssetsService>()(
-	"ManagedAssetsService",
+	"@ryot-app/kernel-backend/modules/assets/storage/managed-assets/ManagedAssetsService",
 	{
 		make: Effect.gen(function* () {
 			const s3Service = yield* S3Service;

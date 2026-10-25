@@ -15,7 +15,7 @@ export class PluginCatalogError extends Schema.TaggedError<
 >()("PluginCatalogError", { cause: Schema.Unknown }) {}
 
 export class PluginCatalogService extends Context.Service<PluginCatalogService>()(
-	"PluginCatalogService",
+	"@ryot-app/kernel-client/modules/plugins/catalog/service/PluginCatalogService",
 	{
 		make: Effect.sync(() => {
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>

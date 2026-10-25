@@ -144,12 +144,12 @@ type RestoreBackupWorkflowOperationsValue = {
 export class BackupRestoreAfterCommit extends Context.Service<
 	BackupRestoreAfterCommit,
 	{ readonly run: Effect.Effect<void> }
->()("BackupRestoreAfterCommit") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/workflow/BackupRestoreAfterCommit") {}
 
 export class RestoreBackupWorkflowOperations extends Context.Service<
 	RestoreBackupWorkflowOperations,
 	RestoreBackupWorkflowOperationsValue
->()("RestoreBackupWorkflowOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/workflow/RestoreBackupWorkflowOperations") {}
 
 export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 	RestoreBackupWorkflowOperations,

@@ -38,7 +38,7 @@ export class InstanceAdminResetResultMissing extends Schema.TaggedError<
 >()("InstanceAdminResetResultMissing", { operationId: Schema.String }) {}
 
 export class InstanceAdminService extends Context.Service<InstanceAdminService>()(
-	"InstanceAdminService",
+	"@ryot-app/kernel-client/modules/instance-admin/service/InstanceAdminService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* InstanceAdminApi;

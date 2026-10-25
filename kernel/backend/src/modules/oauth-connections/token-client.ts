@@ -58,71 +58,74 @@ const failed = (reason: OAuthTokenEndpointError["reason"], logged: Record<string
 		Effect.andThen(Effect.fail(new OAuthTokenEndpointError({ reason }))),
 	);
 
-export class OAuthTokenClient extends Context.Service<OAuthTokenClient>()("OAuthTokenClient", {
-	make: Effect.gen(function* () {
-		const httpClient = yield* HttpClient.HttpClient;
-		const requestToken = Effect.fn("OAuthTokenClient.requestToken")(function* (
-			provider: PluginOAuthProvider,
-			credentials: OAuthClientCredentials,
-			grant: OAuthTokenGrant,
-		) {
-			const tokenUrl = new URL(provider.tokenUrl);
-			if (tokenUrl.protocol !== "https:") {
-				return yield* failed("failed", { stage: "url", provider: provider.slug });
-			}
-			const body = new URLSearchParams(grantParameters(grant));
-			const headers: Record<string, string> = { accept: "application/json" };
-			if (provider.tokenEndpointAuth === "client_secret_basic") {
-				headers["authorization"] =
-					`Basic ${Buffer.from(`${formEncode(credentials.clientId)}:${formEncode(credentials.clientSecret)}`).toString("base64")}`;
-			} else {
-				body.set("client_id", credentials.clientId);
-				body.set("client_secret", credentials.clientSecret);
-			}
-			const request = HttpClientRequest.post(tokenUrl).pipe(
-				HttpClientRequest.setHeaders(headers),
-				HttpClientRequest.bodyText(body.toString(), "application/x-www-form-urlencoded"),
-			);
-			const exchanged = yield* httpClient.execute(request).pipe(
-				Effect.flatMap((response) =>
-					readSandboxByteLimitedText(
-						response.stream,
-						OAUTH_TOKEN_RESPONSE_MAX_BYTES,
-						"oversized" as const,
-					).pipe(Effect.map((text) => ({ text, status: response.status }))),
-				),
-				Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
-				Effect.timeout(OAUTH_TOKEN_REQUEST_TIMEOUT),
-				Effect.option,
-			);
-			if (Option.isNone(exchanged)) {
-				return yield* failed("failed", { stage: "transport", provider: provider.slug });
-			}
-			const { text, status } = exchanged.value;
-			if (status < 200 || status >= 300) {
-				const error = Option.getOrUndefined(decodeTokenErrorResponse(text))?.error;
-				return yield* failed(error === "invalid_grant" ? "invalid-grant" : "failed", {
-					status,
-					stage: "response",
-					provider: provider.slug,
-				});
-			}
-			const token = Option.getOrUndefined(decodeTokenResponse(text));
-			if (token?.token_type.toLowerCase() !== "bearer") {
-				return yield* failed("failed", { status, stage: "decode", provider: provider.slug });
-			}
-			return {
-				accessToken: token.access_token,
-				refreshToken: token.refresh_token ?? null,
-				expiresInSeconds:
-					token.expires_in ??
-					provider.accessTokenLifetimeSeconds ??
-					DEFAULT_ACCESS_TOKEN_LIFETIME_SECONDS,
-			};
-		});
+export class OAuthTokenClient extends Context.Service<OAuthTokenClient>()(
+	"@ryot-app/kernel-backend/modules/oauth-connections/token-client/OAuthTokenClient",
+	{
+		make: Effect.gen(function* () {
+			const httpClient = yield* HttpClient.HttpClient;
+			const requestToken = Effect.fn("OAuthTokenClient.requestToken")(function* (
+				provider: PluginOAuthProvider,
+				credentials: OAuthClientCredentials,
+				grant: OAuthTokenGrant,
+			) {
+				const tokenUrl = new URL(provider.tokenUrl);
+				if (tokenUrl.protocol !== "https:") {
+					return yield* failed("failed", { stage: "url", provider: provider.slug });
+				}
+				const body = new URLSearchParams(grantParameters(grant));
+				const headers: Record<string, string> = { accept: "application/json" };
+				if (provider.tokenEndpointAuth === "client_secret_basic") {
+					headers["authorization"] =
+						`Basic ${Buffer.from(`${formEncode(credentials.clientId)}:${formEncode(credentials.clientSecret)}`).toString("base64")}`;
+				} else {
+					body.set("client_id", credentials.clientId);
+					body.set("client_secret", credentials.clientSecret);
+				}
+				const request = HttpClientRequest.post(tokenUrl).pipe(
+					HttpClientRequest.setHeaders(headers),
+					HttpClientRequest.bodyText(body.toString(), "application/x-www-form-urlencoded"),
+				);
+				const exchanged = yield* httpClient.execute(request).pipe(
+					Effect.flatMap((response) =>
+						readSandboxByteLimitedText(
+							response.stream,
+							OAUTH_TOKEN_RESPONSE_MAX_BYTES,
+							"oversized" as const,
+						).pipe(Effect.map((text) => ({ text, status: response.status }))),
+					),
+					Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
+					Effect.timeout(OAUTH_TOKEN_REQUEST_TIMEOUT),
+					Effect.option,
+				);
+				if (Option.isNone(exchanged)) {
+					return yield* failed("failed", { stage: "transport", provider: provider.slug });
+				}
+				const { text, status } = exchanged.value;
+				if (status < 200 || status >= 300) {
+					const error = Option.getOrUndefined(decodeTokenErrorResponse(text))?.error;
+					return yield* failed(error === "invalid_grant" ? "invalid-grant" : "failed", {
+						status,
+						stage: "response",
+						provider: provider.slug,
+					});
+				}
+				const token = Option.getOrUndefined(decodeTokenResponse(text));
+				if (token?.token_type.toLowerCase() !== "bearer") {
+					return yield* failed("failed", { status, stage: "decode", provider: provider.slug });
+				}
+				return {
+					accessToken: token.access_token,
+					refreshToken: token.refresh_token ?? null,
+					expiresInSeconds:
+						token.expires_in ??
+						provider.accessTokenLifetimeSeconds ??
+						DEFAULT_ACCESS_TOKEN_LIFETIME_SECONDS,
+				};
+			});
 
-		return { requestToken };
-	}),
-}) {
+			return { requestToken };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

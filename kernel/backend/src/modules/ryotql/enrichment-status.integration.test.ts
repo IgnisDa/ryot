@@ -67,7 +67,9 @@ const enrichmentEntityRecipe = defineRecipe((id: EntityId) => {
 class EnrichmentCatalogFixture extends Context.Service<
 	EnrichmentCatalogFixture,
 	{ readonly pluginId: string; readonly providerId: SandboxProviderId }
->()("test/EnrichmentCatalogFixture") {}
+>()(
+	"@ryot-app/kernel-backend/modules/ryotql/enrichment-status.integration.test/EnrichmentCatalogFixture",
+) {}
 
 const catalogLayer = Layer.unwrap(
 	Effect.gen(function* () {

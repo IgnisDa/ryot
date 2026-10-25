@@ -137,7 +137,7 @@ it("deduplicates eager and multi-presentation artifact preloads", () => {
 class RecordedArtifactGrants extends Context.Service<
 	RecordedArtifactGrants,
 	{ readonly issued: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedArtifactGrants") {}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/document.test/RecordedArtifactGrants") {}
 
 const documentDependenciesLayer = Layer.effectContext(
 	Effect.gen(function* () {

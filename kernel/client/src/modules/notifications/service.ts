@@ -47,7 +47,7 @@ export const notificationOutcomeQuery = createRyotQuery<
 );
 
 export class NotificationChannelsService extends Context.Service<NotificationChannelsService>()(
-	"NotificationChannelsService",
+	"@ryot-app/kernel-client/modules/notifications/service/NotificationChannelsService",
 	{
 		make: Effect.sync(() => {
 			const loadChannels = Effect.fn("NotificationChannelsService.loadChannels")(function* (

@@ -91,7 +91,7 @@ const currentSelection = {
 };
 
 export class EventStreamRepository extends Context.Service<EventStreamRepository>()(
-	"EventStreamRepository",
+	"@ryot-app/kernel-backend/modules/events/stream-repository/EventStreamRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

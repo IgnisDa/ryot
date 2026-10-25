@@ -5,7 +5,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 
 export class AutomationHistoryApi extends Context.Service<AutomationHistoryApi>()(
-	"AutomationHistoryApi",
+	"@ryot-app/kernel-client/api/automation-history/AutomationHistoryApi",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;

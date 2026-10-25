@@ -28,7 +28,7 @@ const TicketValue = Schema.Struct({
 });
 
 export class EntityWatchTicketService extends Context.Service<EntityWatchTicketService>()(
-	"EntityWatchTicketService",
+	"@ryot-app/kernel-backend/modules/entities/watches/ticket-service/EntityWatchTicketService",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

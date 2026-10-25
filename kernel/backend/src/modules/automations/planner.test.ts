@@ -67,7 +67,7 @@ const plannerLayer = (maxRuns = 100, batchMaxItems = 200) =>
 class LargerBudgetPlanner extends Context.Service<
 	LargerBudgetPlanner,
 	LifecyclePlanner["Service"]
->()("test/LargerBudgetPlanner") {}
+>()("@ryot-app/kernel-backend/modules/automations/planner.test/LargerBudgetPlanner") {}
 
 const largerBudgetPlannerLayer = Layer.effect(
 	LargerBudgetPlanner,

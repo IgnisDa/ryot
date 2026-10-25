@@ -116,7 +116,7 @@ const assertState = (before: unknown, after: unknown) =>
 	stableStringify(before) === stableStringify(after) ? Effect.void : Effect.fail(stateConflict());
 
 export class EntityUserDataService extends Context.Service<EntityUserDataService>()(
-	"EntityUserDataService",
+	"@ryot-app/kernel-backend/modules/entities/user-data/service/EntityUserDataService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

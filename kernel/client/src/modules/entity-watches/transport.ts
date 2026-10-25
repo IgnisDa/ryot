@@ -82,7 +82,7 @@ export class EntityWatchTransport extends Context.Service<
 		readonly reportOverflow: (omittedCount: number) => void;
 		readonly schedule: (delay: number, callback: () => void) => () => void;
 	}
->()("EntityWatchTransport") {
+>()("@ryot-app/kernel-client/modules/entity-watches/transport/EntityWatchTransport") {
 	static readonly layer = Layer.succeed(this, {
 		open: (url) => new WebSocket(url),
 		available: () => document.visibilityState !== "hidden" && navigator.onLine,

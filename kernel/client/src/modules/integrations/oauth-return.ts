@@ -48,7 +48,7 @@ export const makeOAuthReturnCapture = (closeWindow: () => void) => {
 export class OAuthReturnCapture extends Context.Service<
 	OAuthReturnCapture,
 	ReturnType<typeof makeOAuthReturnCapture>
->()("OAuthReturnCapture") {
+>()("@ryot-app/kernel-client/modules/integrations/oauth-return/OAuthReturnCapture") {
 	static readonly layer = Layer.sync(this, () => makeOAuthReturnCapture(() => window.close()));
 }
 

@@ -37,7 +37,7 @@ class RecordedTelemetry extends Context.Service<
 		readonly logs: Effect.Effect<ReadonlyArray<CapturedLog>>;
 		readonly spans: Effect.Effect<ReadonlyArray<Tracer.Span>>;
 	}
->()("test/RecordedTelemetry") {}
+>()("@ryot-app/sandbox/host/observability.test/RecordedTelemetry") {}
 
 const recordedTelemetryLayer = Layer.unwrap(
 	Effect.gen(function* () {

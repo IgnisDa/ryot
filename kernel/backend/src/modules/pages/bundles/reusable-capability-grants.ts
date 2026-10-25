@@ -6,7 +6,7 @@ import { RedisService } from "#platform/redis";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export class ReusableCapabilityGrantStore extends Context.Service<ReusableCapabilityGrantStore>()(
-	"ReusableCapabilityGrantStore",
+	"@ryot-app/kernel-backend/modules/pages/bundles/reusable-capability-grants/ReusableCapabilityGrantStore",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

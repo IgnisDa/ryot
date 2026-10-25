@@ -129,7 +129,7 @@ const withSavedViewScope = (pluginInstallationId?: string) =>
 		: isNull(schema.savedView.pluginInstallationId);
 
 export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
-	"SavedViewsRepository",
+	"@ryot-app/kernel-backend/modules/saved-views/repository/SavedViewsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

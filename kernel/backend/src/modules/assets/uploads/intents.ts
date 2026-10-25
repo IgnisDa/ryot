@@ -144,7 +144,7 @@ const resolveFileName = (name: string) => {
 };
 
 export class UploadIntentsService extends Context.Service<UploadIntentsService>()(
-	"UploadIntentsService",
+	"@ryot-app/kernel-backend/modules/assets/uploads/intents/UploadIntentsService",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

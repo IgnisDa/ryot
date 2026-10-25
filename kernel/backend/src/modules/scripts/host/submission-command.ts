@@ -10,7 +10,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 
 export class SandboxSubmissionCommands extends Context.Service<SandboxSubmissionCommands>()(
-	"SandboxSubmissionCommands",
+	"@ryot-app/kernel-backend/modules/scripts/host/submission-command/SandboxSubmissionCommands",
 	{
 		make: Effect.gen(function* () {
 			const runtime = yield* PluginRuntimeResolver;

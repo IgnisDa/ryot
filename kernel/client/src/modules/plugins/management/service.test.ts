@@ -14,7 +14,7 @@ import { managedInstallation } from "#/modules/plugins/management/service.test-f
 class Commands extends Context.Service<
 	Commands,
 	{ readonly calls: Effect.Effect<readonly unknown[]> }
->()("test/PluginManagementCommands") {}
+>()("@ryot-app/kernel-client/modules/plugins/management/service.test/Commands") {}
 
 const dependencies = Layer.effectContext(
 	Effect.gen(function* () {

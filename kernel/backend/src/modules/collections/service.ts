@@ -151,7 +151,7 @@ const storedMembershipFields = (properties: unknown) =>
 	isObjectRecord(properties) ? properties["membershipFields"] : undefined;
 
 export class CollectionsService extends Context.Service<CollectionsService>()(
-	"CollectionsService",
+	"@ryot-app/kernel-backend/modules/collections/service/CollectionsService",
 	{
 		make: Effect.gen(function* () {
 			const engine = yield* WorkflowEngine;

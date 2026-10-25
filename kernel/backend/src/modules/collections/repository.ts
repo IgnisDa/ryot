@@ -68,7 +68,7 @@ const membershipWhere = (input: { userId: UserId; collectionId: EntityId }) =>
 	);
 
 export class CollectionsRepository extends Context.Service<CollectionsRepository>()(
-	"CollectionsRepository",
+	"@ryot-app/kernel-backend/modules/collections/repository/CollectionsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

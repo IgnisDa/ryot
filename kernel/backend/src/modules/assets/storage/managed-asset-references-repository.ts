@@ -37,7 +37,7 @@ const locatorObjectsPath =
 	'strict $.** ? (@.type() == "object" && @."type".type() == "string" && @."key".type() == "string" && @."key" == $keys[*])';
 
 export class ManagedAssetReferencesRepository extends Context.Service<ManagedAssetReferencesRepository>()(
-	"ManagedAssetReferencesRepository",
+	"@ryot-app/kernel-backend/modules/assets/storage/managed-asset-references-repository/ManagedAssetReferencesRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

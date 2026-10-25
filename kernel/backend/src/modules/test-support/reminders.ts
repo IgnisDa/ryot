@@ -6,7 +6,7 @@ import { ReminderWorkerLive } from "#modules/reminders/layer";
 import { ReminderWorker } from "#modules/reminders/worker";
 
 export class ReminderTestSupport extends Context.Service<ReminderTestSupport>()(
-	"ReminderTestSupport",
+	"@ryot-app/kernel-backend/modules/test-support/reminders/ReminderTestSupport",
 	{
 		make: Effect.gen(function* () {
 			const reminders = yield* ReminderWorker;

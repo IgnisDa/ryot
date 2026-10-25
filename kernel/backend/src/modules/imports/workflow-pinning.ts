@@ -39,4 +39,4 @@ export type ImportWorkflowPinningValue = {
 export class ImportWorkflowPinning extends Context.Service<
 	ImportWorkflowPinning,
 	ImportWorkflowPinningValue
->()("ImportWorkflowPinning") {}
+>()("@ryot-app/kernel-backend/modules/imports/workflow-pinning/ImportWorkflowPinning") {}

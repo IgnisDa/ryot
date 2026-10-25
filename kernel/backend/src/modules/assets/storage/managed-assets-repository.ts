@@ -40,7 +40,7 @@ const isIdenticalRegistration = (existing: ManagedAssetRecord, input: RegisterMa
 	existing.provider === input.provider;
 
 export class ManagedAssetsRepository extends Context.Service<ManagedAssetsRepository>()(
-	"ManagedAssetsRepository",
+	"@ryot-app/kernel-backend/modules/assets/storage/managed-assets-repository/ManagedAssetsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

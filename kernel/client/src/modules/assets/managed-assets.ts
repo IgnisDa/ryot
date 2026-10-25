@@ -43,7 +43,7 @@ export const mapManagedAssetResolutions = (
 	}));
 
 export class ManagedAssetsService extends Context.Service<ManagedAssetsService>()(
-	"ManagedAssetsService",
+	"@ryot-app/kernel-client/modules/assets/managed-assets/ManagedAssetsService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* UploadsApi;

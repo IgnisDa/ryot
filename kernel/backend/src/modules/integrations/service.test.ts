@@ -138,7 +138,7 @@ class FakeIntegrationDependencies extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<RecordedCall>>;
 		readonly storedIntegration: Effect.Effect<undefined | IntegrationRecord>;
 	}
->()("test/FakeIntegrationDependencies") {}
+>()("@ryot-app/kernel-backend/modules/integrations/service.test/FakeIntegrationDependencies") {}
 
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);

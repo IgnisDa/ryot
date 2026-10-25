@@ -12,7 +12,7 @@ const reuseKey = (userId: UserId, artifactHash: string) =>
 	`ryot:client-artifacts:grant-user:${userId}:${artifactHash}`;
 
 export class ClientArtifactGrantService extends Context.Service<ClientArtifactGrantService>()(
-	"ClientArtifactGrantService",
+	"@ryot-app/kernel-backend/modules/pages/bundles/grant-service/ClientArtifactGrantService",
 	{
 		make: Effect.gen(function* () {
 			const grants = yield* ReusableCapabilityGrantStore;

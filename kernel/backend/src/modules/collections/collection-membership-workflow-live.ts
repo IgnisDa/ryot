@@ -43,7 +43,9 @@ type CollectionMembershipWorkflowOperationsValue = Pick<
 export class CollectionMembershipWorkflowOperations extends Context.Service<
 	CollectionMembershipWorkflowOperations,
 	CollectionMembershipWorkflowOperationsValue
->()("CollectionMembershipWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/collections/collection-membership-workflow-live/CollectionMembershipWorkflowOperations",
+) {}
 
 export const CollectionMembershipWorkflowOperationsLive = Layer.effect(
 	CollectionMembershipWorkflowOperations,

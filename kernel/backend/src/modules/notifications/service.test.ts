@@ -22,7 +22,7 @@ const user = {
 class RecordedAdmissions extends Context.Service<
 	RecordedAdmissions,
 	{ readonly inputs: Effect.Effect<ReadonlyArray<NotificationAdmission>> }
->()("test/RecordedAdmissions") {}
+>()("@ryot-app/kernel-backend/modules/notifications/service.test/RecordedAdmissions") {}
 
 const admissions = Layer.effectContext(
 	Effect.gen(function* () {

@@ -40,7 +40,7 @@ class FakeAuthDependencies extends Context.Service<
 			ReadonlyArray<{ readonly origin: string; readonly redirectUri: string }>
 		>;
 	}
->()("test/FakeAuthDependencies") {}
+>()("@ryot-app/kernel-client/modules/auth/service.test/FakeAuthDependencies") {}
 
 const runtimeClient = (isNative = false) =>
 	Layer.effect(

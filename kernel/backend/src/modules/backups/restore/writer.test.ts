@@ -895,7 +895,7 @@ class FakeRestorePersistence extends Context.Service<
 		readonly restoredEvents: Effect.Effect<ReadonlyArray<RestoreEventInput>>;
 		readonly restoredEntities: Effect.Effect<ReadonlyArray<RestoreEntityInput>>;
 	}
->()("test/FakeRestorePersistence") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/writer.test/FakeRestorePersistence") {}
 
 const eventSchema = {
 	pluginId: null,

@@ -209,7 +209,7 @@ class CollectionCalls extends Context.Service<
 		readonly lifecycleCommands: Effect.Effect<Readonly<Record<string, DomainLifecycleCommand>>>;
 		readonly dispatchedTriggers: Effect.Effect<ReadonlyArray<ReadonlyArray<AutomationTriggerId>>>;
 	}
->()("test/CollectionCalls") {}
+>()("@ryot-app/kernel-backend/modules/collections/service.test/CollectionCalls") {}
 
 const membershipWorkflowExecutionId = "membership-workflow-execution-id";
 

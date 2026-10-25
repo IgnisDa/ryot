@@ -20,7 +20,9 @@ class ObjectDeletions extends Context.Service<
 		readonly deleted: Effect.Effect<ReadonlyArray<string>>;
 		readonly failFor: (key: null | string) => Effect.Effect<void>;
 	}
->()("test/ObjectDeletions") {}
+>()(
+	"@ryot-app/kernel-backend/modules/assets/storage/managed-asset-collector.test/ObjectDeletions",
+) {}
 
 const objectStorageLayer = Layer.unwrap(
 	Effect.gen(function* () {

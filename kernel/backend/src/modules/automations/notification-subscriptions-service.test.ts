@@ -64,7 +64,9 @@ class NotificationStore extends Context.Service<
 		readonly setCatalogState: (catalogState: CatalogState) => Effect.Effect<void>;
 		readonly inserts: Effect.Effect<ReadonlyArray<InsertNotificationSubscriptionInput>>;
 	}
->()("test/NotificationStore") {}
+>()(
+	"@ryot-app/kernel-backend/modules/automations/notification-subscriptions-service.test/NotificationStore",
+) {}
 
 const notificationStoreLayer = (
 	options: {

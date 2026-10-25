@@ -34,7 +34,9 @@ class RegistrationDatabase extends Context.Service<
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly references: Effect.Effect<ReadonlyArray<Record<string, unknown>>>;
 	}
->()("test/RegistrationDatabase") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/workflow-references.test/RegistrationDatabase",
+) {}
 
 const makeRegisterLayer = (options: {
 	active: boolean;

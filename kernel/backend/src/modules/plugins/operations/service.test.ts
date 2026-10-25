@@ -172,7 +172,7 @@ class OperationFakeState extends Context.Service<
 		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
 		readonly privateInstallation: Ref.Ref<null | PluginInstallationHydratedState>;
 	}
->()("test/OperationFakeState") {}
+>()("@ryot-app/kernel-backend/modules/plugins/operations/service.test/OperationFakeState") {}
 
 class FakeOperationDependencies extends Context.Service<
 	FakeOperationDependencies,
@@ -185,7 +185,7 @@ class FakeOperationDependencies extends Context.Service<
 		readonly useIntegration: (integration: null | IntegrationRecord) => Effect.Effect<void>;
 		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
 	}
->()("test/FakeOperationDependencies") {}
+>()("@ryot-app/kernel-backend/modules/plugins/operations/service.test/FakeOperationDependencies") {}
 
 const makeLayer = (input: {
 	sandboxError?: string;

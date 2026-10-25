@@ -64,7 +64,7 @@ const signalSchemaPluginWhere = (pluginId: null | string) =>
 		: eq(schema.notificationSubscription.signalSchemaPluginId, pluginId);
 
 export class AutomationsRepository extends Context.Service<AutomationsRepository>()(
-	"AutomationsRepository",
+	"@ryot-app/kernel-backend/modules/automations/repository/AutomationsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

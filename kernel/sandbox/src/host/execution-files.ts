@@ -55,7 +55,7 @@ const materializeBytes = Effect.fn("sandbox.materializeArtifactBytes")(function*
 });
 
 export class ExecutionFileStore extends Context.Service<ExecutionFileStore>()(
-	"ExecutionFileStore",
+	"@ryot-app/sandbox/host/execution-files/ExecutionFileStore",
 	{
 		make: Effect.gen(function* () {
 			const path = yield* Path.Path;

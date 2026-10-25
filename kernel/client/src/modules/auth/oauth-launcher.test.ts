@@ -40,7 +40,7 @@ const authenticatedSession: SettledAuthSession = {
 class LauncherProbe extends Context.Service<
 	LauncherProbe,
 	{ readonly authChecks: Effect.Effect<number>; readonly configChecks: Effect.Effect<number> }
->()("test/LauncherProbe") {}
+>()("@ryot-app/kernel-client/modules/auth/oauth-launcher.test/LauncherProbe") {}
 
 const launcherLayer = (session: SettledAuthSession) =>
 	Layer.unwrap(

@@ -209,7 +209,9 @@ class FakeInstallationDependencies extends Context.Service<
 	{ readonly [Key in keyof Recordings]: Effect.Effect<Recordings[Key]> } & {
 		readonly loadSystemPlugin: (plugin: StoredPlugin) => Effect.Effect<void>;
 	}
->()("test/FakeInstallationDependencies") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/installations/service.test/FakeInstallationDependencies",
+) {}
 
 class InstallationFakeState extends Context.Service<
 	InstallationFakeState,
@@ -227,7 +229,7 @@ class InstallationFakeState extends Context.Service<
 			}>
 		>;
 	}
->()("test/InstallationFakeState") {}
+>()("@ryot-app/kernel-backend/modules/plugins/installations/service.test/InstallationFakeState") {}
 
 const record = <Key extends keyof Recordings>(
 	recordings: Ref.Ref<Recordings>,

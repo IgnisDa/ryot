@@ -89,7 +89,7 @@ class FakeTokenEndpoint extends Context.Service<
 			responder: (form: URLSearchParams) => Effect.Effect<TokenResponse>,
 		) => Effect.Effect<void>;
 	}
->()("test/FakeTokenEndpoint") {}
+>()("@ryot-app/kernel-backend/modules/oauth-connections/service.test/FakeTokenEndpoint") {}
 
 const issuedTokens = (overrides: Record<string, unknown> = {}): TokenResponse => ({
 	status: 200,

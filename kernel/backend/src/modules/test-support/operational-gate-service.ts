@@ -30,7 +30,7 @@ type PressureRow = {
 };
 
 export class OperationalGateService extends Context.Service<OperationalGateService>()(
-	"OperationalGateService",
+	"@ryot-app/kernel-backend/modules/test-support/operational-gate-service/OperationalGateService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

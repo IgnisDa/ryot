@@ -70,7 +70,7 @@ class SandboxExecutorCalls extends Context.Service<
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>>;
 	}
->()("test/SandboxExecutorCalls") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/service.test/SandboxExecutorCalls") {}
 
 const engineLayer =
 	(poll?: WorkflowEngine["Service"]["poll"]) =>
@@ -455,7 +455,7 @@ class RevisionPins extends Context.Service<
 		readonly expectedRevisions: Effect.Effect<ReadonlyArray<ExpectedRevision>>;
 		readonly activate: (revision: typeof originalRevision) => Effect.Effect<void>;
 	}
->()("test/RevisionPins") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/service.test/RevisionPins") {}
 
 const revisionPinRepository = Layer.unwrap(
 	Effect.gen(function* () {

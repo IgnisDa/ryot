@@ -11,7 +11,7 @@ export const REMINDER_BATCH_SIZE = 50;
 export const REMINDER_PAGE_LIMIT = 10;
 
 export class RemindersRepository extends Context.Service<RemindersRepository>()(
-	"RemindersRepository",
+	"@ryot-app/kernel-backend/modules/reminders/repository/RemindersRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

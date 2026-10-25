@@ -144,7 +144,7 @@ class PinDatabase extends Context.Service<
 		readonly respondWith: (rows: PinRows) => Effect.Effect<void>;
 		readonly conditions: Effect.Effect<ReadonlyArray<SQLCondition>>;
 	}
->()("test/PinDatabase") {}
+>()("@ryot-app/kernel-backend/modules/scripts/registry/repository.test/PinDatabase") {}
 
 const pinDatabaseLayer = (rows: PinRows) =>
 	Layer.unwrap(

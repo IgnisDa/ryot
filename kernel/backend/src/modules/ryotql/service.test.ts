@@ -85,7 +85,7 @@ const encodeCursor = (value: unknown) =>
 class RecordedStatements extends Context.Service<
 	RecordedStatements,
 	{ readonly statements: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedStatements") {}
+>()("@ryot-app/kernel-backend/modules/ryotql/service.test/RecordedStatements") {}
 
 const makeServiceLayer = (
 	queryResult: Effect.Effect<readonly Record<string, unknown>[], DbError> = Effect.succeed([]),

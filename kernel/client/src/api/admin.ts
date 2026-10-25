@@ -46,10 +46,13 @@ export const makeAdminApi = (
 		),
 });
 
-export class AdminApi extends Context.Service<AdminApi, AdminApiService>()("AdminApi", {
-	make: Effect.gen(function* () {
-		return makeAdminApi(yield* HttpClient.HttpClient, yield* FileDownloads);
-	}),
-}) {
+export class AdminApi extends Context.Service<AdminApi, AdminApiService>()(
+	"@ryot-app/kernel-client/api/admin/AdminApi",
+	{
+		make: Effect.gen(function* () {
+			return makeAdminApi(yield* HttpClient.HttpClient, yield* FileDownloads);
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

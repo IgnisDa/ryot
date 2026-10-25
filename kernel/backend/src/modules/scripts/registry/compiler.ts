@@ -156,8 +156,9 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 		return { compile };
 	});
 
-export class SandboxCompiler extends Context.Service<SandboxCompiler>()("SandboxCompiler", {
-	make: makeSandboxCompiler().pipe(Effect.orDie),
-}) {
+export class SandboxCompiler extends Context.Service<SandboxCompiler>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/compiler/SandboxCompiler",
+	{ make: makeSandboxCompiler().pipe(Effect.orDie) },
+) {
 	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(BunServices.layer));
 }

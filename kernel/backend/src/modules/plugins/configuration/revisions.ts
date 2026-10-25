@@ -281,7 +281,7 @@ export const validateRestoredProperties = Effect.fn(function* (
 });
 
 export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions>()(
-	"PluginConfigRevisions",
+	"@ryot-app/kernel-backend/modules/plugins/configuration/revisions/PluginConfigRevisions",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

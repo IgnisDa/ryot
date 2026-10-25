@@ -13,7 +13,7 @@ import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { EnrichmentRequests } from "./requests";
 
 export class EnrichmentRecovery extends Context.Service<EnrichmentRecovery>()(
-	"EnrichmentRecovery",
+	"@ryot-app/kernel-backend/modules/entities/enrichment/recovery/EnrichmentRecovery",
 	{
 		make: Effect.gen(function* () {
 			const requests = yield* EnrichmentRequests;

@@ -32,7 +32,7 @@ const result = { count: 0, outcomes: [], warnings: [], failure: null };
 class WorkflowExecutions extends Context.Service<
 	WorkflowExecutions,
 	Effect.Effect<ReadonlyArray<unknown>>
->()("test/WorkflowExecutions") {}
+>()("@ryot-app/kernel-backend/modules/events/service.test/WorkflowExecutions") {}
 
 const recordingWorkflowEngineLayer = Layer.effectContext(
 	Effect.gen(function* () {

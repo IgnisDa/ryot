@@ -9,7 +9,7 @@ import { InstanceAdminService } from "#/modules/instance-admin/service";
 const IMPERSONATION_HANDOFF_PATH = "/oauth/impersonate";
 
 export class InstanceAdminImpersonationService extends Context.Service<InstanceAdminImpersonationService>()(
-	"InstanceAdminImpersonationService",
+	"@ryot-app/kernel-client/modules/instance-admin/impersonation/InstanceAdminImpersonationService",
 	{
 		make: Effect.gen(function* () {
 			const instanceAdmin = yield* InstanceAdminService;

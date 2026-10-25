@@ -5,7 +5,7 @@ import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 
 export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
-	"ScriptGarbageCollector",
+	"@ryot-app/kernel-backend/modules/garbage-collection/scripts/ScriptGarbageCollector",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

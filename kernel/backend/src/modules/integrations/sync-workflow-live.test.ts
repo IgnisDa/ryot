@@ -36,7 +36,7 @@ class FakeIntegrationSync extends Context.Service<
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
 		readonly preparedFor: Effect.Effect<ReadonlyArray<null | UserId>>;
 	}
->()("test/FakeIntegrationSync") {}
+>()("@ryot-app/kernel-backend/modules/integrations/sync-workflow-live.test/FakeIntegrationSync") {}
 
 const makeSyncLayer = (options: {
 	journal?: boolean;

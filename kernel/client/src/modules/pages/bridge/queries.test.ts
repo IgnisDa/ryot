@@ -29,7 +29,7 @@ type ExecuteResult = Effect.Effect<
 class FakeRyotQLApi extends Context.Service<
 	FakeRyotQLApi,
 	{ readonly requests: Effect.Effect<ReadonlyArray<ExecuteRequest>> }
->()("test/FakeRyotQLApi") {}
+>()("@ryot-app/kernel-client/modules/pages/bridge/queries.test/FakeRyotQLApi") {}
 
 const queriesLayer = (reply: () => ExecuteResult) =>
 	Layer.unwrap(

@@ -54,7 +54,7 @@ const snapshot = {
 class FakeBackupRepository extends Context.Service<
 	FakeBackupRepository,
 	{ readonly persists: Effect.Effect<number> }
->()("test/FakeBackupRepository") {}
+>()("@ryot-app/kernel-backend/modules/plugins/packages/backup-restore.test/FakeBackupRepository") {}
 
 const makeLayer = (input?: { readonly definitions?: DefinitionSnapshot }) => {
 	const fakesLayer = Layer.effectContext(

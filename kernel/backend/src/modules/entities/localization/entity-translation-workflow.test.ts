@@ -33,7 +33,9 @@ class FakeTranslationEffects extends Context.Service<
 		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly published: Effect.Effect<ReadonlyArray<{ channel: string; message: string }>>;
 	}
->()("test/FakeTranslationEffects") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/localization/entity-translation-workflow.test/FakeTranslationEffects",
+) {}
 
 const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["processSandbox"]) =>
 	Layer.unwrap(

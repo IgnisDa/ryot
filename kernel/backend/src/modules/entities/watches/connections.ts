@@ -14,7 +14,7 @@ type LocalInterestSession = {
 };
 
 export class LocalInterestSessions extends Context.Service<LocalInterestSessions>()(
-	"LocalInterestSessions",
+	"@ryot-app/kernel-backend/modules/entities/watches/connections/LocalInterestSessions",
 	{
 		make: Effect.sync(() => {
 			const sessions = new Map<string, LocalInterestSession>();

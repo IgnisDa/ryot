@@ -15,7 +15,7 @@ import { NotificationAdmissions } from "./admission";
 import { NotificationsRepository } from "./repository";
 
 export class NotificationsService extends Context.Service<NotificationsService>()(
-	"NotificationsService",
+	"@ryot-app/kernel-backend/modules/notifications/service/NotificationsService",
 	{
 		make: Effect.gen(function* () {
 			const admissions = yield* NotificationAdmissions;

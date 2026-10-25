@@ -62,7 +62,7 @@ class RecordedRuns extends Context.Service<
 		readonly reserved: Effect.Effect<ReadonlyArray<string>>;
 		readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>>;
 	}
->()("test/RecordedRuns") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/queues.test/RecordedRuns") {}
 
 const runtimeSandboxLayer = (
 	respond: (input: RuntimeRunInput) => Effect.Effect<Omit<RuntimeRunResult, "recovery">>,
@@ -96,7 +96,7 @@ type InlineSettlement = { lane: string; context: unknown; startedAt: string; exe
 class RecordedSettlements extends Context.Service<
 	RecordedSettlements,
 	{ readonly settlements: Effect.Effect<ReadonlyArray<InlineSettlement>> }
->()("test/RecordedSettlements") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/queues.test/RecordedSettlements") {}
 
 const settlingDispatcherLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -142,7 +142,7 @@ const hotSwapArtifactsLayer = compiledArtifactsLayer(hotSwapRepositoryLayer);
 class ActiveScript extends Context.Service<
 	ActiveScript,
 	{ readonly activate: (id: typeof historicalScriptId) => Effect.Effect<void> }
->()("test/ActiveScript") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/queues.test/ActiveScript") {}
 
 const hotSwapResolverLayer = Layer.unwrap(
 	Effect.gen(function* () {

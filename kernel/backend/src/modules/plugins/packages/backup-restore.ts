@@ -30,7 +30,7 @@ const asInvalidBackup = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(Effect.mapError((error) => badRequest(String(error))));
 
 export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
-	"PluginBackupRestore",
+	"@ryot-app/kernel-backend/modules/plugins/packages/backup-restore/PluginBackupRestore",
 	{
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;

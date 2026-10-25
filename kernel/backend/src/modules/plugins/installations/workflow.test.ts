@@ -93,7 +93,9 @@ class InstallationWorkflowFakeState extends Context.Service<
 		readonly scriptPinLookups: Ref.Ref<ReadonlyArray<ScriptPinLookup>>;
 		readonly registrations: Ref.Ref<ReadonlyArray<WorkflowRegistration>>;
 	}
->()("test/InstallationWorkflowFakeState") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/installations/workflow.test/InstallationWorkflowFakeState",
+) {}
 
 class FakeInstallationWorkflow extends Context.Service<
 	FakeInstallationWorkflow,
@@ -107,7 +109,9 @@ class FakeInstallationWorkflow extends Context.Service<
 		readonly registrations: Effect.Effect<ReadonlyArray<WorkflowRegistration>>;
 		readonly resolveBootstrapWith: (bootstrap: ResolvedBootstrap) => Effect.Effect<void>;
 	}
->()("test/FakeInstallationWorkflow") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/installations/workflow.test/FakeInstallationWorkflow",
+) {}
 
 const workflowLayer = (input: {
 	readonly bootstrap: ResolvedBootstrap;

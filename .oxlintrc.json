@@ -55,6 +55,7 @@
 		"typescript/no-unsafe-return": "error",
 		"effecttsgo/unstable-api-usage": "off",
 		"react/jsx-no-useless-fragment": "warn",
+		"effecttsgo/deterministic-keys": "error",
 		"react/jsx-curly-brace-presence": "warn",
 		"typescript/no-unsafe-argument": "error",
 		"typescript/no-misused-promises": "error",

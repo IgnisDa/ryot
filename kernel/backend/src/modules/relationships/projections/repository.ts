@@ -61,7 +61,7 @@ const currentSelection = {
 };
 
 export class RelationshipProjectionRepository extends Context.Service<RelationshipProjectionRepository>()(
-	"RelationshipProjectionRepository",
+	"@ryot-app/kernel-backend/modules/relationships/projections/repository/RelationshipProjectionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

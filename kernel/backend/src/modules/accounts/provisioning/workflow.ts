@@ -31,7 +31,9 @@ export class UserBootstrapWorkflowOperations extends Context.Service<
 			accountGeneration: AccountGeneration,
 		) => Effect.Effect<void, InternalError>;
 	}
->()("UserBootstrapWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/workflow/UserBootstrapWorkflowOperations",
+) {}
 
 export const UserBootstrapWorkflowOperationsLive = Layer.effect(
 	UserBootstrapWorkflowOperations,

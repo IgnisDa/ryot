@@ -224,7 +224,7 @@ class FakeExportReads extends Context.Service<
 		readonly embeddedDependencyIds: Effect.Effect<ReadonlyArray<string>>;
 		readonly eventPageRequests: Effect.Effect<ReadonlyArray<string | undefined>>;
 	}
->()("test/FakeExportReads") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/snapshot.test/FakeExportReads") {}
 
 const makeExportReads = Effect.gen(function* () {
 	const privateReads = yield* Ref.make(0);

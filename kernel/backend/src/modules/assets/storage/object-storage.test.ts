@@ -15,7 +15,7 @@ const mockS3 = Layer.mock(S3Service);
 class FakeS3 extends Context.Service<
 	FakeS3,
 	{ readonly deletedKeys: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeS3") {}
+>()("@ryot-app/kernel-backend/modules/assets/storage/object-storage.test/FakeS3") {}
 
 const makeSelectionLayer = (isS3Configured: boolean) =>
 	ObjectStorageService.layer.pipe(

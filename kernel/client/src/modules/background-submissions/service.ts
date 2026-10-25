@@ -169,7 +169,7 @@ export type BackgroundSubmissionTray = {
 };
 
 export class BackgroundSubmissionService extends Context.Service<BackgroundSubmissionService>()(
-	"BackgroundSubmissionService",
+	"@ryot-app/kernel-client/modules/background-submissions/service/BackgroundSubmissionService",
 	{
 		make: Effect.gen(function* () {
 			const operations = yield* PluginOperationsService;

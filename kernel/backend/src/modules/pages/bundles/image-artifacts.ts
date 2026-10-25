@@ -109,7 +109,7 @@ export const parseClientImageManifest = (manifest: typeof ClientImageManifestJso
 	});
 
 export class ImageClientArtifacts extends Context.Service<ImageClientArtifacts>()(
-	"ImageClientArtifacts",
+	"@ryot-app/kernel-backend/modules/pages/bundles/image-artifacts/ImageClientArtifacts",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

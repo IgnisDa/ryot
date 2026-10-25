@@ -21,7 +21,7 @@ const encodeEventReferenceDeclarations = Schema.encodeEffect(
 );
 
 export class BackupExportRepository extends Context.Service<BackupExportRepository>()(
-	"BackupExportRepository",
+	"@ryot-app/kernel-backend/modules/backups/export/repository/BackupExportRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

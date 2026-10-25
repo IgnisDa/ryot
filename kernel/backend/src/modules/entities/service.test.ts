@@ -163,7 +163,7 @@ class FakeEntityLifecycle extends Context.Service<
 		readonly policyCalls: Effect.Effect<ReadonlyArray<string>>;
 		readonly skippedPolicyTriggers: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/FakeEntityLifecycle") {}
+>()("@ryot-app/kernel-backend/modules/entities/service.test/FakeEntityLifecycle") {}
 
 const entitiesLayer = (options: TestOptions = {}) =>
 	Layer.unwrap(

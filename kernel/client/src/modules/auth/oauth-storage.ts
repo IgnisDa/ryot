@@ -214,7 +214,7 @@ export class OAuthStorage extends Context.Service<
 			tokenSet: StoredTokenSetValue,
 		) => Effect.Effect<void, OAuthStorageError>;
 	}
->()("OAuthStorage") {
+>()("@ryot-app/kernel-client/modules/auth/oauth-storage/OAuthStorage") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.suspend(() =>

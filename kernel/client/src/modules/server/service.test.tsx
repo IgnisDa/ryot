@@ -14,7 +14,7 @@ class FakeServerDependencies extends Context.Service<
 		readonly healthChecks: Effect.Effect<number>;
 		readonly savedSelections: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/FakeServerDependencies") {}
+>()("@ryot-app/kernel-client/modules/server/service.test/FakeServerDependencies") {}
 
 const serverLayer = Layer.unwrap(
 	Effect.gen(function* () {

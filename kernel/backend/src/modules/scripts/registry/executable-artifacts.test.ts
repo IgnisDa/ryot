@@ -50,7 +50,9 @@ const missingArtifact = () =>
 class ArtifactLookupGate extends Context.Service<
 	ArtifactLookupGate,
 	{ readonly entered: Deferred.Deferred<void>; readonly release: Deferred.Deferred<void> }
->()("test/ArtifactLookupGate") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/executable-artifacts.test/ArtifactLookupGate",
+) {}
 
 const concurrentScriptIds: ReadonlyArray<SandboxScriptId> = [
 	SandboxScriptId.make("compiled-artifact-concurrent-a"),

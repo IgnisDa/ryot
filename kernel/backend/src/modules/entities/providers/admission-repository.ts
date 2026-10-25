@@ -8,7 +8,7 @@ import * as schema from "#schema/tables/combined";
 const ADMISSION_LOCK_KEY = "ryot-provider-import-admission";
 
 export class ProviderImportAdmissionRepository extends Context.Service<ProviderImportAdmissionRepository>()(
-	"ProviderImportAdmissionRepository",
+	"@ryot-app/kernel-backend/modules/entities/providers/admission-repository/ProviderImportAdmissionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

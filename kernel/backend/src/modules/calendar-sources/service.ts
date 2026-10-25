@@ -11,7 +11,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { CalendarSourcesRepository } from "./repository";
 
 export class CalendarSourcesService extends Context.Service<CalendarSourcesService>()(
-	"CalendarSourcesService",
+	"@ryot-app/kernel-backend/modules/calendar-sources/service/CalendarSourcesService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* CalendarSourcesRepository;

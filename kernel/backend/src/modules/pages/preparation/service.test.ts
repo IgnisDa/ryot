@@ -106,12 +106,12 @@ const savedViewReferenceKey = (reference: SavedViewReference) => JSON.stringify(
 class AvailablePlugins extends Context.Service<
 	AvailablePlugins,
 	{ readonly revoke: Effect.Effect<void> }
->()("test/AvailablePlugins") {}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/AvailablePlugins") {}
 
 class RecordedPrepareCalls extends Context.Service<
 	RecordedPrepareCalls,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedPrepareCalls") {}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/RecordedPrepareCalls") {}
 
 class PageSelections extends Context.Service<
 	PageSelections,
@@ -119,7 +119,7 @@ class PageSelections extends Context.Service<
 		readonly setHome: (reference: null | SavedViewReference) => Effect.Effect<void>;
 		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
 	}
->()("test/PageSelections") {}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/PageSelections") {}
 
 const stored = (graph: ResolvedClientPageGraph) => ({
 	createdAt,

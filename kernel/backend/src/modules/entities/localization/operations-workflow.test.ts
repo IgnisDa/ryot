@@ -25,7 +25,9 @@ class PinnedTranslationEffects extends Context.Service<
 		readonly upgrade: Effect.Effect<void>;
 		readonly calls: Effect.Effect<ReadonlyArray<ScriptInput>>;
 	}
->()("test/PinnedTranslationEffects") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/localization/operations-workflow.test/PinnedTranslationEffects",
+) {}
 
 const operationsLayer = Layer.unwrap(
 	Effect.gen(function* () {

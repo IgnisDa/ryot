@@ -12,7 +12,7 @@ import { testDatabaseUrl } from "#testing/database";
 import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
 
 export class IsolatedDatabase extends Context.Service<IsolatedDatabase, { readonly url: string }>()(
-	"test/IsolatedDatabase",
+	"@ryot-app/kernel-backend/testing/isolated-database/IsolatedDatabase",
 ) {}
 
 // The drop is registered before the isolated pool is built, so it runs after that pool closes.

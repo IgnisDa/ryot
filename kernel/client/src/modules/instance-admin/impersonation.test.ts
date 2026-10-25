@@ -53,7 +53,7 @@ class ImpersonationProbe extends Context.Service<
 		readonly authorization: unknown;
 		readonly events: Effect.Effect<ReadonlyArray<ImpersonationEvent>>;
 	}
->()("test/ImpersonationProbe") {}
+>()("@ryot-app/kernel-client/modules/instance-admin/impersonation.test/ImpersonationProbe") {}
 
 const impersonationLayer = (failure?: "admin") =>
 	Layer.unwrap(

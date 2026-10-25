@@ -9,7 +9,7 @@ import * as schema from "#schema/tables/auth";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 
 export class SessionCreationGate extends Context.Service<SessionCreationGate>()(
-	"SessionCreationGate",
+	"@ryot-app/kernel-backend/modules/accounts/auth/session-gate/SessionCreationGate",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

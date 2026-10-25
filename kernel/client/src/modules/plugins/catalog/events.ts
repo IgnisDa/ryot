@@ -167,7 +167,7 @@ const makePluginCatalogEventsService = (
 export class PluginCatalogEventsService extends Context.Service<
 	PluginCatalogEventsService,
 	{ readonly subscribe: (scope: ApiScope, onCatalogChanged: () => void) => Effect.Effect<never> }
->()("PluginCatalogEventsService") {
+>()("@ryot-app/kernel-client/modules/plugins/catalog/events/PluginCatalogEventsService") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.gen(function* () {

@@ -33,7 +33,9 @@ class FakeBootstrapDependencies extends Context.Service<
 		readonly provisionedUserIds: Effect.Effect<ReadonlyArray<UserId>>;
 		readonly defaultRuleUserIds: Effect.Effect<ReadonlyArray<UserId>>;
 	}
->()("test/FakeBootstrapDependencies") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/bootstrap.test/FakeBootstrapDependencies",
+) {}
 
 const performBootstrap = (inputUserId: UserId) =>
 	Effect.flatMap(UserBootstrap, (bootstrap) =>

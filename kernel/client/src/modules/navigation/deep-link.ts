@@ -50,7 +50,7 @@ export const makeDeepLinkClaims = () => {
 export class DeepLinkClaims extends Context.Service<
 	DeepLinkClaims,
 	ReturnType<typeof makeDeepLinkClaims>
->()("DeepLinkClaims") {
+>()("@ryot-app/kernel-client/modules/navigation/deep-link/DeepLinkClaims") {
 	static readonly layer = Layer.sync(this, makeDeepLinkClaims);
 }
 

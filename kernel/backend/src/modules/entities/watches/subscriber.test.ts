@@ -32,7 +32,9 @@ class FakeSubscriberDependencies extends Context.Service<
 		readonly markedPending: Effect.Effect<ReadonlyArray<MarkPendingInput>>;
 		readonly watch: (sessionIds: ReadonlyArray<string>) => Effect.Effect<void>;
 	}
->()("test/FakeSubscriberDependencies") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/watches/subscriber.test/FakeSubscriberDependencies",
+) {}
 
 const subscriberLayer = (options: {
 	readonly failProgression?: boolean;

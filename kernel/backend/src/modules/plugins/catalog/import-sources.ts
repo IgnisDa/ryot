@@ -152,7 +152,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 	});
 
 export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
-	"ImportSourceCatalog",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/import-sources/ImportSourceCatalog",
 	{
 		make: Effect.gen(function* () {
 			const querySources = querySourcesForSession(yield* DatabaseSession);

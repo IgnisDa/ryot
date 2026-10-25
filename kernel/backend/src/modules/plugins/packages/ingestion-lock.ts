@@ -13,7 +13,7 @@ type UserPluginPersistenceIdentity = PluginPersistenceIdentity & {
 };
 
 export class PluginIngestionLock extends Context.Service<PluginIngestionLock>()(
-	"PluginIngestionLock",
+	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-lock/PluginIngestionLock",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PluginRepository;

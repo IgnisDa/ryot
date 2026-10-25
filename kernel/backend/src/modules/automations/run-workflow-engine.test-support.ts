@@ -15,7 +15,9 @@ type RunWorkflowSubmission = {
 export class RunWorkflowSubmissions extends Context.Service<
 	RunWorkflowSubmissions,
 	Effect.Effect<ReadonlyArray<RunWorkflowSubmission>>
->()("test/RunWorkflowSubmissions") {}
+>()(
+	"@ryot-app/kernel-backend/modules/automations/run-workflow-engine.test-support/RunWorkflowSubmissions",
+) {}
 
 export const recordingRunWorkflowEngineLayer = (
 	respond: (submission: RunWorkflowSubmission) => unknown = () => undefined,

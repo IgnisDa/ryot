@@ -95,7 +95,9 @@ class FakeWorkflowLoad extends Context.Service<
 		readonly enqueued: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly polledExecutionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/FakeWorkflowLoad") {}
+>()(
+	"@ryot-app/kernel-backend/modules/test-support/operational-gate-service.test/FakeWorkflowLoad",
+) {}
 
 const workflowLoadLayer = (
 	options: { redis?: RedisService["Service"]; database?: Layer.Layer<DatabaseSession> } = {},

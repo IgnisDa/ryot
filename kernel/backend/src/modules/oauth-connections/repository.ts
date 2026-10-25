@@ -38,7 +38,7 @@ const connectionSelection = {
 const unexpiredAt = (now: Date) => gt(connection.expiresAt, now);
 
 export class OAuthConnectionsRepository extends Context.Service<OAuthConnectionsRepository>()(
-	"OAuthConnectionsRepository",
+	"@ryot-app/kernel-backend/modules/oauth-connections/repository/OAuthConnectionsRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

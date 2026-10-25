@@ -39,7 +39,7 @@ class ReconciliationCalls extends Context.Service<
 		readonly reads: Effect.Effect<ReadonlyArray<ListInput>>;
 		readonly submitted: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/ReconciliationCalls") {}
+>()("@ryot-app/kernel-backend/modules/automations/reconciliation.test/ReconciliationCalls") {}
 
 const reconciliationLayer = (behavior: {
 	readonly submit: Operations["submit"];

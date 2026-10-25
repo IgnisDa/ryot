@@ -11,7 +11,7 @@ import { CancelImportRunWorkflow } from "./cancel-workflow";
 import { ImportsRepository } from "./repository";
 
 export class ImportRunCancellationService extends Context.Service<ImportRunCancellationService>()(
-	"ImportRunCancellationService",
+	"@ryot-app/kernel-backend/modules/imports/cancellation-service/ImportRunCancellationService",
 	{
 		make: Effect.gen(function* () {
 			const engine = yield* WorkflowEngine;

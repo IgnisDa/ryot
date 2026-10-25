@@ -34,7 +34,9 @@ export type TranslateEntityWorkflowOperationsValue = {
 export class TranslateEntityWorkflowOperations extends Context.Service<
 	TranslateEntityWorkflowOperations,
 	TranslateEntityWorkflowOperationsValue
->()("TranslateEntityWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/localization/operations-workflow/TranslateEntityWorkflowOperations",
+) {}
 
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,

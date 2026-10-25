@@ -2,7 +2,7 @@ import { Context } from "effect";
 import type Redis from "ioredis";
 
 export class SandboxRedis extends Context.Service<SandboxRedis, { readonly client: Redis }>()(
-	"SandboxRedis",
+	"@ryot-app/sandbox/host/redis/SandboxRedis",
 ) {}
 
 export const sandboxRedisKeys = {

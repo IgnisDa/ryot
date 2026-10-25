@@ -43,7 +43,7 @@ class LaneControl extends Context.Service<
 		readonly gate: Deferred.Deferred<void>;
 		readonly starts: Array<{ readonly lane: ExecutionLane; readonly executionId: string }>;
 	}
->()("test/LaneControl") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/queue-lanes.test/LaneControl") {}
 
 const LaneWorkflow = Workflow.make("DurableQueueLaneWorkflow", {
 	success: Schema.Void,

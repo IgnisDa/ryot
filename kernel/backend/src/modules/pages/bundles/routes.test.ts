@@ -18,7 +18,7 @@ const otherToken = "y".repeat(43);
 class FakeClientArtifactStore extends Context.Service<
 	FakeClientArtifactStore,
 	{ readonly reads: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeClientArtifactStore") {}
+>()("@ryot-app/kernel-backend/modules/pages/bundles/routes.test/FakeClientArtifactStore") {}
 
 const servicesLayer = Layer.effectContext(
 	Effect.gen(function* () {

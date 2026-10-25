@@ -28,7 +28,7 @@ export const BackgroundWorkWorkflow = Workflow.make("BackgroundWorkWorkflow", {
 });
 
 export class BackgroundWorkService extends Context.Service<BackgroundWorkService>()(
-	"BackgroundWorkService",
+	"@ryot-app/kernel-backend/modules/background-work/service/BackgroundWorkService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

@@ -11,7 +11,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 export class EntityUserDataGraphRepository extends Context.Service<EntityUserDataGraphRepository>()(
-	"EntityUserDataGraphRepository",
+	"@ryot-app/kernel-backend/modules/entities/user-data/graph-repository/EntityUserDataGraphRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

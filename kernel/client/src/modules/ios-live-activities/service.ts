@@ -34,7 +34,7 @@ export class IosLiveActivityPlatform extends Context.Service<
 			request: PluginIosLiveActivityRequest,
 		) => Effect.Effect<PluginIosLiveActivityResult, IosLiveActivityPlatformError>;
 	}
->()("IosLiveActivityPlatform") {}
+>()("@ryot-app/kernel-client/modules/ios-live-activities/service/IosLiveActivityPlatform") {}
 
 const ownerKey = (scope: ApiScope, installation: Installation) =>
 	bytesToHex(
@@ -46,7 +46,7 @@ const ownerKey = (scope: ApiScope, installation: Installation) =>
 	);
 
 export class IosLiveActivitiesService extends Context.Service<IosLiveActivitiesService>()(
-	"IosLiveActivitiesService",
+	"@ryot-app/kernel-client/modules/ios-live-activities/service/IosLiveActivitiesService",
 	{
 		make: Effect.gen(function* () {
 			const platform = yield* IosLiveActivityPlatform;

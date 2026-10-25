@@ -42,7 +42,7 @@ const outcomeReason = (status: NotificationChannelOutcome): null | NotificationD
 };
 
 export class NotificationDeliveryRepository extends Context.Service<NotificationDeliveryRepository>()(
-	"NotificationDeliveryRepository",
+	"@ryot-app/kernel-backend/modules/notifications/delivery-repository/NotificationDeliveryRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

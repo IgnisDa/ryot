@@ -86,7 +86,7 @@ const toSandboxRunResult = Effect.fnUntraced(function* (
 });
 
 export class ScriptExecutionService extends Context.Service<ScriptExecutionService>()(
-	"ScriptExecutionService",
+	"@ryot-app/kernel-backend/modules/scripts/executions/service/ScriptExecutionService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

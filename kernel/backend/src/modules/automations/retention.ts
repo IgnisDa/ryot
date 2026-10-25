@@ -10,7 +10,7 @@ import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 export class AutomationRetention extends Context.Service<AutomationRetention>()(
-	"AutomationRetention",
+	"@ryot-app/kernel-backend/modules/automations/retention/AutomationRetention",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

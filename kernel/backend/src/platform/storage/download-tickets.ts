@@ -18,54 +18,57 @@ export class DownloadTicketInvalid extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("DownloadTicketInvalid", {}) {}
 
-export class DownloadTickets extends Context.Service<DownloadTickets>()("DownloadTickets", {
-	make: Effect.gen(function* () {
-		const signer = yield* HmacSigner;
+export class DownloadTickets extends Context.Service<DownloadTickets>()(
+	"@ryot-app/kernel-backend/platform/storage/download-tickets/DownloadTickets",
+	{
+		make: Effect.gen(function* () {
+			const signer = yield* HmacSigner;
 
-		const issue = Effect.fn("DownloadTickets.issue")(function* (
-			input: Omit<DownloadTicketClaims, "expiresAt">,
-		) {
-			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-			const claims: DownloadTicketClaims = {
-				...input,
-				expiresAt: now + DOWNLOAD_TICKET_TTL_SECONDS,
-			};
-			const payload = yield* Schema.encodeEffect(Schema.fromJsonString(DownloadTicketClaims))(
-				claims,
-			).pipe(Effect.orDie);
-			return `${payload}.${yield* signer.sign(payload)}`;
-		});
-
-		const verify = Effect.fn("DownloadTickets.verify")(function* (
-			ticket: string,
-			expected: Pick<DownloadTicketClaims, "purpose" | "resource">,
-		) {
-			const separator = ticket.lastIndexOf(".");
-			if (separator < 1) {
-				return yield* new DownloadTicketInvalid();
-			}
-			const payload = ticket.slice(0, separator);
-			const signature = ticket.slice(separator + 1);
-			if (!(yield* signer.verify(payload, signature))) {
-				return yield* new DownloadTicketInvalid();
-			}
-
-			const claims = Schema.decodeOption(Schema.fromJsonString(DownloadTicketClaims))(payload);
-			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-			if (
-				claims._tag === "None" ||
-				claims.value.expiresAt <= now ||
-				claims.value.purpose !== expected.purpose ||
-				claims.value.resource !== expected.resource
+			const issue = Effect.fn("DownloadTickets.issue")(function* (
+				input: Omit<DownloadTicketClaims, "expiresAt">,
 			) {
-				return yield* new DownloadTicketInvalid();
-			}
-			return claims.value;
-		});
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				const claims: DownloadTicketClaims = {
+					...input,
+					expiresAt: now + DOWNLOAD_TICKET_TTL_SECONDS,
+				};
+				const payload = yield* Schema.encodeEffect(Schema.fromJsonString(DownloadTicketClaims))(
+					claims,
+				).pipe(Effect.orDie);
+				return `${payload}.${yield* signer.sign(payload)}`;
+			});
 
-		return { issue, verify };
-	}),
-}) {
+			const verify = Effect.fn("DownloadTickets.verify")(function* (
+				ticket: string,
+				expected: Pick<DownloadTicketClaims, "purpose" | "resource">,
+			) {
+				const separator = ticket.lastIndexOf(".");
+				if (separator < 1) {
+					return yield* new DownloadTicketInvalid();
+				}
+				const payload = ticket.slice(0, separator);
+				const signature = ticket.slice(separator + 1);
+				if (!(yield* signer.verify(payload, signature))) {
+					return yield* new DownloadTicketInvalid();
+				}
+
+				const claims = Schema.decodeOption(Schema.fromJsonString(DownloadTicketClaims))(payload);
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				if (
+					claims._tag === "None" ||
+					claims.value.expiresAt <= now ||
+					claims.value.purpose !== expected.purpose ||
+					claims.value.resource !== expected.resource
+				) {
+					return yield* new DownloadTicketInvalid();
+				}
+				return claims.value;
+			});
+
+			return { issue, verify };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }
 

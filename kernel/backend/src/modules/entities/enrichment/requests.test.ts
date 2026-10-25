@@ -34,7 +34,7 @@ class RequestFixture extends Context.Service<
 		readonly publications: Effect.Effect<ReadonlyArray<readonly [string, string]>>;
 		readonly input: (id: string, patch?: Partial<EnrichmentRequestInput>) => EnrichmentRequestInput;
 	}
->()("test/EnrichmentRequestsFixture") {}
+>()("@ryot-app/kernel-backend/modules/entities/enrichment/requests.test/RequestFixture") {}
 
 const requestLayer = Layer.unwrap(
 	Effect.gen(function* () {

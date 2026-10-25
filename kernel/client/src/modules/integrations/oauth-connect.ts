@@ -96,7 +96,7 @@ export class OAuthConnectPlatform extends Context.Service<
 			readonly onFinished: (handler: () => void) => Effect.Effect<() => void, OAuthConnectFailed>;
 		};
 	}
->()("OAuthConnectPlatform") {
+>()("@ryot-app/kernel-client/modules/integrations/oauth-connect/OAuthConnectPlatform") {
 	static readonly layer = Layer.succeed(this, {
 		openPopup: () => window.open("about:blank", "_blank", "popup,width=520,height=720"),
 		onWake: (handler) => {
@@ -206,7 +206,7 @@ const awaitAbort = (signal: AbortSignal) =>
 	});
 
 export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
-	"OAuthConnectService",
+	"@ryot-app/kernel-client/modules/integrations/oauth-connect/OAuthConnectService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* OAuthConnectionsApi;

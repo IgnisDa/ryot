@@ -8,14 +8,17 @@ export class NavigationLoadError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("NavigationLoadError", { cause: Schema.Unknown }) {}
 
-export class NavigationService extends Context.Service<NavigationService>()("NavigationService", {
-	make: Effect.sync(() => ({
-		load: Effect.fn("NavigationService.load")((ryot: KernelRyotClient) =>
-			ryot.data
-				.query(navigationRecipe())
-				.pipe(Effect.mapError((cause) => new NavigationLoadError({ cause }))),
-		),
-	})),
-}) {
+export class NavigationService extends Context.Service<NavigationService>()(
+	"@ryot-app/kernel-client/modules/navigation/service/NavigationService",
+	{
+		make: Effect.sync(() => ({
+			load: Effect.fn("NavigationService.load")((ryot: KernelRyotClient) =>
+				ryot.data
+					.query(navigationRecipe())
+					.pipe(Effect.mapError((cause) => new NavigationLoadError({ cause }))),
+			),
+		})),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

@@ -79,7 +79,7 @@ class FakeInterestFollowUps extends Context.Service<
 		readonly populationRequests: Effect.Effect<ReadonlyArray<PopulationRequest>>;
 		readonly translationRequests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
 	}
->()("test/FakeInterestFollowUps") {}
+>()("@ryot-app/kernel-backend/modules/entities/watches/reconciler.test/FakeInterestFollowUps") {}
 
 const reconcilerLayer = (items: readonly InterestItem[], dispatched = true) =>
 	Layer.unwrap(

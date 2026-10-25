@@ -80,7 +80,7 @@ class FakeAdmission extends Context.Service<
 		readonly statusRead: Effect.Effect<void>;
 		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
 	}
->()("test/FakeAdmission") {}
+>()("@ryot-app/kernel-backend/modules/entities/providers/service.test/FakeAdmission") {}
 
 const makeServiceLayer = (
 	options: {

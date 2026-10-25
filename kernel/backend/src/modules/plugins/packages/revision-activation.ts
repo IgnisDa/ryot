@@ -4,4 +4,6 @@ import { Context, type Effect } from "effect";
 export class PluginRevisionActivation extends Context.Service<
 	PluginRevisionActivation,
 	{ readonly activated: (pluginId: string) => Effect.Effect<void, DbError> }
->()("PluginRevisionActivation") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/revision-activation/PluginRevisionActivation",
+) {}

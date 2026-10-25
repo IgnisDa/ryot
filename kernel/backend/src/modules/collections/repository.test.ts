@@ -67,7 +67,7 @@ class DefinitionLookups extends Context.Service<
 		readonly eventReferences: Effect.Effect<ReadonlyArray<EventSchemaReference>>;
 		readonly entityReferences: Effect.Effect<ReadonlyArray<DeclarationReference>>;
 	}
->()("test/DefinitionLookups") {}
+>()("@ryot-app/kernel-backend/modules/collections/repository.test/DefinitionLookups") {}
 
 const pluginCollectionRow = {
 	properties: {},
@@ -84,7 +84,7 @@ const pluginCollectionRow = {
 class CollectionQueries extends Context.Service<
 	CollectionQueries,
 	{ readonly entries: Effect.Effect<ReadonlyArray<CollectionQuery>> }
->()("test/CollectionQueries") {}
+>()("@ryot-app/kernel-backend/modules/collections/repository.test/CollectionQueries") {}
 
 const collectionQueriesLayer = Layer.unwrap(
 	Effect.gen(function* () {

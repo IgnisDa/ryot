@@ -17,7 +17,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { CollectionsRepository } from "./repository";
 
 export class CollectionOrderingService extends Context.Service<CollectionOrderingService>()(
-	"CollectionOrderingService",
+	"@ryot-app/kernel-backend/modules/collections/ordering-service/CollectionOrderingService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

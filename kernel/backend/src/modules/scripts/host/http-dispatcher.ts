@@ -775,6 +775,8 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 export class SandboxHttpDispatcher extends Context.Service<
 	SandboxHttpDispatcher,
 	SandboxHttpDispatcherValue
->()("SandboxHttpDispatcher", { make: makeSandboxHttpDispatcher }) {
+>()("@ryot-app/kernel-backend/modules/scripts/host/http-dispatcher/SandboxHttpDispatcher", {
+	make: makeSandboxHttpDispatcher,
+}) {
 	static readonly layer = Layer.effect(this, this.make);
 }

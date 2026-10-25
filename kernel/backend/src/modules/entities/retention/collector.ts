@@ -12,7 +12,7 @@ const distinctUnits = (units: ReadonlyMap<string, ReadonlyArray<string>>) => [
 ];
 
 export class EntityGraphCollector extends Context.Service<EntityGraphCollector>()(
-	"EntityGraphCollector",
+	"@ryot-app/kernel-backend/modules/entities/retention/collector/EntityGraphCollector",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

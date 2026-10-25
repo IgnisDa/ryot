@@ -28,7 +28,7 @@ type PluginCatalogInvalidatorValue = {
 export class PluginCatalogInvalidator extends Context.Service<
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorValue
->()("PluginCatalogInvalidator", {
+>()("@ryot-app/kernel-backend/modules/plugins/catalog/events/PluginCatalogInvalidator", {
 	make: Effect.succeed({
 		all: Effect.void,
 		recordAll: Effect.void,
@@ -40,61 +40,66 @@ export class PluginCatalogInvalidator extends Context.Service<
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("PluginCatalogHub", {
-	make: Effect.sync(() => {
-		const queues = new Map<UserId, Set<Queue.Queue<Uint8Array>>>();
+export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()(
+	"@ryot-app/kernel-backend/modules/plugins/catalog/events/PluginCatalogHub",
+	{
+		make: Effect.sync(() => {
+			const queues = new Map<UserId, Set<Queue.Queue<Uint8Array>>>();
 
-		const subscribe = Effect.fn("PluginCatalogHub.subscribe")((userId: UserId) =>
-			Effect.acquireRelease(
-				Effect.gen(function* () {
-					const queue = yield* Queue.unbounded<Uint8Array>();
-					const userQueues = queues.get(userId) ?? new Set();
-					userQueues.add(queue);
-					queues.set(userId, userQueues);
-					yield* Queue.offer(queue, connected);
-					return queue;
+			const subscribe = Effect.fn("PluginCatalogHub.subscribe")((userId: UserId) =>
+				Effect.acquireRelease(
+					Effect.gen(function* () {
+						const queue = yield* Queue.unbounded<Uint8Array>();
+						const userQueues = queues.get(userId) ?? new Set();
+						userQueues.add(queue);
+						queues.set(userId, userQueues);
+						yield* Queue.offer(queue, connected);
+						return queue;
+					}),
+					(queue) =>
+						Effect.sync(() => {
+							const userQueues = queues.get(userId);
+							userQueues?.delete(queue);
+							if (userQueues?.size === 0) {
+								queues.delete(userId);
+							}
+						}).pipe(Effect.andThen(Queue.shutdown(queue))),
+				),
+			);
+			const broadcast = Effect.fn("PluginCatalogHub.broadcast")((userId: UserId) =>
+				Effect.forEach(queues.get(userId) ?? [], (queue) => Queue.offer(queue, invalidated), {
+					discard: true,
 				}),
-				(queue) =>
-					Effect.sync(() => {
-						const userQueues = queues.get(userId);
-						userQueues?.delete(queue);
-						if (userQueues?.size === 0) {
-							queues.delete(userId);
-						}
-					}).pipe(Effect.andThen(Queue.shutdown(queue))),
-			),
-		);
-		const broadcast = Effect.fn("PluginCatalogHub.broadcast")((userId: UserId) =>
-			Effect.forEach(queues.get(userId) ?? [], (queue) => Queue.offer(queue, invalidated), {
-				discard: true,
-			}),
-		);
-		const broadcastAll = Effect.fn("PluginCatalogHub.broadcastAll")(() =>
-			Effect.forEach(
-				queues.values(),
-				(userQueues) =>
-					Effect.forEach(userQueues, (queue) => Queue.offer(queue, invalidated), { discard: true }),
-				{ discard: true },
-			),
-		);
-		const stream = (userId: UserId) =>
-			Stream.unwrap(
-				subscribe(userId).pipe(
-					Effect.map((queue) =>
-						Stream.fromQueue(queue).pipe(
-							Stream.merge(
-								Stream.fromEffect(Effect.sleep("25 seconds").pipe(Effect.as(heartbeat))).pipe(
-									Stream.forever,
+			);
+			const broadcastAll = Effect.fn("PluginCatalogHub.broadcastAll")(() =>
+				Effect.forEach(
+					queues.values(),
+					(userQueues) =>
+						Effect.forEach(userQueues, (queue) => Queue.offer(queue, invalidated), {
+							discard: true,
+						}),
+					{ discard: true },
+				),
+			);
+			const stream = (userId: UserId) =>
+				Stream.unwrap(
+					subscribe(userId).pipe(
+						Effect.map((queue) =>
+							Stream.fromQueue(queue).pipe(
+								Stream.merge(
+									Stream.fromEffect(Effect.sleep("25 seconds").pipe(Effect.as(heartbeat))).pipe(
+										Stream.forever,
+									),
 								),
 							),
 						),
 					),
-				),
-			).pipe(Stream.scoped);
+				).pipe(Stream.scoped);
 
-		return { stream, broadcast, subscribe, broadcastAll };
-	}),
-}) {
+			return { stream, broadcast, subscribe, broadcastAll };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }
 
@@ -179,7 +184,7 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 );
 
 export class PluginInvalidationSubscriber extends Context.Service<PluginInvalidationSubscriber>()(
-	"PluginInvalidationSubscriber",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/events/PluginInvalidationSubscriber",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

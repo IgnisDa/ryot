@@ -19,7 +19,7 @@ import { NotificationsRepository } from "./repository";
 import { NotificationSourcePolicy } from "./source-policy";
 
 export class NotificationAdmissions extends Context.Service<NotificationAdmissions>()(
-	"NotificationAdmissions",
+	"@ryot-app/kernel-backend/modules/notifications/admission/NotificationAdmissions",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

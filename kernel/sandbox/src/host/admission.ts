@@ -41,13 +41,13 @@ export class SandboxAdmissionLease extends Context.Service<
 			input: typeof laneSchema.Type,
 		) => Effect.Effect<void, SandboxRunError, Scope.Scope>;
 	}
->()("SandboxAdmissionLease") {}
+>()("@ryot-app/sandbox/host/admission/SandboxAdmissionLease") {}
 
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
 
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
-	"SandboxSidecarAdmission",
+	"@ryot-app/sandbox/host/admission/SandboxSidecarAdmission",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* SandboxHostConfig;

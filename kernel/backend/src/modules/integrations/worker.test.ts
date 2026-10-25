@@ -21,7 +21,7 @@ const mockIntegrationsService = Layer.mock(IntegrationsService);
 class FakeIntegrationUpdates extends Context.Service<
 	FakeIntegrationUpdates,
 	{ readonly updates: Effect.Effect<ReadonlyArray<Record<string, unknown>>> }
->()("test/FakeIntegrationUpdates") {}
+>()("@ryot-app/kernel-backend/modules/integrations/worker.test/FakeIntegrationUpdates") {}
 
 const makeWorkerLayer = (input: {
 	disableWins?: boolean;

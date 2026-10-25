@@ -240,7 +240,9 @@ class FakeProviderWrites extends Context.Service<
 		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
 		readonly stampedChildren: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
->()("test/FakeProviderWrites") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/entity-import-workflow.test/FakeProviderWrites",
+) {}
 
 const providerWritesLayer = (options: {
 	readonly reconciled: "fail" | Effect.Success<ReturnType<Reconcile>>;
@@ -458,7 +460,9 @@ class FakeRootPopulation extends Context.Service<
 		readonly payload: ProviderEntityPopulationAttemptPayload;
 		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 	}
->()("test/FakeRootPopulation") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/entity-import-workflow.test/FakeRootPopulation",
+) {}
 
 const rootPopulationLayer = Layer.unwrap(
 	Effect.gen(function* () {

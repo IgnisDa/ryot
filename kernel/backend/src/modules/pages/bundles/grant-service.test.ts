@@ -18,7 +18,7 @@ const without = (key: string) => (all: ReadonlyMap<string, string>) => {
 class FakeRedisStore extends Context.Service<
 	FakeRedisStore,
 	{ readonly delete: (key: string) => Effect.Effect<void> }
->()("test/FakeRedisStore") {}
+>()("@ryot-app/kernel-backend/modules/pages/bundles/grant-service.test/FakeRedisStore") {}
 
 const fakeRedisLayer = Layer.effectContext(
 	Effect.gen(function* () {

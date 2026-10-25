@@ -42,7 +42,9 @@ const services = Layer.mergeAll(
 class PluginEnvironment extends Context.Service<
 	PluginEnvironment,
 	{ readonly use: (values: Readonly<Record<string, string>>) => Effect.Effect<void> }
->()("test/PluginEnvironment") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/revisions.integration.test/PluginEnvironment",
+) {}
 
 const pluginEnvironmentLayer = Layer.effectContext(
 	Effect.gen(function* () {

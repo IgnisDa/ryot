@@ -44,7 +44,7 @@ const requestWorkflowName = sql`case when message.entity_type = ${workflowClockE
 end`;
 
 export class WorkflowGarbageCollectionRepository extends Context.Service<WorkflowGarbageCollectionRepository>()(
-	"WorkflowGarbageCollectionRepository",
+	"@ryot-app/kernel-backend/modules/garbage-collection/workflow-repository/WorkflowGarbageCollectionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

@@ -48,7 +48,7 @@ export class IntegrationsLoadError extends Schema.TaggedError<
 >()("IntegrationsLoadError", { cause: Schema.Unknown, stage: Schema.Literals(["list", "runs"]) }) {}
 
 export class IntegrationsService extends Context.Service<IntegrationsService>()(
-	"IntegrationsService",
+	"@ryot-app/kernel-client/modules/integrations/service/IntegrationsService",
 	{
 		make: Effect.gen(function* () {
 			const publicApi = yield* PublicApi;

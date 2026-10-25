@@ -116,7 +116,7 @@ class FakeProviderSearch extends Context.Service<
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteInput>>;
 		readonly respondWith: (execute: Execute) => Effect.Effect<void>;
 	}
->()("test/FakeProviderSearch") {}
+>()("@ryot-app/kernel-backend/modules/entities/providers/search-service.test/FakeProviderSearch") {}
 
 const defaultExecute: Execute = (run) =>
 	Effect.succeed({

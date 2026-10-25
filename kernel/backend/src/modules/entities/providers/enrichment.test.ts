@@ -83,7 +83,7 @@ class RetryFixture extends Context.Service<
 			level?: "base" | "full",
 		) => Effect.Effect<RequestRow>;
 	}
->()("test/PopulationRetryFixture") {}
+>()("@ryot-app/kernel-backend/modules/entities/providers/enrichment.test/RetryFixture") {}
 
 const retryLayer = (pluginOwner: null | UserId = null) =>
 	Layer.unwrap(

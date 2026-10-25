@@ -19,7 +19,7 @@ import { ImportRunError } from "./runtime/workflow-errors";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
 export class IngestionExecution extends Context.Service<IngestionExecution>()(
-	"IngestionExecution",
+	"@ryot-app/kernel-backend/modules/imports/execution-service/IngestionExecution",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* ImportsRepository;

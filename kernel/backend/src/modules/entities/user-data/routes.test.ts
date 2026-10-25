@@ -32,7 +32,7 @@ class RouteCaller extends Context.Service<
 		readonly recordedCommands: Effect.Effect<ReadonlyArray<RecordedCommand>>;
 		readonly sendAs: (userId: UserId, accessClass: AccessClass) => Effect.Effect<void>;
 	}
->()("test/EntityUserDataRouteCaller") {}
+>()("@ryot-app/kernel-backend/modules/entities/user-data/routes.test/RouteCaller") {}
 
 const credential = (userId: UserId, accessClass: AccessClass) => ({
 	authorization: {

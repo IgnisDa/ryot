@@ -456,7 +456,7 @@ export class OAuthTokenService extends Context.Service<
 			code: string,
 		) => Effect.Effect<PendingAuthorization, OAuthTokenError>;
 	}
->()("OAuthTokenService") {
+>()("@ryot-app/kernel-client/modules/auth/token-service/OAuthTokenService") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.map(OAuthStorage, (storage) => makeTokenService(storage, fetch, Date.now)),

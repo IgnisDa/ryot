@@ -49,7 +49,7 @@ type PendingRequest = {
 class Endpoint extends Context.Service<
 	Endpoint,
 	{ readonly next: Effect.Effect<PendingRequest> }
->()("test/AuthorizationEndpoint") {}
+>()("@ryot-app/kernel-client/modules/auth/authorization.test/Endpoint") {}
 
 const authorizationLayer = Layer.unwrap(
 	Effect.gen(function* () {

@@ -64,7 +64,9 @@ class DeliveryEvidence extends Context.Service<
 		readonly sent: Effect.Effect<ReadonlyArray<string>>;
 		readonly dispatches: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/DeliveryEvidence") {}
+>()(
+	"@ryot-app/kernel-backend/modules/notifications/deliver-enabled-channels.test/DeliveryEvidence",
+) {}
 
 const recordingTransports = Layer.effectContext(
 	Effect.gen(function* () {

@@ -53,7 +53,7 @@ class FakeLifecycleDependencies extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/FakeLifecycleDependencies") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/service.test/FakeLifecycleDependencies") {}
 
 const lifecycleServiceLayer = (options: {
 	readonly execute?: Effect.Effect<void, string>;

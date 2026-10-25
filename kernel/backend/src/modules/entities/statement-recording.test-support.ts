@@ -16,7 +16,7 @@ export class StatementLog extends Context.Service<
 		readonly errorCodes: Effect.Effect<ReadonlyArray<string>>;
 		readonly lastTransaction: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/StatementLog") {}
+>()("@ryot-app/kernel-backend/modules/entities/statement-recording.test-support/StatementLog") {}
 
 export const statementClass = (statement: string): null | StatementClass => {
 	if (

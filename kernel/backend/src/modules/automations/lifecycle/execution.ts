@@ -45,4 +45,4 @@ export class LifecycleExecution extends Context.Service<
 			acceptedBatchPatches: Readonly<Record<string, ReadonlyArray<AutomationPolicyPatch>>>;
 		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
 	}
->()("LifecycleExecution") {}
+>()("@ryot-app/kernel-backend/modules/automations/lifecycle/execution/LifecycleExecution") {}

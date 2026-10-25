@@ -236,12 +236,16 @@ type WorkflowExecution = Readonly<{
 class RecordedWorkflowExecutions extends Context.Service<
 	RecordedWorkflowExecutions,
 	{ readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>> }
->()("test/RecordedWorkflowExecutions") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedWorkflowExecutions",
+) {}
 
 class RecordedNotificationMessages extends Context.Service<
 	RecordedNotificationMessages,
 	{ readonly messages: Effect.Effect<ReadonlyArray<NotificationSendMessage>> }
->()("test/RecordedNotificationMessages") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedNotificationMessages",
+) {}
 
 const childOwnerExecutionId = "sandbox-parent";
 
@@ -355,7 +359,9 @@ layer(childOwnerDispatchLayer)((test) => {
 class RecordedImportHostInputs extends Context.Service<
 	RecordedImportHostInputs,
 	{ readonly inputs: Effect.Effect<ReadonlyArray<unknown>> }
->()("test/RecordedImportHostInputs") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedImportHostInputs",
+) {}
 
 const importHostDispatchLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -491,7 +497,9 @@ class HttpDispatchHarness extends Context.Service<
 		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
 		readonly registered: Effect.Effect<ReadonlyArray<ProviderHttpTicket>>;
 	}
->()("test/HttpDispatchHarness") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/HttpDispatchHarness",
+) {}
 
 const httpExecutionId = "sandbox-http-parent";
 
@@ -1893,7 +1901,9 @@ class LifecycleDispatchHarness extends Context.Service<
 		readonly recorded: Effect.Effect<ReadonlyArray<string>>;
 		readonly useLifecycle: (lifecycle: LifecycleSteps) => Effect.Effect<void>;
 	}
->()("test/LifecycleDispatchHarness") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/LifecycleDispatchHarness",
+) {}
 
 const lifecycleDispatchLayer = (options: {
 	readonly warnings?: ReadonlyArray<AutomationWarning>;

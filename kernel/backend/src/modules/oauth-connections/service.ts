@@ -105,7 +105,7 @@ const oauthConnectionFields = (schema: AppSchema) =>
 	);
 
 export class OAuthConnectionsService extends Context.Service<OAuthConnectionsService>()(
-	"OAuthConnectionsService",
+	"@ryot-app/kernel-backend/modules/oauth-connections/service/OAuthConnectionsService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

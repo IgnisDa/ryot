@@ -46,7 +46,7 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 });
 
 export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuarantine>()(
-	"SandboxSidecarQuarantine",
+	"@ryot-app/sandbox/host/quarantine/SandboxSidecarQuarantine",
 	{
 		make: Effect.gen(function* () {
 			const store = yield* SandboxCrashStore;

@@ -63,7 +63,7 @@ type RetentionCatalog = {
 };
 
 export class EntityRetentionRepository extends Context.Service<EntityRetentionRepository>()(
-	"EntityRetentionRepository",
+	"@ryot-app/kernel-backend/modules/entities/retention/repository/EntityRetentionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

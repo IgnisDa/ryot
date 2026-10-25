@@ -83,7 +83,7 @@ export const signalScheduleBounds = (input: {
 };
 
 export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>()(
-	"SignalScheduleWorker",
+	"@ryot-app/kernel-backend/modules/signal-schedules/worker/SignalScheduleWorker",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

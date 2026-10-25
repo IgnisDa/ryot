@@ -36,12 +36,12 @@ type ResolveActivePluginCron = PluginRuntimeResolver["Service"]["resolveActivePl
 class DispatchedRuns extends Context.Service<
 	DispatchedRuns,
 	Effect.Effect<ReadonlyArray<CapturedRun>>
->()("test/DispatchedRuns") {}
+>()("@ryot-app/kernel-backend/modules/scheduler/plugin-cron.test/DispatchedRuns") {}
 
 class PluginCatalog extends Context.Service<
 	PluginCatalog,
 	{ readonly load: (plugin: PluginRegistryEntry) => Effect.Effect<void> }
->()("test/PluginCatalog") {}
+>()("@ryot-app/kernel-backend/modules/scheduler/plugin-cron.test/PluginCatalog") {}
 
 const recordingWorkflowEngineLayer = (failingExecutionId?: string) =>
 	Layer.effectContext(
@@ -232,7 +232,7 @@ const makeLayer = (
 class SelectionGate extends Context.Service<
 	SelectionGate,
 	{ readonly release: Deferred.Deferred<void>; readonly selected: Deferred.Deferred<void> }
->()("test/SelectionGate") {}
+>()("@ryot-app/kernel-backend/modules/scheduler/plugin-cron.test/SelectionGate") {}
 
 const gatedSelectionLayer = (plugins: ReadonlyArray<PluginRegistryEntry>) =>
 	Layer.unwrap(

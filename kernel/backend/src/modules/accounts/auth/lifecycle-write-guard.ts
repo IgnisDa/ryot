@@ -23,7 +23,7 @@ const checkUserLifecycle = (session: DatabaseSession["Service"]) =>
 	});
 
 export class LifecycleWriteGuard extends Context.Service<LifecycleWriteGuard>()(
-	"LifecycleWriteGuard",
+	"@ryot-app/kernel-backend/modules/accounts/auth/lifecycle-write-guard/LifecycleWriteGuard",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

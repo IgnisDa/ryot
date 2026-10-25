@@ -5,19 +5,22 @@ import { PublicApi } from "#/api/public";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { ClientStorage } from "#/persistence/storage";
 
-export class ServerService extends Context.Service<ServerService>()("ServerService", {
-	make: Effect.gen(function* () {
-		const api = yield* PublicApi;
-		const storage = yield* ClientStorage;
-		const connect = Effect.fn("ServerService.connect")(function* (origin: ServerOrigin) {
-			yield* api.checkHealth(origin);
-			yield* storage.setServerSelection(origin);
-		});
+export class ServerService extends Context.Service<ServerService>()(
+	"@ryot-app/kernel-client/modules/server/service/ServerService",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* PublicApi;
+			const storage = yield* ClientStorage;
+			const connect = Effect.fn("ServerService.connect")(function* (origin: ServerOrigin) {
+				yield* api.checkHealth(origin);
+				yield* storage.setServerSelection(origin);
+			});
 
-		const selected = isNativePlatform() ? storage.getServerSelection : browserServerOrigin;
+			const selected = isNativePlatform() ? storage.getServerSelection : browserServerOrigin;
 
-		return { connect, selected };
-	}),
-}) {
+			return { connect, selected };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

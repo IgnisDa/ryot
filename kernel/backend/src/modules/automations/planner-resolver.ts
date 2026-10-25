@@ -147,7 +147,7 @@ export const matchesTarget = (
 };
 
 export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
-	"AutomationPlannerResolver",
+	"@ryot-app/kernel-backend/modules/automations/planner-resolver/AutomationPlannerResolver",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

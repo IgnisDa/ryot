@@ -216,7 +216,7 @@ export class RelationshipFixture extends Context.Service<
 		readonly disableRelationshipSchema: Effect.Effect<void>;
 		readonly globalRelationshipSchemaCalls: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
 	}
->()("test/RelationshipFixture") {}
+>()("@ryot-app/kernel-backend/modules/relationships/lifecycle.test-support/RelationshipFixture") {}
 
 export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: {
 	readonly planner?: LifecyclePlanner["Service"];

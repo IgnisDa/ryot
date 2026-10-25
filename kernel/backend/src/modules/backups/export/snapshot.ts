@@ -283,7 +283,7 @@ const dependencyIdentity = Effect.fn(function* (
 });
 
 export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>()(
-	"BackupExportSnapshot",
+	"@ryot-app/kernel-backend/modules/backups/export/snapshot/BackupExportSnapshot",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;

@@ -60,7 +60,7 @@ class FakeImportWorkflows extends Context.Service<
 			result: Workflow.Result<unknown, unknown>,
 		) => Effect.Effect<void>;
 	}
->()("test/FakeImportWorkflows") {}
+>()("@ryot-app/kernel-backend/modules/entities/providers/admission.test/FakeImportWorkflows") {}
 
 const recordingEngineLayer = Layer.effectContext(
 	Effect.gen(function* () {
@@ -126,7 +126,7 @@ class AdmissionProviders extends Context.Service<
 			Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findProviderAvailableToUser"]>>
 		>
 	>
->()("test/AdmissionProviders") {}
+>()("@ryot-app/kernel-backend/modules/entities/providers/admission.test/AdmissionProviders") {}
 const fixturesLayer = Layer.effect(
 	AdmissionProviders,
 	Effect.gen(function* () {

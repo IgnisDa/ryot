@@ -118,7 +118,7 @@ export const validateProgressThresholds = (
 };
 
 export class IntegrationsService extends Context.Service<IntegrationsService>()(
-	"IntegrationsService",
+	"@ryot-app/kernel-backend/modules/integrations/service/IntegrationsService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

@@ -27,4 +27,4 @@ export class EntityUserDataAttachments extends Context.Service<
 			readonly references: ReadonlyMap<EntityId, EntityId>;
 		}) => Effect.Effect<void, DbError>;
 	}
->()("EntityUserDataAttachments") {}
+>()("@ryot-app/kernel-backend/modules/entities/user-data/attachments/EntityUserDataAttachments") {}

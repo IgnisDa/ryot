@@ -5,7 +5,9 @@ type Annotations = Readonly<Record<string, unknown>>;
 export class RecordedLogAnnotations extends Context.Service<
 	RecordedLogAnnotations,
 	{ readonly annotations: Effect.Effect<ReadonlyArray<Annotations>> }
->()("test/RecordedLogAnnotations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/log-annotations.test-support/RecordedLogAnnotations",
+) {}
 
 export const recordLogAnnotationsLayer = (fragment: string) =>
 	Layer.unwrap(

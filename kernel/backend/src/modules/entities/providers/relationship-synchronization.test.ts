@@ -73,7 +73,9 @@ class FakeRelationshipSynchronization extends Context.Service<
 		readonly listings: Effect.Effect<ReadonlyArray<ListInput>>;
 		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
 	}
->()("test/FakeRelationshipSynchronization") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/relationship-synchronization.test/FakeRelationshipSynchronization",
+) {}
 
 const synchronizationLayer = (options: {
 	readonly stored?: ReadonlyArray<ReturnType<typeof row>>;

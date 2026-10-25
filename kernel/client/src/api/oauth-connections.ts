@@ -5,7 +5,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 
 export class OAuthConnectionsApi extends Context.Service<OAuthConnectionsApi>()(
-	"OAuthConnectionsApi",
+	"@ryot-app/kernel-client/api/oauth-connections/OAuthConnectionsApi",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;

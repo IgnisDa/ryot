@@ -16,7 +16,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
 
 export class NotificationSubscriptionsService extends Context.Service<NotificationSubscriptionsService>()(
-	"NotificationSubscriptionsService",
+	"@ryot-app/kernel-backend/modules/automations/notification-subscriptions-service/NotificationSubscriptionsService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

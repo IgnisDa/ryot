@@ -9,7 +9,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { automationRun as run, automationRunAttempt as attempt } from "#schema/tables/automations";
 
 export class AutomationHistoryRepository extends Context.Service<AutomationHistoryRepository>()(
-	"AutomationHistoryRepository",
+	"@ryot-app/kernel-backend/modules/automations/history-repository/AutomationHistoryRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

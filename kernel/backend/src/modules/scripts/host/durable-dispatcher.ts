@@ -424,4 +424,6 @@ type SandboxDurableHostDispatcherValue = {
 export class SandboxDurableHostDispatcher extends Context.Service<
 	SandboxDurableHostDispatcher,
 	SandboxDurableHostDispatcherValue
->()("SandboxDurableHostDispatcher") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher/SandboxDurableHostDispatcher",
+) {}

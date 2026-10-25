@@ -20,70 +20,73 @@ export type ReconciledCompletion = {
 	readonly message: EntityWatchEntityUpdatedMessage;
 };
 
-export class InterestService extends Context.Service<InterestService>()("InterestService", {
-	make: Effect.gen(function* () {
-		const store = yield* EntityWatchStore;
-		const reconciler = yield* InterestReconciler;
+export class InterestService extends Context.Service<InterestService>()(
+	"@ryot-app/kernel-backend/modules/entities/watches/service/InterestService",
+	{
+		make: Effect.gen(function* () {
+			const store = yield* EntityWatchStore;
+			const reconciler = yield* InterestReconciler;
 
-		const reconcile = Effect.fn("InterestService.reconcile")(function* (input: {
-			readonly sessionId: string;
-			readonly principal: InterestPrincipal;
-			readonly pending: readonly PendingInterest[];
-		}) {
-			const terminal: ReconciledCompletion[] = [];
-			for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
-				const result = yield* reconciler.reconcile(input.principal, pending);
-				const visibleIds = new Set<string>(result.reconciledEntityIds);
-				const visible = pending.filter(({ entityId }) => visibleIds.has(entityId));
-				yield* store.removePending({
-					sessionId: input.sessionId,
-					pending: pending.filter(({ entityId }) => !visibleIds.has(entityId)),
-				});
-				const terminalIds = new Set<string>(result.terminal.map(({ entityId }) => entityId));
-				yield* store.markReconciled({
-					sessionId: input.sessionId,
-					pending: visible.filter(({ entityId }) => !terminalIds.has(entityId)),
-				});
-				const pendingById = new Map(visible.map((item) => [item.entityId, item]));
-				for (const update of result.terminal) {
-					const current = pendingById.get(update.entityId);
-					if (current !== undefined) {
-						terminal.push({ pending: current, message: { type: "entity-updated", ...update } });
+			const reconcile = Effect.fn("InterestService.reconcile")(function* (input: {
+				readonly sessionId: string;
+				readonly principal: InterestPrincipal;
+				readonly pending: readonly PendingInterest[];
+			}) {
+				const terminal: ReconciledCompletion[] = [];
+				for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
+					const result = yield* reconciler.reconcile(input.principal, pending);
+					const visibleIds = new Set<string>(result.reconciledEntityIds);
+					const visible = pending.filter(({ entityId }) => visibleIds.has(entityId));
+					yield* store.removePending({
+						sessionId: input.sessionId,
+						pending: pending.filter(({ entityId }) => !visibleIds.has(entityId)),
+					});
+					const terminalIds = new Set<string>(result.terminal.map(({ entityId }) => entityId));
+					yield* store.markReconciled({
+						sessionId: input.sessionId,
+						pending: visible.filter(({ entityId }) => !terminalIds.has(entityId)),
+					});
+					const pendingById = new Map(visible.map((item) => [item.entityId, item]));
+					for (const update of result.terminal) {
+						const current = pendingById.get(update.entityId);
+						if (current !== undefined) {
+							terminal.push({ pending: current, message: { type: "entity-updated", ...update } });
+						}
 					}
 				}
-			}
-			return terminal;
-		});
+				return terminal;
+			});
 
-		const setEntityWatchMembership = Effect.fn("InterestService.setEntityWatchMembership")(
-			function* (input: { readonly sessionId: string; readonly entityIds: readonly string[] }) {
-				const [metadata] = yield* store.getSessionMetadata([input.sessionId]);
-				if (metadata === undefined) {
-					return yield* notFound("Unknown session");
-				}
-				const result = yield* store.replaceInterest({
-					foregroundIds: [],
-					entityIds: input.entityIds,
-					sessionId: input.sessionId,
-					revision: metadata.revision + 1,
-				});
-				if (result.status === "missing-session") {
-					return yield* notFound("Unknown session");
-				}
-				if (result.status !== "applied") {
-					return yield* badRequest(
-						result.status === "limit-exceeded"
-							? "Entity interest limit exceeded"
-							: "Entity interest membership changed concurrently",
-					);
-				}
-				yield* store.markReconciled({ pending: result.pending, sessionId: input.sessionId });
-				return undefined;
-			},
-		);
+			const setEntityWatchMembership = Effect.fn("InterestService.setEntityWatchMembership")(
+				function* (input: { readonly sessionId: string; readonly entityIds: readonly string[] }) {
+					const [metadata] = yield* store.getSessionMetadata([input.sessionId]);
+					if (metadata === undefined) {
+						return yield* notFound("Unknown session");
+					}
+					const result = yield* store.replaceInterest({
+						foregroundIds: [],
+						entityIds: input.entityIds,
+						sessionId: input.sessionId,
+						revision: metadata.revision + 1,
+					});
+					if (result.status === "missing-session") {
+						return yield* notFound("Unknown session");
+					}
+					if (result.status !== "applied") {
+						return yield* badRequest(
+							result.status === "limit-exceeded"
+								? "Entity interest limit exceeded"
+								: "Entity interest membership changed concurrently",
+						);
+					}
+					yield* store.markReconciled({ pending: result.pending, sessionId: input.sessionId });
+					return undefined;
+				},
+			);
 
-		return { reconcile, setEntityWatchMembership };
-	}),
-}) {
+			return { reconcile, setEntityWatchMembership };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

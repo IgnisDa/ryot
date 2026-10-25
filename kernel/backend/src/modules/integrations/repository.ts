@@ -100,7 +100,7 @@ const ownedIntegrationWhere = (input: { userId: UserId; integrationId: Integrati
 	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
 
 export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
-	"IntegrationsRepository",
+	"@ryot-app/kernel-backend/modules/integrations/repository/IntegrationsRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

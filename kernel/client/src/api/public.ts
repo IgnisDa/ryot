@@ -33,6 +33,8 @@ export class PublicApi extends Context.Service<
 			origin: ServerOrigin,
 		) => Effect.Effect<SystemConfigResponse, PublicApiError>;
 	}
->()("PublicApi", { make: Effect.map(HttpClient.HttpClient, makePublicApi) }) {
+>()("@ryot-app/kernel-client/api/public/PublicApi", {
+	make: Effect.map(HttpClient.HttpClient, makePublicApi),
+}) {
 	static readonly layer = Layer.effect(this, this.make);
 }

@@ -89,7 +89,7 @@ class FakeUploadStore extends Context.Service<
 		readonly reindexed: Effect.Effect<ReadonlyArray<{ score: number; member: string }>>;
 		readonly indexed: Effect.Effect<ReadonlyArray<{ key: string; score: number; member: string }>>;
 	}
->()("test/FakeUploadStore") {}
+>()("@ryot-app/kernel-backend/modules/assets/uploads/intents.test/FakeUploadStore") {}
 
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, ...values: ReadonlyArray<A>) =>
 	Ref.update(ref, (all) => [...all, ...values]);

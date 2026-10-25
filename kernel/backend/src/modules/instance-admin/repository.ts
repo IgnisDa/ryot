@@ -6,7 +6,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/auth";
 
 export class InstanceAdminRepository extends Context.Service<InstanceAdminRepository>()(
-	"InstanceAdminRepository",
+	"@ryot-app/kernel-backend/modules/instance-admin/repository/InstanceAdminRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

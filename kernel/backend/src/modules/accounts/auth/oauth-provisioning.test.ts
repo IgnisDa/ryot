@@ -157,7 +157,7 @@ class FakeAuthRepository extends Context.Service<
 		readonly resources: Effect.Effect<ReadonlyMap<string, InternalOAuthResource>>;
 		readonly links: Effect.Effect<ReadonlyMap<string, InternalOAuthClientResource>>;
 	}
->()("test/FakeAuthRepository") {}
+>()("@ryot-app/kernel-backend/modules/accounts/auth/oauth-provisioning.test/FakeAuthRepository") {}
 
 const fakeAuthRepositoryLayer = Layer.effectContext(
 	Effect.gen(function* () {
@@ -204,12 +204,16 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 class FirstOriginProvisioning extends Context.Service<
 	FirstOriginProvisioning,
 	OAuthProvisioningService["Service"]
->()("test/FirstOriginProvisioning") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/auth/oauth-provisioning.test/FirstOriginProvisioning",
+) {}
 
 class SecondOriginProvisioning extends Context.Service<
 	SecondOriginProvisioning,
 	OAuthProvisioningService["Service"]
->()("test/SecondOriginProvisioning") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/auth/oauth-provisioning.test/SecondOriginProvisioning",
+) {}
 
 const reprovisioningLayer = Layer.mergeAll(
 	Layer.effect(FirstOriginProvisioning, OAuthProvisioningService.make).pipe(

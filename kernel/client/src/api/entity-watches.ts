@@ -10,14 +10,17 @@ export const entityWatchSocketUrl = (scope: ApiScope) => {
 	return url.toString();
 };
 
-export class EntityWatchApi extends Context.Service<EntityWatchApi>()("EntityWatchApi", {
-	make: Effect.gen(function* () {
-		const api = yield* AuthenticatedApi;
-		return {
-			createSocketTicket: (scope: ApiScope) =>
-				api.run(scope, (client) => client["entity-watches"].createSocketTicket()),
-		};
-	}),
-}) {
+export class EntityWatchApi extends Context.Service<EntityWatchApi>()(
+	"@ryot-app/kernel-client/api/entity-watches/EntityWatchApi",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* AuthenticatedApi;
+			return {
+				createSocketTicket: (scope: ApiScope) =>
+					api.run(scope, (client) => client["entity-watches"].createSocketTicket()),
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

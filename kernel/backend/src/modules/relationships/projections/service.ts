@@ -52,7 +52,7 @@ const RelationshipProjectionClaim = Schema.Struct({
 });
 
 export class RelationshipProjectionService extends Context.Service<RelationshipProjectionService>()(
-	"RelationshipProjectionService",
+	"@ryot-app/kernel-backend/modules/relationships/projections/service/RelationshipProjectionService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

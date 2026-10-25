@@ -30,7 +30,9 @@ class RollbackKeyTest extends Schema.TaggedError<
 class RestartedConfigRevisions extends Context.Service<
 	RestartedConfigRevisions,
 	PluginConfigRevisions["Service"]
->()("test/RestartedConfigRevisions") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/configuration/encryption-key.test/RestartedConfigRevisions",
+) {}
 
 const restartedConfigRevisionsLayer = Layer.effect(
 	RestartedConfigRevisions,

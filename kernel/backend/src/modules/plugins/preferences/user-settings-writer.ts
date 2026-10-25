@@ -41,7 +41,7 @@ const invalidUserSettings = (messages: ReadonlyArray<string>) =>
 	});
 
 export class PluginUserSettingsWriter extends Context.Service<PluginUserSettingsWriter>()(
-	"PluginUserSettingsWriter",
+	"@ryot-app/kernel-backend/modules/plugins/preferences/user-settings-writer/PluginUserSettingsWriter",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

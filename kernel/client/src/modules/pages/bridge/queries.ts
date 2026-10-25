@@ -5,7 +5,7 @@ import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 
 export class PluginQueriesService extends Context.Service<PluginQueriesService>()(
-	"PluginQueriesService",
+	"@ryot-app/kernel-client/modules/pages/bridge/queries/PluginQueriesService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* RyotQLApi;

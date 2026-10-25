@@ -59,7 +59,9 @@ export class RealSandboxScripts extends Context.Service<
 			readonly pluginRevision: ReturnType<typeof makeUserPluginRevision>;
 		}>;
 	}
->()("test/RealSandboxScripts") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/executions/real-sandbox.test-support/RealSandboxScripts",
+) {}
 
 export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurableResult } = {}) =>
 	Layer.unwrap(

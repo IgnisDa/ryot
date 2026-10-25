@@ -16,7 +16,7 @@ export const userBootstrapWorkflowExecutionId = (
 ) => `user-bootstrap-${userId.length}-${userId}-${accountGeneration.token}`;
 
 export class UserBootstrapScheduling extends Context.Service<UserBootstrapScheduling>()(
-	"UserBootstrapScheduling",
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/scheduling/UserBootstrapScheduling",
 	{
 		make: Effect.gen(function* () {
 			const bootstrap = yield* UserBootstrap;

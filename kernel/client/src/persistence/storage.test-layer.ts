@@ -39,7 +39,7 @@ export class FakeBrowserStorage extends Context.Service<
 		readonly values: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly seed: (key: string, value: string) => Effect.Effect<void>;
 	}
->()("test/FakeBrowserStorage") {}
+>()("@ryot-app/kernel-client/persistence/storage.test-layer/FakeBrowserStorage") {}
 
 export const fakeClientStorageLayer = (
 	options: {

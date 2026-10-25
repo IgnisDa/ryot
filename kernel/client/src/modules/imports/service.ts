@@ -35,28 +35,31 @@ export class ImportsLoadError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("ImportsLoadError", { cause: Schema.Unknown, stage: Schema.Literals(["run", "runs"]) }) {}
 
-export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
-	make: Effect.sync(() => {
-		const loadRuns = Effect.fn("ImportsService.loadRuns")(function* (
-			client: ImportsClient,
-			input: { readonly limit: number },
-		) {
-			return yield* client.data
-				.query(manualImportRunsRecipe({ limit: input.limit }))
-				.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "runs" })));
-		});
-		const loadRun = Effect.fn("ImportsService.loadRun")(function* (
-			client: ImportsClient,
-			input: Parameters<typeof importRunRecipe>[0],
-		) {
-			return yield* client.data
-				.query(importRunRecipe(input))
-				.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "run" })));
-		});
+export class ImportsService extends Context.Service<ImportsService>()(
+	"@ryot-app/kernel-client/modules/imports/service/ImportsService",
+	{
+		make: Effect.sync(() => {
+			const loadRuns = Effect.fn("ImportsService.loadRuns")(function* (
+				client: ImportsClient,
+				input: { readonly limit: number },
+			) {
+				return yield* client.data
+					.query(manualImportRunsRecipe({ limit: input.limit }))
+					.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "runs" })));
+			});
+			const loadRun = Effect.fn("ImportsService.loadRun")(function* (
+				client: ImportsClient,
+				input: Parameters<typeof importRunRecipe>[0],
+			) {
+				return yield* client.data
+					.query(importRunRecipe(input))
+					.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "run" })));
+			});
 
-		return { loadRun, loadRuns };
-	}),
-}) {
+			return { loadRun, loadRuns };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }
 

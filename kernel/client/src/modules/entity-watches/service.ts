@@ -23,7 +23,7 @@ type Owner = {
 };
 
 export class EntityWatchService extends Context.Service<EntityWatchService>()(
-	"EntityWatchService",
+	"@ryot-app/kernel-client/modules/entity-watches/service/EntityWatchService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* EntityWatchApi;

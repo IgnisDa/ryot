@@ -38,7 +38,7 @@ const migrateDB = Effect.gen(function* () {
 });
 
 export class MigrationsComplete extends Context.Service<MigrationsComplete>()(
-	"MigrationsComplete",
+	"@ryot-app/kernel-backend/platform/db/migrate/MigrationsComplete",
 	{ make: migrateDB.pipe(Effect.as({ done: true as const })) },
 ) {
 	static readonly layer = Layer.effect(this, this.make);

@@ -7,7 +7,7 @@ import { workflowClockEntityType, workflowEntityPrefix } from "./workflow-models
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 
 export class WorkflowGarbageCollector extends Context.Service<WorkflowGarbageCollector>()(
-	"WorkflowGarbageCollector",
+	"@ryot-app/kernel-backend/modules/garbage-collection/workflows/WorkflowGarbageCollector",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

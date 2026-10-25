@@ -39,7 +39,9 @@ class RecordedWorkflowOperations extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly failures: Effect.Effect<ReadonlyArray<unknown>>;
 	}
->()("test/RecordedWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedWorkflowOperations",
+) {}
 
 const scriptedOperationsLayer = (
 	operations: (
@@ -238,7 +240,7 @@ const deleteOperation = {
 class RecordedObjectDeletions extends Context.Service<
 	RecordedObjectDeletions,
 	{ readonly deleted: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedObjectDeletions") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedObjectDeletions") {}
 
 const flakyObjectStorageLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -328,7 +330,7 @@ const resetOperation = {
 class RecordedResetIdentity extends Context.Service<
 	RecordedResetIdentity,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedResetIdentity") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedResetIdentity") {}
 
 const resetIdentityLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -417,7 +419,9 @@ layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentity
 class RecordedCompletionTransaction extends Context.Service<
 	RecordedCompletionTransaction,
 	{ readonly usedTransaction: Effect.Effect<boolean> }
->()("test/RecordedCompletionTransaction") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedCompletionTransaction",
+) {}
 
 const transactionProbeLayer = Layer.unwrap(
 	Effect.gen(function* () {

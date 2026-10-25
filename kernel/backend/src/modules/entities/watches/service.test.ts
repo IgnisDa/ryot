@@ -25,7 +25,7 @@ class FakeInterestCalls extends Context.Service<
 		readonly reconciled: Effect.Effect<ReadonlyArray<Parameters<Store["markReconciled"]>[0]>>;
 		readonly replacements: Effect.Effect<ReadonlyArray<Parameters<Store["replaceInterest"]>[0]>>;
 	}
->()("test/FakeInterestCalls") {}
+>()("@ryot-app/kernel-backend/modules/entities/watches/service.test/FakeInterestCalls") {}
 
 const serviceLayer = (replies: {
 	readonly removePending?: Reply<Store["removePending"]>;

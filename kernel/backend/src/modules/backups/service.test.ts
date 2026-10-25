@@ -56,7 +56,7 @@ class FakeBackupRuns extends Context.Service<
 		readonly requestedUserIds: Effect.Effect<ReadonlyArray<UserId>>;
 		readonly setRunStatus: (status: "pending" | "running") => Effect.Effect<void>;
 	}
->()("test/FakeBackupRuns") {}
+>()("@ryot-app/kernel-backend/modules/backups/service.test/FakeBackupRuns") {}
 
 const mockUploads = Layer.mock(ObjectStorageService);
 const mockRepository = Layer.mock(BackupsRepository);

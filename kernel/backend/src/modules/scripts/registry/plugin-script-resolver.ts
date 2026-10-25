@@ -20,4 +20,6 @@ type ActiveSandboxScript = { readonly id: SandboxScriptId };
 export class SandboxPluginScriptResolver extends Context.Service<
 	SandboxPluginScriptResolver,
 	SandboxPluginScriptResolverValue
->()("SandboxPluginScriptResolver") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/plugin-script-resolver/SandboxPluginScriptResolver",
+) {}

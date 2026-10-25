@@ -5,7 +5,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 
 export class CalendarSourcesApi extends Context.Service<CalendarSourcesApi>()(
-	"CalendarSourcesApi",
+	"@ryot-app/kernel-client/api/calendar-sources/CalendarSourcesApi",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;

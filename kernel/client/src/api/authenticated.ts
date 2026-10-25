@@ -85,7 +85,7 @@ export const makeAuthenticatedApi = (
 });
 
 export class AuthenticatedApi extends Context.Service<AuthenticatedApi, AuthenticatedApiService>()(
-	"AuthenticatedApi",
+	"@ryot-app/kernel-client/api/authenticated/AuthenticatedApi",
 	{
 		make: Effect.gen(function* () {
 			return makeAuthenticatedApi(yield* OAuthTokenService, yield* HttpClient.HttpClient);

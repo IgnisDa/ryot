@@ -30,7 +30,7 @@ export class ImpersonationHandoffInvalid extends Schema.TaggedError<
 >()("ImpersonationHandoffInvalid", {}) {}
 
 export class ImpersonationHandoffs extends Context.Service<ImpersonationHandoffs>()(
-	"ImpersonationHandoffs",
+	"@ryot-app/kernel-backend/modules/accounts/auth/impersonation-handoffs/ImpersonationHandoffs",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

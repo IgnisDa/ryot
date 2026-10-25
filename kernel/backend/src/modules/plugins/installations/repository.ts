@@ -98,7 +98,7 @@ const installationState = {
 };
 
 export class PluginInstallationRepository extends Context.Service<PluginInstallationRepository>()(
-	"PluginInstallationRepository",
+	"@ryot-app/kernel-backend/modules/plugins/installations/repository/PluginInstallationRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

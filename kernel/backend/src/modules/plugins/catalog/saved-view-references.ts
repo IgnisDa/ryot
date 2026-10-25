@@ -3,7 +3,7 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect } from "effect";
 
 export class PluginSavedViewReferences extends Context.Service<PluginSavedViewReferences>()(
-	"PluginSavedViewReferences",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/saved-view-references/PluginSavedViewReferences",
 	{
 		make: Effect.succeed({
 			hasCustomSavedViewReferences: (

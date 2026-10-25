@@ -283,7 +283,7 @@ export class ClientStorage extends Context.Service<
 			value: JsonValue,
 		) => Effect.Effect<void, PluginStorageQuotaError | PluginStorageAccessError>;
 	}
->()("ClientStorage") {
+>()("@ryot-app/kernel-client/persistence/storage/ClientStorage") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.sync(() => makeStorage(browserStorage())),

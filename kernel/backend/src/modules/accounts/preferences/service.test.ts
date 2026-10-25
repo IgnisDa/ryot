@@ -35,7 +35,7 @@ class FakeAuthSettings extends Context.Service<
 			ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
 		>;
 	}
->()("test/FakeAuthSettings") {}
+>()("@ryot-app/kernel-backend/modules/accounts/preferences/service.test/FakeAuthSettings") {}
 
 const serviceLayer = () =>
 	UserSettingsService.layer.pipe(

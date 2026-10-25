@@ -52,7 +52,7 @@ const entityMatchesPayload = (
 	entity.entitySchemaSlug === payload.entitySchemaSlug;
 
 export class TranslationsService extends Context.Service<TranslationsService>()(
-	"TranslationsService",
+	"@ryot-app/kernel-backend/modules/entities/localization/service/TranslationsService",
 	{
 		make: Effect.gen(function* () {
 			const engine = yield* WorkflowEngine;

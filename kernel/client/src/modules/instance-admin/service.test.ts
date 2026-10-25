@@ -72,7 +72,7 @@ class FakeInstanceAdminApi extends Context.Service<
 		readonly lifecyclePolls: Effect.Effect<number>;
 		readonly calls: Effect.Effect<ReadonlyArray<InstanceAdminCall>>;
 	}
->()("test/FakeInstanceAdminApi") {}
+>()("@ryot-app/kernel-client/modules/instance-admin/service.test/FakeInstanceAdminApi") {}
 
 const instanceAdminLayer = () =>
 	Layer.unwrap(

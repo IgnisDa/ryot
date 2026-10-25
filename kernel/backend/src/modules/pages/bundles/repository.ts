@@ -38,7 +38,7 @@ export const clientArtifactMatches = (
 	);
 
 export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRepository>()(
-	"ClientArtifactsRepository",
+	"@ryot-app/kernel-backend/modules/pages/bundles/repository/ClientArtifactsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

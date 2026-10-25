@@ -325,7 +325,9 @@ export class AutomationRunWorkflowOperations extends Context.Service<
 			input: PreparedAutomationRun & { executionId: string },
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 	}
->()("AutomationRunWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/automations/run-workflow-live/AutomationRunWorkflowOperations",
+) {}
 
 const missing = () =>
 	new AutomationPreparationError({

@@ -56,7 +56,7 @@ class WorkerEvidence extends Context.Service<
 		sends: Effect.Effect<number>;
 		dispatches: Effect.Effect<ReadonlyArray<{ runId: string; inTransaction: boolean }>>;
 	}
->()("test/WorkerEvidence") {}
+>()("@ryot-app/kernel-backend/modules/reminders/worker.test/WorkerEvidence") {}
 
 const execution = Layer.effectContext(
 	Effect.gen(function* () {

@@ -35,7 +35,7 @@ type RunFrame = typeof SidecarRunFrame.Type;
 type CallFrame = typeof SidecarHostCallFrame.Type;
 
 export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>()(
-	"test/NativeMemoryEvidence",
+	"@ryot-app/sandbox/host/native-memory-disposal.test-support/NativeMemoryEvidence",
 	{
 		make: Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

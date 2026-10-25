@@ -75,13 +75,15 @@ type HeadroomControl = {
 };
 
 class SandboxHeadroomControl extends Context.Service<SandboxHeadroomControl, HeadroomControl>()(
-	"test/SandboxHeadroomControl",
+	"@ryot-app/kernel-backend/modules/scripts/executions/runtime-headroom.test/SandboxHeadroomControl",
 ) {}
 
 class SandboxHeadroomObserver extends Context.Service<
 	SandboxHeadroomObserver,
 	{ readonly countApplicationConnections: Effect.Effect<number, unknown> }
->()("test/SandboxHeadroomObserver") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/executions/runtime-headroom.test/SandboxHeadroomObserver",
+) {}
 
 const SandboxHeadroomReplayWorkflow = Workflow.make("SandboxHeadroomReplayWorkflow", {
 	success: Schema.Void,

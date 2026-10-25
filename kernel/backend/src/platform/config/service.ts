@@ -356,11 +356,14 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 		};
 	});
 
-export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
-	make: Effect.gen(function* () {
-		const system = yield* SystemConfigSource;
-		return yield* validateSystemConfig(system);
-	}),
-}) {
+export class AppConfig extends Context.Service<AppConfig>()(
+	"@ryot-app/kernel-backend/platform/config/service/AppConfig",
+	{
+		make: Effect.gen(function* () {
+			const system = yield* SystemConfigSource;
+			return yield* validateSystemConfig(system);
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

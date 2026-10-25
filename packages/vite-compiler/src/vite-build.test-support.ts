@@ -12,7 +12,7 @@ export class FakeViteBuild extends Context.Service<
 		readonly builds: Effect.Effect<ReadonlyArray<InlineConfig>>;
 		readonly respondWith: (respond: ViteBuildResponse) => Effect.Effect<void>;
 	}
->()("test/FakeViteBuild") {}
+>()("@ryot-app/vite-compiler/vite-build.test-support/FakeViteBuild") {}
 
 export const fakeViteBuildLayer = (respond: ViteBuildResponse) =>
 	Layer.effectContext(

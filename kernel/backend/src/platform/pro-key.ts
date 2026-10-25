@@ -75,9 +75,10 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 		return { isValidated };
 	});
 
-export class ProKeyService extends Context.Service<ProKeyService>()("ProKeyService", {
-	make: makeProKeyService(),
-}) {
+export class ProKeyService extends Context.Service<ProKeyService>()(
+	"@ryot-app/kernel-backend/platform/pro-key/ProKeyService",
+	{ make: makeProKeyService() },
+) {
 	static readonly layer = Layer.effect(this, this.make);
 	static readonly layerWithHttpClient = (httpClient: HTTPClient) =>
 		Layer.effect(this, makeProKeyService({ httpClient }));

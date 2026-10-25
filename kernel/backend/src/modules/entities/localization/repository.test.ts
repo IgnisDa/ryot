@@ -25,7 +25,7 @@ const input = {
 class TranslationInserts extends Context.Service<
 	TranslationInserts,
 	{ readonly conflictSuppressionRequested: Effect.Effect<boolean> }
->()("test/TranslationInserts") {}
+>()("@ryot-app/kernel-backend/modules/entities/localization/repository.test/TranslationInserts") {}
 
 const translationInsertLayer = (rows: ReadonlyArray<{ language: string }>) =>
 	Layer.unwrap(

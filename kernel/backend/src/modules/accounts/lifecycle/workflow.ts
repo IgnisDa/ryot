@@ -62,7 +62,9 @@ type UserLifecycleWorkflowOperationsValue = {
 export class UserLifecycleWorkflowOperations extends Context.Service<
 	UserLifecycleWorkflowOperations,
 	UserLifecycleWorkflowOperationsValue
->()("UserLifecycleWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow/UserLifecycleWorkflowOperations",
+) {}
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(

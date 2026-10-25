@@ -21,7 +21,7 @@ const verifyKeyResponse = (data: { valid: boolean; meta?: Record<string, unknown
 class FakeUnkey extends Context.Service<
 	FakeUnkey,
 	{ readonly requests: Effect.Effect<ReadonlyArray<Request>> }
->()("test/FakeUnkey") {}
+>()("@ryot-app/kernel-backend/platform/pro-key.test/FakeUnkey") {}
 
 const fakeUnkeyLayer = (
 	respond: () => Promise<Response>,

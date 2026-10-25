@@ -53,7 +53,7 @@ class AtomicWriteObservation extends Context.Service<
 			ReadonlyArray<Parameters<EventsRepository["Service"]["lockEventRows"]>[0]>
 		>;
 	}
->()("test/AtomicWriteObservation") {}
+>()("@ryot-app/kernel-backend/modules/user-commands/workflow.test/AtomicWriteObservation") {}
 
 const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 	const live = EventSchemaReader.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));

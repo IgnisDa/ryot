@@ -51,7 +51,7 @@ class RecordedSchedules extends Context.Service<
 			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
 		>;
 	}
->()("test/RecordedSchedules") {}
+>()("@ryot-app/kernel-backend/modules/accounts/provisioning/scheduling.test/RecordedSchedules") {}
 
 const recordingSchedulingLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -156,7 +156,9 @@ class RecordedReconciliation extends Context.Service<
 		readonly limit: Effect.Effect<null | number>;
 		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/RecordedReconciliation") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/scheduling.test/RecordedReconciliation",
+) {}
 
 const reconciliationLayer = Layer.unwrap(
 	Effect.gen(function* () {

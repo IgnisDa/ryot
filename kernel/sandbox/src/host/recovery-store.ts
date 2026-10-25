@@ -76,7 +76,7 @@ return encode_state(recoveries, suspended)
 `;
 
 export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>()(
-	"SandboxRecoveryStore",
+	"@ryot-app/sandbox/host/recovery-store/SandboxRecoveryStore",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* SandboxRedis;

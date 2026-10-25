@@ -24,7 +24,9 @@ export class PluginIngestionRetirement extends Context.Service<
 			policy: PluginIngestionRetirementPolicy;
 		}) => Effect.Effect<void, DbError>;
 	}
->()("PluginIngestionRetirement") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-retirement/PluginIngestionRetirement",
+) {}
 
 export const quarantinePackageConflicts = Effect.fn("quarantinePackageConflicts")(function* (
 	installations: PluginInstallationRepository["Service"],

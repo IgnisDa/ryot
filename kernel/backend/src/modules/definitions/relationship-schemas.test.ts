@@ -38,7 +38,7 @@ const pluginReference: RelationshipSchemaReference = {
 class RelationshipCalls extends Context.Service<
 	RelationshipCalls,
 	{ readonly globalReferences: Effect.Effect<ReadonlyArray<RelationshipSchemaReference>> }
->()("test/RelationshipCalls") {}
+>()("@ryot-app/kernel-backend/modules/definitions/relationship-schemas.test/RelationshipCalls") {}
 
 const repositoryLayer = Layer.unwrap(
 	Effect.gen(function* () {

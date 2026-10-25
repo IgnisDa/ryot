@@ -7,7 +7,9 @@ import { UserBootstrapScheduling } from "./scheduling";
 class RecordedReconcileLimit extends Context.Service<
 	RecordedReconcileLimit,
 	{ readonly limit: Effect.Effect<null | number> }
->()("test/RecordedReconcileLimit") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/frequent-task.test/RecordedReconcileLimit",
+) {}
 
 const recordingSchedulingLayer = Layer.unwrap(
 	Effect.gen(function* () {

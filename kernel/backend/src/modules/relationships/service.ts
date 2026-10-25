@@ -54,7 +54,7 @@ import {
 import { type RelationshipIdentityInput, RelationshipsRepository } from "./repository";
 
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
-	"RelationshipsService",
+	"@ryot-app/kernel-backend/modules/relationships/service/RelationshipsService",
 	{
 		make: Effect.gen(function* () {
 			const mutations = yield* RelationshipMutationPipeline;

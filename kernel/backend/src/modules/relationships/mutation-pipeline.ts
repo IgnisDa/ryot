@@ -173,7 +173,7 @@ const summarizeRelationshipMutations = (
 });
 
 export class RelationshipMutationPipeline extends Context.Service<RelationshipMutationPipeline>()(
-	"RelationshipMutationPipeline",
+	"@ryot-app/kernel-backend/modules/relationships/mutation-pipeline/RelationshipMutationPipeline",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* RelationshipsRepository;

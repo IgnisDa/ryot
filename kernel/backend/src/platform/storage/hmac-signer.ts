@@ -26,38 +26,41 @@ const decodeBase64Url = (value: string) => {
 	}
 };
 
-export class HmacSigner extends Context.Service<HmacSigner>()("HmacSigner", {
-	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const signingKey = yield* Effect.tryPromise(() =>
-			crypto.subtle.importKey(
-				"raw",
-				new TextEncoder().encode(Redacted.value(config.server.adminAccessToken)),
-				{ name: "HMAC", hash: "SHA-256" },
-				false,
-				["sign", "verify"],
-			),
-		).pipe(Effect.orDie);
-
-		const sign = Effect.fn("HmacSigner.sign")(function* (payload: string) {
-			const signature = yield* Effect.tryPromise(() =>
-				crypto.subtle.sign("HMAC", signingKey, new TextEncoder().encode(payload)),
+export class HmacSigner extends Context.Service<HmacSigner>()(
+	"@ryot-app/kernel-backend/platform/storage/hmac-signer/HmacSigner",
+	{
+		make: Effect.gen(function* () {
+			const config = yield* AppConfig;
+			const signingKey = yield* Effect.tryPromise(() =>
+				crypto.subtle.importKey(
+					"raw",
+					new TextEncoder().encode(Redacted.value(config.server.adminAccessToken)),
+					{ name: "HMAC", hash: "SHA-256" },
+					false,
+					["sign", "verify"],
+				),
 			).pipe(Effect.orDie);
-			return encodeBase64Url(new Uint8Array(signature));
-		});
 
-		const verify = Effect.fn("HmacSigner.verify")(function* (payload: string, signature: string) {
-			const bytes = decodeBase64Url(signature);
-			if (bytes === null) {
-				return false;
-			}
-			return yield* Effect.tryPromise(() =>
-				crypto.subtle.verify("HMAC", signingKey, bytes, new TextEncoder().encode(payload)),
-			).pipe(Effect.orDie);
-		});
+			const sign = Effect.fn("HmacSigner.sign")(function* (payload: string) {
+				const signature = yield* Effect.tryPromise(() =>
+					crypto.subtle.sign("HMAC", signingKey, new TextEncoder().encode(payload)),
+				).pipe(Effect.orDie);
+				return encodeBase64Url(new Uint8Array(signature));
+			});
 
-		return { sign, verify };
-	}),
-}) {
+			const verify = Effect.fn("HmacSigner.verify")(function* (payload: string, signature: string) {
+				const bytes = decodeBase64Url(signature);
+				if (bytes === null) {
+					return false;
+				}
+				return yield* Effect.tryPromise(() =>
+					crypto.subtle.verify("HMAC", signingKey, bytes, new TextEncoder().encode(payload)),
+				).pipe(Effect.orDie);
+			});
+
+			return { sign, verify };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

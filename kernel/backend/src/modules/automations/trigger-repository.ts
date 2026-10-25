@@ -54,7 +54,7 @@ const hasRuns = (db: Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]
 		.where(eq(automationRun.triggerId, table.id));
 
 export class AutomationTriggerRepository extends Context.Service<AutomationTriggerRepository>()(
-	"AutomationTriggerRepository",
+	"@ryot-app/kernel-backend/modules/automations/trigger-repository/AutomationTriggerRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

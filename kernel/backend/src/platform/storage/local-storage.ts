@@ -31,7 +31,7 @@ const isLocalObjectKind = (value: string): value is "permanent" | "temporary" =>
 	value === "permanent" || value === "temporary";
 
 export class LocalStorageService extends Context.Service<LocalStorageService>()(
-	"LocalStorageService",
+	"@ryot-app/kernel-backend/platform/storage/local-storage/LocalStorageService",
 	{
 		make: Effect.gen(function* () {
 			const paths = yield* Path.Path;

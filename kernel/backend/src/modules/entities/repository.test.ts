@@ -54,7 +54,7 @@ type Recorder = (entry: unknown) => Effect.Effect<void>;
 class RecordedQueries extends Context.Service<
 	RecordedQueries,
 	{ readonly entries: Effect.Effect<ReadonlyArray<unknown>> }
->()("test/RecordedQueries") {}
+>()("@ryot-app/kernel-backend/modules/entities/repository.test/RecordedQueries") {}
 
 const recordingLayer = <A>(
 	provide: (db: object) => Layer.Layer<A>,

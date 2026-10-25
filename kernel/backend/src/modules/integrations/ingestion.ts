@@ -47,7 +47,7 @@ export class IntegrationConfirmationError extends Schema.TaggedError<
 >()("IntegrationConfirmationError", { message: Schema.String }) {}
 
 export class IntegrationIngestion extends Context.Service<IntegrationIngestion>()(
-	"IntegrationIngestion",
+	"@ryot-app/kernel-backend/modules/integrations/ingestion/IntegrationIngestion",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* ImportsRepository;

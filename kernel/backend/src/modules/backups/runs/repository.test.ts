@@ -43,7 +43,7 @@ type UpdatePredicate = { sql: string; params: unknown[] };
 class FakeBackupRunsDatabase extends Context.Service<
 	FakeBackupRunsDatabase,
 	{ readonly updatePredicates: Effect.Effect<ReadonlyArray<UpdatePredicate>> }
->()("test/FakeBackupRunsDatabase") {}
+>()("@ryot-app/kernel-backend/modules/backups/runs/repository.test/FakeBackupRunsDatabase") {}
 
 const dialect = new PgDialect();
 

@@ -25,7 +25,7 @@ const refused = (code: EntityEnrichmentRefused["reason"]["code"]) =>
 	new EntityEnrichmentRefused({ reason: { code } });
 
 export class EntityEnrichmentService extends Context.Service<EntityEnrichmentService>()(
-	"EntityEnrichmentService",
+	"@ryot-app/kernel-backend/modules/entities/providers/enrichment/EntityEnrichmentService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* EntitiesRepository;

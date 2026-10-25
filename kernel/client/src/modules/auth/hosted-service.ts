@@ -171,154 +171,163 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 		),
 	);
 
-export class HostedAuthService extends Context.Service<HostedAuthService>()("HostedAuthService", {
-	make: Effect.sync(() => {
-		let hosted: undefined | ReturnType<typeof makeHostedClient>;
-		const client = () => (hosted ??= makeHostedClient());
-		const signInDemo = Effect.suspend(() =>
-			requestDemoSignIn(globalThis.fetch, window.location.origin),
-		);
-		const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
-			readonly mode: "login" | "signup";
-			readonly values: CredentialsValues;
-		}) {
-			if (input.mode === "signup") {
-				yield* request(
-					() =>
-						client().signUp.email({ ...input.values, name: registrationName(input.values.email) }),
-					"Could not create your account.",
-				);
-				return { _tag: "Authenticated" } as const;
-			}
-			const result = yield* request(
-				() => client().signIn.email(input.values),
-				"Could not sign in.",
+export class HostedAuthService extends Context.Service<HostedAuthService>()(
+	"@ryot-app/kernel-client/modules/auth/hosted-service/HostedAuthService",
+	{
+		make: Effect.sync(() => {
+			let hosted: undefined | ReturnType<typeof makeHostedClient>;
+			const client = () => (hosted ??= makeHostedClient());
+			const signInDemo = Effect.suspend(() =>
+				requestDemoSignIn(globalThis.fetch, window.location.origin),
 			);
-			return isTwoFactorRedirect(result)
-				? ({
-						_tag: "TwoFactor",
-						methods: availableTwoFactorMethods(result.twoFactorMethods),
-					} as const)
-				: ({ _tag: "Authenticated" } as const);
-		});
-		const verifyTwoFactor = (method: TwoFactorMethod, code: string) =>
-			request(
-				() =>
-					method === "backupCode"
-						? client().twoFactor.verifyBackupCode({ code })
-						: client().twoFactor.verifyTotp({ code }),
-				"Could not verify that code.",
-			).pipe(Effect.asVoid);
-		const signInWithOidc = request(
-			() =>
-				client().signIn.social({
-					provider: "oidc",
-					callbackURL: `${window.location.origin}/oauth/login`,
-				}),
-			"Could not open the identity provider.",
-		).pipe(Effect.asVoid);
-		const initializationStatus = Effect.suspend(() =>
-			requestInitializationStatus(globalThis.fetch, window.location.origin),
-		);
-		const continueAfterInitialization = request(
-			() => client().oauth2.continue({ postLogin: true }),
-			"Could not continue sign-in.",
-		).pipe(Effect.asVoid);
-		const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
-			Effect.asVoid,
-		);
-		const twoFactorSession = request(
-			() => client().getSession(),
-			"Could not read your sign-in session.",
-		).pipe(
-			Effect.flatMap((session) =>
-				session
-					? Effect.succeed({ twoFactorEnabled: session.user.twoFactorEnabled === true })
-					: Effect.fail(
-							new HostedAuthError({
-								message: "Your sign-in session has ended. Please sign in again.",
+			const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
+				readonly mode: "login" | "signup";
+				readonly values: CredentialsValues;
+			}) {
+				if (input.mode === "signup") {
+					yield* request(
+						() =>
+							client().signUp.email({
+								...input.values,
+								name: registrationName(input.values.email),
 							}),
-						),
-			),
-		);
-		const enableTwoFactor = (password: string) =>
-			request(
-				() => client().twoFactor.enable({ password, method: "totp" }),
-				"Could not start two-factor setup.",
-			).pipe(
-				Effect.flatMap((result) => {
-					const enrollment = result?.method === "totp" ? parseTotpEnrollment(result.totpURI) : null;
-					return enrollment && result?.method === "totp"
-						? Effect.succeed({ ...enrollment, backupCodes: result.backupCodes })
-						: Effect.fail(
-								new HostedAuthError({ message: "The server returned an invalid setup key." }),
-							);
-				}),
+						"Could not create your account.",
+					);
+					return { _tag: "Authenticated" } as const;
+				}
+				const result = yield* request(
+					() => client().signIn.email(input.values),
+					"Could not sign in.",
+				);
+				return isTwoFactorRedirect(result)
+					? ({
+							_tag: "TwoFactor",
+							methods: availableTwoFactorMethods(result.twoFactorMethods),
+						} as const)
+					: ({ _tag: "Authenticated" } as const);
+			});
+			const verifyTwoFactor = (method: TwoFactorMethod, code: string) =>
+				request(
+					() =>
+						method === "backupCode"
+							? client().twoFactor.verifyBackupCode({ code })
+							: client().twoFactor.verifyTotp({ code }),
+					"Could not verify that code.",
+				).pipe(Effect.asVoid);
+			const signInWithOidc = request(
+				() =>
+					client().signIn.social({
+						provider: "oidc",
+						callbackURL: `${window.location.origin}/oauth/login`,
+					}),
+				"Could not open the identity provider.",
+			).pipe(Effect.asVoid);
+			const initializationStatus = Effect.suspend(() =>
+				requestInitializationStatus(globalThis.fetch, window.location.origin),
 			);
-		const confirmTwoFactor = (code: string) =>
-			request(() => client().twoFactor.verifyTotp({ code }), "Could not verify that code.").pipe(
+			const continueAfterInitialization = request(
+				() => client().oauth2.continue({ postLogin: true }),
+				"Could not continue sign-in.",
+			).pipe(Effect.asVoid);
+			const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
 				Effect.asVoid,
 			);
-		const regenerateBackupCodes = (password: string) =>
-			request(
-				() => client().twoFactor.generateBackupCodes({ password }),
-				"Could not generate new backup codes.",
+			const twoFactorSession = request(
+				() => client().getSession(),
+				"Could not read your sign-in session.",
 			).pipe(
-				Effect.flatMap((result) =>
-					result
-						? Effect.succeed(result.backupCodes)
-						: Effect.fail(new HostedAuthError({ message: "The server returned no backup codes." })),
+				Effect.flatMap((session) =>
+					session
+						? Effect.succeed({ twoFactorEnabled: session.user.twoFactorEnabled === true })
+						: Effect.fail(
+								new HostedAuthError({
+									message: "Your sign-in session has ended. Please sign in again.",
+								}),
+							),
 				),
 			);
-		const disableTwoFactor = (password: string) =>
-			request(
-				() => client().twoFactor.disable({ password }),
-				"Could not turn off two-factor authentication.",
-			).pipe(Effect.asVoid);
-		const openTwoFactorManagement = Effect.fn("HostedAuthService.openTwoFactorManagement")(
-			function* (server: ServerOrigin) {
-				const finished = yield* Deferred.make<void>();
-				yield* Effect.acquireUseRelease(
-					Effect.tryPromise({
-						catch: () => new HostedAuthError({ message: "Could not open the browser." }),
-						try: () =>
-							Browser.addListener("browserFinished", () =>
-								Deferred.doneUnsafe(finished, Effect.void),
-							),
+			const enableTwoFactor = (password: string) =>
+				request(
+					() => client().twoFactor.enable({ password, method: "totp" }),
+					"Could not start two-factor setup.",
+				).pipe(
+					Effect.flatMap((result) => {
+						const enrollment =
+							result?.method === "totp" ? parseTotpEnrollment(result.totpURI) : null;
+						return enrollment && result?.method === "totp"
+							? Effect.succeed({ ...enrollment, backupCodes: result.backupCodes })
+							: Effect.fail(
+									new HostedAuthError({ message: "The server returned an invalid setup key." }),
+								);
 					}),
-					() =>
-						Effect.tryPromise({
-							try: () => Browser.open({ url: `${server}/oauth/two-factor` }),
-							catch: () => new HostedAuthError({ message: "Could not open the browser." }),
-						}).pipe(Effect.andThen(Deferred.await(finished))),
-					(listener) => Effect.promise(() => listener.remove()),
 				);
-			},
-		);
-		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
-			request(
-				() => makeHostedClient(server).resetPassword({ token, newPassword }),
-				"Could not reset your password.",
-			).pipe(Effect.asVoid);
+			const confirmTwoFactor = (code: string) =>
+				request(() => client().twoFactor.verifyTotp({ code }), "Could not verify that code.").pipe(
+					Effect.asVoid,
+				);
+			const regenerateBackupCodes = (password: string) =>
+				request(
+					() => client().twoFactor.generateBackupCodes({ password }),
+					"Could not generate new backup codes.",
+				).pipe(
+					Effect.flatMap((result) =>
+						result
+							? Effect.succeed(result.backupCodes)
+							: Effect.fail(
+									new HostedAuthError({ message: "The server returned no backup codes." }),
+								),
+					),
+				);
+			const disableTwoFactor = (password: string) =>
+				request(
+					() => client().twoFactor.disable({ password }),
+					"Could not turn off two-factor authentication.",
+				).pipe(Effect.asVoid);
+			const openTwoFactorManagement = Effect.fn("HostedAuthService.openTwoFactorManagement")(
+				function* (server: ServerOrigin) {
+					const finished = yield* Deferred.make<void>();
+					yield* Effect.acquireUseRelease(
+						Effect.tryPromise({
+							catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+							try: () =>
+								Browser.addListener("browserFinished", () =>
+									Deferred.doneUnsafe(finished, Effect.void),
+								),
+						}),
+						() =>
+							Effect.tryPromise({
+								try: () => Browser.open({ url: `${server}/oauth/two-factor` }),
+								catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+							}).pipe(Effect.andThen(Deferred.await(finished))),
+						(listener) => Effect.promise(() => listener.remove()),
+					);
+				},
+			);
+			const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
+				request(
+					() => makeHostedClient(server).resetPassword({ token, newPassword }),
+					"Could not reset your password.",
+				).pipe(Effect.asVoid);
 
-		return {
-			signInDemo,
-			resetPassword,
-			signOutHosted,
-			signInWithOidc,
-			enableTwoFactor,
-			verifyTwoFactor,
-			disableTwoFactor,
-			twoFactorSession,
-			confirmTwoFactor,
-			submitCredentials,
-			redeemImpersonation,
-			initializationStatus,
-			regenerateBackupCodes,
-			openTwoFactorManagement,
-			continueAfterInitialization,
-		};
-	}),
-}) {
+			return {
+				signInDemo,
+				resetPassword,
+				signOutHosted,
+				signInWithOidc,
+				enableTwoFactor,
+				verifyTwoFactor,
+				disableTwoFactor,
+				twoFactorSession,
+				confirmTwoFactor,
+				submitCredentials,
+				redeemImpersonation,
+				initializationStatus,
+				regenerateBackupCodes,
+				openTwoFactorManagement,
+				continueAfterInitialization,
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

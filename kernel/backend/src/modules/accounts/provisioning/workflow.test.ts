@@ -19,7 +19,9 @@ const executionId = "user-bootstrap-6-user-1";
 class RecordedBootstrapWorkflow extends Context.Service<
 	RecordedBootstrapWorkflow,
 	{ readonly attempts: Effect.Effect<number> }
->()("test/RecordedBootstrapWorkflow") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/workflow.test/RecordedBootstrapWorkflow",
+) {}
 
 const retryingWorkflowLayer = Layer.unwrap(
 	Effect.gen(function* () {

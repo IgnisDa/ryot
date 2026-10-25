@@ -86,7 +86,7 @@ class FakeRestoreDependencies extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly stagedObjects: Effect.Effect<ReadonlySet<string>>;
 	}
->()("test/FakeRestoreDependencies") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/workflow.test/FakeRestoreDependencies") {}
 
 const makeLayer = (
 	overrides: (fake: RestoreFake) => RestoreDependencyOverrides,
@@ -636,7 +636,7 @@ layer(
 class FakeRestoreOperations extends Context.Service<
 	FakeRestoreOperations,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("test/FakeRestoreOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/workflow.test/FakeRestoreOperations") {}
 
 const restoreInstance = WorkflowInstance.initial(RestoreBackupWorkflow, runId);
 

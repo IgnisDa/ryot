@@ -71,7 +71,7 @@ const toInternal = (row: OperationRow) =>
 const activeStatus = inArray(lifecycleSchema.userLifecycleOperation.status, ["pending", "running"]);
 
 export class UserLifecycleRepository extends Context.Service<UserLifecycleRepository>()(
-	"UserLifecycleRepository",
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/repository/UserLifecycleRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

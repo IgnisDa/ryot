@@ -71,7 +71,7 @@ class RouteCredentials extends Context.Service<
 		readonly requests: Effect.Effect<ReadonlyArray<string>>;
 		readonly sendToken: (token: string) => Effect.Effect<void>;
 	}
->()("test/RouteCredentials") {}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/routes.test/RouteCredentials") {}
 
 const routesLayer = Layer.unwrap(
 	Effect.gen(function* () {

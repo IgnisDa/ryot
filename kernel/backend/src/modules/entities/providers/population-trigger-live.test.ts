@@ -51,7 +51,9 @@ class PopulationFixture extends Context.Service<
 		readonly dispatchTransactions: Effect.Effect<ReadonlyArray<boolean>>;
 		readonly admissionTransactions: Effect.Effect<ReadonlyArray<boolean>>;
 	}
->()("test/PopulationFixture") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/population-trigger-live.test/PopulationFixture",
+) {}
 
 const triggerLayer = (
 	scope: "user" | "system",

@@ -360,7 +360,7 @@ class HostFunctionCalls extends Context.Service<
 		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
 		readonly userDataClears: Effect.Effect<ReadonlyArray<RecordedUserDataClear>>;
 	}
->()("test/HostFunctionCalls") {}
+>()("@ryot-app/kernel-backend/boot/script-host.test/HostFunctionCalls") {}
 
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
 	Ref.update(ref, (all) => [...all, value]);

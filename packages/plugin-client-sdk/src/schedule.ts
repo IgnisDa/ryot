@@ -17,7 +17,7 @@ export type RyotSchedule = {
 };
 
 export class RyotScheduleService extends Context.Service<RyotScheduleService, RyotSchedule>()(
-	"RyotScheduleService",
+	"@ryot-app/plugin-client-sdk/schedule/RyotScheduleService",
 ) {
 	static readonly layer = Layer.effect(
 		this,

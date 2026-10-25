@@ -134,7 +134,7 @@ class WorkflowTestCalls extends Context.Service<
 		readonly record: (channel: string, value: unknown) => Effect.Effect<void>;
 		readonly entries: (channel: string) => Effect.Effect<ReadonlyArray<unknown>>;
 	}
->()("test/WorkflowTestCalls") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/workflow.test/WorkflowTestCalls") {}
 
 const workflowTestCallsLayer = Layer.effect(
 	WorkflowTestCalls,
@@ -412,7 +412,7 @@ const decodeEnvelope = Schema.decodeUnknownEffect(
 class ActiveWorkflowScript extends Context.Service<
 	ActiveWorkflowScript,
 	{ readonly current: Effect.Effect<SandboxScriptId> }
->()("test/ActiveWorkflowScript") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/workflow.test/ActiveWorkflowScript") {}
 
 const hotSwapLayer = recordingLayer(
 	Effect.gen(function* () {
@@ -691,7 +691,7 @@ layer(
 class RestartingEngine extends Context.Service<
 	RestartingEngine,
 	{ readonly engineFor: (instance: WorkflowInstance["Service"]) => WorkflowEngine["Service"] }
->()("test/RestartingEngine") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/workflow.test/RestartingEngine") {}
 
 const interruptedScriptId = SandboxScriptId.make("operation-script");
 

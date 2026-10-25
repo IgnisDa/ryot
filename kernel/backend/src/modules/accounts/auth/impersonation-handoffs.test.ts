@@ -58,7 +58,9 @@ class HandoffTestState extends Context.Service<
 		readonly setUser: (user: null | HandoffTarget) => Effect.Effect<void>;
 		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 	}
->()("test/HandoffTestState") {}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/auth/impersonation-handoffs.test/HandoffTestState",
+) {}
 
 const makeLayer = () =>
 	Layer.unwrap(

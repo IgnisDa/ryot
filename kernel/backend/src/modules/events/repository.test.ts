@@ -33,7 +33,7 @@ class RecordedDatabaseCalls extends Context.Service<
 		readonly limits: Effect.Effect<ReadonlyArray<number>>;
 		readonly inserts: Effect.Effect<ReadonlyArray<ReadonlyArray<Record<string, unknown>>>>;
 	}
->()("test/RecordedDatabaseCalls") {}
+>()("@ryot-app/kernel-backend/modules/events/repository.test/RecordedDatabaseCalls") {}
 
 const recordingDatabaseLayer = <A, E, R>(
 	make: (db: {

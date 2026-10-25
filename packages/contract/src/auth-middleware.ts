@@ -31,21 +31,23 @@ export type CurrentUserValue = {
 	readonly accountGeneration: AccountGeneration;
 };
 
-export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()("CurrentUser") {}
-
-export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
-	"AdminAccess",
+export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()(
+	"@ryot-app/contract/auth-middleware/CurrentUser",
 ) {}
 
-export class AuthorizationContext extends Context.Service<
-	AuthorizationContext,
-	AuthorizationContextValue
->()("AuthorizationContext") {}
+export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
+	"@ryot-app/contract/auth-middleware/AdminAccess",
+) {}
 
 export class AuthRateLimited extends Schema.TaggedError<
 	AuthRateLimited,
 	{ readonly brand: unique symbol }
 >()("AuthRateLimited", { reason: AuthRateLimitReason }) {}
+
+export class AuthorizationContext extends Context.Service<
+	AuthorizationContext,
+	AuthorizationContextValue
+>()("@ryot-app/contract/auth-middleware/AuthorizationContext") {}
 
 export class UserInitializing extends Schema.TaggedError<
 	UserInitializing,

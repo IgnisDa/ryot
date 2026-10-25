@@ -43,89 +43,92 @@ const failWith = (reason: PluginUploadBridgeErrorReason) => new UploadsError({ r
 type TemporaryUploadRequest = Extract<PluginUploadRequest, { readonly action: "temporary" }>;
 type PermanentUploadRequest = Extract<PluginUploadRequest, { readonly action: "permanent" }>;
 
-export class Uploads extends Context.Service<Uploads>()("Uploads", {
-	make: Effect.gen(function* () {
-		const api = yield* UploadsApi;
+export class Uploads extends Context.Service<Uploads>()(
+	"@ryot-app/kernel-client/modules/assets/uploads",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* UploadsApi;
 
-		const transferFile = Effect.fn("Uploads.transferFile")(function* (
-			scope: ApiScope,
-			request: TemporaryUploadRequest | PermanentUploadRequest,
-		) {
-			const intent = yield* api
-				.createIntent(scope, {
-					payload: {
-						kind: request.action,
-						fileName: request.fileName,
+			const transferFile = Effect.fn("Uploads.transferFile")(function* (
+				scope: ApiScope,
+				request: TemporaryUploadRequest | PermanentUploadRequest,
+			) {
+				const intent = yield* api
+					.createIntent(scope, {
+						payload: {
+							kind: request.action,
+							fileName: request.fileName,
+							contentType: request.contentType,
+						},
+					})
+					.pipe(Effect.mapError((error) => failWith(classifyUploadFailure(error))));
+				yield* api
+					.putBytes(scope, {
+						source: request.source,
+						uploadUrl: intent.uploadUrl,
+						headers: { ...intent.headers },
 						contentType: request.contentType,
-					},
-				})
-				.pipe(Effect.mapError((error) => failWith(classifyUploadFailure(error))));
-			yield* api
-				.putBytes(scope, {
-					source: request.source,
-					uploadUrl: intent.uploadUrl,
-					headers: { ...intent.headers },
-					contentType: request.contentType,
-				})
-				.pipe(
-					Effect.mapError((error) =>
-						failWith(
-							error instanceof AuthenticatedApiError && typeof error.cause === "number"
-								? "operation-failed"
-								: "transport",
+					})
+					.pipe(
+						Effect.mapError((error) =>
+							failWith(
+								error instanceof AuthenticatedApiError && typeof error.cause === "number"
+									? "operation-failed"
+									: "transport",
+							),
 						),
-					),
+					);
+				const completion = yield* api
+					.completeIntent(scope, { params: { intentId: intent.intentId } })
+					.pipe(Effect.mapError((error) => failWith(classifyUploadFailure(error))));
+				return completion;
+			});
+
+			const uploadTemporary = Effect.fn("Uploads.uploadTemporary")(function* (
+				scope: ApiScope,
+				request: TemporaryUploadRequest,
+			) {
+				const completion = yield* transferFile(scope, request);
+				return isTemporaryUploadToken(completion)
+					? ({ token: completion, action: "temporary" } as const)
+					: yield* failWith("malformed-result");
+			});
+
+			const uploadPermanent = Effect.fn("Uploads.uploadPermanent")(function* (
+				scope: ApiScope,
+				request: PermanentUploadRequest,
+			) {
+				const completion = yield* transferFile(scope, request);
+				return isManagedAssetLocator(completion)
+					? ({ asset: completion, action: "permanent" } as const)
+					: yield* failWith("malformed-result");
+			});
+
+			const upload = (
+				scope: ApiScope,
+				request: PluginUploadRequest,
+			): Effect.Effect<PluginUploadResult, UploadsError> => {
+				if (request.action === "temporary") {
+					return uploadTemporary(scope, request);
+				}
+				return uploadPermanent(scope, request);
+			};
+
+			const outcome = (
+				scope: ApiScope,
+				request: PluginUploadRequest,
+			): Effect.Effect<PluginUploadOutcome> => {
+				return upload(scope, request).pipe(
+					Effect.match({
+						onSuccess: (result) => ({ ...result, outcome: "success" }) as const,
+						onFailure: (error) => ({ outcome: "failure", reason: error.reason }) as const,
+					}),
 				);
-			const completion = yield* api
-				.completeIntent(scope, { params: { intentId: intent.intentId } })
-				.pipe(Effect.mapError((error) => failWith(classifyUploadFailure(error))));
-			return completion;
-		});
+			};
 
-		const uploadTemporary = Effect.fn("Uploads.uploadTemporary")(function* (
-			scope: ApiScope,
-			request: TemporaryUploadRequest,
-		) {
-			const completion = yield* transferFile(scope, request);
-			return isTemporaryUploadToken(completion)
-				? ({ token: completion, action: "temporary" } as const)
-				: yield* failWith("malformed-result");
-		});
-
-		const uploadPermanent = Effect.fn("Uploads.uploadPermanent")(function* (
-			scope: ApiScope,
-			request: PermanentUploadRequest,
-		) {
-			const completion = yield* transferFile(scope, request);
-			return isManagedAssetLocator(completion)
-				? ({ asset: completion, action: "permanent" } as const)
-				: yield* failWith("malformed-result");
-		});
-
-		const upload = (
-			scope: ApiScope,
-			request: PluginUploadRequest,
-		): Effect.Effect<PluginUploadResult, UploadsError> => {
-			if (request.action === "temporary") {
-				return uploadTemporary(scope, request);
-			}
-			return uploadPermanent(scope, request);
-		};
-
-		const outcome = (
-			scope: ApiScope,
-			request: PluginUploadRequest,
-		): Effect.Effect<PluginUploadOutcome> => {
-			return upload(scope, request).pipe(
-				Effect.match({
-					onSuccess: (result) => ({ ...result, outcome: "success" }) as const,
-					onFailure: (error) => ({ outcome: "failure", reason: error.reason }) as const,
-				}),
-			);
-		};
-
-		return { upload, outcome, uploadTemporary };
-	}),
-}) {
+			return { upload, outcome, uploadTemporary };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

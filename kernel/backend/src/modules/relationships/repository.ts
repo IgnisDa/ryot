@@ -242,7 +242,7 @@ const relationshipSyncGroupWhere = (key: RelationshipSyncGroupKey) =>
 	);
 
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
-	"RelationshipsRepository",
+	"@ryot-app/kernel-backend/modules/relationships/repository/RelationshipsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

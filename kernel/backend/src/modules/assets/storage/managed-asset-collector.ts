@@ -10,7 +10,7 @@ import { ManagedAssetsRepository } from "./managed-assets-repository";
 import { ObjectStorageService } from "./object-storage";
 
 export class ManagedAssetCollector extends Context.Service<ManagedAssetCollector>()(
-	"ManagedAssetCollector",
+	"@ryot-app/kernel-backend/modules/assets/storage/managed-asset-collector/ManagedAssetCollector",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

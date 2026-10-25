@@ -18,7 +18,7 @@ import { SystemPlugins } from "./system";
 const digest = sha256Hex;
 
 export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap>()(
-	"SystemPluginBootstrap",
+	"@ryot-app/kernel-backend/modules/plugins/packages/system-bootstrap/SystemPluginBootstrap",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

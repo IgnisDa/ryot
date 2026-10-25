@@ -95,7 +95,7 @@ export const errorDetail = (error: null | Error) =>
 	error instanceof PluginManagementError ? error.detail : error?.message;
 
 export class PluginManagementService extends Context.Service<PluginManagementService>()(
-	"PluginManagementService",
+	"@ryot-app/kernel-client/modules/plugins/management/service/PluginManagementService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* PluginInstallationsApi;

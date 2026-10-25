@@ -182,7 +182,7 @@ class RecordedWorkflowDispatches extends Context.Service<
 		readonly payloads: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
->()("test/RecordedWorkflowDispatches") {}
+>()("@ryot-app/kernel-backend/boot/kernel-workflow-references.test/RecordedWorkflowDispatches") {}
 
 const recordingEngineLayer = (
 	respond: (

@@ -34,7 +34,7 @@ const matchesRouteTemplate = (pathname: string, template: string) => {
 export class RequestLogUrl extends Context.Service<
 	RequestLogUrl,
 	{ readonly resolve: (request: HttpServerRequest.HttpServerRequest) => Effect.Effect<string> }
->()("RequestLogUrl") {
+>()("@ryot-app/kernel-backend/platform/http/request-log-url/RequestLogUrl") {
 	static readonly layer = Layer.succeed(
 		this,
 		this.of({

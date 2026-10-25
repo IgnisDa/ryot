@@ -120,7 +120,7 @@ class SavedViewsCalls extends Context.Service<
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly created: Effect.Effect<ReadonlyArray<unknown>>;
 	}
->()("test/SavedViewsCalls") {}
+>()("@ryot-app/kernel-backend/modules/saved-views/service.test/SavedViewsCalls") {}
 
 const repositoryMock = Layer.mock(SavedViewsRepository);
 const makeLayer = (options: {

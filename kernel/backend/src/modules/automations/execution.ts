@@ -66,7 +66,7 @@ export class AutomationExecutionOperations extends Context.Service<
 			runIds: ReadonlyArray<AutomationRunId>,
 		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatch>, DbError>;
 	}
->()("AutomationExecutionOperations") {}
+>()("@ryot-app/kernel-backend/modules/automations/execution/AutomationExecutionOperations") {}
 
 export const AutomationExecutionOperationsLive = Layer.effect(
 	AutomationExecutionOperations,

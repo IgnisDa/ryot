@@ -67,7 +67,7 @@ const matchingRows = (left: SQL, right: SQL, dependent: PluginEventGroup["depend
 		and ${sameProperties(sql`${left}.properties`, sql`${right}.properties`, dependent.matchProperties)}`;
 
 export class EventGroupConstraints extends Context.Service<EventGroupConstraints>()(
-	"EventGroupConstraints",
+	"@ryot-app/kernel-backend/modules/events/event-group-constraints/EventGroupConstraints",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

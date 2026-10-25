@@ -109,7 +109,7 @@ class AutomationHostCalls extends Context.Service<
 		readonly signalCommands: Effect.Effect<ReadonlyArray<LifecycleCommand>>;
 		readonly notificationDeliveries: Effect.Effect<ReadonlyArray<NotificationDelivery>>;
 	}
->()("test/AutomationHostCalls") {}
+>()("@ryot-app/kernel-backend/boot/automation-script-host.test/AutomationHostCalls") {}
 
 const automationHostLayer = Layer.unwrap(
 	Effect.gen(function* () {

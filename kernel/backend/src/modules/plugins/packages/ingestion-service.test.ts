@@ -188,7 +188,9 @@ class IngestionFakeState extends Context.Service<
 			}>
 		>;
 	}
->()("test/IngestionFakeState") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-service.test/IngestionFakeState",
+) {}
 
 class FakeIngestionDependencies extends Context.Service<
 	FakeIngestionDependencies,
@@ -213,7 +215,9 @@ class FakeIngestionDependencies extends Context.Service<
 			>;
 		};
 	}
->()("test/FakeIngestionDependencies") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-service.test/FakeIngestionDependencies",
+) {}
 
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
 	Ref.update(ref, (all) => [...all, value]);

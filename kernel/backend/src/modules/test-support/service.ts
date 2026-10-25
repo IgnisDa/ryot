@@ -115,7 +115,7 @@ const decodeCompiledClient = (
 			);
 
 export class TestSupportService extends Context.Service<TestSupportService>()(
-	"TestSupportService",
+	"@ryot-app/kernel-backend/modules/test-support/service/TestSupportService",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;

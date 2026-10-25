@@ -12,7 +12,7 @@ type LogEntry = {
 class RecordedLogs extends Context.Service<
 	RecordedLogs,
 	{ readonly entries: Effect.Effect<ReadonlyArray<LogEntry>> }
->()("test/RecordedLogs") {}
+>()("@ryot-app/kernel-backend/platform/http/response-logger.test/RecordedLogs") {}
 
 const recordedLogsLayer = Layer.unwrap(
 	Effect.gen(function* () {

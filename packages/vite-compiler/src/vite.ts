@@ -24,7 +24,7 @@ export interface ViteCompilerOptions {
 export class ViteBuildService extends Context.Service<
 	ViteBuildService,
 	{ readonly build: (config: InlineConfig) => Effect.Effect<unknown, ViteCompilerError> }
->()("@ryot-app/vite-compiler/ViteBuildService") {
+>()("@ryot-app/vite-compiler/vite/ViteBuildService") {
 	static readonly layer = Layer.succeed(
 		this,
 		this.of({

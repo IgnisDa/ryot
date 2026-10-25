@@ -24,7 +24,7 @@ export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthS
 };
 
 export class InstanceAdminService extends Context.Service<InstanceAdminService>()(
-	"InstanceAdminService",
+	"@ryot-app/kernel-backend/modules/instance-admin/service/InstanceAdminService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

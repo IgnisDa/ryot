@@ -39,7 +39,7 @@ export const maximumDocumentBytes = 32 * 1024 * 1024;
 const sha256 = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
 
 export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
-	"DataImportAdmission",
+	"@ryot-app/kernel-backend/modules/imports/data-admission/DataImportAdmission",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* ImportsRepository;

@@ -151,7 +151,7 @@ class LifecycleDatabase extends Context.Service<
 		readonly planTransactions: Effect.Effect<ReadonlyArray<string>>;
 		readonly failChangePlanning: (fail: boolean) => Effect.Effect<void>;
 	}
->()("test/LifecycleDatabase") {}
+>()("@ryot-app/kernel-backend/modules/events/lifecycle.test/LifecycleDatabase") {}
 
 const isolatedDatabase = Effect.gen(function* () {
 	const { url } = yield* IsolatedDatabase;

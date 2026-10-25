@@ -276,7 +276,7 @@ const userWhere = (
 const effective = { listed: false } as const;
 
 export class DefinitionRepository extends Context.Service<DefinitionRepository>()(
-	"DefinitionRepository",
+	"@ryot-app/kernel-backend/modules/definitions/repository/DefinitionRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

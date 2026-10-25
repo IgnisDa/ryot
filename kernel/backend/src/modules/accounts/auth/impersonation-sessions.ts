@@ -5,7 +5,7 @@ import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
 
 export class ImpersonationSessions extends Context.Service<ImpersonationSessions>()(
-	"ImpersonationSessions",
+	"@ryot-app/kernel-backend/modules/accounts/auth/impersonation-sessions/ImpersonationSessions",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* AuthRepository;

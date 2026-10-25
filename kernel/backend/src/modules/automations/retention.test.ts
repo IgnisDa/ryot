@@ -58,7 +58,7 @@ type Collection = NonNullable<Parameters<ScriptGarbageCollector["Service"]["coll
 class ScriptCollections extends Context.Service<
 	ScriptCollections,
 	Effect.Effect<ReadonlyArray<Collection>>
->()("test/ScriptCollections") {}
+>()("@ryot-app/kernel-backend/modules/automations/retention.test/ScriptCollections") {}
 
 const recordingCollectorLayer = Layer.effectContext(
 	Effect.gen(function* () {

@@ -7,7 +7,9 @@ import { expect } from "vitest";
 import { ExecutionFileStore } from "./execution-files";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 
-class ArtifactRoot extends Context.Service<ArtifactRoot, string>()("test/ArtifactRoot") {}
+class ArtifactRoot extends Context.Service<ArtifactRoot, string>()(
+	"@ryot-app/sandbox/host/execution-files.test/ArtifactRoot",
+) {}
 
 const artifactStoreLayer = Layer.unwrap(
 	Effect.gen(function* () {

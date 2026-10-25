@@ -40,7 +40,7 @@ export type EnrichmentRequestInput = {
 };
 
 export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequestsRepository>()(
-	"EnrichmentRequestsRepository",
+	"@ryot-app/kernel-backend/modules/entities/enrichment/repository/EnrichmentRequestsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

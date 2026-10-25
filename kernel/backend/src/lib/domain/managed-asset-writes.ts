@@ -25,7 +25,7 @@ const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(managedAsset.provider, locator.type), eq(managedAsset.key, locator.key));
 
 export class ManagedAssetReferenceLocker extends Context.Service<ManagedAssetReferenceLocker>()(
-	"ManagedAssetReferenceLocker",
+	"@ryot-app/kernel-backend/lib/domain/managed-asset-writes/ManagedAssetReferenceLocker",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

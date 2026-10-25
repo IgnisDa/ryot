@@ -159,7 +159,7 @@ const immutableFields = (run: AutomationRun) => ({
 });
 
 export class AutomationRunRepository extends Context.Service<AutomationRunRepository>()(
-	"AutomationRunRepository",
+	"@ryot-app/kernel-backend/modules/automations/run-repository/AutomationRunRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

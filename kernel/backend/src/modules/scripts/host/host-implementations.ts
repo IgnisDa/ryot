@@ -25,4 +25,6 @@ export type ScriptHostImplementationMaps = {
 export class ScriptHostImplementations extends Context.Service<
 	ScriptHostImplementations,
 	ScriptHostImplementationMaps
->()("ScriptHostImplementations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/host-implementations/ScriptHostImplementations",
+) {}

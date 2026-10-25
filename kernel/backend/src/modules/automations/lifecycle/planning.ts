@@ -179,7 +179,7 @@ export class LifecycleWork extends Context.Service<
 			},
 		) => Effect.Effect<ReadonlyArray<string>, DbError>;
 	}
->()("LifecycleWork") {}
+>()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecycleWork") {}
 
 export class LifecyclePlanner extends Context.Service<
 	LifecyclePlanner,
@@ -197,4 +197,4 @@ export class LifecyclePlanner extends Context.Service<
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 	}
->()("LifecyclePlanner") {}
+>()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecyclePlanner") {}

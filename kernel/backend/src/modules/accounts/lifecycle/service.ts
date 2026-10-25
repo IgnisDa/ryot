@@ -26,7 +26,7 @@ const executionIdFor = (operationId: string, workflowAttempt: number) =>
 	`user-lifecycle-${operationId}-${workflowAttempt}`;
 
 export class UserLifecycleService extends Context.Service<UserLifecycleService>()(
-	"UserLifecycleService",
+	"@ryot-app/kernel-backend/modules/accounts/lifecycle/service/UserLifecycleService",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;

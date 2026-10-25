@@ -82,7 +82,9 @@ class PopulationTarget extends Context.Service<
 		readonly entity: ListedEntity;
 		readonly payload: (executionId: string) => ProviderEntityPopulationPayload;
 	}
->()("test/PopulationTarget") {}
+>()(
+	"@ryot-app/kernel-backend/modules/entities/providers/population-failure.test/PopulationTarget",
+) {}
 
 const requestLayer = Layer.unwrap(
 	Effect.gen(function* () {

@@ -136,7 +136,7 @@ type HarnessService = {
 };
 
 class SupervisorTestHarness extends Context.Service<SupervisorTestHarness, HarnessService>()(
-	"SupervisorTestHarness",
+	"@ryot-app/sandbox/host/supervisor.test/SupervisorTestHarness",
 ) {}
 
 const userId = UserId.make("gate-user");

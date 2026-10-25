@@ -41,7 +41,7 @@ const installationSchema = Schema.Union([
 class SandboxSidecarInstallation extends Context.Service<
 	SandboxSidecarInstallation,
 	typeof installationSchema.Type
->()("SandboxSidecarInstallation") {
+>()("@ryot-app/sandbox/host/client/SandboxSidecarInstallation") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.gen(function* () {
@@ -84,7 +84,7 @@ const sidecarClientEvent = Schema.Union([
 	Schema.Struct({ handle: Schema.String, message: Schema.String, type: Schema.Literal("invalid") }),
 ]);
 export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>()(
-	"SandboxSidecarClient",
+	"@ryot-app/sandbox/host/client/SandboxSidecarClient",
 	{
 		make: Effect.gen(function* () {
 			const installation = yield* SandboxSidecarInstallation;

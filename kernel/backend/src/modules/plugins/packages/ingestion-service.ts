@@ -50,7 +50,7 @@ const toSystemPluginItem = (plugin: Pick<NormalizedPlugin, "manifest" | "content
 });
 
 export class PluginIngestionService extends Context.Service<PluginIngestionService>()(
-	"PluginIngestionService",
+	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-service/PluginIngestionService",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

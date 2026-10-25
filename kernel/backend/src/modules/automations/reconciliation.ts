@@ -23,7 +23,9 @@ export class AutomationReconciliationOperations extends Context.Service<
 			initialQueuedBefore: Date;
 		}) => Effect.Effect<ReadonlyArray<Pick<AutomationRun, "id" | "attemptCount">>, DbError>;
 	}
->()("AutomationReconciliationOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/automations/reconciliation/AutomationReconciliationOperations",
+) {}
 
 export const AutomationReconciliationOperationsLive = Layer.effect(
 	AutomationReconciliationOperations,
@@ -38,7 +40,7 @@ export const AutomationReconciliationOperationsLive = Layer.effect(
 );
 
 export class AutomationReconciliation extends Context.Service<AutomationReconciliation>()(
-	"AutomationReconciliation",
+	"@ryot-app/kernel-backend/modules/automations/reconciliation/AutomationReconciliation",
 	{
 		make: Effect.gen(function* () {
 			const operations = yield* AutomationReconciliationOperations;

@@ -16,7 +16,7 @@ import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
 export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
-	"IngestionRetirement",
+	"@ryot-app/kernel-backend/modules/imports/retirement-service/IngestionRetirement",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

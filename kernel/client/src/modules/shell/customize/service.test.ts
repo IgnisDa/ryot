@@ -37,7 +37,7 @@ const authFailure = Effect.fail(new AuthenticatedApiError({ cause: "boom" }));
 class FakeCustomizeApis extends Context.Service<
 	FakeCustomizeApis,
 	{ readonly calls: Effect.Effect<ReadonlyArray<Call>> }
->()("test/FakeCustomizeApis") {}
+>()("@ryot-app/kernel-client/modules/shell/customize/service.test/FakeCustomizeApis") {}
 
 const customizeLayer = (fail?: Call["kind"]) =>
 	Layer.unwrap(

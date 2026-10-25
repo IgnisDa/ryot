@@ -24,7 +24,7 @@ class FakeTicketStore extends Context.Service<
 		readonly expiries: Effect.Effect<ReadonlyMap<string, number>>;
 		readonly put: (key: string, value: string) => Effect.Effect<void>;
 	}
->()("test/FakeTicketStore") {}
+>()("@ryot-app/kernel-backend/modules/entities/watches/ticket-service.test/FakeTicketStore") {}
 
 const makeLayer = (
 	options: {

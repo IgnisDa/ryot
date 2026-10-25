@@ -10,7 +10,7 @@ import type { ResolvedClientPageGraph } from "./graph";
 import { PagesRepository } from "./repository";
 
 export class ClientPageCompositionService extends Context.Service<ClientPageCompositionService>()(
-	"ClientPageCompositionService",
+	"@ryot-app/kernel-backend/modules/pages/preparation/composition-service/ClientPageCompositionService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PagesRepository;

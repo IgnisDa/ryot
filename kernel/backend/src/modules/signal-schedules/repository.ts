@@ -14,7 +14,7 @@ export type SignalScheduleCursor = {
 type SignalScheduleDeliveryRecord = typeof schema.signalScheduleDelivery.$inferInsert;
 
 export class SignalScheduleRepository extends Context.Service<SignalScheduleRepository>()(
-	"SignalScheduleRepository",
+	"@ryot-app/kernel-backend/modules/signal-schedules/repository/SignalScheduleRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

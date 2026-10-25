@@ -164,7 +164,7 @@ const unavailableRecovery = () =>
 	});
 
 export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupervisor>()(
-	"SandboxSidecarSupervisor",
+	"@ryot-app/sandbox/host/supervisor/SandboxSidecarSupervisor",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* SandboxHostConfig;

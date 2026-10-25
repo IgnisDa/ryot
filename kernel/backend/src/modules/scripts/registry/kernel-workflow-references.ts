@@ -28,4 +28,6 @@ export class KernelWorkflowReferences extends Context.Service<
 			artifactOwnerExecutionId?: string,
 		) => Effect.Effect<JsonValue, SandboxRunError, WorkflowEngine>;
 	}
->()("KernelWorkflowReferences") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/kernel-workflow-references/KernelWorkflowReferences",
+) {}

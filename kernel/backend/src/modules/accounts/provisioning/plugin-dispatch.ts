@@ -122,7 +122,7 @@ export const makePluginUserBootstrapDispatcher = (
 	});
 
 export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBootstrapDispatcher>()(
-	"PluginUserBootstrapDispatcher",
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/plugin-dispatch/PluginUserBootstrapDispatcher",
 	{
 		make: Effect.gen(function* () {
 			const sandbox = yield* ScriptExecutionService;

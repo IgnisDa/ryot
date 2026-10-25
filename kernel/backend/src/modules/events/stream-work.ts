@@ -89,7 +89,7 @@ export const eventStreamInputRepairJobId = (claim: typeof EventStreamInputRepair
 	)}`;
 
 export class EventStreamWorkService extends Context.Service<EventStreamWorkService>()(
-	"EventStreamWorkService",
+	"@ryot-app/kernel-backend/modules/events/stream-work/EventStreamWorkService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

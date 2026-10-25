@@ -68,7 +68,7 @@ const clientProjection = (id: string) =>
 class RecordedActivations extends Context.Service<
 	RecordedActivations,
 	{ readonly activated: Effect.Effect<ReadonlyArray<string>> }
->()("test/RecordedActivations") {}
+>()("@ryot-app/kernel-backend/modules/plugins/installations/repository.test/RecordedActivations") {}
 
 const recordedActivationsLayer = Layer.effectContext(
 	Effect.gen(function* () {

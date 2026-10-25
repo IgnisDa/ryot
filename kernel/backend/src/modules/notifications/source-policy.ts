@@ -10,4 +10,4 @@ export class NotificationSourcePolicy extends Context.Service<
 			accountGeneration: AccountGeneration;
 		}) => Effect.Effect<boolean, DbError>;
 	}
->()("NotificationSourcePolicy") {}
+>()("@ryot-app/kernel-backend/modules/notifications/source-policy/NotificationSourcePolicy") {}

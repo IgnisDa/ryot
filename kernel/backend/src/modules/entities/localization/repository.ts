@@ -18,7 +18,7 @@ export type TranslationOverlayInput = {
 };
 
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
-	"TranslationsRepository",
+	"@ryot-app/kernel-backend/modules/entities/localization/repository/TranslationsRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

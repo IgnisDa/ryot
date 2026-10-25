@@ -52,7 +52,7 @@ const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect
 export const ENTITY_CREATE_REFUSED_MESSAGE = "This item could not be created here.";
 
 export class ProviderAddService extends Context.Service<ProviderAddService>()(
-	"ProviderAddService",
+	"@ryot-app/kernel-client/modules/provider-add/service/ProviderAddService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* EntityProvidersApi;

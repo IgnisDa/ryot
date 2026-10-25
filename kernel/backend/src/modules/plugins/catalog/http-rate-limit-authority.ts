@@ -41,7 +41,7 @@ const requestOrigin = (
 };
 
 export class PluginHttpRateLimitAuthority extends Context.Service<PluginHttpRateLimitAuthority>()(
-	"PluginHttpRateLimitAuthority",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/http-rate-limit-authority/PluginHttpRateLimitAuthority",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* PluginRepository;

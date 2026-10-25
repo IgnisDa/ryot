@@ -32,7 +32,9 @@ type CompositionRow = {
 class DescribedArtifacts extends Context.Service<
 	DescribedArtifacts,
 	{ readonly hashes: Effect.Effect<ReadonlyArray<string>> }
->()("test/DescribedArtifacts") {}
+>()(
+	"@ryot-app/kernel-backend/modules/pages/preparation/composition-service.test/DescribedArtifacts",
+) {}
 
 class FakeCompositionRepository extends Context.Service<
 	FakeCompositionRepository,
@@ -40,7 +42,9 @@ class FakeCompositionRepository extends Context.Service<
 		readonly writes: Effect.Effect<ReadonlyArray<string>>;
 		readonly replaceRow: (row: CompositionRow) => Effect.Effect<void>;
 	}
->()("test/FakeCompositionRepository") {}
+>()(
+	"@ryot-app/kernel-backend/modules/pages/preparation/composition-service.test/FakeCompositionRepository",
+) {}
 
 const fakeRepositoryLayer = Layer.effectContext(
 	Effect.gen(function* () {

@@ -5,7 +5,7 @@ import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 
 export class ClientPageFreshness extends Context.Service<ClientPageFreshness>()(
-	"ClientPageFreshness",
+	"@ryot-app/kernel-client/modules/pages/preparation/freshness/ClientPageFreshness",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* PagesApi;

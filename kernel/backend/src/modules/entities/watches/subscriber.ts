@@ -8,7 +8,7 @@ import { EntityWatchProgression } from "./progression";
 import { EntityWatchStore } from "./store";
 
 export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber>()(
-	"EntityWatchSubscriber",
+	"@ryot-app/kernel-backend/modules/entities/watches/subscriber/EntityWatchSubscriber",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;

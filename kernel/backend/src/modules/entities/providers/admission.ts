@@ -28,7 +28,7 @@ const encodePayload = Schema.encodeEffect(ProviderEntityImportWorkflowPayload);
 const decodePayload = Schema.decodeUnknownEffect(ProviderEntityImportWorkflowPayload);
 
 export class ProviderImportAdmission extends Context.Service<ProviderImportAdmission>()(
-	"ProviderImportAdmission",
+	"@ryot-app/kernel-backend/modules/entities/providers/admission/ProviderImportAdmission",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

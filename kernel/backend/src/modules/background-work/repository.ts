@@ -30,7 +30,7 @@ const sameScope = (
 	);
 
 export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepository>()(
-	"BackgroundWorkRepository",
+	"@ryot-app/kernel-backend/modules/background-work/repository/BackgroundWorkRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;

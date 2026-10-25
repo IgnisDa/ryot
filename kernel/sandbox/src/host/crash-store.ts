@@ -75,42 +75,45 @@ elseif operation == "survived" or operation == "release" then
 end
 `;
 
-export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()("SandboxCrashStore", {
-	make: Effect.gen(function* () {
-		const redis = yield* SandboxRedis;
-		const execute = Effect.fn("SandboxCrashStore.execute")(function* (
-			identities: ReadonlyArray<string>,
-			operation: "strike" | "acquire" | "release" | "survived",
-			argument: string,
-		) {
-			const validated = yield* decodeIdentities(identities).pipe(
-				Effect.mapError(() => new SandboxCrashStoreError({ message: "Invalid crash identity" })),
-			);
-			if (new Set(validated).size !== validated.length || argument.length === 0) {
-				return yield* new SandboxCrashStoreError({ message: "Invalid crash ownership" });
-			}
-			const keys = validated.flatMap(sandboxProtectionKeys);
-			const result = yield* Effect.tryPromise(() =>
-				redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
-			).pipe(
-				Effect.timeout("2 seconds"),
-				Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store unavailable" })),
-			);
-			return yield* decodeResponse(result).pipe(
-				Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store is corrupt" })),
-			);
-		});
-		return {
-			strike: (identities: ReadonlyArray<string>, event: string) =>
-				execute(identities, "strike", event),
-			acquire: (identities: ReadonlyArray<string>, owner: string) =>
-				execute(identities, "acquire", owner),
-			release: (identities: ReadonlyArray<string>, owner: string) =>
-				execute(identities, "release", owner),
-			survived: (identities: ReadonlyArray<string>, owner: string) =>
-				execute(identities, "survived", owner),
-		};
-	}),
-}) {
+export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()(
+	"@ryot-app/sandbox/host/crash-store/SandboxCrashStore",
+	{
+		make: Effect.gen(function* () {
+			const redis = yield* SandboxRedis;
+			const execute = Effect.fn("SandboxCrashStore.execute")(function* (
+				identities: ReadonlyArray<string>,
+				operation: "strike" | "acquire" | "release" | "survived",
+				argument: string,
+			) {
+				const validated = yield* decodeIdentities(identities).pipe(
+					Effect.mapError(() => new SandboxCrashStoreError({ message: "Invalid crash identity" })),
+				);
+				if (new Set(validated).size !== validated.length || argument.length === 0) {
+					return yield* new SandboxCrashStoreError({ message: "Invalid crash ownership" });
+				}
+				const keys = validated.flatMap(sandboxProtectionKeys);
+				const result = yield* Effect.tryPromise(() =>
+					redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
+				).pipe(
+					Effect.timeout("2 seconds"),
+					Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store unavailable" })),
+				);
+				return yield* decodeResponse(result).pipe(
+					Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store is corrupt" })),
+				);
+			});
+			return {
+				strike: (identities: ReadonlyArray<string>, event: string) =>
+					execute(identities, "strike", event),
+				acquire: (identities: ReadonlyArray<string>, owner: string) =>
+					execute(identities, "acquire", owner),
+				release: (identities: ReadonlyArray<string>, owner: string) =>
+					execute(identities, "release", owner),
+				survived: (identities: ReadonlyArray<string>, owner: string) =>
+					execute(identities, "survived", owner),
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

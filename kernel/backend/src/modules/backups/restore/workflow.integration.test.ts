@@ -49,7 +49,9 @@ class RestoreDatabaseHarness extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly configure: (scenario: Scenario) => Effect.Effect<void>;
 	}
->()("test/RestoreDatabaseHarness") {}
+>()(
+	"@ryot-app/kernel-backend/modules/backups/restore/workflow.integration.test/RestoreDatabaseHarness",
+) {}
 
 const profile = {
 	image: null,

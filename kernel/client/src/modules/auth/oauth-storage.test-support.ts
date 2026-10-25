@@ -13,7 +13,7 @@ export class FakeOAuthStorage extends Context.Service<
 		readonly values: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly seed: (key: string, value: string) => Effect.Effect<void>;
 	}
->()("test/FakeOAuthStorage") {}
+>()("@ryot-app/kernel-client/modules/auth/oauth-storage.test-support/FakeOAuthStorage") {}
 
 export const fakeOAuthStorageLayer = (overrides: Partial<OAuthStorageAdapter> = {}) =>
 	Layer.unwrap(

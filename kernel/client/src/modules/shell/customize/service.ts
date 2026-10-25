@@ -14,7 +14,7 @@ export class CustomizeSaveError extends Schema.TaggedError<
 }) {}
 
 export class CustomizeSidebarService extends Context.Service<CustomizeSidebarService>()(
-	"CustomizeSidebarService",
+	"@ryot-app/kernel-client/modules/shell/customize/service/CustomizeSidebarService",
 	{
 		make: Effect.gen(function* () {
 			const savedViews = yield* SavedViewsApi;

@@ -57,7 +57,7 @@ class FakeOAuthEndpoint extends Context.Service<
 		readonly release: Effect.Effect<void>;
 		readonly requests: Effect.Effect<ReadonlyArray<EndpointRequest>>;
 	}
->()("test/FakeOAuthEndpoint") {}
+>()("@ryot-app/kernel-client/modules/auth/token-service.test/FakeOAuthEndpoint") {}
 
 const tokenLayer = (
 	reply: (request: number) => Effect.Effect<Response>,

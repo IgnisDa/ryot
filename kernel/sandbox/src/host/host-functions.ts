@@ -10,4 +10,4 @@ export class SandboxHostFunctions extends Context.Service<
 			input: SandboxRunInput,
 		) => Effect.Effect<Readonly<Record<string, BoundHostFunction>>, SandboxRunError>;
 	}
->()("SandboxHostFunctions") {}
+>()("@ryot-app/sandbox/host/host-functions/SandboxHostFunctions") {}

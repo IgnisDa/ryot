@@ -42,13 +42,16 @@ export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function
 	return sources;
 });
 
-export class SystemPlugins extends Context.Service<SystemPlugins>()("SystemPlugins", {
-	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const sources = yield* discoverSystemPlugins(config.server.pluginsSystemDir);
-		const packageIds = new Set(sources.map(({ manifest }) => manifest.metadata.packageId));
-		return { sources, packageIds };
-	}),
-}) {
+export class SystemPlugins extends Context.Service<SystemPlugins>()(
+	"@ryot-app/kernel-backend/modules/plugins/packages/system/SystemPlugins",
+	{
+		make: Effect.gen(function* () {
+			const config = yield* AppConfig;
+			const sources = yield* discoverSystemPlugins(config.server.pluginsSystemDir);
+			const packageIds = new Set(sources.map(({ manifest }) => manifest.metadata.packageId));
+			return { sources, packageIds };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

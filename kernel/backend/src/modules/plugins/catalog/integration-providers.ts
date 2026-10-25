@@ -160,7 +160,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 	});
 
 export class IntegrationProviderCatalog extends Context.Service<IntegrationProviderCatalog>()(
-	"IntegrationProviderCatalog",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/integration-providers/IntegrationProviderCatalog",
 	{
 		make: Effect.gen(function* () {
 			const queryProviders = queryProvidersForSession(yield* DatabaseSession);

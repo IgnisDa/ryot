@@ -19,7 +19,7 @@ const isCalendarPage = (identity: PreparedClientPage["identity"]) =>
 	identity.rendererName === CALENDAR_KERNEL_RENDERER_DISPLAY_NAME;
 
 export class PluginCalendarSources extends Context.Service<PluginCalendarSources>()(
-	"PluginCalendarSources",
+	"@ryot-app/kernel-client/modules/pages/bridge/calendar-sources/PluginCalendarSources",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* CalendarSourcesApi;

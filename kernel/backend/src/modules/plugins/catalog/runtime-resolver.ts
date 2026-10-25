@@ -158,7 +158,7 @@ const byPackageAndSlug = <Entry extends { readonly packageId: PluginPackageId }>
 	);
 
 export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver>()(
-	"PluginRuntimeResolver",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/runtime-resolver/PluginRuntimeResolver",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;

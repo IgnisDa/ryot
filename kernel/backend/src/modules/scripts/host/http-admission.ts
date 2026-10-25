@@ -850,7 +850,7 @@ export const makeProviderHttpAdmission = Effect.fnUntraced(function* () {
 });
 
 export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAdmissionService>()(
-	"ProviderHttpAdmissionService",
+	"@ryot-app/kernel-backend/modules/scripts/host/http-admission/ProviderHttpAdmissionService",
 	{ make: makeProviderHttpAdmission() },
 ) {
 	static readonly layer = Layer.effect(this, this.make);

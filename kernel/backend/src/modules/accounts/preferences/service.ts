@@ -6,7 +6,7 @@ import { AuthService } from "#modules/accounts/auth/service";
 import { generateUserAvatar } from "#modules/accounts/auth/user-avatar";
 
 export class UserSettingsService extends Context.Service<UserSettingsService>()(
-	"UserSettingsService",
+	"@ryot-app/kernel-backend/modules/accounts/preferences/service/UserSettingsService",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;

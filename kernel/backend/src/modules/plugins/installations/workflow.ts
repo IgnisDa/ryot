@@ -90,7 +90,9 @@ type PluginInstallationWorkflowOperationsValue = {
 export class PluginInstallationWorkflowOperations extends Context.Service<
 	PluginInstallationWorkflowOperations,
 	PluginInstallationWorkflowOperationsValue
->()("PluginInstallationWorkflowOperations") {}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/installations/workflow/PluginInstallationWorkflowOperations",
+) {}
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
@@ -354,7 +356,7 @@ export const PluginInstallationWorkflowDefinitionsLive = implementWorkflow(
 );
 
 export class PluginInstallationLifecycleDispatcher extends Context.Service<PluginInstallationLifecycleDispatcher>()(
-	"PluginInstallationLifecycleDispatcher",
+	"@ryot-app/kernel-backend/modules/plugins/installations/workflow/PluginInstallationLifecycleDispatcher",
 	{
 		make: Effect.succeed({
 			dispatch: (_input: PluginInstallationWorkflowPayload): Effect.Effect<void, InternalError> =>

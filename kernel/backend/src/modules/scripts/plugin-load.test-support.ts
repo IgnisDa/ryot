@@ -25,7 +25,9 @@ type PluginScriptOutput = Effect.Success<ReturnType<typeof loadPluginSandboxScri
 class PluginLoadVerificationSlots extends Context.Service<
 	PluginLoadVerificationSlots,
 	Semaphore.Semaphore
->()("PluginLoadVerificationSlots") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support/PluginLoadVerificationSlots",
+) {}
 
 const maximumDiagnosticLength = 2_048;
 const fixedStartedAt = "2026-08-06T00:00:00.000Z";

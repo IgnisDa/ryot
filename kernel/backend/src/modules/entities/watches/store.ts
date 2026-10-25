@@ -264,223 +264,232 @@ const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
 	return { status, pending, revision };
 };
 
-export class EntityWatchStore extends Context.Service<EntityWatchStore>()("EntityWatchStore", {
-	make: Effect.gen(function* () {
-		const redis = yield* RedisService;
-		const evaluate = (script: string, keys: readonly string[], args: readonly string[]) =>
-			Effect.tryPromise(() => redis.client.eval(script, keys.length, ...keys, ...args)).pipe(
-				Effect.orDie,
-			);
-		const openSession = Effect.fn("EntityWatchStore.openSession")(function* (input: {
-			readonly userId: UserId;
-			readonly sessionId: string;
-			readonly preferredLanguage: null | string;
-			readonly accountGeneration: AccountGeneration;
-		}) {
-			const result = yield* evaluate(
-				OPEN_SESSION_SCRIPT,
-				[redisKeys.entityWatchSession(input.sessionId)],
-				[
-					input.userId,
-					input.preferredLanguage ?? "",
-					String(ENTITY_WATCH_SESSION_TTL_SECONDS),
-					input.accountGeneration.token,
-				],
-			);
-			if (result === "exists") {
-				return yield* notFound(SESSION_NOT_FOUND);
-			}
-			return undefined;
-		});
+export class EntityWatchStore extends Context.Service<EntityWatchStore>()(
+	"@ryot-app/kernel-backend/modules/entities/watches/store/EntityWatchStore",
+	{
+		make: Effect.gen(function* () {
+			const redis = yield* RedisService;
+			const evaluate = (script: string, keys: readonly string[], args: readonly string[]) =>
+				Effect.tryPromise(() => redis.client.eval(script, keys.length, ...keys, ...args)).pipe(
+					Effect.orDie,
+				);
+			const openSession = Effect.fn("EntityWatchStore.openSession")(function* (input: {
+				readonly userId: UserId;
+				readonly sessionId: string;
+				readonly preferredLanguage: null | string;
+				readonly accountGeneration: AccountGeneration;
+			}) {
+				const result = yield* evaluate(
+					OPEN_SESSION_SCRIPT,
+					[redisKeys.entityWatchSession(input.sessionId)],
+					[
+						input.userId,
+						input.preferredLanguage ?? "",
+						String(ENTITY_WATCH_SESSION_TTL_SECONDS),
+						input.accountGeneration.token,
+					],
+				);
+				if (result === "exists") {
+					return yield* notFound(SESSION_NOT_FOUND);
+				}
+				return undefined;
+			});
 
-		const replaceInterest = Effect.fn("EntityWatchStore.replaceInterest")(function* (
-			input: { readonly sessionId: string } & Omit<EntityWatchReplaceMessage, "type">,
-		) {
-			const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
-			return parseCommandOutcome(
-				yield* evaluate(REPLACE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
-					String(input.revision),
-					input.sessionId,
+			const replaceInterest = Effect.fn("EntityWatchStore.replaceInterest")(function* (
+				input: { readonly sessionId: string } & Omit<EntityWatchReplaceMessage, "type">,
+			) {
+				const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
+				return parseCommandOutcome(
+					yield* evaluate(REPLACE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
+						String(input.revision),
+						input.sessionId,
+						String(expiresAt),
+						String(ENTITY_WATCH_SESSION_TTL_SECONDS),
+						String(MAX_INTEREST_ENTITY_IDS),
+						REVERSE_KEY_PREFIX,
+						REVERSE_KEY_SUFFIX,
+						String(input.entityIds.length),
+						...input.entityIds,
+						...input.foregroundIds,
+					]),
+				);
+			});
+
+			const markReconciled = Effect.fn("EntityWatchStore.markReconciled")(function* (input: {
+				readonly sessionId: string;
+				readonly pending: readonly PendingInterest[];
+			}) {
+				if (input.pending.length === 0) {
+					return [];
+				}
+				const result = yield* evaluate(
+					MARK_RECONCILED_SCRIPT,
+					[redisKeys.entityWatchSessionEntities(input.sessionId)],
+					pendingArgs(input.pending),
+				);
+				if (
+					!Array.isArray(result) ||
+					!result.every((value): value is string => typeof value === "string")
+				) {
+					return yield* Effect.die("Redis returned invalid reconciled memberships");
+				}
+				return result;
+			});
+
+			const markPending = Effect.fn("EntityWatchStore.markPending")(function* (input: {
+				readonly entityId: string;
+				readonly sessionIds: readonly string[];
+			}) {
+				if (input.sessionIds.length === 0) {
+					return;
+				}
+				yield* evaluate(MARK_PENDING_SCRIPT, input.sessionIds.flatMap(sessionKeys), [
+					input.entityId,
+				]);
+			});
+
+			const removePending = Effect.fn("EntityWatchStore.removePending")(function* (input: {
+				readonly sessionId: string;
+				readonly pending: readonly PendingInterest[];
+			}) {
+				if (input.pending.length === 0) {
+					return [];
+				}
+				const result = yield* evaluate(
+					REMOVE_PENDING_SCRIPT,
+					[redisKeys.entityWatchSessionEntities(input.sessionId)],
+					[input.sessionId, REVERSE_KEY_PREFIX, REVERSE_KEY_SUFFIX, ...pendingArgs(input.pending)],
+				);
+				if (
+					!Array.isArray(result) ||
+					!result.every((value): value is string => typeof value === "string")
+				) {
+					return yield* Effect.die("Redis returned invalid removed pending memberships");
+				}
+				return result;
+			});
+
+			const renewSession = Effect.fn("EntityWatchStore.renewSession")(function* (
+				sessionId: string,
+			) {
+				const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
+				const result = yield* evaluate(RENEW_SESSION_SCRIPT, sessionKeys(sessionId), [
+					sessionId,
 					String(expiresAt),
 					String(ENTITY_WATCH_SESSION_TTL_SECONDS),
-					String(MAX_INTEREST_ENTITY_IDS),
 					REVERSE_KEY_PREFIX,
 					REVERSE_KEY_SUFFIX,
-					String(input.entityIds.length),
-					...input.entityIds,
-					...input.foregroundIds,
-				]),
-			);
-		});
+				]);
+				return result === "ok";
+			});
 
-		const markReconciled = Effect.fn("EntityWatchStore.markReconciled")(function* (input: {
-			readonly sessionId: string;
-			readonly pending: readonly PendingInterest[];
-		}) {
-			if (input.pending.length === 0) {
-				return [];
-			}
-			const result = yield* evaluate(
-				MARK_RECONCILED_SCRIPT,
-				[redisKeys.entityWatchSessionEntities(input.sessionId)],
-				pendingArgs(input.pending),
-			);
-			if (
-				!Array.isArray(result) ||
-				!result.every((value): value is string => typeof value === "string")
+			const closeSession = Effect.fn("EntityWatchStore.closeSession")(function* (
+				sessionId: string,
 			) {
-				return yield* Effect.die("Redis returned invalid reconciled memberships");
-			}
-			return result;
-		});
-
-		const markPending = Effect.fn("EntityWatchStore.markPending")(function* (input: {
-			readonly entityId: string;
-			readonly sessionIds: readonly string[];
-		}) {
-			if (input.sessionIds.length === 0) {
-				return;
-			}
-			yield* evaluate(MARK_PENDING_SCRIPT, input.sessionIds.flatMap(sessionKeys), [input.entityId]);
-		});
-
-		const removePending = Effect.fn("EntityWatchStore.removePending")(function* (input: {
-			readonly sessionId: string;
-			readonly pending: readonly PendingInterest[];
-		}) {
-			if (input.pending.length === 0) {
-				return [];
-			}
-			const result = yield* evaluate(
-				REMOVE_PENDING_SCRIPT,
-				[redisKeys.entityWatchSessionEntities(input.sessionId)],
-				[input.sessionId, REVERSE_KEY_PREFIX, REVERSE_KEY_SUFFIX, ...pendingArgs(input.pending)],
-			);
-			if (
-				!Array.isArray(result) ||
-				!result.every((value): value is string => typeof value === "string")
-			) {
-				return yield* Effect.die("Redis returned invalid removed pending memberships");
-			}
-			return result;
-		});
-
-		const renewSession = Effect.fn("EntityWatchStore.renewSession")(function* (sessionId: string) {
-			const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
-			const result = yield* evaluate(RENEW_SESSION_SCRIPT, sessionKeys(sessionId), [
-				sessionId,
-				String(expiresAt),
-				String(ENTITY_WATCH_SESSION_TTL_SECONDS),
-				REVERSE_KEY_PREFIX,
-				REVERSE_KEY_SUFFIX,
-			]);
-			return result === "ok";
-		});
-
-		const closeSession = Effect.fn("EntityWatchStore.closeSession")(function* (sessionId: string) {
-			const result = yield* evaluate(CLOSE_SESSION_SCRIPT, sessionKeys(sessionId), [
-				sessionId,
-				REVERSE_KEY_PREFIX,
-				REVERSE_KEY_SUFFIX,
-			]);
-			return result === "ok";
-		});
-
-		const hasInterest = Effect.fn("EntityWatchStore.hasInterest")(function* (
-			sessionId: string,
-			entityId: string,
-		) {
-			const result = yield* evaluate(HAS_INTEREST_SCRIPT, sessionKeys(sessionId), [entityId]);
-			return result === 1;
-		});
-
-		const getSessionMetadata = Effect.fn("EntityWatchStore.getSessionMetadata")(function* (
-			sessionIds: readonly string[],
-		) {
-			const rows = yield* Effect.tryPromise(() =>
-				Promise.all(
-					sessionIds.map((sessionId) =>
-						redis.client.hgetall(redisKeys.entityWatchSession(sessionId)),
-					),
-				),
-			).pipe(Effect.orDie);
-			const metadata: SessionMetadata[] = [];
-			for (let index = 0; index < rows.length; index += 1) {
-				const row = rows[index];
-				const sessionId = sessionIds[index];
-				if (row === undefined || sessionId === undefined || row["userId"] === undefined) {
-					continue;
-				}
-				const revision = Number(row["revision"]);
-				if (!Number.isSafeInteger(revision)) {
-					return yield* Effect.die("Redis returned invalid entity interest metadata");
-				}
-				metadata.push({
-					revision,
+				const result = yield* evaluate(CLOSE_SESSION_SCRIPT, sessionKeys(sessionId), [
 					sessionId,
-					userId: UserId.make(row["userId"]),
-					preferredLanguage:
-						row["preferredLanguage"] === "" ? null : (row["preferredLanguage"] ?? null),
-					accountGeneration: yield* Schema.decodeUnknownEffect(AccountGeneration)({
-						userId: row["userId"],
-						token: row["accountGeneration"],
-					}),
-				});
-			}
-			return metadata;
-		});
+					REVERSE_KEY_PREFIX,
+					REVERSE_KEY_SUFFIX,
+				]);
+				return result === "ok";
+			});
 
-		const listInterestedSessions = Effect.fn("EntityWatchStore.listInterestedSessions")(function* (
-			entityId: string,
-		) {
-			const key = redisKeys.entityWatchSessions(entityId);
-			const now = yield* Clock.currentTimeMillis;
-			yield* Effect.tryPromise(() => redis.client.zremrangebyscore(key, "-inf", now)).pipe(
-				Effect.orDie,
-			);
-			const sessionIds = yield* Effect.tryPromise(() =>
-				redis.client.zrangebyscore(key, now, "+inf"),
-			).pipe(Effect.orDie);
-			const metadata = yield* getSessionMetadata(sessionIds);
-			const existing = new Set(metadata.map(({ sessionId }) => sessionId));
-			const missing = sessionIds.filter((sessionId) => !existing.has(sessionId));
-			if (missing.length > 0) {
-				yield* Effect.tryPromise(() => redis.client.zrem(key, ...missing)).pipe(Effect.orDie);
-			}
-			return metadata.map(({ sessionId }) => sessionId);
-		});
-		const listWatchingSessions = Effect.fn("EntityWatchStore.listWatchingSessions")(function* (
-			entityId: string,
-		) {
-			const now = yield* Clock.currentTimeMillis;
-			const result = yield* evaluate(
-				LIST_WATCHING_SESSIONS_SCRIPT,
-				[redisKeys.entityWatchSessions(entityId)],
-				[String(now), entityId, SESSION_KEY_PREFIX],
-			);
-			if (
-				!Array.isArray(result) ||
-				!result.every((value): value is string => typeof value === "string")
+			const hasInterest = Effect.fn("EntityWatchStore.hasInterest")(function* (
+				sessionId: string,
+				entityId: string,
 			) {
-				return yield* Effect.die("Redis returned invalid watching memberships");
-			}
-			return result;
-		});
+				const result = yield* evaluate(HAS_INTEREST_SCRIPT, sessionKeys(sessionId), [entityId]);
+				return result === 1;
+			});
 
-		return {
-			openSession,
-			hasInterest,
-			markPending,
-			closeSession,
-			renewSession,
-			removePending,
-			markReconciled,
-			replaceInterest,
-			getSessionMetadata,
-			listWatchingSessions,
-			listInterestedSessions,
-		};
-	}),
-}) {
+			const getSessionMetadata = Effect.fn("EntityWatchStore.getSessionMetadata")(function* (
+				sessionIds: readonly string[],
+			) {
+				const rows = yield* Effect.tryPromise(() =>
+					Promise.all(
+						sessionIds.map((sessionId) =>
+							redis.client.hgetall(redisKeys.entityWatchSession(sessionId)),
+						),
+					),
+				).pipe(Effect.orDie);
+				const metadata: SessionMetadata[] = [];
+				for (let index = 0; index < rows.length; index += 1) {
+					const row = rows[index];
+					const sessionId = sessionIds[index];
+					if (row === undefined || sessionId === undefined || row["userId"] === undefined) {
+						continue;
+					}
+					const revision = Number(row["revision"]);
+					if (!Number.isSafeInteger(revision)) {
+						return yield* Effect.die("Redis returned invalid entity interest metadata");
+					}
+					metadata.push({
+						revision,
+						sessionId,
+						userId: UserId.make(row["userId"]),
+						preferredLanguage:
+							row["preferredLanguage"] === "" ? null : (row["preferredLanguage"] ?? null),
+						accountGeneration: yield* Schema.decodeUnknownEffect(AccountGeneration)({
+							userId: row["userId"],
+							token: row["accountGeneration"],
+						}),
+					});
+				}
+				return metadata;
+			});
+
+			const listInterestedSessions = Effect.fn("EntityWatchStore.listInterestedSessions")(
+				function* (entityId: string) {
+					const key = redisKeys.entityWatchSessions(entityId);
+					const now = yield* Clock.currentTimeMillis;
+					yield* Effect.tryPromise(() => redis.client.zremrangebyscore(key, "-inf", now)).pipe(
+						Effect.orDie,
+					);
+					const sessionIds = yield* Effect.tryPromise(() =>
+						redis.client.zrangebyscore(key, now, "+inf"),
+					).pipe(Effect.orDie);
+					const metadata = yield* getSessionMetadata(sessionIds);
+					const existing = new Set(metadata.map(({ sessionId }) => sessionId));
+					const missing = sessionIds.filter((sessionId) => !existing.has(sessionId));
+					if (missing.length > 0) {
+						yield* Effect.tryPromise(() => redis.client.zrem(key, ...missing)).pipe(Effect.orDie);
+					}
+					return metadata.map(({ sessionId }) => sessionId);
+				},
+			);
+			const listWatchingSessions = Effect.fn("EntityWatchStore.listWatchingSessions")(function* (
+				entityId: string,
+			) {
+				const now = yield* Clock.currentTimeMillis;
+				const result = yield* evaluate(
+					LIST_WATCHING_SESSIONS_SCRIPT,
+					[redisKeys.entityWatchSessions(entityId)],
+					[String(now), entityId, SESSION_KEY_PREFIX],
+				);
+				if (
+					!Array.isArray(result) ||
+					!result.every((value): value is string => typeof value === "string")
+				) {
+					return yield* Effect.die("Redis returned invalid watching memberships");
+				}
+				return result;
+			});
+
+			return {
+				openSession,
+				hasInterest,
+				markPending,
+				closeSession,
+				renewSession,
+				removePending,
+				markReconciled,
+				replaceInterest,
+				getSessionMetadata,
+				listWatchingSessions,
+				listInterestedSessions,
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

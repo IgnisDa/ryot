@@ -33,7 +33,7 @@ const specifics = [apprise, discord, gotify, ntfy, pushBullet, pushover, pushSaf
 class RecordedFetches extends Context.Service<
 	RecordedFetches,
 	{ readonly requests: Effect.Effect<ReadonlyArray<CapturedRequest>> }
->()("test/RecordedFetches") {}
+>()("@ryot-app/kernel-backend/modules/notifications/delivery.test/RecordedFetches") {}
 
 const successfulResponse: ResponseForRequest = ({ url }) => {
 	const { hostname } = new URL(url);
@@ -85,7 +85,7 @@ const recordingFetchLayer = (respond: ResponseForRequest = successfulResponse) =
 class RecordedMail extends Context.Service<
 	RecordedMail,
 	{ readonly sent: Effect.Effect<ReadonlyArray<CapturedMail>> }
->()("test/RecordedMail") {}
+>()("@ryot-app/kernel-backend/modules/notifications/delivery.test/RecordedMail") {}
 
 const recordingMailerLayer = (
 	options: { accepted?: ReadonlyArray<string>; failure?: NotificationDeliveryError } = {},

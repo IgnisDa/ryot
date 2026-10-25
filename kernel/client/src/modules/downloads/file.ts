@@ -96,6 +96,8 @@ export const downloadFile = Effect.fn("downloadFile")(function* (request: FileDo
 export class FileDownloads extends Context.Service<
 	FileDownloads,
 	{ readonly download: typeof downloadFile }
->()("FileDownloads", { make: Effect.succeed({ download: downloadFile }) }) {
+>()("@ryot-app/kernel-client/modules/downloads/file/FileDownloads", {
+	make: Effect.succeed({ download: downloadFile }),
+}) {
 	static readonly layer = Layer.effect(this, this.make);
 }

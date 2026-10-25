@@ -47,7 +47,7 @@ type ContractCall = { readonly request: unknown; readonly method: EntityProvider
 class FakeEntityProvidersApi extends Context.Service<
 	FakeEntityProvidersApi,
 	{ readonly calls: Effect.Effect<ReadonlyArray<ContractCall>> }
->()("test/FakeEntityProvidersApi") {}
+>()("@ryot-app/kernel-client/modules/provider-add/service.test/FakeEntityProvidersApi") {}
 
 const createRequest: EntityEditorSaveRequest = {
 	idempotencyKey: "create-1",

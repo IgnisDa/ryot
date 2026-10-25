@@ -14,4 +14,4 @@ export class ExecutionFileStaging extends Context.Service<
 			SandboxRunError
 		>;
 	}
->()("ExecutionFileStaging") {}
+>()("@ryot-app/sandbox/host/execution-file-staging/ExecutionFileStaging") {}

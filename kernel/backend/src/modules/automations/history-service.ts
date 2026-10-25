@@ -17,7 +17,7 @@ const internalError = () =>
 	new AutomationHistoryInternalError({ reason: { code: "history-unavailable" } });
 
 export class AutomationHistoryService extends Context.Service<AutomationHistoryService>()(
-	"AutomationHistoryService",
+	"@ryot-app/kernel-backend/modules/automations/history-service/AutomationHistoryService",
 	{
 		make: Effect.gen(function* () {
 			const history = yield* AutomationHistoryRepository;

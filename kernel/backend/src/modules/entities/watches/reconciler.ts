@@ -29,7 +29,7 @@ type ReconciliationResult = {
 };
 
 export class InterestReconciler extends Context.Service<InterestReconciler>()(
-	"InterestReconciler",
+	"@ryot-app/kernel-backend/modules/entities/watches/reconciler/InterestReconciler",
 	{
 		make: Effect.gen(function* () {
 			const ryotql = yield* RyotQLService;

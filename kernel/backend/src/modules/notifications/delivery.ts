@@ -54,7 +54,7 @@ const textRequest = (input: { url: string; body: string; headers?: Record<string
 const originLessBaseUrl = (value: string) => value.replace(/\/+$/, "");
 
 export class NotificationMailer extends Context.Service<NotificationMailer>()(
-	"NotificationMailer",
+	"@ryot-app/kernel-backend/modules/notifications/delivery/NotificationMailer",
 	{
 		make: Effect.succeed({
 			send: Effect.fn("NotificationMailer.send")(function* (input: NotificationMailerInput) {
@@ -85,7 +85,7 @@ export class NotificationMailer extends Context.Service<NotificationMailer>()(
 }
 
 export class NotificationDeliveryService extends Context.Service<NotificationDeliveryService>()(
-	"NotificationDeliveryService",
+	"@ryot-app/kernel-backend/modules/notifications/delivery/NotificationDeliveryService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;

@@ -679,7 +679,7 @@ export const preflightProvenance = Effect.fn(function* (
 });
 
 export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
-	"BackupRestoreWriter",
+	"@ryot-app/kernel-backend/modules/backups/restore/writer/BackupRestoreWriter",
 	{
 		make: Effect.gen(function* () {
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;

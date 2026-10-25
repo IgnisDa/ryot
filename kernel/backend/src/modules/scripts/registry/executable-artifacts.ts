@@ -17,7 +17,9 @@ type CompiledArtifact = Pick<ScriptRunInput, "compiledCode" | "compiledFormat">;
 class SandboxCompiledArtifactScriptId extends Context.Service<
 	SandboxCompiledArtifactScriptId,
 	SandboxScriptId
->()("SandboxCompiledArtifactScriptId") {}
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/registry/executable-artifacts/SandboxCompiledArtifactScriptId",
+) {}
 
 const missingArtifact = () =>
 	new SandboxRunError({
@@ -32,7 +34,7 @@ export class ExecutableArtifacts extends Context.Service<
 			principal: Pick<ScriptExecutionPrincipal, "scriptId" | "contentHash">,
 		) => Effect.Effect<CompiledArtifact, SandboxRunError>;
 	}
->()("ExecutableArtifacts", {
+>()("@ryot-app/kernel-backend/modules/scripts/registry/executable-artifacts/ExecutableArtifacts", {
 	make: Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
 		const cache = yield* Cache.makeWith(

@@ -110,7 +110,7 @@ class RecordedPublications extends Context.Service<
 		readonly failingInvalidator: PluginCatalogInvalidator["Service"];
 		readonly published: Effect.Effect<ReadonlyArray<PublishedMessage>>;
 	}
->()("test/RecordedPublications") {}
+>()("@ryot-app/kernel-backend/modules/plugins/catalog/events.test/RecordedPublications") {}
 
 const recordingInvalidatorLayer = Layer.effectContext(
 	Effect.gen(function* () {
@@ -226,7 +226,7 @@ layer(
 });
 
 class RedisSubscriptions extends Context.Service<RedisSubscriptions, Effect.Effect<number>>()(
-	"test/RedisSubscriptions",
+	"@ryot-app/kernel-backend/modules/plugins/catalog/events.test/RedisSubscriptions",
 ) {}
 
 const recoveringSubscriberLayer = Layer.effectContext(

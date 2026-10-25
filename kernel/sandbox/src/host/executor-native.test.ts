@@ -42,13 +42,13 @@ type NativeServiceControlValue = {
 };
 
 class NativeServiceTempRoot extends Context.Service<NativeServiceTempRoot, string>()(
-	"test/SandboxNativeServiceTempRoot",
+	"@ryot-app/sandbox/host/executor-native.test/NativeServiceTempRoot",
 ) {}
 
 class NativeServiceControl extends Context.Service<
 	NativeServiceControl,
 	NativeServiceControlValue
->()("test/SandboxNativeServiceControl") {}
+>()("@ryot-app/sandbox/host/executor-native.test/NativeServiceControl") {}
 
 const withRecoveryCleanup = <A, E, R>(
 	executionIds: ReadonlyArray<string>,
