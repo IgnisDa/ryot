@@ -31,7 +31,7 @@ import {
 	workoutOccurrence,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { readWorkoutExerciseEvidence } from "~/fixtures/plugins/fitness/analytics-evidence";
+import { readWorkoutOccurrences } from "~/fixtures/plugins/fitness/workout-occurrences";
 import { createKindChangingExerciseFixture } from "~/fixtures/plugins/fitness/workout-records";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -625,13 +625,13 @@ describe("Workout records E2E", () => {
 			);
 			yield* waitForReadyWorkoutSets(client, earlierCreated.entityId, 1);
 			const weightedSourceBefore = yield* storedWorkoutSource(client, weightedEventId);
-			const weightedEvidenceBefore = yield* readWorkoutExerciseEvidence(
+			const weightedOccurrencesBefore = yield* readWorkoutOccurrences(
 				client,
 				exerciseId,
 				earlierCreated.entityId,
 			);
-			expect(weightedEvidenceBefore).toHaveLength(1);
-			expect(weightedEvidenceBefore[0]?.properties.exerciseKind).toBe("reps_and_weight");
+			expect(weightedOccurrencesBefore).toHaveLength(1);
+			expect(weightedOccurrencesBefore[0]?.properties.exerciseKind).toBe("reps_and_weight");
 			const changedExercise = yield* fixture.changeKind("reps");
 			expect(changedExercise).toMatchObject({
 				id: exerciseId,
@@ -640,9 +640,9 @@ describe("Workout records E2E", () => {
 				providerId: fixture.providerId,
 			});
 			expect(yield* storedWorkoutSource(client, weightedEventId)).toEqual(weightedSourceBefore);
-			expect(
-				yield* readWorkoutExerciseEvidence(client, exerciseId, earlierCreated.entityId),
-			).toEqual(weightedEvidenceBefore);
+			expect(yield* readWorkoutOccurrences(client, exerciseId, earlierCreated.entityId)).toEqual(
+				weightedOccurrencesBefore,
+			);
 			const laterCreated = yield* saveWorkoutData(
 				client,
 				workoutData({
@@ -685,12 +685,12 @@ describe("Workout records E2E", () => {
 			expect(earlier.items[0]?.confirmedAt).toBeNull();
 			expect(later.items[0]?.confirmedAt).toBeNull();
 			expect(yield* storedWorkoutSource(client, weightedEventId)).toEqual(weightedSourceBefore);
-			expect(yield* readWorkoutExerciseEvidence(client, exerciseId, earlierWorkoutId)).toEqual(
-				weightedEvidenceBefore,
+			expect(yield* readWorkoutOccurrences(client, exerciseId, earlierWorkoutId)).toEqual(
+				weightedOccurrencesBefore,
 			);
-			const laterEvidence = yield* readWorkoutExerciseEvidence(client, exerciseId, laterWorkoutId);
-			expect(laterEvidence).toHaveLength(1);
-			expect(laterEvidence[0]?.properties.exerciseKind).toBe("reps");
+			const laterOccurrences = yield* readWorkoutOccurrences(client, exerciseId, laterWorkoutId);
+			expect(laterOccurrences).toHaveLength(1);
+			expect(laterOccurrences[0]?.properties.exerciseKind).toBe("reps");
 
 			yield* client.call((c) =>
 				c.events.update({
@@ -702,8 +702,8 @@ describe("Workout records E2E", () => {
 			expect(edited.items[0]).toMatchObject({ reps: 12, exerciseKind: "reps_and_weight" });
 			const storedSet = yield* storedWorkoutSet(client, exerciseId, weightedEventId);
 			expect(storedSet.properties["exerciseKind"]).toBe("reps_and_weight");
-			expect(yield* readWorkoutExerciseEvidence(client, exerciseId, earlierWorkoutId)).toEqual(
-				weightedEvidenceBefore,
+			expect(yield* readWorkoutOccurrences(client, exerciseId, earlierWorkoutId)).toEqual(
+				weightedOccurrencesBefore,
 			);
 		}),
 	);

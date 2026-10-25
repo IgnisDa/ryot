@@ -10,7 +10,6 @@ import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { assertCondition } from "~/support/assertions";
 
-import { createWorkoutEvidenceTaxonomy } from "./analytics-evidence";
 import { createExerciseEntityFixture } from "./exercises";
 import { createMeasurementMetric, logMeasurementReadings } from "./measurements";
 import {
@@ -20,6 +19,7 @@ import {
 	workoutReference,
 	workoutSet,
 } from "./workout-editor";
+import { createWorkoutOccurrenceTaxonomy } from "./workout-occurrences";
 
 const reportingSelection: ReportingSelection = {
 	grouping: "day",
@@ -57,7 +57,7 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			kind: "reps_and_weight",
 			name: `Analytics exercise ${yield* randomUuid}`,
 		});
-		const taxonomy = yield* createWorkoutEvidenceTaxonomy(client, exerciseId, {
+		const taxonomy = yield* createWorkoutOccurrenceTaxonomy(client, exerciseId, {
 			equipmentCount: 1,
 			targetRoles: ["primary", "secondary", "stabilizer"],
 		});

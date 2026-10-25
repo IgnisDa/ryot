@@ -7,8 +7,8 @@ import { createEntity, getEntity } from "~/fixtures/kernel/entities";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { requirePresent } from "~/support/assertions";
 
-import { findWorkoutExerciseEventSchema } from "./analytics-evidence";
 import { findFitnessEntitySchema } from "./exercises";
+import { findWorkoutExerciseEventSchema } from "./workout-occurrences";
 import { findWorkoutSetEventSchema } from "./workouts";
 
 export const seedExerciseWorkout = (

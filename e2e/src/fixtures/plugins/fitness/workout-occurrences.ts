@@ -26,7 +26,7 @@ export const findWorkoutExerciseEventSchema = (client: Client) =>
 		);
 	});
 
-export const createWorkoutEvidenceTaxonomy = (
+export const createWorkoutOccurrenceTaxonomy = (
 	client: Client,
 	exerciseId: ContractPayload<"relationships", "create">["sourceEntityId"],
 	input: { readonly equipmentCount: number; readonly targetRoles: readonly RecordedTargetRole[] },
@@ -44,7 +44,7 @@ export const createWorkoutEvidenceTaxonomy = (
 				const entity = yield* createEntity(client, {
 					properties: { kind: "muscle_region" },
 					entitySchema: targetSchema.schema.reference,
-					name: `Analytics evidence target ${yield* randomUuid}`,
+					name: `Workout occurrence target ${yield* randomUuid}`,
 				});
 				yield* createRelationship(client, {
 					targetEntityId: entity.id,
@@ -60,7 +60,7 @@ export const createWorkoutEvidenceTaxonomy = (
 				const entity = yield* createEntity(client, {
 					properties: {},
 					entitySchema: equipmentSchema.schema.reference,
-					name: `Analytics evidence equipment ${yield* randomUuid}`,
+					name: `Workout occurrence equipment ${yield* randomUuid}`,
 				});
 				yield* createRelationship(client, {
 					targetEntityId: entity.id,
@@ -77,11 +77,7 @@ export const createWorkoutEvidenceTaxonomy = (
 		};
 	});
 
-export const readWorkoutExerciseEvidence = (
-	client: Client,
-	exerciseId: string,
-	workoutId: string,
-) =>
+export const readWorkoutOccurrences = (client: Client, exerciseId: string, workoutId: string) =>
 	Effect.gen(function* () {
 		const events = yield* listEventsForEntity(client, exerciseId, undefined, 100, {
 			eventSchemaSlug: "workout-exercise",
@@ -91,7 +87,7 @@ export const readWorkoutExerciseEvidence = (
 			Effect.gen(function* () {
 				const sessionEntityId = requirePresent(
 					event.sessionEntityId,
-					"Expected workout exercise evidence to reference its workout",
+					"Expected the workout occurrence to reference its workout",
 				);
 				const properties = yield* Schema.decodeUnknownEffect(WorkoutExercisePropertiesSchema)(
 					event.properties,
