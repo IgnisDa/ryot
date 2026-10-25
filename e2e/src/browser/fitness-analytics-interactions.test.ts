@@ -1,14 +1,14 @@
-import {
-	ReportingSelection,
-	reportingSelectionSearch,
-} from "@ryot-app/contract/modules/analytics/reporting";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessMeasurementReadingsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Clock, Effect, Result, Schema } from "effect";
+import { Clock, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
+import {
+	analyticsSearch,
+	analyticsSection,
+	hasAnalyticsSelection,
+} from "~/fixtures/kernel/analytics-location";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createFitnessAnalyticsFixture } from "~/fixtures/plugins/fitness/analytics";
@@ -26,17 +26,8 @@ const expectedMeasurementRows: ReadonlyArray<readonly [date: string, value: stri
 	["Sep 7, 2026", "1.25 widgets"],
 ];
 
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) => {
-	const decodedReporting = Schema.decodeUnknownResult(Schema.fromJsonString(ReportingSelection))(
-		url.searchParams.get("reporting"),
-	);
-	return (
-		url.pathname === "/v/k/analytics" &&
-		url.searchParams.get("section") === section &&
-		Result.isSuccess(decodedReporting) &&
-		stableStringify(decodedReporting.success) === stableStringify(selection)
-	);
-};
+const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
+	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
 
 const summaryValue = (summary: Playwright.Locator, label: string) =>
 	summary
@@ -50,9 +41,8 @@ const rowWithName = (table: Playwright.Locator, name: string) => table.getByRole
 
 const openFitnessAnalytics = Effect.gen(function* () {
 	const fixture = yield* createFitnessAnalyticsFixture();
-	const section = identityTupleKey(fixture.reference.pluginId, "fitness");
-	const search = new URLSearchParams(reportingSelectionSearch(fixture.reportingSelection));
-	search.set("section", section);
+	const section = analyticsSection(fixture.reference.pluginId, "fitness");
+	const search = analyticsSearch(fixture.reportingSelection, { section });
 	const entryPath = `/v/k/analytics?${search}`;
 	const browser = yield* Playwright.Browser;
 	const context = yield* browser.newContext({

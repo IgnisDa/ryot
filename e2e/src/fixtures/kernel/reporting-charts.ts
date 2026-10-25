@@ -4,42 +4,39 @@ import { encodePluginSourceFiles, testPluginManifest, testPluginPackageId } from
 
 const homeSource = `
 import { HourlyHistogram, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
-import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { useState } from "react";
 
-const baseTrend = [
-  {
-    at: "2026-09-01",
-    value: 0,
-    detail: "Recorded",
-    comparison: { at: "2026-08-01", value: 2 },
-  },
-  {
-    at: "2026-09-02",
-    value: 4,
-    detail: "Estimated",
-    comparison: { at: "2026-08-02", value: 1 },
-  },
-  {
-    at: "2026-09-03",
-    value: null,
-    detail: "Missing",
-    comparison: { at: "2026-08-03", value: 3 },
-  },
-];
+const baseTrend = {
+  current: [
+    { at: "2026-09-01", value: 0, detail: "Recorded" },
+    { at: "2026-09-02", value: 4, detail: "Estimated" },
+    { at: "2026-09-03", value: null, detail: "Missing" },
+  ],
+  previous: [
+    { at: "2026-08-01", value: 2 },
+    { at: "2026-08-02", value: 1 },
+    { at: "2026-08-03", value: 3 },
+  ],
+};
 
 const trendFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-only") => {
-  if (dataset === "empty") return [];
-  if (dataset === "single") return [{ at: "2026-09-01", value: 4, detail: "Estimated" }];
+  if (dataset === "empty") return { current: [], previous: [] };
+  if (dataset === "single") return { current: [{ at: "2026-09-01", value: 4, detail: "Estimated" }], previous: [] };
   if (dataset === "zero") {
-    return [{ at: "2026-09-01", value: 0, comparison: { at: "2026-08-01", value: 0 } }];
+    return { current: [{ at: "2026-09-01", value: 0 }], previous: [{ at: "2026-08-01", value: 0 }] };
   }
   if (dataset === "missing-only") {
-    return [{ at: "2026-09-01", value: null, detail: "Missing", comparison: { at: "2026-08-01", value: null, detail: "Missing" } }];
+    return {
+      current: [{ at: "2026-09-01", value: null, detail: "Missing" }],
+      previous: [{ at: "2026-08-01", value: null, detail: "Missing" }],
+    };
   }
   return baseTrend;
 };
+
+const formatValue = (value: number) => String(value) + " entries";
 
 const hoursFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-only") => {
   if (dataset === "empty") return [];
@@ -59,21 +56,14 @@ const hoursFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-on
 
 export default function Home() {
   const { compact } = useRyotViewport();
-  const [loadState, setLoadState] = useState<"ready" | "pending" | "failed">("ready");
   const [dataset, setDataset] = useState<"default" | "empty" | "single" | "zero" | "missing-only">("default");
   const [selection, setSelection] = useState("Not selected");
-  const formatValue = (value: number) => String(value) + " entries";
-  const chartState = loadState === "ready" ? undefined : loadState;
+  const timeZone = TimeZone.make("America/New_York");
   const trendBuckets = trendFor(dataset);
   const hourlyBuckets = hoursFor(dataset);
 
   return <PluginScreenFrame title="Reporting charts">
     <div className="flex min-w-0 flex-col gap-4 p-4">
-      <div className="flex flex-wrap gap-2" aria-label="Chart loading controls">
-        <button className="min-h-11 rounded-md border border-border-strong bg-surface-2 px-3 text-sm" type="button" onClick={() => setLoadState("pending")}>Show pending</button>
-        <button className="min-h-11 rounded-md border border-border-strong bg-surface-2 px-3 text-sm" type="button" onClick={() => setLoadState("failed")}>Show failed</button>
-        <button className="min-h-11 rounded-md border border-border-strong bg-surface-2 px-3 text-sm" type="button" onClick={() => setLoadState("ready")}>Show ready</button>
-      </div>
       <div className="flex flex-wrap gap-2" aria-label="Chart dataset controls">
         <button className="min-h-11 rounded-md border border-border-strong bg-surface-2 px-3 text-sm" type="button" onClick={() => setDataset("empty")}>Show empty data</button>
         <button className="min-h-11 rounded-md border border-border-strong bg-surface-2 px-3 text-sm" type="button" onClick={() => setDataset("single")}>Show single value</button>
@@ -87,14 +77,12 @@ export default function Home() {
         <h2>Period trend</h2>
         <PeriodTrendChart
           compact={compact}
-          state={chartState}
-          onRetry={() => setLoadState("ready")}
           ariaLabel="Period trend"
-          timeZone="America/New_York"
+          timeZone={timeZone}
           label="Current period · Sep 1–3, 2026"
-          comparisonLabel="Previous period · Aug 1–3, 2026"
           formatValue={formatValue}
-          buckets={trendBuckets}
+          current={trendBuckets.current}
+          previous={trendBuckets.previous.length === 0 ? undefined : { label: "Previous period · Aug 1–3, 2026", points: trendBuckets.previous }}
           onSelect={(point, period) => setSelection(
             period + " · " + point.at + " · " + (point.value === null ? "Not recorded" : formatValue(point.value)) + (point.detail ? " · " + point.detail : ""),
           )}
@@ -104,10 +92,8 @@ export default function Home() {
         <h2>Hourly histogram</h2>
         <HourlyHistogram
           compact={compact}
-          state={chartState}
-          onRetry={() => setLoadState("ready")}
           ariaLabel="Hourly histogram"
-          timeZone="America/New_York"
+          timeZone={timeZone}
           periodLabel="Local-hour observations · Sep 1–3, 2026"
           formatValue={formatValue}
           buckets={hourlyBuckets}

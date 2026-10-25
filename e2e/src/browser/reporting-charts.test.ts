@@ -134,11 +134,11 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 			.getByText("3 entries", { exact: true })
 			.waitFor({ state: "visible" });
 		yield* trendChart.press("Enter");
-		yield* selection.getByText(/comparison.*2026-08-03.*3 entries/).waitFor({ state: "visible" });
+		yield* selection.getByText(/previous.*2026-08-03.*3 entries/).waitFor({ state: "visible" });
 		yield* trendTable
 			.getByRole("button", { name: /View records: Previous period.*2 entries/ })
 			.click();
-		yield* selection.getByText(/comparison.*2026-08-01.*2 entries/).waitFor({ state: "visible" });
+		yield* selection.getByText(/previous.*2026-08-01.*2 entries/).waitFor({ state: "visible" });
 
 		const zeroPointPosition = yield* trendChart.evaluate((svg) => {
 			const point = svg.querySelector(".ts-chart__dot circle");
@@ -165,24 +165,6 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 			.getByRole("button", { name: /View records: 08:00–09:00.*4 entries/ })
 			.tap();
 		yield* selection.getByText(/08:00.*4 entries/).waitFor({ state: "visible" });
-
-		yield* frame.getByRole("button", { name: "Show pending" }).click();
-		yield* frame
-			.getByRole("status")
-			.getByText("Preparing chart…", { exact: true })
-			.first()
-			.waitFor();
-		expect(yield* trend.getByRole("img", { name: "Period trend" }).count).toBe(0);
-		expect(yield* histogram.getByRole("img", { name: "Hourly histogram" }).count).toBe(0);
-		yield* frame.getByRole("button", { name: "Show failed" }).click();
-		yield* frame
-			.getByRole("alert")
-			.getByText("Unable to load chart.", { exact: true })
-			.first()
-			.waitFor();
-		yield* trend.getByRole("button", { name: "Retry" }).click();
-		yield* trendChart.waitFor({ state: "visible" });
-		yield* histogramChart.waitFor({ state: "visible" });
 
 		const noDataNotice = "No data in this period.";
 		yield* frame.getByRole("button", { name: "Show empty data" }).click();

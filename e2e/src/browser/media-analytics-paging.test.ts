@@ -1,16 +1,16 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import {
-	ReportingSelection,
-	reportingSelectionSearch,
-} from "@ryot-app/contract/modules/analytics/reporting";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { mediaAnalyticsRecordsRecipe } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import type { Recipe } from "@ryot-app/ryotql";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Result, Schema } from "effect";
+import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
+import {
+	analyticsSearch,
+	analyticsSection,
+	hasAnalyticsSelection,
+} from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
@@ -27,17 +27,8 @@ import { expect, it } from "~/support/effect-test";
 const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 type MediaRecord = Recipe.Success<typeof mediaAnalyticsRecordsRecipe>["items"][number];
 
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) => {
-	const reporting = Schema.decodeUnknownResult(Schema.fromJsonString(ReportingSelection))(
-		url.searchParams.get("reporting"),
-	);
-	return (
-		url.pathname === "/v/k/analytics" &&
-		url.searchParams.get("section") === section &&
-		Result.isSuccess(reporting) &&
-		stableStringify(reporting.success) === stableStringify(selection)
-	);
-};
+const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
+	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
 
 const displayedRows = (table: Playwright.Locator) =>
 	table.evaluate((element) =>
@@ -186,9 +177,8 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			});
 		}
 
-		const section = identityTupleKey(fixture.reference.pluginId, "media");
-		const search = new URLSearchParams(reportingSelectionSearch(fixture.reportingSelection));
-		search.set("section", section);
+		const section = analyticsSection(fixture.reference.pluginId, "media");
+		const search = analyticsSearch(fixture.reportingSelection, { section });
 		const browser = yield* Playwright.Browser;
 		const context = yield* browser.newContext({
 			timezoneId: "America/New_York",

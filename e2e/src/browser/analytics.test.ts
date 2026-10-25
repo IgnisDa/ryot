@@ -1,13 +1,13 @@
-import {
-	ReportingSelection,
-	reportingSelectionSearch,
-} from "@ryot-app/contract/modules/analytics/reporting";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Result, Schema } from "effect";
+import { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { installAnalyticsContribution } from "~/fixtures/kernel/analytics-contributions";
+import {
+	analyticsSearch,
+	analyticsSection,
+	hasAnalyticsSelection,
+} from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { listInstalledPlugins, updatePluginState } from "~/fixtures/kernel/plugins";
 import { signInThroughHostedOAuth } from "~/support/browser";
@@ -22,16 +22,12 @@ const hasAnalyticsLocation = (
 	selection: ReportingSelection,
 	search: Readonly<Record<string, string>>,
 ) => {
-	const decodedReporting = Schema.decodeUnknownResult(Schema.fromJsonString(ReportingSelection))(
-		url.searchParams.get("reporting"),
-	);
+	const expected = analyticsSearch(selection, search);
 	return (
 		url.origin === getFrontendUrl() &&
-		url.pathname === "/v/k/analytics" &&
-		url.searchParams.size === Object.keys(search).length + 1 &&
-		Object.entries(search).every(([key, value]) => url.searchParams.get(key) === value) &&
-		Result.isSuccess(decodedReporting) &&
-		stableStringify(decodedReporting.success) === stableStringify(selection)
+		hasAnalyticsSelection(url, selection) &&
+		url.searchParams.size === expected.size &&
+		[...expected].every(([key, value]) => url.searchParams.get(key) === value)
 	);
 };
 
@@ -141,8 +137,8 @@ it.live(
 			const installed = yield* installAnalyticsContribution(client);
 			const browser = yield* Playwright.Browser;
 			const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
-			const activitySection = identityTupleKey(installed.pluginId, "activity");
-			const failureSection = identityTupleKey(installed.pluginId, "failure");
+			const activitySection = analyticsSection(installed.pluginId, "activity");
+			const failureSection = analyticsSection(installed.pluginId, "failure");
 			const search = new URLSearchParams({ section: activitySection });
 			yield* signInThroughHostedOAuth(page, email, password, {
 				entryPath: `/v/k/analytics?${search}`,
@@ -269,8 +265,8 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 			comparison: "previous-period",
 			range: { kind: "custom", endDate: "2026-09-30", startDate: "2026-09-01" },
 		};
-		const reportSearch = reportingSelectionSearch(reportingSelection);
-		const reportPath = `/v/k/analytics?keep=1&${reportSearch}`;
+		const reportSearch = analyticsSearch(reportingSelection, { keep: "1" });
+		const reportPath = `/v/k/analytics?${reportSearch}`;
 		yield* page.goto(`${getFrontendUrl()}${reportPath}`);
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, reportingSelection, { keep: "1" }));
 		yield* expectEmptyAnalytics(page);

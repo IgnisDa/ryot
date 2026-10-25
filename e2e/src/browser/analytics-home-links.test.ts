@@ -1,5 +1,4 @@
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -7,6 +6,7 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { getUserSettings } from "~/fixtures/kernel/account";
+import { analyticsSection } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinPluginByPackage } from "~/fixtures/kernel/plugins";
@@ -113,7 +113,7 @@ for (const testCase of cases) {
 			expect(yield* contributor.getAttribute("aria-pressed")).toBe("false");
 			expect(yield* contributor.isEnabled()).toBe(true);
 			yield* contributor.click();
-			const section = identityTupleKey(installed.pluginId, testCase.section);
+			const section = analyticsSection(installed.pluginId, testCase.section);
 			yield* page.waitForURL(
 				(url) => url.pathname === analyticsPath && url.searchParams.get("section") === section,
 			);

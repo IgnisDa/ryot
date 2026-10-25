@@ -1,16 +1,16 @@
-import {
-	ReportingSelection,
-	reportingSelectionSearch,
-} from "@ryot-app/contract/modules/analytics/reporting";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import {
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
 } from "@ryot-app/media-plugin/shared/analytics-recipes";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Clock, Effect, Option, Result, Schema } from "effect";
+import { Clock, Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
+import {
+	analyticsSearch,
+	analyticsSection,
+	hasAnalyticsSelection,
+} from "~/fixtures/kernel/analytics-location";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
@@ -42,17 +42,8 @@ const periodDates = [
 ] satisfies ReadonlyArray<readonly [string, string]>;
 
 const analyticsFrame = (page: Playwright.Page) => page.locator(iframeSelector).contentFrame();
-const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) => {
-	const decodedReporting = Schema.decodeUnknownResult(Schema.fromJsonString(ReportingSelection))(
-		url.searchParams.get("reporting"),
-	);
-	return (
-		url.pathname === "/v/k/analytics" &&
-		url.searchParams.get("section") === section &&
-		Result.isSuccess(decodedReporting) &&
-		stableStringify(decodedReporting.success) === stableStringify(selection)
-	);
-};
+const hasAnalyticsLocation = (url: URL, selection: ReportingSelection, section: string) =>
+	hasAnalyticsSelection(url, selection) && url.searchParams.get("section") === section;
 const summaryValue = (summary: Playwright.Locator, label: string) =>
 	summary
 		.getByRole("term")
@@ -72,9 +63,8 @@ const periodRow = (table: Playwright.Locator, period: string, date: string) =>
 
 const openMediaAnalytics = Effect.fn("openMediaAnalytics")(function* () {
 	const fixture = yield* createMediaAnalyticsFixture();
-	const section = identityTupleKey(fixture.reference.pluginId, "media");
-	const search = new URLSearchParams(reportingSelectionSearch(fixture.reportingSelection));
-	search.set("section", section);
+	const section = analyticsSection(fixture.reference.pluginId, "media");
+	const search = analyticsSearch(fixture.reportingSelection, { section });
 	const browser = yield* Playwright.Browser;
 	const context = yield* browser.newContext({
 		hasTouch: true,
@@ -308,7 +298,11 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 				{ exact: true },
 			)
 			.waitFor();
-		yield* frame.getByText("View exact daily values (7 days)", { exact: true }).click();
+		yield* frame
+			.getByRole("heading", { exact: true, name: "Daily consistency" })
+			.locator("xpath=..")
+			.getByText("View exact values", { exact: true })
+			.click();
 		expect(
 			yield* frame
 				.getByRole("heading", { exact: true, name: "Daily consistency" })
@@ -316,28 +310,38 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 				.getByText(currentRange, { exact: true }).count,
 		).toBe(1);
 		const dailyTable = frame.getByRole("table", {
-			exact: true,
-			name: "Daily active observations and record links",
+			name: /^Daily active observations · .* exact values$/,
 		});
 		expect(yield* dailyTable.locator("tbody tr").count).toBe(7);
 		for (let day = 1; day <= 7; day += 1) {
-			const date = `2026-09-0${day}`;
 			const expected = day === 2 ? 3 : Number(day === 4 || day === 5);
 			expect(
-				yield* dailyTable.getByRole("row", { name: date }).getByRole("cell").first().innerText(),
-			).toBe(`${expected} observations`);
+				yield* dailyTable
+					.getByRole("row", { name: new RegExp(`^Sep ${day}, 2026 `) })
+					.getByRole("cell")
+					.nth(1)
+					.innerText(),
+			).toBe(expected === 0 ? "No active observations" : `${expected} active observations`);
 		}
-		yield* frame.getByText("View exact daily values (7 days)", { exact: true }).click();
+		yield* frame
+			.getByRole("heading", { exact: true, name: "Daily consistency" })
+			.locator("xpath=..")
+			.getByText("View exact values", { exact: true })
+			.click();
 		yield* dailyTable.waitFor({ state: "hidden" });
 		yield* exactValues.first().click();
 		yield* activityTable.waitFor({ state: "hidden" });
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		yield* trendChart.waitForFunction((image) => image.getBoundingClientRect().height === 200);
-		yield* frame.getByText("View exact daily values (7 days)", { exact: true }).click();
+		yield* frame
+			.getByRole("heading", { exact: true, name: "Daily consistency" })
+			.locator("xpath=..")
+			.getByText("View exact values", { exact: true })
+			.click();
 		yield* dailyTable.waitForFunction((table) => table.querySelectorAll("tbody tr").length === 7);
 		const dailyDrill = dailyTable.getByRole("button", {
 			exact: true,
-			name: "View records for 2026-09-04",
+			name: "View records: Sep 4, 2026 · 1 active observations",
 		});
 		yield* dailyDrill.focus();
 		yield* dailyDrill.tap();
