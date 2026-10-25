@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/automation";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -19,9 +19,14 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
+import { calendarDaysBetween, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem, ConsumptionBasis, consumptionBasisFor } from "../../shared/consumption";
+import {
+	CALENDAR_DATE_TOLERANCE_DAYS,
+	ConsumedItem,
+	ConsumptionBasis,
+	consumptionBasisFor,
+} from "../../shared/consumption";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -73,8 +78,6 @@ const targetRecipe = defineRecipe(
 	},
 );
 
-const DAY_MS = 86_400_000;
-
 const reject = (reason: string) => ({ reason, action: "reject" }) as const;
 
 const decide = Effect.fn("retainConsumptionFacts")(function* (
@@ -109,8 +112,11 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	if (
 		typeof calendarDate === "string" &&
 		Math.abs(
-			Date.parse(`${calendarDate}T00:00:00.000Z`) - Date.parse(draft.occurredAt.slice(0, 10)),
-		) > DAY_MS
+			calendarDaysBetween(
+				DateTime.formatIsoDate(DateTime.makeUnsafe(draft.occurredAt)),
+				calendarDate,
+			),
+		) > CALENDAR_DATE_TOLERANCE_DAYS
 	) {
 		return reject("A calendar date must be within one day of the occurrence time");
 	}

@@ -19,6 +19,9 @@ export const ConsumptionBasis = Schema.Struct({
 });
 export type ConsumptionBasis = typeof ConsumptionBasis.Type;
 
+/** Days a source `calendarDate` may differ from the UTC date of the event's `occurredAt`. */
+export const CALENDAR_DATE_TOLERANCE_DAYS = 1;
+
 export const ConsumedItemUnit = Schema.Literals(["episodes", "chapters", "volumes"]);
 
 export const ConsumedItem = Schema.Struct({

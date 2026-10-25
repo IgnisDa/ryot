@@ -30,12 +30,14 @@ import {
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
-import type {
-	PluginIdentityReference,
-	ReportingPeriod,
-	TimeZone,
+import {
+	addCalendarDays,
+	type PluginIdentityReference,
+	type ReportingPeriod,
+	type TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 
+import { CALENDAR_DATE_TOLERANCE_DAYS } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { consumptionEventSlugs } from "./consumption-projection";
 import { propertyBoolean, propertyText } from "./entity-selections";
@@ -70,9 +72,8 @@ export const consumptionActiveDay = (event: Table, timeZone: TimeZone) => {
 	);
 };
 
-const DAY_MS = 86_400_000;
 const calendarDayStart = (date: string, offsetDays: number) =>
-	new Date(Date.parse(`${date}T00:00:00.000Z`) + offsetDays * DAY_MS).toISOString();
+	`${addCalendarDays(date, offsetDays)}T00:00:00.000Z`;
 
 /**
  * Attribution equals the source `calendarDate` or `occurredAt`. The consumption policy keeps a
@@ -86,8 +87,8 @@ export const consumptionPeriod = (event: Table, period: null | ReportingPeriod) 
 	const calendarDate = propertyText(event, "calendarDate");
 	return and(
 		withinPeriod(column(event, "occurredAt"), {
-			endAt: calendarDayStart(period.endDate, 2),
-			startAt: calendarDayStart(period.startDate, -1),
+			endAt: calendarDayStart(period.endDate, CALENDAR_DATE_TOLERANCE_DAYS + 1),
+			startAt: calendarDayStart(period.startDate, -CALENDAR_DATE_TOLERANCE_DAYS),
 		}),
 		consumptionReady(event),
 		eq(coalesce(propertyBoolean(event, "dateUnknown"), literal(false)), literal(false)),
