@@ -102,6 +102,7 @@
 		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/switch-exhaustiveness-check": "error",
 		"effecttsgo/unsafe-effect-type-assertion": "error",
+		"effecttsgo/crypto-random-uuid-in-effect": "error",
 		"typescript/no-unnecessary-type-assertion": "warn",
 		"typescript/prefer-promise-reject-errors": "error",
 		"typescript/no-unnecessary-type-arguments": "error",
