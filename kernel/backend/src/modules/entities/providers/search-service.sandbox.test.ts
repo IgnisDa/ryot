@@ -3,6 +3,7 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { ProviderEntityBadRequest } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Layer } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -22,7 +23,7 @@ const user = {
 	id: realSandboxUserId,
 	email: "user@example.com",
 	accountGeneration: { userId: realSandboxUserId, token: "test-account-generation" },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const providerSource = (call: string) => `

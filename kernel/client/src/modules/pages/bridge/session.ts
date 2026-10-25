@@ -69,6 +69,7 @@ import {
 	type PluginIosLiveActivityRequest,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginReportingPreferencesOutcome,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginStorageOutcome,
@@ -140,6 +141,7 @@ type PendingRequest = {
 		| "ios-live-activity"
 		| "entity-editor-save"
 		| "background-operation"
+		| "reporting-preferences"
 		| "calendar-source-visibility";
 };
 
@@ -180,6 +182,7 @@ type PluginBridgeOptions = {
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
 	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onReportingPreferences: () => Effect.Effect<PluginReportingPreferencesOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
@@ -509,6 +512,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				type === "storage" ||
 				type === "ryotql" ||
 				type === "user-settings" ||
+				type === "reporting-preferences" ||
 				type === "enrichment"
 			) {
 				reason = "transport";
@@ -673,9 +677,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function handleUserSettings(request: PluginBridgeUserSettingsRequest) {
 		runRequest(request.requestId, "user-settings", () =>
-			options.onUserSettings(
-				"kind" in request ? { kind: request.kind } : { pluginId: request.pluginId },
-			),
+			options.onUserSettings({ pluginId: request.pluginId }),
 		);
 	}
 
@@ -904,6 +906,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.when({ type: "user-settings-request" }, (request) => handleUserSettings(request)),
+						Match.when({ type: "reporting-preferences-request" }, (request) =>
+							runRequest(request.requestId, "reporting-preferences", () =>
+								options.onReportingPreferences(),
+							),
+						),
 						Match.when({ type: "enrichment-request" }, (request) => handleEnrichment(request)),
 						Match.exhaustive,
 					);

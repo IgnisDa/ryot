@@ -42,12 +42,9 @@ export const user = snakeCase.table(
 		and ${table.preferences} ?& array['disableIntegrations', 'language', 'reportingTimeZone']
 		and ${table.preferences} - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb
 		and jsonb_typeof(${table.preferences}->'disableIntegrations') = 'boolean'
-		and (
-			jsonb_typeof(${table.preferences}->'reportingTimeZone') = 'null'
-			or (jsonb_typeof(${table.preferences}->'reportingTimeZone') = 'string'
-				and ${table.preferences}->>'reportingTimeZone' <> ''
-				and btrim(${table.preferences}->>'reportingTimeZone') = ${table.preferences}->>'reportingTimeZone')
-		)
+		and jsonb_typeof(${table.preferences}->'reportingTimeZone') = 'string'
+		and ${table.preferences}->>'reportingTimeZone' <> ''
+		and btrim(${table.preferences}->>'reportingTimeZone') = ${table.preferences}->>'reportingTimeZone'
 		and (
 			jsonb_typeof(${table.preferences}->'language') = 'null'
 			or (jsonb_typeof(${table.preferences}->'language') = 'string'

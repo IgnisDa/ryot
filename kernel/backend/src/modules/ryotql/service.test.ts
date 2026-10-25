@@ -4,6 +4,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	aggregate,
 	and,
@@ -572,7 +573,7 @@ layer(makeServiceLayer())((test) => {
 			name: "User",
 			id: UserId.make("user-1"),
 			email: "user@example.com",
-			preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+			preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 		};
 		return Effect.gen(function* () {

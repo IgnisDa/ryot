@@ -21,6 +21,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -70,7 +71,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 

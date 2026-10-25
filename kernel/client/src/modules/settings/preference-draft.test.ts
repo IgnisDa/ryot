@@ -1,8 +1,9 @@
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { describe, expect, it } from "vitest";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 
-const preferences = { language: null, reportingTimeZone: null, disableIntegrations: false };
+const preferences = { language: null, reportingTimeZone: UTC, disableIntegrations: false };
 
 describe("user settings preference draft", () => {
 	it("does not treat the empty language field as a change from provider default", () => {

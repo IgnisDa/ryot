@@ -18,6 +18,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	ascending,
 	column,
@@ -433,7 +434,7 @@ const provenanceRecords = (
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 	calendarSourceOverrides:
 		input.calendarSourceKey === undefined
@@ -952,7 +953,7 @@ const restoreArchivedEvents = (
 						profile: {
 							image: null,
 							name: "User",
-							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 						},
 						entities: [
 							{
@@ -1306,7 +1307,7 @@ describe("account backup restore in PostgreSQL", () => {
 									name: "Archived",
 									preferences: {
 										language: null,
-										reportingTimeZone: null,
+										reportingTimeZone: UTC,
 										disableIntegrations: false,
 									},
 								}),
@@ -1464,7 +1465,7 @@ describe("account backup restore in PostgreSQL", () => {
 						profile: {
 							image: null,
 							name: "Restored",
-							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 						},
 						notificationSubscriptions: [
 							{
@@ -2401,7 +2402,7 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 	...overrides,
 });

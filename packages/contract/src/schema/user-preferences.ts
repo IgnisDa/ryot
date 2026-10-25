@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { TimeZone } from "./time-zone";
+import { TimeZone, UTC } from "./time-zone";
 import { strictStruct } from "./utils";
 
 const StoredLanguage = Schema.String.pipe(
@@ -8,9 +8,9 @@ const StoredLanguage = Schema.String.pipe(
 );
 
 export const userPreferenceFields = {
+	reportingTimeZone: TimeZone,
 	disableIntegrations: Schema.Boolean,
 	language: Schema.NullOr(Schema.String),
-	reportingTimeZone: Schema.NullOr(TimeZone),
 };
 
 export const UserPreferences = strictStruct({
@@ -28,6 +28,6 @@ export type UserPreferencesPatch = typeof UserPreferencesPatch.Type;
 
 export const defaultUserPreferences: UserPreferences = {
 	language: null,
-	reportingTimeZone: null,
+	reportingTimeZone: UTC,
 	disableIntegrations: false,
 };

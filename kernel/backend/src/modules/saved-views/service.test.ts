@@ -5,6 +5,7 @@ import {
 	SavedViewBadRequest,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -31,7 +32,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 

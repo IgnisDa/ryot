@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
@@ -15,7 +16,7 @@ const user = {
 	name: "Test User",
 	id: UserId.make("owner"),
 	email: "user@example.com",
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 

@@ -9,6 +9,7 @@ import { AppContract } from "@ryot-app/contract/contract";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -46,7 +47,7 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		name: userId,
 		email: `${userId}@example.test`,
 		accountGeneration: { userId, token: "test-account-generation" },
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 });
 

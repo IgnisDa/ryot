@@ -9,6 +9,7 @@ import {
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
 	OAuthTokenResponse,
+	REPORTING_TIME_ZONE_HEADER,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -424,13 +425,18 @@ export const createApiKey = (sessionCookie: string, name = "E2E key", baseUrl = 
 		);
 	});
 
-export const createTestUser = (baseUrl = getApiUrl()) =>
+export const createTestUser = (baseUrl = getApiUrl(), reportingTimeZone?: string) =>
 	Effect.gen(function* () {
 		const password = "password123";
 		const authClient = createTestAuthClient(baseUrl);
 		const email = `test-${yield* randomUuid}@example.com`;
 		const { data: signUpData, error: signUpError } = yield* Effect.promise(() =>
-			authClient.signUp.email({ email, password, name: "Test User" }),
+			authClient.signUp.email(
+				{ email, password, name: "Test User" },
+				reportingTimeZone === undefined
+					? {}
+					: { headers: { [REPORTING_TIME_ZONE_HEADER]: reportingTimeZone } },
+			),
 		);
 		if (signUpError) {
 			throw new Error(`Sign up failed: ${signUpError.message}`);
@@ -452,9 +458,15 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 		return { token, email, userId, password, refreshToken, sessionCookie };
 	});
 
-export const createAuthenticatedClient = (target = getSharedHarnessTarget()) =>
+export const createAuthenticatedClient = (
+	target = getSharedHarnessTarget(),
+	reportingTimeZone?: string,
+) =>
 	Effect.gen(function* () {
-		const { token, email, userId, password, sessionCookie } = yield* createTestUser(target.apiUrl);
+		const { token, email, userId, password, sessionCookie } = yield* createTestUser(
+			target.apiUrl,
+			reportingTimeZone,
+		);
 		const client = makeSession(target, { Authorization: `Bearer ${token}` }, UserId.make(userId));
 		return { token, email, client, userId, password, sessionCookie };
 	});

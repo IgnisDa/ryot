@@ -16,6 +16,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Redacted } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { unhandled } from "effect/Types";
@@ -39,7 +40,7 @@ const userRecord = {
 	accountGeneration: "test-account-generation",
 	createdAt: new Date("2026-08-30T00:00:00.000Z"),
 	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 
 const resolvedOAuth = {

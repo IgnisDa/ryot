@@ -9,6 +9,7 @@ import {
 	pluginPackageSegments,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
@@ -61,7 +62,7 @@ const currentUser: CurrentUserValue = {
 	name: "Owner",
 	email: "owner@example.test",
 	accountGeneration: { userId: owner, token: "test-account-generation" },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 
 const tokenEndpointLayer = Layer.succeed(

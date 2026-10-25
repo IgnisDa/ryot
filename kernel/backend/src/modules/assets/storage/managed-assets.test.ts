@@ -3,6 +3,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
@@ -31,7 +32,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	accountGeneration: { userId, token: "test-account-generation" },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 const managedAssetCreatedAt = new Date("2026-01-01T00:00:00.000Z");
 const localFileInfo = {

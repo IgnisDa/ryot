@@ -9,6 +9,7 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { CalendarSourceNotFound } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { CalendarSourceSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -48,7 +49,7 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		name: userId,
 		email: `${userId}@example.test`,
 		accountGeneration: { userId, token: "test-account-generation" },
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 });
 

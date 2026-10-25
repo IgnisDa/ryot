@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { derivedFake } from "@ryot-app/testing/fakes";
 import { Cause, Clock, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import Redis from "ioredis";
@@ -34,7 +35,7 @@ const targetUser: HandoffTarget = {
 	email: "target@example.com",
 	accountGeneration: "test-account-generation",
 	bootstrapCompletedAt: new Date("2026-09-01T00:00:00.000Z"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 
 const authorization = (

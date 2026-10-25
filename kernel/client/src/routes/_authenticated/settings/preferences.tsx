@@ -28,7 +28,6 @@ function PreferencesRoute() {
 			<PreferencesForm
 				disabled={isDemo}
 				preferences={preferences.data}
-				key={preferences.data.reportingTimeZone ?? "unset"}
 				onSave={(payload) => updatePreferences.mutateEffect(payload)}
 			/>
 		);

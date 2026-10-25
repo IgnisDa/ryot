@@ -49,7 +49,10 @@ import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
-import { pluginUserSettingsOutcome } from "#/modules/pages/bridge/user-settings";
+import {
+	pluginUserSettingsOutcome,
+	reportingPreferencesOutcome,
+} from "#/modules/pages/bridge/user-settings";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import {
 	type ClientPageDocument,
@@ -588,6 +591,13 @@ function ClientPageFrame(props: {
 				props.runtime
 					.runSync(IosLiveActivitiesService)
 					.outcome(props.scope, identity.contributors, active.current, request)
+			}
+			onReportingPreferences={() =>
+				reportingPreferencesOutcome({
+					scope: props.scope,
+					api: props.runtime.runSync(RyotQLApi),
+					currentScope: () => frameScope.current,
+				})
 			}
 			onNavigate={(request) =>
 				void navigate({

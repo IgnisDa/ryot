@@ -5,6 +5,7 @@ import {
 	PluginOperationRejected,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
 
@@ -112,7 +113,7 @@ const fakeLayer = Layer.unwrap(
 							id: realSandboxUserId,
 							email: "user@example.com",
 							accountGeneration: { userId: realSandboxUserId, token: "test-account-generation" },
-							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 						},
 					}),
 			}),

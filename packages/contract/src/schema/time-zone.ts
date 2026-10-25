@@ -10,8 +10,6 @@ export type TimeZone = typeof TimeZone.Type;
 
 export const UTC = TimeZone.make("UTC");
 
-export const effectiveTimeZone = (zone: null | TimeZone) => zone ?? UTC;
-
 export const deviceTimeZone = (
 	read: () => string | undefined = () => Intl.DateTimeFormat().resolvedOptions().timeZone,
 ): TimeZone => {

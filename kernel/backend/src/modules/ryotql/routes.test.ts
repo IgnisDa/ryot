@@ -9,6 +9,7 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
@@ -26,7 +27,7 @@ const user = {
 	name: "User",
 	id: UserId.make("user-1"),
 	email: "user@example.com",
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 

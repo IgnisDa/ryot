@@ -324,7 +324,7 @@ describe("classifyAccountCleanliness", () => {
 		).toBeNull();
 	});
 
-	it("allows device reporting-zone initialization before restore", () => {
+	it("ignores the reporting zone chosen at account creation", () => {
 		expect(
 			classifyAccountCleanliness(
 				cleanState({

@@ -1,4 +1,3 @@
-import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import type {
 	UserPreferences,
 	UserPreferencesPatch,
@@ -33,20 +32,6 @@ export const updatePreferencesMutation = createRyotMutation<
 							hostServices.runtime.runSync(EntityWatchService).reconnect(hostServices.scope),
 						),
 			),
-			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
-		),
-);
-
-export const initializeReportingTimeZoneMutation = createRyotMutation<
-	TimeZone,
-	void,
-	KernelHostServices
->(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(AccountApi)
-		.updatePreferences(hostServices.scope, { payload: { initializeReportingTimeZone: input } })
-		.pipe(
 			Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 			Effect.mapError(() => new RyotClientError({ reason: "transport" })),
 		),

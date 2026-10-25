@@ -18,6 +18,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining } from "@ryot-app/testing/matchers";
@@ -257,7 +258,7 @@ const makeLayer = (input: {
 										},
 										preferences: {
 											language: null,
-											reportingTimeZone: null,
+											reportingTimeZone: UTC,
 											disableIntegrations: false,
 										},
 									},

@@ -4,6 +4,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, PluginPackageId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { asc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -31,7 +32,7 @@ const user = {
 	id: UserId.make("owner"),
 	email: "owner@example.test",
 	accountGeneration: { token: "generation", userId: UserId.make("owner") },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 } satisfies CurrentUserValue;
 const foreignUser = UserId.make("foreign");
 const kernel = (slug: string): SavedViewReference => ({ slug, kind: "kernel" });

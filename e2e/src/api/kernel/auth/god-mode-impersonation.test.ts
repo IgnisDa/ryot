@@ -123,7 +123,7 @@ const runImpersonationClientFlow = (
 		const current = yield* getUserSettings(target.client);
 		expect(current.preferences).toEqual({
 			language: null,
-			reportingTimeZone: null,
+			reportingTimeZone: "UTC",
 			disableIntegrations: false,
 		});
 		const language = clientId === OAUTH_IMPERSONATION_NATIVE_CLIENT_ID ? "fr" : "es";
@@ -133,12 +133,12 @@ const runImpersonationClientFlow = (
 		});
 		expect((yield* getUserSettings(impersonation.client)).preferences).toEqual({
 			language,
-			reportingTimeZone: null,
+			reportingTimeZone: "UTC",
 			disableIntegrations: true,
 		});
 		expect((yield* getUserSettings(target.client)).preferences).toEqual({
 			language,
-			reportingTimeZone: null,
+			reportingTimeZone: "UTC",
 			disableIntegrations: true,
 		});
 
@@ -189,7 +189,7 @@ const runImpersonationClientFlow = (
 		);
 		expect((yield* getUserSettings(refreshedClient)).preferences).toEqual({
 			language,
-			reportingTimeZone: null,
+			reportingTimeZone: "UTC",
 			disableIntegrations: true,
 		});
 	});

@@ -951,34 +951,34 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
-	it.live("reads reporting preferences without a plugin identity and validates the zone", () =>
+	it.live("reads reporting preferences without a plugin identity", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const read = yield* Effect.forkChild(runtime.client.reportingPreferences, {
 				startImmediately: true,
 			});
 			yield* waitForMessagePortMacrotask;
-			expect(sent(messages, "user-settings-request")).toEqual([
-				{ kind: "reporting", requestId: "user-settings-1", type: "user-settings-request" },
+			expect(sent(messages, "reporting-preferences-request")).toEqual([
+				{ requestId: "reporting-preferences-1", type: "reporting-preferences-request" },
 			]);
 			channel.port1.postMessage({
 				outcome: "success",
-				type: "user-settings-result",
-				requestId: "user-settings-1",
-				settings: { timeZone: "America/New_York" },
+				type: "reporting-preferences-result",
+				requestId: "reporting-preferences-1",
+				preferences: { timeZone: "America/New_York" },
 			});
 			expect(yield* Fiber.join(read)).toEqual({ timeZone: "America/New_York" });
-			const invalid = yield* Effect.forkChild(Effect.flip(runtime.client.reportingPreferences), {
+			const failed = yield* Effect.forkChild(Effect.flip(runtime.client.reportingPreferences), {
 				startImmediately: true,
 			});
 			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
-				outcome: "success",
-				type: "user-settings-result",
-				requestId: "user-settings-2",
-				settings: { timeZone: "+01:00" },
+				outcome: "failure",
+				reason: "transport",
+				type: "reporting-preferences-result",
+				requestId: "reporting-preferences-2",
 			});
-			expect((yield* Fiber.join(invalid)).reason).toBe("malformed-result");
+			expect((yield* Fiber.join(failed)).reason).toBe("transport");
 		}),
 	);
 

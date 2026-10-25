@@ -1,10 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
-import type {
-	TwoFactorStatus,
-	UpdateUserPreferencesBody,
-} from "@ryot-app/contract/modules/account/schemas";
+import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { deviceTimeZone, TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -187,80 +184,15 @@ describe("authenticated route gate", () => {
 			}).pipe(Effect.ensuring(view.runtime.disposeEffect));
 		}),
 	);
-	it.live(
-		"owns one interest session across loader revalidation and releases it on unmount with one cached preferences read",
-		() =>
-			Effect.gen(function* () {
-				let settingsReads = 0;
-				const view = mountView(
-					"/settings",
-					undefined,
-					undefined,
-					undefined,
-					undefined,
-					undefined,
-					makeUserSettingsStub(),
-					undefined,
-					makeUserSettingsQueries(() => {
-						settingsReads++;
-						return userSettings;
-					}),
-				);
-				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
-				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(1)));
-				expect(view.interestEvents).toEqual(["acquire"]);
-				yield* Effect.promise(() => view.router.invalidate());
-				expect(view.interestEvents).toEqual(["acquire"]);
-				expect(settingsReads).toBe(1);
-				view.unmount();
-				expect(view.interestEvents).toEqual(["acquire", "release"]);
-			}),
-	);
-	it.live.each([
-		{ state: "unset", reportingTimeZone: null },
-		{ state: "preset", reportingTimeZone: TimeZone.make("Pacific/Auckland") },
-	])("initializes only an unset account reporting time zone ($state)", ({ reportingTimeZone }) =>
+	it.live("owns one interest session across loader revalidation and releases it on unmount", () =>
 		Effect.gen(function* () {
-			const saved: UpdateUserPreferencesBody[] = [];
-			let current = {
-				...userSettings,
-				preferences: { ...userSettings.preferences, reportingTimeZone },
-			};
-			const expectedTimeZone = reportingTimeZone ?? deviceTimeZone();
-			const expectedWrites =
-				reportingTimeZone === null ? [{ initializeReportingTimeZone: expectedTimeZone }] : [];
-			const view = mountView(
-				"/settings",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeUserSettingsStub({
-					updatePreferences: (_scope, request) =>
-						Effect.sync(() => {
-							saved.push(request.payload);
-							current = {
-								...current,
-								preferences: {
-									...current.preferences,
-									reportingTimeZone: request.payload.initializeReportingTimeZone ?? null,
-								},
-							};
-						}),
-				}),
-				undefined,
-				makeUserSettingsQueries(() => current),
-			);
-			yield* Effect.gen(function* () {
-				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
-				yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(expectedWrites)));
-				expect(current.preferences.reportingTimeZone).toBe(expectedTimeZone);
-				yield* Effect.promise(() => view.router.invalidate());
-				expect(saved).toEqual(expectedWrites);
-				expect(view.interestEvents).toEqual(["acquire"]);
-				view.unmount();
-			}).pipe(Effect.ensuring(view.runtime.disposeEffect));
+			const view = mountView("/settings");
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+			expect(view.interestEvents).toEqual(["acquire"]);
+			yield* Effect.promise(() => view.router.invalidate());
+			expect(view.interestEvents).toEqual(["acquire"]);
+			view.unmount();
+			expect(view.interestEvents).toEqual(["acquire", "release"]);
 		}),
 	);
 	it.live.each([
@@ -1078,7 +1010,7 @@ describe("preferences settings", () => {
 
 	it.live("submits only the changed preferences and reports the save", () =>
 		Effect.gen(function* () {
-			const saved: UpdateUserPreferencesBody[] = [];
+			const saved: UserPreferencesPatch[] = [];
 			let settingsReads = 0;
 			let current = userSettings;
 			const view = mountPreferences(
@@ -1117,7 +1049,7 @@ describe("preferences settings", () => {
 
 	it.live("validates and saves the account reporting timezone without changing language", () =>
 		Effect.gen(function* () {
-			const saved: UpdateUserPreferencesBody[] = [];
+			const saved: UserPreferencesPatch[] = [];
 			mountPreferences(
 				makeUserSettingsStub({
 					updatePreferences: (_scope, request) =>
@@ -1150,7 +1082,7 @@ describe("preferences settings", () => {
 
 	it.live("submits a custom entity language code", () =>
 		Effect.gen(function* () {
-			const saved: UpdateUserPreferencesBody[] = [];
+			const saved: UserPreferencesPatch[] = [];
 			const view = mountPreferences(
 				makeUserSettingsStub({
 					updatePreferences: (_scope, request) =>

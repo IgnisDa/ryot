@@ -45,6 +45,7 @@ import {
 	type PluginBridgePickEntityScreen,
 	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeReady,
+	type PluginBridgeReportingPreferencesRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
@@ -101,6 +102,7 @@ type RequestType =
 	| "entity-editor-save"
 	| "pick-entity-screen"
 	| "background-operation"
+	| "reporting-preferences"
 	| "edit-collection-screen"
 	| "manage-reminders-screen"
 	| "add-to-collection-screen"
@@ -443,13 +445,12 @@ export const createPluginRuntime = (
 		);
 	const readReportingPreferences = () =>
 		sendRequest(
-			"user-settings",
+			"reporting-preferences",
 			(requestId) =>
 				({
 					requestId,
-					kind: "reporting",
-					type: "user-settings-request",
-				}) satisfies PluginBridgeUserSettingsRequest,
+					type: "reporting-preferences-request",
+				}) satisfies PluginBridgeReportingPreferencesRequest,
 		);
 
 	const requestEnrichment = (request: PluginEnrichmentRequest) =>
@@ -949,6 +950,15 @@ export const createPluginRuntime = (
 						"entity-editor-save",
 						message.requestId,
 						message.outcome === "failure" ? message : { outcome: "success", value: message.output },
+					);
+					return;
+				case "reporting-preferences-result":
+					settle(
+						"reporting-preferences",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.preferences },
 					);
 					return;
 				case "background-operation-settled":

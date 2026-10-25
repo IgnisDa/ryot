@@ -31,6 +31,7 @@ import type {
 	PluginIosLiveActivityRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
+	PluginReportingPreferencesOutcome,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
@@ -126,6 +127,7 @@ export function PageIframeHost(props: {
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onReportingPreferences: () => Effect.Effect<PluginReportingPreferencesOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onPickEntity: (
@@ -426,6 +428,7 @@ export function PageIframeHost(props: {
 			onEnrichment: (request) => latest.current.onEnrichment(request),
 			onUserSettings: (request) => latest.current.onUserSettings(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
+			onReportingPreferences: () => latest.current.onReportingPreferences(),
 			onEditCollection: (request) => latest.current.onEditCollection(request),
 			onAddToCollection: (request) => latest.current.onAddToCollection(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),

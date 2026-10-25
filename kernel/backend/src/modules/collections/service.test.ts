@@ -33,6 +33,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -68,7 +69,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 const collectionId = EntityId.make("collection-id");

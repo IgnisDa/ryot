@@ -1,6 +1,8 @@
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
-import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import type {
+	UserPreferences,
+	UserPreferencesPatch,
+} from "@ryot-app/contract/schema/user-preferences";
 import {
 	Button,
 	Select,
@@ -64,7 +66,7 @@ export function PreferenceRow(props: {
 export function PreferencesForm(props: {
 	disabled?: boolean;
 	preferences: UserPreferences;
-	onSave: (payload: UpdateUserPreferencesBody) => Effect.Effect<void, Error>;
+	onSave: (payload: UserPreferencesPatch) => Effect.Effect<void, Error>;
 }) {
 	const [saved, setSaved] = useState(false);
 	const [failed, setFailed] = useState(false);

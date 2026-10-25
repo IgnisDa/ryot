@@ -1089,6 +1089,34 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
+	it("names nothing in reporting preference requests and returns a validated time zone", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = { requestId: "reporting-1", type: "reporting-preferences-request" as const };
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, pluginId: "fixture" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, kind: "reporting" }))).toBe(true);
+		expect(Result.isFailure(decodeHost(request))).toBe(true);
+
+		const result = { requestId: "reporting-1", type: "reporting-preferences-result" as const };
+		expect(
+			Result.isSuccess(
+				decodeHost({ ...result, outcome: "success", preferences: { timeZone: "Asia/Kolkata" } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeHost({ ...result, outcome: "success", preferences: { timeZone: "+05:30" } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "transport" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...result, reason: "quota", outcome: "failure" }))).toBe(
+			true,
+		);
+	});
+
 	it("names a plugin and entity in enrichment requests and returns the durable request ID", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);

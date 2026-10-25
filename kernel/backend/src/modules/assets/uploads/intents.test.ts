@@ -6,6 +6,7 @@ import {
 	UploadBadRequest,
 } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { derivedFake } from "@ryot-app/testing/fakes";
 import {
@@ -44,7 +45,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 

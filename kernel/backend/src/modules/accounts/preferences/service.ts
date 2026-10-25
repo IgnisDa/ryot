@@ -1,5 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
+import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import { Context, Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
 
@@ -15,13 +15,8 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 
 			const updatePreferences = Effect.fn("UserSettingsService.updatePreferences")(function* (
 				user: CurrentUserValue,
-				body: UpdateUserPreferencesBody,
+				patch: UserPreferencesPatch,
 			) {
-				const { initializeReportingTimeZone, ...patch } = body;
-				if (initializeReportingTimeZone !== undefined) {
-					yield* auth.initializeReportingTimeZone(user.id, initializeReportingTimeZone);
-					return;
-				}
 				if (Object.keys(patch).length === 0) {
 					return;
 				}

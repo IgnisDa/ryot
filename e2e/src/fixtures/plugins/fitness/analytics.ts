@@ -1,6 +1,6 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import { TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	fitnessAnalyticsTotalsRecipe,
 	fitnessAnalyticsTrendRecipe,
@@ -21,7 +21,6 @@ import {
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Result, Schema } from "effect";
 
-import { getUserSettings, updateUserSettingsPreferences } from "~/fixtures/kernel/account";
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
@@ -113,12 +112,6 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			deleteUserAndWait(account.userId, account.client.target).pipe(Effect.ignore),
 		);
 		const { client } = account;
-
-		yield* updateUserSettingsPreferences(client, { reportingTimeZone: UTC });
-		assertCondition(
-			(yield* getUserSettings(client)).preferences.reportingTimeZone === TimeZone.make("UTC"),
-			"Expected the analytics fixture account to use UTC reporting time",
-		);
 
 		const fitnessExerciseDefinition = yield* findFitnessEntitySchema(client, "exercise");
 		const owner = fitnessExerciseDefinition.schema.reference.owner;

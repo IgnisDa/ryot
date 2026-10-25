@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 
@@ -24,7 +25,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 

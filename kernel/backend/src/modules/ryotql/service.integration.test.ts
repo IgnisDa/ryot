@@ -21,6 +21,7 @@ import {
 	SavedViewId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	aggregate,
 	and,
@@ -1814,7 +1815,7 @@ layer(catalogDatabaseLayer)((test) => {
 					createdAt: anyOf(String),
 					email: "owner@example.test",
 					twoFactorStatus: { enabled: false, available: true },
-					preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+					preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 				},
 			]);
 			expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([

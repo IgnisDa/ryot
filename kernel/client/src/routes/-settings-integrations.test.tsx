@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
@@ -12,6 +11,7 @@ import {
 	PluginId,
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
+import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -578,7 +578,7 @@ describe("integrations list", () => {
 
 	it.live("pauses integrations for the account and reverts the switch when saving fails", () =>
 		Effect.gen(function* () {
-			const saved: UpdateUserPreferencesBody[] = [];
+			const saved: UserPreferencesPatch[] = [];
 			let current = userSettings;
 			mountView(
 				"/settings/integrations",

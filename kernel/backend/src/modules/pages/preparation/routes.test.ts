@@ -11,6 +11,7 @@ import {
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -25,7 +26,7 @@ const user = {
 	name: "User",
 	id: UserId.make("user-1"),
 	email: "user@example.com",
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 

@@ -27,16 +27,17 @@ import {
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
+	REPORTING_TIME_ZONE_HEADER,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getOAuthState, getSessionFromCtx } from "better-auth/api";
 import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
@@ -382,18 +383,35 @@ const makeAuthInstance = (args: {
 		databaseHooks: {
 			user: {
 				create: {
-					after: (user) =>
-						Effect.runPromiseWith(args.runtime)(
-							args
-								.scheduleUserBootstrap(user.id)
-								.pipe(
-									Effect.catchCause((cause) =>
-										Effect.logError("user bootstrap scheduling failed", cause).pipe(
-											Effect.annotateLogs({ userId: user.id }),
+					// oxlint-disable-next-line effecttsgo/async-function -- Better Auth database hooks are Promise-native.
+					after: async (user, context) => {
+						const header = context?.headers?.get(REPORTING_TIME_ZONE_HEADER);
+						const oauthState = context === null || header ? null : await getOAuthState();
+						const requested: unknown = header ?? oauthState?.["reportingTimeZone"];
+						const reportingTimeZone = Schema.decodeUnknownOption(TimeZone)(requested);
+						await Effect.runPromiseWith(args.runtime)(
+							Effect.gen(function* () {
+								if (Option.isSome(reportingTimeZone)) {
+									yield* args.repository
+										.patchUserPreferences(UserId.make(user.id), {
+											reportingTimeZone: reportingTimeZone.value,
+										})
+										.pipe(
+											Effect.catchCause((cause) =>
+												Effect.logError("reporting time zone selection failed", cause),
+											),
+										);
+								}
+								yield* args
+									.scheduleUserBootstrap(user.id)
+									.pipe(
+										Effect.catchCause((cause) =>
+											Effect.logError("user bootstrap scheduling failed", cause),
 										),
-									),
-								),
-						),
+									);
+							}).pipe(Effect.annotateLogs({ userId: user.id })),
+						);
+					},
 				},
 			},
 			session: {
@@ -883,8 +901,6 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.deleteUserSessions(userId),
 					).pipe(Effect.orDie),
-				initializeReportingTimeZone: (userId: UserId, reportingTimeZone: TimeZone) =>
-					repository.initializeReportingTimeZone(userId, reportingTimeZone).pipe(Effect.asVoid),
 				updateUserImage: (userId: UserId, image: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { image }),

@@ -11,6 +11,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -36,7 +37,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 

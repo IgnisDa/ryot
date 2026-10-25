@@ -98,6 +98,7 @@ import {
 	requirePresent,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
 const getMediaLibraryId = (client: Client) =>
 	Effect.gen(function* () {
@@ -140,10 +141,10 @@ describe("backup export and restore round trip", () => {
 				Effect.gen(function* () {
 					const fixture = yield* installBackupEvidencePlugin();
 					const source = yield* createAuthenticatedClient();
-					const target = yield* createAuthenticatedClient();
-					yield* updateUserSettingsPreferences(target.client, {
-						reportingTimeZone: TimeZone.make("America/New_York"),
-					});
+					const target = yield* createAuthenticatedClient(
+						getSharedHarnessTarget(),
+						"America/New_York",
+					);
 					if (includeGlobalDependency) {
 						yield* updateUserSettingsPreferences(source.client, {
 							reportingTimeZone: TimeZone.make("Asia/Kolkata"),
@@ -217,7 +218,7 @@ describe("backup export and restore round trip", () => {
 					const restored = yield* restoreBackup(target.client, bytes);
 					assertCompleted(restored.run, "retained event evidence restore");
 					expect((yield* getUserSettings(target.client)).preferences.reportingTimeZone).toBe(
-						includeGlobalDependency ? "Asia/Kolkata" : null,
+						includeGlobalDependency ? "Asia/Kolkata" : "UTC",
 					);
 					const restoredRecordId = yield* findEntityIdByName(target.client, {
 						name: record.name,

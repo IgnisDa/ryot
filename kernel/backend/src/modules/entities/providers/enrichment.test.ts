@@ -12,6 +12,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -49,7 +50,7 @@ const currentUser = (id: string): CurrentUserValue => ({
 	id: UserId.make(id),
 	email: `${id}@example.test`,
 	accountGeneration: { userId: UserId.make(id), token: "test-account-generation" },
-	preferences: { language: "es", reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: "es", reportingTimeZone: UTC, disableIntegrations: false },
 });
 const owner = currentUser("owner");
 const recipient = currentUser("recipient");

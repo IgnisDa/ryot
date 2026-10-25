@@ -1,11 +1,10 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect } from "effect";
 
-import { getUserSettings, updateUserSettingsPreferences } from "~/fixtures/kernel/account";
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
@@ -88,12 +87,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		deleteUserAndWait(account.userId, account.client.target).pipe(Effect.ignore),
 	);
 	const { client } = account;
-	const timeZone = TimeZone.make("UTC");
-	yield* updateUserSettingsPreferences(client, { reportingTimeZone: timeZone });
-	assertCondition(
-		(yield* getUserSettings(client)).preferences.reportingTimeZone === timeZone,
-		"Expected the Media analytics fixture account to use UTC reporting time",
-	);
+	const timeZone = UTC;
 
 	const { book, movie, anime } = yield* Effect.all(
 		{

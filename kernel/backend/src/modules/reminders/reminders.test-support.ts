@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { CreateReminderBody } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
@@ -18,7 +19,7 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		name: "Owner",
 		email: `${id}@example.test`,
 		accountGeneration: { userId: id, token: "generation" },
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	} satisfies CurrentUserValue;
 	const entityId = EntityId.make(yield* randomUuid);
 	yield* session.transaction(

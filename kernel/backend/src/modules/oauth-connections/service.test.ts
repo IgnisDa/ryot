@@ -10,6 +10,7 @@ import {
 	pluginPackageSegments,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { randomUuid } from "@ryot-app/testing/random";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
@@ -71,7 +72,7 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	name: "User",
 	email: `${id}@example.test`,
 	accountGeneration: { userId: id, token: "test-account-generation" },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 });
 
 type TokenResponse = { readonly body: unknown; readonly status: number };

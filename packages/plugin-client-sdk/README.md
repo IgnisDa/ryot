@@ -91,9 +91,9 @@ otherwise or after the frame's server or user changes. `usePluginUserSettings(pl
 keyed by local ID that refreshes after mutations, so an operation that calls `updateUserSettings`
 is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
 
-`client.reportingPreferences` (an Effect) and `useReportingPreferences()` read only the account's effective reporting
-`timeZone`, using UTC while unset. This narrow authenticated capability is available to renderers and
-plugins without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
+`client.reportingPreferences` (an Effect) and `useReportingPreferences()` read only the account's
+reporting `timeZone`. This narrow authenticated capability is available to renderers and plugins
+without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
 Compiled client sources import the shared `ReportingSelection` schema and type, `CalendarDate`,
 `ReportingRange`, `ReportingGrouping`, and selection helpers (`reportingSelectionKey`,
 `parseReportingSelection`, `reportingSelectionSearch`, `defaultReportingSelection`, and

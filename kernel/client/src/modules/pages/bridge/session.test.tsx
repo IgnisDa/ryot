@@ -8,6 +8,7 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
 	CLIENT_API_VERSION,
@@ -35,6 +36,7 @@ import {
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginReportingPreferencesOutcome,
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
@@ -177,6 +179,9 @@ const connect = (
 		readonly onBackgroundOperation?: Parameters<
 			typeof openPluginBridge
 		>[0]["onBackgroundOperation"];
+		readonly onReportingPreferences?: Parameters<
+			typeof openPluginBridge
+		>[0]["onReportingPreferences"];
 		readonly onCalendarSourceVisibility?: Parameters<
 			typeof openPluginBridge
 		>[0]["onCalendarSourceVisibility"];
@@ -238,6 +243,7 @@ const connect = (
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
+		onReportingPreferences: options.onReportingPreferences ?? (() => Effect.never),
 		onCalendarSourceVisibility: options.onCalendarSourceVisibility ?? (() => Effect.never),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onPickEntity: (request) => {
@@ -1396,6 +1402,7 @@ describe("plugin bridge", () => {
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				onBackgroundOperation: () => Effect.never,
+				onReportingPreferences: () => Effect.never,
 				onCalendarSourceVisibility: () => Effect.never,
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				onDevice: () => Effect.succeed(invalidDeviceRequest),
@@ -2198,6 +2205,41 @@ describe("plugin bridge", () => {
 			});
 			pluginPort.postMessage({ ...request, installationId: "other", requestId: "settings-3" });
 			expect(calls).toEqual([{ pluginId: "fixture" }, { pluginId: "fixture" }]);
+		}),
+	);
+
+	it.live("answers reporting preference requests without a plugin identity", () =>
+		Effect.gen(function* () {
+			const outcomes: PluginReportingPreferencesOutcome[] = [
+				{ outcome: "success", preferences: { timeZone: TimeZone.make("Asia/Tokyo") } },
+				{ outcome: "failure", reason: "transport" },
+			];
+			const { init, received, pluginPort } = connect({
+				onReportingPreferences: () => {
+					const outcome = outcomes.shift();
+					return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			const request = { type: "reporting-preferences-request" as const };
+			pluginPort.postMessage({ ...request, requestId: "reporting-1" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "success",
+				requestId: "reporting-1",
+				type: "reporting-preferences-result",
+				preferences: { timeZone: "Asia/Tokyo" },
+			});
+			pluginPort.postMessage({ ...request, requestId: "reporting-2" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+			expect(received[2]).toEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "reporting-2",
+				type: "reporting-preferences-result",
+			});
 		}),
 	);
 

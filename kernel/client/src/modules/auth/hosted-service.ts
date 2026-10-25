@@ -1,5 +1,7 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { Browser } from "@capacitor/browser";
+import { REPORTING_TIME_ZONE_HEADER } from "@ryot-app/contract/oauth";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
@@ -187,10 +189,10 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 				if (input.mode === "signup") {
 					yield* request(
 						() =>
-							client().signUp.email({
-								...input.values,
-								name: registrationName(input.values.email),
-							}),
+							client().signUp.email(
+								{ ...input.values, name: registrationName(input.values.email) },
+								{ headers: { [REPORTING_TIME_ZONE_HEADER]: deviceTimeZone() } },
+							),
 						"Could not create your account.",
 					);
 					return { _tag: "Authenticated" } as const;
@@ -219,6 +221,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 					client().signIn.social({
 						provider: "oidc",
 						callbackURL: `${window.location.origin}/oauth/login`,
+						additionalData: { reportingTimeZone: deviceTimeZone() },
 					}),
 				"Could not open the identity provider.",
 			).pipe(Effect.asVoid);

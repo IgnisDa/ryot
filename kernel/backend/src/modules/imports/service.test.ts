@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { PluginId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -39,7 +40,7 @@ const user: CurrentUserValue = {
 	email: "user@example.test",
 	id: ingestionTestScope.userId,
 	accountGeneration: ingestionTestScope.accountGeneration,
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 const source: RegisteredImportSource = {
 	slug: "fixture",

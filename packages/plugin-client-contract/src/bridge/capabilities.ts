@@ -1,3 +1,4 @@
+import { ReportingPreferences } from "@ryot-app/contract/modules/analytics/reporting";
 import {
 	ManagedAssetLocator,
 	ManagedAssetResolutionBatch,
@@ -539,24 +540,15 @@ export type PluginUserSettingsBridgeErrorReason = Schema.Schema.Type<
 	typeof PluginUserSettingsBridgeErrorReason
 >;
 
-const userSettingsRequestVariants = [
-	strictStruct({ pluginId: PluginId }),
-	strictStruct({ kind: Schema.Literal("reporting") }),
-] as const;
-
-export const PluginUserSettingsRequest = Schema.Union(userSettingsRequestVariants);
+export const PluginUserSettingsRequest = strictStruct({ pluginId: PluginId });
 
 export type PluginUserSettingsRequest = Schema.Schema.Type<typeof PluginUserSettingsRequest>;
 
-export const PluginBridgeUserSettingsRequest = Schema.Union(
-	userSettingsRequestVariants.map((variant) =>
-		strictStruct({
-			...variant.fields,
-			requestId: Schema.String,
-			type: Schema.Literal("user-settings-request"),
-		}),
-	),
-);
+export const PluginBridgeUserSettingsRequest = strictStruct({
+	...PluginUserSettingsRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("user-settings-request"),
+});
 
 export type PluginBridgeUserSettingsRequest = Schema.Schema.Type<
 	typeof PluginBridgeUserSettingsRequest
@@ -591,6 +583,63 @@ export const PluginBridgeUserSettingsResult = Schema.Union([
 
 export type PluginBridgeUserSettingsResult = Schema.Schema.Type<
 	typeof PluginBridgeUserSettingsResult
+>;
+
+export const PluginReportingPreferencesBridgeErrorReason = Schema.Literals([
+	"invalid-request",
+	"transport",
+]);
+
+export type PluginReportingPreferencesBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginReportingPreferencesBridgeErrorReason
+>;
+
+export const PluginBridgeReportingPreferencesRequest = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("reporting-preferences-request"),
+});
+
+export type PluginBridgeReportingPreferencesRequest = Schema.Schema.Type<
+	typeof PluginBridgeReportingPreferencesRequest
+>;
+
+const pluginReportingPreferencesSuccessFields = {
+	preferences: ReportingPreferences,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginReportingPreferencesFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginReportingPreferencesBridgeErrorReason,
+};
+
+const pluginBridgeReportingPreferencesResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("reporting-preferences-result"),
+};
+
+export const PluginReportingPreferencesOutcome = Schema.Union([
+	strictStruct(pluginReportingPreferencesSuccessFields),
+	strictStruct(pluginReportingPreferencesFailureFields),
+]);
+
+export type PluginReportingPreferencesOutcome = Schema.Schema.Type<
+	typeof PluginReportingPreferencesOutcome
+>;
+
+export const PluginBridgeReportingPreferencesResult = Schema.Union([
+	strictStruct({
+		...pluginReportingPreferencesSuccessFields,
+		...pluginBridgeReportingPreferencesResultFields,
+	}),
+	strictStruct({
+		...pluginReportingPreferencesFailureFields,
+		...pluginBridgeReportingPreferencesResultFields,
+	}),
+]);
+
+export type PluginBridgeReportingPreferencesResult = Schema.Schema.Type<
+	typeof PluginBridgeReportingPreferencesResult
 >;
 
 export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({

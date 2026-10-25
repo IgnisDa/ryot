@@ -98,7 +98,7 @@ const mountActivity = (clock: ReturnType<typeof createTestRyotClock>) =>
 const reportingPreferenceRequests = (page: ActivityPage) =>
 	page
 		.clientMessages()
-		.filter((message) => message.type === "user-settings-request" && "kind" in message);
+		.filter((message) => message.type === "reporting-preferences-request");
 
 const activityRequests = (page: ActivityPage) =>
 	page
@@ -127,8 +127,8 @@ const replyReportingPreferences = (
 ) =>
 	page.send(
 		outcome === "success"
-			? { outcome, requestId, settings: { timeZone }, type: "user-settings-result" }
-			: { outcome, requestId, reason: "transport", type: "user-settings-result" },
+			? { outcome, requestId, preferences: { timeZone }, type: "reporting-preferences-result" }
+			: { outcome, requestId, reason: "transport", type: "reporting-preferences-result" },
 	);
 
 const replyActivity = (

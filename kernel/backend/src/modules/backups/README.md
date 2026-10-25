@@ -14,9 +14,9 @@ The manifest contains `format: "ryot-backup"`, version 1, archive/application id
 
 `profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
 
-The nullable reporting timezone is preserved exactly. Device initialization of this preference does
-not make a restore target unclean; the archived preference replaces it. Other non-default account
-preferences still make the target unclean.
+The reporting timezone is restored like any other preference. The zone chosen at account creation
+does not make a restore target unclean; the archived preference replaces it. Other non-default
+account preferences still make the target unclean.
 
 ## Streaming
 

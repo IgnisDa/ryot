@@ -3,6 +3,7 @@ import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { derivedFake } from "@ryot-app/testing/fakes";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
@@ -165,7 +166,7 @@ const emptyRecords = {
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 };
 

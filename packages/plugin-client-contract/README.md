@@ -81,6 +81,9 @@ returns the settings record; failures use `invalid-request` or `transport`. Inst
 and defaults belong to the kernel host; hook behavior belongs to the
 [SDK user settings API](../plugin-client-sdk/README.md#capabilities).
 
+`reporting-preferences-request` carries no plugin, installation, or user. Result success returns the
+account's `ReportingPreferences`; failures use `invalid-request` or `transport`.
+
 `enrichment-request` carries the `RequestEntityEnrichmentBody` fields and an entity ID. Its action
 selects a refresh or retry. Result success returns `enrichmentRequestId`, the durable request ID, or
 `null`; failures use `invalid-request` (the plugin does not contribute to

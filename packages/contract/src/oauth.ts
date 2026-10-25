@@ -22,6 +22,7 @@ export const OAUTH_NATIVE_CLIENT_IDS = [
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 ] as const;
 export const OAUTH_CLIENT_IDS = [...OAUTH_WEB_CLIENT_IDS, ...OAUTH_NATIVE_CLIENT_IDS] as const;
+export const REPORTING_TIME_ZONE_HEADER = "x-ryot-reporting-time-zone";
 
 export const AccessClass = Schema.Literals(["standard", "demo"]);
 export type AccessClass = typeof AccessClass.Type;

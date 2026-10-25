@@ -12,7 +12,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { effectiveTimeZone, type TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	type SignalScheduleCandidate,
 	signalSchedulePageRecipe,
@@ -161,8 +161,8 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					now,
 					delayDays: target.delayDays,
 					precision: target.precision,
+					timeZone: target.preferences.reportingTimeZone,
 					maxAgeHours: target.freshness?.maxAgeHours ?? null,
-					timeZone: effectiveTimeZone(target.preferences.reportingTimeZone),
 				});
 				const ledger = {
 					scheduleSlug: target.slug,

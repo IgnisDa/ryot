@@ -6,9 +6,7 @@ import { useEffect } from "react";
 import { PublicApi } from "#/api/public";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
-import { AuthService } from "#/modules/auth/service";
 import { BackgroundSubmissionsProvider } from "#/modules/background-submissions/tray";
-import { useIsDemoSession } from "#/modules/demo-protection";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
@@ -16,7 +14,6 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { PluginCatalogProvider } from "#/modules/plugins/catalog/provider";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
-import { ReportingTimeZoneInitialization } from "#/modules/settings/reporting-time-zone";
 import { AuthenticatedShell } from "#/modules/shell/authenticated-shell";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -114,8 +111,7 @@ function AuthenticatedLoadError() {
 
 function AuthenticatedLayout() {
 	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
-	const { ryot, scope, server, runtime, ryotClients, hostServices } = Route.useRouteContext();
-	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
+	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
 		() =>
@@ -126,7 +122,6 @@ function AuthenticatedLayout() {
 	);
 	return (
 		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
-			<ReportingTimeZoneInitialization disabled={isDemo} key={`${serverUrl}:${userId}`} />
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				<BackgroundSubmissionsProvider
 					scope={scope}

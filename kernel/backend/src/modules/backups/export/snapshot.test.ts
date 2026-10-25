@@ -18,6 +18,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -612,7 +613,7 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 								name: "Owner",
 								preferences: {
 									language: null,
-									reportingTimeZone: null,
+									reportingTimeZone: UTC,
 									disableIntegrations: false,
 								},
 							}),
@@ -973,7 +974,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						Effect.succeed({
 							image: null,
 							name: "Owner",
-							preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 						}),
 				}),
 				Layer.mock(EventsRepository, {

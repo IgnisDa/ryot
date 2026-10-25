@@ -5,6 +5,7 @@ import {
 	type AnalyticsSectionProps,
 	type ReportingSelection,
 	reportingSelectionSearch,
+	TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
@@ -59,15 +60,15 @@ const answerPreferences = (page: ReturnType<typeof mountPluginPage>) =>
 	waitFor(() => {
 		const request = page
 			.clientMessages()
-			.find((message) => message.type === "user-settings-request");
+			.find((message) => message.type === "reporting-preferences-request");
 		if (!request) {
 			throw new Error("No reporting request");
 		}
 		page.send({
 			outcome: "success",
-			type: "user-settings-result",
 			requestId: request.requestId,
-			settings: { timeZone: "Asia/Kolkata" },
+			type: "reporting-preferences-result",
+			preferences: { timeZone: TimeZone.make("Asia/Kolkata") },
 		});
 	});
 
@@ -76,18 +77,16 @@ const answerReportingPreferences = (
 	requestNumber: number,
 	result:
 		| { readonly outcome: "failure"; readonly reason: "transport" }
-		| { readonly outcome: "success"; readonly settings: { readonly timeZone: string } },
+		| { readonly outcome: "success"; readonly preferences: { readonly timeZone: TimeZone } },
 ) =>
 	waitFor(() => {
 		const request = page
 			.clientMessages()
-			.filter((message) => message.type === "user-settings-request" && "kind" in message)[
-			requestNumber - 1
-		];
+			.filter((message) => message.type === "reporting-preferences-request")[requestNumber - 1];
 		if (!request) {
 			throw new Error("No reporting preferences request");
 		}
-		page.send({ ...result, type: "user-settings-result", requestId: request.requestId });
+		page.send({ ...result, requestId: request.requestId, type: "reporting-preferences-result" });
 	});
 
 const mountControls = (search: string) => {
@@ -108,14 +107,17 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 				{ icon: "box", name: "Activity", ...section, load: () => Promise.resolve(FixtureSection) },
 			],
 			onClientMessage: (message) => {
-				if (message.type === "user-settings-request" && "kind" in message) {
+				if (message.type === "reporting-preferences-request") {
 					attempts += 1;
 				}
 			},
 		});
 		page.navigate(routeLocation("/v/k/analytics", `?${search}`));
 		yield* Effect.promise(() =>
-			answerReportingPreferences(page, 1, { outcome: "success", settings: { timeZone: "UTC" } }),
+			answerReportingPreferences(page, 1, {
+				outcome: "success",
+				preferences: { timeZone: TimeZone.make("UTC") },
+			}),
 		);
 		yield* Effect.promise(() =>
 			waitFor(() => {
@@ -145,7 +147,7 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 		yield* Effect.promise(() =>
 			answerReportingPreferences(page, 3, {
 				outcome: "success",
-				settings: { timeZone: "Asia/Kolkata" },
+				preferences: { timeZone: TimeZone.make("Asia/Kolkata") },
 			}),
 		);
 		yield* Effect.promise(() =>
@@ -218,15 +220,15 @@ it.effect(
 				waitFor(() => {
 					const request = page
 						.clientMessages()
-						.find((message) => message.type === "user-settings-request");
+						.find((message) => message.type === "reporting-preferences-request");
 					if (!request) {
 						throw new Error("No reporting request");
 					}
 					page.send({
 						outcome: "success",
-						type: "user-settings-result",
 						requestId: request.requestId,
-						settings: { timeZone: "Europe/Paris" },
+						type: "reporting-preferences-result",
+						preferences: { timeZone: TimeZone.make("Europe/Paris") },
 					});
 				}),
 			);

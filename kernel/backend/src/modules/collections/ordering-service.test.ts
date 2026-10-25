@@ -13,6 +13,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -48,7 +49,7 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	email: `${id}@example.test`,
 	name: id === ownerId ? "Owner" : "Recipient",
 	accountGeneration: { userId: id, token: "test-account-generation" },
-	preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
+	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 });
 
 const lifecycleCommand = (id: string, userId = ownerId) => ({
