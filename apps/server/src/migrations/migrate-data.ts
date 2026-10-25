@@ -22,7 +22,7 @@ import {
 	normalizeLegacyDescriptions,
 } from "./description-normalization";
 import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
-import { seedProjectedEventStreams } from "./event-streams";
+import { seedEventStreams } from "./event-streams";
 import {
 	buildExerciseMigrationSql,
 	exerciseEntityTargets,
@@ -752,7 +752,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				exerciseEntitySchema,
 				eventSchema: workoutSetEventSchema,
 			});
-			yield* seedProjectedEventStreams(connection);
+			yield* seedEventStreams(connection);
 			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
 			yield* connection.executeRaw(buildHistoricalEnrichmentCheckSql(), []);
 		}),

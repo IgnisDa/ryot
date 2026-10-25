@@ -11,18 +11,18 @@ const SeededStream = Schema.Struct({ ...StreamKeySchema.fields, id: Schema.Strin
 
 const decodeStreamKeys = Schema.decodeUnknownEffect(Schema.Array(StreamKeySchema));
 
-const projectedStreamKeysSql = (hasCursor: boolean) => `
-SELECT DISTINCT ev."user_id" AS "userId", ev."entity_id" AS "entityId",
+const streamKeysSql = (hasCursor: boolean) => `
+SELECT ev."user_id" AS "userId", ev."entity_id" AS "entityId",
 	ev."event_schema_slug" AS "eventSchemaSlug", ev."event_schema_plugin_id" AS "eventSchemaPluginId"
 FROM "event" ev
-JOIN "entity" en ON en."id" = ev."entity_id"
-JOIN "plugin" p ON p."id" = ev."event_schema_plugin_id"
-JOIN "definition_entity_schema" es ON es."plugin_revision_id" = p."active_revision_id"
-	AND es."slug" = en."entity_schema_slug"
-JOIN "definition_event_schema" ds ON ds."entity_schema_id" = es."id"
-	AND ds."slug" = ev."event_schema_slug" AND ds."projection" IS NOT NULL
-${hasCursor ? 'WHERE (ev."user_id", ev."entity_id", ev."event_schema_plugin_id", ev."event_schema_slug") > ($1, $2, $3, $4)' : ""}
-ORDER BY 1, 2, 4, 3
+${
+	hasCursor
+		? `WHERE (ev."user_id", ev."entity_id", ev."event_schema_slug") >= ($1, $2, $3)
+	AND (ev."user_id", ev."entity_id", ev."event_schema_slug", coalesce(ev."event_schema_plugin_id", '')) > ($1, $2, $3, $4)`
+		: ""
+}
+GROUP BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, coalesce(ev."event_schema_plugin_id", '')
 LIMIT ${batchSize}
 `;
 
@@ -35,16 +35,21 @@ FROM jsonb_to_recordset($1::jsonb) AS stream(
 ON CONFLICT DO NOTHING
 `;
 
-export const seedProjectedEventStreams = Effect.fn("seedProjectedEventStreams")(function* (
+export const seedEventStreams = Effect.fn("seedEventStreams")(function* (
 	connection: SqlConnection.Connection,
 ) {
 	let cursor: undefined | typeof StreamKeySchema.Type;
 	for (;;) {
 		const rows = yield* connection.execute(
-			projectedStreamKeysSql(cursor !== undefined),
+			streamKeysSql(cursor !== undefined),
 			cursor === undefined
 				? []
-				: [cursor.userId, cursor.entityId, cursor.eventSchemaPluginId, cursor.eventSchemaSlug],
+				: [
+						cursor.userId,
+						cursor.entityId,
+						cursor.eventSchemaSlug,
+						cursor.eventSchemaPluginId ?? "",
+					],
 			undefined,
 		);
 		const keys = yield* decodeStreamKeys(rows).pipe(Effect.orDie);
