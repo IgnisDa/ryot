@@ -81,7 +81,9 @@ for (const testCase of cases) {
 				yield* home
 					.getByRole("status", { exact: true, name: "Loading your media" })
 					.waitFor({ state: "hidden" });
-				yield* home.locator("main > div").locator(":scope > *").last().scrollIntoViewIfNeeded();
+				yield* home.locator("main > div").evaluate((body) => {
+					body.lastElementChild?.scrollIntoView({ block: "end", behavior: "instant" });
+				});
 			}
 			const link = home.getByRole("link", { exact: true, name: "Analytics" });
 			yield* link.waitFor({ state: "visible" });
@@ -90,6 +92,7 @@ for (const testCase of cases) {
 			yield* page.waitForURL(`${getFrontendUrl()}${analyticsPath}`);
 			const iframe = page.locator(iframeSelector);
 			const analytics = iframe.contentFrame();
+			const controls = analytics.getByRole("region", { exact: true, name: "Analytics controls" });
 			yield* analytics.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).waitFor();
 			expect(yield* iframe.count).toBe(1);
 			expect(yield* iframe.getAttribute("sandbox")).toBe("allow-scripts");
@@ -99,7 +102,7 @@ for (const testCase of cases) {
 			expect(
 				yield* page.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).count,
 			).toBe(0);
-			yield* analytics.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+			yield* controls.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
 			const sections = analytics.getByRole("navigation", {
 				exact: true,
 				name: "Analytics sections",
@@ -124,7 +127,7 @@ for (const testCase of cases) {
 			yield* analytics
 				.getByRole("heading", { level: 2, exact: true, name: testCase.contributor })
 				.waitFor();
-			yield* analytics.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+			yield* controls.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
 			expect((yield* getUserSettings(account.client)).preferences.reportingTimeZone).toBe("UTC");
 		}).pipe(PlaywrightSpawner.withBrowser),
 	);

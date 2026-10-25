@@ -124,7 +124,7 @@ function AnalyticsContent(props: {
 					{ value: "measurements", label: "Measurements" },
 				]}
 			/>
-			<div id={panelId} role="tabpanel" aria-labelledby={tabId(panelId, tab)}>
+			<div id={panelId} role="tabpanel" className="min-w-0" aria-labelledby={tabId(panelId, tab)}>
 				{panel}
 			</div>
 			{request === null ? null : (

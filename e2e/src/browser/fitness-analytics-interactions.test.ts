@@ -436,6 +436,16 @@ it.live(
 						plot.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }),
 					),
 			);
+			expect(
+				yield* refreshedFrame
+					.locator("html")
+					.evaluate((html) => html.scrollWidth > html.clientWidth),
+			).toBe(false);
+			expect(
+				yield* page.evaluate(
+					() => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+				),
+			).toBe(false);
 			yield* refreshedChart.waitForFunction((plot) => {
 				const view = plot.ownerDocument.defaultView;
 				const bounds = plot.getBoundingClientRect();

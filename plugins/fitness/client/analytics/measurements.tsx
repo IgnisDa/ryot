@@ -200,10 +200,10 @@ function MeasurementsForOwner(props: {
 				<Button
 					variant="secondary"
 					ref={metricButtonRef}
-					className="self-start"
+					className="max-w-full self-start"
 					onClick={() => setPickerOpen(true)}
 				>
-					{metric?.name ?? "Choose a metric"}
+					<span className="min-w-0 truncate">{metric?.name ?? "Choose a metric"}</span>
 				</Button>
 				{metric === null ? (
 					<p className="text-sm text-text-muted">Choose a metric to view its trend and readings.</p>

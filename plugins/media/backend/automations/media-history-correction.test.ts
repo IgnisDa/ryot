@@ -145,9 +145,16 @@ it.live("never fails while stale bursts alternate with committed steps", () =>
 					data: {
 						work: page([]),
 						scope: page([{ revision: 4 }]),
-						target: page([{ properties: {}, schemaSlug: "movie", missingDependencies: false }]),
 						library: page([
 							{ properties: {}, name: "Library", updatedAt: "2026-01-01T00:00:00.000Z" },
+						]),
+						target: page([
+							{
+								properties: {},
+								schemaSlug: "movie",
+								hasCorrectionInputs: true,
+								missingDependencies: false,
+							},
 						]),
 					},
 				});

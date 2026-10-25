@@ -7,14 +7,88 @@ migration, archive build, or server assembly has run. The analytics plan and mig
 
 ### Current execution checkpoint — 2026-10-30
 
+Post-cleanup acceptance is blocked at Media API 3/4: entity ranking exceeds the unchanged 180-second
+budget. Later post-cleanup browser files, coordinated build/freeze, fresh expectations, and both
+replacement migrations/runtime proofs remain unstarted. The owner declined broader runtime diagnosis
+and requested documentation plus an `o16` checkpoint commit. Investigation, retries, builds, and target
+execution are stopped. Repository-wide checkpoint validation passes: `bun run check` (52 boundary-rule
+tests; 38/38 tasks, 33 cached), then `bun turbo --filter='!@ryot-app/e2e' test` (51/51 tasks, 48 cached).
+Logs are under `order16-checkpoint-validation-rl4l1ez2/` in the approved temporary directory. These
+passes do not supersede the E2E blocker or prove migration/runtime acceptance. No push or overall
+acceptance is requested or claimed.
+
 Current affected checks pass 34/34, and backend validation passes 3,023 tests across 352 files
 (40/40 tasks, 35 cached), including early preparation and queued coalescing. The proven discovery
 helper and corrected account-generation fixture are present in
 the current checkout, including newer unrelated commits that this session preserves.
-Domain package validation also passes 47/47 tasks (Media 1,907 tests; Fitness 675 tests). These are
-package results, not replacement-target migration or runtime acceptance.
+Latest Media validation passes 1,914 tests across 256 files (46/46 tasks, 42 cached); Fitness remains
+675 tests across 102 files from the prior 47/47-task domain run. These are package results, not
+replacement-target migration or runtime acceptance.
 
-The latest observed post-coalescing API run remains 3/4: totals/trends and the 102-Anime source
+An earlier normal Media API run passed **4/4**, including both real 100+2 cursor cases. Entity ranking
+passes in 176.104 seconds with original 50-item batches and the unchanged 180-second budget. The queue
+then stopped at browser paging: its exact first-page date labels differed only between Bun and Chromium
+Intl punctuation. The expectation now formats public source instants in Chromium; exact timestamps,
+facts, quantities, row contents, and pagination assertions remain. Corrected browser paging now passes
+1/1 (88.547 seconds), including the real Show more action and exact 102 rows. Home links now pass 2/2
+after scoped timezone assertions and stable-container scrolling for Media's lazy section. Fitness's
+interaction file now passes 2/2 after constraining its tab panel and selected metric label. The captured
+482-pixel overflow in a 390-pixel viewport is fixed; the fresh 326×200 plot is readable and unclipped.
+Strict full-plot visibility and both horizontal-overflow checks pass. Fitness tests pass 675/675 across
+102 files (46/46 tasks, 42 cached). Backup round-trip acceptance passes 8/8. The writer file stopped
+at 12/13 on an obsolete empty-properties expectation. Its test now requires the exact canonical bases
+on on-hold/dropped events while retaining the no-extra-progress assertion; no writer behavior changed.
+The rerun passes writers 13/13, imports 2/2, and integrations 5/5. All eight focused files have passing
+evidence across serialized isolated runs (37 tests), not one coordinated-freeze run; the later API timeout
+is the current blocker. Evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-hgabnbmm/`.
+Additional Media and post-diagnostic Fitness runs pass 2/2 each; all 5,191 tracked paths are unchanged
+before/after both. Trend/hour and latest Fitness plots are readable and unclipped. Calendar captures
+now include the enclosing Daily consistency card, not only its tiny cell grid. That affected Media
+file passes 2/2 with unchanged sources, and all four contextual calendar images are readable.
+Evidence is under `order16-final-browser-captures-682muwom/` and
+`order16-final-browser-captures-wojg8bby/` in the approved temporary directory.
+Corrected read-only pre-freeze infrastructure checks pass for the three services, both unused legacy
+targets and source-count anchors, and free startup ports (`order16-pre-freeze-infra-bmlws2hq/`).
+The prior probe failed only because its template assumed a storage health-check field; that evidence
+remains preserved. No migration or runtime acceptance follows from these preconditions.
+Main-session cleanup from checkpoint `1bcff025ba` removes 180 net lines of temporary Media fixture
+diagnostics, retaining all writers, canonical readiness, assertions, teardown, and historical evidence.
+Post-cleanup confirmation of the three affected Media files remains before coordinated build/freeze.
+Its first API run stopped at 3/4 on the unchanged 180-second ranking budget (181.601 seconds including
+teardown); all tracked paths stayed unchanged and the two browser files did not run. Evidence is under
+`order16-final-browser-captures-55q01yja/` in the approved temporary directory. The ranking fixture
+was tested with the exact resolved Book schema through the same seeding implementation, removing
+101 redundant admin lookups. That confirmation also remains 3/4: ranking timed out (185.687 seconds
+including teardown), all tracked paths stayed unchanged, and both browser files did not run. Evidence
+is under `order16-final-browser-captures-xuvvj_tj/`. The unsuccessful fixture change is removed; all
+original data, seeding, writers, concurrency, batching, readiness, cursor assertions, and budgets remain.
+Passing/failing span aggregates are retained under `order16-cleanup-ranking-spans-wue2s4ry/`, with zero
+PostgreSQL errors/deadlocks; concurrent span totals do not establish causal-stage timing. The owner
+declined broader runtime-cost diagnosis. Restored-fixture checks pass 34/34 (31 cached), with evidence
+under `order16-restored-fixture-check-u2bziq2m/`. Build, freeze, fresh expectations, and replacement-target
+execution remain unstarted.
+
+New approval is required to resume the ranking fix and affected-file confirmation, coordinated
+source/artifact build and freeze, fresh guarded expectations, and both replacement-target acceptance
+sequences. Complete migration exact/schema/assets/silence/group/restart gates, normal automatic
+recovery/readiness, strict live comparisons, and stopped-runtime stability one dump at a time. Preserve
+all evidence and keep tracked documentation unchanged during guarded runs. File2's 107 unavailable
+original assets remain unverified; its conditional overall waiver applies only after all other gates
+pass. Interrupted-migration experiments remain separately unapproved.
+Completed API and initial browser logs are under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-02zgonru/`.
+Passing browser paging and failed Home-link logs are under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-xnitqw0q/`.
+Passing Home-link and failed Fitness visibility logs are under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-weu29ym0/`.
+Passing Fitness and compact-image evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-skbi1w1n/`.
+The same run retains the 8/8 backup pass and prior 12/13 writer result; the later writer/import/integration
+passes supersede that expectation failure. Additional Media captures and Fitness's post-diagnostic
+confirmation pass. No replacement-target acceptance is claimed.
+
+The prior observed post-coalescing API run passed 3/4: totals/trends and the 102-Anime source
 cursor pass (112.503 seconds); entity ranking still times out before its cursor assertions, with
 50 Book pending. It retained 34 read-only snapshots with no observer errors. HEAD and all six
 observed source hashes stayed unchanged. Evidence is under
@@ -35,11 +109,74 @@ truncated-snapshot evidence remains under
 `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-48q9tz1e/`;
 the analytics plan retains its sample details. Latest retained logs show 428 projection-process/331
 publish spans, versus the prior 1,025/118; these counts are spans, not unique jobs. Temporary
-physical-row blocking clears, with no PostgreSQL errors or deadlocks; logical shared-library identity
-remains unproven. Atomic queued coalescing is implemented through the existing background-work
-owner; checks pass 34/34 and backend tests pass 3,023/3,023 after a regression fixture adopted the
+physical-row blocking clears, with no PostgreSQL errors or deadlocks; at that checkpoint, logical
+shared-library identity remained unproven (prior evidence; see the latest diagnosis below). Atomic
+queued coalescing is implemented through the existing background-work owner; checks pass 34/34 and
+backend tests pass 3,023/3,023 after a regression fixture adopted the
 same projection authority. The observed post-coalescing API run remains 3/4, so full acceptance is
-not claimed. Its retained job, repair-phase, and lock-identity snapshots await diagnosis.
+not claimed. At that point, the retained job, repair-phase, and lock-identity snapshots awaited diagnosis;
+see the latest diagnosis below.
+
+Latest diagnosis from `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-api-cni7iope/`:
+snapshots 22–33 before the 03:50:57.299 UTC failure show each of the first 50 Book corrections
+retaining one running silent worker, one stable request key, two run keys, `force=false`, and
+`conflictAttempt=0`; each restarted exactly once from `sourceRevision=1` to `2`, and none finished
+the second pass before failure. Ordinary workers were queued with distinct request/work keys, not
+concurrent writers of the same state. Uncapped snapshot 33 has 271 active jobs: 50 running silent,
+20 queued ordinary, 47 running projections, and 154 queued projections. Every queued projection is
+current; six running claims are stale, so the earlier obsolete-queued-backlog explanation does not
+apply. Root tuples prove a shared logical lock on one Media Library entity. Its 565 conditional
+logged acquisitions averaged 915 ms, with a 2.734 s maximum; these are not p95 or population
+latency, and no deadlock was observed. Only 50 of 101 new Book source events were written; 51
+remained absent in that run. Warning correlation alone did not identify the revision-2 source write.
+The prior test identity remains valid: HEAD `f497` and six source hashes were unchanged, and the test
+finished before commit `1bcff025ba`.
+
+The completed source-write diagnostic remains 3/4: totals/trends and the 102-Anime source cursor pass
+(91.868 seconds); entity ranking times out before cursor assertions. Its 32 read-only snapshots have
+no observer errors; HEAD `1bcff025ba` and ten observed source hashes stayed unchanged. Evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-sources-1v_ca21j/`.
+Snapshot 19 has only an unchanged `complete` event on each first-wave Book at scope revision 1;
+snapshot 20 adds `add-to-media-library` at revision 2, with neither event edited. The membership hook
+writes on each Book and legitimately advances the history guard through `EventsRepository.touchScopes`.
+The aggregate proof passes 22/22 evidence assertions under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-membership-revision-proof-tax_cy3a/`.
+All first 50 corrections reach `done` at revision 2 by snapshot 29; another 50 source writes then
+arrive. This failure has 78 Book sources pending, not the prior run's fixed first-wave backlog.
+No further generic scheduler change is justified. Ten-Book fixture backpressure passed checks 34/34
+(28 cached), but its API run remained 3/4: 40 Books settled before the unchanged 180-second budget,
+with 10 more pending. Its 31 error-free read-only snapshots and unchanged HEAD/ten source hashes
+are retained under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-sources-8v_w7byy/`.
+The unsuccessful fixture change is removed; original 50-item batches and all 101 additions remain.
+A Media-owned fast path now settles fresh flat corrections with no progress, occurrence/coverage
+evidence, or missing dependencies in one guarded `done` checkpoint. It retains source baselines,
+per-record guards, publication gates, real writers, and canonical calculations; progress/evidence
+and episodic corrections keep the paged state machine. Affected checks pass 34/34 (29 cached); Media
+tests pass 1,914/1,914 across 256 files (46/46 tasks, 42 cached), including seven new fast-path and
+exclusion cases. The fast-path run with original 50-item batches remained 3/4, with 30 error-free
+snapshots and unchanged HEAD/12 source hashes under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-sources-8ufh8bgj/`.
+All 101 new Book sources reached `done` at revision 2; the post-timeout capture shows canonical
+`ready` with zero pending/failed sources, not on-time acceptance. A later first-page assertion also
+exposed locale-based expected ID ordering against the query's byte order. The expectation now uses
+direct ID comparison. The aggregate proof is retained under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-flat-ranking-proof-jzihu7nj/`.
+Ten-item batches with the fast path still remained 3/4: 90 Books settled and 100 were written, with
+11 Book sources pending and the last addition not written. Evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-sources-wopgh266/`.
+It retained 30 snapshots and unchanged HEAD/12 source hashes; the observer later failed because
+teardown had stopped its pinned container. That error remains recorded. The normal 25-item run also
+stopped at index 0 with API 3/4 and 16 Book sources pending; the seven remaining files did not run.
+Its log is retained under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-l2oxocgn/`.
+Backpressure is removed. The successful normal API run retains only the fast path and byte-order
+expectation fix, with original 50-item batches, one final correction wait, and no diagnostic observer.
+All data, real writers, readiness, totals, 100+2 cursor assertions, and the 180-second budget remain.
+Checks pass 34/34 (31 cached). That queue passed API 4/4, then stopped at browser paging on the Intl
+label difference described above. Corrected browser paging, Home links, and Fitness's new visual gate
+and backup, writer, import, and integration files pass across the resumed isolated runs. Additional
+chart captures and post-diagnostic confirmation pass; post-cleanup affected-file confirmation remains.
 
 The tracked-symlink freeze guard remains at 36/36 synthetic/syntax/import cases and nine
 query-document checks, with zero database connections. Its self-lock SHA-256 remains
@@ -50,6 +187,11 @@ with zero manifests written. No coordinated freeze/build, manifest, acceptance-t
 expectation regeneration has occurred; these remain pending all acceptance fixes. The current guard tool is
 `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-live-current-freeze-20261030-m7mb7y7d`
 and its recorded 2,500-path provenance remains unchanged historical evidence only.
+
+The private frozen-runtime launcher is prepared beside `freeze-manifests.py`. Compilation, help, and
+import-only path/environment checks pass, including separate file/file2 storage and logs. It targets
+the verified built backend bundle, not source execution, and records local freeze checks around each
+future process. No actual freeze verification, target startup, or migration has used it.
 
 The former Order16 containers are no longer available in either configured Docker context. Original
 dumps, immutable captures, proof logs, and the file1 asset cache remain. The user explicitly approved

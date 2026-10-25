@@ -48,8 +48,8 @@ const displayedRows = (table: Playwright.Locator) =>
 		})),
 	);
 
-const expectedDisplayedRows = (records: readonly MediaRecord[]) =>
-	records.map((record) => {
+const expectedDisplayedRows = (records: readonly MediaRecord[], dateLabels: readonly string[]) =>
+	records.map((record, index) => {
 		const item = requirePresent(record.facts.consumedItem, "Expected consumed item facts");
 		const basis = requirePresent(record.facts.consumptionBasis, "Expected frozen basis facts");
 		const episodes = requirePresent(record.contribution.episodes, "Expected episode contribution");
@@ -62,11 +62,7 @@ const expectedDisplayedRows = (records: readonly MediaRecord[]) =>
 				record.name,
 				"Anime",
 				record.eventType,
-				new Intl.DateTimeFormat("en-US", {
-					timeZone: "UTC",
-					timeStyle: "short",
-					dateStyle: "medium",
-				}).format(new Date(attribution.value)),
+				requirePresent(dateLabels[index], "Expected browser-formatted UTC date"),
 				[
 					`Consumed item position: ${item.unit} position ${item.position}`,
 					`Frozen consumption basis: ${basis.unit} · total ${basis.total} · source property ${basis.property}`,
@@ -199,6 +195,17 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			viewport: { width: 1280, height: 900 },
 		});
 		const page = yield* context.newPage;
+		const expectedDateLabels = yield* page.evaluate(
+			(instants) => {
+				const formatter = new Intl.DateTimeFormat("en-US", {
+					timeZone: "UTC",
+					timeStyle: "short",
+					dateStyle: "medium",
+				});
+				return instants.map((instant) => formatter.format(new Date(instant)));
+			},
+			expectedSources.map(({ occurredAt }) => occurredAt),
+		);
 		yield* signInThroughHostedOAuth(page, account.email, account.password, {
 			entryPath: `/v/k/analytics?${search}`,
 		});
@@ -237,7 +244,9 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		const table = dialog.getByRole("table", { exact: true, name: "Media analytics records" });
 		expect(yield* table.locator("tbody tr").count).toBe(100);
 		const initialRows = yield* displayedRows(table);
-		expect(initialRows).toEqual(expectedDisplayedRows(first.items));
+		expect(initialRows).toEqual(
+			expectedDisplayedRows(first.items, expectedDateLabels.slice(0, 100)),
+		);
 		const showMore = dialog.getByRole("button", { exact: true, name: "Show more records" });
 		yield* showMore.waitFor({ state: "visible" });
 		expect(yield* showMore.isEnabled()).toBe(true);
@@ -246,9 +255,11 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		expect(yield* table.locator("tbody tr").count).toBe(102);
 		expect(yield* showMore.count).toBe(0);
 		const allRows = yield* displayedRows(table);
-		expect(allRows).toEqual(expectedDisplayedRows(records));
+		expect(allRows).toEqual(expectedDisplayedRows(records, expectedDateLabels));
 		expect(allRows.slice(0, 100)).toEqual(initialRows);
-		expect(allRows.slice(100)).toEqual(expectedDisplayedRows(second.items));
+		expect(allRows.slice(100)).toEqual(
+			expectedDisplayedRows(second.items, expectedDateLabels.slice(100)),
+		);
 		expect(new Set(allRows.map(({ dateTime }) => dateTime)).size).toBe(102);
 		expect(allRows.map(({ dateTime }) => dateTime)).toEqual(
 			expectedSources.map(({ occurredAt }) => occurredAt),

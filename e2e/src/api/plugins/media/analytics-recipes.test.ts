@@ -453,7 +453,12 @@ describe("Media analytics supplemental SQL recipes", () => {
 
 			const expectedEntities = [
 				book,
-				...additions.sort((left, right) => left.id.localeCompare(right.id)),
+				...additions.sort((left, right) => {
+					if (left.id === right.id) {
+						return 0;
+					}
+					return left.id < right.id ? -1 : 1;
+				}),
 			];
 			const firstPage = yield* executeRyotQLRecipe(
 				client,

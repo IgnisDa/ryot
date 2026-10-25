@@ -856,6 +856,10 @@ publish step itself is recorded as read, matching the rule that later provider c
 a past completion. A retained inventory is not recaptured. Each invocation runs at most eight steps,
 then admits a deterministic continuation. Source and evidence reads are paged; inventory writes contain
 at most 50 episodes, and audit, prune, and sweep handle up to 25 records per step.
+Flat media with no progress, completion occurrences, temporary coverage, or missing child dependencies
+settles a fresh run in one guarded checkpoint. Explicit completions and independent numbered items
+need no empty audit/progress/prune/clear checkpoints. Existing correction evidence and episodic
+coverage still use the paged state machine.
 Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Ten
 consecutive continuations that commit no step fail the job; any committed step resets the count. Large
 repairs can become visible in stages. The Activity tab shows pending or failed work and offers Try

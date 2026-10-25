@@ -313,7 +313,7 @@ describe("Media activity log operation", () => {
 		}),
 	);
 
-	it.live("writes backlog, on hold and dropped events without properties", () =>
+	it.live("writes status events with frozen bases and no progress quantities", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
@@ -325,18 +325,24 @@ describe("Media activity log operation", () => {
 				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 			});
 
+			const targets = [
+				{ entityId: movie.entityId, basis: { unit: "minutes", property: "runtime" } },
+				{ entityId: showId, basis: { unit: "episodes" } },
+			];
 			for (const status of ["backlog", "on_hold", "dropped"] as const) {
-				for (const entityId of [movie.entityId, showId]) {
+				for (const target of targets) {
 					expect(
 						yield* logMediaActivity(client, {
 							submittedAt: nowIso(),
 							submissionId: crypto.randomUUID(),
-							entry: { status, entityId, kind: "status" },
+							entry: { status, kind: "status", entityId: target.entityId },
 						}),
 					).toEqual({ count: 1, status: "saved" });
-					const events = yield* readEvents(client, entityId, status);
+					const events = yield* readEvents(client, target.entityId, status);
 					expect(events).toHaveLength(1);
-					expect(events[0]?.properties).toEqual({});
+					expect(events[0]?.properties).toEqual(
+						status === "backlog" ? {} : { consumptionBasis: target.basis },
+					);
 				}
 			}
 		}),

@@ -93,9 +93,10 @@ const harness = (
 	input: {
 		schemaSlug?: string;
 		sourceRevision?: number;
-		state?: HistoryCorrection;
 		missingDependencies?: boolean;
+		hasCorrectionInputs?: boolean;
 		inventory?: typeof inventoryRow;
+		state?: null | HistoryCorrection;
 		responses?: readonly ReturnType<typeof reply>[];
 		properties?: Readonly<Record<string, JsonValue>>;
 	} = {},
@@ -103,7 +104,7 @@ const harness = (
 	const commands: UserCommandInput[] = [];
 	const queries: Parameters<ScriptHost["executeRyotql"]>[0][] = [];
 	const responses = [...(input.responses ?? [])];
-	const state = input.state ?? checkpoint();
+	const state = input.state === undefined ? checkpoint() : input.state;
 	const host: Pick<ScriptHost, "executeRyotql" | "commitUserChanges"> = {
 		commitUserChanges: (command) => {
 			commands.push(command);
@@ -114,13 +115,14 @@ const harness = (
 			if ("scope" in document.queries) {
 				return Effect.succeed({
 					data: {
-						work: rows([record(state, "checkpoint")]),
 						scope: rows([{ revision: input.sourceRevision ?? 4 }]),
+						work: rows(state === null ? [] : [record(state, "checkpoint")]),
 						library: rows([{ properties: {}, name: "Library", updatedAt: timestamp }]),
 						target: rows([
 							{
 								properties: input.properties ?? {},
 								schemaSlug: input.schemaSlug ?? "movie",
+								hasCorrectionInputs: input.hasCorrectionInputs ?? true,
 								missingDependencies: input.missingDependencies ?? false,
 							},
 						]),
@@ -148,6 +150,84 @@ const harness = (
 	};
 	return { run, host, saved, queries, commands, responses };
 };
+
+it.effect("finishes a fresh flat correction with one guarded checkpoint", () =>
+	Effect.gen(function* () {
+		const test = harness({
+			state: null,
+			sourceRevision: 1,
+			schemaSlug: "book",
+			hasCorrectionInputs: false,
+		});
+		const result = yield* test.run();
+		expect(result.pending).toBe(false);
+		expect(test.queries).toHaveLength(1);
+		expect(test.commands).toHaveLength(1);
+		const creates = test.commands[0]?.events.creates ?? [];
+		expect(creates).toHaveLength(1);
+		expect(creates[0]?.eventSchemaSlug).toBe("history-correction");
+		const saved = yield* Schema.decodeUnknownEffect(HistoryCorrection)(creates[0]?.properties);
+		expect(saved).toMatchObject({
+			step: 1,
+			phase: "done",
+			sourceRevision: 1,
+			runKey: "request:1",
+			requestKey: "request",
+			liveSourceIds: ["source"],
+		});
+		expect(test.commands[0]?.events.baselines).toEqual([
+			{ revision: 1, entityId: EntityId.make("subject") },
+		]);
+		expect(test.commands[0]?.events.changes).toEqual([]);
+	}),
+);
+
+it.effect("finishes a flat correction after source drift without output mutations", () =>
+	Effect.gen(function* () {
+		const test = harness({
+			sourceRevision: 2,
+			schemaSlug: "book",
+			hasCorrectionInputs: false,
+			state: checkpoint({ phase: "done", sourceRevision: 1 }),
+		});
+		const result = yield* test.run();
+		expect(result.pending).toBe(false);
+		expect(test.queries).toHaveLength(1);
+		expect(test.commands).toHaveLength(1);
+		expect(test.commands[0]?.events.creates).toEqual([]);
+		expect(test.saved()).toMatchObject({ step: 1, phase: "done", sourceRevision: 2 });
+		expect(test.commands[0]?.events.baselines).toEqual([
+			{ revision: 2, entityId: EntityId.make("subject") },
+		]);
+		expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
+			"replace:checkpoint",
+		]);
+	}),
+);
+
+it.effect.each([
+	{ schemaSlug: "show", phase: "audit" as const, hasCorrectionInputs: false },
+	{ schemaSlug: "podcast", phase: "audit" as const, hasCorrectionInputs: false },
+	{
+		schemaSlug: "book",
+		missingDependencies: true,
+		hasCorrectionInputs: false,
+		phase: "dependencies" as const,
+	},
+	{ schemaSlug: "book", phase: "audit" as const, hasCorrectionInputs: true },
+])("restarts $schemaSlug correction with $phase when fast-path conditions do not hold", (input) =>
+	Effect.gen(function* () {
+		const test = harness({
+			...input,
+			sourceRevision: 5,
+			state: checkpoint({ phase: "publish", requestKey: "older-request" }),
+		});
+		const result = yield* test.run({ force: true });
+		expect(result.pending).toBe(true);
+		expect(test.queries).toHaveLength(1);
+		expect(test.saved()).toMatchObject({ step: 1, sourceRevision: 5, phase: input.phase });
+	}),
+);
 
 it.effect("restarts from audit on source drift without publishing stale work", () =>
 	Effect.gen(function* () {

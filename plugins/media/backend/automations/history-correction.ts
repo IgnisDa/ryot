@@ -323,6 +323,14 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 	if (context.target.schemaSlug === "podcast") {
 		config = podcastEpisodicKindConfig;
 	}
+	if (
+		restart &&
+		config === undefined &&
+		!context.target.missingDependencies &&
+		!context.target.hasCorrectionInputs
+	) {
+		state.phase = "done";
+	}
 	const inventory = (episodic: EpisodicKindConfig) =>
 		executeRyotqlRecipe(
 			host.executeRyotql,

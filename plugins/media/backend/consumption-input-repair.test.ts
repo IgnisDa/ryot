@@ -51,6 +51,7 @@ const harness = (
 	options: {
 		schemaSlug?: string;
 		state?: HistoryCorrection;
+		hasCorrectionInputs?: boolean;
 		recordResponses?: readonly (readonly unknown[])[];
 		commitFailure?: { readonly message: string; readonly data?: JsonValue };
 	} = {},
@@ -93,6 +94,7 @@ const harness = (
 								properties: {},
 								missingDependencies: false,
 								schemaSlug: options.schemaSlug ?? "movie",
+								hasCorrectionInputs: options.hasCorrectionInputs ?? true,
 							},
 						]),
 					},
@@ -110,6 +112,26 @@ const harness = (
 	const run = () => runSandboxTestScript(definition, input, host, execution);
 	return { run, host, commands, requests, queryKeys, commitAttempts: () => commitAttempts };
 };
+
+it.effect("commits a completed checkpoint for a flat subject without correction inputs", () =>
+	Effect.gen(function* () {
+		const test = harness({ schemaSlug: "book", hasCorrectionInputs: false });
+		expect(yield* test.run()).toBeNull();
+		expect(test.commitAttempts()).toBe(1);
+		expect(test.commands).toHaveLength(1);
+		const creates = test.commands[0]?.events.creates ?? [];
+		expect(creates).toHaveLength(1);
+		expect(creates[0]).toMatchObject({
+			eventSchemaSlug: "history-correction",
+			properties: { phase: "done", liveSourceIds: [] },
+		});
+		expect(test.commands[0]?.events.baselines).toEqual([
+			{ revision: 0, entityId: EntityId.make("subject") },
+		]);
+		expect(test.commands[0]?.events.changes).toEqual([]);
+		expect(test.requests).toEqual([]);
+	}),
+);
 
 it.effect("commits a fresh checkpoint for a new request after a stale completed marker", () =>
 	Effect.gen(function* () {

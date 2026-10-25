@@ -260,7 +260,8 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 					nativePage
 						.locator(iframeSelector)
 						.contentFrame()
-						.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
+						.getByRole("heading", { exact: true, name: "Daily consistency" })
+						.locator("..")
 						.screenshot({
 							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}-calendar.png`,
 						}),

@@ -313,6 +313,8 @@ export const historyCorrectionContextRecipe = defineRecipe(
 		const work = table("event", "correctionWork");
 		const childSource = table("event", "correctionChildSource");
 		const dependency = table("event", "correctionDependency");
+		const progress = table("event", "correctionProgressInput");
+		const evidence = table("event", "correctionEvidenceInput");
 		return {
 			map: ({ library: root, target: subject, work: checkpoint, scope: sourceScope }) =>
 				Result.succeed({
@@ -391,6 +393,36 @@ export const historyCorrectionContextRecipe = defineRecipe(
 									),
 								),
 							}),
+							Schema.Boolean,
+						),
+						hasCorrectionInputs: selectedField(
+							conditional(
+								or(
+									exists(progress, {
+										where: and(
+											own(progress),
+											eq(column(progress, "eventSchemaSlug"), literal("progress")),
+											or(
+												eq(column(progress, "entityId"), literal(input.entityId)),
+												eq(column(progress, "sessionEntityId"), literal(input.entityId)),
+											),
+										),
+									}),
+									exists(evidence, {
+										where: and(
+											own(evidence),
+											eq(column(evidence, "entityId"), literal(input.libraryId)),
+											eq(historyProperty(evidence, "subjectEntityId"), literal(input.entityId)),
+											inArray(
+												column(evidence, "eventSchemaSlug"),
+												["completion-occurrence", "history-coverage"].map(literal),
+											),
+										),
+									}),
+								),
+								literal(true),
+								literal(false),
+							),
 							Schema.Boolean,
 						),
 					},
