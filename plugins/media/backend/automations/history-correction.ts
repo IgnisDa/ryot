@@ -1,4 +1,8 @@
-import type { ScriptHost, UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	isCommitConflict,
+	type ScriptHost,
+	type UserCommandInput,
+} from "@ryot-app/plugin-backend-sdk/core";
 import type { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { Effect, Schema as EffectSchema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -6,6 +10,7 @@ import {
 	castBoolean,
 	castNumber,
 	column,
+	continuationCursor,
 	eq,
 	executeRyotqlRecipe,
 	jsonPath,
@@ -239,27 +244,13 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 
 const maintenancePageSize = 25;
 
-const CommitConflict = EffectSchema.Struct({
-	code: EffectSchema.Literals([
-		"event-stale",
-		"entity-stale",
-		"event-not-found",
-		"mutation-conflict",
-	]),
-});
-
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
+type Page = {
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
+};
 const preserveDecision = (value: CompletionOccurrence): CompletionOccurrence["status"] =>
 	value.status === "suppressed" || value.status === "overridden" ? value.status : "active";
-const validNext = (page: {
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-}) => {
-	if (page.pageInfo.hasMore && page.pageInfo.nextCursor === null) {
-		throw new Error("History page has no continuation cursor");
-	}
-	return page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
-};
 
 export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(function* (
 	host: Host,
@@ -360,21 +351,22 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		state.phase = phase;
 		delete state.after;
 	};
-	const advanceCursor = (after: string | undefined) => {
+	const setAfter = (after: string | undefined) => {
 		if (after === undefined) {
 			delete state.after;
 		} else {
 			state.after = after;
 		}
 	};
-	const finishCoverageItem = (page: {
-		readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-	}) => {
-		advanceCursor(validNext(page));
+	const advanceCursor = Effect.fnUntraced(function* (page: Page) {
+		setAfter(yield* continuationCursor(page.pageInfo));
+	});
+	const finishCoverageItem = Effect.fnUntraced(function* (page: Page) {
+		yield* advanceCursor(page);
 		if (state.after === undefined) {
 			changePhase("sweep");
 		}
-	};
+	});
 	const deactivate = Effect.fnUntraced(function* (row: RecordRow<CompletionOccurrence>) {
 		if (row.properties.status !== "active") {
 			return;
@@ -399,7 +391,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					});
 				}
 			}
-			advanceCursor(validNext(page));
+			yield* advanceCursor(page);
 			if (state.after === undefined) {
 				changePhase("audit");
 			}
@@ -428,7 +420,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					yield* deactivate(row);
 				}
 			}
-			advanceCursor(validNext(page));
+			yield* advanceCursor(page);
 			if (state.after === undefined) {
 				if (phase === "audit") {
 					changePhase("progress");
@@ -548,7 +540,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				}
 			}
 			if (advance) {
-				advanceCursor(validNext(page));
+				yield* advanceCursor(page);
 				if (state.after === undefined) {
 					changePhase("prune");
 				}
@@ -567,7 +559,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					state.cycle += 1;
 					delete state.basisId;
 				}
-				finishCoverageItem(page);
+				yield* finishCoverageItem(page);
 			} else {
 				const saved = yield* records(HistoryCoverage, "history-coverage", {
 					limit: 1,
@@ -583,7 +575,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					if (scratch) {
 						write.remove(scratch);
 					}
-					finishCoverageItem(page);
+					yield* finishCoverageItem(page);
 				} else {
 					let sourceId = source.id;
 					const key = source.properties["completionKey"];
@@ -669,7 +661,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						) {
 							state.closingEventId = source.id;
 							state.coverageFinished = !page.pageInfo.hasMore;
-							advanceCursor(validNext(page));
+							yield* advanceCursor(page);
 							if (!state.basisId) {
 								const candidate = yield* records(CompletionOccurrence, "completion-occurrence", {
 									limit: 1,
@@ -700,7 +692,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 									});
 									delete state.closingEventId;
 									delete state.coverageFinished;
-									advanceCursor(previous.after);
+									setAfter(previous.after);
 								}
 							}
 							if (state.basisId) {
@@ -710,7 +702,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 							}
 							delete state.evidenceAfter;
 						} else {
-							finishCoverageItem(page);
+							yield* finishCoverageItem(page);
 						}
 					}
 				}
@@ -777,7 +769,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						write.create("completion-episode", properties);
 					}
 				}
-				const after = validNext(page);
+				const after = yield* continuationCursor(page.pageInfo);
 				if (after === undefined) {
 					delete state.evidenceAfter;
 				} else {
@@ -919,11 +911,6 @@ const commitStep = Effect.fn("commitHistoryCorrectionStep")(function* (
 				},
 			},
 		})
-		.pipe(
-			Effect.catchIf(
-				(error) => EffectSchema.is(CommitConflict)(error.data),
-				() => Effect.fail(new HistoryCorrectionConflict()),
-			),
-		);
+		.pipe(Effect.catchIf(isCommitConflict, () => Effect.fail(new HistoryCorrectionConflict())));
 	return undefined;
 });

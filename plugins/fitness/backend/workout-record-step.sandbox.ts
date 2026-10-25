@@ -4,7 +4,11 @@ import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
-import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
+import {
+	continuationCursor,
+	executeRyotqlRecipe,
+	IsoDateString,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
 	workoutRecordRowsRecipe,
@@ -47,10 +51,6 @@ const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 	phase: "records",
 	lastOccurredAt: null,
 });
-
-const nextCursor = (page: {
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-}) => (page.pageInfo.hasMore ? page.pageInfo.nextCursor : null);
 
 const measurementsOf = (row: WorkoutRecordRow) => ({
 	reps: row.reps ?? undefined,
@@ -143,23 +143,21 @@ export default defineScript({
 			);
 			const pageStart = checkpoint;
 			const processed = recordPage(page.items, checkpoint, input.dirtyFrom);
-			const cursor = nextCursor(page);
-			if (page.pageInfo.hasMore && cursor === null) {
-				return yield* new WorkoutRecordStepError({ message: "Workout record page has no cursor" });
-			}
-			const nextCheckpoint: WorkoutRecordCheckpoint = page.pageInfo.hasMore
-				? {
-						after: cursor,
-						phase: "records",
-						maxima: processed.maxima,
-						lastOccurredAt: processed.lastOccurredAt,
-					}
-				: {
-						phase: "complete",
-						after: pageStart.after,
-						maxima: pageStart.maxima,
-						lastOccurredAt: processed.lastOccurredAt,
-					};
+			const cursor = yield* continuationCursor(page.pageInfo);
+			const nextCheckpoint: WorkoutRecordCheckpoint =
+				cursor !== undefined
+					? {
+							after: cursor,
+							phase: "records",
+							maxima: processed.maxima,
+							lastOccurredAt: processed.lastOccurredAt,
+						}
+					: {
+							phase: "complete",
+							after: pageStart.after,
+							maxima: pageStart.maxima,
+							lastOccurredAt: processed.lastOccurredAt,
+						};
 			return yield* makeOutput(!page.pageInfo.hasMore, nextCheckpoint, processed.updates);
 		}),
 });

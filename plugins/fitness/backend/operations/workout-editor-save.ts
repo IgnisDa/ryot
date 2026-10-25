@@ -1,4 +1,5 @@
 import {
+	isCommitConflict,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
 	type ScriptHost,
 	type UpdateEventItem,
@@ -7,6 +8,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
+	continuationCursor,
 	executeRyotqlRecipe,
 	type RyotqlRecipeDecodeError,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
@@ -668,13 +670,9 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 					}),
 				);
 				recorded.push(...page.items);
-				if (
-					page.pageInfo.hasMore &&
-					(!page.pageInfo.nextCursor || page.pageInfo.nextCursor === after)
-				) {
-					return yield* invalid("invalid-source");
-				}
-				after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
+				after = yield* continuationCursor(page.pageInfo, after).pipe(
+					Effect.catchTag("RyotqlPaginationError", () => invalid("invalid-source")),
+				);
 			} while (after !== undefined);
 		}
 		const retainedOccurrences = new Set<string>();
@@ -864,26 +862,9 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				: {}),
 		},
 	}).pipe(Effect.mapError((error) => new WorkoutCommandInputError({ message: String(error) })));
-	const committed = yield* host.commitUserChanges(command, options("save")).pipe(
-		Effect.catch((error) =>
-			Effect.gen(function* () {
-				const stale = Schema.decodeUnknownOption(
-					Schema.Struct({
-						code: Schema.Literals([
-							"event-stale",
-							"entity-stale",
-							"concurrent-relationship-change",
-							"mutation-conflict",
-						]),
-					}),
-				)(error.data);
-				if (Option.isSome(stale)) {
-					return yield* conflict();
-				}
-				return yield* Effect.fail(error);
-			}),
-		),
-	);
+	const committed = yield* host
+		.commitUserChanges(command, options("save"))
+		.pipe(Effect.catchIf(isCommitConflict, conflict));
 	for (const result of committed.events) {
 		if (result.itemIdentity.startsWith("set:")) {
 			savedSets.push({ eventId: result.eventId, clientId: result.itemIdentity.slice(4) });

@@ -2,7 +2,6 @@ export { submissionOptionsSchema } from "./core/writes";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
-export { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./core/user-commands";
 export type {
 	EventRecord,
 	CreateEventItem,
@@ -19,6 +18,11 @@ export type {
 	SandboxWorkflowHost,
 	SandboxWorkflowReference,
 } from "./core/script-host";
+export {
+	isCommitConflict,
+	commitUserChangesArgsSchema,
+	commitUserChangesResultSchema,
+} from "./core/user-commands";
 export {
 	requestUserWorkArgsSchema,
 	requestUserWorkDataSchema,

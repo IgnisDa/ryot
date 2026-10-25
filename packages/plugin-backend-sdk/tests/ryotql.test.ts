@@ -3,6 +3,7 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	column,
+	continuationCursor,
 	document,
 	entityReadRecipe,
 	eventReadRecipe,
@@ -146,4 +147,33 @@ describe("readAllRyotqlPages", () => {
 				),
 			).then(({ _tag }) => _tag),
 		).resolves.toBe("Failure"));
+});
+
+const continueFrom = (
+	pageInfo: { hasMore: boolean; nextCursor: null | string },
+	previous?: string,
+) =>
+	Effect.runPromise(
+		continuationCursor(pageInfo, previous).pipe(
+			Effect.catchTag("RyotqlPaginationError", () => Effect.succeed("failed")),
+		),
+	);
+
+describe("continuationCursor", () => {
+	it("ends on the last page and advances otherwise", () =>
+		expect(
+			Promise.all([
+				continueFrom({ hasMore: false, nextCursor: "ignored" }),
+				continueFrom({ hasMore: true, nextCursor: "b" }, "a"),
+			]),
+		).resolves.toEqual([undefined, "b"]));
+
+	it("fails when a continuing page has no cursor or repeats the previous one", () =>
+		expect(
+			Promise.all([
+				continueFrom({ hasMore: true, nextCursor: null }),
+				continueFrom({ hasMore: true, nextCursor: "" }),
+				continueFrom({ hasMore: true, nextCursor: "a" }, "a"),
+			]),
+		).resolves.toEqual(["failed", "failed", "failed"]));
 });

@@ -1,8 +1,8 @@
-import { userCommandInputSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { isCommitConflict, userCommandInputSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { continuationCursor, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 
 import { applyWorkoutTimes } from "../../shared/workout-editor-properties";
@@ -26,8 +26,6 @@ export const manifest = defineManifest({
 });
 
 type Occurrence = Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number];
-
-const conflictCodes = new Set(["event-stale", "entity-stale", "mutation-conflict"]);
 
 export default defineOperation({
 	manifest,
@@ -70,10 +68,7 @@ export default defineOperation({
 					}),
 				);
 				occurrences.push(...page.items);
-				if (page.pageInfo.hasMore && page.pageInfo.nextCursor === after) {
-					return { kind: "conflict" } as const;
-				}
-				after = page.pageInfo.nextCursor ?? undefined;
+				after = yield* continuationCursor(page.pageInfo, after);
 			} while (after !== undefined);
 			const { entity } = decoded.success;
 			const command = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
@@ -122,14 +117,7 @@ export default defineOperation({
 				})
 				.pipe(
 					Effect.as(true),
-					Effect.catch((error) => {
-						const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
-							error.data,
-						);
-						return reason._tag === "Success" && conflictCodes.has(reason.success.code)
-							? Effect.succeed(false)
-							: Effect.fail(error);
-					}),
+					Effect.catchIf(isCommitConflict, () => Effect.succeed(false)),
 				);
 			return saved
 				? ({ kind: "saved", entityId: input.entityId } as const)

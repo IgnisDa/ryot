@@ -52,6 +52,26 @@ export const executeRyotqlRecipe = <Success, Error, Requirements>(
 		}),
 	);
 
+export class RyotqlPaginationError extends Schema.TaggedError<
+	RyotqlPaginationError,
+	{ readonly brand: unique symbol }
+>()("RyotqlPaginationError", { message: Schema.String }) {}
+
+/** The cursor for the next page, or undefined on the last page; fails when a page would not advance. */
+export const continuationCursor = Effect.fnUntraced(function* (
+	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string },
+	previous?: string,
+) {
+	if (!pageInfo.hasMore) {
+		return undefined;
+	}
+	const cursor = pageInfo.nextCursor;
+	if (cursor === null || cursor === "" || cursor === previous) {
+		return yield* new RyotqlPaginationError({ message: "RyotQL pagination did not advance" });
+	}
+	return cursor;
+});
+
 export const readAllRyotqlPages = <Item, Error, Requirements>(
 	loadPage: (
 		after: string | undefined,
@@ -68,19 +88,16 @@ export const readAllRyotqlPages = <Item, Error, Requirements>(
 		const items: Item[] = [];
 		const cursors = new Set<string>();
 		let after: string | undefined;
-		let hasMore = true;
-		while (hasMore) {
+		do {
 			const page = yield* loadPage(after);
 			items.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore) {
-				const cursor = page.pageInfo.nextCursor;
-				if (cursor === null || cursor === "" || cursors.has(cursor)) {
+			after = yield* continuationCursor(page.pageInfo).pipe(Effect.orDie);
+			if (after !== undefined) {
+				if (cursors.has(after)) {
 					return yield* Effect.die("RyotQL pagination did not advance");
 				}
-				cursors.add(cursor);
-				after = cursor;
+				cursors.add(after);
 			}
-		}
+		} while (after !== undefined);
 		return items;
 	});

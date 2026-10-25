@@ -1,12 +1,12 @@
 import { type AutomationInput, defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { continuationCursor, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
@@ -61,10 +61,6 @@ type EventBatchItem = Extract<
 	AutomationInput["automation"]["payload"],
 	{ resource: "event"; operation: "batch" }
 >["items"][number];
-class WorkoutRecordAutomationError extends Schema.TaggedError<
-	WorkoutRecordAutomationError,
-	{ readonly brand: unique symbol }
->()("WorkoutRecordAutomationError", { message: Schema.String }) {}
 
 const snapshotsOf = (item: EventBatchItem): readonly EventSnapshot[] => {
 	if (item.operation === "create") {
@@ -86,7 +82,6 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 		}
 
 		let after: string | undefined;
-		let hasMore: boolean;
 		do {
 			const page = yield* executeRyotqlRecipe(
 				host.executeRyotql,
@@ -103,14 +98,8 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 					recordStepReference,
 				);
 			}
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore && page.pageInfo.nextCursor === null) {
-				return yield* new WorkoutRecordAutomationError({
-					message: "Workout set exercise page is missing its cursor",
-				});
-			}
-			after = page.pageInfo.nextCursor ?? undefined;
-		} while (hasMore);
+			after = yield* continuationCursor(page.pageInfo);
+		} while (after !== undefined);
 		return null;
 	});
 

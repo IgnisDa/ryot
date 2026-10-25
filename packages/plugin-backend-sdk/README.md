@@ -132,7 +132,9 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
 `unavailable-operation`, `invalid-executable-target`, `execution-limit`, and `operation-rejected`.
-Callers can branch on those codes without replacing or parsing the message.
+Callers can branch on those codes without replacing or parsing the message. `isCommitConflict`
+from `core` recognizes a `commitUserChanges` failure whose `data.code` is a contract
+`CommitConflictCode`: the command's baseline changed or vanished concurrently.
 
 An operation that refuses a request for a deterministic, user-correctable reason fails with
 `OperationRejectedError(message)` from `@ryot-app/plugin-backend-sdk/operation`. Its message reaches

@@ -73,3 +73,14 @@ export const UserCommandResult = strictStruct({
 	events: Schema.Array(strictStruct({ eventId: EventId, itemIdentity: Schema.NonEmptyString })),
 });
 export type UserCommandResult = typeof UserCommandResult.Type;
+
+/** Failure codes meaning the command's baseline changed or vanished concurrently. */
+export const CommitConflictCode = Schema.Literals([
+	"event-stale",
+	"entity-stale",
+	"event-not-found",
+	"entity-not-found",
+	"mutation-conflict",
+	"concurrent-relationship-change",
+]);
+export type CommitConflictCode = typeof CommitConflictCode.Type;

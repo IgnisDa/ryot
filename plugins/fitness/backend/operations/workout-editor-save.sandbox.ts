@@ -1,3 +1,4 @@
+import { isCommitConflict } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -25,21 +26,12 @@ export default defineOperation({
 				(
 					error: WorkoutEditorSaveError,
 				): Effect.Effect<WorkoutEditorSaveOutput, WorkoutEditorSaveError> => {
+					if ("data" in error && isCommitConflict(error)) {
+						return Effect.succeed({ kind: "conflict" } as const);
+					}
 					const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
 						"data" in error ? error.data : undefined,
 					);
-					if (
-						reason._tag === "Success" &&
-						[
-							"event-stale",
-							"entity-stale",
-							"event-not-found",
-							"entity-not-found",
-							"mutation-conflict",
-						].includes(reason.success.code)
-					) {
-						return Effect.succeed({ kind: "conflict" } as const);
-					}
 					if (reason._tag === "Success" && reason.success.code === "asset-forbidden") {
 						return Effect.succeed({ kind: "invalid", code: "media-forbidden" } as const);
 					}

@@ -8,6 +8,7 @@ import {
 	ensureUserEntitiesArgsSchema,
 	httpCallArgsSchema,
 	httpCallResultSchema,
+	isCommitConflict,
 	logArgsSchema,
 	recoverPartialCreateEvents,
 	spanArgsSchema,
@@ -411,5 +412,18 @@ describe("asRecord", () => {
 
 	test.each([null, undefined, [], [1], "text", 3, true])("rejects %j", (value) => {
 		expect(asRecord(value)).toBeNull();
+	});
+});
+
+describe("isCommitConflict", () => {
+	it("recognizes concurrent baseline failures only", () => {
+		expect(
+			[
+				{ message: "stale", data: { code: "event-stale" } },
+				{ message: "gone", data: { code: "entity-not-found" } },
+				{ message: "denied", data: { code: "asset-forbidden" } },
+				{ message: "no code" },
+			].map(isCommitConflict),
+		).toEqual([true, true, false, false]);
 	});
 });
