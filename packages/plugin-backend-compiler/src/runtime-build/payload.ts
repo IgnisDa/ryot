@@ -9,7 +9,8 @@ import {
 	SandboxRuntimeBuildError,
 } from "./registry";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = (value: unknown) =>
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(Effect.orDie);
 
 export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 	Effect.gen(function* () {
@@ -53,7 +54,10 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 				[sdkImport, ...aliases].map((specifier) => [specifier, `./${runtimeFile}`]),
 			),
 		);
-		const importMapFile = { path: "import-map.json", contents: `${encodeJson({ imports })}\n` };
+		const importMapFile = {
+			path: "import-map.json",
+			contents: `${yield* encodeJson({ imports })}\n`,
+		};
 		const metadataWithoutFiles = {
 			format: 1 as const,
 			viteVersion: yield* resolveViteVersion(resolveFrom),
@@ -76,7 +80,7 @@ export const buildSandboxRuntimePayload = (resolveFrom: string) =>
 		};
 		const files = [
 			...contentFiles,
-			{ path: "runtime-metadata.json", contents: `${encodeJson(metadata)}\n` },
+			{ path: "runtime-metadata.json", contents: `${yield* encodeJson(metadata)}\n` },
 		].sort(({ path: left }, { path: right }) => left.localeCompare(right));
 		return { files, metadata, contentHash: canonicalFileSetHash(files) };
 	});

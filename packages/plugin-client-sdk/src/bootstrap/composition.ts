@@ -3,7 +3,7 @@ import {
 	type ClientCompositionModuleReference,
 } from "@ryot-app/contract/modules/pages/schemas";
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
-import { Effect, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 import type { ComponentType } from "react";
 
 import type { AnalyticsSectionProps } from "../analytics/sections";
@@ -28,7 +28,7 @@ const defaultDependencies: CompositionDependencies = {
 	loadModule: (specifier) => import(/* @vite-ignore */ specifier),
 };
 
-const decodeDescriptor = Schema.decodeUnknownSync(ClientCompositionDocument.fields.descriptor);
+const decodeDescriptor = Schema.decodeUnknownResult(ClientCompositionDocument.fields.descriptor);
 
 const readDescriptor = () => {
 	const element = document.getElementById(CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID);
@@ -41,11 +41,11 @@ const readDescriptor = () => {
 	} catch {
 		throw new Error("Client composition descriptor is not valid JSON");
 	}
-	try {
-		return decodeDescriptor(parsed);
-	} catch {
+	const descriptor = decodeDescriptor(parsed);
+	if (Result.isFailure(descriptor)) {
 		throw new Error("Client composition descriptor has an invalid shape");
 	}
+	return descriptor.success;
 };
 
 const exported = <Value>(

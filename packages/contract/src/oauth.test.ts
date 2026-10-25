@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Schema } from "effect";
 
 import {
 	AccessClass,
@@ -17,22 +17,26 @@ import {
 } from "./oauth";
 
 describe("OAuth access and client classes", () => {
-	it.each(["standard", "demo"])("accepts the %s access class", (accessClass) => {
-		expect(Schema.decodeUnknownSync(AccessClass)(accessClass)).toBe(accessClass);
-	});
+	it.effect.each(["standard", "demo"])("accepts the %s access class", (accessClass) =>
+		Effect.gen(function* () {
+			expect(yield* Schema.decodeUnknownEffect(AccessClass)(accessClass)).toBe(accessClass);
+		}),
+	);
 
-	it("distinguishes web clients from the native client", () => {
-		expect(OAUTH_WEB_CLIENT_IDS).toEqual([
-			"ryot-web",
-			OAUTH_DEMO_WEB_CLIENT_ID,
-			"ryot-impersonation-web",
-		]);
-		expect(Schema.decodeSync(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
-			OAUTH_DEMO_WEB_CLIENT_ID,
-		);
-		expect(() => Schema.decodeUnknownSync(WebOAuthClientId)("ryot-native")).toThrow();
-		expect(() => Schema.decodeUnknownSync(NativeOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toThrow();
-	});
+	it.effect("distinguishes web clients from the native client", () =>
+		Effect.gen(function* () {
+			expect(OAUTH_WEB_CLIENT_IDS).toEqual([
+				"ryot-web",
+				OAUTH_DEMO_WEB_CLIENT_ID,
+				"ryot-impersonation-web",
+			]);
+			expect(yield* Schema.decodeEffect(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
+				OAUTH_DEMO_WEB_CLIENT_ID,
+			);
+			yield* Effect.flip(Schema.decodeUnknownEffect(WebOAuthClientId)("ryot-native"));
+			yield* Effect.flip(Schema.decodeUnknownEffect(NativeOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID));
+		}),
+	);
 });
 
 describe("NativeOAuthApplicationId", () => {
@@ -40,13 +44,17 @@ describe("NativeOAuthApplicationId", () => {
 		expect(OAUTH_NATIVE_APPLICATION_IDS).toEqual(["io.ryot.app", "io.ryot.app.dev"]);
 	});
 
-	it.each(OAUTH_NATIVE_APPLICATION_IDS)("accepts %s", (applicationId) => {
-		expect(Schema.decodeSync(NativeOAuthApplicationId)(applicationId)).toBe(applicationId);
-	});
+	it.effect.each(OAUTH_NATIVE_APPLICATION_IDS)("accepts %s", (applicationId) =>
+		Effect.gen(function* () {
+			expect(yield* Schema.decodeEffect(NativeOAuthApplicationId)(applicationId)).toBe(
+				applicationId,
+			);
+		}),
+	);
 
-	it("rejects an unknown application ID", () => {
-		expect(() => Schema.decodeUnknownSync(NativeOAuthApplicationId)("io.ryot.app.test")).toThrow();
-	});
+	it.effect("rejects an unknown application ID", () =>
+		Effect.flip(Schema.decodeUnknownEffect(NativeOAuthApplicationId)("io.ryot.app.test")),
+	);
 });
 
 describe("native OAuth callback URIs", () => {

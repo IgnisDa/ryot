@@ -1,3 +1,4 @@
+import { describe, expect, it, test } from "@effect/vitest";
 import {
 	changeUserRelationshipsArgsSchema,
 	claimPersistentValueResultSchema,
@@ -17,12 +18,9 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { describe, expect, test } from "vitest";
 
 import { defineManifest, defineScript, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 import { asRecord, jsonValueSchema } from "../src/wire";
-
-const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
 
 describe("generic script definitions", () => {
 	test("preserves the manifest, schemas, and inferred implementation", () => {
@@ -45,87 +43,113 @@ describe("generic script definitions", () => {
 });
 
 describe("shared value contracts", () => {
-	test("accepts nested JSON and discriminates host failures", () => {
-		expect(decode(jsonValueSchema)({ nested: [true, 2, null] })).toEqual({
-			nested: [true, 2, null],
-		});
-		expect(() => decode(jsonValueSchema)(Number.NaN)).toThrow();
-		expect(() => decode(jsonValueSchema)(Number.POSITIVE_INFINITY)).toThrow();
-		const cyclic: Record<string, unknown> = {};
-		cyclic["self"] = cyclic;
-		expect(() => decode(jsonValueSchema)(cyclic)).toThrow();
-		expect(() => decode(jsonValueSchema)(Array(1))).toThrow();
-	});
+	it.effect("accepts nested JSON and discriminates host failures", () =>
+		Effect.gen(function* () {
+			expect(yield* Schema.decodeEffect(jsonValueSchema)({ nested: [true, 2, null] })).toEqual({
+				nested: [true, 2, null],
+			});
+			yield* Effect.flip(Schema.decodeEffect(jsonValueSchema)(Number.NaN));
+			yield* Effect.flip(Schema.decodeEffect(jsonValueSchema)(Number.POSITIVE_INFINITY));
+			const cyclic: Record<string, unknown> = {};
+			cyclic["self"] = cyclic;
+			yield* Effect.flip(Schema.decodeUnknownEffect(jsonValueSchema)(cyclic));
+			yield* Effect.flip(Schema.decodeEffect(jsonValueSchema)(Array(1)));
+		}),
+	);
 
-	test("preserves core host result variants", () => {
-		expect(
-			decode(httpCallArgsSchema)([
-				"GET",
-				"https://example.com",
-				{ allowInsecureConnections: true },
-			]),
-		).toEqual(["GET", "https://example.com", { allowInsecureConnections: true }]);
-		expect(
-			decode(httpCallResultSchema)({
+	it.effect("preserves core host result variants", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(httpCallArgsSchema)([
+					"GET",
+					"https://example.com",
+					{ allowInsecureConnections: true },
+				]),
+			).toEqual(["GET", "https://example.com", { allowInsecureConnections: true }]);
+			expect(
+				yield* Schema.decodeEffect(httpCallResultSchema)({
+					success: false,
+					error: "HTTP 429",
+					data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
+				}),
+			).toEqual({
 				success: false,
 				error: "HTTP 429",
 				data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
-			}),
-		).toEqual({
-			success: false,
-			error: "HTTP 429",
-			data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
-		});
-		expect(
-			decode(claimPersistentValueResultSchema)({
-				success: true,
-				data: { claimed: false, value: { owner: "other" } },
-			}),
-		).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
-	});
-
-	test("validates user entity data clearing requests and counts", () => {
-		const args = [
-			{ entityId: "entity-1", entitySchemaSlug: "workspace" },
-			{ idempotencyKey: "clear-1", submittedAt: "2026-01-02T00:00:00.000Z" },
-		] as const;
-		expect(decode(clearUserEntityDataArgsSchema)(args)).toEqual(args);
-		expect(() =>
-			decode(clearUserEntityDataArgsSchema)([{ entityId: "entity-1", entitySchemaSlug: "" }]),
-		).toThrow();
-		const result = {
-			success: true,
-			data: { deletedEventsCount: 2, deletedRelationshipsCount: 3 },
-		} as const;
-		expect(decode(clearUserEntityDataResultSchema)(result)).toEqual(result);
-		for (const count of [-1, 1.5]) {
-			expect(() =>
-				decode(clearUserEntityDataResultSchema)({
+			});
+			expect(
+				yield* Schema.decodeEffect(claimPersistentValueResultSchema)({
 					success: true,
-					data: { deletedEventsCount: count, deletedRelationshipsCount: 0 },
+					data: { claimed: false, value: { owner: "other" } },
 				}),
-			).toThrow();
-		}
-	});
+			).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
+		}),
+	);
 
-	test("acknowledges user settings updates without returning settings", () => {
-		expect(
-			decode(updateUserSettingsResultSchema)({ success: true, data: { saved: true } }),
-		).toEqual({ success: true, data: { saved: true } });
-		expect(() =>
-			decode(updateUserSettingsResultSchema)({ success: true, data: { limit: 3 } }),
-		).toThrow();
-		expect(() =>
-			decode(updateUserSettingsResultSchema)({
+	it.effect("validates user entity data clearing requests and counts", () =>
+		Effect.gen(function* () {
+			const args = [
+				{ entityId: "entity-1", entitySchemaSlug: "workspace" },
+				{ idempotencyKey: "clear-1", submittedAt: "2026-01-02T00:00:00.000Z" },
+			] as const;
+			expect(yield* Schema.decodeEffect(clearUserEntityDataArgsSchema)(args)).toEqual(args);
+			yield* Effect.flip(
+				Schema.decodeEffect(clearUserEntityDataArgsSchema)([
+					{ entityId: "entity-1", entitySchemaSlug: "" },
+				]),
+			);
+			const result = {
 				success: true,
-				data: { saved: true, settings: { limit: 3 } },
-			}),
-		).toThrow();
-	});
+				data: { deletedEventsCount: 2, deletedRelationshipsCount: 3 },
+			} as const;
+			expect(yield* Schema.decodeEffect(clearUserEntityDataResultSchema)(result)).toEqual(result);
+			for (const count of [-1, 1.5]) {
+				yield* Effect.flip(
+					Schema.decodeEffect(clearUserEntityDataResultSchema)({
+						success: true,
+						data: { deletedEventsCount: count, deletedRelationshipsCount: 0 },
+					}),
+				);
+			}
+		}),
+	);
 
-	test("accepts valid log and span batches", () => {
-		expect(
-			decode(logArgsSchema)([
+	it.effect("acknowledges user settings updates without returning settings", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(updateUserSettingsResultSchema)({
+					success: true,
+					data: { saved: true },
+				}),
+			).toEqual({ success: true, data: { saved: true } });
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(updateUserSettingsResultSchema)({
+					success: true,
+					data: { limit: 3 },
+				}),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(updateUserSettingsResultSchema)({
+					success: true,
+					data: { saved: true, settings: { limit: 3 } },
+				}),
+			);
+		}),
+	);
+
+	it.effect("accepts valid log and span batches", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(logArgsSchema)([
+					[
+						{
+							level: "info",
+							message: "Imported entities",
+							attributes: { count: 2, context: { source: "provider" } },
+						},
+					],
+				]),
+			).toEqual([
 				[
 					{
 						level: "info",
@@ -133,141 +157,163 @@ describe("shared value contracts", () => {
 						attributes: { count: 2, context: { source: "provider" } },
 					},
 				],
-			]),
-		).toEqual([
-			[
-				{
-					level: "info",
-					message: "Imported entities",
-					attributes: { count: 2, context: { source: "provider" } },
-				},
-			],
-		]);
-		expect(decode(spanArgsSchema)([[{ name: "provider.import" }]])).toEqual([
-			[{ name: "provider.import" }],
-		]);
-	});
+			]);
+			expect(yield* Schema.decodeEffect(spanArgsSchema)([[{ name: "provider.import" }]])).toEqual([
+				[{ name: "provider.import" }],
+			]);
+		}),
+	);
 
-	test("rejects malformed or excess log and span entries", () => {
-		expect(() => decode(logArgsSchema)([[{ level: "notice", message: "message" }]])).toThrow();
-		expect(() => decode(logArgsSchema)([[{ message: "", level: "error" }]])).toThrow();
-		expect(() =>
-			decode(logArgsSchema)([[{ extra: true, level: "debug", message: "message" }]]),
-		).toThrow();
-		expect(() => decode(spanArgsSchema)([[{ name: "", attributes: {} }]])).toThrow();
-		expect(() => decode(spanArgsSchema)([[{ extra: true, name: "span" }]])).toThrow();
-	});
+	it.effect("rejects malformed or excess log and span entries", () =>
+		Effect.gen(function* () {
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(logArgsSchema)([[{ level: "notice", message: "message" }]]),
+			);
+			yield* Effect.flip(Schema.decodeEffect(logArgsSchema)([[{ message: "", level: "error" }]]));
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(logArgsSchema)([
+					[{ extra: true, level: "debug", message: "message" }],
+				]),
+			);
+			yield* Effect.flip(Schema.decodeEffect(spanArgsSchema)([[{ name: "", attributes: {} }]]));
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(spanArgsSchema)([[{ extra: true, name: "span" }]]),
+			);
+		}),
+	);
 
-	test("validates global write batches and reconciliation selectors", () => {
-		expect(
-			decode(upsertGlobalEntitiesArgsSchema)([
-				[
-					{
-						name: "Cooper",
-						populatedAt: null,
-						externalId: "person-1",
-						entitySchemaSlug: "person",
-						properties: { role: "actor" },
-					},
-				],
-				{ maximumTotal: 100 },
-			]),
-		).toHaveLength(2);
-		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: -1 }])).toThrow();
-		expect(() => decode(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: 1.5 }])).toThrow();
-		expect(
-			decode(upsertGlobalRelationshipsArgsSchema)([
-				[
-					{
-						relationshipSchemaSlug: "acted-in",
-						selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
-						relationships: [
-							{ properties: { order: 1 }, targetEntityId: "entry-1", sourceEntityId: "person-1" },
-						],
-					},
-				],
-			]),
-		).toHaveLength(1);
-		expect(() =>
-			decode(upsertGlobalRelationshipsArgsSchema)([
-				[{ relationships: [], selector: { type: "all" }, relationshipSchemaSlug: "acted-in" }],
-			]),
-		).toThrow();
-	});
+	it.effect("validates global write batches and reconciliation selectors", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(upsertGlobalEntitiesArgsSchema)([
+					[
+						{
+							name: "Cooper",
+							populatedAt: null,
+							externalId: "person-1",
+							entitySchemaSlug: "person",
+							properties: { role: "actor" },
+						},
+					],
+					{ maximumTotal: 100 },
+				]),
+			).toHaveLength(2);
+			yield* Effect.flip(
+				Schema.decodeEffect(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: -1 }]),
+			);
+			yield* Effect.flip(
+				Schema.decodeEffect(upsertGlobalEntitiesArgsSchema)([[], { maximumTotal: 1.5 }]),
+			);
+			expect(
+				yield* Schema.decodeEffect(upsertGlobalRelationshipsArgsSchema)([
+					[
+						{
+							relationshipSchemaSlug: "acted-in",
+							selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
+							relationships: [
+								{ properties: { order: 1 }, targetEntityId: "entry-1", sourceEntityId: "person-1" },
+							],
+						},
+					],
+				]),
+			).toHaveLength(1);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(upsertGlobalRelationshipsArgsSchema)([
+					[{ relationships: [], selector: { type: "all" }, relationshipSchemaSlug: "acted-in" }],
+				]),
+			);
+		}),
+	);
 
-	test("validates generic user relationship change batches", () => {
-		const identity = {
-			sourceEntityId: "entity-1",
-			targetEntityId: "collection-1",
-			relationshipSchemaSlug: "member-of",
-		};
-		expect(
-			decode(changeUserRelationshipsArgsSchema)([
-				[{ deletes: [], creates: [{ ...identity, properties: {}, propertiesMode: "replace" }] }],
-			]),
-		).toHaveLength(1);
-		expect(() =>
-			decode(changeUserRelationshipsArgsSchema)([
-				[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
-			]),
-		).toThrow();
-		expect(() =>
-			decode(changeUserRelationshipsArgsSchema)([
-				[{ creates: [], deletes: [], userId: "caller-selected" }],
-			]),
-		).toThrow();
-		expect(() =>
-			decode(changeUserRelationshipsArgsSchema)([
-				[
-					{
-						deletes: Array.from({ length: 50 }, () => identity),
-						creates: Array.from({ length: 51 }, () => ({
-							...identity,
-							properties: {},
-							propertiesMode: "replace",
-						})),
-					},
-				],
-			]),
-		).toThrow();
-	});
+	it.effect("validates generic user relationship change batches", () =>
+		Effect.gen(function* () {
+			const identity = {
+				sourceEntityId: "entity-1",
+				targetEntityId: "collection-1",
+				relationshipSchemaSlug: "member-of",
+			};
+			expect(
+				yield* Schema.decodeEffect(changeUserRelationshipsArgsSchema)([
+					[{ deletes: [], creates: [{ ...identity, properties: {}, propertiesMode: "replace" }] }],
+				]),
+			).toHaveLength(1);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(changeUserRelationshipsArgsSchema)([
+					[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
+				]),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(changeUserRelationshipsArgsSchema)([
+					[{ creates: [], deletes: [], userId: "caller-selected" }],
+				]),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(changeUserRelationshipsArgsSchema)([
+					[
+						{
+							deletes: Array.from({ length: 50 }, () => identity),
+							creates: Array.from({ length: 51 }, () => ({
+								...identity,
+								properties: {},
+								propertiesMode: "replace",
+							})),
+						},
+					],
+				]),
+			);
+		}),
+	);
 
-	test("validates bounded event mutation batches and property patches", () => {
-		const update = {
-			eventId: "event-1",
-			patch: { properties: { remove: ["old"], set: { rating: 5 } } },
-		};
-		expect(decode(updateEventsArgsSchema)([[update]])).toEqual([[update]]);
-		expect(decode(deleteEventsArgsSchema)([["event-1"]])).toEqual([["event-1"]]);
-		expect(() =>
-			decode(updateEventsArgsSchema)([Array.from({ length: 101 }, () => update)]),
-		).toThrow();
-		expect(() =>
-			decode(deleteEventsArgsSchema)([Array.from({ length: 101 }, (_, index) => `event-${index}`)]),
-		).toThrow();
-		expect(() =>
-			decode(updateEventsArgsSchema)([
-				[{ ...update, patch: { properties: { remove: ["rating"], set: { rating: 5 } } } }],
-			]),
-		).toThrow();
-		expect(() =>
-			decode(updateEventsArgsSchema)([[{ ...update, patch: { entityId: "entity-1" } }]]),
-		).not.toThrow();
-	});
+	it.effect("validates bounded event mutation batches and property patches", () =>
+		Effect.gen(function* () {
+			const update = {
+				eventId: "event-1",
+				patch: { properties: { remove: ["old"], set: { rating: 5 } } },
+			};
+			expect(yield* Schema.decodeEffect(updateEventsArgsSchema)([[update]])).toEqual([[update]]);
+			expect(yield* Schema.decodeEffect(deleteEventsArgsSchema)([["event-1"]])).toEqual([
+				["event-1"],
+			]);
+			yield* Effect.flip(
+				Schema.decodeEffect(updateEventsArgsSchema)([Array.from({ length: 101 }, () => update)]),
+			);
+			yield* Effect.flip(
+				Schema.decodeEffect(deleteEventsArgsSchema)([
+					Array.from({ length: 101 }, (_, index) => `event-${index}`),
+				]),
+			);
+			yield* Effect.flip(
+				Schema.decodeEffect(updateEventsArgsSchema)([
+					[{ ...update, patch: { properties: { remove: ["rating"], set: { rating: 5 } } } }],
+				]),
+			);
+			yield* Schema.decodeEffect(updateEventsArgsSchema)([
+				[{ ...update, patch: { entityId: "entity-1" } }],
+			]);
+		}),
+	);
 
-	test("validates user entity ensure batches without accepting caller-owned subject", () => {
-		const item = { properties: {}, name: "Library", entitySchemaSlug: "fixture-library" };
-		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
-		expect(() =>
-			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),
-		).toThrow();
-		expect(() =>
-			decode(ensureUserEntitiesArgsSchema)([[{ ...item, pluginId: "caller-selected" }]]),
-		).toThrow();
-		expect(() =>
-			decode(ensureUserEntitiesArgsSchema)([Array.from({ length: 501 }, () => item)]),
-		).toThrow();
-	});
+	it.effect("validates user entity ensure batches without accepting caller-owned subject", () =>
+		Effect.gen(function* () {
+			const item = { properties: {}, name: "Library", entitySchemaSlug: "fixture-library" };
+			expect(yield* Schema.decodeEffect(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(ensureUserEntitiesArgsSchema)([
+					[{ ...item, userId: "caller-selected" }],
+				]),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(ensureUserEntitiesArgsSchema)([
+					[{ ...item, pluginId: "caller-selected" }],
+				]),
+			);
+			yield* Effect.flip(
+				Schema.decodeEffect(ensureUserEntitiesArgsSchema)([
+					Array.from({ length: 501 }, () => item),
+				]),
+			);
+		}),
+	);
 });
 
 describe("sandbox test hosts", () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it, test } from "@effect/vitest";
 import {
 	automationInputSchema,
 	automationPolicyBatchInputSchema,
@@ -8,7 +9,6 @@ import {
 	defineAutomationPolicy,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { describe, expect, test } from "vitest";
 
 import { sandboxManifestSchema } from "../src/core";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
@@ -29,88 +29,92 @@ const run = () => Effect.succeed(null);
 const policyRun = () => Effect.succeed({ items: [] });
 
 describe("automation definitions", () => {
-	test("rejects authored capabilities on policy manifests at the SDK boundary", () => {
-		for (const capability of [
-			"log",
-			"httpCall",
-			"createEvents",
-			"emitSignal",
-			"sendNotification",
-			"setCachedValue",
-			"claimPersistentValue",
-			"scratch",
-		]) {
-			expect(() =>
-				Schema.decodeUnknownSync(sandboxManifestSchema)({
-					...manifest,
-					automationType: "policy",
-					capabilities: [capability],
-					inputProjection: { event: { properties: ["progress"] } },
-				}),
-			).toThrow();
-		}
-	});
+	it.effect("rejects authored capabilities on policy manifests at the SDK boundary", () =>
+		Effect.gen(function* () {
+			for (const capability of [
+				"log",
+				"httpCall",
+				"createEvents",
+				"emitSignal",
+				"sendNotification",
+				"setCachedValue",
+				"claimPersistentValue",
+				"scratch",
+			]) {
+				yield* Effect.flip(
+					Schema.decodeUnknownEffect(sandboxManifestSchema)({
+						...manifest,
+						automationType: "policy",
+						capabilities: [capability],
+						inputProjection: { event: { properties: ["progress"] } },
+					}),
+				);
+			}
+		}),
+	);
 
-	test("separates request policies from committed-change invocations", () => {
-		const context = {
-			runId: "run-1",
-			triggerId: "trigger-1",
-			hookSlug: "test.policy",
-			executionUserId: "user-1",
-			occurredAt: "2026-09-15T00:00:00.000Z",
-			causation: {
-				depth: 0,
-				source: "api",
-				parentRunId: null,
-				lane: "interactive",
-				parentTriggerId: null,
-				executionId: "command-1",
-				rootExecutionId: "command-1",
-				initiator: { kind: "user", id: "user-1" },
-			},
-		};
-		const request = {
-			...context,
-			payload: {
-				resource: "event",
-				category: "request",
-				operation: "create",
-				draft: {
-					properties: {},
-					entityId: "entity-1",
-					sessionEntityId: null,
-					entitySchemaSlug: "item",
-					eventSchemaPluginId: null,
-					entitySchemaPluginId: null,
-					eventSchemaSlug: "progress",
-					occurredAt: context.occurredAt,
+	it.effect("separates request policies from committed-change invocations", () =>
+		Effect.gen(function* () {
+			const context = {
+				runId: "run-1",
+				triggerId: "trigger-1",
+				hookSlug: "test.policy",
+				executionUserId: "user-1",
+				occurredAt: "2026-09-15T00:00:00.000Z",
+				causation: {
+					depth: 0,
+					source: "api",
+					parentRunId: null,
+					lane: "interactive",
+					parentTriggerId: null,
+					executionId: "command-1",
+					rootExecutionId: "command-1",
+					initiator: { kind: "user", id: "user-1" },
 				},
-			},
-		};
-		expect(
-			Schema.decodeUnknownSync(automationPolicyInputSchema)({ automation: request }).automation
-				.payload,
-		).toMatchObject({ category: "request" });
-		expect(() =>
-			Schema.decodeUnknownSync(automationInputSchema)({ automation: request }),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(automationPolicyInputSchema)({
-				automation: {
-					...context,
-					payload: {
+			};
+			const request = {
+				...context,
+				payload: {
+					resource: "event",
+					category: "request",
+					operation: "create",
+					draft: {
 						properties: {},
-						operation: "emit",
-						actorUserId: null,
-						category: "signal",
-						resource: "signal",
-						signalSchemaPluginId: null,
-						signalSchemaSlug: "changed",
+						entityId: "entity-1",
+						sessionEntityId: null,
+						entitySchemaSlug: "item",
+						eventSchemaPluginId: null,
+						entitySchemaPluginId: null,
+						eventSchemaSlug: "progress",
+						occurredAt: context.occurredAt,
 					},
 				},
-			}),
-		).toThrow();
-	});
+			};
+			expect(
+				(yield* Schema.decodeUnknownEffect(automationPolicyInputSchema)({ automation: request }))
+					.automation.payload,
+			).toMatchObject({ category: "request" });
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(automationInputSchema)({ automation: request }),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(automationPolicyInputSchema)({
+					automation: {
+						...context,
+						payload: {
+							properties: {},
+							operation: "emit",
+							actorUserId: null,
+							category: "signal",
+							resource: "signal",
+							signalSchemaPluginId: null,
+							signalSchemaSlug: "changed",
+						},
+					},
+				}),
+			);
+		}),
+	);
 
 	test("compiles automations and policies to direct entrypoints", () => {
 		const automation = defineAutomation({ run, manifest });
@@ -137,46 +141,48 @@ describe("automation definitions", () => {
 		});
 	});
 
-	test("delivers the immutable signal and causation without an execution query", () => {
-		const input = Schema.decodeSync(automationInputSchema)({
-			automation: {
-				runId: "run-1",
-				executionUserId: null,
-				triggerId: "trigger-1",
-				hookSlug: "test.notify",
-				hookMetadata: { title: "Updated" },
-				occurredAt: "2026-07-29T00:00:00.000Z",
-				payload: {
-					operation: "emit",
-					actorUserId: null,
-					category: "signal",
-					resource: "signal",
-					signalSchemaSlug: "test.updated",
-					signalSchemaPluginId: "plugin-1",
-					properties: { title: "Snapshot" },
+	it.effect("delivers the immutable signal and causation without an execution query", () =>
+		Effect.gen(function* () {
+			const input = yield* Schema.decodeEffect(automationInputSchema)({
+				automation: {
+					runId: "run-1",
+					executionUserId: null,
+					triggerId: "trigger-1",
+					hookSlug: "test.notify",
+					hookMetadata: { title: "Updated" },
+					occurredAt: "2026-07-29T00:00:00.000Z",
+					payload: {
+						operation: "emit",
+						actorUserId: null,
+						category: "signal",
+						resource: "signal",
+						signalSchemaSlug: "test.updated",
+						signalSchemaPluginId: "plugin-1",
+						properties: { title: "Snapshot" },
+					},
+					causation: {
+						depth: 0,
+						parentRunId: null,
+						lane: "interactive",
+						parentTriggerId: null,
+						executionId: "command-1",
+						source: "provider-refresh",
+						rootExecutionId: "command-1",
+						initiator: { id: null, kind: "system" },
+					},
 				},
-				causation: {
-					depth: 0,
-					parentRunId: null,
-					lane: "interactive",
-					parentTriggerId: null,
-					executionId: "command-1",
-					source: "provider-refresh",
-					rootExecutionId: "command-1",
-					initiator: { id: null, kind: "system" },
-				},
-			},
-		});
+			});
 
-		expect(input.automation.payload).toEqual({
-			operation: "emit",
-			actorUserId: null,
-			category: "signal",
-			resource: "signal",
-			signalSchemaSlug: "test.updated",
-			signalSchemaPluginId: "plugin-1",
-			properties: { title: "Snapshot" },
-		});
-		expect(input.automation.hookMetadata).toEqual({ title: "Updated" });
-	});
+			expect(input.automation.payload).toEqual({
+				operation: "emit",
+				actorUserId: null,
+				category: "signal",
+				resource: "signal",
+				signalSchemaSlug: "test.updated",
+				signalSchemaPluginId: "plugin-1",
+				properties: { title: "Snapshot" },
+			});
+			expect(input.automation.hookMetadata).toEqual({ title: "Updated" });
+		}),
+	);
 });

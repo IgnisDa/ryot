@@ -1,3 +1,4 @@
+import { describe, expect, it, test } from "@effect/vitest";
 import { sandboxManifestSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import {
@@ -12,7 +13,6 @@ import type {
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect as RuntimeEffect } from "effect";
-import { describe, expect, test } from "vitest";
 
 class TestWorkflowFailure extends Schema.TaggedError<
 	TestWorkflowFailure,
@@ -601,38 +601,44 @@ describe("workflow definitions", () => {
 		),
 	);
 
-	test("validates direct durable call request shapes", () => {
-		const decode = Schema.decodeUnknownSync(workflowDurableCallRequestSchema);
-		expect(decode({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } })).toEqual({
-			index: 0,
-			name: "wait",
-			kind: "sleep",
-			args: { durationMs: 1000 },
-		});
-		expect(() =>
-			decode({
-				index: 0,
-				name: "activity",
-				kind: "activity",
-				args: { input: {}, operation: "resolve", scriptSlug: "activity.resolve" },
-			}),
-		).toThrow();
-	});
+	it.effect("validates direct durable call request shapes", () =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(workflowDurableCallRequestSchema);
+			expect(
+				yield* decode({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } }),
+			).toEqual({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } });
+			yield* RuntimeEffect.flip(
+				decode({
+					index: 0,
+					name: "activity",
+					kind: "activity",
+					args: { input: {}, operation: "resolve", scriptSlug: "activity.resolve" },
+				}),
+			);
+		}),
+	);
 
-	test("rejects authored capabilities in workflow manifests", () => {
-		const decode = Schema.decodeUnknownSync(sandboxManifestSchema);
-		expect(decode({ kind: "workflow", name: "Workflow", slug: "workflow" })).toEqual({
-			kind: "workflow",
-			name: "Workflow",
-			slug: "workflow",
-		});
-		expect(() =>
-			decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
-		).toThrow();
-		expect(() =>
-			decode({ kind: "workflow", name: "Workflow", slug: "workflow", capabilities: ["httpCall"] }),
-		).toThrow();
-	});
+	it.effect("rejects authored capabilities in workflow manifests", () =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(sandboxManifestSchema);
+			expect(yield* decode({ kind: "workflow", name: "Workflow", slug: "workflow" })).toEqual({
+				kind: "workflow",
+				name: "Workflow",
+				slug: "workflow",
+			});
+			yield* RuntimeEffect.flip(
+				decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
+			);
+			yield* RuntimeEffect.flip(
+				decode({
+					kind: "workflow",
+					name: "Workflow",
+					slug: "workflow",
+					capabilities: ["httpCall"],
+				}),
+			);
+		}),
+	);
 
 	test("exports only deterministic workflow Effect combinators", () => {
 		expect(Object.keys(Effect).sort()).toEqual(["all", "as", "fail", "gen", "succeed"]);

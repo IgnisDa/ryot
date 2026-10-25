@@ -10,7 +10,7 @@ import {
 	type PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
 import { type Hotkey, MotionScrollRoot, useShortcut } from "@ryot-app/plugin-ui-sdk";
-import { Effect, Fiber, Match, Schema } from "effect";
+import { Effect, Fiber, Match, Result, Schema } from "effect";
 import {
 	type AnchorHTMLAttributes,
 	type ComponentType,
@@ -172,8 +172,10 @@ const navigationTargetHref = (target: RyotNavigationTarget) =>
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
 		Match.when({ kind: "saved-view" }, ({ reference }) => {
-			const decoded = Schema.decodeSync(SavedViewReference)(reference);
-			return decoded.kind === "plugin" ? undefined : savedViewPath(decoded);
+			const decoded = Result.getOrUndefined(Schema.decodeResult(SavedViewReference)(reference));
+			return decoded === undefined || decoded.kind === "plugin"
+				? undefined
+				: savedViewPath(decoded);
 		}),
 		Match.when({ kind: "kernel-page" }, ({ page }) => kernelPagePaths[page]),
 		Match.exhaustive,

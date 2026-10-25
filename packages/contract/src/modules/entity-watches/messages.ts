@@ -142,13 +142,13 @@ export type EntityWatchServerMessage = typeof EntityWatchServerMessage.Type;
 export const decodeEntityWatchClientMessage = Schema.decodeUnknownResult(
 	Schema.fromJsonString(EntityWatchClientMessage),
 );
-export const encodeEntityWatchClientMessage = Schema.encodeSync(
+export const encodeEntityWatchClientMessage = Schema.encodeResult(
 	Schema.fromJsonString(EntityWatchClientMessage),
 );
 export const decodeEntityWatchServerMessage = Schema.decodeUnknownResult(
 	Schema.fromJsonString(EntityWatchServerMessage),
 );
-export const encodeEntityWatchServerMessage = Schema.encodeSync(
+export const encodeEntityWatchServerMessage = Schema.encodeResult(
 	Schema.fromJsonString(EntityWatchServerMessage),
 );
 

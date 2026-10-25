@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Schema } from "effect";
 
 import {
 	DownloadResolutionInput,
@@ -8,32 +8,36 @@ import {
 } from "./schemas";
 
 describe("upload response schemas", () => {
-	it("requires an expiry on every download resolution", () => {
-		const item = {
-			expiresAt: "2026-01-01T00:15:00.000Z",
-			asset: { type: "local" as const, key: "permanent/image.png" },
-			downloadUrl: "uploads/local/download?key=permanent%2Fimage.png",
-		};
-		const response = [item];
+	it.effect("requires an expiry on every download resolution", () =>
+		Effect.gen(function* () {
+			const item = {
+				expiresAt: "2026-01-01T00:15:00.000Z",
+				asset: { type: "local" as const, key: "permanent/image.png" },
+				downloadUrl: "uploads/local/download?key=permanent%2Fimage.png",
+			};
+			const response = [item];
 
-		expect(Schema.decodeSync(DownloadResolutionResponse)(response)).toEqual(response);
-		expect(() =>
-			Schema.decodeUnknownSync(DownloadResolutionResponse)([
-				{ asset: item.asset, downloadUrl: item.downloadUrl },
-			]),
-		).toThrow();
-	});
+			expect(yield* Schema.decodeEffect(DownloadResolutionResponse)(response)).toEqual(response);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(DownloadResolutionResponse)([
+					{ asset: item.asset, downloadUrl: item.downloadUrl },
+				]),
+			);
+		}),
+	);
 
-	it("bounds one managed asset resolution batch", () => {
-		const assets = Array.from({ length: MANAGED_ASSET_RESOLUTION_MAX_ASSETS }, (_, index) => ({
-			type: "local" as const,
-			key: `permanent/${index}.png`,
-		}));
-		expect(Schema.decodeSync(DownloadResolutionInput)({ assets })).toEqual({ assets });
-		expect(() =>
-			Schema.decodeSync(DownloadResolutionInput)({
-				assets: [...assets, { type: "local", key: "permanent/overflow.png" }],
-			}),
-		).toThrow();
-	});
+	it.effect("bounds one managed asset resolution batch", () =>
+		Effect.gen(function* () {
+			const assets = Array.from({ length: MANAGED_ASSET_RESOLUTION_MAX_ASSETS }, (_, index) => ({
+				type: "local" as const,
+				key: `permanent/${index}.png`,
+			}));
+			expect(yield* Schema.decodeEffect(DownloadResolutionInput)({ assets })).toEqual({ assets });
+			yield* Effect.flip(
+				Schema.decodeEffect(DownloadResolutionInput)({
+					assets: [...assets, { type: "local", key: "permanent/overflow.png" }],
+				}),
+			);
+		}),
+	);
 });

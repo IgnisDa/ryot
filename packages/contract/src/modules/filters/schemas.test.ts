@@ -1,5 +1,5 @@
-import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	EntityBrowserSavedViewSettings,
@@ -11,22 +11,24 @@ const decodes = <A, I>(schema: Schema.Codec<A, I>, value: unknown) =>
 	Result.isSuccess(Schema.decodeUnknownResult(schema)(value));
 
 describe("filter schemas", () => {
-	it("decodes nested and, or and not trees", () => {
-		const filter = {
-			type: "and",
-			filters: [
-				{ field: "level", operator: "anyOf", values: ["beginner"] },
-				{
-					type: "or",
-					filters: [
-						{ type: "not", filter: { field: "name", value: "squat", operator: "contains" } },
-						{ days: 7, field: "added", operator: "withinLastDays" },
-					],
-				},
-			],
-		};
-		expect(Schema.decodeSync(Filter)(filter)).toEqual(filter);
-	});
+	it.effect("decodes nested and, or and not trees", () =>
+		Effect.gen(function* () {
+			const filter = {
+				type: "and",
+				filters: [
+					{ field: "level", operator: "anyOf", values: ["beginner"] },
+					{
+						type: "or",
+						filters: [
+							{ type: "not", filter: { field: "name", value: "squat", operator: "contains" } },
+							{ days: 7, field: "added", operator: "withinLastDays" },
+						],
+					},
+				],
+			};
+			expect(yield* Schema.decodeEffect(Filter)(filter)).toEqual(filter);
+		}),
+	);
 
 	it("rejects operators paired with the wrong value shape", () => {
 		for (const rule of [

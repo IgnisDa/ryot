@@ -7,7 +7,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import { resultsDataSources, resultsSettings } from "./fixtures/saved-view";
 import ResultsTablePage from "./results-table";
@@ -17,8 +17,8 @@ const filteredSettings = {
 	filterFields: [{ key: "note", type: "text", label: "Note", field: "note", kind: "value" }],
 };
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-const decodeJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 
 const noteRule = { value: "Fin", field: "note", operator: "contains" };
 
@@ -76,7 +76,7 @@ describe("results table", () => {
 
 	it.live("shares the filtered request across unrelated location and viewport updates", () =>
 		Effect.gen(function* () {
-			const search = `filters=${Buffer.from(encodeJson(noteRule)).toString("base64url")}`;
+			const search = `filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`;
 			const page = mountFiltered(search);
 			const first = yield* nextRequest(page, 1);
 			page.navigate(routeLocation("/v/reading-log", `${search}&panel=details`), { compact: true });
@@ -85,7 +85,7 @@ describe("results table", () => {
 			);
 			yield* waitForMessagePortMacrotask;
 			expect(page.queryRequests("resultsTable")).toHaveLength(1);
-			expect(encodeJson(first.document)).toContain("Fin");
+			expect(yield* encodeJson(first.document)).toContain("Fin");
 			answerRows(page, first.requestId, [{ note: "Finished" }]);
 			yield* Effect.promise(() => screen.findByText("Finished"));
 
@@ -123,7 +123,7 @@ describe("results table", () => {
 					const encoded = filtersUpdates(page).at(-1);
 					expect(typeof encoded).toBe("string");
 					expect(decodeJson(Buffer.from(String(encoded), "base64url").toString("utf8"))).toEqual(
-						noteRule,
+						Option.some(noteRule),
 					);
 				}),
 			);
@@ -131,11 +131,11 @@ describe("results table", () => {
 			page.navigate(
 				routeLocation(
 					"/v/reading-log",
-					`filters=${Buffer.from(encodeJson(noteRule)).toString("base64url")}`,
+					`filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`,
 				),
 			);
 			const filtered = yield* nextRequest(page, 2);
-			expect(encodeJson(filtered.document)).toContain("Fin");
+			expect(yield* encodeJson(filtered.document)).toContain("Fin");
 			answerRows(page, filtered.requestId, [{ note: "Finished" }]);
 			yield* Effect.promise(() =>
 				waitFor(() => screen.getByRole("button", { name: "Filters, 1 active filter" })),
@@ -153,7 +153,7 @@ describe("results table", () => {
 	it.live("offers Clear filters when the filter matches nothing", () =>
 		Effect.gen(function* () {
 			const page = mountFiltered(
-				`filters=${Buffer.from(encodeJson(noteRule)).toString("base64url")}`,
+				`filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`,
 			);
 			answerRows(page, (yield* nextRequest(page, 1)).requestId, []);
 			yield* Effect.promise(() =>

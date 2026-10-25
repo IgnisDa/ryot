@@ -48,11 +48,13 @@ export const usePluginStorage = <A>(options: {
 		};
 	}, [client, identity, key, pluginId]);
 	const set = useCallback(
-		(value: A) => {
-			const encoded = Schema.encodeSync(schema)(value);
-			setStored({ value, identity });
-			return Effect.runPromise(client.storage.set(pluginId, key, encoded));
-		},
+		(value: A) =>
+			Effect.runPromise(
+				Schema.encodeEffect(schema)(value).pipe(
+					Effect.tap(() => Effect.sync(() => setStored({ value, identity }))),
+					Effect.flatMap((encoded) => client.storage.set(pluginId, key, encoded)),
+				),
+			),
 		[client, identity, key, pluginId, schema],
 	);
 	const remove = useCallback(() => {

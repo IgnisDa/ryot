@@ -1,6 +1,12 @@
 import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	type PluginPackageId,
+} from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type BackgroundSubmissionOutcome,
@@ -206,19 +212,24 @@ export const entityLocation = (
 	entitySchemaSlug: string,
 	search = "",
 ): PluginEntityLocation =>
-	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
+	PluginEntityLocation.make({
+		search,
+		kind: "entity",
+		entityId: EntityId.make(entityId),
+		entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+	});
 
 export const pluginContributor = (options: {
 	readonly name: string;
 	readonly pluginId: string;
 	readonly packageId: PluginPackageId;
 }) =>
-	Schema.decodeSync(ClientPageCodeContributor)({
+	ClientPageCodeContributor.make({
 		kind: "plugin",
-		pluginId: options.pluginId,
 		packageId: options.packageId,
 		contentHash: `${options.name}-source`,
 		revisionId: `${options.name}-revision`,
+		pluginId: PluginId.make(options.pluginId),
 		installationId: `${options.name}-installation`,
 	});
 
@@ -228,9 +239,9 @@ export const entityPageContext = (options: {
 	readonly exportName: string;
 	readonly entitySchemaSlug: string;
 	readonly params?: undefined | Record<string, string>;
-	readonly settings?: undefined | Record<string, unknown>;
+	readonly settings?: undefined | Record<string, JsonValue>;
 }): ClientPageContext =>
-	Schema.decodeUnknownSync(ClientPageContext)({
+	ClientPageContext.make({
 		view: null,
 		contributors: [],
 		dataSources: null,
@@ -239,20 +250,20 @@ export const entityPageContext = (options: {
 		renderer: { kind: "plugin", pluginId: options.pluginId, exportName: options.exportName },
 		target: {
 			kind: "entity",
-			entityId: options.entityId,
 			entitySchemaPluginId: options.pluginId,
-			entitySchemaSlug: options.entitySchemaSlug,
+			entityId: EntityId.make(options.entityId),
+			entitySchemaSlug: EntitySchemaSlug.make(options.entitySchemaSlug),
 		},
 	});
 
 export const savedViewPageContext = (options: {
 	readonly savedViewId: string;
 	readonly rendererName: string;
-	readonly settings: Record<string, unknown>;
-	readonly dataSources: Record<string, unknown>;
+	readonly dataSources: RyotQLDocument;
+	readonly settings: Record<string, JsonValue>;
 	readonly view?: undefined | { readonly name: string; readonly icon: string };
 }): ClientPageContext =>
-	Schema.decodeUnknownSync(ClientPageContext)({
+	ClientPageContext.make({
 		contributors: [],
 		route: { params: {} },
 		settings: options.settings,
@@ -266,9 +277,9 @@ export const kernelEntityPageContext = (options: {
 	readonly entityId: string;
 	readonly rendererName: string;
 	readonly entitySchemaSlug: string;
-	readonly settings?: undefined | Record<string, unknown>;
+	readonly settings?: undefined | Record<string, JsonValue>;
 }): ClientPageContext =>
-	Schema.decodeUnknownSync(ClientPageContext)({
+	ClientPageContext.make({
 		view: null,
 		contributors: [],
 		dataSources: null,
@@ -277,9 +288,9 @@ export const kernelEntityPageContext = (options: {
 		renderer: { kind: "kernel", name: options.rendererName },
 		target: {
 			kind: "entity",
-			entityId: options.entityId,
 			entitySchemaPluginId: null,
-			entitySchemaSlug: options.entitySchemaSlug,
+			entityId: EntityId.make(options.entityId),
+			entitySchemaSlug: EntitySchemaSlug.make(options.entitySchemaSlug),
 		},
 	});
 

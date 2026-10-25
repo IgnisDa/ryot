@@ -9,7 +9,7 @@ import {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	PLUGIN_KIT_COMPRESSION_IMPORT,
@@ -290,7 +290,7 @@ export const integrationConfirmationWorkflowResultSchema = strictStruct({
 });
 
 const ordinalSchema = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-const encodeCheckpoint = Schema.encodeSync(Schema.fromJsonString(jsonValueSchema));
+const encodeCheckpoint = Schema.encodeResult(Schema.fromJsonString(jsonValueSchema));
 const captureOperation = strictStruct({
 	ordinal: ordinalSchema,
 	handle: Schema.NonEmptyString,
@@ -299,11 +299,14 @@ const captureOperation = strictStruct({
 	phase: Schema.Literals(["collection", "application"]),
 	checkpoint: jsonValueSchema.pipe(
 		Schema.check(
-			Schema.makeFilter(
-				(value) =>
-					new TextEncoder().encode(encodeCheckpoint(value)).byteLength <= 16 * 1024 ||
-					"Ingestion checkpoint exceeds its byte limit",
-			),
+			Schema.makeFilter((value) => {
+				const encoded = encodeCheckpoint(value);
+				return (
+					(Result.isSuccess(encoded) &&
+						new TextEncoder().encode(encoded.success).byteLength <= 16 * 1024) ||
+					"Ingestion checkpoint exceeds its byte limit"
+				);
+			}),
 		),
 	),
 });

@@ -7,8 +7,9 @@ import type { Innertube } from "@ryot-app/plugin-backend-sdk/youtubei";
 import { YTNodes } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 const schema = Schema.Struct({ value: Schema.String });
-const parsed: string = Schema.decodeSync(schema)({ value: "typed" }).value;
-const effectValue: Effect.Effect<string> = Effect.succeed(parsed);
+const effectValue: Effect.Effect<string, Schema.SchemaError> = Schema.decodeEffect(schema)({
+	value: "typed",
+}).pipe(Effect.map(({ value }) => value));
 
 const document: CheerioAPI = load("<main>typed</main>");
 const videoNode = YTNodes.Video;
@@ -25,7 +26,6 @@ const rows: ParseResult<Record<string, string>> = parse<Record<string, string>>(
 
 void xml;
 void rows;
-void parsed;
 void archive;
 void decoded;
 void document;

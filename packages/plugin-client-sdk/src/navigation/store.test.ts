@@ -1,9 +1,9 @@
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	PluginEntityLocation,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
-import { Schema } from "effect";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -21,11 +21,11 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	kind: "route",
 });
 const entityLocation = (entityId: string) =>
-	Schema.decodeSync(PluginEntityLocation)({
-		entityId,
+	PluginEntityLocation.make({
 		search: "",
 		kind: "entity",
-		entitySchemaSlug: "fixture-record",
+		entityId: EntityId.make(entityId),
+		entitySchemaSlug: EntitySchemaSlug.make("fixture-record"),
 	});
 const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,

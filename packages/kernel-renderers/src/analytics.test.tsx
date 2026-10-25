@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "@effect/vitest";
-import { ClientPageContext } from "@ryot-app/plugin-client-contract";
+import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import {
 	analyticsSectionKey,
 	type AnalyticsSectionProps,
@@ -12,7 +12,7 @@ import {
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import AnalyticsPage from "./analytics";
 
@@ -20,7 +20,7 @@ afterEach(() => {
 	disposePluginBridges();
 });
 
-const context = Schema.decodeSync(ClientPageContext)({
+const context: ClientPageContext = {
 	settings: {},
 	contributors: [],
 	dataSources: null,
@@ -28,7 +28,7 @@ const context = Schema.decodeSync(ClientPageContext)({
 	renderer: { kind: "kernel", name: "Analytics" },
 	view: { name: "Analytics", icon: "chart-column" },
 	target: { kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } },
-});
+};
 
 const FixtureSection = ({ owner, timeZone, selection }: AnalyticsSectionProps) => (
 	<p>

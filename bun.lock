@@ -361,6 +361,7 @@
         "effect": "4.1.0",
       },
       "devDependencies": {
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.4",
         "vitest": "4.1.9",
@@ -626,6 +627,7 @@
         "effect": "4.1.0",
       },
       "devDependencies": {
+        "@effect/vitest": "4.1.0",
         "@ryot-app/testing": "workspace:*",
         "vitest": "4.1.9",
       },

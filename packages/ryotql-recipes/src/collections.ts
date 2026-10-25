@@ -505,8 +505,8 @@ export type CollectionMembershipResult = Recipe.Success<typeof collectionMembers
 const CollectionCursor = Schema.fromJsonString(
 	Schema.Struct({ revision: Schema.Int, cursor: Schema.String }),
 );
-const decodeCollectionCursor = Schema.decodeUnknownSync(CollectionCursor);
-const encodeCollectionCursor = Schema.encodeSync(CollectionCursor);
+const decodeCollectionCursor = Schema.decodeUnknownResult(CollectionCursor);
+const encodeCollectionCursor = Schema.encodeResult(CollectionCursor);
 
 export const collectionMembersRecipe = defineRecipe(
 	(
@@ -519,7 +519,9 @@ export const collectionMembersRecipe = defineRecipe(
 			readonly fields?: undefined | CollectionMemberFields;
 		},
 	) => {
-		const cursor = input.after === undefined ? undefined : decodeCollectionCursor(input.after);
+		const decodedCursor =
+			input.after === undefined ? Result.succeed(undefined) : decodeCollectionCursor(input.after);
+		const cursor = Result.getOrUndefined(decodedCursor);
 		const collection = table("entity", "collectionOrder");
 		const tables = collectionMembershipTables();
 		const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } = tables;
@@ -566,35 +568,38 @@ export const collectionMembersRecipe = defineRecipe(
 				}),
 			},
 			map: ({ order, members: page }) =>
-				Result.succeed({
-					orderRevision: order?.revision ?? 0,
-					stale: cursor !== undefined && cursor.revision !== order?.revision,
-					pageInfo: {
-						...page.pageInfo,
-						nextCursor:
-							page.pageInfo.nextCursor === null
-								? null
-								: encodeCollectionCursor({
-										revision: order?.revision ?? 0,
-										cursor: page.pageInfo.nextCursor,
-									}),
-					},
-					items: (cursor !== undefined && cursor.revision !== order?.revision
-						? []
-						: page.items
-					).map((member) => ({
-						name: member.name,
-						presentation: null,
-						entityId: member.entityId,
-						ownerPluginId: member.ownerPluginId,
-						entitySchemaSlug: member.entitySchemaSlug,
-						cells: collectionMemberCells(member, input.fields?.membershipPropertiesSchema ?? null),
-						sync: {
-							populationStatus: member.populationStatus,
-							translationStatus: member.translationStatus,
-						},
+				Result.flatMap(decodedCursor, () =>
+					page.pageInfo.nextCursor === null
+						? Result.succeed(null)
+						: encodeCollectionCursor({
+								revision: order?.revision ?? 0,
+								cursor: page.pageInfo.nextCursor,
+							}),
+				).pipe(
+					Result.map((nextCursor) => ({
+						orderRevision: order?.revision ?? 0,
+						pageInfo: { ...page.pageInfo, nextCursor },
+						stale: cursor !== undefined && cursor.revision !== order?.revision,
+						items: (cursor !== undefined && cursor.revision !== order?.revision
+							? []
+							: page.items
+						).map((member) => ({
+							name: member.name,
+							presentation: null,
+							entityId: member.entityId,
+							ownerPluginId: member.ownerPluginId,
+							entitySchemaSlug: member.entitySchemaSlug,
+							cells: collectionMemberCells(
+								member,
+								input.fields?.membershipPropertiesSchema ?? null,
+							),
+							sync: {
+								populationStatus: member.populationStatus,
+								translationStatus: member.translationStatus,
+							},
+						})),
 					})),
-				}),
+				),
 		};
 	},
 );

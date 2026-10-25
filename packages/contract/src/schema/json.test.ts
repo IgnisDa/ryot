@@ -1,41 +1,47 @@
-import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Schema } from "effect";
 
 import { isJsonValue, JsonValue } from "./json";
+
+const epoch = new Date(0);
 
 class JsonLike {
 	value = "not plain";
 }
 
 describe("JsonValue", () => {
-	it("accepts canonical values, null-prototype records, and shared references", () => {
-		const shared = { enabled: true };
-		const nullPrototype = { value: shared };
-		Reflect.setPrototypeOf(nullPrototype, null);
-		const value = { left: shared, right: nullPrototype, list: [null, "text", 42, false] };
+	it.effect("accepts canonical values, null-prototype records, and shared references", () =>
+		Effect.gen(function* () {
+			const shared = { enabled: true };
+			const nullPrototype = { value: shared };
+			Reflect.setPrototypeOf(nullPrototype, null);
+			const value = { left: shared, right: nullPrototype, list: [null, "text", 42, false] };
 
-		expect(isJsonValue(value)).toBe(true);
-		expect(Schema.decodeSync(JsonValue)(value)).toBe(value);
-	});
+			expect(isJsonValue(value)).toBe(true);
+			expect(yield* Schema.decodeEffect(JsonValue)(value)).toBe(value);
+		}),
+	);
 
-	it("rejects non-JSON scalar and object values", () => {
-		for (const value of [
-			undefined,
-			1n,
-			Symbol("value"),
-			() => undefined,
-			Number.NaN,
-			Number.POSITIVE_INFINITY,
-			new Date(0),
-			new Map(),
-			new Set(),
-			new Uint8Array(),
-			new JsonLike(),
-		]) {
-			expect(isJsonValue(value)).toBe(false);
-			expect(() => Schema.decodeUnknownSync(JsonValue)(value)).toThrow();
-		}
-	});
+	it.effect("rejects non-JSON scalar and object values", () =>
+		Effect.gen(function* () {
+			for (const value of [
+				undefined,
+				1n,
+				Symbol("value"),
+				() => undefined,
+				Number.NaN,
+				Number.POSITIVE_INFINITY,
+				epoch,
+				new Map(),
+				new Set(),
+				new Uint8Array(),
+				new JsonLike(),
+			]) {
+				expect(isJsonValue(value)).toBe(false);
+				yield* Effect.flip(Schema.decodeUnknownEffect(JsonValue)(value));
+			}
+		}),
+	);
 
 	it("rejects symbol keys, sparse arrays, custom array properties, and accessors", () => {
 		const symbolKeyed = { value: true, [Symbol("hidden")]: false };
@@ -65,14 +71,16 @@ describe("JsonValue", () => {
 		expect(accessorRead).toBe(false);
 	});
 
-	it("rejects direct and indirect cycles without rejecting shared values", () => {
-		const direct: Record<string, unknown> = {};
-		direct["self"] = direct;
-		const indirect: unknown[] = [];
-		indirect.push({ indirect });
+	it.effect("rejects direct and indirect cycles without rejecting shared values", () =>
+		Effect.gen(function* () {
+			const direct: Record<string, unknown> = {};
+			direct["self"] = direct;
+			const indirect: unknown[] = [];
+			indirect.push({ indirect });
 
-		expect(isJsonValue(direct)).toBe(false);
-		expect(isJsonValue(indirect)).toBe(false);
-		expect(() => Schema.decodeUnknownSync(JsonValue)(direct)).toThrow();
-	});
+			expect(isJsonValue(direct)).toBe(false);
+			expect(isJsonValue(indirect)).toBe(false);
+			yield* Effect.flip(Schema.decodeUnknownEffect(JsonValue)(direct));
+		}),
+	);
 });

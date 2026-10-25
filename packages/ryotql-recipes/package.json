@@ -17,6 +17,7 @@
 		"effect": "4.1.0"
 	},
 	"devDependencies": {
+		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
 		"vitest": "4.1.9"
 	}

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { ClientPageContext } from "@ryot-app/plugin-client-contract";
+import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -25,7 +25,7 @@ afterEach(() => {
 	}
 });
 
-const calendarContext = Schema.decodeSync(ClientPageContext)({
+const calendarContext: ClientPageContext = {
 	settings: {},
 	contributors: [],
 	dataSources: null,
@@ -33,7 +33,7 @@ const calendarContext = Schema.decodeSync(ClientPageContext)({
 	view: { icon: "calendar", name: "Calendar" },
 	renderer: { kind: "kernel", name: "Calendar" },
 	target: { kind: "saved-view", reference: { kind: "kernel", slug: "calendar" } },
-});
+};
 
 const source = (
 	alias: string,
@@ -218,7 +218,7 @@ const useTimeZone = (timeZone: string) => {
 	});
 };
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const localMonthStart = (year: number, index: number) => new Date(year, index, 1).toISOString();
 
@@ -262,7 +262,7 @@ describe("calendar renderer", () => {
 			const second = yield* answerOccurrences(page, "tasks", [
 				occurrence("Beta", "2026-03-14T00:00:00.000Z", "Second"),
 			]);
-			const document = encodeJson(second.document);
+			const document = yield* encodeJson(second.document);
 			expect(document).toContain("cursor-1");
 			expect(document).toContain("2026-03-01T00:00:00.000Z");
 			expect(document).toContain("2026-04-01T00:00:00.000Z");
@@ -382,7 +382,7 @@ describe("calendar renderer", () => {
 			const page = yield* open({ now: march14, search: "month=2026-01" });
 			yield* answerSources(page, [source("tasks")]);
 			const january = yield* answerOccurrences(page, "tasks", []);
-			expect(encodeJson(january.document)).toContain("2026-01-01T00:00:00.000Z");
+			expect(yield* encodeJson(january.document)).toContain("2026-01-01T00:00:00.000Z");
 			yield* Effect.promise(() => waitFor(() => screen.getByText("January 2026")));
 
 			fireEvent.click(screen.getByRole("button", { name: "Next month" }));
@@ -392,7 +392,7 @@ describe("calendar renderer", () => {
 				),
 			);
 			const february = yield* answerOccurrences(page, "tasks", []);
-			expect(encodeJson(february.document)).toContain("2026-03-01T00:00:00.000Z");
+			expect(yield* encodeJson(february.document)).toContain("2026-03-01T00:00:00.000Z");
 			yield* Effect.promise(() => waitFor(() => screen.getByText("February 2026")));
 
 			fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
@@ -621,9 +621,9 @@ describe("calendar renderer", () => {
 						occurrence("Epsilon", midnight, "Note 11"),
 						occurrence("Epsilon", beforeMidnight, "Note 10"),
 					]);
-					expect(encodeJson(deadlines.document)).toContain("2026-01-01T00:00:00.000Z");
-					expect(encodeJson(deadlines.document)).toContain("2026-02-01T00:00:00.000Z");
-					expect(encodeJson(reminders.document)).toContain(localMonthStart(2026, 0));
+					expect(yield* encodeJson(deadlines.document)).toContain("2026-01-01T00:00:00.000Z");
+					expect(yield* encodeJson(deadlines.document)).toContain("2026-02-01T00:00:00.000Z");
+					expect(yield* encodeJson(reminders.document)).toContain(localMonthStart(2026, 0));
 					expect(rowTexts(yield* daySection("2026-01-01"))).toEqual([stringContaining("Gamma")]);
 					expect(rowTexts(yield* daySection("2026-01-31"))).toEqual([stringContaining("Delta")]);
 					expect(rowTexts(yield* daySection("2026-01-15"))).toEqual([stringContaining("Note 11")]);

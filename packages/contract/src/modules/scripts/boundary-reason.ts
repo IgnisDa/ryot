@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 
 import { PluginId } from "../../schema/brands";
 
@@ -31,16 +31,13 @@ export const SandboxBoundaryReason = Schema.Union([
 
 export type SandboxBoundaryReason = Schema.Codec.Encoded<typeof SandboxBoundaryReason>;
 
-const decodeBoundaryReason = Schema.decodeUnknownSync(SandboxBoundaryReason, {
+const decodeBoundaryReason = Schema.decodeUnknownOption(SandboxBoundaryReason, {
 	onExcessProperty: "error",
 });
 
-export const boundaryReasonOfError = (error: unknown) => {
-	try {
-		return decodeBoundaryReason(
+export const boundaryReasonOfError = (error: unknown) =>
+	Option.getOrUndefined(
+		decodeBoundaryReason(
 			typeof error === "object" && error !== null && "data" in error ? error.data : undefined,
-		);
-	} catch {
-		return undefined;
-	}
-};
+		),
+	);

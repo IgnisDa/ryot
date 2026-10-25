@@ -1,5 +1,5 @@
-import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	AppSchema,
@@ -13,8 +13,6 @@ import {
 	isMissingAppSchemaRequiredValue,
 	materializeAppSchemaChoices,
 } from "./property-schema";
-
-const decodeSchema = (value: unknown) => Schema.decodeUnknownSync(AppSchema)(value);
 
 const enumField = (choices: unknown, defaultValue?: unknown) => ({
 	choices,
@@ -40,100 +38,113 @@ const numberField = (extra: Record<string, unknown>) => ({
 });
 
 describe("AppSchema number normalization", () => {
-	it("requires a round definition", () => {
-		expect(() => decodeSchema({ fields: { progress: numberField({ normalize: {} }) } })).toThrow();
-	});
+	it.effect("requires a round definition", () =>
+		Effect.flip(
+			Schema.decodeEffect(AppSchema)({ fields: { progress: numberField({ normalize: {} }) } }),
+		),
+	);
 });
 
 describe("AppSchema presentation metadata", () => {
-	it("accepts visibility rules", () => {
-		expect(
-			decodeSchema({
-				rules: [
-					{
-						path: ["secret"],
-						kind: "visibility",
-						visibility: { hidden: true },
-						when: { value: true, operator: "neq", path: ["advanced"] },
+	it.effect("accepts visibility rules", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(AppSchema)({
+					rules: [
+						{
+							path: ["secret"],
+							kind: "visibility",
+							visibility: { hidden: true },
+							when: { value: true, operator: "neq", path: ["advanced"] },
+						},
+					],
+					fields: {
+						secret: { type: "string", label: "Secret", description: "An advanced secret" },
+						advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
 					},
-				],
-				fields: {
-					secret: { type: "string", label: "Secret", description: "An advanced secret" },
-					advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
-				},
-			}),
-		).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
-	});
-
-	it("orders positioned fields stably and leaves position optional", () => {
-		const schema = decodeSchema({
-			fields: {
-				last: { label: "Last", type: "string", description: "Last" },
-				alsoLast: { type: "string", label: "Also last", description: "Also last" },
-				first: { position: 1, type: "string", label: "First", description: "First" },
-				second: { position: 2, type: "string", label: "Second", description: "Second" },
-				secondTie: { position: 2, type: "string", label: "Second tie", description: "Second tie" },
-			},
-		});
-
-		expect(getOrderedAppSchemaFieldEntries(schema.fields).map(([key]) => key)).toEqual([
-			"first",
-			"second",
-			"secondTie",
-			"last",
-			"alsoLast",
-		]);
-		expect(schema.fields.last?.position).toBeUndefined();
-	});
-
-	it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
-		"rejects non-finite positions: %s",
-		(position) => {
-			expect(() =>
-				decodeSchema({
-					fields: { value: { position, type: "string", label: "Value", description: "Value" } },
 				}),
-			).toThrow();
-		},
+			).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
+		}),
 	);
 
-	it.each([
+	it.effect("orders positioned fields stably and leaves position optional", () =>
+		Effect.gen(function* () {
+			const schema = yield* Schema.decodeEffect(AppSchema)({
+				fields: {
+					last: { label: "Last", type: "string", description: "Last" },
+					alsoLast: { type: "string", label: "Also last", description: "Also last" },
+					first: { position: 1, type: "string", label: "First", description: "First" },
+					second: { position: 2, type: "string", label: "Second", description: "Second" },
+					secondTie: {
+						position: 2,
+						type: "string",
+						label: "Second tie",
+						description: "Second tie",
+					},
+				},
+			});
+
+			expect(getOrderedAppSchemaFieldEntries(schema.fields).map(([key]) => key)).toEqual([
+				"first",
+				"second",
+				"secondTie",
+				"last",
+				"alsoLast",
+			]);
+			expect(schema.fields.last?.position).toBeUndefined();
+		}),
+	);
+
+	it.effect.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+		"rejects non-finite positions: %s",
+		(position) =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: { value: { position, type: "string", label: "Value", description: "Value" } },
+				}),
+			),
+	);
+
+	it.effect.each([
 		{ kind: "url" },
 		{ kind: "email" },
 		{ kind: "timezone" },
 		{ kind: "upload", allowedFileExtensions: ["csv", "json"] },
 		{ kind: "oauth-connection", provider: "example-service" },
-	])("accepts the $kind string format", (format) => {
-		expect(
-			decodeSchema({
-				fields: { value: { format, type: "string", label: "Value", description: "A value" } },
-			}),
-		).toMatchObject({ fields: { value: { format } } });
-	});
-
-	it.each(["entity-id", "relationship-id"] as const)(
-		"accepts explicit %s reference metadata",
-		(kind) => {
+	])("accepts the $kind string format", (format) =>
+		Effect.gen(function* () {
 			expect(
-				decodeSchema({
-					fields: {
-						value: {
-							type: "string",
-							label: "Reference",
-							description: "Reference value",
-							reference: { kind, required: true },
-						},
-					},
+				yield* Schema.decodeEffect(AppSchema)({
+					fields: { value: { format, type: "string", label: "Value", description: "A value" } },
 				}),
-			).toMatchObject({ fields: { value: { reference: { kind, required: true } } } });
-		},
+			).toMatchObject({ fields: { value: { format } } });
+		}),
 	);
 
-	it.each([{ kind: "entity" }, { required: false, kind: "entity-id" }])(
+	it.effect.each(["entity-id", "relationship-id"] as const)(
+		"accepts explicit %s reference metadata",
+		(kind) =>
+			Effect.gen(function* () {
+				expect(
+					yield* Schema.decodeEffect(AppSchema)({
+						fields: {
+							value: {
+								type: "string",
+								label: "Reference",
+								description: "Reference value",
+								reference: { kind, required: true },
+							},
+						},
+					}),
+				).toMatchObject({ fields: { value: { reference: { kind, required: true } } } });
+			}),
+	);
+
+	it.effect.each([{ kind: "entity" }, { required: false, kind: "entity-id" }])(
 		"rejects invalid reference metadata %#",
-		(reference) => {
-			expect(() =>
-				decodeSchema({
+		(reference) =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
 					fields: {
 						value: {
 							reference,
@@ -143,22 +154,23 @@ describe("AppSchema presentation metadata", () => {
 						},
 					},
 				}),
-			).toThrow();
-		},
+			),
 	);
 
-	it("rejects reference metadata on non-string properties", () => {
-		expect(() =>
-			decodeSchema({ fields: { value: numberField({ reference: { kind: "entity-id" } }) } }),
-		).toThrow();
-	});
+	it.effect("rejects reference metadata on non-string properties", () =>
+		Effect.flip(
+			Schema.decodeEffect(AppSchema)({
+				fields: { value: numberField({ reference: { kind: "entity-id" } }) },
+			}),
+		),
+	);
 
-	it.each([
+	it.effect.each([
 		{ kind: "upload", allowedFileExtensions: ["json"] },
 		{ kind: "oauth-connection", provider: "example-service" },
-	])("rejects defaults for the $kind string format", (format) => {
-		expect(() =>
-			decodeSchema({
+	])("rejects defaults for the $kind string format", (format) =>
+		Effect.flip(
+			Schema.decodeEffect(AppSchema)({
 				fields: {
 					file: {
 						format,
@@ -169,19 +181,19 @@ describe("AppSchema presentation metadata", () => {
 					},
 				},
 			}),
-		).toThrow();
-	});
+		),
+	);
 
-	it.each([
+	it.effect.each([
 		{ allowedFileExtensions: [] },
 		{ allowedFileExtensions: [""] },
 		{ allowedFileExtensions: [" csv"] },
 		{ allowedFileExtensions: ["CSV"] },
 		{ allowedFileExtensions: [".csv"] },
 		{ allowedFileExtensions: ["csv", "csv"] },
-	])("rejects invalid upload extensions %#", ({ allowedFileExtensions }) => {
-		expect(() =>
-			decodeSchema({
+	])("rejects invalid upload extensions %#", ({ allowedFileExtensions }) =>
+		Effect.flip(
+			Schema.decodeEffect(AppSchema)({
 				fields: {
 					file: {
 						label: "File",
@@ -191,8 +203,8 @@ describe("AppSchema presentation metadata", () => {
 					},
 				},
 			}),
-		).toThrow();
-	});
+		),
+	);
 });
 
 describe("AppSchema rule semantics", () => {
@@ -400,21 +412,23 @@ describe("AppSchema rule semantics", () => {
 });
 
 describe("AppSchema enum choices", () => {
-	it("accepts labeled static and dynamic choices", () => {
-		expect(
-			decodeSchema({
-				fields: {
-					region: enumField({ kind: "dynamic", source: "regions" }),
-					status: enumField(
-						{ kind: "static", values: [{ value: "active", label: "Active" }] },
-						"active",
-					),
-				},
-			}),
-		).toMatchObject({ fields: { status: { defaultValue: "active" } } });
-	});
+	it.effect("accepts labeled static and dynamic choices", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(AppSchema)({
+					fields: {
+						region: enumField({ kind: "dynamic", source: "regions" }),
+						status: enumField(
+							{ kind: "static", values: [{ value: "active", label: "Active" }] },
+							"active",
+						),
+					},
+				}),
+			).toMatchObject({ fields: { status: { defaultValue: "active" } } });
+		}),
+	);
 
-	it.each([
+	it.effect.each([
 		{ name: "empty choice values", field: enumField({ values: [], kind: "static" }) },
 		{ name: "blank choice value", field: enumField({ kind: "static", values: [{ value: "  " }] }) },
 		{
@@ -442,13 +456,13 @@ describe("AppSchema enum choices", () => {
 			name: "enum array dynamic default",
 			field: enumArrayField({ kind: "dynamic", source: "statuses" }, ["active"]),
 		},
-	])("rejects $name", ({ field }) => {
-		expect(() => decodeSchema({ fields: { status: field } })).toThrow();
-	});
+	])("rejects $name", ({ field }) =>
+		Effect.flip(Schema.decodeEffect(AppSchema)({ fields: { status: field } })),
+	);
 
-	it("does not accept the removed options property", () => {
-		expect(() =>
-			decodeSchema({
+	it.effect("does not accept the removed options property", () =>
+		Effect.flip(
+			Schema.decodeEffect(AppSchema)({
 				fields: {
 					status: {
 						type: "enum",
@@ -458,8 +472,8 @@ describe("AppSchema enum choices", () => {
 					},
 				},
 			}),
-		).toThrow();
-	});
+		),
+	);
 
 	it("materializes dynamic choices recursively and preserves static fields", () => {
 		const staticField = {
@@ -514,68 +528,78 @@ describe("AppSchema enum choices", () => {
 		}
 	});
 
-	it("reports missing and invalid dynamic choice sources", () => {
-		const schema = decodeSchema({
-			fields: { status: enumField({ kind: "dynamic", source: "statuses" }) },
-		});
+	it.effect("reports missing and invalid dynamic choice sources", () =>
+		Effect.gen(function* () {
+			const schema = yield* Schema.decodeEffect(AppSchema)({
+				fields: { status: enumField({ kind: "dynamic", source: "statuses" }) },
+			});
 
-		const missing = materializeAppSchemaChoices(schema, {});
-		expect(Result.isFailure(missing)).toBe(true);
-		if (Result.isFailure(missing)) {
-			expect(missing.failure).toEqual([
-				{
-					source: "statuses",
-					path: ["fields", "status", "choices", "source"],
-					message: "Choice source 'statuses' for field 'status' was not provided",
-				},
-			]);
-		}
+			const missing = materializeAppSchemaChoices(schema, {});
+			expect(Result.isFailure(missing)).toBe(true);
+			if (Result.isFailure(missing)) {
+				expect(missing.failure).toEqual([
+					{
+						source: "statuses",
+						path: ["fields", "status", "choices", "source"],
+						message: "Choice source 'statuses' for field 'status' was not provided",
+					},
+				]);
+			}
 
-		const invalid = materializeAppSchemaChoices(schema, {
-			statuses: [{ value: "active" }, { value: "active" }],
-		});
-		expect(Result.isFailure(invalid)).toBe(true);
-		if (Result.isFailure(invalid)) {
-			expect(invalid.failure).toEqual([
-				{
-					source: "statuses",
-					path: ["fields", "status", "choices", "values"],
-					message:
-						"Choice source 'statuses' for field 'status' contains invalid or duplicate choice values",
-				},
-			]);
-		}
-	});
+			const invalid = materializeAppSchemaChoices(schema, {
+				statuses: [{ value: "active" }, { value: "active" }],
+			});
+			expect(Result.isFailure(invalid)).toBe(true);
+			if (Result.isFailure(invalid)) {
+				expect(invalid.failure).toEqual([
+					{
+						source: "statuses",
+						path: ["fields", "status", "choices", "values"],
+						message:
+							"Choice source 'statuses' for field 'status' contains invalid or duplicate choice values",
+					},
+				]);
+			}
+		}),
+	);
 });
 
 describe("AppSchema immutable properties", () => {
 	const text = { label: "Name", type: "string", description: "A name" };
 
-	it("collects the immutable top-level properties", () => {
-		const schema = decodeSchema({ fields: { other: text, kind: { ...text, immutable: true } } });
+	it.effect("collects the immutable top-level properties", () =>
+		Effect.gen(function* () {
+			const schema = yield* Schema.decodeEffect(AppSchema)({
+				fields: { other: text, kind: { ...text, immutable: true } },
+			});
 
-		expect(collectImmutableProperties(schema)).toEqual(["kind"]);
-	});
+			expect(collectImmutableProperties(schema)).toEqual(["kind"]);
+		}),
+	);
 
-	it("rejects immutable on nested object properties and array items", () => {
-		const immutable = { ...text, immutable: true };
+	it.effect("rejects immutable on nested object properties and array items", () =>
+		Effect.gen(function* () {
+			const immutable = { ...text, immutable: true };
 
-		expect(() =>
-			decodeSchema({
-				fields: {
-					group: {
-						type: "object",
-						label: "Group",
-						description: "A group",
-						properties: { inner: immutable },
+			yield* Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: {
+						group: {
+							type: "object",
+							label: "Group",
+							description: "A group",
+							properties: { inner: immutable },
+						},
 					},
-				},
-			}),
-		).toThrow();
-		expect(() =>
-			decodeSchema({
-				fields: { list: { type: "array", label: "List", items: immutable, description: "A list" } },
-			}),
-		).toThrow();
-	});
+				}),
+			);
+			yield* Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: {
+						list: { type: "array", label: "List", items: immutable, description: "A list" },
+					},
+				}),
+			);
+		}),
+	);
 });

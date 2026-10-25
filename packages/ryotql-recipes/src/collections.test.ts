@@ -1,9 +1,9 @@
+import { assert, describe, expect, it } from "@effect/vitest";
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { DateTime, Result, Schema } from "effect";
-import { assert, describe, expect, it } from "vitest";
+import { DateTime, Effect, Result, Schema } from "effect";
 
 import {
 	allCollectionsRecipe,
@@ -53,7 +53,7 @@ const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 const order = { type: "rows", items: [{ revision: 3 }], pageInfo: { ...pageInfo, limit: 2 } };
 
 /* oxlint-disable perfectionist/sort-objects -- field declaration order is test input */
-const membershipPropertiesSchema = Schema.decodeSync(AppSchema)({
+const membershipPropertiesSchema: AppSchema = {
 	fields: {
 		rank: { position: 0, label: "Rank", type: "integer", description: "Rank" },
 		notes: { position: 2, label: "Notes", type: "string", description: "Notes" },
@@ -91,7 +91,7 @@ const membershipPropertiesSchema = Schema.decodeSync(AppSchema)({
 			choices: { kind: "static", values: [{ value: "drama" }] },
 		},
 	},
-});
+};
 /* oxlint-enable perfectionist/sort-objects */
 
 describe("collections recipes", () => {
@@ -363,56 +363,62 @@ describe("collections recipes", () => {
 	});
 
 	/* oxlint-disable perfectionist/sort-objects -- column order is the behavior under test */
-	it("keeps fixed and template name and type column keys unique", () => {
-		const collisionSchema = Schema.decodeSync(AppSchema)({
-			fields: {
-				name: { label: "Template Name", type: "string", description: "Name" },
-				type: { label: "Template Type", type: "boolean", description: "Type" },
-			},
-		});
-		const columns = collectionMemberTableColumns(collisionSchema);
-		expect(columns).toEqual([
-			{ field: "_name", label: "Name", displayKind: "text" },
-			{ field: "_type", label: "Type", displayKind: "text" },
-			{ field: "name", label: "Template Name", displayKind: "text" },
-			{ field: "type", label: "Template Type", displayKind: "boolean" },
-		]);
-		expect(new Set(columns.map(({ field }) => field)).size).toBe(columns.length);
-
-		const recipe = collectionMembersRecipe({
-			collectionId: "collection-1",
-			fields: memberFields(collisionSchema),
-		});
-		const result = Result.getOrThrow(
-			recipe.decode({
-				data: {
-					order,
-					members: {
-						pageInfo,
-						items: [
-							{
-								name: "Sample",
-								entityId: "unit-1",
-								ownerPluginId: "fixture-1",
-								ownerPluginName: "Fixture",
-								entitySchemaSlug: "unit",
-								populationStatus: { availability: "complete", state: "succeeded" },
-								translationStatus: { availability: "none", state: "idle" },
-								properties: { name: "Custom name", type: true },
-							},
-						],
-						type: "rows",
-					},
+	it.effect("keeps fixed and template name and type column keys unique", () =>
+		Effect.gen(function* () {
+			const collisionSchema = yield* Schema.decodeEffect(AppSchema)({
+				fields: {
+					name: { label: "Template Name", type: "string", description: "Name" },
+					type: { label: "Template Type", type: "boolean", description: "Type" },
 				},
-			}),
-		);
-		expect(result.items[0]?.cells).toEqual([
-			{ key: "_name", label: "Name", value: { value: "Sample", displayKind: "text" } },
-			{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
-			{ key: "name", label: "Template Name", value: { value: "Custom name", displayKind: "text" } },
-			{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
-		]);
-	});
+			});
+			const columns = collectionMemberTableColumns(collisionSchema);
+			expect(columns).toEqual([
+				{ field: "_name", label: "Name", displayKind: "text" },
+				{ field: "_type", label: "Type", displayKind: "text" },
+				{ field: "name", label: "Template Name", displayKind: "text" },
+				{ field: "type", label: "Template Type", displayKind: "boolean" },
+			]);
+			expect(new Set(columns.map(({ field }) => field)).size).toBe(columns.length);
+
+			const recipe = collectionMembersRecipe({
+				collectionId: "collection-1",
+				fields: memberFields(collisionSchema),
+			});
+			const result = Result.getOrThrow(
+				recipe.decode({
+					data: {
+						order,
+						members: {
+							pageInfo,
+							items: [
+								{
+									name: "Sample",
+									entityId: "unit-1",
+									ownerPluginId: "fixture-1",
+									ownerPluginName: "Fixture",
+									entitySchemaSlug: "unit",
+									populationStatus: { availability: "complete", state: "succeeded" },
+									translationStatus: { availability: "none", state: "idle" },
+									properties: { name: "Custom name", type: true },
+								},
+							],
+							type: "rows",
+						},
+					},
+				}),
+			);
+			expect(result.items[0]?.cells).toEqual([
+				{ key: "_name", label: "Name", value: { value: "Sample", displayKind: "text" } },
+				{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
+				{
+					key: "name",
+					label: "Template Name",
+					value: { value: "Custom name", displayKind: "text" },
+				},
+				{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
+			]);
+		}),
+	);
 	/* oxlint-enable perfectionist/sort-objects */
 
 	it.each([

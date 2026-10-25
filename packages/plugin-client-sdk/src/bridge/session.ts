@@ -519,7 +519,10 @@ export const createPluginRuntime = (
 			})),
 			Match.when({ kind: "saved-view" }, ({ reference }) => ({
 				kind: "saved-view" as const,
-				reference: Schema.decodeSync(SavedViewReference)(reference),
+				reference: Result.getOrThrowWith(
+					Schema.decodeResult(SavedViewReference)(reference),
+					() => new RyotClientError({ reason: "invalid-request" }),
+				),
 			})),
 			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,
@@ -537,20 +540,25 @@ export const createPluginRuntime = (
 		}
 	};
 	const pickEntity = (request: RyotPickEntityRequest) =>
-		sendRequest(
-			"pick-entity-screen",
-			(requestId) =>
-				({
-					...request,
-					requestId,
-					type: "pick-entity-screen",
-					schema: Schema.decodeSync(EntitySchemaReference)(request.schema),
-				}) satisfies PluginBridgePickEntityScreen,
-			(requestId) =>
-				({
-					requestId,
-					type: "pick-entity-screen-cancel",
-				}) satisfies PluginBridgePickEntityScreenCancel,
+		Schema.decodeEffect(EntitySchemaReference)(request.schema).pipe(
+			Effect.mapError(() => new RyotClientError({ reason: "invalid-request" })),
+			Effect.flatMap((schema) =>
+				sendRequest(
+					"pick-entity-screen",
+					(requestId) =>
+						({
+							...request,
+							schema,
+							requestId,
+							type: "pick-entity-screen",
+						}) satisfies PluginBridgePickEntityScreen,
+					(requestId) =>
+						({
+							requestId,
+							type: "pick-entity-screen-cancel",
+						}) satisfies PluginBridgePickEntityScreenCancel,
+				),
+			),
 		);
 
 	const editCollection = (request: EditCollectionRequest) =>

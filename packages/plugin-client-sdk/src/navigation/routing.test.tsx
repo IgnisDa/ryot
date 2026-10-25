@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	PluginPackageId,
+	SavedViewId,
+} from "@ryot-app/contract/schema/brands";
 import {
 	type EntityWatch,
 	type PluginBridgeNavigate,
@@ -10,7 +15,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
 import { waitFor } from "@testing-library/dom";
-import { Effect, Match, Schema } from "effect";
+import { Effect, Match } from "effect";
 import { act, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
@@ -131,7 +136,12 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	kind: "route",
 });
 const entityLocation = (entityId: string, entitySchemaSlug: string, search = "") =>
-	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
+	PluginEntityLocation.make({
+		search,
+		kind: "entity",
+		entityId: EntityId.make(entityId),
+		entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+	});
 
 let observedSearch: undefined | URLSearchParams;
 let observedParams: undefined | Record<string, string>;
@@ -218,7 +228,19 @@ const openChannel = (
 			})),
 			Match.when({ kind: "saved-view" }, ({ reference }) => ({
 				kind: "saved-view" as const,
-				reference: Schema.decodeSync(SavedViewReference)(reference),
+				reference: Match.value(reference).pipe(
+					Match.when({ kind: "custom" }, ({ savedViewId }) => ({
+						kind: "custom" as const,
+						savedViewId: SavedViewId.make(savedViewId),
+					})),
+					Match.when({ kind: "kernel" }, ({ slug }) => ({ slug, kind: "kernel" as const })),
+					Match.when({ kind: "plugin" }, ({ slug, pluginId }) => ({
+						slug,
+						kind: "plugin" as const,
+						pluginId: PluginId.make(pluginId),
+					})),
+					Match.exhaustive,
+				),
 			})),
 			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,

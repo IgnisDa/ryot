@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	defineEntityPresentation,
 	type EntityPresentationRegistration,
@@ -33,7 +34,7 @@ const openBrowser = (
 	options: {
 		readonly search?: string;
 		readonly savedViewId?: string;
-		readonly settings?: Record<string, unknown>;
+		readonly settings?: Record<string, JsonValue>;
 		readonly clock?: ReturnType<typeof createTestRyotClock>;
 		readonly entityPresentations?: readonly EntityPresentationRegistration[];
 	} = {},

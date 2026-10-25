@@ -12,7 +12,7 @@ import {
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Result, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
 
 export const PLUGIN_ARCHIVE_LIMITS = {
@@ -121,6 +121,18 @@ const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
 
 const failure = (reason: PluginArchiveErrorReason) => new PluginArchiveError({ reason });
+
+const decodeOrFail = <A, I>(
+	schema: Schema.Codec<A, I>,
+	input: unknown,
+	reason: PluginArchiveErrorReason,
+) => {
+	const decoded = Schema.decodeUnknownResult(schema)(input);
+	if (Result.isFailure(decoded)) {
+		throw failure(reason);
+	}
+	return decoded.success;
+};
 
 const normalizeError = (error: unknown) =>
 	error instanceof PluginArchiveError ? error : failure("malformed-zip");
@@ -263,12 +275,7 @@ const validateCompiledClientArtifact = (
 	value: PluginClientArtifactType,
 	manifest: PluginManifest,
 ) => {
-	let artifact: PluginClientArtifactType;
-	try {
-		artifact = Schema.decodeSync(PluginClientArtifact)(value);
-	} catch {
-		throw failure("compiled-client-invalid");
-	}
+	const artifact = decodeOrFail(PluginClientArtifact, value, "compiled-client-invalid");
 	if (artifact.files.length > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles) {
 		throw failure("compiled-client-file-count-exceeded");
 	}
@@ -651,7 +658,7 @@ class PluginArchiveReader {
 		let manifest: PluginArchivePackage["manifest"];
 		try {
 			const text = decoder.decode(concat(manifestEntry.chunks, manifestEntry.bytes));
-			manifest = Schema.decodeSync(Schema.fromJsonString(PluginManifest))(text);
+			manifest = decodeOrFail(Schema.fromJsonString(PluginManifest), text, "manifest-invalid");
 		} catch {
 			throw failure("manifest-invalid");
 		}
@@ -699,8 +706,10 @@ class PluginArchiveReader {
 		}
 		let metadata: typeof PluginClientArtifactArchiveMetadata.Type;
 		try {
-			metadata = Schema.decodeSync(Schema.fromJsonString(PluginClientArtifactArchiveMetadata))(
+			metadata = decodeOrFail(
+				Schema.fromJsonString(PluginClientArtifactArchiveMetadata),
 				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
+				"compiled-client-invalid",
 			);
 		} catch {
 			throw failure("compiled-client-invalid");
@@ -747,8 +756,10 @@ class PluginArchiveReader {
 
 		let metadata: typeof PluginArchiveCompiledScriptsMetadata.Type;
 		try {
-			metadata = Schema.decodeSync(Schema.fromJsonString(PluginArchiveCompiledScriptsMetadata))(
+			metadata = decodeOrFail(
+				Schema.fromJsonString(PluginArchiveCompiledScriptsMetadata),
 				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
+				"compiled-script-invalid",
 			);
 		} catch {
 			throw failure("compiled-script-invalid");
@@ -816,8 +827,10 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 		}
 		validateEntryBytes("manifest.json", manifestBytes.byteLength, manifestBytes.byteLength);
 		try {
-			manifest = Schema.decodeSync(Schema.fromJsonString(PluginManifest))(
+			manifest = decodeOrFail(
+				Schema.fromJsonString(PluginManifest),
 				decoder.decode(manifestBytes),
+				"manifest-invalid",
 			);
 		} catch {
 			throw failure("manifest-invalid");
@@ -837,12 +850,16 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 		}
 		if (pluginPackage.compiledClient !== undefined) {
 			const artifact = validateCompiledClientArtifact(pluginPackage.compiledClient, manifest);
-			const metadata = Schema.encodeSync(PluginClientArtifactArchiveMetadata)({
+			const encodedMetadata = Schema.encodeResult(PluginClientArtifactArchiveMetadata)({
 				...artifact,
 				files: artifact.files
 					.map(({ name, contentType }) => ({ name, contentType }))
 					.sort((left, right) => compareCodeUnits(left.name, right.name)),
 			});
+			if (Result.isFailure(encodedMetadata)) {
+				throw failure("compiled-client-invalid");
+			}
+			const metadata = encodedMetadata.success;
 			const compiledClientEntries: Array<readonly [string, Uint8Array]> = [
 				[compiledClientMetadataPath, encoder.encode(`${JSON.stringify(metadata, null, "\t")}\n`)],
 				...artifact.files.map(

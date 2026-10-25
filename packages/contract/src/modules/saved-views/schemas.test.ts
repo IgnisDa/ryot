@@ -1,5 +1,5 @@
-import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	CreateSavedViewBody,
@@ -41,79 +41,89 @@ describe("saved-view schemas", () => {
 		).toBe(true);
 	});
 
-	it("decodes canonical managed-asset display values", () => {
-		expect(
-			Schema.decodeSync(SavedViewDisplayValue)({
+	it.effect("decodes canonical managed-asset display values", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(SavedViewDisplayValue)({
+					displayKind: "managed-asset",
+					value: { type: "local", key: "covers/item.webp" },
+				}),
+			).toEqual({
 				displayKind: "managed-asset",
 				value: { type: "local", key: "covers/item.webp" },
-			}),
-		).toEqual({ displayKind: "managed-asset", value: { type: "local", key: "covers/item.webp" } });
-		expect(
-			Result.isFailure(
-				Schema.decodeUnknownResult(SavedViewDisplayValue)({
-					displayKind: "managed-asset",
-					value: { type: "local", url: "https://example.com/item.webp" },
-				}),
-			),
-		).toBe(true);
-	});
-
-	it("decodes year display values as finite numbers", () => {
-		expect(Schema.decodeSync(SavedViewDisplayValue)({ value: 1995, displayKind: "year" })).toEqual({
-			value: 1995,
-			displayKind: "year",
-		});
-		expect(
-			Result.isFailure(
-				Schema.decodeUnknownResult(SavedViewDisplayValue)({ value: "1995", displayKind: "year" }),
-			),
-		).toBe(true);
-	});
-
-	it("decodes canonical configured browser and general-table settings", () => {
-		const browser = Schema.decodeSync(EntityBrowserSavedViewSettings)({
-			pageSize: 25,
-			sourceName: "entities",
-			defaultLayout: "table",
-			searchFields: ["name"],
-			layouts: ["grid", "table"],
-			summary: { image: null, subtitle: null },
-			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
-			subject: {
-				entityAlias: "entity",
-				schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],
-			},
-			addAction: {
-				type: "provider-search",
-				schema: { slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
-			},
-		});
-		const resultsInput = {
-			pageSize: 50,
-			sourceName: "events",
-			rowKeyFields: ["eventId", "sequence"],
-			entityLink: { entityIdField: "entityId" },
-			columns: [{ label: "Occurred", field: "occurredAt", displayKind: "date" }],
-		} as const;
-		const results = Schema.decodeSync(ResultsTableSavedViewSettings)(resultsInput);
-		const { pageSize: _pageSize, ...withoutPageSize } = resultsInput;
-
-		expect(browser.layouts).toEqual(["grid", "table"]);
-		expect(browser.addAction).toMatchObject({ type: "provider-search" });
-		expect(results.rowKeyFields).toEqual(["eventId", "sequence"]);
-		expect(results.pageSize).toBe(50);
-		expect(
-			Result.isFailure(Schema.decodeUnknownResult(ResultsTableSavedViewSettings)(withoutPageSize)),
-		).toBe(true);
-		for (const pageSize of [0, 101]) {
+			});
 			expect(
 				Result.isFailure(
-					Schema.decodeResult(ResultsTableSavedViewSettings)({ ...resultsInput, pageSize }),
+					Schema.decodeUnknownResult(SavedViewDisplayValue)({
+						displayKind: "managed-asset",
+						value: { type: "local", url: "https://example.com/item.webp" },
+					}),
 				),
 			).toBe(true);
-		}
-	});
+		}),
+	);
+
+	it.effect("decodes year display values as finite numbers", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* Schema.decodeEffect(SavedViewDisplayValue)({ value: 1995, displayKind: "year" }),
+			).toEqual({ value: 1995, displayKind: "year" });
+			expect(
+				Result.isFailure(
+					Schema.decodeUnknownResult(SavedViewDisplayValue)({ value: "1995", displayKind: "year" }),
+				),
+			).toBe(true);
+		}),
+	);
+
+	it.effect("decodes canonical configured browser and general-table settings", () =>
+		Effect.gen(function* () {
+			const browser = yield* Schema.decodeEffect(EntityBrowserSavedViewSettings)({
+				pageSize: 25,
+				sourceName: "entities",
+				defaultLayout: "table",
+				searchFields: ["name"],
+				layouts: ["grid", "table"],
+				summary: { image: null, subtitle: null },
+				tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],
+				},
+				addAction: {
+					type: "provider-search",
+					schema: { slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } },
+					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				},
+			});
+			const resultsInput = {
+				pageSize: 50,
+				sourceName: "events",
+				rowKeyFields: ["eventId", "sequence"],
+				entityLink: { entityIdField: "entityId" },
+				columns: [{ label: "Occurred", field: "occurredAt", displayKind: "date" }],
+			} as const;
+			const results = yield* Schema.decodeEffect(ResultsTableSavedViewSettings)(resultsInput);
+			const { pageSize: _pageSize, ...withoutPageSize } = resultsInput;
+
+			expect(browser.layouts).toEqual(["grid", "table"]);
+			expect(browser.addAction).toMatchObject({ type: "provider-search" });
+			expect(results.rowKeyFields).toEqual(["eventId", "sequence"]);
+			expect(results.pageSize).toBe(50);
+			expect(
+				Result.isFailure(
+					Schema.decodeUnknownResult(ResultsTableSavedViewSettings)(withoutPageSize),
+				),
+			).toBe(true);
+			for (const pageSize of [0, 101]) {
+				expect(
+					Result.isFailure(
+						Schema.decodeResult(ResultsTableSavedViewSettings)({ ...resultsInput, pageSize }),
+					),
+				).toBe(true);
+			}
+		}),
+	);
 
 	it("requires an entity-browser subject and rejects removed provenance fields", () => {
 		const { subject: _subject, ...withoutSubject } = browserSettings;

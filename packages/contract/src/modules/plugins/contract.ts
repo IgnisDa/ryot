@@ -40,7 +40,7 @@ export const decodePluginCatalogInvalidatedMessage = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginCatalogInvalidatedMessage),
 	{ onExcessProperty: "error" },
 );
-export const encodePluginCatalogInvalidatedMessage = Schema.encodeSync(
+export const encodePluginCatalogInvalidatedMessage = Schema.encodeResult(
 	Schema.fromJsonString(PluginCatalogInvalidatedMessage),
 	{ onExcessProperty: "error" },
 );

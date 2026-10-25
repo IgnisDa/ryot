@@ -91,16 +91,20 @@ export function ViewFiltersSheet({
 	);
 }
 
-const decodeChoicesInput = Schema.decodeUnknownSync(
+const decodeChoicesInput = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(LinkedFilterChoicesInput),
 );
 
-const choicesQuery = createRyotQuery<string, LinkedFilterChoices>(({ input, client }) => {
-	const request = decodeChoicesInput(input);
-	return request.ids?.length === 0
-		? Effect.succeed<LinkedFilterChoices>([])
-		: client.data.query(linkedFilterChoicesRecipe(request));
-});
+const choicesQuery = createRyotQuery<string, LinkedFilterChoices>(({ input, client }) =>
+	decodeChoicesInput(input).pipe(
+		Effect.orDie,
+		Effect.flatMap((request) =>
+			request.ids?.length === 0
+				? Effect.succeed<LinkedFilterChoices>([])
+				: client.data.query(linkedFilterChoicesRecipe(request)),
+		),
+	),
+);
 
 const choicesKey = (
 	field: LinkedField,
