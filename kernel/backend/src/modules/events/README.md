@@ -103,11 +103,16 @@ anchor per user, exact plugin owner, and session, independently of the anchor's 
 dependent schemas belong to the same entity schema. Each dependent must match one anchor's entity
 and declared properties, and each anchor must retain at least one dependent of each declared schema.
 
-The existing source mutation paths enforce these rules in the commit transaction. They prelock the
-complete old and proposed source-reference set through `EventsRepository.lockMutationReferences`,
-then lock affected entity/session rows in canonical order before stream and event rows. Capture keeps
-only changed source rows and their prior anchor bindings. Set-based SQL checks the final affected
-sessions without loading their histories into application memory.
+Event writes run inside the events-owned transaction (`EventsService.transaction` or
+`EventMutations.transaction`), which validates every touched group once as its last statement and
+fails with the typed error. Persisting a source mutation captures its user, entity, session, and
+prior anchor bindings into that transaction's collector; persisting outside it fails. Multi-write
+owners call `captureEventGroups`/`captureGroups` first for the whole batch, which prelocks the old and
+proposed source references through `EventsRepository.lockMutationReferences` and the affected
+entity/session rows in canonical order before stream and event rows. Later persists of already
+captured items skip capture. Capture keeps only changed source rows and their first-seen anchor
+bindings. Set-based SQL checks the final affected sessions without loading their histories into
+application memory.
 
 Retained anchor IDs keep their session and declared immutable properties. Retained dependent IDs keep
 the same anchor event ID. Atomic commands can reorder anchors and dependents together; intermediate

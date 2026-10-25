@@ -108,7 +108,6 @@ import {
 	EventsRepository,
 	type UpdateEventEntityReferencesInput,
 } from "./repository";
-import { eventRootTransaction } from "./transaction";
 
 type EventRequest = Extract<
 	AutomationRequestPayload,
@@ -154,7 +153,6 @@ export type PreparedEventMoveReferences = {
 	readonly [preparedEventMoveReferences]: Extract<PreparedEventMutationData, { operation: "move" }>;
 };
 
-type EventGroupCapture = Effect.Success<ReturnType<EventGroupConstraints["Service"]["capture"]>>;
 type PreparedEventMutationResult =
 	| PreparedEventMutationData
 	| { readonly _tag: "Committed"; readonly work: CommittedLifecycleWork<null | EventId> };
@@ -239,6 +237,9 @@ const mutationReceiptInput = (prepared: PreparedEventMutationData): EventMutatio
 	return { operation: "delete" };
 };
 
+const mutationSources = (item: PreparedEventMutationData) =>
+	item.operation === "delete" ? [item.before] : [item.before, item.draft];
+
 const indexedCommand = (
 	command: DomainLifecycleCommand,
 	index: number,
@@ -266,48 +267,62 @@ export class EventsService extends Context.Service<EventsService>()(
 			const writeChecks = yield* DomainWriteChecks;
 			const groups = yield* EventGroupConstraints.make;
 			const captureGroupMutations = Effect.fnUntraced(function* (
-				userId: UserId,
 				items: ReadonlyArray<PreparedEventMutationData>,
-				entityIds?: ReadonlyArray<EntityId>,
+				entityIds: ReadonlyArray<EntityId>,
 			) {
-				const account = items[0]?.command.accountGeneration;
-				if (items.length > 0 && (!account || account.userId !== userId)) {
-					return yield* new DbError({
-						message: "Event mutation account generation is unavailable",
-					});
-				}
-				if (account) {
+				const userIds = [...new Set(items.map((item) => item.input.userId))].sort();
+				for (const userId of userIds) {
+					const account = items.find((item) => item.input.userId === userId)?.command
+						.accountGeneration;
+					if (!account || account.userId !== userId) {
+						return yield* new DbError({
+							message: "Event mutation account generation is unavailable",
+						});
+					}
 					yield* receipts.admitAccount(account);
 				}
 				yield* eventSchemas.lockCatalog();
 				yield* repository.lockMutationReferences({
 					eventIds: items.map((item) => item.input.eventId),
-					sources: items
-						.flatMap((item) => [item.before, ...(item.operation === "delete" ? [] : [item.draft])])
-						.map((draft) => Object.assign({}, draft, { userId })),
-				});
-				return yield* groups.capture({
-					userId,
-					entityIds: entityIds ?? [],
-					eventIds: items.map((item) => item.input.eventId),
-					expectedRevisions: new Map(
-						items.map((item) => [item.input.eventId, item.expectedRevision]),
+					sources: items.flatMap((item) =>
+						mutationSources(item).map((draft) =>
+							Object.assign({}, draft, { userId: item.input.userId }),
+						),
 					),
-					drafts: items.flatMap((item) => [
-						item.before,
-						...(item.operation === "delete" ? [] : [item.draft]),
-					]),
 				});
+				const lockedEntityIds = [
+					...new Set([
+						...entityIds,
+						...items.flatMap((item) =>
+							mutationSources(item).flatMap((draft) =>
+								draft.sessionEntityId === null
+									? [draft.entityId]
+									: [draft.entityId, draft.sessionEntityId],
+							),
+						),
+					]),
+				].sort();
+				for (const userId of userIds) {
+					const userItems = items.filter((item) => item.input.userId === userId);
+					yield* groups.capture({
+						userId,
+						entityIds: lockedEntityIds,
+						drafts: userItems.flatMap(mutationSources),
+						eventIds: userItems.map((item) => item.input.eventId),
+						expectedRevisions: new Map(
+							userItems.map((item) => [item.input.eventId, item.expectedRevision]),
+						),
+					});
+				}
+				return undefined;
 			});
 			const captureEventGroups = Effect.fn("EventsService.captureEventGroups")(function* (input: {
-				readonly userId: UserId;
 				readonly entityIds?: ReadonlyArray<EntityId>;
 				readonly items: ReadonlyArray<
 					PreparedEventDelete | PreparedEventUpdate | PreparedEventMoveReferences
 				>;
 			}) {
-				return yield* captureGroupMutations(
-					input.userId,
+				yield* captureGroupMutations(
 					input.items.map((item) => {
 						if (preparedEventDelete in item) {
 							return item[preparedEventDelete];
@@ -317,81 +332,9 @@ export class EventsService extends Context.Service<EventsService>()(
 						}
 						return item[preparedEventMoveReferences];
 					}),
-					input.entityIds,
+					input.entityIds ?? [],
 				);
 			});
-			const captureEventGroupBatch = Effect.fn("EventsService.captureEventGroupBatch")(
-				function* (input: {
-					readonly entityIds: ReadonlyArray<EntityId>;
-					readonly items: ReadonlyArray<
-						PreparedEventDelete | PreparedEventUpdate | PreparedEventMoveReferences
-					>;
-				}) {
-					const items = input.items.map((item) => {
-						if (preparedEventDelete in item) {
-							return item[preparedEventDelete];
-						}
-						if (preparedEventUpdate in item) {
-							return item[preparedEventUpdate];
-						}
-						return item[preparedEventMoveReferences];
-					});
-					for (const userId of [...new Set(items.map((item) => item.input.userId))].sort()) {
-						const account = items.find((item) => item.input.userId === userId)?.command
-							.accountGeneration;
-						if (!account || account.userId !== userId) {
-							return yield* new DbError({
-								message: "Event mutation account generation is unavailable",
-							});
-						}
-						yield* receipts.admitAccount(account);
-					}
-					yield* eventSchemas.lockCatalog();
-					yield* repository.lockMutationReferences({
-						eventIds: items.map((item) => item.input.eventId),
-						sources: items.flatMap((item) =>
-							(item.operation === "delete" ? [item.before] : [item.before, item.draft]).map(
-								(draft) => Object.assign({}, draft, { userId: item.input.userId }),
-							),
-						),
-					});
-					for (const userId of [...new Set(items.map((item) => item.input.userId))].sort()) {
-						yield* groups.checkRevisions(
-							userId,
-							new Map(
-								items
-									.filter((item) => item.input.userId === userId)
-									.map((item) => [item.input.eventId, item.expectedRevision]),
-							),
-						);
-					}
-					const entityIds = [
-						...new Set([
-							...input.entityIds,
-							...items.flatMap((item) =>
-								(item.operation === "delete" ? [item.before] : [item.before, item.draft]).flatMap(
-									(draft) =>
-										draft.sessionEntityId === null
-											? [draft.entityId]
-											: [draft.entityId, draft.sessionEntityId],
-								),
-							),
-						]),
-					].sort();
-					const states = new Map<UserId, EventGroupCapture>();
-					for (const userId of [...new Set(items.map((item) => item.input.userId))].sort()) {
-						states.set(
-							userId,
-							yield* captureGroupMutations(
-								userId,
-								items.filter((item) => item.input.userId === userId),
-								entityIds,
-							),
-						);
-					}
-					return states;
-				},
-			);
 			const retryFieldPreconditionStale = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
 				userId: UserId,
@@ -529,12 +472,18 @@ export class EventsService extends Context.Service<EventsService>()(
 						}),
 					)
 					.pipe(Effect.mapError(eventReceiptError));
-			const rootTransaction = eventRootTransaction(
-				session,
-				"Event lifecycle mutations require a root transaction boundary",
-			);
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-				rootTransaction(eventSchemas.lockCatalog().pipe(Effect.andThen(work)));
+				groups
+					.transaction(eventSchemas.lockCatalog().pipe(Effect.andThen(work)))
+					.pipe(
+						Effect.catchTag("DatabaseSessionStateError", () =>
+							Effect.fail(
+								new DbError({
+									message: "Event lifecycle mutations require a root transaction boundary",
+								}),
+							),
+						),
+					);
 			const assertRootTransaction = session.requireRoot.pipe(
 				Effect.mapError(
 					() =>
@@ -1409,7 +1358,6 @@ export class EventsService extends Context.Service<EventsService>()(
 				batchInput?: {
 					index: number;
 					commandInput?: unknown;
-					groupState?: EventGroupCapture;
 					command: DomainLifecycleCommand;
 					identity: ReadonlyArray<string>;
 				},
@@ -1447,9 +1395,15 @@ export class EventsService extends Context.Service<EventsService>()(
 						)
 						.pipe(Effect.mapError(eventWriteFailure));
 				}
-				const groupState =
-					batchInput?.groupState ??
-					(yield* captureGroupMutations(prepared.input.userId, [prepared]));
+				if (
+					!(yield* groups.isCaptured({
+						userId: prepared.input.userId,
+						drafts: mutationSources(prepared),
+						eventIds: [prepared.input.eventId],
+					}))
+				) {
+					yield* captureGroupMutations([prepared], []);
+				}
 				yield* entities.lockEntityReferencesByIds([
 					prepared.before.entityId,
 					...(prepared.before.sessionEntityId === null ? [] : [prepared.before.sessionEntityId]),
@@ -1544,9 +1498,6 @@ export class EventsService extends Context.Service<EventsService>()(
 						before: prepared.before,
 					};
 				}
-				if (batchInput?.groupState === undefined) {
-					yield* groups.validate(groupState);
-				}
 				const plan = yield* planner.plan({
 					trigger: yield* lifecycleTrigger(
 						{
@@ -1577,7 +1528,6 @@ export class EventsService extends Context.Service<EventsService>()(
 				batch?: {
 					index: number;
 					commandInput?: unknown;
-					groupState?: EventGroupCapture;
 					command: DomainLifecycleCommand;
 					identity: ReadonlyArray<string>;
 				},
@@ -1588,23 +1538,13 @@ export class EventsService extends Context.Service<EventsService>()(
 				"EventsService.persistPreparedMoveReferences",
 			)(function* (
 				prepared: PreparedEventMoveReferences,
-				batch?: {
-					index: number;
-					groupState?: EventGroupCapture;
-					command: DomainLifecycleCommand;
-					identity: ReadonlyArray<string>;
-				},
+				batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 			) {
 				return yield* persist(prepared[preparedEventMoveReferences], batch);
 			});
 			const persistPreparedDelete = Effect.fn("EventsService.persistPreparedDelete")(function* (
 				prepared: PreparedEventDelete,
-				batch?: {
-					index: number;
-					groupState?: EventGroupCapture;
-					command: DomainLifecycleCommand;
-					identity: ReadonlyArray<string>;
-				},
+				batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 			) {
 				return yield* persist(prepared[preparedEventDelete], batch);
 			});
@@ -1845,7 +1785,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								if (aggregateReplay) {
 									return { _tag: "Replay" as const, receipt: aggregateReplay };
 								}
-								const groupState = yield* captureEventGroups({ userId, items: prepared });
+								yield* captureEventGroups({ items: prepared });
 								yield* entities.lockEntityReferencesByIds(
 									prepared.flatMap(({ [preparedEventUpdate]: item }) => [
 										item.before.entityId,
@@ -1875,14 +1815,9 @@ export class EventsService extends Context.Service<EventsService>()(
 								const writes = [];
 								for (const [index, item] of prepared.entries()) {
 									writes.push(
-										yield* persist(item[preparedEventUpdate], {
-											...mutationBatch,
-											index,
-											groupState,
-										}),
+										yield* persist(item[preparedEventUpdate], { ...mutationBatch, index }),
 									);
 								}
-								yield* groups.validate(groupState);
 								const batchDispatch = yield* planner.planBatch({
 									command,
 									commandInput,
@@ -1993,10 +1928,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								if (aggregateReplay) {
 									return { _tag: "Replay" as const, receipt: aggregateReplay };
 								}
-								const groupState = yield* captureEventGroups({
-									userId,
-									items: prepared.filter((item) => item !== null),
-								});
+								yield* captureEventGroups({ items: prepared.filter((item) => item !== null) });
 								yield* entities.lockEntityReferencesByIds(
 									prepared.flatMap((item) =>
 										item
@@ -2029,11 +1961,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									}
 									if (item) {
 										writes.push(
-											yield* persist(item[preparedEventDelete], {
-												...mutationBatch,
-												index,
-												groupState,
-											}),
+											yield* persist(item[preparedEventDelete], { ...mutationBatch, index }),
 										);
 										continue;
 									}
@@ -2049,7 +1977,6 @@ export class EventsService extends Context.Service<EventsService>()(
 									});
 									writes.push({ dispatch, result: null });
 								}
-								yield* groups.validate(groupState);
 								const batchDispatch = batch
 									? yield* planner.planBatch({
 											command,
@@ -2111,10 +2038,9 @@ export class EventsService extends Context.Service<EventsService>()(
 				prepareMoveReferences,
 				persistPreparedDelete,
 				persistPreparedUpdate,
-				captureEventGroupBatch,
 				prepareEntityCascadeDelete,
 				persistPreparedMoveReferences,
-				validateEventGroups: groups.validate,
+				transaction: groups.transaction,
 			};
 		}),
 	},

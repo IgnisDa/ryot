@@ -460,7 +460,7 @@ layer(streamWorkTestLayer)((test) => {
 					),
 				};
 				const callsBefore = (yield* controls.workflowCalls).length;
-				const committed = yield* session.transaction(
+				const committed = yield* mutations.transaction(
 					mutations.persist({ userId, prepared, validated, command: writeCommand }),
 				);
 				expect((yield* controls.workflowCalls).length).toBe(callsBefore);
@@ -481,7 +481,7 @@ layer(streamWorkTestLayer)((test) => {
 				expect(
 					queued.every((job) => job.scope === source.entityId && job.status === "queued"),
 				).toBe(true);
-				const replayed = yield* session.transaction(
+				const replayed = yield* mutations.transaction(
 					mutations.persist({ userId, prepared, validated, command: writeCommand }),
 				);
 				expect(replayed).toEqual(committed);

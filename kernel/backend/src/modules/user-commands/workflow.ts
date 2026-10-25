@@ -340,7 +340,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					result: UserCommandResult,
 					dispatch: Schema.Array(LifecycleDispatchPlan),
 				}),
-				execute: session
+				execute: events
 					.transaction(
 						Effect.gen(function* () {
 							const replay = yield* receipts
@@ -385,15 +385,12 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 									]),
 								]),
 							].sort();
-							const groupState = yield* events.captureGroups({
+							const lockedEntityIds = yield* events.captureGroups({
 								entityIds: references,
 								userId: payload.userId,
 								batches: preparedBatches,
 							});
-							const lockedReferences = yield* entityRows.getMutationEntities(
-								groupState.entityIds,
-								true,
-							);
+							const lockedReferences = yield* entityRows.getMutationEntities(lockedEntityIds, true);
 							for (const baseline of baselines) {
 								if (!lockedReferences.has(baseline.entityId)) {
 									return yield* new EntityStale({
@@ -469,7 +466,6 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								const work = yield* events.persist({
 									userId: payload.userId,
 									...prepared,
-									groupState,
 									sealBatch: false,
 									batch: eventBatch,
 									batchIndexOffset: eventOffset,
@@ -478,7 +474,6 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								written.push(...work.results);
 								dispatch.push(...work.dispatch);
 							}
-							yield* events.validateGroups(groupState);
 							dispatch.push(...(yield* planner.planBatch(eventBatch)));
 							const result = { events: written, entityId: saved.entity.id };
 							yield* receipts.insert({ result, dispatch, identity: receiptIdentity });

@@ -1201,7 +1201,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z")),
 					}),
 				);
-				const staleError = yield* session
+				const staleError = yield* service
 					.transaction(service.persistPreparedMoveReferences(stale))
 					.pipe(Effect.flip);
 				expect(staleError).toMatchObject({
@@ -1226,7 +1226,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					}),
 				);
 				expect(
-					yield* session.transaction(service.persistPreparedDelete(staleDelete)).pipe(Effect.flip),
+					yield* service.transaction(service.persistPreparedDelete(staleDelete)).pipe(Effect.flip),
 				).toMatchObject({
 					_tag: "EventStale",
 					reason: { code: "event-stale", eventId: staleDeleteId },
@@ -1250,7 +1250,7 @@ describe("Event lifecycle PostgreSQL", () => {
 				assert(update);
 				assert(deletion);
 				expect(
-					yield* session
+					yield* service
 						.transaction(
 							Effect.gen(function* () {
 								yield* service.persistPreparedMoveReferences(update);
@@ -1292,7 +1292,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					command("prepared-commit"),
 				);
 				assert(committedDelete);
-				const work = yield* session.transaction(service.persistPreparedDelete(committedDelete));
+				const work = yield* service.transaction(service.persistPreparedDelete(committedDelete));
 				expect(work.dispatch).toHaveLength(1);
 
 				const rejectedId = EventId.make("prepared-rejected");
@@ -2222,7 +2222,7 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(after.snapshot.updatedAt).toBe(before.snapshot.updatedAt);
 				expect(after.revision).toBe(before.revision + 1);
 				expect(after.snapshot.entityId).toBe(movedId);
-				const stale = yield* session
+				const stale = yield* service
 					.transaction(service.persistPreparedUpdate(prepared))
 					.pipe(Effect.flip);
 				expect(stale).toMatchObject({

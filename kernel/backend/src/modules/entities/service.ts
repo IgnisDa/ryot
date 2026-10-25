@@ -395,24 +395,35 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					() => new LifecyclePersistenceError({ code: "active-transaction-required" }),
 				),
 			);
+			const admitted = <A, E, R>(
+				work: Effect.Effect<A, E, R>,
+				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
+			) =>
+				Effect.gen(function* () {
+					for (const account of [...accounts].sort((left, right) =>
+						left.userId.localeCompare(right.userId),
+					)) {
+						yield* receipts.admitAccount(account);
+					}
+					yield* repository.lockSchemaCatalog();
+					return yield* work;
+				});
 			const transaction = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
 				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>> = [],
 			) =>
-				runRootTransaction(
-					session,
-					Effect.gen(function* () {
-						for (const account of [...accounts].sort((left, right) =>
-							left.userId.localeCompare(right.userId),
-						)) {
-							yield* receipts.admitAccount(account);
-						}
-						yield* repository.lockSchemaCatalog();
-						return yield* work;
-					}),
-				).pipe(
+				runRootTransaction(session, admitted(work, accounts)).pipe(
 					Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
 				);
+			const eventTransaction = <A, E, R>(
+				work: Effect.Effect<A, E, R>,
+				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
+			) =>
+				events
+					.transaction(admitted(work, accounts))
+					.pipe(
+						Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
+					);
 
 			const entitySchema = Effect.fnUntraced(function* (
 				scopeUserId: null | UserId,
@@ -1685,7 +1696,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							};
 						}),
 					);
-					const committed = yield* transaction(
+					const committed = yield* eventTransaction(
 						Effect.gen(function* () {
 							const writeContext = lifecycle.writeContext;
 							let scopeUserId: null | UserId = null;
@@ -1719,10 +1730,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 										: error,
 								),
 							);
-							const eventGroupStates = yield* events.captureEventGroupBatch({
-								items: preparedEvents,
-								entityIds: orderedIds,
-							});
+							yield* events.captureEventGroups({ items: preparedEvents, entityIds: orderedIds });
 							yield* repository.lockMutationKeys(orderedIds);
 							const rows = yield* repository.getMutationEntities(orderedIds, true);
 							const currentEventIdentities =
@@ -1745,22 +1753,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								scopes: settled.map((item) => item.scopeUserId),
 							});
 							const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
-								Effect.gen(function* () {
-									const eventUserId = eventIdentities[index]?.userId;
-									const groupState =
-										eventUserId === undefined ? undefined : eventGroupStates.get(eventUserId);
-									if (groupState === undefined) {
-										return yield* new DbError({
-											message: "Event group cascade scope is unavailable",
-										});
-									}
-									return yield* events.persistPreparedDelete(item, {
-										...eventDecision,
-										index,
-										groupState,
-										command: lifecycle,
-										identity: eventBatchScope.identity,
-									});
+								events.persistPreparedDelete(item, {
+									...eventDecision,
+									index,
+									command: lifecycle,
+									identity: eventBatchScope.identity,
 								}),
 							);
 							const eventBatch = yield* planner.planBatch({
@@ -1774,9 +1771,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							);
 							yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
 							const written = yield* persistDeletes.persistMany(persisted, decision, rows);
-							for (const groupState of eventGroupStates.values()) {
-								yield* events.validateEventGroups(groupState);
-							}
 							yield* insertReceipts(written.records);
 							const results = new Map<number, CommittedLifecycleWork<null>>();
 							for (const [position, { index }] of pending.entries()) {

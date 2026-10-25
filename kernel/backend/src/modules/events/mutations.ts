@@ -104,6 +104,15 @@ const preparedEventId = (row: typeof PreparedEventChange.Type) =>
 		`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([row.receipt.executionId, row.receipt.itemIdentity]))}`,
 	);
 
+const capturedEventIds = (batches: ReadonlyArray<{ readonly prepared: PreparedEventChanges }>) =>
+	batches.flatMap(({ prepared }) =>
+		prepared.items.flatMap((row) => (row.source ? [row.source.snapshot.id] : [])),
+	);
+const createdEventIds = (batches: ReadonlyArray<{ readonly prepared: PreparedEventChanges }>) =>
+	batches.flatMap(({ prepared }) =>
+		prepared.items.flatMap((row) => (row.change.kind === "create" ? [preparedEventId(row)] : [])),
+	);
+
 export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedEventChanges) {
 	return yield* Effect.forEach(prepared.items, (item) =>
 		Effect.gen(function* () {
@@ -233,14 +242,8 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					userId: input.userId,
 					entityIds: input.entityIds ?? [],
 					drafts: mutationReferences.sources,
-					eventIds: input.batches.flatMap(({ prepared }) =>
-						prepared.items.flatMap((row) => (row.source ? [row.source.snapshot.id] : [])),
-					),
-					createdEventIds: input.batches.flatMap(({ prepared }) =>
-						prepared.items.flatMap((row) =>
-							row.change.kind === "create" ? [preparedEventId(row)] : [],
-						),
-					),
+					eventIds: capturedEventIds(input.batches),
+					createdEventIds: createdEventIds(input.batches),
 				});
 			});
 			const lockPreparedChanges = Effect.fn("EventMutations.lockPreparedChanges")(function* (
@@ -258,7 +261,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				positionOffset?: number;
 				command: DomainLifecycleCommand;
 				changes: ReadonlyArray<EventMutationChange>;
-				itemIdentities?: Readonly<Record<string, string>>;
 				proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 			}) {
 				const writer = input.command.writeContext?.pluginRevision;
@@ -322,12 +324,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				const prepared = yield* Effect.forEach(changes, (item, index) =>
 					Effect.gen(function* () {
-						const command = {
-							...commandFor(input.command, item.change.itemIdentity),
-							itemIdentity:
-								input.itemIdentities?.[item.change.itemIdentity] ??
-								commandFor(input.command, item.change.itemIdentity).itemIdentity,
-						};
+						const command = commandFor(input.command, item.change.itemIdentity);
 						const scope = yield* scopes.resolve(
 							{ ...item.item, occurredAt: item.item.occurredAt ?? input.command.occurredAt },
 							command,
@@ -436,7 +433,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				validated: PolicyBatchResult;
 				prepared: PreparedEventChanges;
 				command: DomainLifecycleCommand;
-				groupState?: Effect.Success<ReturnType<typeof captureGroups>>;
 			}) {
 				yield* session.requireTransaction.pipe(Effect.orDie);
 				const prior = yield* receipts
@@ -461,13 +457,24 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					};
 				}
 				yield* schemas.lockCatalog();
-				const groupState =
-					input.groupState ??
-					(yield* captureGroups({
+				const mutationReferences = preparedMutationReferences({
+					batches: [input],
+					userId: input.userId,
+				});
+				if (
+					!(yield* groups.isCaptured({
+						userId: input.userId,
+						drafts: mutationReferences.sources,
+						eventIds: capturedEventIds([input]),
+						createdEventIds: createdEventIds([input]),
+					}))
+				) {
+					yield* captureGroups({
 						batches: [input],
 						userId: input.userId,
 						entityIds: Object.keys(input.validated.references).map((id) => EntityId.make(id)),
-					}));
+					});
+				}
 				const rows = input.prepared.items;
 				const referencedIds = new Set(
 					rows.flatMap((row) => {
@@ -728,9 +735,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					});
 					results.push({ eventId, itemIdentity: row.change.itemIdentity });
 				}
-				if (input.groupState === undefined) {
-					yield* groups.validate(groupState);
-				}
 				yield* receipts.insertMany(recorded);
 				if (input.sealBatch !== false) {
 					dispatch.push(...(yield* planner.planBatch(batch)));
@@ -742,7 +746,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				persist,
 				captureGroups,
 				lockPreparedChanges,
-				validateGroups: groups.validate,
+				transaction: groups.transaction,
 			};
 		}),
 	},

@@ -16,6 +16,7 @@ import { Context, Effect, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
 
 const violation = (message: string) =>
 	new EventBadRequest({
@@ -40,10 +41,38 @@ const StoredGroupDeclaration = Schema.Struct({
 	entitySchemaSlug: EntitySchemaSlug,
 });
 export type EventGroupDeclaration = typeof StoredGroupDeclaration.Type;
+type GroupBinding = { readonly eventId: EventId; readonly anchorId: EventId };
 type GroupSource = Pick<
 	AutomationEventDraft,
 	"entityId" | "sessionEntityId" | "eventSchemaSlug" | "entitySchemaSlug" | "eventSchemaPluginId"
 >;
+type PendingGroups = {
+	readonly eventIds: Set<EventId>;
+	readonly selections: Set<string>;
+	readonly entityIds: Set<EntityId>;
+	readonly sessionIds: Set<EntityId>;
+	readonly bindings: Array<GroupBinding>;
+	readonly createdEventIds: Set<EventId>;
+	readonly declarations: Map<string, EventGroupDeclaration>;
+	readonly before: Map<EventId, typeof StoredGroupRecord.Type>;
+};
+type ValidationScope = {
+	readonly userId: UserId;
+	readonly allSessions: boolean;
+	readonly eventIds: ReadonlyArray<EventId>;
+	readonly entityIds: ReadonlyArray<EntityId>;
+	readonly sessionIds: ReadonlyArray<EntityId>;
+	readonly bindings: ReadonlyArray<GroupBinding>;
+	readonly createdEventIds: ReadonlyArray<EventId>;
+	readonly declarations: ReadonlyArray<EventGroupDeclaration>;
+	readonly before: ReadonlyArray<typeof StoredGroupRecord.Type>;
+};
+const PendingEventGroups = Context.Reference<null | Map<UserId, PendingGroups>>(
+	"EventGroupConstraints.Pending",
+	{ defaultValue: () => null },
+);
+const selectionKey = (row: Pick<GroupSource, "entitySchemaSlug" | "eventSchemaPluginId">) =>
+	stableStringify([row.eventSchemaPluginId, row.entitySchemaSlug]);
 const valuesSql = (values: ReadonlyArray<string>) =>
 	sql`select jsonb_array_elements_text(${stableStringify(values)}::jsonb)`;
 const sameProperties = (left: SQL, right: SQL, keys: ReadonlyArray<string>) =>
@@ -108,12 +137,45 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 				}
 				return undefined;
 			});
-			const checkRevisions = Effect.fn("EventGroupConstraints.checkRevisions")(function* (
-				userId: UserId,
-				expected: ReadonlyMap<EventId, number>,
-			) {
-				yield* requireTransaction;
-				yield* assertRevisions(expected, yield* readChanged(userId, [...expected.keys()]));
+			const pendingFor = Effect.fnUntraced(function* (userId: UserId) {
+				const pending = yield* PendingEventGroups;
+				if (pending === null) {
+					return yield* new DbError({ message: "Event writes require an event transaction" });
+				}
+				const existing = pending.get(userId);
+				if (existing) {
+					return existing;
+				}
+				const created: PendingGroups = {
+					bindings: [],
+					before: new Map(),
+					eventIds: new Set(),
+					entityIds: new Set(),
+					sessionIds: new Set(),
+					selections: new Set(),
+					declarations: new Map(),
+					createdEventIds: new Set(),
+				};
+				pending.set(userId, created);
+				return created;
+			});
+			const isCaptured = Effect.fn("EventGroupConstraints.isCaptured")(function* (input: {
+				readonly userId: UserId;
+				readonly eventIds: ReadonlyArray<EventId>;
+				readonly drafts: ReadonlyArray<GroupSource>;
+				readonly createdEventIds?: ReadonlyArray<EventId>;
+			}) {
+				const pending = yield* pendingFor(input.userId);
+				return (
+					input.eventIds.every((id) => pending.eventIds.has(id)) &&
+					(input.createdEventIds ?? []).every((id) => pending.createdEventIds.has(id)) &&
+					input.drafts.every(
+						(draft) =>
+							pending.entityIds.has(draft.entityId) &&
+							(draft.sessionEntityId === null || pending.entityIds.has(draft.sessionEntityId)) &&
+							pending.selections.has(selectionKey(draft)),
+					)
+				);
 			});
 			const capture = Effect.fn("EventGroupConstraints.capture")(function* (input: {
 				readonly userId: UserId;
@@ -124,6 +186,7 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 				readonly expectedRevisions?: ReadonlyMap<EventId, number>;
 			}) {
 				yield* requireTransaction;
+				const pending = yield* pendingFor(input.userId);
 				const eventIds = [...new Set(input.eventIds)].sort();
 				const expected = input.expectedRevisions ?? new Map<EventId, number>();
 				const readIds = [...new Set([...eventIds, ...expected.keys()])];
@@ -165,7 +228,7 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 				const selections = [
 					...new Map(
 						sources.map((row) => [
-							stableStringify([row.eventSchemaPluginId, row.entitySchemaSlug]),
+							selectionKey(row),
 							{ pluginId: row.eventSchemaPluginId, entitySchemaSlug: row.entitySchemaSlug },
 						]),
 					).values(),
@@ -203,7 +266,7 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 						sources.flatMap((row) => (row.sessionEntityId === null ? [] : [row.sessionEntityId])),
 					),
 				];
-				const bindings: Array<{ readonly eventId: EventId; readonly anchorId: EventId }> = [];
+				const bindings: Array<GroupBinding> = [];
 				for (const declaration of declarations) {
 					for (const dependent of declaration.eventGroup.dependents) {
 						const rows =
@@ -236,20 +299,41 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 						);
 					}
 				}
-				return {
-					before,
-					eventIds,
-					bindings,
-					entityIds,
-					sessionIds,
-					declarations,
-					allSessions: false,
-					userId: input.userId,
-					createdEventIds: [...(input.createdEventIds ?? [])],
-				};
+				for (const row of before) {
+					if (!pending.eventIds.has(row.id) && !pending.createdEventIds.has(row.id)) {
+						pending.before.set(row.id, row);
+					}
+				}
+				pending.bindings.push(...bindings.filter(({ eventId }) => !pending.eventIds.has(eventId)));
+				for (const declaration of declarations) {
+					pending.declarations.set(
+						stableStringify([
+							declaration.pluginId,
+							declaration.entitySchemaSlug,
+							declaration.eventSchemaSlug,
+						]),
+						declaration,
+					);
+				}
+				for (const row of sources) {
+					pending.selections.add(selectionKey(row));
+				}
+				for (const id of eventIds) {
+					pending.eventIds.add(id);
+				}
+				for (const id of entityIds) {
+					pending.entityIds.add(id);
+				}
+				for (const id of sessionIds) {
+					pending.sessionIds.add(id);
+				}
+				for (const id of input.createdEventIds ?? []) {
+					pending.createdEventIds.add(id);
+				}
+				return entityIds;
 			});
 			const validate = Effect.fn("EventGroupConstraints.validate")(function* (
-				captured: Effect.Success<ReturnType<typeof capture>>,
+				captured: ValidationScope,
 			) {
 				yield* requireTransaction;
 				const invalid = Effect.fnUntraced(function* (query: SQL, message: string) {
@@ -358,14 +442,38 @@ export class EventGroupConstraints extends Context.Service<EventGroupConstraints
 					before: [],
 					bindings: [],
 					eventIds: [],
+					declarations,
 					entityIds: [],
 					sessionIds: [],
 					allSessions: true,
 					createdEventIds: [],
-					declarations: [...declarations],
 				});
 			});
-			return { capture, validate, checkRevisions, validateHistorical };
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+				runRootTransaction(
+					session,
+					Effect.gen(function* () {
+						const pending = new Map<UserId, PendingGroups>();
+						const result = yield* work.pipe(Effect.provideService(PendingEventGroups, pending));
+						for (const [userId, captured] of [...pending].sort(([left], [right]) =>
+							left.localeCompare(right),
+						)) {
+							yield* validate({
+								userId,
+								allSessions: false,
+								bindings: captured.bindings,
+								eventIds: [...captured.eventIds],
+								entityIds: [...captured.entityIds],
+								sessionIds: [...captured.sessionIds],
+								before: [...captured.before.values()],
+								createdEventIds: [...captured.createdEventIds],
+								declarations: [...captured.declarations.values()],
+							});
+						}
+						return result;
+					}),
+				);
+			return { capture, isCaptured, transaction, validateHistorical };
 		}),
 	},
 ) {}

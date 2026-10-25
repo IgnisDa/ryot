@@ -224,7 +224,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 				success: CommittedChunk,
 				name: `commit-events-${first}`,
 				error: EventCreateWorkflowError,
-				execute: session
+				execute: mutations
 					.transaction(
 						mutations.persist({
 							batch,

@@ -126,22 +126,16 @@ const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsReposito
 const mockEventsService = Layer.mock(EventsService);
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	mockEventsService({
-		validateEventGroups: () => Effect.void,
-		captureEventGroups: ({ userId, entityIds }) =>
-			Effect.succeed({
-				userId,
-				before: [],
-				eventIds: [],
-				bindings: [],
-				sessionIds: [],
-				declarations: [],
-				allSessions: false,
-				createdEventIds: [],
-				entityIds: [...(entityIds ?? [])],
-			}),
-		...overrides,
-	});
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			return mockEventsService({
+				transaction: session.transaction,
+				captureEventGroups: () => Effect.void,
+				...overrides,
+			});
+		}),
+	).pipe(Layer.provide(databaseLayer));
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
