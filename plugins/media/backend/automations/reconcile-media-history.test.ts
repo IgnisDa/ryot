@@ -17,7 +17,7 @@ it.effect(
 				},
 			});
 			yield* definition.run(
-				eventAutomationContext({
+				yield* eventAutomationContext({
 					entityId: "child",
 					sessionEntityId: "parent",
 					eventSchemaSlug: "progress",
@@ -28,7 +28,7 @@ it.effect(
 			expect(scopes).toEqual(["parent", "child"]);
 			scopes.length = 0;
 			yield* definition.run(
-				eventAutomationContext({
+				yield* eventAutomationContext({
 					entityId: "child",
 					sessionEntityId: "parent",
 					eventSchemaSlug: "complete",

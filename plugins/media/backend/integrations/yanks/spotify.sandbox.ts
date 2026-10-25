@@ -35,7 +35,7 @@ const RecentlyPlayed = Schema.Struct({
 const RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played?limit=50";
 const LOWER_BOUND_MARGIN_MS = 60 * 60 * 1_000;
 const PLAY_CLAIM_TTL_SECONDS = 30 * 24 * 60 * 60;
-const encodePlayClaimKey = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
+const encodePlayClaimKey = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
@@ -115,12 +115,12 @@ const runSpotifyYank = (
 			DateTime.toEpochMillis(DateTime.makeUnsafe(yield* executionStartedAt(execution))) +
 			PLAY_CLAIM_TTL_SECONDS * 1000;
 		for (const play of plays) {
-			const key = encodePlayClaimKey([
+			const key = yield* encodePlayClaimKey([
 				"media.spotify-play",
 				integration.id,
 				play.trackId,
 				play.playedAt,
-			]);
+			]).pipe(Effect.orDie);
 			if (pending.has(key) || (yield* host.getPersistentValue(key)) === true) {
 				continue;
 			}
@@ -145,8 +145,8 @@ const runSpotifyYank = (
 					{
 						occurredAt,
 						eventSchemaSlug: "complete",
-						operationId: integrationRecordId(["integration-source-event", key]),
-						attribution: integrationSourceAttribution(
+						operationId: yield* integrationRecordId(["integration-source-event", key]),
+						attribution: yield* integrationSourceAttribution(
 							play.trackId,
 							play.track.name,
 							[key],

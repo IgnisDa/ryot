@@ -66,6 +66,11 @@ const createAutomation = (properties: Record<string, string>) =>
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
 	});
 
+const runAutomation = (
+	host: Parameters<typeof definition.run>[1],
+	...input: Parameters<typeof createAutomation>
+) => Effect.flatMap(createAutomation(...input), (automation) => definition.run(automation, host));
+
 const createHttpCall =
 	(calls: HttpCall[]): RadarrHost["httpCall"] =>
 	(method, url, options) => {
@@ -109,28 +114,26 @@ describe("radarr-push sandbox script", () => {
 			integrations: [radarrIntegration],
 		});
 		return Effect.runPromise(
-			definition
-				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host)
-				.pipe(
-					Effect.map(() => {
-						expect(calls).toHaveLength(1);
-						expect(calls[0]?.method).toBe("POST");
-						expect(calls[0]?.url).toBe("http://radarr.local/api/v3/movie");
-						expect(calls[0]?.options["headers"]).toEqual({
-							"X-Api-Key": "radarr-key",
-							"Content-Type": "application/json",
-						});
-						expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
-							tmdbId: 603,
-							tags: [3, 7],
-							monitored: true,
-							qualityProfileId: 4,
-							rootFolderPath: "/movies",
-							addOptions: { searchForMovie: true },
-						});
-						return undefined;
-					}),
-				),
+			runAutomation(host, { entityId: "movie-1", entitySchemaSlug: "movie" }).pipe(
+				Effect.map(() => {
+					expect(calls).toHaveLength(1);
+					expect(calls[0]?.method).toBe("POST");
+					expect(calls[0]?.url).toBe("http://radarr.local/api/v3/movie");
+					expect(calls[0]?.options["headers"]).toEqual({
+						"X-Api-Key": "radarr-key",
+						"Content-Type": "application/json",
+					});
+					expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
+						tmdbId: 603,
+						tags: [3, 7],
+						monitored: true,
+						qualityProfileId: 4,
+						rootFolderPath: "/movies",
+						addOptions: { searchForMovie: true },
+					});
+					return undefined;
+				}),
+			),
 		);
 	});
 
@@ -152,21 +155,21 @@ describe("radarr-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.run(
-						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
-						createHost({ ...base, entity: movieEntity }),
-					),
-					definition.run(
-						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
+					runAutomation(createHost({ ...base, entity: movieEntity }), {
+						entityId: "show-1",
+						entitySchemaSlug: "show",
+					}),
+					runAutomation(
 						createHost({
 							...base,
 							entity: entityRecord({ ...movieEntity, providerId: "script-movie-tvdb" }),
 						}),
+						{ entityId: "movie-1", entitySchemaSlug: "movie" },
 					),
-					definition.run(
-						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
-						createHost({ httpCall, entity: movieEntity, integrations: [unmatched] }),
-					),
+					runAutomation(createHost({ httpCall, entity: movieEntity, integrations: [unmatched] }), {
+						entityId: "movie-1",
+						entitySchemaSlug: "movie",
+					}),
 				],
 				{ concurrency: "unbounded" },
 			).pipe(
@@ -187,14 +190,12 @@ describe("radarr-push sandbox script", () => {
 			integrations: [radarrIntegration],
 		});
 		return Effect.runPromise(
-			definition
-				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host)
-				.pipe(
-					Effect.map(() => {
-						expect(calls).toHaveLength(0);
-						return undefined;
-					}),
-				),
+			runAutomation(host, { entityId: "movie-1", entitySchemaSlug: "movie" }).pipe(
+				Effect.map(() => {
+					expect(calls).toHaveLength(0);
+					return undefined;
+				}),
+			),
 		);
 	});
 
@@ -207,10 +208,7 @@ describe("radarr-push sandbox script", () => {
 				integrations: [radarrIntegration],
 				httpCall: () => httpFailure("already exists"),
 			});
-			const result = yield* definition.run(
-				createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
-				host,
-			);
+			const result = yield* runAutomation(host, { entityId: "movie-1", entitySchemaSlug: "movie" });
 			expect(result).toBeNull();
 			expect(warnings).toEqual([
 				[

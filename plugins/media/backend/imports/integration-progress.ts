@@ -12,9 +12,10 @@ import type { MediaImportWriteChunkInput } from "./schemas";
 type Properties = Readonly<Record<string, JsonValue>>;
 type ProgressEvent = Pick<MediaProgressEvent, "createdAt" | "properties" | "occurredAt">;
 type Host = Pick<ScriptHost, "log" | "executeRyotql" | "getPluginConfig" | "getCurrentIntegration">;
-const encodeProgressIdentity = Schema.encodeSync(
-	Schema.fromJsonString(Schema.Array(Schema.String)),
-);
+const encodeProgressIdentity = (identity: ReadonlyArray<string>) =>
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(identity).pipe(
+		Effect.orDie,
+	);
 
 const parseProgressPercent = (value: JsonValue | undefined) => {
 	if (typeof value === "number") {
@@ -82,8 +83,8 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					event.eventSchemaSlug,
 					consumedOnValue(event.properties),
 				];
-				const fingerprint = encodeProgressIdentity(identity);
-				const claimKey = encodeProgressIdentity([
+				const fingerprint = yield* encodeProgressIdentity(identity);
+				const claimKey = yield* encodeProgressIdentity([
 					"media.integration-progress.v1",
 					attribution.integrationId,
 					...identity,

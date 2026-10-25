@@ -1,5 +1,5 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -16,9 +16,10 @@ export default defineScript({
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
 	run: (input) =>
-		collectMediaCsv("igdb", input, (text) =>
-			adaptIgdbCsv(text, {
-				collection: Schema.decodeUnknownSync(Schema.String)(input.settings["collection"]),
-			}),
+		Schema.decodeUnknownEffect(Schema.String)(input.settings["collection"]).pipe(
+			Effect.orDie,
+			Effect.flatMap((collection) =>
+				collectMediaCsv("igdb", input, (text) => adaptIgdbCsv(text, { collection })),
+			),
 		),
 });

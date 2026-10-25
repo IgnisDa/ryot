@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
@@ -145,7 +145,10 @@ export type WorkoutEditorOccurrence = typeof WorkoutEditorOccurrenceSchema.Type;
 export type WorkoutEditorLocalPreferences = typeof WorkoutEditorLocalPreferencesSchema.Type;
 
 export const encodeWorkoutEditorDraft = (draft: WorkoutEditorDraft) =>
-	encodeWorkoutEditorJson(JSON.stringify(Schema.encodeSync(WorkoutEditorDraftSchema)(draft)));
+	Result.flatMap(
+		Schema.encodeResult(Schema.fromJsonString(WorkoutEditorDraftSchema))(draft),
+		encodeWorkoutEditorJson,
+	);
 
 export const decodeWorkoutEditorDraft = (value: unknown) => {
 	const decoded = decodeWorkoutEditorJson(value);

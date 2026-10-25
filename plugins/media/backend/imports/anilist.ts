@@ -1,4 +1,4 @@
-import { Result, Schema, SchemaIssue } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Result, Schema, SchemaIssue } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { anilistListState } from "../lib/anilist-list";
 import { nowIso, parseZonedDateTime } from "./dates";
@@ -54,7 +54,7 @@ const AnilistRoot = Schema.Struct({
 		}),
 	),
 });
-const decodeRoot = Schema.decodeUnknownSync(AnilistRoot);
+const decodeRoot = Schema.decodeEffect(Schema.fromJsonString(AnilistRoot));
 const decodeList = Schema.decodeUnknownResult(AnilistList);
 const decodeReview = Schema.decodeUnknownResult(AnilistReview);
 const decodeFavorite = Schema.decodeUnknownResult(AnilistFavorite);
@@ -104,182 +104,189 @@ const parseCustomListIds = (value: null | string | undefined) => {
 		: [];
 };
 
-export const adaptAnilistExport = (jsonText: string, timezone: string, importedAt = nowIso()) => {
-	const failures: MediaImportAdapterFailure[] = [];
-	const data = decodeRoot(JSON.parse(jsonText) as unknown);
-	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
-	const animeCustomLists = data.user?.custom_lists?.anime ?? [];
-	const mangaCustomLists = data.user?.custom_lists?.manga ?? [];
-	let itemIndex = 0;
-	for (const rawItem of data.lists ?? []) {
-		const parsed = decodeList(rawItem);
-		if (Result.isFailure(parsed)) {
-			failures.push({
-				itemIndex,
-				message: "Anilist list item is malformed",
-				context: { issues: issuePaths(parsed.failure) },
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const item = parsed.success;
-		if (!Number.isSafeInteger(item.progress) || item.progress < 0) {
-			failures.push({ itemIndex, message: "AniList progress count is invalid" });
-			itemIndex++;
-			continue;
-		}
-		const target = getSeriesTarget(item.series_type);
-		if (!target) {
-			failures.push({
-				itemIndex,
-				sourceIdentifier: String(item.series_id),
-				message: `Unsupported AniList series type: ${item.series_type}`,
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
-		const volumeProgress = target.entitySchemaSlug === "manga" ? item.progress_volume : 0;
-		if (!Number.isSafeInteger(volumeProgress) || volumeProgress < 0) {
-			failures.push({ itemIndex, message: "AniList progress count is invalid" });
-			itemIndex++;
-			continue;
-		}
-		const sourceLabel = `${target.sourceLabelPrefix} ${item.series_id}`;
-		const group = getOrCreateMediaEntityGroup(
-			groupMap,
-			{
-				sourceLabel,
-				kind: "resolved",
-				providerSlug: target.providerSlug,
-				externalId: String(item.series_id),
-				entitySchemaSlug: target.entitySchemaSlug,
-			},
-			itemIndex,
-		);
-		if (item.progress > 0 || volumeProgress > 0) {
-			group.events.push({
-				occurredAt,
-				eventSchemaSlug: "progress",
-				properties: {
-					dateUnknown: true,
-					...(item.progress > 0 ? { [target.positionProperty]: item.progress } : {}),
-					...(volumeProgress > 0 ? { mangaVolume: volumeProgress } : {}),
-				},
-			});
-		}
-		const lifecycle = getLifecycle(item.status);
-		if (lifecycle === "progress") {
-			group.events.push(createProgressEvent(occurredAt));
-		} else if (lifecycle === "backlog") {
-			group.events.push(createBacklogEvent(occurredAt));
-		} else if (lifecycle === "complete") {
-			group.events.push(
-				createCompleteEvent({ occurredAt, dateUnknown: true, sourceRun: "baseline" }),
-			);
-		} else if (lifecycle === "dropped") {
-			group.events.push(createDroppedEvent({ occurredAt }));
-		} else if (lifecycle === "on_hold") {
-			group.events.push(createOnHoldEvent({ occurredAt }));
-		}
-		const defaultReview = createReviewEvent({
-			occurredAt,
-			text: item.notes ?? "",
-			rating: normalizeRating(String(item.score), 100),
-		});
-		if (defaultReview) {
-			group.events.push(defaultReview);
-		}
-		const customListNames =
-			target.entitySchemaSlug === "anime" ? animeCustomLists : mangaCustomLists;
-		for (const listId of parseCustomListIds(item.custom_lists)) {
-			const listName = customListNames[listId];
-			if (listName) {
-				addCollectionMembership(group, listName);
+export const adaptAnilistExport = (jsonText: string, timezone: string, importedAt = nowIso()) =>
+	decodeRoot(jsonText).pipe(
+		Effect.orDie,
+		Effect.map((data) => {
+			const failures: MediaImportAdapterFailure[] = [];
+			const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
+			const animeCustomLists = data.user?.custom_lists?.anime ?? [];
+			const mangaCustomLists = data.user?.custom_lists?.manga ?? [];
+			let itemIndex = 0;
+			for (const rawItem of data.lists ?? []) {
+				const parsed = decodeList(rawItem);
+				if (Result.isFailure(parsed)) {
+					failures.push({
+						itemIndex,
+						message: "Anilist list item is malformed",
+						context: { issues: issuePaths(parsed.failure) },
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const item = parsed.success;
+				if (!Number.isSafeInteger(item.progress) || item.progress < 0) {
+					failures.push({ itemIndex, message: "AniList progress count is invalid" });
+					itemIndex++;
+					continue;
+				}
+				const target = getSeriesTarget(item.series_type);
+				if (!target) {
+					failures.push({
+						itemIndex,
+						sourceIdentifier: String(item.series_id),
+						message: `Unsupported AniList series type: ${item.series_type}`,
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
+				const volumeProgress = target.entitySchemaSlug === "manga" ? item.progress_volume : 0;
+				if (!Number.isSafeInteger(volumeProgress) || volumeProgress < 0) {
+					failures.push({ itemIndex, message: "AniList progress count is invalid" });
+					itemIndex++;
+					continue;
+				}
+				const sourceLabel = `${target.sourceLabelPrefix} ${item.series_id}`;
+				const group = getOrCreateMediaEntityGroup(
+					groupMap,
+					{
+						sourceLabel,
+						kind: "resolved",
+						providerSlug: target.providerSlug,
+						externalId: String(item.series_id),
+						entitySchemaSlug: target.entitySchemaSlug,
+					},
+					itemIndex,
+				);
+				if (item.progress > 0 || volumeProgress > 0) {
+					group.events.push({
+						occurredAt,
+						eventSchemaSlug: "progress",
+						properties: {
+							dateUnknown: true,
+							...(item.progress > 0 ? { [target.positionProperty]: item.progress } : {}),
+							...(volumeProgress > 0 ? { mangaVolume: volumeProgress } : {}),
+						},
+					});
+				}
+				const lifecycle = getLifecycle(item.status);
+				if (lifecycle === "progress") {
+					group.events.push(createProgressEvent(occurredAt));
+				} else if (lifecycle === "backlog") {
+					group.events.push(createBacklogEvent(occurredAt));
+				} else if (lifecycle === "complete") {
+					group.events.push(
+						createCompleteEvent({ occurredAt, dateUnknown: true, sourceRun: "baseline" }),
+					);
+				} else if (lifecycle === "dropped") {
+					group.events.push(createDroppedEvent({ occurredAt }));
+				} else if (lifecycle === "on_hold") {
+					group.events.push(createOnHoldEvent({ occurredAt }));
+				}
+				const defaultReview = createReviewEvent({
+					occurredAt,
+					text: item.notes ?? "",
+					rating: normalizeRating(String(item.score), 100),
+				});
+				if (defaultReview) {
+					group.events.push(defaultReview);
+				}
+				const customListNames =
+					target.entitySchemaSlug === "anime" ? animeCustomLists : mangaCustomLists;
+				for (const listId of parseCustomListIds(item.custom_lists)) {
+					const listName = customListNames[listId];
+					if (listName) {
+						addCollectionMembership(group, listName);
+					}
+				}
+				itemIndex += 1;
 			}
-		}
-		itemIndex += 1;
-	}
-	for (const rawReview of data.reviews ?? []) {
-		const parsed = decodeReview(rawReview);
-		if (Result.isFailure(parsed)) {
-			failures.push({
-				itemIndex,
-				message: "Anilist review item is malformed",
-				context: { issues: issuePaths(parsed.failure) },
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const review = parsed.success;
-		const target = getSeriesTarget(review.series_type);
-		if (!target) {
-			failures.push({
-				itemIndex,
-				sourceIdentifier: String(review.series_id),
-				message: `Unsupported AniList series type: ${review.series_type}`,
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const sourceLabel = `${target.sourceLabelPrefix} ${review.series_id}`;
-		const group = getOrCreateMediaEntityGroup(
-			groupMap,
-			{
-				sourceLabel,
-				kind: "resolved",
-				providerSlug: target.providerSlug,
-				externalId: String(review.series_id),
-				entitySchemaSlug: target.entitySchemaSlug,
-			},
-			itemIndex,
-		);
-		const event = createReviewEvent({
-			text: `${review.summary}\n\n${review.text}`,
-			rating: normalizeRating(String(review.score), 100),
-			occurredAt: parseAnilistDate(review.updated_at, timezone) ?? importedAt,
-		});
-		if (event) {
-			group.events.push(event);
-		}
-		itemIndex += 1;
-	}
-	for (const rawFavorite of data.favourites ?? []) {
-		const parsed = decodeFavorite(rawFavorite);
-		if (Result.isFailure(parsed)) {
-			failures.push({
-				itemIndex,
-				message: "Anilist favorite item is malformed",
-				context: { issues: issuePaths(parsed.failure) },
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const favorite = parsed.success;
-		const target = getFavoriteTarget(favorite.favourite_type);
-		if (!target) {
-			failures.push({
-				itemIndex,
-				sourceIdentifier: String(favorite.favourite_id),
-				message: `Unsupported AniList favorite type: ${favorite.favourite_type}`,
-			});
-			itemIndex += 1;
-			continue;
-		}
-		const sourceLabel = `${target.sourceLabelPrefix} ${favorite.favourite_id}`;
-		const group = getOrCreateMediaEntityGroup(
-			groupMap,
-			{
-				sourceLabel,
-				kind: "resolved",
-				providerSlug: target.providerSlug,
-				entitySchemaSlug: target.entitySchemaSlug,
-				externalId: String(favorite.favourite_id),
-			},
-			itemIndex,
-		);
-		addCollectionMembership(group, "Favorite");
-		itemIndex += 1;
-	}
-	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groupMap.values()) };
-};
+			for (const rawReview of data.reviews ?? []) {
+				const parsed = decodeReview(rawReview);
+				if (Result.isFailure(parsed)) {
+					failures.push({
+						itemIndex,
+						message: "Anilist review item is malformed",
+						context: { issues: issuePaths(parsed.failure) },
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const review = parsed.success;
+				const target = getSeriesTarget(review.series_type);
+				if (!target) {
+					failures.push({
+						itemIndex,
+						sourceIdentifier: String(review.series_id),
+						message: `Unsupported AniList series type: ${review.series_type}`,
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const sourceLabel = `${target.sourceLabelPrefix} ${review.series_id}`;
+				const group = getOrCreateMediaEntityGroup(
+					groupMap,
+					{
+						sourceLabel,
+						kind: "resolved",
+						providerSlug: target.providerSlug,
+						externalId: String(review.series_id),
+						entitySchemaSlug: target.entitySchemaSlug,
+					},
+					itemIndex,
+				);
+				const event = createReviewEvent({
+					text: `${review.summary}\n\n${review.text}`,
+					rating: normalizeRating(String(review.score), 100),
+					occurredAt: parseAnilistDate(review.updated_at, timezone) ?? importedAt,
+				});
+				if (event) {
+					group.events.push(event);
+				}
+				itemIndex += 1;
+			}
+			for (const rawFavorite of data.favourites ?? []) {
+				const parsed = decodeFavorite(rawFavorite);
+				if (Result.isFailure(parsed)) {
+					failures.push({
+						itemIndex,
+						message: "Anilist favorite item is malformed",
+						context: { issues: issuePaths(parsed.failure) },
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const favorite = parsed.success;
+				const target = getFavoriteTarget(favorite.favourite_type);
+				if (!target) {
+					failures.push({
+						itemIndex,
+						sourceIdentifier: String(favorite.favourite_id),
+						message: `Unsupported AniList favorite type: ${favorite.favourite_type}`,
+					});
+					itemIndex += 1;
+					continue;
+				}
+				const sourceLabel = `${target.sourceLabelPrefix} ${favorite.favourite_id}`;
+				const group = getOrCreateMediaEntityGroup(
+					groupMap,
+					{
+						sourceLabel,
+						kind: "resolved",
+						providerSlug: target.providerSlug,
+						entitySchemaSlug: target.entitySchemaSlug,
+						externalId: String(favorite.favourite_id),
+					},
+					itemIndex,
+				);
+				addCollectionMembership(group, "Favorite");
+				itemIndex += 1;
+			}
+			return {
+				failures,
+				totalItems: itemIndex,
+				entityGroups: finalizeEntityGroups(groupMap.values()),
+			};
+		}),
+	);

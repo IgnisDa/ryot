@@ -28,7 +28,7 @@ const input: typeof MediaCollectionInput.Type = {
 const execution = { metadata: {}, sandboxScriptId: "media-import-collection" };
 const replayCollection = Effect.fn(function* (
 	value: typeof MediaCollectionInput.Type,
-	resolve: (request: Request) => JsonValue,
+	resolve: (request: Request) => Effect.Effect<JsonValue, Schema.SchemaError>,
 ) {
 	const journal: WorkflowReplayJournalEntry[] = [];
 	for (;;) {
@@ -38,7 +38,7 @@ const replayCollection = Effect.fn(function* (
 		}
 		const request = envelope.requests[journal.length];
 		assert(request);
-		journal.push({ request, value: resolve(request) });
+		journal.push({ request, value: yield* resolve(request) });
 	}
 });
 const sourceResult = (window: number, done: boolean, carry: boolean) => ({
@@ -56,45 +56,52 @@ const sourceResult = (window: number, done: boolean, carry: boolean) => ({
 	chunkHandles: carry ? [`records-${window}`, `carry-${window}`] : [`records-${window}`],
 	advancedAt: new Date(Date.parse(input.command.occurredAt) + window * 1000).toISOString(),
 });
-const recordKernel = (request: Request): JsonValue => {
+const recordKernel = Effect.fnUntraced(function* (
+	request: Request,
+): Effect.fn.Return<JsonValue, Schema.SchemaError> {
 	assert(request.kind === "child");
 	expect(request.args.workflowSlug).toBe("kernel:process-import-chunks");
-	const { runId, command, operation } = Schema.decodeUnknownSync(genericImportKernelInputSchema)(
-		request.args.input,
-	);
+	const { runId, command, operation } = yield* Schema.decodeUnknownEffect(
+		genericImportKernelInputSchema,
+	)(request.args.input);
 	expect(command).toEqual(input.command);
 	expect(runId).toBe(input.runId);
 	return operation.action === "capture"
 		? { handle: operation.handle, captureId: operation.captureId, inputFingerprint: "fingerprint" }
 		: { recorded: true };
-};
+});
 
 it.live("preserves three-window binary and final folds, carry, checkpoints, and merge replay", () =>
 	Effect.gen(function* () {
 		let windows = 0;
 		const merges: Array<typeof MediaMergeInput.Type> = [];
-		const { journal, envelope } = yield* replayCollection(input, (request) => {
-			if (request.kind === "activity") {
-				expect(request.args.scriptSlug).toBe("import.goodreads");
-				windows++;
-				return sourceResult(windows, windows === 3, windows === 1);
-			}
-			assert(request.kind === "child");
-			if (request.args.workflowSlug !== "media-import-merge") {
-				return recordKernel(request);
-			}
-			const merge = Schema.decodeUnknownSync(MediaMergeInput)(request.args.input);
-			merges.push(merge);
-			return {
-				leftPage: 0,
-				rightPage: 0,
-				page: merge.page + 1,
-				ordinal: merge.ordinal + 1,
-				leftOffset: merge.leftOffset + 17,
-				rightOffset: merge.rightOffset + 23,
-				done: merge.prefix !== "source-8-merge-0" || merge.page === 1,
-			};
-		});
+		const { journal, envelope } = yield* replayCollection(
+			input,
+			Effect.fnUntraced(function* (
+				request: Request,
+			): Effect.fn.Return<JsonValue, Schema.SchemaError> {
+				if (request.kind === "activity") {
+					expect(request.args.scriptSlug).toBe("import.goodreads");
+					windows++;
+					return sourceResult(windows, windows === 3, windows === 1);
+				}
+				assert(request.kind === "child");
+				if (request.args.workflowSlug !== "media-import-merge") {
+					return yield* recordKernel(request);
+				}
+				const merge = yield* Schema.decodeUnknownEffect(MediaMergeInput)(request.args.input);
+				merges.push(merge);
+				return {
+					leftPage: 0,
+					rightPage: 0,
+					page: merge.page + 1,
+					ordinal: merge.ordinal + 1,
+					leftOffset: merge.leftOffset + 17,
+					rightOffset: merge.rightOffset + 23,
+					done: merge.prefix !== "source-8-merge-0" || merge.page === 1,
+				};
+			}),
+		);
 		assert(envelope.state === "completed");
 		expect(envelope.output).toEqual({
 			step: 10,
@@ -184,10 +191,17 @@ it.live("preserves three-window binary and final folds, carry, checkpoints, and 
 				},
 			})),
 		);
-		const operations = journal.flatMap(({ request }) =>
-			request.kind === "child" && request.args.workflowSlug === "kernel:process-import-chunks"
-				? [Schema.decodeUnknownSync(genericImportKernelInputSchema)(request.args.input).operation]
-				: [],
+		const operations = yield* Effect.forEach(
+			journal.flatMap(({ request }) =>
+				request.kind === "child" && request.args.workflowSlug === "kernel:process-import-chunks"
+					? [request.args.input]
+					: [],
+			),
+			(childInput) =>
+				Effect.map(
+					Schema.decodeUnknownEffect(genericImportKernelInputSchema)(childInput),
+					({ operation }) => operation,
+				),
 		);
 		expect(operations.filter((operation) => operation.action === "capture")).toEqual([
 			{
@@ -256,19 +270,24 @@ it.live("limits each segment to 64 windows and resumes with its exact carry and 
 	Effect.gen(function* () {
 		let windows = 0;
 		let merges = 0;
-		const { envelope } = yield* replayCollection(input, (request) => {
-			if (request.kind === "activity") {
-				windows++;
-				return sourceResult(windows, false, windows === 64);
-			}
-			assert(request.kind === "child");
-			if (request.args.workflowSlug !== "media-import-merge") {
-				return recordKernel(request);
-			}
-			const merge = Schema.decodeUnknownSync(MediaMergeInput)(request.args.input);
-			merges++;
-			return { ...merge, page: 1, done: true, ordinal: merge.ordinal + 1 };
-		});
+		const { envelope } = yield* replayCollection(
+			input,
+			Effect.fnUntraced(function* (
+				request: Request,
+			): Effect.fn.Return<JsonValue, Schema.SchemaError> {
+				if (request.kind === "activity") {
+					windows++;
+					return sourceResult(windows, false, windows === 64);
+				}
+				assert(request.kind === "child");
+				if (request.args.workflowSlug !== "media-import-merge") {
+					return yield* recordKernel(request);
+				}
+				const merge = yield* Schema.decodeUnknownEffect(MediaMergeInput)(request.args.input);
+				merges++;
+				return { ...merge, page: 1, done: true, ordinal: merge.ordinal + 1 };
+			}),
+		);
 		assert(envelope.state === "completed");
 		const output = yield* Schema.decodeUnknownEffect(MediaCollectionOutput)(envelope.output);
 		expect(windows).toBe(64);
@@ -280,24 +299,29 @@ it.live("limits each segment to 64 windows and resumes with its exact carry and 
 			carry: "source-70-carry",
 			run: { pages: 1, prefix: "source-70-merge-5" },
 		});
-		const resumed = yield* replayCollection({ ...input, ...output }, (request) => {
-			if (request.kind === "activity") {
-				expect(request.name).toBe("source:71");
-				expect(request.args.input).toMatchObject({
-					offset: 6410,
-					itemIndex: 197,
-					eventOffset: 64,
-					action: "collect",
-					header: "header-64",
-					ingestionArtifacts: {
-						runId: input.runId,
-						captures: { carry: "source-70-carry", records: "normalized-records" },
-					},
-				});
-				return sourceResult(65, true, false);
-			}
-			return recordKernel(request);
-		});
+		const resumed = yield* replayCollection(
+			{ ...input, ...output },
+			Effect.fnUntraced(function* (
+				request: Request,
+			): Effect.fn.Return<JsonValue, Schema.SchemaError> {
+				if (request.kind === "activity") {
+					expect(request.name).toBe("source:71");
+					expect(request.args.input).toMatchObject({
+						offset: 6410,
+						itemIndex: 197,
+						eventOffset: 64,
+						action: "collect",
+						header: "header-64",
+						ingestionArtifacts: {
+							runId: input.runId,
+							captures: { carry: "source-70-carry", records: "normalized-records" },
+						},
+					});
+					return sourceResult(65, true, false);
+				}
+				return yield* recordKernel(request);
+			}),
+		);
 		assert(resumed.envelope.state === "completed");
 		expect(resumed.envelope.output).toMatchObject({
 			step: 72,

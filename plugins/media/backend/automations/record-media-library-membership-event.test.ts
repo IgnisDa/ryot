@@ -95,7 +95,7 @@ it.live("records one add-to-media-library event per membership in a single write
 		]);
 
 		yield* definition.run(
-			batchContext(
+			yield* batchContext(
 				{ relationship: membership("relationship-1", "entity-1") },
 				{ relationship: membership("relationship-2", "entity-2", "2026-01-02T00:00:00.000Z") },
 			),
@@ -130,7 +130,7 @@ it.live("skips non-membership relationships, deletions, and non-media entities",
 		]);
 
 		yield* definition.run(
-			batchContext(
+			yield* batchContext(
 				{
 					relationship: {
 						...membership("relationship-1", "entity-2"),
@@ -153,7 +153,10 @@ it.live("does nothing when the batch has no membership creations", () =>
 		const { host, calls, created } = createHost([]);
 
 		yield* definition.run(
-			batchContext({ operation: "delete", relationship: membership("relationship-1", "entity-1") }),
+			yield* batchContext({
+				operation: "delete",
+				relationship: membership("relationship-1", "entity-1"),
+			}),
 			host,
 		);
 

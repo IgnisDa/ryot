@@ -1,11 +1,11 @@
+import { assert, expect, it } from "@effect/vitest";
 import {
 	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { anyOf } from "@ryot-app/testing/matchers";
-import { Schema } from "effect";
-import { assert, expect, it } from "vitest";
+import { Effect, Schema } from "effect";
 
 import { manifest as userBootstrapManifest } from "../backend/bootstrap/user-bootstrap.sandbox";
 import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
@@ -66,318 +66,324 @@ it("provides complete Fitness preference defaults without creating exercise over
 	).toEqual({ data: {}, success: true });
 });
 
-it("declares the complete fitness-owned source", () => {
-	expect(() => Schema.decodeSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();
-	expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
-		"fitness-library",
-		"exercise",
-		"exercise-target",
-		"exercise-equipment",
-		"workout",
-		"workout-template",
-		"measurement-entry",
-		"measurement-metric",
-	]);
-	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
-		"in-fitness-library",
-		"measurement-metric-pinned",
-		"exercise-targets",
-		"exercise-uses-equipment",
-		"workout-repeated-from",
-		"workout-to-workout-template",
-	]);
-	expect(
-		fitnessPlugin.entitySchemas.flatMap((schema) =>
-			"editor" in schema ? [[schema.slug, schema.editor]] : [],
-		),
-	).toEqual([
-		[
+it.effect("declares the complete fitness-owned source", () =>
+	Effect.gen(function* () {
+		yield* Schema.decodeEffect(AuthoredPluginManifest)(fitnessPlugin);
+		expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
+			"fitness-library",
 			"exercise",
-			{
-				relationships: [
-					{ direction: "outgoing", slug: "exercise-targets" },
-					{ direction: "outgoing", slug: "exercise-uses-equipment" },
-				],
+			"exercise-target",
+			"exercise-equipment",
+			"workout",
+			"workout-template",
+			"measurement-entry",
+			"measurement-metric",
+		]);
+		expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
+			"in-fitness-library",
+			"measurement-metric-pinned",
+			"exercise-targets",
+			"exercise-uses-equipment",
+			"workout-repeated-from",
+			"workout-to-workout-template",
+		]);
+		expect(
+			fitnessPlugin.entitySchemas.flatMap((schema) =>
+				"editor" in schema ? [[schema.slug, schema.editor]] : [],
+			),
+		).toEqual([
+			[
+				"exercise",
+				{
+					relationships: [
+						{ direction: "outgoing", slug: "exercise-targets" },
+						{ direction: "outgoing", slug: "exercise-uses-equipment" },
+					],
+				},
+			],
+			["exercise-target", { relationships: [] }],
+			["exercise-equipment", { relationships: [] }],
+		]);
+		expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
+		expect(fitnessPlugin.client).toEqual({
+			homeView: null,
+			routes: fitnessClientRoutes,
+			apiVersion: CLIENT_API_VERSION,
+			analyticsSections: {
+				fitness: {
+					sortOrder: 20,
+					name: "Fitness",
+					icon: "dumbbell",
+					exportName: "fitness-analytics",
+				},
 			},
-		],
-		["exercise-target", { relationships: [] }],
-		["exercise-equipment", { relationships: [] }],
-	]);
-	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
-	expect(fitnessPlugin.client).toEqual({
-		homeView: null,
-		routes: fitnessClientRoutes,
-		apiVersion: CLIENT_API_VERSION,
-		analyticsSections: {
-			fitness: {
-				sortOrder: 20,
-				name: "Fitness",
-				icon: "dumbbell",
-				exportName: "fitness-analytics",
+			entities: {
+				"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+				workout: {
+					detailPage: "workout-detail",
+					listPresentation: "workout-row",
+					gridPresentation: "workout-card",
+				},
+				"workout-template": {
+					listPresentation: "entity-row",
+					gridPresentation: "entity-card",
+					detailPage: "workout-template-detail",
+				},
+				exercise: {
+					createRoute: "/exercises/new",
+					detailPage: "exercise-detail",
+					listPresentation: "entity-row",
+					gridPresentation: "entity-card",
+				},
 			},
-		},
-		entities: {
-			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			workout: {
-				detailPage: "workout-detail",
-				listPresentation: "workout-row",
-				gridPresentation: "workout-card",
+			exports: {
+				"entity-row": {
+					kind: "presentation",
+					entry: "client/entity-row.ts",
+					automaticEntityPresentations: false,
+				},
+				"workout-row": {
+					kind: "presentation",
+					entry: "client/workout-row.ts",
+					automaticEntityPresentations: false,
+				},
+				"entity-card": {
+					kind: "presentation",
+					entry: "client/entity-card.ts",
+					automaticEntityPresentations: false,
+				},
+				"workout-card": {
+					kind: "presentation",
+					entry: "client/workout-card.ts",
+					automaticEntityPresentations: false,
+				},
+				"fitness-analytics": {
+					kind: "analytics-section",
+					automaticEntityPresentations: false,
+					entry: "client/analytics/section.tsx",
+				},
+				workouts: {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+					entry: "client/workouts/screen.tsx",
+				},
+				"fitness-home": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					entry: "client/home/screen.tsx",
+					automaticEntityPresentations: false,
+				},
+				"workout-detail": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					entry: "client/workout/screen.tsx",
+					automaticEntityPresentations: false,
+				},
+				measurements: {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+					entry: "client/measurements/screen.tsx",
+				},
+				"exercise-detail": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					entry: "client/exercise/screen.tsx",
+					automaticEntityPresentations: false,
+				},
+				"workout-editor": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+					entry: "client/workout-editor/page.tsx",
+				},
+				"exercise-editor": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+					entry: "client/exercise-editor/page.tsx",
+				},
+				"workout-template-detail": {
+					kind: "page",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+					entry: "client/workout-template/screen.tsx",
+				},
 			},
-			"workout-template": {
-				listPresentation: "entity-row",
-				gridPresentation: "entity-card",
-				detailPage: "workout-template-detail",
+		});
+		const exercise = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise");
+		assert(exercise && "mergeIdentityProperties" in exercise);
+		expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
+		expect(exercise.propertiesSchema.fields).not.toHaveProperty("muscles");
+		expect(exercise.propertiesSchema.fields).not.toHaveProperty("equipment");
+		const exerciseTarget = fitnessPlugin.entitySchemas.find(
+			({ slug }) => slug === "exercise-target",
+		);
+		assert(exerciseTarget);
+		assert("description" in exerciseTarget.propertiesSchema.fields);
+		expect(exerciseTarget.propertiesSchema.fields).toMatchObject({
+			description: { type: "string" },
+			kind: {
+				type: "enum",
+				validation: { required: true },
+				choices: {
+					kind: "static",
+					values: [
+						{ value: "muscle" },
+						{ value: "muscle_region" },
+						{ value: "tendon" },
+						{ value: "fascia" },
+						{ value: "joint" },
+						{ value: "region" },
+					],
+				},
 			},
-			exercise: {
-				createRoute: "/exercises/new",
-				detailPage: "exercise-detail",
-				listPresentation: "entity-row",
-				gridPresentation: "entity-card",
-			},
-		},
-		exports: {
-			"entity-row": {
-				kind: "presentation",
-				entry: "client/entity-row.ts",
-				automaticEntityPresentations: false,
-			},
-			"workout-row": {
-				kind: "presentation",
-				entry: "client/workout-row.ts",
-				automaticEntityPresentations: false,
-			},
-			"entity-card": {
-				kind: "presentation",
-				entry: "client/entity-card.ts",
-				automaticEntityPresentations: false,
-			},
-			"workout-card": {
-				kind: "presentation",
-				entry: "client/workout-card.ts",
-				automaticEntityPresentations: false,
-			},
-			"fitness-analytics": {
-				kind: "analytics-section",
-				automaticEntityPresentations: false,
-				entry: "client/analytics/section.tsx",
-			},
-			workouts: {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				entry: "client/workouts/screen.tsx",
-			},
-			"fitness-home": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				entry: "client/home/screen.tsx",
-				automaticEntityPresentations: false,
-			},
-			"workout-detail": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				entry: "client/workout/screen.tsx",
-				automaticEntityPresentations: false,
-			},
-			measurements: {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				entry: "client/measurements/screen.tsx",
-			},
-			"exercise-detail": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				entry: "client/exercise/screen.tsx",
-				automaticEntityPresentations: false,
-			},
-			"workout-editor": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				entry: "client/workout-editor/page.tsx",
-			},
-			"exercise-editor": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				entry: "client/exercise-editor/page.tsx",
-			},
-			"workout-template-detail": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-				entry: "client/workout-template/screen.tsx",
-			},
-		},
-	});
-	const exercise = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise");
-	assert(exercise && "mergeIdentityProperties" in exercise);
-	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
-	expect(exercise.propertiesSchema.fields).not.toHaveProperty("muscles");
-	expect(exercise.propertiesSchema.fields).not.toHaveProperty("equipment");
-	const exerciseTarget = fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise-target");
-	assert(exerciseTarget);
-	assert("description" in exerciseTarget.propertiesSchema.fields);
-	expect(exerciseTarget.propertiesSchema.fields).toMatchObject({
-		description: { type: "string" },
-		kind: {
-			type: "enum",
-			validation: { required: true },
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "muscle" },
-					{ value: "muscle_region" },
-					{ value: "tendon" },
-					{ value: "fascia" },
-					{ value: "joint" },
-					{ value: "region" },
-				],
-			},
-		},
-	});
-	expect(exerciseTarget.propertiesSchema.fields["description"]).not.toHaveProperty("validation");
-	const exerciseEquipment = fitnessPlugin.entitySchemas.find(
-		({ slug }) => slug === "exercise-equipment",
-	);
-	assert(exerciseEquipment);
-	assert("description" in exerciseEquipment.propertiesSchema.fields);
-	expect(exerciseEquipment.propertiesSchema.fields).toMatchObject({
-		description: { type: "string" },
-	});
-	expect(exerciseEquipment.propertiesSchema.fields["description"]).not.toHaveProperty("validation");
-	const exerciseTargetsRelationship = fitnessPlugin.relationshipSchemas.find(
-		({ slug }) => slug === "exercise-targets",
-	);
-	assert(exerciseTargetsRelationship);
-	expect(exerciseTargetsRelationship).toMatchObject({
-		sourceEntitySchemaSlug: "exercise",
-		targetEntitySchemaSlug: "exercise-target",
-		propertiesSchema: {
-			fields: {
-				role: {
-					type: "enum",
-					choices: {
-						kind: "static",
-						values: [{ value: "primary" }, { value: "secondary" }, { value: "stabilizer" }],
+		});
+		expect(exerciseTarget.propertiesSchema.fields["description"]).not.toHaveProperty("validation");
+		const exerciseEquipment = fitnessPlugin.entitySchemas.find(
+			({ slug }) => slug === "exercise-equipment",
+		);
+		assert(exerciseEquipment);
+		assert("description" in exerciseEquipment.propertiesSchema.fields);
+		expect(exerciseEquipment.propertiesSchema.fields).toMatchObject({
+			description: { type: "string" },
+		});
+		expect(exerciseEquipment.propertiesSchema.fields["description"]).not.toHaveProperty(
+			"validation",
+		);
+		const exerciseTargetsRelationship = fitnessPlugin.relationshipSchemas.find(
+			({ slug }) => slug === "exercise-targets",
+		);
+		assert(exerciseTargetsRelationship);
+		expect(exerciseTargetsRelationship).toMatchObject({
+			sourceEntitySchemaSlug: "exercise",
+			targetEntitySchemaSlug: "exercise-target",
+			propertiesSchema: {
+				fields: {
+					role: {
+						type: "enum",
+						choices: {
+							kind: "static",
+							values: [{ value: "primary" }, { value: "secondary" }, { value: "stabilizer" }],
+						},
 					},
 				},
 			},
-		},
-	});
-	assert("role" in exerciseTargetsRelationship.propertiesSchema.fields);
-	expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty("validation");
-	expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty("default");
-	const exerciseEquipmentRelationship = fitnessPlugin.relationshipSchemas.find(
-		({ slug }) => slug === "exercise-uses-equipment",
-	);
-	assert(exerciseEquipmentRelationship);
-	expect(exerciseEquipmentRelationship).toMatchObject({
-		propertiesSchema: { fields: {} },
-		sourceEntitySchemaSlug: "exercise",
-		targetEntitySchemaSlug: "exercise-equipment",
-	});
-	expect(fitnessPlugin.configSchema).toMatchObject({ fields: {}, unknownKeys: "strict" });
-	expect(
-		fitnessPlugin.entitySchemas
-			.filter((schema) => schema.slug !== "exercise")
-			.every((schema) => !("mergeIdentityProperties" in schema)),
-	).toBe(true);
-	expect(fitnessPlugin.crons).toEqual([]);
-	expect(fitnessPlugin.userBootstrap).toEqual([
-		{
-			slug: "initialize-workspace",
-			scriptSlug: "bootstrap.fitness-workspace",
-			description: "Initialize the user's fitness workspace",
-		},
-	]);
-	expect(fitnessPlugin.providers).toEqual([
-		{
-			name: "Free Exercise DB",
-			rootEntitySchemaSlug: "exercise",
-			slug: "exercise.free-exercise-db",
-			information: { source: "free-exercise-db" },
-		},
-		{
-			name: "Exercise Target Fitness Catalog",
-			rootEntitySchemaSlug: "exercise-target",
-			slug: "exercise-target.fitness-catalog",
-			information: { source: "fitness-catalog" },
-		},
-		{
-			name: "Exercise Equipment Fitness Catalog",
-			rootEntitySchemaSlug: "exercise-equipment",
-			slug: "exercise-equipment.fitness-catalog",
-			information: { source: "fitness-catalog" },
-		},
-	]);
-	expect(fitnessPlugin.workflows).toEqual([
-		{ slug: "import", scriptSlug: "workflow.import" },
-		{ slug: "import-application", scriptSlug: "workflow.import-application" },
-		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
-	]);
-	expect(fitnessPlugin.importSources.map(({ slug }) => slug)).toEqual(
-		expectedImportSources.map(({ slug }) => slug),
-	);
-	for (const [index, source] of fitnessPlugin.importSources.entries()) {
-		const expected = expectedImportSources[index];
-		assert(expected);
-		expect(source).toMatchObject({
-			workflowSlug: "import",
-			description: expected.description,
-			exportHelp: { docsUrl: expected.docsUrl },
 		});
-		expect(source.inputSchema).toEqual({
-			unknownKeys: "strict",
-			fields: {
-				timezone: {
-					position: 1,
-					type: "string",
-					label: "Timezone",
-					description: anyOf(String),
-					format: { kind: "timezone" },
-					validation: { required: true },
-				},
-				uploadToken: {
-					position: 0,
-					type: "string",
-					label: expected.label,
-					description: anyOf(String),
-					validation: { minLength: 1, required: true },
-					format: { kind: "upload", allowedFileExtensions: ["csv"] },
-				},
+		assert("role" in exerciseTargetsRelationship.propertiesSchema.fields);
+		expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty(
+			"validation",
+		);
+		expect(exerciseTargetsRelationship.propertiesSchema.fields.role).not.toHaveProperty("default");
+		const exerciseEquipmentRelationship = fitnessPlugin.relationshipSchemas.find(
+			({ slug }) => slug === "exercise-uses-equipment",
+		);
+		assert(exerciseEquipmentRelationship);
+		expect(exerciseEquipmentRelationship).toMatchObject({
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: "exercise",
+			targetEntitySchemaSlug: "exercise-equipment",
+		});
+		expect(fitnessPlugin.configSchema).toMatchObject({ fields: {}, unknownKeys: "strict" });
+		expect(
+			fitnessPlugin.entitySchemas
+				.filter((schema) => schema.slug !== "exercise")
+				.every((schema) => !("mergeIdentityProperties" in schema)),
+		).toBe(true);
+		expect(fitnessPlugin.crons).toEqual([]);
+		expect(fitnessPlugin.userBootstrap).toEqual([
+			{
+				slug: "initialize-workspace",
+				scriptSlug: "bootstrap.fitness-workspace",
+				description: "Initialize the user's fitness workspace",
 			},
-		});
-		expect(() =>
-			Schema.decodeSync(FitnessCreateImportRunBody)({
+		]);
+		expect(fitnessPlugin.providers).toEqual([
+			{
+				name: "Free Exercise DB",
+				rootEntitySchemaSlug: "exercise",
+				slug: "exercise.free-exercise-db",
+				information: { source: "free-exercise-db" },
+			},
+			{
+				name: "Exercise Target Fitness Catalog",
+				rootEntitySchemaSlug: "exercise-target",
+				slug: "exercise-target.fitness-catalog",
+				information: { source: "fitness-catalog" },
+			},
+			{
+				name: "Exercise Equipment Fitness Catalog",
+				rootEntitySchemaSlug: "exercise-equipment",
+				slug: "exercise-equipment.fitness-catalog",
+				information: { source: "fitness-catalog" },
+			},
+		]);
+		expect(fitnessPlugin.workflows).toEqual([
+			{ slug: "import", scriptSlug: "workflow.import" },
+			{ slug: "import-application", scriptSlug: "workflow.import-application" },
+			{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+		]);
+		expect(fitnessPlugin.importSources.map(({ slug }) => slug)).toEqual(
+			expectedImportSources.map(({ slug }) => slug),
+		);
+		for (const [index, source] of fitnessPlugin.importSources.entries()) {
+			const expected = expectedImportSources[index];
+			assert(expected);
+			expect(source).toMatchObject({
+				workflowSlug: "import",
+				description: expected.description,
+				exportHelp: { docsUrl: expected.docsUrl },
+			});
+			expect(source.inputSchema).toEqual({
+				unknownKeys: "strict",
+				fields: {
+					timezone: {
+						position: 1,
+						type: "string",
+						label: "Timezone",
+						description: anyOf(String),
+						format: { kind: "timezone" },
+						validation: { required: true },
+					},
+					uploadToken: {
+						position: 0,
+						type: "string",
+						label: expected.label,
+						description: anyOf(String),
+						validation: { minLength: 1, required: true },
+						format: { kind: "upload", allowedFileExtensions: ["csv"] },
+					},
+				},
+			});
+			yield* Schema.decodeEffect(FitnessCreateImportRunBody)({
 				source: source.slug,
 				uploadToken: "upload-1",
 				timezone: "Asia/Kolkata",
-			}),
-		).not.toThrow();
-	}
-	expect(
-		[hevyManifest, openScaleManifest, strongAppManifest, settingsManifest].map(
-			({ kind, slug }) => ({ kind, slug }),
-		),
-	).toEqual([
-		{ kind: "script", slug: "import.hevy" },
-		{ kind: "script", slug: "import.open-scale" },
-		{ kind: "script", slug: "import.strong-app" },
-		{ kind: "script", slug: "import.settings" },
-	]);
-	expect(userBootstrapManifest).toMatchObject({
-		kind: "script",
-		slug: "bootstrap.fitness-workspace",
-	});
-	expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
-		{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
-		{ name: "All Workouts", renderer: { kind: "plugin", exportName: "workouts" } },
-		{ name: "All Measurements", renderer: { kind: "plugin", exportName: "measurements" } },
-		{ name: "All Workout Templates", renderer: { kind: "kernel", name: "entity-browser" } },
-	]);
-});
+			});
+		}
+		expect(
+			[hevyManifest, openScaleManifest, strongAppManifest, settingsManifest].map(
+				({ kind, slug }) => ({ kind, slug }),
+			),
+		).toEqual([
+			{ kind: "script", slug: "import.hevy" },
+			{ kind: "script", slug: "import.open-scale" },
+			{ kind: "script", slug: "import.strong-app" },
+			{ kind: "script", slug: "import.settings" },
+		]);
+		expect(userBootstrapManifest).toMatchObject({
+			kind: "script",
+			slug: "bootstrap.fitness-workspace",
+		});
+		expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
+			{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
+			{ name: "All Workouts", renderer: { kind: "plugin", exportName: "workouts" } },
+			{ name: "All Measurements", renderer: { kind: "plugin", exportName: "measurements" } },
+			{ name: "All Workout Templates", renderer: { kind: "kernel", name: "entity-browser" } },
+		]);
+	}),
+);
 
 it("binds the combined set policy before stream-based record recomputation", () => {
 	const setPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-set");

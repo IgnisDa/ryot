@@ -48,10 +48,11 @@ const calendarInput = (value: MediaAnalyticsInput = input) => ({
 	...value,
 	periods: mediaAnalyticsPeriods(resolveReportingSelection(value.selection, value)),
 });
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const documentHash = Effect.fnUntraced(function* (document: unknown) {
+	const text = yield* documentText(document);
 	const hash = yield* Effect.promise(() =>
-		crypto.subtle.digest("SHA-256", new TextEncoder().encode(documentText(document))),
+		crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
 	);
 	return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
 });

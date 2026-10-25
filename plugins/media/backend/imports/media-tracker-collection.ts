@@ -90,7 +90,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 				...(yield* writeMediaCapture([
 					{
 						name: "records.jsonl",
-						contents: serializeMediaRecords(
+						contents: yield* serializeMediaRecords(
 							normalizeMediaRecords(
 								{
 									entityGroups: [],
@@ -225,7 +225,7 @@ export const collectMediaTracker = Effect.fn(function* (input: MediaSourceInput,
 			...(yield* writeMediaCapture([
 				{
 					name: "records.jsonl",
-					contents: serializeMediaRecords(
+					contents: yield* serializeMediaRecords(
 						normalizeMediaRecords(result, index, "media_tracker", seenOffset),
 					),
 				},

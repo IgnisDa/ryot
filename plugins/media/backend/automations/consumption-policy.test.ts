@@ -69,7 +69,9 @@ describe("consumption policy", () => {
 			];
 			for (const input of inputs) {
 				expect(
-					yield* test.run(policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" })),
+					yield* test.run(
+						yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
+					),
 				).toEqual({ action: "allow" });
 			}
 			expect(test.reads()).toBe(0);
@@ -111,7 +113,9 @@ describe("consumption policy", () => {
 			];
 			for (const input of inputs) {
 				expect(
-					yield* test.run(policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" })),
+					yield* test.run(
+						yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
+					),
 				).toMatchObject({ action: "reject" });
 			}
 			expect(test.reads()).toBe(0);
@@ -122,7 +126,7 @@ describe("consumption policy", () => {
 			const test = harness({ pages: 123 });
 			expect(
 				yield* test.run(
-					policyAutomationContext({
+					yield* policyAutomationContext({
 						entitySchemaSlug: "book",
 						eventSchemaSlug: "progress",
 						properties: { progressPages: 40, calendarDate: "2026-02-01" },
@@ -148,7 +152,7 @@ describe("consumption policy", () => {
 			const test = harness({ runtime: 999 });
 			expect(
 				yield* test.run(
-					policyAutomationContext({
+					yield* policyAutomationContext({
 						eventSchemaSlug: "complete",
 						properties: {
 							dateUnknown: true,
@@ -163,7 +167,7 @@ describe("consumption policy", () => {
 	it.effect("preserves snapshots through unrelated edits and attempts to recapture", () =>
 		Effect.gen(function* () {
 			const test = harness({ runtime: 999 });
-			const context = policyAutomationContext({
+			const context = yield* policyAutomationContext({
 				eventSchemaSlug: "complete",
 				properties: { consumptionBasis: { total: 90, unit: "minutes", property: "runtime" } },
 			});
@@ -210,7 +214,9 @@ describe("consumption policy", () => {
 				},
 			];
 			for (const input of inputs) {
-				expect(yield* test.run(policyAutomationContext(input))).toMatchObject({ action: "reject" });
+				expect(yield* test.run(yield* policyAutomationContext(input))).toMatchObject({
+					action: "reject",
+				});
 			}
 			expect(test.reads()).toBe(0);
 		}),

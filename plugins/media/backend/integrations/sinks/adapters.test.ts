@@ -19,27 +19,28 @@ import kodiDefinition, { manifest as kodiManifest, parseKodi } from "./kodi.sand
 import plexDefinition, { manifest as plexManifest } from "./plex.sandbox";
 
 const json = "application/json";
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const sinkInput = (rawBody: string, contentType = json) => ({ rawBody, contentType });
 const runKodi = (rawBody: string) =>
-	Effect.runPromise(
-		runIntegrationTestScript(
-			kodiDefinition,
-			sinkInput(rawBody),
-			defineSandboxTestHost(kodiManifest, {
-				getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "kodi" })),
-			}),
-			execution,
-		),
+	runIntegrationTestScript(
+		kodiDefinition,
+		sinkInput(rawBody),
+		defineSandboxTestHost(kodiManifest, {
+			getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "kodi" })),
+		}),
+		execution,
 	);
 const multipart = (payload: unknown) =>
-	`--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${encodeJson(payload)}\r\n--abc--`;
+	Effect.map(
+		encodeJson(payload),
+		(body) => `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${body}\r\n--abc--`,
+	);
 
 describe("Kodi sink", () => {
-	it("maps Kodi show progress to a TMDB show ref", () => {
-		const result = Effect.runSync(
-			parseKodi(
-				encodeJson({
+	it.effect("maps Kodi show progress to a TMDB show ref", () =>
+		Effect.gen(function* () {
+			const result = yield* parseKodi(
+				yield* encodeJson({
 					lot: "show",
 					progress: 45,
 					identifier: "1234",
@@ -47,61 +48,65 @@ describe("Kodi sink", () => {
 					show_episode_number: 7,
 				}),
 				"2026-01-01T00:00:00.000Z",
-			),
-		);
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "1234", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-			events: [
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]).toMatchObject({
+				entityRef: { externalId: "1234", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+				events: [
+					{
+						eventSchemaSlug: "progress",
+						properties: { consumedOn: "Kodi", progressPercent: 45 },
+						unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 7 },
+					},
+				],
+			});
+			expect(result.entityGroups[0]?.events[0]?.occurredAt).toBe("2026-01-01T00:00:00.000Z");
+		}),
+	);
+
+	it.effect("returns an input_transformation failure for malformed payloads", () =>
+		Effect.gen(function* () {
+			const result = yield* parseKodi(yield* encodeJson("not-json"), "2026-01-01T00:00:00.000Z");
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures).toEqual([
 				{
-					eventSchemaSlug: "progress",
-					properties: { consumedOn: "Kodi", progressPercent: 45 },
-					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 7 },
+					itemIndex: 0,
+					stage: "input_transformation",
+					message: "Could not parse Kodi webhook payload",
 				},
-			],
-		});
-		expect(result.entityGroups[0]?.events[0]?.occurredAt).toBe("2026-01-01T00:00:00.000Z");
-	});
+			]);
+		}),
+	);
 
-	it("returns an input_transformation failure for malformed payloads", () => {
-		const result = Effect.runSync(parseKodi(encodeJson("not-json"), "2026-01-01T00:00:00.000Z"));
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toEqual([
-			{
-				itemIndex: 0,
-				stage: "input_transformation",
-				message: "Could not parse Kodi webhook payload",
-			},
-		]);
-	});
-
-	it("returns an input_transformation failure for invalid show season and episode values", () => {
-		const result = Effect.runSync(
-			parseKodi(
-				encodeJson({
-					lot: "show",
-					progress: 45,
-					identifier: "1234",
-					show_episode_number: 7.5,
-					show_season_number: Number.NaN,
-				}),
-				"2026-01-01T00:00:00.000Z",
-			),
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toEqual([
-			{
-				itemIndex: 0,
-				stage: "input_transformation",
-				message: "Kodi webhook payload is missing show episode coordinates",
-			},
-		]);
-	});
+	it.effect(
+		"returns an input_transformation failure for invalid show season and episode values",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* parseKodi(
+					yield* encodeJson({
+						lot: "show",
+						progress: 45,
+						identifier: "1234",
+						show_episode_number: 7.5,
+						show_season_number: Number.NaN,
+					}),
+					"2026-01-01T00:00:00.000Z",
+				);
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures).toEqual([
+					{
+						itemIndex: 0,
+						stage: "input_transformation",
+						message: "Kodi webhook payload is missing show episode coordinates",
+					},
+				]);
+			}),
+	);
 
 	it.live("parses a Kodi webhook raw body", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runKodi(encodeJson({ lot: "movie", progress: 30, identifier: "603" })),
+			const result = yield* runKodi(
+				yield* encodeJson({ lot: "movie", progress: 30, identifier: "603" }),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]?.entityRef).toMatchObject({
@@ -116,7 +121,7 @@ describe("Kodi sink", () => {
 describe("media server sinks", () => {
 	it.live("maps an Emby episode webhook to a TMDB show ref", () =>
 		Effect.gen(function* () {
-			const rawBody = encodeJson({
+			const rawBody = yield* encodeJson({
 				IndexNumber: 3,
 				PositionTicks: 50,
 				RunTimeTicks: 100,
@@ -148,7 +153,7 @@ describe("media server sinks", () => {
 
 	it.live("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", () =>
 		Effect.gen(function* () {
-			const rawBody = encodeJson({
+			const rawBody = yield* encodeJson({
 				IndexNumber: 4,
 				RunTimeTicks: 100,
 				PositionTicks: 25,
@@ -184,7 +189,7 @@ describe("media server sinks", () => {
 			const result = yield* runIntegrationTestScript(
 				jellyfinDefinition,
 				sinkInput(
-					encodeJson({
+					yield* encodeJson({
 						ItemType: "Movie",
 						PositionTicks: 50,
 						RunTimeTicks: 100,
@@ -211,22 +216,26 @@ const runJellyfin = (
 		Pick<ScriptHost, "httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig">
 	> = {},
 ) =>
-	runIntegrationTestScript(
-		jellyfinDefinition,
-		sinkInput(encodeJson(payload)),
-		defineSandboxTestHost(jellyfinManifest, {
-			getPluginConfig: ({ required: keys = [] }) =>
-				hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			...lookupHost,
-			getCurrentIntegration: () =>
-				hostSuccess(
-					integrationRecord({
-						provider: "jellyfin_sink",
-						...(providerSpecifics ? { providerSpecifics } : {}),
-					}),
-				),
-		}),
-		execution,
+	encodeJson(payload).pipe(
+		Effect.flatMap((body) =>
+			runIntegrationTestScript(
+				jellyfinDefinition,
+				sinkInput(body),
+				defineSandboxTestHost(jellyfinManifest, {
+					getPluginConfig: ({ required: keys = [] }) =>
+						hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
+					...lookupHost,
+					getCurrentIntegration: () =>
+						hostSuccess(
+							integrationRecord({
+								provider: "jellyfin_sink",
+								...(providerSpecifics ? { providerSpecifics } : {}),
+							}),
+						),
+				}),
+				execution,
+			),
+		),
 	);
 
 describe("Jellyfin official webhook plugin", () => {
@@ -597,29 +606,31 @@ const runPlex = (
 	} = {},
 ) => {
 	const cache = options.cache ?? new Map<string, JsonValue>();
-	return Effect.runPromise(
-		runIntegrationTestScript(
-			plexDefinition,
-			sinkInput(multipart(payload), "multipart/form-data; boundary=abc"),
-			defineSandboxTestHost(plexManifest, {
-				httpCall: tmdbRoutes(options.routes ?? {}),
-				getCachedValue: (key) => hostSuccess(cache.get(key) ?? null),
-				setCachedValue: (key, value) => {
-					cache.set(key, value);
-					return hostSuccess(null);
-				},
-				getPluginConfig: ({ required: keys = [] }) =>
-					hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
-				getCurrentIntegration: () =>
-					hostSuccess(
-						integrationRecord({
-							provider: "plex_sink",
-							providerSpecifics:
-								options.username === undefined ? {} : { username: options.username },
-						}),
-					),
-			}),
-			execution,
+	return multipart(payload).pipe(
+		Effect.flatMap((body) =>
+			runIntegrationTestScript(
+				plexDefinition,
+				sinkInput(body, "multipart/form-data; boundary=abc"),
+				defineSandboxTestHost(plexManifest, {
+					httpCall: tmdbRoutes(options.routes ?? {}),
+					getCachedValue: (key) => hostSuccess(cache.get(key) ?? null),
+					setCachedValue: (key, value) => {
+						cache.set(key, value);
+						return hostSuccess(null);
+					},
+					getPluginConfig: ({ required: keys = [] }) =>
+						hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
+					getCurrentIntegration: () =>
+						hostSuccess(
+							integrationRecord({
+								provider: "plex_sink",
+								providerSpecifics:
+									options.username === undefined ? {} : { username: options.username },
+							}),
+						),
+				}),
+				execution,
+			),
 		),
 	);
 };
@@ -640,12 +651,10 @@ const plexEpisode = (Guid: Array<{ id: string }>) => ({
 describe("Plex sink", () => {
 	it.live("maps a Plex scrobble multipart webhook to a movie ref", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex({
-					event: "media.scrobble",
-					Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
-				}),
-			);
+			const result = yield* runPlex({
+				event: "media.scrobble",
+				Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+			});
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]).toMatchObject({
 				events: [{ properties: { consumedOn: "Plex", progressPercent: 100 } }],
@@ -656,14 +665,15 @@ describe("Plex sink", () => {
 
 	it.live("resolves a Plex episode to its TMDB show through the episode IMDb id", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(plexEpisode([{ id: "imdb://tt1234" }, { id: "tmdb://5221957" }]), {
+			const result = yield* runPlex(
+				plexEpisode([{ id: "imdb://tt1234" }, { id: "tmdb://5221957" }]),
+				{
 					routes: {
 						"/3/find/tt1234?external_source=imdb_id": {
 							tv_episode_results: [{ id: 5221957, show_id: 93740 }],
 						},
 					},
-				}),
+				},
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]).toMatchObject({
@@ -682,19 +692,17 @@ describe("Plex sink", () => {
 		Effect.gen(function* () {
 			const cache = new Map<string, JsonValue>();
 			const episode = plexEpisode([{ id: "tvdb://777" }, { id: "tmdb://5221957" }]);
-			const result = yield* Effect.promise(() =>
-				runPlex(episode, {
-					cache,
-					routes: {
-						"/3/tv/1/season/3": notFound,
-						"/3/tv/2/season/3": { episodes: [{ id: 11 }] },
-						"/3/find/777?external_source=tvdb_id": { tv_episode_results: [] },
-						"/3/tv/93740/season/3": { episodes: [{ id: 10 }, { id: 5221957 }] },
-						"/3/search/tv?query=Foundation": { results: [{ id: 1 }, { id: 2 }, { id: 93740 }] },
-					},
-				}),
-			);
-			const cached = yield* Effect.promise(() => runPlex(episode, { cache }));
+			const result = yield* runPlex(episode, {
+				cache,
+				routes: {
+					"/3/tv/1/season/3": notFound,
+					"/3/tv/2/season/3": { episodes: [{ id: 11 }] },
+					"/3/find/777?external_source=tvdb_id": { tv_episode_results: [] },
+					"/3/tv/93740/season/3": { episodes: [{ id: 10 }, { id: 5221957 }] },
+					"/3/search/tv?query=Foundation": { results: [{ id: 1 }, { id: 2 }, { id: 93740 }] },
+				},
+			});
+			const cached = yield* runPlex(episode, { cache });
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "93740" });
 			expect(cached.entityGroups[0]?.entityRef).toMatchObject({ externalId: "93740" });
@@ -703,11 +711,9 @@ describe("Plex sink", () => {
 
 	it.live("reports a Plex episode whose show is not on TMDB", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(plexEpisode([{ id: "tmdb://5221957" }]), {
-					routes: { "/3/search/tv?query=Foundation": { results: [] } },
-				}),
-			);
+			const result = yield* runPlex(plexEpisode([{ id: "tmdb://5221957" }]), {
+				routes: { "/3/search/tv?query=Foundation": { results: [] } },
+			});
 			expect(result).toEqual({
 				entityGroups: [],
 				failures: [
@@ -724,8 +730,8 @@ describe("Plex sink", () => {
 
 	it.live("reports a failed TMDB show lookup", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(plexEpisode([{ id: "imdb://tt1234" }, { id: "tmdb://5221957" }])),
+			const result = yield* runPlex(
+				plexEpisode([{ id: "imdb://tt1234" }, { id: "tmdb://5221957" }]),
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures[0]?.message).toMatch(
@@ -752,15 +758,13 @@ describe("Plex sink", () => {
 		},
 	])("$name", ({ skipped, username }) =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(
-					{
-						event: "media.scrobble",
-						Account: { title: "bob" },
-						Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
-					},
-					{ username },
-				),
+			const result = yield* runPlex(
+				{
+					event: "media.scrobble",
+					Account: { title: "bob" },
+					Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+				},
+				{ username },
 			);
 			expect(result.failures).toEqual([]);
 			if (skipped) {
@@ -773,29 +777,25 @@ describe("Plex sink", () => {
 });
 
 const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
-	Effect.runPromise(
-		runIntegrationTestScript(
-			browserDefinition,
-			sinkInput(rawBody),
-			defineSandboxTestHost(browserManifest, {
-				getCurrentIntegration: () =>
-					hostSuccess(integrationRecord({ providerSpecifics: { disabledSites } })),
-			}),
-			execution,
-		),
+	runIntegrationTestScript(
+		browserDefinition,
+		sinkInput(rawBody),
+		defineSandboxTestHost(browserManifest, {
+			getCurrentIntegration: () =>
+				hostSuccess(integrationRecord({ providerSpecifics: { disabledSites } })),
+		}),
+		execution,
 	);
 
 describe("browser extension sink", () => {
 	it.live("ignores browser extension events from disabled sites", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runBrowser(
-					encodeJson({
-						url: "https://www.youtube.com/watch?v=1",
-						data: { progress: 80, lot: "movie", identifier: "12345" },
-					}),
-					["youtube.com"],
-				),
+			const result = yield* runBrowser(
+				yield* encodeJson({
+					url: "https://www.youtube.com/watch?v=1",
+					data: { progress: 80, lot: "movie", identifier: "12345" },
+				}),
+				["youtube.com"],
 			);
 			expect(result.entityGroups).toEqual([]);
 			expect(result.failures).toEqual([]);
@@ -804,19 +804,17 @@ describe("browser extension sink", () => {
 
 	it.live("maps a browser extension show webhook to a TMDB show ref with an episode locator", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runBrowser(
-					encodeJson({
-						url: "https://www.max.com/watch/1",
-						data: {
-							lot: "show",
-							progress: 80,
-							identifier: "94997",
-							show_season_number: 1,
-							show_episode_number: 6,
-						},
-					}),
-				),
+			const result = yield* runBrowser(
+				yield* encodeJson({
+					url: "https://www.max.com/watch/1",
+					data: {
+						lot: "show",
+						progress: 80,
+						identifier: "94997",
+						show_season_number: 1,
+						show_episode_number: 6,
+					},
+				}),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]).toMatchObject({

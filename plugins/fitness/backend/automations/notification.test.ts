@@ -1,12 +1,12 @@
+import { expect, it } from "@effect/vitest";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
 
 const notificationInput = (signalSchemaSlug: string, properties: Record<string, unknown>) =>
-	Schema.decodeUnknownSync(automationInputSchema)({
+	Schema.decodeUnknownEffect(automationInputSchema)({
 		automation: {
 			runId: "run-1",
 			triggerId: "trigger-1",
@@ -33,14 +33,14 @@ const notificationInput = (signalSchemaSlug: string, properties: Record<string, 
 				initiator: { kind: "user", id: "user-1" },
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 
-it("formats workout.created exclusively from the inline signal", () => {
-	const messages: string[] = [];
-	return Effect.runPromise(
-		definition
+it.effect("formats workout.created exclusively from the inline signal", () =>
+	Effect.gen(function* () {
+		const messages: string[] = [];
+		return yield* definition
 			.run(
-				notificationInput("workout.created", { workoutName: "Morning Run" }),
+				yield* notificationInput("workout.created", { workoutName: "Morning Run" }),
 				defineSandboxTestHost(manifest, {
 					sendNotification: (message) => {
 						messages.push(message);
@@ -54,6 +54,6 @@ it("formats workout.created exclusively from the inline signal", () => {
 					expect(messages).toEqual(["Workout Morning Run was created"]);
 					return result;
 				}),
-			),
-	);
-});
+			);
+	}),
+);

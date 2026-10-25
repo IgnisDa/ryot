@@ -30,11 +30,13 @@ type AutomationHost = Pick<ScriptHost, "executeRyotql">;
 
 type EventPayload = Extract<AutomationPolicyInput["automation"]["payload"], { resource: "event" }>;
 
+const decodePolicyResult = Schema.decodeEffect(automationPolicyResultSchema);
+
 const sessionPolicyResult = (payload: EventPayload, resolution: null | EpisodeParentResolution) => {
 	if (resolution === null) {
-		return { action: "reject", reason: "episodic_parent_not_found" } as const;
+		return Effect.succeed({ action: "reject", reason: "episodic_parent_not_found" } as const);
 	}
-	return Schema.decodeSync(automationPolicyResultSchema)({
+	return decodePolicyResult({
 		action: "transform",
 		patch: {
 			resource: "event",
@@ -45,7 +47,7 @@ const sessionPolicyResult = (payload: EventPayload, resolution: null | EpisodePa
 						: resolution.parentEntityId,
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 };
 
 const assignShowEpisodeSession = (host: AutomationHost, payload: EventPayload) =>
@@ -56,7 +58,7 @@ const assignShowEpisodeSession = (host: AutomationHost, payload: EventPayload) =
 			config: showEpisodicKindConfig,
 			episodeEntityId: payload.draft.entityId,
 		}),
-	).pipe(Effect.map((resolution) => sessionPolicyResult(payload, resolution)));
+	).pipe(Effect.flatMap((resolution) => sessionPolicyResult(payload, resolution)));
 
 const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload) =>
 	executeRyotqlRecipe(
@@ -66,7 +68,7 @@ const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload
 			config: podcastEpisodicKindConfig,
 			episodeEntityId: payload.draft.entityId,
 		}),
-	).pipe(Effect.map((resolution) => sessionPolicyResult(payload, resolution)));
+	).pipe(Effect.flatMap((resolution) => sessionPolicyResult(payload, resolution)));
 
 const runItem = (input: AutomationPolicyInput, host: AutomationHost) => {
 	const payload = input.automation.payload;

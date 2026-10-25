@@ -24,7 +24,7 @@ const input = (operation: "create" | "update", changes: Record<string, unknown> 
 		eventSchemaSlug: "workout-exercise",
 		properties: { ...properties, ...changes },
 	};
-	const { payload, ...automation } = Schema.decodeUnknownSync(automationPolicyInputSchema)({
+	return Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
 			runId: "run",
 			occurredAt: now,
@@ -66,8 +66,13 @@ const input = (operation: "create" | "update", changes: Record<string, unknown> 
 					: {}),
 			},
 		},
-	}).automation;
-	return { automation, items: [{ payload, itemIdentity: "occurrence" }] };
+	}).pipe(
+		Effect.orDie,
+		Effect.map(({ automation: { payload, ...automation } }) => ({
+			automation,
+			items: [{ payload, itemIdentity: "occurrence" }],
+		})),
+	);
 };
 
 const host = (hasMore = false) =>
@@ -108,7 +113,10 @@ const host = (hasMore = false) =>
 
 it.effect("captures identities and roles once per occurrence", () =>
 	Effect.gen(function* () {
-		const result = yield* definition.run(input("create", { exerciseKind: "duration" }), host());
+		const result = yield* definition.run(
+			yield* input("create", { exerciseKind: "duration" }),
+			host(),
+		);
 		expect(result.items[0]?.decision).toEqual({
 			action: "transform",
 			patch: {
@@ -133,18 +141,19 @@ it.effect("retains evidence on reorder and rejects historical taxonomy replaceme
 	Effect.gen(function* () {
 		const noReads = defineSandboxTestHost(manifest, {});
 		expect(
-			(yield* definition.run(input("update", { exerciseOrder: 2 }), noReads)).items[0]?.decision,
+			(yield* definition.run(yield* input("update", { exerciseOrder: 2 }), noReads)).items[0]
+				?.decision,
 		).toEqual({ action: "allow" });
 		expect(
-			(yield* definition.run(input("update", { equipment: ["new-equipment"] }), noReads)).items[0]
-				?.decision,
+			(yield* definition.run(yield* input("update", { equipment: ["new-equipment"] }), noReads))
+				.items[0]?.decision,
 		).toEqual({ action: "reject", reason: "workout_taxonomy_immutable" });
 	}),
 );
 
 it.effect("fails closed instead of truncating taxonomy", () =>
 	Effect.gen(function* () {
-		expect((yield* definition.run(input("create"), host(true))).items[0]?.decision).toEqual({
+		expect((yield* definition.run(yield* input("create"), host(true))).items[0]?.decision).toEqual({
 			action: "reject",
 			reason: "workout_taxonomy_capacity",
 		});

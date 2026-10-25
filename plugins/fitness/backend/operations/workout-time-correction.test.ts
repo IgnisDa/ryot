@@ -1,28 +1,27 @@
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { expect, it } from "vitest";
 
-import {
-	encodeWorkoutEditorBaseline,
-	WorkoutEditorBaselineSchema,
-} from "../../shared/workout-editor-recipes";
+import type { WorkoutEditorBaselineSchema } from "../../shared/workout-editor-recipes";
+import { encodeWorkoutEditorBaseline } from "../../shared/workout-editor-recipes";
 import { WorkoutTimeCorrectionInputSchema } from "../../shared/workout-time-operations";
 import definition, { manifest } from "./workout-time-correction.sandbox";
 
 const time = "2026-10-01T10:00:00.000Z";
-const baseline = Schema.decodeSync(WorkoutEditorBaselineSchema)({
+const baseline: typeof WorkoutEditorBaselineSchema.Type = {
 	sets: [],
 	entity: {
-		id: "workout-1",
 		name: "Workout",
 		updatedAt: time,
+		id: EntityId.make("workout-1"),
 		properties: {
 			startedAt: time,
 			activeDuration: 1200,
 			images: [{ type: "s3", key: "keep.jpg" }],
 		},
 	},
-});
+};
 
 it("changes only workout times and explicitly sets or clears recorded duration", () =>
 	Effect.runPromise(
@@ -57,7 +56,7 @@ it("changes only workout times and explicitly sets or clears recorded duration",
 					submissionId: "correction-1",
 					endedAt: "2026-10-01T10:00:00.000Z",
 					startedAt: "2026-10-01T09:00:00.000Z",
-					conflictToken: encodeWorkoutEditorBaseline(baseline),
+					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 				});
 				expect(yield* definition.run(input, host)).toEqual({
 					kind: "saved",

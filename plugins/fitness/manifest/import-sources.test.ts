@@ -1,8 +1,8 @@
+import { expect, it } from "@effect/vitest";
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { Schema } from "effect";
-import { expect, it } from "vitest";
+import { Effect, Schema } from "effect";
 
 import { FitnessCreateImportRunBody } from "./import-sources";
 
@@ -18,42 +18,49 @@ const sources = [
 	["strong_app", { timezone, uploadToken, source: "strong_app" }],
 ] as const;
 
-it.each(sources)(
+it.effect.each(sources)(
 	"builds a typed %s request accepted by the open import envelope",
-	(source, input) => {
-		const body = createFitnessImportRunBody(input);
+	([source, input]) =>
+		Effect.gen(function* () {
+			const body = createFitnessImportRunBody(input);
 
-		expect(Schema.decodeSync(FitnessCreateImportRunBody)(input)).toEqual(input);
-		expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
-		expect(body.source).toEqual({
-			slug: source,
-			owner: { kind: "plugin", pluginId: "fitness-owner" },
-		});
-	},
+			expect(yield* Schema.decodeEffect(FitnessCreateImportRunBody)(input)).toEqual(input);
+			expect(yield* Schema.decodeEffect(CreateImportRunBody)(body)).toEqual(body);
+			expect(body.source).toEqual({
+				slug: source,
+				owner: { kind: "plugin", pluginId: "fitness-owner" },
+			});
+		}),
 );
 
-it.each(["open_scale", "hevy", "strong_app"] as const)("requires a timezone for %s", (source) => {
-	expect(() =>
-		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({ source, uploadToken }),
-	).toThrow();
-});
+it.effect.each(["open_scale", "hevy", "strong_app"] as const)(
+	"requires a timezone for %s",
+	(source) =>
+		Effect.flip(Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({ source, uploadToken })),
+);
 
-it("keeps fitness-specific request validation strict and contract-owned", () => {
-	expect(() =>
-		Schema.decodeSync(FitnessCreateImportRunBody)({ timezone, source: "hevy", uploadToken: "" }),
-	).toThrow();
-	expect(() =>
-		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
-			source: "hevy",
-			uploadToken: { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" },
-		}),
-	).toThrow();
-	expect(() =>
-		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
-			timezone,
-			uploadToken,
-			source: "hevy",
-			unexpected: true,
-		}),
-	).toThrow();
-});
+it.effect("keeps fitness-specific request validation strict and contract-owned", () =>
+	Effect.gen(function* () {
+		yield* Effect.flip(
+			Schema.decodeEffect(FitnessCreateImportRunBody)({
+				timezone,
+				source: "hevy",
+				uploadToken: "",
+			}),
+		);
+		yield* Effect.flip(
+			Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
+				source: "hevy",
+				uploadToken: { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" },
+			}),
+		);
+		yield* Effect.flip(
+			Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
+				timezone,
+				uploadToken,
+				source: "hevy",
+				unexpected: true,
+			}),
+		);
+	}),
+);

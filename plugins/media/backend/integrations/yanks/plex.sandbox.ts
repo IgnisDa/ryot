@@ -177,7 +177,7 @@ export default defineScript({
 										attribution: {
 											sourceLabel: item.title,
 											sourceIdentifier: String(item.ratingKey ?? item.key ?? currentIndex),
-											recordId: integrationRecordId([
+											recordId: yield* integrationRecordId([
 												"plex-item",
 												item.ratingKey ?? item.key ?? currentIndex,
 											]),
@@ -259,7 +259,7 @@ export default defineScript({
 									episodeNumber: leaf.index,
 									seasonNumber: leaf.parentIndex,
 								},
-								operationId: integrationRecordId([
+								operationId: yield* integrationRecordId([
 									"integration-plex-event",
 									active.itemIndex,
 									active.leafOffset + eventIndex,
@@ -267,7 +267,7 @@ export default defineScript({
 								attribution: {
 									sourceLabel: leaf.title,
 									sourceIdentifier: String(leaf.ratingKey ?? leaf.key ?? active.sourceIdentifier),
-									recordId: integrationRecordId([
+									recordId: yield* integrationRecordId([
 										"plex-leaf",
 										leaf.ratingKey ?? leaf.key ?? active.leafOffset + eventIndex,
 									]),

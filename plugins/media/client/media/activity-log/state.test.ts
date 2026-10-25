@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import { mediaActivityLogContextRecipe } from "../../../shared/activity-log-recipes";
 import { mediaActivityPatchableKeys } from "../../../shared/media-activity-fields";
@@ -790,49 +791,53 @@ describe("activity edits", () => {
 		).toEqual({ position: 7 });
 	});
 
-	it("restores zero-page progress with an unknown total and encodes only a source change", () => {
-		const record = stored({
-			progressPages: 0,
-			consumedOn: "Kindle",
-			calendarDate: "2026-10-10",
-			sourceRun: "import:original",
-			consumptionBasis: { unit: "pages", property: "pages" },
-		});
-		const target = loaded({ pages: null, schemaSlug: "book" });
-		const initial = activityEditDraft({
-			ref: record,
-			today: TODAY,
-			logger: pages,
-			context: target,
-			intent: "progress",
-		});
-		expect(initial).toMatchObject({ amount: "0", amountUnit: "unit", progressMode: "amount" });
-		expect(
-			activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
-		).toEqual({});
-		const patch = activityEditPatch({
-			initial,
-			ref: record,
-			logger: pages,
-			context: target,
-			submittedAt: submittedAt(9),
-			draft: { ...initial, consumedOn: "Libby" },
-		});
-		expect(patch).toEqual({ consumedOn: "Libby" });
-		if (patch === undefined) {
-			throw new Error("Expected a source patch");
-		}
-		const encoded = Schema.encodeSync(MediaActivityUpdateInput)({
-			patch,
-			eventId: record.id,
-			submittedAt: submittedAt(9),
-			submissionId: "submission-1",
-			expected: eventPrecondition(record, mediaActivityPatchableKeys),
-		});
-		expect(encoded.patch).toEqual({ consumedOn: "Libby" });
-		expect(encoded.expected.properties).toEqual(record.properties);
-		expect(encoded.expected.absentProperties).toContain("progressPercent");
-	});
+	it.effect(
+		"restores zero-page progress with an unknown total and encodes only a source change",
+		() =>
+			Effect.gen(function* () {
+				const record = stored({
+					progressPages: 0,
+					consumedOn: "Kindle",
+					calendarDate: "2026-10-10",
+					sourceRun: "import:original",
+					consumptionBasis: { unit: "pages", property: "pages" },
+				});
+				const target = loaded({ pages: null, schemaSlug: "book" });
+				const initial = activityEditDraft({
+					ref: record,
+					today: TODAY,
+					logger: pages,
+					context: target,
+					intent: "progress",
+				});
+				expect(initial).toMatchObject({ amount: "0", amountUnit: "unit", progressMode: "amount" });
+				expect(
+					activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
+				).toEqual({});
+				const patch = activityEditPatch({
+					initial,
+					ref: record,
+					logger: pages,
+					context: target,
+					submittedAt: submittedAt(9),
+					draft: { ...initial, consumedOn: "Libby" },
+				});
+				expect(patch).toEqual({ consumedOn: "Libby" });
+				if (patch === undefined) {
+					throw new Error("Expected a source patch");
+				}
+				const encoded = yield* Schema.encodeEffect(MediaActivityUpdateInput)({
+					patch,
+					eventId: record.id,
+					submittedAt: submittedAt(9),
+					submissionId: "submission-1",
+					expected: eventPrecondition(record, mediaActivityPatchableKeys),
+				});
+				expect(encoded.patch).toEqual({ consumedOn: "Libby" });
+				expect(encoded.expected.properties).toEqual(record.properties);
+				expect(encoded.expected.absentProperties).toContain("progressPercent");
+			}),
+	);
 
 	it("keeps stored pages above the current provider total editable", () => {
 		const record = stored({

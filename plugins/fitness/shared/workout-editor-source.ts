@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import type { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
@@ -244,6 +244,10 @@ const workoutDraft = (
 	if (blockers.length > 0) {
 		return blockerResult(baseline, blockers);
 	}
+	const conflictToken = encodeWorkoutEditorBaseline(baseline);
+	if (Result.isFailure(conflictToken)) {
+		return blockerResult(baseline, [{ code: "invalid-record", exerciseId: baseline.entity.id }]);
+	}
 	const decoded = valid(WorkoutEditorDraftSchema, {
 		draftId,
 		occurrences,
@@ -262,7 +266,7 @@ const workoutDraft = (
 		mode: {
 			kind: "historical",
 			entityId: baseline.entity.id,
-			conflictToken: encodeWorkoutEditorBaseline(baseline),
+			conflictToken: conflictToken.success,
 		},
 	});
 	return decoded === undefined
@@ -350,6 +354,10 @@ const templateDraft = (
 	if (blockers.length > 0) {
 		return blockerResult(baseline, blockers);
 	}
+	const conflictToken = encodeWorkoutEditorBaseline(baseline);
+	if (Result.isFailure(conflictToken)) {
+		return blockerResult(baseline, [{ code: "invalid-record", exerciseId: baseline.entity.id }]);
+	}
 	const decoded = valid(WorkoutEditorDraftSchema, {
 		draftId,
 		occurrences,
@@ -364,7 +372,7 @@ const templateDraft = (
 		mode: {
 			kind: "template-edit",
 			entityId: baseline.entity.id,
-			conflictToken: encodeWorkoutEditorBaseline(baseline),
+			conflictToken: conflictToken.success,
 		},
 	});
 	return decoded === undefined

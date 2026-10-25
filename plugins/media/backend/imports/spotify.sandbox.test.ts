@@ -58,7 +58,7 @@ it.live("preserves independent records across files, windows, and application ba
 		}
 		fs.files.set(
 			"records",
-			encoder.encode(serializeMediaRecords(records.sort(compareMediaRecords))),
+			encoder.encode(yield* serializeMediaRecords(records.sort(compareMediaRecords))),
 		);
 		let offset = 0;
 		let itemIndex = 0;

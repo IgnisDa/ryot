@@ -15,7 +15,7 @@ it.live("emits a review signal using the inline event identity and current entit
 	Effect.gen(function* () {
 		const calls: unknown[] = [];
 		yield* definition.run(
-			eventAutomationContext({
+			yield* eventAutomationContext({
 				id: "review-event-1",
 				entitySchemaSlug: "book",
 				eventSchemaSlug: "review",
@@ -60,8 +60,8 @@ it.live("ignores non-review events and deleted subjects", () =>
 				return hostSuccess({ wasCreated: true, triggerId: "signal-1" });
 			},
 		});
-		yield* definition.run(eventAutomationContext({ eventSchemaSlug: "progress" }), host);
-		yield* definition.run(eventAutomationContext({ eventSchemaSlug: "review" }), host);
+		yield* definition.run(yield* eventAutomationContext({ eventSchemaSlug: "progress" }), host);
+		yield* definition.run(yield* eventAutomationContext({ eventSchemaSlug: "review" }), host);
 		expect(calls).toEqual([]);
 	}),
 );
@@ -70,7 +70,7 @@ it.live("preserves review notifications for explicit kernel-owned collections", 
 	Effect.gen(function* () {
 		const signals: unknown[] = [];
 		yield* definition.run(
-			eventAutomationContext({
+			yield* eventAutomationContext({
 				id: "collection-review",
 				entityId: "collection-1",
 				eventSchemaPluginId: null,

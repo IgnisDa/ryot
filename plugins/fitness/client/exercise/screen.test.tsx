@@ -302,13 +302,16 @@ describe("exercise details view", () => {
 				],
 			] as const;
 			for (const [overrides, label] of labelled) {
-				yield* mounted(exerciseDetails(), storedEditorDraft(overrides));
+				yield* mounted(exerciseDetails(), yield* storedEditorDraft(overrides));
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("button", { name: label })).toBeTruthy()),
 				);
 				disposePluginBridges();
 			}
-			yield* mounted(exerciseDetails(), storedEditorDraft({ endedAt: "2026-10-12T10:00:00.000Z" }));
+			yield* mounted(
+				exerciseDetails(),
+				yield* storedEditorDraft({ endedAt: "2026-10-12T10:00:00.000Z" }),
+			);
 			yield* Effect.sleep("20 millis");
 			expect(screen.queryByRole("button", { name: /^Add to (current|workout)/ })).toBeNull();
 		}),
@@ -316,7 +319,7 @@ describe("exercise details view", () => {
 
 	it.live("sends the exercise to the editor through the add parameter", () =>
 		Effect.gen(function* () {
-			const page = yield* mountedPage(exerciseDetails(), storedEditorDraft());
+			const page = yield* mountedPage(exerciseDetails(), yield* storedEditorDraft());
 			yield* Effect.promise(() =>
 				waitFor(() => screen.getByRole("button", { name: "Add to current workout" })),
 			);
@@ -499,7 +502,7 @@ describe("exercise details view", () => {
 					"Not available while this exercise is in your current template",
 				],
 			] as const) {
-				yield* mounted(custom, draftWith(mode, "exercise-1"));
+				yield* mounted(custom, yield* draftWith(mode, "exercise-1"));
 				yield* Effect.promise(() => waitFor(() => screen.getByRole("button", { name: addLabel })));
 				openMenu();
 				const item = screen.getByRole("menuitem", { name: `Merge into… (${reason})` });
@@ -507,7 +510,7 @@ describe("exercise details view", () => {
 				disposePluginBridges();
 			}
 
-			yield* mounted(custom, draftWith({ kind: "live" }, "another-exercise"));
+			yield* mounted(custom, yield* draftWith({ kind: "live" }, "another-exercise"));
 			yield* Effect.promise(() =>
 				waitFor(() => screen.getByRole("button", { name: "Add to current workout" })),
 			);

@@ -40,9 +40,9 @@ const invocation = {
 };
 
 export const automationContext = (payload: unknown, overrides: Record<string, unknown> = {}) =>
-	Schema.decodeUnknownSync(automationInputSchema)({
+	Schema.decodeUnknownEffect(automationInputSchema)({
 		automation: { ...invocation, ...overrides, payload },
-	});
+	}).pipe(Effect.orDie);
 
 export const eventAutomationContext = (
 	overrides: Partial<typeof AutomationEventSnapshot.Encoded> = {},
@@ -71,25 +71,35 @@ export const eventAutomationContext = (
 		hookMetadata === undefined ? {} : { hookMetadata },
 	);
 
-export const eventBatchContext = (...events: Parameters<typeof eventAutomationContext>[0][]) => {
-	const items = events.map((event) => {
-		const payload = eventAutomationContext(event).automation.payload;
-		if (
-			payload.category !== "change" ||
-			payload.resource !== "event" ||
-			payload.operation !== "create"
-		) {
-			throw new Error("Expected event create change");
-		}
-		return payload;
+export const eventBatchContext = Effect.fnUntraced(function* (
+	...events: Parameters<typeof eventAutomationContext>[0][]
+) {
+	const items = yield* Effect.forEach(
+		events,
+		Effect.fnUntraced(function* (event) {
+			const { payload } = (yield* eventAutomationContext(event)).automation;
+			if (
+				payload.category !== "change" ||
+				payload.resource !== "event" ||
+				payload.operation !== "create"
+			) {
+				return yield* Effect.die(new Error("Expected event create change"));
+			}
+			return payload;
+		}),
+	);
+	return yield* automationContext({
+		items,
+		resource: "event",
+		category: "change",
+		operation: "batch",
 	});
-	return automationContext({ items, resource: "event", category: "change", operation: "batch" });
-};
+});
 
 export const policyAutomationContext = (
 	overrides: Partial<typeof AutomationEventDraft.Encoded> = {},
 ) =>
-	Schema.decodeUnknownSync(automationPolicyInputSchema)({
+	Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
 			...invocation,
 			payload: {
@@ -109,7 +119,7 @@ export const policyAutomationContext = (
 				},
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 
 export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecord => ({
 	id: "entity-1",

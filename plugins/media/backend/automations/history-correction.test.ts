@@ -146,7 +146,7 @@ const harness = (
 			(item) => item.itemIdentity === "replace:checkpoint",
 		);
 		assert(change?.kind === "update");
-		return Schema.decodeUnknownSync(HistoryCorrection)(change.item.patch.properties?.set);
+		return Schema.decodeUnknownEffect(HistoryCorrection)(change.item.patch.properties?.set);
 	};
 	return { run, host, saved, queries, commands, responses };
 };
@@ -195,7 +195,7 @@ it.effect("finishes a flat correction after source drift without output mutation
 		expect(test.queries).toHaveLength(1);
 		expect(test.commands).toHaveLength(1);
 		expect(test.commands[0]?.events.creates).toEqual([]);
-		expect(test.saved()).toMatchObject({ step: 1, phase: "done", sourceRevision: 2 });
+		expect(yield* test.saved()).toMatchObject({ step: 1, phase: "done", sourceRevision: 2 });
 		expect(test.commands[0]?.events.baselines).toEqual([
 			{ revision: 2, entityId: EntityId.make("subject") },
 		]);
@@ -225,7 +225,7 @@ it.effect.each([
 		const result = yield* test.run({ force: true });
 		expect(result.pending).toBe(true);
 		expect(test.queries).toHaveLength(1);
-		expect(test.saved()).toMatchObject({ step: 1, sourceRevision: 5, phase: input.phase });
+		expect(yield* test.saved()).toMatchObject({ step: 1, sourceRevision: 5, phase: input.phase });
 	}),
 );
 
@@ -236,7 +236,7 @@ it.effect("restarts from audit on source drift without publishing stale work", (
 			state: checkpoint({ phase: "publish", basisId: "basis" }),
 		});
 		yield* test.run();
-		expect(test.saved()).toMatchObject({ step: 1, phase: "audit", sourceRevision: 5 });
+		expect(yield* test.saved()).toMatchObject({ step: 1, phase: "audit", sourceRevision: 5 });
 		expect(test.commands[0]?.events.creates).toEqual([]);
 		expect(test.queries).toHaveLength(1);
 	}),
@@ -261,10 +261,10 @@ it.effect("seeds bounded child dependencies before correction and keeps existing
 			eventSchemaSlug: "consumption-dependency",
 			properties: { subjectEntityId: "child:1", correctionSubjectEntityId: "subject" },
 		});
-		expect(test.saved()).toMatchObject({ after: "next-child", phase: "dependencies" });
+		expect(yield* test.saved()).toMatchObject({ after: "next-child", phase: "dependencies" });
 		const restored = harness({ missingDependencies: true, state: checkpoint({ phase: "done" }) });
 		yield* restored.run();
-		expect(restored.saved()).toMatchObject({ phase: "dependencies" });
+		expect(yield* restored.saved()).toMatchObject({ phase: "dependencies" });
 	}),
 );
 
@@ -327,7 +327,7 @@ it.effect.each([
 			expect(test.commands[0]?.events.baselines).toEqual([
 				{ revision: 4, entityId: EntityId.make("subject") },
 			]);
-			expect(test.saved().sourceRevision).toBe(4 + 25);
+			expect((yield* test.saved()).sourceRevision).toBe(4 + 25);
 		}),
 );
 
@@ -335,7 +335,7 @@ it.effect("restarts pending work for a new explicit correction request", () =>
 	Effect.gen(function* () {
 		const test = harness({ state: checkpoint({ phase: "sweep", requestKey: "older-request" }) });
 		yield* test.run({ force: true });
-		expect(test.saved()).toMatchObject({ step: 1, phase: "audit", requestKey: "request" });
+		expect(yield* test.saved()).toMatchObject({ step: 1, phase: "audit", requestKey: "request" });
 		expect(test.queries).toHaveLength(1);
 	}),
 );
@@ -347,7 +347,7 @@ it.effect("lets an older continuation help the current run without forcing anoth
 			state: checkpoint({ phase: "audit", runKey: "newer-run", requestKey: "newer-request" }),
 		});
 		yield* test.run();
-		expect(test.saved()).toMatchObject({
+		expect(yield* test.saved()).toMatchObject({
 			step: 6,
 			phase: "progress",
 			runKey: "newer-run",
@@ -388,7 +388,7 @@ it.effect("turns an edited automatic record into an independent explicit record"
 			},
 			{ itemIdentity: "replace:checkpoint" },
 		]);
-		expect(test.saved().sourceRevision).toBe(5);
+		expect((yield* test.saved()).sourceRevision).toBe(5);
 	}),
 );
 
@@ -533,7 +533,7 @@ it.effect(
 			expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
 				"replace:checkpoint",
 			]);
-			expect(test.saved().phase).toBe("progress");
+			expect((yield* test.saved()).phase).toBe("progress");
 		}),
 );
 
@@ -576,8 +576,8 @@ it.effect.each([
 			}),
 		});
 		yield* test.run();
-		expect(test.saved()).toMatchObject({ phase: "reset-snapshot" });
-		expect(test.saved()).not.toHaveProperty("evidenceAfter");
+		expect(yield* test.saved()).toMatchObject({ phase: "reset-snapshot" });
+		expect(yield* test.saved()).not.toHaveProperty("evidenceAfter");
 		expect(test.commands[0]?.events.creates).toEqual([]);
 	}),
 );
@@ -592,7 +592,7 @@ it.effect("recaptures an unfrozen snapshot whose checkpoint has no inventory", (
 			],
 		});
 		yield* test.run();
-		expect(test.saved().phase).toBe("reset-snapshot");
+		expect((yield* test.saved()).phase).toBe("reset-snapshot");
 		expect(test.commands[0]?.events.creates).toEqual([]);
 	}),
 );
@@ -608,7 +608,10 @@ it.effect("records the inventory when a reset removes stale evidence", () =>
 			],
 		});
 		yield* test.run();
-		expect(test.saved()).toMatchObject({ phase: "snapshot", inventory: inventoryFingerprint });
+		expect(yield* test.saved()).toMatchObject({
+			phase: "snapshot",
+			inventory: inventoryFingerprint,
+		});
 	}),
 );
 
@@ -635,7 +638,7 @@ it.effect("resumes a large inventory with bounded evidence writes and an atomic 
 		yield* test.run();
 		expect(test.commands).toHaveLength(1);
 		expect(test.commands[0]?.events.creates).toHaveLength(50);
-		expect(test.saved()).toMatchObject({
+		expect(yield* test.saved()).toMatchObject({
 			phase: "snapshot",
 			evidenceAfter: "page-59",
 			inventory: inventoryFingerprint,
@@ -658,7 +661,7 @@ it.effect("continues a large history from its persisted source cursor", () =>
 			],
 		});
 		yield* test.run();
-		expect(test.saved()).toMatchObject({ phase: "progress", after: "source-page-3000" });
+		expect(yield* test.saved()).toMatchObject({ phase: "progress", after: "source-page-3000" });
 		expect(test.commands[0]?.events.changes).toHaveLength(1);
 		expect(stableStringify(test.queries[1])).toContain("source-page-2999");
 	}),
@@ -698,7 +701,7 @@ it.effect("replaces older episode support before testing coverage", () =>
 			itemIdentity: "replace:scratch",
 			item: { patch: { properties: { set: { sourceEventId: "later" } } } },
 		});
-		expect(test.saved().phase).toBe("coverage");
+		expect((yield* test.saved()).phase).toBe("coverage");
 		expect(test.queries).toHaveLength(3);
 	}),
 );
@@ -724,7 +727,7 @@ it.effect(
 				});
 				yield* create.run();
 				expect(create.commands[0]?.events.creates).toHaveLength(1);
-				state = create.saved();
+				state = yield* create.saved();
 				const advance = harness({
 					state,
 					responses: [
@@ -737,7 +740,7 @@ it.effect(
 				});
 				yield* advance.run();
 				expect(advance.commands[0]?.events.creates).toHaveLength(0);
-				state = advance.saved();
+				state = yield* advance.saved();
 				for (const command of [...create.commands, ...advance.commands]) {
 					largestCommand = Math.max(largestCommand, stableStringify(command).length);
 					writes += 1;
@@ -778,7 +781,7 @@ it.effect("captures 3,000 required episodes across resumable bounded pages", () 
 				],
 			});
 			yield* test.run();
-			state = test.saved();
+			state = yield* test.saved();
 			expect(test.commands).toHaveLength(1);
 			expect(test.commands[0]?.events.creates).toHaveLength(50);
 			captured += test.commands[0]?.events.creates.length ?? 0;
@@ -841,6 +844,6 @@ it.effect("lets an independent repeat start a new occurrence after old support i
 				properties: { rule: "coverage", status: "building", sourceEventId: "new-watch" },
 			},
 		]);
-		expect(test.saved()).not.toHaveProperty("basisId");
+		expect(yield* test.saved()).not.toHaveProperty("basisId");
 	}),
 );

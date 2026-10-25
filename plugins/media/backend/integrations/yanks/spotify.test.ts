@@ -16,7 +16,7 @@ import { MediaSandboxError } from "../../lib/failures";
 import { integrationTestResult } from "../artifacts.test-support";
 import spotifyDefinition, { manifest as spotifyManifest } from "./spotify.sandbox";
 
-const encodeClaimKey = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
+const encodeClaimKey = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const accessToken = "spotify-access-token";
 const errorBody = "spotify-error-body";
 
@@ -181,7 +181,7 @@ describe("Spotify yank", () => {
 				],
 			});
 			expect([...claims]).toContain(
-				encodeClaimKey([
+				yield* encodeClaimKey([
 					"media.spotify-play",
 					"integration-1",
 					"track-a",

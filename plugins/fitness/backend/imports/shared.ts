@@ -52,12 +52,14 @@ const compare = (left: FitnessRecord, right: FitnessRecord) => {
 const recordJson = Schema.fromJsonString(FitnessRecord);
 const groupJson = Schema.fromJsonString(Schema.Array(FitnessRecord));
 const chunkJson = Schema.fromJsonString(genericImportChunkSchema);
-const encodeRecord = Schema.encodeSync(recordJson);
-const encodeGroup = Schema.encodeSync(groupJson);
-const encodeItem = Schema.encodeSync(Schema.fromJsonString(genericImportWriteItemSchema));
-const encodeChunk = Schema.encodeSync(chunkJson);
+const encodeRecord = Schema.encodeEffect(recordJson);
+const encodeGroup = Schema.encodeEffect(groupJson);
+const encodeItem = Schema.encodeEffect(Schema.fromJsonString(genericImportWriteItemSchema));
+const encodeChunk = Schema.encodeEffect(chunkJson);
 const serialize = (records: ReadonlyArray<FitnessRecord>) =>
-	records.map((record) => encodeRecord(record)).join("\n") + (records.length ? "\n" : "");
+	Effect.forEach(records, (record) => encodeRecord(record)).pipe(
+		Effect.map((lines) => lines.join("\n") + (records.length ? "\n" : "")),
+	);
 
 const writeFitnessCapture = Effect.fn(function* (
 	chunks: ReadonlyArray<{ name: string; contents: string | Uint8Array }>,
@@ -189,7 +191,7 @@ const collect = Effect.fn(function* (
 			key = strongAppWorkoutKey(row);
 		}
 		const record = { key, row, itemIndex, failures: [] };
-		const bytes = encoder.encode(encodeRecord(record)).length + 1;
+		const bytes = encoder.encode(yield* encodeRecord(record)).length + 1;
 		if (bytes > RECORD_BYTES) {
 			throw new Error("Fitness CSV record exceeds 3 MiB when captured");
 		}
@@ -203,7 +205,7 @@ const collect = Effect.fn(function* (
 	const tail = page.bytes.slice(consumed);
 	const carryFile = tail.length ? "source-carry.bin" : null;
 	const chunks: Array<{ name: string; contents: string | Uint8Array }> = [
-		{ name: "records.jsonl", contents: serialize(records) },
+		{ name: "records.jsonl", contents: yield* serialize(records) },
 	];
 	if (carryFile) {
 		chunks.push({ contents: tail, name: carryFile });
@@ -275,7 +277,7 @@ const merge = Effect.fn(function* (
 		if (!selected) {
 			break;
 		}
-		const size = encoder.encode(encodeRecord(selected.record)).length + 1;
+		const size = encoder.encode(yield* encodeRecord(selected.record)).length + 1;
 		if (records.length && length + size > PAGE_BYTES) {
 			break;
 		}
@@ -290,7 +292,7 @@ const merge = Effect.fn(function* (
 		}
 	}
 	const manifest = yield* writeFitnessCapture([
-		{ name: "records.jsonl", contents: serialize(records) },
+		{ name: "records.jsonl", contents: yield* serialize(records) },
 	]);
 	return yield* output({
 		...manifest,
@@ -328,7 +330,7 @@ const normalize = Effect.fn(function* (
 	}
 	const records: FitnessRecord[] = [];
 	let normalizedRows = 0;
-	const flush = () => {
+	const flush = Effect.fnUntraced(function* () {
 		if (!group.length) {
 			return;
 		}
@@ -378,7 +380,7 @@ const normalize = Effect.fn(function* (
 		if (item !== undefined && writeItem !== undefined) {
 			if (
 				genericImportItemIntents(writeItem).length > 1000 ||
-				encoder.encode(encodeItem(writeItem)).length > RECORD_BYTES
+				encoder.encode(yield* encodeItem(writeItem)).length > RECORD_BYTES
 			) {
 				records.push({
 					itemIndex: item.itemIndex,
@@ -407,7 +409,7 @@ const normalize = Effect.fn(function* (
 		}
 		group = [];
 		groupBytes = 2;
-	};
+	});
 	let readBytes = 0;
 	let done = false;
 	while (readBytes < PAGE_BYTES) {
@@ -415,12 +417,12 @@ const normalize = Effect.fn(function* (
 		if (!next) {
 			done = true;
 			if (input.final) {
-				flush();
+				yield* flush();
 			}
 			break;
 		}
 		if (group.length && group[0]?.key !== next.record.key) {
-			flush();
+			yield* flush();
 		}
 		groupBytes += next.next - offset - (group.length ? 0 : 1);
 		group.push(next.record);
@@ -431,10 +433,10 @@ const normalize = Effect.fn(function* (
 		offset = next.next;
 	}
 	records.sort(compare);
-	const chunks = [{ name: "records.jsonl", contents: serialize(records) }];
+	const chunks = [{ name: "records.jsonl", contents: yield* serialize(records) }];
 	const carryFile = group.length ? "carry.json" : null;
 	if (carryFile) {
-		chunks.push({ name: carryFile, contents: encodeGroup(group) });
+		chunks.push({ name: carryFile, contents: yield* encodeGroup(group) });
 	}
 	const manifest = yield* writeFitnessCapture(chunks);
 	return yield* output({ ...manifest, done, offset, carryFile, itemIndex: normalizedRows });
@@ -480,7 +482,7 @@ const application = Effect.fn(function* (
 	}
 	const chunk = yield* Schema.decodeEffect(genericImportChunkSchema)({ items, failures });
 	const manifest = yield* writeFitnessCapture([
-		{ name: "application.json", contents: encodeChunk(chunk) },
+		{ name: "application.json", contents: yield* encodeChunk(chunk) },
 	]);
 	return yield* output({ ...manifest, done, offset });
 });

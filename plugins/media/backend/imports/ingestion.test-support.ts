@@ -1,32 +1,40 @@
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationExecutionId,
+	ImportRunId,
+	IntegrationId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { installSandboxTestFilesystem } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { type MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
 
 export const resetMediaFilesystem = () => installSandboxTestFilesystem(undefined);
-export const mediaImportTestCommand = (integrationId?: string) =>
-	Schema.decodeSync(LifecycleCommand)({
-		itemIdentity: "run",
-		occurredAt: "2026-01-01T00:00:00.000Z",
-		accountGeneration: { userId: "user", token: "generation" },
-		causation: {
-			depth: 0,
-			parentRunId: null,
-			lane: "background",
-			importRunId: "run",
-			parentTriggerId: null,
-			executionId: "execution",
-			rootExecutionId: "execution",
-			...(integrationId
-				? {
-						integrationId,
-						source: "integration",
-						initiator: { id: integrationId, kind: "integration" },
-					}
-				: { source: "import", initiator: { id: "user", kind: "user" } }),
-		},
-	});
+export const mediaImportTestCommand = (integrationId?: string): LifecycleCommand => ({
+	itemIdentity: "run",
+	occurredAt: "2026-01-01T00:00:00.000Z",
+	accountGeneration: { token: "generation", userId: UserId.make("user") },
+	causation: {
+		depth: 0,
+		parentRunId: null,
+		lane: "background",
+		parentTriggerId: null,
+		importRunId: ImportRunId.make("run"),
+		executionId: AutomationExecutionId.make("execution"),
+		rootExecutionId: AutomationExecutionId.make("execution"),
+		...(integrationId
+			? {
+					source: "integration" as const,
+					integrationId: IntegrationId.make(integrationId),
+					initiator: { kind: "integration" as const, id: IntegrationId.make(integrationId) },
+				}
+			: {
+					source: "import" as const,
+					initiator: { kind: "user" as const, id: UserId.make("user") },
+				}),
+	},
+});
 export const mediaStageInput = (fields: Partial<MediaSourceInput> = {}): MediaSourceInput => ({
 	offset: 0,
 	header: "",

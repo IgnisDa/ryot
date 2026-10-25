@@ -1,5 +1,5 @@
 import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -148,12 +148,17 @@ function TimeForm(props: {
 		if (intent === "clear") {
 			activeDuration = { kind: "clear" };
 		}
+		const conflictToken = encodeWorkoutEditorBaseline({ entity, sets: [] });
+		if (Result.isFailure(conflictToken)) {
+			setMessage("This workout could not be prepared for a time correction.");
+			return;
+		}
 		save.submit({
 			endedAt,
 			startedAt,
 			activeDuration,
 			entityId: entity.id,
-			conflictToken: encodeWorkoutEditorBaseline({ entity, sets: [] }),
+			conflictToken: conflictToken.success,
 		});
 	};
 	let submitLabel = "Save time correction";

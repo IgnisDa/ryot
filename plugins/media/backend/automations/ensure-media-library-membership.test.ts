@@ -21,7 +21,7 @@ const mediaLibraryRows = {
 	},
 };
 
-const context = (entitySchemaSlug: string): AutomationInput =>
+const context = (entitySchemaSlug: string): Effect.Effect<AutomationInput> =>
 	automationContext({
 		userId: "user-1",
 		entitySchemaSlug,
@@ -34,24 +34,24 @@ const context = (entitySchemaSlug: string): AutomationInput =>
 		entitySchemaPluginId: "media-owner",
 	});
 
-it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "company"])(
+it.effect.each(["book", "show", "anime", "manga", "video-game", "music", "person", "company"])(
 	"adds %s to the user's media library",
-	(entitySchemaSlug) => {
-		const changes: unknown[] = [];
-		let queryCalls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => {
-				queryCalls += 1;
-				return hostSuccess(mediaLibraryRows);
-			},
-			changeUserRelationships: (batches) => {
-				changes.push(batches);
-				return hostSuccess([{ created: 1, deleted: 0 }]);
-			},
-		});
+	(entitySchemaSlug) =>
+		Effect.gen(function* () {
+			const changes: unknown[] = [];
+			let queryCalls = 0;
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: () => {
+					queryCalls += 1;
+					return hostSuccess(mediaLibraryRows);
+				},
+				changeUserRelationships: (batches) => {
+					changes.push(batches);
+					return hostSuccess([{ created: 1, deleted: 0 }]);
+				},
+			});
 
-		return Effect.runPromise(
-			definition.run(context(entitySchemaSlug), host).pipe(
+			return yield* definition.run(yield* context(entitySchemaSlug), host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(queryCalls).toBe(1);
@@ -72,9 +72,8 @@ it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "com
 						],
 					]);
 				}),
-			),
-		);
-	},
+			);
+		}),
 );
 
 it("is idempotent when the same import hook runs repeatedly", () => {
@@ -89,57 +88,55 @@ it("is idempotent when the same import hook runs repeatedly", () => {
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
-			expect(yield* definition.run(context("book"), host)).toBeNull();
-			expect(yield* definition.run(context("book"), host)).toBeNull();
+			expect(yield* definition.run(yield* context("book"), host)).toBeNull();
+			expect(yield* definition.run(yield* context("book"), host)).toBeNull();
 			expect(changes[0]).toEqual(changes[1]);
 		}),
 	);
 });
 
-it("ignores irrelevant entity and event inputs", () => {
-	let calls = 0;
-	const host = defineSandboxTestHost(manifest, {
-		changeUserRelationships: () => {
-			calls += 1;
-			return hostSuccess([]);
-		},
-		executeRyotql: () => {
-			calls += 1;
-			return hostSuccess(mediaLibraryRows);
-		},
-	});
-	const eventInput = eventBatchContext({ entitySchemaSlug: "workout" });
-	const mediaLibraryInput = eventBatchContext({ entitySchemaSlug: "media-library" });
-	const membershipEventInput = eventBatchContext({
-		entitySchemaSlug: "book",
-		eventSchemaSlug: "add-to-media-library",
-	});
-	const automaticCompletionInput = eventBatchContext({
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "complete",
-		properties: { completionSilent: true },
-	});
-	const untargetedCollectionInput = eventBatchContext({
-		eventSchemaPluginId: null,
-		entitySchemaPluginId: null,
-		entitySchemaSlug: "collection",
-		eventSchemaSlug: "add-entity-to-collection",
-		properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
-	});
-	const irrelevantInput = context("workout");
+it.effect("ignores irrelevant entity and event inputs", () =>
+	Effect.gen(function* () {
+		let calls = 0;
+		const host = defineSandboxTestHost(manifest, {
+			changeUserRelationships: () => {
+				calls += 1;
+				return hostSuccess([]);
+			},
+			executeRyotql: () => {
+				calls += 1;
+				return hostSuccess(mediaLibraryRows);
+			},
+		});
+		const eventInput = yield* eventBatchContext({ entitySchemaSlug: "workout" });
+		const mediaLibraryInput = yield* eventBatchContext({ entitySchemaSlug: "media-library" });
+		const membershipEventInput = yield* eventBatchContext({
+			entitySchemaSlug: "book",
+			eventSchemaSlug: "add-to-media-library",
+		});
+		const automaticCompletionInput = yield* eventBatchContext({
+			entitySchemaSlug: "movie",
+			eventSchemaSlug: "complete",
+			properties: { completionSilent: true },
+		});
+		const untargetedCollectionInput = yield* eventBatchContext({
+			eventSchemaPluginId: null,
+			entitySchemaPluginId: null,
+			entitySchemaSlug: "collection",
+			eventSchemaSlug: "add-entity-to-collection",
+			properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
+		});
+		const irrelevantInput = yield* context("workout");
 
-	return Effect.runPromise(
-		Effect.gen(function* () {
-			expect(yield* definition.run(eventInput, host)).toBeNull();
-			expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
-			expect(yield* definition.run(membershipEventInput, host)).toBeNull();
-			expect(yield* definition.run(automaticCompletionInput, host)).toBeNull();
-			expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
-			expect(yield* definition.run(irrelevantInput, host)).toBeNull();
-			expect(calls).toBe(0);
-		}),
-	);
-});
+		expect(yield* definition.run(eventInput, host)).toBeNull();
+		expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
+		expect(yield* definition.run(membershipEventInput, host)).toBeNull();
+		expect(yield* definition.run(automaticCompletionInput, host)).toBeNull();
+		expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
+		expect(yield* definition.run(irrelevantInput, host)).toBeNull();
+		expect(calls).toBe(0);
+	}),
+);
 
 it("upserts each distinct event or collection target once per written batch", () => {
 	const changes: unknown[] = [];
@@ -173,7 +170,7 @@ it("upserts each distinct event or collection target once per written batch", ()
 		Effect.gen(function* () {
 			expect(
 				yield* definition.run(
-					eventBatchContext(
+					yield* eventBatchContext(
 						{ entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
 						{ entitySchemaSlug: "movie", eventSchemaSlug: "complete" },
 						{ entitySchemaSlug: "workout", eventSchemaSlug: "progress" },
@@ -216,21 +213,21 @@ it("upserts each distinct event or collection target once per written batch", ()
 	);
 });
 
-it("splits a batch of distinct membership targets within the host write limit", () => {
-	const sizes: number[] = [];
-	let calls = 0;
-	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => hostSuccess(mediaLibraryRows),
-		changeUserRelationships: (batches) => {
-			calls += 1;
-			sizes.push(...batches.map((batch) => batch.creates.length));
-			return hostSuccess(batches.map((batch) => ({ deleted: 0, created: batch.creates.length })));
-		},
-	});
-	return Effect.runPromise(
-		definition
+it.effect("splits a batch of distinct membership targets within the host write limit", () =>
+	Effect.gen(function* () {
+		const sizes: number[] = [];
+		let calls = 0;
+		const host = defineSandboxTestHost(manifest, {
+			executeRyotql: () => hostSuccess(mediaLibraryRows),
+			changeUserRelationships: (batches) => {
+				calls += 1;
+				sizes.push(...batches.map((batch) => batch.creates.length));
+				return hostSuccess(batches.map((batch) => ({ deleted: 0, created: batch.creates.length })));
+			},
+		});
+		return yield* definition
 			.run(
-				eventBatchContext(
+				yield* eventBatchContext(
 					...Array.from({ length: 101 }, (_, index) => ({
 						entitySchemaSlug: "book",
 						entityId: `entity-${index}`,
@@ -243,9 +240,9 @@ it("splits a batch of distinct membership targets within the host write limit", 
 					expect(calls).toBe(1);
 					expect(sizes).toEqual([100, 1]);
 				}),
-			),
-	);
-});
+			);
+	}),
+);
 
 it.live("does not treat a plugin-owned collection name as kernel membership evidence", () =>
 	Effect.gen(function* () {
@@ -261,7 +258,7 @@ it.live("does not treat a plugin-owned collection name as kernel membership evid
 			},
 		});
 		yield* definition.run(
-			eventBatchContext({
+			yield* eventBatchContext({
 				entitySchemaSlug: "collection",
 				eventSchemaSlug: "add-entity-to-collection",
 				properties: { entityId: "entity-2", entitySchemaSlug: "movie" },
@@ -297,7 +294,7 @@ it.live(
 				},
 			});
 			yield* definition.run(
-				eventBatchContext({
+				yield* eventBatchContext({
 					eventSchemaPluginId: null,
 					entitySchemaPluginId: null,
 					entitySchemaSlug: "collection",
@@ -348,7 +345,7 @@ it.live("uses trusted user scope for direct creation", () =>
 			operation: "create",
 			after: entityRecord({ entitySchemaSlug: "movie" }),
 		};
-		yield* definition.run(automationContext(payload), host);
+		yield* definition.run(yield* automationContext(payload), host);
 		expect(reads).toBe(1);
 		expect(changes).toEqual([
 			[
@@ -382,7 +379,7 @@ it.live("rejects provider completion for a different execution user before host 
 				return hostSuccess(mediaLibraryRows);
 			},
 		});
-		const input = automationContext(context("movie").automation.payload, {
+		const input = yield* automationContext((yield* context("movie")).automation.payload, {
 			executionUserId: "other-user",
 		});
 		const error = yield* Effect.flip(definition.run(input, host));

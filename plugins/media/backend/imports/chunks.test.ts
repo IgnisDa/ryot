@@ -1,6 +1,6 @@
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { expect, it } from "@effect/vitest";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
-import { expect, it } from "vitest";
 
 import { createMediaImportChunk } from "./chunks";
 
@@ -174,34 +174,36 @@ it("turns missing and failed population results into staged failures without wri
 	]);
 });
 
-it("gives each failed event of an unresolved group its own operation identity", () => {
-	const chunk = createMediaImportChunk(
-		{
-			failures: [],
-			populationResults: [],
-			entityGroups: [
-				{
-					itemIndex: 5,
-					entityRef: showRef,
-					collectionMemberships: [],
-					events: ["complete", "review"].map((eventSchemaSlug) => ({
-						properties: {},
-						eventSchemaSlug,
-						occurredAt: "2026-01-01T00:00:00.000Z",
-						operationId: `source-${eventSchemaSlug}`,
-					})),
-				},
-			],
-		},
-		ownershipSyncedAt,
-	);
+it.effect("gives each failed event of an unresolved group its own operation identity", () =>
+	Effect.gen(function* () {
+		const chunk = createMediaImportChunk(
+			{
+				failures: [],
+				populationResults: [],
+				entityGroups: [
+					{
+						itemIndex: 5,
+						entityRef: showRef,
+						collectionMemberships: [],
+						events: ["complete", "review"].map((eventSchemaSlug) => ({
+							properties: {},
+							eventSchemaSlug,
+							occurredAt: "2026-01-01T00:00:00.000Z",
+							operationId: `source-${eventSchemaSlug}`,
+						})),
+					},
+				],
+			},
+			ownershipSyncedAt,
+		);
 
-	expect(chunk.failures.map(({ operationId }) => operationId)).toEqual([
-		"source-complete",
-		"source-review",
-	]);
-	expect(() => Schema.decodeSync(genericImportChunkSchema)(chunk)).not.toThrow();
-});
+		expect(chunk.failures.map(({ operationId }) => operationId)).toEqual([
+			"source-complete",
+			"source-review",
+		]);
+		yield* Schema.decodeEffect(genericImportChunkSchema)(chunk);
+	}),
+);
 
 it("emits library membership and ownership as a generic relationship mutation", () => {
 	const chunk = createMediaImportChunk(

@@ -96,18 +96,21 @@ const credit = (sourceEntityId: string, role: string) => ({
 
 const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return definition
-		.run(
-			value.context,
-			defineSandboxTestHost(manifest, {
-				executeRyotql: () => hostSuccess(ryotqlRows("entities", value.entities)),
-				emitSignal: (request) => {
-					calls.push(request);
-					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-				},
-			}),
-		)
-		.pipe(Effect.as(calls));
+	return value.context.pipe(
+		Effect.flatMap((context) =>
+			definition.run(
+				context,
+				defineSandboxTestHost(manifest, {
+					executeRyotql: () => hostSuccess(ryotqlRows("entities", value.entities)),
+					emitSignal: (request) => {
+						calls.push(request);
+						return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
+					},
+				}),
+			),
+		),
+		Effect.as(calls),
+	);
 };
 
 it.each([
@@ -205,7 +208,7 @@ it("reads every credited entity in the batch with one query", () => {
 	return Effect.runPromise(
 		Effect.gen(function* () {
 			yield* definition.run(
-				automationContext({
+				yield* automationContext({
 					category: "change",
 					operation: "batch",
 					resource: "relationship",

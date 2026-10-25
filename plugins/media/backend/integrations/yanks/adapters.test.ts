@@ -102,18 +102,18 @@ const historyClient = (
 		}),
 });
 
-const expectDistinctChunkFailureIds = (failures: ReadonlyArray<MediaImportFailure>) => {
+const expectDistinctChunkFailureIds = Effect.fnUntraced(function* (
+	failures: ReadonlyArray<MediaImportFailure>,
+) {
 	const ids = failures.map(({ operationId }) => operationId);
 	expect(new Set(ids).size).toBe(ids.length);
-	expect(() =>
-		Schema.decodeSync(genericImportChunkSchema)(
-			createMediaImportChunk(
-				{ failures, entityGroups: [], populationResults: [] },
-				"2026-01-01T00:00:00.000Z",
-			),
+	yield* Schema.decodeEffect(genericImportChunkSchema)(
+		createMediaImportChunk(
+			{ failures, entityGroups: [], populationResults: [] },
+			"2026-01-01T00:00:00.000Z",
 		),
-	).not.toThrow();
-};
+	);
+});
 
 const progressValues = (result: MediaIntegrationAdapterResult) =>
 	result.entityGroups.flatMap((group) =>
@@ -230,7 +230,7 @@ describe("Plex yank", () => {
 					}),
 				);
 				expect(result.failures.map(({ itemIndex }) => itemIndex)).toEqual([0, 1, 2]);
-				expectDistinctChunkFailureIds(result.failures);
+				yield* expectDistinctChunkFailureIds(result.failures);
 			}),
 	);
 

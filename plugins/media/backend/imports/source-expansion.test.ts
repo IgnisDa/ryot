@@ -110,7 +110,7 @@ it.live("keeps independent equal-time Spotify records in original order", () =>
 		});
 		yield* spotify.run(mediaStageInput());
 		const raw = (yield* fs.records()).sort(compareMediaRecords);
-		fs.files.set("records", encoder.encode(serializeMediaRecords(raw)));
+		fs.files.set("records", encoder.encode(yield* serializeMediaRecords(raw)));
 		yield* spotify.run(
 			mediaStageInput({
 				action: "normalize",

@@ -39,7 +39,7 @@ const request: WorkoutDrillRequest = {
 	filter: { kind: "targets", id: "target-upper-back" },
 };
 
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const itemAt = <Item,>(items: readonly Item[], index: number): Item => {
 	const item = items[index];
 	if (item === undefined) {
@@ -151,7 +151,7 @@ describe("Fitness analytics workout drill", () => {
 						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(1)),
 					);
 					const query = itemAt(page.queryRequests("workouts"), 0);
-					const queryDocument = documentText(query.document);
+					const queryDocument = yield* documentText(query.document);
 					expect(queryDocument).toContain("fitness-owner");
 					expect(queryDocument).toContain("2026-09-01T04:00:00.000Z");
 					expect(queryDocument).toContain("2026-09-04T04:00:00.000Z");
@@ -219,7 +219,7 @@ describe("Fitness analytics workout drill", () => {
 					waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(2)),
 				);
 				const append = itemAt(page.queryRequests("workouts"), 1);
-				expect(documentText(append.document)).toContain("workout-cursor");
+				expect(yield* documentText(append.document)).toContain("workout-cursor");
 				page.replyQuery(append.requestId, { outcome: "failure", reason: "query-failed" });
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -234,7 +234,7 @@ describe("Fitness analytics workout drill", () => {
 					waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(3)),
 				);
 				const retry = itemAt(page.queryRequests("workouts"), 2);
-				expect(documentText(retry.document)).toContain("workout-cursor");
+				expect(yield* documentText(retry.document)).toContain("workout-cursor");
 				page.replyQuery(retry.requestId, {
 					outcome: "success",
 					response: workoutsResponse(null, [

@@ -32,7 +32,7 @@ const owner: AnalyticsInput["reference"] = {
 	pluginId: PluginId.make("media-owner"),
 };
 const now = Date.parse("2026-03-05T18:00:00Z");
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const aggregate = (
 	items: readonly Record<string, null | number | string>[],
@@ -268,11 +268,10 @@ describe("Media analytics charts UI", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.getByText(trendLabel)).toBeDefined()),
 					);
-					expect(
-						page
-							.queryRequests()
-							.some((request) => documentText(request.document).includes("America/New_York")),
-					).toBe(true);
+					const requestTexts = yield* Effect.forEach(page.queryRequests(), (request) =>
+						documentText(request.document),
+					);
+					expect(requestTexts.some((text) => text.includes("America/New_York"))).toBe(true);
 					yield* choose("Trend metric", "Active observations", "Pages");
 					yield* choose("Media type", "All media types", "Book");
 					yield* openExactValues(0);
@@ -438,8 +437,8 @@ describe("Media analytics charts UI", () => {
 						.queryRequests()
 						.find(({ document }) => Object.hasOwn(document.queries, "dates"));
 					expect(dailyRequest).toBeDefined();
-					expect(documentText(dailyRequest?.document)).toContain('"limit":400');
-					expect(documentText(dailyRequest?.document)).not.toContain('"now"');
+					expect(yield* documentText(dailyRequest?.document)).toContain('"limit":400');
+					expect(yield* documentText(dailyRequest?.document)).not.toContain('"now"');
 					yield* Effect.promise(() =>
 						act(() => fireEvent.click(screen.getByRole("button", { name: "Older periods" }))),
 					);
@@ -448,7 +447,7 @@ describe("Media analytics charts UI", () => {
 					);
 					const olderTrendRequest = requestsNotReplied(page, replied, "trend")[0];
 					expect(olderTrendRequest).toBeDefined();
-					expect(documentText(olderTrendRequest?.document)).not.toContain('"now"');
+					expect(yield* documentText(olderTrendRequest?.document)).not.toContain('"now"');
 					const olderTrend = analyticsWindow(
 						props.report.reporting,
 						"trend",
@@ -552,7 +551,9 @@ describe("Media analytics charts UI", () => {
 								? olderTrendRequest?.document
 								: page.queryRequests(query)[0]?.document;
 						for (const request of requestsNotReplied(page, replied, query)) {
-							expect(documentText(request.document)).toBe(documentText(expectedDocument));
+							expect(yield* documentText(request.document)).toBe(
+								yield* documentText(expectedDocument),
+							);
 						}
 						replyRequests(page, replied);
 						yield* Effect.promise(() => clock.advance(0));

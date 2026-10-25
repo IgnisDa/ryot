@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../lib/failures";
 import type { ImportMediaEntityGroupBuilder } from "./groups";
@@ -95,7 +95,11 @@ export const normalizeTraktRecord = (
 	raw: unknown,
 	context: TraktRecordContext,
 ): MediaIntegrationAdapterResult => {
-	const item = Schema.decodeUnknownSync(ExportItem)(raw);
+	const decoded = Schema.decodeUnknownResult(ExportItem)(raw);
+	if (Result.isFailure(decoded)) {
+		return { entityGroups: [], failures: [{ itemIndex: 0, message: "Trakt record is malformed" }] };
+	}
+	const item = decoded.success;
 	const source = item.movie ?? item.show;
 	const fail = (message: string): MediaIntegrationAdapterResult => ({
 		entityGroups: [],

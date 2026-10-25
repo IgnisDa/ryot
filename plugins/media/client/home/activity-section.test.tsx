@@ -37,7 +37,7 @@ const aggregate = (items: readonly Record<string, JsonValue>[] = []) => ({
 	items,
 	type: "aggregate" as const,
 });
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const activityResponse = (input: {
 	readonly pending?: number;
@@ -294,7 +294,7 @@ describe("ActivitySection reporting window", () => {
 				const request = yield* Effect.promise(() =>
 					waitForRequest(() => activityRequests(page), 0),
 				);
-				const document = documentText(request.document);
+				const document = yield* documentText(request.document);
 				const window = activityWindow("2026-10-31", TIME_ZONE);
 				expect(document).toContain(window.from);
 				expect(document).toContain(window.until);
@@ -363,7 +363,7 @@ describe("ActivitySection reporting window", () => {
 					const sameDay = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 1),
 					);
-					expect(documentText(sameDay.document)).toBe(documentText(first.document));
+					expect(yield* documentText(sameDay.document)).toBe(yield* documentText(first.document));
 					replyActivity(page, sameDay, { finished: 2, activeDay: "2026-09-25" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -376,7 +376,7 @@ describe("ActivitySection reporting window", () => {
 						waitForRequest(() => activityRequests(page), 2),
 					);
 					const nextWindow = activityWindow("2026-09-26", TIME_ZONE);
-					const nextDocument = documentText(nextDay.document);
+					const nextDocument = yield* documentText(nextDay.document);
 					expect(nextDocument).toContain(nextWindow.from);
 					expect(nextDocument).toContain(nextWindow.until);
 					replyActivity(page, nextDay, { finished: 3, activeDay: "2026-09-26" });
@@ -425,7 +425,7 @@ describe("ActivitySection reporting window", () => {
 					);
 					const expectedToday = sample.hours === 23 ? "2026-03-09" : "2026-11-02";
 					const expectedWindow = activityWindow(expectedToday, TIME_ZONE);
-					const document = documentText(refreshed.document);
+					const document = yield* documentText(refreshed.document);
 					expect(document).toContain(expectedWindow.from);
 					expect(document).toContain(expectedWindow.until);
 					replyActivity(page, refreshed, { finished: 2, activeDay: expectedToday });
@@ -550,7 +550,7 @@ describe("ActivitySection reporting window", () => {
 					waitForRequest(() => activityRequests(page), 1),
 				);
 				const expected = activityWindow("2025-12-31", TIME_ZONE);
-				const newDocument = documentText(newZoneRequest.document);
+				const newDocument = yield* documentText(newZoneRequest.document);
 				expect(newDocument).toContain(expected.from);
 				expect(newDocument).toContain(expected.until);
 				replyActivity(page, newZoneRequest, { finished: 2, activeDay: "2025-12-31" });

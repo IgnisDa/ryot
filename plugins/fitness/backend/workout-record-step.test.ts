@@ -1,20 +1,20 @@
+import { assert, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { EventStreamStepInput } from "@ryot-app/plugin-backend-sdk/event-streams";
 import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { assert, describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./workout-record-step.sandbox";
 
 const timestamp = "2026-01-01T08:00:00.000Z";
 
 const input = (checkpoint: unknown = null, dirtyFrom: null | string = null) =>
-	Schema.decodeUnknownSync(EventStreamStepInput)({
+	Schema.decodeUnknownEffect(EventStreamStepInput)({
 		dirtyFrom,
 		checkpoint,
 		entityId: "exercise-1",
 		eventSchemaSlug: "workout-set",
-	});
+	}).pipe(Effect.orDie);
 
 const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 	reps: 10,
@@ -77,30 +77,30 @@ const makeHost = (
 };
 
 describe("workout record step", () => {
-	it("uses recorded event times without returning timestamp updates", () => {
-		const calls: RyotQLDocument[] = [];
-		const writes: unknown[] = [];
-		const host = makeHost(
-			[
-				page([
-					workoutRecord({
-						id: "set-1",
-						occurredAt: "2026-01-01T07:00:00.000Z",
-						workoutStartedAt: "2026-01-01T08:00:00.000Z",
-					}),
-					workoutRecord({
-						id: "set-2",
-						occurredAt: "2026-01-01T08:10:00.000Z",
-						workoutStartedAt: "2026-01-01T08:00:00.000Z",
-					}),
-				]),
-			],
-			calls,
-			writes,
-		);
+	it.effect("uses recorded event times without returning timestamp updates", () =>
+		Effect.gen(function* () {
+			const calls: RyotQLDocument[] = [];
+			const writes: unknown[] = [];
+			const host = makeHost(
+				[
+					page([
+						workoutRecord({
+							id: "set-1",
+							occurredAt: "2026-01-01T07:00:00.000Z",
+							workoutStartedAt: "2026-01-01T08:00:00.000Z",
+						}),
+						workoutRecord({
+							id: "set-2",
+							occurredAt: "2026-01-01T08:10:00.000Z",
+							workoutStartedAt: "2026-01-01T08:00:00.000Z",
+						}),
+					]),
+				],
+				calls,
+				writes,
+			);
 
-		return Effect.runPromise(
-			definition.run(input(), host).pipe(
+			return yield* definition.run(yield* input(), host).pipe(
 				Effect.map((result) => {
 					expect(result.done).toBe(true);
 					expect(result.checkpoint).toMatchObject({
@@ -125,51 +125,54 @@ describe("workout record step", () => {
 					expect(query.output.orderBy[0]?.expr).toMatchObject({ field: "occurredAt" });
 					expect(query.output.orderBy.at(-1)?.expr).toMatchObject({ field: "id" });
 				}),
-			),
-		);
-	});
+			);
+		}),
+	);
 
-	it("projects an empty personal-best result", () => {
-		const checkpoint = {
-			after: null,
-			phase: "records",
-			lastOccurredAt: timestamp,
-			maxima: { reps_and_weight: { reps: 10, weight: 25, volume: 250, one_rm: 33.333333 } },
-		};
-		const host = makeHost([page([workoutRecord({ personalBests: ["volume"] })])]);
+	it.effect("projects an empty personal-best result", () =>
+		Effect.gen(function* () {
+			const checkpoint = {
+				after: null,
+				phase: "records",
+				lastOccurredAt: timestamp,
+				maxima: { reps_and_weight: { reps: 10, weight: 25, volume: 250, one_rm: 33.333333 } },
+			};
+			const host = makeHost([page([workoutRecord({ personalBests: ["volume"] })])]);
 
-		return Effect.runPromise(
-			definition.run(input(checkpoint, timestamp), host).pipe(
+			return yield* definition.run(yield* input(checkpoint, timestamp), host).pipe(
 				Effect.map((result) => {
 					expect(result.updates).toEqual([
 						{ eventId: "set-1", properties: { volume: 250, oneRm: 33.333333, personalBests: [] } },
 					]);
 				}),
-			),
-		);
-	});
+			);
+		}),
+	);
 
-	it("tracks personal bests separately for each recorded kind", () => {
-		const host = makeHost([
-			page([
-				workoutRecord({ reps: 10, id: "weighted", personalBests: [] }),
-				workoutRecord({
-					reps: 6,
-					oneRm: null,
-					weight: null,
-					volume: null,
-					id: "bodyweight",
-					personalBests: [],
-					exerciseKind: "reps",
-					occurredAt: "2026-01-02T08:00:00.000Z",
-				}),
-			]),
-		]);
+	it.effect("tracks personal bests separately for each recorded kind", () =>
+		Effect.gen(function* () {
+			const host = makeHost([
+				page([
+					workoutRecord({ reps: 10, id: "weighted", personalBests: [] }),
+					workoutRecord({
+						reps: 6,
+						oneRm: null,
+						weight: null,
+						volume: null,
+						id: "bodyweight",
+						personalBests: [],
+						exerciseKind: "reps",
+						occurredAt: "2026-01-02T08:00:00.000Z",
+					}),
+				]),
+			]);
 
-		return Effect.runPromise(
-			definition
+			return yield* definition
 				.run(
-					input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }, timestamp),
+					yield* input(
+						{ maxima: {}, after: null, phase: "records", lastOccurredAt: null },
+						timestamp,
+					),
 					host,
 				)
 				.pipe(
@@ -186,28 +189,31 @@ describe("workout record step", () => {
 							{ eventId: "bodyweight", properties: { personalBests: ["reps"] } },
 						]);
 					}),
-				),
-		);
-	});
+				);
+		}),
+	);
 
-	it("omits statistics that are unavailable for the current set", () => {
-		const host = makeHost([
-			page([
-				workoutRecord({
-					pace: 0.5,
-					reps: null,
-					oneRm: 100,
-					volume: 100,
-					weight: null,
-					personalBests: ["volume"],
-				}),
-			]),
-		]);
+	it.effect("omits statistics that are unavailable for the current set", () =>
+		Effect.gen(function* () {
+			const host = makeHost([
+				page([
+					workoutRecord({
+						pace: 0.5,
+						reps: null,
+						oneRm: 100,
+						volume: 100,
+						weight: null,
+						personalBests: ["volume"],
+					}),
+				]),
+			]);
 
-		return Effect.runPromise(
-			definition
+			return yield* definition
 				.run(
-					input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }, timestamp),
+					yield* input(
+						{ maxima: {}, after: null, phase: "records", lastOccurredAt: null },
+						timestamp,
+					),
 					host,
 				)
 				.pipe(
@@ -216,20 +222,23 @@ describe("workout record step", () => {
 							{ eventId: "set-1", properties: { personalBests: [] } },
 						]);
 					}),
-				),
-		);
-	});
+				);
+		}),
+	);
 
-	it("processes a fifty-row records page without timestamp updates", () => {
-		const records = Array.from({ length: 50 }, (_, index) =>
-			workoutRecord({ id: `set-${index}`, occurredAt: "2026-01-01T07:59:00.000Z" }),
-		);
-		const calls: RyotQLDocument[] = [];
-		const host = makeHost([page(records, { hasMore: true, nextCursor: "cursor-50" })], calls);
+	it.effect("processes a fifty-row records page without timestamp updates", () =>
+		Effect.gen(function* () {
+			const records = Array.from({ length: 50 }, (_, index) =>
+				workoutRecord({ id: `set-${index}`, occurredAt: "2026-01-01T07:59:00.000Z" }),
+			);
+			const calls: RyotQLDocument[] = [];
+			const host = makeHost([page(records, { hasMore: true, nextCursor: "cursor-50" })], calls);
 
-		return Effect.runPromise(
-			definition
-				.run(input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }), host)
+			return yield* definition
+				.run(
+					yield* input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }),
+					host,
+				)
 				.pipe(
 					Effect.map((result) => {
 						expect(result.updates).toHaveLength(50);
@@ -242,9 +251,9 @@ describe("workout record step", () => {
 						assert(query?.output.type === "rows");
 						expect(query.output.pagination.limit).toBe(50);
 					}),
-				),
-		);
-	});
+				);
+		}),
+	);
 
 	it("scans a prefix in fifty-row pages and allows only newer appends to use its tail checkpoint", () => {
 		const prefixTime = Array.from({ length: 50 }, (_, index) =>
@@ -269,7 +278,10 @@ describe("workout record step", () => {
 		return Effect.runPromise(
 			Effect.gen(function* () {
 				const first = yield* definition.run(
-					input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }, targetTime),
+					yield* input(
+						{ maxima: {}, after: null, phase: "records", lastOccurredAt: null },
+						targetTime,
+					),
 					host,
 				);
 				expect(first.done).toBe(false);
@@ -280,7 +292,7 @@ describe("workout record step", () => {
 				);
 				expect(new TextEncoder().encode(checkpointJson).byteLength).toBeLessThanOrEqual(16_384);
 
-				const completed = yield* definition.run(input(first.checkpoint, targetTime), host);
+				const completed = yield* definition.run(yield* input(first.checkpoint, targetTime), host);
 				expect(completed.done).toBe(true);
 				expect(completed.checkpoint).toMatchObject({
 					phase: "complete",
@@ -294,7 +306,7 @@ describe("workout record step", () => {
 				const nonAppendCalls: RyotQLDocument[] = [];
 				const nonAppendHost = makeHost([page([])], nonAppendCalls);
 				const nonAppend = yield* definition.run(
-					input(completed.checkpoint, targetTime),
+					yield* input(completed.checkpoint, targetTime),
 					nonAppendHost,
 				);
 				expect(nonAppend.done).toBe(true);
@@ -321,7 +333,7 @@ describe("workout record step", () => {
 					appendCalls,
 				);
 				const appended = yield* definition.run(
-					input(completed.checkpoint, appendedTime),
+					yield* input(completed.checkpoint, appendedTime),
 					appendHost,
 				);
 				expect(appended.done).toBe(true);

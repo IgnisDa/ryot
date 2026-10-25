@@ -134,8 +134,8 @@ it.live("merges multiple capture windows with chronological and original equal-t
 		const left = Array.from({ length: 40 }, (_, index) => makeRecord(index * 2));
 		const right = Array.from({ length: 40 }, (_, index) => makeRecord(index * 2 + 1));
 		const fs = mediaFilesystem({
-			left: encoder.encode(serializeMediaRecords(left)),
-			right: encoder.encode(serializeMediaRecords(right)),
+			left: encoder.encode(yield* serializeMediaRecords(left)),
+			right: encoder.encode(yield* serializeMediaRecords(right)),
 		});
 		let leftOffset = 0;
 		let rightOffset = 0;
@@ -191,7 +191,7 @@ it.live("captures AniList metadata after the arrays and uses it during bounded n
 		const result = yield* anilist.run(mediaStageInput({ settings: { timezone: "UTC" } }));
 		expect(result.done).toBe(true);
 		const raw = (yield* fs.records()).sort(compareMediaRecords);
-		fs.files.set("records", encoder.encode(serializeMediaRecords(raw)));
+		fs.files.set("records", encoder.encode(yield* serializeMediaRecords(raw)));
 		yield* anilist.run(
 			mediaStageInput({
 				action: "normalize",
@@ -248,7 +248,7 @@ it.live("gives every record of an oversized source row its own failure identity"
 			7,
 			"imdb",
 		);
-		const fs = mediaFilesystem({ records: encoder.encode(serializeMediaRecords(records)) });
+		const fs = mediaFilesystem({ records: encoder.encode(yield* serializeMediaRecords(records)) });
 		yield* reader.run({
 			offset: 0,
 			itemIndex: 0,

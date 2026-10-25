@@ -1,8 +1,9 @@
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	IngestionIssue,
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
+import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	genericImportChunkSchema,
 	genericImportKernelInputSchema,
@@ -30,22 +31,22 @@ import { runFitnessStage } from "./shared";
 
 afterEach(() => installSandboxTestFilesystem(undefined));
 
-const command = Schema.decodeSync(LifecycleCommand)({
+const command: LifecycleCommand = {
 	occurredAt: "2026-09-16T00:00:00.000Z",
 	itemIdentity: '["import-run","run-1"]',
-	accountGeneration: { userId: "user-1", token: "generation" },
+	accountGeneration: { token: "generation", userId: UserId.make("user-1") },
 	causation: {
 		depth: 0,
 		source: "import",
 		parentRunId: null,
 		lane: "background",
-		importRunId: "run-1",
-		executionId: "run-1",
 		parentTriggerId: null,
-		rootExecutionId: "run-1",
-		initiator: { id: "user-1", kind: "user" },
+		importRunId: ImportRunId.make("run-1"),
+		executionId: AutomationExecutionId.make("run-1"),
+		rootExecutionId: AutomationExecutionId.make("run-1"),
+		initiator: { kind: "user", id: UserId.make("user-1") },
 	},
-});
+};
 
 const runImport = Effect.fn(function* (source: string, csv: string) {
 	const encoder = new TextEncoder();

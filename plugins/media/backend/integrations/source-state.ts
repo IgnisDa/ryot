@@ -13,11 +13,11 @@ export const integrationSourceAttribution = (
 	sourceLabel: string,
 	keys: readonly string[],
 	expiresAt: number,
-) => ({
-	sourceLabel,
-	sourceIdentifier,
-	recordId: Schema.encodeSync(completionJson)({ keys, expiresAt }),
-});
+) =>
+	Schema.encodeEffect(completionJson)({ keys, expiresAt }).pipe(
+		Effect.orDie,
+		Effect.map((recordId) => ({ recordId, sourceLabel, sourceIdentifier })),
+	);
 export const confirmIntegrationSource = Effect.fn(function* (
 	confirmation: typeof MediaIntegrationConfirmation.Type,
 	host: Pick<CoreSandboxHostMethodMap, "claimPersistentValue">,

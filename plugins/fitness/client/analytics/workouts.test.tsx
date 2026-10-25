@@ -49,7 +49,7 @@ const workoutPoint = (at: string, value: null | number) => ({
 	observations: 1,
 	knownValues: value === null ? 0 : 1,
 });
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const mountWorkouts = (
 	clock: ReturnType<typeof createTestRyotClock>,
@@ -94,14 +94,14 @@ const mountWorkouts = (
 	return { page, drillRequests };
 };
 
-const answerInitial = (
+const answerInitial = Effect.fnUntraced(function* (
 	page: ReturnType<typeof mountPluginPage>,
 	answered: Set<string>,
 	options: {
 		readonly failedHours?: boolean;
 		readonly trend?: (requestText: string) => ReturnType<typeof trendResponse>;
 	} = {},
-) => {
+) {
 	for (const request of page.queryRequests()) {
 		if (answered.has(request.requestId)) {
 			continue;
@@ -115,7 +115,7 @@ const answerInitial = (
 					: { outcome: "success", response: hourResponse() },
 			);
 		} else if ("trend" in request.document.queries) {
-			const text = documentText(request.document);
+			const text = yield* documentText(request.document);
 			page.replyQuery(request.requestId, {
 				outcome: "success",
 				response:
@@ -123,7 +123,7 @@ const answerInitial = (
 			});
 		}
 	}
-};
+});
 
 const answerOneTrend = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -148,9 +148,9 @@ describe("Fitness analytics workout charts", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
 					for (const request of page.queryRequests()) {
-						expect(documentText(request.document)).toContain("fitness-owner");
+						expect(yield* documentText(request.document)).toContain("fitness-owner");
 					}
-					answerInitial(page, answered);
+					yield* answerInitial(page, answered);
 					yield* Effect.promise(() =>
 						waitFor(() => expect(screen.getByText("Workout starts")).toBeDefined()),
 					);
@@ -226,7 +226,7 @@ describe("Fitness analytics workout charts", () => {
 				const answered = new Set<string>();
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(4)));
-					answerInitial(page, answered, {
+					yield* answerInitial(page, answered, {
 						trend: (text) =>
 							text.includes("2026-01-29")
 								? trendResponse([
@@ -282,7 +282,7 @@ describe("Fitness analytics workout charts", () => {
 				const answered = new Set<string>();
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
-					answerInitial(page, answered, {
+					yield* answerInitial(page, answered, {
 						trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)], true),
 					});
 					yield* Effect.promise(() =>
@@ -316,7 +316,7 @@ describe("Fitness analytics workout charts", () => {
 				const answered = new Set<string>();
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
-					answerInitial(page, answered, {
+					yield* answerInitial(page, answered, {
 						trend: () => trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 2)]),
 					});
 					yield* Effect.promise(() =>

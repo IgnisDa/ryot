@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 
 import type { ExerciseRecord } from "../../client/exercise/details-model";
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
@@ -67,18 +67,19 @@ export const exerciseDetails = (
 });
 
 export const storedEditorDraft = (overrides: Record<string, unknown> = {}) =>
-	encodeWorkoutEditorDraft(
-		Schema.decodeSync(WorkoutEditorDraftSchema)({
-			images: [],
-			videos: [],
-			supersets: [],
-			occurrences: [],
-			name: "Workout",
-			mode: { kind: "live" },
-			displayEnergyUnit: "kcal",
-			activeDurationIntent: "set",
-			kind: "fitness-workout-editor",
-			draftId: "draft-workout-editor",
-			...overrides,
-		}),
+	Schema.decodeEffect(WorkoutEditorDraftSchema)({
+		images: [],
+		videos: [],
+		supersets: [],
+		occurrences: [],
+		name: "Workout",
+		mode: { kind: "live" },
+		displayEnergyUnit: "kcal",
+		activeDurationIntent: "set",
+		kind: "fitness-workout-editor",
+		draftId: "draft-workout-editor",
+		...overrides,
+	}).pipe(
+		Effect.flatMap((draft) => Effect.fromResult(encodeWorkoutEditorDraft(draft))),
+		Effect.orDie,
 	);

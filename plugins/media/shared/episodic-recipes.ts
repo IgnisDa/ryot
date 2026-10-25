@@ -89,6 +89,8 @@ import {
 	type MediaExtraQueries,
 	mediaGenresInclude,
 	mediaHistoryBefore,
+	type MediaHistoryCursor,
+	mediaHistoryCursor,
 	type MediaHistoryInput,
 	mediaHistoryPage,
 	mediaOverviewQueries,
@@ -294,8 +296,8 @@ export const episodicParentEventsQuery = (input: {
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
-	readonly before?: string | undefined;
 	readonly reference: PluginIdentityReference;
+	readonly before?: undefined | MediaHistoryCursor;
 }) =>
 	mediaEntityEventsQuery({
 		...input,
@@ -340,8 +342,8 @@ export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedS
 	readonly entityId: string;
 	readonly history?: boolean;
 	readonly config: EpisodicKindConfig;
-	readonly before?: string | undefined;
 	readonly reference: PluginIdentityReference;
+	readonly before?: undefined | MediaHistoryCursor;
 	readonly episodeFields: (episode: Table) => EpisodeFields;
 }) => {
 	const event = table("event", `${input.alias}Event`);
@@ -986,37 +988,44 @@ export const mediaEpisodicRecipes = <
 	});
 
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
-	const historyRecipe = defineRecipe((input: MediaHistoryInput) => ({
-		queries: {
-			collectionEvents: mediaCollectionEventsQuery(input),
-			parentEvents: episodicParentEventsQuery({ ...input, alias: `${config.alias}HistoryParent` }),
-			episodeEvents: episodicEpisodeEventsQuery({
-				...input,
-				history: true,
-				config: config.config,
-				episodeFields: config.episodeFields,
-				alias: `${config.alias}HistoryEpisode`,
-			}),
-		},
-		map: ({ parentEvents, episodeEvents, collectionEvents }) =>
-			Result.succeed(
-				mediaHistoryPage(
-					[
-						...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
-						...episodeEvents.items.map((row) => ({
-							...row,
-							kind: "episode" as const,
-							episode: config.activityEpisode(row),
-						})),
-						...mediaCollectionActivityEvents(collectionEvents.items),
-					],
-					input.limit,
-					parentEvents.pageInfo.hasMore ||
-						episodeEvents.pageInfo.hasMore ||
-						collectionEvents.pageInfo.hasMore,
+	const historyRecipe = defineRecipe((input: MediaHistoryInput) => {
+		const cursor = mediaHistoryCursor(input.before);
+		const query = { ...input, before: Result.getOrUndefined(cursor) };
+		return {
+			queries: {
+				collectionEvents: mediaCollectionEventsQuery(query),
+				parentEvents: episodicParentEventsQuery({
+					...query,
+					alias: `${config.alias}HistoryParent`,
+				}),
+				episodeEvents: episodicEpisodeEventsQuery({
+					...query,
+					history: true,
+					config: config.config,
+					episodeFields: config.episodeFields,
+					alias: `${config.alias}HistoryEpisode`,
+				}),
+			},
+			map: ({ parentEvents, episodeEvents, collectionEvents }) =>
+				Result.flatMap(cursor, () =>
+					mediaHistoryPage(
+						[
+							...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
+							...episodeEvents.items.map((row) => ({
+								...row,
+								kind: "episode" as const,
+								episode: config.activityEpisode(row),
+							})),
+							...mediaCollectionActivityEvents(collectionEvents.items),
+						],
+						input.limit,
+						parentEvents.pageInfo.hasMore ||
+							episodeEvents.pageInfo.hasMore ||
+							collectionEvents.pageInfo.hasMore,
+					),
 				),
-			),
-	}));
+		};
+	});
 	return {
 		peopleRecipe,
 		summaryRecipe,

@@ -8,7 +8,7 @@ import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingest
 
 afterEach(resetMediaFilesystem);
 const encoder = new TextEncoder();
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 for (const { volumes, chapters } of [
 	{ volumes: 3, chapters: 0 },
@@ -24,7 +24,7 @@ for (const { volumes, chapters } of [
 			Effect.gen(function* () {
 				const fs = mediaFilesystem({
 					uploadToken: encoder.encode(
-						encodeJson({
+						yield* encodeJson({
 							user: { custom_lists: { manga: ["Reading Club"] } },
 							lists: [
 								{
@@ -45,7 +45,9 @@ for (const { volumes, chapters } of [
 				expect(collected.done).toBe(true);
 				fs.files.set(
 					"records",
-					encoder.encode(serializeMediaRecords((yield* fs.records()).sort(compareMediaRecords))),
+					encoder.encode(
+						yield* serializeMediaRecords((yield* fs.records()).sort(compareMediaRecords)),
+					),
 				);
 				const input = mediaStageInput({
 					action: "normalize",

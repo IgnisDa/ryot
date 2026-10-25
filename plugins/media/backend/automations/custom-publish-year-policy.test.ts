@@ -10,14 +10,14 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition from "./custom-publish-year-policy.sandbox";
 
-const run = (
+const run = Effect.fnUntraced(function* (
 	properties: EntityRecord["properties"],
 	options: {
 		readonly providerId?: string;
 		readonly entitySchemaSlug?: string;
 		readonly operation?: "create" | "update" | "delete";
 	} = {},
-) => {
+) {
 	const snapshot = entityRecord({
 		properties,
 		entitySchemaSlug: options.entitySchemaSlug ?? "movie",
@@ -31,9 +31,9 @@ const run = (
 		entitySchemaSlug: snapshot.entitySchemaSlug,
 		entitySchemaPluginId: snapshot.entitySchemaPluginId,
 	};
-	const { automation } = Schema.decodeUnknownSync(automationPolicyInputSchema)({
+	const { automation } = yield* Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
-			...policyAutomationContext().automation,
+			...(yield* policyAutomationContext()).automation,
 			payload: {
 				resource: "entity",
 				category: "request",
@@ -46,10 +46,12 @@ const run = (
 		},
 	});
 	const { payload, ...invocation } = automation;
-	return definition
-		.run({ automation: invocation, items: [{ payload, itemIdentity: "media" }] })
-		.pipe(Effect.map(({ items }) => items[0]?.decision));
-};
+	const { items } = yield* definition.run({
+		automation: invocation,
+		items: [{ payload, itemIdentity: "media" }],
+	});
+	return items[0]?.decision;
+});
 
 describe("custom media publish year", () => {
 	it.effect("fills a missing year on creation and update for every media kind", () =>

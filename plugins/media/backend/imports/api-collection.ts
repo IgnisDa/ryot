@@ -45,7 +45,10 @@ export const writeMediaApiState = Effect.fn(function* (
 ) {
 	return yield* sourceOutput({
 		...(yield* writeMediaCapture([
-			{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+			{
+				name: "records.jsonl",
+				contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+			},
 			{
 				name: "state.json",
 				contents: yield* Schema.encodeEffect(Schema.fromJsonString(MediaApiState))(state),

@@ -25,7 +25,7 @@ import {
 	encodeWorkoutEditorDraft,
 	WorkoutEditorDraftSchema,
 } from "../../shared/workout-editor-draft";
-import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
+import type { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { liveDraft, preferenceSettings, startTime } from "../../tests/client/draft-fixtures";
 import { useInitialDraft } from "./use-initial-draft";
 import { useWorkoutEditor } from "./use-workout-editor";
@@ -92,7 +92,7 @@ it.live(
 				kind: "fitness-workout-editor",
 				startedAt: "2026-10-15T10:00:00.000Z",
 			});
-			const stored = encodeWorkoutEditorDraft(initialDraft);
+			const stored = yield* Effect.fromResult(encodeWorkoutEditorDraft(initialDraft));
 			const page = mountPluginPage(Probe, {
 				page: context,
 				bootstrap: clock.bootstrap,
@@ -199,7 +199,7 @@ const saveProbeTarget = {
 	kind: "plugin-route" as const,
 };
 
-const probeSubmission = Schema.decodeSync(WorkoutEditorSaveInputSchema)({
+const probeSubmission: typeof WorkoutEditorSaveInputSchema.Type = {
 	submittedAt: startTime,
 	submissionId: "submission-1",
 	data: {
@@ -213,7 +213,7 @@ const probeSubmission = Schema.decodeSync(WorkoutEditorSaveInputSchema)({
 		target: { kind: "create" },
 		activeDuration: { seconds: 0, kind: "set" },
 	},
-});
+};
 
 type Removal = "pending" | "failure" | "success";
 
@@ -282,14 +282,14 @@ function SaveConsumer({ name }: { readonly name: string }) {
 	);
 }
 
-const saveProbeHarness = (
+const saveProbeHarness = Effect.fnUntraced(function* (
 	clock: ReturnType<typeof createTestRyotClock>,
 	gate?: {
 		readonly stage: SaveStage;
 		readonly entered: Deferred.Deferred<void>;
 		readonly release: Deferred.Deferred<void>;
 	},
-) => {
+) {
 	const pluginId = PluginId.make("fitness");
 	const page = mountPluginPage(SaveProbe, {
 		bootstrap: clock.bootstrap,
@@ -306,7 +306,7 @@ const saveProbeHarness = (
 			],
 		},
 	});
-	let stored: null | string = encodeWorkoutEditorDraft(liveDraft());
+	let stored: null | string = yield* Effect.fromResult(encodeWorkoutEditorDraft(liveDraft()));
 	let removal: Removal = "pending";
 	const answered = new Set<string>();
 	const respond = () => {
@@ -403,12 +403,12 @@ const saveProbeHarness = (
 			removal = next;
 		},
 	};
-};
+});
 
 it.live("shares acknowledgement and busy state through cleanup failure and consumer remount", () =>
 	Effect.gen(function* () {
 		const clock = createTestRyotClock();
-		const { page, respond, setRemoval } = saveProbeHarness(clock);
+		const { page, respond, setRemoval } = yield* saveProbeHarness(clock);
 		try {
 			yield* Effect.promise(() =>
 				waitFor(() => {
@@ -492,7 +492,7 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 			const entered = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
 			const clock = createTestRyotClock();
-			const harness = saveProbeHarness(clock, { stage, entered, release });
+			const harness = yield* saveProbeHarness(clock, { stage, entered, release });
 			const { page, respond } = harness;
 			harness.setRemoval("success");
 			try {
@@ -578,7 +578,7 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 it.live("starts a fresh editor request after the shared controller has completed a save", () =>
 	Effect.gen(function* () {
 		const clock = createTestRyotClock();
-		const harness = saveProbeHarness(clock);
+		const harness = yield* saveProbeHarness(clock);
 		harness.setRemoval("success");
 		try {
 			yield* Effect.promise(() =>

@@ -42,7 +42,10 @@ const captureFiles = Effect.fn(function* (files: ReadonlyArray<readonly [string,
 		itemIndex = result.itemIndex;
 		raw.push(...(yield* fs.records()));
 	}
-	fs.files.set("records", encoder.encode(serializeMediaRecords(raw.sort(compareMediaRecords))));
+	fs.files.set(
+		"records",
+		encoder.encode(yield* serializeMediaRecords(raw.sort(compareMediaRecords))),
+	);
 	return fs;
 });
 

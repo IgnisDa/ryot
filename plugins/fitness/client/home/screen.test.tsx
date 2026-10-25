@@ -450,7 +450,7 @@ describe("fitness home", () => {
 		Effect.gen(function* () {
 			const { page, answerPending } = openHome({
 				workouts: true,
-				storedDraft: storedEditorDraft({ name: "Push", startedAt: hoursAgo(1) }),
+				storedDraft: yield* storedEditorDraft({ name: "Push", startedAt: hoursAgo(1) }),
 			});
 			answerCurrent = answerPending;
 			yield* settle(() => {

@@ -1,5 +1,8 @@
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-export const integrationRecordId = Schema.encodeSync(
+const encodeRecordId = Schema.encodeEffect(
 	Schema.fromJsonString(Schema.Array(Schema.Union([Schema.String, Schema.Finite]))),
 );
+
+export const integrationRecordId = (parts: ReadonlyArray<number | string>) =>
+	encodeRecordId(parts).pipe(Effect.orDie);

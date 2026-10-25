@@ -396,11 +396,9 @@ describe("home sections", () => {
 			);
 			view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
 			yield* Effect.promise(() => flushRyotClient());
-			const upcoming = home.documents
-				.map((document) =>
-					Schema.encodeUnknownSync(Schema.fromJsonString(Schema.Unknown))(document),
-				)
-				.find((document) => document.includes("upcomingAnime"));
+			const upcoming = (yield* Effect.forEach(home.documents, (document) =>
+				Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(document),
+			)).find((document) => document.includes("upcomingAnime"));
 
 			expect(upcoming).toContain('"2026-09-28"');
 			expect(upcoming).not.toContain('"2026-10-09"');

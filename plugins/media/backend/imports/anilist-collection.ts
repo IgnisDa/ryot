@@ -43,7 +43,7 @@ export const collectAnilist = Effect.fn(function* (input: MediaSourceInput) {
 		}
 		return atEndOfFile;
 	});
-	while (encoder.encode(serializeMediaRecords(records)).length < WINDOW_BYTES) {
+	while (encoder.encode(yield* serializeMediaRecords(records)).length < WINDOW_BYTES) {
 		if (!bytes.length) {
 			if (eof) {
 				throw new Error("AniList JSON document is not closed");
@@ -127,7 +127,10 @@ export const collectAnilist = Effect.fn(function* (input: MediaSourceInput) {
 		throw new Error("Unexpected data after AniList JSON");
 	}
 	const chunks: Array<{ name: string; contents: string | Uint8Array }> = [
-		{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+		{
+			name: "records.jsonl",
+			contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+		},
 	];
 	if (bytes.length) {
 		chunks.push({ contents: bytes, name: "carry.bin" });
@@ -172,11 +175,15 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 			user: state.user,
 			[record.section]: [record.raw],
 		});
-		const result = adaptAnilistExport(data, String(input.settings["timezone"]), input.importedAt);
+		const result = yield* adaptAnilistExport(
+			data,
+			String(input.settings["timezone"]),
+			input.importedAt,
+		);
 		records.push(...normalizeMediaRecords(result, record.itemIndex, "anilist"));
 		offset = next.next;
 		itemIndex++;
-		if (encoder.encode(serializeMediaRecords(records)).length >= WINDOW_BYTES) {
+		if (encoder.encode(yield* serializeMediaRecords(records)).length >= WINDOW_BYTES) {
 			break;
 		}
 	}
@@ -186,7 +193,10 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 	}
 	return yield* sourceOutput({
 		...(yield* writeMediaCapture([
-			{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+			{
+				name: "records.jsonl",
+				contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+			},
 		])),
 		done,
 		offset,

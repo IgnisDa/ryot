@@ -24,7 +24,7 @@ import definition, { manifest } from "./anilist.sandbox";
 const ACCESS_TOKEN = "anilist-private-access-token";
 const PRIVATE_RESPONSE_BODY = "private response body";
 const NULL_DATE = { day: null, year: null, month: null };
-const decodeJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+const decodeJson = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const entry = (
 	id: number,
@@ -323,10 +323,10 @@ describe("AniList yank", () => {
 				);
 				expect(state.requests).toHaveLength(3);
 				expect(state.requests.filter(({ body }) => body.includes("Viewer"))).toHaveLength(1);
-				expect(decodeJson(state.requests[1]?.body ?? "{}")).toMatchObject({
+				expect(yield* decodeJson(state.requests[1]?.body ?? "{}")).toMatchObject({
 					variables: { chunk: 1, userId: 42, perChunk: 100, type: "ANIME" },
 				});
-				expect(decodeJson(state.requests[2]?.body ?? "{}")).toMatchObject({
+				expect(yield* decodeJson(state.requests[2]?.body ?? "{}")).toMatchObject({
 					variables: { chunk: 1, userId: 42, perChunk: 100, type: "MANGA" },
 				});
 				expect(
@@ -382,7 +382,7 @@ describe("AniList yank", () => {
 				const carry = fs.scratch.get(first.carryFile);
 				assert(carry);
 				const carryText = new TextDecoder().decode(carry);
-				expect(decodeJson(carryText)).toMatchObject({
+				expect(yield* decodeJson(carryText)).toMatchObject({
 					chunk: 2,
 					sourceIndex: 1,
 					mediaType: "ANIME",
@@ -642,7 +642,7 @@ describe("AniList yank", () => {
 					entitySchemaSlug: "manga",
 					providerSlug: "manga.anilist",
 				});
-				expect(decodeJson(mangaOnly.requests[1]?.body ?? "{}")).toMatchObject({
+				expect(yield* decodeJson(mangaOnly.requests[1]?.body ?? "{}")).toMatchObject({
 					variables: { type: "MANGA" },
 				});
 

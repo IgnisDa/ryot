@@ -1,4 +1,3 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { emptyWorkoutDraft, newWorkoutOccurrence } from "../../client/workout-editor/actions";
@@ -8,11 +7,11 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
-import { WorkoutPreferenceSettingsSchema } from "../../shared/workout-editor-preferences";
+import type { WorkoutPreferenceSettingsSchema } from "../../shared/workout-editor-preferences";
 
 export const startTime = "2026-10-15T10:00:00.000Z";
 
-export const preferenceSettings = Schema.decodeSync(WorkoutPreferenceSettingsSchema)({
+export const preferenceSettings: typeof WorkoutPreferenceSettingsSchema.Type = {
 	dropRestTime: 0,
 	muteSounds: false,
 	warmUpRestTime: 0,
@@ -22,7 +21,7 @@ export const preferenceSettings = Schema.decodeSync(WorkoutPreferenceSettingsSch
 	unitSystem: "metric",
 	promptForRestTimer: false,
 	startTimerForDurationExercises: true,
-});
+};
 
 export const liveDraft = (overrides: Partial<WorkoutEditorDraft> = {}): WorkoutEditorDraft => ({
 	...emptyWorkoutDraft({ id: "draft-1", now: startTime, settings: preferenceSettings }),

@@ -219,25 +219,27 @@ describe("media monitoring operations", () => {
 			}),
 	);
 
-	it("bounds operation batches and validates aligned result variants", () => {
-		expect(() => Schema.decodeSync(MediaMonitoringEnableInput)({ entityIds: [] })).toThrow();
-		expect(() =>
-			Schema.decodeSync(MediaMonitoringEnableInput)({
-				entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
-			}),
-		).toThrow();
-		expect(
-			Schema.decodeSync(MediaMonitoringOutput)({
+	it.effect("bounds operation batches and validates aligned result variants", () =>
+		Effect.gen(function* () {
+			yield* Effect.flip(Schema.decodeEffect(MediaMonitoringEnableInput)({ entityIds: [] }));
+			yield* Effect.flip(
+				Schema.decodeEffect(MediaMonitoringEnableInput)({
+					entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
+				}),
+			);
+			expect(
+				yield* Schema.decodeEffect(MediaMonitoringOutput)({
+					results: [
+						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+						{ status: "notFound", entityId: "missing" },
+					],
+				}),
+			).toEqual({
 				results: [
 					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
 					{ status: "notFound", entityId: "missing" },
 				],
-			}),
-		).toEqual({
-			results: [
-				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-				{ status: "notFound", entityId: "missing" },
-			],
-		});
-	});
+			});
+		}),
+	);
 });

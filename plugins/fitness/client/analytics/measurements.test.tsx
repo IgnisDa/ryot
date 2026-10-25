@@ -20,7 +20,7 @@ import type { AnalyticsScope, MeasurementReading } from "./reporting-model";
 
 afterEach(disposePluginBridges);
 
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 type QueryReply = Parameters<ReturnType<typeof mountPluginPage>["replyQuery"]>[1];
 
 const selection: AnalyticsScope["selection"] = {
@@ -212,7 +212,7 @@ describe("Fitness analytics measurements", () => {
 				expect(page.queryRequests()).toHaveLength(0);
 				yield* openPicker(page);
 				const metricRequest = page.queryRequests("metrics")[0];
-				expect(documentText(metricRequest?.document)).toContain("fitness-owner");
+				expect(yield* documentText(metricRequest?.document)).toContain("fitness-owner");
 				replyMetrics(page, [metric("custom-metric", "Custom measure", "stone")]);
 				const metricOption = yield* Effect.promise(() =>
 					screen.findByRole("button", { name: metricOptionName("Custom measure") }),
@@ -225,8 +225,8 @@ describe("Fitness analytics measurements", () => {
 					waitFor(() => expect(page.queryRequests("readings")).toHaveLength(1)),
 				);
 				for (const request of [...page.queryRequests("trend"), ...page.queryRequests("readings")]) {
-					expect(documentText(request.document)).toContain("fitness-owner");
-					expect(documentText(request.document)).toContain("custom-metric");
+					expect(yield* documentText(request.document)).toContain("fitness-owner");
+					expect(yield* documentText(request.document)).toContain("custom-metric");
 				}
 			} finally {
 				yield* dispose(page, clock);
@@ -252,7 +252,7 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(2)),
 				);
-				expect(documentText(page.queryRequests("metrics")[1]?.document)).toContain(
+				expect(yield* documentText(page.queryRequests("metrics")[1]?.document)).toContain(
 					"metrics-cursor",
 				);
 				replyMetrics(page, [metric("metric-100", "Metric 100", "stone")]);
@@ -462,7 +462,7 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("readings")).toHaveLength(3)),
 				);
-				expect(documentText(page.queryRequests("readings")[2]?.document)).toContain(
+				expect(yield* documentText(page.queryRequests("readings")[2]?.document)).toContain(
 					"readings-cursor",
 				);
 				replyRequest(page, "readings", 2, {
@@ -528,7 +528,9 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(2)),
 				);
-				expect(documentText(page.queryRequests("metrics")[1]?.document)).toContain("fitness-other");
+				expect(yield* documentText(page.queryRequests("metrics")[1]?.document)).toContain(
+					"fitness-other",
+				);
 				expect(screen.queryByText("Old owner metric")).toBeNull();
 				replyMetrics(page, [metric("new", "New owner metric", "kg")]);
 				const metricOption = yield* Effect.promise(() =>
@@ -538,8 +540,10 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("trend")).toHaveLength(1)),
 				);
-				expect(documentText(page.queryRequests("trend")[0]?.document)).toContain("fitness-other");
-				expect(documentText(page.queryRequests("trend")[0]?.document)).not.toContain(
+				expect(yield* documentText(page.queryRequests("trend")[0]?.document)).toContain(
+					"fitness-other",
+				);
+				expect(yield* documentText(page.queryRequests("trend")[0]?.document)).not.toContain(
 					"fitness-owner",
 				);
 			} finally {

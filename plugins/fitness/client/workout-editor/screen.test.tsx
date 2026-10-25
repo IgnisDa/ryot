@@ -102,7 +102,7 @@ const editorOccurrence = (
 });
 
 const editorDraft = (occurrences: readonly unknown[], overrides: Record<string, unknown> = {}) =>
-	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
+	Schema.decodeUnknownEffect(WorkoutEditorDraftSchema)({
 		startedAt,
 		images: [],
 		videos: [],
@@ -117,7 +117,7 @@ const editorDraft = (occurrences: readonly unknown[], overrides: Record<string, 
 		draftId: "draft-workout-editor",
 		activeDurationStartedAt: startedAt,
 		...overrides,
-	});
+	}).pipe(Effect.orDie);
 
 const pageContext: ClientPageContext = {
 	target,
@@ -375,7 +375,9 @@ describe("WorkoutEditorScreen", () => {
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
 				const storage: EditorStorage = {
-					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					value: yield* Effect.fromResult(
+						encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+					),
 				};
 				const { page, answerPending } = openEditor(
 					clock,
@@ -425,7 +427,9 @@ describe("WorkoutEditorScreen", () => {
 				try {
 					yield* Effect.promise(() => clock.setTime(startedAtMillis));
 					const storage: EditorStorage = {
-						value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+						value: yield* Effect.fromResult(
+							encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+						),
 					};
 					const { page, answerPending } = openEditor(clock, storage, [], {
 						pendingAddExerciseId: "exercise-missing",
@@ -454,7 +458,9 @@ describe("WorkoutEditorScreen", () => {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
 				let prepared = 0;
 				const storage: EditorStorage = {
-					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					value: yield* Effect.fromResult(
+						encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+					),
 				};
 				const { answerPending } = openEditor(
 					clock,
@@ -463,9 +469,9 @@ describe("WorkoutEditorScreen", () => {
 					{
 						requiresPro: true,
 						prepareDraft: () =>
-							Effect.sync(() => {
+							Effect.gen(function* () {
 								prepared += 1;
-								return editorDraft([]);
+								return yield* editorDraft([]);
 							}),
 					},
 					false,
@@ -496,16 +502,18 @@ describe("WorkoutEditorScreen", () => {
 					let prepared = 0;
 					let resumed = 0;
 					const storage: EditorStorage = {
-						value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+						value: yield* Effect.fromResult(
+							encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+						),
 					};
 					const { answerPending } = openEditor(clock, storage, [], {
 						onStarted: () => {
 							resumed += 1;
 						},
 						prepareDraft: () =>
-							Effect.sync(() => {
+							Effect.gen(function* () {
 								prepared += 1;
-								return editorDraft([]);
+								return yield* editorDraft([]);
 							}),
 					});
 					yield* waitForEditor(answerPending);
@@ -535,12 +543,14 @@ describe("WorkoutEditorScreen", () => {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
 				let prepared = 0;
 				let started = 0;
-				const requested = editorDraft([editorOccurrence("reps_and_weight")], {
+				const requested = yield* editorDraft([editorOccurrence("reps_and_weight")], {
 					draftId: "requested",
 					name: "Requested workout",
 				});
 				const storage: EditorStorage = {
-					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					value: yield* Effect.fromResult(
+						encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+					),
 				};
 				const { answerPending } = openEditor(clock, storage, [], {
 					onStarted: () => {
@@ -608,7 +618,9 @@ describe("WorkoutEditorScreen", () => {
 					},
 				];
 				const storage: EditorStorage = {
-					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					value: yield* Effect.fromResult(
+						encodeWorkoutEditorDraft(yield* editorDraft([editorOccurrence("reps_and_weight")])),
+					),
 				};
 				const { page, saveInputs, answerPending, readingInputs } = openEditor(
 					clock,
@@ -687,10 +699,12 @@ describe("WorkoutEditorScreen", () => {
 				const image = { type: "remote", url: "https://assets.test/form.jpg" };
 				const video = { type: "remote", url: "https://assets.test/form.mp4" };
 				const storage: EditorStorage = {
-					value: encodeWorkoutEditorDraft(
-						editorDraft([
-							{ ...editorOccurrence("reps_and_weight"), images: [image], videos: [video] },
-						]),
+					value: yield* Effect.fromResult(
+						encodeWorkoutEditorDraft(
+							yield* editorDraft([
+								{ ...editorOccurrence("reps_and_weight"), images: [image], videos: [video] },
+							]),
+						),
 					),
 				};
 				const { page, saveInputs, answerPending } = openEditor(clock, storage);
@@ -743,8 +757,10 @@ describe("WorkoutEditorScreen", () => {
 						{ kind: "template-create" },
 					]) {
 						const { page, answerPending } = openEditor(clock, {
-							value: encodeWorkoutEditorDraft(
-								editorDraft([editorOccurrence("reps_and_weight")], { mode }),
+							value: yield* Effect.fromResult(
+								encodeWorkoutEditorDraft(
+									yield* editorDraft([editorOccurrence("reps_and_weight")], { mode }),
+								),
 							),
 						});
 						yield* waitForEditor(answerPending);
@@ -766,10 +782,10 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft(exerciseKinds.map(({ kind }) => editorOccurrence(kind)));
+				const draft = yield* editorDraft(exerciseKinds.map(({ kind }) => editorOccurrence(kind)));
 				expect(draft.occurrences).toHaveLength(exerciseKinds.length);
 				const { page, answerPending } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 
@@ -808,9 +824,9 @@ describe("WorkoutEditorScreen", () => {
 					occurredAt: startedAt,
 					confirmedAt: startedAt,
 				});
-				const draft = editorDraft([editorOccurrence("reps_and_weight", [set])]);
+				const draft = yield* editorDraft([editorOccurrence("reps_and_weight", [set])]);
 				const { page, saveInputs, saveRequested, answerPending } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 
@@ -854,7 +870,7 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft([
+				const draft = yield* editorDraft([
 					editorOccurrence("reps_and_weight", [
 						editorSet("confirmed-set", "reps_and_weight", {
 							included: true,
@@ -864,7 +880,9 @@ describe("WorkoutEditorScreen", () => {
 						editorSet("unconfirmed-set", "reps_and_weight"),
 					]),
 				]);
-				const storage: EditorStorage = { value: encodeWorkoutEditorDraft(draft) };
+				const storage: EditorStorage = {
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
+				};
 				const { page, saveInputs, answerPending, storageActions } = openEditor(clock, storage);
 				yield* waitForEditor(answerPending);
 
@@ -878,7 +896,7 @@ describe("WorkoutEditorScreen", () => {
 				expect(screen.getByRole("button", { pressed: true, name: "Complete set 1" })).toBeTruthy();
 				expect(screen.getByRole("button", { pressed: false, name: "Complete set 2" })).toBeTruthy();
 				expect(saveInputs).toHaveLength(0);
-				expect(storage.value).toBe(encodeWorkoutEditorDraft(draft));
+				expect(storage.value).toBe(yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)));
 				expect(storageActions).not.toContain("remove");
 				page.dispose();
 			} finally {
@@ -893,7 +911,7 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft(
+				const draft = yield* editorDraft(
 					[
 						editorOccurrence("reps_and_weight", [
 							editorSet("historical-set", "reps_and_weight", {
@@ -913,7 +931,7 @@ describe("WorkoutEditorScreen", () => {
 					},
 				);
 				const { page, saveInputs, answerPending, deviceRequests } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 
@@ -957,7 +975,7 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft(
+				const draft = yield* editorDraft(
 					[
 						editorOccurrence("reps", [], "occurrence-exercise-only"),
 						editorOccurrence(
@@ -972,7 +990,7 @@ describe("WorkoutEditorScreen", () => {
 					{ activeDurationIntent: "preserve", mode: { kind: "template-create" } },
 				);
 				const { page, saveInputs, answerPending } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 
@@ -1012,14 +1030,14 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft([
+				const draft = yield* editorDraft([
 					editorOccurrence("reps_and_weight", [
 						editorSet("empty-set", "reps_and_weight", { reps: undefined, weight: undefined }),
 					]),
 				]);
 				const { page, answerPending } = openEditor(
 					clock,
-					{ value: encodeWorkoutEditorDraft(draft) },
+					{ value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)) },
 					[],
 					{},
 					true,
@@ -1078,7 +1096,7 @@ describe("WorkoutEditorScreen", () => {
 				const clock = createTestRyotClock();
 				try {
 					yield* Effect.promise(() => clock.setTime(startedAtMillis));
-					const draft = editorDraft([
+					const draft = yield* editorDraft([
 						editorOccurrence("reps_and_weight", [
 							editorSet("done", "reps_and_weight", { included: true, confirmedAt: startedAt }),
 							editorSet("next", "reps_and_weight"),
@@ -1086,7 +1104,7 @@ describe("WorkoutEditorScreen", () => {
 					]);
 					const { page, answerPending } = openEditor(
 						clock,
-						{ value: encodeWorkoutEditorDraft(draft) },
+						{ value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)) },
 						[],
 						{},
 						true,
@@ -1141,10 +1159,10 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft([editorOccurrence("reps_and_weight")]);
+				const draft = yield* editorDraft([editorOccurrence("reps_and_weight")]);
 				const { page, answerPending } = openEditor(
 					clock,
-					{ value: encodeWorkoutEditorDraft(draft) },
+					{ value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)) },
 					[],
 					{},
 					true,
@@ -1229,7 +1247,7 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft(
+				const draft = yield* editorDraft(
 					[
 						editorOccurrence("reps_and_weight", [
 							editorSet("skip-rest-set", "reps_and_weight", { reps: "0", weight: "0" }),
@@ -1239,7 +1257,7 @@ describe("WorkoutEditorScreen", () => {
 					{ localPreferences: { promptForRestTimer: true } },
 				);
 				const { page, answerPending } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 				const exercise = screen.getByRole("region", { name: "Weight exercise" });
@@ -1297,9 +1315,9 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft([editorOccurrence("reps_and_weight")]);
+				const draft = yield* editorDraft([editorOccurrence("reps_and_weight")]);
 				const { page, answerPending } = openEditor(clock, {
-					value: encodeWorkoutEditorDraft(draft),
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
 				});
 				yield* waitForEditor(answerPending);
 				click(screen.getByRole("button", { name: "Weight exercise actions" }));
@@ -1356,8 +1374,10 @@ describe("WorkoutEditorScreen", () => {
 			const clock = createTestRyotClock();
 			try {
 				yield* Effect.promise(() => clock.setTime(startedAtMillis));
-				const draft = editorDraft([editorOccurrence("reps_and_weight")]);
-				const storage: EditorStorage = { value: encodeWorkoutEditorDraft(draft) };
+				const draft = yield* editorDraft([editorOccurrence("reps_and_weight")]);
+				const storage: EditorStorage = {
+					value: yield* Effect.fromResult(encodeWorkoutEditorDraft(draft)),
+				};
 				const first = openEditor(clock, storage);
 				yield* waitForEditor(first.answerPending);
 				click(screen.getByRole("button", { name: "Details" }));

@@ -1,8 +1,8 @@
+import { expect, it } from "@effect/vitest";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import {
 	automationContext,
@@ -62,9 +62,9 @@ const execute = (
 ) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	const summaryRequests: Array<readonly string[]> = [];
-	return definition
-		.run(
-			value,
+	return Effect.flatMap(value, (automation) =>
+		definition.run(
+			automation,
 			defineSandboxTestHost(manifest, {
 				executeRyotql: containmentRyotql(containers),
 				emitSignal: (request) => {
@@ -77,8 +77,8 @@ const execute = (
 					return Effect.succeed({ users: 1 });
 				},
 			}),
-		)
-		.pipe(Effect.as({ calls, summaryRequests }));
+		),
+	).pipe(Effect.as({ calls, summaryRequests }));
 };
 
 const run = (value: ReturnType<typeof input>) =>
@@ -274,22 +274,21 @@ it("refreshes library summaries of the population root, including on first popul
 		),
 	));
 
-it("refreshes the show of an episode updated without population context", () =>
-	Effect.runPromise(
-		execute(
-			automationContext({
-				category: "change",
-				resource: "entity",
-				operation: "update",
-				changedProperties: [],
-				after: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
-				before: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
-			}),
-			{ "season-1": "show-1", "episode-1": "season-1" },
-		).pipe(
-			Effect.map(({ calls, summaryRequests }) => {
-				expect(summaryRequests).toEqual([["show-1"]]);
-				expect(calls).toEqual([]);
-			}),
-		),
-	));
+it.effect("refreshes the show of an episode updated without population context", () =>
+	execute(
+		automationContext({
+			category: "change",
+			resource: "entity",
+			operation: "update",
+			changedProperties: [],
+			after: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
+			before: entityRecord({ id: "episode-1", entitySchemaSlug: "show-episode" }),
+		}),
+		{ "season-1": "show-1", "episode-1": "season-1" },
+	).pipe(
+		Effect.map(({ calls, summaryRequests }) => {
+			expect(summaryRequests).toEqual([["show-1"]]);
+			expect(calls).toEqual([]);
+		}),
+	),
+);

@@ -56,6 +56,11 @@ const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0
 		...overrides,
 	});
 
+const runAutomation = (
+	host: Parameters<typeof definition.run>[1],
+	...input: Parameters<typeof createAutomation>
+) => Effect.flatMap(createAutomation(...input), (automation) => definition.run(automation, host));
+
 const createHttpCall =
 	(calls: HttpCall[], items: JsonValue[], playedFailure = false): JellyfinHost["httpCall"] =>
 	(method, url, options) => {
@@ -108,9 +113,9 @@ describe("jellyfin-push sandbox script", () => {
 			httpCall: createHttpCall(calls, []),
 		});
 		return Effect.runPromise(
-			definition
-				.run(createAutomation({ properties: { completionSilent: true } }), host)
-				.pipe(Effect.tap(() => Effect.sync(() => expect(calls).toEqual([])))),
+			runAutomation(host, { properties: { completionSilent: true } }).pipe(
+				Effect.tap(() => Effect.sync(() => expect(calls).toEqual([]))),
+			),
 		);
 	});
 
@@ -124,7 +129,7 @@ describe("jellyfin-push sandbox script", () => {
 			]),
 		});
 		return Effect.runPromise(
-			definition.run(createAutomation(), host).pipe(
+			runAutomation(host).pipe(
 				Effect.map(() => {
 					const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
 					expect(markCall?.method).toBe("POST");
@@ -142,16 +147,14 @@ describe("jellyfin-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.run(
-						createAutomation(),
+					runAutomation(
 						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
 					),
-					definition.run(
-						createAutomation({ entityId: "book-1", entitySchemaSlug: "book" }),
+					runAutomation(
 						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
+						{ entityId: "book-1", entitySchemaSlug: "book" },
 					),
-					definition.run(
-						createAutomation(),
+					runAutomation(
 						createHost({
 							httpCall,
 							entity: movieEntity,
@@ -184,7 +187,7 @@ describe("jellyfin-push sandbox script", () => {
 					true,
 				),
 			});
-			const result = yield* definition.run(createAutomation(), host);
+			const result = yield* runAutomation(host);
 			expect(result).toBeNull();
 			expect(warnings).toEqual([
 				[

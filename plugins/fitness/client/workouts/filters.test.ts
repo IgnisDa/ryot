@@ -5,7 +5,7 @@ import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { workoutCardsRecipe, workoutWeeksRecipe } from "../../shared/workout-list-recipes";
 import { compileWorkoutFilter, workoutFilterFields } from "./filters";
 
-const serialize = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const serialize = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const reference = { kind: "local", pluginId: PluginId.make("fitness-owner") } as const;
 const compile = (filter: Parameters<typeof compileWorkoutFilter>[0]["filter"]) =>
 	compileWorkoutFilter({ filter, reference, target: "list" });
@@ -36,7 +36,7 @@ describe("compileWorkoutFilter", () => {
 				startAt: "2026-09-18T00:00:00.000Z",
 				filter: yield* compileWorkoutFilter({ filter, reference, target: "weeks" }),
 			});
-			const text = serialize([cards.document, weeks.document]);
+			const text = yield* serialize([cards.document, weeks.document]);
 			expect(text).toContain("template-1");
 			expect(text).toContain("workout-to-workout-template");
 			expect(text).toContain("filterTotalsSet");
@@ -54,7 +54,7 @@ describe("compileWorkoutFilter", () => {
 		Effect.gen(function* () {
 			const filter = { operator: "anyOf", field: "exercises", values: ["exercise-1"] } as const;
 			const cards = workoutCardsRecipe({ reference, search: "", filter: yield* compile(filter) });
-			const text = serialize(cards.document);
+			const text = yield* serialize(cards.document);
 			expect(text).toContain("exercise-1");
 			expect(text).toContain("workout-set");
 			expect(text).toContain("sessionEntityId");

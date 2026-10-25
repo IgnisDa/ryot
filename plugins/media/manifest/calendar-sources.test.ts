@@ -1,13 +1,12 @@
-import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { table } from "@ryot-app/ryotql";
-import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { libraryLinkExists } from "../shared/entity-selections";
 import { flatMediaSchemaSlugs } from "../shared/media-schema-slugs";
 import { mediaPlugin } from "./plugin";
 
-const { calendarSources = [] } = Schema.decodeSync(AuthoredPluginManifest)(mediaPlugin);
+const { calendarSources }: AuthoredPluginManifest = mediaPlugin;
 
 const source = (slug: string) => {
 	const found = calendarSources.find((candidate) => candidate.slug === slug);

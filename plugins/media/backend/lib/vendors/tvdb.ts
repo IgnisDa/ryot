@@ -128,12 +128,19 @@ const tvdbRequest = (
 										}
 										const payloadStatus = payload["status"];
 										if (payloadStatus && payloadStatus !== "success") {
-											const message =
-												stringValue(payload["message"]) ??
-												stringValue(payloadStatus) ??
-												Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(payloadStatus);
-											return Effect.fail(
-												new MediaSandboxError({ message: `TVDB API error: ${message}` }),
+											const message = stringValue(payload["message"]) ?? stringValue(payloadStatus);
+											return (
+												message === null
+													? Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+															payloadStatus,
+														).pipe(Effect.orDie)
+													: Effect.succeed(message)
+											).pipe(
+												Effect.flatMap((detail) =>
+													Effect.fail(
+														new MediaSandboxError({ message: `TVDB API error: ${detail}` }),
+													),
+												),
 											);
 										}
 										return Effect.succeed(payload);

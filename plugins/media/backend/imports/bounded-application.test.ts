@@ -24,7 +24,7 @@ it.live(
 			const text = "review ".repeat(15000);
 			const fs = mediaFilesystem({
 				records: new TextEncoder().encode(
-					serializeMediaRecords([
+					yield* serializeMediaRecords([
 						{
 							key: "book",
 							itemIndex: 77,

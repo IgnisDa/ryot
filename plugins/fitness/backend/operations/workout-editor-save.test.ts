@@ -50,8 +50,8 @@ const baseline: WorkoutEditorBaseline = {
 	},
 };
 
-const input = (update = false) =>
-	Schema.decodeUnknownSync(WorkoutEditorSaveInputSchema)({
+const input = Effect.fnUntraced(function* (update = false) {
+	return yield* Schema.decodeUnknownEffect(WorkoutEditorSaveInputSchema)({
 		submissionId: "submission-1",
 		submittedAt: "2026-10-15T10:00:00.000Z",
 		data: {
@@ -63,7 +63,11 @@ const input = (update = false) =>
 			activeDuration: { kind: "preserve" },
 			images: update ? baseline.entity.properties["images"] : [],
 			target: update
-				? { entityId, kind: "update", conflictToken: encodeWorkoutEditorBaseline(baseline) }
+				? {
+						entityId,
+						kind: "update",
+						conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
+					}
 				: { kind: "create" },
 			occurrences: [
 				{
@@ -88,7 +92,8 @@ const input = (update = false) =>
 				},
 			],
 		},
-	});
+	}).pipe(Effect.orDie);
+});
 
 const page = (items: readonly unknown[]) => ({
 	items,
@@ -232,7 +237,7 @@ describe("workout editor save", () => {
 					[{ ...occurrence, entityId: EntityId.make("different-exercise") }],
 				]) {
 					const { host, calls } = harness({ baseline, occurrences });
-					expect(yield* definition.run(input(true), host)).toMatchObject({
+					expect(yield* definition.run(yield* input(true), host)).toMatchObject({
 						kind: "invalid",
 						code: "invalid-source",
 					});
@@ -244,7 +249,7 @@ describe("workout editor save", () => {
 	it("fences evidence reads and retains the occurrence ID and snapshot when reordering", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input(true);
+				const source = yield* input(true);
 				assert(source.data.kind === "workout");
 				const first = source.data.occurrences[0];
 				assert(first);
@@ -295,7 +300,7 @@ describe("workout editor save", () => {
 	it("swaps repeated exercises with distinct snapshots without rebinding retained sets", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input(true);
+				const source = yield* input(true);
 				assert(source.data.kind === "workout");
 				const first = source.data.occurrences[0];
 				assert(first);
@@ -328,7 +333,7 @@ describe("workout editor save", () => {
 								target: {
 									entityId,
 									kind: "update",
-									conflictToken: encodeWorkoutEditorBaseline(repeated),
+									conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(repeated)),
 								},
 								occurrences: [
 									{
@@ -392,7 +397,7 @@ describe("workout editor save", () => {
 	it("replaces the last set atomically while retaining its occurrence anchor", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input(true);
+				const source = yield* input(true);
 				assert(source.data.kind === "workout");
 				const { host, calls } = harness({ baseline });
 				expect(
@@ -439,7 +444,7 @@ describe("workout editor save", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness();
-				const result = yield* definition.run(input(), host);
+				const result = yield* definition.run(yield* input(), host);
 				expect(result).toMatchObject({
 					entityId,
 					kind: "saved",
@@ -483,15 +488,15 @@ describe("workout editor save", () => {
 					},
 				});
 				expect(calls[0]?.args[1]).toEqual({
-					submittedAt: input().submittedAt,
 					idempotencyKey: "submission-1:save",
+					submittedAt: (yield* input()).submittedAt,
 				});
 			}),
 		));
 	it("verifies both media kinds attached to workout occurrences", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input();
+				const source = yield* input();
 				assert(source.data.kind === "workout");
 				const image = { type: "s3", key: "new-exercise.jpg" } as const;
 				const video = { type: "local", key: "permanent/new-exercise.mp4" } as const;
@@ -512,7 +517,7 @@ describe("workout editor save", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ partial: true });
-				const submitted = input();
+				const submitted = yield* input();
 				expect(yield* Effect.result(definition.run(submitted, host))).toMatchObject({
 					_tag: "Failure",
 				});
@@ -530,7 +535,7 @@ describe("workout editor save", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ baseline });
-				expect(yield* definition.run(input(true), host)).toMatchObject({ kind: "saved" });
+				expect(yield* definition.run(yield* input(true), host)).toMatchObject({ kind: "saved" });
 				const commit = calls.find(({ method }) => method === "commit");
 				expect(commit?.args[0]).toMatchObject({
 					events: {
@@ -567,7 +572,7 @@ describe("workout editor save", () => {
 				});
 				expect(calls.some(({ method }) => method === "assets")).toBe(false);
 				const unchanged = harness({ baseline });
-				const unchangedSource = input(true);
+				const unchangedSource = yield* input(true);
 				assert(unchangedSource.data.kind === "workout");
 				const unchangedInput = {
 					...unchangedSource,
@@ -593,7 +598,7 @@ describe("workout editor save", () => {
 	it("allows protected removals but rejects changed notes before any writes", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input(true);
+				const source = yield* input(true);
 				assert(source.data.kind === "workout");
 				const data = {
 					...source.data,
@@ -668,7 +673,7 @@ describe("workout editor save", () => {
 						commitUserChanges: () =>
 							Effect.fail({ data: { code }, message: "Not a business contract" }),
 					};
-					expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+					expect(yield* definition.run(yield* input(), host)).toEqual({ kind: "conflict" });
 				}
 			}),
 		));
@@ -676,14 +681,14 @@ describe("workout editor save", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ lateConflict: true });
-				expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+				expect(yield* definition.run(yield* input(), host)).toEqual({ kind: "conflict" });
 				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
 			}),
 		));
 	it("retains historical set identity and completion when replacing with a same-kind exercise", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const source = input(true);
+				const source = yield* input(true);
 				assert(source.data.kind === "workout");
 				const replacementId = EntityId.make("exercise-2");
 				const exercises = [

@@ -136,7 +136,9 @@ describe("workout media lifecycle", () => {
 					activeDuration: { seconds: 0, kind: "set" },
 				},
 			});
-			const state = fixture({ stored: encodeWorkoutEditorDraft({ ...initial(), submission }) });
+			const state = fixture({
+				stored: yield* Effect.fromResult(encodeWorkoutEditorDraft({ ...initial(), submission })),
+			});
 			yield* state.controller.load();
 			yield* state.controller.flush();
 			expect(yield* state.controller.discard()).toBe(false);

@@ -1,5 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
@@ -8,23 +9,22 @@ import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 import populationWorkflow from "./media-import-population.sandbox";
 import resolutionWorkflow from "./media-import-resolution.sandbox";
 
-const importCommand = (runId: string) =>
-	Schema.decodeSync(LifecycleCommand)({
-		occurredAt: "2026-09-16T00:00:00.000Z",
-		itemIdentity: JSON.stringify(["import-run", runId]),
-		accountGeneration: { userId: "user-1", token: "test-account-generation" },
-		causation: {
-			depth: 0,
-			source: "import",
-			parentRunId: null,
-			lane: "background",
-			importRunId: runId,
-			parentTriggerId: null,
-			executionId: `execution-${runId}`,
-			rootExecutionId: `execution-${runId}`,
-			initiator: { id: "user-1", kind: "user" },
-		},
-	});
+const importCommand = (runId: string): LifecycleCommand => ({
+	occurredAt: "2026-09-16T00:00:00.000Z",
+	itemIdentity: JSON.stringify(["import-run", runId]),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+	causation: {
+		depth: 0,
+		source: "import",
+		parentRunId: null,
+		lane: "background",
+		parentTriggerId: null,
+		importRunId: ImportRunId.make(runId),
+		initiator: { kind: "user", id: UserId.make("user-1") },
+		executionId: AutomationExecutionId.make(`execution-${runId}`),
+		rootExecutionId: AutomationExecutionId.make(`execution-${runId}`),
+	},
+});
 
 const completedOutput = (envelope: WorkflowReplayEnvelope) => {
 	assert(envelope.state === "completed");

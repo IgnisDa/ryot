@@ -352,7 +352,7 @@ it.live(
 			let carry = false;
 			const records: MediaSourceRecord[] = [];
 			for (const record of raw) {
-				fs.files.set("records", new TextEncoder().encode(serializeMediaRecords([record])));
+				fs.files.set("records", new TextEncoder().encode(yield* serializeMediaRecords([record])));
 				let offset = 0;
 				for (;;) {
 					const result = yield* collectMediaTracker(

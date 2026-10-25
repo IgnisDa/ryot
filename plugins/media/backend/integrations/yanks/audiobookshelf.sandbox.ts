@@ -213,7 +213,7 @@ export default defineScript({
 											attribution: {
 												sourceIdentifier: progressId,
 												sourceLabel: ref.sourceLabel,
-												recordId: integrationRecordId(["audiobookshelf", progressId]),
+												recordId: yield* integrationRecordId(["audiobookshelf", progressId]),
 											},
 										},
 									],

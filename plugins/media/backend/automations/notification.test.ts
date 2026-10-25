@@ -1,6 +1,6 @@
+import { expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import { automationContext } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./notification.sandbox";
@@ -106,33 +106,35 @@ it("projects every property the formatted signals read", () => {
 	}
 });
 
-it.each(cases)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
-	const messages: string[] = [];
-	return Effect.runPromise(
-		definition
-			.run(
-				automationContext({
-					properties,
-					operation: "emit",
-					category: "signal",
-					resource: "signal",
-					actorUserId: "user-1",
-					signalSchemaSlug: slug,
-					signalSchemaPluginId: "media-plugin",
-				}),
-				defineSandboxTestHost(manifest, {
-					sendNotification: (message) => {
-						messages.push(message);
-						return Effect.succeed(null);
-					},
-				}),
-			)
-			.pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(messages).toEqual([expected]);
-					return undefined;
-				}),
-			),
-	);
-});
+it.effect.each(cases)(
+	"formats %s exclusively from the signal snapshot",
+	([slug, properties, expected]) =>
+		Effect.gen(function* () {
+			const messages: string[] = [];
+			return yield* definition
+				.run(
+					yield* automationContext({
+						properties,
+						operation: "emit",
+						category: "signal",
+						resource: "signal",
+						actorUserId: "user-1",
+						signalSchemaSlug: slug,
+						signalSchemaPluginId: "media-plugin",
+					}),
+					defineSandboxTestHost(manifest, {
+						sendNotification: (message) => {
+							messages.push(message);
+							return Effect.succeed(null);
+						},
+					}),
+				)
+				.pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(messages).toEqual([expected]);
+						return undefined;
+					}),
+				);
+		}),
+);

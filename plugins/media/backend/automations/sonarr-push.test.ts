@@ -66,6 +66,11 @@ const createAutomation = (properties: Record<string, string>) =>
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
 	});
 
+const runAutomation = (
+	host: Parameters<typeof definition.run>[1],
+	...input: Parameters<typeof createAutomation>
+) => Effect.flatMap(createAutomation(...input), (automation) => definition.run(automation, host));
+
 const createHttpCall =
 	(calls: HttpCall[]): SonarrHost["httpCall"] =>
 	(method, url, options) => {
@@ -107,7 +112,7 @@ describe("sonarr-push sandbox script", () => {
 			integrations: [sonarrIntegration],
 		});
 		return Effect.runPromise(
-			definition.run(createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }), host).pipe(
+			runAutomation(host, { entityId: "show-1", entitySchemaSlug: "show" }).pipe(
 				Effect.map(() => {
 					expect(calls).toHaveLength(1);
 					expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
@@ -131,17 +136,17 @@ describe("sonarr-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.run(
-						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
+					runAutomation(
 						createHost({ httpCall, entity: showEntity, integrations: [sonarrIntegration] }),
+						{ entityId: "movie-1", entitySchemaSlug: "movie" },
 					),
-					definition.run(
-						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
+					runAutomation(
 						createHost({
 							httpCall,
 							integrations: [sonarrIntegration],
 							entity: entityRecord({ ...showEntity, providerId: "script-show-tmdb" }),
 						}),
+						{ entityId: "show-1", entitySchemaSlug: "show" },
 					),
 				],
 				{ concurrency: "unbounded" },
@@ -163,10 +168,7 @@ describe("sonarr-push sandbox script", () => {
 				integrations: [sonarrIntegration],
 				httpCall: () => httpFailure("already exists"),
 			});
-			const result = yield* definition.run(
-				createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
-				host,
-			);
+			const result = yield* runAutomation(host, { entityId: "show-1", entitySchemaSlug: "show" });
 			expect(result).toBeNull();
 			expect(warnings).toEqual([
 				[

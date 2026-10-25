@@ -37,7 +37,7 @@ const run = (context: AutomationPolicyInput, parents: readonly Record<string, un
 describe("episodic session policy", () => {
 	it.live("returns only the session patch", () =>
 		Effect.gen(function* () {
-			const input = policyAutomationContext({
+			const input = yield* policyAutomationContext({
 				entityId: "episode-1",
 				eventSchemaSlug: "progress",
 				sessionEntityId: "wrong-show",
@@ -52,37 +52,42 @@ describe("episodic session policy", () => {
 			});
 		}),
 	);
-	it.each(["show", "podcast"] as const)("assigns a %s parent to itself", (entitySchemaSlug) =>
-		Effect.runPromise(
-			run(
-				policyAutomationContext({
-					entitySchemaSlug,
-					sessionEntityId: "wrong-parent",
-					entityId: `${entitySchemaSlug}-1`,
-				}),
-			).pipe(
-				Effect.map((result) => {
-					expect(result).toMatchObject({
-						action: "transform",
-						patch: { resource: "event", draft: { sessionEntityId: `${entitySchemaSlug}-1` } },
-					});
-				}),
-			),
-		),
+	it.effect.each(["show", "podcast"] as const)(
+		"assigns a %s parent to itself",
+		(entitySchemaSlug) =>
+			Effect.gen(function* () {
+				yield* run(
+					yield* policyAutomationContext({
+						entitySchemaSlug,
+						sessionEntityId: "wrong-parent",
+						entityId: `${entitySchemaSlug}-1`,
+					}),
+				).pipe(
+					Effect.map((result) => {
+						expect(result).toMatchObject({
+							action: "transform",
+							patch: { resource: "event", draft: { sessionEntityId: `${entitySchemaSlug}-1` } },
+						});
+					}),
+				);
+			}),
 	);
 
-	it("retains distinct identities and decisions for each batch item", () =>
-		Effect.runPromise(
-			definition
+	it.effect("retains distinct identities and decisions for each batch item", () =>
+		Effect.gen(function* () {
+			yield* definition
 				.run(
 					batch(
 						{
 							itemIdentity: "parent-event",
-							context: policyAutomationContext({ entityId: "show-1", entitySchemaSlug: "show" }),
+							context: yield* policyAutomationContext({
+								entityId: "show-1",
+								entitySchemaSlug: "show",
+							}),
 						},
 						{
 							itemIdentity: "episode-event",
-							context: policyAutomationContext({
+							context: yield* policyAutomationContext({
 								entityId: "episode-1",
 								entitySchemaSlug: "show-episode",
 							}),
@@ -112,13 +117,14 @@ describe("episodic session policy", () => {
 							},
 						]);
 					}),
-				),
-		));
+				);
+		}),
+	);
 
-	it("assigns a regular show episode to its show and replaces a supplied session", () =>
-		Effect.runPromise(
-			run(
-				policyAutomationContext({
+	it.effect("assigns a regular show episode to its show and replaces a supplied session", () =>
+		Effect.gen(function* () {
+			yield* run(
+				yield* policyAutomationContext({
 					entityId: "episode-1",
 					sessionEntityId: "wrong-show",
 					entitySchemaSlug: "show-episode",
@@ -131,13 +137,14 @@ describe("episodic session policy", () => {
 						patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
 					});
 				}),
-			),
-		));
+			);
+		}),
+	);
 
-	it("clears a supplied session for a season zero episode", () =>
-		Effect.runPromise(
-			run(
-				policyAutomationContext({
+	it.effect("clears a supplied session for a season zero episode", () =>
+		Effect.gen(function* () {
+			yield* run(
+				yield* policyAutomationContext({
 					entityId: "special-1",
 					sessionEntityId: "show-1",
 					entitySchemaSlug: "show-episode",
@@ -150,31 +157,38 @@ describe("episodic session policy", () => {
 						patch: { resource: "event", draft: { sessionEntityId: null } },
 					});
 				}),
-			),
-		));
+			);
+		}),
+	);
 
-	it("assigns a podcast episode to its podcast", () =>
-		Effect.runPromise(
-			run(policyAutomationContext({ entityId: "episode-1", entitySchemaSlug: "podcast-episode" }), [
-				{ parentEntityId: "podcast-1" },
-			]).pipe(
+	it.effect("assigns a podcast episode to its podcast", () =>
+		Effect.gen(function* () {
+			yield* run(
+				yield* policyAutomationContext({
+					entityId: "episode-1",
+					entitySchemaSlug: "podcast-episode",
+				}),
+				[{ parentEntityId: "podcast-1" }],
+			).pipe(
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						action: "transform",
 						patch: { resource: "event", draft: { sessionEntityId: "podcast-1" } },
 					});
 				}),
-			),
-		));
+			);
+		}),
+	);
 
-	it("rejects an episode without one deterministic parent", () =>
-		Effect.runPromise(
-			run(
-				policyAutomationContext({ entityId: "episode-1", entitySchemaSlug: "show-episode" }),
+	it.effect("rejects an episode without one deterministic parent", () =>
+		Effect.gen(function* () {
+			yield* run(
+				yield* policyAutomationContext({ entityId: "episode-1", entitySchemaSlug: "show-episode" }),
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({ action: "reject", reason: "episodic_parent_not_found" });
 				}),
-			),
-		));
+			);
+		}),
+	);
 });

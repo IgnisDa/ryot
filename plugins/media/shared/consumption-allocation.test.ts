@@ -1,5 +1,6 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import {
 	allocateConsumptionObservation,
@@ -11,6 +12,8 @@ import {
 	emptyConsumptionRunPlan,
 	planConsumptionObservation,
 } from "./consumption-allocation";
+
+const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const observation = (
 	id: string,
@@ -258,14 +261,16 @@ describe("canonical consumption allocation", () => {
 		expect(result[0]?.attribution).toEqual({ kind: "unknown" });
 		expect(result.map((row) => row.titleCompletions)).toEqual([1, 1]);
 	});
-	it("keeps frozen values through serialization and ignores current provider data", () => {
-		const history = [movie("first", { progressPercent: 50 }), movie("done", {}, true)];
-		const restored = Schema.decodeSync(Schema.fromJsonString(Schema.Array(ConsumptionObservation)))(
-			JSON.stringify(history),
-		);
-		expect(allocate(restored)).toEqual(allocate(history));
-		expect(amounts(allocate(restored), "minutes")).toEqual([100, 100]);
-	});
+	it.effect("keeps frozen values through serialization and ignores current provider data", () =>
+		Effect.gen(function* () {
+			const history = [movie("first", { progressPercent: 50 }), movie("done", {}, true)];
+			const restored = yield* Schema.decodeEffect(
+				Schema.fromJsonString(Schema.Array(ConsumptionObservation)),
+			)(yield* encodeJson(history));
+			expect(allocate(restored)).toEqual(allocate(history));
+			expect(amounts(allocate(restored), "minutes")).toEqual([100, 100]);
+		}),
+	);
 	it("counts full progress plus automatic completion once, then an independent repeat", () => {
 		const result = allocate([
 			observation("full", { progressPages: 100 }, { closesRun: true }),

@@ -37,7 +37,7 @@ const input = (
 		sessionEntityId: options.sessionEntityId === undefined ? "workout" : options.sessionEntityId,
 	};
 	const snapshot = { ...draft, id: "event", createdAt: now, updatedAt: now };
-	return Schema.decodeUnknownSync(automationPolicyInputSchema)({
+	return Schema.decodeUnknownEffect(automationPolicyInputSchema)({
 		automation: {
 			runId: "run",
 			occurredAt: now,
@@ -65,9 +65,12 @@ const input = (
 					: {}),
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 };
-type BatchItem = { readonly itemIdentity: string; readonly policyInput: ReturnType<typeof input> };
+type BatchItem = {
+	readonly itemIdentity: string;
+	readonly policyInput: Effect.Success<ReturnType<typeof input>>;
+};
 const batch = (first: BatchItem, ...rest: BatchItem[]) => {
 	const { payload: firstPayload, ...automation } = first.policyInput.automation;
 	return {
@@ -82,9 +85,10 @@ const batch = (first: BatchItem, ...rest: BatchItem[]) => {
 	};
 };
 const run = (properties: Record<string, unknown>, options?: Parameters<typeof input>[1]) =>
-	definition
-		.run(batch({ itemIdentity: "set", policyInput: input(properties, options) }))
-		.pipe(Effect.map(({ items }) => items[0]?.decision));
+	input(properties, options).pipe(
+		Effect.flatMap((policyInput) => definition.run(batch({ policyInput, itemIdentity: "set" }))),
+		Effect.map(({ items }) => items[0]?.decision),
+	);
 
 it.effect("records the exercise kind without writing computed fields", () =>
 	Effect.gen(function* () {
@@ -186,8 +190,11 @@ it.effect("retains independent decisions and identities throughout a batch", () 
 	Effect.gen(function* () {
 		const result = yield* definition.run(
 			batch(
-				{ itemIdentity: "missing", policyInput: input({ reps: 10 }, { sessionEntityId: null }) },
-				{ itemIdentity: "valid", policyInput: input({ reps: 0, exerciseKind: "reps" }) },
+				{
+					itemIdentity: "missing",
+					policyInput: yield* input({ reps: 10 }, { sessionEntityId: null }),
+				},
+				{ itemIdentity: "valid", policyInput: yield* input({ reps: 0, exerciseKind: "reps" }) },
 			),
 		);
 		expect(result.items).toEqual([

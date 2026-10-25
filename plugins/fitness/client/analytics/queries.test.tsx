@@ -32,7 +32,7 @@ const aggregate = (item: Record<string, null | number>) => ({
 	items: [item],
 	type: "aggregate" as const,
 });
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const response = {
 	data: {
 		entries: aggregate({ entries: 0 }),
@@ -365,7 +365,7 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(2)),
 						);
 						for (const request of page.queryRequests(key).slice(1)) {
-							const document = documentText(request.document);
+							const document = yield* documentText(request.document);
 							expect(document).toContain("first-cursor");
 							expect(document).toContain("2026-10-26T04:00:00.000Z");
 							expect(document).toContain("2026-11-02T05:00:00.000Z");
@@ -388,7 +388,7 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(3)),
 						);
 						for (const request of page.queryRequests(key).slice(2)) {
-							const document = documentText(request.document);
+							const document = yield* documentText(request.document);
 							expect(document).not.toContain("first-cursor");
 							expect(document).toContain("2026-10-27T04:00:00.000Z");
 							expect(document).toContain("2026-11-03T05:00:00.000Z");
@@ -401,7 +401,7 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(4)),
 						);
 						for (const request of page.queryRequests(key).slice(3)) {
-							const document = documentText(request.document);
+							const document = yield* documentText(request.document);
 							expect(document).toContain("refreshed-cursor");
 							expect(document).toContain("2026-10-27T04:00:00.000Z");
 							expect(document).toContain("2026-11-03T05:00:00.000Z");
@@ -459,8 +459,8 @@ describe("fitness analytics cursor adapters", () => {
 				);
 				expect(screen.queryByText("Owner one metric")).toBeNull();
 				for (const request of page.queryRequests("metrics").slice(1)) {
-					expect(documentText(request.document)).toContain("fitness-other");
-					expect(documentText(request.document)).not.toContain("fitness-owner");
+					expect(yield* documentText(request.document)).toContain("fitness-other");
+					expect(yield* documentText(request.document)).not.toContain("fitness-owner");
 				}
 			} finally {
 				page.dispose();

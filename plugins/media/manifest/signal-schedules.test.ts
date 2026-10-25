@@ -1,14 +1,13 @@
-import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import { table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { libraryLinkExists } from "../shared/entity-selections";
 import { mediaPlugin } from "./plugin";
 
-const { signalSchedules = [] } = Schema.decodeSync(AuthoredPluginManifest)(mediaPlugin);
+const { signalSchedules }: AuthoredPluginManifest = mediaPlugin;
 
 const schedule = (slug: string) => {
 	const found = signalSchedules.find((candidate) => candidate.slug === slug);

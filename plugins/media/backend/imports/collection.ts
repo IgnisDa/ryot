@@ -30,7 +30,8 @@ const RECORD_BYTES = 3 * 1024 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const recordJson = Schema.fromJsonString(MediaSourceRecord);
-const encodeRecord = Schema.encodeSync(recordJson);
+const encodeRecord = (record: MediaSourceRecord) =>
+	Schema.encodeEffect(recordJson)(record).pipe(Effect.orDie);
 export const sourceOutput = Effect.fn(function* (fields: Partial<typeof MediaSourceOutput.Type>) {
 	return {
 		offset: 0,
@@ -90,7 +91,9 @@ export const compareMediaRecords = (left: MediaSourceRecord, right: MediaSourceR
 	);
 };
 export const serializeMediaRecords = (records: ReadonlyArray<MediaSourceRecord>) =>
-	records.map((record) => encodeRecord(record)).join("\n") + (records.length ? "\n" : "");
+	Effect.forEach(records, encodeRecord).pipe(
+		Effect.map((lines) => lines.join("\n") + (lines.length ? "\n" : "")),
+	);
 
 export const normalizeMediaRecords = (
 	result: MediaIntegrationAdapterResult,
@@ -295,7 +298,7 @@ export const collectMediaCsv = Effect.fn(function* (
 		const adapted = mapRecord
 			? mapRecord(`${header}\n${text}`, itemIndex)
 			: normalizeMediaRecords(value, itemIndex, source, eventOffset);
-		const size = encoder.encode(serializeMediaRecords(adapted)).length;
+		const size = encoder.encode(yield* serializeMediaRecords(adapted)).length;
 		if (size > RECORD_BYTES) {
 			throw new Error("Normalized media record exceeds 3 MiB");
 		}
@@ -316,7 +319,10 @@ export const collectMediaCsv = Effect.fn(function* (
 	}
 	const tail = bytes.slice(consumed);
 	const chunks: Array<{ name: string; contents: string | Uint8Array }> = [
-		{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+		{
+			name: "records.jsonl",
+			contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+		},
 	];
 	if (tail.length) {
 		chunks.push({ contents: tail, name: "carry.bin" });
@@ -385,7 +391,7 @@ export const mergeMediaRecords = Effect.fn(function* (input: MediaSourceInput) {
 		if (!selected) {
 			break;
 		}
-		const size = encoder.encode(encodeRecord(selected.record)).length + 1;
+		const size = encoder.encode(yield* encodeRecord(selected.record)).length + 1;
 		if (records.length && length + size > WINDOW_BYTES) {
 			break;
 		}
@@ -401,7 +407,7 @@ export const mergeMediaRecords = Effect.fn(function* (input: MediaSourceInput) {
 	}
 	return yield* sourceOutput({
 		...(yield* writeMediaCapture([
-			{ name: "records.jsonl", contents: serializeMediaRecords(records) },
+			{ name: "records.jsonl", contents: yield* serializeMediaRecords(records) },
 		])),
 		leftOffset,
 		rightOffset,
@@ -631,7 +637,7 @@ export const collectMediaJson = Effect.fn(function* (
 		const normalized = mapRecord
 			? mapRecord(row, itemIndex)
 			: normalizeMediaRecords(value, itemIndex, source, eventOffset);
-		const size = encoder.encode(serializeMediaRecords(normalized)).length;
+		const size = encoder.encode(yield* serializeMediaRecords(normalized)).length;
 		if (size > RECORD_BYTES) {
 			throw new Error("Normalized media JSON record exceeds 3 MiB");
 		}
@@ -657,7 +663,10 @@ export const collectMediaJson = Effect.fn(function* (
 	}
 	const tail = bytes.slice(consumed);
 	const chunks: Array<{ name: string; contents: string | Uint8Array }> = [
-		{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+		{
+			name: "records.jsonl",
+			contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+		},
 	];
 	if (tail.length) {
 		chunks.push({ contents: tail, name: "carry.bin" });
@@ -795,7 +804,7 @@ export const collectMediaXml = Effect.fn(function* (
 			`<myanimelist>${decoder.decode(bytes.subarray(frame.start, frame.end))}</myanimelist>`,
 		);
 		const normalized = normalizeMediaRecords(adapted, itemIndex, "myanimelist");
-		const size = encoder.encode(serializeMediaRecords(normalized)).length;
+		const size = encoder.encode(yield* serializeMediaRecords(normalized)).length;
 		if (size > RECORD_BYTES) {
 			throw new Error("Normalized MyAnimeList record exceeds 3 MiB");
 		}
@@ -819,7 +828,10 @@ export const collectMediaXml = Effect.fn(function* (
 		tail = new Uint8Array();
 	}
 	const chunks: Array<{ name: string; contents: string | Uint8Array }> = [
-		{ name: "records.jsonl", contents: serializeMediaRecords(records.sort(compareMediaRecords)) },
+		{
+			name: "records.jsonl",
+			contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
+		},
 	];
 	if (tail.length) {
 		chunks.push({ contents: tail, name: "carry.bin" });

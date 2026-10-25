@@ -20,7 +20,7 @@ import { preferenceSettings } from "../../tests/client/draft-fixtures";
 import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import WorkoutsPage from "./screen";
 
-const serialize = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const serialize = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 afterEach(disposePluginBridges);
 
@@ -391,12 +391,15 @@ describe("all workouts page", () => {
 					expect(body.getByRole("link", { name: "Legs" })).toBeTruthy();
 				});
 				const queried = (name: string) =>
-					page
-						.queryRequests()
-						.filter(({ document }) => name in document.queries)
-						.map(({ document }) => serialize(document.queries[name]).includes("filterTotalsSet"));
-				expect(queried("workouts").some(Boolean)).toBe(true);
-				expect(queried("sets").every(Boolean)).toBe(true);
+					Effect.forEach(
+						page.queryRequests().filter(({ document }) => name in document.queries),
+						({ document }) =>
+							Effect.map(serialize(document.queries[name]), (text) =>
+								text.includes("filterTotalsSet"),
+							),
+					);
+				expect((yield* queried("workouts")).some(Boolean)).toBe(true);
+				expect((yield* queried("sets")).every(Boolean)).toBe(true);
 			}),
 	);
 

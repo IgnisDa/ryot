@@ -124,7 +124,7 @@ export default defineScript({
 				...(yield* writeMediaCapture([
 					{
 						name: "records.jsonl",
-						contents: serializeMediaRecords(records.sort(compareMediaRecords)),
+						contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
 					},
 					{ contents: carry, name: "metadata.json" },
 				])),

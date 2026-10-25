@@ -607,7 +607,7 @@ export const mediaActivityEventSelection = (event: Table) => ({
 export const mediaCollectionEventsQuery = (input: {
 	readonly limit: number;
 	readonly entityId: string;
-	readonly before?: string | undefined;
+	readonly before?: undefined | MediaHistoryCursor;
 }) => {
 	const collectionEvent = table("event", "collectionEvent");
 	const eventCollection = table("entity", "eventCollection");
@@ -673,9 +673,9 @@ export const mediaEntityEventsQuery = <const Selection extends SelectedSelection
 	readonly alias: string;
 	readonly entityId: string;
 	readonly slugs: readonly string[];
-	readonly before?: string | undefined;
 	readonly reference: PluginIdentityReference;
 	readonly selection: (event: Table) => Selection;
+	readonly before?: undefined | MediaHistoryCursor;
 }) => {
 	const event = table("event", input.alias);
 	return selectedRows(event, {
@@ -705,9 +705,18 @@ type MediaActivityOrdered = {
 	readonly occurredAt: string;
 };
 
-const HistoryCursor = Schema.fromJsonString(
-	Schema.Struct({ id: Schema.String, createdAt: IsoDateString, occurredAt: IsoDateString }),
-);
+const MediaHistoryCursor = Schema.Struct({
+	id: Schema.String,
+	createdAt: IsoDateString,
+	occurredAt: IsoDateString,
+});
+export type MediaHistoryCursor = typeof MediaHistoryCursor.Type;
+const HistoryCursorJson = Schema.fromJsonString(MediaHistoryCursor);
+const encodeHistoryCursor = Schema.encodeResult(HistoryCursorJson);
+
+/** Invalid cursors fail the recipe's `map`, after queries built without a cursor have run. */
+export const mediaHistoryCursor = (before: string | undefined) =>
+	before === undefined ? Result.succeed(undefined) : Schema.decodeResult(HistoryCursorJson)(before);
 
 export type MediaHistoryInput = {
 	readonly limit: number;
@@ -716,8 +725,7 @@ export type MediaHistoryInput = {
 	readonly reference: PluginIdentityReference;
 };
 
-export const mediaHistoryBefore = (event: Table, before: string) => {
-	const cursor = Schema.decodeSync(HistoryCursor)(before);
+export const mediaHistoryBefore = (event: Table, cursor: MediaHistoryCursor) => {
 	const occurredAt = castDate(literal(cursor.occurredAt));
 	const createdAt = castDate(literal(cursor.createdAt));
 	return or(
@@ -739,20 +747,12 @@ export const mediaHistoryPage = <Event extends MediaActivityOrdered>(
 	const items = [...events].sort(compareMediaActivityDescending).slice(0, limit);
 	const last = items.at(-1);
 	const more = hasMore || events.length > limit;
-	return {
-		items,
-		pageInfo: {
-			hasMore: more,
-			nextCursor:
-				more && last !== undefined
-					? Schema.encodeSync(HistoryCursor)({
-							id: last.id,
-							createdAt: last.createdAt,
-							occurredAt: last.occurredAt,
-						})
-					: null,
-		},
-	};
+	return Result.map(
+		more && last !== undefined
+			? encodeHistoryCursor({ id: last.id, createdAt: last.createdAt, occurredAt: last.occurredAt })
+			: Result.succeed(null),
+		(nextCursor) => ({ items, pageInfo: { nextCursor, hasMore: more } }),
+	);
 };
 
 export const mediaEntityHistoryRecipe = <const Selection extends SelectedSelection>(config: {
@@ -760,31 +760,35 @@ export const mediaEntityHistoryRecipe = <const Selection extends SelectedSelecti
 	readonly slugs: readonly string[];
 	readonly selection: (event: Table) => Selection;
 }) =>
-	defineRecipe((input: MediaHistoryInput) => ({
-		map: ({ events, collectionEvents }) =>
-			Result.succeed(
-				mediaHistoryPage(
-					mergeMediaActivityEvents({
-						parentEvents: events.items,
-						collectionEvents: collectionEvents.items,
+	defineRecipe((input: MediaHistoryInput) => {
+		const cursor = mediaHistoryCursor(input.before);
+		const query = { ...input, before: Result.getOrUndefined(cursor) };
+		return {
+			queries: {
+				collectionEvents: mediaCollectionEventsQuery(query),
+				events: mediaEntityEventsQuery({
+					...query,
+					...config,
+					alias: `${config.alias}HistoryEvent`,
+					selection: (event) => ({
+						...mediaReviewActivityEventSelection(event),
+						...config.selection(event),
 					}),
-					input.limit,
-					events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
-				),
-			),
-		queries: {
-			collectionEvents: mediaCollectionEventsQuery(input),
-			events: mediaEntityEventsQuery({
-				...input,
-				...config,
-				alias: `${config.alias}HistoryEvent`,
-				selection: (event) => ({
-					...mediaReviewActivityEventSelection(event),
-					...config.selection(event),
 				}),
-			}),
-		},
-	}));
+			},
+			map: ({ events, collectionEvents }) =>
+				Result.flatMap(cursor, () =>
+					mediaHistoryPage(
+						mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+						input.limit,
+						events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+					),
+				),
+		};
+	});
 
 type MediaCollectionActivityRow = MediaActivityOrdered & {
 	readonly collectionId: string;

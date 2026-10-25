@@ -38,7 +38,7 @@ import {
 } from "./queries";
 
 afterEach(disposePluginBridges);
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const input = {
 	timeZone: TimeZone.make("America/New_York"),
 	reference: { kind: "local", pluginId: PluginId.make("media-owner") },
@@ -495,11 +495,13 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests()).toHaveLength(3)),
 						);
 						for (const request of page.queryRequests("currentGlobal")) {
-							expect(documentText(request.document.queries["currentGlobal"])).toContain(
+							expect(yield* documentText(request.document.queries["currentGlobal"])).toContain(
 								sample.start,
 							);
-							expect(documentText(request.document.queries["currentGlobal"])).toContain(sample.end);
-							expect(documentText(request.document.queries["previousGlobal"])).toContain(
+							expect(yield* documentText(request.document.queries["currentGlobal"])).toContain(
+								sample.end,
+							);
+							expect(yield* documentText(request.document.queries["previousGlobal"])).toContain(
 								sample.previousStart,
 							);
 						}
@@ -534,7 +536,7 @@ describe("Media analytics query adapters", () => {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
 						expect(Object.keys(request.document.queries)).toHaveLength(7);
-						expect(documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
+						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}
 					yield* Effect.promise(() =>
@@ -549,7 +551,7 @@ describe("Media analytics query adapters", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 					for (const request of page.queryRequests().slice(1)) {
-						expect(documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}
 					yield* Effect.promise(() =>
@@ -599,8 +601,8 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						expect(documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
-						expect(documentText(request.document)).not.toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
+						expect(yield* documentText(request.document)).not.toContain("2026-11-03T05:00:00.000Z");
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: { data: { dates: aggregate([]), instants: aggregate([]) } },
@@ -650,7 +652,7 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(2)),
 						);
 						for (const request of page.queryRequests(key).slice(1)) {
-							const text = documentText(request.document);
+							const text = yield* documentText(request.document);
 							expect(text).toContain("first-cursor");
 							expect(text).toContain("2026-10-26T04:00:00.000Z");
 							expect(text).toContain("2026-11-02T05:00:00.000Z");
@@ -676,7 +678,7 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(3)),
 						);
 						for (const request of page.queryRequests(key).slice(2)) {
-							const text = documentText(request.document);
+							const text = yield* documentText(request.document);
 							expect(text).not.toContain("first-cursor");
 							expect(text).toContain("2026-10-27T04:00:00.000Z");
 							expect(text).toContain("2026-11-03T05:00:00.000Z");
@@ -689,8 +691,8 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(4)),
 						);
 						for (const request of page.queryRequests(key).slice(3)) {
-							expect(documentText(request.document)).toContain("refreshed-cursor");
-							expect(documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+							expect(yield* documentText(request.document)).toContain("refreshed-cursor");
+							expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: cursorResponse(key, "third-cursor"),
@@ -752,7 +754,7 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(3)),
 					);
 					for (const request of page.queryRequests("records").slice(2)) {
-						expect(documentText(request.document)).toContain("2026-10-27T04:00:00.000Z");
+						expect(yield* documentText(request.document)).toContain("2026-10-27T04:00:00.000Z");
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "replacement", [sourceRecord("Replacement")]),
@@ -777,8 +779,8 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(5)),
 					);
 					for (const request of page.queryRequests("records").slice(4)) {
-						expect(documentText(request.document)).not.toContain("replacement");
-						expect(documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(request.document)).not.toContain("replacement");
+						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "retry-first", [sourceRecord("New first")]),
@@ -788,8 +790,8 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(6)),
 					);
 					for (const request of page.queryRequests("records").slice(5)) {
-						expect(documentText(request.document)).toContain("retry-first");
-						expect(documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(request.document)).toContain("retry-first");
+						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "retry-second", [sourceRecord("New second")]),
@@ -873,8 +875,8 @@ describe("Media analytics query adapters", () => {
 				);
 				expect(screen.getByText("0 pages")).toBeDefined();
 				for (const request of page.queryRequests("records").slice(2)) {
-					expect(documentText(request.document)).toContain("media-other");
-					expect(documentText(request.document)).not.toContain("media-owner");
+					expect(yield* documentText(request.document)).toContain("media-other");
+					expect(yield* documentText(request.document)).not.toContain("media-owner");
 				}
 			} finally {
 				page.dispose();
@@ -907,7 +909,7 @@ describe("Media analytics query adapters", () => {
 				);
 				expect(screen.getByText("0 pages")).toBeDefined();
 				for (const request of page.queryRequests("records").slice(1)) {
-					expect(documentText(request.document)).not.toContain("partial-cursor");
+					expect(yield* documentText(request.document)).not.toContain("partial-cursor");
 					page.replyQuery(request.requestId, {
 						outcome: "success",
 						response: cursorResponse("records", null),

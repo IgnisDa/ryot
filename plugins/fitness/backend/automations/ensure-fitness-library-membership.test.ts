@@ -1,14 +1,14 @@
+import { expect, it } from "@effect/vitest";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import definition, { manifest } from "./ensure-fitness-library-membership.sandbox";
 
 const timestamp = "2026-07-20T10:00:00.000Z";
 
 const automationInput = (payload: unknown) =>
-	Schema.decodeUnknownSync(automationInputSchema)({
+	Schema.decodeUnknownEffect(automationInputSchema)({
 		automation: {
 			payload,
 			runId: "run-1",
@@ -27,7 +27,7 @@ const automationInput = (payload: unknown) =>
 				initiator: { kind: "user", id: "user-1" },
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 
 const entityCreate = (entitySchemaSlug: string) =>
 	automationInput({
@@ -82,43 +82,37 @@ const recordingHost = () => {
 	return { host, changes };
 };
 
-it.each([
-	["entity creation", entityCreate("exercise")],
-	["provider import", providerImport("exercise")],
-])("adds the exercise to the fitness library on %s", (_label, input) => {
-	const { host, changes } = recordingHost();
-	return Effect.runPromise(
-		definition.run(input, host).pipe(
-			Effect.map((result) => {
-				expect(result).toBeNull();
-				expect(changes).toEqual([
-					[
+it.effect.each([
+	{ label: "entity creation", input: entityCreate("exercise") },
+	{ label: "provider import", input: providerImport("exercise") },
+])("adds the exercise to the fitness library on $label", ({ input }) =>
+	Effect.gen(function* () {
+		const { host, changes } = recordingHost();
+		expect(yield* definition.run(yield* input, host)).toBeNull();
+		expect(changes).toEqual([
+			[
+				{
+					deletes: [],
+					creates: [
 						{
-							deletes: [],
-							creates: [
-								{
-									properties: {},
-									propertiesMode: "merge",
-									targetEntityId: "library-1",
-									sourceEntityId: "exercise-1",
-									relationshipSchemaSlug: "in-fitness-library",
-								},
-							],
+							properties: {},
+							propertiesMode: "merge",
+							targetEntityId: "library-1",
+							sourceEntityId: "exercise-1",
+							relationshipSchemaSlug: "in-fitness-library",
 						},
 					],
-				]);
-			}),
-		),
-	);
-});
+				},
+			],
+		]);
+	}),
+);
 
-it("ignores entities that are not exercises", () => {
-	const { host, changes } = recordingHost();
-	return Effect.runPromise(
-		Effect.gen(function* () {
-			expect(yield* definition.run(entityCreate("workout"), host)).toBeNull();
-			expect(yield* definition.run(providerImport("workout"), host)).toBeNull();
-			expect(changes).toEqual([]);
-		}),
-	);
-});
+it.effect("ignores entities that are not exercises", () =>
+	Effect.gen(function* () {
+		const { host, changes } = recordingHost();
+		expect(yield* definition.run(yield* entityCreate("workout"), host)).toBeNull();
+		expect(yield* definition.run(yield* providerImport("workout"), host)).toBeNull();
+		expect(changes).toEqual([]);
+	}),
+);

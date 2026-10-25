@@ -115,15 +115,17 @@ describe("media ownership operation", () => {
 		}),
 	);
 
-	it("bounds operation batches and requires ISO ownership dates", () => {
-		const decode = Schema.decodeUnknownSync(MediaOwnershipSetInput);
-		expect(() => decode({ owned: false, entityIds: [] })).toThrow();
-		expect(() =>
-			decode({
-				owned: false,
-				entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
-			}),
-		).toThrow();
-		expect(() => decode({ owned: true, ownedOn: "03/04/2024", entityIds: ["entity-a"] })).toThrow();
-	});
+	it.effect("bounds operation batches and requires ISO ownership dates", () =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(MediaOwnershipSetInput);
+			yield* Effect.flip(decode({ owned: false, entityIds: [] }));
+			yield* Effect.flip(
+				decode({
+					owned: false,
+					entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
+				}),
+			);
+			yield* Effect.flip(decode({ owned: true, ownedOn: "03/04/2024", entityIds: ["entity-a"] }));
+		}),
+	);
 });

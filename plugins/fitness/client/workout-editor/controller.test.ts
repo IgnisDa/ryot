@@ -25,7 +25,7 @@ import { isWorkoutEditorSaving } from "./controller-types";
 const draft = (name = "Session") => liveDraft({ name });
 
 const saveInput = (submissionId = "submission-1") =>
-	Schema.decodeSync(WorkoutEditorSaveInputSchema)({
+	Schema.decodeEffect(WorkoutEditorSaveInputSchema)({
 		submissionId,
 		submittedAt: startTime,
 		data: {
@@ -39,7 +39,7 @@ const saveInput = (submissionId = "submission-1") =>
 			target: { kind: "create" },
 			activeDuration: { seconds: 0, kind: "set" },
 		},
-	});
+	}).pipe(Effect.orDie);
 
 const timerDraft = () =>
 	liveDraft({
@@ -151,7 +151,7 @@ describe("workout editor controller", () => {
 			const cleaning = yield* Deferred.make<void>();
 			const releaseCleanup = yield* Deferred.make<void>();
 			const secondStarted = yield* Deferred.make<void>();
-			const submitted = saveInput();
+			const submitted = yield* saveInput();
 			const result = { sets: [], kind: "saved" as const, entityId: EntityId.make("saved-workout") };
 			let preparations = 0;
 			const harness = createController({
@@ -192,9 +192,9 @@ describe("workout editor controller", () => {
 				Effect.gen(function* () {
 					yield* Deferred.succeed(secondStarted, undefined);
 					return yield* harness.controller.save((current) =>
-						Effect.sync(() => {
+						Effect.gen(function* () {
 							preparations += 1;
-							return { draft: current.draft, input: saveInput("other") };
+							return { draft: current.draft, input: yield* saveInput("other") };
 						}),
 					);
 				}),
@@ -244,7 +244,7 @@ describe("workout editor controller", () => {
 			yield* harness.controller.start(draft());
 			const failed = yield* Effect.exit(
 				harness.controller.save((current) =>
-					Effect.succeed({ input: saveInput(), draft: current.draft }),
+					Effect.map(saveInput(), (input) => ({ input, draft: current.draft })),
 				),
 			);
 			expect(failed._tag).toBe("Failure");
@@ -270,7 +270,7 @@ describe("workout editor controller", () => {
 			expect(yield* harness.controller.save(() => Effect.die("must not rebuild"))).toEqual(result);
 			expect(states.slice(0, -1).every(Boolean)).toBe(true);
 			expect(states.at(-1)).toBe(false);
-			expect(harness.submissions).toEqual([saveInput()]);
+			expect(harness.submissions).toEqual([yield* saveInput()]);
 			expect(harness.removals).toBe(2);
 			expect(harness.stored).toBeNull();
 			expect(harness.controller.getSnapshot().saveState).toEqual({ result, phase: "saved" });
@@ -281,7 +281,7 @@ describe("workout editor controller", () => {
 
 	it.live("keeps an uncertain submission frozen and retries identical input after recovery", () =>
 		Effect.gen(function* () {
-			const submitted = saveInput();
+			const submitted = yield* saveInput();
 			const harness = createController({ save: () => Effect.fail("transport") });
 			yield* harness.controller.load();
 			yield* harness.controller.start(draft());
@@ -322,7 +322,7 @@ describe("workout editor controller", () => {
 		() =>
 			Effect.gen(function* () {
 				let failWrite = false;
-				const submitted = saveInput();
+				const submitted = yield* saveInput();
 				const harness = createController({
 					save: () => Effect.succeed({ kind: "conflict" }),
 					onWrite: () => (failWrite ? Effect.fail("quota") : Effect.void),
@@ -361,7 +361,7 @@ describe("workout editor controller", () => {
 				yield* harness.controller.start(draft());
 				expect(
 					yield* harness.controller.save((current) =>
-						Effect.succeed({ input: saveInput(), draft: current.draft }),
+						Effect.map(saveInput(), (input) => ({ input, draft: current.draft })),
 					),
 				).toEqual(result);
 				expect(

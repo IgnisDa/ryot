@@ -47,9 +47,7 @@ const recordStepReference = defineScriptReference({
 	scriptSlug: "script.workout-record-step",
 });
 
-const workoutSetSchemaSlug = Schema.decodeSync(EventStreamStepInput.fields.eventSchemaSlug)(
-	"workout-set",
-);
+const workoutSetSchemaSlug = EventStreamStepInput.fields.eventSchemaSlug.make("workout-set");
 
 type EventSnapshot = Extract<EventBatchItem, { operation: "create" }>["after"];
 

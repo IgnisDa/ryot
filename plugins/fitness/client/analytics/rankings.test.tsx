@@ -35,7 +35,7 @@ const makeScope = (
 	owner: { kind: "local", pluginId: PluginId.make(owner) },
 });
 
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const itemAt = <Item,>(items: readonly Item[], index: number): Item => {
 	const item = items[index];
 	if (item === undefined) {
@@ -186,7 +186,7 @@ describe("Fitness analytics rankings", () => {
 					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(2)),
 				);
 				const continuation = itemAt(page.queryRequests("ranking"), 1);
-				expect(documentText(continuation.document)).toContain("target-cursor-1");
+				expect(yield* documentText(continuation.document)).toContain("target-cursor-1");
 				page.replyQuery(continuation.requestId, {
 					outcome: "success",
 					response: rankingResponse(null, [rankingRow("target-101", "Target 101", 101)]),
@@ -214,9 +214,9 @@ describe("Fitness analytics rankings", () => {
 					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(1)),
 				);
 				const request = itemAt(page.queryRequests("ranking"), 0);
-				expect(documentText(request.document)).toContain("fitness-owner");
-				expect(documentText(request.document)).toContain("2026-10-26T04:00:00.000Z");
-				expect(documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
+				expect(yield* documentText(request.document)).toContain("fitness-owner");
+				expect(yield* documentText(request.document)).toContain("2026-10-26T04:00:00.000Z");
+				expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
 				page.replyQuery(request.requestId, {
 					outcome: "success",
 					response: rankingResponse(null, [rankingRow("target-back", "Upper back", 2, 4, 3, 2)]),
@@ -281,7 +281,7 @@ describe("Fitness analytics rankings", () => {
 					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(3)),
 				);
 				const retry = itemAt(page.queryRequests("ranking"), 2);
-				expect(documentText(retry.document)).toContain("retry-cursor");
+				expect(yield* documentText(retry.document)).toContain("retry-cursor");
 				page.replyQuery(retry.requestId, {
 					outcome: "success",
 					response: rankingResponse(null, [rankingRow("later", "Later target", 2)]),
@@ -361,7 +361,7 @@ describe("Fitness analytics rankings", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(5)),
 				);
-				expect(documentText(itemAt(page.queryRequests("ranking"), 4).document)).toContain(
+				expect(yield* documentText(itemAt(page.queryRequests("ranking"), 4).document)).toContain(
 					"loaded-cursor",
 				);
 				page.replyQuery(itemAt(page.queryRequests("ranking"), 4).requestId, {
@@ -420,7 +420,7 @@ describe("Fitness analytics rankings", () => {
 					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(2)),
 				);
 				const newRequest = itemAt(page.queryRequests("ranking"), 1);
-				const nextDocument = documentText(newRequest.document);
+				const nextDocument = yield* documentText(newRequest.document);
 				expect(nextDocument).toContain("fitness-next");
 				expect(nextDocument).toContain("2026-08-31T22:00:00.000Z");
 				expect(nextDocument).not.toContain("fitness-owner");
@@ -444,7 +444,7 @@ describe("Fitness analytics rankings", () => {
 				);
 				expect(screen.queryByText("New owner target")).toBeNull();
 				const exerciseRequest = itemAt(page.queryRequests("ranking"), 2);
-				expect(documentText(exerciseRequest.document)).toContain("fitness-next");
+				expect(yield* documentText(exerciseRequest.document)).toContain("fitness-next");
 				page.replyQuery(exerciseRequest.requestId, {
 					outcome: "success",
 					response: rankingResponse(null, [rankingRow("exercise-row", "Exercise result", 2)]),

@@ -107,7 +107,7 @@ export default defineScript({
 							}
 						: record;
 				records.push(normalized);
-				bytes += new TextEncoder().encode(serializeMediaRecords([normalized])).length;
+				bytes += new TextEncoder().encode(yield* serializeMediaRecords([normalized])).length;
 				if (bytes >= WINDOW_BYTES) {
 					break;
 				}
@@ -116,7 +116,7 @@ export default defineScript({
 				...(yield* writeMediaCapture([
 					{
 						name: "records.jsonl",
-						contents: serializeMediaRecords(records.sort(compareMediaRecords)),
+						contents: yield* serializeMediaRecords(records.sort(compareMediaRecords)),
 					},
 				])),
 				done,

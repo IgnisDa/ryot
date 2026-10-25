@@ -242,13 +242,15 @@ describe("exercise note operations", () => {
 		}),
 	);
 
-	it("rejects blank and oversized note text", () => {
-		const decode = Schema.decodeUnknownSync(ExerciseNoteCreateInput);
-		expect(() => decode({ text: "   ", exerciseId: "exercise-1" })).toThrow();
-		expect(() => decode({ text: "a".repeat(2001), exerciseId: "exercise-1" })).toThrow();
-		expect(() => decode({ rating: 101, text: "Note", exerciseId: "exercise-1" })).toThrow();
-		expect(decode({ exerciseId: "exercise-1", text: ` ${"a".repeat(2000)} ` }).text).toHaveLength(
-			2000,
-		);
-	});
+	it.effect("rejects blank and oversized note text", () =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(ExerciseNoteCreateInput);
+			yield* Effect.flip(decode({ text: "   ", exerciseId: "exercise-1" }));
+			yield* Effect.flip(decode({ text: "a".repeat(2001), exerciseId: "exercise-1" }));
+			yield* Effect.flip(decode({ rating: 101, text: "Note", exerciseId: "exercise-1" }));
+			expect(
+				(yield* decode({ exerciseId: "exercise-1", text: ` ${"a".repeat(2000)} ` })).text,
+			).toHaveLength(2000);
+		}),
+	);
 });

@@ -11,9 +11,9 @@ const CompressedBytesSchema = Schema.Uint8ArrayFromBase64.check(
 export const encodeWorkoutEditorJson = (json: string) => {
 	const bytes = new TextEncoder().encode(json);
 	if (bytes.byteLength > decodedByteLimit) {
-		throw new Error("Workout editor value exceeds its decoded byte limit");
+		return Result.fail(new Error("Workout editor value exceeds its decoded byte limit"));
 	}
-	return Schema.encodeSync(CompressedBytesSchema)(deflateSync(bytes, { level: 9 }));
+	return Schema.encodeResult(CompressedBytesSchema)(deflateSync(bytes, { level: 9 }));
 };
 
 export const decodeWorkoutEditorJson = (value: unknown) => {

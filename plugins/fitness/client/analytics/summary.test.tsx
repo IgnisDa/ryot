@@ -102,7 +102,7 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		},
 	};
 };
-const documentText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const selection: AnalyticsScope["selection"] = {
 	grouping: "day",
@@ -221,7 +221,7 @@ describe("Fitness analytics summary UI", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 					for (const request of page.queryRequests()) {
-						const document = documentText(request.document);
+						const document = yield* documentText(request.document);
 						const isCurrent = document.includes("2026-11-02T05:00:00.000Z");
 						page.replyQuery(request.requestId, {
 							outcome: "success",

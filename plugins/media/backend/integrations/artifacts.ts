@@ -22,7 +22,7 @@ export const captureIntegrationRecords = Effect.fn(function* (
 	return {
 		...(result.sourceFailure ? { sourceFailure: result.sourceFailure } : {}),
 		...(yield* writeMediaCapture([
-			{ name: "records.jsonl", contents: serializeMediaRecords(records) },
+			{ name: "records.jsonl", contents: yield* serializeMediaRecords(records) },
 		])),
 		advancedAt: DateTime.formatIso(yield* DateTime.now),
 	};
@@ -36,7 +36,7 @@ export const captureIntegrationWindow = Effect.fn(function* (
 	const chunks = [
 		{
 			name: "records.jsonl",
-			contents: serializeMediaRecords(
+			contents: yield* serializeMediaRecords(
 				normalizeMediaRecords(result, 0, source, eventIndexBase ?? 0, "retain"),
 			),
 		},

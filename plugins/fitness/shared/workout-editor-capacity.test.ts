@@ -1,6 +1,7 @@
+import { assert, expect, it } from "@effect/vitest";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { SANDBOX_LIMITS, sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
-import { assert, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import { encodeWorkoutEditorDraft, WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "./workout-editor-operations";
@@ -53,7 +54,7 @@ const occurrence = (clientId: string, index: number, setCount: number, rich = tr
 });
 
 const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true) =>
-	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
+	Schema.decodeUnknownEffect(WorkoutEditorDraftSchema)({
 		occurrences,
 		activeDuration: 3600,
 		startedAt: timestamp,
@@ -88,10 +89,10 @@ const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true)
 							occurrenceIds: occurrences.slice(0, 3).map(({ clientId }) => clientId),
 						},
 					],
-	});
+	}).pipe(Effect.orDie);
 
 const templateDraft = () =>
-	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
+	Schema.decodeUnknownEffect(WorkoutEditorDraftSchema)({
 		images: [],
 		videos: [],
 		supersets: [],
@@ -126,7 +127,7 @@ const templateDraft = () =>
 				})),
 			};
 		}),
-	});
+	}).pipe(Effect.orDie);
 
 const saveInputFor = (draft: typeof WorkoutEditorDraftSchema.Type) => {
 	const saved = buildWorkoutEditorSaveInput(
@@ -146,152 +147,175 @@ const saveInputFor = (draft: typeof WorkoutEditorDraftSchema.Type) => {
 
 const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const draftBytes = (value: typeof WorkoutEditorDraftSchema.Type) =>
-	jsonBytes(encodeWorkoutEditorDraft(value));
+	Effect.fromResult(encodeWorkoutEditorDraft(value)).pipe(Effect.map(jsonBytes));
 const saveBytes = (value: typeof WorkoutEditorSaveInputSchema.Type) =>
-	jsonBytes(Schema.encodeSync(Schema.toCodecJson(WorkoutEditorSaveInputSchema))(value));
-
-it("fits observed workout and template shapes, with a 101-set workout draft and pending save", () => {
-	const workoutCounts = Array.from({ length: 20 }, (_, index) => {
-		if (index === 0) {
-			return 13;
-		}
-		if (index < 10) {
-			return 3;
-		}
-		return 2;
-	});
-	const representativeWorkout = workoutDraft(
-		workoutCounts.map((count, index) => occurrence(`workout-occurrence-${index}`, index, count)),
+	Schema.encodeEffect(Schema.toCodecJson(WorkoutEditorSaveInputSchema))(value).pipe(
+		Effect.map(jsonBytes),
 	);
-	const largeWorkout = workoutDraft([occurrence("workout-occurrence-0", 0, 101, false)], false);
-	const pendingSave = saveInputFor(largeWorkout);
-	const recoveredLargeWorkout = Schema.decodeSync(WorkoutEditorDraftSchema)({
-		...largeWorkout,
-		submission: pendingSave,
-	});
-	const representativeSave = saveInputFor(representativeWorkout);
-	assert(representativeSave.data.kind === "workout");
-	const original = representativeSave.data;
-	const baseline = Schema.decodeUnknownSync(WorkoutEditorBaselineSchema)({
-		sets: original.occurrences.flatMap((item, exerciseOrder) =>
-			item.sets.map((set, setOrder) => ({
-				id: set.eventId,
-				entityId: item.exerciseId,
-				occurredAt: set.occurredAt,
-				sessionEntityId: "workout-existing",
-				properties: buildWorkoutSetEventProperties({
-					...set,
-					...set.measurements,
-					setOrder,
-					exerciseOrder,
-				}),
-			})),
-		),
-		entity: {
-			name: original.name,
-			updatedAt: timestamp,
-			id: "workout-existing",
-			properties: {
-				startedAt: timestamp,
-				images: original.images,
-				videos: original.videos,
-				exerciseNotes: original.occurrences.map(({ notes }, exerciseOrder) => ({
-					notes,
-					exerciseOrder,
-				})),
-				exerciseMedia: original.occurrences.flatMap((item, exerciseOrder) =>
-					item.images.length === 0 && item.videos.length === 0
-						? []
-						: [{ exerciseOrder, images: item.images, videos: item.videos }],
+
+it.effect(
+	"fits observed workout and template shapes, with a 101-set workout draft and pending save",
+	() =>
+		Effect.gen(function* () {
+			const workoutCounts = Array.from({ length: 20 }, (_, index) => {
+				if (index === 0) {
+					return 13;
+				}
+				if (index < 10) {
+					return 3;
+				}
+				return 2;
+			});
+			const representativeWorkout = yield* workoutDraft(
+				workoutCounts.map((count, index) =>
+					occurrence(`workout-occurrence-${index}`, index, count),
 				),
-			},
-		},
-	});
-	const withBaseline = {
-		...representativeWorkout,
-		mode: {
-			kind: "historical" as const,
-			entityId: baseline.entity.id,
-			conflictToken: encodeWorkoutEditorBaseline(baseline),
-		},
-	};
-	expect(draftBytes(withBaseline)).toBeLessThanOrEqual(draftLimitBytes);
-	expect(saveBytes(saveInputFor(withBaseline))).toBeLessThanOrEqual(
-		SANDBOX_LIMITS.execution.contextBytes,
-	);
-	expect(sandboxContextError(saveInputFor(withBaseline))).toBeNull();
-	const recoveredRepresentativeWorkout = Schema.decodeSync(WorkoutEditorDraftSchema)({
-		...withBaseline,
-		submission: saveInputFor(withBaseline),
-	});
-	const largeTemplate = templateDraft();
-	const templateSave = saveInputFor(largeTemplate);
-	assert(templateSave.data.kind === "template");
-	const templateBaseline = Schema.decodeSync(WorkoutEditorBaselineSchema)({
-		sets: [],
-		entity: {
-			updatedAt: timestamp,
-			id: "template-existing",
-			name: templateSave.data.name,
-			properties: {
-				images: [],
-				videos: [],
-				exercises: templateSave.data.occurrences.map((item, exerciseOrder) => ({
-					exerciseOrder,
-					notes: item.notes,
-					images: item.images,
-					videos: item.videos,
-					exerciseId: item.exerciseId,
-					sets: item.sets.map((set, setOrder) => ({
-						...set.measurements,
-						...(set.note === undefined ? {} : { note: set.note }),
-						...(set.rpe === undefined ? {} : { rpe: set.rpe }),
-						...(set.restTime === undefined ? {} : { restTime: set.restTime }),
-						setOrder,
-						setLot: set.setLot,
+			);
+			const largeWorkout = yield* workoutDraft(
+				[occurrence("workout-occurrence-0", 0, 101, false)],
+				false,
+			);
+			const pendingSave = saveInputFor(largeWorkout);
+			const recoveredLargeWorkout = yield* Schema.decodeEffect(WorkoutEditorDraftSchema)({
+				...largeWorkout,
+				submission: pendingSave,
+			});
+			const representativeSave = saveInputFor(representativeWorkout);
+			assert(representativeSave.data.kind === "workout");
+			const original = representativeSave.data;
+			const baseline = yield* Schema.decodeUnknownEffect(WorkoutEditorBaselineSchema)({
+				sets: original.occurrences.flatMap((item, exerciseOrder) =>
+					item.sets.map((set, setOrder) => ({
+						id: set.eventId,
+						entityId: item.exerciseId,
+						occurredAt: set.occurredAt,
+						sessionEntityId: "workout-existing",
+						properties: buildWorkoutSetEventProperties({
+							...set,
+							...set.measurements,
+							setOrder,
+							exerciseOrder,
+						}),
 					})),
-				})),
-			},
-		},
-	});
-	const editingTemplate = {
-		...largeTemplate,
-		mode: {
-			kind: "template-edit" as const,
-			entityId: templateBaseline.entity.id,
-			conflictToken: encodeWorkoutEditorBaseline(templateBaseline),
-		},
-	};
-	expect(draftBytes(editingTemplate)).toBeLessThanOrEqual(draftLimitBytes);
-	expect(saveBytes(saveInputFor(editingTemplate))).toBeLessThanOrEqual(
-		SANDBOX_LIMITS.execution.contextBytes,
-	);
+				),
+				entity: {
+					name: original.name,
+					updatedAt: timestamp,
+					id: "workout-existing",
+					properties: {
+						startedAt: timestamp,
+						images: original.images,
+						videos: original.videos,
+						exerciseNotes: original.occurrences.map(({ notes }, exerciseOrder) => ({
+							notes,
+							exerciseOrder,
+						})),
+						exerciseMedia: original.occurrences.flatMap((item, exerciseOrder) =>
+							item.images.length === 0 && item.videos.length === 0
+								? []
+								: [{ exerciseOrder, images: item.images, videos: item.videos }],
+						),
+					},
+				},
+			});
+			const withBaseline = {
+				...representativeWorkout,
+				mode: {
+					kind: "historical" as const,
+					entityId: baseline.entity.id,
+					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
+				},
+			};
+			expect(yield* draftBytes(withBaseline)).toBeLessThanOrEqual(draftLimitBytes);
+			expect(yield* saveBytes(saveInputFor(withBaseline))).toBeLessThanOrEqual(
+				SANDBOX_LIMITS.execution.contextBytes,
+			);
+			expect(sandboxContextError(saveInputFor(withBaseline))).toBeNull();
+			const recoveredRepresentativeWorkout = yield* Schema.decodeEffect(WorkoutEditorDraftSchema)({
+				...withBaseline,
+				submission: saveInputFor(withBaseline),
+			});
+			const largeTemplate = yield* templateDraft();
+			const templateSave = saveInputFor(largeTemplate);
+			assert(templateSave.data.kind === "template");
+			const templateBaseline = yield* Schema.decodeEffect(WorkoutEditorBaselineSchema)({
+				sets: [],
+				entity: {
+					updatedAt: timestamp,
+					id: "template-existing",
+					name: templateSave.data.name,
+					properties: {
+						images: [],
+						videos: [],
+						exercises: templateSave.data.occurrences.map((item, exerciseOrder) => ({
+							exerciseOrder,
+							notes: item.notes,
+							images: item.images,
+							videos: item.videos,
+							exerciseId: item.exerciseId,
+							sets: item.sets.map((set, setOrder) => ({
+								...set.measurements,
+								...(set.note === undefined ? {} : { note: set.note }),
+								...(set.rpe === undefined ? {} : { rpe: set.rpe }),
+								...(set.restTime === undefined ? {} : { restTime: set.restTime }),
+								setOrder,
+								setLot: set.setLot,
+							})),
+						})),
+					},
+				},
+			});
+			const editingTemplate = {
+				...largeTemplate,
+				mode: {
+					kind: "template-edit" as const,
+					entityId: templateBaseline.entity.id,
+					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(templateBaseline)),
+				},
+			};
+			expect(yield* draftBytes(editingTemplate)).toBeLessThanOrEqual(draftLimitBytes);
+			expect(yield* saveBytes(saveInputFor(editingTemplate))).toBeLessThanOrEqual(
+				SANDBOX_LIMITS.execution.contextBytes,
+			);
 
-	expect(representativeWorkout.occurrences).toHaveLength(20);
-	expect(
-		representativeWorkout.occurrences.reduce((total, item) => total + item.sets.length, 0),
-	).toBe(60);
-	expect(Math.max(...representativeWorkout.occurrences.map(({ sets }) => sets.length))).toBe(13);
-	expect(largeTemplate.occurrences).toHaveLength(22);
-	expect(largeTemplate.occurrences.reduce((total, item) => total + item.sets.length, 0)).toBe(66);
-	expect(largeWorkout.occurrences[0]?.sets).toHaveLength(101);
+			expect(representativeWorkout.occurrences).toHaveLength(20);
+			expect(
+				representativeWorkout.occurrences.reduce((total, item) => total + item.sets.length, 0),
+			).toBe(60);
+			expect(Math.max(...representativeWorkout.occurrences.map(({ sets }) => sets.length))).toBe(
+				13,
+			);
+			expect(largeTemplate.occurrences).toHaveLength(22);
+			expect(largeTemplate.occurrences.reduce((total, item) => total + item.sets.length, 0)).toBe(
+				66,
+			);
+			expect(largeWorkout.occurrences[0]?.sets).toHaveLength(101);
 
-	expect(draftBytes(recoveredRepresentativeWorkout)).toBeLessThanOrEqual(draftLimitBytes);
-	expect(draftBytes(largeTemplate)).toBeLessThanOrEqual(draftLimitBytes);
-	expect(draftBytes(recoveredLargeWorkout)).toBeLessThanOrEqual(draftLimitBytes);
-	expect(saveBytes(pendingSave)).toBeLessThanOrEqual(SANDBOX_LIMITS.execution.contextBytes);
-	expect(sandboxContextError(pendingSave)).toBeNull();
-	expect(saveBytes(templateSave)).toBeLessThanOrEqual(SANDBOX_LIMITS.execution.contextBytes);
-});
+			expect(yield* draftBytes(recoveredRepresentativeWorkout)).toBeLessThanOrEqual(
+				draftLimitBytes,
+			);
+			expect(yield* draftBytes(largeTemplate)).toBeLessThanOrEqual(draftLimitBytes);
+			expect(yield* draftBytes(recoveredLargeWorkout)).toBeLessThanOrEqual(draftLimitBytes);
+			expect(yield* saveBytes(pendingSave)).toBeLessThanOrEqual(
+				SANDBOX_LIMITS.execution.contextBytes,
+			);
+			expect(sandboxContextError(pendingSave)).toBeNull();
+			expect(yield* saveBytes(templateSave)).toBeLessThanOrEqual(
+				SANDBOX_LIMITS.execution.contextBytes,
+			);
+		}),
+);
 
-it("rejects an oversized save payload without truncating its Unicode content", () => {
-	const save = saveInputFor(workoutDraft([occurrence("occurrence-1", 0, 1)]));
-	assert(save.data.kind === "workout");
-	const longComment = "筋力💪".repeat(20_000);
-	const oversized = { ...save, data: { ...save.data, comment: longComment } };
+it.effect("rejects an oversized save payload without truncating its Unicode content", () =>
+	Effect.gen(function* () {
+		const save = saveInputFor(yield* workoutDraft([occurrence("occurrence-1", 0, 1)]));
+		assert(save.data.kind === "workout");
+		const longComment = "筋力💪".repeat(20_000);
+		const oversized = { ...save, data: { ...save.data, comment: longComment } };
 
-	expect(sandboxContextError(oversized)).toContain(
-		`exceeds ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`,
-	);
-	expect(oversized.data.comment).toBe(longComment);
-});
+		expect(sandboxContextError(oversized)).toContain(
+			`exceeds ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`,
+		);
+		expect(oversized.data.comment).toBe(longComment);
+	}),
+);

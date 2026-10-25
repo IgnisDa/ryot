@@ -69,7 +69,7 @@ const mediaListCollectionQuery = `query ($userId: Int!, $type: MediaType!, $chun
 	}
 }`;
 
-const encodeRequest = Schema.encodeSync(
+const encodeRequest = Schema.encodeEffect(
 	Schema.fromJsonString(
 		Schema.Struct({
 			query: Schema.String,
@@ -105,7 +105,7 @@ const requestAniList = Effect.fn("AniList.request")(function* (
 	});
 	const response = yield* host
 		.httpCall("POST", ANILIST_GRAPHQL_URL, {
-			body: encodeRequest({ query, ...(variables ? { variables } : {}) }),
+			body: yield* encodeRequest({ query, ...(variables ? { variables } : {}) }).pipe(Effect.orDie),
 			headers: {
 				Accept: "application/json",
 				"Content-Type": "application/json",
@@ -174,7 +174,7 @@ const readLatestSnapshots = Effect.fn("AniList.readLatestSnapshots")(function* (
 	return latest;
 });
 
-const stateVersion = Schema.encodeSync(Schema.fromJsonString(ListStatePropertiesSchema));
+const stateVersion = Schema.encodeEffect(Schema.fromJsonString(ListStatePropertiesSchema));
 
 const runAniListYank = Effect.fn("AniList.collect")(function* (
 	input: typeof YankInput.Type,
@@ -329,7 +329,7 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 		if (previous && sameAniListState(previous, entry.properties)) {
 			continue;
 		}
-		const stateIdentity = stateVersion(entry.properties);
+		const stateIdentity = yield* stateVersion(entry.properties).pipe(Effect.orDie);
 		entityGroups.push({
 			collectionMemberships: [],
 			itemIndex: entry.itemIndex,
@@ -344,7 +344,7 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 				{
 					eventSchemaSlug: "list-state",
 					occurredAt: cursor.observationAt,
-					operationId: integrationRecordId([
+					operationId: yield* integrationRecordId([
 						"integration-source-event",
 						"anilist",
 						cursor.sourceAccountId,
@@ -362,7 +362,7 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 					attribution: {
 						sourceLabel: entry.sourceLabel,
 						sourceIdentifier: entry.sourceEntryId,
-						recordId: integrationRecordId([
+						recordId: yield* integrationRecordId([
 							"anilist-list-state",
 							cursor.sourceAccountId,
 							entry.sourceEntryId,

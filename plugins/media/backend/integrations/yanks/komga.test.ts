@@ -16,7 +16,7 @@ import { runIntegrationTestScript } from "../artifacts.test-support";
 import definition, { mangaRef, manifest } from "./komga.sandbox";
 
 const mangaLink = { label: "AniList", url: "https://anilist.co/manga/30002" };
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const bookLink = { label: "OpenLibrary", url: "https://openlibrary.org/works/OL45804W/Dune" };
 const book = (
 	id: string,
@@ -135,7 +135,7 @@ describe("Komga collection", () => {
 					"POST",
 					"http://komga.test/api/v1/books/list?page=0&size=500",
 					{
-						body: encodeJson({
+						body: yield* encodeJson({
 							condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } },
 						}),
 						headers: {
@@ -225,7 +225,7 @@ describe("Komga collection", () => {
 				"https://api.hardcover.app/v1/graphql",
 				{
 					headers: { Authorization: "hardcover-key", "Content-Type": "application/json" },
-					body: encodeJson({
+					body: yield* encodeJson({
 						variables: { slug: "dune" },
 						query:
 							"query KomgaHardcoverBook($slug: String!) { books(where: { slug: { _eq: $slug } }) { id } }",
@@ -316,8 +316,8 @@ describe("Komga collection", () => {
 				"http://komga.test/api/v1/books/list?page=1&size=500",
 			]);
 			expect(calls.map(([, , options]) => options?.body)).toEqual([
-				encodeJson({ condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } } }),
-				encodeJson({ condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } } }),
+				yield* encodeJson({ condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } } }),
+				yield* encodeJson({ condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } } }),
 				"{}",
 				"{}",
 			]);

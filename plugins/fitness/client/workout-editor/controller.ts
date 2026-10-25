@@ -147,10 +147,8 @@ export const createWorkoutEditorController = (
 	});
 
 	const persistDraft = (draft: WorkoutEditorDraft) =>
-		Effect.try({
-			try: () => encodeWorkoutEditorDraft(draft),
-			catch: () => new RyotClientError({ reason: "invalid-input" }),
-		}).pipe(
+		Effect.fromResult(encodeWorkoutEditorDraft(draft)).pipe(
+			Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
 			Effect.flatMap(ports.storage.write),
 			Effect.tapError((error) =>
 				Effect.sync(() =>

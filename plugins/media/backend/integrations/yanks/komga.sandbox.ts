@@ -336,7 +336,7 @@ export default defineScript({
 							attribution: {
 								sourceLabel: ref.sourceLabel,
 								sourceIdentifier: book.id ?? String(index),
-								recordId: integrationRecordId(["komga", book.id ?? index]),
+								recordId: yield* integrationRecordId(["komga", book.id ?? index]),
 							},
 						},
 					],

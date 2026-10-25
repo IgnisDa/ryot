@@ -15,7 +15,7 @@ type LookupHost = Pick<
 	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const occurredAt = "2026-01-01T00:00:00.000Z";
 const episode = {
 	PlaybackInfo: { PositionTicks: 500 },
@@ -57,8 +57,10 @@ const lookupHost = (
 	});
 
 const parseEmby = (payload: unknown, host: LookupHost = lookupHost()) =>
-	parseMediaServer("Emby", encodeJson(payload), {}, occurredAt, (value) =>
-		findEmbyShow(value, host),
+	encodeJson(payload).pipe(
+		Effect.flatMap((body) =>
+			parseMediaServer("Emby", body, {}, occurredAt, (value) => findEmbyShow(value, host)),
+		),
 	);
 
 describe("Emby episode show resolution", () => {
@@ -303,7 +305,7 @@ describe("Emby episode show resolution", () => {
 			);
 			const jellyfin = yield* parseMediaServer(
 				"Jellyfin",
-				encodeJson(episode),
+				yield* encodeJson(episode),
 				{},
 				occurredAt,
 				(value, provider) => findJellyfinShow(value, provider, host),
