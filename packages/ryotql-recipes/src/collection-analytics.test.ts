@@ -5,6 +5,7 @@ import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import {
+	COLLECTION_REVIEW_BUCKET_LIMIT,
 	collectionReviewAnalyticsRecipe,
 	collectionReviewRecordsRecipe,
 } from "./collection-analytics";
@@ -145,10 +146,8 @@ describe("collection review analytics", () => {
 	});
 
 	it("uses caller-supplied half-open periods and timezone-aware groups across DST", () => {
-		const { current, buckets, previous } = collectionReviewAnalyticsRecipe({
-			reporting,
-			bucketLimit: 20,
-		}).document.queries;
+		const { current, buckets, previous } = collectionReviewAnalyticsRecipe({ reporting }).document
+			.queries;
 		expect(current?.where).toMatchObject({
 			predicates: [
 				{},
@@ -173,7 +172,7 @@ describe("collection review analytics", () => {
 		});
 		expect(buckets?.where).toEqual(current?.where);
 		expect(buckets?.output).toMatchObject({
-			limit: 20,
+			limit: COLLECTION_REVIEW_BUCKET_LIMIT,
 			orderBy: [{ key: "at", direction: "asc" }],
 			groupBy: [
 				{
@@ -190,7 +189,7 @@ describe("collection review analytics", () => {
 	});
 
 	it("returns complete totals independently of bounded bucket results and preserves truncation", () => {
-		const recipe = collectionReviewAnalyticsRecipe({ reporting, bucketLimit: 1 });
+		const recipe = collectionReviewAnalyticsRecipe({ reporting });
 		expect(
 			Result.getOrThrow(
 				recipe.decode({

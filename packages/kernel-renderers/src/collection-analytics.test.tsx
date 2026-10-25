@@ -7,6 +7,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { COLLECTION_REVIEW_BUCKET_LIMIT } from "@ryot-app/ryotql-recipes/collection-analytics";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 
@@ -237,6 +238,15 @@ it.effect("shows known empty days as zero across a finite range", () =>
 		const rows = yield* loadChartRows(selectionFor("day", "2026-03-01", "2026-03-07"), []);
 		expect(rows).toHaveLength(7);
 		expect(rows.map(([, value]) => value)).toEqual(Array(7).fill("0 reviews"));
+	}),
+);
+
+it.effect("requests trend buckets with the recipe-owned group limit", () =>
+	Effect.gen(function* () {
+		const summary = yield* request(mountCollections(), "current");
+		expect(summary.document.queries.buckets?.output).toMatchObject({
+			limit: COLLECTION_REVIEW_BUCKET_LIMIT,
+		});
 	}),
 );
 

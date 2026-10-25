@@ -29,11 +29,10 @@ import { Result, Schema } from "effect";
 import { IsoDateString } from "./codecs";
 import { eventOrderDescending } from "./event-expressions";
 
+export const COLLECTION_REVIEW_BUCKET_LIMIT = 1000;
+
 export const collectionReviewAnalyticsRecipe = defineRecipe(
-	(input: {
-		readonly bucketLimit?: number | undefined;
-		readonly reporting: ResolvedReportingSelection;
-	}) => {
+	(input: { readonly reporting: ResolvedReportingSelection }) => {
 		const review = table("event", "collectionReview");
 		const collection = table("entity", "reviewedCollection");
 		const occurredAt = column(review, "occurredAt");
@@ -78,8 +77,8 @@ export const collectionReviewAnalyticsRecipe = defineRecipe(
 				buckets: selectedAggregate(review, {
 					joins,
 					measures,
-					limit: input.bucketLimit,
 					orderBy: [groupAscending("at")],
+					limit: COLLECTION_REVIEW_BUCKET_LIMIT,
 					where: inPeriod(input.reporting.current),
 					groupBy: {
 						at: selectedField(

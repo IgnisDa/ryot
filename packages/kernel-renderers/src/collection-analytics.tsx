@@ -23,6 +23,7 @@ import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { DataTable } from "@ryot-app/plugin-ui-sdk/table";
 import {
+	COLLECTION_REVIEW_BUCKET_LIMIT,
 	type CollectionReviewAnalytics,
 	collectionReviewAnalyticsRecipe,
 	type CollectionReviewRecords,
@@ -67,7 +68,7 @@ const reviewTrend = (
 		counts.set(at, (counts.get(at) ?? 0) + bucket.count);
 	}
 
-	const limit = buckets.pageInfo?.limit ?? 100;
+	const limit = buckets.pageInfo?.limit ?? COLLECTION_REVIEW_BUCKET_LIMIT;
 	const calendar: string[] = [];
 	let at = startOfCalendarUnit(current.startDate, grouping);
 	while (at <= current.endDate) {
